@@ -88,6 +88,7 @@ class PhysicalRouterDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_networks = set()
+        self.logical_routers = set()
         self.bgp_router = None
         self.config_manager = None
         self.nc_q = queue.Queue(maxsize=1)
@@ -118,11 +119,13 @@ class PhysicalRouterDM(DBBaseDM):
         self.vendor = obj.get('physical_router_vendor_name', '')
         self.product = obj.get('physical_router_product_name', '')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
+        self.physical_router_role = obj.get('physical_router_role')
         self.user_credentials = obj.get('physical_router_user_credentials')
         self.junos_service_ports = obj.get(
             'physical_router_junos_service_ports')
         self.update_single_ref('bgp_router', obj)
         self.update_multiple_refs('virtual_network', obj)
+        self.update_multiple_refs('logical_router', obj)
         self.physical_interfaces = set([pi['uuid'] for pi in
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
@@ -154,6 +157,7 @@ class PhysicalRouterDM(DBBaseDM):
         obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
+        obj.update_multiple_refs('logical_router', {})
         del cls._dict[uuid]
     # end delete
 
@@ -569,6 +573,34 @@ class GlobalVRouterConfigDM(DBBaseDM):
     # end delete
 # end GlobalVRouterConfigDM
 
+class ProjectDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'project'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_networks = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.vxlan_routing = obj.get('vxlan_routing')
+        self.set_children('virtual_network', obj)
+    # end update
+
+    def get_vxlan_routing(self):
+        return self.vxlan_routing
+    # end get_vxlan_routing
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+    # end delete
+# end ProjectDM
 
 class GlobalSystemConfigDM(DBBaseDM):
     _dict = {}
@@ -818,6 +850,37 @@ class VirtualMachineInterfaceDM(DBBaseDM):
 
 # end VirtualMachineInterfaceDM
 
+class LogicalRouterDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'logical_router'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.physical_routers = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.update_multiple_refs('physical_router', obj)
+        self.fq_name = obj['fq_name']
+        self.virtual_machine_interfaces = set(
+            [vmi['uuid'] for vmi in
+             obj.get('virtual_machine_interface_back_refs', [])])
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('physical_router', {})
+        del cls._dict[uuid]
+    # end delete
+
+# end LogicalRouterDM
+
 
 class VirtualNetworkDM(DBBaseDM):
     _dict = {}
@@ -829,8 +892,11 @@ class VirtualNetworkDM(DBBaseDM):
         self.router_external = False
         self.forwarding_mode = None
         self.gateways = None
+        self.project = None
         self.instance_ip_map = {}
         self.update(obj_dict)
+        if self.project:
+            self.project.virtual_networks.add(self.project_uuid)
     # end __init__
 
     def update(self, obj=None):
@@ -842,6 +908,9 @@ class VirtualNetworkDM(DBBaseDM):
             self.router_external = obj['router_external']
         except KeyError:
             self.router_external = False
+        self.project_uuid = self.get_parent_uuid(obj)
+        if self.project_uuid:
+            self.project = ProjectDM.get(self.project_uuid)
         self.vn_network_id = obj.get('virtual_network_network_id')
         self.virtual_network_properties = obj.get('virtual_network_properties')
         self.set_forwarding_mode(obj)
@@ -852,6 +921,10 @@ class VirtualNetworkDM(DBBaseDM):
              obj.get('virtual_machine_interface_back_refs', [])])
         self.gateways = DMUtils.get_network_gateways(obj.get('network_ipam_refs', []))
     # end update
+
+    def get_vxlan_routing(self):
+        self.project.get_vxlan_routing()
+    # end get_vxlan_routing
 
     def get_prefixes(self):
         return set(self.gateways.keys())
@@ -912,6 +985,9 @@ class VirtualNetworkDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs('physical_router', {})
+        pr = ProjectDM.get(obj.project.uuid)
+        if pr:
+            pr.virtual_networks.discard(obj.uuid)
         del cls._dict[uuid]
     # end delete
 # end VirtualNetworkDM

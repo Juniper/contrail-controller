@@ -42,6 +42,7 @@ from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, \
+    LogicalRouterDM, ProjectDM, \
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
@@ -67,11 +68,16 @@ class DeviceManager(object):
             'physical_interface': [],
             'logical_interface': [],
             'virtual_network': [],
+            'logical_router': [],
             'global_system_config': [],
         },
         'global_system_config': {
             'self': ['physical_router'],
             'physical_router': [],
+        },
+        'project': {
+            'self': ['virtual_network'],
+            'virtual_network': []
         },
         'bgp_router': {
             'self': ['bgp_router', 'physical_router'],
@@ -100,11 +106,13 @@ class DeviceManager(object):
             'self': ['logical_interface',
                      'physical_interface',
                      'virtual_network',
+                     'logical_router',
                      'floating_ip',
                      'instance_ip',
                      'port_tuple'],
             'logical_interface': ['virtual_network'],
-            'virtual_network': ['logical_interface'],
+            'virtual_network': ['logical_interface', 'logical_router'],
+            'logical_router': [],
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
             'routing_instance': ['port_tuple','physical_interface'],
@@ -126,6 +134,12 @@ class DeviceManager(object):
                                  'virtual_machine_interface'],
             'physical_router': [],
             'virtual_machine_interface': ['physical_router'],
+            'project': ['physical_router']
+        },
+        'logical_router': {
+            'self': ['physical_router'],
+            'physical_router': [],
+            'virtual_machine_interface': ['physical_router']
         },
         'routing_instance': {
             'self': ['routing_instance',
@@ -211,8 +225,14 @@ class DeviceManager(object):
         for obj in GlobalVRouterConfigDM.list_obj():
             GlobalVRouterConfigDM.locate(obj['uuid'], obj)
 
+        for obj in ProjectDM.list_obj():
+            ProjectDM.locate(obj['uuid'], obj)
+
         for obj in VirtualNetworkDM.list_obj():
             VirtualNetworkDM.locate(obj['uuid'], obj)
+
+        for obj in LogicalRouterDM.list_obj():
+            LogicalRouterDM.locate(obj['uuid'], obj)
 
         for obj in RoutingInstanceDM.list_obj():
             RoutingInstanceDM.locate(obj['uuid'], obj)

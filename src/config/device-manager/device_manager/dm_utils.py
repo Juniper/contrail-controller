@@ -346,6 +346,10 @@ class DMUtils(object):
         return "/* Global Routing Options */"
 
     @staticmethod
+    def switch_options_comment():
+        return "/* Global Switch Options */"
+
+    @staticmethod
     def policy_options_comment():
         return "/* Policy Options */"
 
