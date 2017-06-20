@@ -346,6 +346,10 @@ class DMUtils(object):
         return "/* Global Routing Options */"
 
     @staticmethod
+    def switch_options_comment():
+        return "/* Global Switch Options */"
+
+    @staticmethod
     def policy_options_comment():
         return "/* Policy Options */"
 
@@ -449,6 +453,10 @@ class DMUtils(object):
         return "/* iBGP Export Policy */"
 
     @staticmethod
+    def vlans_comment():
+        return "/* Vlans Configuration */"
+
+    @staticmethod
     def make_ibgp_export_policy_term_name(is_v6=False):
         if is_v6:
             return "inet6-vpn"
@@ -459,5 +467,22 @@ class DMUtils(object):
         if is_v6:
             return "inet6-vpn"
         return "inet-vpn"
+
+    @classmethod
+    def get_lr_internal_vn_prefix(cls):
+        return '__contrail_lr_internal_vn_'
+    # end get_lr_internal_vn_prefix
+
+    @classmethod
+    def get_lr_internal_vn_name(cls, uuid):
+        return cls.get_lr_internal_vn_prefix() + uuid + '__'
+    # end get_lr_internal_vn_name
+
+    @classmethod
+    def extract_lr_uuid_from_internal_vn_name(cls, name):
+        (_, uuid) = name.split(cls.get_lr_internal_vn_prefix())
+        (uuid, _) = uuid.split('__')
+        return uuid
+    # end extract_lr_uuid_from_internal_vn_name
 
 # end DMUtils

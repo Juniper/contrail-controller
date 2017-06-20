@@ -24,6 +24,7 @@ from gen.generatedssuper import GeneratedsSuper
 
 import cfgm_common
 from cfgm_common import rest, utils
+from cfgm_common import _obj_serializer_all
 from cfgm_common.exceptions import (
         ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
         RefsExistError, TimeOutError, BadRequest, HttpError,
@@ -658,13 +659,6 @@ class VncApi(object):
             return dict((k, v) for k, v in obj.__dict__.iteritems())
     # end _obj_serializer_diff
 
-    def _obj_serializer_all(self, obj):
-        if hasattr(obj, 'serialize_to_json'):
-            return obj.serialize_to_json()
-        else:
-            return dict((k, v) for k, v in obj.__dict__.iteritems())
-    # end _obj_serializer_all
-
     def _create_api_server_session(self):
         self._api_server_session = ApiServerSession(
                 self._web_hosts, self._max_conns_per_pool, self._max_pools)
@@ -1127,7 +1121,7 @@ class VncApi(object):
     # end ifmap_to_id
 
     def obj_to_json(self, obj):
-        return json.dumps(obj, default=self._obj_serializer_all)
+        return json.dumps(obj, default=_obj_serializer_all)
     # end obj_to_json
 
     def obj_to_dict(self, obj):
