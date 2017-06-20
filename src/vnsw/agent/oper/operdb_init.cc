@@ -50,6 +50,7 @@
 #include <oper/global_qos_config.h>
 #include <oper/bridge_domain.h>
 #include <oper/agent_route_walker.h>
+#include <oper/security_logging_object.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -107,6 +108,9 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.bridge_domain.0",
                         boost::bind(&BridgeDomainTable::CreateTable,
                                     agent_, _1, _2));
+    DB::RegisterFactory("db.security_logging_object.0",
+                        boost::bind(&SecurityLoggingObjectTable::CreateTable,
+                        agent_, _1, _2));
     DB::RegisterFactory("db.policy_set.0", &PolicySetTable::CreateTable);
 
     InterfaceTable *intf_table;
@@ -213,6 +217,11 @@ void OperDB::CreateDBTables(DB *db) {
     forwarding_class_table = static_cast<ForwardingClassTable *>(
                                  db->CreateTable("db.forwardingclass.0"));
     agent_->set_forwarding_class_table(forwarding_class_table);
+
+    SecurityLoggingObjectTable *slo_table;
+    slo_table = static_cast<SecurityLoggingObjectTable *>(
+                                 db->CreateTable("db.security_logging_object.0"));
+    agent_->set_slo_table(slo_table);
 
     AgentQosConfigTable *qos_config_table;
     qos_config_table =

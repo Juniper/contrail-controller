@@ -150,6 +150,10 @@ public:
         return cfg_project_table_;
     }
 
+    IFMapAgentTable *cfg_slo_table() const {
+        return cfg_slo_table_;
+    }
+
     Agent *agent() const { return agent_; }
     CfgFilter *cfg_filter() const { return cfg_filter_.get(); }
     IFMapAgentParser *cfg_parser() const { return cfg_parser_.get(); }
@@ -220,6 +224,7 @@ private:
     IFMapAgentTable *cfg_policy_set_firewall_policy_table_;
     IFMapAgentTable *cfg_policy_management_table_;
     IFMapAgentTable *cfg_project_table_;
+    IFMapAgentTable *cfg_slo_table_;
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };
 
