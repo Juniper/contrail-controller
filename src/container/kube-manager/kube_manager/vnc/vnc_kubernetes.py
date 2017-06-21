@@ -386,7 +386,7 @@ class VncKubernetes(VncCommon):
                 elif kind == 'Ingress':
                     self.ingress_mgr.process(event)
                 else:
-                    print("$s - Event %s %s %s:%s:%s not handled"
+                    print("%s - Event %s %s %s:%s:%s not handled"
                         %(self._name, event_type, kind, namespace, name, uid))
                     self.logger.error("%s - Event %s %s %s:%s:%s not handled"
                         %(self._name, event_type, kind, namespace, name, uid))
