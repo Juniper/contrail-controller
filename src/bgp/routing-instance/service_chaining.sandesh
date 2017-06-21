@@ -48,6 +48,11 @@ response sandesh ShowServiceChainResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: Show service-chains
+ * @cli_name: read service-chains
+ */
 request sandesh ShowServiceChainReq {
+    /** find service-chain containing this name */
     1: string search_string;
 }

@@ -30,6 +30,11 @@ response sandesh ShowStaticRouteResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: Show static routes
+ * @cli_name: read static-routes
+ */
 request sandesh ShowStaticRouteReq {
+    /** find static route containing this string */
     1: string search_string;
 }

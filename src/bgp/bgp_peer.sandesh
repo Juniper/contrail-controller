@@ -135,7 +135,12 @@ response sandesh BgpNeighborListResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: get bgp neighbors detail
+ * @cli_name: read bgp neighbors
+ */
 request sandesh BgpNeighborReq {
+    /** name of the neighbor */
     1: string search_string;
 }
 
@@ -145,7 +150,12 @@ response sandesh ShowBgpNeighborSummaryResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: get bgp neighbors summary
+ * @cli_name: read bgp neighbors summary
+ */
 request sandesh ShowBgpNeighborSummaryReq {
+    /** name of the neighbor */
     1: string search_string;
 }
 
@@ -232,22 +242,35 @@ response sandesh ShowRouteResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show routes matching the fields
+ * @cli_name: read routes
+ */
 request sandesh ShowRouteReq {
-    // Show routes matching the fields below
+    /** routing table name */
     1: string routing_table;
+    /** routing instance name */
     2: string routing_instance;
+    /** prefix of the route */
     3: string prefix;
+    /** find longer match */
     8: bool longer_match;
+    /** find shorter match */
     12: bool shorter_match;
-    // Only return this number of results, capped by an internal default max
+    /** Only return this number of results, capped by default max */
     7: u32 count;
 
-    // Start at the route below
+    /** Start at this route */
     5: string start_routing_table;
+    /** Start at this routing instance */
     4: string start_routing_instance;
+    /** Start at this prefix */
     6: string start_prefix;
+    /** Match the source of route */
     9: string source;
+    /** Match the protocol of route */
     10: string protocol;
+    /** Match the family of route */
     11: string family;
 }
 
@@ -279,7 +302,12 @@ response sandesh ShowRouteSummaryResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show summary of routes matching the fields
+ * @cli_name: read routes summary
+ */
 request sandesh ShowRouteSummaryReq {
+    /** find route matching this string */
     1: string search_string;
 }
 
@@ -347,7 +375,12 @@ response sandesh ShowRoutingInstanceResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show matching routing instance
+ * @cli_name: read routing-instances
+ */
 request sandesh ShowRoutingInstanceReq {
+    /** find routing instance matching this string */
     1: string search_string;
 }
 
@@ -357,7 +390,12 @@ response sandesh ShowRoutingInstanceSummaryResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show summary of matching routing instance
+ * @cli_name: read routing-instances summary
+ */
 request sandesh ShowRoutingInstanceSummaryReq {
+    /** find routing instance matching this string */
     1: string search_string;
 }
 
@@ -380,7 +418,12 @@ response sandesh ShowRtGroupResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show matching route-target group
+ * @cli_name: read route-targets details
+ */
 request sandesh ShowRtGroupReq {
+    /** find route-target group matching this string */
     1: string search_string;
 }
 
@@ -390,7 +433,12 @@ response sandesh ShowRtGroupSummaryResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show summary of matching route-targets
+ * @cli_name: read route-targets summary
+ */
 request sandesh ShowRtGroupSummaryReq {
+    /** find route target group matching this string */
     1: string search_string;
 }
 
@@ -400,7 +448,12 @@ response sandesh ShowRtGroupPeerResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show matching route-target peers
+ * @cli_name: read route-target peers
+ */
 request sandesh ShowRtGroupPeerReq {
+    /** find route-target peer matching this string */
     1: string search_string;
 }
 
@@ -432,7 +485,12 @@ response sandesh ShowPathResolverSummaryResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show path resolver summary
+ * @cli_name: read path resolver summary
+ */
 request sandesh ShowPathResolverSummaryReq {
+    /** find path resolver matching this string */
     1: string search_string;
 }
 
@@ -442,7 +500,12 @@ response sandesh ShowPathResolverResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show path resolver
+ * @cli_name: read path resolver
+ */
 request sandesh ShowPathResolverReq {
+    /** find path resolver matching this string */
     1: string search_string;
 }
 
@@ -466,7 +529,12 @@ struct ShowRibOutStatistics {
     17: u64 marker_moves;
 }
 
+/**
+ * @description: show rib out statistics
+ * @cli_name: read rib out statistics
+ */
 request sandesh ShowRibOutStatisticsReq {
+    /** find rib matching this string */
     1: string search_string;
 }
 
@@ -499,7 +567,12 @@ response sandesh ShowEvpnTableResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show evpn table
+ * @cli_name: read evpn table
+ */
 request sandesh ShowEvpnTableReq {
+    /** find evpn table matching this string */
     1: string search_string;
 }
 
@@ -509,7 +582,12 @@ response sandesh ShowEvpnTableSummaryResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show evpn table summary
+ * @cli_name: read evpn table summary
+ */
 request sandesh ShowEvpnTableSummaryReq {
+    /** find evpn table matching this string */
     1: string search_string;
 }
 
@@ -526,7 +604,12 @@ response sandesh ShowMulticastManagerResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show multicast managers
+ * @cli_name: read multicast managers
+ */
 request sandesh ShowMulticastManagerReq {
+    /** find multicast manager matching this string */
     1: string search_string;
 }
 
@@ -599,7 +682,12 @@ response sandesh ShowBgpInstanceConfigResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show bgp instance details
+ * @cli_name: read bgp instances
+ */
 request sandesh ShowBgpInstanceConfigReq {
+    /** find bgp instance matching this string */
     1: string search_string;
 }
 
@@ -626,7 +714,12 @@ response sandesh ShowBgpPeeringConfigResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show bgp peering config details
+ * @cli_name: read bgp peers
+ */
 request sandesh ShowBgpPeeringConfigReq {
+    /** find bgp peer matching this string */
     1: string search_string;
 }
 
@@ -670,7 +763,12 @@ response sandesh ShowBgpNeighborConfigResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show bgp neighbors config details
+ * @cli_name: read bgp neighbors
+ */
 request sandesh ShowBgpNeighborConfigReq {
+    /** find bgp neighbor matching this string */
     1: string search_string;
 }
 
@@ -690,7 +788,12 @@ response sandesh ShowBgpRoutingPolicyConfigResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show bgp routing policies config details
+ * @cli_name: read bgp routing policies
+ */
 request sandesh ShowBgpRoutingPolicyConfigReq {
+    /** find bgp routing policy matching this string */
     1: string search_string;
 }
 
@@ -739,6 +842,10 @@ uve sandesh BGPPeerInfo {
     1: BgpPeerInfoData data;
 }
 
+/**
+ * @description: show bgp server statistics
+ * @cli_name: read bgp server statistics
+ */
 request sandesh ShowBgpServerReq {
 }
 

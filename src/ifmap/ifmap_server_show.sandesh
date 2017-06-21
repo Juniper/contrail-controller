@@ -4,6 +4,10 @@
 
 /** Definitions for showing ifmap-server state and stats **/
 
+/**
+ * @description: get config client information
+ * @cli_name: read config client information
+ */
 request sandesh ConfigClientInfoReq {
 }
 
@@ -11,6 +15,10 @@ response sandesh ConfigClientReinitResp {
     1: bool success;
 }
 
+/**
+ * @description: get config client reinitialization information
+ * @cli_name: read config client reinitialization information
+ */
 request sandesh ConfigClientReinitReq {
 }
 
@@ -96,8 +104,10 @@ response sandesh ConfigClientInfoResp {
     3: ConfigAmqpConnInfo amqp_conn_info;
 }
 
-/** Definitions for showing the list of node ifmap tables **/
-
+/**
+ * @description: Definitions for showing the list of node ifmap tables
+ * @cli_name: read ifmap table list
+ */
 request sandesh IFMapNodeTableListShowReq {
 }
 
@@ -129,9 +139,14 @@ struct IFMapNodeShowInfo {
     7: string last_modified;
 }
 
-// Show all the nodes in the IFMap db
+/**
+ * @description: Show all the nodes in the IFMap db
+ * @cli_name: read ifmap database
+ */
 request sandesh IFMapTableShowReq {
+    /** name of the table */
     1: string table_name;
+    /** find node name containing this string */
     2: string search_string;
 }
 
@@ -159,9 +174,14 @@ struct IFMapLinkShowInfo {
     8: list<IFMapLinkOriginShowInfo> origins;
 }
 
-// Show all the nodes in the IFMap link table
+/**
+ * @description: Show all the nodes in the IFMap link table
+ * @cli_name: read ifmap link-table
+ */
 request sandesh IFMapLinkTableShowReq {
+    /** find node name containing this string */
     1: string search_string;
+    /** find metadata containing this string */
     2: string metadata;
 }
 
@@ -182,6 +202,10 @@ struct UpdateQueueShowEntry {
     5: u64 sequence;
 }
 
+/**
+ * @description: Show details of IFMap update queue
+ * @cli_name: read ifmap update-queue
+ */
 request sandesh IFMapUpdateQueueShowReq {
 }
 
@@ -210,6 +234,10 @@ struct IFMapXmppClientInfo {
     8: bool is_blocked;
 }
 
+/**
+ * @description: Show details of IFMap xmpp clients
+ * @cli_name: read ifmap xmpp clients
+ */
 request sandesh IFMapXmppClientInfoShowReq {
 }
 
@@ -255,7 +283,12 @@ struct IFMapServerClientHistoryList {
     3: list<IFMapServerClientHistoryEntry> clients;
 }
 
+/**
+ * @description: Show details of IFMap server clients
+ * @cli_name: read ifmap server clients
+ */
 request sandesh IFMapServerClientShowReq {
+    /** find client name containing this string */
     1: string search_string;
 }
 
@@ -274,8 +307,14 @@ struct IFMapPerClientNodesShowInfo {
     4: string advertised_tracked;
 }
 
+/**
+ * @description: Show IFMap information per client node
+ * @cli_name: read ifmap client nodes
+ */
 request sandesh IFMapPerClientNodesShowReq {
+    /** index or name of specific client */
     1: string client_index_or_name;
+    /** find client name containing this string */
     2: string search_string;
 }
 
@@ -296,8 +335,14 @@ struct IFMapPerClientLinksShowInfo {
     6: string advertised_tracked;
 }
 
+/**
+ * @description: Show IFMap information per client link
+ * @cli_name: read ifmap client links
+ */
 request sandesh IFMapPerClientLinksShowReq {
+    /** index or name of specific client */
     1: string client_index_or_name;
+    /** find client name containing this string */
     2: string search_string;
 }
 
@@ -307,9 +352,12 @@ response sandesh IFMapPerClientLinksShowResp {
                                    link_title="next_batch");
 }
 
-/** Definitions for showing a single IFMapNode/IFMapObject **/
-
+/**
+ * @description: Definitions for showing a single IFMapNode/IFMapObject
+ * @cli_name: read ifmap node
+ */
 request sandesh IFMapNodeShowReq {
+    /** fq name of the node */
     1: string fq_node_name;
 }
 
@@ -350,6 +398,10 @@ struct IFMapChannelManagerInfo {
     2: IFMapXmppChannelMapList channel_manager_map;
 }
 
+/**
+ * @description: show ifmap channel manager information
+ * @cli_name: read ifmap manager information
+ */
 request sandesh IFMapXmppShowReq {
 }
 
@@ -357,8 +409,10 @@ response sandesh IFMapXmppShowResp {
     1: IFMapChannelManagerInfo channel_manager_info;
 }
 
-/** Definitions for showing the list of uuid to node mappings **/
-
+/**
+ * @description: Definitions for showing the list of uuid to node mappings
+ * @cli_name: read ifmap uuid-node mapping
+ */
 request sandesh IFMapUuidToNodeMappingReq {
 }
 
@@ -374,6 +428,10 @@ response sandesh IFMapUuidToNodeMappingResp {
 
 /** Definitions for showing the list of node to uuid mappings **/
 
+/**
+ * @description: Definitions for showing the list of node to uuid mappings
+ * @cli_name: read ifmap node-uuid mapping
+ */
 request sandesh IFMapNodeToUuidMappingReq {
 }
 
@@ -387,8 +445,10 @@ response sandesh IFMapNodeToUuidMappingResp {
     2: list<IFMapNodeToUuidMappingEntry> node_to_uuid_map;
 }
 
-/** Definitions for showing the list of pending vm registrations **/
-
+/**
+ * @description: Definitions for showing the list of pending vm registrations
+ * @cli_name: read ifmap pending vm registrations
+ */
 request sandesh IFMapPendingVmRegReq {
 }
 
@@ -402,7 +462,12 @@ response sandesh IFMapPendingVmRegResp {
     2: list<IFMapPendingVmRegEntry> vm_reg_map;
 }
 
+/**
+ * @description: Definition for showing uuid to fq name mapping
+ * @cli_name: read uuid-fqname mapping
+ */
 request sandesh ConfigDBUUIDToFQNameReq {
+    /** uuid for which fq-name is needed */
     1: string uuid;
 }
 
@@ -420,7 +485,12 @@ response sandesh ConfigDBUUIDToFQNameResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: Definition for showing uuid cache
+ * @cli_name: read uuid cache
+ */
 request sandesh ConfigDBUUIDCacheReq {
+    /** uuid whose cache information is required */
     1: string uuid;
 }
 
