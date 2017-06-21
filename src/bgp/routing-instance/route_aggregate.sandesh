@@ -27,7 +27,12 @@ response sandesh ShowRouteAggregateSummaryResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show route aggregate summary
+ * @cli_name: read route aggregate summary
+ */
 request sandesh ShowRouteAggregateSummaryReq {
+    /** find route containing this string */
     1: string search_string;
 }
 
@@ -37,6 +42,11 @@ response sandesh ShowRouteAggregateResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show route aggregate details
+ * @cli_name: read route aggregate
+ */
 request sandesh ShowRouteAggregateReq {
+    /** find route containing this string */
     1: string search_string;
 }

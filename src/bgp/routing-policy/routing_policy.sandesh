@@ -29,6 +29,11 @@ response sandesh ShowRoutingPolicyResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: Show routing policies
+ * @cli_name: read routing-policies
+ */
 request sandesh ShowRoutingPolicyReq {
+    /** find routing policy containing this string */
     1: string search_string;
 }
