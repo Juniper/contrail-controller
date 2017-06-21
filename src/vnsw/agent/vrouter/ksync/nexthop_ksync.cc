@@ -36,7 +36,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     interface_(entry->interface_), sip_(entry->sip_), dip_(entry->dip_),
     sport_(entry->sport_), dport_(entry->dport_), smac_(entry->smac_),
     dmac_(entry->dmac_), valid_(entry->valid_), policy_(entry->policy_),
-    relaxed_policy_(false), is_mcast_nh_(entry->is_mcast_nh_),
+    is_mcast_nh_(entry->is_mcast_nh_),
     defer_(entry->defer_), component_nh_list_(entry->component_nh_list_),
     nh_(entry->nh_), vlan_tag_(entry->vlan_tag_),
     is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
@@ -56,8 +56,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), type_(nh->GetType()),
     vrf_id_(0), interface_(NULL), valid_(nh->IsValid()),
-    policy_(nh->PolicyEnabled()), relaxed_policy_(false),
-    is_mcast_nh_(false), nh_(nh),
+    policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh),
     vlan_tag_(VmInterface::kInvalidVlanId), is_bridge_(false),
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
     vxlan_nh_(false), flood_unknown_unicast_(false),
@@ -521,10 +520,6 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
                 ret = true;
             }
         }
-        if (intf_nh->relaxed_policy() != relaxed_policy_) {
-            relaxed_policy_ = intf_nh->relaxed_policy();
-            ret = true;
-        }
         if (layer2_control_word_ != intf_nh->layer2_control_word()) {
             layer2_control_word_ = intf_nh->layer2_control_word();
             ret = true;
@@ -771,11 +766,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     }
 
     if (policy_) {
-        if (relaxed_policy_) {
-            flags |= NH_FLAG_FLOW_LOOKUP;
-        } else {
-            flags |= NH_FLAG_POLICY_ENABLED;
-        }
+        flags |= NH_FLAG_POLICY_ENABLED;
     }
 
     if (etree_leaf_ == false) {
@@ -896,7 +887,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 //resulting flow with key NH of resolve NH
                 //followed by next packet with ARP NH as key
                 //resulting in flow drops
-                flags &= ~(NH_FLAG_POLICY_ENABLED | NH_FLAG_FLOW_LOOKUP);
+                flags &= ~NH_FLAG_POLICY_ENABLED;
             }
             encoder.set_nhr_type(NH_RESOLVE);
             break;
