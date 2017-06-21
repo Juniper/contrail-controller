@@ -390,6 +390,7 @@ enum NodeType {
     DATABASE,
     OPENSTACK,
     SERVERMGR,
+    KUBERNETESMGR,
 }
 
 const map<NodeType, string> UVENodeTypeNames = {
@@ -399,6 +400,7 @@ const map<NodeType, string> UVENodeTypeNames = {
     NodeType.ANALYTICS       : "analytics-node",
     NodeType.COMPUTE         : "vrouter",
     NodeType.DATABASE        : "database-node",
+    NodeType.KUBERNETESMGR   : "kubernetes-manager-node",
 }
 
 const map<NodeType, string> NodeTypeNames = {
@@ -411,6 +413,7 @@ const map<NodeType, string> NodeTypeNames = {
     NodeType.DATABASE        : "Database",
     NodeType.OPENSTACK       : "OpenStack",
     NodeType.SERVERMGR       : "ServerMgr",
+    NodeType.KUBERNETESMGR   : "KubernetesMgr",
 }
 
 const map<NodeType, string> NodeManagerNodeTypeNames = {
@@ -450,6 +453,8 @@ const map <NodeType, list<string> > NodeType2ServicesNamesMap = {
     NodeType.COMPUTE : [ SERVICE_COMPUTE_NODE_MGR,
                          SERVICE_VROUTER_AGENT,
                        ],
+    NodeType.KUBERNETESMGR : [ SERVICE_KUBE_MANAGER,
+                       ],
 }
 
 const map <Module, NodeType> Module2NodeType = {
@@ -480,7 +485,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.INVENTORY_AGENT    : NodeType.COMPUTE,
     Module.TOR_AGENT          : NodeType.COMPUTE,
     Module.CONTRAIL_BROADVIEW : NodeType.ANALYTICS,
-    Module.KUBE_MANAGER       : NodeType.CONFIG,
+    Module.KUBE_MANAGER       : NodeType.KUBERNETESMGR,
     Module.MESOS_MANAGER      : NodeType.CONFIG,
 }
 

@@ -38,7 +38,7 @@ class KubeManagerLogger(object):
         self._module["node_type_name"] =\
             NodeTypeNames[self._module["node_type"]]
         self._module["hostname"] = socket.gethostname()
-        self._module["table"] = "ObjectConfigNode"
+        self._module["table"] = "ObjectKubernetesManagerNode"
         if self._args.worker_id:
             self._module["instance_id"] = self._args.worker_id
         else:
