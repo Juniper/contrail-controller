@@ -295,6 +295,8 @@ class VncPod(VncCommon):
         try:
             vrouter_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_fq_name)
         except Exception as e:
+            self._logger.debug("%s - Vrouter %s Not Found for Pod %s"
+                %(self._name, vrouter_fq_name, pod_id))
             return
 
         self._vnc_lib.ref_update('virtual-router', vrouter_obj.uuid,

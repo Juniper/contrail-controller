@@ -123,15 +123,9 @@ class VncIngress(VncCommon):
 
         return
 
-    def _get_public_fip_pool(self):
+    def _get_public_fip_pool(self, fip_pool_fq_name):
         if self._fip_pool_obj:
             return self._fip_pool_obj
-
-        if not vnc_kube_config.is_public_fip_pool_configured():
-            return None
-
-        fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
-            self._args.public_fip_pool)
         try:
             fip_pool_obj = self._vnc_lib. \
                            floating_ip_pool_read(fq_name=fip_pool_fq_name)
@@ -144,8 +138,19 @@ class VncIngress(VncCommon):
 
     def _get_floating_ip(self, name,
             proj_obj, external_ip=None, vmi_obj=None):
-        fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
-            self._args.public_fip_pool)
+        if not vnc_kube_config.is_public_fip_pool_configured():
+            return None
+
+        try:
+            fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
+                self._args.public_fip_pool)
+        except Exceptions as e:
+            string_buf = StringIO()
+            cgitb_hook(file=string_buf, format="text")
+            err_msg = string_buf.getvalue()
+            self._logger.error("%s - %s" %(self._name, err_msg))
+            return None
+
         if vmi_obj:
             fip_refs = vmi_obj.get_floating_ip_back_refs()
             for ref in fip_refs or []:
@@ -154,7 +159,7 @@ class VncIngress(VncCommon):
                     return fip
                 else:
                     break
-        fip_pool = self._get_public_fip_pool()
+        fip_pool = self._get_public_fip_pool(fip_pool_fq_name)
         if fip_pool is None:
             return None
         fip_uuid = str(uuid.uuid4())
