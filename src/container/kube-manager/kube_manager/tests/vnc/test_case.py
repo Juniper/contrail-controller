@@ -1,5 +1,6 @@
 import sys
 import time
+import uuid
 import os
 
 sys.path.append("../../config/common/tests")
@@ -29,6 +30,12 @@ class KMTestCase(test_common.TestCase):
         cls._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
             cls._cluster_id, cls.__name__, cls._api_server_ip, cls._api_server_port)
         test_common.wait_for_schema_transformer_up()
+
+        cls.event_queue = Queue()
+        cls.spawn_kube_manager()
+
+    @classmethod
+    def spawn_kube_manager(cls):
         kube_config = [
             ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
             ('VNC', 'vnc_endpoint_ip', cls._api_server_ip),
@@ -39,17 +46,20 @@ class KMTestCase(test_common.TestCase):
             ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
             ('KUBERNETES', 'cluster_name', "test-cluster"),
         ]
-        cls.event_queue = Queue()
         cls._km_greenlet = gevent.spawn(test_common.launch_kube_manager,
-            cls.__name__, kube_config, True, cls.event_queue)
+                                        cls.__name__, kube_config, True, cls.event_queue)
         test_common.wait_for_kube_manager_up()
 
     @classmethod
     def tearDownClass(cls):
         test_common.kill_svc_monitor(cls._svc_mon_greenlet)
         test_common.kill_schema_transformer(cls._st_greenlet)
-        test_common.kill_kube_manager(cls._km_greenlet)
+        cls.kill_kube_manager()
         super(KMTestCase, cls).tearDownClass()
+
+    @classmethod
+    def kill_kube_manager(cls):
+        test_common.kill_kube_manager(cls._km_greenlet)
 
     def _class_str(self):
         return str(self.__class__).strip('<class ').strip('>').strip("'")
@@ -62,9 +72,20 @@ class KMTestCase(test_common.TestCase):
 
     def enqueue_event(self, event):
         self.event_queue.put(event)
+        self.wait_for_all_tasks_done()
+
+    def wait_for_all_tasks_done(self):
+        self.enqueue_idle_event()
         while self.event_queue.empty() is False:
             time.sleep(1)
 
+    def enqueue_idle_event(self):
+        idle_event = {'type': None,
+                      'object': {'kind': 'Idle', 'metadata': {'name': None, 'uid': None}}}
+        self.event_queue.put(idle_event)
+
+    def enqueue_event_without_waiting(self, event):
+        self.event_queue.put(event)
 
     def generate_kube_args(self):
         args_str = ""
@@ -116,6 +137,17 @@ class KMTestCase(test_common.TestCase):
         return event
 
     def create_event(self, kind, spec, meta, type):
+        # type: (object, object, object, object) -> object
+        event = {}
+        object = {}
+        object['kind'] = kind
+        object['spec'] = spec
+        object['metadata'] = meta
+        event['type'] = type
+        event['object'] = object
+        return event
+
+    def create_service_event(self, kind, spec, meta, type):
         # type: (object, object, object, object) -> object
         event = {}
         object = {}
