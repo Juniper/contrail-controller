@@ -62,9 +62,16 @@ class KMTestCase(test_common.TestCase):
 
     def enqueue_event(self, event):
         self.event_queue.put(event)
+
+    def wait_for_all_tasks_done(self):
+        self.enqueue_idle_event()
         while self.event_queue.empty() is False:
             time.sleep(1)
 
+    def enqueue_idle_event(self):
+        idle_event = {'type': None,
+                      'object': {'kind': 'Idle', 'metadata': {'name': None, 'uid': None}}}
+        self.event_queue.put(idle_event)
 
     def generate_kube_args(self):
         args_str = ""
