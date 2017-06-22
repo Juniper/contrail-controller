@@ -2913,6 +2913,11 @@ const std::string FlowEntry::RemotePrefix() const {
 }
 
 const std::string FlowEntry::fw_policy_name_uuid() const {
+    /* If policy rule matches IMPLICIT_DENY don't prepend policy Name */
+    if (data_.match_p.aps_policy.rule_uuid_.compare(
+        FlowPolicyStateStr.at(IMPLICIT_DENY)) == 0) {
+        return data_.match_p.aps_policy.rule_uuid_;
+    }
     return data_.match_p.aps_policy.acl_name_ + ":" +
            data_.match_p.aps_policy.rule_uuid_;
 }
