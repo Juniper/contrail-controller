@@ -667,7 +667,7 @@ def main():
 
     control = package_installed('contrail-control')
     analytics = package_installed('contrail-analytics')
-    agent = package_installed('contrail-vrouter')
+    agent = package_installed('contrail-vrouter-agent')
     capi = package_installed('contrail-config')
     cwebui = package_installed('contrail-web-controller')
     cwebstorage = package_installed('contrail-web-storage')
