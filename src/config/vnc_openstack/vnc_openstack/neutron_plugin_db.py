@@ -1296,7 +1296,7 @@ class DBInterface(object):
         return net_obj
     #end _network_neutron_to_vnc
 
-    def _network_vnc_to_neutron(self, net_obj, net_repr='SHOW'):
+    def _network_vnc_to_neutron(self, net_obj, net_repr='SHOW', context=None):
         net_q_dict = {}
         extra_dict = {}
 
@@ -1348,7 +1348,11 @@ class DBInterface(object):
 
         ipam_refs = net_obj.get_network_ipam_refs()
         net_q_dict['subnets'] = []
-        if ipam_refs:
+        is_admin_or_owner = True
+        if (context and not context['is_admin'] and
+                context['tenant_id'] != net_q_dict['tenant_id']):
+            is_admin_or_owner = False
+        if is_admin_or_owner and ipam_refs:
             extra_dict['subnet_ipam'] = []
             for ipam_ref in ipam_refs:
                 subnets = ipam_ref['attr'].get_ipam_subnets()
@@ -2701,7 +2705,6 @@ class DBInterface(object):
             self._raise_contrail_exception('NetworkInUse', net_id=net_id)
     # end network_delete
 
-    # TODO request based on filter contents
     @wait_for_api_server_connection
     def network_list(self, context=None, filters=None):
         ret_dict = {}
@@ -2710,8 +2713,8 @@ class DBInterface(object):
             for net_id in net_ids:
                 try:
                     net_obj = self._network_read(net_id)
-                    net_info = self._network_vnc_to_neutron(net_obj,
-                                                        net_repr='LIST')
+                    net_info = self._network_vnc_to_neutron(
+                        net_obj, net_repr='LIST', context=context)
                     ret_dict[net_id] = net_info
                 except NoIdError:
                     continue
@@ -2779,8 +2782,8 @@ class DBInterface(object):
                 shared = filters['shared'][0]
             nets = self._network_list_filter(shared, router_external)
             for net in nets:
-                net_info = self._network_vnc_to_neutron(net,
-                                                        net_repr='LIST')
+                net_info = self._network_vnc_to_neutron(
+                    net, net_repr='LIST', context=context)
                 ret_dict[net.uuid] = net_info
         else:
             # read all networks in all projects
@@ -2805,8 +2808,8 @@ class DBInterface(object):
                                             is_shared):
                 continue
             try:
-                net_info = self._network_vnc_to_neutron(net_obj,
-                                                        net_repr='LIST')
+                net_info = self._network_vnc_to_neutron(
+                    net_obj, net_repr='LIST', context=context)
             except NoIdError:
                 continue
             except Exception as e:
