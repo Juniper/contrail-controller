@@ -154,7 +154,7 @@ class NeutronPluginInterface(object):
         fields = network['fields']
 
         cfgdb = self._get_user_cfgdb(context)
-        net_info = cfgdb.network_read(network['id'], fields)
+        net_info = cfgdb.network_read(context, network['id'], fields)
         return net_info
 
     def plugin_create_network(self, context, network):

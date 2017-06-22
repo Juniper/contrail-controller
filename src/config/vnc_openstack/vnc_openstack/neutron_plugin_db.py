@@ -1296,7 +1296,7 @@ class DBInterface(object):
         return net_obj
     #end _network_neutron_to_vnc
 
-    def _network_vnc_to_neutron(self, net_obj, net_repr='SHOW'):
+    def _network_vnc_to_neutron(self, net_obj, net_repr='SHOW', context=None):
         net_q_dict = {}
         extra_dict = {}
 
@@ -1348,7 +1348,14 @@ class DBInterface(object):
 
         ipam_refs = net_obj.get_network_ipam_refs()
         net_q_dict['subnets'] = []
-        if ipam_refs:
+        # Only show subnets of external/public networks to admin users and
+        # network's owner
+        show_subnet = True
+        if (net_q_dict['router:external'] and context and
+                not context['is_admin'] and
+                context['tenant_id'] != net_q_dict['tenant_id']):
+            show_subnet = False
+        if show_subnet and ipam_refs:
             extra_dict['subnet_ipam'] = []
             for ipam_ref in ipam_refs:
                 subnets = ipam_ref['attr'].get_ipam_subnets()
@@ -2637,7 +2644,7 @@ class DBInterface(object):
     #end network_create
 
     @wait_for_api_server_connection
-    def network_read(self, net_uuid, fields=None):
+    def network_read(self, context, net_uuid, fields=None):
         # see if we can return fast...
         #if fields and (len(fields) == 1) and fields[0] == 'tenant_id':
         #    tenant_id = self._get_obj_tenant_id('network', net_uuid)
@@ -2647,8 +2654,8 @@ class DBInterface(object):
             net_obj = self._network_read(net_uuid)
         except NoIdError:
             self._raise_contrail_exception('NetworkNotFound', net_id=net_uuid)
-
-        return self._network_vnc_to_neutron(net_obj, net_repr='SHOW')
+        return self._network_vnc_to_neutron(net_obj, net_repr='SHOW',
+                                            context=context)
     #end network_read
 
     @wait_for_api_server_connection
@@ -2701,7 +2708,6 @@ class DBInterface(object):
             self._raise_contrail_exception('NetworkInUse', net_id=net_id)
     # end network_delete
 
-    # TODO request based on filter contents
     @wait_for_api_server_connection
     def network_list(self, context=None, filters=None):
         ret_dict = {}
@@ -2710,8 +2716,8 @@ class DBInterface(object):
             for net_id in net_ids:
                 try:
                     net_obj = self._network_read(net_id)
-                    net_info = self._network_vnc_to_neutron(net_obj,
-                                                        net_repr='LIST')
+                    net_info = self._network_vnc_to_neutron(
+                        net_obj, net_repr='LIST', context=context)
                     ret_dict[net_id] = net_info
                 except NoIdError:
                     continue
@@ -2779,8 +2785,8 @@ class DBInterface(object):
                 shared = filters['shared'][0]
             nets = self._network_list_filter(shared, router_external)
             for net in nets:
-                net_info = self._network_vnc_to_neutron(net,
-                                                        net_repr='LIST')
+                net_info = self._network_vnc_to_neutron(
+                    net, net_repr='LIST', context=context)
                 ret_dict[net.uuid] = net_info
         else:
             # read all networks in all projects
@@ -2805,8 +2811,8 @@ class DBInterface(object):
                                             is_shared):
                 continue
             try:
-                net_info = self._network_vnc_to_neutron(net_obj,
-                                                        net_repr='LIST')
+                net_info = self._network_vnc_to_neutron(
+                    net_obj, net_repr='LIST', context=context)
             except NoIdError:
                 continue
             except Exception as e:
