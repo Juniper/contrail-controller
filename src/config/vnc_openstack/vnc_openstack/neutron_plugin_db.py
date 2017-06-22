@@ -45,7 +45,7 @@ _IFACE_ROUTE_TABLE_NAME_PREFIX_REGEX = re.compile(
 class LocalVncApi(VncApi):
     def __init__(self, api_server_obj, *args, **kwargs):
         if api_server_obj:
-            self.api_server_routes = dict((r.rule, r.callback)
+            self.api_server_routes = dict((r.rule.split('/')[1], r.callback)
                 for r in api_server_obj.api_bottle.routes
                 if r.method == 'GET')
             self.POST_FOR_LIST_THRESHOLD = sys.maxsize
@@ -55,6 +55,16 @@ class LocalVncApi(VncApi):
         self.api_server_obj = api_server_obj
         super(LocalVncApi, self).__init__(*args, **kwargs)
     # def __init__
+
+    def deepcopy_ref(self, ret_item, item_key):
+        if not isinstance(ret_item, dict):
+            return
+        ref_backrefs = [f for f in ret_item[item_key]
+                        if f.endswith('_refs')]
+        for rb in ref_backrefs:
+            # TODO optimize to deepcopy only if 'attr' is there
+            ret_item[item_key][rb] = copy.deepcopy(
+                ret_item[item_key][rb])
 
     @use_context
     def _request(self, op, url, data=None, *args, **kwargs):
@@ -71,11 +81,12 @@ class LocalVncApi(VncApi):
             else:
                 had_user_token = False
 
-            if op != rest.OP_GET or url not in self.api_server_routes:
+            url_parts = url.split('/')
+            if op != rest.OP_GET or url_parts[1] not in self.api_server_routes:
                 return super(LocalVncApi, self)._request(
                     op, url, data, *args, **kwargs)
 
-            server_method = self.api_server_routes[url]
+            server_method = self.api_server_routes[url_parts[1]]
             if data:
                 q_str = '&'.join(['%s=%s' %(k,v) for k,v in data.items()])
             else:
@@ -98,23 +109,25 @@ class LocalVncApi(VncApi):
                     external_req=bottle.BaseRequest(environ))
                     )
 
-            ret_val = server_method()
+            if len(url_parts) < 3:
+                ret_val = server_method()
+            else:
+                ret_val = server_method(url_parts[2])
+
             # make deepcopy of ref['attr'] as from_dict will update
             # in-place and change the cached value
             try:
                 # strip / in /virtual-networks
-                coll_key = url[1:]
-                item_key = url[1:-1]
-                ret_list = ret_val[coll_key]
-                for ret_item in ret_list:
-                    if not isinstance(ret_item, dict):
-                        continue
-                    ref_backrefs = [f for f in ret_item[item_key]
-                                    if f.endswith('_refs')]
-                    for rb in ref_backrefs:
-                        # TODO optimize to deepcopy only if 'attr' is there
-                        ret_item[item_key][rb] = copy.deepcopy(
-                            ret_item[item_key][rb])
+                if len(url_parts) < 3:
+                    coll_key = url_parts[1]
+                    item_key = coll_key[:-1]
+                    ret_list = ret_val[coll_key]
+                    for ret_item in ret_list:
+                        self.deepcopy_ref(ret_item, item_key)
+                else:
+                    item_key = url_parts[1]
+                    ret_item = ret_val
+                    self.deepcopy_ref(ret_item, item_key)
             except KeyError:
                 pass
 
