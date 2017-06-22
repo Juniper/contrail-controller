@@ -29,6 +29,7 @@ class KubeNetworkManager(object):
 
     def __init__(self, args=None, kube_api_connected=False, queue=None):
         self.args = args
+        self.greenlets = []
         if 'kube_timer_interval' not in self.args:
             self.args.kube_timer_interval = '60'
 
@@ -108,11 +109,11 @@ class KubeNetworkManager(object):
 
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
-        greenlets = [gevent.spawn(self.vnc.vnc_process)]
+        self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
         for monitor in self.monitors.values():
-            greenlets.append(gevent.spawn(monitor.event_callback))
-        greenlets.append(gevent.spawn(self.launch_timer))
-        gevent.joinall(greenlets)
+            self.greenlets.append(gevent.spawn(monitor.event_callback))
+        self.greenlets.append(gevent.spawn(self.launch_timer))
+        gevent.joinall(self.greenlets)
 
     def reset(self):
         for cls in DBBaseKM.get_obj_type_map().values():
@@ -127,6 +128,9 @@ class KubeNetworkManager(object):
         inst = cls.get_instance()
         if inst is None:
             return
+        for greenlet in inst.greenlets:
+            greenlet.kill()
+        inst.greenlets = []
         inst.vnc.destroy_instance()
         inst.vnc = None
         inst.q = None
