@@ -41,6 +41,7 @@ class KubeNetworkManager(object):
         # All monitors supported by this manager.
         self.monitors = {}
         self.kube = None
+        self.greenlets = []
         while not kube_api_connected:
             try:
                 self.kube = kube_monitor.KubeMonitor(
@@ -104,11 +105,11 @@ class KubeNetworkManager(object):
 
     def start_tasks(self):
         self.logger.info("Starting all tasks.")
-        greenlets = [gevent.spawn(self.vnc.vnc_process)]
+        self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
         for monitor in self.monitors.values():
-            greenlets.append(gevent.spawn(monitor.event_callback))
-        greenlets.append(gevent.spawn(self.launch_timer))
-        gevent.joinall(greenlets)
+            self.greenlets.append(gevent.spawn(monitor.event_callback))
+        self.greenlets.append(gevent.spawn(self.launch_timer))
+        gevent.joinall(self.greenlets)
 
     def reset(self):
         for cls in DBBaseKM.get_obj_type_map().values():
@@ -124,6 +125,9 @@ class KubeNetworkManager(object):
         if inst is None:
             return
         inst.logger.sandesh_uninit()
+        for greenlet in inst.greenlets:
+            greenlet.kill()
+        inst.greenlets = []
         inst.vnc.destroy_instance()
         inst.vnc = None
         inst.q = None
