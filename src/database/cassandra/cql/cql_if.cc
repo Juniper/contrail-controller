@@ -921,6 +921,9 @@ std::string CassSelectFromTable(const std::string &table) {
 
 static GenDb::DbDataValue CassValue2DbDataValue(
     interface::CassLibrary *cci, const CassValue *cvalue) {
+    if (cci->CassValueIsNull(cvalue)) {
+        return GenDb::DbDataValue();
+    }
     CassValueType cvtype(cci->GetCassValueType(cvalue));
     switch (cvtype) {
       case CASS_VALUE_TYPE_ASCII:
@@ -3091,6 +3094,10 @@ CassError CassDatastaxLibrary::CassValueGetInet(const CassValue* value,
 CassError CassDatastaxLibrary::CassValueGetBytes(const CassValue* value,
     const cass_byte_t** output, size_t* output_size) {
     return cass_value_get_bytes(value, output, output_size);
+}
+
+cass_bool_t CassDatastaxLibrary::CassValueIsNull(const CassValue* value) {
+    return cass_value_is_null(value);
 }
 
 // CassInet
