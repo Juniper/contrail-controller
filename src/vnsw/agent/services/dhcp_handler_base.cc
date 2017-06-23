@@ -354,6 +354,7 @@ uint16_t DhcpHandlerBase::AddCompressedName(uint16_t opt_len,
 uint16_t DhcpHandlerBase::AddDnsServers(uint16_t opt_len) {
     if (ipam_type_.ipam_dns_method == "default-dns-server" ||
         ipam_type_.ipam_dns_method == "virtual-dns-server" ||
+        ipam_type_.ipam_dns_method == "none" ||
         ipam_type_.ipam_dns_method == "") {
         if (!config_.dns_addr.is_unspecified()) {
             opt_len = AddIP(opt_len, config_.dns_addr.to_string());

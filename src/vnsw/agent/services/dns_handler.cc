@@ -108,6 +108,7 @@ bool DnsHandler::HandleRequest() {
     }
 
     if (ipam_type_.ipam_dns_method == "default-dns-server" ||
+        ipam_type_.ipam_dns_method == "none" ||
         ipam_type_.ipam_dns_method == "") {
         if (dns_->flags.op == DNS_OPCODE_UPDATE) {
             DNS_BIND_TRACE(DnsBindError, "Default DNS request : Update received, ignoring");
