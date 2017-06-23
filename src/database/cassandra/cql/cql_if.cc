@@ -783,6 +783,9 @@ std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
 
 static GenDb::DbDataValue CassValue2DbDataValue(
     interface::CassLibrary *cci, const CassValue *cvalue) {
+    if (cci->CassValueIsNull(cvalue)) {
+        return GenDb::DbDataValue();
+    }
     CassValueType cvtype(cci->GetCassValueType(cvalue));
     switch (cvtype) {
       case CASS_VALUE_TYPE_ASCII:
@@ -2440,6 +2443,10 @@ CassStatement* CassDatastaxLibrary::CassPreparedBind(
 // CassValue
 CassValueType CassDatastaxLibrary::GetCassValueType(const CassValue* value) {
     return cass_value_type(value);
+}
+
+cass_bool_t CassDatastaxLibrary::CassValueIsNull(const CassValue* value) {
+    return cass_value_is_null(value);
 }
 
 CassError CassDatastaxLibrary::CassValueGetString(const CassValue* value,

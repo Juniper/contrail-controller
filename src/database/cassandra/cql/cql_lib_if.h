@@ -124,6 +124,7 @@ class CassLibrary {
 
     // CassValue
     virtual CassValueType GetCassValueType(const CassValue* value) = 0;
+    virtual cass_bool_t CassValueIsNull(const CassValue* value) = 0;
     virtual CassError CassValueGetString(const CassValue* value,
         const char** output, size_t* output_size) = 0;
     virtual CassError CassValueGetInt8(const CassValue* value,
@@ -268,6 +269,7 @@ class CassDatastaxLibrary : public CassLibrary {
 
     // CassValue
     virtual CassValueType GetCassValueType(const CassValue* value);
+    virtual cass_bool_t CassValueIsNull(const CassValue* value);
     virtual CassError CassValueGetString(const CassValue* value,
         const char** output, size_t* output_size);
     virtual CassError CassValueGetInt8(const CassValue* value,
