@@ -717,7 +717,8 @@ class AddrMgmt(object):
             req_subnet = req_subnet_dicts[key]
             if key in db_subnet_dicts.keys():
                 db_subnet = db_subnet_dicts[key]
-                if (req_subnet['gw'] and req_subnet['gw'] != db_subnet['gw']):
+                if (req_subnet['gw'] and
+                    req_subnet['gw'].lower() != db_subnet['gw'].lower()):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
                 req_subnet['dns_server_address'] = db_subnet['dns_server_address']
 
@@ -1178,7 +1179,13 @@ class AddrMgmt(object):
         for req_subnet in req_subnets:
             req_cidr = req_subnet.get('subnet')
             req_df_gw = req_subnet.get('default_gateway')
+            if req_df_gw:
+                req_df_gw = req_df_gw.lower()
+
             req_dns = req_subnet.get('dns_server_address')
+            if req_dns:
+                req_dns = req_dns.lower()
+
             for db_subnet in db_subnets:
                 db_cidr = db_subnet.get('subnet')
                 if req_cidr is None or db_cidr is None:
@@ -1188,6 +1195,9 @@ class AddrMgmt(object):
 
                 # for a given subnet, default gateway should not be different
                 db_df_gw = db_subnet.get('default_gateway')
+                if db_df_gw:
+                    db_df_gw = db_df_gw.lower()
+
                 db_prefix = db_cidr.get('ip_prefix')
                 db_prefix_len = db_cidr.get('ip_prefix_len')
 
@@ -1214,6 +1224,8 @@ class AddrMgmt(object):
 
                 # for a given subnet, dns server address should not be different
                 db_dns = db_subnet.get('dns_server_address')
+                if db_dns:
+                    db_dns = db_dns.lower()
                 if db_dns != req_dns:
                     invalid_update = False
                     if ((req_dns is None) and (db_dns != df_dns)):
