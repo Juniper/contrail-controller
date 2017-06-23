@@ -217,15 +217,18 @@ public:
         void V6RouteDelete(const Peer *peer) const;
 
         uint16_t tag_;
-        std::string vrf_name_;
-        Ip4Address addr_;
-        Ip6Address addr6_;
-        MacAddress smac_;
-        MacAddress dmac_;
+        mutable std::string vrf_name_;
+        mutable Ip4Address addr_;
+        mutable Ip4Address old_addr_;
+        mutable Ip6Address addr6_;
+        mutable Ip6Address old_addr6_;
+        mutable MacAddress smac_;
+        mutable MacAddress dmac_;
         mutable VrfEntryRef vrf_;
         mutable uint32_t label_;
         mutable bool v4_rt_installed_;
         mutable bool v6_rt_installed_;
+        mutable bool del_add_;
     };
     typedef std::set<ServiceVlan, ServiceVlan> ServiceVlanSet;
 
