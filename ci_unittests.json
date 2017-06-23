@@ -11,6 +11,7 @@
         "scons_test_targets" : [
             "controller/src/analytics:test",
             "controller/src/bfd:test",
+            "controller/src/opserver:test",
             "controller/src/query_engine:test",
             "controller/src/database/gendb:test",
             "controller/src/database/cassandra/cql:test",
