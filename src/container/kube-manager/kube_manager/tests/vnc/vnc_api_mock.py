@@ -1,30 +1,28 @@
-import mock
-import unittest
+import copy
 import functools
-import types
-from mock import patch, Mock
+import json
 
-from vnc_api.vnc_api import *
-from db_mock import *
+from vnc_api.vnc_api import all_resource_type_tuples, get_object_class, NoIdError, RefsExistError
+from db_mock import DBMock
 
-# Mock for VncApi class
 
 class VncApiMock(object):
+    """
+    Mock for VncApi class
+    """
 
     def __init__(self, admin_user, admin_password, admin_tenant,
                  vnc_endpoint_ip, vnc_endpoint_port, auth_token_url):
 
         for object_type, resource_type in all_resource_type_tuples:
             for oper_str in ('_create', '_read', '_update', '_delete', 's_list', '_get_default_id'):
-                method = getattr(self, '_object%s' %(oper_str))
+                method = getattr(self, '_object%s' % oper_str)
                 bound_method = functools.partial(method, resource_type)
                 functools.update_wrapper(bound_method, method)
                 if oper_str == '_get_default_id':
-                    setattr(self, 'get_default_%s_id' % (object_type),
-                            bound_method)
+                    setattr(self, 'get_default_%s_id' % object_type, bound_method)
                 else:
-                    setattr(self, '%s%s' %(object_type, oper_str),
-                            bound_method)
+                    setattr(self, '%s%s' % (object_type, oper_str), bound_method)
 
     @staticmethod
     def _alloc_uuid():
@@ -70,7 +68,7 @@ class VncApiMock(object):
         return VncApiMock.object_from_dict(res_type, ret[0])
 
     def _object_update(self, res_type, obj):
-        return VncApiMock._object_update(res_type, obj)
+        return self.update(res_type, obj)
 
     @staticmethod
     def update(res_type, obj):
@@ -126,17 +124,17 @@ class VncApiMock(object):
     def _read_args_to_id(res_type, fq_name=None, fq_name_str=None, id=None):
         arg_count = ((fq_name is not None) + (fq_name_str is not None) + (id is not None))
 
-        if (arg_count == 0):
-            return (False, "at least one of the arguments has to be provided")
-        elif (arg_count > 1):
-            return (False, "only one of the arguments should be provided")
+        if arg_count == 0:
+            return False, "at least one of the arguments has to be provided"
+        elif arg_count > 1:
+            return False, "only one of the arguments should be provided"
 
         if id:
-            return (True, id)
+            return True, id
         if fq_name:
-            return (True, VncApiMock.name_to_id(res_type, fq_name[-1]))
+            return True, VncApiMock.name_to_id(res_type, fq_name[-1])
         if fq_name_str:
-            return (True, VncApiMock.name_to_id(res_type, fq_name_str.split(':')[-1]))
+            return True, VncApiMock.name_to_id(res_type, fq_name_str.split(':')[-1])
 
     @staticmethod
     def name_to_id(res_type, name):
