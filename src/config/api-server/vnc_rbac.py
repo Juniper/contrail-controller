@@ -10,6 +10,7 @@ import ConfigParser
 from provision_defaults import *
 from cfgm_common.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from gen.vnc_api_client_gen import all_resource_type_tuples
 
 class VncRbac(object):
 
@@ -218,6 +219,11 @@ class VncRbac(object):
         # API operation create, read, update or delete
         api_op = self.op_str[request.method]
 
+        if ((api_op == 'C') and (obj_type[-1:] == 's') and
+            (obj_type.replace('-','_') not in dict(all_resource_type_tuples)) and
+            (obj_type[:-1].replace('-','_') in dict(all_resource_type_typles))):
+            obj_type = obj_type[:-1]
+
         try:
             obj_dict = request.json[obj_type]
         except Exception:
@@ -255,6 +261,10 @@ class VncRbac(object):
                 role_match = [rc['role_name'] in (roles + ['*']) and api_op in rc['role_crud'] for rc in p]
                 match = True if True in role_match else False
                 result[length] = (idx, match)
+                #If any field with False match, return failure
+                if length == 2 and match == False:
+                    return (False, err_msg)
+
             msg = 'Rule %2d) %32s   %32s (%d,%s)' % (idx, o_f, ps, length, match)
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
             idx += 1
