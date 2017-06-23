@@ -139,6 +139,8 @@ class CassandraCFs(object):
         if cf_list:
             for name in cf_list:
                 if name in cls._all_cfs:
+                    if name in cls._all_cfs[name]._all_cf_rows:
+                        del cls._all_cfs[name]._all_cf_rows[name]
                     del cls._all_cfs[name]
             return
         cls._all_cfs = {}

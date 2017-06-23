@@ -45,6 +45,7 @@ class DsTestCase(test_common.TestCase):
         ]
         super(DsTestCase, self).setUp(extra_config_knobs = extra_api_server_config_knobs)
 
+        cluster_id = self._cluster_id
         self._disc_server_ip = socket.gethostbyname(socket.gethostname())
         self._disc_server_port = test_utils.get_free_port()
         http_server_port = test_utils.get_free_port()
@@ -56,7 +57,7 @@ class DsTestCase(test_common.TestCase):
         test_common.setup_mocks(self.mocks)
 
         self._disc_server_greenlet = gevent.spawn(test_common.launch_disc_server,
-            self.id(), self._disc_server_ip, self._disc_server_port,
+            cluster_id, self.id(), self._disc_server_ip, self._disc_server_port,
             http_server_port, self._disc_server_config_knobs)
 
         test_utils.block_till_port_listened(self._disc_server_ip, self._disc_server_port)
@@ -67,7 +68,7 @@ class DsTestCase(test_common.TestCase):
 
 
     def tearDown(self):
-        test_utils.CassandraCFs.reset(cf_list=['discovery'])
+        test_utils.CassandraCFs.reset(cf_list=['%s_DISCOVERY_SERVER_discovery' % self._cluster_id])
         test_common.kill_disc_server(self._disc_server_greenlet)
         super(DsTestCase, self).tearDown()
 
