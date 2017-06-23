@@ -10,6 +10,7 @@ import ConfigParser
 from provision_defaults import *
 from cfgm_common.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from gen.vnc_api_client_gen import all_resource_types
 
 class VncRbac(object):
 
@@ -182,13 +183,21 @@ class VncRbac(object):
             obj_type = x.group(1)
         """
     # end
-
+    def _match_rule(self, rule, roles, api_op):
+        err_msg = (403, 'Permission Denied')
+        p = rule['rule_perms']
+        role_match = [rc['role_name'] in (roles + ['*']) and api_op in rc['role_crud'] for rc in p]
+        match = True if True in role_match else False
+        if match == True:
+            return (True, '')
+        else:
+            return (False, err_msg)
+    #end
     # op is one of 'CRUD'
     def validate_request(self, request):
         domain_id = request.headers.environ.get('HTTP_X_DOMAIN_ID', None)
         project_id = request.headers.environ.get('HTTP_X_PROJECT_ID', None)
         project_name = request.headers.environ.get('HTTP_X_PROJECT_NAME', '*')
-
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
@@ -218,8 +227,15 @@ class VncRbac(object):
         # API operation create, read, update or delete
         api_op = self.op_str[request.method]
 
+        if ((api_op == 'C') and (obj_type[-1:] == 's') and
+            (obj_type not in (all_resource_types)) and
+            (obj_type[:-1] in (all_resource_types))):
+            obj_key = obj_type[:-1]
+        else:
+            obj_key = obj_type
+
         try:
-            obj_dict = request.json[obj_type]
+            obj_dict = dict(request.json[obj_key])
         except Exception:
             obj_dict = {}
 
@@ -227,55 +243,52 @@ class VncRbac(object):
             % (user, roles, obj_type, api_op, len(rule_list), project_id, project_name, domain_id)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
 
-        # match all rules - longest prefix match wins
-        result = {}
-        idx = 1
+        wildcard_rule = None
+        obj_rule = None
+        field_rule_list = []
         for rule in rule_list:
-            o = rule['rule_object']
-            f = rule['rule_field']
-            p = rule['rule_perms']
-            ps = ''
-            for perm in p:
-                ps += perm['role_name'] + ':' + perm['role_crud'] + ','
-            o_f = "%s.%s" % (o,f) if f else o
-            # check CRUD perms if object and field matches
-            length = -1; match = False
-            if o == '*' or \
-                (o == obj_type and (f is None or f == '*' or f == '')) or \
-                (o == obj_type and (f is not None and f in obj_dict)):
-                if o == '*':
-                    length = 0
-                elif f in obj_dict:
-                    length = 2
+            if (rule['rule_object'] == '*'):
+                wildcard_rule = (rule)
+            elif (rule['rule_object'] == obj_type):
+                if (rule['rule_field'] != '') and (rule['rule_field'] is not None) and (rule['rule_field'] != '*'):
+                    field_rule_list.append(rule)
                 else:
-                    length = 1
-                # skip rule with no matching op
-                if True not in [api_op in rc['role_crud'] for rc in p]:
-                    continue
-                role_match = [rc['role_name'] in (roles + ['*']) and api_op in rc['role_crud'] for rc in p]
-                match = True if True in role_match else False
-                result[length] = (idx, match)
-            msg = 'Rule %2d) %32s   %32s (%d,%s)' % (idx, o_f, ps, length, match)
-            self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-            idx += 1
+                    obj_rule = (rule)
+            else:
+                #Not interested rule
+                continue
 
-        ok = False
-        if len(result) > 0:
-            x = sorted(result.items(), reverse = True)
-            ok = x[0][1][1]
-
-        msg = "rbac: %s admin=%s, u=%s, r='%s'" \
-            % ('+++' if ok else '\n---',
-               'yes' if is_admin else 'no',
-               user, string.join(roles, ',')
-               )
-        self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
-        if not ok:
-            msg = "rbac: %s doesn't have %s permission for %s" % (user, self.op_str2[request.method], obj_type)
+        if (len(field_rule_list) != 0) and (len(obj_dict) != 0):
+           #if len(obj_rule) != 0:
+                #Match obj_rule
+           for rule in field_rule_list:
+               f = rule['rule_field']
+               if f in obj_dict:
+                   match, err_msg = self._match_rule(rule, roles, api_op)
+                   if match == True:
+                       del obj_dict[f]
+                   else:
+                       return (False, err_msg)
+           if len(obj_dict) == 0:
+           #if len(obj_dict) == 0:
+               return (True, '')
+           elif (obj_rule) is not None:
+               #validate against obj_rule
+               return self._match_rule(obj_rule, roles, api_op)
+           elif (wildcard_rule) is not None:
+               return self._match_rule(wildcard_rule, roles, api_op)
+           else:
+               return (False, err_msg)
+        elif (obj_rule) is not None:
+            #No field rules, match obj rule permissions.
+            return self._match_rule(obj_rule, roles, api_op)
+        elif (wildcard_rule) is not None:
+            #No obj or field rules, match wildcard rule permissions
+            return self._match_rule(wildcard_rule, roles, api_op)
+        else:
+            msg = 'rbac: No interested rules!!'
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-
-        return (True, '') if ok else (False, err_msg)
-    # end validate_request
+            return (False, err_msg)
 
     # retreive user/role from incoming request
     def get_user_roles(self, request):
