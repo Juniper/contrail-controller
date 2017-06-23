@@ -588,6 +588,7 @@ class FlowEntry {
     bool deleted() { return deleted_; }
 
     bool IsShortFlow() { return is_flags_set(FlowEntry::ShortFlow); }
+    bool IsNatFlow() const { return is_flags_set(FlowEntry::NatFlow); }
     // Flow action routines
     void ResyncFlow();
     bool ActionRecompute();
