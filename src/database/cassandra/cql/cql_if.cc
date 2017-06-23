@@ -834,6 +834,9 @@ std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
 }
 
 static GenDb::DbDataValue CassValue2DbDataValue(const CassValue *cvalue) {
+    if (cass_value_is_null(cvalue)) {
+        return GenDb::DbDataValue();
+    }
     CassValueType cvtype(cass_value_type(cvalue));
     switch (cvtype) {
       case CASS_VALUE_TYPE_ASCII:
