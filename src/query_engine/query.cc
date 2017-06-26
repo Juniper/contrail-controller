@@ -237,6 +237,8 @@ PostProcessingQuery::PostProcessingQuery(
 
                     for (rapidjson::SizeType k = 0; k<json_filter_and.Size(); k++) {
                         filter_match_t filter;
+                        // Error if its null
+                        QE_INVALIDARG_ERROR(!json_filter_and[k].IsNull());
                         QE_PARSE_ERROR((
                             json_filter_and[k].HasMember(WHERE_MATCH_NAME)
                             && json_filter_and[k].HasMember(WHERE_MATCH_VALUE)
