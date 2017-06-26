@@ -178,7 +178,7 @@ class DBInterface(object):
             tenant_id = resource['tenant_id']
         elif ('tenant_id' in resource and
               resource['tenant_id'] != context['tenant_id']):
-            reason = _('Cannot create resource for another tenant')
+            reason = 'Cannot create resource for another tenant'
             self._raise_contrail_exception('AdminRequired', reason=reason)
         else:
             tenant_id = context['tenant_id']
@@ -1312,7 +1312,7 @@ class DBInterface(object):
             self._raise_contrail_exception('BadRequest',
                 resource='subnet', msg='Unknown IP family')
         elif cidr.version != int(subnet_q['ip_version']):
-            msg = _("cidr '%s' does not match the ip_version '%s'") \
+            msg = "cidr '%s' does not match the ip_version '%s'" \
                     %(subnet_q['cidr'], subnet_q['ip_version'])
             self._raise_contrail_exception('InvalidInput', error_message=msg)
         if 'gateway_ip' in subnet_q:
@@ -2501,8 +2501,8 @@ class DBInterface(object):
                 if subnet_key == self._subnet_vnc_get_key(subnet, net_id):
                     existing_sn_id = self._subnet_vnc_read_mapping(key=subnet_key)
                     # duplicate !!
-                    msg = _("Cidr %s overlaps with another subnet of subnet %s"
-                            ) % (subnet_q['cidr'], existing_sn_id)
+                    msg = "Cidr %s overlaps with another subnet of subnet %s" \
+                            % (subnet_q['cidr'], existing_sn_id)
                     self._raise_contrail_exception('BadRequest',
                                                    resource='subnet', msg=msg)
             vnsn_data = net_ipam_ref['attr']
@@ -3273,8 +3273,8 @@ class DBInterface(object):
             for p in rports:
                 for ip in p['fixed_ips']:
                     if ip['subnet_id'] == subnet_id:
-                       msg = (_("Router %s already has a port "
-                                "on subnet %s") % (router_id, subnet_id))
+                       msg = "Router %s already has a port " \
+                                "on subnet %s" % (router_id, subnet_id)
                        self._raise_contrail_exception(
                            'BadRequest', resource='router', msg=msg)
                     sub_id = ip['subnet_id']
@@ -3288,9 +3288,9 @@ class DBInterface(object):
                                 'subnet_id': subnet_id,
                                 'cidr': cidr,
                                 'sub_id': sub_id}
-                        msg = (_("Cidr %(subnet_cidr)s of subnet "
-                                 "%(subnet_id)s overlaps with cidr %(cidr)s "
-                                 "of subnet %(sub_id)s") % data)
+                        msg = "Cidr %(subnet_cidr)s of subnet " \
+                                 "%(subnet_id)s overlaps with cidr %(cidr)s " \
+                                 "of subnet %(sub_id)s" % data
                         self._raise_contrail_exception(
                             'BadRequest', resource='router', msg=msg)
         except NoIdError:
@@ -3390,7 +3390,7 @@ class DBInterface(object):
                 if subnet_id == port_db['fixed_ips'][0]['subnet_id']:
                     break
             else:
-                msg = _('Subnet %s not connected to router %s') % (subnet_id,
+                msg = 'Subnet %s not connected to router %s' % (subnet_id,
                                                                    router_id)
                 self._raise_contrail_exception('BadRequest',
                                                resource='router', msg=msg)
@@ -3414,9 +3414,9 @@ class DBInterface(object):
             fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, CREATE)
         except Exception, e:
             #logging.exception(e)
-            msg = _('Internal error when trying to create floating ip. '
-                    'Please be sure the network %s is an external '
-                    'network.') % (fip_q['floating_network_id'])
+            msg = 'Internal error when trying to create floating ip. ' \
+                    'Please be sure the network %s is an external ' \
+                    'network.' % (fip_q['floating_network_id'])
             self._raise_contrail_exception('BadRequest',
                                            resource='floatingip', msg=msg)
         try:
