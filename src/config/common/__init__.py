@@ -96,3 +96,6 @@ def has_role(role, roles):
     if role is None or roles is None:
         return False
     return role.lower() in [r.lower() for r in roles]
+
+def get_lr_internal_vn_name(uuid):
+    return '__contrail_lr_internal_vn_' + uuid + '__'
