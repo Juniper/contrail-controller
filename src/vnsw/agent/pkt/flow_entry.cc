@@ -44,6 +44,7 @@
 #include <pkt/flow_mgmt.h>
 #include <pkt/flow_event.h>
 #include <pkt/flow_entry.h>
+#include <uve/flow_uve_stats_request.h>
 
 const std::map<FlowEntry::FlowPolicyState, const char*>
     FlowEntry::FlowPolicyStateStr = boost::assign::map_list_of
@@ -2920,4 +2921,52 @@ const std::string FlowEntry::fw_policy_name_uuid() const {
     }
     return data_.match_p.aps_policy.acl_name_ + ":" +
            data_.match_p.aps_policy.rule_uuid_;
+}
+
+void FlowEntry::FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const {
+    const VnEntry *vn = vn_entry();
+    info->vn_ = vn? vn->GetName() : "";
+    info->nw_ace_uuid_ = nw_ace_uuid();
+    if (!info->vn_.empty() && !info->nw_ace_uuid_.empty()) {
+        info->is_valid_ = true;
+    }
+}
+
+void FlowEntry::FillUveFwStatsInfo(FlowUveFwPolicyInfo *info) const {
+    /* Endpoint statistics update is not required in the following
+     * cases
+     * 1. When flow has empty policy_set_acl_name. One example of this
+     *    case is when matching rule for flow is IMPLICIT_ALLOW
+     * 2. Link local flows
+     * 3. Reverse flows. We need session_count and not flow_count. So we
+     *    consider only forward flows.
+     * 4. Both remote_tagset and remote_prefix are empty. We need either
+     *    remote_tagset or remote_prefix to identify the remote endpoint.
+     *
+     * Also count is updated only for forward-flow as the count
+     * indicates session_count and NOT flow-count
+     */
+    if (policy_set_acl_name().empty()) {
+        return;
+    }
+    if (policy_set_ace_uuid().empty()) {
+        return;
+    }
+    if (is_flags_set(FlowEntry::LinkLocalFlow) ||
+        is_flags_set(FlowEntry::ReverseFlow)) {
+        return;
+    }
+    if ((remote_tagset().size() == 0) && RemotePrefix().empty()) {
+        return;
+    }
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        info->initiator_ = true;
+    } else {
+        info->initiator_ = false;
+    }
+    info->local_tagset_ = local_tagset();
+    info->remote_tagset_ = remote_tagset();
+    info->fw_policy_ = fw_policy_name_uuid();
+    info->remote_prefix_ = RemotePrefix();
+    info->is_valid_ = true;
 }

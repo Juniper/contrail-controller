@@ -18,6 +18,7 @@
 #include <cmn/index_vector.h>
 #include <oper/interface_common.h>
 #include <vnsw/agent/uve/uve_types.h>
+#include <uve/flow_uve_stats_request.h>
 
 /* Structure used to pass Endpoint data from FlowStatsCollector to UVE module */
 struct EndpointStatsInfo {
@@ -132,13 +133,16 @@ public:
         uint64_t prev_in_pkts;
         uint64_t prev_out_bytes;
         uint64_t prev_out_pkts;
+        uint64_t prev_initiator_session_count;
+        uint64_t prev_responder_session_count;
         UveSecurityPolicyStats(const TagList &tset, const std::string &rprefix,
                                const std::string &rvn) :
             remote_tagset(tset), remote_prefix(rprefix), remote_vn(rvn),
             initiator_session_count(0), responder_session_count(0),
             in_bytes(0), in_pkts(0), out_bytes(0), out_pkts(0),
             prev_in_bytes(0) , prev_in_pkts(0), prev_out_bytes(0),
-            prev_out_pkts(0) {
+            prev_out_pkts(0), prev_initiator_session_count(0),
+            prev_responder_session_count(0) {
         }
         std::string GetTagStr(const InterfaceUveTable::UveInterfaceEntry *entry,
                               uint32_t type) const;
@@ -176,7 +180,18 @@ public:
         TagList local_tagset_;
         std::string local_vn_;
         SecurityPolicyStatsMap security_policy_stats_map_;
-        /* For exclusion between kTaskFlowStatsCollector and Agent::Uve */
+        /* For exclusion between kTaskFlowStatsCollector and Agent::Uve
+         * (1) port_bitmap_ and fip_tree_ are updated by kTaskFlowStatsCollector
+         *     and read by Agent::Uve.
+         * (2) security_policy_stats_map_ is cleared and updated by both
+         *     kTaskFlowStatsCollector and Agent::Uve
+         *     -- Agent::Uve task updates session_count
+         *        (inside security_policy_stats_map_), clears and adds entries
+         *        to security_policy_stats_map_
+         *     -- kTaskFlowStatsCollector updates stats of
+         *        security_policy_stats_map_ and resets
+         *        security_policy_stats_map_
+         */
         tbb::mutex mutex_;
 
         UveInterfaceEntry(const VmInterface *i) : intf_(i),
@@ -211,22 +226,19 @@ public:
         void UpdateInterfaceAceStats(const std::string &ace_uuid);
         void Reset();
         void UpdatePortBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
-        void UpdateInterfaceFwPolicyStats(const std::string &fw_policy,
-                                          const TagList &tglist,
-                                          const std::string &rprefix,
-                                          bool initiator);
+        void UpdateInterfaceFwPolicyStats(const FlowUveFwPolicyInfo &info);
         void UpdateSecurityPolicyStats(const EndpointStatsInfo &info);
         void UpdateSecurityPolicyStatsInternal(const EndpointStatsInfo &info,
                                                UveSecurityPolicyStats *stats);
-        void FillEndpointStats(Agent *agent, EndpointSecurityStats *obj) const;
+        void FillEndpointStats(Agent *agent, EndpointSecurityStats *obj);
         uint32_t GetTagOfType(uint32_t tag_type_value, const TagList &list)
             const;
         std::string GetTagStr(Agent *agent, uint32_t type) const;
         void BuildInterfaceUveInfo(InterfaceUveInfo *r) const;
-        void FillTagSetAndPolicyList(Agent *agent, UveVMInterfaceAgent *obj)
-            const;
+        void FillTagSetAndPolicyList(Agent *agent, UveVMInterfaceAgent *obj);
         void BuildSandeshUveTagList(const TagList &list,
                                     std::vector<SandeshUveTagInfo> *rts) const;
+        void HandleTagListChange();
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;
 
@@ -243,6 +255,7 @@ public:
     virtual void SendInterfaceAceStats(const string &name,
                                        UveInterfaceEntry *entry) {
     }
+    void HandleVmiTagListChange(const std::string &name);
 
 protected:
     void SendInterfaceDeleteMsg(const std::string &config_name);

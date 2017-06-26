@@ -17,6 +17,7 @@
 #include <uve/l4_port_bitmap.h>
 #include <uve/vn_uve_entry.h>
 #include <uve/vn_uve_table_base.h>
+#include <uve/flow_uve_stats_request.h>
 
 //The container class for objects representing VirtualNetwork UVEs
 //Defines routines for storing and managing (add, delete, change and send)
@@ -31,7 +32,7 @@ public:
     void SendVnStats();
     void UpdateInterVnStats(const std::string &src, const std::string &dst,
                             uint64_t bytes, uint64_t pkts, bool outgoing);
-    void IncrVnAceStats(const std::string &vn, const std::string &u);
+    void IncrVnAceStats(const FlowUveVnAcePolicyInfo &info);
 
 protected:
     //The following API is made protected for UT.

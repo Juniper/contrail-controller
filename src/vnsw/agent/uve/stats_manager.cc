@@ -253,7 +253,7 @@ StatsManager::VrfStats::VrfStats()
     k_l2_receives(0), k_uuc_floods(0) {
 }
 
-void StatsManager::AddFlow(const FlowAceStatsRequest *req) {
+void StatsManager::AddFlow(const FlowUveStatsRequest *req) {
     FlowAceTree::iterator it = flow_ace_tree_.find(req->uuid());
     AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
     InterfaceUveStatsTable *itable = static_cast<InterfaceUveStatsTable *>
@@ -262,19 +262,11 @@ void StatsManager::AddFlow(const FlowAceStatsRequest *req) {
     if (it == flow_ace_tree_.end()) {
         InterfaceStats stats;
         FlowRuleMatchInfo info(req->interface(), req->sg_rule_uuid(),
-                               req->fw_policy(), req->remote_tagset(),
-                               req->remote_prefix(), req->vn(),
-                               req->nw_ace_uuid());
+                               req->fw_policy_info(), req->vn_ace_info());
         flow_ace_tree_.insert(FlowAcePair(req->uuid(), info));
-        itable->IncrInterfaceAceStats(req->interface(), req->sg_rule_uuid());
-        if (req->session_count()) {
-            itable->IncrInterfaceEndpointHits(req->interface(),
-                                              req->fw_policy(),
-                                              req->remote_tagset(),
-                                              req->remote_prefix(),
-                                              req->initiator());
-        }
-        vtable->IncrVnAceStats(req->vn(), req->nw_ace_uuid());
+        itable->IncrInterfaceAceStats(req);
+        itable->IncrInterfaceEndpointHits(req);
+        vtable->IncrVnAceStats(req->vn_ace_info());
     } else {
         FlowRuleMatchInfo &info = it->second;
         bool intf_changed = false;
@@ -283,34 +275,21 @@ void StatsManager::AddFlow(const FlowAceStatsRequest *req) {
             intf_changed = true;
         }
         if (intf_changed || (req->sg_rule_uuid() != info.sg_rule_uuid)) {
-            itable->IncrInterfaceAceStats(req->interface(),
-                                          req->sg_rule_uuid());
+            itable->IncrInterfaceAceStats(req);
             info.sg_rule_uuid = req->sg_rule_uuid();
         }
-        if (intf_changed || (req->fw_policy() != info.fw_policy) ||
-            (req->remote_tagset() != info.remote_tagset) ||
-            (req->remote_prefix() != info.remote_prefix)) {
-            if (req->session_count()) {
-                itable->IncrInterfaceEndpointHits(req->interface(),
-                                                  req->fw_policy(),
-                                                  req->remote_tagset(),
-                                                  req->remote_prefix(),
-                                                  req->initiator());
-            }
-            info.fw_policy = req->fw_policy();
-            info.remote_tagset = req->remote_tagset();
-            info.remote_prefix = req->remote_prefix();
+        if (intf_changed || !info.IsFwPolicyInfoEqual(req->fw_policy_info())) {
+            itable->IncrInterfaceEndpointHits(req);
+            info.fw_policy_info = req->fw_policy_info();
         }
-        if ((req->vn() != info.vn) ||
-            (req->nw_ace_uuid() != info.nw_ace_uuid)) {
-            vtable->IncrVnAceStats(req->vn(), req->nw_ace_uuid());
-            info.vn = req->vn();
-            info.nw_ace_uuid = req->nw_ace_uuid();
+        if (!info.IsVnAceInfoEqual(req->vn_ace_info())) {
+            vtable->IncrVnAceStats(req->vn_ace_info());
+            info.vn_ace_info = req->vn_ace_info();
         }
     }
 }
 
-void StatsManager::DeleteFlow(const FlowAceStatsRequest *req) {
+void StatsManager::DeleteFlow(const FlowUveStatsRequest *req) {
     FlowAceTree::iterator it = flow_ace_tree_.find(req->uuid());
     if (it == flow_ace_tree_.end()) {
         return;
@@ -318,17 +297,17 @@ void StatsManager::DeleteFlow(const FlowAceStatsRequest *req) {
     flow_ace_tree_.erase(it);
 }
 
-void StatsManager::EnqueueEvent(const boost::shared_ptr<FlowAceStatsRequest>
+void StatsManager::EnqueueEvent(const boost::shared_ptr<FlowUveStatsRequest>
                                 &req) {
     request_queue_.Enqueue(req);
 }
 
-bool StatsManager::RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req) {
+bool StatsManager::RequestHandler(boost::shared_ptr<FlowUveStatsRequest> req) {
     switch (req->event()) {
-    case FlowAceStatsRequest::ADD_FLOW:
+    case FlowUveStatsRequest::ADD_FLOW:
         AddFlow(req.get());
         break;
-    case FlowAceStatsRequest::DELETE_FLOW:
+    case FlowUveStatsRequest::DELETE_FLOW:
         DeleteFlow(req.get());
         break;
     default:
