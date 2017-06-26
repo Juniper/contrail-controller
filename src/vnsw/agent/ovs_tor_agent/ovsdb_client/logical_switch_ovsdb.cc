@@ -12,6 +12,8 @@ extern "C" {
 #include <physical_switch_ovsdb.h>
 #include <logical_switch_ovsdb.h>
 #include <physical_locator_ovsdb.h>
+#include <unicast_mac_local_ovsdb.h>
+#include <multicast_mac_local_ovsdb.h>
 
 #include <oper/vn.h>
 #include <oper/vrf.h>
@@ -427,6 +429,27 @@ void LogicalSwitchEntry::ReleaseLocatorCreateReference() {
         pl_entry->ReleaseCreateRequest(this);
         pl_create_ref_ = NULL;
     }
+}
+
+void LogicalSwitchEntry::NotifyDelete(struct ovsdb_idl_row *row) {
+    OvsdbIdlRowList::iterator it;
+    //Since logical-switch delete is received from ovsdb node,
+    //aggresively delete the local macs.
+    for (it = mcast_local_row_list_.begin();
+         it != mcast_local_row_list_.end(); ++it) {
+        table_->client_idl()->multicast_mac_local_ovsdb()->
+            Notify(OvsdbClientIdl::OVSDB_DEL, (*it));
+        ovsdb_wrapper_delete_mcast_mac_local(*it);
+    }
+    for (it = ucast_local_row_list_.begin();
+         it != ucast_local_row_list_.end(); ++it) {
+        table_->client_idl()->unicast_mac_local_ovsdb()->
+            Notify(OvsdbClientIdl::OVSDB_DEL, (*it));
+        ovsdb_wrapper_delete_ucast_mac_local(*it);
+    }
+
+    OvsdbDBEntry::NotifyDelete(row);
+    return;
 }
 
 LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl) :
