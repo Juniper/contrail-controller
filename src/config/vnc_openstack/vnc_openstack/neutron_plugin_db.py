@@ -279,7 +279,7 @@ class DBInterface(object):
             tenant_id = resource['tenant_id']
         elif ('tenant_id' in resource and
               resource['tenant_id'] != context['tenant_id']):
-            reason = _('Cannot create resource for another tenant')
+            reason = 'Cannot create resource for another tenant'
             self._raise_contrail_exception('AdminRequired', reason=reason)
         else:
             tenant_id = context['tenant_id']
@@ -1389,7 +1389,7 @@ class DBInterface(object):
             self._raise_contrail_exception('BadRequest',
                 resource='subnet', msg='Unknown IP family')
         elif cidr.version != int(subnet_q['ip_version']):
-            msg = _("cidr '%s' does not match the ip_version '%s'") \
+            msg = "cidr '%s' does not match the ip_version '%s'" \
                     %(subnet_q['cidr'], subnet_q['ip_version'])
             self._raise_contrail_exception('InvalidInput', error_message=msg)
         if 'gateway_ip' in subnet_q:
@@ -1799,7 +1799,7 @@ class DBInterface(object):
             self._check_port_fip_assoc(port_obj, fixed_ip_address, fip_obj)
             fip_obj.set_floating_ip_fixed_ip_address(fip_q['fixed_ip_address'])
         elif fixed_ip_address and not port_id:
-            msg = _("fixed_ip_address cannot be specified without a port_id")
+            msg = "fixed_ip_address cannot be specified without a port_id"
             self._raise_contrail_exception('BadRequest',
                                            resource="floatingip", msg=msg)
         else:
@@ -1814,9 +1814,9 @@ class DBInterface(object):
                     fields=['instance_ip_back_refs', 'floating_ip_back_refs'])
                 iip_refs = port_obj.get_instance_ip_back_refs()
                 if len(iip_refs) > 1:
-                    msg = (_('Port %s has multiple fixed IP addresses.  Must '
-                         'provide a specific IP address when assigning a '
-                         'floating IP') % port_obj.uuid)
+                    msg = 'Port %s has multiple fixed IP addresses.  Must ' \
+                         'provide a specific IP address when assigning a ' \
+                         'floating IP' % port_obj.uuid
                     self._raise_contrail_exception('BadRequest',
                                                    resource="floatingip",
                                                    msg=msg)
@@ -2909,8 +2909,8 @@ class DBInterface(object):
                 if subnet_prefix == self._subnet_vnc_get_prefix(subnet):
                     existing_sn_id = subnet.subnet_uuid
                     # duplicate !!
-                    msg = _("Cidr %s overlaps with another subnet of subnet %s"
-                            ) % (subnet_q['cidr'], existing_sn_id)
+                    msg = "Cidr %s overlaps with another subnet of subnet " \
+                            "%s" % (subnet_q['cidr'], existing_sn_id)
                     self._raise_contrail_exception('BadRequest',
                                                    resource='subnet', msg=msg)
             vnsn_data = net_ipam_ref['attr']
@@ -3519,8 +3519,8 @@ class DBInterface(object):
             for p in rports:
                 for ip in p['fixed_ips']:
                     if ip['subnet_id'] == subnet_id:
-                       msg = (_("Router %s already has a port "
-                                "on subnet %s") % (router_id, subnet_id))
+                       msg = "Router %s already has a port " \
+                                "on subnet %s" % (router_id, subnet_id)
                        self._raise_contrail_exception(
                            'BadRequest', resource='router', msg=msg)
                     sub_id = ip['subnet_id']
@@ -3534,9 +3534,9 @@ class DBInterface(object):
                                 'subnet_id': subnet_id,
                                 'cidr': cidr,
                                 'sub_id': sub_id}
-                        msg = (_("Cidr %(subnet_cidr)s of subnet "
-                                 "%(subnet_id)s overlaps with cidr %(cidr)s "
-                                 "of subnet %(sub_id)s") % data)
+                        msg = "Cidr %(subnet_cidr)s of subnet " \
+                                 "%(subnet_id)s overlaps with cidr %(cidr)s " \
+                                 "of subnet %(sub_id)s" % data
                         self._raise_contrail_exception(
                             'BadRequest', resource='router', msg=msg)
         except NoIdError:
@@ -3647,8 +3647,8 @@ class DBInterface(object):
                 if subnet_id == port_db['fixed_ips'][0]['subnet_id']:
                     break
             else:
-                msg = _('Subnet %s not connected to router %s') % (subnet_id,
-                                                                   router_id)
+                msg = 'Subnet %s not connected to router %s' % (subnet_id,
+                                                                router_id)
                 self._raise_contrail_exception('BadRequest',
                                                resource='router', msg=msg)
 
