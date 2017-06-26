@@ -199,3 +199,6 @@ class KubeManagerLogger(object):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus, self._module["table"])
 
+    def sandesh_uninit(self):
+        self._sandesh.uninit()
+
