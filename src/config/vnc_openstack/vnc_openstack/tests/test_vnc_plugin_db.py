@@ -117,12 +117,18 @@ class TestDbInterface(unittest.TestCase):
                          get_virtual_machine_interface_refs=\
                          lambda: [{'uuid': 'router_port_uuid'}])])
 
+        id_perms_obj = flexmock(
+            uuid = 'id_perms_uuid',
+            get_created=lambda: 'create_time',
+            get_last_modified=lambda: 'last_modified_time')
+
         fip_obj = flexmock(
             uuid = 'fip_uuid',
             get_fq_name=lambda: ['domain', 'project', 'fip'],
             get_project_refs=lambda: [{'uuid': str(uuid.uuid4())}],
             get_floating_ip_address=lambda: 'fip_ip',
-            get_floating_ip_fixed_ip_address= lambda: 'fip_port_ip')
+            get_floating_ip_fixed_ip_address= lambda: 'fip_port_ip',
+            get_id_perms= lambda: id_perms_obj)
 
         fip_obj.get_virtual_machine_interface_refs = \
             lambda: [{'uuid': 'fip_port_uuid1'}]

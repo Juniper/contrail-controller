@@ -246,7 +246,9 @@ class NeutronPluginInterface(object):
                'host_routes': [{'destination': route['destination'],
                                 'nexthop': route['nexthop']}
                                for route in subnet['routes']],
-               'shared': subnet['shared']
+               'shared': subnet['shared'],
+               'created_at': subnet['created_at'],
+               'updated_at': subnet['updated_at']
                }
         if 'dns_server_address' in subnet:
             res['dns_server_address'] = subnet['dns_server_address']

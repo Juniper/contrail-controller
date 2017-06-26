@@ -324,6 +324,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="action-list"      type="ActionListType" required='true'
              description='Actions to be performed if packets match condition'/>
         <xsd:element name="ethertype"        type="EtherType" required='true'/>
+        <xsd:element name="created"     type="xsd:dateTime" required='optional'
+             description='timestamp when security group rule object gets created'/>
+        <xsd:element name="last-modified"     type="xsd:dateTime" required='optional'
+             description='timestamp when security group rule object gets updated'/>
 
 
     </xsd:all>
@@ -578,6 +582,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='User provided name for this subnet'/>
         <xsd:element name="alloc-unit"   type="xsd:integer" default='1' required='optional' operation='CRD'
              description='allocation unit for this subnet to allocate bulk ip addresses'/>
+        <xsd:element name="created" type="xsd:dateTime" required='optional'
+             description='timestamp when subnet object gets created'/>
+        <xsd:element name="last-modified" type="xsd:dateTime" required='optional'
+             description='timestamp when subnet object gets updated'/>
     </xsd:all>
 </xsd:complexType>
 
