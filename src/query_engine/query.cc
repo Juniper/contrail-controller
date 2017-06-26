@@ -237,7 +237,8 @@ PostProcessingQuery::PostProcessingQuery(
 
                     for (rapidjson::SizeType k = 0; k<json_filter_and.Size(); k++) {
                         filter_match_t filter;
-
+                        // Error if its null
+                        QE_INVALIDARG_ERROR(!json_filter_and[k].IsNull());
                         const rapidjson::Value& name_value = 
                             json_filter_and[k][WHERE_MATCH_NAME];
                         const rapidjson::Value&  value_value = 
