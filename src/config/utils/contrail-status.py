@@ -79,12 +79,23 @@ CONTRAIL_SERVICES = {'compute' : {'sysv' : ['supervisor-vrouter'],
                                       'upstart' : ['supervisor-kubernetes'],
                                       'supervisor' : ['supervisor-kubernetes'],
                                       'systemd' :['contrail-kube-manager']},
-                     'support-service' : {'sysv' : ['supervisor-support-service'],
-                                          'upstart' : ['supervisor-support-service'],
+                     'support-service' : {'sysv' : ['redis-server',
+                                                    'zookeeper',
+                                                    'supervisor-support-service'],
+                                          'upstart' : ['redis-server',
+                                                       'zookeeper',
+                                                       'supervisor-support-service'],
                                           'supervisor' : ['supervisor-support-service'],
-                                          'systemd' :['rabbitmq-server',
-                                                      'zookeeper']},
+                                          'systemd' :['redis-server',
+                                                      'zookeeper',
+                                                      'rabbitmq-server']},
                     }
+
+# This is added for support service, we need give the customer module for support service
+CONTRAIL_SUPPORT_SERVICES_NODETYPE = { 'redis-server' : ['webui', 'analytics'],
+                               'rabbitmq-server' : ['config'],
+                               'zookeeper' : ['config']
+                            }
 
 SHOW_IF_DISABLED = {
                        'contrail-vrouter-dpdk': False
@@ -566,6 +577,15 @@ def check_status(svc_name, options):
                 options.cacert)
 # end check_status
 
+install_service = []
+def service_check_customer(svc):
+    if svc in CONTRAIL_SUPPORT_SERVICES_NODETYPE.keys():
+        for customer in CONTRAIL_SUPPORT_SERVICES_NODETYPE[svc]:
+            if customer not in install_service:
+                return False
+    return True
+# end service_check_customer
+
 def contrail_service_status(nodetype, options):
     if nodetype == 'compute':
         print "== Contrail vRouter =="
@@ -611,7 +631,12 @@ def contrail_service_status(nodetype, options):
             distribution == 'ubuntu')):
         print "== Contrail Support Services =="
         for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+            if not service_check_customer(svc_name):
+                continue
+            if svc_name == 'redis-server' and distribution == 'redhat':
+                svc_name = 'redis'
             check_status(svc_name, options)
+    install_service.append(nodetype)
 
 def package_installed(pkg):
     if distribution in ['debian', 'ubuntu']:
