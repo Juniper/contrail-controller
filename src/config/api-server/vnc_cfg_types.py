@@ -695,7 +695,65 @@ class LogicalRouterServer(Resource, LogicalRouter):
         return (True, '')
 
     @classmethod
+    def is_vxlan_routing_enabled(cls, db_conn, obj_dict):
+        # The function expects the obj_dict to have
+        # either the UUID of the object or the 
+        # parent's uuid (for the create case)
+        if 'parent_uuid' not in obj_dict:
+            if 'uuid' not in obj_dict:
+                return (False, False)
+            ok, lr = db_conn.dbe_read('logical_router', obj_dict['uuid'])
+            if not ok:
+                return (False, (400, 'Logical Router not found'))
+            project_uuid = lr.get('parent_uuid')
+        else:
+            project_uuid = obj_dict['parent_uuid']
+
+        ok, project = db_conn.dbe_read('project', project_uuid)
+        if not ok:
+            reutrn (ok, (400, 'Parent project for Logical Router not found'))
+        vxlan_routing = project.get('vxlan_routing', False)
+
+        return (True, vxlan_routing)
+
+    @classmethod
+    def check_for_external_gateway(cls, db_conn, obj_dict):
+        if 'virtual_network_refs' in obj_dict:
+            ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+            if not ok:
+                return (ok, vxlan_routing)
+
+            if (vxlan_routing and
+                obj_dict['virtual_network_refs'] != []):
+                return (False, (400, 'External Gateway not supported with VxLAN'))
+        return (True, '')
+
+    @classmethod
+    def check_for_configured_vni(cls, db_conn, obj_dict):
+        ok, global_vrouter_config, _ = db_conn.dbe_list('global_vrouter_config', 
+                                                    is_detail=True)
+        if not ok:
+            return (ok, global_vrouter_config)
+        vxlan_id_mode = global_vrouter_config[0].get('vxlan_network_identifier_mode')
+
+        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+        if not ok:
+            return (ok, vxlan_routing)
+        if vxlan_routing:
+            if vxlan_id_mode == 'configured' and 'vxlan_network_identifier' not in obj_dict:
+                return (False, (400, 'Provide Configured VNI Id for Logical Router'))
+            ok, result = cls.check_for_external_gateway(db_conn, obj_dict)
+            if not ok:
+                return (False, (400, 'External Gateway not supported with VxLAN'))
+
+        return (True, '')
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_for_configured_vni(db_conn, obj_dict)
+        if not ok:
+            return (ok, result)
+
         ok, result = cls.check_port_gateway_not_in_same_network(
                 db_conn, obj_dict)
         if not ok:
@@ -718,6 +776,11 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+
+        ok, result = cls.check_for_external_gateway(db_conn, obj_dict)
+        if not ok:
+            return (ok, result)
+
         ok, result = cls.check_port_gateway_not_in_same_network(
                 db_conn, obj_dict, id)
         if not ok:
@@ -742,8 +805,72 @@ class LogicalRouterServer(Resource, LogicalRouter):
             db_conn, obj_dict, result)
     # end pre_dbe_update
 
-# end class LogicalRouterServer
+    @classmethod
+    def get_lr_internal_vn_name(cls, uuid):
+        return '__contrail_lr_internal_vn_' + uuid + '__'
 
+    @classmethod
+    def get_parent_project(cls, obj_dict, db_conn):
+        proj_uuid = obj_dict.get('parent_uuid')
+        ok, proj_dict = cls.dbe_read(db_conn, 'project', proj_uuid)
+        return ok, proj_dict
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+        if not ok:
+            return ok, vxlan_routing
+
+        ok, proj_dict = db_conn.dbe_read('project', obj_dict['parent_uuid'])
+        if not ok:
+            return (ok, proj_dict)
+
+        if vxlan_routing == True:
+            vn_int_name = LogicalRouterServer.get_lr_internal_vn_name(
+                                             obj_dict.get('uuid'))
+            proj_obj = Project(name=proj_dict.get('display_name'),
+                               kwargs_parent_type='domain',
+                               kwargs_fq_name=proj_dict.get('fq_name'))
+
+            vn_obj = VirtualNetwork(name=vn_int_name, parent_obj=proj_obj)
+            id_perms = IdPermsType(enable=True, user_visible=False)
+            vn_obj.set_id_perms(id_perms.exportDict(None))
+
+            ok, gvc_dict, _ = db_conn.dbe_list('global_vrouter_config',
+                                            is_detail=True)
+            if not ok:
+                return ok, gvc_dict
+
+            vxlan_id_mode = gvc_dict[0].get('vxlan_network_identifier_mode')
+
+            if vxlan_id_mode == 'configured' and 'vxlan_network_identifier' in obj_dict:
+                vni_id = obj_dict['vxlan_network_identifier']
+                vn_obj.set_virtual_network_network_id(vni_id)
+
+            vn_int_dict = vn_obj.serialize_to_json()
+
+            api_server = db_conn.get_api_server()
+            api_server.internal_request_create('virtual-network', vn_int_dict)
+
+        return True, ''
+    #end post_dbe_create
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, vxlan_routing = cls.is_vxlan_routing_enabled(db_conn, obj_dict)
+        if vxlan_routing:
+            ok, proj_dict = cls.get_parent_project(obj_dict, db_conn)
+            vn_int_fqname = proj_dict.get('fq_name')
+            vn_int_name = cls.get_lr_internal_vn_name(obj_dict.get('uuid'))
+            vn_int_fqname.append(vn_int_name)
+            vn_int_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_int_fqname)
+
+            api_server = db_conn.get_api_server()
+            api_server.internal_request_delete('virtual-network', vn_int_uuid)
+
+        return True,''
+    #end pre_dbe_delete
+# end class LogicalRouterServer
 
 class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings = {}
@@ -2915,6 +3042,23 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
 # end class PhysicalInterfaceServer
 
+class ProjectServer(Resource, Project):
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        if 'vxlan_routing' in obj_dict:
+            # VxLAN routing can be enabled or disabled
+            # only when the project does not have any 
+            # Logical routers already attached.
+            ok, result = cls.dbe_read(db_conn, 'project', id)
+
+            if not ok:
+                return ok, result
+            if result.get('vxlan_routing') != obj_dict['vxlan_routing'] and\
+               'logical_routers' in result:
+                return (False, (400, 'VxLAN Routing update cannot be ' +
+                                'done when Logical Routers are configured'))
+        return True, ""
+#end ProjectServer
 
 class LoadbalancerMemberServer(Resource, LoadbalancerMember):
 
