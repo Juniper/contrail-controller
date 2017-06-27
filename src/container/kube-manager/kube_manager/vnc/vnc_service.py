@@ -516,7 +516,7 @@ class VncService(VncCommon):
         kind = event['object'].get('kind')
         service_namespace = event['object']['metadata'].get('namespace')
         service_name = event['object']['metadata'].get('name')
-        service_id = event['object']['metadata'].get('uid')
+        service_id = event['object']['metadata'].get('uuid')
         service_ip = event['object']['spec'].get('clusterIP')
         selectors = event['object']['spec'].get('selector', None)
         ports = event['object']['spec'].get('ports')
