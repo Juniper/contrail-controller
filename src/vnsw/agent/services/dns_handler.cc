@@ -172,6 +172,7 @@ bool DnsHandler::HandleRequest() {
     }
 
     if (ipam_type_.ipam_dns_method == "default-dns-server" ||
+        ipam_type_.ipam_dns_method == "none" ||
         ipam_type_.ipam_dns_method == "") {
         BuildDefaultDnsResolvers();
         if (dns_->flags.op == DNS_OPCODE_UPDATE) {
