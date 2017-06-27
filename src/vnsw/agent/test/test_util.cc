@@ -2350,14 +2350,21 @@ void DeleteLogicalInterface(const char *name) {
 }
 
 void AddVmPortVrf(const char *name, const string &ip, uint16_t tag,
-                  const string &v6_ip) {
+                  const string &v6_ip, bool swap) {
     char buff[1024];
     int len = 0;
 
     len += sprintf(buff + len,   "<direction>both</direction>");
     len += sprintf(buff + len,   "<vlan-tag>%d</vlan-tag>", tag);
-    len += sprintf(buff + len,   "<src-mac>02:00:00:00:00:02</src-mac>");
-    len += sprintf(buff + len,   "<dst-mac>02:00:00:00:00:01</dst-mac>");
+
+    if (swap == false) {
+        len += sprintf(buff + len,   "<src-mac>02:00:00:00:00:02</src-mac>");
+        len += sprintf(buff + len,   "<dst-mac>02:00:00:00:00:01</dst-mac>");
+    } else {
+        len += sprintf(buff + len,   "<src-mac>02:00:00:00:00:01</src-mac>");
+        len += sprintf(buff + len,   "<dst-mac>02:00:00:00:00:02</dst-mac>");
+    }
+
     len += sprintf(buff + len,
                    "<service-chain-address>%s</service-chain-address>",
                    ip.c_str());
