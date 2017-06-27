@@ -161,6 +161,7 @@ public:
     void PeerNotifyRoutes();
     void PeerNotifyMulticastRoutes(bool associate);
     void StalePeerRoutes();
+    void StopNotifyRoutes();
 
     bool is_disconnect_walk() const {return is_disconnect_walk_;}
     void set_is_disconnect_walk(bool is_disconnect_walk) {
