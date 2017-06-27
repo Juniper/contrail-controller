@@ -137,7 +137,9 @@ void OvsdbResourceVxLanIdTable::ReleaseVxLanId(OvsdbResourceVxLanId *entry,
             res_entry->active_entry = (*it);
             KSyncEntry *ovs_entry = (*it)->entry_;
             // only trigger for active entry
-            if (ovs_entry->IsActive()) {
+            if (ovs_entry->IsActive() &&
+                ovs_entry->GetObject() &&
+                (ovs_entry->GetObject()->delete_scheduled() == false)) {
                 ovs_entry->GetObject()->Change(ovs_entry);
             }
             res_entry->pending_list.erase(it);
