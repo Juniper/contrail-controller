@@ -85,6 +85,7 @@ public:
     void AddMsg(struct ovsdb_idl_txn *);
     void ChangeMsg(struct ovsdb_idl_txn *);
     void DeleteMsg(struct ovsdb_idl_txn *);
+    virtual void NotifyDelete(struct ovsdb_idl_row *);
 
     void OvsdbChange();
 
