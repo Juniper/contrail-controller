@@ -200,15 +200,17 @@ class LogQuerier(object):
         parser.add_argument(
             "--last", help="Logs from last time period (format 10m, 1d)")
 
-        parser.add_argument("--source", help="Logs from source address")
+        parser.add_argument("--source", nargs="*",
+            help="list of sources separated by space")
         parser.add_argument("--node-type", help="Logs from node type",
             choices=NodeTypeNames.values())
-        parser.add_argument(
-            "--module", help="Logs from module", choices=ModuleNames.values())
+        parser.add_argument("--module", nargs="*",
+            help="list of modules separated by space", choices=ModuleNames.values())
         parser.add_argument("--instance-id", help="Logs from module instance")
         parser.add_argument("--category", help="Logs of category")
         parser.add_argument("--level", help="Logs of level")
-        parser.add_argument("--message-type", help="Logs of message type")
+        parser.add_argument("--message-type", nargs="*",
+            help="list of message types separated by space")
         parser.add_argument("--reverse", action="store_true",
                             help="Show logs in reverse chronological order")
         parser.add_argument(
@@ -296,26 +298,34 @@ class LogQuerier(object):
         messages_url = OpServerUtils.opserver_query_url(
             self._args.analytics_api_ip,
             self._args.analytics_api_port)
-        where_msg = []
-        where_obj = []
+        where_or_list = []
         and_filter = []
         or_filter = []
         if self._args.source is not None:
-            if self._args.source.endswith('*'):
-                val = self._args.source[:-1]
-                oper = OpServerUtils.MatchOp.PREFIX
-            else:
-                val = self._args.source
-                oper = OpServerUtils.MatchOp.EQUAL
-            source_match = OpServerUtils.Match(name=VizConstants.SOURCE,
-                                               value=val, op=oper)
-            where_msg.append(source_match.__dict__)
+            for source in self._args.source:
+                if source.endswith('*'):
+                    val = source[:-1]
+                    oper = OpServerUtils.MatchOp.PREFIX
+                else:
+                    val = source
+                    oper = OpServerUtils.MatchOp.EQUAL
+                source_match = OpServerUtils.Match(name=VizConstants.SOURCE,
+                                                   value=val, op=oper)
+                where_or_list.append([])
+                where_or_list[-1].append(source_match.__dict__)
 
         if self._args.module is not None:
-            module_match = OpServerUtils.Match(name=VizConstants.MODULE,
-                                               value=self._args.module,
-                                               op=OpServerUtils.MatchOp.EQUAL)
-            where_msg.append(module_match.__dict__)
+            module_list = []
+            for module in self._args.module:
+                module_match = OpServerUtils.Match(name=VizConstants.MODULE,
+                                                   value=module,
+                                                   op=OpServerUtils.MatchOp.EQUAL)
+                module_list.append(module_match.__dict__)
+            if not where_or_list:
+                where_or_list = [[module] for module in module_list]
+            else:
+                where_or_list = [where_msg + [module] for where_msg in where_or_list \
+                                                      for module in module_list]
 
         if self._args.category is not None:
             if self._args.category.endswith('*'):
@@ -327,19 +337,29 @@ class LogQuerier(object):
             category_match = OpServerUtils.Match(
                 name=VizConstants.CATEGORY,
                 value=val, op=oper)
-            where_msg.append(category_match.__dict__)
+            if not where_or_list:
+                where_or_list = [[]]
+            for where_msg in where_or_list:
+                where_msg.append(category_match.__dict__)
 
         if self._args.message_type is not None:
-            if self._args.message_type.endswith('*'):
-                val = self._args.message_type[:-1]
-                oper = OpServerUtils.MatchOp.PREFIX
+            message_type_list = []
+            for message_type in self._args.message_type:
+                if message_type.endswith('*'):
+                    val = message_type[:-1]
+                    oper = OpServerUtils.MatchOp.PREFIX
+                else:
+                    val = message_type
+                    oper = OpServerUtils.MatchOp.EQUAL
+                message_type_match = OpServerUtils.Match(
+                    name=VizConstants.MESSAGE_TYPE,
+                    value=val, op=oper)
+                message_type_list.append(message_type_match.__dict__)
+            if not where_or_list:
+                where_or_list = [[message_type] for message_type in message_type_list]
             else:
-                val = self._args.message_type
-                oper = OpServerUtils.MatchOp.EQUAL
-            message_type_match = OpServerUtils.Match(
-                name=VizConstants.MESSAGE_TYPE,
-                value=val, op=oper)
-            where_msg.append(message_type_match.__dict__)
+                where_or_list = [where_msg + [message_type] for where_msg in where_or_list \
+                                                            for message_type in message_type_list]
 
         if self._args.level is not None:
             level_match = OpServerUtils.Match(
@@ -401,7 +421,10 @@ class LogQuerier(object):
                         name=OpServerUtils.OBJECT_ID,
                         value=object_id,
                         op=OpServerUtils.MatchOp.EQUAL)
-                where_obj.append(id_match.__dict__)
+                if not where_or_list:
+                    where_or_list.append([])
+                for where_msg in where_or_list:
+                    where_msg.append(id_match.__dict__)
             elif self._args.object_id is not None and \
                self._args.object_values is True:
                 print 'Please specify either object-id or object-values but not both'
@@ -435,18 +458,13 @@ class LogQuerier(object):
                     print 'Please specify either object-id with ' + \
                         'object-select-field or only object-values'
                     return -1
-                if len(where_msg):
-                    options = [where['name'] for where in where_msg]
+                if len(where_or_list):
+                    options = [where['name'] for where_msg in where_or_list for where in where_msg]
                     print 'Invalid/unsupported where-clause options %s for object-values query' % str(options)
                     return -1
                 select_list = [
                     OpServerUtils.OBJECT_ID
                 ]
-
-            if len(where_obj) or len(where_msg):
-                where = [where_obj + where_msg]
-            else:
-                where = None
 
         elif self._args.trace is not None:
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
@@ -460,8 +478,10 @@ class LogQuerier(object):
                 name=VizConstants.CATEGORY,
                 value=self._args.trace,
                 op=OpServerUtils.MatchOp.EQUAL)
-            where_msg.append(trace_buf_match.__dict__)
-            where = [where_msg]
+            if not where_or_list:
+                where_or_list = [[]]
+            for where_msg in where_or_list:
+                where_msg.append(trace_buf_match.__dict__)
             select_list = [
                 VizConstants.TIMESTAMP,
                 VizConstants.MESSAGE_TYPE,
@@ -478,11 +498,6 @@ class LogQuerier(object):
         else:
             # Message Table Query
             table = VizConstants.COLLECTOR_GLOBAL_TABLE
-
-            if len(where_msg):
-                where = [where_msg]
-            else:
-                where = None
 
             select_list = [
                 VizConstants.TIMESTAMP,
@@ -506,15 +521,20 @@ class LogQuerier(object):
 
         if self._args.keywords is not None:
             p = re.compile('\s*,\s*|\s+')
-            if where is None:
-                where = [[]]
+            if not where_or_list:
+                where_or_list = [[]]
             for kwd in p.split(self._args.keywords):
                 message_type_match = OpServerUtils.Match(
                     name=VizConstants.KEYWORD,
                     value=kwd,
                     op=OpServerUtils.MatchOp.EQUAL)
-                for wc in where:
-                    wc.append(message_type_match.__dict__)
+                for where_msg in where_or_list:
+                    where_msg.append(message_type_match.__dict__)
+
+        if not where_or_list:
+            where = None
+        else:
+            where = where_or_list
 
         # Add sort by timestamp for non object value queries
         sort_op = None
