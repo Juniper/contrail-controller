@@ -649,10 +649,13 @@ class VncApi(object):
 
     def _obj_serializer_diff(self, obj):
         if hasattr(obj, 'serialize_to_json'):
-            return obj.serialize_to_json(obj.get_pending_updates())
+            if hasattr(obj, 'get_pending_updates'):
+                return obj.serialize_to_json(obj.get_pending_updates())
+            else:
+                return obj.serialize_to_json()
         else:
             return dict((k, v) for k, v in obj.__dict__.iteritems())
-    # end _obj_serializer_diff
+    #end _obj_serializer_diff
 
     def _obj_serializer_all(self, obj):
         if hasattr(obj, 'serialize_to_json'):
