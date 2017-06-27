@@ -27,6 +27,7 @@ public:
     virtual void TxnDoneNoMessage() {}
 
     KSyncEntry::KSyncEvent ack_event() {return ack_event_;}
+    virtual KSyncObject* GetObject() = 0;
 
 protected:
     friend class OvsdbClientIdl;
