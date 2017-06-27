@@ -119,12 +119,16 @@ class InstallVenv(object):
     def pip_install(self, find_links, *args):
         find_links_str = ' '.join('--find-links file://'+x for x in find_links)
         cmd_array = ['%stools/with_venv.sh' %(os.environ.get('tools_path', '')),
-                         'python', '.venv/bin/pip', 'install', 
+                         'python', '.venv/bin/pip', 'install',
                          '--upgrade']
         if not args[0].startswith('pip'):
             cmd_array.extend(['--no-cache-dir'])
+        if args[0].startswith('vnc'):
+            # TODO: For now, don't use pypi index for vnc_api
+            cmd_array.append('--no-index')
         for link in find_links:
             cmd_array.extend(['--find-links', 'file://'+link])
+        #import pdb; pdb.set_trace()
         self.run_command(cmd_array + list(args),
                           redirect_output=False)
 
@@ -163,6 +167,8 @@ class InstallVenv(object):
         self.pip_install(find_links, 'pip>=6.0')
         self.pip_install(find_links, 'setuptools')
         self.pip_install(find_links, 'pbr')
+        self.pip_install(find_links, 'requests')
+        self.pip_install(find_links, 'vnc_api')
 
         self.pip_clear_cache(find_links)
         self.pip_install(find_links, '-r', self.requirements,
