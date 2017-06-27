@@ -163,6 +163,16 @@ class DBInterface(object):
 
     #end __init__
 
+    # Is user_visible
+    def _is_user_visible(self, obj):
+        return obj._id_perms.user_visible
+    #end _is_user_visible
+
+    # Is multi_tenancy
+    def _is_multi_tenancy(self):
+        return self._manager._multi_tenancy
+    #end _is_user_visible
+
     # Helper routines
     def _request_api_server(self, url, method, data=None, headers=None):
         from eventlet.greenthread import getcurrent
@@ -529,7 +539,8 @@ class DBInterface(object):
     #end _project_list_domain
 
     # find network ids on a given project
-    def _network_list_project(self, project_id, count=False, filters=None):
+    def _network_list_project(self, project_id, count=False, filters=None,
+            is_admin=True):
         if project_id:
             try:
                 project_uuid = str(uuid.UUID(project_id))
@@ -544,6 +555,9 @@ class DBInterface(object):
         else:
             ret_val = self._virtual_network_list(parent_id=project_uuid,
                                                  detail=True, filters=filters)
+        if not is_admin and self._is_multi_tenancy():
+            for index, obj in enumerate(ret_val):
+                ret_val.pop(index) if not self._is_user_visible(obj) else None
 
         return ret_val
     #end _network_list_project
@@ -2668,7 +2682,8 @@ class DBInterface(object):
             if filters and 'id' in filters:
                 _collect_without_prune(filters['id'])
             elif filters and 'name' in filters:
-                net_objs = self._network_list_project(context['tenant'])
+                net_objs = self._network_list_project(context['tenant'],
+                        is_admin=False)
                 all_net_objs.extend(net_objs)
                 all_net_objs.extend(self._network_list_filter(shared=True))
                 all_net_objs.extend(self._network_list_filter(
@@ -2688,7 +2703,8 @@ class DBInterface(object):
                     all_net_objs.extend(self._network_list_filter(
                                  router_external=True))
                     all_net_objs.extend(self._network_list_filter(shared=True))
-                all_net_objs.extend(self._network_list_project(project_uuid))
+                all_net_objs.extend(self._network_list_project(project_uuid,
+                    is_admin=False))
         # admin role from here on
         elif filters and 'tenant_id' in filters:
             # project-id is present
