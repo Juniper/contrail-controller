@@ -7,7 +7,7 @@
 #include "pkt/flow_mgmt.h"
 #include "pkt/flow_mgmt_request.h"
 #include "pkt/flow_mgmt_dbclient.h"
-#include "uve/flow_ace_stats_request.h"
+#include "uve/flow_uve_stats_request.h"
 #include "uve/agent_uve_stats.h"
 #include "vrouter/flow_stats/flow_stats_collector.h"
 
@@ -576,49 +576,31 @@ void FlowMgmtManager::EnqueueUveAddEvent(const FlowEntry *flow) const {
         const VnEntry *vn = flow->vn_entry();
         string vn_name = vn? vn->GetName() : "";
         string itf_name = vmi? vmi->cfg_name() : "";
-        if ((!itf_name.empty() && ((!flow->sg_rule_uuid().empty()) ||
-                ((!flow->fw_policy_name_uuid().empty()) &&
-                 ((flow->remote_tagset().size() != 0) ||
-                  (!flow->RemotePrefix().empty()))))
-            ) ||
-           (!vn_name.empty() && !flow->nw_ace_uuid().empty())) {
-            bool initiator_session = false;
-            uint8_t count = 0;
-            /* Endpoint statistics update is not required in the following
-             * cases
-             * 1. When flow has empty policy_set_acl_name. One example of this
-             *    case is when matching rule for flow is IMPLICIT_ALLOW
-             * 2. Link local flows
-             * Disabling of endpoint statistics update is done by passing
-             * count as 0 in the request to UVE module.
-             *
-             * Also count is updated only for forward-flow as the count
-             * indicates session_count and NOT flow-count
-             */
-            if (!flow->policy_set_acl_name().empty() &&
-                !flow->is_flags_set(FlowEntry::LinkLocalFlow)) {
-                if (!flow->is_flags_set(FlowEntry::ReverseFlow)) {
-                    count = 1;
-                    if (flow->is_flags_set(FlowEntry::IngressDir)) {
-                        initiator_session = true;
-                    }
-                }
-            }
-            boost::shared_ptr<FlowAceStatsRequest> req(new FlowAceStatsRequest
-                (FlowAceStatsRequest::ADD_FLOW, flow->uuid(), itf_name,
-                 flow->sg_rule_uuid(), flow->fw_policy_name_uuid(),
-                 flow->remote_tagset(), flow->RemotePrefix(), count,
-                 initiator_session, vn_name, flow->nw_ace_uuid()));
-            uve->stats_manager()->EnqueueEvent(req);
+        FlowUveVnAcePolicyInfo vn_ace_info;
+        FlowUveFwPolicyInfo fw_policy_info;
+
+        flow->FillUveVnAceInfo(&vn_ace_info);
+        if (!itf_name.empty()) {
+            flow->FillUveFwStatsInfo(&fw_policy_info);
         }
+        boost::shared_ptr<FlowUveStatsRequest> req(new FlowUveStatsRequest
+            (FlowUveStatsRequest::ADD_FLOW, flow->uuid(), itf_name,
+             flow->sg_rule_uuid(), vn_ace_info, fw_policy_info));
+
+        if (!req->sg_info_valid() && !req->vn_ace_valid() &&
+            !req->fw_policy_valid()) {
+            return;
+        }
+
+        uve->stats_manager()->EnqueueEvent(req);
     }
 }
 
 void FlowMgmtManager::EnqueueUveDeleteEvent(const FlowEntry *flow) const {
     AgentUveStats *uve = dynamic_cast<AgentUveStats *>(agent_->uve());
     if (uve) {
-        boost::shared_ptr<FlowAceStatsRequest> req(new FlowAceStatsRequest
-            (FlowAceStatsRequest::DELETE_FLOW, flow->uuid()));
+        boost::shared_ptr<FlowUveStatsRequest> req(new FlowUveStatsRequest
+            (FlowUveStatsRequest::DELETE_FLOW, flow->uuid()));
         uve->stats_manager()->EnqueueEvent(req);
     }
 }

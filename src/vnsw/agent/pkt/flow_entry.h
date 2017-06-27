@@ -41,6 +41,8 @@ class FlowStatsCollector;
 class Token;
 class FlowMgmtRequest;
 class FlowEntryInfo;
+struct FlowUveFwPolicyInfo;
+struct FlowUveVnAcePolicyInfo;
 typedef std::auto_ptr<FlowEntryInfo> FlowMgmtEntryInfoPtr;
 
 ////////////////////////////////////////////////////////////////////////////
@@ -701,6 +703,8 @@ class FlowEntry {
     void set_flow_mgmt_info(FlowEntryInfo *info) {
         flow_mgmt_info_.reset(info);
     }
+    void FillUveFwStatsInfo(FlowUveFwPolicyInfo *info) const;
+    void FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const;
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;

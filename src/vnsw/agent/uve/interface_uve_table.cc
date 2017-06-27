@@ -207,6 +207,22 @@ void InterfaceUveTable::UveInterfaceEntry::Reset() {
     renewed_ = false;
 }
 
+void InterfaceUveTable::UveInterfaceEntry::HandleTagListChange() {
+    assert(intf_);
+    /* No action is required if tags are not added yet. Addition of tags is
+     * handled via FlowStats module notification */
+    if (!local_tagset_.size() != 0) {
+        TagList new_tag_list;
+        intf_->CopyTagIdList(&new_tag_list);
+        if (local_tagset_ != new_tag_list) {
+            /* Do not update local_tagset_ with new values. This is handled
+             * as part of FlowStats module notification */
+            security_policy_stats_map_.clear();
+            local_tagset_.clear();
+        }
+    }
+}
+
 void InterfaceUveTable::UveInterfaceEntry::UpdatePortBitmap
     (uint8_t proto, uint16_t sport, uint16_t dport) {
     tbb::mutex::scoped_lock lock(mutex_);
@@ -336,6 +352,16 @@ void InterfaceUveTable::InterfaceDeleteHandler(const string &name) {
     return;
 }
 
+void InterfaceUveTable::HandleVmiTagListChange(const string &name) {
+    InterfaceMap::iterator it = interface_tree_.find(name);
+    if (it == interface_tree_.end()) {
+        return;
+    }
+    UveInterfaceEntry* entry = it->second.get();
+    entry->HandleTagListChange();
+    return;
+}
+
 void InterfaceUveTable::InterfaceNotify(DBTablePartBase *partition,
                                         DBEntryBase *e) {
     const VmInterface *vm_port = dynamic_cast<const VmInterface*>(e);
@@ -373,6 +399,7 @@ void InterfaceUveTable::InterfaceNotify(DBTablePartBase *partition,
         }
         if (!vm_port->cfg_name().empty()) {
             InterfaceAddHandler(vm_port, old_list);
+            HandleVmiTagListChange(vm_port->cfg_name());
         }
     }
 }
@@ -625,30 +652,38 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateInterfaceAceStats
 }
 
 void InterfaceUveTable::UveInterfaceEntry::UpdateInterfaceFwPolicyStats
-    (const std::string &fw_policy, const TagList &tglist,
-     const std::string &rprefix, bool initiator) {
+    (const FlowUveFwPolicyInfo &info) {
     ace_stats_changed_ = true;
+    tbb::mutex::scoped_lock lock(mutex_);
+    /* If TagList of VMI has changed clear the earlier statistics as they are
+     * valid only for previous TagList.
+     */
+    if ((local_tagset_.size() > 0) && (local_tagset_ != info.local_tagset_)) {
+        security_policy_stats_map_.clear();
+    }
+    local_tagset_ = info.local_tagset_;
     SecurityPolicyStatsMap::iterator it = security_policy_stats_map_.
-        find(fw_policy);
-    UveSecurityPolicyStatsPtr ep_key(new UveSecurityPolicyStats(tglist, rprefix,
-                                                                ""));
+        find(info.fw_policy_);
+    UveSecurityPolicyStatsPtr ep_key(new UveSecurityPolicyStats
+                                         (info.remote_tagset_,
+                                          info.remote_prefix_, ""));
     if (it != security_policy_stats_map_.end()) {
         InterfaceUveTable::SecurityPolicyStatsSet &remote_ep_list = it->second;
         SecurityPolicyStatsSet::iterator ep_it = remote_ep_list.find(ep_key);
         if (ep_it != remote_ep_list.end()) {
             UveSecurityPolicyStatsPtr entry = *ep_it;
-            entry->UpdateSessionCount(initiator);
+            entry->UpdateSessionCount(info.initiator_);
             return;
         } else {
-            ep_key->UpdateSessionCount(initiator);
+            ep_key->UpdateSessionCount(info.initiator_);
             remote_ep_list.insert(ep_key);
         }
     } else {
-        ep_key->UpdateSessionCount(initiator);
+        ep_key->UpdateSessionCount(info.initiator_);
         SecurityPolicyStatsSet remote_ep_list;
         remote_ep_list.insert(ep_key);
-        security_policy_stats_map_.insert(SecurityPolicyStatsPair(fw_policy,
-                                                                  remote_ep_list));
+        security_policy_stats_map_.insert(SecurityPolicyStatsPair
+                                          (info.fw_policy_, remote_ep_list));
     }
 }
 
@@ -689,6 +724,13 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceAceStatsMsg
 
 void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
     (const EndpointStatsInfo &info) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    /* If TagList of VMI has changed clear the earlier statistics as they are
+     * valid only for previous TagList. If local_tagset_ is not populated yet
+     * we should not clear stats as it would result in losing session counts */
+    if ((local_tagset_.size() > 0) && (local_tagset_ != info.local_tagset)) {
+        security_policy_stats_map_.clear();
+    }
     local_tagset_ = info.local_tagset;
     local_vn_ = info.local_vn;
     UveSecurityPolicyStatsPtr stats(new UveSecurityPolicyStats
@@ -763,7 +805,8 @@ string InterfaceUveTable::UveInterfaceEntry::GetTagStr(Agent *agent,
 }
 
 void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
-    (Agent *agent, EndpointSecurityStats *obj) const {
+    (Agent *agent, EndpointSecurityStats *obj) {
+    tbb::mutex::scoped_lock lock(mutex_);
     std::map<std::string, EndpointStats> eps;
 
     obj->set_name(intf_->cfg_name());
@@ -781,13 +824,21 @@ void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
         while (sit != list.end()) {
             SecurityPolicyFlowStats item;
             UveSecurityPolicyStatsPtr entry(*sit);
-            item.set_remote_app_id(entry->GetTagStr(this, TagTable::APPLICATION));
-            item.set_remote_tier_id(entry->GetTagStr(this, TagTable::TIER));
-            item.set_remote_site_id(entry->GetTagStr(this, TagTable::SITE));
-            item.set_remote_deployment_id(entry->GetTagStr(this, TagTable::DEPLOYMENT));
+            item.set_remote_app_id(entry->GetTagStr(this,
+                                                    TagTable::APPLICATION));
+            item.set_remote_tier_id(entry->GetTagStr(this,
+                                                     TagTable::TIER));
+            item.set_remote_site_id(entry->GetTagStr(this,
+                                                     TagTable::SITE));
+            item.set_remote_deployment_id(entry->GetTagStr(this,
+                                                           TagTable::DEPLOYMENT));
             item.set_remote_vn(entry->remote_vn);
-            item.set_initiator_session_count(entry->initiator_session_count);
-            item.set_responder_session_count(entry->responder_session_count);
+            item.set_initiator_session_count
+                (entry->initiator_session_count -
+                 entry->prev_initiator_session_count);
+            item.set_responder_session_count
+                (entry->responder_session_count -
+                 entry->prev_responder_session_count);
             item.set_in_bytes(entry->in_bytes - entry->prev_in_bytes);
             item.set_in_pkts(entry->in_pkts - entry->prev_in_pkts);
             item.set_out_bytes(entry->out_bytes - entry->prev_out_bytes);
@@ -798,6 +849,8 @@ void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
             entry->prev_in_pkts = entry->in_pkts;
             entry->prev_out_bytes = entry->out_bytes;
             entry->prev_out_pkts = entry->out_pkts;
+            entry->prev_initiator_session_count = entry->initiator_session_count;
+            entry->prev_responder_session_count = entry->responder_session_count;
 
             ++sit;
         }
@@ -810,7 +863,8 @@ void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
 }
 
 void InterfaceUveTable::UveInterfaceEntry::FillTagSetAndPolicyList
-    (Agent *agent, UveVMInterfaceAgent *obj) const {
+    (Agent *agent, UveVMInterfaceAgent *obj) {
+    tbb::mutex::scoped_lock lock(mutex_);
     obj->set_app(GetTagStr(agent, TagTable::APPLICATION));
     obj->set_tier(GetTagStr(agent, TagTable::TIER));
     obj->set_site(GetTagStr(agent, TagTable::SITE));

@@ -13,7 +13,7 @@
 #include <string>
 #include <map>
 #include <utility>
-#include <uve/flow_ace_stats_request.h>
+#include <uve/flow_uve_stats_request.h>
 #include <vr_types.h>
 #include <uve/agent_uve.h>
 
@@ -147,18 +147,37 @@ class StatsManager {
     struct FlowRuleMatchInfo {
         std::string interface;
         std::string sg_rule_uuid;
-        std::string fw_policy;
-        TagList remote_tagset;
-        std::string remote_prefix;
-        std::string vn;
-        std::string nw_ace_uuid;
+        FlowUveFwPolicyInfo fw_policy_info;
+        FlowUveVnAcePolicyInfo vn_ace_info;
         FlowRuleMatchInfo(const std::string &itf, const std::string &sg_rule,
-                          const std::string &fw_pol, const TagList &rset,
-                          const std::string &rprefix, const std::string &net,
-                          const std::string &nw_ace)
-            : interface(itf), sg_rule_uuid(sg_rule), fw_policy(fw_pol),
-              remote_tagset(rset), remote_prefix(rprefix), vn(net),
-              nw_ace_uuid(nw_ace) {
+                          const FlowUveFwPolicyInfo &fw_info,
+                          const FlowUveVnAcePolicyInfo &nw_ace_info) :
+            interface(itf), sg_rule_uuid(sg_rule), fw_policy_info(fw_info),
+            vn_ace_info(nw_ace_info) {
+        }
+        bool IsFwPolicyInfoEqual(const FlowUveFwPolicyInfo &info) const {
+            if (fw_policy_info.local_tagset_ != info.local_tagset_) {
+                return false;
+            }
+            if (fw_policy_info.fw_policy_ != info.fw_policy_) {
+                return false;
+            }
+            if (fw_policy_info.remote_tagset_ != info.remote_tagset_) {
+                return false;
+            }
+            if (fw_policy_info.remote_prefix_ != info.remote_prefix_) {
+                return false;
+            }
+            return true;
+        }
+        bool IsVnAceInfoEqual(const FlowUveVnAcePolicyInfo &info) const {
+            if (vn_ace_info.vn_ != info.vn_) {
+                return false;
+            }
+            if (vn_ace_info.nw_ace_uuid_ != info.nw_ace_uuid_) {
+                return false;
+            }
+            return true;
         }
     };
 
@@ -179,8 +198,8 @@ class StatsManager {
     void Shutdown(void);
     void RegisterDBClients();
     void InitDone();
-    bool RequestHandler(boost::shared_ptr<FlowAceStatsRequest> req);
-    void EnqueueEvent(const boost::shared_ptr<FlowAceStatsRequest> &req);
+    bool RequestHandler(boost::shared_ptr<FlowUveStatsRequest> req);
+    void EnqueueEvent(const boost::shared_ptr<FlowUveStatsRequest> &req);
     bool BuildFlowRate(AgentStats::FlowCounters &created,
                        AgentStats::FlowCounters &aged,
                        FlowRateComputeInfo &flow_info,
@@ -197,8 +216,8 @@ class StatsManager {
     void DelInterfaceStatsEntry(const Interface *intf);
     void AddUpdateVrfStatsEntry(const VrfEntry *intf);
     void DelVrfStatsEntry(const VrfEntry *intf);
-    void AddFlow(const FlowAceStatsRequest *req);
-    void DeleteFlow(const FlowAceStatsRequest *req);
+    void AddFlow(const FlowUveStatsRequest *req);
+    void DeleteFlow(const FlowUveStatsRequest *req);
     bool FlowStatsUpdate();
 
     VrfIdToVrfStatsTree vrf_stats_tree_;
@@ -208,7 +227,7 @@ class StatsManager {
     DBTableBase::ListenerId vrf_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     Agent *agent_;
-    WorkQueue<boost::shared_ptr<FlowAceStatsRequest> > request_queue_;
+    WorkQueue<boost::shared_ptr<FlowUveStatsRequest> > request_queue_;
     Timer *timer_;
     DISALLOW_COPY_AND_ASSIGN(StatsManager);
 };

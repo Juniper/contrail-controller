@@ -10,6 +10,7 @@
 #include <pkt/flow_proto.h>
 #include <pkt/flow_table.h>
 #include <uve/stats_manager.h>
+#include <uve/flow_uve_stats_request.h>
 
 class InterfaceUveStatsTable : public InterfaceUveTable {
 public:
@@ -23,12 +24,8 @@ public:
     (uint32_t fip, const string &vn, Interface *intf);
     void UpdatePortBitmap
     (const string &name, uint8_t proto, uint16_t sport, uint16_t dport);
-    void IncrInterfaceAceStats(const std::string &itf, const std::string &u);
-    void IncrInterfaceEndpointHits(const std::string &itf,
-                                   const std::string &fw_pol,
-                                   const TagList &tglist,
-                                   const std::string &rprefix,
-                                   bool initiator);
+    void IncrInterfaceAceStats(const FlowUveStatsRequest *req);
+    void IncrInterfaceEndpointHits(const FlowUveStatsRequest *req);
     void SendInterfaceAceStats(const string &name, UveInterfaceEntry *entry);
     void UpdateVmiTagBasedStats(const EndpointStatsInfo &info);
     void BuildInterfaceUveInfo(InterfaceUveInfoResp *r);

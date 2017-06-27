@@ -234,33 +234,29 @@ InterfaceUveTable::FloatingIp * InterfaceUveStatsTable::FipEntry
     return entry->FipEntry(fip, vn);
 }
 
-void InterfaceUveStatsTable::IncrInterfaceAceStats(const std::string &itf,
-                                                   const std::string &u) {
-    if (itf.empty() || u.empty()) {
+void InterfaceUveStatsTable::IncrInterfaceAceStats
+    (const FlowUveStatsRequest *req) {
+    if (!req->sg_info_valid()) {
         return;
     }
-    InterfaceMap::iterator intf_it = interface_tree_.find(itf);
+    InterfaceMap::iterator intf_it = interface_tree_.find(req->interface());
 
     if (intf_it != interface_tree_.end()) {
         UveInterfaceEntry *entry = intf_it->second.get();
-        entry->UpdateInterfaceAceStats(u);
+        entry->UpdateInterfaceAceStats(req->sg_rule_uuid());
     }
 }
 
 void InterfaceUveStatsTable::IncrInterfaceEndpointHits
-    (const std::string &itf, const std::string &fw_pol,
-     const TagList &tglist, const std::string &rprefix, bool initiator) {
-    if (itf.empty() || fw_pol.empty()) {
+    (const FlowUveStatsRequest *req) {
+    if (!req->fw_policy_valid()) {
         return;
     }
-    if ((tglist.size() == 0) && rprefix.empty()) {
-        return;
-    }
-    InterfaceMap::iterator intf_it = interface_tree_.find(itf);
+    InterfaceMap::iterator intf_it = interface_tree_.find(req->interface());
 
     if (intf_it != interface_tree_.end()) {
         UveInterfaceEntry *entry = intf_it->second.get();
-        entry->UpdateInterfaceFwPolicyStats(fw_pol, tglist, rprefix, initiator);
+        entry->UpdateInterfaceFwPolicyStats(req->fw_policy_info());
     }
 }
 void InterfaceUveStatsTable::SendInterfaceAceStats(const string &name,
