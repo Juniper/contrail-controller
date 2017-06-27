@@ -223,3 +223,7 @@ AgentXmppChannel *BgpPeer::GetAgentXmppChannel() const {
     }
     return NULL;
 }
+
+void BgpPeer::StopNotifyRoutes() const {
+    route_walker_->StopAllWalks();
+}

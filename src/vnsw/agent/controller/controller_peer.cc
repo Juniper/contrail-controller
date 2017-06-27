@@ -143,6 +143,8 @@ void AgentXmppChannel::DeCommissionBgpPeer() {
 
     // Add the peer to global decommisioned list
     agent_->controller()->AddToDecommissionedPeerList(bgp_peer_id_);
+    //Stop Notifyall walks
+    bgp_peer_id_->StopNotifyRoutes();
     //Reset channel BGP peer id
     bgp_peer_id_.reset();
 }
