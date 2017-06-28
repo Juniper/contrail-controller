@@ -2876,6 +2876,8 @@ class VncApiServer(object):
 
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
+        else:
+            self._db_conn._db_resync_done.set()
 
         # make default ipam available across tenants for backward compatability
         obj_type = 'network_ipam'
