@@ -364,7 +364,10 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
-            (ok, result) = self._ifmap_db.object_create(obj_info, obj_dict)
+            try:
+                (ok, result) = self._ifmap_db.object_create(obj_info, obj_dict)
+            except AttributeError:
+                ok = True
             if not ok:
                 self.config_log(result, level=SandeshLevel.SYS_ERR)
                 raise Exception(result)
@@ -396,7 +399,10 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
-            (ok, result) = self._ifmap_db.object_update(r_class, new_obj_dict)
+            try:
+                (ok, result) = self._ifmap_db.object_update(r_class, new_obj_dict)
+            except AttributeError:
+                ok = True
             if not ok:
                 raise Exception(result)
     #end _dbe_update_notification
@@ -425,7 +431,10 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
-            (ok, ifmap_result) = self._ifmap_db.object_delete(obj_info)
+            try:
+                (ok, ifmap_result) = self._ifmap_db.object_delete(obj_info)
+            except AttributeError:
+                ok = True
             if not ok:
                 self.config_log(ifmap_result, level=SandeshLevel.SYS_ERR)
                 raise Exception(ifmap_result)
@@ -1045,7 +1054,7 @@ class VncDbClient(object):
 
         parent_res_type = obj_dict.get('parent_type')
         obj_class = self.get_resource_class(obj_type)
-        (ok, result) = self._ifmap_db.object_alloc(
+        (ok, result) = VncIfmapClient.object_alloc(
             obj_class, parent_res_type, obj_dict['fq_name'])
         if not ok:
             self.dbe_release(obj_type, obj_dict['fq_name'])
