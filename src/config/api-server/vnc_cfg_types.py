@@ -1464,7 +1464,7 @@ class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
         ok, read_result = cls.dbe_read(db_conn, 'application_policy_set', id)
         if not ok:
             return ok, read_result
-        if read_result['is_global']:
+        if read_result.get('is_global'):
             msg = "Global Application Policy Set cannot be deleted"
             return (False, (400, msg))
         return True, ''
