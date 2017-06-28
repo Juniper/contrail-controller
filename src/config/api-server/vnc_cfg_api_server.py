@@ -2900,14 +2900,6 @@ class VncApiServer(object):
 
     # generate default rbac group rule
     def _create_default_rbac_rule(self):
-        obj_type = 'api_access_list'
-        fq_name = ['default-global-system-config', 'default-api-access-list']
-        try:
-            id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
-            return
-        except NoIdError:
-            pass
-
         # allow full access to cloud admin
         rbac_rules = [
             {
@@ -2936,6 +2928,30 @@ class VncApiServer(object):
                 'rule_perms': [{'role_name':'*', 'role_crud':'R'}]
             },
         ]
+
+        obj_type = 'api_access_list'
+        fq_name = ['default-global-system-config', 'default-api-access-list']
+        try:
+            # ensure global list is not missing any default rules (bug 1642464)
+            id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+            (ok, obj_dict) = self._db_conn.dbe_read(obj_type, {'uuid':id})
+            update_obj = False
+            cur_rbac_rules = copy.deepcopy(obj_dict['api_access_list_entries']['rbac_rule'])
+            for rule in rbac_rules:
+                present = False
+                for existing_rule in cur_rbac_rules:
+                    if rule == existing_rule:
+                        present = True
+                        cur_rbac_rules.remove(existing_rule)
+                        break
+                if not present:
+                    obj_dict['api_access_list_entries']['rbac_rule'].append(rule)
+                    update_obj = True
+            if update_obj:
+                self._db_conn.dbe_update(obj_type, {'uuid': id}, obj_dict)
+            return
+        except NoIdError:
+            pass
 
         rge = RbacRuleEntriesType([])
         for rule in rbac_rules:
