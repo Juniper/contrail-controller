@@ -364,10 +364,11 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
-            (ok, result) = self._ifmap_db.object_create(obj_info, obj_dict)
-            if not ok:
-                self.config_log(result, level=SandeshLevel.SYS_ERR)
-                raise Exception(result)
+            if api_svr_mgr.get_worker_id() == 0:
+                (ok, result) = self._ifmap_db.object_create(obj_info, obj_dict)
+                if not ok:
+                    self.config_log(result, level=SandeshLevel.SYS_ERR)
+                    raise Exception(result)
     #end _dbe_create_notification
 
     def dbe_update_publish(self, obj_type, obj_ids):
@@ -396,9 +397,10 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
-            (ok, result) = self._ifmap_db.object_update(r_class, new_obj_dict)
-            if not ok:
-                raise Exception(result)
+            if api_svr_mgr.get_worker_id() == 0:
+                (ok, result) = self._ifmap_db.object_update(r_class, new_obj_dict)
+                if not ok:
+                    raise Exception(result)
     #end _dbe_update_notification
 
     def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
@@ -425,10 +427,11 @@ class VncServerKombuClient(VncKombuClient):
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
         finally:
-            (ok, ifmap_result) = self._ifmap_db.object_delete(obj_info)
-            if not ok:
-                self.config_log(ifmap_result, level=SandeshLevel.SYS_ERR)
-                raise Exception(ifmap_result)
+            if api_svr_mgr.get_worker_id() == 0:
+                (ok, ifmap_result) = self._ifmap_db.object_delete(obj_info)
+                if not ok:
+                    self.config_log(ifmap_result, level=SandeshLevel.SYS_ERR)
+                    raise Exception(ifmap_result)
     #end _dbe_delete_notification
 
 # end class VncKombuClient
@@ -689,7 +692,7 @@ class VncDbClient(object):
                                                 ifmap_srv_port, uname, passwd,
                                                 ssl_options)
         else:
-            self._ifmap_db = None
+            self._ifmap_db = VncIfmapClient
 
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
