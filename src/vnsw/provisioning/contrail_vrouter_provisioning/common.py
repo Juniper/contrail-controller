@@ -611,10 +611,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                             '/etc/contrail/contrail-vrouter-agent.conf',
                             section, key, val)
 
-            if self.running_in_container:
-                self.config_vhost0_interface_in_container()
-            else:
-                self.fixup_vhost0_interface_configs()
+            self.fixup_vhost0_interface_configs()
 
     def config_vhost0_interface_in_container(self):
         # Insert vrouter and setup vrouter vifs
@@ -660,7 +657,11 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         if self.reprov:
             log.info("fixup_vhost0_interface_configs() not applicable")
             return
-
+        if self.running_in_container:
+            # Insert vrouter and setup vrouter vifs
+            insert_cmd = "source /opt/contrail/bin/vrouter-functions.sh && "
+            insert_cmd += "insert_vrouter"
+            local(insert_cmd, executable='/bin/bash')
         if self.pdist in ['centos', 'fedora', 'redhat']:
             # make ifcfg-vhost0
             with open('%s/ifcfg-vhost0' % self._temp_dir_name, 'w') as f:
