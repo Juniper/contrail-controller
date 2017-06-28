@@ -207,6 +207,7 @@ class NeutronPluginInterface(object):
         nets_count = cfgdb.network_count(filters)
         LOG.debug("plugin_get_networks_count(): filters: "
                   + pformat(filters) + " data: " + str(nets_count))
+        return {'count': nets_count}
 
     def plugin_http_post_network(self):
         """
