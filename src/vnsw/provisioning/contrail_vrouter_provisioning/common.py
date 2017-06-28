@@ -405,6 +405,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         vgw_intf_list = self._args.vgw_intf_list
         vgw_gateway_routes = self._args.vgw_gateway_routes
         compute_as_gateway = self._args.compute_as_gateway
+        flow_thread_count = self._args.flow_thread_count
 
         self.mac = None
         # Fresh install
@@ -568,7 +569,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                     'SANDESH': {
                         'sandesh_ssl_enable': self._args.sandesh_ssl_enable,
                         'introspect_ssl_enable':
-                        self._args.introspect_ssl_enable}
+                        self._args.introspect_ssl_enable},
+                    'FLOWS': {
+                        'thread_count': flow_thread_count}
                     }
 
             # VGW configs
