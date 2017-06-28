@@ -2233,6 +2233,253 @@ TEST_F(IntfTest, VmPortServiceVlanChange_1) {
     EXPECT_FALSE(VrfFind("vrf2"));
 }
 
+//Change IP address of Service vlan configuration
+//and verify old route gets deleted and new route is added
+TEST_F(IntfTest, VmPortServiceVlanChange_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    Ip4Address service_ip2 = Ip4Address::from_string("2.2.2.101");
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt);
+
+    MacAddress smac = MacAddress::FromString("02:00:00:00:00:02");
+    MacAddress dmac = MacAddress::FromString("02:00:00:00:00:01");
+
+    AddVmPortVrf("vmvrf1", "2.2.2.101", 10);
+    client->WaitForIdle();
+
+    rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt == NULL);
+    rt = RouteGet("vrf2", service_ip2, 32);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(L2RouteFind("vrf2", smac));
+    EXPECT_TRUE(L2RouteFind("vrf2", dmac));
+
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVn("vn2");
+    DelVrf("vrf2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+//Change tag of Service vlan configuration
+//and verify old route gets deleted and new route is added
+TEST_F(IntfTest, VmPortServiceVlanChange_3) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt);
+
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 9);
+    client->WaitForIdle();
+
+    rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+
+    MacAddress smac = MacAddress::FromString("02:00:00:00:00:02");
+    MacAddress dmac = MacAddress::FromString("02:00:00:00:00:01");
+    EXPECT_TRUE(L2RouteFind("vrf2", smac));
+    EXPECT_TRUE(L2RouteFind("vrf2", dmac));
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVn("vn2");
+    DelVrf("vrf2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+//Change mac of Service vlan configuration
+//and verify old route gets deleted and new route is added
+TEST_F(IntfTest, VmPortServiceVlanChange_4) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt);
+
+    MacAddress smac = MacAddress::FromString("02:00:00:00:00:02");
+    MacAddress dmac = MacAddress::FromString("02:00:00:00:00:01");
+    rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(vlan_nh->GetSMac() == smac);
+    EXPECT_TRUE(vlan_nh->GetDMac() == dmac);
+
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10, "", true);
+    client->WaitForIdle();
+    rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(vlan_nh->GetSMac() == dmac);
+    EXPECT_TRUE(vlan_nh->GetDMac() == smac);
+
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVn("vn2");
+    DelVrf("vrf2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+//Bring interface down change the mac and service IP
+//verify that route are present for updated service IP
+TEST_F(IntfTest, VmPortServiceVlanChange_5) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    Ip4Address service_ip2 = Ip4Address::from_string("2.2.2.101");
+    EXPECT_TRUE(VmPortServiceVlanCount(1, 1));
+    InetUnicastRouteEntry *rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt);
+
+    MacAddress smac = MacAddress::FromString("02:00:00:00:00:02");
+    MacAddress dmac = MacAddress::FromString("02:00:00:00:00:01");
+    rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(vlan_nh->GetSMac() == smac);
+    EXPECT_TRUE(vlan_nh->GetDMac() == dmac);
+
+    //Deactivate the interface
+    DelLink("virtual-machine-interface", "vnet1", "virtual-network", "vn1");
+    //Change the config
+    AddVmPortVrf("vmvrf1", "2.2.2.101", 10, "", true);
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "virtual-network", "vn1");
+    client->WaitForIdle();
+
+    rt = RouteGet("vrf2", service_ip, 32);
+    EXPECT_TRUE(rt == NULL);
+    rt = RouteGet("vrf2", service_ip2, 32);
+    EXPECT_TRUE(rt != NULL);
+    vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(vlan_nh->GetSMac() == dmac);
+    EXPECT_TRUE(vlan_nh->GetDMac() == smac);
+
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVn("vn2");
+    DelVrf("vrf2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
 //Add and delete static route
 TEST_F(IntfTest, IntfStaticRoute) {
     struct PortInfo input[] = {
