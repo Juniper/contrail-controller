@@ -337,7 +337,7 @@ class VncNamespace(VncCommon):
                 self._logger.error("Unable to locate virtual network [%s]"
                     "annotated on namespace [%s]. Error [%s]" %\
                     (ann_vn_fq_name, name, str(e)))
-            return None
+                return None
 
         # If this namespace is isolated, create it own network.
         if self._is_namespace_isolated(name) == True:
