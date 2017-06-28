@@ -649,7 +649,11 @@ class VncApi(object):
 
     def _obj_serializer_diff(self, obj):
         if hasattr(obj, 'serialize_to_json'):
-            return obj.serialize_to_json(obj.get_pending_updates())
+            try:
+                return obj.serialize_to_json(obj.get_pending_updates())
+            except AttributeError:
+                # Serialize all fields in xsd types
+                return obj.serialize_to_json()
         else:
             return dict((k, v) for k, v in obj.__dict__.iteritems())
     # end _obj_serializer_diff
