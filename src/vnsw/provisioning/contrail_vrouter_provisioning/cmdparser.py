@@ -82,6 +82,7 @@ class ComputeArgsParser(object):
             'introspect_ssl_enable': self.get_config(
                 'GLOBAL', 'introspect_ssl_enable', False),
             'register': False,
+            'flow_thread_count': '2',
         }
 
         self.parse_args(args_str)
@@ -308,6 +309,8 @@ class ComputeArgsParser(object):
                 "--register",
                 help="create virtual-router object in api-server",
                 action="store_true")
-
+        parser.add_argument(
+                "--flow_thread_count",
+                help="Number of threads for flow setup")
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)
