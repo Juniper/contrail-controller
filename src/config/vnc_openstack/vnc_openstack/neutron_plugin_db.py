@@ -109,10 +109,31 @@ class LocalVncApi(VncApi):
                     external_req=bottle.BaseRequest(environ))
                     )
 
-            if len(url_parts) < 3:
-                ret_val = server_method()
-            else:
-                ret_val = server_method(url_parts[2])
+            try:
+                if len(url_parts) < 3:
+                    ret_val = server_method()
+                else:
+                    ret_val = server_method(url_parts[2])
+            except bottle.HTTPError as http_error:
+                status = http_error.status_code
+                content = http_error.body
+                import ipdb; ipdb.set_trace()
+                if status == 404:
+                    raise vnc_exc.NoIdError(
+                        'Error: oper %s url %s body %s response %s' %
+                        (op, url, data, content)
+                    )
+                elif status == 400:
+                    raise vnc_exc.BadRequest(status, content)
+                elif status == 403:
+                    raise vnc_exc.PermissionDenied(content)
+                elif status == 409:
+                    raise vnc_exc.RefsExistError(content)
+                elif status == 412:
+                    raise vnc_exc.OverQuota(content)
+                else:
+                    raise vnc_exc.HttpErro(status, content)
+
 
             # make deepcopy of ref['attr'] as from_dict will update
             # in-place and change the cached value
