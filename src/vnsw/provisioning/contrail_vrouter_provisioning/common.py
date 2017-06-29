@@ -613,8 +613,10 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                     self.set_config(
                             '/etc/contrail/contrail-vrouter-agent.conf',
                             section, key, val)
-
-            self.fixup_vhost0_interface_configs()
+            if self.running_in_container:
+                self.config_vhost0_interface_in_container()
+            else:
+                self.fixup_vhost0_interface_configs()
 
     def config_vhost0_interface_in_container(self):
         # Insert vrouter and setup vrouter vifs
@@ -632,8 +634,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         if self.cidr.prefixlen == 32:
             local("ip route add unicast %s dev vhost0 scope link" %
                   self.gateway)
-        # Add default gateway to vhost
-        local("ip route add default via %s dev vhost0" % self.gateway)
+        if not self.multi_net:
+            # Add default gateway to vhost
+            local("ip route add default via %s dev vhost0" % self.gateway)
 
     def fixup_contrail_lbaas(self):
         auth_url = self._args.keystone_auth_protocol + '://'
@@ -660,11 +663,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         if self.reprov:
             log.info("fixup_vhost0_interface_configs() not applicable")
             return
-        if self.running_in_container:
-            # Insert vrouter and setup vrouter vifs
-            insert_cmd = "source /opt/contrail/bin/vrouter-functions.sh && "
-            insert_cmd += "insert_vrouter"
-            local(insert_cmd, executable='/bin/bash')
         if self.pdist in ['centos', 'fedora', 'redhat']:
             # make ifcfg-vhost0
             with open('%s/ifcfg-vhost0' % self._temp_dir_name, 'w') as f:
