@@ -200,7 +200,9 @@ class GlobalSystemConfigST(DBBaseST):
             old_rtgt_obj = RouteTarget(old_rtgt_name)
 
             for ri_ref in route_tgt.obj.get_routing_instance_back_refs() or []:
-                ri = RoutingInstanceST.get_by_uuid(ri_ref['uuid']).obj
+                ri = RoutingInstanceST.get(':'.join(ri_ref['to'])).obj
+                if not ri:
+                    continue
                 inst_tgt_data = InstanceTargetType()
                 ri.del_route_target(old_rtgt_obj)
                 ri.add_route_target(new_rtgt_obj.obj, inst_tgt_data)
@@ -220,7 +222,9 @@ class GlobalSystemConfigST(DBBaseST):
             # Updating the logical router referred by the route target with
             # new route target.
             for router_ref in route_tgt.obj.get_logical_router_back_refs() or []:
-                logical_router = LogicalRouterST.get_by_uuid(router_ref['uuid']).obj
+                logical_router = LogicalRouterST.get(':'.join(router_ref['to'])).obj
+                if not logical_router:
+                    continue
                 logical_router.del_route_target(old_rtgt_obj)
                 logical_router.add_route_target(new_rtgt_obj.obj) 
                 cls._vnc_lib.logical_router_update(logical_router)
