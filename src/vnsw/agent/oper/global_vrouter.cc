@@ -6,6 +6,7 @@
 #include <boost/foreach.hpp>
 #include <base/util.h>
 #include <cmn/agent_cmn.h>
+#include <cfg/cfg_init.h>
 #include <route/route.h>
 
 #include <vnc_cfg_types.h>
@@ -475,7 +476,7 @@ GlobalVrouter::GlobalVrouter(Agent *agent) :
     fabric_dns_resolver_(new FabricDnsResolver
                          (this, *(agent->event_manager()->io_service()))),
     forwarding_mode_(Agent::L2_L3), flow_export_rate_(kDefaultFlowExportRate),
-    ecmp_load_balance_(), configured_(false) {
+    ecmp_load_balance_(), configured_(false), slo_uuid_(nil_uuid()) {
         agent_route_resync_walker_.reset
             (new AgentRouteResync("GlobalVrouterRouteWalker", agent));
         agent->oper_db()->agent_route_walk_manager()->
@@ -515,6 +516,28 @@ void GlobalVrouter::ConfigManagerEnqueue(IFMapNode *node) {
     agent()->config_manager()->AddGlobalVrouterNode(node);
 }
 
+void GlobalVrouter::UpdateSLOConfig(IFMapNode *node) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(table->GetGraph()); ++iter) {
+
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent()->config_manager()->SkipNode(adj_node)) {
+            continue;
+        }
+
+        if (adj_node->table() == agent()->cfg()->cfg_slo_table()) {
+            autogen::SecurityLoggingObject *slo =
+                static_cast<autogen::SecurityLoggingObject *>(adj_node->
+                                                              GetObject());
+            autogen::IdPermsType id_perms = slo->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       slo_uuid_);
+        }
+    }
+}
+
 // Handle incoming global vrouter configuration
 void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
@@ -523,6 +546,8 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     bool resync_route = false;
 
     if (node->IsDeleted() == false) {
+        UpdateSLOConfig(node);
+
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
         resync_route =

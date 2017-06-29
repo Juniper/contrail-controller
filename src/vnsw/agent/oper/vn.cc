@@ -272,6 +272,9 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
         ret = true;
     }
 
+    if (slo_list_ != data->slo_list_) {
+        slo_list_ = data->slo_list_;
+    }
     return ret;
 }
 
@@ -912,6 +915,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     std::vector<VnIpam> vn_ipam;
     VnData::VnIpamDataMap vn_ipam_data;
     std::string ipam_name;
+    UuidList slo_list;
 
     // Find link with ACL / VRF adjacency
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
@@ -949,6 +953,17 @@ VnData *VnTable::BuildData(IFMapNode *node) {
             autogen::IdPermsType id_perms = qc->id_perms();
             CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                         qos_config_uuid);
+        }
+
+        if (adj_node->table() == agent()->cfg()->cfg_slo_table()) {
+            uuid slo_uuid = nil_uuid();
+            autogen::SecurityLoggingObject *slo =
+                static_cast<autogen::SecurityLoggingObject *>(adj_node->
+                                                              GetObject());
+            autogen::IdPermsType id_perms = slo->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       slo_uuid);
+            slo_list.push_back(slo_uuid);
         }
 
         if (adj_node->table() == agent()->cfg()->cfg_vn_network_ipam_table()) {
@@ -1001,7 +1016,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       GetCfgVnId(cfg), cfg->id_perms().enable, enable_rpf,
                       flood_unknown_unicast, forwarding_mode,
                       qos_config_uuid, mirror_destination, pbb_etree_enable,
-                      pbb_evpn_enable, layer2_control_word);
+                      pbb_evpn_enable, layer2_control_word, slo_list);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -1050,6 +1065,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     bool flood_unknown_unicast, bool pbb_etree_enable,
                     bool pbb_evpn_enable, bool layer2_control_word) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    UuidList empty_list;
     req.key.reset(new VnKey(vn_uuid));
     bool mirror_destination = false;
     VnData *data = new VnData(agent(), NULL, name, acl_id, vrf_name, nil_uuid(), 
@@ -1057,7 +1073,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               vxlan_id, vn_id, admin_state, enable_rpf,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
                               mirror_destination, pbb_etree_enable,
-                              pbb_evpn_enable, layer2_control_word);
+                              pbb_evpn_enable, layer2_control_word, empty_list);
  
     req.data.reset(data);
     Enqueue(&req);
@@ -1151,6 +1167,15 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     data.set_flood_unknown_unicast(flood_unknown_unicast());
     data.set_pbb_etree_enabled(pbb_etree_enable());
     data.set_layer2_control_word(layer2_control_word());
+    std::vector<SecurityLoggingObjectLink> slo_list;
+    UuidList::const_iterator sit = slo_list_.begin();
+    while (sit != slo_list_.end()) {
+        SecurityLoggingObjectLink slo_entry;
+        slo_entry.set_slo_uuid(to_string(*sit));
+        slo_list.push_back(slo_entry);
+        ++sit;
+    }
+    data.set_slo_list(slo_list);
     std::vector<VnSandeshData> &list =
         const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
     list.push_back(data);

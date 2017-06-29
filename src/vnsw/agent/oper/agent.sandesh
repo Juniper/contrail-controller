@@ -161,6 +161,10 @@ struct ApplicationPolicySetLink {
     1: string application_policy_set (link="ApplicationPolicySetReq");
 }
 
+struct SecurityLoggingObjectLink {
+    1: string slo_uuid (link="SLOListReq");
+}
+
 struct VmiTagData {
     1: string name;
     2: i32 id;
@@ -305,6 +309,8 @@ struct ItfSandeshData {
    60: list<VmiTagData> vmi_tag_list;
    /** Policy set ACL to be applied */
    61: list<string> policy_set_acl_list;
+   /** List of security-logging-objects associated with virtual network */
+   62: list<SecurityLoggingObjectLink> slo_list;
 }
 
 /**
@@ -389,6 +395,8 @@ struct VnSandeshData {
     18: bool pbb_etree_enabled;
     /** Layer-2 control word enabled */
     19: bool layer2_control_word;
+    /** List of security-logging-objects associated with virtual network */
+    20: list<SecurityLoggingObjectLink> slo_list;
 }
 
 /**

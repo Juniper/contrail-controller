@@ -1298,6 +1298,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     VmInterface::TagEntryList vm_list;
     VmInterface::TagEntryList vn_list;
     VmInterface::TagEntryList project_list;
+    UuidList slo_list;
 
     std::list<IFMapNode *> bgp_as_a_service_node_list;
     for (DBGraphVertex::adjacency_iterator iter =
@@ -1315,6 +1316,17 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
         if (adj_node->table() == agent_->cfg()->cfg_tag_table()) {
             BuildTagList(&vmi_list, adj_node);
+        }
+
+        if (adj_node->table() == agent()->cfg()->cfg_slo_table()) {
+            uuid slo_uuid = nil_uuid();
+            autogen::SecurityLoggingObject *slo =
+                static_cast<autogen::SecurityLoggingObject *>(adj_node->
+                                                              GetObject());
+            autogen::IdPermsType id_perms = slo->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       slo_uuid);
+            data->slo_list_.push_back(slo_uuid);
         }
 
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {

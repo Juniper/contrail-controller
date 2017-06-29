@@ -105,6 +105,7 @@ public:
     void ConfigManagerEnqueue(IFMapNode *node);
 
     void GlobalVrouterConfig(IFMapNode *node);
+    void UpdateSLOConfig(IFMapNode *node);
     bool FindLinkLocalService(const std::string &service_name,
                               Ip4Address *service_ip, uint16_t *service_port,
                               Ip4Address *fabric_ip, uint16_t *fabric_port) const;
@@ -152,6 +153,7 @@ private:
     FlowAgingTimeoutMap flow_aging_timeout_map_;
     EcmpLoadBalance ecmp_load_balance_;
     bool configured_; //true when global-vrouter-config stanza is present
+    boost::uuids::uuid slo_uuid_; //SLO associated with global-vrouter
 };
 
 #endif // vnsw_agent_global_router_h_
