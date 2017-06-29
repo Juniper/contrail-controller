@@ -631,6 +631,10 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         *ecmp_load_balance_changed = true;
         ret = true;
     }
+
+    if (slo_list_ != data->slo_list_) {
+        slo_list_ = data->slo_list_;
+    }
     return ret;
 }
 

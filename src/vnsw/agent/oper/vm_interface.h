@@ -1179,6 +1179,10 @@ public:
     void SetServiceVlanPathPreference(PathPreference *pref,
                                       const IpAddress &service_ip) const;
 
+    const UuidList &slo_list() const {
+        return slo_list_;
+    }
+
     const std::string GetAnalyzer() const; 
     bool IsL2Active() const;
     bool IsIpv6Active() const;
@@ -1406,6 +1410,7 @@ private:
     bool layer2_control_word_;
     //Includes global policy apply and application policy set
     FirewallPolicyList fw_policy_list_;
+    UuidList slo_list_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -1577,6 +1582,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool service_ip_ecmp6_;
     boost::uuids::uuid qos_config_uuid_;
     bool learning_enabled_;
+    UuidList slo_list_;
 };
 
 // Definition for structures when request queued from Nova
