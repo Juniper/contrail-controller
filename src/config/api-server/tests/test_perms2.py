@@ -435,7 +435,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             # note that collection API is set for create operation
             user.proj_rg = vnc_aal_create(self.admin.vnc_lib, user.project_obj)
             vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
-                rule_str = 'virtual-networks %s:C' % user.role)
+                rule_str = 'virtual-network %s:C' % user.role)
 
         logger.info( '')
         logger.info( 'alice: trying to create VN in her project')

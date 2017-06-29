@@ -249,7 +249,7 @@ class VncRbac(object):
         for rule in rule_list:
             if (rule['rule_object'] == '*'):
                 wildcard_rule = (rule)
-            elif (rule['rule_object'] == obj_type):
+            elif (rule['rule_object'] == obj_key):
                 if (rule['rule_field'] != '') and (rule['rule_field'] is not None) and (rule['rule_field'] != '*'):
                     field_rule_list.append(rule)
                 else:
