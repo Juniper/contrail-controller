@@ -27,11 +27,3 @@ void IndexAllocator::FreeIndex(size_t index) {
     assert(index <= max_index_);
     bitset_.reset(index);
 }
-
-bool IndexAllocator::NoneIndexSet() {
-    return bitset_.none();
-}
-
-bool IndexAllocator::AnyIndexSet() {
-    return bitset_.any();
-}
