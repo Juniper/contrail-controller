@@ -25,6 +25,7 @@ from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
 import vnc_openstack
 import vnc_cfg_api_server.context
 from context import get_context, use_context
+import datetime
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -1044,6 +1045,9 @@ class DBInterface(object):
         for rule in rule_list or []:
             sg_q_dict['security_group_rules'].append(rule)
 
+        sg_q_dict['created_at'] = sg_obj.get_id_perms().get_created()
+        sg_q_dict['updated_at'] = sg_obj.get_id_perms().get_last_modified()
+
         if self._contrail_extensions_enabled:
             sg_q_dict.update(extra_dict)
         return sg_q_dict
@@ -1140,6 +1144,9 @@ class DBInterface(object):
         sgr_q_dict['remote_ip_prefix'] = remote_cidr
         sgr_q_dict['remote_group_id'] = remote_sg_uuid
 
+        sgr_q_dict['created_at'] = sg_rule.get_created()
+        sgr_q_dict['updated_at'] = sg_rule.get_last_modified()
+
         return sgr_q_dict
     # end _security_group_rule_vnc_to_neutron
 
@@ -1212,13 +1219,18 @@ class DBInterface(object):
 
             sgr_uuid = str(uuid.uuid4())
 
+            # Added timestamp for tempest test case
+            timestamp_at_create = datetime.datetime.utcnow().isoformat()
+
             rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
                                   protocol=sgr_q['protocol'],
                                   src_addresses=local,
                                   src_ports=[PortType(0, 65535)],
                                   dst_addresses=remote,
                                   dst_ports=[PortType(port_min, port_max)],
-                                  ethertype=sgr_q['ethertype'])
+                                  ethertype=sgr_q['ethertype'],
+                                  created=timestamp_at_create,
+                                  last_modified=timestamp_at_create)
             return rule
     # end _security_group_rule_neutron_to_vnc
 
@@ -1375,6 +1387,9 @@ class DBInterface(object):
         if net_obj.get_id_perms().get_description() is not None:
             net_q_dict['description'] = net_obj.get_id_perms().get_description()
 
+        net_q_dict['created_at'] = net_obj.get_id_perms().get_created()
+        net_q_dict['updated_at'] = net_obj.get_id_perms().get_last_modified()
+
         return net_q_dict
     #end _network_vnc_to_neutron
 
@@ -1425,6 +1440,9 @@ class DBInterface(object):
         else:
             dhcp_config = None
         sn_name=subnet_q.get('name')
+        # Added timestamp for tempest test case
+        timestamp_at_create = datetime.datetime.utcnow().isoformat()
+
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
                                     default_gateway=default_gw,
                                     dns_server_address='0.0.0.0' if self._strict_compliance else None,
@@ -1435,7 +1453,9 @@ class DBInterface(object):
                                     dhcp_option_list=dhcp_option_list,
                                     host_routes=host_route_list,
                                     subnet_name=sn_name,
-                                    subnet_uuid=str(uuid.uuid4()))
+                                    subnet_uuid=str(uuid.uuid4()),
+                                    created=timestamp_at_create,
+                                    last_modified=timestamp_at_create)
 
         return subnet_vnc
     #end _subnet_neutron_to_vnc
@@ -1465,6 +1485,8 @@ class DBInterface(object):
         sn_q_dict['id'] = sn_id
 
         sn_q_dict['gateway_ip'] = subnet_vnc.default_gateway
+        if sn_q_dict['gateway_ip'] == '0.0.0.0':
+            sn_q_dict['gateway_ip'] = None
 
         alloc_obj_list = subnet_vnc.get_allocation_pools()
         allocation_pools = []
@@ -1526,6 +1548,9 @@ class DBInterface(object):
             sn_q_dict['shared'] = True
         else:
             sn_q_dict['shared'] = False
+
+        sn_q_dict['created_at'] = subnet_vnc.get_created()
+        sn_q_dict['updated_at'] = subnet_vnc.get_last_modified()
 
         return sn_q_dict
     #end _subnet_vnc_to_neutron
@@ -1665,6 +1690,9 @@ class DBInterface(object):
 
         if rtr_obj.get_id_perms().get_description() is not None:
             rtr_q_dict['description'] = rtr_obj.get_id_perms().get_description()
+
+        rtr_q_dict['created_at'] = rtr_obj.get_id_perms().get_created()
+        rtr_q_dict['updated_at'] = rtr_obj.get_id_perms().get_last_modified()
 
         return rtr_q_dict
     #end _router_vnc_to_neutron
@@ -1897,6 +1925,8 @@ class DBInterface(object):
         fip_q_dict['port_id'] = port_id
         fip_q_dict['fixed_ip_address'] = fip_obj.get_floating_ip_fixed_ip_address()
         fip_q_dict['status'] = constants.PORT_STATUS_ACTIVE
+        fip_q_dict['created_at'] = fip_obj.get_id_perms().get_created()
+        fip_q_dict['updated_at'] = fip_obj.get_id_perms().get_last_modified()
 
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
@@ -2360,6 +2390,9 @@ class DBInterface(object):
 
         if port_obj.get_id_perms().get_description() is not None:
             port_q_dict['description'] = port_obj.get_id_perms().get_description()
+
+        port_q_dict['created_at'] = port_obj.get_id_perms().get_created()
+        port_q_dict['updated_at'] = port_obj.get_id_perms().get_last_modified()
 
         return port_q_dict
     #end _port_vnc_to_neutron
@@ -2958,6 +2991,8 @@ class DBInterface(object):
                             else:
                                 subnet_vnc.set_host_routes(None)
 
+                    subnet_vnc.set_last_modified(
+                               datetime.datetime.utcnow().isoformat())
                     net_obj._pending_field_updates.add('network_ipam_refs')
                     self._virtual_network_update(net_obj)
                     ret_subnet_q = self._subnet_vnc_to_neutron(

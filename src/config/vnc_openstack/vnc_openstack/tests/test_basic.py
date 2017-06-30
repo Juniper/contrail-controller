@@ -5,6 +5,7 @@ import re
 from testtools.matchers import Equals, Contains
 from testtools import ExpectedException
 import webtest.app
+import datetime
 
 sys.path.append('../common/tests')
 from cfgm_common.exceptions import NoIdError
@@ -827,6 +828,43 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.delete_resource('network', proj_id, net_q['id'])
         self.delete_resource('network', proj_id, pvt_net_q['id'])
     # end test_create_fip_w_port_associated_w_another_fip_negative
+
+    def test_network_timestamps(self):
+        vn_obj = vnc_api.VirtualNetwork(self.id())
+        self._vnc_lib.virtual_network_create(vn_obj)
+        vn_dict = self.read_resource('network', vn_obj.uuid)
+        # verify created timestamp and updated timestamp are same
+        self.assertEqual(vn_dict['created_at'], vn_dict['updated_at'])
+
+        vn_obj.display_name = 'test-vn-timestamps'
+        self._vnc_lib.virtual_network_update(vn_obj)
+        vn_dict_2 = self.read_resource('network', vn_obj.uuid)
+        # verify created timestamp and updated timestamp are not same
+        self.assertIsNot(vn_dict_2['created_at'], vn_dict_2['updated_at'])
+    # end test_network_timestamps
+
+    def test_subnet_timestamps(self):
+        timestamp = datetime.utcnow().isoformat()
+        vn_obj = vnc_api.VirtualNetwork(self.id())
+        sn_id = str(uuid.uuid4())
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28),
+                                        subnet_uuid=sn_id, created=timestamp,
+                                        last_modified=timestamp)]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        sn_dict = self.read_resource('subnet', sn_id)
+        # verify created timestamp and updated timestamp are same
+        self.assertEqual(sn_dict['created_at'], sn_dict['updated_at'])
+
+        proj_id = self._vnc_lib.fq_name_to_id('project',
+        fq_name=['default-domain', 'default-project'])
+        sn_dict_2 = self.update_resource('subnet', sn_id, proj_id,
+                                       extra_res_fields={'name':
+                                             'test-subnet-timestamps'})
+        # verify created timestamp and updated timestamp are not same
+        self.assertIsNot(sn_dict_2['created_at'], sn_dict_2['updated_at'])
+    # end test_subnet_timestamps
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
