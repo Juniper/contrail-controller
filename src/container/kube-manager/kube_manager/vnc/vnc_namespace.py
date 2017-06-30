@@ -360,13 +360,13 @@ class VncNamespace(VncCommon):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(name)
         project_uuid = ProjectKM.get_fq_name_to_uuid(proj_fq_name)
         if not project_uuid:
-            self.logger.error("Unable to locate project for k8s namespace "
+            self._logger.error("Unable to locate project for k8s namespace "
                 "[%s]" % (name))
             return
 
         project = ProjectKM.get(project_uuid)
         if not project:
-            self.logger.error("Unable to locate project for k8s namespace "
+            self._logger.error("Unable to locate project for k8s namespace "
                 "[%s]" % (name))
             return
 
