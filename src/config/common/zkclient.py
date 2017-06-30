@@ -377,6 +377,8 @@ class ZookeeperClient(object):
                 return value
             return value[0]
         except Exception:
+            if include_timestamp:
+                return (None, None)
             return None
     # end read_node
 
