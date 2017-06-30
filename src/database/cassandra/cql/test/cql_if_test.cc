@@ -775,6 +775,7 @@ TEST_F(CqlIfTest, DynamicCfGetResultAllRows) {
     EXPECT_CALL(mock_cci, CassResultColumnCount(_))
         .Times(rows)
         .WillRepeatedly(Return(ccount));
+    EXPECT_CALL(mock_cci, CassValueIsNull(_)).WillRepeatedly(Return (cass_false));
     // Return dummy pointer to avoid assert
     uint8_t dummy_cass_value;
     EXPECT_CALL(mock_cci, CassRowGetColumn(_, _))
@@ -841,6 +842,7 @@ TEST_F(CqlIfTest, StaticCfGetResultAllRows) {
         .WillOnce(Return(cass_true))
         .WillOnce(Return(cass_true))
         .WillOnce(Return(cass_false));
+    EXPECT_CALL(mock_cci, CassValueIsNull(_)).WillRepeatedly(Return (cass_false));
     EXPECT_CALL(mock_cci, CassResultColumnCount(_))
         .Times(rows)
         .WillRepeatedly(Return(ccount));

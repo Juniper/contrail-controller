@@ -149,6 +149,7 @@ class MockCassLibrary : public interface::CassLibrary {
         CassInet* output));
     MOCK_METHOD3(CassValueGetBytes, CassError (const CassValue* value,
         const cass_byte_t** output, size_t* output_size));
+    MOCK_METHOD1(CassValueIsNull, cass_bool_t (const CassValue* value));
 
     // CassInet
     MOCK_METHOD1(CassInetInitV4, CassInet (const cass_uint8_t* address));
