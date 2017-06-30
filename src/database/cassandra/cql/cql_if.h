@@ -43,6 +43,10 @@ class CqlIf : public GenDb::GenDbIf {
         const std::string &compaction_strategy);
     virtual bool Db_UseColumnfamily(const GenDb::NewCf &cf);
     virtual bool Db_UseColumnfamily(const std::string &cfname);
+    // Index
+    virtual bool Db_CreateIndex(const std::string &cfname,
+        const std::string &column, const std::string &indexname,
+        const std::string &mode = "");
     // Column
     virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
         GenDb::DbConsistency::type dconsistency,
