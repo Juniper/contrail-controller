@@ -1018,8 +1018,13 @@ class VncCassandraClient(object):
                 full_match = True
                 for filter_key, filter_values in filters.items():
                     property = 'prop:%s' % filter_key
-                    if (property not in properties or
-                            properties[property] not in filter_values):
+                    if property not in properties:
+                        full_match = False
+                        break
+                    prop_value = properties[property]
+                    if not isinstance(prop_value, (basestring, bool, int)):
+                        prop_value = json.dumps(prop_value)
+                    if prop_value not in filter_values:
                         full_match = False
                         break
 
