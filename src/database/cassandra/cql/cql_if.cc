@@ -537,6 +537,32 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
 }
 
 //
+// CassCreateIndexIfNotExists
+//
+
+std::string CassCreateIndexIfNotExists(const std::string& cfname,
+    const std::string& column, const std::string& indexname,
+    const std::string& mode) {
+    std::ostringstream query;
+
+    query << "CREATE ";
+    if (!mode.empty()) {
+        query << "CUSTOM "; // SASI
+    }
+    // Indexname
+    query << "INDEX IF NOT EXISTS " << indexname << " ";
+    // Index Column
+    query << "ON " << cfname << "(\""<< column <<"\")";
+    // Mode if SASI
+    if (!mode.empty()) {
+        query << " USING \'org.apache.cassandra.index.sasi.SASIIndex\' " <<
+        "WITH OPTIONS = {\'mode\': \'" << mode << "\'}";
+    }
+    query << ";";
+    return query.str();
+}
+
+//
 // Cf2CassInsertIntoTable
 //
 
@@ -1811,6 +1837,15 @@ bool CqlIfImpl::CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
         consistency);
 }
 
+bool CqlIfImpl::CreateIndexIfNotExistsSync(const std::string& cfname,
+    const std::string& column, const std::string& indexname,
+    CassConsistency consistency, const std::string& mode) {
+    std::string query(impl::CassCreateIndexIfNotExists(cfname, column,
+        indexname, mode));
+    return impl::ExecuteQuerySync(cci_, session_.get(), query.c_str(),
+        consistency);
+}
+
 bool CqlIfImpl::LocatePrepareInsertIntoTable(const GenDb::NewCf &cf) {
     const std::string &table_name(cf.cfname_);
     impl::CassPreparedPtr prepared(NULL, cci_);
@@ -2362,6 +2397,20 @@ bool CqlIf::Db_UseColumnfamily(const std::string &cfname) {
         return success;
     }
     IncrementTableReadStats(cfname);
+    return success;
+}
+
+// Index
+bool CqlIf::Db_CreateIndex(const std::string& cfname,
+        const std::string& column, const std::string& indexname,
+        const std::string& mode) {
+    bool success(impl_->CreateIndexIfNotExistsSync(cfname, column, indexname,
+        CASS_CONSISTENCY_QUORUM, mode));
+    if (!success) {
+        IncrementTableWriteFailStats(cfname);
+        IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN_FAMILY);
+        return success;
+    }
     return success;
 }
 
