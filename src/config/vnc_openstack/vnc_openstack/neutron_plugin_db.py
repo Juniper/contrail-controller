@@ -1362,8 +1362,6 @@ class DBInterface(object):
             net_q_dict['provider:segmentation_id'] = net_obj.provider_properties.segmentation_id
 
         if net_repr == 'SHOW' or net_repr == 'LIST':
-            extra_dict['instance_count'] = 0
-
             net_policy_refs = net_obj.get_network_policy_refs()
             if net_policy_refs:
                 sorted_refs = sorted(
