@@ -47,9 +47,15 @@ class RulesToFromSLO(object):
             return
 
         if self._args.sg_fq_name:
-            self.AssociateSgRules(slo)
+            if self._args.oper == "associate":
+                self.AssociateSgRules(slo)
+            else:
+                self.DisAssociateSgRules(slo)
         elif self._args.policy_fq_name:
-            self.AssociatePolicyRules(slo)
+            if self._args.oper == "associate":
+                self.AssociatePolicyRules(slo)
+            else:
+                self.DisAssociatePolicyRules(slo)
 
     #end __init__
 
@@ -84,6 +90,7 @@ class RulesToFromSLO(object):
             )
         parser.set_defaults(**defaults)
 
+        parser.add_argument("--oper", choices=['associate', 'disassociate'], help = "operation type - associate/disassociate network-policy/SG with SLO")
         parser.add_argument("--slo_fq_name", help = "Fully qualified name of Security logging object", required=True)
         parser.add_argument("--sg_fq_name", help = "Fully qualified name of Security Group object")
         parser.add_argument("--policy_fq_name", help = "Fully qualified name of Network policy object")
@@ -100,6 +107,14 @@ class RulesToFromSLO(object):
         ret_value  = True
         if self._args.sg_fq_name and self._args.policy_fq_name:
             print "The arguments --sg_fq_name and --policy_fq_name cannot be specified together"
+            ret_value = False
+
+        if self._args.sg_fq_name and not self._args.oper:
+            print "The argument --sg_fq_name requires --oper to be specified"
+            ret_value = False
+
+        if self._args.policy_fq_name and not self._args.oper:
+            print "The argument --policy_fq_name requires --oper to be specified"
             ret_value = False
 
         if self._args.rules and self._args.sg_fq_name:
@@ -139,10 +154,23 @@ class RulesToFromSLO(object):
         except NoIdError:
             print "security-group %s does NOT exist" %(self._args.sg_fq_name)
             return
-        #Fetch rules from SecurityGroup
-        rule_list_obj = sg.get_security_group_entries()
-        self.UpdateSLORules(slo, rule_list_obj)
+        #create empty SLO rule list
+        slo_rule_list = SecurityLoggingObjectRuleListType()
+        #Add SG to SLO. This will add all the rules from ACLs generated for SG to SLO
+        slo.add_security_group(sg, slo_rule_list)
+        self._vnc_lib.security_logging_object_update(slo)
     #end AssociateSgRules
+
+    def DisAssociateSgRules(self, slo):
+        try:
+            sg = self._vnc_lib.security_group_read(fq_name = None, fq_name_str=self._args.sg_fq_name)
+        except NoIdError:
+            print "security-group %s does NOT exist" %(self._args.sg_fq_name)
+            return
+        #Remove SG from SLO.
+        slo.del_security_group(sg)
+        self._vnc_lib.security_logging_object_update(slo)
+    #end DisAssociateSgRules
 
     def AssociatePolicyRules(self, slo):
         try:
@@ -150,10 +178,23 @@ class RulesToFromSLO(object):
         except NoIdError:
             print "Network policy %s does NOT exist" %(self._args.policy_fq_name)
             return
-        #Fetch rules from SecurityGroup
-        rule_list_obj = pol.get_network_policy_entries()
-        self.UpdateSLORules(slo, rule_list_obj)
+        #create empty SLO rule list
+        slo_rule_list = SecurityLoggingObjectRuleListType()
+        #Add NetworkPolicy to SLO. This will add all the rules from ACLs generated for NetworkPolicy to SLO
+        slo.add_network_policy(pol, slo_rule_list)
+        self._vnc_lib.security_logging_object_update(slo)
     #end AssociatePolicyRules
+
+    def DisAssociatePolicyRules(self, slo):
+        try:
+            pol = self._vnc_lib.network_policy_read(fq_name = None, fq_name_str=self._args.policy_fq_name)
+        except NoIdError:
+            print "Network policy %s does NOT exist" %(self._args.policy_fq_name)
+            return
+        #Remove NetworkPolicy from SLO.
+        slo.del_network_policy(pol)
+        self._vnc_lib.security_logging_object_update(slo)
+    #end DisAssociatePolicyRules
 #end class RulesToFromSLO
 
 def main(args_str = None):

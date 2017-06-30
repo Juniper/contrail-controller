@@ -56,6 +56,7 @@ class CreateDeleteSLO(object):
     def _parse_args(self, args_str):
         '''
         Eg. python slo.py --name slo1 --rate 10 --oper=add --parent="default-project"
+            python slo.py --name slo1 --rate 10 --oper=add --parent="global-vrouter"
             python slo.py --name slo1 --oper=delete --parent="default-project"
             python slo.py --slo_fq_name=default-domain:default-project:slo1 --oper=associate --vn_fq_name=default-domain:demo:vn1
             python slo.py --slo_fq_name=default-domain:default-project:slo1 --oper=disassociate --vn_fq_name=default-domain:demo:vn1
@@ -146,7 +147,7 @@ class CreateDeleteSLO(object):
                 vmi.add_security_logging_object(slo)
             elif self._args.oper == 'disassociate':
                 vmi.del_security_logging_object(slo)
-            self._vnc_lib.virtual_machine_interface_update(vn)
+            self._vnc_lib.virtual_machine_interface_update(vmi)
     #end HandleAssociateDisassociate
 
 #end class CreateDeleteSLO

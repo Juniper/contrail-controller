@@ -186,6 +186,7 @@ void intrusive_ptr_add_ref(const SecurityLoggingObject *p);
 //class SecurityGroup;
 typedef std::vector<int> SecurityGroupList;
 typedef std::vector<int> TagList;
+typedef std::vector<boost::uuids::uuid> UuidList;
 typedef std::vector<std::string> CommunityList;
 
 typedef std::set<std::string> VnListType;

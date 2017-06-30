@@ -1317,6 +1317,17 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
             BuildTagList(&vmi_list, adj_node);
         }
 
+        if (adj_node->table() == agent()->cfg()->cfg_slo_table()) {
+            uuid slo_uuid = nil_uuid();
+            autogen::SecurityLoggingObject *slo =
+                static_cast<autogen::SecurityLoggingObject *>(adj_node->
+                                                              GetObject());
+            autogen::IdPermsType id_perms = slo->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       slo_uuid);
+            data->slo_list_.push_back(slo_uuid);
+        }
+
         if (adj_node->table() == agent_->cfg()->cfg_vn_table()) {
             vn_node = adj_node;
             BuildVn(data, adj_node, u, &vn_list);

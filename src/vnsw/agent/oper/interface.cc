@@ -1165,6 +1165,16 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             policy_set_acl_list.push_back(UuidToString(fw_it->get()->GetUuid()));
         }
         data.set_policy_set_acl_list(policy_set_acl_list);
+
+        std::vector<SecurityLoggingObjectLink> slo_list;
+        UuidList::const_iterator sit = vintf->slo_list().begin();
+        while (sit != vintf->slo_list().end()) {
+            SecurityLoggingObjectLink slo_entry;
+            slo_entry.set_slo_uuid(to_string(*sit));
+            slo_list.push_back(slo_entry);
+            ++sit;
+        }
+        data.set_slo_list(slo_list);
         break;
     }
     case Interface::INET: {
