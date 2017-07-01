@@ -1075,6 +1075,8 @@ class DBInterface(object):
             sg_vnc = SecurityGroup(name=sg_q['name'],
                                    parent_obj=project_obj,
                                    id_perms=id_perms)
+	    if sg_q['id'] is not None:
+		sg_vnc.set_uuid(sg_q['id'])
         else:
             sg_vnc = self._vnc_lib.security_group_read(id=sg_q['id'])
 
@@ -1230,7 +1232,10 @@ class DBInterface(object):
                 if not sgr_q['ethertype']:
                     sgr_q['ethertype'] = 'IPv4'
 
-            sgr_uuid = str(uuid.uuid4())
+	    if sgr_q['id'] is not None:
+		sgr_uuid = sgr_q['id']
+	    else:
+                sgr_uuid = str(uuid.uuid4())
 
             # Added timestamp for tempest test case
             timestamp_at_create = datetime.datetime.utcnow().isoformat()
@@ -1267,6 +1272,9 @@ class DBInterface(object):
                 net_obj.is_shared = network_q['shared']
             else:
                 net_obj.is_shared = False
+	    net_id = network_q.get('id', None)
+	    if net_id:
+		net_obj.uuid = net_id
         else:  # READ/UPDATE/DELETE
             net_obj = self._virtual_network_read(net_id=network_q['id'])
             if oper == UPDATE:
@@ -1430,12 +1438,14 @@ class DBInterface(object):
             alloc_pools = None
 
         dhcp_option_list = None
+        dns_server_address = None
         if 'dns_nameservers' in subnet_q and subnet_q['dns_nameservers']:
             dhcp_options=[]
             dns_servers=" ".join(subnet_q['dns_nameservers'])
             if dns_servers:
                 dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
                                                    dhcp_option_value=dns_servers))
+                dns_server_address = subnet_q['dns_nameservers'][0]
             if dhcp_options:
                 dhcp_option_list = DhcpOptionsListType(dhcp_options)
 
@@ -1456,9 +1466,12 @@ class DBInterface(object):
         # Added timestamp for tempest test case
         timestamp_at_create = datetime.datetime.utcnow().isoformat()
 
+        sn_uuid = subnet_q.get('id', None)
+	if sn_uuid is None:
+	    sn_uuid = str(uuid.uuid4())
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
                                     default_gateway=default_gw,
-                                    dns_server_address='0.0.0.0' if self._strict_compliance else None,
+                                    dns_server_address='0.0.0.0' if self._strict_compliance else dns_server_address,
                                     enable_dhcp=dhcp_config,
                                     dns_nameservers=None,
                                     allocation_pools=alloc_pools,
@@ -1466,7 +1479,7 @@ class DBInterface(object):
                                     dhcp_option_list=dhcp_option_list,
                                     host_routes=host_route_list,
                                     subnet_name=sn_name,
-                                    subnet_uuid=str(uuid.uuid4()),
+                                    subnet_uuid=sn_uuid,
                                     created=timestamp_at_create,
                                     last_modified=timestamp_at_create)
 
@@ -2012,7 +2025,9 @@ class DBInterface(object):
             project_id = str(uuid.UUID(port_q['tenant_id']))
             proj_obj = self._project_read(proj_id=project_id)
             id_perms = IdPermsType(enable=True)
-            port_uuid = str(uuid.uuid4())
+            port_uuid = port_q.get('id', None)
+	    if port_uuid is None:
+                port_uuid = str(uuid.uuid4())
             if port_q.get('name'):
                 port_name = port_q['name']
             else:
@@ -2035,6 +2050,7 @@ class DBInterface(object):
         if (port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_INTF
             and port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_GW
             and 'device_id' in port_q):
+            # IRONIC: verify port associated to baremetal 'VM'
             self._port_set_vm_instance(port_obj, port_q.get('device_id'), project_id)
 
         if 'device_owner' in port_q:
@@ -4094,10 +4110,10 @@ class DBInterface(object):
                 instance_id = vm_refs[0]['uuid']
             else:
                 instance_id = None
-        if port_obj.get_logical_interface_back_refs():
-            self._raise_contrail_exception(
-               'BadRequest', resource='port',
-               msg='port has logical interface attached')
+
+	# Ironic BM server is going down, remove all logical interfaces
+        for lri_back_ref in port_obj.get_logical_interface_back_refs() or []:
+            self._vnc_lib.logical_interface_delete(id=lri_back_ref['uuid'])
 
         if port_obj.get_logical_router_back_refs():
             self._raise_contrail_exception('L3PortInUse', port_id=port_id,

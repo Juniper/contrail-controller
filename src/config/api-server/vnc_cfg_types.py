@@ -992,6 +992,34 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
         api_server = db_conn.get_api_server()
 
+        bindings = obj_dict.get('virtual_machine_interface_bindings', {})
+        kvps = bindings.get('key_value_pair', [])
+
+        if kvps:
+            kvp_dict = cls._kvp_to_dict(kvps)
+            vnic_type = kvp_dict.get('vnic_type')
+	    if vnic_type == 'baremetal':
+                #import pdb; pdb.set_trace()
+	        phy_links = json.loads(kvp_dict.get('profile'))
+		link_information = phy_links['local_link_information'][0]
+                # TODO restrict fields to read
+                ok, pi_obj_dict = cls.dbe_read(db_conn, 'physical_interface',
+                    link_information['switch_info'])
+                pi_name = pi_obj_dict['fq_name'][-1]
+                vlan_tag = 0
+                li_fq_name = (pi_obj_dict['fq_name'][:] +
+                    ['%s.%s' %(pi_name, vlan_tag)])
+                li_obj = LogicalInterface(
+                    parent_type='physical-interface', fq_name=li_fq_name,
+                    logical_interface_vlan_tag=vlan_tag)
+                ok, resp = api_server.internal_request_create('logical-interface',
+                    li_obj.serialize_to_json())
+                li_uuid = resp['logical-interface']['uuid']
+                # TODO see if ref can be done in create itself
+                api_server.internal_request_ref_update('logical-interface',
+                               li_uuid, 'ADD',
+                               'virtual-machine-interface', obj_dict['uuid'])
+
         # Create ref to native/vn-default routing instance
         vn_refs = obj_dict.get('virtual_network_refs')
         if not vn_refs:
@@ -1069,8 +1097,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
-            if (old_vnic_type  != new_vnic_type):
-                return (False, (409, "Vnic_type can not be modified"))
+            # IRONIC: allow for normal->baremetal change if bindings has link-local info
+            if new_vnic_type != 'baremetal':
+                if (old_vnic_type  != new_vnic_type):
+                    return (False, (409, "Vnic_type can not be modified"))
 
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
@@ -1090,6 +1120,46 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         return True, ""
     # end pre_dbe_update
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+            prop_collection_updates=None, ref_update=None):
+        api_server = db_conn.get_api_server()
+
+        bindings = obj_dict.get('virtual_machine_interface_bindings', {})
+        kvps = bindings.get('key_value_pair', [])
+
+        for oper_param in prop_collection_updates or []:
+            if (oper_param['field'] == 'virtual_machine_interface_bindings' and
+                    oper_param['operation'] == 'set'):
+                kvps.append(oper_param['value'])
+
+        if kvps:
+            kvp_dict = cls._kvp_to_dict(kvps)
+            vnic_type = kvp_dict.get('vnic_type')
+            if vnic_type == 'baremetal':
+                phy_links = json.loads(kvp_dict.get('profile'))
+                link_information = phy_links['local_link_information'][0]
+                # TODO restrict fields to read
+                ok, pi_obj_dict = cls.dbe_read(db_conn, 'physical_interface',
+                    link_information['switch_info'])
+                pi_name = pi_obj_dict['fq_name'][-1]
+                vlan_tag = 0
+                li_fq_name = (pi_obj_dict['fq_name'][:] +
+                    ['%s.%s' %(pi_name, vlan_tag)])
+                li_obj = LogicalInterface(
+                    parent_type='physical-interface', fq_name=li_fq_name,
+                    logical_interface_vlan_tag=vlan_tag)
+                ok, resp = api_server.internal_request_create('logical-interface',
+                    li_obj.serialize_to_json())
+                li_uuid = resp['logical-interface']['uuid']
+                # TODO see if ref can be done in create itself
+                api_server.internal_request_ref_update('logical-interface',
+                               li_uuid, 'ADD',
+                               'virtual-machine-interface', id)
+
+        return True, ''
+    # end post_dbe_update
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
