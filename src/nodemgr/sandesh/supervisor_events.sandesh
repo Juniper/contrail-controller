@@ -1,0 +1,18 @@
+//
+// supervisor_events.sandesh
+//
+// Copyright (c) 2017 Juniper Networks, Inc. All rights reserved
+//
+
+struct SupervisorEvents {
+    1: u32 count
+    2: string last_event_timestamp
+}
+
+request sandesh SupervisorEventsReq {
+}
+
+response sandesh SupervisorEventsResp {
+    1: SupervisorEvents supervisor_events
+    2: SupervisorEvents supervisor_events_error
+}
