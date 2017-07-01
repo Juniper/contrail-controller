@@ -1055,8 +1055,8 @@ class VncApiServer(object):
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 json_as_dict, None)
             set_context(context.ApiContext(internal_req=i_req))
-            self.http_resource_create(object_type)
-            return True, ""
+            resp = self.http_resource_create(object_type)
+            return True, resp
         finally:
             set_context(orig_context)
     # end internal_request_create
