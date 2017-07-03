@@ -23,6 +23,7 @@ except ImportError:
     from neutron.common import constants
 
 from cfgm_common import exceptions as vnc_exc
+from cfgm_common.utils import cgitb_hook
 from vnc_api.vnc_api import *
 from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
 import vnc_openstack
@@ -35,8 +36,9 @@ _DEFAULT_HEADERS = {
 
 CREATE = 1
 READ = 2
-UPDATE = 3
-DELETE = 4
+LIST = 3
+UPDATE = 4
+DELETE = 5
 
 # SNAT defines
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
@@ -226,6 +228,20 @@ class DBInterface(object):
             url, request.environ['REQUEST_METHOD'],
             request.body, {'Content-type': request.environ['CONTENT_TYPE']})
     #end _relay_request
+
+    def _catch_convert_exception(method):
+        def wrapper(*args, **kwargs):
+            if 'oper' in kwargs and kwargs['oper'] == LIST:
+                try:
+                    return method(*args, **kwargs)
+                except NoIdError:
+                    raise
+                except Exception:
+                    cgitb_hook(format="text")
+            else:
+                return method(*args, **kwargs)
+
+        return wrapper
 
     def _validate_project_ids(self, context=None, filters=None):
         if context and not context['is_admin']:
@@ -570,19 +586,17 @@ class DBInterface(object):
 
     # find network ids on a given project
     def _network_list_project(self, project_id, count=False, filters=None):
-        if project_id:
+        if project_id is not None:
             try:
-                project_uuid = str(uuid.UUID(project_id))
-            except Exception:
-                print "Error in converting uuid %s" % (project_id)
-        else:
-            project_uuid = None
+                project_id = str(uuid.UUID(project_id))
+            except (TypeError, ValueError, AttributeError):
+                project_id = None
 
         if count:
-            ret_val = self._virtual_network_list(parent_id=project_uuid,
+            ret_val = self._virtual_network_list(parent_id=project_id,
                                                  count=True, filters=filters)
         else:
-            ret_val = self._virtual_network_list(parent_id=project_uuid,
+            ret_val = self._virtual_network_list(parent_id=project_id,
                                                  detail=True, filters=filters)
 
         return ret_val
@@ -593,8 +607,7 @@ class DBInterface(object):
         if project_id:
             try:
                 project_uuid = str(uuid.UUID(project_id))
-            except Exception:
-                print "Error in converting uuid %s" % (project_id)
+            except (TypeError, ValueError, AttributeError):
                 return []
         else:
             project_uuid = None
@@ -610,8 +623,8 @@ class DBInterface(object):
     def _ipam_list_project(self, project_id):
         try:
             project_uuid = str(uuid.UUID(project_id))
-        except Exception:
-            print "Error in converting uuid %s" % (project_id)
+        except (TypeError, ValueError, AttributeError):
+            return []
 
         resp_dict = self._vnc_lib.network_ipams_list(parent_id=project_uuid)
 
@@ -641,8 +654,8 @@ class DBInterface(object):
     def _security_group_entries_list_sg(self, sg_id):
         try:
             sg_uuid = str(uuid.UUID(sg_id))
-        except Exception:
-            print "Error in converting SG uuid %s" % (sg_id)
+        except (TypeError, ValueError, AttributeError):
+            return []
 
         resp_dict = self._vnc_lib.security_groups_list(obj_uuids=[sg_uuid])
 
@@ -652,8 +665,8 @@ class DBInterface(object):
     def _route_table_list_project(self, project_id):
         try:
             project_uuid = str(uuid.UUID(project_id))
-        except Exception:
-            print "Error in converting uuid %s" % (project_id)
+        except (TypeError, ValueError, AttributeError):
+            return []
 
         resp_dict = self._vnc_lib.route_tables_list(parent_id=project_uuid)
 
@@ -663,8 +676,8 @@ class DBInterface(object):
     def _svc_instance_list_project(self, project_id):
         try:
             project_uuid = str(uuid.UUID(project_id))
-        except Exception:
-            print "Error in converting uuid %s" % (project_id)
+        except (TypeError, ValueError, AttributeError):
+            return []
 
         resp_dict = self._vnc_lib.service_instances_list(parent_id=project_id)
 
@@ -674,8 +687,8 @@ class DBInterface(object):
     def _policy_list_project(self, project_id):
         try:
             project_uuid = str(uuid.UUID(project_id))
-        except Exception:
-            print "Error in converting uuid %s" % (project_id)
+        except (TypeError, ValueError, AttributeError):
+            return []
 
         resp_dict = self._vnc_lib.network_policys_list(parent_id=project_uuid)
 
@@ -807,12 +820,8 @@ class DBInterface(object):
 
         # Convert port from contrail to neutron repr with the memo cache
         for port_obj in port_objs:
-            try:
-                port_info = self._port_vnc_to_neutron(port_obj, memo_req)
-            except NoIdError:
-                continue
-            except Exception as e:
-                self.logger.error("Error in _port_list: %s", str(e))
+            port_info = self._port_vnc_to_neutron(port_obj, memo_req, oper=LIST)
+            if port_info is None:
                 continue
             ret_q_ports.append(port_info)
 
@@ -962,7 +971,8 @@ class DBInterface(object):
         return si_vnc
     #end _svc_instance_neutron_to_vnc
 
-    def _svc_instance_vnc_to_neutron(self, si_obj):
+    @_catch_convert_exception
+    def _svc_instance_vnc_to_neutron(self, si_obj, oper=READ):
         si_q_dict = self._obj_to_dict(si_obj)
 
         # replace field names
@@ -1020,7 +1030,8 @@ class DBInterface(object):
         return rt_vnc
     #end _route_table_neutron_to_vnc
 
-    def _route_table_vnc_to_neutron(self, rt_obj):
+    @_catch_convert_exception
+    def _route_table_vnc_to_neutron(self, rt_obj, oper=READ):
         rt_q_dict = self._obj_to_dict(rt_obj)
 
         # replace field names
@@ -1038,7 +1049,8 @@ class DBInterface(object):
         return rt_q_dict
     # end _route_table_vnc_to_neutron
 
-    def _security_group_vnc_to_neutron(self, sg_obj, memo_req=None):
+    @_catch_convert_exception
+    def _security_group_vnc_to_neutron(self, sg_obj, memo_req=None, oper=READ):
         sg_q_dict = {}
         extra_dict = {}
         extra_dict['fq_name'] = sg_obj.get_fq_name()
@@ -1093,8 +1105,9 @@ class DBInterface(object):
         return sg_vnc
     # end _security_group_neutron_to_vnc
 
+    @_catch_convert_exception
     def _security_group_rule_vnc_to_neutron(self, sg_id, sg_rule, sg_obj=None,
-                                            memo_req=None):
+                                            memo_req=None, oper=READ):
         sgr_q_dict = {}
         if sg_id is None:
             return sgr_q_dict
@@ -1331,7 +1344,8 @@ class DBInterface(object):
         return net_obj
     #end _network_neutron_to_vnc
 
-    def _network_vnc_to_neutron(self, net_obj, net_repr='SHOW'):
+    @_catch_convert_exception
+    def _network_vnc_to_neutron(self, net_obj, oper=READ):
         net_q_dict = {}
         extra_dict = {}
 
@@ -1364,7 +1378,7 @@ class DBInterface(object):
             net_q_dict['provider:physical_network'] = net_obj.provider_properties.physical_network
             net_q_dict['provider:segmentation_id'] = net_obj.provider_properties.segmentation_id
 
-        if net_repr == 'SHOW' or net_repr == 'LIST':
+        if oper == READ or oper == LIST:
             net_policy_refs = net_obj.get_network_policy_refs()
             if net_policy_refs:
                 sorted_refs = sorted(
@@ -1388,6 +1402,8 @@ class DBInterface(object):
                 for subnet in subnets:
                     sn_dict = self._subnet_vnc_to_neutron(subnet, net_obj,
                                                           ipam_ref['to'])
+                    if sn_dict is None:
+                        continue
                     net_q_dict['subnets'].append(sn_dict['id'])
                     sn_ipam = {}
                     sn_ipam['subnet_cidr'] = sn_dict['cidr']
@@ -1474,7 +1490,8 @@ class DBInterface(object):
         return subnet_vnc
     #end _subnet_neutron_to_vnc
 
-    def _subnet_vnc_to_neutron(self, subnet_vnc, net_obj, ipam_fq_name):
+    @_catch_convert_exception
+    def _subnet_vnc_to_neutron(self, subnet_vnc, net_obj, ipam_fq_name, oper=READ):
         sn_q_dict = {}
         extra_dict = {}
         sn_name = subnet_vnc.get_subnet_name()
@@ -1592,7 +1609,8 @@ class DBInterface(object):
         return ipam_obj
     #end _ipam_neutron_to_vnc
 
-    def _ipam_vnc_to_neutron(self, ipam_obj):
+    @_catch_convert_exception
+    def _ipam_vnc_to_neutron(self, ipam_obj, oper=READ):
         ipam_q_dict = self._obj_to_dict(ipam_obj)
 
         # replace field names
@@ -1634,7 +1652,8 @@ class DBInterface(object):
         return policy_obj
     #end _policy_neutron_to_vnc
 
-    def _policy_vnc_to_neutron(self, policy_obj):
+    @_catch_convert_exception
+    def _policy_vnc_to_neutron(self, policy_obj, oper=READ):
         policy_q_dict = self._obj_to_dict(policy_obj)
 
         # replace field names
@@ -1686,7 +1705,8 @@ class DBInterface(object):
 
         return vn_refs[0]['uuid']
 
-    def _router_vnc_to_neutron(self, rtr_obj, rtr_repr='SHOW'):
+    @_catch_convert_exception
+    def _router_vnc_to_neutron(self, rtr_obj, oper=READ):
         rtr_q_dict = {}
         extra_dict = {}
         extra_dict['fq_name'] = rtr_obj.get_fq_name()
@@ -1870,7 +1890,8 @@ class DBInterface(object):
         return fip_obj
     #end _floatingip_neutron_to_vnc
 
-    def _floatingip_vnc_to_neutron(self, fip_obj, memo_req=None):
+    @_catch_convert_exception
+    def _floatingip_vnc_to_neutron(self, fip_obj, memo_req=None, oper=READ):
         fip_q_dict = {}
 
         try:
@@ -2234,7 +2255,8 @@ class DBInterface(object):
         return port_obj
     # end _port_neutron_to_vnc
 
-    def _gw_port_vnc_to_neutron(self, port_obj, port_req_memo):
+    @_catch_convert_exception
+    def _gw_port_vnc_to_neutron(self, port_obj, port_req_memo, oper=READ):
         vm_refs = port_obj.get_virtual_machine_refs()
         vm_uuid = vm_refs[0]['uuid']
         vm_obj = None
@@ -2266,7 +2288,8 @@ class DBInterface(object):
         return rtr_back_refs[0]['uuid']
     #end _gw_port_vnc_to_neutron
 
-    def _port_vnc_to_neutron(self, port_obj, port_req_memo=None):
+    @_catch_convert_exception
+    def _port_vnc_to_neutron(self, port_obj, port_req_memo=None, oper=READ):
         port_q_dict = {}
         extra_dict = {}
         extra_dict['fq_name'] = port_obj.get_fq_name()
@@ -2686,7 +2709,7 @@ class DBInterface(object):
             fip_pool_obj = FloatingIpPool('floating-ip-pool', net_obj)
             self._floating_ip_pool_create(fip_pool_obj)
 
-        ret_network_q = self._network_vnc_to_neutron(net_obj, net_repr='SHOW')
+        ret_network_q = self._network_vnc_to_neutron(net_obj)
         return ret_network_q
     #end network_create
 
@@ -2702,7 +2725,7 @@ class DBInterface(object):
         except NoIdError:
             self._raise_contrail_exception('NetworkNotFound', net_id=net_uuid)
 
-        return self._network_vnc_to_neutron(net_obj, net_repr='SHOW')
+        return self._network_vnc_to_neutron(net_obj)
     #end network_read
 
     @wait_for_api_server_connection
@@ -2735,7 +2758,7 @@ class DBInterface(object):
                         network=net_obj.display_name)
         self._virtual_network_update(net_obj)
 
-        ret_network_q = self._network_vnc_to_neutron(net_obj, net_repr='SHOW')
+        ret_network_q = self._network_vnc_to_neutron(net_obj)
         return ret_network_q
     #end network_update
 
@@ -2764,15 +2787,12 @@ class DBInterface(object):
             for net_id in net_ids:
                 try:
                     net_obj = self._network_read(net_id)
-                    net_info = self._network_vnc_to_neutron(net_obj,
-                                                        net_repr='LIST')
-                    ret_dict[net_id] = net_info
                 except NoIdError:
                     continue
-                except Exception as e:
-                    self.logger.error("Error in network_list: %s for id %s",
-                        str(e), net_id)
+                net_info = self._network_vnc_to_neutron(net_obj, oper=LIST)
+                if net_info is None:
                     continue
+                ret_dict[net_id] = net_info
         #end _collect_without_prune
 
         # collect phase
@@ -2833,8 +2853,9 @@ class DBInterface(object):
                 shared = filters['shared'][0]
             nets = self._network_list_filter(shared, router_external)
             for net in nets:
-                net_info = self._network_vnc_to_neutron(net,
-                                                        net_repr='LIST')
+                net_info = self._network_vnc_to_neutron(net, oper=LIST)
+                if net_info is None:
+                    continue
                 ret_dict[net.uuid] = net_info
         else:
             # read all networks in all projects
@@ -2858,14 +2879,8 @@ class DBInterface(object):
             if not self._filters_is_present(filters, 'shared',
                                             is_shared):
                 continue
-            try:
-                net_info = self._network_vnc_to_neutron(net_obj,
-                                                        net_repr='LIST')
-            except NoIdError:
-                continue
-            except Exception as e:
-                self.logger.error("Error in network_list: %s for id %s",
-                    str(e), net_obj.uuid)
+            net_info = self._network_vnc_to_neutron(net_obj, oper=LIST)
+            if net_info is None:
                 continue
             ret_dict[net_obj.uuid] = net_info
 
@@ -2992,7 +3007,8 @@ class DBInterface(object):
                     if subnet_vnc.subnet_uuid == subnet_id:
                         ret_subnet_q = self._subnet_vnc_to_neutron(
                             subnet_vnc, net_obj, ipam_ref['to'])
-                        return ret_subnet_q
+                        if ret_subnet_q is not None:
+                            return ret_subnet_q
 
         self._raise_contrail_exception('SubnetNotFound',
                                        subnet_id=subnet_id)
@@ -3147,13 +3163,11 @@ class DBInterface(object):
                 for ipam_ref in ipam_refs:
                     subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
                     for subnet_vnc in subnet_vncs:
-                        try:
-                            sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
+                        sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
                                                               net_obj,
-                                                              ipam_ref['to'])
-                        except Exception as e:
-                            self.logger.error("Error in subnets_list: %s",
-                                str(e))
+                                                              ipam_ref['to'],
+                                                              oper=LIST)
+                        if sn_info is None:
                             continue
                         sn_id = sn_info['id']
                         sn_proj_id = sn_info['tenant_id']
@@ -3209,15 +3223,15 @@ class DBInterface(object):
     #end ipam_create
 
     @wait_for_api_server_connection
-    def ipam_read(self, ipam_id):
+    def ipam_read(self, ipam_id, oper=READ):
         try:
             ipam_obj = self._vnc_lib.network_ipam_read(id=ipam_id)
         except NoIdError:
-            # TODO add ipam specific exception
+            # TO,DO add ipam specific exception
             self._raise_contrail_exception('NetworkNotFound',
                                            net_id=ipam_id)
 
-        return self._ipam_vnc_to_neutron(ipam_obj)
+        return self._ipam_vnc_to_neutron(ipam_obj, oper=oper)
     #end ipam_read
 
     @wait_for_api_server_connection
@@ -3259,12 +3273,8 @@ class DBInterface(object):
                 proj_ipam_id = proj_ipam['uuid']
                 if not self._filters_is_present(filters, 'id', proj_ipam_id):
                     continue
-                try:
-                    ipam_info = self.ipam_read(proj_ipam['uuid'])
-                except NoIdError:
-                    continue
-                except Exception as e:
-                    self.logger.error("Error in ipam_list: %s", str(e))
+                ipam_info = self.ipam_read(proj_ipam['uuid'], oper=LIST)
+                if ipam_info is None:
                     continue
                 ret_list.append(ipam_info)
 
@@ -3298,13 +3308,13 @@ class DBInterface(object):
     #end policy_create
 
     @wait_for_api_server_connection
-    def policy_read(self, policy_id):
+    def policy_read(self, policy_id, oper=READ):
         try:
             policy_obj = self._vnc_lib.network_policy_read(id=policy_id)
         except NoIdError:
             raise policy.PolicyNotFound(id=policy_id)
 
-        return self._policy_vnc_to_neutron(policy_obj)
+        return self._policy_vnc_to_neutron(policy_obj, oper=oper)
     #end policy_read
 
     @wait_for_api_server_connection
@@ -3347,12 +3357,8 @@ class DBInterface(object):
                 proj_policy_id = proj_policy['uuid']
                 if not self._filters_is_present(filters, 'id', proj_policy_id):
                     continue
-                try:
-                    policy_info = self.policy_read(proj_policy['uuid'])
-                except NoIdError:
-                    continue
-                except Exception as e:
-                    self.logger.error("Error in policy_list: %s", str(e))
+                policy_info = self.policy_read(proj_policy['uuid'], oper=LIST)
+                if policy_info is None:
                     continue
                 ret_list.append(policy_info)
 
@@ -3413,7 +3419,7 @@ class DBInterface(object):
         # read it back to update id perms
         rtr_obj = self._logical_router_read(rtr_uuid)
         self._router_update_gateway(router_q, rtr_obj)
-        ret_router_q = self._router_vnc_to_neutron(rtr_obj, rtr_repr='SHOW')
+        ret_router_q = self._router_vnc_to_neutron(rtr_obj)
 
         return ret_router_q
     #end router_create
@@ -3431,7 +3437,7 @@ class DBInterface(object):
             self._raise_contrail_exception('RouterNotFound',
                                            router_id=rtr_uuid)
 
-        return self._router_vnc_to_neutron(rtr_obj, rtr_repr='SHOW')
+        return self._router_vnc_to_neutron(rtr_obj)
     #end router_read
 
     @wait_for_api_server_connection
@@ -3440,7 +3446,7 @@ class DBInterface(object):
         rtr_obj = self._router_neutron_to_vnc(router_q, UPDATE)
         self._logical_router_update(rtr_obj)
         self._router_update_gateway(router_q, rtr_obj)
-        ret_router_q = self._router_vnc_to_neutron(rtr_obj, rtr_repr='SHOW')
+        ret_router_q = self._router_vnc_to_neutron(rtr_obj)
 
         return ret_router_q
     #end router_update
@@ -3481,11 +3487,12 @@ class DBInterface(object):
                 for rtr_id in filters['id']:
                     try:
                         rtr_obj = self._logical_router_read(rtr_id)
-                        rtr_info = self._router_vnc_to_neutron(rtr_obj,
-                                                               rtr_repr='LIST')
-                        ret_list.append(rtr_info)
                     except NoIdError:
-                        pass
+                        continue
+                    rtr_info = self._router_vnc_to_neutron(rtr_obj, oper=LIST)
+                    if rtr_info is None:
+                        continue
+                    ret_list.append(rtr_info)
             else:
                 # read all routers in project, and prune below
                 for p_id in self._validate_project_ids(context, filters) or []:
@@ -3500,11 +3507,12 @@ class DBInterface(object):
             for rtr_id in filters['id']:
                 try:
                     rtr_obj = self._logical_router_read(rtr_id)
-                    rtr_info = self._router_vnc_to_neutron(rtr_obj,
-                                                           rtr_repr='LIST')
-                    ret_list.append(rtr_info)
                 except NoIdError:
-                    pass
+                    continue
+                rtr_info = self._router_vnc_to_neutron(rtr_obj, oper=LIST)
+                if rtr_info is None:
+                    continue
+                ret_list.append(rtr_info)
         else:
             if not context['is_admin']:
                 project_id = str(uuid.UUID(context['tenant']))
@@ -3528,16 +3536,13 @@ class DBInterface(object):
                     continue
                 try:
                     rtr_obj = self._logical_router_read(proj_rtr['uuid'])
-                    if not self._filters_is_present(
-                        filters, 'name',
-                        rtr_obj.get_display_name() or rtr_obj.name):
-                        continue
-                    rtr_info = self._router_vnc_to_neutron(rtr_obj,
-                                                           rtr_repr='LIST')
                 except NoIdError:
                     continue
-                except Exception as e:
-                    self.logger.error("Error in router_list: %s", str(e))
+                rtr_info = self._router_vnc_to_neutron(rtr_obj, oper=LIST)
+                if rtr_info is None:
+                    continue
+                if not self._filters_is_present(filters, 'name',
+                        rtr_obj.get_display_name() or rtr_obj.name):
                     continue
                 ret_list.append(rtr_info)
 
@@ -3839,13 +3844,11 @@ class DBInterface(object):
                        )[0]['uuid'] not in port_ids:
                     continue
 
-            try:
-                ret_list.append(self._floatingip_vnc_to_neutron(fip_obj, memo_req))
-            except NoIdError:
+            fip_info = self._floatingip_vnc_to_neutron(fip_obj, memo_req,
+                                                       oper=LIST)
+            if fip_info is None:
                 continue
-            except Exception as e:
-                self.logger.error("Error in floatingip_list: %s", str(e))
-                continue
+            ret_list.append(fip_info)
 
         return ret_list
     #end floatingip_list
@@ -4401,12 +4404,9 @@ class DBInterface(object):
             name = sg_obj.get_display_name() or sg_obj.name
             if not self._filters_is_present(filters, 'name', name):
                 continue
-            try:
-                sg_info = self._security_group_vnc_to_neutron(sg_obj, memo_req)
-            except NoIdError:
-                continue
-            except Exception as e:
-                self.logger.error("Error in security_group_list: %s", str(e))
+            sg_info = self._security_group_vnc_to_neutron(sg_obj, memo_req,
+                                                          oper=LIST)
+            if sg_info is None:
                 continue
             ret_list.append(sg_info)
 
@@ -4485,7 +4485,8 @@ class DBInterface(object):
     # end security_group_rule_delete
 
     @wait_for_api_server_connection
-    def security_group_rules_read(self, sg_id, sg_obj=None, memo_req=None):
+    def security_group_rules_read(self, sg_id, sg_obj=None, memo_req=None,
+                                  oper=READ):
         try:
             if not sg_obj:
                 sg_obj = self._vnc_lib.security_group_read(id=sg_id)
@@ -4497,7 +4498,7 @@ class DBInterface(object):
 
             for sg_rule in sgr_entries.get_policy_rule():
                 sgr_info = self._security_group_rule_vnc_to_neutron(
-                    sg_obj.uuid, sg_rule, sg_obj, memo_req)
+                    sg_obj.uuid, sg_rule, sg_obj, memo_req, oper=oper)
                 if sgr_info:
                     sg_rules.append(sgr_info)
         except NoIdError:
@@ -4525,17 +4526,11 @@ class DBInterface(object):
         # prune phase
         for project_sgs in all_sgs:
             for sg_obj in project_sgs:
-                try:
-                    sgr_info = self.security_group_rules_read(sg_obj.uuid,
-                                                              sg_obj)
-                except NoIdError:
+                sgr_info = self.security_group_rules_read(sg_obj.uuid, sg_obj,
+                                                          oper=LIST)
+                if sgr_info is None:
                     continue
-                except Exception as e:
-                    self.logger.error("Error in security_group_rule_list: %s",
-                                      str(e))
-                    continue
-                if sgr_info:
-                    ret_list.extend(sgr_info)
+                ret_list.extend(sgr_info)
 
         return ret_list
     # end security_group_rule_list
@@ -4554,14 +4549,14 @@ class DBInterface(object):
     #end route_table_create
 
     @wait_for_api_server_connection
-    def route_table_read(self, rt_id):
+    def route_table_read(self, rt_id, oper=READ):
         try:
             rt_obj = self._vnc_lib.route_table_read(id=rt_id)
         except NoIdError:
             # TODO add route table specific exception
             self._raise_contrail_exception('NetworkNotFound', net_id=rt_id)
 
-        return self._route_table_vnc_to_neutron(rt_obj)
+        return self._route_table_vnc_to_neutron(rt_obj, oper=oper)
     #end route_table_read
 
     @wait_for_api_server_connection
@@ -4601,16 +4596,11 @@ class DBInterface(object):
         # prune phase
         for project_rts in all_rts:
             for proj_rt in project_rts:
-                # TODO implement same for name specified in filter
                 proj_rt_id = proj_rt['uuid']
                 if not self._filters_is_present(filters, 'id', proj_rt_id):
                     continue
-                try:
-                    rt_info = self.route_table_read(proj_rt_id)
-		except NoIdError:
-                    continue
-                except Exception as e:
-                    self.logger.error("Error in route_table_list: %s", str(e))
+                rt_info = self.route_table_read(proj_rt_id, oper=LIST)
+                if rt_info is None:
                     continue
                 if not self._filters_is_present(filters, 'name',
                                                 rt_info['name']):
@@ -4630,14 +4620,14 @@ class DBInterface(object):
     #end svc_instance_create
 
     @wait_for_api_server_connection
-    def svc_instance_read(self, si_id):
+    def svc_instance_read(self, si_id, oper=READ):
         try:
             si_obj = self._vnc_lib.service_instance_read(id=si_id)
         except NoIdError:
             # TODO add svc instance specific exception
             self._raise_contrail_exception('NetworkNotFound', net_id=si_id)
 
-        return self._svc_instance_vnc_to_neutron(si_obj)
+        return self._svc_instance_vnc_to_neutron(si_obj, oper=oper)
     #end svc_instance_read
 
     @wait_for_api_server_connection
@@ -4669,16 +4659,11 @@ class DBInterface(object):
         # prune phase
         for project_sis in all_sis:
             for proj_si in project_sis:
-                # TODO implement same for name specified in filter
                 proj_si_id = proj_si['uuid']
                 if not self._filters_is_present(filters, 'id', proj_si_id):
                     continue
-                try:
-                    si_info = self.svc_instance_read(proj_si_id)
-		except NoIdError:
-                    continue
-                except Exception as e:
-                    self.logger.error("Error in svc_instance_list: %s", str(e))
+                si_info = self.svc_instance_read(proj_si_id, oper=LIST)
+                if si_info is None:
                     continue
                 if not self._filters_is_present(filters, 'name',
                                                 si_info['name']):
