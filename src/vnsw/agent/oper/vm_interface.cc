@@ -2137,7 +2137,31 @@ void VmInterface::ServiceVlanList::Insert(const ServiceVlan *rhs) {
 
 void VmInterface::ServiceVlanList::Update(const ServiceVlan *lhs,
                                           const ServiceVlan *rhs) {
-    lhs->vrf_name_ = rhs->vrf_name_;
+    if (lhs->vrf_name_ != rhs->vrf_name_) {
+        lhs->vrf_name_ = rhs->vrf_name_;
+        lhs->del_add_ = true;
+    }
+
+    if (lhs->addr_ != rhs->addr_) {
+        lhs->addr_ = rhs->addr_;
+        lhs->del_add_ = true;
+    }
+
+    if (lhs->addr6_ != rhs->addr6_) {
+        lhs->addr6_ = rhs->addr6_;
+        lhs->del_add_ = true;
+    }
+
+    if (lhs->smac_ != rhs->smac_) {
+        lhs->smac_ = rhs->smac_;
+        lhs->del_add_ = true;
+    }
+
+    if (lhs->dmac_ != rhs->dmac_) {
+        lhs->dmac_ = rhs->dmac_;
+        lhs->del_add_ = true;
+    }
+
     lhs->set_del_pending(false);
 }
 
@@ -2151,11 +2175,20 @@ bool VmInterface::ServiceVlanList::UpdateList
     ServiceVlanSet::iterator it = list_.begin();
     while (it != list_.end()) {
         ServiceVlanSet::iterator prev = it++;
-        prev->Update(agent, vmi);
-        if (prev->del_pending_) {
-            list_.erase(prev);
+        if (prev->del_pending_ || prev->del_add_) {
+            prev->Update(agent, vmi);
+            if (prev->del_pending_) {
+                list_.erase(prev);
+            }
         } 
     }
+
+    it = list_.begin();
+    while (it != list_.end()) {
+        ServiceVlanSet::iterator prev = it++;
+        prev->Update(agent, vmi);
+    }
+
     return true;
 }
 
@@ -2267,18 +2300,21 @@ bool VmInterface::TagEntryList::UpdateList(const Agent *agent,
 // ServiceVlan routines
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::ServiceVlan::ServiceVlan() :
-    ListEntry(), tag_(0), vrf_name_(""), addr_(0),
-    addr6_(), smac_(), dmac_(), vrf_(NULL, this),
+    ListEntry(), tag_(0), vrf_name_(""), addr_(0), old_addr_(0),
+    addr6_(), old_addr6_(), smac_(), dmac_(), vrf_(NULL, this),
     label_(MplsTable::kInvalidLabel), v4_rt_installed_(false),
-    v6_rt_installed_(false) {
+    v6_rt_installed_(false), del_add_(false) {
 }
 
 VmInterface::ServiceVlan::ServiceVlan(const ServiceVlan &rhs) :
     ListEntry(rhs.del_pending_), tag_(rhs.tag_),
-    vrf_name_(rhs.vrf_name_), addr_(rhs.addr_), addr6_(rhs.addr6_),
-    smac_(rhs.smac_), dmac_(rhs.dmac_), vrf_(rhs.vrf_, this),
-    label_(rhs.label_), v4_rt_installed_(rhs.v4_rt_installed_),
-    v6_rt_installed_(rhs.v6_rt_installed_) {
+    vrf_name_(rhs.vrf_name_), addr_(rhs.addr_), old_addr_(rhs.old_addr_),
+    addr6_(rhs.addr6_), old_addr6_(rhs.old_addr6_),
+    vrf_(rhs.vrf_, this), label_(rhs.label_),
+    v4_rt_installed_(rhs.v4_rt_installed_),
+    v6_rt_installed_(rhs.v6_rt_installed_), del_add_(false) {
+    smac_ = rhs.smac_;
+    dmac_ = rhs.dmac_;
 }
 
 VmInterface::ServiceVlan::ServiceVlan(uint16_t tag, const std::string &vrf_name,
@@ -2286,10 +2322,11 @@ VmInterface::ServiceVlan::ServiceVlan(uint16_t tag, const std::string &vrf_name,
                                       const Ip6Address &addr6,
                                       const MacAddress &smac,
                                       const MacAddress &dmac) :
-    ListEntry(), tag_(tag), vrf_name_(vrf_name), addr_(addr), addr6_(addr6),
+    ListEntry(), tag_(tag), vrf_name_(vrf_name), addr_(addr), old_addr_(addr),
+    addr6_(addr6), old_addr6_(addr6),
     smac_(smac), dmac_(dmac), vrf_(NULL, this),
     label_(MplsTable::kInvalidLabel) , v4_rt_installed_(false),
-    v6_rt_installed_(false) {
+    v6_rt_installed_(false), del_add_(false) {
 }
 
 VmInterface::ServiceVlan::~ServiceVlan() {
@@ -2309,29 +2346,35 @@ void VmInterface::ServiceVlan::Update(const Agent *agent,
     InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
     VrfEntry *vrf = table->FindVrfRef(vrf_name_);
 
-    if (del_pending_ || vrf_ != vrf || vmi->ipv4_active() == false) {
+    if (del_pending_ || vrf_ != vrf || vmi->ipv4_active() == false || del_add_) {
         if (v4_rt_installed_) {
             InetUnicastAgentRouteTable::Delete(vmi->peer(), vrf_->GetName(),
-                                               addr_, Address::kMaxV4PrefixLen);
+                                               old_addr_,
+                                               Address::kMaxV4PrefixLen);
             v4_rt_installed_ = false;
         }
     }
 
-    if (del_pending_ || vrf_ != vrf || vmi->ipv6_active() == false) {
+    if (del_pending_ || vrf_ != vrf || vmi->ipv6_active() == false || del_add_) {
         if (v6_rt_installed_) {
             InetUnicastAgentRouteTable::Delete(vmi->peer(), vrf_->GetName(),
-                                               addr6_,
+                                               old_addr6_,
                                                Address::kMaxV6PrefixLen);
             v6_rt_installed_ = false;
         }
     }
 
-    if (del_pending_ || vrf_ != vrf) {
+    if (del_pending_ || vrf_ != vrf || del_add_) {
         DeleteCommon(vmi);
     }
 
     vrf_ = vrf;
-    if (del_pending_ || vrf_ == NULL)
+    old_addr_ = addr_;
+    old_addr6_ = addr6_;
+    bool old_del_add = del_add_;
+    del_add_ = false;
+
+    if (del_pending_ || vrf_ == NULL || old_del_add)
         return;
 
     if (vmi->ipv4_active() == false && vmi->ipv6_active() == false)
