@@ -195,4 +195,14 @@
      Link('firewall-rule-virtual-network',
           'firewall-rule', 'virtual-network', ['ref'], 'optional', 'R',
           'Reference to virtual network attached to endpoints') -->
+<xsd:element name="security-logging-object-firewall-policy"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('security-logging-object-firewall-policy',
+          'security-logging-object', 'firewall-policy', ['ref'], 'optional', 'CRUD',
+          'Reference to firewall-policy attached to this security-logging-object') -->
+<xsd:element name="security-logging-object-firewall-rule"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('security-logging-object-firewall-rule',
+          'security-logging-object', 'firewall-rule', ['ref'], 'optional', 'CRUD',
+          'Reference to firewall-rule attached to this security-logging-object') -->
 </xsd:schema>
