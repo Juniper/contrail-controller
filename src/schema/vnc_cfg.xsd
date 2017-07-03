@@ -988,7 +988,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          description='List of rules along with logging rate for each rule. Both rule-uuid and rate are optional. When rule-uuid is absent then it means all rules of associated SG or network-policy'/>
 </xsd:complexType>
 <xsd:element name="security-logging-object-rules" type="SecurityLoggingObjectRuleListType"
-    description='List of rules along with logging rate for each rule. These are rules derived based on user configured rules on security-logging-object-network-policy and security-logging-object-security-group links'/>
+    description='List of rules along with logging rate for each rule. These are rules derived based on user configured rules on security-logging-object-network-policy, security-logging-object-security-group and security-logging-object-firewall-policy links'/>
 <xsd:element name="security-logging-object-rate" type="xsd:integer" default='100'
     description='Rate at security-logging-object level. When multiple rates are specified at different levels, the rate which specifies highest frequency is selected'/>
 
