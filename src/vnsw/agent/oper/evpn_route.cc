@@ -524,12 +524,14 @@ void EvpnRouteEntry::UpdateDerivedRoutes(AgentRouteTable *table,
         BridgeAgentRouteTable *bridge_table = NULL;
         bridge_table = static_cast<BridgeAgentRouteTable *>
             (table->vrf_entry()->GetBridgeRouteTable());
-        bridge_table->AddBridgeRoute(this);
+        if (bridge_table)
+            bridge_table->AddBridgeRoute(this);
     }
     if (publish_to_inet_route_table()) {
         InetUnicastAgentRouteTable *inet_table =
             table->vrf_entry()->GetInetUnicastRouteTable(ip_addr());
-        inet_table->AddEvpnRoute(this);
+        if (inet_table)
+            inet_table->AddEvpnRoute(this);
     }
 }
 
@@ -538,12 +540,14 @@ void EvpnRouteEntry::DeleteDerivedRoutes(AgentRouteTable *table) {
     //Delete from bridge table
     BridgeAgentRouteTable *bridge_table = static_cast<BridgeAgentRouteTable *>
         (table->vrf_entry()->GetBridgeRouteTable());
-    bridge_table->DeleteBridgeRoute(this);
+    if (bridge_table)
+        bridge_table->DeleteBridgeRoute(this);
 
     //Delete from Inet table
     InetUnicastAgentRouteTable *inet_table =
         table->vrf_entry()->GetInetUnicastRouteTable(ip_addr());
-    inet_table->DeleteEvpnRoute(this);
+    if (inet_table)
+        inet_table->DeleteEvpnRoute(this);
 }
 
 /////////////////////////////////////////////////////////////////////////////
