@@ -121,6 +121,8 @@ void AgentRouteWalker::CancelRouteWalkInternal(const VrfEntry *vrf) {
                                "route table walk cancelled", walk_type_,
                                (vrf != NULL) ? vrf->GetName() : "Unknown",
                                vrf_walkid_, table_type, "", iter->second);
+            //TODO: Both CancelRouteWalkInternal and StopAllWalks
+            //can use common API for cancelling using iterator.
             walker->WalkCancel(iter->second);
             route_walkid_[table_type].erase(iter);
             DecrementWalkCount();
@@ -419,7 +421,14 @@ void AgentRouteWalker::DeleteInternal() {
         for (VrfRouteWalkerIdMapIterator iter = route_walkid_[type].begin();
              iter != route_walkid_[type].end(); iter++) {
             if (iter != route_walkid_[type].end()) {
+                //Note: This is also done at CancelRouteWalkInternal
+                //however it requires VRF and here blindly all vrf walks are
+                //stopped.
+                //TODO: Both CancelRouteWalkInternal and StopAllWalks
+                //can use common API.
                 walker->WalkCancel(iter->second);
+                route_walkid_[type].erase(iter);
+                DecrementWalkCount();
             }
         }
     }
