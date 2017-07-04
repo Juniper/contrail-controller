@@ -309,6 +309,12 @@ class ConfigDBTest(unittest.TestCase):
         # Delete loadbalancer
         config_db.LoadbalancerKM.delete('loadbalancer')
 
+        # Delete Virtual Machine Interface
+        config_db.VirtualMachineInterfaceKM.delete('vmi')
+
+        # Delete Network
+        config_db.VirtualNetworkKM.delete('network')
+
         # Delete project
         config_db.ProjectKM.delete('project')
     # end test_add_delete_pool

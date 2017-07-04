@@ -58,9 +58,14 @@ local_sources = [
     'kube_manager/vnc/flow_aging_manager.py',
     'kube_manager/tests/__init__.py',
     'kube_manager/tests/vnc/__init__.py',
+    'kube_manager/tests/vnc/db_mock.py',
+    'kube_manager/tests/vnc/test_case.py',
+    'kube_manager/tests/vnc/test_config_db.py',
+    'kube_manager/tests/vnc/test_vnc_kubernetes.py',
     'kube_manager/tests/vnc/test_vnc_namespace.py',
     'kube_manager/tests/vnc/test_vnc_pod.py',
-    'kube_manager/tests/vnc/test_case.py',
+    'kube_manager/tests/vnc/test_vnc_service.py',
+    'kube_manager/tests/vnc/vnc_api_mock.py',
     'kube_manager/tests/kube/__init__.py',
 ]
 
