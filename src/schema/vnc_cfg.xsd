@@ -2609,8 +2609,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:simpleType name="HealthCheckType" default="link-local">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="link-local"/>
-        <xsd:enumeration value="end-to-end"/>
+        <xsd:enumeration value="link-local"
+             description='Used to verify the status of any of the service-instance interfaces'/>
+        <xsd:enumeration value="end-to-end"
+             description='Used to verify the forwarding path from left-most service-instance to right-most service-instance or any service beyond that'/>
+        <xsd:enumeration value="segment"
+             description='Used to verify the health of single service-instance'/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -2619,7 +2623,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='enabled' type='xsd:boolean' default='false' required='optional' operations='CRUD'
              description='Administratively enable or disable this health check.'/>
         <xsd:element name='health-check-type' type='HealthCheckType' required='true' operations='CRUD'
-             description='Health check type, currently only link-local and end-to-end are supported'/>
+             description='Health check type, currently only link-local, end-to-end and segment are supported'/>
         <xsd:element name='monitor-type' type='HealthCheckProtocolType' required='true' operations='CRUD'
              description='Protocol used to monitor health, currently only HTTP, ICMP(ping), and BFD are supported'/>
         <xsd:element name='delay' type='xsd:integer' required='true' operations='CRUD'
