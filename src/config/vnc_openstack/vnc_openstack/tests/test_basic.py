@@ -8,6 +8,7 @@ import webtest.app
 import datetime
 
 sys.path.append('../common/tests')
+from vnc_openstack import neutron_plugin_db
 from cfgm_common.exceptions import NoIdError
 from test_utils import *
 import test_common
@@ -214,6 +215,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 'vnc_cfg_api.neutronApi')[0]
             neutron_db_obj = neutron_api_obj._npi._cfgdb
 
+            @neutron_plugin_db.catch_convert_exception
             def err_on_object_2(orig_method, res_obj, *args, **kwargs):
                 if res_obj.uuid == objs[2].uuid:
                     raise Exception('faking inconsistent element')
@@ -237,6 +239,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         for sn_id in [sn0_id, sn1_id, sn2_id]:
             self.assertIn(sn_id, present_ids)
 
+        @neutron_plugin_db.catch_convert_exception
         def err_on_sn2(orig_method, subnet_vnc, *args, **kwargs):
             if subnet_vnc.subnet_uuid == sn2_id:
                 raise Exception('faking inconsistent element')
