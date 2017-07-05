@@ -131,6 +131,24 @@ public:
     // we program back all the deferred entries
     void DeleteOvs(bool add_change_in_progress);
 
+    virtual void StaleTimerExpired();
+
+    //Sandesh helpers
+    uint32_t mcast_local_row_list_size() const {
+        return mcast_local_row_list_.size();
+    }
+    uint32_t ucast_local_row_list_size() const {
+        return ucast_local_row_list_.size();
+    }
+    uint32_t old_mcast_remote_row_list_size() const {
+        return old_mcast_remote_row_list_.size();
+    }
+    bool is_local_mac_ref_set() const {
+        return local_mac_ref_ != NULL;
+    }
+    bool is_mcast_remote_set() const {
+        return mcast_remote_row_ != NULL;
+    }
 private:
     class ProcessDeleteOvsReqTask : public Task {
     public:
