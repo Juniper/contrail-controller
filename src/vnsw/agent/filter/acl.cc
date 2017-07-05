@@ -1006,9 +1006,9 @@ void AclEntrySpec::BuildAddressInfo(const std::string &prefix, int plen,
     list->push_back(info);
 }
 
-void AclEntrySpec::PopulateServiceType(const FirewallServiceType *fst) {
+void AclEntrySpec::PopulateFirewallService(const MatchConditionType *fs) {
     ServicePort sp;
-    if (fst->protocol.compare("any") == 0) {
+    if (fs->protocol.compare("any") == 0) {
         sp.protocol.min = 0x0;
         sp.protocol.max = 0xff;
         //Ignore port
@@ -1018,23 +1018,23 @@ void AclEntrySpec::PopulateServiceType(const FirewallServiceType *fst) {
         sp.src_port = port;
         sp.dst_port = port;
     } else {
-        sp.protocol.min = fst->protocol_id;
+        sp.protocol.min = fs->protocol_id;
         sp.protocol.max = sp.protocol.min;
 
-        sp.src_port.min = fst->src_ports.start_port;
-        sp.src_port.max = fst->src_ports.end_port;
+        sp.src_port.min = fs->src_port.start_port;
+        sp.src_port.max = fs->src_port.end_port;
 
-        sp.dst_port.min = fst->dst_ports.start_port;
-        sp.dst_port.max = fst->dst_ports.end_port;
+        sp.dst_port.min = fs->dst_port.start_port;
+        sp.dst_port.max = fs->dst_port.end_port;
     }
     service_group.push_back(sp);
 }
 
 bool AclEntrySpec::PopulateServiceGroup(const ServiceGroup *s_group) {
-    std::vector<FirewallServiceType>::const_iterator it =
+    std::vector<MatchConditionType>::const_iterator it =
         s_group->firewall_service_list().begin();
     for (; it != s_group->firewall_service_list().end(); it++) {
-        PopulateServiceType(&(*it));
+        PopulateFirewallService(&(*it));
     }
 
     return true;
@@ -1176,7 +1176,7 @@ bool AclEntrySpec::BuildAddressGroup(Agent *agent, IFMapNode *node,
 bool AclEntrySpec::Populate(Agent *agent, IFMapNode *fw_rule_node,
                             const FirewallRule *fw_rule) {
     if (fw_rule->IsPropertySet(FirewallRule::SERVICE)) {
-        PopulateServiceType(&(fw_rule->service()));
+        PopulateFirewallService(&(fw_rule->service()));
     }
 
     if (fw_rule->match_tags().size()) {

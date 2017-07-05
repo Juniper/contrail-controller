@@ -125,7 +125,7 @@ That Neutron resource will be map to the Contrail `firewall-rule` resource like
 this:
 
 Attribute Name | Contrail `firewall-rule` attribute
---------------| ------------------------------
+---------------| ----------------------------------
 id | `id_perms.uuid`
 tenant_id | `project` parent reference
 name | `display_name`
@@ -137,8 +137,8 @@ ip_version | IP version determined by `source_ip_address` and `destination_ip_ad
 source_ip_address | `endpoint-1.subnet`
 destination_ip_address | `endpoint-2.subnet`
 protocol | `service.protocol[-id]`
-source_port | `service.src-ports`
-destination_port | `service.dst-ports`
+source_port | `service.src-port`
+destination_port | `service.dst-port`
 position | Sequence of reference between `firewall-policy` and `firewall-rule`
 action | `action-list.simple-action`*
 

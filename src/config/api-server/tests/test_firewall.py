@@ -238,7 +238,7 @@ class TestFw(test_case.ApiServerTestCase):
 
         rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
                      action_list=ActionListType(simple_action='pass'),
-                     service=FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)),
+                     service=MatchConditionType(protocol="tcp", dst_port=PortType(8080, 8082)),
                      endpoint_1=FirewallRuleEndpointType(tags=['application=App1', 'tier=Web']),
                      endpoint_2=FirewallRuleEndpointType(tags=['application=App2', 'tier=Db']),
                      direction='<>')
@@ -302,7 +302,7 @@ class TestFw(test_case.ApiServerTestCase):
 
         rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
                      action_list=ActionListType(simple_action='pass'),
-                     service=FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)),
+                     service=MatchConditionType(protocol="tcp", dst_port=PortType(8080, 8082)),
                      endpoint_1=FirewallRuleEndpointType(address_group=":".join(ag_obj.get_fq_name())),
                      endpoint_2=FirewallRuleEndpointType(tags=['application=App2', 'tier=Db']),
                      direction='<>')
@@ -326,7 +326,7 @@ class TestFw(test_case.ApiServerTestCase):
         pobj = Project('%s-project' %(self.id()))
         self._vnc_lib.project_create(pobj)
 
-        fst = FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082))
+        fst = MatchConditionType(protocol="tcp", dst_port=PortType(8080, 8082))
         fsgt = FirewallServiceGroupType(firewall_service=[fst])
         sg_obj = ServiceGroup(service_group_firewall_service_list=fsgt, parent_obj=pobj)
         self._vnc_lib.service_group_create(sg_obj)
@@ -408,25 +408,25 @@ class TestFw(test_case.ApiServerTestCase):
         rule_obj = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
 
         # rule + service (negative test case)
-        rule_obj.set_service(FirewallServiceType(protocol="1234", dst_ports=PortType(8080, 8082)))
+        rule_obj.set_service(MatchConditionType(protocol="1234", dst_port=PortType(8080, 8082)))
         with ExpectedException(BadRequest) as e:
             self._vnc_lib.firewall_rule_update(rule_obj)
 
         # rule + service (positive test case)
-        rule_obj.set_service(FirewallServiceType(protocol="udp", dst_ports=PortType(8080, 8082)))
+        rule_obj.set_service(MatchConditionType(protocol="udp", dst_port=PortType(8080, 8082)))
         self._vnc_lib.firewall_rule_update(rule_obj)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         self.assertEqual(rule.get_service().get_protocol_id(), 17)
 
         # service group negative test case
-        fst = FirewallServiceType(protocol="1234", dst_ports=PortType(8080, 8082))
+        fst = MatchConditionType(protocol="1234", dst_port=PortType(8080, 8082))
         fsgt = FirewallServiceGroupType(firewall_service=[fst])
         sg_obj = ServiceGroup(service_group_firewall_service_list=fsgt, parent_obj=pobj)
         with ExpectedException(BadRequest) as e:
             self._vnc_lib.service_group_create(sg_obj)
 
         # create blank service group
-        fst = FirewallServiceType()
+        fst = MatchConditionType()
         fsgt = FirewallServiceGroupType(firewall_service=[fst])
         sg_obj = ServiceGroup(name="sg1-%s" % self.id(),
                      service_group_firewall_service_list=fsgt, parent_obj=pobj)
@@ -437,7 +437,7 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(len(fst), 1)
 
         # update service group
-        fst = FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082))
+        fst = MatchConditionType(protocol="tcp", dst_port=PortType(8080, 8082))
         fsgt = FirewallServiceGroupType(firewall_service=[fst])
         sg.set_service_group_firewall_service_list(fsgt)
         self._vnc_lib.service_group_update(sg)
@@ -450,7 +450,7 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(received_list, expected_protocol_id_list)
 
         # update service group again and verify
-        fsgt.add_firewall_service(FirewallServiceType(protocol="udp", dst_ports=PortType(52, 53)))
+        fsgt.add_firewall_service(MatchConditionType(protocol="udp", dst_port=PortType(52, 53)))
         sg.set_service_group_firewall_service_list(fsgt)
         self._vnc_lib.service_group_update(sg)
         sg = self._vnc_lib.service_group_read(id=sg_obj.uuid)
@@ -462,7 +462,7 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(received_list, expected_protocol_id_list)
 
         # create a new service group
-        fst = FirewallServiceType(protocol="tcp", dst_ports=PortType(80, 80))
+        fst = MatchConditionType(protocol="tcp", dst_port=PortType(80, 80))
         fsgt = FirewallServiceGroupType(firewall_service=[fst])
         sg_obj = ServiceGroup(name="sg2-%s" % self.id(),
                      service_group_firewall_service_list=fsgt, parent_obj=pobj)
@@ -476,7 +476,7 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(received_list, expected_protocol_id_list)
 
         # update service group and verify all items
-        fsgt.add_firewall_service(FirewallServiceType(protocol="udp", dst_ports=PortType(52, 53)))
+        fsgt.add_firewall_service(MatchConditionType(protocol="udp", dst_port=PortType(52, 53)))
         sg.set_service_group_firewall_service_list(fsgt)
         self._vnc_lib.service_group_update(sg)
         sg = self._vnc_lib.service_group_read(id=sg_obj.uuid)
@@ -503,7 +503,7 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(rule_obj.action_list.simple_action, 'pass')
 
         # update rule with service - validate protocol_id in service get populated
-        rule_obj.set_service(FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082)))
+        rule_obj.set_service(MatchConditionType(protocol="tcp", dst_port=PortType(8080, 8082)))
         self._vnc_lib.firewall_rule_update(rule_obj)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         self.assertEqual(rule.get_service().get_protocol_id(), 6)
@@ -594,7 +594,7 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(ag_refs[0]['uuid'], ag_obj.uuid)
 
         # update SG and VN in endpoint
-        fst = FirewallServiceType(protocol="tcp", dst_ports=PortType(8080, 8082))
+        fst = MatchConditionType(protocol="tcp", dst_port=PortType(8080, 8082))
         fsgt = FirewallServiceGroupType(firewall_service=[fst])
         sg_obj = ServiceGroup(service_group_firewall_service_list=fsgt, parent_obj=pobj)
         self._vnc_lib.service_group_create(sg_obj)

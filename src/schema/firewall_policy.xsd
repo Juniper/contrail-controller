@@ -11,21 +11,8 @@
     </xsd:all>
 </xsd:complexType>
 
-<xsd:complexType name="FirewallServiceType">
-    <xsd:all>
-        <xsd:element name="protocol"     type="xsd:string"
-             description='Layer 4 protocol in ip packet'/>
-        <xsd:element name="protocol-id"  type="xsd:integer"
-             description='Layer 4 protocol id in ip packet'/>
-        <xsd:element name="src-ports"    type="PortType"
-             description='Range of source port for layer 4 protocol'/>
-        <xsd:element name="dst-ports"    type="PortType"
-             description='Range of destination port for layer 4 protocol'/>
-    </xsd:all>
-</xsd:complexType>
-
 <xsd:complexType name="FirewallServiceGroupType">
-    <xsd:element name="firewall-service" type="FirewallServiceType" maxOccurs="unbounded" required='true'/>
+    <xsd:element name="firewall-service" type="MatchConditionType" maxOccurs="unbounded" required='true'/>
 </xsd:complexType>
 
 <xsd:complexType name="FirewallRuleEndpointType">
@@ -61,7 +48,7 @@
 <!--#IFMAP-SEMANTICS-IDL
      Property('action-list', 'firewall-rule', 'required', 'CRUD',
            'Actions to be performed if packets match condition') -->
-<xsd:element name="service" type="FirewallServiceType"/>
+<xsd:element name="service" type="MatchConditionType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('service', 'firewall-rule', 'optional', 'CRUD',
            'Service (port, protocol) for packets match condition') -->

@@ -996,6 +996,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         vn_dict = result
 
+        if 'vrf_assign_table' in obj_dict:
+            for rule in obj_dict.get('vrf_assign_rule', []):
+                if not cfgm_common.set_protocol_id(rule['match_condition']):
+                    return False, (400, 'Invalid protocol: %s' %
+                                   rule['match_condition']['protocol'])
+
         vlan_tag = ((obj_dict.get('virtual_machine_interface_properties') or
                      {}).get('sub_interface_vlan_tag'))
         if vlan_tag and 'virtual_machine_interface_refs' in obj_dict:
@@ -1126,6 +1132,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
                        prop_collection_updates=None, **kwargs):
+
+        if 'vrf_assign_table' in obj_dict:
+            for rule in obj_dict.get('vrf_assign_rule', []):
+                if not cfgm_common.set_protocol_id(rule['match_condition']):
+                    return False, (400, 'Invalid protocol: %s' %
+                                   rule['match_condition']['protocol'])
 
         ok, read_result = cls.dbe_read(db_conn, 'virtual_machine_interface', id)
         if not ok:
@@ -1259,26 +1271,12 @@ class ServiceGroupServer(Resource, ServiceGroup):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
 
-        # create protcol id
-        try:
-            firewall_services = obj_dict['service_group_firewall_service_list']['firewall_service']
-        except Exception as e:
-            return True, ""
-
-        for service in firewall_services:
-            if service.get('protocol') is None:
-                continue
-            protocol = service['protocol']
-            if protocol.isdigit():
-                protocol_id = int(protocol)
-                if protocol_id < 0 or protocol_id > 255:
-                    return (False, (400, 'Rule with invalid protocol : %s' %
-                                protocol))
-            elif protocol not in cfgm_common.proto_dict:
-                return (False, (400, 'Invalid protocol : %s' % protocol))
-            else:
-                protocol_id = cfgm_common.proto_dict[protocol]
-            service['protocol_id'] = protocol_id
+        if 'service_group_firewall_service_list' in obj_dict:
+            service_group = obj_dict['service_group_firewall_service_list']
+            for match_condition in service_group.get('firewall_service', []):
+                if not cfgm_common.set_protocol_id(match_condition):
+                    return False, (400, 'Invalid protocol: %s' %
+                                   match_condition['protocol'])
 
         return True, ""
     # end pre_dbe_create
@@ -1374,19 +1372,10 @@ class FirewallRuleServer(Resource, FirewallRule):
 
     @classmethod
     def _frs_fix_service_protocol(cls, obj_dict):
-        if 'service' in obj_dict and 'protocol' in obj_dict['service']:
-            protocol = obj_dict['service']['protocol']
-            if protocol.isdigit():
-                protocol_id = int(protocol)
-                if protocol_id < 0 or protocol_id > 255:
-                    return (False, (400, 'Rule with invalid protocol : %s' %
-                                protocol))
-            elif protocol not in cfgm_common.proto_dict:
-                return (False, (400, 'Rule with invalid protocol : %s' % protocol))
-            else:
-                protocol_id = cfgm_common.proto_dict[protocol]
-            obj_dict['service']['protocol_id'] = protocol_id
-
+        if 'service' in obj_dict:
+            if not cfgm_common.set_protocol_id(obj_dict['service']):
+                return False, (400, 'Invalid protocol: %s' %
+                               obj_dict['service']['protocol'])
         return True, ""
 
     @classmethod
@@ -3027,7 +3016,7 @@ class ProjectServer(Resource, Project):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if 'vxlan_routing' in obj_dict:
             # VxLAN routing can be enabled or disabled
-            # only when the project does not have any 
+            # only when the project does not have any
             # Logical routers already attached.
             ok, result = cls.dbe_read(db_conn, 'project', id)
 
@@ -3549,3 +3538,23 @@ class BgpvpnServer(Resource, Bgpvpn):
             msg += ("- bgpvpn %s (%s) associated to network %s (%s)\n" %
                     found_bgpvpn)
         return False, (400, msg[:-1])
+
+
+class AccessControlListServer(Resource, AccessControlList):
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if not 'access_control_list_entries' not in obj_dict:
+            return True, ""
+
+        acl_entries = obj_dict['access_control_list_entries']
+        for rule in acl_entries.get('acl_rule', []):
+            if not cfgm_common.set_protocol_id(rule['match_condition']):
+                return False, (400, 'Invalid protocol: %s' %
+                               rule['match_condition']['protocol'])
+
+        return True, ""
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return cls.pre_dbe_create(None, obj_dict, db_conn)

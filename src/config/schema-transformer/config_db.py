@@ -1136,7 +1136,11 @@ class VirtualNetworkST(DBBaseST):
                      service_ri=None):
         action_list = copy.deepcopy(action)
         action_list.set_assign_routing_instance(service_ri)
-        match = MatchConditionType(proto, sa, sp, da, dp)
+        match = MatchConditionType(protocol=proto, src_address=sa, src_port=sp,
+                                   dst_address=da, dst_port=dp)
+        if not common.set_protocol_id(match):
+            self._logger.warning('ACL rule invalid prorocol: %s',
+                                 match['protocol'])
         acl_direction_comp = self._manager._args.acl_direction_comp
         if acl_direction_comp:
             acl = AclRuleType(match, action_list, rule_uuid, direction)
@@ -1243,8 +1247,14 @@ class VirtualNetworkST(DBBaseST):
 
             # Create my-vn to my-vn allow
             match = MatchConditionType(
-                "any", AddressType(virtual_network=self.name), PortType(),
-                AddressType(virtual_network=self.name), PortType())
+                protocol="any",
+                src_address=AddressType(virtual_network=self.name),
+                src_port=PortType(),
+                dst_address=AddressType(virtual_network=self.name),
+                dst_port=PortType())
+            if not common.set_protocol_id(match):
+                self._logger.warning('ACL rule invalid prorocol: %s',
+                                     match['protocol'])
             action = ActionListType("pass")
             acl = AclRuleType(match, action)
             acl_list.append(acl)
@@ -1280,8 +1290,14 @@ class VirtualNetworkST(DBBaseST):
 
                 # Create any-vn to any-vn allow
                 match = MatchConditionType(
-                    "any", AddressType(virtual_network="any"), PortType(),
-                    AddressType(virtual_network="any"), PortType())
+                    protocol="any",
+                    src_address=AddressType(virtual_network="any"),
+                    src_port=PortType(),
+                    dst_address=AddressType(virtual_network="any"),
+                    dst_port=PortType())
+                if not common.set_protocol_id(match):
+                    self._logger.warning('ACL rule invalid prorocol: %s',
+                                         match['protocol'])
                 action = ActionListType("pass")
                 acl = AclRuleType(match, action)
                 acl_list.append(acl)
@@ -1289,8 +1305,14 @@ class VirtualNetworkST(DBBaseST):
             else:
                 # Create any-vn to any-vn deny
                 match = MatchConditionType(
-                    "any", AddressType(virtual_network="any"), PortType(),
-                    AddressType(virtual_network="any"), PortType())
+                    protocol="any",
+                    src_address=AddressType(virtual_network="any"),
+                    src_port=PortType(),
+                    dst_address=AddressType(virtual_network="any"),
+                    dst_port=PortType())
+                if not common.set_protocol_id(match):
+                    self._logger.warning('ACL rule invalid prorocol: %s',
+                                         match['protocol'])
                 action = ActionListType("deny")
                 acl = AclRuleType(match, action)
                 acl_list.append(acl)
@@ -1927,10 +1949,16 @@ class SecurityGroupST(DBBaseST):
                     # If no dst port is specified, assume 0-65535
                     for dp in prule.dst_ports or [PortType()]:
                         action = ActionListType(simple_action='pass')
-                        match = MatchConditionType(arule_proto,
-                                                   saddr_match, sp,
-                                                   daddr_match, dp,
-                                                   ethertype)
+                        match = MatchConditionType(
+                            protocol=arule_proto,
+                            src_address=addr_match,
+                            src_port=sp,
+                            dst_address=daddr_match,
+                            dst_port=dp,
+                            ethertype=ethertype)
+                        if not common.set_protocol_id(match):
+                            self._logger.warning('ACL rule invalid prorocol: '
+                                                 '%s', match['protocol'])
                         acl = AclRuleType(match, action, rule_uuid)
                         acl_rule_list.append(acl)
                     # end for dp
@@ -3639,6 +3667,9 @@ class VirtualMachineInterfaceST(DBBaseST):
                                         protocol='any',
                                         src_port=PortType(),
                                         dst_port=PortType())
+                if not common.set_protocol_id(mc):
+                    self._logger.warning('ACL rule invalid prorocol: %s',
+                                         mc['protocol'])
 
                 vrf_rule = VrfAssignRuleType(match_condition=mc,
                                              routing_instance=vn._default_ri_name,
@@ -3668,6 +3699,10 @@ class VirtualMachineInterfaceST(DBBaseST):
                                 mc = MatchConditionType(src_port=sp,
                                                         dst_port=dp,
                                                         protocol=service_chain.protocol)
+                            if not common.set_protocol_id(mc):
+                                self._logger.warning('ACL rule invalid '
+                                                     'prorocol: %s',
+                                                     mc['protocol'])
                             vrf_rule = VrfAssignRuleType(match_condition=mc,
                                                          routing_instance=ri_name,
                                                          ignore_acl=True)

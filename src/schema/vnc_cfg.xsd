@@ -170,7 +170,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:complexType name="MatchConditionType">
     <xsd:sequence>
         <xsd:element name="protocol"    type="xsd:string"  required='true'
-             description='Layer 4 protocol in ip packet'/>
+             description='Layer 4 protocol name or integer value'/>
+        <xsd:element name="protocol-id"  type="xsd:integer" operation='R'
+             description='Layer 4 protocol interger value'/>
         <xsd:element name="src-address" type="AddressType" required='true'
              description='Source ip matching criteria'/>
         <xsd:element name="src-port"    type="PortType"    required='true'

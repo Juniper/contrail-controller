@@ -87,6 +87,7 @@ UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
                          HEX_ELEM + '{4}', HEX_ELEM + '{4}',
                          HEX_ELEM + '{12}'])
 
+
 def has_role(role, roles):
     """ Check if the a role is contained in a role list
 
@@ -97,5 +98,28 @@ def has_role(role, roles):
         return False
     return role.lower() in [r.lower() for r in roles]
 
+
 def get_lr_internal_vn_name(uuid):
     return '__contrail_lr_internal_vn_' + uuid + '__'
+
+
+def set_protocol_id(match_condition):
+    """ Convert protocol to its protocol ID of VNC MatchConditionType class
+
+    Return True if convertion gone well and False in any error cases.
+    """
+    if not match_condition or match_condition.get('protocol') is None:
+        return True
+
+    protocol = match_condition['protocol']
+    if protocol.isdigit():
+        protocol_id = int(protocol)
+        if protocol_id < 0 or protocol_id > 255:
+            return False
+    elif protocol not in proto_dict:
+        return False
+    else:
+        protocol_id = proto_dict[protocol]
+    match_condition['protocol_id'] = protocol_id
+
+    return True
