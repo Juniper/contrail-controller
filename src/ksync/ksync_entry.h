@@ -141,6 +141,9 @@ public:
     virtual std::string VrouterError(uint32_t error) const;
     static std::string VrouterErrorToString(uint32_t error);
 
+    // On stale timer expiration, notify entry for same
+    virtual void StaleTimerExpired() { }
+
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};
     bool del_add_pending() const {return del_add_pending_;}

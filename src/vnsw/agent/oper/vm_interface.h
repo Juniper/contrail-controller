@@ -679,6 +679,7 @@ public:
     bool NeedDevice() const;
     VmInterface::DeviceType device_type() const {return device_type_;}
     VmInterface::VmiType vmi_type() const {return vmi_type_;}
+    bool IsBareMetal() const {return (vmi_type_ == BAREMETAL);}
 
     // Add a vm-interface
     static void NovaAdd(InterfaceTable *table,

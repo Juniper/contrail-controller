@@ -15,6 +15,7 @@
 #include <oper/logical_interface.h>
 #include <oper/vm_interface.h>
 #include <oper/config_manager.h>
+#include <oper/vn.h>
 
 #include <vector>
 #include <string>
@@ -30,7 +31,7 @@ LogicalInterface::LogicalInterface(const boost::uuids::uuid &uuid,
                                    const std::string &name) :
     Interface(Interface::LOGICAL, uuid, name, NULL), display_name_(),
     physical_interface_(), vm_interface_(), physical_device_(NULL),
-    phy_dev_display_name_(), phy_intf_display_name_() {
+    phy_dev_display_name_(), phy_intf_display_name_(), vn_uuid_() {
 }
 
 LogicalInterface::~LogicalInterface() {
@@ -88,6 +89,17 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
         vm_interface_.reset(interface);
         ret = true;
     }
+
+    boost::uuids::uuid old_vn_uuid = vn_uuid_;
+    VmInterface *vmi = static_cast<VmInterface *>(vm_interface_.get());
+    if (vm_interface_.get() && vmi->vn()) {
+        vn_uuid_ = vmi->vn()->GetUuid();
+    } else {
+        vn_uuid_ = nil_uuid();
+    }
+    if (old_vn_uuid != vn_uuid_)
+        ret = true;
+
     vm_uuid_ = data->vm_interface_;
 
     PhysicalDevice *dev = table->agent()->physical_device_table()->
