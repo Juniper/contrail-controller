@@ -4993,10 +4993,10 @@ void AddServiceGroup(const std::string &name, uint32_t id,
         str << "<protocol>" << *it << "</protocol>";
         str << "<protocol-id>" << Agent::ProtocolStringToInt(*it)
             << "</protocol-id>";
-        str << "<dst-ports>";
+        str << "<dst-port>";
         str << "<start-port>" << *port_it << "</start-port>";
         str << "<end-port>" << *port_it + 1 << "</end-port>";
-        str << "</dst-ports>";
+        str << "</dst-port>";
         str << "</firewall-service>";
     }
     str << "</service-group-firewall-service-list>";

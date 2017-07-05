@@ -173,7 +173,7 @@ public:
                            const std::string &name, bool source);
     IFMapNode* GetAddressGroup(Agent *agent, IFMapNode *node,
                               const std::string &name);
-    void PopulateServiceType(const autogen::FirewallServiceType *fst);
+    void PopulateFirewallService(const autogen::MatchConditionType *fst);
 };
 
 struct AclSpec {
