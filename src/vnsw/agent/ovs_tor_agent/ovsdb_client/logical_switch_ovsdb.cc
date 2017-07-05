@@ -452,6 +452,41 @@ void LogicalSwitchEntry::NotifyDelete(struct ovsdb_idl_row *row) {
     return;
 }
 
+// No config seen for this logical switch, so do the cleanup so that delete can
+// proceed.
+void LogicalSwitchEntry::StaleTimerExpired() {
+    //Release self reference.
+    local_mac_ref_ = NULL;
+
+    //Issue delete of mcast row and logical switch to tor.
+    struct ovsdb_idl_txn *txn =
+        table_->client_idl()->CreateTxn(this, KSyncEntry::DEL_ACK);
+    if (txn == NULL) {
+        return;
+    }
+
+    if (ovs_entry_ == NULL) {
+        return;
+    }
+
+    if (mcast_remote_row_ != NULL) {
+        ovsdb_wrapper_delete_mcast_mac_remote(mcast_remote_row_);
+    }
+    OvsdbIdlRowList::iterator it;
+    for (it = mcast_local_row_list_.begin();
+         it != mcast_local_row_list_.end(); ++it) {
+        ovsdb_wrapper_delete_mcast_mac_local(*it);
+    }
+    ovsdb_wrapper_delete_logical_switch(ovs_entry_);
+
+    struct jsonrpc_msg *msg = ovsdb_wrapper_idl_txn_encode(txn);
+    if (msg == NULL) {
+        table_->client_idl()->DeleteTxn(txn);
+        return;
+    }
+    table_->client_idl()->TxnScheduleJsonRpc(msg);
+}
+
 LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl) :
     OvsdbDBObject(idl, true) {
     idl->Register(OvsdbClientIdl::OVSDB_LOGICAL_SWITCH,
@@ -792,6 +827,14 @@ void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
     lentry.set_vxlan_id_available(res.VxLanId() != 0);
     lentry.set_ovs_vxlan_id(res.active_vxlan_id());
     lentry.set_delete_in_progress(entry->IsDeleteOvsInProgress());
+
+    //Debugs to find out what keeps logical switch pending.
+    lentry.set_mcast_local_size(entry->mcast_local_row_list_size());
+    lentry.set_ucast_local_size(entry->ucast_local_row_list_size());
+    lentry.set_old_mcast_remote_size(entry->old_mcast_remote_row_list_size());
+    lentry.set_mcast_remote_set(entry->is_mcast_remote_set());
+    lentry.set_local_mac_ref_set(entry->is_local_mac_ref_set());
+
     if ((entry->IsDeleted() || entry->IsDeleteOvsInProgress()) &&
         entry->IsLocalMacsRef()) {
         lentry.set_message("Waiting for Local Macs Cleanup");

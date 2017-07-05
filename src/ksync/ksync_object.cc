@@ -623,6 +623,7 @@ std::string KSyncEntry::StateString() const {
     }
 
     str << '(' << state_ << ')';
+    str << '(' << refcount_ << ')';
     return str.str();
 }
 
@@ -1435,6 +1436,8 @@ bool KSyncObject::StaleEntryCleanupCb() {
             break;
         }
         KSyncEntry *entry = (*it).get();
+        // Notify entry of stale timer expiration
+        entry->StaleTimerExpired();
         // Delete removes entry from stale entry tree
         Delete(entry);
         it = stale_entry_tree_.begin();

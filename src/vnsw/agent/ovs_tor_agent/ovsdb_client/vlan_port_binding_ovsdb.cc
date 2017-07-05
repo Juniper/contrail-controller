@@ -125,16 +125,14 @@ void VlanPortBindingEntry::DeleteMsg(struct ovsdb_idl_txn *txn) {
 bool VlanPortBindingEntry::Sync(DBEntry *db_entry) {
     VlanLogicalInterface *entry =
         static_cast<VlanLogicalInterface *>(db_entry);
-    std::string ls_name;
+    std::string ls_name =
+        (dynamic_cast<const VlanPortBindingTable *>(table_))->
+        GetLogicalSwitchName(entry);
     boost::uuids::uuid vmi_uuid(nil_uuid());
     bool change = false;
 
     if (entry->vm_interface()) {
         vmi_uuid = entry->vm_interface()->GetUuid();
-    }
-
-    if (entry->vm_interface() && entry->vm_interface()->vn()) {
-        ls_name = UuidToString(entry->vm_interface()->vn()->GetUuid());
     }
 
     if (vmi_uuid_ != vmi_uuid) {
@@ -146,7 +144,6 @@ bool VlanPortBindingEntry::Sync(DBEntry *db_entry) {
         logical_switch_name_ = ls_name;
         change = true;
     }
-
     return change;
 }
 
@@ -258,6 +255,18 @@ KSyncEntry *VlanPortBindingTable::DBToKSyncEntry(const DBEntry* db_entry) {
     return static_cast<KSyncEntry *>(key);
 }
 
+std::string
+VlanPortBindingTable::GetLogicalSwitchName(const DBEntry *e) const {
+    const VlanLogicalInterface *entry =
+        dynamic_cast<const VlanLogicalInterface *>(e);
+    std::string ls_name;
+    if (entry->vm_interface() && entry->vm_interface()->vn()) {
+        ls_name = UuidToString(entry->vm_interface()->vn()->GetUuid());
+    }
+
+    return ls_name;
+}
+
 KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(
         const DBEntry *entry, const OvsdbDBEntry *ovsdb_entry) {
     const VlanLogicalInterface *l_port =
@@ -293,6 +302,15 @@ KSyncDBObject::DBFilterResp VlanPortBindingTable::OvsdbDBEntryFilter(
                 "unavailablity Logical port = " + l_port->name());
         return DBFilterIgnore;
     }
+
+    // On LS change old vlan-port binding to old LS has to be removed from tor
+    // and new LS need to be added for the same vlan-port
+    if (ovsdb_entry &&
+        (dynamic_cast<const VlanPortBindingEntry*>(ovsdb_entry))->
+         logical_switch_name() != GetLogicalSwitchName(entry)) {
+        return DBFilterDelAdd;
+    }
+
     return DBFilterAccept;
 }
 
