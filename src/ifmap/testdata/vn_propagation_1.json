@@ -68,19 +68,17 @@
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"vn2\"]",
         "type": "\"virtual_network\"",
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"4333564948688356473\",\"uuid_lslong\":\"11286795299968900363\"},\"enable\":\"true\"}",
-        "ref:access_control_list:4be42e19-186e-418d-80af-57ea19735039": "{\"attr\":{}}",
-        "ref:routing_instance:4be42e19-186e-418d-80af-57ea19735039": "{\"attr\":{}}",
         "ref:network_policy:176e61f5-244d-4deb-bbea-4416656c1b30": "{\"attr\":{\"major\":\"0\",\"minor\":\"0\"}}",
-        "ref:network_ipam:35079ac2-58f9-4250-a95f-9d6700ac5ba7": "{\"attr\":{\"subnet\":{\"ip_prefix\":\"20.1.1.0\",\"ip_prefix_len\":\"24\"}}}"
+        "ref:network_ipam:35079ac2-58f9-4250-a95f-9d6700ac5ba7": "{\"attr\":{\"subnet\":{\"ip_prefix\":\"20.1.1.0\",\"ip_prefix_len\":\"24\"}}}",
+        "parent:project:1910332a-51ae-418c-955d-509be907cb9b": "null"
       },
       "483262a9-5b57-40d6-b2ad-b99585d4ced3": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"vn1\"]",
         "type": "\"virtual_network\"",
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"5202328999087784150\",\"uuid_lslong\":\"12875150961568698067\"},\"enable\":\"true\"}",
-        "ref:routing_instance:ba8570be-2ac9-4782-8e87-718b18a0142c": "{\"attr\":{}}",
         "ref:network_ipam:35079ac2-58f9-4250-a95f-9d6700ac5ba7": "{\"attr\":{\"subnet\":{\"ip_prefix\":\"10.1.1.0\",\"ip_prefix_len\":\"24\"}}}",
-        "ref:access_control_list:ba8570be-2ac9-4782-8e87-718b18a0142c": "{\"attr\":{}}",
-        "ref:network_policy:adb18e64-6d06-46dc-b45b-4f1aeb11c0dd": "{\"attr\":{\"major\":\"0\",\"minor\":\"0\"}}"
+        "ref:network_policy:adb18e64-6d06-46dc-b45b-4f1aeb11c0dd": "{\"attr\":{\"major\":\"0\",\"minor\":\"0\"}}",
+        "parent:project:1910332a-51ae-418c-955d-509be907cb9b": "null"
       },
       "f40a487f-09b8-4918-83a0-8cc0ac148cf0": {
         "fq_name": "[\"f40a487f-09b8-4918-83a0-8cc0ac148cf0\"]",
@@ -96,44 +94,52 @@
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"pol2\"]",
         "type": "\"network_policy\"",
         "prop:network_policy_entries": "{\"xmlns:contrail\":\"http://www.contrailsystems.com/vnc_cfg.xsd\",\"ifmap_cardinality\":\"singleValue\",\"ifmap_publisher_id\":\"test--1870931913-1\",\"ifmap_timestamp\":\"2012-11-11T19:16:33-05:00\",\"policy_rule\":[{\"src_addresses\":[{\"virtual_network\":\"local\"}],\"dst_addresses\":[{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"}]}]}",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"1688394615814442475\",\"uuid_lslong\":\"13540710092624370480\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"1688394615814442475\",\"uuid_lslong\":\"13540710092624370480\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:project:1910332a-51ae-418c-955d-509be907cb9b": "null"
       },
       "77a069f1-bd20-4e43-905b-2976e2a38430": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"default-network-policy\"]",
         "type": "\"network_policy\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"8620006173768175171\",\"uuid_lslong\":\"10401953354927539248\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"8620006173768175171\",\"uuid_lslong\":\"10401953354927539248\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:project:1910332a-51ae-418c-955d-509be907cb9b": "null"
       },
       "9ca367f6-f7d1-452e-8a63-b9178dd43e50": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"default-virtual-network\",\"default-virtual-network\"]",
         "type": "\"access_control_list\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"11286979401537897774\",\"uuid_lslong\":\"9972017510743293520\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"11286979401537897774\",\"uuid_lslong\":\"9972017510743293520\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:virtual_network:4b72cabe-08eb-498b-a73b-0b2dd90c06d6": "null"
       },
       "ba8570be-2ac9-4782-8e87-718b18a0142c": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"vn1\",\"vn1\"]",
         "type": "\"routing_instance\"",
         "ref:route_target:ab680fbe-7f38-4c9d-ad45-92d123ee8717": "{\"attr\":{}}",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"13440272625021044610\",\"uuid_lslong\":\"10270302317469242412\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"13440272625021044610\",\"uuid_lslong\":\"10270302317469242412\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:virtual_network:483262a9-5b57-40d6-b2ad-b99585d4ced3":  "null"
       },
       "0ab41c24-5a24-4fe0-9753-b3de0f0a3a9f": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"default-network-ipam\"]",
         "type": "\"network_ipam\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"771272378643927008\",\"uuid_lslong\":\"10904256889110543007\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"771272378643927008\",\"uuid_lslong\":\"10904256889110543007\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:project:1910332a-51ae-418c-955d-509be907cb9b": "null"
       },
       "9581bc06-1241-4e8a-9a4a-80dff4b8f509": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"default-security-group\"]",
         "type": "\"security_group\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"10773098517909032586\",\"uuid_lslong\":\"11117840329489315081\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"10773098517909032586\",\"uuid_lslong\":\"11117840329489315081\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:project:1910332a-51ae-418c-955d-509be907cb9b": "null"
       },
       "35079ac2-58f9-4250-a95f-9d6700ac5ba7": {
         "fq_name": "[\"default-domain\",\"default-project\",\"default-network-ipam\"]",
         "type": "\"network_ipam\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"3821192968354218576\",\"uuid_lslong\":\"12204646580915821479\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"3821192968354218576\",\"uuid_lslong\":\"12204646580915821479\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:project:b3038af8-2564-40f4-8707-95f728b6a23b": "null"
       },
       "4be42e19-186e-418d-80af-57ea19735039": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"vn2\",\"vn2\"]",
         "type": "\"access_control_list\"",
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"5468546532853563789\",\"uuid_lslong\":\"9272726820740091961\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
-        "prop:access_control_list_entries": "{\"xmlns:contrail\":\"http://www.contrailsystems.com/vnc_cfg.xsd\",\"ifmap_cardinality\":\"singleValue\",\"ifmap_publisher_id\":\"test--1870931913-1\",\"ifmap_timestamp\":\"2012-11-11T19:16:33-05:00\",\"acl_rule\":[{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}},{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}},{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}}]}"
+        "prop:access_control_list_entries": "{\"xmlns:contrail\":\"http://www.contrailsystems.com/vnc_cfg.xsd\",\"ifmap_cardinality\":\"singleValue\",\"ifmap_publisher_id\":\"test--1870931913-1\",\"ifmap_timestamp\":\"2012-11-11T19:16:33-05:00\",\"acl_rule\":[{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}},{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}},{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}}]}",
+        "parent:virtual_network:3c23ea5c-51a7-4479-9ca2-c0867b31dd0b": "null"
       },
       "e31fe835-98e3-4804-ab5d-d9b40a4f1816": {
         "fq_name": "[\"user-X9SCL-X9SCM\"]",
@@ -144,10 +150,7 @@
       "1f5e1df0-1115-4659-b5b6-4461d664adc5": {
         "fq_name": "[\"default-domain\"]",
         "type": "\"domain\"",
-        "ref:namespace:704379e0-b1ce-4f33-a388-189bb441a029": "{\"attr\":{}}",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"2260276979902531161\",\"uuid_lslong\":\"13093728153625734597\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
-        "ref:project:b3038af8-2564-40f4-8707-95f728b6a23b": "{\"attr\":{}}",
-        "ref:project:1910332a-51ae-418c-955d-509be907cb9b": "{\"attr\":{}}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"2260276979902531161\",\"uuid_lslong\":\"13093728153625734597\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
       },
       "c5a74861-8caf-4cf0-bb3d-904a840c362c": {
         "fq_name": "[\"target\",\"1\",\"9\"]",
@@ -157,28 +160,22 @@
       "1910332a-51ae-418c-955d-509be907cb9b": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\"]",
         "type": "\"project\"",
-        "ref:virtual_network:4b72cabe-08eb-498b-a73b-0b2dd90c06d6": "{\"attr\":{}}",
-        "ref:network_policy:176e61f5-244d-4deb-bbea-4416656c1b30": "{\"attr\":{}}",
-        "ref:virtual_network:3c23ea5c-51a7-4479-9ca2-c0867b31dd0b": "{\"attr\":{}}",
-        "ref:network_policy:77a069f1-bd20-4e43-905b-2976e2a38430": "{\"attr\":{}}",
-        "ref:network_ipam:0ab41c24-5a24-4fe0-9753-b3de0f0a3a9f": "{\"attr\":{}}",
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"1805999707427586444\",\"uuid_lslong\":\"10762847315045108635\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
-        "ref:network_policy:adb18e64-6d06-46dc-b45b-4f1aeb11c0dd": "{\"attr\":{}}",
-        "ref:security_group:9581bc06-1241-4e8a-9a4a-80dff4b8f509": "{\"attr\":{}}",
-        "ref:virtual_network:483262a9-5b57-40d6-b2ad-b99585d4ced3": "{\"attr\":{}}"
+        "parent:domain:1f5e1df0-1115-4659-b5b6-4461d664adc5":"null"
       },
       "4b72cabe-08eb-498b-a73b-0b2dd90c06d6": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"default-virtual-network\"]",
         "type": "\"virtual_network\"",
-        "ref:routing_instance:9ca367f6-f7d1-452e-8a63-b9178dd43e50": "{\"attr\":{}}",
+        
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"5436630617731844491\",\"uuid_lslong\":\"12050237519502771926\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
-        "ref:access_control_list:9ca367f6-f7d1-452e-8a63-b9178dd43e50": "{\"attr\":{}}"
+        "parent:project:1910332a-51ae-418c-955d-509be907cb9b": "null"
       },
       "e5725314-ec4d-4af8-8ae4-69caaeaa88e2": {
         "fq_name": "[\"default-domain\",\"default-project\",\"default-virtual-network\",\"default-virtual-network\"]",
         "type": "\"routing_instance\"",
         "ref:route_target:7d5f2402-f80b-489f-b933-7ac46b695b36": "{\"attr\":{}}",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"16533368531359451896\",\"uuid_lslong\":\"10008240591158806754\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"16533368531359451896\",\"uuid_lslong\":\"10008240591158806754\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:virtual_network:efde5fbe-715e-4da7-8aaf-fb93b58ed3be": "null"
       },
       "ecbd4663-4d75-4d55-8e48-4ca714d7a4c0": {
         "fq_name": "[\"f40a487f-09b8-4918-83a0-8cc0ac148cf0\",\"ecbd4663-4d75-4d55-8e48-4ca714d7a4c0\"]",
@@ -191,13 +188,15 @@
       "704379e0-b1ce-4f33-a388-189bb441a029": {
         "fq_name": "[\"default-domain\",\"default-namespace\"]",
         "type": "\"namespace\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"8089443361650265907\",\"uuid_lslong\":\"11783695482038100009\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"8089443361650265907\",\"uuid_lslong\":\"11783695482038100009\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:domain:1f5e1df0-1115-4659-b5b6-4461d664adc5":"null"
       },
       "83b251d6-d3a6-4357-a970-f33ba94f6fd7": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"vn1\",\"vn1\"]",
         "type": "\"access_control_list\"",
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"9489737347938796375\",\"uuid_lslong\":\"12209526027370590167\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
-        "prop:access_control_list_entries": "{\"xmlns:contrail\":\"http://www.contrailsystems.com/vnc_cfg.xsd\",\"ifmap_cardinality\":\"singleValue\",\"ifmap_publisher_id\":\"test--1870931913-1\",\"ifmap_timestamp\":\"2012-11-11T19:16:33-05:00\",\"acl_rule\":[{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}},{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}},{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}}]}"
+        "prop:access_control_list_entries": "{\"xmlns:contrail\":\"http://www.contrailsystems.com/vnc_cfg.xsd\",\"ifmap_cardinality\":\"singleValue\",\"ifmap_publisher_id\":\"test--1870931913-1\",\"ifmap_timestamp\":\"2012-11-11T19:16:33-05:00\",\"acl_rule\":[{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}},{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}},{\"match_condition\":{\"protocol\":\"any\",\"src_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"src_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"},\"dst_address\":{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1\"},\"dst_port\":{\"start_port\":\"-1\",\"end_port\":\"-1\"}},\"action_list\":{\"simple_action\":\"pass\"}}]}",
+        "parent:virtual_network:483262a9-5b57-40d6-b2ad-b99585d4ced3":  "null"
       },
       "ab680fbe-7f38-4c9d-ad45-92d123ee8717": {
         "fq_name": "[\"target\",\"1\",\"10\"]",
@@ -207,26 +206,26 @@
       "b3038af8-2564-40f4-8707-95f728b6a23b": {
         "fq_name": "[\"default-domain\",\"default-project\"]",
         "type": "\"project\"",
-        "ref:network_policy:385a3838-be1b-4121-81f6-fca697b651f7": "{\"attr\":{}}",
-        "ref:security_group:6bb275df-53dc-4a58-834a-aa6f19c5bf70": "{\"attr\":{}}",
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"12899306556103082228\",\"uuid_lslong\":\"9729910408729764411\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
-        "ref:virtual_network:efde5fbe-715e-4da7-8aaf-fb93b58ed3be": "{\"attr\":{}}",
-        "ref:network_ipam:35079ac2-58f9-4250-a95f-9d6700ac5ba7": "{\"attr\":{}}"
+        "parent:domain:1f5e1df0-1115-4659-b5b6-4461d664adc5":"null"
       },
       "385a3838-be1b-4121-81f6-fca697b651f7": {
         "fq_name": "[\"default-domain\",\"default-project\",\"default-network-policy\"]",
         "type": "\"network_policy\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"4060619830386704673\",\"uuid_lslong\":\"9364950267603603959\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"4060619830386704673\",\"uuid_lslong\":\"9364950267603603959\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:project:b3038af8-2564-40f4-8707-95f728b6a23b": "null"
       },
       "8db8a7ac-8349-4398-a4f6-36430b975e31": {
         "fq_name": "[\"default-domain\",\"default-project\",\"default-virtual-network\",\"default-virtual-network\"]",
         "type": "\"access_control_list\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"10212096514441429912\",\"uuid_lslong\":\"11886747928076181041\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"10212096514441429912\",\"uuid_lslong\":\"11886747928076181041\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:virtual_network:efde5fbe-715e-4da7-8aaf-fb93b58ed3be": "null"
       },
       "12de8693-dbdc-4a31-a8c9-d86bdef2b2ca": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"default-virtual-network\",\"default-virtual-network\"]",
         "type": "\"routing_instance\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"1359672107119430193\",\"uuid_lslong\":\"12162490226504282826\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"1359672107119430193\",\"uuid_lslong\":\"12162490226504282826\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:virtual_network:4b72cabe-08eb-498b-a73b-0b2dd90c06d6": "null"
       },
       "d22a92c3-1779-42d4-bc33-c9a944fce74d": {
         "fq_name": "[\"target\",\"1\",\"11\"]",
@@ -244,25 +243,27 @@
       "6bb275df-53dc-4a58-834a-aa6f19c5bf70": {
         "fq_name": "[\"default-domain\",\"default-project\",\"default-security-group\"]",
         "type": "\"security_group\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"7760394709957888600\",\"uuid_lslong\":\"9460561361395629936\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"7760394709957888600\",\"uuid_lslong\":\"9460561361395629936\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:project:b3038af8-2564-40f4-8707-95f728b6a23b": "null"
       },
       "24ddb704-c408-49f7-aaec-2b193a631a8c": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"vn2\",\"vn2\"]",
         "type": "\"routing_instance\"",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"2656480586315090423\",\"uuid_lslong\":\"12316266468305214092\"},\"enable\":\"true\"}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"2656480586315090423\",\"uuid_lslong\":\"12316266468305214092\"},\"enable\":\"true\"}",
+        "parent:virtual_network:3c23ea5c-51a7-4479-9ca2-c0867b31dd0b":  "null"
       },
       "adb18e64-6d06-46dc-b45b-4f1aeb11c0dd": {
         "fq_name": "[\"default-domain\",\"b47d0eacc9c446eabc9b4eea3d6f6133\",\"pol1\"]",
         "type": "\"network_policy\"",
         "prop:network_policy_entries": "{\"xmlns:contrail\":\"http://www.contrailsystems.com/vnc_cfg.xsd\",\"ifmap_cardinality\":\"singleValue\",\"ifmap_publisher_id\":\"test--1870931913-1\",\"ifmap_timestamp\":\"2012-11-11T19:16:32-05:00\",\"policy_rule\":[{\"src_addresses\":[{\"virtual_network\":\"local\"}],\"dst_addresses\":[{\"virtual_network\":\"default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2\"}]}]}",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"12515941401416320732\",\"uuid_lslong\":\"12996068126739251421\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"12515941401416320732\",\"uuid_lslong\":\"12996068126739251421\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+        "parent:project:1910332a-51ae-418c-955d-509be907cb9b": "null"
       },
       "efde5fbe-715e-4da7-8aaf-fb93b58ed3be": {
         "fq_name": "[\"default-domain\",\"default-project\",\"default-virtual-network\"]",
         "type": "\"virtual_network\"",
-        "ref:access_control_list:e5725314-ec4d-4af8-8ae4-69caaeaa88e2": "{\"attr\":{}}",
-        "ref:routing_instance:e5725314-ec4d-4af8-8ae4-69caaeaa88e2": "{\"attr\":{}}",
-        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"17284357691444972967\",\"uuid_lslong\":\"9993482709983220670\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}"
+        "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"17284357691444972967\",\"uuid_lslong\":\"9993482709983220670\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
+      "parent:project:b3038af8-2564-40f4-8707-95f728b6a23b": "null"
       }
     }
   }
