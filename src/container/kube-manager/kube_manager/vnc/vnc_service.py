@@ -210,7 +210,8 @@ class VncService(VncCommon):
 
         self._create_listeners(service_namespace, lb, ports)
 
-    def _get_floating_ip(self, service_id):
+    def _read_allocated_floating_ips(self, service_id):
+        floating_ips = set()
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             return
@@ -232,11 +233,11 @@ class VncService(VncCommon):
         for fip_id in list(fip_ids):
             fip = FloatingIpKM.get(fip_id)
             if fip is not None:
-                return fip.address
+                floating_ips.add(fip.address)
 
-        return None
+        return floating_ips
 
-    def _allocate_floating_ip(self, service_id, external_ip=None):
+    def _allocate_floating_ips(self, service_id, external_ips=set()):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             return None
@@ -258,33 +259,47 @@ class VncService(VncCommon):
 
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
-            self.logger.warning("public_fip_pool [%s] doesn't exists" %
-                                 (self._args.public_fip_pool))
+            self.logger.warning("public_fip_pool [%s, %s] doesn't exists" %
+                                 (self._args.public_network,
+                                 self._args.public_fip_pool))
             return None
 
-        fip_obj = FloatingIp(lb.name + "-externalIP", fip_pool)
-        fip_obj.set_virtual_machine_interface(vmi_obj)
-        if external_ip:
-            fip_obj.set_floating_ip_address(external_ip)
-        project = self._vnc_lib.project_read(id=lb.parent_uuid)
-        fip_obj.set_project(project)
-        try:
-            self._vnc_lib.floating_ip_create(fip_obj)
-        except RefsExistError as e:
-            err_msg = cfgm_common.utils.detailed_traceback()
-            self.logger.error(err_msg)
-            return None
-        except:
-            err_msg = cfgm_common.utils.detailed_traceback()
-            self.logger.error(err_msg)
-            return None
+        def _allocate_floating_ip(lb, vmi, fip_pool, external_ip=None):
+            fip_obj = FloatingIp(lb.name + str(external_ip) + "-externalIP", fip_pool)
+            fip_obj.set_virtual_machine_interface(vmi_obj)
+            if external_ip:
+                fip_obj.set_floating_ip_address(external_ip)
+            project = self._vnc_lib.project_read(id=lb.parent_uuid)
+            fip_obj.set_project(project)
+            try:
+                self._vnc_lib.floating_ip_create(fip_obj)
+            except RefsExistError as e:
+                err_msg = cfgm_common.utils.detailed_traceback()
+                self.logger.error(err_msg)
+            except:
+                err_msg = cfgm_common.utils.detailed_traceback()
+                self.logger.error(err_msg)
 
-        fip = FloatingIpKM.locate(fip_obj.uuid)
-        self.logger.notice("floating ip allocated : %s for Service (%s)" % 
+            fip = FloatingIpKM.locate(fip_obj.uuid)
+            self.logger.notice("floating ip allocated : %s for Service (%s)" %
                            (fip.address, service_id))
-        return fip.address
+            return(fip.address)
 
-    def _deallocate_floating_ip(self, service_id):
+        fips = set()
+        if len(external_ips) is 0:
+            fip_addr = _allocate_floating_ip(lb, vmi, fip_pool)
+            if fip_addr:
+                fips.add(fip_addr)
+
+            return fips
+
+        for external_ip in external_ips:
+            fip_addr = _allocate_floating_ip(lb, vmi, fip_pool, external_ip)
+            if fip_addr:
+                fips.add(fip_addr)
+        return fips
+
+    def _deallocate_floating_ips(self, service_id):
         lb = LoadbalancerKM.get(service_id)
         if not lb:
             return
@@ -304,71 +319,71 @@ class VncService(VncCommon):
         for fip_id in fip_ids:
             self._vnc_lib.floating_ip_delete(id=fip_id)
 
-    def _update_service_external_ip(self, service_namespace, service_name, external_ip):
-        merge_patch = {'spec': {'externalIPs': [external_ip]}}
+    def _update_service_external_ip(self, service_namespace, service_name, external_ips):
+        merge_patch = {'spec': {'externalIPs': [', '.join(external_ips)]}}
         self.kube.patch_resource(resource_type="services", resource_name=service_name,
                            namespace=service_namespace, merge_patch=merge_patch)
         self.logger.notice("Service (%s, %s) updated with EXTERNAL-IP (%s)" 
-                               % (service_namespace, service_name, external_ip));
+                               % (service_namespace, service_name, external_ips));
 
     def _update_service_public_ip(self, service_id, service_name,
-                        service_namespace, service_type, external_ip, loadBalancerIp):
-        allocated_fip = self._get_floating_ip(service_id)
+                        service_namespace, service_type, external_ips, loadBalancerIp):
+        allocated_fips = self._read_allocated_floating_ips(service_id)
 
         if service_type in ["LoadBalancer"]:
-            if allocated_fip is None:
+            if len(allocated_fips) is 0:
                 # Allocate floating-ip from public-pool, if none exists.
-                # if "loadBalancerIp" if specified in Service definition,
-                # allocate the specific ip.
+                # if "loadBalancerIp" if specified in Service definition, allocate
+                #     loadBalancerIp as floating-ip.
+                # if  external ips specified, allocate external_ips as floating-ips.
+                # if None specficied, then let contrail allocate a floating-ip and
+                #     update the allocated fip to kubernetes
                 if loadBalancerIp:
-                    allocated_fip = self._allocate_floating_ip(service_id, loadBalancerIp)
+                    allocated_fip = self._allocate_floating_ips(service_id, set([loadBalancerIp]))
                     self._update_service_external_ip(service_namespace, service_name, allocated_fip)
-                elif external_ip:
-                    allocated_fip = self._allocate_floating_ip(service_id, external_ip)
+                elif external_ips and len(external_ips):
+                    allocated_fips = self._allocate_floating_ips(service_id, external_ips)
                 else:
-                    allocated_fip = self._allocate_floating_ip(service_id)
+                    allocated_fip = self._allocate_floating_ips(service_id)
                     self._update_service_external_ip(service_namespace, service_name, allocated_fip)
 
                 return
 
-            if allocated_fip:
-                if loadBalancerIp and loadBalancerIp != allocated_fip:
-                    self._deallocate_floating_ip(service_id)
-                    self._allocate_floating_ip(service_id, loadBalancerIp)
+            if len(allocated_fips):
+                if loadBalancerIp and loadBalancerIp in allocated_fips:
+                    self._deallocate_floating_ips(service_id)
+                    self._allocate_floating_ips(service_id, set([loadBalancerIp]))
                     self._update_service_external_ip(service_namespace, service_name, loadBalancerIp)
                     return
 
-                if external_ip and external_ip != allocated_fip:
+                if external_ips and len(external_ips) and external_ips != allocated_fips:
                     # If Service's EXTERNAL-IP is not same as allocated floating-ip,
                     # update kube-api server with allocated fip as the EXTERNAL-IP
-                    self._deallocate_floating_ip(service_id)
-                    self._allocate_floating_ip(service_id, external_ip)
-                    self._update_service_external_ip(service_namespace, service_name, external_ip)
+                    self._deallocate_floating_ips(service_id)
+                    self._allocate_floating_ips(service_id, external_ips)
                     return
 
-                if external_ip is None:
-                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                if external_ips and len(external_ips) is False:
+                    self._update_service_external_ip(service_namespace, service_name, allocated_fips)
                     return
             return
 
         if service_type in ["ClusterIP"]:
-            if allocated_fip :
-                if external_ip is None:
-                    self._deallocate_floating_ip(service_id)
-                    return
+            if allocated_fips and len(allocated_fips) > 0:
+                if len(external_ips) is 0:
+                    self._deallocate_floating_ips(service_id)
                 else:
-                    if external_ip != allocated_fip:
-                        self._deallocate_floating_ip(service_id)
-                        self._allocate_floating_ip(service_id, external_ip)
-                        self._update_service_external_ip(service_namespace, service_name, external_ip)
-                    return
+                    if external_ips != allocated_fips:
+                        self._deallocate_floating_ips(service_id)
+                        self._allocate_floating_ips(service_id, external_ips)
 
             else:  #allocated_fip is None 
-                if external_ip is not None:
-                    self._allocate_floating_ip(service_id, external_ip)
-                    return
-
+                if len(external_ips) > 0:
+                    self._allocate_floating_ips(service_id, external_ips)
+                else:
+                    self._allocate_floating_ips(service_id)
             return
+        return
 
     def _check_service_uuid_change(self, svc_uuid, svc_name, 
                                    svc_namespace, ports):
@@ -385,7 +400,7 @@ class VncService(VncCommon):
 
     def vnc_service_add(self, service_id, service_name,
                         service_namespace, service_ip, selectors, ports,
-                        service_type, externalIp, loadBalancerIp):
+                        service_type, externalIps, loadBalancerIp):
         ingress_update = False
         lb = LoadbalancerKM.get(service_id)
         if not lb:
@@ -405,7 +420,7 @@ class VncService(VncCommon):
                 service_ip, ports)
 
         self._update_service_public_ip(service_id, service_name,
-                        service_namespace, service_type, externalIp, loadBalancerIp)
+                        service_namespace, service_type, externalIps, loadBalancerIp)
 
         if ingress_update:
             self._ingress_mgr.update_ingress_backend(
@@ -461,7 +476,7 @@ class VncService(VncCommon):
 
     def vnc_service_delete(self, service_id, service_name,
                            service_namespace, ports):
-        self._deallocate_floating_ip(service_id)
+        self._deallocate_floating_ips(service_id)
         self._lb_delete(service_id, service_name, service_namespace)
 
         # Delete link local service that would have been allocated for
@@ -531,15 +546,10 @@ class VncService(VncCommon):
               %(self._name, event_type, kind,
               service_namespace, service_name, service_id))
 
-        if externalIps is not None:
-            externalIp = externalIps[0]
-        else:
-            externalIp = None
-
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_service_add(service_id, service_name,
                 service_namespace, service_ip, selectors, ports,
-                service_type, externalIp, loadBalancerIp)
+                service_type, externalIps, loadBalancerIp)
         elif event['type'] == 'DELETED':
             self.vnc_service_delete(service_id, service_name, service_namespace,
                                     ports)
