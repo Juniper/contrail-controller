@@ -1438,9 +1438,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('configured-route-target-list', 'logical-router', 'optional', 'CRUD',
               'List of route targets that represent this logical router, all virtual networks connected to this logical router will have this as their route target list.') -->
 
-<xsd:element name="configured-vni" type="xsd:string"/>
+<xsd:element name="vxlan-network-identifier" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('configured-vni', 'logical-router', 'optional', 'CRUD',
+     Property('vxlan-network-identifier', 'logical-router', 'optional', 'CRUD',
               'The VNI that needs to be associated with the internal VN if vxlan_routing mode is enabled.') -->
 
 <xsd:element name="router-external" type="xsd:boolean"/>
