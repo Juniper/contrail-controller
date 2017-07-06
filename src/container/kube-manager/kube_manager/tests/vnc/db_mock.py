@@ -1,12 +1,10 @@
-import mock
-import unittest
-from mock import patch, Mock
-
 from kube_manager.vnc.config_db import DBBaseKM
 
-# Mock for KubeNetworkManagerDB class
 
 class DBMock(object):
+    """
+    Mock for KubeNetworkManagerDB class
+    """
 
     @staticmethod
     def init():
@@ -50,10 +48,10 @@ class DBMock(object):
     @staticmethod
     def list(obj_type):
         if obj_type not in DBMock.db:
-            return False, None
+            return False, None, None
         ret = [(val["fq_name"], val["uuid"]) for val in DBMock.db[obj_type].values()]
-        return True, ret
+        return True, ret, None
 
     @staticmethod
     def get_dict(obj_type):
-        return DBMock.get(obj_type, None)
+        return DBMock.db.get(obj_type, None)
