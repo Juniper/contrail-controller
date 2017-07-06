@@ -433,9 +433,9 @@ std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     query << "(key " << DbDataType2CassType(rkeys[0]) <<
         " PRIMARY KEY";
     // Columns
-    const GenDb::NewCf::SqlColumnMap &columns(cf.cfcolumns_);
+    const GenDb::NewCf::ColumnMap &columns(cf.cfcolumns_);
     assert(!columns.empty());
-    BOOST_FOREACH(const GenDb::NewCf::SqlColumnMap::value_type &column,
+    BOOST_FOREACH(const GenDb::NewCf::ColumnMap::value_type &column,
         columns) {
         query << ", \"" << column.first << "\" " <<
             DbDataType2CassType(column.second);
@@ -480,19 +480,17 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
         query << " " << DbDataType2CassType(rkeys[i]) << ", ";
     }
     // Column name
-    const GenDb::DbDataTypeVec &cnames(cf.comparator_type);
-    int cn_size(cnames.size());
-    for (int i = 0; i < cn_size; i++) {
-        int cnum(i + 1);
-        query << "column" << cnum << " " <<
-            DbDataType2CassType(cnames[i]) << ", ";
+    const GenDb::NewCf::ColumnMap &columns(cf.cfcolumns_);
+    BOOST_FOREACH(const GenDb::NewCf::ColumnMap::value_type &column,
+        columns) {
+        query << column.first << " " << DbDataType2CassType(column.second) << ", ";
     }
     // Value
     const GenDb::DbDataTypeVec &values(cf.default_validation_class);
     if (values.size() > 0) {
         query << "value" << " " << DbDataTypes2CassTypes(values) << ", ";
     }
-    // Primarry Key
+    // Primary Key
     query << "PRIMARY KEY (";
     std::ostringstream rkey_ss;
     for (int i = 0; i < rk_size; i++) {
@@ -508,12 +506,13 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     } else {
         query << rkey_ss.str() << ", ";
     }
-    for (int i = 0; i < cn_size; i++) {
-        int cnum(i + 1);
-        if (i) {
+    for (GenDb::NewCf::ColumnMap::const_iterator it = columns.begin();
+         it != columns.end(); ++it) {
+
+        if (it != columns.begin()) {
             query << ", ";
         }
-        query << "column" << cnum;
+        query << it->first;
     }
     char cbuf[512];
     int n(snprintf(cbuf, sizeof(cbuf), kQCompactionStrategy,
@@ -661,9 +660,9 @@ std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
     query << "(key";
     values_ss << ") VALUES (?";
     // Columns
-    const GenDb::NewCf::SqlColumnMap &columns(cf.cfcolumns_);
+    const GenDb::NewCf::ColumnMap &columns(cf.cfcolumns_);
     assert(!columns.empty());
-    BOOST_FOREACH(const GenDb::NewCf::SqlColumnMap::value_type &column,
+    BOOST_FOREACH(const GenDb::NewCf::ColumnMap::value_type &column,
         columns) {
         query << ", \"" << column.first << "\"";
         values_ss << ", ?";
@@ -692,13 +691,15 @@ std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
         values_ss << "?, ";
     }
     // Column name
-    const GenDb::DbDataTypeVec &cnames(cf.comparator_type);
-    int cn_size(cnames.size());
-    for (int i = 0; i < cn_size; i++) {
-        int cnum(i + 1);
-        query << "column" << cnum;
+    const GenDb::NewCf::ColumnMap &columns(cf.cfcolumns_);
+    GenDb::NewCf::ColumnMap::const_iterator it_next;
+    for (GenDb::NewCf::ColumnMap::const_iterator it = columns.begin();
+         it != columns.end(); ++it) {
+        query << it->first;
         values_ss << "?";
-        if (i != cn_size - 1) {
+        it_next = it;
+        it_next++;
+        if (it_next != columns.end()) {
             query << ", ";
             values_ss << ", ";
         }

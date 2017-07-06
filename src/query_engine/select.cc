@@ -316,8 +316,8 @@ query_status_t SelectQuery::process_query() {
         }
         if (fit == vizd_flow_tables.end())
             VIZD_ASSERT(0);
-        const GenDb::NewCf::SqlColumnMap& sql_cols = fit->cfcolumns_;
-        GenDb::NewCf::SqlColumnMap::const_iterator col_type_it;
+        const GenDb::NewCf::ColumnMap& sql_cols = fit->cfcolumns_;
+        GenDb::NewCf::ColumnMap::const_iterator col_type_it;
 
         for (GenDb::ColListVec::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {

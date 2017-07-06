@@ -103,8 +103,8 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "DynamicCf", // name
         boost::assign::list_of // partition key
             (GenDb::DbDataType::Unsigned32Type),
-        boost::assign::list_of // column name comparator
-            (GenDb::DbDataType::Unsigned32Type),
+        boost::assign::map_list_of // column name comparator
+            ("column1", GenDb::DbDataType::Unsigned32Type),
         boost::assign::list_of // column value validation class
             (GenDb::DbDataType::LexicalUUIDType));
     std::string actual_qstring(
@@ -137,7 +137,19 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
     GenDb::NewCf dynamic_cf1(
         "DynamicCf1", // name
         all_types, // partition key
-        all_types, // column name comparator
+        boost::assign::map_list_of // column name comparator
+                ("column1", GenDb::DbDataType::AsciiType)
+                ("column2", GenDb::DbDataType::LexicalUUIDType)
+                ("column3", GenDb::DbDataType::TimeUUIDType)
+                ("column4", GenDb::DbDataType::Unsigned8Type)
+                ("column5", GenDb::DbDataType::Unsigned16Type)
+                ("column6", GenDb::DbDataType::Unsigned32Type)
+                ("column7", GenDb::DbDataType::Unsigned64Type)
+                ("column8", GenDb::DbDataType::DoubleType)
+                ("column9", GenDb::DbDataType::UTF8Type)
+                ("column10", GenDb::DbDataType::InetType)
+                ("column11", GenDb::DbDataType::IntegerType)
+                ("column12", GenDb::DbDataType::BlobType),
         boost::assign::list_of // column value validation class
             (GenDb::DbDataType::UTF8Type));
     std::string actual_qstring1(
@@ -158,6 +170,9 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "key11 varint, "
         "key12 blob, "
         "column1 ascii, "
+        "column10 inet, "
+        "column11 varint, "
+        "column12 blob, "
         "column2 uuid, "
         "column3 timeuuid, "
         "column4 int, "
@@ -166,15 +181,11 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "column7 bigint, "
         "column8 double, "
         "column9 text, "
-        "column10 inet, "
-        "column11 varint, "
-        "column12 blob, "
         "value text, "
         "PRIMARY KEY ("
-        "(key, key2, key3, key4, key5, key6, key7, key8, key9, key10, key11, "
-        "key12), "
-        "column1, column2, column3, column4, column5, column6, column7, "
-        "column8, column9, column10, column11, column12)) "
+        "(key, key2, key3, key4, key5, key6, key7, key8, key9, key10, key11, key12), "
+        "column1, column10, column11, column12, column2, column3, column4, column5, column6, column7, "
+        "column8, column9)) "
         "WITH compaction = {'class': "
         "'org.apache.cassandra.db.compaction.DateTieredCompactionStrategy'} "
         "AND read_repair_chance = 0.0 "
@@ -251,7 +262,19 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
     GenDb::NewCf dynamic_cf(
         "InsertIntoDynamicCf", // name
         all_types, // partition key
-        all_types, // column name comparator
+        boost::assign::map_list_of // column name comparator
+                ("column1", GenDb::DbDataType::AsciiType)
+                ("column2", GenDb::DbDataType::LexicalUUIDType)
+                ("column3", GenDb::DbDataType::TimeUUIDType)
+                ("column4", GenDb::DbDataType::Unsigned8Type)
+                ("column5", GenDb::DbDataType::Unsigned16Type)
+                ("column6", GenDb::DbDataType::Unsigned32Type)
+                ("column7", GenDb::DbDataType::Unsigned64Type)
+                ("column8", GenDb::DbDataType::DoubleType)
+                ("column9", GenDb::DbDataType::UTF8Type)
+                ("column10", GenDb::DbDataType::InetType)
+                ("column11", GenDb::DbDataType::IntegerType)
+                ("column12", GenDb::DbDataType::BlobType),
         boost::assign::list_of // column value validation class
             (GenDb::DbDataType::UTF8Type));
     std::string actual_qstring(
@@ -271,6 +294,9 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
         "key11, "
         "key12, "
         "column1, "
+        "column10, "
+        "column11, "
+        "column12, "
         "column2, "
         "column3, "
         "column4, "
@@ -279,9 +305,6 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
         "column7, "
         "column8, "
         "column9, "
-        "column10, "
-        "column11, "
-        "column12, "
         "value) VALUES ("
         "?, "
         "?, "

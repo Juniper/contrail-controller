@@ -33,9 +33,8 @@ void init_tables(std::vector<GenDb::NewCf>& table,
 
     for(size_t i = 0; i < schema.size(); i++) {
         GenDb::DbDataTypeVec key_types;
-        GenDb::DbDataTypeVec comp_type;
         GenDb::DbDataTypeVec valid_class;
-        std::map<std::string, GenDb::DbDataType::type> cols;
+        GenDb::NewCf::ColumnMap cols;
         if (schema[i].is_static) {
             for(size_t j = 0; j < schema[i].columns.size(); j++) {
                 if (schema[i].columns[j].key) {
@@ -55,11 +54,13 @@ void init_tables(std::vector<GenDb::NewCf>& table,
                 } else if (schema[i].columns[j].name == "value") {
                     valid_class.push_back(schema[i].columns[j].datatype);
                 } else {
-                    comp_type.push_back(schema[i].columns[j].datatype);
+                    cols[schema[i].columns[j].name] =
+                        static_cast<GenDb::DbDataType::type>(
+                                schema[i].columns[j].datatype);
                 }
             }
             table.push_back(GenDb::NewCf(schema[i].table_name,
-                        key_types, comp_type, valid_class));
+                        key_types, cols, valid_class));
         }
     }
 }
