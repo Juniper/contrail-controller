@@ -2382,8 +2382,8 @@ class DBInterface(object):
             port_q_dict['extra_dhcp_opts'] = dhcp_options
 
         allowed_address_pairs = port_obj.get_virtual_machine_interface_allowed_address_pairs()
+	address_pairs = []
         if allowed_address_pairs and allowed_address_pairs.allowed_address_pair:
-            address_pairs = []
             for aap in allowed_address_pairs.allowed_address_pair:
                 pair = {}
                 pair["mac_address"] = aap.mac
@@ -2399,7 +2399,7 @@ class DBInterface(object):
                     pair["ip_address"] = '%s/%s' % (aap.ip.get_ip_prefix(),
                                                  aap.ip.get_ip_prefix_len())
                 address_pairs.append(pair)
-            port_q_dict['allowed_address_pairs'] = address_pairs
+        port_q_dict['allowed_address_pairs'] = address_pairs
 
         port_q_dict['fixed_ips'] = []
         ip_back_refs = getattr(port_obj, 'instance_ip_back_refs', None)
