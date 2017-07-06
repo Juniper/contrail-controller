@@ -6,6 +6,7 @@
 
 #include <boost/foreach.hpp>
 
+#include "base/task_annotations.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/xmpp_connection.h"
 
@@ -191,7 +192,7 @@ void XmppChannelMux::ProcessXmppMessage(const XmppStanza::XmppMessage *msg) {
 }
 
 void XmppChannelMux::HandleStateEvent(xmsm::XmState state) {
-
+    CHECK_CONCURRENCY("xmpp::StateMachine");
     xmps::PeerState st = xmps::NOT_READY;
     if (state == xmsm::ESTABLISHED) {
         st = xmps::READY; 
