@@ -44,6 +44,7 @@ from vnc_quota import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
+import functools
 
 @ignore_exceptions
 def get_trace_id():
@@ -79,7 +80,7 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
                       cassandra_credential, walk, obj_cache_entries,
-                      obj_cache_exclude_types):
+                      obj_cache_exclude_types, log_response_time=None):
         self._db_client_mgr = db_client_mgr
         keyspaces = self._UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
@@ -89,7 +90,8 @@ class VncServerCassandraClient(VncCassandraClient):
             generate_url=db_client_mgr.generate_url, reset_config=reset_config,
             credential=cassandra_credential, walk=walk,
             obj_cache_entries=obj_cache_entries,
-            obj_cache_exclude_types=obj_cache_exclude_types)
+            obj_cache_exclude_types=obj_cache_exclude_types,
+            log_response_time=log_response_time)
     # end __init__
 
     def config_log(self, msg, level):
@@ -366,7 +368,7 @@ class VncZkClient(object):
     _TAG_VALUE_MAX_ID = (1<<27) - 1
 
     def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix,
-                 sandesh_hdl):
+                 sandesh_hdl, log_response_time=None):
         self._db_prefix = db_prefix
         if db_prefix:
             client_pfx = db_prefix + '-'
@@ -388,7 +390,8 @@ class VncZkClient(object):
         while True:
             try:
                 self._zk_client = ZookeeperClient(client_name, zk_server_ip,
-                                                  self._sandesh)
+                                                  self._sandesh,
+                                                  log_response_time=log_response_time)
                 # set the lost callback to always reconnect
                 self._zk_client.set_lost_cb(self.reconnect_zk)
                 break
@@ -605,12 +608,16 @@ class VncDbClient(object):
 
         self._db_resync_done = gevent.event.Event()
 
+        self.log_cassandra_response_time = functools.partial(self.log_db_response_time, "CASSANDRA")
+        self.log_zk_response_time = functools.partial(self.log_db_response_time, "ZK")
+
         msg = "Connecting to zookeeper on %s" % (zk_server_ip)
         self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
         if db_engine == 'cassandra':
             self._zk_db = VncZkClient(api_svr_mgr.get_worker_id(), zk_server_ip,
-                                      reset_config, db_prefix, self.config_log)
+                                      reset_config, db_prefix, self.config_log,
+                                      log_response_time=self.log_zk_response_time)
             def db_client_init():
                 msg = "Connecting to database on %s" % (db_srv_list)
                 self.config_log(msg, level=SandeshLevel.SYS_NOTICE)
@@ -623,7 +630,7 @@ class VncDbClient(object):
                 self._object_db = VncServerCassandraClient(
                     self, db_srv_list, reset_config, db_prefix,
                     db_credential, walk, obj_cache_entries,
-                    obj_cache_exclude_types)
+                    obj_cache_exclude_types, self.log_cassandra_response_time)
 
             self._zk_db.master_election("/api-server-election", db_client_init)
         elif db_engine == 'rdbms':
@@ -640,6 +647,27 @@ class VncDbClient(object):
             api_svr_mgr.get_rabbit_health_check_interval(),
             **kwargs)
     # end __init__
+
+    def log_db_response_time(self, db, response_time, oper):
+        response_time_in_usec = ((response_time.days*24*60*60) +
+                                 (response_time.seconds*1000000) +
+                                 response_time.microseconds)
+
+        # Create latency stats object
+        try:
+            req_id = get_trace_id()
+        except Exception as e:
+            req_id = "NO-REQUESTID"
+        stats = VncApiLatencyStats(
+            operation_type=oper,
+            application=db,
+            response_time_in_usec=response_time_in_usec,
+            response_size=0,
+            identifier=req_id,
+        )
+        stats_log = VncApiLatencyStatsLog(node_name="issu-vm6", api_latency_stats=stats, sandesh=self._sandesh)
+        x=stats_log.send(sandesh=self._sandesh)
+
 
     def _update_default_quota(self):
         """ Read the default quotas from the configuration

@@ -27,6 +27,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
 from cfgm_common import utils as cfgmutils
 from cfgm_common import vnc_greenlets
+from context import get_context, use_context
 
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
@@ -97,6 +98,7 @@ class AuthPreKeystone(object):
                 return True
         return False
 
+    @use_context
     def __call__(self, env, start_response):
         if self.path_in_white_list(env['PATH_INFO']):
             # permit access to white list without requiring a token
@@ -105,6 +107,7 @@ class AuthPreKeystone(object):
         else:
             app = self.app if self.mt else self.server_mgr.api_bottle
 
+        get_context().set_proc_time('PRE_KEYSTONE_REQ')
         return app(env, start_response)
 
 # Post-auth filter. Normalize user/role supplied by quantum plugin for
@@ -118,6 +121,8 @@ class AuthPostKeystone(object):
         self.conf = conf
 
     def __call__(self, env, start_response):
+
+        get_context().set_proc_time('POST_KEYSTONE_REQ')
 
         # if rbac is set, skip old admin based MT
         if self.conf['auth_svc']._mt_rbac:
