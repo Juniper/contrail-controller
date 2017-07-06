@@ -3457,7 +3457,19 @@ class DBInterface(object):
     def router_delete(self, rtr_id):
         try:
             rtr_obj = self._logical_router_read(rtr_id)
-            if rtr_obj.get_virtual_machine_interface_refs():
+
+            alive_ports_refs = []
+            ports_refs = rtr_obj.get_virtual_machine_interface_refs()
+
+            for port_ref in ports_refs:
+                try:
+                    port_obj = self._virtual_machine_interface_read(
+                        port_id=port_ref['uuid'])
+                    alive_ports_refs.append(port_obj)
+                except NoIdError:
+                    pass
+
+            if alive_ports_refs:
                 self._raise_contrail_exception('RouterInUse',
                                                router_id=rtr_id)
         except NoIdError:
