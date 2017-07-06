@@ -114,7 +114,8 @@ class VncCassandraClient(object):
 
     def __init__(self, server_list, db_prefix, rw_keyspaces, ro_keyspaces,
             logger, generate_url=None, reset_config=False, credential=None,
-            walk=True, obj_cache_entries=0, obj_cache_exclude_types=None):
+            walk=True, obj_cache_entries=0, obj_cache_exclude_types=None,
+            log_response_time=None):
         self._reset_config = reset_config
         if db_prefix:
             self._db_prefix = '%s_' % (db_prefix)
@@ -125,6 +126,7 @@ class VncCassandraClient(object):
         self._conn_state = ConnectionStatus.INIT
         self._logger = logger
         self._credential = credential
+        self.log_reponse_time = log_response_time
 
         # if no generate_url is specified, use a dummy function that always
         # returns an empty string
@@ -450,7 +452,7 @@ class VncCassandraClient(object):
                                name='Cassandra', status=status, message=msg,
                                server_addrs=self._server_list)
 
-    def _handle_exceptions(self, func):
+    def _handle_exceptions(self, func, oper=None):
         def wrapper(*args, **kwargs):
             if (sys._getframe(1).f_code.co_name != 'multiget' and
                     func.__name__ in ['get', 'multiget']):
@@ -463,6 +465,7 @@ class VncCassandraClient(object):
                     # will set conn_state to UP if successful
                     self._cassandra_init_conn_pools()
 
+                self.start_time = datetime.datetime.now()
                 return func(*args, **kwargs)
             except (AllServersUnavailable, MaximumRetryException) as e:
                 if self._conn_state != ConnectionStatus.DOWN:
@@ -475,6 +478,10 @@ class VncCassandraClient(object):
                 raise DatabaseUnavailableError(
                     'Error, %s: %s' % (str(e), utils.detailed_traceback()))
 
+            finally:
+                if ((self.log_response_time) and (oper)):
+                    self.end_time = datetime.datetime.now()
+                    self.log_response_time(self.end_time - self.start_time, oper)
         return wrapper
     # end _handle_exceptions
 
@@ -484,14 +491,14 @@ class VncCassandraClient(object):
 
         self._update_sandesh_status(ConnectionStatus.INIT)
 
-        ColumnFamily.get = self._handle_exceptions(ColumnFamily.get)
-        ColumnFamily.multiget = self._handle_exceptions(ColumnFamily.multiget)
-        ColumnFamily.xget = self._handle_exceptions(ColumnFamily.xget)
-        ColumnFamily.get_range = self._handle_exceptions(ColumnFamily.get_range)
-        ColumnFamily.insert = self._handle_exceptions(ColumnFamily.insert)
-        ColumnFamily.remove = self._handle_exceptions(ColumnFamily.remove)
-        Mutator.send = self._handle_exceptions(Mutator.send)
-
+        ColumnFamily.get = self._handle_exceptions(ColumnFamily.get, "GET")
+        ColumnFamily.multiget = self._handle_exceptions(ColumnFamily.multiget, "MULTIGET")
+        ColumnFamily.xget = self._handle_exceptions(ColumnFamily.xget, "XGET")
+        ColumnFamily.get_range = self._handle_exceptions(ColumnFamily.get_range, "GET_RANGE")
+        ColumnFamily.insert = self._handle_exceptions(ColumnFamily.insert, "INSERT")
+        ColumnFamily.remove = self._handle_exceptions(ColumnFamily.remove, "REMOVE")
+        Mutator.send = self._handle_exceptions(Mutator.send, "SEND")
+ 
         self.sys_mgr = self._cassandra_system_manager()
         self.existing_keyspaces = self.sys_mgr.list_keyspaces()
         for ks, cf_dict in self._rw_keyspaces.items():

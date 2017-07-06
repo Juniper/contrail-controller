@@ -15,6 +15,7 @@ from bitarray import bitarray
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from gevent.lock import BoundedSemaphore
 
+import datetime
 import uuid
 
 LOG_DIR = '/var/log/contrail/'
@@ -220,7 +221,8 @@ class IndexAllocator(object):
 
 class ZookeeperClient(object):
 
-    def __init__(self, module, server_list, logging_fn=None, zk_timeout=400):
+    def __init__(self, module, server_list, logging_fn=None, zk_timeout=400,
+                 log_response_time=None):
         # logging
         logger = logging.getLogger(module)
         logger.setLevel(logging.DEBUG)
@@ -239,7 +241,7 @@ class ZookeeperClient(object):
             self.log = logging_fn
         else:
             self.log = self.syslog
-
+        self.log_response_time = log_response_time
         # KazooRetry to retry keeper CRUD operations
         self._retry = KazooRetry(max_tries=None, max_delay=300,
                                  sleep_func=gevent.sleep)
@@ -261,8 +263,25 @@ class ZookeeperClient(object):
         self._lost_cb = None
         self._suspend_cb = None
 
+        self.delete_node = self._response_time(self.delete_node, "DELETE")
+        self.create_node = self._response_time(self.create_node, "CREATE")
+        self.read_node = self._response_time(self.read_node, "READ")
+        self.get_children= self._response_time(self.get_children, "GET_CHILDREN")
+        self.exists = self._response_time(self.exists, "EXISTS")
         self.connect()
     # end __init__
+
+    def _response_time(self, func, oper):
+        def wrapper(*args, **kwargs):
+            # Measure the time
+            self.start_time = datetime.datetime.now()
+            val = func(*args, **kwargs)
+            self.end_time = datetime.datetime.now()
+            if self.log_response_time:
+                self.log_response_time(self.end_time - self.start_time, oper)
+            return val
+            # Measure the time again
+        return wrapper
 
     # start
     def connect(self):
