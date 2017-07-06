@@ -653,8 +653,8 @@ public:
             server_->ReleaseConnectionEndpoint(parent_);
         }
 
-        if (parent_->session() || server_->IsPeerCloseGraceful()) {
-            parent_->ChannelMux()->HandleStateEvent(xmsm::IDLE);
+        if (parent_->state_machine()) {
+            parent_->state_machine()->Clear();
         }
 
         if (parent_->logUVE()) {
