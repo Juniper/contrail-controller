@@ -1604,6 +1604,37 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=project.uuid)
     #end
 
+    def test_ipv6_subnet_with_uppercase(self):
+        # Create Project
+        project = Project('my-proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+
+        vn = VirtualNetwork('my-v6-vn', project)
+        ipam1_sn_v6 = IpamSubnetType(subnet=SubnetType('FD00:1:1:1::0', 64),
+                                     default_gateway='FD00:1:1:1::1')
+
+        ipam2_sn_v6 = IpamSubnetType(subnet=SubnetType('fd00:1:2:3::0', 64),
+                                     default_gateway='fd00:1:2:3::1')
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam1_sn_v6, ipam2_sn_v6]))
+        self._vnc_lib.virtual_network_create(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+
+        vn = VirtualNetwork('my-v6-vn', project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam1_sn_v6]))
+        self._vnc_lib.virtual_network_create(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        vn.set_virtual_network_properties(VirtualNetworkType(forwarding_mode='l3'))
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam1_sn_v6, ipam2_sn_v6]))
+        self._vnc_lib.virtual_network_update(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+    #end
+
     def test_ipam_subnet_update(self):
         # Create Project
         project = Project('my-proj-%s' %(self.id()), Domain())
