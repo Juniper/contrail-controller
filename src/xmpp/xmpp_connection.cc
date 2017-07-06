@@ -654,7 +654,7 @@ public:
         }
 
         if (parent_->session() || server_->IsPeerCloseGraceful()) {
-            parent_->ChannelMux()->HandleStateEvent(xmsm::IDLE);
+            parent_->state_machine()->Clear();
         }
 
         if (parent_->logUVE()) {
