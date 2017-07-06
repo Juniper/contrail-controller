@@ -11,6 +11,7 @@ import platform
 import ConfigParser
 import socket
 import requests
+import warnings
 try:
     from requests.packages.urllib3.exceptions import SubjectAltNameWarning
     warnings.filterwarnings('ignore', category=SubjectAltNameWarning)
@@ -20,7 +21,6 @@ except:
         warnings.filterwarnings('ignore', category=SubjectAltNameWarning)
     except:
         pass
-import warnings
 warnings.filterwarnings('ignore', ".*SNIMissingWarning.*")
 warnings.filterwarnings('ignore', ".*InsecurePlatformWarning.*")
 warnings.filterwarnings('ignore', ".*SubjectAltNameWarning.*")
