@@ -515,6 +515,11 @@ class TestBasic(test_case.NeutronBackendTestCase):
         subnet_q = self.create_resource('subnet', proj_id, extra_res_fields={'network_id': net_q['id'], 'cidr': '10.2.0.0/24', 'ip_version': 4})
         return self.create_resource('port', proj_id, extra_res_fields={'network_id': net_q['id'], 'port_security_enabled':False})
 
+    def _create_port_with_no_allowed_address(self, proj_id):
+        net_q = self.create_resource('network', proj_id)
+        subnet_q = self.create_resource('subnet', proj_id, extra_res_fields={'network_id': net_q['id'], 'cidr': '10.2.0.0/24', 'ip_version': 4})
+        return self.create_resource('port', proj_id, extra_res_fields={'network_id': net_q['id']})
+
     def test_create_port_with_port_security_disabled_and_sg(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         with ExpectedException(webtest.app.AppError):
