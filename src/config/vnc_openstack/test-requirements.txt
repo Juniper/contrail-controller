@@ -7,6 +7,7 @@ pyaml
 python-keystoneclient>=0.11.0
 keystonemiddleware
 lxml>=2.3.3
+neutron_lib
 gevent==1.1a2
 geventhttpclient==1.0a
 pycassa>=1.7.2

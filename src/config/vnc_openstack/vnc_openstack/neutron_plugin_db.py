@@ -10,8 +10,7 @@ import requests
 import re
 import uuid
 from cfgm_common import jsonutils as json
-import time
-import socket
+from cfgm_common import PERMS_RWX, PERMS_NONE
 import netaddr
 from netaddr import IPNetwork, IPSet, IPAddress
 import gevent
@@ -549,9 +548,16 @@ class DBInterface(object):
                                                    obj_uuids=obj_uuids,
                                                    fields=fields)
         return iip_objs
-    #end _instance_ip_list
+    # end _instance_ip_list
 
-    def _floating_ip_pool_create(self, fip_pool_obj):
+    def _floating_ip_pool_create(self, net_obj):
+        fip_pool_obj = FloatingIpPool('floating-ip-pool', net_obj)
+        if net_obj.is_shared:
+            # if network is shared, fip pool should also be shared
+            fip_pool_obj.perms2 = PermType2(
+                net_obj.parent_uuid, PERMS_RWX,    # tenant, tenant-access
+                PERMS_RWX,                   # global-access
+                [])                          # share list
         fip_pool_uuid = self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
 
         return fip_pool_uuid
@@ -2708,12 +2714,11 @@ class DBInterface(object):
                 resource='network', msg='Network Already exists')
 
         if net_obj.router_external:
-            fip_pool_obj = FloatingIpPool('floating-ip-pool', net_obj)
-            self._floating_ip_pool_create(fip_pool_obj)
+            self._floating_ip_pool_create(net_obj)
 
         ret_network_q = self._network_vnc_to_neutron(net_obj)
         return ret_network_q
-    #end network_create
+    # end network_create
 
     @wait_for_api_server_connection
     def network_read(self, net_uuid, fields=None):
@@ -2738,19 +2743,35 @@ class DBInterface(object):
         network_q['id'] = net_id
         net_obj = self._network_neutron_to_vnc(network_q, UPDATE)
         if net_obj.router_external and not router_external:
-            fip_pools = net_obj.get_floating_ip_pools()
-            fip_pool_obj = FloatingIpPool('floating-ip-pool', net_obj)
-            self._floating_ip_pool_create(fip_pool_obj)
-        if router_external and not net_obj.router_external:
-            fip_pools = net_obj.get_floating_ip_pools()
-            if fip_pools:
-                for fip_pool in fip_pools:
-                    try:
-                        self._floating_ip_pool_delete(fip_pool)
-                    except RefsExistError:
-                        self._raise_contrail_exception('NetworkInUse',
-                                                       net_id=net_id)
+            self._floating_ip_pool_create(net_obj)
+        elif router_external and not net_obj.router_external:
+            fip_pools = net_obj.get_floating_ip_pools() or []
+            for fip_pool in fip_pools:
+                try:
+                    self._floating_ip_pool_delete(fip_pool)
+                except RefsExistError:
+                    self._raise_contrail_exception('NetworkInUse',
+                                                   net_id=net_id)
+        elif (shared != net_obj.is_shared) and net_obj.router_external:
+            # if changing from shared and network is already external,
+            # set the permissions on fip_pool also accordingly
+            fip_pool_fq_name = net_obj.fq_name + ['floating-ip-pool']
+            try:
+                fip_pool = self._vnc_lib.floating_ip_pool_read(
+                    fq_name=fip_pool_fq_name)
+                perms2 = fip_pool.get_perms2()
+                if net_obj.is_shared:
+                    perms2.global_access = PERMS_RWX
+                else:
+                    perms2.global_access = PERMS_NONE
+                fip_pool.set_perms2(perms2)
+                self._vnc_lib.floating_ip_pool_update(fip_pool)
+            except NoIdError:
+                # ignore NoIdError
+                pass
         if shared and not net_obj.is_shared:
+            # If there are ports allocated outside of the project, do not allow
+            # network setting to be changed from shared to not shared
             for vmi in net_obj.get_virtual_machine_interface_back_refs() or []:
                 vmi_obj = self._virtual_machine_interface_read(port_id=vmi['uuid'])
                 if (vmi_obj.parent_type == 'project' and
@@ -2762,7 +2783,7 @@ class DBInterface(object):
 
         ret_network_q = self._network_vnc_to_neutron(net_obj)
         return ret_network_q
-    #end network_update
+    # end network_update
 
     @wait_for_api_server_connection
     def network_delete(self, net_id):
