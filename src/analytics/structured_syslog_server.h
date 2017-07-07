@@ -13,6 +13,7 @@
 #include <analytics/stat_walker.h>
 #include <analytics/structured_syslog_config.h>
 #include <analytics/structured_syslog_kafka_forwarder.h>
+#include "grok_parser.h"
 
 namespace structured_syslog {
 
@@ -27,7 +28,8 @@ class StructuredSyslogServer {
         const std::string &structured_syslog_kafka_topic,
         uint16_t structured_syslog_kafka_partitions,
         boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
-        StatWalker::StatTableInsertFn stat_db_cb);
+        StatWalker::StatTableInsertFn stat_db_cb,
+        boost::shared_ptr<GrokParser> gp, bool use_grok=false);
     virtual ~StructuredSyslogServer();
     bool Initialize();
     void Shutdown();

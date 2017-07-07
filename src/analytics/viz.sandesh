@@ -121,7 +121,6 @@ const string PHYSICAL_IF_DISPLAY_NAME      = "Physical Interface"
 const string STORAGE_CLUSTER_DISPLAY_NAME  = "Storage Cluster"
 const string USR_DEF_LOG_STAT_DISPLAY_NAME  = "User Defined Log Statistic"
 const string KUBERNETES_MANAGER_NODE_DISPLAY_NAME = "Kubernetes Manager Node"
-
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
 

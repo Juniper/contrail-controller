@@ -73,7 +73,7 @@ class SyslogListeners
         DbHandlerPtr db_handler, std::string ipaddress,
         int port=kDefaultSyslogPort);
       SyslogListeners (EventManager *evm, VizCallback cb,
-        DbHandlerPtr db_handler, int port=kDefaultSyslogPort);
+        DbHandlerPtr db_handler, int port=kDefaultSyslogPort); 
       virtual void Start ();
       virtual void Shutdown ();
       bool IsRunning ();

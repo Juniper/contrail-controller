@@ -8,7 +8,6 @@
 #include <string>
 #include <vector>
 #include <boost/scoped_ptr.hpp>
-
 #include "analytics/structured_syslog_server.h"
 
 class StructuredSyslogCollector {
@@ -18,7 +17,8 @@ class StructuredSyslogCollector {
         const std::string &structured_syslog_kafka_broker,
         const std::string &structured_syslog_kafka_topic,
         uint16_t structured_syslog_kafka_partitions,
-        DbHandlerPtr db_handler);
+        DbHandlerPtr db_handler,
+        boost::shared_ptr<GrokParser> gp, bool use_grok=false);
     virtual ~StructuredSyslogCollector();
     bool Initialize();
     void Shutdown();
