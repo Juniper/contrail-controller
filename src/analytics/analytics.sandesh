@@ -110,3 +110,8 @@ request sandesh DbInfoSetRequest {
 response sandesh DbInfoResponse {
     1: DbInfo db_info;
 }
+
+objectlog sandesh GenericStats {
+    1: string name (key="ObjectCollectorInfo");
+    2: map<string, u64> attrib (tags=".__key");
+}
