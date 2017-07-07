@@ -617,6 +617,17 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
     if (data && vrf->mac_aging_time_ != data->mac_aging_time_) {
         vrf->mac_aging_time_ = data->mac_aging_time_;
     }
+
+    VrfEntry *forwarding_vrf = NULL;
+    if (data->forwarding_vrf_name_ != Agent::NullString()) {
+        forwarding_vrf = FindVrfFromName(data->forwarding_vrf_name_);
+    }
+
+    if (forwarding_vrf != vrf->forwarding_vrf_) {
+        vrf->forwarding_vrf_ = forwarding_vrf;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -901,8 +912,14 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
         }
     }
 
-    return new VrfData(agent, node, VrfData::ConfigVrf, vn_uuid, 0, "",
-                       aging_timeout, learning_enabled);
+    VrfData *vrf_data = new VrfData(agent, node, VrfData::ConfigVrf,
+                                    vn_uuid, 0, "",
+                                    aging_timeout, learning_enabled);
+    if (node->name() == agent->fabric_policy_vrf_name()) {
+        vrf_data->forwarding_vrf_name_ = agent->fabric_vrf_name();
+    }
+
+    return vrf_data;
 }
 
 bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req,

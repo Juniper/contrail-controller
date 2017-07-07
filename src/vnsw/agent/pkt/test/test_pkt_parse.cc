@@ -488,21 +488,21 @@ TEST_F(PktParseTest, IP_On_Eth_1) {
     PktInfo pkt_info1(Agent::GetInstance(), 100, PktHandler::FLOW, 0);
     TestPkt(&pkt_info1, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info1.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info1.type, PktType::ICMP);
 
     pkt->Reset();
     MakeUdpPacket(pkt.get(), eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
     PktInfo pkt_info2(Agent::GetInstance(), 100, PktHandler::FLOW, 0);
     TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info2.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info2.type, PktType::UDP);
 
     pkt->Reset();
     MakeTcpPacket(pkt.get(), eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, false, 3, -1);
     PktInfo pkt_info3(Agent::GetInstance(), 100, PktHandler::FLOW, 0);
     TestPkt(&pkt_info3, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info3.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info3.type, PktType::TCP);
 
 }
 
@@ -515,19 +515,19 @@ TEST_F(PktParseTest, IPv6_On_Eth_1) {
     MakeIp6Packet(pkt, eth->id(), "1::1", "1::2", IPPROTO_ICMPV6, 1, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info.type, PktType::ICMPV6);
 
     pkt->Reset();
     MakeUdp6Packet(pkt, eth->id(), "1::1", "1::2", 1, 2, 2, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info.type, PktType::UDP);
 
     pkt->Reset();
     MakeTcp6Packet(pkt, eth->id(), "1::1", "1::2", 1, 2, false, 3, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info.type, PktType::TCP);
     delete pkt;
 }
 
@@ -688,7 +688,7 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     PktInfo pkt_info2(Agent::GetInstance(), 100, PktHandler::FLOW, 0);
     TestPkt(&pkt_info2, pkt.get());
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info2.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info2.type, PktType::IP);
     EXPECT_EQ(pkt_info2.tunnel.label, 0xFFFFFFFF);
 
     // Invalid Protocol in GRE header
@@ -744,7 +744,7 @@ TEST_F(PktParseTest, IPv6_Invalid_GRE_On_Enet_1) {
                       vnet1->label(), "10::10", "11::11", 1, 2, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
-    EXPECT_EQ(pkt_info.type, PktType::INVALID);
+    EXPECT_EQ(pkt_info.type, PktType::IP);
     EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
 
     // Invalid Protocol in GRE header

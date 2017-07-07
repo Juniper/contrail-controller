@@ -207,6 +207,16 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             ret = true;
         }
 
+        VrfEntry *forwarding_vrf = vrf;
+        if (vrf && vrf_->forwarding_vrf()) {
+            forwarding_vrf = vrf_->forwarding_vrf();
+        }
+
+        if (forwarding_vrf != forwarding_vrf_) {
+            forwarding_vrf_ = forwarding_vrf;
+            ret = true;
+        }
+
         MirrorEntry *mirror = table->FindMirrorRef(data->analyzer_name_);
         if (mirror_entry_.get() != mirror) {
             mirror_entry_ = mirror;

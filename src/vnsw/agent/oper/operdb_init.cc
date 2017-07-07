@@ -51,6 +51,7 @@
 #include <oper/bridge_domain.h>
 #include <oper/agent_route_walker.h>
 #include <oper/security_logging_object.h>
+#include <oper/route_leak.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -311,7 +312,7 @@ void OperDB::RegisterDBClients() {
 
     multicast_.get()->Register();
     global_vrouter_.get()->CreateDBClients();
-
+    route_leak_manager_.reset(new RouteLeakManager(agent_));
 }
 
 OperDB::OperDB(Agent *agent)
@@ -380,6 +381,7 @@ void OperDB::Shutdown() {
 
     //route_walk_manager_.reset();
     profile_.reset();
+    route_leak_manager_.reset();
 }
 
 void OperDB::DeleteRoutes() {

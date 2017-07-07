@@ -26,6 +26,7 @@ class GlobalQosConfig;
 class OperNetworkIpam;
 class OperVirtualDns;
 class AgentRouteWalkerManager;
+class RouteLeakManager;
 
 class OperDB {
 public:
@@ -98,6 +99,7 @@ private:
     std::auto_ptr<OperVirtualDns> virtual_dns_;
     std::auto_ptr<GlobalQosConfig> global_qos_config_;
     std::auto_ptr<AgentRouteWalkerManager> route_walk_manager_;
+    std::auto_ptr<RouteLeakManager> route_leak_manager_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif
