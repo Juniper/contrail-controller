@@ -132,6 +132,12 @@ void Options::Initialize(EventManager &evm,
     string default_api_server("127.0.0.1:8082");
     vector<string> default_api_server_list = list_of(default_api_server);
 
+    vector<string> default_grok_key_list;
+    default_grok_key_list.push_back("");
+
+    vector<string> default_grok_attrib_list;
+    default_grok_attrib_list.push_back("");
+
     vector<string> default_structured_syslog_tcp_forward_destination;
     default_structured_syslog_tcp_forward_destination.push_back("");
 
@@ -319,6 +325,14 @@ void Options::Initialize(EventManager &evm,
            opt::value<vector<string> >()->default_value(
                default_kafka_broker_list, ""),
              "Kafka Broker List")
+        ("DEFAULT.grok_key_list",
+           opt::value<vector<string> >()->default_value(
+               default_grok_key_list, ""),
+             "Grok Key List")
+        ("DEFAULT.grok_attrib_list",
+           opt::value<vector<string> >()->default_value(
+               default_grok_attrib_list, ""),
+             "Grok Attribute List")
         ("DEFAULT.uve_proxy_list",
            opt::value<vector<string> >()->default_value(
                default_uve_proxy_list, default_uve_proxy),
@@ -633,7 +647,8 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
     GetOptValue<int>(var_map, sflow_port_, "DEFAULT.sflow_port");
     GetOptValue<int>(var_map, ipfix_port_, "DEFAULT.ipfix_port");
-
+    GetOptValue< vector<string> >(var_map, grok_key_list_, "DEFAULT.grok_key_list");
+    GetOptValue< vector<string> >(var_map, grok_attrib_list_, "DEFAULT.grok_attrib_list");
     GetOptValue<uint16_t>(var_map, redis_port_, "REDIS.port");
     GetOptValue<string>(var_map, redis_server_, "REDIS.server");
     GetOptValue<string>(var_map, redis_password_, "REDIS.password");

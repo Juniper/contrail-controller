@@ -41,6 +41,15 @@ public:
     /* Set/Unset named_capture boolean property */
     void set_named_capture_only(bool b);
 
+    /* Create and send GenericStats Objectlog */
+    void send_generic_stat(std::map<std::string, std::string> * m_in);
+
+    /* Set key list for GenericStats */
+    void set_key_list(const std::vector<std::string> &key);
+
+    /* Set attrib list for GenericStats */
+    void set_attrib_list(const std::vector<std::string> &attrib);
+
 private:
     GrokMap grok_list_;
     grok_t* base_;

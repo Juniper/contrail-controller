@@ -54,7 +54,9 @@ public:
             const SandeshConfig &sandesh_config,
             const std::vector<std::string> &api_server_list,
             const VncApiConfig &api_config,
-            bool grok_enabled);
+            bool grok_enabled,
+            const std::vector<std::string> &grok_key_list,
+            const std::vector<std::string> &grok_attrib_list);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
@@ -146,6 +148,7 @@ private:
     boost::scoped_ptr<OpServerProxy> osp_;
     boost::scoped_ptr<Ruleeng> ruleeng_;
     Collector *collector_;
+    boost::shared_ptr<GrokParser> gp_;
     SyslogListeners *syslog_listener_;
     SFlowCollector *sflow_collector_;
     IpfixCollector *ipfix_collector_;
