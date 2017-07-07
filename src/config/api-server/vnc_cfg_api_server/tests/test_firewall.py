@@ -20,21 +20,65 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class TestFw(test_case.ApiServerTestCase):
+class TestFirewallBase(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
-        super(TestFw, cls).setUpClass(*args, **kwargs)
+        super(TestFirewallBase, cls).setUpClass(*args, **kwargs)
     # end setUpClass
 
     @classmethod
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
-        super(TestFw, cls).tearDownClass(*args, **kwargs)
+        super(TestFirewallBase, cls).tearDownClass(*args, **kwargs)
     # end tearDownClass
 
+    def _create_vn_collection(self, count, proj):
+        return self._create_test_objects(count=count, proj_obj=proj)
+
+    def _create_vmi_collection(self, count, proj, vn=None):
+        if not vn:
+            vn, = self._create_vn_collection(1, proj)
+        vmis = []
+        for i in range(count):
+            vmi = VirtualMachineInterface('vmi-%s-%d' % (self.id(), i),
+                                          parent_obj=proj)
+            vmi.add_virtual_network(vn)
+            self._vnc_lib.virtual_machine_interface_create(vmi)
+            vmis.append(vmi)
+        return vmis
+
+    def _create_fg_collection(self, count, proj=None, **kwargs):
+        fgs = []
+        for i in range(count):
+            fg = FirewallGroup('fg-%s-%d' % (self.id(), i), parent_obj=proj,
+                               **kwargs)
+            self._vnc_lib.firewall_group_create(fg)
+            fgs.append(fg)
+        return fgs
+
+    def _create_fp_collection(self, count, proj=None, **kwargs):
+        fps = []
+        for i in range(count):
+            fp = FirewallPolicy('fp-%s-%d' % (self.id(), i), parent_obj=proj,
+                                **kwargs)
+            self._vnc_lib.firewall_policy_create(fp)
+            fps.append(fp)
+        return fps
+
+    def _create_fr_collection(self, count, proj=None, **kwargs):
+        frs = []
+        for i in range(count):
+            fr = FirewallRule('fp-%s-%d' % (self.id(), i), parent_obj=proj,
+                              **kwargs)
+            self._vnc_lib.firewall_rule_create(fr)
+            frs.append(fr)
+        return frs
+
+
+class TestFirewall(TestFirewallBase):
     def test_firewall_rule_using_ep_tag(self):
         pobj = Project('%s-project' %(self.id()))
         self._vnc_lib.project_create(pobj)
@@ -813,6 +857,243 @@ class TestFw(test_case.ApiServerTestCase):
         fr2.set_service(FirewallServiceType())
         with ExpectedException(BadRequest):
             self._vnc_lib.firewall_rule_update(fr2)
+
+
+class TestFirewallGroup(TestFirewallBase):
+    def test_create_vmi_with_two_fg_associated(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg1, fg2 = self._create_fg_collection(2, proj)
+        vn, = self._create_vn_collection(1, proj)
+        vmi = VirtualMachineInterface('vmi-%s' % self.id(), parent_obj=proj)
+        vmi.add_virtual_network(vn)
+
+        vmi.add_firewall_group(fg1)
+        vmi.add_firewall_group(fg2)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.virtual_machine_interface_create(vmi)
+
+    def test_update_vmi_with_two_fg_associated(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg1, fg2 = self._create_fg_collection(2, proj)
+        vmi, = self._create_vmi_collection(1, proj)
+
+        vmi.add_firewall_group(fg1)
+        vmi.add_firewall_group(fg2)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.virtual_machine_interface_update(vmi)
+
+    def test_update_vmi_and_exceeded_firewall_group_associated(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg1, fg2 = self._create_fg_collection(2, proj)
+        vmi, = self._create_vmi_collection(1, proj)
+
+        # Associate the first fwg to vmi success
+        vmi.add_firewall_group(fg1)
+        self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        # Associate same fwg to the vmi do nothing and succeed
+        vmi.add_firewall_group(fg1)
+        self._vnc_lib.virtual_machine_interface_update(vmi)
+
+        # Add a second one fwg to a vmi fails
+        vmi.add_firewall_group(fg2)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.virtual_machine_interface_update(vmi)
+
+    def test_create_fp_association_both_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg, = self._create_fg_collection(1, proj)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=proj)
+
+        fp.add_firewall_group(fg,
+                              FirewallPolicyDirectionType(direction='both'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_create(fp)
+
+    def test_update_fp_association_both_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg, = self._create_fg_collection(1, proj)
+        fp, = self._create_fp_collection(1, proj)
+
+        fp.add_firewall_group(fg,
+                              FirewallPolicyDirectionType(direction='both'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_update(fp)
+
+    def test_create_fp_association_with_fg_without_specified_direction(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg, = self._create_fg_collection(1, proj)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=proj)
+
+        fp.add_firewall_group(fg)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_create(fp)
+
+    def test_update_fp_association_with_fg_without_specified_direction(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg, = self._create_fg_collection(1, proj)
+        fp, = self._create_fp_collection(1, proj)
+
+        fp.add_firewall_group(fg)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_update(fp)
+
+    def test_create_fp_association_ingress_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fgs = self._create_fg_collection(2, proj)
+        fp1, = self._create_fp_collection(1, proj)
+        for fg in fgs:
+            fp1.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+            self._vnc_lib.firewall_policy_update(fp1)
+
+        for fg in fgs:
+            fp2 = FirewallPolicy('fp-%s-2' % self.id(), parent_obj=proj)
+            fp2.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+            with ExpectedException(BadRequest):
+                self._vnc_lib.firewall_policy_create(fp2)
+
+    def test_update_fp_association_ingress_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fgs = self._create_fg_collection(2, proj)
+        fp1, fp2 = self._create_fp_collection(2, proj)
+        for fg in fgs:
+            fp1.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+        self._vnc_lib.firewall_policy_update(fp1)
+
+        for fg in fgs:
+            fp2.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+            with ExpectedException(BadRequest):
+                self._vnc_lib.firewall_policy_update(fp2)
+
+    def test_create_fp_association_egress_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fgs = self._create_fg_collection(2, proj)
+        fp1, = self._create_fp_collection(1, proj)
+        for fg in fgs:
+            fp1.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+            self._vnc_lib.firewall_policy_update(fp1)
+
+        for fg in fgs:
+            fp2 = FirewallPolicy('fp-%s-2' % self.id(), parent_obj=proj)
+            fp2.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+            with ExpectedException(BadRequest):
+                self._vnc_lib.firewall_policy_create(fp2)
+
+    def test_update_fp_association_egress_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fgs = self._create_fg_collection(2, proj)
+        fp1, fp2 = self._create_fp_collection(2, proj)
+        for fg in fgs:
+            fp1.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+        self._vnc_lib.firewall_policy_update(fp1)
+
+        for fg in fgs:
+            fp2.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+            with ExpectedException(BadRequest):
+                self._vnc_lib.firewall_policy_update(fp2)
+
+    def test_create_fps_association_both_directions_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg, = self._create_fg_collection(1, proj)
+        fp1, fp2 = self._create_fp_collection(2, proj)
+        fp1.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+        self._vnc_lib.firewall_policy_update(fp1)
+        fp2.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+        self._vnc_lib.firewall_policy_update(fp2)
+
+        fp3 = FirewallPolicy('fp-%s-3' % self.id(), parent_obj=proj)
+        fp3.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='ingress'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_create(fp3)
+
+        fp3 = FirewallPolicy('fp-%s-3' % self.id(), parent_obj=proj)
+        fp3.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='egress'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_create(fp3)
+
+    def test_update_fps_association_both_directions_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fg, = self._create_fg_collection(1, proj)
+        fp1, fp2, fp3 = self._create_fp_collection(3, proj)
+        fp1.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+        self._vnc_lib.firewall_policy_update(fp1)
+        fp2.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+        self._vnc_lib.firewall_policy_update(fp2)
+
+        fp3.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='ingress'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_update(fp3)
+
+        fp3 = self._vnc_lib.firewall_policy_read(id=fp3.uuid)
+        fp3.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='egress'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_update(fp3)
+
+
+class TestFirewallPolicy(TestFirewallBase):
+    def test_fp_audit_is_false_by_default(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fp, = self._create_fp_collection(1, proj)
+
+        self.assertFalse(fp.audited)
+
+    def test_fp_audited_set_to_false_if_associated_rule_changed(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fr, = self._create_fr_collection(1, proj,
+                                         service=FirewallServiceType())
+        fp, = self._create_fp_collection(1, proj, audited=True)
+        self.assertTrue(fp.audited)
+
+        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
+        self._vnc_lib.firewall_policy_update(fp)
+        fp = self._vnc_lib.firewall_policy_read(id=fp.uuid)
+        self.assertFalse(fp.audited)
+
+    def test_fp_audited_set_to_false_if_associated_rule_updated(self):
+        proj = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(proj)
+        fr, = self._create_fr_collection(1, proj,
+                                         service=FirewallServiceType())
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=proj, audited=True)
+        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
+        self._vnc_lib.firewall_policy_create(fp)
+        self.assertTrue(fp.audited)
+
+        fr.set_action_list(ActionListType(simple_action='pass'))
+        self._vnc_lib.firewall_rule_update(fr)
+        fp = self._vnc_lib.firewall_policy_read(id=fp.uuid)
+        self.assertFalse(fp.audited)
 
 
 if __name__ == '__main__':
