@@ -51,7 +51,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
             const std::vector<std::string> &api_server_list,
-            const VncApiConfig &api_config) :
+            const VncApiConfig &api_config,
+            bool grok_enabled) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup),
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
@@ -89,6 +90,13 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             structured_syslog_kafka_topic,
             structured_syslog_kafka_partitions,
             db_initializer_->GetDbHandler()));
+    }
+    if (grok_enabled) {
+        gp_.reset(new GrokParser());
+        gp_.get()->init();
+    }
+    else {
+        gp_.reset();
     }
 }
 
@@ -258,4 +266,10 @@ void VizCollector::SendDbStatistics() {
 bool VizCollector::GetCqlMetrics(cass::cql::Metrics *metrics) {
     DbHandlerPtr db_handler(db_initializer_->GetDbHandler());
     return db_handler->GetCqlMetrics(metrics);
+}
+
+void VizCollector::GrokMatch(std::string strin) {
+    gp_->match(strin);
+    std::map<std::string, std::string> match_map;
+    gp_->get_matched_data(strin, &match_map);
 }
