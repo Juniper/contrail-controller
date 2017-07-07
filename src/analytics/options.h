@@ -192,6 +192,7 @@ public:
     const std::string log_level() const { return log_level_; }
     const bool log_local() const { return log_local_; }
     const bool use_syslog() const { return use_syslog_; }
+    const bool use_grok() const { return use_grok_; }
     const std::string syslog_facility() const { return syslog_facility_; }
     const std::string kafka_prefix() const { return kafka_prefix_; }
     const bool dup() const { return dup_; }
@@ -264,6 +265,7 @@ private:
     std::string log_level_;
     bool log_local_;
     bool use_syslog_;
+    bool use_grok_;
     std::string syslog_facility_;
     std::string kafka_prefix_;
     int syslog_port_;

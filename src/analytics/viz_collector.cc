@@ -51,7 +51,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
             const std::vector<std::string> &api_server_list,
-            const VncApiConfig &api_config) :
+            const VncApiConfig &api_config,
+            bool grok_enabled) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup),
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
@@ -67,7 +68,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
         boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3, _4))),
     syslog_listener_(new SyslogListeners(evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng_.get(), _1, _2, _3, _4),
-            db_initializer_->GetDbHandler(), syslog_port)),
+            db_initializer_->GetDbHandler(), syslog_port, grok_enabled, gp_)),
     sflow_collector_(new SFlowCollector(evm, db_initializer_->GetDbHandler(),
         std::string(), sflow_port)),
     ipfix_collector_(new IpfixCollector(evm, db_initializer_->GetDbHandler(),
@@ -90,6 +91,10 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             structured_syslog_kafka_partitions,
             db_initializer_->GetDbHandler()));
     }
+    if (grok_enabled) {
+        gp_ = (new GrokParser());
+        gp_->init();
+    }
 }
 
 VizCollector::VizCollector(EventManager *evm, DbHandlerPtr db_handler,
@@ -103,7 +108,7 @@ VizCollector::VizCollector(EventManager *evm, DbHandlerPtr db_handler,
     collector_(collector),
     syslog_listener_(new SyslogListeners (evm,
             boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3, _4),
-            db_handler)),
+            db_handler, false, gp_)),
     sflow_collector_(NULL), ipfix_collector_(NULL), redis_gen_(0), partitions_(0) {
     error_code error;
     name_ = boost::asio::ip::host_name(error);
@@ -258,4 +263,10 @@ void VizCollector::SendDbStatistics() {
 bool VizCollector::GetCqlMetrics(cass::cql::Metrics *metrics) {
     DbHandlerPtr db_handler(db_initializer_->GetDbHandler());
     return db_handler->GetCqlMetrics(metrics);
+}
+
+void VizCollector::GrokMatch(std::string strin) {
+    gp_->match(strin);
+    std::map<std::string, std::string> match_map;
+    gp_->get_matched_data(strin, &match_map);
 }

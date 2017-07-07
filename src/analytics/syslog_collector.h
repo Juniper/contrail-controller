@@ -10,6 +10,7 @@
 #include "io/io_log.h"
 #include "viz_message.h"
 #include "db_handler.h"
+#include "grok_parser.h"
 
 typedef boost::function<bool(const VizMsg*, bool,
     DbHandler *, GenDb::GenDbIf::DbAddColumnCb)> VizCallback;
@@ -71,9 +72,10 @@ class SyslogListeners
       static const int kDefaultSyslogPort = 514;
       SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandlerPtr db_handler, std::string ipaddress,
-        int port=kDefaultSyslogPort);
+        int port=kDefaultSyslogPort, bool use_grok=false, GrokParser* gp=NULL);
       SyslogListeners (EventManager *evm, VizCallback cb,
-        DbHandlerPtr db_handler, int port=kDefaultSyslogPort);
+        DbHandlerPtr db_handler, int port=kDefaultSyslogPort, 
+        bool use_grok=false, GrokParser* gp=NULL);
       virtual void Start ();
       virtual void Shutdown ();
       bool IsRunning ();
@@ -98,7 +100,7 @@ class SyslogParser
 {
 
     public:
-        SyslogParser (SyslogListeners *syslog);
+        SyslogParser (SyslogListeners *syslog, bool use_grok, GrokParser* gp=NULL);
         virtual ~SyslogParser ();
         void Parse (SyslogQueueEntry *sqe);
 
@@ -190,6 +192,8 @@ class SyslogParser
         boost::ptr_map<std::string, SyslogGenerator> genarators_;
         SyslogListeners                             *syslog_;
         std::vector<std::string>                     facilitynames_;
+        bool                                         use_grok_;
+        GrokParser *                                 gp_;
 };
 
 
