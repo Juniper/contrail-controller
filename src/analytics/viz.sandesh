@@ -87,6 +87,7 @@ const string PHYSICAL_IF_TABLE      = "ObjectPhysicalInterfaceTable"
 const string LOGICAL_IF_TABLE       = "ObjectLogicalInterfaceTable"
 const string STORAGE_CLUSTER_TABLE  = "ObjectStorageClusterTable"
 const string USR_DEF_LOG_STAT_TABLE  = "UserDefinedLogStatTable"
+const string GROK_MATCHED_SYSLOG_TABLE= "GrokMatchedSyslogTable"
 const string KUBERNETES_MANAGER_TABLE = "ObjectKubernetesManagerNode"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
@@ -120,7 +121,7 @@ const string PHYSICAL_IF_DISPLAY_NAME      = "Physical Interface"
 const string STORAGE_CLUSTER_DISPLAY_NAME  = "Storage Cluster"
 const string USR_DEF_LOG_STAT_DISPLAY_NAME  = "User Defined Log Statistic"
 const string KUBERNETES_MANAGER_NODE_DISPLAY_NAME = "Kubernetes Manager Node"
-
+const string GROK_MATCHED_SYSLOG_DISPLAY_NAME = "Grok Parsed Syslog"
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
 
@@ -419,7 +420,8 @@ const map<string, string> UVE_MAP = {
     "logical-interface" : LOGICAL_IF_TABLE,
     "storage-cluster" : STORAGE_CLUSTER_TABLE,
     "user-defined-log-statistic" : USR_DEF_LOG_STAT_TABLE,
-    "kubernetes-manager-node" : KUBERNETES_MANAGER_TABLE
+    "kubernetes-manager-node" : KUBERNETES_MANAGER_TABLE,
+    "grok-matched-syslog" : GROK_MATCHED_SYSLOG_TABLE 
 }
 
 struct objtable_info {
@@ -613,6 +615,12 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     KUBERNETES_MANAGER_TABLE: {
         'objtable_display_name' : KUBERNETES_MANAGER_NODE_DISPLAY_NAME
         'log_query_name'        : "kubernetes-manager-node"
+        'is_uve'                : true
+        'global_system_object'  : true
+    }
+    GROK_MATCHED_SYSLOG_TABLE : {
+        'objtable_display_name' : GROK_MATCHED_SYSLOG_DISPLAY_NAME 
+        'log_query_name'        : "grok-matched-syslog"
         'is_uve'                : true
         'global_system_object'  : true
     }
