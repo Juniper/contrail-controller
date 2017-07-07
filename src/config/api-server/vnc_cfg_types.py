@@ -2586,10 +2586,11 @@ class PhysicalRouterServer(Resource, PhysicalRouter):
         return True, ''
 
     @classmethod
-    def post_dbe_list(cls, obj_dict_list, db_conn):
-        for obj_dict in obj_dict_list:
-            (ok, err_msg) = cls.post_dbe_read(obj_dict['physical-router'], db_conn)
-            if not ok:
-                return ok, err_msg
+    def post_dbe_list(cls, obj_result_list, db_conn):
+        for obj_result in obj_result_list:
+            if obj_result.get('physical-router'):
+                (ok, err_msg) = cls.post_dbe_read(obj_result['physical-router'], db_conn)
+                if not ok:
+                    return ok, err_msg
         return True, ''
 # end class PhysicalRouterServer
