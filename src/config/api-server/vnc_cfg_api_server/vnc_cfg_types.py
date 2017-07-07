@@ -1887,6 +1887,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         vn_dict = result
 
+        ok, result =\
+            FirewallGroupServer.check_already_associated_to_firewall_group(
+                cls.object_type, obj_dict)
+        if not ok:
+            return ok, result
+
         vlan_tag = ((obj_dict.get('virtual_machine_interface_properties') or
                      {}).get('sub_interface_vlan_tag'))
         if vlan_tag and 'virtual_machine_interface_refs' in obj_dict:
@@ -2181,6 +2187,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         (ok, result) = cls._check_service_health_check_type(
                                       obj_dict, read_result, db_conn)
+        if not ok:
+            return ok, result
+
+        ok, result =\
+            FirewallGroupServer.check_already_associated_to_firewall_group(
+                cls.object_type, obj_dict)
         if not ok:
             return ok, result
 
@@ -2626,9 +2638,14 @@ class TagServer(Resource, Tag):
 
 
 class FirewallRuleServer(SecurityResourceBase, FirewallRule):
+    _ASSOCIATED_TYPES = [
+            AddressGroup,
+            ServiceGroup,
+            VirtualNetwork,
+        ]
 
-    @classmethod
-    def _check_endpoint(cls, ep):
+    @staticmethod
+    def _check_endpoint(ep):
         # TODO(ethuleau): Authorize only one condition per endpoint for the
         #                 moment.
         filters = [
@@ -2647,8 +2664,8 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         # validate VN name in endpoints
         return True, ''
 
-    @classmethod
-    def _frs_fix_service(cls, service, service_group_refs):
+    @staticmethod
+    def _frs_fix_service(service, service_group_refs):
         if service and service_group_refs:
             msg = ("Firewall Rule cannot have both defined 'service' property "
                    "and Service Group reference(s)")
@@ -2660,8 +2677,8 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
             return False, (400, msg)
         return True, ''
 
-    @classmethod
-    def _frs_fix_service_protocol(cls, obj_dict):
+    @staticmethod
+    def _frs_fix_service_protocol(obj_dict):
         if obj_dict.get('service') and obj_dict['service'].get('protocol'):
             protocol = obj_dict['service']['protocol']
             if protocol.isdigit():
@@ -2677,8 +2694,8 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 
         return True, ""
 
-    @classmethod
-    def _frs_fix_match_tags(cls, obj_dict):
+    @staticmethod
+    def _frs_fix_match_tags(obj_dict):
         if 'match_tags' in obj_dict:
             obj_dict['match_tag_types'] = {'tag_type': []}
             for tag_type in obj_dict['match_tags'].get('tag_list', []):
@@ -2694,8 +2711,8 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 
         return True, ""
 
-    @classmethod
-    def _frs_fix_endpoint_address_group(cls, obj_dict, ep, ep_name, db_conn):
+    @staticmethod
+    def _frs_fix_endpoint_address_group(obj_dict, ep, ep_name, db_conn):
         if ep is None or 'address_group' not in ep:
             return True, ""
 
@@ -2716,8 +2733,8 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 
         return True, ""
 
-    @classmethod
-    def _frs_fix_endpoint_tag(cls, obj_dict, ep, db_conn):
+    @staticmethod
+    def _frs_fix_endpoint_tag(obj_dict, ep, db_conn):
         if ep is None or 'tags' not in ep:
             return True, ''
 
@@ -2774,32 +2791,15 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         if not ok:
             return False, result
 
-        ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            obj_dict['uuid'],
-            obj_dict['fq_name'],
-            obj_dict,
-            AddressGroup,
-        )
-        if not ok:
-            return False, result
-
-        ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            obj_dict['uuid'],
-            obj_dict['fq_name'],
-            obj_dict,
-            ServiceGroupServer,
-        )
-        if not ok:
-            return False, result
-
-        ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            obj_dict['uuid'],
-            obj_dict['fq_name'],
-            obj_dict,
-            VirtualNetworkServer,
-        )
-        if not ok:
-            return False, result
+        for r_class in cls._ASSOCIATED_TYPES:
+            ok, result = cls.check_associated_firewall_resource_in_same_scope(
+                obj_dict['uuid'],
+                obj_dict['fq_name'],
+                obj_dict,
+                r_class,
+            )
+            if not ok:
+                return False, result
 
         ok, result = cls._frs_fix_service(
             obj_dict.get('service'), obj_dict.get('service_group_refs'))
@@ -2849,20 +2849,11 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
         if not ok:
             return False, result
 
-        ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            id, fq_name, obj_dict, AddressGroup)
-        if not ok:
-            return False, result
-
-        ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            id, fq_name, obj_dict, ServiceGroupServer)
-        if not ok:
-            return False, result
-
-        ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            id, fq_name, obj_dict, VirtualNetworkServer)
-        if not ok:
-            return False, result
+        for r_class in cls._ASSOCIATED_TYPES:
+            ok, result = cls.check_associated_firewall_resource_in_same_scope(
+                id, fq_name, obj_dict, r_class)
+            if not ok:
+                return False, result
 
         ok, read_result = cls.dbe_read(db_conn, 'firewall_rule', id)
         if not ok:
@@ -2913,7 +2904,24 @@ class FirewallRuleServer(SecurityResourceBase, FirewallRule):
                 if not ok:
                     return (False, result)
 
-        return True, ''
+        return True, ""
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+                        prop_collection_updates=None, ref_update=None):
+        ok, result = cls.locate(uuid=id, create_it=False,
+                                fields=['firewall_policy_back_refs'])
+        if not ok:
+            return False, result
+        fp_refs = result.get('firewall_policy_back_refs', [])
+
+        for fp_ref in fp_refs or []:
+            cls.server.internal_request_update('firewall-policy',
+                                               fp_ref['uuid'],
+                                               {'audited': False})
+
+        return True, ""
+# end class FirewallRuleServer
 
 
 class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
@@ -2923,12 +2931,18 @@ class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
         if not ok:
             return False, result
 
-        return cls.check_associated_firewall_resource_in_same_scope(
+        obj_dict.setdefault('audited', False)
+
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
             obj_dict['uuid'],
             obj_dict['fq_name'],
             obj_dict,
             FirewallRuleServer,
         )
+        if not ok:
+            return False, result
+
+        return FirewallGroupServer.check_policy_association(obj_dict)
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
@@ -2936,8 +2950,95 @@ class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
         if not ok:
             return False, result
 
-        return cls.check_associated_firewall_resource_in_same_scope(
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
             id, fq_name, obj_dict, FirewallRuleServer)
+        if not ok:
+            return False, result
+
+        obj_dict['uuid'] = id
+        ok, result = FirewallGroupServer.check_policy_association(obj_dict)
+        if not ok:
+            return False, result
+
+        if obj_dict.get('firewall_rule_refs'):
+            ok, result = cls.locate(uuid=id, create_it=False,
+                                    fields=['firewall_rule_refs'])
+            if not ok:
+                return ok, result
+            db_fp_dict = result
+
+            old_rules = {ref['uuid'] for ref in
+                         db_fp_dict.get('firewall_rule_refs', [])}
+            new_rules = {ref['uuid'] for ref in
+                         obj_dict.get('firewall_rule_refs', [])}
+            if old_rules != new_rules:
+                cls.server.internal_request_update(cls.resource_type, id,
+                                                   {'audited': False})
+
+        return True, ''
+
+
+class FirewallGroupServer(SecurityResourceBase, FirewallGroup):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls.check_draft_mode_state(obj_dict)
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return cls.check_draft_mode_state(obj_dict)
+
+    @staticmethod
+    def check_already_associated_to_firewall_group(obj_type, obj_dict):
+        if obj_dict and len(obj_dict.get('firewall_group_refs', [])) > 1:
+            msg = ("%s can be associate to only one Firewall Group at a "
+                   "time." % obj_type.replace('_', ' ').title())
+            return False, (400, msg)
+
+        return True, ''
+
+    @classmethod
+    def check_policy_association(cls, fp_dict):
+        for fg_ref in fp_dict.get('firewall_group_refs', []):
+            if (fg_ref.get('attr', {}) and
+                    fg_ref['attr'].get('direction', None) is not None):
+                if fg_ref['attr']['direction'] not in ['ingress', 'egress']:
+                    msg = ("Firewall Group can only be referenced as ingress "
+                           "or egress direction by a Firewall Policy")
+                    return False, (400, msg)
+
+                # Fetch fg to check if it is already associated to fp
+                ok, result = cls.locate(uuid=fg_ref['uuid'], create_it=False,
+                                        fields=['firewall_policy_back_refs'])
+                if not ok:
+                    return False, result
+                fg_dict = result
+                fg_fp_ingress = None
+                fg_fp_egress = None
+                for fp_ref in fg_dict.get('firewall_policy_back_refs', []):
+                    if 'attr' in fp_ref and 'direction' in fp_ref['attr']:
+                        if fp_ref['attr']['direction'] == 'ingress':
+                            fg_fp_ingress = fp_ref['uuid']
+                        if fp_ref['attr']['direction'] == 'egress':
+                            fg_fp_egress = fp_ref['uuid']
+
+                if (fg_ref['attr']['direction'] == 'ingress' and
+                        fg_fp_ingress is not None and
+                        fp_dict['uuid'] != fg_fp_ingress):
+                    msg = ("Only one ingress Firewall Policy can be"
+                           "associated to a Firewall Group")
+                    return False, (400, msg)
+                if (fg_ref['attr']['direction'] == 'egress' and
+                        fg_fp_egress is not None and
+                        fp_dict['uuid'] != fg_fp_egress):
+                    msg = ("Only one egress Firewall Policy can be"
+                           "associated to a Firewall Group")
+                    return False, (400, msg)
+            else:
+                msg = ("Firewall Group reference needs to specify a "
+                       "direction (ingress or egress)")
+                return False, (400, msg)
+
+        return True, ''
 
 
 class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):

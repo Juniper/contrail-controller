@@ -702,6 +702,7 @@ const string POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT = "draft-policy-managemen
 // Order here is important
 const list<string> SECURITY_OBJECT_TYPES = [
     'application_policy_set',
+    'firewall_group',
     'firewall_policy',
     'firewall_rule',
     'service_group',

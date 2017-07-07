@@ -17,7 +17,9 @@ from vnc_api.exceptions import RefsExistError
 from vnc_api.vnc_api import ActionListType
 from vnc_api.vnc_api import AddressGroup
 from vnc_api.vnc_api import ApplicationPolicySet
+from vnc_api.vnc_api import FirewallGroup
 from vnc_api.vnc_api import FirewallPolicy
+from vnc_api.vnc_api import FirewallPolicyDirectionType
 from vnc_api.vnc_api import FirewallRule
 from vnc_api.vnc_api import FirewallRuleEndpointType
 from vnc_api.vnc_api import FirewallRuleMatchTagsType
@@ -33,6 +35,7 @@ from vnc_api.vnc_api import ServiceGroup
 from vnc_api.vnc_api import SubnetListType
 from vnc_api.vnc_api import SubnetType
 from vnc_api.vnc_api import Tag
+from vnc_api.vnc_api import VirtualMachineInterface
 from vnc_api.vnc_api import VirtualNetwork
 
 from vnc_cfg_api_server.tests import test_case
@@ -58,6 +61,48 @@ class TestFirewallBase(test_case.ApiServerTestCase):
     @property
     def api(self):
         return self._vnc_lib
+
+    def create_vn_collection(self, count, proj):
+        return self._create_test_objects(count=count, proj_obj=proj)
+
+    def create_vmi_collection(self, count, proj, vn=None):
+        if not vn:
+            vn = self.create_vn_collection(1, proj)[0]
+        vmis = []
+        for i in range(count):
+            vmi = VirtualMachineInterface('vmi-%s-%d' % (self.id(), i),
+                                          parent_obj=proj)
+            vmi.add_virtual_network(vn)
+            self.api.virtual_machine_interface_create(vmi)
+            vmis.append(vmi)
+        return vmis
+
+    def create_fg_collection(self, count, proj=None, **kwargs):
+        fgs = []
+        for i in range(count):
+            fg = FirewallGroup('fg-%s-%d' % (self.id(), i), parent_obj=proj,
+                               **kwargs)
+            self.api.firewall_group_create(fg)
+            fgs.append(fg)
+        return fgs
+
+    def create_fp_collection(self, count, proj=None, **kwargs):
+        fps = []
+        for i in range(count):
+            fp = FirewallPolicy('fp-%s-%d' % (self.id(), i), parent_obj=proj,
+                                **kwargs)
+            self.api.firewall_policy_create(fp)
+            fps.append(fp)
+        return fps
+
+    def create_fr_collection(self, count, proj=None, **kwargs):
+        frs = []
+        for i in range(count):
+            fr = FirewallRule('fp-%s-%d' % (self.id(), i), parent_obj=proj,
+                              **kwargs)
+            self.api.firewall_rule_create(fr)
+            frs.append(fr)
+        return frs
 
 
 class TestFirewall(TestFirewallBase):
@@ -879,6 +924,7 @@ class TestFirewall(TestFirewallBase):
 class FirewallDraftModeBase(object):
     SECURITY_RESOURCES = [
         ApplicationPolicySet,
+        FirewallGroup,
         FirewallPolicy,
         FirewallRule,
         ServiceGroup,
@@ -2122,3 +2168,244 @@ class TestFirewallDraftModeMixedScopes(TestFirewallBase):
         self.assertEqual(project_aps.get_firewall_policy_refs()[0]['to'],
                          global_fp.fq_name)
         self.assertEqual(global_fp.display_name, new_name)
+
+class TestFirewallGroup(TestFirewallBase):
+    def test_create_vmi_with_two_fg_associated(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fgs = self.create_fg_collection(2, proj)
+        vn = self.create_vn_collection(1, proj)[0]
+        vmi = VirtualMachineInterface('vmi-%s' % self.id(), parent_obj=proj)
+        vmi.add_virtual_network(vn)
+
+        for fg in fgs:
+            vmi.add_firewall_group(fg)
+        with ExpectedException(BadRequest):
+            self.api.virtual_machine_interface_create(vmi)
+
+    def test_update_vmi_with_two_fg_associated(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fgs = self.create_fg_collection(2, proj)
+        vmi = self.create_vmi_collection(1, proj)[0]
+
+        for fg in fgs:
+            vmi.add_firewall_group(fg)
+        with ExpectedException(BadRequest):
+            self.api.virtual_machine_interface_update(vmi)
+
+    def test_update_vmi_and_exceeded_firewall_group_associated(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fgs = self.create_fg_collection(2, proj)
+        vmi = self.create_vmi_collection(1, proj)[0]
+
+        # Associate the first fwg to vmi success
+        vmi.add_firewall_group(fgs[0])
+        self.api.virtual_machine_interface_update(vmi)
+
+        # Associate same fwg to the vmi do nothing and succeed
+        vmi.add_firewall_group(fgs[0])
+        self.api.virtual_machine_interface_update(vmi)
+
+        # Add a second one fwg to a vmi fails
+        vmi.add_firewall_group(fgs[1])
+        with ExpectedException(BadRequest):
+            self.api.virtual_machine_interface_update(vmi)
+
+    def test_create_fp_association_both_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fg = self.create_fg_collection(1, proj)[0]
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=proj)
+
+        fp.add_firewall_group(fg,
+                              FirewallPolicyDirectionType(direction='both'))
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_create(fp)
+
+    def test_update_fp_association_both_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fg = self.create_fg_collection(1, proj)[0]
+        fp = self.create_fp_collection(1, proj)[0]
+
+        fp.add_firewall_group(fg,
+                              FirewallPolicyDirectionType(direction='both'))
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_update(fp)
+
+    def test_create_fp_association_with_fg_without_specified_direction(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fg = self.create_fg_collection(1, proj)[0]
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=proj)
+
+        fp.add_firewall_group(fg)
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_create(fp)
+
+    def test_update_fp_association_with_fg_without_specified_direction(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fg = self.create_fg_collection(1, proj)[0]
+        fp = self.create_fp_collection(1, proj)[0]
+
+        fp.add_firewall_group(fg)
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_update(fp)
+
+    def test_create_fp_association_ingress_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fgs = self.create_fg_collection(2, proj)
+        fp1 = self.create_fp_collection(1, proj)[0]
+        for fg in fgs:
+            fp1.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+            self.api.firewall_policy_update(fp1)
+
+        for fg in fgs:
+            fp2 = FirewallPolicy('fp-%s-2' % self.id(), parent_obj=proj)
+            fp2.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+            with ExpectedException(BadRequest):
+                self.api.firewall_policy_create(fp2)
+
+    def test_update_fp_association_ingress_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fgs = self.create_fg_collection(2, proj)
+        fps = self.create_fp_collection(2, proj)
+        for fg in fgs:
+            fps[0].add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+        self.api.firewall_policy_update(fps[0])
+
+        for fg in fgs:
+            fps[1].add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='ingress'))
+            with ExpectedException(BadRequest):
+                self.api.firewall_policy_update(fps[1])
+
+    def test_create_fp_association_egress_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fgs = self.create_fg_collection(2, proj)
+        fp1 = self.create_fp_collection(1, proj)[0]
+        for fg in fgs:
+            fp1.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+            self.api.firewall_policy_update(fp1)
+
+        for fg in fgs:
+            fp2 = FirewallPolicy('fp-%s-2' % self.id(), parent_obj=proj)
+            fp2.add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+            with ExpectedException(BadRequest):
+                self.api.firewall_policy_create(fp2)
+
+    def test_update_fp_association_egress_direction_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fgs = self.create_fg_collection(2, proj)
+        fps = self.create_fp_collection(2, proj)
+        for fg in fgs:
+            fps[0].add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+        self.api.firewall_policy_update(fps[0])
+
+        for fg in fgs:
+            fps[1].add_firewall_group(
+                fg, FirewallPolicyDirectionType(direction='egress'))
+            with ExpectedException(BadRequest):
+                self.api.firewall_policy_update(fps[1])
+
+    def test_create_fps_association_both_directions_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fg = self.create_fg_collection(1, proj)[0]
+        fps = self.create_fp_collection(2, proj)
+        fp1 = fps[0]
+        fp2 = fps[1]
+        fp1.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='ingress'))
+        self.api.firewall_policy_update(fp1)
+        fp2.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='egress'))
+        self.api.firewall_policy_update(fp2)
+
+        fp3 = FirewallPolicy('fp-%s-3' % self.id(), parent_obj=proj)
+        fp3.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='ingress'))
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_create(fp3)
+
+        fp3 = FirewallPolicy('fp-%s-3' % self.id(), parent_obj=proj)
+        fp3.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='egress'))
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_create(fp3)
+
+    def test_update_fps_association_both_directions_with_fg(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fg = self.create_fg_collection(1, proj)[0]
+        fps = self.create_fp_collection(3, proj)
+        fp1 = fps[0]
+        fp2 = fps[1]
+        fp3 = fps[2]
+        fp1.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='ingress'))
+        self.api.firewall_policy_update(fp1)
+        fp2.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='egress'))
+        self.api.firewall_policy_update(fp2)
+
+        fp3.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='ingress'))
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_update(fp3)
+
+        fp3 = self.api.firewall_policy_read(id=fp3.uuid)
+        fp3.add_firewall_group(
+            fg, FirewallPolicyDirectionType(direction='egress'))
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_update(fp3)
+
+
+class TestFirewallPolicy(TestFirewallBase):
+    def test_fp_audit_is_false_by_default(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fp = self.create_fp_collection(1, proj)[0]
+
+        self.assertFalse(fp.audited)
+
+    def test_fp_audited_set_to_false_if_associated_rule_changed(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fr = self.create_fr_collection(1, proj,
+                                       service=FirewallServiceType())[0]
+        fp = self.create_fp_collection(1, proj, audited=True)[0]
+        self.assertTrue(fp.audited)
+
+        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
+        self.api.firewall_policy_update(fp)
+        fp = self.api.firewall_policy_read(id=fp.uuid)
+        self.assertFalse(fp.audited)
+
+    def test_fp_audited_set_to_false_if_associated_rule_updated(self):
+        proj = Project('project-%s' % self.id())
+        self.api.project_create(proj)
+        fr = self.create_fr_collection(1, proj,
+                                       service=FirewallServiceType())[0]
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=proj, audited=True)
+        fp.add_firewall_rule(fr, FirewallSequence(sequence='1.0'))
+        self.api.firewall_policy_create(fp)
+        self.assertTrue(fp.audited)
+
+        fr.set_action_list(ActionListType(simple_action='pass'))
+        self.api.firewall_rule_update(fr)
+        fp = self.api.firewall_policy_read(id=fp.uuid)
+        self.assertFalse(fp.audited)
