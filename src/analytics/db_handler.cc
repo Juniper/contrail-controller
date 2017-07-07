@@ -815,10 +815,6 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
 
 void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    if (IsMessagesKeywordWritesDisabled() ||
-        IsAllWritesDisabled()) {
-        return;
-    }
     LineParser::WordListType words;
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
@@ -839,6 +835,10 @@ void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp,
                 DB_LOG(ERROR, "Failed to parse text");
             udc_->MatchFilter(s, &words);
         }
+    }
+    if (IsMessagesKeywordWritesDisabled() ||
+        IsAllWritesDisabled()) {
+        return;
     }
     for (LineParser::WordListType::iterator i = words.begin();
             i != words.end(); i++) {
