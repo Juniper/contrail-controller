@@ -198,7 +198,7 @@ share | Contrail RBAC mechanism
 ports | `virtual-machine-interface` references
 ingress_firewall_policy_id | `firewall-policy` reference with direction property set to `TrafficDirectionType.ingress`
 egress_firewall_policy_id | `firewall-policy` reference with direction property set to `TrafficDirectionType.egress`
-TrafficDirectionType
+
 Some use cases are not address yet. The Neutron FWaaS v2 model permits to set
 `firewall-group` on Neutron router ports but in Contrail that ports does not
 realy exist. `virtual-machine-interface` are created for that but are purely
