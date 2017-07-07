@@ -1578,6 +1578,7 @@ class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
 # end class ApplicationPolicySetServer
 
 class VirtualNetworkServer(Resource, VirtualNetwork):
+    rpf_default = None
 
     @classmethod
     def _check_route_targets(cls, obj_dict, db_conn):
@@ -1829,6 +1830,17 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                 return True, ""
             get_context().push_undo(undo_vn_id)
             obj_dict['virtual_network_network_id'] = vn_id + 1
+
+        # Changing RPF default if configured
+        if cls.rpf_default is not None:
+            vnp = obj_dict.get('virtual_network_properties')
+            if vnp is None:
+                vnp = {'rpf': cls.rpf_default}
+            else:
+                rpf = vnp.get('rpf')
+                if rpf is None:
+                    vnp['rpf'] = cls.rpf_default
+            obj_dict['virtual_network_properties'] = vnp
 
         vn_uuid = obj_dict.get('uuid')
         (ok, return_code, result) = cls._check_ipam_network_subnets(obj_dict,
