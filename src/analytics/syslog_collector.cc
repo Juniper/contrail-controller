@@ -49,6 +49,11 @@
 #include <boost/thread/thread.hpp>
 **/
 
+
+//For demo purpose
+std::map<int, std::string> syslog_facility;
+std::map<int, std::string> syslog_severity;
+
 using boost::asio::ip::udp;
 using namespace boost::asio;
 namespace qi = boost::spirit::qi;
@@ -107,13 +112,15 @@ class UDPSyslogQueueEntry : public SyslogQueueEntry
 };
 
 
-SyslogParser::SyslogParser (SyslogListeners *syslog):
+SyslogParser::SyslogParser (SyslogListeners *syslog, bool use_grok):
      work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                  "vizd::syslog"), 0, boost::bind(
                      &SyslogParser::ClientParse, this, _1)),
-    syslog_(syslog)
+    syslog_(syslog),
+    use_grok_(use_grok)
 {
     Init();
+    std::cout << "POUNDS: SyslogParser::use_grok= " << use_grok_ << std::endl;
 }
 SyslogParser::~SyslogParser ()
 {
@@ -145,7 +152,30 @@ void SyslogParser::Init()
         ("news") ("security") ("syslog") ("user") ("uucp") ("local0")
         ("local1") ("local2") ("local3") ("local4") ("local5")
         ("local6") ("local7");
+    if (use_grok_) {
+        gp_.init();
+        gp_.add_base_pattern("CSYSLOG <%{INT:facsev}>%{SYSLOGBASE}%{GREEDYDATA:data}");
+        gp_.msg_type_add("CSYSLOG");
+        syslog_facility[0] = "Kernel";
+        syslog_facility[1] = "User";
+        syslog_facility[2] = "Mail";
+        syslog_facility[3] = "System Daemons";
+        syslog_facility[4] = "Auth";
+        syslog_facility[5] = "Syslog";
+        syslog_facility[6] = "Line Printer";
+        syslog_facility[7] = "Network News Subsystem";
+        for (int i = 8; i <= 23; i++) syslog_facility[i] = "OTHERS";
+        syslog_severity[0] = "Emergency";
+        syslog_severity[1] = "Alert";
+        syslog_severity[2] = "Critical";
+        syslog_severity[3] = "Error";
+        syslog_severity[4] = "Warning";
+        syslog_severity[5] = "Notice";
+        syslog_severity[6] = "Info";
+        syslog_severity[7] = "Debug";
+    }
 }
+
 void SyslogParser::WaitForIdle (int max_wait)
 {
     int i;
@@ -545,7 +575,26 @@ bool SyslogParser::ClientParse (SyslogQueueEntry *sqe) {
       LOG(DEBUG, str << "]\n");
   }
 #endif
-
+  if (use_grok_) {
+      //use grok parser
+      std::string str (p, p + sqe->length);
+      std::cout << str << std::endl;
+      gp_.match(str);
+      std::map<std::string, std::string> match_map;
+      gp_.get_matched_data(str, &match_map);
+      std::cout << "Message Type ==> " << match_map["Type"] << std::endl;
+      std::cout << "timestamp ==> " << match_map["timestamp"] << std::endl;
+      int facsev(0);
+      if (match_map["facsev"] != "") facsev = atoi(match_map["facsev"].c_str());
+      int sev = facsev & 0x7;
+      int fac = facsev >> 3;
+      std::cout << "facility ==> " << syslog_facility[fac] << std::endl;
+      std::cout << "severity ==> " << syslog_severity[sev] << std::endl;
+      std::cout << "logsource ==> " << match_map["logsource"] << std::endl; 
+      std::cout << "program ==> " << match_map["program"] << std::endl;
+      std::cout << "pid ==> " << match_map["pid"] << std::endl;
+      std::cout << "data ==> " << match_map["data"] << "\n" << std::endl;
+  }
   syslog_m_t v;
   int len = sqe->length;
   while (!*(p + len - 1))
@@ -647,8 +696,8 @@ void SyslogUDPListener::HandleReceive (
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
             DbHandlerPtr db_handler, std::string ipaddress,
-            int port):
-              parser_(new SyslogParser (this)),
+            int port, bool use_grok):
+              parser_(new SyslogParser (this, use_grok)),
               udp_listener_(new SyslogUDPListener(evm,
                             boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
               tcp_listener_(new SyslogTcpListener(evm,
@@ -662,8 +711,8 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
 }
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
-        DbHandlerPtr db_handler, int port):
-          parser_(new SyslogParser (this)),
+        DbHandlerPtr db_handler, int port, bool use_grok):
+          parser_(new SyslogParser (this, use_grok)),
           udp_listener_(new SyslogUDPListener(evm,
                         boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
           tcp_listener_(new SyslogTcpListener(evm,

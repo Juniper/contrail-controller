@@ -60,7 +60,9 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'ssl',
         'crypto',
         'boost_filesystem',
-        'boost_program_options'])
+        'boost_program_options',
+        'boost_thread', 
+        'grok'])
 
 (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 if PLATFORM.lower() != 'ubuntu' or (PLATFORM.lower() == 'ubuntu' and VERSION.find('16.') == 0):
@@ -119,6 +121,8 @@ db_handler_obj = AnalyticsEnv_excep.Object('db_handler.o', 'db_handler.cc')
 structured_syslog_config_obj = AnalyticsEnv_excep.Object('structured_syslog_config.o', 'structured_syslog_config.cc')
 main_obj = AnalyticsEnv_excep.Object('main.o', 'main.cc')
 AnalyticsEnv_excep.Depends(main_obj, 'buildinfo.cc')
+grok_parser_obj = AnalyticsEnv_excep.Object('grok_parser.o', 'grok_parser.cc')
+
 
 lib_cpuinfo = File('../base/libcpuinfo.a')
 lib_process_info = File('../base/libprocess_info.a')
@@ -195,6 +199,7 @@ vizd = AnalyticsEnv.Program(target = 'vizd',
         OpServerProxy_obj,
         syslog_collector_obj,
         parser_util_obj,
+        grok_parser_obj
         ])
 AnalyticsEnv.Alias('contrail-collector', vizd)
 AnalyticsEnv.Default(vizd)

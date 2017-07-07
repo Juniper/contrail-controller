@@ -356,6 +356,8 @@ void Options::Initialize(EventManager &evm,
              "Enable local logging of sandesh messages")
         ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
              "Enable logging to syslog")
+        ("DEFAULT.use_grok", opt::bool_switch(&use_grok_),
+             "Enable grok parser")
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
              "Syslog facility to receive log lines")
         ("DEFAULT.syslog_port", opt::value<int>()->default_value(-1),
@@ -625,6 +627,7 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<bool>(var_map, use_syslog_, "DEFAULT.use_syslog");
+    GetOptValue<bool>(var_map, use_grok_, "DEFAULT.use_grok");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<string>(var_map, kafka_prefix_, "DATABASE.cluster_id");
     GetOptValue<int>(var_map, syslog_port_, "DEFAULT.syslog_port");
@@ -677,6 +680,8 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<bool>(var_map, api_server_use_ssl_,
                       "API_SERVER.api_server_use_ssl");
+    std::cout<<"POUNDS: use_grok= " <<use_grok_<<std::endl;
+    std::cout<<"POUNDS: log_local= " <<log_local_<<std::endl;
 }
 
 void Options::ParseReConfig() {
