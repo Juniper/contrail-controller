@@ -191,6 +191,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="deny" required='exclusive'/>
         <xsd:enumeration value="pass" required='exclusive'/>
+        <xsd:enumeration value="reject" required='exclusive'/>
     </xsd:restriction>
 </xsd:simpleType>
 

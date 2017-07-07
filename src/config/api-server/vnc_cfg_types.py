@@ -1115,6 +1115,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         vn_dict = result
 
+        ok, result =\
+            FirewallGroupServer.check_already_associated_to_firewall_group(
+                'virtual_machine_interface', obj_dict)
+        if not ok:
+            return ok, result
+
         vlan_tag = ((obj_dict.get('virtual_machine_interface_properties') or
                      {}).get('sub_interface_vlan_tag'))
         if vlan_tag and 'virtual_machine_interface_refs' in obj_dict:
@@ -1323,6 +1329,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if not ok:
             return ok, result
 
+        ok, result =\
+            FirewallGroupServer.check_already_associated_to_firewall_group(
+                'virtual_machine_interface', obj_dict, read_result)
+        if not ok:
+            return ok, result
+
         return True, ""
     # end pre_dbe_update
 
@@ -1490,6 +1502,103 @@ class TagServer(Resource, Tag):
         return True, ""
     # end post_dbe_delete
 # end class TagServer
+
+
+class FirewallGroupServer(Resource, FirewallGroup):
+    @classmethod
+    def check_already_associated_to_firewall_group(cls, obj_type, obj_dict,
+                                                   db_obj_dict=None):
+        if len(obj_dict.get('firewall_group_refs', [])) == 0:
+            return True, ''
+
+        msg = ("%s can be associate to only one Firewall Group at a time." %
+               obj_type.replace('_', ' ').title())
+
+        if len(obj_dict['firewall_group_refs']) > 1:
+            return False, (400, msg)
+
+        if (db_obj_dict is not None and
+                len(db_obj_dict.get('firewall_group_refs', [])) == 1):
+            if (obj_dict['firewall_group_refs'][0] ==
+                    db_obj_dict['firewall_group_refs'][0]):
+                obj_dict.pop('firewall_group_refs', None)
+            else:
+                return False, (400, msg)
+
+        return True, ''
+
+    @classmethod
+    def check_firewall_group_and_policy_association(cls, db_conn, fp_dict):
+        for fg_ref in fp_dict.get('firewall_group_refs', []):
+            if (fg_ref.get('attr', {}) and
+                    fg_ref['attr'].get('direction', None) is not None):
+                if fg_ref['attr']['direction'] == 'both':
+                    msg = ("Firewall Group can only be referenced as ingress "
+                           "or egress direction by a Firewall Policy")
+                    return False, (400, msg)
+
+                # Fetch fg to check if it is already associated to fp
+                ok, result = cls.dbe_read(
+                    db_conn, 'firewall_group', fg_ref['uuid'],
+                    obj_fields=['firewall_policy_back_refs'])
+                if not ok:
+                    return ok, result
+                fg_dict = result
+                fg_fp_ingress = None
+                fg_fp_egress = None
+                for fp_ref in fg_dict.get('firewall_policy_back_refs', []):
+                    if 'attr' in fp_ref and 'direction' in fp_ref['attr']:
+                        if fp_ref['attr']['direction'] == 'ingress':
+                            fg_fp_ingress = fp_ref['uuid']
+                        if fp_ref['attr']['direction'] == 'egress':
+                            fg_fp_egress = fp_ref['uuid']
+
+                if (fg_ref['attr']['direction'] == 'ingress' and
+                        fg_fp_ingress is not None and
+                        fp_dict['uuid'] != fg_fp_ingress):
+                    msg = ("Only one ingress Firewall Policy can be"
+                           "associated to a Firewall Group")
+                    return False, (400, msg)
+                if (fg_ref['attr']['direction'] == 'egress' and
+                        fg_fp_egress is not None and
+                        fp_dict['uuid'] != fg_fp_egress):
+                    msg = ("Only one egress Firewall Policy can be"
+                           "associated to a Firewall Group")
+                    return False, (400, msg)
+            else:
+                msg = ("Firewall Group reference needs to specify a "
+                       "direction (ingress or egress)")
+                return False, (400, msg)
+        return True, ""
+
+
+class FirewallPolicyServer(Resource, FirewallPolicy):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if obj_dict.get('audited') is None:
+            obj_dict['audited'] = False
+
+        return FirewallGroupServer.check_firewall_group_and_policy_association(
+            db_conn, obj_dict)
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.dbe_read(db_conn, 'firewall_policy', id,
+                                  obj_fields=['firewall_rule_refs'])
+        if not ok:
+            return ok, result
+        db_fp_dict = result
+
+        old_rules = {ref['uuid'] for ref in
+                     db_fp_dict.get('firewall_rule_refs', [])}
+        updated_rules = {ref['uuid'] for ref in
+                         obj_dict.get('firewall_rule_refs', [])}
+        if old_rules != updated_rules:
+            obj_dict['audited'] = False
+
+        return FirewallGroupServer.check_firewall_group_and_policy_association(
+            db_conn, obj_dict)
+
 
 class FirewallRuleServer(Resource, FirewallRule):
 
@@ -1672,6 +1781,28 @@ class FirewallRuleServer(Resource, FirewallRule):
                     ok, result = cls._frs_fix_endpoint_address_group(obj_dict, ep, ep_name, db_conn)
                 if not ok:
                     return (False, result)
+
+        return True, ""
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+                        prop_collection_updates=None, ref_update=None):
+        api_server = db_conn.get_api_server()
+
+        ok, read_result = cls.dbe_read(
+            db_conn,
+            'firewall_rule',
+            id,
+            obj_fields=['firewall_policy_back_refs'],
+        )
+        if not ok:
+            return ok, read_result
+        db_obj_dict = read_result
+
+        for fp_ref in db_obj_dict.get('firewall_policy_back_refs', []):
+            api_server.internal_request_update('firewall-policy',
+                                               fp_ref['uuid'],
+                                               {'audited': False})
 
         return True, ""
 # end class FirewallRuleServer
