@@ -524,6 +524,13 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             layer2_control_word_ = intf_nh->layer2_control_word();
             ret = true;
         }
+
+        const VrfEntry * vrf = intf_nh->GetVrf();
+        uint32_t vrf_id = (vrf != NULL)? vrf->vrf_id() :VrfEntry::kInvalidIndex;
+        if (vrf_id_ != vrf_id) {
+            vrf_id_ = vrf_id;
+            ret = true;
+        }
         break;
     }
 

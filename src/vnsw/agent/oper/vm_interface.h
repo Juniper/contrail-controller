@@ -1152,6 +1152,10 @@ public:
         subnet_bcast_addr_ = addr;
     }
 
+    VrfEntry *forwarding_vrf() const {
+        return forwarding_vrf_.get();
+    }
+
     Ip4Address mdata_ip_addr() const;
     MetaDataIp *GetMetaDataIp(const Ip4Address &ip) const;
     void InsertMetaDataIpInfo(MetaDataIp *mip);
@@ -1414,6 +1418,7 @@ private:
     //Includes global policy apply and application policy set
     FirewallPolicyList fw_policy_list_;
     UuidList slo_list_;
+    VrfEntryRef forwarding_vrf_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 

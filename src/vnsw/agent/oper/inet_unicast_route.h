@@ -329,7 +329,7 @@ public:
                                 const string &vrf_name,
                                 const Ip4Address &dst_addr,uint8_t plen,
                                 const Ip4Address &gw_ip,
-                                const std::string &vn_name, uint32_t label,
+                                const VnListType &vn_name, uint32_t label,
                                 const SecurityGroupList &sg_list,
                                 const TagList &tag_list,
                                 const CommunityList &communities);
@@ -337,7 +337,7 @@ public:
                                    const string &vrf_name,
                                    const Ip4Address &dst_addr,uint8_t plen,
                                    const Ip4Address &gw_ip,
-                                   const std::string &vn_name, uint32_t label,
+                                   const VnListType &vn_name, uint32_t label,
                                    const SecurityGroupList &sg_list,
                                    const TagList &tag_list,
                                    const CommunityList &communities);

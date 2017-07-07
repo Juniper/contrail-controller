@@ -68,7 +68,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid) :
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
     ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false),
     learning_enabled_(false), etree_leaf_(false), layer2_control_word_(false),
-    slo_list_() {
+    slo_list_(), forwarding_vrf_(NULL) {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -112,7 +112,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
     hc_instance_set_(), service_health_check_ip_(), is_vn_qos_config_(false),
     learning_enabled_(false), etree_leaf_(false), layer2_control_word_(false),
-    slo_list_() {
+    slo_list_(), forwarding_vrf_(NULL) {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -821,7 +821,7 @@ VmInterfaceState::Op NextHopState::GetOpL3(const Agent *agent,
 
 bool NextHopState::AddL2(const Agent *agent, VmInterface *vmi) const {
     InterfaceNH::CreateL2VmInterfaceNH(vmi->GetUuid(), vmi->vm_mac(),
-                                       vmi->vrf()->GetName(),
+                                       vmi->forwarding_vrf()->GetName(),
                                        vmi->learning_enabled(),
                                        vmi->etree_leaf(),
                                        vmi->layer2_control_word());
@@ -863,7 +863,7 @@ bool NextHopState::DeleteL2(const Agent *agent, VmInterface *vmi) const {
 
 bool NextHopState::AddL3(const Agent *agent, VmInterface *vmi) const {
     InterfaceNH::CreateL3VmInterfaceNH(vmi->GetUuid(), vmi->vm_mac(),
-                                       vmi->vrf()->GetName(),
+                                       vmi->forwarding_vrf()->GetName(),
                                        vmi->learning_enabled());
     InterfaceNHKey key1(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                            vmi->GetUuid(), ""),
@@ -1897,9 +1897,14 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
         TagList tag_id_list;
         vmi->CopyTagIdList(&tag_id_list);
 
+        VnListType vn_list;
+        if (vmi->vn()) {
+            vn_list.insert(vmi->vn()->GetName());
+        }
+
         InetUnicastAgentRouteTable::AddGatewayRoute
             (vmi->peer_.get(), vrf_->GetName(), addr_.to_v4(), plen_,
-             gw_.to_v4(), vmi->vn_->GetName(), vmi->vrf_->table_label(),
+             gw_.to_v4(), vn_list, vmi->vrf_->table_label(),
              sg_id_list, tag_id_list, communities_);
     } else {
         IpAddress dependent_ip;

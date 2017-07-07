@@ -176,8 +176,9 @@ protected:
     void AddGatewayRoute(const std::string &vrf_name, 
                          const Ip4Address &ip, int plen,
                          const Ip4Address &server) {
+        VnListType vn_list;
         agent_->fabric_inet4_unicast_table()->AddGatewayRouteReq
-            (agent_->local_peer(), vrf_name, ip, plen, server, "",
+            (agent_->local_peer(), vrf_name, ip, plen, server, vn_list,
              MplsTable::kInvalidLabel, SecurityGroupList(), TagList(),
              CommunityList());
 

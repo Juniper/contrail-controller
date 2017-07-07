@@ -27,6 +27,20 @@ static const VmEntry *InterfaceToVm(const Interface *intf) {
 // - Packet uses L2 Label and DMAC hits a route with L2-Receive NH
 // Else forwarding mode is L2
 bool FlowHandler::IsL3ModeFlow() const {
+    const Interface *intf =
+        agent_->interface_table()->FindInterface(pkt_info_->agent_hdr.ifindex);
+    if (intf->type() == Interface::INET) {
+        return true;
+    }
+
+    if (intf->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vm_intf =
+            static_cast<const VmInterface *>(intf);
+        if (vm_intf->forwarding_vrf() == agent_->fabric_vrf()) {
+            return true;
+        }
+    }
+
     if (pkt_info_->l3_label) {
         return true;
     }

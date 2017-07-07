@@ -688,45 +688,48 @@ int PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
         return len;
     }
 
-    // If tunneling is not enabled on interface or if it is a DHCP packet,
-    // dont parse any further
-    if (intf->IsTunnelEnabled() == false || IsDHCPPacket(pkt_info) ||
-        (IsDiagPacket(pkt_info) && 
-         (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_ROUTER_ALERT))) {
+    if (IsDiagPacket(pkt_info) &&
+        (pkt_info->agent_hdr.cmd != AgentHdr::TRAP_ROUTER_ALERT)) {
         return len;
     }
 
-    // Tunneling is enabled on interface. Reset pkt_type and decode payload
-    pkt_type = PktType::INVALID;
-
-    // Decap only IP-DA is ours
-    if (pkt_info->family != Address::INET ||
-        pkt_info->ip_daddr.to_v4() != agent_->router_id()) {
-        PKT_TRACE(Err, "Tunnel packet not destined to me. Ignoring");
-        return -1;
+    // If tunneling is not enabled on interface or if it is a DHCP packet,
+    // dont parse any further
+    if (intf->IsTunnelEnabled() == false || IsDHCPPacket(pkt_info)) {
+        return len;
     }
 
     int tunnel_len = 0;
-    // Look for supported headers
-    switch (pkt_info->ip_proto) {
-    case IPPROTO_GRE :
-        // Parse MPLSoGRE tunnel
-        tunnel_len = ParseMPLSoGRE(pkt_info, (pkt + len));
-        break;
+    // Do tunnel processing only if IP-DA is ours
+    if (pkt_info->family == Address::INET &&
+        pkt_info->ip_daddr.to_v4() == agent_->router_id()) {
+        // Look for supported headers
+        switch (pkt_info->ip_proto) {
+        case IPPROTO_GRE :
+            // Parse MPLSoGRE tunnel
+            tunnel_len = ParseMPLSoGRE(pkt_info, (pkt + len));
+            break;
 
-    case IPPROTO_UDP:
-        // Parse MPLSoUDP tunnel
-        tunnel_len = ParseUDPTunnels(pkt_info, (pkt + len));
-        break;
+        case IPPROTO_UDP:
+            // Parse MPLSoUDP tunnel
+            tunnel_len = ParseUDPTunnels(pkt_info, (pkt + len));
+            break;
 
-    default:
-        break;
+        default:
+            break;
+        }
     }
 
     if (tunnel_len < 0) {
-       pkt_type = PktType::INVALID;
-       return tunnel_len;
+        // Found tunnel packet, but error in decoding
+        pkt_type = PktType::INVALID;
+        return tunnel_len;
     }
+
+    if (tunnel_len == 0) {
+        return len;
+    }
+
     len += tunnel_len;
 
     // Find IPv4/IPv6 Packet based on first nibble in payload
