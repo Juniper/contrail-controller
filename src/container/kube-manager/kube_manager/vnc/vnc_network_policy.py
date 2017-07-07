@@ -160,7 +160,7 @@ class VncNetworkPolicy(VncCommon):
         try:
             self._vnc_lib.security_group_create(sg_obj)
         except Exception as e:
-            self._logger.error("%s - %s SG Not Created" %s(self._name, name))
+            self._logger.error("%s - %s SG Not Created" %(self._name, name))
             return None
         sg = SecurityGroupKM.locate(sg_obj.uuid)
         return sg

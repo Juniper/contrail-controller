@@ -144,7 +144,7 @@ class VncIngress(VncCommon):
         try:
             fip_pool_fq_name = get_fip_pool_fq_name_from_dict_string(
                 self._args.public_fip_pool)
-        except Exceptions as e:
+        except Exception as e:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()
