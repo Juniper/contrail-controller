@@ -2147,11 +2147,9 @@ class VncApiServer(object):
                     obj_dict[ref_obj_type+'_refs'].remove(old_ref)
                     break
 
-        ref_args = {'ref_obj_type':ref_obj_type, 'ref_uuid': ref_uuid,
-                    'operation': operation, 'data': {'attr': attr}}
         self._put_common(
             'ref-update', obj_type, obj_uuid, read_result,
-             req_obj_dict=obj_dict, ref_args=ref_args)
+             req_obj_dict=obj_dict)
 
         return {'uuid': obj_uuid}
     # end ref_update_http_post
@@ -3154,7 +3152,7 @@ class VncApiServer(object):
 
     def _put_common(
             self, api_name, obj_type, obj_uuid, db_obj_dict, req_obj_dict=None,
-            req_prop_coll_updates=None, ref_args=None):
+            req_prop_coll_updates=None):
 
         obj_fq_name = db_obj_dict.get('fq_name', 'missing-fq-name')
         # ZK and rabbitmq should be functional
@@ -3258,22 +3256,12 @@ class VncApiServer(object):
                 return (ok, result)
 
             get_context().set_state('DBE_UPDATE')
-            if api_name == 'ref-update':
-                # read ref_ipdate args
-                ref_obj_type = ref_args.get('ref_obj_type')
-                ref_uuid = ref_args.get('ref_uuid')
-                ref_data = ref_args.get('data')
-                operation = ref_args.get('operation')
-
-                (ok, result) = db_conn.ref_update(
-                                       obj_type, obj_uuid, ref_obj_type,
-                                       ref_uuid, ref_data, operation,
-                                       db_obj_dict['id_perms'])
-            elif req_obj_dict:
-                (ok, result) = db_conn.dbe_update(obj_type, obj_uuid, req_obj_dict)
-            elif req_prop_coll_updates:
+            if req_prop_coll_updates:
                 (ok, result) = db_conn.prop_collection_update(
                     obj_type, obj_uuid, req_prop_coll_updates)
+            else:
+                (ok, result) = db_conn.dbe_update(obj_type, obj_uuid,
+                                                  req_obj_dict)
             if not ok:
                 return (ok, result)
 

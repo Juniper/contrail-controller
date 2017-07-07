@@ -205,4 +205,47 @@
      Link('firewall-rule-security-logging-object',
           'firewall-rule', 'security-logging-object', ['ref'], 'optional', 'CRUD',
           'Reference to security-logging-object attached to this firewall-rule') -->
+
+<!-- ######################################################################
+                          OpenStack Neutron FWaaS v2
+               https://docs.openstack.org/neutron-fwaas/latest/
+     ###################################################################### -->
+<xsd:element name="firewall-group" type="ifmap:IdentityType"/>
+
+<xsd:element name="project-firewall-group"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('project-firewall-group',
+         'project', 'firewall-group', ['has'], 'optional', 'CR',
+         'Firewall Group parent link')
+-->
+
+<xsd:element name="firewall-group-virtual-machine-interface" minOccurs="0" maxOccurs="1"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('firewall-group-virtual-machine-interface',
+         'virtual-machine-interface', 'firewall-group', ['ref'], 'optional', 'CRUD',
+         'Back Reference to virtual-machine-interface associated to the
+          Firewall Group resource. Neutron FWaaS v2 model limits only one
+          Firewall group per virtual-machine-interface')
+-->
+
+<xsd:complexType name="FirewallPolicyDirectionType">
+    <xsd:element name="direction" type="TrafficDirectionType"/>
+</xsd:complexType>
+
+<xsd:element name="firewall-group-firewall-policy" type="FirewallPolicyDirectionType" minOccurs="0" maxOccurs="2"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('firewall-group-firewall-policy',
+         'firewall-policy', 'firewall-group', ['ref'], 'optional', 'CRUD',
+         'Back Reference to Firewall Policy resource. It is limited to two
+          references by the Neutron FWaaS v2 model: one for ingress policy and
+          one for egress policy')
+-->
+
+<xsd:element name="audited" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('audited', 'firewall-policy', 'optional', 'CRUD',
+              'Permit to an authorized entity to audit and validate a Firewall
+               Policy and its rules. Each time that the firewall policy or its
+               associated rules are changed, that flag is set to False') -->
+
 </xsd:schema>
