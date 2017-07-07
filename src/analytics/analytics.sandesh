@@ -110,3 +110,13 @@ request sandesh DbInfoSetRequest {
 response sandesh DbInfoResponse {
     1: DbInfo db_info;
 }
+
+struct GrokParsedSyslog {
+    1: string name(key="GrokMatchedSyslogTable");
+    2: optional bool deleted;
+    3: optional map<string, string> matched_data;
+}
+
+uve sandesh GrokParsedSyslogUVE {
+    1: GrokParsedSyslog data
+}

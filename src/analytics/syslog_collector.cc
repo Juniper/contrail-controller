@@ -38,7 +38,7 @@
 #include <base/logging.h>
 
 #include <sandesh/sandesh_message_builder.h>
-
+#include "analytics_types.h"
 #include "generator.h"
 #include "syslog_collector.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -107,13 +107,15 @@ class UDPSyslogQueueEntry : public SyslogQueueEntry
 };
 
 
-SyslogParser::SyslogParser (SyslogListeners *syslog):
+SyslogParser::SyslogParser (SyslogListeners *syslog, bool use_grok):
      work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                  "vizd::syslog"), 0, boost::bind(
                      &SyslogParser::ClientParse, this, _1)),
-    syslog_(syslog)
+    syslog_(syslog),
+    use_grok_(use_grok)
 {
     Init();
+    std::cout << "POUNDS: SyslogParser::use_grok= " << use_grok_ << std::endl;
 }
 SyslogParser::~SyslogParser ()
 {
@@ -145,7 +147,15 @@ void SyslogParser::Init()
         ("news") ("security") ("syslog") ("user") ("uucp") ("local0")
         ("local1") ("local2") ("local3") ("local4") ("local5")
         ("local6") ("local7");
+    if (use_grok_) {
+        gp_.init();
+        gp_.msg_type_add("KERNEL_SYSLOG");
+        gp_.msg_type_add("LOGGER_SYSLOG");
+        gp_.msg_type_add("RSYSLOG_SYSLOG");
+        gp_.msg_type_add("SUDO_SYSLOG");
+    }
 }
+
 void SyslogParser::WaitForIdle (int max_wait)
 {
     int i;
@@ -545,7 +555,18 @@ bool SyslogParser::ClientParse (SyslogQueueEntry *sqe) {
       LOG(DEBUG, str << "]\n");
   }
 #endif
-
+  if (use_grok_) {
+      //use grok parser
+      std::string str (p, p + sqe->length);
+      std::cout << str << std::endl;
+      gp_.match(str);
+      std::map<std::string, std::string> match_map;
+      gp_.get_matched_data(str, &match_map);
+      GrokParsedSyslog gps;
+      gps.set_name(match_map["Message Type"]);
+      gps.set_matched_data(match_map);
+      GrokParsedSyslogUVE::Send(gps);
+  }
   syslog_m_t v;
   int len = sqe->length;
   while (!*(p + len - 1))
@@ -647,8 +668,8 @@ void SyslogUDPListener::HandleReceive (
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
             DbHandlerPtr db_handler, std::string ipaddress,
-            int port):
-              parser_(new SyslogParser (this)),
+            int port, bool use_grok):
+              parser_(new SyslogParser (this, use_grok)),
               udp_listener_(new SyslogUDPListener(evm,
                             boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
               tcp_listener_(new SyslogTcpListener(evm,
@@ -662,8 +683,8 @@ SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
 }
 
 SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
-        DbHandlerPtr db_handler, int port):
-          parser_(new SyslogParser (this)),
+        DbHandlerPtr db_handler, int port, bool use_grok):
+          parser_(new SyslogParser (this, use_grok)),
           udp_listener_(new SyslogUDPListener(evm,
                         boost::bind(&SyslogParser::Parse, parser_.get(), _1))),
           tcp_listener_(new SyslogTcpListener(evm,

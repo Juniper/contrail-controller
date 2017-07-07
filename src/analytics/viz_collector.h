@@ -52,7 +52,8 @@ public:
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
             const std::vector<std::string> &api_server_list,
-            const VncApiConfig &api_config);
+            const VncApiConfig &api_config,
+            bool use_grok);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
