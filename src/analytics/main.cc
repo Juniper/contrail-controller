@@ -407,7 +407,9 @@ int main(int argc, char *argv[])
             options.sandesh_config(),
             options.api_server_list(),
             api_config,
-            options.use_grok());
+            options.use_grok(),
+            options.grok_key_list(),
+            options.grok_attrib_list());
 
     analytics->Init();
 

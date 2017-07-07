@@ -38,7 +38,6 @@
 #include <base/logging.h>
 
 #include <sandesh/sandesh_message_builder.h>
-
 #include "generator.h"
 #include "syslog_collector.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -55,7 +54,6 @@ namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 namespace bt = boost::posix_time;
 namespace phx = boost::phoenix;
-
 
 class SyslogQueueEntry;
 
@@ -146,6 +144,7 @@ void SyslogParser::Init()
         ("local1") ("local2") ("local3") ("local4") ("local5")
         ("local6") ("local7");
 }
+
 void SyslogParser::WaitForIdle (int max_wait)
 {
     int i;
