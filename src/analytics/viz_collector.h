@@ -20,6 +20,7 @@
 #include "syslog_collector.h"
 #include "db_handler.h"
 #include "options.h"
+#include "grok_parser.h"
 
 class Ruleeng;
 class ProtobufCollector;
@@ -52,7 +53,10 @@ public:
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
             const std::vector<std::string> &api_server_list,
-            const VncApiConfig &api_config);
+            const VncApiConfig &api_config,
+            bool grok_enabled,
+            const std::vector<std::string> &grok_key_list,
+            const std::vector<std::string> &grok_attrib_list);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
@@ -140,11 +144,11 @@ public:
 private:
     std::string DbGlobalName(bool dup=false);
     void DbInitializeCb();
-
     boost::scoped_ptr<DbHandlerInitializer> db_initializer_;
     boost::scoped_ptr<OpServerProxy> osp_;
     boost::scoped_ptr<Ruleeng> ruleeng_;
     Collector *collector_;
+    GrokParser *gp_;
     SyslogListeners *syslog_listener_;
     SFlowCollector *sflow_collector_;
     IpfixCollector *ipfix_collector_;
