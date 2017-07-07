@@ -2,6 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+extern "C" {
+  #include <grok.h>
+}
+
 #include <iostream>
 #include <cstdlib>
 #include <string>
