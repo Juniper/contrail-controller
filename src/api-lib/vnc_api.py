@@ -226,6 +226,7 @@ class VncApi(object):
     # Defined in Sandesh common headers but not importable in vnc_api lib
     _SECURITY_OBJECT_TYPES = [
         ApplicationPolicySet.object_type,
+        FirewallGroup.object_type,
         FirewallPolicy.object_type,
         FirewallRule.object_type,
         ServiceGroup.object_type,
