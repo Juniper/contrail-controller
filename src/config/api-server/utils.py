@@ -70,6 +70,7 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'request_memfile_max': 1024000
     }
     # ssl options
     secopts = {
