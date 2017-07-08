@@ -51,8 +51,6 @@ threading._DummyThread._Thread__stop = lambda x: 42
 CONFIG_VERSION = '1.0'
 
 import bottle
-bottle.BaseRequest.MEMFILE_MAX = 1024000
-
 import utils
 import vnc_cfg_types
 from vnc_cfg_ifmap import VncDbClient
@@ -188,6 +186,9 @@ class VncApiServer(VncApiServerGen):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
+
+        # set the max size of the api requests
+        bottle.BaseRequest.MEMFILE_MAX = int(self._args.max_request_size)
 
         # set python logging level from logging_level cmdline arg
         if not self._args.logging_conf:
@@ -872,6 +873,7 @@ class VncApiServer(VncApiServerGen):
                                          --worker_id 1
                                          --rabbit_max_pending_updates 4096
                                          --cluster_id <testbed-name>
+                                         --max_request_size 1024000
                                          [--auth keystone]
                                          [--ifmap_server_loc
                                           /home/contrail/source/ifmap-server/]
