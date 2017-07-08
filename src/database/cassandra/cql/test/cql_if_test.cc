@@ -182,6 +182,44 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
     EXPECT_EQ(expected_qstring1, actual_qstring1);
 }
 
+TEST_F(CqlIfTest, CreateIndex) {
+    GenDb::NewCf index_cf(
+        "IndexCf", // name
+        boost::assign::list_of // partition key
+            (GenDb::DbDataType::LexicalUUIDType),
+        boost::assign::map_list_of // columns
+            ("columnA", GenDb::DbDataType::AsciiType)
+            ("columnB", GenDb::DbDataType::LexicalUUIDType)
+            ("columnC", GenDb::DbDataType::TimeUUIDType)
+            ("columnD", GenDb::DbDataType::Unsigned8Type)
+            ("columnE", GenDb::DbDataType::Unsigned16Type)
+            ("columnF", GenDb::DbDataType::Unsigned32Type)
+            ("columnG", GenDb::DbDataType::Unsigned64Type)
+            ("columnH", GenDb::DbDataType::DoubleType)
+            ("columnI", GenDb::DbDataType::UTF8Type)
+            ("columnJ", GenDb::DbDataType::InetType));
+
+    // native secondary index
+    std::string actual_qstring(
+        cass::cql::impl::CassCreateIndexIfNotExists(index_cf.cfname_,
+            "columnA", "indexcf_columnA_index", ""));
+    std::string expected_qstring(
+        "CREATE INDEX IF NOT EXISTS indexcf_columnA_index "
+        "ON IndexCf(\"columnA\");");
+    EXPECT_EQ(expected_qstring, actual_qstring);
+
+    // SASI
+    std::string actual_qstring1(
+        cass::cql::impl::CassCreateIndexIfNotExists(index_cf.cfname_,
+            "columnH", "indexcf_columnH_index", "PREFIX"));
+    std::string expected_qstring1(
+        "CREATE CUSTOM INDEX IF NOT EXISTS indexcf_columnH_index "
+        "ON IndexCf(\"columnH\") "
+        "USING \'org.apache.cassandra.index.sasi.SASIIndex\' "
+        "WITH OPTIONS = {\'mode\': \'PREFIX\'};");
+    EXPECT_EQ(expected_qstring1, actual_qstring1);
+}
+
 TEST_F(CqlIfTest, StaticCfInsertIntoTablePrepare) {
     GenDb::NewCf static_cf(
         "InsertIntoStaticCf", // name
