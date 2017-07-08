@@ -70,6 +70,7 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'request_memfile_max': 1024000
     }
     # ssl options
     secopts = {
@@ -258,6 +259,8 @@ def parse_args(args_str):
         help="Maximum number of concurrent requests served by api server")
     parser.add_argument("--sandesh_send_rate_limit", type=int,
             help="Sandesh send rate limit in messages/sec.")
+    parser.add_argument("--request_memfile_max",
+            help="Maximum size of bottle requests served by api server")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.config_sections = config
     if type(args_obj.cassandra_server_list) is str:
