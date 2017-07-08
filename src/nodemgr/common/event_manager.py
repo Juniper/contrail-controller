@@ -447,11 +447,14 @@ class EventManager(object):
 
     # process is deleted, send state & remove it from db
     def delete_process_handler(self, deleted_process):
-        for group in process_state_db:
-            if deleted_process in process_state_db[group]:
+        for group in self.process_state_db:
+            if deleted_process in self.process_state_db[group]:
                 self.process_state_db[group][deleted_process].deleted = True
                 self.send_process_state_db([group])
                 del self.process_state_db[group][deleted_process]
+                if not self.process_state_db[group]:
+                    del self.process_state_db[group]
+                return
     # end delete_process_handler
 
     # new process added, update db & send state

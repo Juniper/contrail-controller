@@ -45,4 +45,9 @@ class VrouterEventManager(EventManager):
         self.lb_stats.send_loadbalancer_stats()
     # end do_periodic_events
 
+    def nodemgr_sighup_handler(self):
+        self.update_current_process()
+        super(VrouterEventManager, self).nodemgr_sighup_handler()
+    # end nodemgr_sighup_handler
+
 # end class VrouterEventManager
