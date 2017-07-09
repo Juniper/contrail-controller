@@ -29,7 +29,6 @@ bool AuditList(List &list, Iterator old_first, Iterator old_last,
             Iterator old_bkp = old_iterator++;
             Iterator new_bkp = new_iterator++;
             list.Update(old_bkp.operator->(), new_bkp.operator->());
-            ret = true;
         }
     }
 
