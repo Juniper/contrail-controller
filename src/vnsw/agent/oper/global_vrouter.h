@@ -99,6 +99,9 @@ public:
         return linklocal_services_map_;
     }
     int32_t flow_export_rate() const { return flow_export_rate_; }
+    const std::vector<uint16_t> &bgpaas_port_range() const {
+         return bgpaas_port_range_;
+    }
 
     void ConfigDelete(IFMapNode *node);
     void ConfigAddChange(IFMapNode *node);
@@ -151,6 +154,7 @@ private:
     int32_t flow_export_rate_;
     FlowAgingTimeoutMap flow_aging_timeout_map_;
     EcmpLoadBalance ecmp_load_balance_;
+    std::vector<uint16_t>  bgpaas_port_range_;
     bool configured_; //true when global-vrouter-config stanza is present
 };
 

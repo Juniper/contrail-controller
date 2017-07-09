@@ -119,7 +119,8 @@ public:
                                         const IpAddress &dest,
                                         IpAddress *nat_server,
                                         uint32_t *sport) const;
-    size_t AllocateBgpVmiServicePortIndex(const uint32_t sport);
+    size_t AllocateBgpVmiServicePortIndex(const uint32_t sport,
+                                          const uint16_t max_shared_sessions);
     void FreeBgpVmiServicePortIndex(const uint32_t sport);
     uint32_t AddBgpVmiServicePortIndex(const uint32_t source_port);
     void ProcessConfig(const std::string &vrf_name,
@@ -136,7 +137,8 @@ private:
     void BindBgpAsAServicePorts(const std::vector<uint16_t> &ports);
     void BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                 BgpAsAServiceEntryList &new_list,
-                                const std::string &vrf_name);
+                                const std::string &vrf_name,
+                                const boost::uuids::uuid &vm_uuid);
 
     const Agent *agent_;
     BgpAsAServiceEntryMap bgp_as_a_service_entry_map_;
