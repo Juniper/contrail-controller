@@ -92,6 +92,7 @@ public:
     void AddQosQueueNode(IFMapNode *node);
     void AddForwardingClassNode(IFMapNode *node);
     void AddGlobalQosConfigNode(IFMapNode *node);
+    void AddGlobalSystemConfigNode(IFMapNode *node);
     void AddNetworkIpamNode(IFMapNode *node);
     void AddVirtualDnsNode(IFMapNode *node);
     void AddGlobalVrouterNode(IFMapNode *node);
@@ -149,6 +150,7 @@ private:
     std::auto_ptr<ConfigManagerNodeList> global_qos_config_list_;
     std::auto_ptr<ConfigManagerNodeList> network_ipam_list_;
     std::auto_ptr<ConfigManagerNodeList> virtual_dns_list_;
+    std::auto_ptr<ConfigManagerNodeList> global_system_config_list_;
 
     uint64_t process_config_count_[kMaxTimeout + 1];
     boost::scoped_ptr<ConfigHelper> helper_;

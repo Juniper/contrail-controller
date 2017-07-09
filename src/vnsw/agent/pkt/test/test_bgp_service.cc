@@ -67,6 +67,7 @@ public:
         flow_proto_ = agent_->pkt()->get_flow_proto();
         AgentParam *params = agent_->params();
         params->set_bgpaas_max_shared_sessions(4);
+        AddBgpaasPortRange(50000, 50512);
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
         CreateVmportEnv(input, 6);
@@ -128,6 +129,7 @@ public:
         DelIPAM("vn5");
         DelIPAM("vn6");
         DeleteVmportEnv(input, 6, true);
+        DelBgpaasPortRange();
         client->WaitForIdle();
     }
 
