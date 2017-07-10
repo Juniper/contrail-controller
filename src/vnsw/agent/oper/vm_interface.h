@@ -547,7 +547,7 @@ public:
     const std::string &vm_name() const { return vm_name_; }
     const boost::uuids::uuid &vm_project_uuid() const { return vm_project_uuid_; }
     const std::string &cfg_name() const { return cfg_name_; }
-    Preference local_preference() const { return local_preference_; }
+    uint32_t local_preference() const { return local_preference_; }
     uint16_t tx_vlan_id() const { return tx_vlan_id_; }
     uint16_t rx_vlan_id() const { return rx_vlan_id_; }
     const Interface *parent() const { return parent_.get(); }
@@ -950,7 +950,7 @@ private:
     uint16_t tx_vlan_id_;
     uint16_t rx_vlan_id_;
     InterfaceRef parent_;
-    Preference local_preference_;
+    uint32_t local_preference_;
     // DHCP options defined for the interface
     OperDhcpOptions oper_dhcp_options_;
 
@@ -1126,7 +1126,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool admin_state_;
     bool disable_policy_;
     std::string analyzer_name_;
-    VmInterface::Preference local_preference_;
+    uint32_t local_preference_;
     OperDhcpOptions oper_dhcp_options_;
     Interface::MirrorDirection mirror_direction_;
     VmInterface::SecurityGroupEntryList sg_list_;
