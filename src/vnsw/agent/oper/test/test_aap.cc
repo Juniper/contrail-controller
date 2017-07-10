@@ -129,7 +129,7 @@ public:
     }
 
 protected:
-    Peer *peer_;
+    BgpPeer *peer_;
     Agent *agent_;
     uint32_t seq_no;
 };
@@ -884,7 +884,7 @@ TEST_F(TestAap, Backoff_4) {
 
 //Ensure backoff time continous at 32 seconds
 //given route keeps on flapping after every backoff timer firing
-TEST_F(TestAap, Backoff_5) {
+TEST_F(TestAap, DISABLED_Backoff_5) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     VmInterface *vm_intf = VmInterfaceGet(1);
     InetUnicastRouteEntry *rt =
@@ -1004,18 +1004,17 @@ TEST_F(TestAap, StateMachine_17) {
 
     client->WaitForIdle();
     EXPECT_TRUE(path->path_preference().sequence() == 0);
-    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
     EXPECT_TRUE(evpn_path->path_preference().preference() ==
-                PathPreference::HIGH);
+                PathPreference::LOW);
     EXPECT_TRUE(path->path_preference().ecmp() == false);
-    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
 
     rt = RouteGet("vrf1", ip, 32);
     path = rt->FindPath(vm_intf->peer());
     EXPECT_TRUE(path->path_preference().sequence() == 1);
-    EXPECT_TRUE(path->path_preference().preference() == PathPreference::HIGH);
+    EXPECT_TRUE(path->path_preference().preference() == PathPreference::LOW);
     EXPECT_TRUE(path->path_preference().ecmp() == false);
-    EXPECT_TRUE(path->path_preference().wait_for_traffic() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
 
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network",
@@ -1525,6 +1524,41 @@ TEST_F(TestAap, SecondaryIp) {
     EXPECT_TRUE(evpn_path->path_preference().preference() == PathPreference::HIGH);
     EXPECT_TRUE(evpn_path->path_preference().ecmp() == true);
     EXPECT_TRUE(evpn_path->path_preference().wait_for_traffic() == false);
+}
+
+//Verify that static preference is populated
+TEST_F(TestAap, StaticPreference2) {
+    AddStaticPreference("intf1", 1, 150);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+
+    InetUnicastRouteEntry *rt =
+        RouteGet("vrf1", ip, 32);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 150);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == true);
+
+    AddActiveActiveInstanceIp("instance1", 1, "1.1.1.1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 150);
+    EXPECT_TRUE(path->path_preference().ecmp() == true);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == true);
+
+    AddStaticPreference("intf1", 1, 100);
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 100);
+
+    AddInstanceIp("instance1", 1, "1.1.1.1");
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 100);
 }
 
 int main(int argc, char *argv[]) {

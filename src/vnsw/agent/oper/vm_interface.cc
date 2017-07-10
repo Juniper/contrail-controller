@@ -983,10 +983,7 @@ static void BuildAttributes(Agent *agent, IFMapNode *node,
         //value only when it has been initialized to proper
         //value, if its 0, ignore the local preference
         if (prop.local_preference) {
-            data->local_preference_ = VmInterface::LOW;
-            if (prop.local_preference == VmInterface::HIGH) {
-                data->local_preference_ = VmInterface::HIGH;
-            }
+            data->local_preference_ = prop.local_preference;
         }
     }
 
@@ -3770,10 +3767,11 @@ void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
     pref->set_ecmp(ecmp);
     if (local_preference_ != INVALID) {
         pref->set_static_preference(true);
-    }
-    if (local_preference_ == HIGH || ecmp == true) {
+        pref->set_preference(local_preference_);
+    } else if (ecmp == true) {
         pref->set_preference(PathPreference::HIGH);
     }
+
     pref->set_dependent_ip(dependent_ip);
     pref->set_vrf(vrf()->GetName());
 }
@@ -3817,8 +3815,8 @@ void VmInterface::SetServiceVlanPathPreference(PathPreference *pref,
     pref->set_ecmp(ecmp_mode);
     if (local_preference_ != INVALID) {
         pref->set_static_preference(true);
-    }
-    if (local_preference_ == HIGH) {
+        pref->set_preference(local_preference_);
+    } else if (ecmp_mode == true) {
         pref->set_preference(PathPreference::HIGH);
     } else {
         pref->set_preference(PathPreference::LOW);
