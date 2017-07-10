@@ -105,7 +105,7 @@ void intrusive_ptr_release(ArpPathPreferenceState *aps) {
     ArpVrfState *state = aps->vrf_state();
     int prev = aps->refcount_.fetch_and_decrement();
     if (prev == 1) {
-        state->Erase(aps->ip());
+        state->Erase(aps->ip(), aps->plen());
         delete aps;
     }
 }
@@ -160,20 +160,29 @@ bool ArpPathPreferenceState::SendArpRequest(WaitForTrafficIntfMap
         }
 
         bool inserted = arp_transmitted_map.insert(it->first).second;
-        MacAddress smac = vm_intf->GetVifMac(vrf_state_->agent);
-        it->second++;
         if (inserted == false) {
             //ARP request already sent due to IP route
             continue;
         }
-        arp_handler.SendArp(ARPOP_REQUEST, smac,
-                            gw_ip_.to_v4().to_ulong(),
-                            MacAddress(), MacAddress::BroadcastMac(),
-                            vm_ip_.to_v4().to_ulong(), it->first, vrf_id_);
-        vrf_state_->arp_proto->IncrementStatsVmArpReq();
+        InterfaceArpPathPreferenceInfo &data = it->second;
+        if ((plen_ != 32) && (!data.prev_responded_ip.is_unspecified())) {
+            if ((data.arp_send_count >= 1) && (data.arp_reply_count == 0)) {
+                ++data.arp_failure_count;
+            }
+            if (data.arp_failure_count >= ArpProto::kMaxFailures) {
+                data.prev_responded_ip = Ip4Address(0);
+                data.arp_failure_count = 0;
+                data.arp_reply_count = 0;
+                data.arp_send_count = 0;
+            }
+        }
+        ++data.arp_send_count;
+        MacAddress smac = vm_intf->GetVifMac(vrf_state_->agent);
+        arp_handler.SendArpRequestByPlen(it->first, smac, this,
+                                         data.prev_responded_ip);
 
         // reduce the frequency of ARP requests after some tries
-        if (it->second >= kMaxRetry) {
+        if (data.arp_send_count >= kMaxRetry) {
             // change frequency only if not in gateway mode with remote VMIs
             if (vm_intf->vmi_type() != VmInterface::REMOTE_VM)
                 arp_req_timer_->Reschedule(kTimeout * 5);
@@ -248,9 +257,11 @@ void ArpPathPreferenceState::SendArpRequestForAllIntf(const
             WaitForTrafficIntfMap::const_iterator wait_for_traffic_it =
                 wait_for_traffic_map.find(intf_id);
             if (wait_for_traffic_it == wait_for_traffic_map.end()) {
-                new_wait_for_traffic_map.insert(std::make_pair(intf_id, 0));
+                InterfaceArpPathPreferenceInfo data;
+                new_wait_for_traffic_map.insert(WaitForTrafficIntfPair(intf_id,
+                                                                       data));
             } else {
-                new_wait_for_traffic_map.insert(std::make_pair(intf_id,
+                new_wait_for_traffic_map.insert(WaitForTrafficIntfPair(intf_id,
                     wait_for_traffic_it->second));
             }
         }
@@ -270,8 +281,8 @@ void ArpPathPreferenceState::SendArpRequestForAllIntf(const
 ArpDBState::ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id, IpAddress ip,
                        uint8_t plen) : vrf_state_(vrf_state),
     sg_list_(), tag_list_(), policy_(false), resolve_route_(false) {
-    if (plen == Address::kMaxV4PrefixLen && ip != Ip4Address(0)) {
-       arp_path_preference_state_.reset(vrf_state->Locate(ip));
+    if (ip != Ip4Address(0)) {
+       arp_path_preference_state_.reset(vrf_state->Locate(ip, plen));
     }
 }
 
@@ -350,6 +361,10 @@ void ArpDBState::Update(const AgentRoute *rt) {
 
 void ArpVrfState::EvpnRouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     EvpnRouteEntry *route = static_cast<EvpnRouteEntry *>(entry);
+    /* Ignore route updates for Non-IPv4 addresses */
+    if (!route->ip_addr().is_v4()) {
+        return;
+    }
 
     ArpDBState *state = static_cast<ArpDBState *>(entry->GetState(part->parent(),
                                                   evpn_route_table_listener_id));
@@ -478,18 +493,35 @@ bool ArpVrfState::PreWalkDone(DBTableBase *partition) {
     return true;
 }
 
-ArpPathPreferenceState* ArpVrfState::Locate(const IpAddress &ip) {
-    ArpPathPreferenceState* ptr = arp_path_preference_map_[ip];
-
-    if (ptr == NULL) {
-        ptr = new ArpPathPreferenceState(this, vrf->vrf_id(), ip, 32);
-        arp_path_preference_map_[ip] = ptr;
+ArpPathPreferenceState* ArpVrfState::Locate(const IpAddress &ip, uint8_t plen) {
+    ArpPathPreferenceStateKey key(ip, plen);
+    ArpPathPreferenceState* ptr = NULL;
+    ArpPathPreferenceStateMap::iterator it = arp_path_preference_map_.find(key);
+    if (it == arp_path_preference_map_.end()) {
+        ptr = new ArpPathPreferenceState(this, vrf->vrf_id(), ip, plen);
+        arp_path_preference_map_.insert(ArpPathPreferenceStatePair(key, ptr));
+    } else {
+        ptr = it->second;
     }
     return ptr;
 }
 
-void ArpVrfState::Erase(const IpAddress &ip) {
-    arp_path_preference_map_.erase(ip);
+void ArpVrfState::Erase(const IpAddress &ip, uint8_t plen) {
+    ArpPathPreferenceStateKey key(ip, plen);
+    ArpPathPreferenceStateMap::iterator it = arp_path_preference_map_.find(key);
+    if (it != arp_path_preference_map_.end()) {
+        arp_path_preference_map_.erase(it);
+    }
+}
+
+
+ArpPathPreferenceState* ArpVrfState::Get(const IpAddress ip, uint8_t plen) {
+    ArpPathPreferenceStateKey key(ip, plen);
+    ArpPathPreferenceStateMap::iterator it = arp_path_preference_map_.find(key);
+    if (it != arp_path_preference_map_.end()) {
+        return it->second;
+    }
+    return NULL;
 }
 
 ArpVrfState::ArpVrfState(Agent *agent_ptr, ArpProto *proto, VrfEntry *vrf_entry,
@@ -791,4 +823,41 @@ ArpProto::FindUpperBoundArpEntry(const ArpKey &key) {
 ArpProto::ArpIterator
 ArpProto::FindLowerBoundArpEntry(const ArpKey &key) {
         return arp_cache_.lower_bound(key);
+}
+
+void ArpPathPreferenceState::HandleArpReply(Ip4Address sip, uint32_t itf) {
+    WaitForTrafficIntfMap::iterator it = l3_wait_for_traffic_map_.find(itf);
+    if (it == l3_wait_for_traffic_map_.end()) {
+        return;
+    }
+    InterfaceArpPathPreferenceInfo &data = it->second;
+    if (data.prev_responded_ip == sip) {
+        ++data.arp_reply_count;
+        data.arp_failure_count = 0;
+    } else {
+        data.prev_responded_ip = sip;
+        data.arp_send_count = 0;
+    }
+}
+
+void ArpProto::HandlePathPreferenceArpReply(const VrfEntry *vrf, uint32_t itf,
+                                            Ip4Address sip) {
+    if (!vrf) {
+        return;
+    }
+    InetUnicastRouteEntry *rt = vrf->GetUcRoute(sip);
+    if (!rt || rt->plen() == 32) {
+        return;
+    }
+    ArpVrfState *state = static_cast<ArpVrfState *>
+        (vrf->GetState(vrf->get_table_partition()->parent(),
+                       vrf_table_listener_id_));
+    if (!state) {
+        return;
+    }
+    ArpPathPreferenceState* pstate = state->Get(sip, rt->plen());
+    if (!pstate) {
+        return;
+    }
+    pstate->HandleArpReply(sip, itf);
 }

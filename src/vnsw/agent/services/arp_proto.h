@@ -19,6 +19,7 @@ struct ArpVrfState;
 class ArpProto : public Proto {
 public:
     static const uint16_t kGratRetries = 2;
+    static const uint16_t kMaxFailures = 3;
     static const uint32_t kGratRetryTimeout = 2000;        // milli seconds
     static const uint16_t kMaxRetries = 8;
     static const uint32_t kRetryTimeout = 2000;            // milli seconds
@@ -165,6 +166,8 @@ public:
     bool ValidateAndClearVrfState(VrfEntry *vrf, const ArpVrfState *vrf_state);
     ArpIterator FindUpperBoundArpEntry(const ArpKey &key);
     ArpIterator FindLowerBoundArpEntry(const ArpKey &key);
+    void HandlePathPreferenceArpReply(const VrfEntry *vrf, uint32_t itf,
+                                      Ip4Address sip);
 
     DBTableBase::ListenerId vrf_table_listener_id() const {
         return vrf_table_listener_id_;
@@ -196,6 +199,33 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ArpProto);
 };
 
+struct ArpPathPreferenceStateKey {
+    IpAddress ip;
+    uint8_t plen;
+    ArpPathPreferenceStateKey(const IpAddress &addr, uint8_t len) :
+        ip(addr), plen(len) {}
+    bool IsLess(const ArpPathPreferenceStateKey &key) const {
+        if (ip != key.ip) {
+            return ip < key.ip;
+        }
+        return plen < key.plen;
+    }
+};
+
+struct InterfaceArpPathPreferenceInfo {
+    /* When prefix-len is less than 32 we send ARP request for all IPs in the
+     * prefix. Whoever responds last, his IP will stored in field
+     * prev_responded_ip. Subsequently periodic ARP requests will be sent
+     * only for this IP instead of whole subnet. We will fallback to whole
+     * subnet when prev_responded_ip does not respond for kMaxFailures times */
+    Ip4Address prev_responded_ip;
+    uint32_t arp_reply_count;
+    uint32_t arp_failure_count;
+    uint32_t arp_send_count;
+    InterfaceArpPathPreferenceInfo() : prev_responded_ip(0), arp_reply_count(0),
+        arp_failure_count(0), arp_send_count(0) {
+    }
+};
 //Stucture used to retry ARP queries when a particular route is in
 //backup state.
 class ArpPathPreferenceState {
@@ -203,7 +233,10 @@ public:
     static const uint32_t kMaxRetry = 30 * 5; //retries upto 5 minutes,
                                               //30 tries/per minutes
     static const uint32_t kTimeout = 2000;
-    typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
+    typedef std::map<uint32_t, InterfaceArpPathPreferenceInfo>
+        WaitForTrafficIntfMap;
+    typedef std::pair<uint32_t, InterfaceArpPathPreferenceInfo>
+        WaitForTrafficIntfPair;
     typedef std::set<uint32_t> ArpTransmittedIntfMap;
 
     ArpPathPreferenceState(ArpVrfState *state, uint32_t vrf_id,
@@ -220,9 +253,12 @@ public:
         return vrf_state_;
     }
 
-    const IpAddress& ip() const {
-        return vm_ip_;
-    }
+    const IpAddress& ip() const { return vm_ip_; }
+    const IpAddress& gw_ip() const { return gw_ip_; }
+    uint8_t plen() const { return plen_; }
+    uint32_t vrf_id() const { return vrf_id_; }
+    void HandleArpReply(Ip4Address sip, uint32_t itf);
+
 
     bool IntfPresentInIpMap(uint32_t id) {
         if (l3_wait_for_traffic_map_.find(id) ==
@@ -241,14 +277,21 @@ public:
     }
 
     uint32_t IntfRetryCountInIpMap(uint32_t id) {
-        return l3_wait_for_traffic_map_[id];
+        return GetRetryCount(id, l3_wait_for_traffic_map_);
     }
 
     uint32_t IntfRetryCountInEvpnMap(uint32_t id) {
-        return evpn_wait_for_traffic_map_[id];
+        return GetRetryCount(id, evpn_wait_for_traffic_map_);
     }
 
 private:
+    uint32_t GetRetryCount(uint32_t id, WaitForTrafficIntfMap &imap) {
+        WaitForTrafficIntfMap::iterator it = imap.find(id);
+        if (it == imap.end()) {
+            return 0;
+        }
+        return it->second.arp_send_count;
+    }
     friend void intrusive_ptr_add_ref(ArpPathPreferenceState *aps);
     friend void intrusive_ptr_release(ArpPathPreferenceState *aps);
     ArpVrfState *vrf_state_;
@@ -267,11 +310,19 @@ typedef boost::intrusive_ptr<ArpPathPreferenceState> ArpPathPreferenceStatePtr;
 void intrusive_ptr_add_ref(ArpPathPreferenceState *aps);
 void intrusive_ptr_release(ArpPathPreferenceState *aps);
 
+struct ArpPathPreferenceCmp {
+    bool operator()(const ArpPathPreferenceStateKey &lhs,
+                    const ArpPathPreferenceStateKey &rhs) const {
+        return lhs.IsLess(rhs);
+    }
+};
+
 struct ArpVrfState : public DBState {
 public:
-    typedef std::map<const IpAddress,
-                     ArpPathPreferenceState*> ArpPathPreferenceStateMap;
-    typedef std::pair<const IpAddress,
+    typedef std::map<ArpPathPreferenceStateKey,
+                     ArpPathPreferenceState*,
+                     ArpPathPreferenceCmp> ArpPathPreferenceStateMap;
+    typedef std::pair<ArpPathPreferenceStateKey,
                       ArpPathPreferenceState*> ArpPathPreferenceStatePair;
     ArpVrfState(Agent *agent, ArpProto *proto, VrfEntry *vrf,
                 AgentRouteTable *table, AgentRouteTable *evpn_table);
@@ -285,11 +336,9 @@ public:
     bool PreWalkDone(DBTableBase *partition);
     static void WalkDone(DBTableBase *partition, ArpVrfState *state);
 
-    ArpPathPreferenceState* Locate(const IpAddress &ip);
-    void Erase(const IpAddress &ip);
-    ArpPathPreferenceState* Get(const IpAddress ip) {
-        return arp_path_preference_map_[ip];
-    }
+    ArpPathPreferenceState* Locate(const IpAddress &ip, uint8_t plen);
+    void Erase(const IpAddress &ip, uint8_t plen);
+    ArpPathPreferenceState* Get(const IpAddress ip, uint8_t plen=32);
 
     bool l3_walk_completed() const {
         return l3_walk_completed_;
@@ -322,7 +371,6 @@ public:
     static const uint32_t kMaxRetry = 30 * 5; //retries upto 5 minutes,
                                               //30 tries/per minutes
     static const uint32_t kTimeout = 2000;
-    typedef std::map<uint32_t, uint32_t> WaitForTrafficIntfMap;
 
     ArpDBState(ArpVrfState *vrf_state, uint32_t vrf_id,
                IpAddress vm_ip_addr, uint8_t plen);
