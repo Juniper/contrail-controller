@@ -56,6 +56,11 @@ void FlowMgmtDbClient::ChangeEvent(const DBEntry *entry, FlowMgmtState *state) {
     mgr_->ChangeDBEntryEvent(entry, state->gen_id_);
 }
 
+void FlowMgmtDbClient::RouteNHChangeEvent(const DBEntry *entry,
+                                          FlowMgmtState *state) {
+    mgr_->RouteNHChangeEvent(entry, state->gen_id_);
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Interface notification handler
 ////////////////////////////////////////////////////////////////////////////
@@ -615,18 +620,19 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     }
 
     bool changed = false;
+    bool inet_rt_nh_changed = false;
     // Handle SG change
     if (state->sg_l_ != new_sg_l) {
         state->sg_l_ = new_sg_l;
         changed = true;
     }
 
+    InetUnicastRouteEntry *inet_route =
+        dynamic_cast<InetUnicastRouteEntry *>(route);
     //Trigger RPF NH sync, if active nexthop changes
     const NextHop *active_nh = route->GetActiveNextHop();
     const NextHop *local_nh = NULL;
     if (active_nh->GetType() == NextHop::COMPOSITE) {
-        InetUnicastRouteEntry *inet_route =
-            dynamic_cast<InetUnicastRouteEntry *>(route);
         assert(inet_route);
         //If destination is ecmp, all remote flow would
         //have RPF NH set to that local component NH
@@ -636,7 +642,24 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {
         state->active_nh_ = active_nh;
         state->local_nh_ = local_nh;
-        new_route = true;
+        /* NH change can result in change of DMAC for the following routes, if
+         * they point to L2 flows.So we need to delete these L2 flows to trigger
+         * packet to be trapped again for flows which will have the new DMAC.
+         * The InetRoutes whose NH change has to be tracked are
+         * Ipv4 InetRoutes which have prefix < 32
+         * Ipv6 InetRoutes which have prefix < 128
+         */
+        if (inet_route) {
+            uint8_t plen = inet_route->plen();
+            if ((inet_route->addr().is_v4() && plen < 32) ||
+                (inet_route->addr().is_v6() && plen < 128)) {
+                inet_rt_nh_changed = true;
+            } else {
+                new_route = true;
+            }
+        } else {
+            new_route = true;
+        }
     }
 
     if (HandleTrackingIpChange(route, state)) {
@@ -659,6 +682,8 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
 
     if (new_route == true) {
         AddEvent(route, state);
+    } else if (inet_rt_nh_changed == true) {
+        RouteNHChangeEvent(route, state);
     } else if (changed == true) {
         ChangeEvent(route, state);
     }

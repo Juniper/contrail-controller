@@ -4767,13 +4767,13 @@ void AddAap(std::string intf_name, int intf_id,
 }
 
 void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
-            const std::string &mac) {
+            const std::string &mac, uint32_t plen) {
     std::ostringstream buf;
     buf << "<virtual-machine-interface-allowed-address-pairs>";
     buf << "<allowed-address-pair>";
     buf << "<ip>";
     buf << "<ip-prefix>" << ip.to_string() <<"</ip-prefix>";
-    buf << "<ip-prefix-len>"<< 32 << "</ip-prefix-len>";
+    buf << "<ip-prefix-len>"<< plen << "</ip-prefix-len>";
     buf << "</ip>";
     buf << "<mac>" << mac << "</mac>";
     buf << "<flag>" << "act-stby" << "</flag>";

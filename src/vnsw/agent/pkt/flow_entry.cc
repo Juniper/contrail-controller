@@ -957,6 +957,14 @@ static void SetRpfFieldsInternal(FlowEntry *flow, const AgentRoute *rt) {
         return;
     }
 
+    if (!flow->l3_flow()) {
+        flow->data().rpf_vrf = rt->vrf()->vrf_id();
+        /* For L2 flows we don't use rpf_plen. Prefix len is taken after
+         * doing LPMFind on IP. */
+        flow->data().rpf_plen = 0;
+        return;
+    }
+
     // Route is not INET. Dont track any route
     flow->data().rpf_vrf = VrfEntry::kInvalidIndex;
     flow->data().rpf_plen = 0;

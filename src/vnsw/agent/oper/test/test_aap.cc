@@ -358,6 +358,24 @@ TEST_F(TestAap, EvpnRoute_4) {
     EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
 }
 
+/* Add AAP route with prefix less than 32 and verify that EVPN route is
+ * added with 'All zeroes' IP */
+TEST_F(TestAap, EvpnRoute_5) {
+    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    MacAddress mac("00:00:00:01:01:10");
+
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
+    AddAap("intf1", 1, ip, mac.ToString(), 27);
+    EXPECT_TRUE(RouteFind("vrf1", ip, 27));
+    EXPECT_TRUE(EvpnRouteGet("vrf1", mac, Ip4Address(0), 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
+
+    AddAap("intf1", 1, Ip4Address(0), zero_mac.ToString());
+    EXPECT_FALSE(RouteFind("vrf1", ip, 27));
+    EXPECT_FALSE(EvpnRouteGet("vrf1", mac, Ip4Address(0), 0));
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
+}
+
 //Just add a local path, verify that sequence no gets initialized to 0
 TEST_F(TestAap, StateMachine_1) {
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
