@@ -323,9 +323,7 @@ void VmInterface::SetPathPreference(PathPreference *pref, bool ecmp,
     if (local_preference_ != 0) {
         pref->set_static_preference(true);
         pref->set_preference(local_preference_);
-    }
-    // Override user defined local preference with HIGH for ECMP
-    if (ecmp == true) {
+    } else if (ecmp == true) {
         pref->set_preference(PathPreference::HIGH);
     }
     pref->set_dependent_ip(dependent_ip);
@@ -372,6 +370,8 @@ void VmInterface::SetServiceVlanPathPreference(PathPreference *pref,
     if (local_preference_ != 0) {
         pref->set_static_preference(true);
         pref->set_preference(local_preference_);
+    } else if (ecmp_mode == true) {
+        pref->set_preference(PathPreference::HIGH);
     }
 
     pref->set_dependent_ip(dependent_ip);
