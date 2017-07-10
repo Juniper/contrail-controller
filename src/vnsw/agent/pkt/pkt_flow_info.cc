@@ -1577,9 +1577,11 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
             rt = FlowEntry::GetUcRoute(in->vrf_, sip);
         }
     }
+    uint8_t plen = 0;
     // Generate event if route was waiting for traffic
     if (rt && rt->WaitForTraffic()) {
         enqueue_traffic_seen = true;
+        plen = rt->plen();
     } else if (vm_intf) {
         //L3 route is not in wait for traffic state
         //EVPN route could be in wait for traffic, if yes
@@ -1587,15 +1589,26 @@ void PktFlowInfo::GenerateTrafficSeen(const PktInfo *pkt,
         rt = FlowEntry::GetEvpnRoute(in->vrf_, pkt->smac, sip,
                 vm_intf->ethernet_tag());
         if (rt && rt->WaitForTraffic()) {
+            const EvpnRouteEntry *evpn_rt = static_cast<const EvpnRouteEntry *>
+                (rt);
+            plen = evpn_rt->GetVmIpPlen();
             enqueue_traffic_seen = true;
+        } else {
+            IpAddress addr;
+            rt = FlowEntry::GetEvpnRoute(in->vrf_, pkt->smac, addr,
+                                         vm_intf->ethernet_tag());
+            if (rt && rt->WaitForTraffic()) {
+                plen = 32;
+                if (pkt->family == Address::INET6) {
+                    plen = 128;
+                }
+                enqueue_traffic_seen = true;
+            }
         }
+
     }
 
     if (enqueue_traffic_seen) {
-        uint8_t plen = 32;
-        if (pkt->family == Address::INET6) {
-            plen = 128;
-        }
         flow_table->agent()->oper_db()->route_preference_module()->
             EnqueueTrafficSeen(sip, plen, in->intf_->id(),
                                pkt->vrf, pkt->smac);
