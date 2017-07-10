@@ -114,6 +114,7 @@ private:
     void AddEvent(const DBEntry *entry, FlowMgmtState *state);
     void DeleteEvent(const DBEntry *entry, FlowMgmtState *state);
     void ChangeEvent(const DBEntry *entry, FlowMgmtState *state);
+    void RouteNHChangeEvent(const DBEntry *entry, FlowMgmtState *state);
 
     void FreeInterfaceState(Interface *intf, uint32_t gen_id);
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
