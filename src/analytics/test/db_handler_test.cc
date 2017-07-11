@@ -19,8 +19,10 @@
 #include <analytics/db_handler.h>
 #include <analytics/db_handler_impl.h>
 #include <analytics/vizd_table_desc.h>
+#include <analytics/usrdef_counters.h>
 
 #include <analytics/test/cql_if_mock.h>
+#include <analytics/test/usrdef_counters_mock.h>
 
 using ::testing::Return;
 using ::testing::Field;
@@ -75,6 +77,7 @@ public:
     bool WriteToCache(uint32_t temp_t2, std::string fc_entry) {
         return db_handler()->CanRecordDataForT2(temp_t2, fc_entry);
     }
+
 
 protected:
     class SandeshXMLMessageTest : public SandeshXMLMessage {
@@ -135,7 +138,7 @@ protected:
         db_handler()->MessageTableInsert(vmsgp,
             boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
     }
-
+    
     void MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header, const std::string& message_type,
         const boost::uuids::uuid& unm, const std::string keyword) {
@@ -159,11 +162,143 @@ protected:
     }
 
 private:
-    EventManager evm_;
     CqlIfMock *dbif_mock_;
     DbHandlerPtr db_handler_;
     DbHandlerCacheParam db_handler_cache_param_;
 };
+
+
+
+class DbHandlerMsgKeywordInsertTest : public ::testing::Test {
+public:
+    DbHandlerMsgKeywordInsertTest() :
+        builder_(SandeshXMLMessageTestBuilder::GetInstance()) {
+    }
+
+    ~DbHandlerMsgKeywordInsertTest() {
+    }
+
+    virtual void SetUp() {
+      evm_ = new EventManager();
+      cassandra_options_.cassandra_ips_.push_back("127.0.0.1");
+      cassandra_options_.cassandra_ports_.push_back(9160);
+      cassandra_options_.ttlmap_ = ttl_map;
+      cassandra_options_.disable_all_db_writes_ = false;
+      cassandra_options_.disable_db_messages_keyword_writes_ = true;
+
+      db_handler_ = new DbHandler(evm_, boost::bind(&DbHandler::UnInit, db_handler_),
+                                     "localhost",
+                                     cassandra_options_,
+                                     "",
+                                     false,
+                                     false,
+				     DbWriteOptions(),
+                                     std::vector<std::string>(),
+                                     VncApiConfig());
+      udc_mock_ = new UserDefinedCountersMock(db_handler_->cfgdb_connection_);
+      db_handler_->udc_.reset(udc_mock_);
+
+    }
+
+    virtual void TearDown() {
+      evm_->Shutdown();
+      delete evm_;
+      delete db_handler_;
+      evm_ = NULL;
+      db_handler_ = NULL;
+    }
+
+    DbHandler* db_handler() {
+        return db_handler_;
+    }
+
+    UserDefinedCountersMock* udc_mock() {
+        return udc_mock_;
+    }
+
+protected:
+    class SandeshXMLMessageTest : public SandeshXMLMessage {
+    public:
+        SandeshXMLMessageTest() {}
+        virtual ~SandeshXMLMessageTest() {}
+
+        virtual bool Parse(const uint8_t *xml_msg, size_t size) {
+            xml_parse_result result = xdoc_.load_buffer(xml_msg, size,
+                parse_default & ~parse_escapes);
+            if (!result) {
+                LOG(ERROR, __func__ << ": Unable to load Sandesh XML Test." <<
+                    "(status=" << result.status << ", offset=" <<
+                    result.offset << "): " << xml_msg);
+                return false;
+            }
+            message_node_ = xdoc_.first_child();
+            message_type_ = message_node_.name();
+            size_ = size;
+            return true;
+        }
+
+        void SetHeader(const SandeshHeader &header) { header_ = header; }
+    };
+
+    class SandeshXMLMessageTestBuilder : public SandeshMessageBuilder {
+    public:
+        SandeshXMLMessageTestBuilder() {}
+
+        virtual SandeshMessage *Create(const uint8_t *xml_msg,
+            size_t size) const {
+            SandeshXMLMessageTest *msg = new SandeshXMLMessageTest;
+            msg->Parse(xml_msg, size);
+            return msg;
+        }
+
+        static SandeshXMLMessageTestBuilder *GetInstance() {
+            return &instance_;
+        }
+
+    private:
+        static SandeshXMLMessageTestBuilder instance_;
+    };
+
+    SandeshMessageBuilder *builder_;
+    boost::uuids::random_generator rgen_;
+
+private:
+    Options::Cassandra cassandra_options_;
+    DbHandler* db_handler_;
+    UserDefinedCountersMock* udc_mock_;
+    EventManager* evm_;    
+};
+
+
+DbHandlerMsgKeywordInsertTest::SandeshXMLMessageTestBuilder
+    DbHandlerMsgKeywordInsertTest::SandeshXMLMessageTestBuilder::instance_;
+
+TEST_F(DbHandlerMsgKeywordInsertTest, MessageKeywordInsertTest) {
+    SandeshHeader hdr;
+    hdr.set_Source("127.0.0.1");
+    hdr.set_Module("VizdTest");
+    hdr.set_InstanceId("Test");
+    hdr.set_NodeType("Test");
+    hdr.set_Timestamp(UTCTimestampUsec());
+    std::string messagetype("SandeshAsyncTest2");
+    std::string xmlmessage = "<SandeshAsyncTest2 type=\"sandesh\"><file type=\"string\" identifier=\"-32768\">src/analytics/test/viz_collector_test.cc</file><line type=\"i32\" identifier=\"-32767\">80</line><f1 type=\"struct\" identifier=\"1\"><SAT2_struct><f1 type=\"string\" identifier=\"1\">sat2string101</f1><f2 type=\"i32\" identifier=\"2\">101</f2></SAT2_struct></f1><f2 type=\"i32\" identifier=\"2\">101</f2></SandeshAsyncTest2>";
+
+    SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+            reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+            xmlmessage.size()));
+    msg->SetHeader(hdr);
+    boost::uuids::uuid unm(rgen_());
+    VizMsg vmsgp(msg, unm);
+    vmsgp.keyword_doc_ = "test regex pattern";
+   
+    EXPECT_CALL(*udc_mock(), MatchFilter(_,_)).Times(1);
+
+    db_handler()->MsgTableKeywordInsertHelper(&vmsgp);
+   
+    vmsgp.msg = NULL;
+    delete msg;
+}
 
 
 DbHandlerTest::SandeshXMLMessageTestBuilder
@@ -284,6 +419,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertConfigAuditTest) {
     vmsgp.msg = NULL;
     delete msg;
 }
+
 
 TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
     SandeshHeader hdr;

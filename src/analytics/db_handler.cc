@@ -178,6 +178,10 @@ DbHandler::~DbHandler() {
     }
 }
 
+void DbHandler::MsgTableKeywordInsertHelper(const VizMsg *vmsgp) {
+    return MessageTableKeywordInsert(vmsgp,NULL);
+}
+
 uint64_t DbHandler::GetTtlInHourFromMap(const TtlMap& ttl_map,
         TtlType::type type) {
     TtlMap::const_iterator it = ttl_map.find(type);
@@ -815,9 +819,8 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
 
 void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    if (IsMessagesKeywordWritesDisabled() ||
-        IsAllWritesDisabled()) {
-        return;
+    if (IsAllWritesDisabled()) {
+    	return;
     }
     LineParser::WordListType words;
     const SandeshHeader &header(vmsgp->msg->GetHeader());
@@ -839,6 +842,9 @@ void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp,
                 DB_LOG(ERROR, "Failed to parse text");
             udc_->MatchFilter(s, &words);
         }
+    }
+    if (IsMessagesKeywordWritesDisabled()) { 
+        return;
     }
     for (LineParser::WordListType::iterator i = words.begin();
             i != words.end(); i++) {

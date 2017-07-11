@@ -186,7 +186,11 @@ public:
     void ProcessPendingCompactionTasks(uint32_t pending_compaction_tasks);
     void ReConfigApiServerList(const  std::vector<std::string> &api_server_list) {
         cfgdb_connection_->ReConfigApiServerList(api_server_list);
+    
+
     }
+
+    void MsgTableKeywordInsertHelper(const VizMsg *vmsgp);
 
 private:
     void MessageTableKeywordInsert(const VizMsg *vmsgp,
@@ -273,6 +277,7 @@ private:
     WaterMarkTuple pending_compaction_tasks_watermark_tuple_;
 
     friend class DbHandlerTest;
+    friend class DbHandlerMsgKeywordInsertTest;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
