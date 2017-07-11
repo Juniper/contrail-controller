@@ -198,12 +198,14 @@ def _access_control_list_update(acl_obj, name, obj, entries):
                 pass
             return None
 
+        entries_hash = hash(entries)
         # if entries did not change, just return the object
-        if acl_obj.get_access_control_list_entries() == entries:
+        if acl_obj.get_access_control_list_hash() == entries_hash:
             return acl_obj
 
         # Set new value of entries on the ACL
         acl_obj.set_access_control_list_entries(entries)
+        acl_obj.set_access_control_list_hash(entries_hash)
         try:
             _vnc_lib.access_control_list_update(acl_obj)
         except HttpError as he:
@@ -239,6 +241,7 @@ class VirtualNetworkST(DictST):
         self.rinst = {}
         self.acl = None
         self.dynamic_acl = None
+        self.acl_rule_count = 0
         # FIXME: due to a bug in contrail api, calling
         # get_access_control_lists() may result in another call to
         # virtual_network_read. Avoid it for now.
@@ -246,7 +249,8 @@ class VirtualNetworkST(DictST):
             if acl_dict:
                 acl_obj = acl_dict[acl['uuid']]
             else:
-                acl_obj = _vnc_lib.access_control_list_read(id=acl['uuid'])
+                acl_obj = _vnc_lib.access_control_list_read(id=acl['uuid'],
+                                         fields=['acess_control_list_hash'])
             if acl_obj.name == self.obj.name:
                 self.acl = acl_obj
             elif acl_obj.name == 'dynamic':
@@ -945,8 +949,7 @@ class VirtualNetworkST(DictST):
             return
 
         if self.acl:
-            vn_trace.total_acl_rules += \
-                len(self.acl.get_access_control_list_entries().get_acl_rule())
+            vn_trace.total_acl_rules = self.acl_rule_count
         for ri in self.rinst.values():
             vn_trace.routing_instance_list.append(ri.name)
         for rhs in self.expand_connections():
@@ -2856,7 +2859,7 @@ class SchemaTransformer(object):
         sg_list = _vnc_lib.security_groups_list(detail=True,
                                                 fields=['access_control_lists'])
         sg_id_list = [sg.uuid for sg in sg_list]
-        acl_list = _vnc_lib.access_control_lists_list(detail=True)
+        acl_list = _vnc_lib.access_control_lists_list(fields=['access_control_list_hash'])
         sg_acl_dict = {}
         vn_acl_dict = {}
         for acl in acl_list or []:
@@ -3566,6 +3569,7 @@ class SchemaTransformer(object):
                 acl = AclRuleType(match, any_any_action)
                 acl_list.append(acl)
                 acl_list.update_acl_entries(static_acl_entries)
+                self.acl_rule_count = len(static_acl_entries.get_acl_rule())
 
             virtual_network.acl = _access_control_list_update(
                 virtual_network.acl, virtual_network.obj.name,

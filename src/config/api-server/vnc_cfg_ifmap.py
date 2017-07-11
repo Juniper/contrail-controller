@@ -1236,6 +1236,14 @@ class VncDbClient(object):
                 if (obj_type == 'virtual_network' and
                     'network_ipam_refs' in obj_dict):
                     self.update_subnet_uuid(obj_dict, do_update=True)
+                elif obj_type == 'access_control_list':
+                    if not obj_dict.get('access_control_list_hash'):
+                        rules = obj_dict.get('access_control_list_entries')
+                        if rules:
+                            rules_obj = AclEntriesType(params_dict=rules)
+                            obj_dict['access_control_list_hash'] = hash(rules_obj)
+                            self._object_db.object_update('access_control_list',
+                                                          obj_uuid, obj_dict)
             except Exception as e:
                 self.config_object_error(
                     obj_dict.get('uuid'), None, obj_type,

@@ -833,6 +833,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('access-control-list-entries', 'access-control-list') -->
 
+<xsd:element name="access-control-list-hash" type="xsd:unsignedLong"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('access-control-list-hash', 'access-control-list') -->
+
 <xsd:element name="virtual-network-access-control-list"/>
 <xsd:element name="security-group-access-control-list"/>
 <!--#IFMAP-SEMANTICS-IDL 
