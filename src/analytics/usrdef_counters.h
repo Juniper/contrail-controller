@@ -47,8 +47,8 @@ typedef std::map<std::string, boost::shared_ptr<UserDefinedCounterData> > Cfg_t;
 class UserDefinedCounters {
     public:
         UserDefinedCounters(boost::shared_ptr<ConfigDBConnection> cfgdb_connection);
-        ~UserDefinedCounters();
-        void MatchFilter(std::string text, LineParser::WordListType *words);
+        virtual ~UserDefinedCounters();
+        virtual void MatchFilter(std::string text, LineParser::WordListType *words);
         void SendUVEs();
         void AddConfig(std::string name, std::string pattern);
         bool FindByName(std::string name);
@@ -62,6 +62,8 @@ class UserDefinedCounters {
                     std::map<std::string, std::string> *headers);
         Cfg_t config_;
         boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
+
+    friend class DbHandlerMsgKeywordInsertTest;
 };
 
 
