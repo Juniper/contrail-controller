@@ -23,7 +23,8 @@ class EcmpLoadBalance;
 
 class PathPreference {
 public:
-    enum Preference {
+    typedef uint32_t Preference;
+    enum PathPreferenceValue {
         INVALID = 0,
         HA_STALE = 1,
         LOW = 100,
@@ -46,7 +47,15 @@ public:
     }
 
     bool is_ecmp() const {
-        if (ecmp_ == true || (preference_ == HIGH && sequence_ == 0)) {
+        if ((preference_ == HIGH && sequence_ == 0)) {
+            return true;
+        }
+
+        if (static_preference_) {
+            return false;
+        }
+
+        if (ecmp_ == true) {
             return true;
         }
         return false;
@@ -105,6 +114,16 @@ public:
         }
         return false;
     }
+
+    bool operator==(const PathPreference &rhs) const {
+        if (preference_ == rhs.preference_ &&
+            sequence_ == rhs.sequence_) {
+            return true;
+        }
+
+        return false;
+    }
+
 
     //Check if any configuration values have changed
     //ecmp flag and static preference are updated from
