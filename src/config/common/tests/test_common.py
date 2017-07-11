@@ -35,6 +35,7 @@ import novaclient.client
 
 import gevent.wsgi
 import uuid
+from pysandesh import sandesh_logger
 
 def lineno():
     """Returns the current line number in our program."""
@@ -339,17 +340,20 @@ def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
         vnc_cfg_api_server.main(args_str, server)
 # end launch_api_server_rdbms
 
-def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port):
+def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port, **extra_args):
     args_str = ""
-    args_str = args_str + "--cluster_id %s " % (cluster_id)
-    args_str = args_str + "--api_server_ip %s " % (api_server_ip)
-    args_str = args_str + "--api_server_port %s " % (api_server_port)
-    args_str = args_str + "--http_server_port %s " % (get_free_port())
-    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
-    args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file svc_monitor_%s.log " %(test_id)
-    args_str = args_str + "--trace_file svc_monitor_%s.err " %(test_id)
-    args_str = args_str + "--check_service_interval 2 "
+    args_str += "--cluster_id %s " % (cluster_id)
+    args_str += "--api_server_ip %s " % (api_server_ip)
+    args_str += "--api_server_port %s " % (api_server_port)
+    args_str += "--http_server_port %s " % (get_free_port())
+    args_str += "--cassandra_server_list 0.0.0.0:9160 "
+    args_str += "--log_local "
+    args_str += "--log_file svc_monitor_%s.log " %(test_id)
+    args_str += "--trace_file svc_monitor_%s.err " %(test_id)
+    args_str += "--check_service_interval 2 "
+
+    for name, value in extra_args.items():
+        args_str += "--{name} {value} ".format(name=name, value=value)
 
     svc_monitor.main(args_str)
 # end launch_svc_monitor
@@ -799,7 +803,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return vn_obj
     # end create_virtual_network
 
-    def _create_service(self, vn_list, si_name, auto_policy, 
+    def _create_service(self, vn_list, si_name, auto_policy,
                         create_right_port=True, **kwargs):
         sa_set = None
         if kwargs.get('service_virtualization_type') == 'physical-device':
@@ -948,3 +952,68 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return lr, vns, vmis, iips
 
 # end TestCase
+
+
+class ErrorInterceptingLogger(sandesh_logger.SandeshLogger):
+
+    _exceptions = []
+    _other_errors = []
+
+    @classmethod
+    def register_exception(cls, msg, *args, **kwargs):
+        if 'traceback' in msg.lower():
+            cls._exceptions.append((msg, args, kwargs))
+            return True
+        return False
+
+    @classmethod
+    def register_error(cls, msg, *args, **kwargs):
+        if not cls.register_exception(msg, *args, **kwargs):
+            cls._other_errors.append((msg, args, kwargs))
+
+    @classmethod
+    def get_exceptions(cls):
+        return list(cls._exceptions)
+
+    @classmethod
+    def get_other_errors(cls):
+        return list(cls._other_errors)
+
+    @classmethod
+    def reset(cls):
+        cls._exceptions, cls._other_errors = [], []
+
+    @classmethod
+    def get_qualified_name(cls):
+        return '{module_name}.{class_name}'.format(
+            module_name=cls.__module__, class_name=cls.__name__)
+
+    class LoggerWrapper(object):
+
+        def __init__(self, logger):
+            self._logger = logger
+
+        def __getattr__(self, item):
+            return getattr(self._logger, item)
+
+        def error(self, msg, *args, **kwargs):
+            ErrorInterceptingLogger.register_error(msg, *args, **kwargs)
+            return self._logger.error(msg, *args, **kwargs)
+
+        def critical(self, msg, *args, **kwargs):
+            ErrorInterceptingLogger.register_error(msg, *args, **kwargs)
+            return self._logger.critical(msg, *args, **kwargs)
+
+        def exception(self, msg, *args, **kwargs):
+            ErrorInterceptingLogger.register_error(msg, *args, **kwargs)
+            return self._logger.exception(msg, *args, **kwargs)
+
+        def log(self, lvl, msg, *args, **kwargs):
+            ErrorInterceptingLogger.register_exception(
+                msg, *args, **kwargs)
+            return self._logger.log(lvl, msg, *args, **kwargs)
+
+    def __init__(self, *args, **kwargs):
+        super(ErrorInterceptingLogger, self).__init__(*args, **kwargs)
+        self._logger = ErrorInterceptingLogger.LoggerWrapper(
+            self._logger)
