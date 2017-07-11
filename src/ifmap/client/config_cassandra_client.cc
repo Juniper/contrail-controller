@@ -192,11 +192,41 @@ bool ConfigCassandraClient::ReadObjUUIDTable(set<string> *uuid_list) {
     return true;
 }
 
+// Notes on list map property processing:
+// Separate entries per list/map keys are stored in the ObjUuidCache partition
+// based on the uuid.
+// The cache map entries contain a refreshed bit and timestamp in addition to
+// the values etc.
+// A set containing list/map property names (updated_list_map_properties) that
+// have key/value pairs with a new timestamp, a second set
+// (candidate_list_map_properties) also containing list/map property names that
+// may require an update given some key/value pairs have been deleted, and a
+// multimap (list_map_properties) for all the  list/map key value pairs in the
+// new configuration, are build and held in the context(temporary).
+// These lists are used to determine which list/map properties need to be pushed
+// to the backend, they are built as columns are parsed. Once all columns are
+// parsed,
+// in ListMapPropReviseUpdatelist, for each property name in
+// candidate_list_map_properties we check it is already in the
+// updated_list_map_property list, if not we proceed to find at least one stale
+// list/map key value pair with the property name in the ObJUuidCache, if one is
+// found that requires an update, the property name is added to
+// updated_list_map_properties.
+// Once updated_list_map_properties is revised, we iterate through each property
+// name in it and push all matching key/value pairs in list_map_properties.
+//  ConfigCass2JsonAdapter groups the key value pairs belonging to the same
+//  property so that a single DB request is sent to the
+//  backend.
+//  Deletes are handled by FormDeleteRequestList. Note that deletes are sent
+//  only when all key/value pairs for a given list/map property are removed.
+//  Additionally, the resulting DB request only resets the property_set bit, it
+//  does not clear the entries in the backend.
 struct ConfigCassandraParseContext {
     ConfigCassandraParseContext() : obj_type(""), fq_name_present(false) {
     }
     std::multimap<std::string, JsonAdapterDataType> list_map_properties;
     std::set<std::string> updated_list_map_properties;
+    std::set<std::string> candidate_list_map_properties;
     std::string obj_type;
     bool fq_name_present;
 
@@ -224,6 +254,8 @@ bool ConfigCassandraClient::ProcessObjUUIDTableEntry(const string &uuid_key,
         HandleObjectDelete(uuid_key);
         return false;
     }
+
+    GetPartition(uuid_key)->ListMapPropReviseUpdatelist(uuid_key, context);
 
     // Read the context for map and list properties
     if (context.updated_list_map_properties.size()) {
@@ -707,6 +739,35 @@ void ConfigCassandraPartition::RemoveObjReqEntry(string &uuid) {
     uuid_read_set_.erase(req_it);
 }
 
+void ConfigCassandraPartition::ListMapPropReviseUpdatelist(
+    const string &uuid, ConfigCassandraParseContext &context) {
+    if (context.candidate_list_map_properties.size()) {
+        for(std::set<std::string>::iterator it =
+                context.candidate_list_map_properties.begin();
+                it != context.candidate_list_map_properties.end(); it++) {
+            if (context.updated_list_map_properties.find(*it) !=
+                    context.updated_list_map_properties.end()) {
+                continue;
+            }
+            ObjectCacheMap::iterator uuid_iter = object_cache_map_.find(uuid);
+            assert(uuid_iter != object_cache_map_.end());
+            FieldDetailMap::iterator field_iter =
+                uuid_iter->second.lower_bound(*it);
+            assert(field_iter !=  uuid_iter->second.end());
+            assert(it->compare(0, it->size() - 1, field_iter->first,
+                        0, it->size() - 1) == 0);
+            while (it->compare(0, it->size() - 1, field_iter->first,
+                        0, it->size() - 1) == 0) {
+                if (field_iter->second.second == false) {
+                    context.updated_list_map_properties.insert(*it);
+                    break;
+                }
+                field_iter++;
+            }
+        }
+    }
+}
+
 bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
                   const string &key, const string &value, uint64_t timestamp,
                   ConfigCassandraParseContext &context) {
@@ -769,7 +830,9 @@ bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
             return true;
         }
         if (timestamp && field_iter->second.first == timestamp) {
-            // No change
+            if (is_propl || is_propm) {
+                context.candidate_list_map_properties.insert(prop_name);
+            }
             return false;
         }
         field_iter->second.first = timestamp;

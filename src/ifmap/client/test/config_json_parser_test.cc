@@ -32,12 +32,13 @@
 #include "testing/gunit.h"
 
 using namespace std;
+using namespace autogen;
 using boost::assign::list_of;
 
 class ConfigJsonParserTest : public ::testing::Test {
-public:
+ public:
     void ValidateFQNameCacheResponse(Sandesh *sandesh,
-            vector<string> &result, const string &next_batch) {
+            const vector<string> &result, const string &next_batch) {
         const ConfigDBUUIDToFQNameResp *resp =
             dynamic_cast<const ConfigDBUUIDToFQNameResp *>(sandesh);
         TASK_UTIL_EXPECT_TRUE(resp != NULL);
@@ -53,7 +54,7 @@ public:
     }
 
     void ValidateObjCacheResponse(Sandesh *sandesh,
-            vector<string> &result, const string &next_batch) {
+            const vector<string> &result, const string &next_batch) {
         const ConfigDBUUIDCacheResp *resp =
             dynamic_cast<const ConfigDBUUIDCacheResp *>(sandesh);
         TASK_UTIL_EXPECT_TRUE(resp != NULL);
@@ -68,7 +69,7 @@ public:
     }
 
 
-protected:
+ protected:
     ConfigJsonParserTest() :
         thread_(&evm_),
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
@@ -128,6 +129,78 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void ListMapVmiVerifyCommon(const vector<string> expected_results,
+            int property_id, uint64_t expected_vmi_table_count) {
+        IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
+        IFMapTable *projecttable = IFMapTable::FindTable(&db_, "project");
+        IFMapTable *vmitable =
+            IFMapTable::FindTable(&db_, "virtual-machine-interface");
+
+        TASK_UTIL_EXPECT_EQ(1, domaintable->Size());
+        TASK_UTIL_EXPECT_TRUE(NodeLookup("domain", "default-domain") != NULL);
+        TASK_UTIL_EXPECT_TRUE(NodeLookup("domain", "default-domain")->Find(
+                                  IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+        TASK_UTIL_EXPECT_EQ(1, projecttable->Size());
+        TASK_UTIL_EXPECT_TRUE(
+            NodeLookup("project", "default-domain:service") != NULL);
+        TASK_UTIL_EXPECT_TRUE(
+            NodeLookup("project", "default-domain:service")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+        TASK_UTIL_EXPECT_EQ(1, vmitable->Size());
+        TASK_UTIL_EXPECT_TRUE(
+            NodeLookup(
+                "virtual-machine-interface",
+                "default-domain:service:c4287577-b6af-4cca-a21d-6470a08af68a")
+                    != NULL);
+        VirtualMachineInterface *vmi =
+            reinterpret_cast<VirtualMachineInterface *>(NodeLookup(
+                "virtual-machine-interface",
+                "default-domain:service:c4287577-b6af-4cca-a21d-6470a08af68a")->Find(
+                    IFMapOrigin(IFMapOrigin::CASSANDRA)));
+        TASK_UTIL_EXPECT_TRUE(vmi != NULL);
+        if (property_id == VirtualMachineInterface::BINDINGS) {
+            if (vmi->IsPropertySet(VirtualMachineInterface::BINDINGS)) {
+                std::vector<KeyValuePair> bindings = vmi->bindings();
+                for (uint32_t i = 0; i < bindings.size(); i++) {
+                    cout << "Entry: " << i << " Key: " << bindings[i].key
+                        << " Value: " << bindings[i].value;
+                    cout << endl;
+                }
+                TASK_UTIL_EXPECT_EQ(expected_results.size(), bindings.size());
+                for (size_t i = 0; i < bindings.size(); i++) {
+                    string result_match = bindings[i].key + ':'
+                        + bindings[i].value;
+                    TASK_UTIL_EXPECT_EQ(expected_results[i], result_match);
+                }
+            } else {
+                TASK_UTIL_EXPECT_TRUE(expected_results.size() == 0);
+            }
+       } else if (property_id == VirtualMachineInterface::FAT_FLOW_PROTOCOLS) {
+            if (vmi->IsPropertySet(
+                 VirtualMachineInterface::FAT_FLOW_PROTOCOLS)) {
+                 std::vector<ProtocolType> fat_flow_protocols =
+                     vmi->fat_flow_protocols();
+                for (uint32_t i = 0; i < fat_flow_protocols.size(); i++) {
+                     cout << "Entry: " << i << " Protocol " <<
+                         fat_flow_protocols[i].protocol << " Port: "
+                         << fat_flow_protocols[i].port;
+                     cout << endl;
+                }
+                TASK_UTIL_EXPECT_EQ(expected_results.size(),
+                                    fat_flow_protocols.size());
+                for (size_t i = 0; i < fat_flow_protocols.size(); i++) {
+                     string result_match = fat_flow_protocols[i].protocol + ':'
+                        + integerToString(fat_flow_protocols[i].port);
+                     TASK_UTIL_EXPECT_EQ(expected_results[i], result_match);
+                }
+            }
+        } else {
+            TASK_UTIL_EXPECT_TRUE(0);
+        }
+        cout << "vmitable input count:" << vmitable->input_count() << endl;
+        TASK_UTIL_EXPECT_EQ(expected_vmi_table_count, vmitable->input_count());
+    }
+
     IFMapNode *NodeLookup(const string &type, const string &name) {
         return ifmap_test_util::IFMapNodeLookup(&db_, type, name);
     }
@@ -159,6 +232,49 @@ protected:
     boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
     bool validate_done_;
 };
+
+typedef std::tr1::tuple<string, bool> TestParamsFilesAndFlag;
+
+class ConfigJsonParserTestWithParams1
+    : public ConfigJsonParserTest,
+      public ::testing::WithParamInterface<TestParamsFilesAndFlag> {
+};
+// Flag indicates timestamp in testdata
+INSTANTIATE_TEST_CASE_P(
+    JsonParser1, ConfigJsonParserTestWithParams1, ::testing::Values(
+        std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_map_prop_with_ts.json",
+            true),
+        std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_map_prop.json",
+            false)));
+
+class ConfigJsonParserTestWithParams2
+    : public ConfigJsonParserTest,
+      public ::testing::WithParamInterface<TestParamsFilesAndFlag> {
+};
+
+INSTANTIATE_TEST_CASE_P(
+    JsonParser2, ConfigJsonParserTestWithParams2, ::testing::Values(
+        std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_list_prop_with_ts.json",
+            true),
+        std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_list_prop.json",
+            false)));
+
+class ConfigJsonParserTestWithParams3
+    : public ConfigJsonParserTest,
+      public ::testing::WithParamInterface<TestParamsFilesAndFlag> {
+};
+
+INSTANTIATE_TEST_CASE_P(JsonParser3, ConfigJsonParserTestWithParams3,
+        ::testing::Values(std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_list_map_prop_with_ts.json",
+            true),
+            std::tr1::make_tuple(
+                "controller/src/ifmap/testdata/vmi_list_map_prop.json",
+                false)));
 
 TEST_F(ConfigJsonParserTest, BulkSync) {
     if (getenv("CONFIG_JSON_PARSER_TEST_DATA_FILE")) {
@@ -701,7 +817,7 @@ TEST_F(ConfigJsonParserTest, ServerParser4) {
     TASK_UTIL_EXPECT_TRUE(LinkLookup(
         NodeLookup("virtual-router", "vr1"),
         NodeLookup("virtual-machine", "vm1"),
-        "virtual-router-virtual-machine") == NULL );
+        "virtual-router-virtual-machine") == NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
@@ -1539,6 +1655,305 @@ TEST_F(ConfigJsonParserTest, MissingTypeField) {
 
     // Verify that VM object is gone
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+}
+
+TEST_P(ConfigJsonParserTestWithParams1, VerifyMapProperties) {
+    string file = std::tr1::get<0>(GetParam());
+    bool is_timestamp_test = std::tr1::get<1>(GetParam());
+    uint64_t vmitable_step_count = is_timestamp_test ? 1 : 3;
+    uint64_t vmitable_count;
+    IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
+    TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
+    IFMapTable *projecttable = IFMapTable::FindTable(&db_, "project");
+    TASK_UTIL_EXPECT_EQ(0, projecttable->Size());
+    IFMapTable *vmitable = IFMapTable::FindTable(&db_,
+                                                 "virtual-machine-interface");
+    TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
+
+    ParseEventsJson(file);
+    
+    // Add 3 propm vmi bindings
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results1 = list_of("host_id:site.one.com")
+                                              ("vif_type:vrouter")
+                                              ("vnic_type:normal");
+    vmitable_count = 3;
+    ListMapVmiVerifyCommon(expected_results1, VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Update first propm vmi binding
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results2 = list_of("host_id:site.two.com")
+                                              ("vif_type:vrouter")
+                                              ("vnic_type:normal");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results2, VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Remove second propm vmi binding
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results3 = list_of("host_id:site.two.com")
+                                              ("vnic_type:normal");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results3, VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Remove all propm vmi bindings
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results4;
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results4, VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Add back 2 propm vmi bindings
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results5 = list_of("host_id:site.three.com")
+                                              ("vif_type:vrouter");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results5, VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+    // Update one and replace one  propm vmi binding
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results6 = list_of("host_id:site.four.com")
+                                              ("vnic_type:normal");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results6, VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // No change - 2 propm vmi bindings
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vmitable_count += is_timestamp_test ? 0 : vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results6, VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+    // Remove all config
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
+    TASK_UTIL_EXPECT_EQ(0, projecttable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
+    cout << "vmitable input count:" <<  vmitable->input_count() << endl;
+    vmitable_count += 3;
+    TASK_UTIL_EXPECT_EQ(vmitable_count, vmitable->input_count());
+}
+
+TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
+    string file = std::tr1::get<0>(GetParam());
+    bool is_timestamp_test = std::tr1::get<1>(GetParam());
+    uint64_t vmitable_step_count = is_timestamp_test?1:3;
+    uint64_t vmitable_count;
+    IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
+    TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
+    IFMapTable *projecttable = IFMapTable::FindTable(&db_, "project");
+    TASK_UTIL_EXPECT_EQ(0, projecttable->Size());
+    IFMapTable *vmitable = IFMapTable::FindTable(&db_,
+                                                 "virtual-machine-interface");
+    TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
+
+    ParseEventsJson(file);
+
+    // Add 4 propl fat flow protocol entires
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results1 =
+        list_of("TCP:80") ("TCP:443") ("UDP:80") ("UDP:443");
+    vmitable_count = 3;
+    ListMapVmiVerifyCommon(expected_results1,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+
+    // Update first propl fat flow protocol entry
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results2 =
+        list_of("TCP:90") ("TCP:443") ("UDP:80") ("UDP:443");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results2,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    // Remove second propl fat flow protocol entry
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results3 =
+        list_of("TCP:90") ("UDP:80") ("UDP:443");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results3,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+
+    // Remove all propl fat flow protocol entires
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results4;
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results4,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+
+    // Add back 2  propl fat flow protocol entires
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results5 =
+        list_of("TCP:100") ("TCP:543");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results5,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+
+    // Update one and replace one  propl fat flow protocol entry
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_results6 =
+        list_of("TCP:110") ("UDP:80");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results6,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+
+    // No change - 2  propl fat flow protocol entries
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vmitable_count += is_timestamp_test?0:vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_results6,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    // Remove all config
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
+    TASK_UTIL_EXPECT_EQ(0, projecttable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
+    cout << "vmitable input count:" <<  vmitable->input_count() << endl;
+    vmitable_count += 3;
+    TASK_UTIL_EXPECT_EQ(vmitable_count, vmitable->input_count());
+}
+
+TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
+    string file = std::tr1::get<0>(GetParam());
+    bool is_timestamp_test = std::tr1::get<1>(GetParam());
+    uint64_t vmitable_step_count = is_timestamp_test?2:4;
+    uint64_t vmitable_count;
+    IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
+    TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
+    IFMapTable *projecttable = IFMapTable::FindTable(&db_, "project");
+    TASK_UTIL_EXPECT_EQ(0, projecttable->Size());
+    IFMapTable *vmitable = IFMapTable::FindTable(&db_,
+                                                 "virtual-machine-interface");
+    TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
+
+    ParseEventsJson(file);
+
+    // Add 2 propl/propm entires each
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_list_results1 =
+        list_of("TCP:443")("UDP:80");
+    vmitable_count = 4;
+    ListMapVmiVerifyCommon(expected_list_results1,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    vector<string> expected_map_results1 =
+        list_of("host_id:site.one.com") ("vif_type:vrouter");
+    ListMapVmiVerifyCommon(expected_map_results1,
+                           VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Update first of each propl/propl entries
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_list_results2 =
+        list_of("TCP:543")("UDP:80");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_list_results2,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    vector<string> expected_map_results2 =
+        list_of("host_id:site.two.com")("vif_type:vrouter");
+    ListMapVmiVerifyCommon(expected_map_results2,
+                           VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Remove second of each propl/propl entries
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_list_results3 = list_of("TCP:543");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_list_results3,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    vector<string> expected_map_results3 = list_of("host_id:site.two.com");
+    ListMapVmiVerifyCommon(expected_map_results3,
+                           VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Remove all propl/propl entries
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_list_map_results4;
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_list_map_results4,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    ListMapVmiVerifyCommon(expected_list_map_results4,
+                           VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Add back 2  propl/propm entires each
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_list_results5 =
+        list_of("TCP:643")("UDP:90");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_list_results5,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    vector<string> expected_map_results5 =
+        list_of("host_id:site.three.com")("vif_type:vrouter");
+    ListMapVmiVerifyCommon(expected_map_results5,
+                           VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Update one and replace one propl/propm entry each
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vector<string> expected_list_results6 =
+        list_of("TCP:743")("UDP:400");
+    vmitable_count += vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_list_results6,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    vector<string> expected_map_results6 =
+        list_of("host_id:site.four.com")("vnic_type:normal");
+    ListMapVmiVerifyCommon(expected_map_results6,
+                           VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // No change - 2 propl/propm entires each
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    vmitable_count += is_timestamp_test?0:vmitable_step_count;
+    ListMapVmiVerifyCommon(expected_list_results6,
+                           VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
+                           vmitable_count);
+    ListMapVmiVerifyCommon(expected_map_results6,
+                           VirtualMachineInterface::BINDINGS,
+                           vmitable_count);
+
+    // Remove all config
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
+    TASK_UTIL_EXPECT_EQ(0, projecttable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
+    cout << "vmitable input count:" <<  vmitable->input_count() << endl;
+    vmitable_count += 4;
+    TASK_UTIL_EXPECT_EQ(vmitable_count, vmitable->input_count());
 }
 
 //
