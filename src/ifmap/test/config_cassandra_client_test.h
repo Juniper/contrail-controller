@@ -88,11 +88,18 @@ public:
              ++k) {
             const char *k1 = k->name.GetString();
             const char *v1;
-            if (k->value.IsArray())
+            uint64_t  ts=0;
+            if (k->value.IsArray()) {
                 v1 = k->value[contrail_rapidjson::SizeType(0)].GetString();
-            else
+                if(k->value.Size() > 1) {
+                    ts = k->value[contrail_rapidjson::SizeType(1)].GetUint64();
+                }
+            }
+            else {
                 v1 = k->value.GetString();
-            ParseObjUUIDTableEachColumnBuildContext(uuid, k1, v1, 0,
+            }
+
+            ParseObjUUIDTableEachColumnBuildContext(uuid, k1, v1, ts,
                                                     cass_data_vec, context);
         }
         db_index_[idx].erase(it);

@@ -57,6 +57,8 @@ public:
     bool StoreKeyIfUpdated(const std::string &uuid, const std::string &key,
                            const std::string &value, uint64_t timestamp,
                            ConfigCassandraParseContext &context);
+    void ListMapPropReviseUpdatelist(const string &uuid,
+                                     ConfigCassandraParseContext &context);
 
     void MarkCacheDirty(const std::string &uuid);
 
