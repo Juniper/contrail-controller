@@ -219,6 +219,19 @@ class DBInterface(object):
     #end __init__
 
     # Helper routines
+    def _get_project_obj(self, data_q):
+        project_id = str(uuid.UUID(data_q['tenant_id']))
+        project_obj = self._project_read(proj_id=project_id)
+        return project_obj
+    # end _get_project_obj
+
+    def _get_resource_id(self, data_q, create_id=False):
+        resource_id = data_q.get('id', None)
+        if resource_id == None and create_id:
+            resource_id = str(uuid.uuid4())
+        return resource_id
+    # end _get_resource_id
+
     def _request_api_server(self, url, method, data=None, headers=None):
         from eventlet.greenthread import getcurrent
         token = getcurrent().contrail_vars.token
@@ -956,8 +969,7 @@ class DBInterface(object):
     # Conversion routines between VNC and Quantum objects
     def _svc_instance_neutron_to_vnc(self, si_q, oper):
         if oper == CREATE:
-            project_id = str(uuid.UUID(si_q['tenant_id']))
-            project_obj = self._project_read(proj_id=project_id)
+            project_obj = self._get_project_obj(si_q)
             net_id = si_q['external_net']
             ext_vn = self._vnc_lib.virtual_network_read(id=net_id)
             scale_out = ServiceScaleOutType(max_instances=1, auto_scale=False)
@@ -992,8 +1004,7 @@ class DBInterface(object):
 
     def _route_table_neutron_to_vnc(self, rt_q, oper):
         if oper == CREATE:
-            project_id = str(uuid.UUID(rt_q['tenant_id']))
-            project_obj = self._project_read(proj_id=project_id)
+            project_obj = self._get_project_obj(rt_q)
             rt_vnc = RouteTable(name=rt_q['name'],
                                 parent_obj=project_obj)
 
@@ -1085,13 +1096,15 @@ class DBInterface(object):
 
     def _security_group_neutron_to_vnc(self, sg_q, oper):
         if oper == CREATE:
-            project_id = str(uuid.UUID(sg_q['tenant_id']))
-            project_obj = self._project_read(proj_id=project_id)
+            project_obj = self._get_project_obj(sg_q)
             id_perms = IdPermsType(enable=True,
                                    description=sg_q.get('description'))
             sg_vnc = SecurityGroup(name=sg_q['name'],
                                    parent_obj=project_obj,
                                    id_perms=id_perms)
+            sg_id = self._get_resource_id(sg_q, False)
+            if sg_id is not None:
+                sg_vnc.set_uuid(sg_id)
         else:
             sg_vnc = self._vnc_lib.security_group_read(id=sg_q['id'])
 
@@ -1248,7 +1261,7 @@ class DBInterface(object):
                 if not sgr_q['ethertype']:
                     sgr_q['ethertype'] = 'IPv4'
 
-            sgr_uuid = str(uuid.uuid4())
+            sgr_uuid = self._get_resource_id(sgr_q, True)
 
             # Added timestamp for tempest test case
             timestamp_at_create = datetime.datetime.utcnow().isoformat()
@@ -1273,8 +1286,7 @@ class DBInterface(object):
         except KeyError:
             external_attr = attr_not_specified
         if oper == CREATE:
-            project_id = str(uuid.UUID(network_q['tenant_id']))
-            project_obj = self._project_read(proj_id=project_id)
+            project_obj = self._get_project_obj(network_q)
             id_perms = IdPermsType(enable=True)
             net_obj = VirtualNetwork(net_name, project_obj, id_perms=id_perms)
             if external_attr == attr_not_specified:
@@ -1285,6 +1297,9 @@ class DBInterface(object):
                 net_obj.is_shared = network_q['shared']
             else:
                 net_obj.is_shared = False
+            net_id = self._get_resource_id(network_q, False)
+            if net_id:
+                net_obj.uuid = net_id
         else:  # READ/UPDATE/DELETE
             net_obj = self._virtual_network_read(net_id=network_q['id'])
             if oper == UPDATE:
@@ -1474,6 +1489,7 @@ class DBInterface(object):
         sn_name=subnet_q.get('name')
         # Added timestamp for tempest test case
         timestamp_at_create = datetime.datetime.utcnow().isoformat()
+        subnet_id = self._get_resource_id(subnet_q, True)
 
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
                                     default_gateway=default_gw,
@@ -1485,7 +1501,7 @@ class DBInterface(object):
                                     dhcp_option_list=dhcp_option_list,
                                     host_routes=host_route_list,
                                     subnet_name=sn_name,
-                                    subnet_uuid=str(uuid.uuid4()),
+                                    subnet_uuid=subnet_id,
                                     created=timestamp_at_create,
                                     last_modified=timestamp_at_create)
 
@@ -1592,8 +1608,7 @@ class DBInterface(object):
     def _ipam_neutron_to_vnc(self, ipam_q, oper):
         ipam_name = ipam_q.get('name', None)
         if oper == CREATE:
-            project_id = str(uuid.UUID(ipam_q['tenant_id']))
-            project_obj = self._project_read(proj_id=project_id)
+            project_obj = self._get_project_obj(ipam_q)
             ipam_obj = NetworkIpam(ipam_name, project_obj)
         else:  # READ/UPDATE/DELETE
             ipam_obj = self._vnc_lib.network_ipam_read(id=ipam_q['id'])
@@ -1633,8 +1648,7 @@ class DBInterface(object):
     def _policy_neutron_to_vnc(self, policy_q, oper):
         policy_name = policy_q.get('name', None)
         if oper == CREATE:
-            project_id = str(uuid.UUID(policy_q['tenant_id']))
-            project_obj = self._project_read(proj_id=project_id)
+            project_obj = self._get_project_obj(policy_q)
             policy_obj = NetworkPolicy(policy_name, project_obj)
         else:  # READ/UPDATE/DELETE
             policy_obj = self._vnc_lib.network_policy_read(id=policy_q['id'])
@@ -1677,8 +1691,7 @@ class DBInterface(object):
     def _router_neutron_to_vnc(self, router_q, oper):
         rtr_name = router_q.get('name', None)
         if oper == CREATE:
-            project_id = str(uuid.UUID(router_q['tenant_id']))
-            project_obj = self._project_read(proj_id=project_id)
+            project_obj = self._get_project_obj(router_q)
             id_perms = IdPermsType(enable=True)
             rtr_obj = LogicalRouter(rtr_name, project_obj, id_perms=id_perms)
         else:  # READ/UPDATE/DELETE
@@ -1784,8 +1797,7 @@ class DBInterface(object):
             fip_obj.uuid = fip_name
             fip_obj.parent_uuid = fip_pool_obj.uuid
 
-            proj_id = str(uuid.UUID(fip_q['tenant_id']))
-            proj_obj = self._project_read(proj_id=proj_id)
+            proj_obj = self._get_project_obj(fip_q)
             fip_obj.set_project(proj_obj)
         else:  # UPDATE
             try:
@@ -2034,9 +2046,11 @@ class DBInterface(object):
     def _port_neutron_to_vnc(self, port_q, net_obj, oper):
         if oper == CREATE:
             project_id = str(uuid.UUID(port_q['tenant_id']))
-            proj_obj = self._project_read(proj_id=project_id)
+            proj_obj = self._get_project_obj(port_q)
             id_perms = IdPermsType(enable=True)
-            port_uuid = str(uuid.uuid4())
+            port_uuid = self._get_resource_id(port_q, False)
+            if port_uuid is None:
+                port_uuid = str(uuid.uuid4())
             if port_q.get('name'):
                 port_name = port_q['name']
             else:
