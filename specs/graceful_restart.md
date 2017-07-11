@@ -181,25 +181,75 @@ based on deployment scenarios.
 * GR/LLGR configuration resides under global-system-config configuration section
 
 ## 4.2 contrail-vrouter-agent Work items
-### 4.2.1 Agent LLGR has been divided into two parts
-* On agent restart or new config server selection, end-of-config is determined.
-* Agent end-of-rib is computed on restart/channel flaps, new channel connection.
-* Route retention from each peer (in old terms headless per peer).
+### 4.2.1 Implementation overview
+Agent will have to handle following scenarios to achieve LLGR:
+* Channel flaps - On channel flaps or control-node going off (agent not able to
+  connect to CN), agent retains all the routes exported by control-node until a
+  stable channel is up after which audit is done.
+  Milestone: 4.0
+* End-of-config and End-of-rib handlers - Needed to identify stale routes and
+  config after restart of agent or new control-node selection.
+  Milestone: 4.0
+* Resource Backup - Resources allocated via agent needs to be backed up. These
+  resources are shared with contrail-control and vrouter. On restart they need
+  to be kept intact to avoid disruptions.
+  Milestone: 4.1
+* Config replay - On restart, last known good config is replayed to agent
+  without waiting for connection to control-node. This ensures that agent can
+  run in headless mode and keep system running.
+  Milestone: 4.1
+* Route retention and replay - Locally generated routes get backed up via config.
+  However control-node exported routes are to be backed up to run smoothly in
+  headless mode and use the same on restart.
+  Milestone: 4.2
+* Remove vrouter reset on agent restart
+  Milestone: 4.2
 
-### 4.2.2 End of Config 
+### 4.2.2 Channel flaps(Control-node going down)
 
+CN is used for three roles in agent.
+- For Config
+- Fabric multicast tree builder
+- Unicast route peer
+
+#### 4.2.2.1 Config
+If CN is a config peer for agent and it goes down then agent tries to select new
+CN as config peer. It may happen that there is no CN and this was the last one
+to go off. In either of the cases agent will retain config sent by the CN going
+down till a new CN becomes a config peer and end of config is determined. This
+ensures config persistence on CN restarts.
+(Milestone: 4.0)
+
+#### 4.2.2.2 Multicast builder
+TBD
+
+(Milestone: TBD)
+
+#### 4.2.2.3 Route peer
+Every CN adds a path to route in agent and is mapped to channel. Agent maintains
+two channel. When a peer goes down the path which was added by it is retained
+till a new peer picks up the role on the channel(which this peer was associated
+to). This ensures that path remains intact till stability is seen. Stability is
+determined by end-of-rib marker from control-node.Once end-of-rib marker is seen
+audit is done and all stale paths are removed.
+(Milestone: 4.0)
+
+### 4.2.3 End-of-config and End-of-rib
+(Milestone: 4.0)
+
+#### 4.2.3.1 End of config
 * Trigger for determination of EOC -
-* Restart and config channel selection
-* Channel flaps resulting in selection of new channel as config - End of
-  config is determined for new channel.
-* New channel configured in agent.conf ( SIGHUP triggering new config to be taken)
-  New config channel is selected and for same EOC is determined.
-  It may so happen same channel is present in new config and is again selected
-  as config channel then agent will do nothing as EOC processing is done or may
-  be in process for same.
- 
+ - Restart and config channel selection
+ - Channel flaps resulting in selection of new channel as config - End of
+   config is determined for new channel.
+ - New channel configured in agent.conf ( SIGHUP triggering new config to be taken)
+   New config channel is selected and for same EOC is determined.
+   It may so happen same channel is present in new config and is again selected
+   as config channel then agent will do nothing as EOC processing is done or may
+   be in process for same.
+
 * How EOC is determined
-* Agent does not have any definite way to know that all config has been received
+  Agent does not have any definite way to know that all config has been received
   from CN like EOC marker. So there is a heuristic determination of same.
   On config channel after connection establishment agent starts a timer
   (EOC timer). This timer observes if channel is silent for 30 seconds.
@@ -209,21 +259,22 @@ based on deployment scenarios.
   also checks if this work queue processing is silent for same period.
   In summary, channel should not get any message and work queue should remain
   idle to process EOC for agent.
-* Processing of EOC results in two operations:
-* Stale config cleanup timer (100 seconds) initiated. This timer cleans stale config.
-* Process of End of Rib determination
 
-* There is a fallback logic as well. In case a channel is seeing some incremental
+  Processing of EOC results in two operations:
+  - Stale config cleanup timer (100 seconds) initiated. This timer cleans stale config.
+  - Process of End of Rib determination
+
+  There is a fallback logic as well. In case a channel is seeing some incremental
   config periodically, then after a duration of 15 minutes
   (older agent stale config cleanup time) end of config is processed.
 
-
-### 4.2.3 End of RIB (originated from agent)
-* Trigger - EOC identification.
+#### 4.2.3.2 End of RIB (originated from agent)
+* Trigger
+  - EOC identification
 
 * In agent all the config received goes through dependency manager,
   config manager to create operdb entries. Once oper-db entries are active,
-  then routes are generated. Controller module of agent listens to route update 
+  then routes are generated. Controller module of agent listens to route update
   which is in-turn is published to CN. To identify EOR, agent has to wait for
   all locally generated routes to be published. Again these events in current
   state are not deterministic like dependency resolution, updates,
@@ -234,17 +285,17 @@ based on deployment scenarios.
   route published to CN. If there is no local route published for 15 seconds
   then EOR is sent on this channel.
 
-* One alternative solution is to insert a dummy config element and let it
-  percolate to oper-db. On notification of same assume all oper-db entries
-  are processed. Now start a walk across VRF and at end send EOR.
-  However this or any other enhancement will be taken up later.
+* Evaluated alternative solution
+  Insert a dummy config element and let it percolate to oper-db. On notification
+  of same assume all oper-db entries are processed. Now start a walk across VRF
+  and at end send EOR. However this or any other enhancement will be taken up later.
 
-### 4.2.4 Route retention
+##### 4.2.3.2.1 Detail description on handling of routes
+Agent connects to two CN(say CN1 and CN2). If either of this channel or
+both goes down, agent will retain routes from that channel until channel comes
+back up and EOR from CN is seen from same. So there are two things to
+observe here 1.Track channel states 2. EOR from CN
 
-* Agent connects to two CN(say CN1 and CN2). If either of this channel or
-  both goes down, agent will retain routes from that channel until channel comes
-  back up and EOR from CN is seen from same. So there are two things to
-  observe here 1.Track channel states 2. EOR from CN
 * Stale identification:
   Each channel maintains a sequence number. This is incremented whenever channel
   goes into Ready state. On going to not-ready state nothing is done.
@@ -277,6 +328,55 @@ based on deployment scenarios.
   This will be treated similar to timed-out event. New channels will take up
   slots and old channels(with paths) for those slots will be retained till EOR
   is seen from both new channels.
+
+
+#### 4.2.3.2 End of RIB (received by agent)
+This EOR is sent by control-node and is used as a trigger to clean up the stale.
+
+
+### 4.2.4 Resource Backup
+
+Agent allocates various resources which is exposed to control node or vrouter.
+For a smoother functioning on restart resource allocated should not change as it
+will cause disruption.
+For example: vrf-id - This is allocated by agent for each routing instance and
+is unique for a compute. RD is formed using compute IP and this vrf-id which is
+then exported to CN. If vrf-id changes for vrf then it will cause churn in CN.
+Hence on restart agent should use same vrf-id on every restart.
+
+Targeted resources: vrf-id, composite nh index(ecmp), interface index, qos-id,
+         bgp-service, mpls label, arp map, dhcp lease map (milestone: 4.1)
+         Flow stats collector and UVE - TBD (4.2)
+
+### 4.2.5 Config replay
+(Milestone: 4.1)
+
+Config sent by control-node is stored by agent. On restart it is replayed and
+then connection is initiated to control-node. This config stored is last known
+good config.
+
+Audit is done once a control-node is identified as a stable config peer and
+end-of-config is received from same.
+
+Last good config is stored by taking snap at regular intervals.
+
+### 4.2.6 Route retention and replay
+(Milestone: 4.2)
+
+Active paths from control-node(aka bgp peer) will be stored. All these routes
+will be replayed and audited once channel is up and end-of-rib is seen from
+control-node.
+TBD: More thoughts on how scale can be handled.
+
+### 4.2.7 Remove vrouter reset on agent restart 
+(Milestone: 4.2)
+
+Currently agent on every restart agent resets vrouter. This results in download
+of every information to vrouter from agent and all flows had to be
+re-established. Removing the reset can remove this and retain flows.
+Audit can be done once oper decides that it has identified both end-of-rib and
+end-of-config or headless state(equivalent of saying a stable oper).
+TBD: Detail design
 
 # 5. Performance and scaling impact
 ## 5.1 API and control plane
