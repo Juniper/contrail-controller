@@ -223,8 +223,39 @@ bool ConfigCassandraClient::ProcessObjUUIDTableEntry(const string &uuid_key,
         HandleObjectDelete(uuid_key);
         return false;
     }
+    // Notes on list map property processing:
+    // Seperate entires per list/map keys are stored in the ObjUuidCache.
+    // The cache map entiries contain a refreshed bit and timestamp in 
+    // addition to the values etc.
+    // A set containing list/map property names (updated_list_map_properties)
+    // and a multimap for all the  list/map key value pairs in the new
+    // configuration  is built and held in the context(temporary).
+    // These lists are used in this method to determine which need to be pushed
+    // to the backend. ConfigCass2JsonAdapter groups the key value pairs
+    // belonging to the same property so that a single DB request is sent to the
+    // backeend.
+    // Deletes are handled by FormDeleteRequestList. Note that deletes are sent
+    // only when all key/value pairs for a given list/map property are removed.
+    // Additionally the  resulting DB request only resets the property_set bit,
+    // it does not clear the entires in the backend.
+    // One case was missed in this design. When timestamps are used, u[pdates
+    // are sent only if the timestamp is different from what is no the cache.
+    // So when one or more key/value pairs of a given property is removed
+    // without any timestamp update to any of the remaining entires  the backend
+    // was not getting updated. 
+    // To fix this a new set (list_map_updt_candidates) of property names is 
+    // build and held in the context. It holds candidates that may require
+    // updates to the backend. 
+    // This set is built as columns are parsed. Once all columns are parsed,
+    // in ListMapPropReviseUpdatelist, first any property names already in 
+    // uodated_list_map_properties is removed from it.
+    // for the remaining elements in the set, we search the cache to see if
+    // there are any stale entries, if so we add the propery name to 
+    // updated_list_map_properties. updated_list_map_properties will now have
+    // the complete list of  list/map properties that need to be updated. 
 
     GetPartition(uuid_key)->ListMapPropReviseUpdatelist(uuid_key, context);
+
     // Read the context for map and list properties
     if (context.updated_list_map_properties.size()) {
         for (set<string>::iterator it =

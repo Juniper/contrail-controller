@@ -36,9 +36,9 @@ using namespace autogen;
 using boost::assign::list_of;
 
 class ConfigJsonParserTest : public ::testing::Test {
-public:
+ public:
     void ValidateFQNameCacheResponse(Sandesh *sandesh,
-            vector<string> &result, const string &next_batch) {
+            const vector<string> &result, const string &next_batch) {
         const ConfigDBUUIDToFQNameResp *resp =
             dynamic_cast<const ConfigDBUUIDToFQNameResp *>(sandesh);
         TASK_UTIL_EXPECT_TRUE(resp != NULL);
@@ -54,7 +54,7 @@ public:
     }
 
     void ValidateObjCacheResponse(Sandesh *sandesh,
-            vector<string> &result, const string &next_batch) {
+            const vector<string> &result, const string &next_batch) {
         const ConfigDBUUIDCacheResp *resp =
             dynamic_cast<const ConfigDBUUIDCacheResp *>(sandesh);
         TASK_UTIL_EXPECT_TRUE(resp != NULL);
@@ -69,7 +69,7 @@ public:
     }
 
 
-protected:
+ protected:
     ConfigJsonParserTest() :
         thread_(&evm_),
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
@@ -129,9 +129,8 @@ protected:
         task_util::WaitForIdle();
     }
 
-    void ListMapVmiVerifyCommon(vector<string> expected_results, int property_id,
-                                uint64_t expected_vmi_table_count) {
-
+    void ListMapVmiVerifyCommon(const vector<string> expected_results,
+            int property_id, uint64_t expected_vmi_table_count) {
         IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
         IFMapTable *projecttable = IFMapTable::FindTable(&db_, "project");
         IFMapTable *vmitable =
@@ -149,22 +148,24 @@ protected:
                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
         TASK_UTIL_EXPECT_EQ(1, vmitable->Size());
         TASK_UTIL_EXPECT_TRUE(
-            NodeLookup("virtual-machine-interface",
-                       "default-domain:service:c4287577-b6af-4cca-a21d-6470a08af68a") != NULL);
-        VirtualMachineInterface *vmi = (VirtualMachineInterface *)NodeLookup(
-            "virtual-machine-interface",
-            "default-domain:service:c4287577-b6af-4cca-a21d-6470a08af68a")->Find(
-            IFMapOrigin(IFMapOrigin::CASSANDRA));
+            NodeLookup(
+                "virtual-machine-interface",
+                "default-domain:service:c4287577-b6af-4cca-a21d-6470a08af68a")
+                    != NULL);
+        VirtualMachineInterface *vmi =
+            reinterpret_cast<VirtualMachineInterface *>(NodeLookup(
+                "virtual-machine-interface",
+                "default-domain:service:c4287577-b6af-4cca-a21d-6470a08af68a")->Find(
+                    IFMapOrigin(IFMapOrigin::CASSANDRA)));
         TASK_UTIL_EXPECT_TRUE(vmi != NULL);
-        switch (property_id) {
-        case VirtualMachineInterface::BINDINGS:
+        if (property_id == VirtualMachineInterface::BINDINGS) {
             if (vmi->IsPropertySet(VirtualMachineInterface::BINDINGS)) {
                 std::vector<KeyValuePair> bindings = vmi->bindings();
                 for (uint32_t i = 0; i < bindings.size(); i++) {
-                    cout << "Entry:" << i << " Key: " << bindings[i].key
-                        << " Value: " << bindings[i].value << "\n";
+                    cout << "Entry: " << i << " Key: " << bindings[i].key
+                        << " Value: " << bindings[i].value;
+                    cout << endl;
                 }
-                cout << endl;
                 TASK_UTIL_EXPECT_EQ(expected_results.size(), bindings.size());
                 for (size_t i = 0; i < bindings.size(); i++) {
                     string result_match = bindings[i].key + ':'
@@ -174,29 +175,27 @@ protected:
             } else {
                 TASK_UTIL_EXPECT_TRUE(expected_results.size() == 0);
             }
-            break;
-        case VirtualMachineInterface::FAT_FLOW_PROTOCOLS:
+       } else if (property_id == VirtualMachineInterface::FAT_FLOW_PROTOCOLS) {
             if (vmi->IsPropertySet(
-                    VirtualMachineInterface::FAT_FLOW_PROTOCOLS)) {
-                std::vector<ProtocolType> fat_flow_protocols =
-                    vmi->fat_flow_protocols();
+                 VirtualMachineInterface::FAT_FLOW_PROTOCOLS)) {
+                 std::vector<ProtocolType> fat_flow_protocols =
+                     vmi->fat_flow_protocols();
                 for (uint32_t i = 0; i < fat_flow_protocols.size(); i++) {
-                    cout << "Protocol: " << i << " Port: " <<
-                        fat_flow_protocols[i].protocol
-                        << " Value: " << fat_flow_protocols[i].port << "\n";
+                     cout << "Entry: " << i << " Protocol " <<
+                         fat_flow_protocols[i].protocol << " Port: "
+                         << fat_flow_protocols[i].port;
+                     cout << endl;
                 }
-                cout << endl;
                 TASK_UTIL_EXPECT_EQ(expected_results.size(),
                                     fat_flow_protocols.size());
                 for (size_t i = 0; i < fat_flow_protocols.size(); i++) {
-                    string result_match = fat_flow_protocols[i].protocol + ':'
-                        + bindings[i].port;
-                    TASK_UTIL_EXPECT_EQ(expected_results[i], result_match);
+                     string result_match = fat_flow_protocols[i].protocol + ':'
+                        + integerToString(fat_flow_protocols[i].port);
+                     TASK_UTIL_EXPECT_EQ(expected_results[i], result_match);
                 }
-                break;
-                default:
-                TASK_UTIL_EXPECT_TRUE(0);
             }
+        } else {
+            TASK_UTIL_EXPECT_TRUE(0);
         }
         cout << "vmitable input count:" << vmitable->input_count() << endl;
         TASK_UTIL_EXPECT_EQ(expected_vmi_table_count, vmitable->input_count());
@@ -233,40 +232,49 @@ protected:
     boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
     bool validate_done_;
 };
+
 typedef std::tr1::tuple<string, bool> TestParamsFilesAndFlag;
+
 class ConfigJsonParserTestWithParams1
     : public ConfigJsonParserTest,
       public ::testing::WithParamInterface<TestParamsFilesAndFlag> {
 };
 // Flag indicates timestamp in testdata
 INSTANTIATE_TEST_CASE_P(
-    JsonParser1,ConfigJsonParserTestWithParams1,::testing::Values(
-        std::tr1::make_tuple("controller/src/ifmap/testdata/vmi_map_prop_with_ts.json",
-                             true),
-        std::tr1::make_tuple("controller/src/ifmap/testdata/vmi_map_prop.json",
-                             false)));
-};
+    JsonParser1, ConfigJsonParserTestWithParams1, ::testing::Values(
+        std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_map_prop_with_ts.json",
+            true),
+        std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_map_prop.json",
+            false)));
 
 class ConfigJsonParserTestWithParams2
     : public ConfigJsonParserTest,
       public ::testing::WithParamInterface<TestParamsFilesAndFlag> {
+};
 
 INSTANTIATE_TEST_CASE_P(
-    JsonParser2,ConfigJsonParserTestWithParams2, ::testing::Values(
-        std::tr1::make_tuple("controller/src/ifmap/testdata/vmi_list_prop_with_ts.json",
-                             true),
-        std::tr1::make_tuple("controller/src/ifmap/testdata/vmi_list_prop.json",
-                             false)));
+    JsonParser2, ConfigJsonParserTestWithParams2, ::testing::Values(
+        std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_list_prop_with_ts.json",
+            true),
+        std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_list_prop.json",
+            false)));
 
 class ConfigJsonParserTestWithParams3
     : public ConfigJsonParserTest,
       public ::testing::WithParamInterface<TestParamsFilesAndFlag> {
+};
 
-INSTANTIATE_TEST_CASE_P(JsonParser3,ConfigJsonParserTestWithParams3, ::testing::Values(
-    std::tr1::make_tuple("controller/src/ifmap/testdata/vmi_list_map_prop_with_ts.json",
-                         true),
-    std::tr1::make_tuple("controller/src/ifmap/testdata/vmi_list_map_prop.json",
-                         false)));
+INSTANTIATE_TEST_CASE_P(JsonParser3, ConfigJsonParserTestWithParams3,
+        ::testing::Values(std::tr1::make_tuple(
+            "controller/src/ifmap/testdata/vmi_list_map_prop_with_ts.json",
+            true),
+            std::tr1::make_tuple(
+                "controller/src/ifmap/testdata/vmi_list_map_prop.json",
+                false)));
 
 TEST_F(ConfigJsonParserTest, BulkSync) {
     if (getenv("CONFIG_JSON_PARSER_TEST_DATA_FILE")) {
@@ -817,7 +825,7 @@ TEST_F(ConfigJsonParserTest, ServerParser4) {
     TASK_UTIL_EXPECT_TRUE(LinkLookup(
         NodeLookup("virtual-router", "vr1"),
         NodeLookup("virtual-machine", "vm1"),
-        "virtual-router-virtual-machine") == NULL );
+        "virtual-router-virtual-machine") == NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "vr1")->Find(
                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
@@ -1760,10 +1768,7 @@ TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_results1 =
-        list_of("0:protocol:TCP:port:80")
-        ("1:protocol:TCP:port:443")
-        ("2:protocol:UDP:port:80")
-        ("3:protocol:UDP:port:443");
+        list_of("TCP:80") ("TCP:443") ("UDP:80") ("UDP:443");
     vmitable_count = 3;
     ListMapVmiVerifyCommon(expected_results1,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1772,10 +1777,7 @@ TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_results2 =
-        list_of("0:protocol:TCP:port:90")
-        ("1:protocol:TCP:port:443")
-        ("2:protocol:UDP:port:80")
-        ("3:protocol:UDP:port:443");
+        list_of("TCP:90") ("TCP:443") ("UDP:80") ("UDP:443");
     vmitable_count += vmitable_step_count;
     ListMapVmiVerifyCommon(expected_results2,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1784,9 +1786,7 @@ TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_results3 =
-        list_of("0:protocol:TCP:port:90")
-        ("2:protocol:UDP:port:80")
-        ("3:protocol:UDP:port:443");
+        list_of("TCP:90") ("UDP:80") ("UDP:443");
     vmitable_count += vmitable_step_count;
     ListMapVmiVerifyCommon(expected_results3,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1803,8 +1803,7 @@ TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_results5 =
-        list_of("0:protocol:TCP:port:100")
-        ("1:protocol:TCP:port:543");
+        list_of("TCP:100") ("TCP:543");
     vmitable_count += vmitable_step_count;
     ListMapVmiVerifyCommon(expected_results5,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1813,8 +1812,7 @@ TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_results6 =
-        list_of("0:protocol:TCP:port:110")
-        ("2:protocol:UDP:port:80");
+        list_of("TCP:110") ("UDP:80");
     vmitable_count += vmitable_step_count;
     ListMapVmiVerifyCommon(expected_results6,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1834,7 +1832,7 @@ TEST_P(ConfigJsonParserTestWithParams2, VerifyListProperties) {
     TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
     cout << "vmitable input count:" <<  vmitable->input_count() << endl;
     vmitable_count += 3;
-    TASK_UTIL_EXPECT_EQ(vmitable_count,vmitable->input_count());
+    TASK_UTIL_EXPECT_EQ(vmitable_count, vmitable->input_count());
 }
 
 TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
@@ -1855,7 +1853,7 @@ TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_list_results1 =
-        list_of("1:protocol:TCP:port:443")("2:protocol:UDP:port:80");
+        list_of("TCP:443")("UDP:80");
     vmitable_count = 4;
     ListMapVmiVerifyCommon(expected_list_results1,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1869,7 +1867,7 @@ TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_list_results2 =
-        list_of("1:protocol:TCP:port:543")("2:protocol:UDP:port:80");
+        list_of("TCP:543")("UDP:80");
     vmitable_count += vmitable_step_count;
     ListMapVmiVerifyCommon(expected_list_results2,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1882,7 +1880,7 @@ TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
     // Remove second of each propl/propl entries
     FeedEventsJson();
     task_util::WaitForIdle();
-    vector<string> expected_list_results3 = list_of("1:protocol:TCP:port:543");
+    vector<string> expected_list_results3 = list_of("TCP:543");
     vmitable_count += vmitable_step_count;
     ListMapVmiVerifyCommon(expected_list_results3,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1906,7 +1904,7 @@ TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_list_results5 =
-        list_of("1:protocol:TCP:port:643")("2:protocol:UDP:port:90");
+        list_of("TCP:643")("UDP:90");
     vmitable_count += vmitable_step_count;
     ListMapVmiVerifyCommon(expected_list_results5,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1920,7 +1918,7 @@ TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
     FeedEventsJson();
     task_util::WaitForIdle();
     vector<string> expected_list_results6 =
-        list_of("0:protocol:TCP:port:743")("2:protocol:UDP:port:400");
+        list_of("TCP:743")("UDP:400");
     vmitable_count += vmitable_step_count;
     ListMapVmiVerifyCommon(expected_list_results6,
                            VirtualMachineInterface::FAT_FLOW_PROTOCOLS,
@@ -1948,7 +1946,7 @@ TEST_P(ConfigJsonParserTestWithParams3, VerifyListMapProperties) {
     TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
     cout << "vmitable input count:" <<  vmitable->input_count() << endl;
     vmitable_count += 4;
-    TASK_UTIL_EXPECT_EQ(vmitable_count,vmitable->input_count());
+    TASK_UTIL_EXPECT_EQ(vmitable_count, vmitable->input_count());
 }
 
 //
