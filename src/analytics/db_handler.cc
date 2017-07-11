@@ -815,8 +815,7 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
 
 void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    if (IsMessagesKeywordWritesDisabled() ||
-        IsAllWritesDisabled()) {
+    if (IsAllWritesDisabled()) {
         return;
     }
     LineParser::WordListType words;
@@ -839,6 +838,9 @@ void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp,
                 DB_LOG(ERROR, "Failed to parse text");
             udc_->MatchFilter(s, &words);
         }
+    }
+    if (IsMessagesKeywordWritesDisabled()) {
+        return;
     }
     for (LineParser::WordListType::iterator i = words.begin();
             i != words.end(); i++) {
