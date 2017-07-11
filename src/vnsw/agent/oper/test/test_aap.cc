@@ -1405,6 +1405,40 @@ TEST_F(TestAap, ServiceIpTrackingIp_4) {
 
 }
 
+TEST_F(TestAap, StaticPreference1) {
+    AddStaticPreference("intf1", 1, 150);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    EXPECT_TRUE(RouteFind("vrf1", ip, 32));
+
+    InetUnicastRouteEntry *rt =
+        RouteGet("vrf1", ip, 32);
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 150);
+    EXPECT_TRUE(path->path_preference().ecmp() == false);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == true);
+
+    AddActiveActiveInstanceIp("instance1", 1, "1.1.1.1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 150);
+    EXPECT_TRUE(path->path_preference().ecmp() == true);
+    EXPECT_TRUE(path->path_preference().wait_for_traffic() == true);
+    EXPECT_TRUE(path->path_preference().static_preference() == true);
+
+    AddStaticPreference("intf1", 1, 100);
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 100);
+
+    AddInstanceIp("instance1", 1, "1.1.1.1");
+    client->WaitForIdle();
+    EXPECT_TRUE(path->path_preference().sequence() == 0);
+    EXPECT_TRUE(path->path_preference().preference() == 100);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
