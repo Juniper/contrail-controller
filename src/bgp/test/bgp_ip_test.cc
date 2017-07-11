@@ -52,7 +52,8 @@ public:
     virtual const std::string GetStateName() const { return ""; }
     virtual void UpdateTotalPathCount(int count) const { }
     virtual int GetTotalPathCount() const { return 0; }
-    virtual void UpdatePrimaryPathCount(int count) const { }
+    virtual void UpdatePrimaryPathCount(int count,
+        Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
     virtual bool IsRegistrationRequired() const { return true; }
     virtual void MembershipRequestCallback(BgpTable *table) { }
@@ -74,10 +75,12 @@ static const char *cfg_template = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'Y\'>\
-            <address-families>\
-                <family>inet</family>\
-                <family>inet6</family>\
-            </address-families>\
+              <family-attributes>\
+                  <address-family>%s</address-family>\
+                  <prefix-limit>\
+                      <maximum>%d</maximum>\
+                  </prefix-limit>\
+              </family-attributes>\
         </session>\
     </bgp-router>\
     <bgp-router name=\'Y\'>\
@@ -86,10 +89,12 @@ static const char *cfg_template = "\
         <address>127.0.0.2</address>\
         <port>%d</port>\
         <session to=\'X\'>\
-            <address-families>\
-                <family>inet</family>\
-                <family>inet6</family>\
-            </address-families>\
+              <family-attributes>\
+                  <address-family>%s</address-family>\
+                  <prefix-limit>\
+                      <maximum>%d</maximum>\
+                  </prefix-limit>\
+              </family-attributes>\
         </session>\
     </bgp-router>\
 </config>\
@@ -141,11 +146,13 @@ protected:
         delete peer2_;
     }
 
-    void Configure() {
+    void Configure(int prefix_limit = 0) {
         char config[4096];
         snprintf(config, sizeof(config), cfg_template,
             bs_x_->session_manager()->GetPort(),
-            bs_y_->session_manager()->GetPort());
+            GetFamily() == Address::INET ? "inet" : "inet6", prefix_limit,
+            bs_y_->session_manager()->GetPort(),
+            GetFamily() == Address::INET ? "inet" : "inet6", prefix_limit);
         bs_x_->Configure(config);
         bs_y_->Configure(config);
     }
@@ -535,6 +542,74 @@ TYPED_TEST(BgpIpTest, MultiplePrefixMultipath) {
         this->VerifyPathNoExists(bs_y, master, this->BuildPrefix(idx),
             peer_yx, this->BuildNextHopAddress(peer2->ToString()));
     }
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(idx));
+        this->DeleteRoute(bs_x, peer2, master, this->BuildPrefix(idx));
+    }
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyRouteNoExists(bs_x, master, this->BuildPrefix(idx));
+        this->VerifyRouteNoExists(bs_y, master, this->BuildPrefix(idx));
+    }
+}
+
+//
+// Add multiple prefixes such that the prefix limit configured on Y for
+// the peering to X is exceeded. Verify that the peering keeps flapping.
+// Then increase the prefix limit and verify that all the expected paths
+// exist on Y. Then lower the limit again and verify that the peering
+// keeps flapping again.
+//
+TYPED_TEST(BgpIpTest, PrefixLimit) {
+    BgpServerTestPtr bs_x = this->bs_x_;
+    BgpServerTestPtr bs_y = this->bs_y_;
+    PeerMock *peer1 = this->peer1_;
+    PeerMock *peer2 = this->peer2_;
+    BgpPeer *peer_xy = this->peer_xy_;
+    BgpPeer *peer_yx = this->peer_yx_;
+    const string &master = this->master_;
+
+    this->Configure(DB::PartitionCount() * 2 - 1);
+    task_util::WaitForIdle();
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->AddRoute(bs_x, peer2, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer2->ToString()));
+        this->AddRoute(bs_x, peer1, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer1->ToString()));
+    }
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer2, this->BuildNextHopAddress(peer2->ToString()));
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer1, this->BuildNextHopAddress(peer1->ToString()));
+    }
+
+    TASK_UTIL_EXPECT_TRUE(peer_yx->flap_count() > 3);
+    TASK_UTIL_EXPECT_TRUE(peer_xy->flap_count() > 3);
+
+    this->Configure(DB::PartitionCount() * 2);
+    task_util::WaitForIdle();
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer2, this->BuildNextHopAddress(peer2->ToString()));
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer1, this->BuildNextHopAddress(peer1->ToString()));
+        this->VerifyPathExists(bs_y, master, this->BuildPrefix(idx),
+            peer_yx, this->BuildNextHopAddress(peer1->ToString()));
+        this->VerifyPathNoExists(bs_y, master, this->BuildPrefix(idx),
+            peer_yx, this->BuildNextHopAddress(peer2->ToString()));
+    }
+
+    uint64_t flap_count_yx = peer_yx->flap_count();
+    uint64_t flap_count_xy = peer_xy->flap_count();
+
+    this->Configure(DB::PartitionCount() * 2 - 1);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_TRUE(peer_yx->flap_count() > flap_count_yx + 3);
+    TASK_UTIL_EXPECT_TRUE(peer_xy->flap_count() > flap_count_xy + 3);
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
         this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(idx));

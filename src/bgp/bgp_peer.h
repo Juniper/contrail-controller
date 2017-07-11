@@ -299,9 +299,8 @@ public:
         total_path_count_ += count;
     }
     virtual int GetTotalPathCount() const { return total_path_count_; }
-    virtual void UpdatePrimaryPathCount(int count) const {
-        primary_path_count_ += count;
-    }
+    virtual void UpdatePrimaryPathCount(int count,
+        Address::Family family) const;
     virtual int GetPrimaryPathCount() const { return primary_path_count_; }
 
     void RegisterToVpnTables();
@@ -393,6 +392,7 @@ private:
     void SetInuseAuthKeyInfo(const AuthenticationKey &key, KeyType type);
     void ResetInuseAuthKeyInfo();
 
+    bool CheckPrefixLimits();
     bool ProcessFamilyAttributesConfig(const BgpNeighborConfig *config);
     void ProcessEndpointConfig(const BgpNeighborConfig *config);
 
@@ -422,6 +422,7 @@ private:
     // Global peer index
     int index_;
     TaskTrigger trigger_;
+    mutable TaskTrigger prefix_limit_trigger_;
 
     // The mutex is used to protect the session, keepalive timer and the
     // send ready state.
@@ -468,6 +469,7 @@ private:
     uint32_t local_bgp_id_;     // network order
     uint32_t peer_bgp_id_;      // network order
     FamilyAttributesList family_attributes_list_;
+    mutable std::vector<tbb::atomic<uint32_t> > family_primary_path_count_;
     std::vector<std::string> configured_families_;
     std::vector<std::string> negotiated_families_;
     BgpProto::BgpPeerType peer_type_;

@@ -54,8 +54,9 @@ void BgpRoute::InsertPath(BgpPath *path) {
     Sort(&BgpTable::PathSelection, prev_front);
 
     // Update counters.
-    if (table) table->UpdatePathCount(path, +1);
-    path->UpdatePeerRefCount(+1);
+    if (table)
+        table->UpdatePathCount(path, +1);
+    path->UpdatePeerRefCount(+1, table ? table->family() : Address::UNSPEC);
 }
 
 //
@@ -69,8 +70,9 @@ void BgpRoute::DeletePath(BgpPath *path) {
 
     // Update counters.
     BgpTable *table = static_cast<BgpTable *>(get_table());
-    if (table) table->UpdatePathCount(path, -1);
-    path->UpdatePeerRefCount(-1);
+    if (table)
+        table->UpdatePathCount(path, -1);
+    path->UpdatePeerRefCount(-1, table ? table->family() : Address::UNSPEC);
 
     delete path;
 }

@@ -48,7 +48,8 @@ public:
     virtual uint32_t bgp_identifier() const { return address_.to_ulong(); }
     virtual void UpdateTotalPathCount(int count) const { }
     virtual int GetTotalPathCount() const { return 0; }
-    virtual void UpdatePrimaryPathCount(int count) const { }
+    virtual void UpdatePrimaryPathCount(int count,
+        Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
     virtual bool IsRegistrationRequired() const { return true; }
     virtual void MembershipRequestCallback(BgpTable *table) { }

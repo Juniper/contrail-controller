@@ -67,7 +67,8 @@ public:
     virtual const std::string GetStateName() const { return ""; }
     virtual void UpdateTotalPathCount(int count) const { }
     virtual int GetTotalPathCount() const { return 0; }
-    virtual void UpdatePrimaryPathCount(int count) const { }
+    virtual void UpdatePrimaryPathCount(int count,
+        Address::Family family) const { }
     virtual int GetPrimaryPathCount() const { return 0; }
     virtual void MembershipRequestCallback(BgpTable *table) { }
     virtual bool MembershipPathCallback(DBTablePartBase *tpart,

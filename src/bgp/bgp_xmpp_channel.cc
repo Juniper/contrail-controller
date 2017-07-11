@@ -358,7 +358,8 @@ public:
     virtual int GetTotalPathCount() const {
         return total_path_count_;
     }
-    virtual void UpdatePrimaryPathCount(int count) const {
+    virtual void UpdatePrimaryPathCount(int count,
+        Address::Family family) const {
         primary_path_count_ += count;
     }
     virtual int GetPrimaryPathCount() const {
