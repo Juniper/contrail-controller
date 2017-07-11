@@ -339,17 +339,20 @@ def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
         vnc_cfg_api_server.main(args_str, server)
 # end launch_api_server_rdbms
 
-def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port):
+def launch_svc_monitor(cluster_id, test_id, api_server_ip, api_server_port, **extra_args):
     args_str = ""
-    args_str = args_str + "--cluster_id %s " % (cluster_id)
-    args_str = args_str + "--api_server_ip %s " % (api_server_ip)
-    args_str = args_str + "--api_server_port %s " % (api_server_port)
-    args_str = args_str + "--http_server_port %s " % (get_free_port())
-    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160 "
-    args_str = args_str + "--log_local "
-    args_str = args_str + "--log_file svc_monitor_%s.log " %(test_id)
-    args_str = args_str + "--trace_file svc_monitor_%s.err " %(test_id)
-    args_str = args_str + "--check_service_interval 2 "
+    args_str += "--cluster_id %s " % (cluster_id)
+    args_str += "--api_server_ip %s " % (api_server_ip)
+    args_str += "--api_server_port %s " % (api_server_port)
+    args_str += "--http_server_port %s " % (get_free_port())
+    args_str += "--cassandra_server_list 0.0.0.0:9160 "
+    args_str += "--log_local "
+    args_str += "--log_file svc_monitor_%s.log " %(test_id)
+    args_str += "--trace_file svc_monitor_%s.err " %(test_id)
+    args_str += "--check_service_interval 2 "
+
+    for name, value in extra_args.items():
+        args_str += "--{name} {value} ".format(name=name, value=value)
 
     svc_monitor.main(args_str)
 # end launch_svc_monitor
@@ -799,7 +802,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         return vn_obj
     # end create_virtual_network
 
-    def _create_service(self, vn_list, si_name, auto_policy, 
+    def _create_service(self, vn_list, si_name, auto_policy,
                         create_right_port=True, **kwargs):
         sa_set = None
         if kwargs.get('service_virtualization_type') == 'physical-device':
