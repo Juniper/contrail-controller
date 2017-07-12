@@ -19,7 +19,10 @@
  *  original service port and the index for the given port.
  */
 using namespace std;
-void BgpaasUtils::GetDerivedBgpaasServicePortRange(
+
+const int BGPaaSUtils::kMaxSessions = 4;
+
+void BGPaaSUtils::GetDerivedBgpaasServicePortRange(
                         const uint16_t port_range_start,
                         const uint16_t port_range_end,
                         const uint32_t max_session,
@@ -36,13 +39,17 @@ void BgpaasUtils::GetDerivedBgpaasServicePortRange(
     }
 }
 
-BgpaasUtils::BgpAsServicePortIndexPair BgpaasUtils::DecodeBgpaasServicePort(
+BGPaaSUtils::BgpAsServicePortIndexPair BGPaaSUtils::DecodeBgpaasServicePort(
                                             const uint32_t sport,
-                                            const uint32_t max_session,
                                             const uint16_t port_range_start,
-                                            const uint16_t port_range_end) {
+                                            const uint16_t port_range_end,
+                                            const uint32_t max_session) {
     size_t   index = 0;
     uint32_t original_sport;
+
+    if (!port_range_start || !port_range_end) {
+        return std::make_pair(sport, index);
+    }
 
     if ((sport >= port_range_start) &&
         (sport <= port_range_end)) {
@@ -64,12 +71,12 @@ BgpaasUtils::BgpAsServicePortIndexPair BgpaasUtils::DecodeBgpaasServicePort(
     return std::make_pair(original_sport, index);
 }
 
-uint32_t BgpaasUtils::EncodeBgpaasServicePort(const uint32_t sport,
+uint32_t BGPaaSUtils::EncodeBgpaasServicePort(const uint32_t sport,
                                             const size_t   index,
-                                            const uint32_t max_session,
                                             const uint16_t port_range_start,
-                                            const uint16_t port_range_end) {
-    if (!index) {
+                                            const uint16_t port_range_end,
+                                            const uint32_t max_session) {
+    if (!index || !port_range_start || !port_range_end) {
         return sport;
     }
 
