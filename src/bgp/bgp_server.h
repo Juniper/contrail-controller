@@ -271,6 +271,7 @@ private:
 
     void RoutingInstanceMgrDeletionComplete(RoutingInstanceMgr *mgr);
     void FillPeerStats(const BgpPeer *peer) const;
+    void ClearBgpaaSPeers();
 
     // base config variables
     tbb::spin_rw_mutex rw_mutex_;

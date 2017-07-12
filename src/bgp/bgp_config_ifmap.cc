@@ -1849,6 +1849,16 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
         changed |= true;
     }
 
+    if (data_.bgpaas_port_start() != system->bgpaas_parameters().port_start) {
+        data_.set_bgpaas_port_start(system->bgpaas_parameters().port_start);
+        changed |= true;
+    }
+
+    if (data_.bgpaas_port_end() != system->bgpaas_parameters().port_end) {
+        data_.set_bgpaas_port_end(system->bgpaas_parameters().port_end);
+        changed |= true;
+    }
+
     return changed;
 }
 
