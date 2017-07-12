@@ -1037,15 +1037,14 @@ struct Established : sc::state<Established, StateMachine> {
         state_machine->CancelHoldTimer();
     }
 
-    // A new TCP session request should cause the previous BGP session
-    // to be closed in case GR Helper mode is active.
+    // A new TCP session request should cause the previous BGP session to be
+    // closed in case GR Helper mode is active or if peer router type is BGPaaS.
     sc::result react(const EvTcpPassiveOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpSession *session = event.session;
+        BgpPeer *peer = state_machine->peer();
         state_machine->DeleteSession(session);
-
-        // If GR Helper mode is enabled, trigger graceful closure.
-        if (state_machine->IsCloseGraceful())
+        if (state_machine->IsCloseGraceful() || peer->IsRouterTypeBGPaaS())
             state_machine->Shutdown(BgpProto::Notification::Unknown);
         return discard_event();
     }
