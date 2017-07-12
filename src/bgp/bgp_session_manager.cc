@@ -4,6 +4,7 @@
 
 #include "bgp/bgp_session_manager.h"
 
+#include "base/bgp_as_service_utils.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
@@ -109,8 +110,10 @@ BgpPeer *BgpSessionManager::FindPeer(Endpoint remote) {
         peer = instance->peer_manager()->PeerLookup(remote);
     }
     if (!peer) {
-        peer = server_->FindPeer(
-            TcpSession::Endpoint(Ip4Address(), remote.port()));
+        uint16_t port = BGPaaSUtils::DecodeBgpaasServicePort(remote.port(),
+            server_->global_config()->bgpaas_port_start(),
+            server_->global_config()->bgpaas_port_end()).first;
+        peer = server_->FindPeer(TcpSession::Endpoint(Ip4Address(), port));
     }
     return peer;
 }

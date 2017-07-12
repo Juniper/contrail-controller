@@ -118,7 +118,7 @@ private:
 class StateMachineTest : public StateMachine {
 public:
     explicit StateMachineTest(BgpPeer *peer)
-        : StateMachine(peer), gr_close_(false),
+        : StateMachine(peer), gr_close_(false), bgpaas_client_(false),
           skip_bgp_notification_msg_(false) {
     }
     virtual ~StateMachineTest() { }
@@ -202,11 +202,19 @@ public:
     }
     void SetCloseGraceful(bool gr_close) { gr_close_ = gr_close; }
 
+    bool IsRouterTypeBGPaaS() const {
+        return bgpaas_client_ ?: StateMachine::IsRouterTypeBGPaaS();
+    }
+    void SetRouterTypeBGPaaS(bool bgpaas_client) {
+        bgpaas_client_ = bgpaas_client;
+    }
+
 private:
     static int hold_time_msecs_;
     static int keepalive_time_msecs_;
     static TcpSession::Event skip_tcp_event_;
     bool gr_close_;
+    bool bgpaas_client_;
     bool skip_bgp_notification_msg_;
 };
 

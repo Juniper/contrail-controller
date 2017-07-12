@@ -655,6 +655,19 @@ bool BgpConfigParser::ParseGlobalSystemConfig(const xml_node &node,
                                        "graceful-restart-parameters", requests);
             }
         }
+        if (strcmp(child.name(), "bgpaas-parameters") == 0) {
+            auto_ptr<autogen::BGPaaServiceParametersType> bgpaas_config(
+                    new autogen::BGPaaServiceParametersType());
+            assert(bgpaas_config->XmlParse(child));
+
+            if (add_change) {
+                MapObjectSetProperty("global-system-config", "",
+                    "bgpaas-parameters", bgpaas_config.release(), requests);
+            } else {
+                MapObjectClearProperty("global-system-config", "",
+                                       "bgpaas-parameters", requests);
+            }
+        }
         if (strcmp(child.name(), "bgp-always-compare-med") == 0) {
             auto_ptr<autogen::GlobalSystemConfig::OolProperty> property(
                 new autogen::GlobalSystemConfig::OolProperty);

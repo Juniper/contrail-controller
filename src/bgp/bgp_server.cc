@@ -61,35 +61,71 @@ public:
         server->config_manager()->RegisterObservers(obs);
     }
 
-    void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
+    void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *new_config,
             BgpConfigManager::EventType event) {
-        // Clear peers only if GR is or was enabled.
-        bool clear_peers = server_->global_config()->gr_enable() ||
-            system->gr_enable();
+        bool clear_peers = false;
 
-        server_->global_config()->set_gr_enable(system->gr_enable());
-        server_->global_config()->set_gr_time(system->gr_time());
-        server_->global_config()->set_llgr_time(system->llgr_time());
-        server_->global_config()->set_end_of_rib_timeout(
-                system->end_of_rib_timeout());
-        server_->global_config()->set_gr_bgp_helper(
-                system->gr_bgp_helper());
-
-        // Clear peers if there's a change in always-compare-med knob.
-        if (server_->global_config()->always_compare_med() !=
-            system->always_compare_med()) {
-            server_->global_config()->set_always_compare_med(
-                system->always_compare_med());
+        if (server_->global_config()->gr_enable() != new_config->gr_enable()) {
+            server_->global_config()->set_gr_enable(new_config->gr_enable());
+            clear_peers = true;
+        }
+        if (server_->global_config()->gr_time() != new_config->gr_time()) {
+            server_->global_config()->set_gr_time(new_config->gr_time());
+            clear_peers = true;
+        }
+        if (server_->global_config()->llgr_time() != new_config->llgr_time()) {
+            server_->global_config()->set_llgr_time(new_config->llgr_time());
+            clear_peers = true;
+        }
+        if (server_->global_config()->end_of_rib_timeout() !=
+                new_config->end_of_rib_timeout()) {
+            server_->global_config()->set_end_of_rib_timeout(
+                new_config->end_of_rib_timeout());
+            clear_peers = true;
+        }
+        if (server_->global_config()->gr_bgp_helper() !=
+                new_config->gr_bgp_helper()) {
+            server_->global_config()->set_gr_bgp_helper(
+                new_config->gr_bgp_helper());
             clear_peers = true;
         }
 
-        if (!clear_peers)
-            return;
-        RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
-        RoutingInstance *rti = ri_mgr->GetDefaultRoutingInstance();
-        assert(rti);
-        PeerManager *peer_manager = rti->LocatePeerManager();
-        peer_manager->ClearAllPeers();
+        // Clear peers if there's a change in always-compare-med knob.
+        if (server_->global_config()->always_compare_med() !=
+            new_config->always_compare_med()) {
+            server_->global_config()->set_always_compare_med(
+                new_config->always_compare_med());
+            clear_peers = true;
+        }
+
+        bool clear_bgpaas_peers = false;
+
+        // Clear bgpaas peers if there's a change in bgpaas-port-start.
+        if (server_->global_config()->bgpaas_port_start() !=
+                new_config->bgpaas_port_start()) {
+            server_->global_config()->set_bgpaas_port_start(
+                new_config->bgpaas_port_start());
+            clear_bgpaas_peers = true;
+        }
+
+        // Clear bgpaas peers if there's a change in bgpaas-port-end.
+        if (server_->global_config()->bgpaas_port_end() !=
+                new_config->bgpaas_port_end()) {
+            server_->global_config()->set_bgpaas_port_end(
+                new_config->bgpaas_port_end());
+            clear_bgpaas_peers = true;
+        }
+
+        if (clear_peers) {
+            RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
+            RoutingInstance *rti = ri_mgr->GetDefaultRoutingInstance();
+            assert(rti);
+            PeerManager *peer_manager = rti->LocatePeerManager();
+            peer_manager->ClearAllPeers();
+        }
+
+        if (clear_peers || clear_bgpaas_peers)
+            server_->ClearBgpaaSPeers();
     }
 
     void ProcessProtocolConfig(const BgpProtocolConfig *protocol_config,
@@ -443,7 +479,7 @@ bool BgpServer::HasSelfConfiguration() const {
 int BgpServer::RegisterPeer(BgpPeer *peer) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    if (peer->router_type() == "bgpaas-client") {
+    if (peer->IsRouterTypeBGPaaS()) {
         bgpaas_count_++;
     } else {
         bgp_count_++;
@@ -467,7 +503,7 @@ int BgpServer::RegisterPeer(BgpPeer *peer) {
 void BgpServer::UnregisterPeer(BgpPeer *peer) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    if (peer->router_type() == "bgpaas-client") {
+    if (peer->IsRouterTypeBGPaaS()) {
         assert(bgpaas_count_);
         bgpaas_count_--;
     } else {
@@ -515,6 +551,12 @@ void BgpServer::RemovePeer(TcpSession::Endpoint remote, BgpPeer *peer) {
             break;
         }
         ++loc;
+    }
+}
+
+void BgpServer::ClearBgpaaSPeers() {
+    BOOST_FOREACH(EndpointPeerList::value_type &i, endpoint_peer_list_) {
+        i.second->Clear(BgpProto::Notification::OtherConfigChange);
     }
 }
 
