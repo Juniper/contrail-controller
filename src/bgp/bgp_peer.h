@@ -336,6 +336,7 @@ public:
     PeerCloseManager *close_manager() { return close_manager_.get(); }
     virtual bool IsServerStartingUp() const;
     bool IsCloseGraceful() const;
+    bool IsRouterTypeBGPaaS() const { return router_type_ == "bgpaas-client"; }
 
 protected:
     virtual void SendEndOfRIBActual(Address::Family family);

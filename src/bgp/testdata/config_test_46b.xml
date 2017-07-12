@@ -2,6 +2,10 @@
 <config>
     <global-system-config>
         <bgp-always-compare-med>true</bgp-always-compare-med>
+        <bgpaas-parameters>
+            <port-start>10000</port-start>
+            <port-end>20000</port-end>
+        </bgpaas-parameters>
     </global-system-config>
     <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
       <bgp-router name='local'>
