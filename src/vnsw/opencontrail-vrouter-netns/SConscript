@@ -38,6 +38,8 @@ cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist', sources, cd_cmd + 'python setup.py sdist')
 env.Alias('controller/src/vnsw/opencontrail_vrouter_netns:sdist', sdist_gen)
 
+env.Alias('install', env.InstallAs(env['INSTALL_CONF'] + '/contrail-lbaas-auth.conf',
+            'opencontrail_vrouter_netns/contrail-lbaas-auth.conf'))
 test_sources = sources
 packages = [
     '#build/noarch/contrail-vrouter-api/dist/contrail-vrouter-api-1.0.tar.gz',
