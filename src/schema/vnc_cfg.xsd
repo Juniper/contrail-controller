@@ -972,6 +972,25 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              'global-system-config', 'bgp-router', ['ref'], 'required', 'R',
              'List of references to all bgp routers in systems.') -->
 
+<xsd:complexType name="BGPaaServiceParametersType">
+    <xsd:element name="port-start" type="xsd:integer" default="50000"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            port-start is the start of port range for bgp as service object.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name="port-end" type="xsd:integer" default="50512"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            port-end is the end of port range for bgp as service object.
+        </xsd:documentation>
+    </xsd:annotation>
+</xsd:complexType>
+<xsd:element name="bgpaas-parameters" type="BGPaaServiceParametersType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgpaas-parameters', 'global-system-config', 'optional',
+              'CRUD', 'BGP As A Service Parameters configuration') -->
+
 <xsd:element name="security-logging-object" type="ifmap:IdentityType"/>
 
 <xsd:complexType name="SecurityLoggingObjectRuleEntryType">
@@ -1112,43 +1131,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('enable-security-logging', 'global-vrouter-config', 'optional', 'CRUD',
               'Enable or disable security-logging in the system') -->
-
-<xsd:complexType name="BgpAsServiceGlobalConfig">
-    <xsd:element name="extended-port-start" type="xsd:integer"/>
-    <xsd:annotation>
-        <xsd:documentation>
-            When BGP as service object is shared across multiple VMI, more ports are
-            needed to identify the session. However bgp router config object has
-            only one port. To handle this there is an extended port range created.
-            Other than original port present in bgp config object, new ports
-            for same config are derived(using original port) from the extended
-            range.
-            extended-port-start is the start of that range.
-        </xsd:documentation>
-    </xsd:annotation>
-    <xsd:element name="extended-port-end" type="xsd:integer"/>
-    <xsd:annotation>
-        <xsd:documentation>
-            When BGP as service object is shared across multiple VMI, more ports are
-            needed to identify the session. However bgp router config object has
-            only one port. To handle this there is an extended port range created.
-            Other than original port present in bgp config object, new ports
-            for same config are derived(using original port) from the extended
-            range.
-            extended-port-end is the end of that range.
-        </xsd:documentation>
-    </xsd:annotation>
-    <xsd:element name="max-shared" type="xsd:integer"/>
-    <xsd:annotation>
-        <xsd:documentation>
-            Maximum number of shared VMI supported on single bgp-as-service object.
-        </xsd:documentation>
-    </xsd:annotation>
-</xsd:complexType>
-<xsd:element name="bgp-as-service-global-config" type="BgpAsServiceGlobalConfig"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Property('bgp-as-service-global-config', 'global-vrouter-config', 'optional', 'CRUD',
-              'Bgp as service global configuration parameters') -->
 
 <xsd:element name="global-qos-config" type="ifmap:IdentityType"/>
 <!--Identifier "global-qos-config" is used to hang global QoS properties
