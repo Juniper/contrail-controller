@@ -182,6 +182,7 @@ public:
                   SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG);
     bool HoldTimerExpired();
     virtual bool IsCloseGraceful() const;
+    virtual bool IsRouterTypeBGPaaS() const;
 
 protected:
     virtual void OnNotificationMessage(BgpSession *session,
