@@ -268,12 +268,17 @@ def get_listeners(lb):
                     entry_found = True
                     break
             if entry_found == True:
+                sni_containers = listener_entry['sni_containers']
+                sni_containers.extend(ll.params['sni_containers'])
                 pools = listener_entry['pools']
                 pools.append(ll.loadbalancer_pool)
             else:
                 listener = {}
                 listener['port'] = port
                 listener['obj'] = ll
+                listener['sni_containers'] = []
+                if 'sni_containers' in ll.params:
+                    listener['sni_containers'].extend(ll.params['sni_containers'])
                 pools = []
                 pools.append(ll.loadbalancer_pool)
                 listener['pools'] = pools
@@ -287,6 +292,9 @@ def get_listeners(lb):
                 continue
             listener = {}
             listener['obj'] = ll
+            listener['sni_containers'] = []
+            if 'sni_containers' in ll.params:
+                listener['sni_containers'].extend(ll.params['sni_containers'])
             pools = []
             pools.append(ll.loadbalancer_pool)
             listener['pools'] = pools
@@ -302,14 +310,15 @@ def set_v2_frontend_backend(lb, custom_attr_dict, custom_attrs):
     listeners = get_listeners(lb)
     for listener in listeners:
         ll = listener['obj']
+        sni_containers = listener['sni_containers']
         ssl = 'ssl'
         tls_sni_presence = False
         if ll.params['protocol'] == PROTO_TERMINATED_HTTPS:
             if ll.params['default_tls_container']:
-                ssl += ' crt %s' % ll.params['default_tls_container']
+                ssl += ' crt__%s' % ll.params['default_tls_container']
                 tls_sni_presence = True
-            for sni_container in ll.params['sni_containers']:
-                ssl += ' crt %s' % sni_container
+            for sni_container in sni_containers:
+                ssl += ' crt__%s' % sni_container
                 tls_sni_presence = True
         if (tls_sni_presence == False):
             ssl = ''
