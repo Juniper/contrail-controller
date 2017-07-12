@@ -352,6 +352,15 @@ class VncIngress(VncCommon):
             backend = {}
             backend['listener_id'] = ll_id
             ll = LoadbalancerListenerKM.get(ll_id)
+            backend['listener'] = {}
+            backend['listener']['protocol'] = ll.params['protocol']
+            if backend['listener']['protocol'] == 'TERMINTED_HTTPS':
+                if ll.params['default_tls_container']:
+                    backend['listener']['default_tls_container'] = \
+                        ll.params['default_tls_container']
+                if ll.params['sni_containers']:
+                    backend['listener']['sni_containers'] = \
+                        ll.params['sni_containers']
             pool_id = ll.loadbalancer_pool
             if pool_id:
                 pool = LoadbalancerPoolKM.get(pool_id)
@@ -375,6 +384,8 @@ class VncIngress(VncCommon):
                     key = kvp['key']
                     value = kvp['value']
                     backend['annotations'][key] = value
+                backend['pool'] = {}
+                backend['pool']['protocol'] = pool.params['protocol']
                 backend['member'] = {}
                 if len(pool.members) == 0:
                     continue
@@ -405,7 +416,23 @@ class VncIngress(VncCommon):
             backend_list.append(backend)
         return backend_list
 
-    def _get_new_backend_list(self, spec):
+    def _get_tls_dict(self, spec, ns_name):
+        tls_dict = {}
+        if 'tls' in spec:
+            tls_list = spec['tls']
+            for tls in tls_list:
+                if not 'secretName' in tls:
+                    continue
+                if 'hosts' in tls:
+                    hosts = tls['hosts']
+                else:
+                    hosts = ['ALL']
+                for host in hosts:
+                    tls_dict[host] = ns_name + '__' + tls['secretName']
+        return tls_dict
+
+    def _get_new_backend_list(self, spec, ns_name):
+        tls_dict = self._get_tls_dict(spec, ns_name)
         backend_list = []
         rules = []
         if 'rules' in spec:
@@ -417,10 +444,17 @@ class VncIngress(VncCommon):
                 for path in paths or []:
                     backend = {}
                     backend['annotations'] = {}
+                    backend['listener'] = {}
+                    backend['pool'] = {}
                     backend['member'] = {}
-                    backend['protocol'] = 'HTTP'
+                    backend['listener']['protocol'] = 'HTTP'
+                    backend['pool']['protocol'] = 'HTTP'
+                    secretname = ""
                     if 'host' in rule:
-                        backend['annotations']['host'] = rule['host']
+                        host = rule['host']
+                        backend['annotations']['host'] = host
+                        if host in tls_dict.keys():
+                            secretname = tls_dict[host]
                     if 'path' in path:
                         backend['annotations']['path'] = path['path']
                     service = path['backend']
@@ -428,16 +462,29 @@ class VncIngress(VncCommon):
                     backend['member']['serviceName'] = service['serviceName']
                     backend['member']['servicePort'] = service['servicePort']
                     backend_list.append(backend)
+                    if secretname:
+                        backend_https = copy.deepcopy(backend)
+                        backend_https['listener']['protocol'] = 'TERMINATED_HTTPS'
+                        backend_https['listener']['sni_containers'] = [secretname]
+                        backend_list.append(backend_https)
         if 'backend' in spec:
             service = spec['backend']
             backend = {}
             backend['annotations'] = {}
+            backend['listener'] = {}
+            backend['pool'] = {}
             backend['member'] = {}
-            backend['protocol'] = 'HTTP'
+            backend['listener']['protocol'] = 'HTTP'
+            backend['pool']['protocol'] = 'HTTP'
             backend['annotations']['type'] = 'default'
             backend['member']['serviceName'] = service['serviceName']
             backend['member']['servicePort'] = service['servicePort']
             backend_list.append(backend)
+            if 'ALL' in tls_dict.keys():
+                backend_https = copy.deepcopy(backend)
+                backend_https['listener']['protocol'] = 'TERMINATED_HTTPS'
+                backend_https['listener']['default_tls_container'] = tls_dict['ALL']
+                backend_list.append(backend_https)
         return backend_list
 
     def _create_member(self, ns_name, backend_member, pool):
@@ -543,16 +590,24 @@ class VncIngress(VncCommon):
         return ll
 
     def _create_listener_pool_member(self, ns_name, lb, backend):
-        port = {}
-        lb_algorithm = "ROUND_ROBIN"
-        port['protocol'] = 'HTTP'
-        port['port'] = '80'
-        ll = self._create_listener(ns_name, lb, port)
+        pool_port = {}
+        listener_port = {}
+        listener_port['port'] = '80'
+        listener_port['protocol'] = backend['listener']['protocol']
+        if listener_port['protocol'] == 'TERMINATED_HTTPS':
+            listener_port['port'] = '443'
+            if 'default_tls_container' in backend['listener']:
+                listener_port['default_tls_container'] = backend['listener']['default_tls_container']
+            if 'sni_containers' in backend['listener']:
+                listener_port['sni_containers'] = backend['listener']['sni_containers']
+        ll = self._create_listener(ns_name, lb, listener_port)
         annotations = {}
         for key in backend['annotations']:
             annotations[key] = backend['annotations'][key]
-        port['protocol'] = backend['protocol']
-        pool = self._create_pool(ns_name, ll, port, lb_algorithm, annotations)
+        lb_algorithm = "ROUND_ROBIN"
+        pool_port['port'] = '80'
+        pool_port['protocol'] = backend['pool']['protocol']
+        pool = self._create_pool(ns_name, ll, pool_port, lb_algorithm, annotations)
         backend_member = backend['member']
         member = self._create_member(ns_name, backend_member, pool)
         if member is None:
@@ -572,7 +627,7 @@ class VncIngress(VncCommon):
             if not ingress or not lb:
                 continue
             if oper == 'ADD':
-                new_backend_list = self._get_new_backend_list(ingress.spec)
+                new_backend_list = self._get_new_backend_list(ingress.spec, ns_name)
                 for new_backend in new_backend_list[:] or []:
                     if new_backend['member']['serviceName'] == service_name:
                         self._create_listener_pool_member(
@@ -607,7 +662,7 @@ class VncIngress(VncCommon):
         self._clear_ingress_cache_uuid(self._ingress_label_cache, uid)
 
         spec = event['object']['spec']
-        new_backend_list = self._get_new_backend_list(spec)
+        new_backend_list = self._get_new_backend_list(spec, ns_name)
         old_backend_list = self._get_old_backend_list(lb)
 
         # find the unchanged backends
@@ -616,6 +671,8 @@ class VncIngress(VncCommon):
                 ns_name, new_backend['member']['serviceName'], uid)
             for old_backend in old_backend_list[:] or []:
                 if new_backend['annotations'] == old_backend['annotations'] \
+                    and new_backend['listener'] == old_backend['listener'] \
+                    and new_backend['pool'] == old_backend['pool'] \
                     and new_backend['member'] == old_backend['member']:
                     old_backend_list.remove(old_backend)
                     new_backend_list.remove(new_backend)
@@ -627,7 +684,9 @@ class VncIngress(VncCommon):
         backend_update_list = []
         for new_backend in new_backend_list[:] or []:
             for old_backend in old_backend_list[:] or []:
-                if new_backend['annotations'] == old_backend['annotations']:
+                if new_backend['annotations'] == old_backend['annotations'] \
+                    and new_backend['listener'] == old_backend['listener'] \
+                    and new_backend['pool'] == old_backend['pool']:
                     backend = old_backend
                     backend['member']['member_id'] = \
                                      old_backend['member_id']
