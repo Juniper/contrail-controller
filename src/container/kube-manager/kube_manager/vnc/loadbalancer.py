@@ -214,6 +214,9 @@ class ServiceLbListenerManager(VncCommon):
 
     def create(self, lb_obj, proj_obj, port):
 
+        if not port:
+            self.logger.error("Port is Missing for LB %s" %lb_obj.name)
+            return None
         ll_uuid = str(uuid.uuid4())
         name = lb_obj.name + "-" + port['protocol'] + "-" + str(port['port']) + "-" + ll_uuid
 
@@ -226,18 +229,18 @@ class ServiceLbListenerManager(VncCommon):
             ll_obj.set_loadbalancer(lb_obj)
 
         props = LoadbalancerListenerType()
-        if port and port['protocol']:
-            if port['protocol'] == "TCP":
-                props.set_protocol("TCP")
-            elif port['protocol'] == "HTTP":
-                props.set_protocol("HTTP")
-            elif port['protocol'] == "HTTPS":
-                props.set_protocol("HTTPS")
-            else:
-                props.set_protocol("UDP")
-
-        if port and port['port']:
+        default_protocol = 'UDP'
+        supported_protocols = ['TCP', 'HTTP', 'HTTPS', 'TERMINATED_HTTPS']
+        props.set_protocol(default_protocol)
+        if 'protocol' in port:
+            if port['protocol'] in supported_protocols:
+                props.set_protocol(port['protocol'])
+        if 'port' in port:
             props.set_protocol_port(port['port'])
+        if 'default_tls_container' in port:
+            setattr(props, 'default_tls_container', port['default_tls_container'])
+        if 'sni_containers' in port:
+            setattr(props, 'sni_containers', port['sni_containers'])
 
         ll_obj.set_loadbalancer_listener_properties(props)
         if 'name' in port:

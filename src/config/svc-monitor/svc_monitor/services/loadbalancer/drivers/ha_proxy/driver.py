@@ -464,10 +464,10 @@ class OpencontrailLoadbalancerDriver(
         self.update_vmi_fat_flows(lb.virtual_machine_interface,
             self.get_port_list_v2(lb))
         conf = haproxy_config.get_config_v2(lb)
-        self.set_haproxy_config(lb.service_instance, 'v2', lb.uuid, conf)
+        self.set_haproxy_config(lb.service_instance, 'v2', lb.uuid, conf, lb.device_owner)
         return conf
 
-    def set_haproxy_config(self, si_id, lb_version, lb_uuid, conf):
+    def set_haproxy_config(self, si_id, lb_version, lb_uuid, conf, device_owner=None):
         si = ServiceInstanceSM.get(si_id)
         if not si:
             return
@@ -486,6 +486,9 @@ class OpencontrailLoadbalancerDriver(
         si_obj.add_service_instance_bindings(kvp)
         kvp = KeyValuePair('haproxy_config', conf)
         si_obj.add_service_instance_bindings(kvp)
+        if device_owner and device_owner == 'K8S:LOADBALANCER':
+            kvp = KeyValuePair('orchestrator', 'kubernetes')
+            si_obj.add_service_instance_bindings(kvp)
         try:
             self._api.service_instance_update(si_obj)
         except NoIdError:
