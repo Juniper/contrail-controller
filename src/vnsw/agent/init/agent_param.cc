@@ -23,6 +23,7 @@
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
 
+#include <base/bgp_as_service_utils.h>
 #include <base/logging.h>
 #include <base/misc_utils.h>
 #include <base/options_util.h>
@@ -1257,7 +1258,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         subnet_hosts_resolvable_(true),
         bgp_as_a_service_port_range_("50000-50512"),
         services_queue_limit_(1024),
-        bgpaas_max_shared_sessions_(4),
+        bgpaas_max_shared_sessions_(BGPaaSUtils::kMaxSessions),
         sandesh_config_(),
         restart_backup_enable_(false),
         restart_backup_idle_timeout_(CFG_BACKUP_IDLE_TIMEOUT),
