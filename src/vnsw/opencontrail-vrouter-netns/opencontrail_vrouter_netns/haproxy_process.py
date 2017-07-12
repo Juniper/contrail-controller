@@ -5,10 +5,7 @@ import shlex
 import logging
 import itertools
 
-try:
-    import cert_mgr.barbican_cert_manager as barbican_cert_mgr
-except ImportError:
-    pass
+from cert_mgr.cert_manager import CertManager
 
 LBAAS_DIR = "/var/lib/contrail/loadbalancer"
 HAPROXY_DIR = LBAAS_DIR + "/" + "haproxy"
@@ -61,23 +58,13 @@ def get_haproxy_config_file(cfg_file, dir_name):
     content = f.read()
     f.close()
 
-    lb_ssl_cert_path = ''
-    lbaas_auth_conf = '/etc/contrail/contrail-lbaas-auth.conf'
-    kvps = content.split(':::::')
-    for kvp in kvps or []:
-        KeyValue = kvp.split('::::')
-        if (KeyValue[0] == 'lb_uuid'):
-            lb_uuid = KeyValue[1]
-        elif (KeyValue[0] == 'lb_version'):
-            lb_version = KeyValue[1]
-        elif (KeyValue[0] == 'haproxy_config'):
-            haproxy_config = KeyValue[1]
-        elif (KeyValue[0] == 'lb_ssl_cert_path'):
-            lb_ssl_cert_path = KeyValue[1]
-        elif (KeyValue[0] == 'lbaas_auth_conf'):
-            lbaas_auth_conf = KeyValue[1]
+    lb_dict = dict((k, v) for k, v in (item.split('::::') for item in content.split(':::::')))
+    lb_version = lb_dict['lb_version']
+    lb_uuid = lb_dict['lb_uuid']
+    haproxy_config = lb_dict['haproxy_config']
     if 'ssl crt' in haproxy_config:
         if lb_version == 'v1':
+            lb_ssl_cert_path = lb_dict['lb_ssl_cert_path']
             if not (os.path.isfile(lb_ssl_cert_path)):
                 msg = "%s is missing for "\
                       "Loadbalancer-ID %s" %(lb_ssl_cert_path, lb_uuid)
@@ -86,13 +73,21 @@ def get_haproxy_config_file(cfg_file, dir_name):
             haproxy_config = update_ssl_config(haproxy_config,
                              lb_ssl_cert_path, dir_name);
         else:
+            orchestrator = 'openstack'
+            provider = 'barbican'
+            if 'lbaas_auth_conf' in lb_dict:
+                lbaas_auth_conf = lb_dict['lbaas_auth_conf']
+            else:
+                lbaas_auth_conf = '/etc/contrail/contrail-lbaas-auth.conf'
+            if 'orchestrator' in lb_dict:
+                orchestrator = lb_dict['orchestrator']
             if not (os.path.isfile(lbaas_auth_conf)):
                 msg = "%s is missing for "\
                       "Loadbalancer-ID %s" %(lbaas_auth_conf, lb_uuid)
                 logging.error(msg)
                 return None
-            haproxy_config = barbican_cert_mgr.update_ssl_config(
-                             haproxy_config, lbaas_auth_conf, dir_name)
+            haproxy_config = CertManager.update_ssl_config(orchestrator,
+                provider, haproxy_config, lbaas_auth_conf, dir_name)
         if haproxy_config is None:
             return None
 
