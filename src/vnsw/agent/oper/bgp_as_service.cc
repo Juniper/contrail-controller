@@ -267,10 +267,10 @@ bool BgpAsAService::IsBgpService(const VmInterface *vm_intf,
 void BgpAsAService::FreeBgpVmiServicePortIndex(const uint32_t sport) {
     const std::vector<uint16_t> &ports =
                 agent_->params()->bgp_as_a_service_port_range_value();
-    BgpaasUtils::BgpAsServicePortIndexPair portinfo =
-                    BgpaasUtils::DecodeBgpaasServicePort(sport,
-                        agent_->params()->bgpaas_max_shared_sessions(),
-                        ports[0], ports[1]);
+    BGPaaSUtils::BgpAsServicePortIndexPair portinfo =
+                    BGPaaSUtils::DecodeBgpaasServicePort(sport,
+                        ports[0], ports[1],
+                        agent_->params()->bgpaas_max_shared_sessions());
 
     BgpAsAServicePortMapIterator port_map_it =
                     bgp_as_a_service_port_map_.find(portinfo.first);
@@ -309,11 +309,11 @@ uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port) {
     }
     const std::vector<uint16_t> &ports =
                             agent_->params()->bgp_as_a_service_port_range_value();
-    return BgpaasUtils::EncodeBgpaasServicePort(
+    return BGPaaSUtils::EncodeBgpaasServicePort(
                                 source_port,
                                 vmi_service_port_index,
+                                ports[0], ports[1],
                                 agent_->params()->bgpaas_max_shared_sessions(),
-                                ports[0], ports[1]);
 }
 
 bool BgpAsAService::GetBgpRouterServiceDestination(const VmInterface *vm_intf,

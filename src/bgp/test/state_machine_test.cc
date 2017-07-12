@@ -2597,6 +2597,33 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpen) {
 // Old State: Established
 // Event:     EvTcpPassiveOpen
 // New State: Idle
+TEST_F(StateMachineEstablishedTest, TcpPassiveOpenForBGPaaS) {
+    dynamic_cast<StateMachineTest *>(sm_)->SetRouterTypeBGPaaS(true);
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::IDLE);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->active_session() == NULL);
+}
+
+// Old State: Established
+// Event:     EvTcpPassiveOpen + EvBgpOpen (on passive session)
+// New State: Idle
+TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpenForBGPaaS) {
+    dynamic_cast<StateMachineTest *>(sm_)->SetRouterTypeBGPaaS(true);
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    BgpSessionMock *session = session_mgr_->passive_session();
+    EvBgpOpenCustom(session, lower_id_);
+    TaskScheduler::GetInstance()->Start();
+    task_util::WaitForIdle();
+    VerifyState(StateMachine::IDLE);
+}
+
+// Old State: Established
+// Event:     EvTcpPassiveOpen
+// New State: Idle
 TEST_F(StateMachineEstablishedTest, TcpPassiveOpenWithGRClose) {
     dynamic_cast<StateMachineTest *>(sm_)->SetCloseGraceful(true);
     TaskScheduler::GetInstance()->Stop();
