@@ -183,7 +183,7 @@ public:
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
         peer_->PostCloseRelease();
-        if (peer_->router_type() == "bgpaas-client") {
+        if (peer_->IsRouterTypeBGPaaS()) {
             peer_->server()->decrement_deleting_bgpaas_count();
         } else {
             peer_->server()->decrement_deleting_count();
@@ -613,7 +613,7 @@ size_t BgpPeer::GetBufferCapacity() const {
     }
 
     // Return internal default based on peer router-type.
-    if (router_type_ == "bgpaas-client") {
+    if (IsRouterTypeBGPaaS()) {
         return kMinBufferCapacity;
     } else {
         return kMaxBufferCapacity;
@@ -622,13 +622,13 @@ size_t BgpPeer::GetBufferCapacity() const {
 
 void BgpPeer::NotifyEstablished(bool established) {
     if (established) {
-        if (router_type_ == "bgpaas-client") {
+        if (IsRouterTypeBGPaaS()) {
             server_->IncrementUpBgpaasPeerCount();
         } else {
             server_->IncrementUpPeerCount();
         }
     } else {
-        if (router_type_ == "bgpaas-client") {
+        if (IsRouterTypeBGPaaS()) {
             server_->DecrementUpBgpaasPeerCount();
         } else {
             server_->DecrementUpPeerCount();
@@ -1985,7 +1985,7 @@ void BgpPeer::ManagedDelete() {
         return;
     BGP_LOG_PEER(Config, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Received request for deletion");
-    if (router_type_ == "bgpaas-client") {
+    if (IsRouterTypeBGPaaS()) {
         server()->increment_deleting_bgpaas_count();
     } else {
         server()->increment_deleting_count();
