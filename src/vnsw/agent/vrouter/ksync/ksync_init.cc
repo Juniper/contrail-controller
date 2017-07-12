@@ -56,7 +56,6 @@ KSync::KSync(Agent *agent)
       vrf_ksync_obj_(new VrfKSyncObject(this)),
       vxlan_ksync_obj_(new VxLanKSyncObject(this)),
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
-      interface_scanner_(new InterfaceKScan(agent)),
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
       ksync_flow_memory_(new KSyncFlowMemory(this)),
       ksync_flow_index_manager_(new KSyncFlowIndexManager(this)),
@@ -189,7 +188,6 @@ void KSync::SetProfileData(ProfileData *data) {
 }
 
 void KSync::VRouterInterfaceSnapshot() {
-    interface_scanner_.get()->Init();
 
     int len = 0;
     KSyncSandeshContext *ctxt = static_cast<KSyncSandeshContext *>
