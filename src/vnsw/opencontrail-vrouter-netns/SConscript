@@ -32,6 +32,10 @@ sources = [
     'opencontrail_vrouter_netns/tests/test_vrouter_docker.py',
     'opencontrail_vrouter_netns/cert_mgr/__init__.py',
     'opencontrail_vrouter_netns/cert_mgr/barbican_cert_manager.py',
+    'opencontrail_vrouter_netns/cert_mgr/cert_manager.py',
+    'opencontrail_vrouter_netns/cert_mgr/kubernetes_cert.py',
+    'opencontrail_vrouter_netns/cert_mgr/openstack_cert.py',
+    'opencontrail_vrouter_netns/cert_mgr/tls.py',
 ]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
