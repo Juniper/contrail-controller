@@ -9,7 +9,7 @@
 #include <inttypes.h>
 #include <utility>
 
-class BgpaasUtils {
+class BGPaaSUtils {
 public:
     typedef std::pair<uint32_t, size_t> BgpAsServicePortIndexPair;
     static uint32_t EncodeBgpaasServicePort(const uint32_t sport,

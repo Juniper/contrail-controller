@@ -19,7 +19,7 @@
  *  original service port and the index for the given port.
  */
 using namespace std;
-BgpaasUtils::BgpAsServicePortIndexPair BgpaasUtils::DecodeBgpaasServicePort(
+BGPaaSUtils::BgpAsServicePortIndexPair BGPaaSUtils::DecodeBgpaasServicePort(
                                             const uint32_t sport,
                                             const uint16_t port_range_start,
                                             const uint16_t port_range_end) {
@@ -39,7 +39,7 @@ BgpaasUtils::BgpAsServicePortIndexPair BgpaasUtils::DecodeBgpaasServicePort(
     return std::make_pair(original_sport, index);
 }
 
-uint32_t BgpaasUtils::EncodeBgpaasServicePort(const uint32_t sport,
+uint32_t BGPaaSUtils::EncodeBgpaasServicePort(const uint32_t sport,
                                             const size_t   index,
                                             const uint16_t port_range_start,
                                             const uint16_t port_range_end) {

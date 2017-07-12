@@ -300,8 +300,8 @@ bool BgpAsAService::IsBgpService(const VmInterface *vm_intf,
 void BgpAsAService::FreeBgpVmiServicePortIndex(const uint32_t sport) {
     const std::vector<uint16_t> &ports =
                     agent_->oper_db()->global_system_config()->bgpaas_port_range();
-    BgpaasUtils::BgpAsServicePortIndexPair portinfo =
-                    BgpaasUtils::DecodeBgpaasServicePort(sport,
+    BGPaaSUtils::BgpAsServicePortIndexPair portinfo =
+                    BGPaaSUtils::DecodeBgpaasServicePort(sport,
                         ports[0], ports[1]);
 
     BgpAsAServicePortMapIterator port_map_it =
@@ -346,7 +346,7 @@ uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port) {
         BGPASASERVICETRACE(Trace, ss.str().c_str());
         return 0;
     }
-    return BgpaasUtils::EncodeBgpaasServicePort(
+    return BGPaaSUtils::EncodeBgpaasServicePort(
                                 source_port,
                                 vmi_service_port_index,
                                 ports[0], ports[1]);
