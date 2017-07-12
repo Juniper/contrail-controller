@@ -56,7 +56,6 @@ KSync::KSync(Agent *agent)
       vrf_ksync_obj_(new VrfKSyncObject(this)),
       vxlan_ksync_obj_(new VxLanKSyncObject(this)),
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
-      interface_scanner_(new InterfaceKScan(agent)),
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
       ksync_flow_memory_(new KSyncFlowMemory(this)),
       ksync_flow_index_manager_(new KSyncFlowIndexManager(this)),
@@ -90,7 +89,6 @@ void KSync::RegisterDBClients(DB *db) {
 
 void KSync::Init(bool create_vhost) {
     NetlinkInit();
-    VRouterInterfaceSnapshot();
     InitFlowMem();
     ResetVRouter(true);
     if (create_vhost) {
@@ -186,30 +184,6 @@ void KSync::SetProfileData(ProfileData *data) {
             rx_queue->ClearStats();
         }
     }
-}
-
-void KSync::VRouterInterfaceSnapshot() {
-    interface_scanner_.get()->Init();
-
-    int len = 0;
-    KSyncSandeshContext *ctxt = static_cast<KSyncSandeshContext *>
-                                (KSyncSock::GetAgentSandeshContext(0));
-    ctxt->Reset();
-    KSyncSock *sock = KSyncSock::Get(0);
-    do {
-        vr_interface_req req;
-        req.set_h_op(sandesh_op::DUMP);
-        req.set_vifr_idx(0);
-        req.set_vifr_marker(ctxt->context_marker());
-        uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
-        len = Encode(req, msg, KSYNC_DEFAULT_MSG_SIZE);
-        sock->BlockingSend((char *)msg, len);
-        if (sock->BlockingRecv()) {
-            LOG(ERROR, "Error getting interface dump from VROUTER");
-            return;
-        }
-    } while (ctxt->response_code() & VR_MESSAGE_DUMP_INCOMPLETE);
-    ctxt->Reset();
 }
 
 void KSync::ResetVRouter(bool run_sync_mode) {
@@ -399,7 +373,6 @@ KSyncTcp::~KSyncTcp() { }
 
 void KSyncTcp::Init(bool create_vhost) {
     TcpInit();
-    VRouterInterfaceSnapshot();
     InitFlowMem();
     ResetVRouter(false);
     //Start async read of socket
