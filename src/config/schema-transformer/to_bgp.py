@@ -3846,28 +3846,32 @@ class SchemaTransformer(object):
 
 
 def set_ifmap_search_done(transformer):
-    gevent.sleep(60)
+    while time.time() - gevent.getcurrent().poll_timestamp < 60:
+        gevent.sleep(60)
     transformer.ifmap_search_done = True
     transformer.current_network_set = set(VirtualNetworkST.keys())
     transformer.process_networks()
     transformer.process_stale_objects()
+    transformer.ifmap_search_done_greenlet = None
 # end set_ifmap_search_done
 
 def launch_arc(transformer, ssrc_mapc):
     arc_mapc = arc_initialize(transformer._args, ssrc_mapc)
+    transformer.ifmap_search_done_greenlet = gevent.spawn(set_ifmap_search_done,
+                                                         transformer)
+    transformer.ifmap_search_done_greenlet.poll_timestamp = sys.maxint
     while True:
         try:
             # If not connected to zookeeper Pause the operations
             if not _zookeeper_client.is_connected():
                 time.sleep(1)
                 continue
+
             pollreq = PollRequest(arc_mapc.get_session_id())
-            glet = None
-            if not transformer.ifmap_search_done:
-                glet = gevent.spawn(set_ifmap_search_done, transformer)
             result = arc_mapc.call('poll', pollreq)
-            if glet:
-                glet.kill()
+
+            if transformer.ifmap_search_done_greenlet is not None:
+                transformer.ifmap_search_done_greenlet.poll_timestamp = time.time()
             transformer.process_poll_result(result)
         except Exception as e:
             if type(e) == socket.error:
