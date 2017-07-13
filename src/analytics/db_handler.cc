@@ -91,9 +91,6 @@ DbHandler::DbHandler(EventManager *evm,
     udc_.reset(new UserDefinedCounters(cfgdb_connection_));
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);
-    udc_cfg_poll_timer_->Start(kUDCPollInterval,
-        boost::bind(&DbHandler::PollUDCCfg, this),
-        boost::bind(&DbHandler::PollUDCCfgErrorHandler, this, _1, _2));
 
     if (cassandra_options.cluster_id_.empty()) {
         tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
@@ -150,10 +147,6 @@ DbHandler::DbHandler(EventManager *evm,
     }
 }
 
-void DbHandler::PollUDCCfgErrorHandler(string error_name,
-    string error_message) {
-    LOG(ERROR, "UDC poll Timer Err: " << error_name << " " << error_message);
-}
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     dbif_(dbif),

@@ -28,7 +28,3 @@ SandeshTraceBufferPtr IFMapUpdateSenderBuf(
 SandeshTraceBufferPtr IFMapXmppTraceBuf(
     SandeshTraceBufferCreate("IFMapXmppTraceBuf", 50000));
 
-// Trace buffer for config-cassandra-client messages
-SandeshTraceBufferPtr ConfigCassClientTraceBuf(
-    SandeshTraceBufferCreate("ConfigCassClientTraceBuf", 50000));
-
