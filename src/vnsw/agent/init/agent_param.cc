@@ -998,6 +998,8 @@ void AgentParam::ParseServicesArguments
     GetOptValue<string>(v, bgp_as_a_service_port_range_,
                         "SERVICES.bgp_as_a_service_port_range");
     GetOptValue<uint32_t>(v, services_queue_limit_, "SERVICES.queue_limit");
+    GetOptValue<uint32_t>(v, bgpaas_max_shared_sessions_,
+                          "SERVICES.bgpaas_max_shared_sessions");
 }
 
 // Initialize hypervisor mode based on system information
@@ -1076,6 +1078,14 @@ void AgentParam::InitFromArguments() {
     return;
 }
 
+void AgentParam::UpdateBgpAsaServicePortRangeValue() {
+    if (!stringToIntegerList(bgp_as_a_service_port_range_, "-",
+                             bgp_as_a_service_port_range_value_)) {
+        bgp_as_a_service_port_range_value_.clear();
+        return;
+    }
+}
+
 void AgentParam::UpdateBgpAsaServicePortRange() {
     if (!stringToIntegerList(bgp_as_a_service_port_range_, "-",
                              bgp_as_a_service_port_range_value_)) {
@@ -1127,12 +1137,6 @@ void AgentParam::ComputeFlowLimits() {
         max_vm_flows_ = 0;
     }
 
-    uint16_t bgp_as_a_service_count = 0;
-    if (bgp_as_a_service_port_range_value_.size() == 2) {
-        bgp_as_a_service_count = bgp_as_a_service_port_range_value_[1]
-                                 - bgp_as_a_service_port_range_value_[0] + 1;
-    }
-
     struct rlimit rl;
     int result = getrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
@@ -1141,36 +1145,31 @@ void AgentParam::ComputeFlowLimits() {
             linklocal_system_flows_ = linklocal_vm_flows_ = 0;
             return;
         }
-        if (linklocal_system_flows_ > rl.rlim_max - bgp_as_a_service_count -
+        if (linklocal_system_flows_ > rl.rlim_max -
                                       Agent::kMaxOtherOpenFds - 1) {
-            linklocal_system_flows_ = rl.rlim_max - bgp_as_a_service_count -
+            linklocal_system_flows_ = rl.rlim_max -
                                       Agent::kMaxOtherOpenFds - 1;
             cout << "Updating linklocal-system-flows configuration to : " <<
                 linklocal_system_flows_ << "\n";
         }
-        if (rl.rlim_cur < linklocal_system_flows_ + bgp_as_a_service_count +
+        if (rl.rlim_cur < linklocal_system_flows_ +
                           Agent::kMaxOtherOpenFds + 1) {
             struct rlimit new_rl;
             new_rl.rlim_max = rl.rlim_max;
-            new_rl.rlim_cur = linklocal_system_flows_ + bgp_as_a_service_count +
+            new_rl.rlim_cur = linklocal_system_flows_ +
                               Agent::kMaxOtherOpenFds + 1;
             result = setrlimit(RLIMIT_NOFILE, &new_rl);
             if (result != 0) {
                 if (rl.rlim_cur <= Agent::kMaxOtherOpenFds + 1) {
                     linklocal_system_flows_ = 0;
-                    bgp_as_a_service_count = 0;
-                    bgp_as_a_service_port_range_value_.clear();
                 } else {
                     linklocal_system_flows_ = rl.rlim_cur -
-                                              bgp_as_a_service_count -
                                               Agent::kMaxOtherOpenFds - 1;
                 }
                 cout << "Unable to set Max open files limit to : " <<
                     new_rl.rlim_cur <<
                     " Updating linklocal-system-flows configuration to : " <<
-                    linklocal_system_flows_ <<
-                    " and Bgp as a service port count to : " <<
-                    bgp_as_a_service_count << "\n";
+                    linklocal_system_flows_ << "\n";
             }
         }
         if (linklocal_vm_flows_ > linklocal_system_flows_) {
@@ -1290,7 +1289,7 @@ void AgentParam::Init(const string &config_file, const string &program_name) {
     InitFromConfig();
     InitFromArguments();
     InitVhostAndXenLLPrefix();
-    UpdateBgpAsaServicePortRange();
+    UpdateBgpAsaServicePortRangeValue();
     ComputeFlowLimits();
     vgw_config_table_->InitFromConfig(tree_);
 }
@@ -1369,6 +1368,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Service instance lbaas auth : " << si_lbaas_auth_conf_);
     LOG(DEBUG, "Bgp as a service port range : " << bgp_as_a_service_port_range_);
     LOG(DEBUG, "Services queue limit        : " << services_queue_limit_);
+    LOG(DEBUG, "BGPAAS max shared sessions for service port  : " << bgpaas_max_shared_sessions_);
     if (hypervisor_mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -1482,7 +1482,9 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_trace_enable_(true),
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
         subnet_hosts_resolvable_(true),
+        bgp_as_a_service_port_range_("50000-50512"),
         services_queue_limit_(1024),
+        bgpaas_max_shared_sessions_(4),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
         tbb_schedule_delay_(0),

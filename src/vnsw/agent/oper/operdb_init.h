@@ -23,6 +23,7 @@ class AgentProfile;
 class VRouter;
 class BgpAsAService;
 class GlobalQosConfig;
+class GlobalSystemConfig;
 
 class OperDB {
 public:
@@ -68,6 +69,10 @@ public:
     GlobalQosConfig* global_qos_config() const {
         return global_qos_config_.get();
     }
+    GlobalSystemConfig* global_system_config() const {
+        return global_system_config_.get();
+    }
+
 private:
     OperDB();
 
@@ -84,6 +89,7 @@ private:
     std::auto_ptr<VRouter> vrouter_;
     std::auto_ptr<BgpAsAService> bgp_as_a_service_;
     std::auto_ptr<GlobalQosConfig> global_qos_config_;
+    std::auto_ptr<GlobalSystemConfig> global_system_config_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

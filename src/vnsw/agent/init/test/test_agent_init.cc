@@ -81,6 +81,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(ports2[0], 100);
     EXPECT_EQ(ports2[1], 199);
     EXPECT_EQ(param.services_queue_limit(), 8192);
+    EXPECT_EQ(param.bgpaas_max_shared_sessions(), 4);
 
     // By default, flow-tracing must be enabled
     EXPECT_TRUE(param.flow_trace_enable());
@@ -220,9 +221,10 @@ TEST_F(FlowTest, Agent_Conf_file_3) {
             param.bgp_as_a_service_port_range_value();
         EXPECT_EQ(ports[0], 100);
         EXPECT_EQ(ports[1], 199);
+        EXPECT_EQ(param.bgpaas_max_shared_sessions(), 4);
 
-        EXPECT_EQ(param.linklocal_system_flows(), 411);
-        EXPECT_EQ(param.linklocal_vm_flows(), 411);
+        EXPECT_EQ(param.linklocal_system_flows(), 511);
+        EXPECT_EQ(param.linklocal_vm_flows(), 511);
     }
 }
 
