@@ -1454,6 +1454,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('configured-route-target-list', 'logical-router', 'optional', 'CRUD',
               'List of route targets that represent this logical router, all virtual networks connected to this logical router will have this as their route target list.') -->
 
+<xsd:element name="vxlan-network-identifier" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('vxlan-network-identifier', 'logical-router', 'optional', 'CRUD',
+              'The VNI that needs to be associated with the internal VN if vxlan_routing mode is enabled.') -->
+ 
 <xsd:element name="router-external" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Exclude('router-external', ['backend']);
@@ -1564,6 +1569,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('quota', 'project', 'required', 'CRUD',
               'Max instances limits for various objects under project.') -->
+
+<xsd:element name="vxlan-routing" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('vxlan-routing', 'project', 'optional', 'CRUD',
+              'When this knob is enabled for a project, an internal system VN (VN-Int) is created for every logical router in the project.') -->
 
 <xsd:element name="network-policy-entries" type="PolicyEntriesType"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -2058,6 +2068,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          'Reference to virtual network, whose VRF is present on this physical router, Applicable when only VRF is present with no physical interfaces from this physical vrouter. Generally used when using device manager and option A+B for this virtual network in L3VPN use case.') -->
 
 <xsd:element name="physical-interface" type="ifmap:IdentityType"/>
+<xsd:element name="ethernet-segment-identifier" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ethernet-segment-identifier', 'physical-interface', 'optional', 'CRUD',
+              'Ethernet Segment Id configured for the Physical Interface. In a multihomed environment, user should configure the peer Physical interface with the same ESI.') -->
+
 <xsd:element name="physical-router-physical-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('physical-router-physical-interface',
@@ -2084,6 +2099,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      <xsd:restriction base='xsd:string'>
          <xsd:enumeration value='l2'/>
          <xsd:enumeration value='l3'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="PhysicalRouterRole">
+     <xsd:restriction base='xsd:string'>
+         <xsd:enumeration value='spine'/>
+         <xsd:enumeration value='leaf'/>
      </xsd:restriction>
 </xsd:simpleType>
 
@@ -2123,6 +2145,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-vnc-managed', 'physical-router', 'optional', 'CRUD',
               'This physical router is enabled to be configured by device manager.') -->
+
+<xsd:element name="physical-router-role" type="PhysicalRouterRole"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-role', 'physical-router', 'optional', 'CRUD',
+              'Physical router role (e.g spine or leaf), used by the device manager to provision physical router, for e.g device manager may choose to configure physical router based on its role.') -->
 
 <xsd:complexType name="UserCredentials">
     <xsd:all>
@@ -2702,6 +2729,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('logical-router-service-instance',
           'logical-router', 'service-instance', ['ref'], 'system-only', 'CRUD',
           'Reference to service instance doing SNAT functionality for external gateway.') -->
+
+<xsd:element name="logical-router-physical-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('logical-router-physical-router',
+         'logical-router', 'physical-router', ['ref'], 'optional', 'CRUD',
+         'Reference to physical router, when this link is present device manager configures logical router associated route targets/interfaces on the Physical Router.') -->
 
 <xsd:element name="config-node" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-config-node"/>

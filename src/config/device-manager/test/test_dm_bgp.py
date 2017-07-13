@@ -19,6 +19,9 @@ from test_dm_utils import FakeDeviceConnect
 #
 class TestBgpDM(TestCommonDM):
 
+    def __init__(self, *args, **kwargs):
+        super(TestBgpDM, self).__init__(*args, **kwargs)
+
     @retries(5, hook=retry_exc_handler)
     def check_dm_bgp_hold_time_config(self, bgp_type, hold_time):
         config = FakeDeviceConnect.get_xml_config()
@@ -27,8 +30,9 @@ class TestBgpDM(TestCommonDM):
         return
 
     # test hold time configuration
-    def test_dm_bgp_hold_time_config(self):
-        bgp_router, pr = self.create_router('router' + self.id() , '1.1.1.1')
+    def verify_dm_bgp_hold_time_config(self):
+        bgp_router, pr = self.create_router('router' + self.id() , '1.1.1.1',
+                                                         product=self.product)
         self.set_hold_time(bgp_router, 100)
         self._vnc_lib.bgp_router_update(bgp_router)
         self.check_dm_bgp_hold_time_config('internal', 100)
@@ -52,8 +56,9 @@ class TestBgpDM(TestCommonDM):
         return
 
     # test iBgp export policy configuration
-    def test_dm_bgp_export_policy(self):
-        bgp_router, pr = self.create_router('router' + self.id() , '1.1.1.1')
+    def verify_dm_bgp_export_policy(self):
+        bgp_router, pr = self.create_router('router' + self.id() , '1.1.1.1',
+                                                          product=self.product)
         self.check_dm_bgp_export_policy()
         bgp_router_fq = bgp_router.get_fq_name()
         pr_fq = pr.get_fq_name()
@@ -77,14 +82,15 @@ class TestBgpDM(TestCommonDM):
         return
 
     # test bgp auth configuration
-    def test_dm_md5_auth_config(self):
-        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
+    def verify_dm_md5_auth_config(self):
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1',
+                                                          product=self.product)
         self.set_auth_data(bgp_router, 0, 'bgppswd', 'md5')
         self._vnc_lib.bgp_router_update(bgp_router)
         self.check_bgp_auth_config('internal', 'bgppswd')
 
         #bgp peering, auth validate
-        bgp_router_peer, _ = self.create_router('router2' + self.id() , '20.2.2.2', ignore_pr=True)
+        bgp_router_peer, _ = self.create_router('router2' + self.id() , '20.2.2.2', product=self.product, ignore_pr=True)
         families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn'])
         auth = AuthenticationData('md5', [AuthenticationKeyItem(0, 'bgppswd-neigh')])
         bgp_sess_attrs = [BgpSessionAttributes(address_families=families, auth_data=auth)]
@@ -131,8 +137,9 @@ class TestBgpDM(TestCommonDM):
     # end check_tunnel_source_ip
 
     # test loopback ip configuration
-    def test_dm_lo0_ip_config(self):
-        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
+    def verify_dm_lo0_ip_config(self):
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1',
+                                                          product=self.product)
         self.check_lo0_ip_config()
 
         pr.set_physical_router_loopback_ip("10.10.0.1")
@@ -170,8 +177,9 @@ class TestBgpDM(TestCommonDM):
     # end check_router_id_config
 
     # test router id configuration
-    def test_dm_router_id_config(self):
-        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1')
+    def verify_dm_router_id_config(self):
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1',
+                                                          product=self.product)
         # defaults to bgp address
         self.check_router_id_config('1.1.1.1')
 

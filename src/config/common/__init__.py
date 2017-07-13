@@ -79,3 +79,12 @@ def has_role(role, roles):
     if role is None or roles is None:
         return False
     return role.lower() in [r.lower() for r in roles]
+
+def get_lr_internal_vn_name(uuid):
+    return '__contrail_lr_internal_vn_' + uuid + '__'
+
+def _obj_serializer_all(obj):
+    if hasattr(obj, 'serialize_to_json'):
+        return obj.serialize_to_json()
+    else:
+        return dict((k, v) for k, v in obj.__dict__.iteritems())

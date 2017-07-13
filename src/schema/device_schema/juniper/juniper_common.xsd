@@ -2,6 +2,21 @@
 xmlns:xsd="http://www.w3.org/2001/XMLSchema"
 targetNamespace="http://www.juniper.net/2016/device-config/0">
 
+<xsd:complexType name="SwitchOptions">
+    <xsd:all>
+       <xsd:element name="vtep-source-interface" type="xsd:string"/>
+       <xsd:element name="vrf-import" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="vrf-export" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="route-distinguisher" type="RouteDistinguisher"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RouteDistinguisher">
+    <xsd:all>
+        <xsd:element name="rd-type" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Address">
     <xsd:all>
        <xsd:element name="comment" type="xsd:string"/>
@@ -79,6 +94,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="encapsulation" type="xsd:string"/>
         <xsd:element name="proxy-arp" type="ProxyArp"/>
         <xsd:element name="service-domain" type="xsd:string"/>
+        <xsd:element name="proxy-macip-advertisement" />
     </xsd:all>
 </xsd:complexType>
 
@@ -199,6 +215,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     <xsd:all>
         <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="bgp" type="Bgp"/>
+        <xsd:element name="evpn" type="Evpn"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -345,12 +362,42 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="VniTarget">
+    <xsd:all>
+        <xsd:element name="community" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Vni">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="vrf-target" type="VniTarget"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="VniOptions">
+    <xsd:all>
+        <xsd:element name="vni" type="Vni" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="EvpnGateway">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="advertise"/>
+        <xsd:enumeration value="do-not-advertise"/>
+        <xsd:enumeration value="no-gateway-community"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="Evpn">
     <xsd:all>
         <xsd:element name="comment" type="xsd:string"/>
         <xsd:element name="encapsulation" type="xsd:string"/>
         <xsd:element name="extended-vni-list" type="xsd:string"/>
         <xsd:element name="interface" type="Interface" maxOccurs="unbounded"/>
+        <xsd:element name="vni-options" type="VniOptions"/>
+        <xsd:element name="multicast-mode" type="xsd:string"/>
+        <xsd:element name="default-gateway" type="EvpnGateway"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -448,6 +495,21 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="Vlan">
+    <xsd:all>
+        <xsd:element name="name" type="xsd:string"/>
+        <xsd:element name="vlan-id" type="xsd:string"/>
+        <xsd:element name="l3-interface" type="xsd:string"/>
+        <xsd:element name="vxlan" type="VXLan"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Vlans">
+    <xsd:all>
+        <xsd:element name="vlan" type="Vlan" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Groups">
     <xsd:attribute name="operation" type="xsd:string"/>
     <xsd:all>
@@ -461,6 +523,8 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="firewall" type="Firewall"/>
         <xsd:element name="routing-instances" type="RoutingInstances"/>
         <xsd:element name="services" type="Services"/>
+        <xsd:element name="vlans" type="Vlans"/>
+        <xsd:element name="switch-options" type="SwitchOptions"/>
     </xsd:all>
 </xsd:complexType>
 
