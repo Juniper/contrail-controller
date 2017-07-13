@@ -9,6 +9,9 @@
 #include <boost/program_options.hpp>
 #include "io/event_manager.h"
 #include "viz_types.h"
+#include "config/config-client/config_client_options.h"
+
+class ConfigClientManager;
 
 #define ANALYTICS_DATA_TTL_DEFAULT 48 // g_viz_constants.AnalyticsTTL
 
@@ -230,12 +233,44 @@ public:
     }
     const bool api_server_use_ssl() const { return api_server_use_ssl_; }
 
+    void set_config_client_manager(ConfigClientManager *mgr) {
+        config_client_manager_ = mgr;
+    }
+
+    std::string config_db_user() const {
+        return configdb_options_.config_db_username;
+    }
+    std::string config_db_password() const {
+        return configdb_options_.config_db_password;
+    }
+    std::vector<std::string> config_db_server_list() const {
+        return configdb_options_.config_db_server_list;
+    }
+    std::vector<std::string> rabbitmq_server_list() const {
+        return configdb_options_.rabbitmq_server_list;
+    }
+    std::string rabbitmq_user() const {
+        return configdb_options_.rabbitmq_user;
+    }
+    std::string rabbitmq_password() const {
+        return configdb_options_.rabbitmq_password;
+    }
+    bool rabbitmq_ssl_enabled() const {
+        return configdb_options_.rabbitmq_use_ssl;
+    }
+    const ConfigClientOptions &configdb_options() const {
+        return configdb_options_;
+    }
+
 private:
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
     void Initialize(EventManager &evm,
                     boost::program_options::options_description &options);
-    uint32_t GenerateHash(std::vector<std::string> &);
+    uint32_t GenerateHash(const std::vector<std::string> &);
+    uint32_t GenerateHash(const ConfigClientOptions &config);
+    void ParseConfigOptions(const boost::program_options::variables_map
+                            &var_map);
 
     std::string collector_server_;
     uint16_t collector_port_;
@@ -302,6 +337,10 @@ private:
 
     boost::program_options::options_description config_file_options_;
     DbWriteOptions db_write_options_;
+
+    uint32_t configdb_chksum_;
+    ConfigClientManager *config_client_manager_;
+    ConfigClientOptions configdb_options_;
 };
 
 #endif /* ANALYTICS_OPTIONS_H_ */
