@@ -25,6 +25,7 @@ env.Append(CPPPATH = [env['TOP'] + '/bgp'])
 env.Append(CPPPATH = [env['TOP'] + '/io'])
 env.Append(CPPPATH = [env['TOP'] + '/db'])
 env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
+env.Append(CPPPATH = [env['TOP'] + '/config/config-client'])
 env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
 env.Append(CPPPATH = [env['TOP'] + '/tools/sandesh/library/common'])
 
