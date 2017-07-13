@@ -3847,6 +3847,11 @@ class SchemaTransformer(object):
 
 def set_ifmap_search_done(transformer):
     gevent.sleep(60)
+    try:
+        if gevent.getcurrent().killed:
+            return
+    except AttributeError:
+        pass
     transformer.ifmap_search_done = True
     transformer.current_network_set = set(VirtualNetworkST.keys())
     transformer.process_networks()
@@ -3866,8 +3871,8 @@ def launch_arc(transformer, ssrc_mapc):
             if not transformer.ifmap_search_done:
                 glet = gevent.spawn(set_ifmap_search_done, transformer)
             result = arc_mapc.call('poll', pollreq)
-            if glet:
-                glet.kill()
+            if glet is not None:
+                glet.killed = True
             transformer.process_poll_result(result)
         except Exception as e:
             if type(e) == socket.error:
