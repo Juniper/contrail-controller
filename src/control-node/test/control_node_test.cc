@@ -37,9 +37,10 @@ ControlNodeTest::ControlNodeTest(EventManager *evm, const std::string &hostname)
                                   evm->io_service())),
       xmpp_manager_(new BgpXmppChannelManager(xmpp_server_, bgp_server_.get())),
       map_manager_(new IFMapChannelManager(xmpp_server_, map_server_.get())),
-      config_client_manager_(new ConfigClientManager(evm, map_server_.get(),
-            "localhost", "config-test", config_options_)) {
+      config_client_manager_(new ConfigClientManager(evm, "localhost", 
+             "config-test", config_options_, config_json_parser_.get())) {
     ControlNode::SetDefaultSchedulingPolicy();
+    config_json_parser_->ifmap_server_set(map_server_.get());
     bgp_server_->session_manager()->Initialize(0);
     xmpp_server_->Initialize(0, false);
 

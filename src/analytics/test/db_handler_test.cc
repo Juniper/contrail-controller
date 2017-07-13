@@ -46,7 +46,9 @@ public:
     DbHandlerTest() :
         builder_(SandeshXMLMessageTestBuilder::GetInstance()),
         dbif_mock_(new CqlIfMock()),
-        db_handler_(new DbHandler(dbif_mock_, ttl_map)) {
+        db_handler_(new DbHandler(dbif_mock_, ttl_map)),
+        config_json_parser_(new UserDefinedCounters()) {
+        db_handler_->SetUDCHandler(config_json_parser_.get());
     }
 
     ~DbHandlerTest() {
@@ -162,6 +164,7 @@ private:
     EventManager evm_;
     CqlIfMock *dbif_mock_;
     DbHandlerPtr db_handler_;
+    boost::scoped_ptr<UserDefinedCounters> config_json_parser_;
     DbHandlerCacheParam db_handler_cache_param_;
 };
 

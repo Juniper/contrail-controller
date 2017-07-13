@@ -99,8 +99,21 @@ db_handler_test = env.UnitTest('db_handler_test',
 env.Alias('src/analytics:db_handler_test', db_handler_test)
 
 options_test = env.UnitTest('options_test',
-        AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] +
-        ['../buildinfo.o', '../options.o', 'options_test.cc'])
+                           AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] +
+                           ['../buildinfo.o', 
+                            '../options.o', 
+                            'options_test.cc', 
+                            '../db_handler.o',
+                            '../configdb_connection.o',
+                            '../usrdef_counters.o',
+                            '../analytics_types.o',
+                            '../analytics_html.o',
+                            '../parser_util.o',
+                            '../vizd_table_desc.o',
+                            '../viz_message.o',
+                            analytics_request_obj,
+                            ]
+                            )
 env.Alias('src/analytics:options_test', options_test)
 
 protobufEnv = env.Clone()

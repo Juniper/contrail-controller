@@ -10,10 +10,8 @@
 #include "http/client/vncapi.h"
 #include "options.h"
 
-UserDefinedCounters::UserDefinedCounters(boost::shared_ptr<ConfigDBConnection> cfgdb_connection)
-                    : cfgdb_connection_(cfgdb_connection)
+UserDefinedCounters::UserDefinedCounters()
 {
-
 }
 
 UserDefinedCounters::~UserDefinedCounters()
@@ -21,56 +19,41 @@ UserDefinedCounters::~UserDefinedCounters()
     config_.erase(config_.begin(), config_.end());
 }
 
-void
-UserDefinedCounters::PollCfg()
-{
-    ReadConfig();
+void UserDefinedCounters::setup_schema_graph_filter() {
 }
 
-void
-UserDefinedCounters::ReadConfig()
+void UserDefinedCounters::setup_schema_wrapper_property_info() {
+}
+
+void UserDefinedCounters::setup_objector_filter() { 
+}
+
+bool
+UserDefinedCounters::Receive(const ConfigCass2JsonAdapter &adapter, bool add_change)
 {
-    if (cfgdb_connection_->GetVnc()) {
-        std::vector<std::string> ids;
-        std::vector<std::string> filters;
-        std::vector<std::string> parents;
-        std::vector<std::string> refs;
-        std::vector<std::string> fields;
-
-        fields.push_back("user_defined_log_statistics");
-
-        cfgdb_connection_->GetVnc()->GetConfig("global-system-config", ids, filters, parents, refs,
-                fields, boost::bind(&UserDefinedCounters::UDCHandler, this,
-                    _1, _2, _3, _4, _5, _6));
+    if (!add_change) {
+        return true;
     }
-}
-
-void
-UserDefinedCounters::UDCHandler(contrail_rapidjson::Document &jdoc,
-            boost::system::error_code &ec,
-            std::string version, int status, std::string reason,
-            std::map<std::string, std::string> *headers)
-{
-    if (jdoc.IsObject() && jdoc.HasMember("global-system-configs")) {
+    if (adapter.document().IsObject() && adapter.document().HasMember("global-system-configs")) {
         for (contrail_rapidjson::SizeType j=0;
-                    j < jdoc["global-system-configs"].Size(); j++) {
+                    j < adapter.document()["global-system-configs"].Size(); j++) {
 
-            if (!jdoc["global-system-configs"][j].HasMember(
+            if (!adapter.document()["global-system-configs"][j].HasMember(
                       "user_defined_log_statistics")) {
                     continue;
             }
 
-            if (!jdoc["global-system-configs"][j]
+            if (!adapter.document()["global-system-configs"][j]
                      ["user_defined_log_statistics"].IsObject()) {
                 continue;
             }
 
-            if (!jdoc["global-system-configs"][j]
+            if (!adapter.document()["global-system-configs"][j]
                      ["user_defined_log_statistics"].HasMember("statlist")) {
                 continue;
             }
 
-            const contrail_rapidjson::Value& gsc = jdoc["global-system-configs"][j]
+            const contrail_rapidjson::Value& gsc = adapter.document()["global-system-configs"][j]
                     ["user_defined_log_statistics"]["statlist"];
             if (!gsc.IsArray()) {
                 continue;
@@ -100,11 +83,10 @@ UserDefinedCounters::UDCHandler(contrail_rapidjson::Document &jdoc,
                 }
             }
         }
-        return;
+        return true;
     } else {
-                //Print Errors
+        return false;
     }
-    cfgdb_connection_->RetryNextApi();
 }
 
 void

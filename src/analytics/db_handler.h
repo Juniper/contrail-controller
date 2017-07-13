@@ -188,6 +188,10 @@ public:
         cfgdb_connection_->ReConfigApiServerList(api_server_list);
     }
 
+    void SetUDCHandler(UserDefinedCounters *udc){
+        udc_ = udc;
+    } 
+
 private:
     void MessageTableKeywordInsert(const VizMsg *vmsgp,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
@@ -229,8 +233,6 @@ private:
         return GetTtlFromMap(ttl_map_, type);
     }
     bool CanRecordDataForT2(uint32_t, std::string);
-    bool PollUDCCfg() { if(udc_) udc_->PollCfg(); return true; }
-    void PollUDCCfgErrorHandler(std::string err_name, std::string err_message);
     bool InsertIntoDb(std::auto_ptr<GenDb::ColList> col_list,
         GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
@@ -259,8 +261,7 @@ private:
     bool disable_messages_writes_;
     bool disable_messages_keyword_writes_;
     boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
-    boost::scoped_ptr<UserDefinedCounters> udc_;
-    Timer *udc_cfg_poll_timer_;
+    UserDefinedCounters *udc_;
     static const int kUDCPollInterval = 120 * 1000; // in ms
     bool use_db_write_options_;
     uint32_t disk_usage_percentage_;

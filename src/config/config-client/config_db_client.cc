@@ -7,11 +7,11 @@
 #include <boost/tokenizer.hpp>
 
 #include "base/string_util.h"
-#include "ifmap/ifmap_config_options.h"
+#include "config_client_options.h"
 
 using namespace std;
 
-ConfigDbClient::ConfigDbClient(const IFMapConfigOptions &options)
+ConfigDbClient::ConfigDbClient(const ConfigClientOptions &options)
     : config_db_user_(options.config_db_username),
       config_db_password_(options.config_db_password) {
 
