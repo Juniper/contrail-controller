@@ -52,14 +52,8 @@ class UserDefinedCounters {
         void SendUVEs();
         void AddConfig(std::string name, std::string pattern);
         bool FindByName(std::string name);
-        void PollCfg();
-
+        void UDCHandler(contrail_rapidjson::Document &jdoc);
     private:
-        void ReadConfig();
-        void UDCHandler(contrail_rapidjson::Document &jdoc,
-                    boost::system::error_code &ec,
-                    std::string version, int status, std::string reason,
-                    std::map<std::string, std::string> *headers);
         Cfg_t config_;
         boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
 };
