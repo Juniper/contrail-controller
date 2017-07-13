@@ -84,17 +84,18 @@ protected:
         server_(new IFMapServerTest(&db_, &db_graph_, evm_.io_service())),
         exporter_(server_->exporter()),
         config_client_manager_(new ConfigClientManager(&evm_,
-            server_.get(), "localhost", "config-test", config_options_)) {
+            "localhost", "config-test", config_options_, &config_json_parser_)) {
         config_cassandra_client_ = dynamic_cast<ConfigCassandraClientTest *>(
             config_client_manager_->config_db_client());
+        config_json_parser_.ifmap_server_set(server_.get());
     }
 
     virtual void SetUp() {
         ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
         IFMapLinkTable_Init(server_->database(), server_->graph());
-        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
+        vnc_cfg_JsonParserInit(&config_json_parser_);
         vnc_cfg_Server_ModuleInit(server_->database(), server_->graph());
-        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
+        bgp_schema_JsonParserInit(&config_json_parser_);
         bgp_schema_Server_ModuleInit(server_->database(), server_->graph());
         server_->Initialize();
         server_->set_config_manager(config_client_manager_.get());
@@ -109,7 +110,7 @@ protected:
         task_util::WaitForIdle();
         IFMapLinkTable_Clear(&db_);
         IFMapTable::ClearTables(&db_);
-        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
+        config_json_parser_.MetadataClear("vnc_cfg");
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
@@ -243,9 +244,10 @@ protected:
     ServerThread thread_;
     DB db_;
     DBGraph db_graph_;
-    const IFMapConfigOptions config_options_;
+    const ConfigClientOptions config_options_;
     boost::scoped_ptr<IFMapServerTest> server_;
     IFMapExporter *exporter_;
+    ConfigJsonParser config_json_parser_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     ConfigCassandraClientTest *config_cassandra_client_;
 };
@@ -1267,7 +1269,7 @@ int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
     ControlNode::SetDefaultSchedulingPolicy();
-    IFMapFactory::Register<ConfigCassandraClient>(
+    ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
     bool success = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
