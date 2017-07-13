@@ -35,7 +35,8 @@
 #include "control-node/control_node.h"
 #include "control-node/options.h"
 #include "db/db_graph.h"
-#include "ifmap/client/config_client_manager.h"
+#include "config/config-client/config_client_manager.h"
+#include "ifmap/client/config_client_control_agent.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
@@ -266,9 +267,11 @@ int main(int argc, char *argv[]) {
     IFMapServer ifmap_server(&config_db, &config_graph, evm.io_service());
 
     // TODO Coming Soon
+    ConfigClientAgentControl * config_client_agent = new ConfigClientAgentControl(); 
     ConfigClientManager *config_client_manager =
         new ConfigClientManager(&evm, &ifmap_server, options.hostname(),
-                                module_name, options.configdb_options());
+                                module_name, options.configdb_options(),
+                                config_client_agent);
     IFMap_Initialize(&ifmap_server, config_client_manager);
     ifmap_server.set_config_manager(config_client_manager);
 

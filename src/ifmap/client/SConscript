@@ -10,7 +10,7 @@ env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/ifmap'])
 env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
 env.Append(CPPPATH = [env['TOP'] + '/database'])
-env.Prepend(LIBS=['io', 'base', 'cassandra_cql', 'cassandra', 'gendb', 'SimpleAmqpClient'])
+env.Prepend(LIBS=['io', 'base', 'cassandra_cql', 'cassandra', 'gendb', 'SimpleAmqpClient', 'ConfigClient'])
 
 SandeshGenFiles = env.SandeshGenCpp('config_log.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
@@ -32,12 +32,7 @@ except_env.CppEnableExceptions()
 except_env.Append(CPPPATH = env['TOP'])
 
 libifmapio = env.Library('ifmapio',
-                         ['config_amqp_client.cc',
-                          'config_cass2json_adapter.cc',
-                          'config_cassandra_client.cc',
-                          'config_client_manager.cc',
-                          'config_db_client.cc',
-                          'config_json_parser.cc',
+                         ['config_json_parser.cc',
                          ] + sandesh_objs)
 
 env.Requires(libifmapio, '#build/lib/libSimpleAmqpClient.a')

@@ -35,8 +35,7 @@ using std::string;
         return false;                                                          \
     } while (false)
 
-ConfigJsonParser::ConfigJsonParser(ConfigClientManager *mgr)
-    : mgr_(mgr) {
+ConfigJsonParser::ConfigJsonParser() {
 }
 
 void ConfigJsonParser::MetadataRegister(const string &metadata,
@@ -84,7 +83,7 @@ bool ConfigJsonParser::ParseNameType(const ConfigCass2JsonAdapter &adapter,
 bool ConfigJsonParser::ParseOneProperty(const ConfigCass2JsonAdapter &adapter,
         const Value &key_node, const Value &value_node,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
-        ConfigClientManager::RequestList *req_list) const {
+        RequestList *req_list, bool add_change) const {
     string metaname = key_node.GetString();
     MetadataParseMap::const_iterator loc = metadata_map_.find(metaname);
     if (loc == metadata_map_.end()) {
@@ -96,20 +95,20 @@ bool ConfigJsonParser::ParseOneProperty(const ConfigCass2JsonAdapter &adapter,
                         "No entry in metadata map");
     std::replace(metaname.begin(), metaname.end(), '_', '-');
     config_mgr()->InsertRequestIntoQ(origin, "", "", metaname, pvalue, key,
-                                     true, req_list);
+                                     add_change, req_list);
     return true;
 }
 
 bool ConfigJsonParser::ParseProperties(const ConfigCass2JsonAdapter &adapter,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
-        ConfigClientManager::RequestList *req_list) const {
+        RequestList *req_list, bool add_change) const {
 
     Value::ConstMemberIterator doc_itr = adapter.document().MemberBegin();
     const Value &value_node = doc_itr->value;
     for (Value::ConstMemberIterator itr = value_node.MemberBegin();
          itr != value_node.MemberEnd(); ++itr) {
         ParseOneProperty(adapter, itr->name, itr->value, key, origin,
-                         req_list);
+                         req_list, add_change);
     }
 
     return true;
@@ -118,7 +117,7 @@ bool ConfigJsonParser::ParseProperties(const ConfigCass2JsonAdapter &adapter,
 bool ConfigJsonParser::ParseRef(const ConfigCass2JsonAdapter &adapter,
         const Value &ref_entry, IFMapOrigin::Origin origin,
         const string &refer, const IFMapTable::RequestKey &key,
-        ConfigClientManager::RequestList *req_list) const {
+        RequestList *req_list, bool add_change) const {
     const Value& to_node = ref_entry["to"];
 
     string from_underscore = key.id_type;
@@ -146,14 +145,14 @@ bool ConfigJsonParser::ParseRef(const ConfigCass2JsonAdapter &adapter,
     neigh_name += to_node.GetString();
 
     config_mgr()->InsertRequestIntoQ(origin, refer, neigh_name,
-                                 link_name, pvalue, key, true, req_list);
+                                 link_name, pvalue, key, add_change, req_list);
 
     return true;
 }
 
 bool ConfigJsonParser::ParseOneRef(const ConfigCass2JsonAdapter &adapter,
         const Value &arr, const IFMapTable::RequestKey &key,
-        IFMapOrigin::Origin origin, ConfigClientManager::RequestList *req_list,
+        IFMapOrigin::Origin origin, RequestList *req_list,
         const string &key_str, size_t pos) const {
     string refer = key_str.substr(0, pos);
     CONFIG_PARSE_ASSERT(Reference, arr.IsArray(), refer, "Invalid referene");
@@ -164,7 +163,7 @@ bool ConfigJsonParser::ParseOneRef(const ConfigCass2JsonAdapter &adapter,
 
 bool ConfigJsonParser::ParseLinks(const ConfigCass2JsonAdapter &adapter,
         const IFMapTable::RequestKey &key, IFMapOrigin::Origin origin,
-        ConfigClientManager::RequestList *req_list) const {
+        RequestList *req_list, bool add_change) const {
     Value::ConstMemberIterator doc_itr = adapter.document().MemberBegin();
     const Value &properties = doc_itr->value;
     for (Value::ConstMemberIterator itr = properties.MemberBegin();
@@ -195,7 +194,7 @@ bool ConfigJsonParser::ParseLinks(const ConfigCass2JsonAdapter &adapter,
                                     "Missing link name");
                 auto_ptr<AutogenProperty > pvalue;
                 config_mgr()->InsertRequestIntoQ(origin, parent_type,
-                     parent_name, metaname, pvalue, key, true, req_list);
+                     parent_name, metaname, pvalue, key, add_change, req_list);
             } else {
                 continue;
             }
@@ -206,8 +205,8 @@ bool ConfigJsonParser::ParseLinks(const ConfigCass2JsonAdapter &adapter,
 }
 
 bool ConfigJsonParser::ParseDocument(const ConfigCass2JsonAdapter &adapter,
-        IFMapOrigin::Origin origin, ConfigClientManager::RequestList *req_list,
-        IFMapTable::RequestKey *key) const {
+        IFMapOrigin::Origin origin, RequestList *req_list,
+        IFMapTable::RequestKey *key, bool add_chage) const {
     // Update the name and the type into 'key'.
     if (!ParseNameType(adapter, key)) {
         return false;
@@ -215,20 +214,57 @@ bool ConfigJsonParser::ParseDocument(const ConfigCass2JsonAdapter &adapter,
 
     // For each property, we will clone 'key' to create our DBRequest's i.e.
     // 'key' will never become part of any DBRequest.
-    if (!ParseProperties(adapter, *key, origin, req_list)){
+    if (!ParseProperties(adapter, *key, origin, req_list, add_change)){
         return false;
     }
 
-    if (!ParseLinks(adapter, *key, origin, req_list)) {
+    if (!ParseLinks(adapter, *key, origin, req_list, add_change)) {
         return false;
     }
 
     return true;
 }
 
-bool ConfigJsonParser::Receive(const ConfigCass2JsonAdapter &adapter,
-                               IFMapOrigin::Origin origin) {
-    ConfigClientManager::RequestList req_list;
+void ConfigJsonParser::InsertRequestIntoQ(IFMapOrigin::Origin origin,
+        const string &neigh_type, const string &neigh_name,
+        const string &metaname, auto_ptr<AutogenProperty > pvalue,
+        const IFMapTable::RequestKey &key, bool add_change,
+        RequestList *req_list) const {
+
+    IFMapServerTable::RequestData *data =
+        new IFMapServerTable::RequestData(origin, neigh_type, neigh_name);
+    data->metadata = metaname;
+    data->content.reset(pvalue.release());
+
+    DBRequest *db_request = new DBRequest();
+    db_request->oper = (add_change ? DBRequest::DB_ENTRY_ADD_CHANGE :
+                        DBRequest::DB_ENTRY_DELETE);
+    db_request->key.reset(CloneKey(key));
+    db_request->data.reset(data);
+
+    req_list->push_back(db_request);
+}
+
+void ConfigJsonParser::EnqueueListToTables(RequestList *req_list) const {
+    while (!req_list->empty()) {
+        auto_ptr<DBRequest> req(req_list->front());
+        req_list->pop_front();
+        IFMapTable::RequestKey *key =
+            static_cast<IFMapTable::RequestKey *>(req->key.get());
+
+        IFMapTable *table = IFMapTable::FindTable(ifmap_server_->database(),
+                                                  key->id_type);
+        if (table != NULL) {
+            table->Enqueue(req.get());
+        } else {
+            IFMAP_TRACE(IFMapTblNotFoundTrace, "Cant find table", key->id_type);
+        }
+    }
+}
+
+virtual bool ConfigJsonParser::Receive(const ConfigCass2JsonAdapter &adapter,
+                               bool add_change) {
+    RequestList req_list;
 
     if (adapter.document().HasParseError() || !adapter.document().IsObject()) {
         size_t pos = adapter.document().GetErrorOffset();
@@ -241,13 +277,11 @@ bool ConfigJsonParser::Receive(const ConfigCass2JsonAdapter &adapter,
         return false;
     } else {
         auto_ptr<IFMapTable::RequestKey> key(new IFMapTable::RequestKey());
-        if (!ParseDocument(adapter, origin, &req_list, key.get())) {
+        if (!ParseDocument(adapter, IFMapOrigin::CASSANDRA, &req_list, key.get(), add_change)) {
             STLDeleteValues(&req_list);
             return false;
         }
-        config_mgr()->config_db_client()->FormDeleteRequestList(
-                adapter.uuid(), &req_list, key.get(), true);
-        config_mgr()->EnqueueListToTables(&req_list);
+        EnqueueListToTables(&req_list);
     }
     return true;
 }
