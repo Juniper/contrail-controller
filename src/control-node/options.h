@@ -4,7 +4,7 @@
 
 #include <boost/program_options.hpp>
 #include "io/event_manager.h"
-#include "ifmap/ifmap_config_options.h"
+#include "config/config-client/config_client_options.h"
 #include "sandesh/sandesh.h"
 
 class ConfigClientManager;
@@ -59,7 +59,7 @@ public:
     bool rabbitmq_ssl_enabled() const { 
         return configdb_options_.rabbitmq_use_ssl; 
     }
-    const IFMapConfigOptions &configdb_options() const {
+    const ConfigClientOptions &configdb_options() const {
         return configdb_options_;
     }
     uint16_t xmpp_port() const { return xmpp_port_; }
@@ -95,7 +95,7 @@ private:
     void ParseConfigOptions(const boost::program_options::variables_map
                             &var_map);
     uint32_t GenerateHash(const std::vector<std::string> &list);
-    uint32_t GenerateHash(const IFMapConfigOptions &config);
+    uint32_t GenerateHash(const ConfigClientOptions &config);
 
     std::string bgp_config_file_;
     uint16_t bgp_port_;
@@ -118,7 +118,7 @@ private:
     bool use_syslog_;
     std::string syslog_facility_;
     bool task_track_run_time_;
-    IFMapConfigOptions configdb_options_;
+    ConfigClientOptions configdb_options_;
     uint16_t xmpp_port_;
     bool xmpp_auth_enable_;
     std::string xmpp_server_cert_;

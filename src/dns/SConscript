@@ -20,8 +20,8 @@ env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
 env.Prepend(CPPPATH = env['TOP'] + '/bgp')
 
-env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
-                  'xmpp', 'sandeshvns', 'peer_sandesh',
+env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'libconfigclient',
+                  'ifmapio', 'xmpp', 'sandeshvns', 'peer_sandesh',
                   'curl', 'process_info',
                   'db', 'io', 'base', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
                   'cassandra', 'gendb', 'xml', 'pugixml', 'libxml2',
