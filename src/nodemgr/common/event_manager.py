@@ -204,7 +204,9 @@ class SystemdActiveState(object):
 
 class SystemdProcessInfoManager(object):
 
-    def __init__(self, unit_names, event_handlers, update_process_list):
+    def __init__(self, unit_names, event_handlers, update_process_list,
+            poll):
+        self._poll = poll
         self._unit_paths = { unit_name : \
             SystemdUtils.UNIT_PATH_PREFIX + \
             SystemdUtils.make_path(unit_name) for unit_name in unit_names }
@@ -214,6 +216,7 @@ class SystemdProcessInfoManager(object):
         self._units = {  unit_name : self._bus.get( \
             SystemdUtils.SYSTEMD_BUS_NAME, \
             unit_path) for unit_name, unit_path in self._unit_paths.items() }
+        self._cached_process_infos = {}
     # end __init__
 
     def GetAllProcessInfo(self):
@@ -221,17 +224,23 @@ class SystemdProcessInfoManager(object):
        for unit_name, unit in self._units.items():
            process_info = {}
            assert unit_name == unit.Id
-           process_info['name'] = unit_name.rsplit('.service', 1)[0]
-           process_info['group'] = process_info['name']
+           process_name = unit_name.rsplit('.service', 1)[0]
+           process_info['name'] = process_name
+           process_info['group'] = process_name
            process_info['pid'] = unit.ExecMainPID
            process_info['start'] = unit.ExecMainStartTimestamp
            process_info['statename'] = SystemdActiveState.GetProcessStateName(
                unit.ActiveState)
            process_infos.append(process_info)
+           cprocess_info = process_info.copy()
+           cprocess_info['state'] = cprocess_info.pop('statename')
+           del cprocess_info['start']
+           if process_name not in self._cached_process_infos:
+               self._cached_process_infos[process_name] = cprocess_info
        return process_infos
     # end GetAllProcessInfo
 
-    def UnitPropertiesChanged(self, iface, changed, invalidated, unit_name):
+    def _UnitPropertiesChanged(self, iface, changed, invalidated, unit_name):
         if iface == SystemdUtils.UNIT_IFACE:
             process_info = {}
             process_info['name'] = unit_name.rsplit('.service', 1)[0]
@@ -244,15 +253,61 @@ class SystemdProcessInfoManager(object):
             self._event_handlers['PROCESS_STATE'](process_info)
             if self._update_process_list:
                 self._event_handlers['PROCESS_LIST_UPDATE']()
-    # end UnitPropertiesChanged
+    # end _UnitPropertiesChanged
+
+    def _GetProcessInfo(self, unit_name, unit):
+        process_info = {}
+        assert unit_name == unit.Id
+        process_name = unit_name.rsplit('.service', 1)[0]
+        process_info['name'] = process_name
+        process_info['group'] = process_name
+        process_info['pid'] = unit.ExecMainPID
+        process_info['state'] = SystemdActiveState.GetProcessStateName(
+                unit.ActiveState)
+        if process_info['state'] == 'PROCESS_STATE_EXITED':
+            process_info['expected'] = -1
+        return process_info
+    # end _GetProcessInfo
+
+    def _DoUpdateCachedProcessInfo(self, process_info):
+        updated = False
+        process_name = process_info['name']
+        if process_name not in self._cached_process_infos:
+            self._cached_process_infos[process_name] = process_info
+            updated = True
+        else:
+            cprocess_info = self._cached_process_infos[process_name]
+            if cprocess_info['name'] != process_info['name'] or \
+                    cprocess_info['group'] != process_info['group'] or \
+                    cprocess_info['pid'] != process_info['pid'] or \
+                    cprocess_info['state'] != process_info['state']:
+                self._cached_process_infos[process_name] = process_info
+                updated = True
+        return updated
+    # end _DoUpdateCachedProcessInfo
+
+    def _PollProcessInfos(self):
+        for unit_name, unit in self._units.items():
+            process_info = self._GetProcessInfo(unit_name, unit)
+            call_handlers = self._DoUpdateCachedProcessInfo(process_info)
+            if call_handlers:
+                self._event_handlers['PROCESS_STATE'](process_info)
+                if self._update_process_list:
+                    self._event_handlers['PROCESS_LIST_UPDATE']()
+    # end _PollProcessInfos
 
     def Run(self, test):
-        for unit_name, unit in self._units.items():
-            unit_properties_changed_cb = partial(self.UnitPropertiesChanged,
-                unit_name = unit_name)
-            unit.PropertiesChanged.connect(unit_properties_changed_cb)
-        while True:
-            gevent.sleep(seconds=0.05)
+        if self._poll:
+            while True:
+                self._PollProcessInfos()
+                gevent.sleep(seconds=5)
+        else:
+            for unit_name, unit in self._units.items():
+                unit_properties_changed_cb = partial(self.UnitPropertiesChanged,
+                    unit_name = unit_name)
+                unit.PropertiesChanged.connect(unit_properties_changed_cb)
+            while True:
+                gevent.sleep(seconds=0.05)
     # end Run
 
 #end class SystemdProcessInfoManager
@@ -273,6 +328,11 @@ def is_systemd_based():
         return True
     return False
 # end is_systemd_based
+
+def is_running_in_docker():
+    with open('/proc/1/cgroup', 'rt') as ifh:
+        return 'docker' in ifh.read()
+# end is_running_in_docker
 
 class EventManagerTypeInfo(object):
     def __init__(self, package_name, module_type, object_table,
@@ -351,9 +411,11 @@ class EventManager(object):
             if not pydbus_present:
                 self.msg_log('Node manager cannot run without pydbus', SandeshLevel.SYS_ERR)
                 exit(-1)
+            # In docker, systemd notifications via sd_notify do not
+            # work, hence we will poll the process status
             self.process_info_manager = SystemdProcessInfoManager(
                 self.type_info._unit_names, event_handlers,
-                update_process_list)
+                update_process_list, is_running_in_docker())
         else:
             if not 'SUPERVISOR_SERVER_URL' in os.environ:
                 self.msg_log('Node manager must be run as a supervisor event listener',
@@ -417,6 +479,8 @@ class EventManager(object):
                 process_stat_ent.start_time = str(proc_info['start'])
                 process_stat_ent.start_count += 1
             process_stat_ent.pid = proc_pid
+            if process_stat_ent.group not in self.group_names:
+                self.group_names.append(process_stat_ent.group)
             if not process_stat_ent.group in process_state_db:
                 process_state_db[process_stat_ent.group] = {}
             process_state_db[process_stat_ent.group][proc_name] = process_stat_ent
