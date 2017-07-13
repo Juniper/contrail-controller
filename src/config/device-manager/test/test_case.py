@@ -11,10 +11,11 @@ import uuid
 from random import randint
 from ncclient import manager
 from flexmock import flexmock
-from device_manager.physical_router_config import PhysicalRouterConfig
 from test_dm_utils import FakeDeviceConnect
+from test_dm_utils import FakeNetconfManager
 from test_dm_utils import fake_netconf_connect
 from test_dm_utils import fake_send_netconf
+import device_manager
 
 class DMTestCase(test_common.TestCase):
 
@@ -44,7 +45,11 @@ class DMTestCase(test_common.TestCase):
     def setUp(self, extra_config_knobs=None):
         super(DMTestCase, self).setUp(extra_config_knobs=extra_config_knobs)
         flexmock(manager, connect=fake_netconf_connect)
-        setattr(PhysicalRouterConfig, 'send_netconf', fake_send_netconf)
+        setattr(device_manager.mx_conf.MxConf, 'device_send', fake_send_netconf)
+        setattr(device_manager.qfx_5k.Qfx5kConf, 'device_send', fake_send_netconf)
+        setattr(device_manager.qfx_10k.Qfx10kConf, 'device_send', fake_send_netconf)
+        FakeNetconfManager.set_model(self.product)
+        return
 
     def tearDown(self):
         FakeDeviceConnect.reset()
@@ -59,7 +64,7 @@ class DMTestCase(test_common.TestCase):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
-    def create_router(self, name, mgmt_ip, ignore_pr=False):
+    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False):
         bgp_router = BgpRouter(name, parent_obj=self._get_ip_fabric_ri_obj())
         params = BgpRouterParams()
         params.address = mgmt_ip
@@ -73,8 +78,8 @@ class DMTestCase(test_common.TestCase):
             return bgp_router, None
         pr = PhysicalRouter(name)
         pr.physical_router_management_ip = mgmt_ip
-        pr.physical_router_vendor_name = 'juniper'
-        pr.physical_router_product_name = 'mx'
+        pr.physical_router_vendor_name = vendor
+        pr.physical_router_product_name = product
         pr.physical_router_vnc_managed = True
         uc = UserCredentials('user', 'pw')
         pr.set_physical_router_user_credentials(uc)

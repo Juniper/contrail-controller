@@ -3,12 +3,16 @@
 #
 import sys
 sys.path.append("../common/tests")
+from cStringIO import StringIO
 from lxml import etree
 from test_utils import stub
 
 class FakeNetconfManager(object):
+    model = 'mx480'
+    version = '14.2R6'
     def __init__(self, host, *args, **kwargs):
         self.host = host
+        self.connected = True
         self.configs = []
 
     def __enter__(self):
@@ -18,14 +22,16 @@ class FakeNetconfManager(object):
     def edit_config(self, target, config, test_option, default_operation):
         self.configs.append(config)
 
+    @classmethod
+    def set_model(cls, model):
+        cls.model = model
+
     def rpc(self, ele):
-        version = '14.2R6'
-        model = 'mx480'
-        name = 'mx480'
+        model = FakeNetconfManager.model
+        version = FakeNetconfManager.version
         if self.host == '199.199.199.199': #unsupported netconf device ip
             version = 'Unknown'
             model = 'X-Model'
-            name = 'X-Name'
         res = '<rpc-reply xmlns:junos="http://xml.juniper.net/junos/%s/junos"> \
                   <software-information> \
                      <host-name>cmbu-tasman</host-name> \
@@ -40,7 +46,7 @@ class FakeNetconfManager(object):
                          <comment>JUNOS Base OS boot 14.2R6</comment> \
                      </package-information> \
                   </software-information> \
-                </rpc-reply>'%(version, model, name, version)
+                </rpc-reply>'%(version, model, model, version)
         return etree.fromstring(res)
 
     commit = stub
@@ -62,9 +68,10 @@ class FakeDeviceConnect(object):
 
     @classmethod
     def send_netconf(cls, obj, new_config, default_operation="merge", operation="replace"):
+        config = new_config.get_configuration().get_groups()
         cls.params = {
                                      "pr_config": obj,
-                                     "config": new_config,
+                                     "config": config,
                                      "default_operation": default_operation,
                                      "operation": operation
                                    }

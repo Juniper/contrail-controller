@@ -1596,6 +1596,10 @@ class VncApiServer(object):
         if not self.is_multi_tenancy_set():
             return True
 
+        curr_context = get_context()
+        if curr_context.internal_req:
+            return True
+
         env = bottle.request.headers.environ
         roles = []
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
