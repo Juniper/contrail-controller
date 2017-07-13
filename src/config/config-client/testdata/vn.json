@@ -1,0 +1,42 @@
+{
+    "virtual_network": {
+        "flood_unknown_unicast": false,
+        "fq_name": [
+            "dd",
+            "dp",
+            "vn1"
+        ],
+        "href": "http://localhost:8095/virtual-network/e6e5609b-64f8-4238-82e6-163e2ec11d21",
+        "id_perms": {
+            "created": "2016-10-20T19:42:30.319035",
+            "creator": null,
+            "description": null,
+            "enable": true,
+            "last_modified": "2016-10-20T19:42:30.319035",
+            "permissions": {
+                "group": "cloud-admin-group",
+                "group_access": 7,
+                "other_access": 7,
+                "owner": "cloud-admin",
+                "owner_access": 7
+            },
+            "user_visible": true,
+            "uuid": {
+                "uuid_lslong": 9432250925902273825,
+                "uuid_mslong": 16637810618920354360
+            }
+        },
+        "name": "__link_local__",
+        "parent_href": "http://localhost:8095/project/914e888a-6337-455f-a951-9d475c776914",
+        "parent_type": "project",
+        "parent_uuid": "914e888a-6337-455f-a951-9d475c776914",
+        "perms2": {
+            "global_access": 0,
+            "owner": "cloud-admin",
+            "owner_access": 7,
+            "share": []
+        },
+        "uuid": "e6e5609b-64f8-4238-82e6-163e2ec11d21",
+        "virtual_network_network_id": 2
+    }
+}

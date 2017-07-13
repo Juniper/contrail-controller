@@ -1,0 +1,124 @@
+{
+    "access_control_list": {
+        "access_control_list_entries": {
+            "acl_rule": [
+                {
+                    "action_list": {
+                        "alert": false,
+                        "apply_service": [],
+                        "assign_routing_instance": null,
+                        "gateway_name": null,
+                        "log": false,
+                        "mirror_to": null,
+                        "qos_action": null,
+                        "simple_action": "pass"
+                    },
+                    "match_condition": {
+                        "dst_address": {
+                            "network_policy": null,
+                            "security_group": null,
+                            "subnet": null,
+                            "subnet_list": [],
+                            "virtual_network": null
+                        },
+                        "dst_port": {
+                            "end_port": 65535,
+                            "start_port": 0
+                        },
+                        "ethertype": "IPv4",
+                        "protocol": "any",
+                        "src_address": {
+                            "network_policy": null,
+                            "security_group": "8000032",
+                            "subnet": null,
+                            "subnet_list": [],
+                            "virtual_network": null
+                        },
+                        "src_port": {
+                            "end_port": 65535,
+                            "start_port": 0
+                        }
+                    },
+                    "rule_uuid": "16554da9-4096-40a5-8c8c-eeff23abc320"
+                },
+                {
+                    "action_list": {
+                        "alert": false,
+                        "apply_service": [],
+                        "assign_routing_instance": null,
+                        "gateway_name": null,
+                        "log": false,
+                        "mirror_to": null,
+                        "qos_action": null,
+                        "simple_action": "pass"
+                    },
+                    "match_condition": {
+                        "dst_address": {
+                            "network_policy": null,
+                            "security_group": null,
+                            "subnet": null,
+                            "subnet_list": [],
+                            "virtual_network": null
+                        },
+                        "dst_port": {
+                            "end_port": 65535,
+                            "start_port": 0
+                        },
+                        "ethertype": "IPv6",
+                        "protocol": "any",
+                        "src_address": {
+                            "network_policy": null,
+                            "security_group": "8000032",
+                            "subnet": null,
+                            "subnet_list": [],
+                            "virtual_network": null
+                        },
+                        "src_port": {
+                            "end_port": 65535,
+                            "start_port": 0
+                        }
+                    },
+                    "rule_uuid": "6eaf3d95-5b09-44f0-8806-cfd24d882ea1"
+                }
+            ],
+            "dynamic": null
+        },
+        "display_name": "ingress-access-control-list",
+        "fq_name": [
+            "dd",
+            "acl1",
+            "iacl"
+        ],
+        "href": "http://localhost:8095/access-control-list/d4cb8100-b9b8-41cd-8fdf-5eb76323f096",
+        "id_perms": {
+            "created": "2016-11-04T23:01:38.749468",
+            "creator": null,
+            "description": null,
+            "enable": true,
+            "last_modified": "2016-11-04T23:01:38.749468",
+            "permissions": {
+                "group": "KeystoneServiceAdmin",
+                "group_access": 7,
+                "other_access": 7,
+                "owner": "admin",
+                "owner_access": 7
+            },
+            "user_visible": true,
+            "uuid": {
+                "uuid_lslong": 10367109008965496982,
+                "uuid_mslong": 15333491196428829133
+            }
+        },
+        "name": "ingress-access-control-list",
+        "parent_href": "http://localhost:8095/security-group/8ebba80d-3404-4e51-aa19-47e169834045",
+        "parent_type": "security_group",
+        "parent_uuid": "8ebba80d-3404-4e51-aa19-47e169834045",
+        "perms2": {
+            "global_access": 0,
+            "owner": "a35f7a1a65084b6c9ba402710ba0948a",
+            "owner_access": 5,
+            "share": []
+        },
+        "uuid": "d4cb8100-b9b8-41cd-8fdf-5eb76323f096"
+    }
+}

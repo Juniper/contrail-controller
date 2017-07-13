@@ -229,8 +229,6 @@ private:
         return GetTtlFromMap(ttl_map_, type);
     }
     bool CanRecordDataForT2(uint32_t, std::string);
-    bool PollUDCCfg() { if(udc_) udc_->PollCfg(); return true; }
-    void PollUDCCfgErrorHandler(std::string err_name, std::string err_message);
     bool InsertIntoDb(std::auto_ptr<GenDb::ColList> col_list,
         GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbAddColumnCb db_cb);

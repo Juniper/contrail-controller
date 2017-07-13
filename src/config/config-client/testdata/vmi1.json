@@ -1,0 +1,100 @@
+{
+    "virtual_machine_interface": {
+        "display_name": "42f6d841-d1c7-40b8-b1c4-ca2ab415c81d",
+        "fq_name": [
+            "dd",
+            "VMI",
+            "42f6d841-d1c7-40b8-b1c4-ca2ab415c81d"
+        ],
+        "href": "http://localhost:8095/virtual-machine-interface/42f6d841-d1c7-40b8-b1c4-ca2ab415c81d",
+        "id_perms": {
+            "created": "2016-11-07T23:13:54.963547",
+            "creator": null,
+            "description": null,
+            "enable": true,
+            "last_modified": "2016-11-07T23:13:57.005939",
+            "permissions": {
+                "group": "_member_",
+                "group_access": 7,
+                "other_access": 7,
+                "owner": "neutron",
+                "owner_access": 7
+            },
+            "user_visible": true,
+            "uuid": {
+                "uuid_lslong": 12809585524907296797,
+                "uuid_mslong": 4825281827978035384
+            }
+        },
+        "instance_ip_back_refs": [
+            {
+                "attr": null,
+                "href": "http://localhost:8095/instance-ip/2c61a390-88bf-4cc9-b564-d00f0b1fb731",
+                "to": "2c61a390-88bf-4cc9-b564-d00f0b1fb731",
+                "uuid": "2c61a390-88bf-4cc9-b564-d00f0b1fb731"
+            }
+        ],
+        "name": "42f6d841-d1c7-40b8-b1c4-ca2ab415c81d",
+        "parent_href": "http://localhost:8095/project/6ca1f1de-004d-48f9-9cf4-528539b20013",
+        "parent_type": "project",
+        "parent_uuid": "6ca1f1de-004d-48f9-9cf4-528539b20013",
+        "perms2": {
+            "global_access": 0,
+            "owner": "6ca1f1de004d48f99cf4528539b20013",
+            "owner_access": 7,
+            "share": []
+        },
+        "routing_instance_refs": [
+            {
+                "attr": {
+                    "direction": "both",
+                    "dst_mac": null,
+                    "ipv6_service_chain_address": null,
+                    "mpls_label": null,
+                    "protocol": null,
+                    "service_chain_address": null,
+                    "src_mac": null,
+                    "vlan_tag": null
+                },
+                "href": "http://localhost:8095/routing-instance/4144eb4a-5704-4817-b824-346aaae8a860",
+                "to": "dd:vn1:vn1",
+                "uuid": "4144eb4a-5704-4817-b824-346aaae8a860"
+            }
+        ],
+        "security_group_refs": [
+            {
+                "attr": null,
+                "href": "http://localhost:8095/security-group/fcfdacf5-8723-4766-bf59-4cd6cead9fdf",
+                "to": "dd:sg1:default",
+                "uuid": "fcfdacf5-8723-4766-bf59-4cd6cead9fdf"
+            }
+        ],
+        "uuid": "42f6d841-d1c7-40b8-b1c4-ca2ab415c81d",
+        "virtual_machine_interface_bindings": {
+            "key_value_pair": [
+                {
+                    "key": "vif_type",
+                    "value": "vrouter"
+                },
+                {
+                    "key": "vnic_type",
+                    "value": "normal"
+                }
+            ]
+        },
+        "virtual_machine_interface_device_owner": "",
+        "virtual_machine_interface_mac_addresses": {
+            "mac_address": [
+                "fa:16:3e:13:75:81"
+            ]
+        },
+        "virtual_network_refs": [
+            {
+                "attr": null,
+                "href": "http://localhost:8095/virtual-network/78514573-163b-4182-a1ae-8c2350235623",
+                "to": "dd:vn1",
+                "uuid": "78514573-163b-4182-a1ae-8c2350235623"
+            }
+        ]
+    }
+}

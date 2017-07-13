@@ -22,34 +22,7 @@ UserDefinedCounters::~UserDefinedCounters()
 }
 
 void
-UserDefinedCounters::PollCfg()
-{
-    ReadConfig();
-}
-
-void
-UserDefinedCounters::ReadConfig()
-{
-    if (cfgdb_connection_->GetVnc()) {
-        std::vector<std::string> ids;
-        std::vector<std::string> filters;
-        std::vector<std::string> parents;
-        std::vector<std::string> refs;
-        std::vector<std::string> fields;
-
-        fields.push_back("user_defined_log_statistics");
-
-        cfgdb_connection_->GetVnc()->GetConfig("global-system-config", ids, filters, parents, refs,
-                fields, boost::bind(&UserDefinedCounters::UDCHandler, this,
-                    _1, _2, _3, _4, _5, _6));
-    }
-}
-
-void
-UserDefinedCounters::UDCHandler(contrail_rapidjson::Document &jdoc,
-            boost::system::error_code &ec,
-            std::string version, int status, std::string reason,
-            std::map<std::string, std::string> *headers)
+UserDefinedCounters::UDCHandler(contrail_rapidjson::Document &jdoc)
 {
     if (jdoc.IsObject() && jdoc.HasMember("global-system-configs")) {
         for (contrail_rapidjson::SizeType j=0;
@@ -104,7 +77,6 @@ UserDefinedCounters::UDCHandler(contrail_rapidjson::Document &jdoc,
     } else {
                 //Print Errors
     }
-    cfgdb_connection_->RetryNextApi();
 }
 
 void

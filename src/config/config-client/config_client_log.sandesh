@@ -1,0 +1,359 @@
+/*
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ */
+
+/**
+ * Message definitions for Configuration Processing module.
+ * The Configuration Processing module is responsible for processing data
+ * from the configuration data base.
+ */
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed property found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMalformedPropertyWarningLog {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed property found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMalformedPropertyWarningTrace {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed property list found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMalformedPropertyListWarningLog {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed property list found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMalformedPropertyListWarningTrace {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed property map found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMalformedPropertyMapWarningLog {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed property map found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMalformedPropertyMapWarningTrace {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed reference found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMalformedReferenceWarningLog {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed reference found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMalformedReferenceWarningTrace {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed link attributes found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMalformedReferenceLinkAttributesWarningLog {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed linke attributes found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMalformedReferenceLinkAttributesWarningTrace {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed parent found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMalformedParentWarningLog {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed parent found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMalformedParentWarningTrace {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed FqName found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMalformedFqNameWarningLog {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed FqName found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMalformedFqNameWarningTrace {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed type found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMalformedTypeWarningLog {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Malformed type found in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMalformedTypeWarningTrace {
+    /** Column Name Key **/
+    1: string key
+    /** Column Name Value **/
+    2: string value;
+    /** Type of the object **/
+    3: string type
+    /** UUID of the object */
+    4: string uuid
+}
+
+/**
+ * @description: System log for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Missing type in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+systemlog sandesh ConfigurationMissingTypeWarningLog {
+    /** UUID of the object */
+    1: string uuid
+    2: string type
+}
+
+/**
+ * @description: Trace for erroneous configuration object
+ * @severity: WARNING
+ * @cause: Missing type in a configuration object
+ * @action: Delete the offending property. service supervisor-config restart
+            and service supervisor-control may also assist in recovery
+ */
+trace sandesh ConfigurationMissingTypeWarningTrace {
+    /** UUID of the object */
+    1: string uuid
+    2: string type
+}
+
+/**
+ * @description: System log for config client module
+ * @severity: ERROR
+ * @cause: Connection to cassandra for config has initialization problems.
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh ConfigCassInitErrorMessage {
+    1: string message
+}
+
+/**
+ * @description: System log for config client module
+ * @severity: ERROR
+ * @cause: Error detected while reading a row from the database
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh ConfigClientGetRowError {
+    1: string message
+    2: string table_name
+    3: string uuid
+}
+
+/**
+ * @description: Trace message for config client module
+ * @severity: DEBUG
+ */
+trace sandesh ConfigCassInitErrorMessageTrace {
+    1: string message
+}
+
+trace sandesh ConfigClientGetRowErrorTrace {
+    1: string message
+    2: string table_name
+    3: string uuid
+}

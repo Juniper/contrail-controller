@@ -33,12 +33,16 @@
 #include <analytics/buildinfo.h>
 #include "boost/python.hpp"
 #include <io/process_signal.h>
+#include "db/db_graph.h"
+#include "config/config-client/config_client_manager.h"
 
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
+using process::ConnectionInfo;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
+using process::ProcessState;
 using process::ConnectionType;
 using process::ConnectionTypeName;
 using process::g_process_info_constants;
@@ -194,6 +198,20 @@ void ReConfigSignalHandler(const boost::system::error_code &error, int sig) {
     }
 }
 
+static void AnalyticsNodeGetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
+    ProcessState::type &state, std::string &message,
+    std::vector<ConnectionTypeName> expected_connections,
+    const ConfigClientManager *config_client_manager) {
+    GetProcessStateCb(cinfos, state, message, expected_connections);
+    if (!config_client_manager->GetEndOfRibComputed()) {
+        state = ProcessState::NON_FUNCTIONAL;
+        message = "IFMap Server End-Of-RIB not computed";
+    }
+}
+
+static void ConfigChangeNotify(const contrail_rapidjson::Document &jdoc){
+}
+
 // This is to force vizd to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug vizd during systest
@@ -319,6 +337,12 @@ int main(int argc, char *argv[])
     } else {
         hostname = boost::asio::ip::host_name(error);
     }
+
+    
+    ConfigClientManager *config_client_manager =
+        new ConfigClientManager(a_evm, hostname,
+                            module_id, options.configdb_options(),
+                            boost::bind(&ConfigChangeNotify, _1));
     // Determine if the number of connections is expected:
     // 1. Collector client
     // 2. Redis From
@@ -326,6 +350,8 @@ int main(int argc, char *argv[])
     // 4. Database global
     // 5. Kafka Pub
     // 6. Database protobuf if enabled
+    // 7. Cassandra Server
+    // 8. AMQP Server
 
     std::vector<ConnectionTypeName> expected_connections; 
     expected_connections = boost::assign::list_of
@@ -339,13 +365,17 @@ int main(int argc, char *argv[])
                              ConnectionType::DATABASE)->second,
                              hostname+":Global"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::KAFKA_PUB)->second, kstr));
+                             ConnectionType::KAFKA_PUB)->second, kstr))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second, "Cassandra"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second, "RabbitMQ"));
 
     ConnectionStateManager::
         GetInstance()->Init(*a_evm->io_service(),
             hostname, module_id, instance_id,
-            boost::bind(&GetProcessStateCb, _1, _2, _3,
-            expected_connections), "ObjectCollectorInfo");
+            boost::bind(&AnalyticsNodeGetProcessStateCb, _1, _2, _3,
+            expected_connections, config_client_manager), "ObjectCollectorInfo");
 
     LOG(INFO, "COLLECTOR analytics_data_ttl: " << options.analytics_data_ttl());
     LOG(INFO, "COLLECTOR analytics_flow_ttl: " << options.analytics_flow_ttl());
@@ -431,6 +461,7 @@ int main(int argc, char *argv[])
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
 
+    
     // XXX Disable logging -- for test purposes only
     if (options.log_disable()) {
         SetLoggingDisabled(true);
@@ -455,6 +486,9 @@ int main(int argc, char *argv[])
         (SIGHUP, sighup_handlers)
         (SIGTERM, sigterm_handlers);
     Signal signal(a_evm, smap);
+
+    options.set_config_client_manager(config_client_manager);
+    config_client_manager->Initialize();
     a_evm->Run();
     signal.Terminate();
     ShutdownServers(analytics);
