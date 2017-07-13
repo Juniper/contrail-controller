@@ -8,6 +8,8 @@
 import copy
 from cfgm_common import jsonutils as json
 from cfgm_common import get_lr_internal_vn_name
+from cfgm_common import _obj_serializer_all
+
 import re
 import itertools
 import socket
@@ -808,8 +810,6 @@ class LogicalRouterServer(Resource, LogicalRouter):
         # is created, then create an internal VN to export the routes
         # in the private VNs to the VTEPs.
         if vxlan_routing == True:
-            def _serialize_obj(obj):
-                return dict((k, v) for k, v in obj.__dict__.iteritems())
             vn_int_name = get_lr_internal_vn_name(obj_dict.get('uuid'))
             proj_obj = Project(name=proj_dict.get('fq_name')[-1],
                                parent_type='domain',
@@ -825,7 +825,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
                 int_vn_property.set_vxlan_network_identifier(vni_id)
             vn_obj.set_virtual_network_properties(int_vn_property)
 
-            vn_int_dict = json.dumps(vn_obj, default=_serialize_obj)
+            vn_int_dict = json.dumps(vn_obj, default=_obj_serializer_all)
             api_server = db_conn.get_api_server()
             api_server.internal_request_create('virtual-network',
                                                 json.loads(vn_int_dict))
