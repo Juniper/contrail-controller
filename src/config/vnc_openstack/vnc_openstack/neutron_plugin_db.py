@@ -3132,7 +3132,7 @@ class DBInterface(object):
                                                        subnet_id=subnet_id)
 
                     return
-    #end subnet_delete
+    # end subnet_delete
 
     @wait_for_api_server_connection
     def subnets_list(self, context, filters=None):
@@ -3157,57 +3157,53 @@ class DBInterface(object):
                 proj_id = None
             net_objs = self._network_list_project(proj_id)
             all_net_objs.extend(net_objs)
-            net_objs = self._network_list_filter(shared=True)
-            all_net_objs.extend(net_objs)
 
         ret_dict = {}
         for net_obj in all_net_objs:
             if net_obj.uuid in ret_dict:
                 continue
             ret_dict[net_obj.uuid] = 1
-            ipam_refs = net_obj.get_network_ipam_refs()
-            if ipam_refs:
-                for ipam_ref in ipam_refs:
-                    subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
-                    for subnet_vnc in subnet_vncs:
-                        try:
-                            sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
-                                                              net_obj,
-                                                              ipam_ref['to'])
-                        except Exception as e:
-                            self.logger.error("Error in subnets_list: %s",
-                                str(e))
+            ipam_refs = net_obj.get_network_ipam_refs() or []
+            for ipam_ref in ipam_refs:
+                subnet_vncs = ipam_ref['attr'].get_ipam_subnets()
+                for subnet_vnc in subnet_vncs:
+                    try:
+                        sn_info = self._subnet_vnc_to_neutron(subnet_vnc,
+                                                          net_obj,
+                                                          ipam_ref['to'])
+                    except Exception as e:
+                        self.logger.error("Error in subnets_list: %s",
+                            str(e))
+                        continue
+                    sn_id = sn_info['id']
+                    sn_proj_id = sn_info['tenant_id']
+                    sn_net_id = sn_info['network_id']
+                    sn_name = sn_info['name']
+
+                    if (filters and 'shared' in filters and
+                                    filters['shared'][0] == True):
+                        if not net_obj.is_shared:
                             continue
-                        sn_id = sn_info['id']
-                        sn_proj_id = sn_info['tenant_id']
-                        sn_net_id = sn_info['network_id']
-                        sn_name = sn_info['name']
+                    elif filters:
+                        if not self._filters_is_present(filters, 'id', sn_id):
+                            continue
+                        if not self._filters_is_present(
+                                filters, 'tenant_id', str(uuid.UUID(sn_proj_id))):
+                            continue
+                        if not self._filters_is_present(
+                                filters, 'network_id', sn_net_id):
+                            continue
+                        if not self._filters_is_present(
+                                filters, 'name', sn_name):
+                            continue
+                        if not self._filters_is_present(
+                                filters, 'cidr', sn_info['cidr']):
+                            continue
 
-                        if (filters and 'shared' in filters and
-                                        filters['shared'][0] == True):
-                            if not net_obj.is_shared:
-                                continue
-                        elif filters:
-                            if not self._filters_is_present(
-                                    filters, 'id', sn_id):
-                                continue
-                            if not self._filters_is_present(
-                                    filters, 'tenant_id', str(uuid.UUID(sn_proj_id))):
-                                continue
-                            if not self._filters_is_present(
-                                    filters, 'network_id', sn_net_id):
-                                continue
-                            if not self._filters_is_present(
-                                    filters, 'name', sn_name):
-                                continue
-                            if not self._filters_is_present(
-                                    filters, 'cidr', sn_info['cidr']):
-                                continue
-
-                        ret_subnets.append(sn_info)
+                    ret_subnets.append(sn_info)
 
         return ret_subnets
-    #end subnets_list
+    # end subnets_list
 
     @wait_for_api_server_connection
     def subnets_count(self, context, filters=None):
