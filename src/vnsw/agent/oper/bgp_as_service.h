@@ -6,6 +6,7 @@
 #define vnsw_agent_bgp_as_service_hpp
 
 #include "oper/interface_common.h"
+#include <base/index_allocator.h>
 
 ////////////////////////////////////////////////////////////////////////////
 // BGP as a service
@@ -102,6 +103,10 @@ public:
     typedef BgpAsAServiceEntryMap::iterator BgpAsAServiceEntryMapIterator;
     typedef BgpAsAServiceEntryMap::const_iterator BgpAsAServiceEntryMapConstIterator;
 
+    typedef std::map<uint32_t, IndexAllocator*> BgpAsAServicePortMap;
+    typedef BgpAsAServicePortMap::iterator BgpAsAServicePortMapIterator;
+    typedef BgpAsAServicePortMap::const_iterator BgpAsAServicePortMapConstIterator;
+
     BgpAsAService(const Agent *agent);
     ~BgpAsAService();
 
@@ -113,11 +118,16 @@ public:
                                         const IpAddress &dest,
                                         IpAddress *nat_server,
                                         uint32_t *sport) const;
+    size_t AllocateBgpVmiServicePortIndex(const uint32_t sport,
+                                          const uint16_t max_shared_sessions);
+    void FreeBgpVmiServicePortIndex(const uint32_t sport);
+    uint32_t AddBgpVmiServicePortIndex(const uint32_t source_port);
     void ProcessConfig(const std::string &vrf_name,
                        std::list<IFMapNode *> &node_list,
                        const boost::uuids::uuid &vmi_uuid);
     void DeleteVmInterface(const boost::uuids::uuid &vmi_uuid);
     const BgpAsAService::BgpAsAServiceEntryMap &bgp_as_a_service_map() const;
+    const BgpAsAService::BgpAsAServicePortMap &bgp_as_a_service_port_map() const;
     void RegisterServiceDeleteCb(ServiceDeleteCb callback) {
         service_delete_cb_ = callback;
     }
@@ -126,10 +136,12 @@ private:
     void BindBgpAsAServicePorts(const std::vector<uint16_t> &ports);
     void BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                 BgpAsAServiceEntryList &new_list,
-                                const std::string &vrf_name);
+                                const std::string &vrf_name,
+                                const boost::uuids::uuid &vm_uuid);
 
     const Agent *agent_;
     BgpAsAServiceEntryMap bgp_as_a_service_entry_map_;
+    BgpAsAServicePortMap  bgp_as_a_service_port_map_;
     ServiceDeleteCb service_delete_cb_;
     DISALLOW_COPY_AND_ASSIGN(BgpAsAService);
 };

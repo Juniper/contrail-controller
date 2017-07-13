@@ -267,6 +267,13 @@ public:
         return bgp_as_a_service_port_range_value_;
     }
     uint32_t services_queue_limit() { return services_queue_limit_; }
+    uint32_t bgpaas_max_shared_sessions() const {
+        return bgpaas_max_shared_sessions_;
+    }
+    void set_bgpaas_max_shared_sessions(uint32_t val) {
+        bgpaas_max_shared_sessions_ = val;
+    }
+
 
     uint16_t flow_thread_count() const { return flow_thread_count_; }
     void set_flow_thread_count(uint16_t count) { flow_thread_count_ = count; }
@@ -365,6 +372,7 @@ protected:
 private:
     friend class AgentParamTest;
     void UpdateBgpAsaServicePortRange();
+    void UpdateBgpAsaServicePortRangeValue();
     void ComputeFlowLimits();
     static std::map<string, std::map<string, string> > ParseDerivedStats(
         const std::vector<std::string> &dsvec);
@@ -533,6 +541,7 @@ private:
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;
     uint32_t services_queue_limit_;
+    uint32_t bgpaas_max_shared_sessions_;
 
     // TBB related
     uint32_t tbb_thread_count_;

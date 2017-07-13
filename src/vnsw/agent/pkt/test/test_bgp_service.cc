@@ -24,10 +24,20 @@ void RouterIdDepInit(Agent *agent) {
 
 struct PortInfo input[] = {
     {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:01", 1, 1},
+    {"vnet2", 2, "2.2.2.20", "00:00:02:02:02:02", 2, 2},
+    {"vnet3", 3, "3.3.3.30", "00:00:03:03:03:03", 3, 3},
+    {"vnet4", 4, "4.4.4.40", "00:00:04:04:04:04", 4, 4},
+    {"vnet5", 5, "5.5.5.50", "00:00:05:05:05:05", 5, 5},
+    {"vnet6", 6, "6.6.6.60", "00:00:06:06:06:06", 6, 6},
 };
 
 IpamInfo ipam_info[] = {
     {"1.1.1.0", 24, "1.1.1.1", true},
+    {"2.2.2.0", 24, "2.2.2.2", true},
+    {"3.3.3.0", 24, "3.3.3.3", true},
+    {"4.4.4.0", 24, "4.4.4.4", true},
+    {"5.5.5.0", 24, "5.5.5.5", true},
+    {"6.6.6.0", 24, "6.6.6.6", true},
 };
 
 class BgpServiceTest : public ::testing::Test {
@@ -55,13 +65,36 @@ public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
         flow_proto_ = agent_->pkt()->get_flow_proto();
+        AgentParam *params = agent_->params();
+        params->set_bgpaas_max_shared_sessions(4);
+        AddBgpaasPortRange(50000, 50512);
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
-        CreateVmportEnv(input, 1);
-        AddIPAM("vn1", ipam_info, 1);
+        CreateVmportEnv(input, 6);
+        AddIPAM("vn1", &ipam_info[0], 1);
+        AddIPAM("vn2", &ipam_info[1], 1);
+        AddIPAM("vn3", &ipam_info[2], 1);
+        AddIPAM("vn4", &ipam_info[3], 1);
+        AddIPAM("vn5", &ipam_info[4], 1);
+        AddIPAM("vn6", &ipam_info[5], 1);
         client->WaitForIdle();
         SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1",
                              "vrf1", "bgpaas-client",
+                             false);
+        SendBgpServiceConfig("2.2.2.20", 50000, 2, "vnet2",
+                             "vrf2", "bgpaas-client",
+                             false);
+        SendBgpServiceConfig("3.3.3.30", 50000, 3, "vnet3",
+                             "vrf3", "bgpaas-client",
+                             false);
+        SendBgpServiceConfig("4.4.4.40", 50001, 4, "vnet4",
+                             "vrf4", "bgpaas-client",
+                             false);
+        SendBgpServiceConfig("5.5.5.50", 50001, 5, "vnet5",
+                             "vrf5", "bgpaas-client",
+                             false);
+        SendBgpServiceConfig("6.6.6.60", 50001, 6, "vnet6",
+                             "vrf6", "bgpaas-client",
                              false);
         client->WaitForIdle();
     }
@@ -74,8 +107,29 @@ public:
         SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1",
                              "vrf1", "bgpaas-server",
                              true);
+        SendBgpServiceConfig("2.2.2.20", 50000, 2, "vnet2",
+                             "vrf2", "bgpaas-server",
+                             true);
+        SendBgpServiceConfig("3.3.3.30", 50000, 3, "vnet3",
+                             "vrf3", "bgpaas-client",
+                             true);
+        SendBgpServiceConfig("4.4.4.40", 50001, 4, "vnet4",
+                             "vrf4", "bgpaas-server",
+                             true);
+        SendBgpServiceConfig("5.5.5.50", 50001, 5, "vnet5",
+                             "vrf5", "bgpaas-server",
+                             true);
+        SendBgpServiceConfig("6.6.6.60", 50001, 6, "vnet6",
+                             "vrf6", "bgpaas-client",
+                             true);
         DelIPAM("vn1");
-        DeleteVmportEnv(input, 1, true);
+        DelIPAM("vn2");
+        DelIPAM("vn3");
+        DelIPAM("vn4");
+        DelIPAM("vn5");
+        DelIPAM("vn6");
+        DeleteVmportEnv(input, 6, true);
+        DelBgpaasPortRange();
         client->WaitForIdle();
     }
 
@@ -87,6 +141,7 @@ public:
 //TTL 1
 TEST_F(BgpServiceTest, Test_ttl_1) {
     AddAap("vnet1", 1, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:01");
+
     peer = CreateBgpPeer("127.0.0.1", "remote");
     client->WaitForIdle();
 
@@ -140,6 +195,53 @@ TEST_F(BgpServiceTest, Test_1) {
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
 
+
+    TxTcpPacket(VmInterfaceGet(2)->id(), "2.2.2.20", "2.2.2.2", 20000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe1 = FlowGet(VmInterfaceGet(2)->flow_key_nh()->id(),
+                            "2.2.2.20", "2.2.2.2", 6, 20000, 179);
+    EXPECT_TRUE(fe1 != NULL);
+    EXPECT_TRUE(fe1->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe1->is_flags_set(FlowEntry::BgpRouterService));
+
+    TxTcpPacket(VmInterfaceGet(3)->id(), "3.3.3.30", "3.3.3.3", 30000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe2 = FlowGet(VmInterfaceGet(3)->flow_key_nh()->id(),
+                            "3.3.3.30", "3.3.3.3", 6, 30000, 179);
+    EXPECT_TRUE(fe2 != NULL);
+    EXPECT_TRUE(fe2->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe2->is_flags_set(FlowEntry::BgpRouterService));
+
+    TxTcpPacket(VmInterfaceGet(4)->id(), "4.4.4.40", "4.4.4.4", 11000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe3 = FlowGet(VmInterfaceGet(4)->flow_key_nh()->id(),
+                            "4.4.4.40", "4.4.4.4", 6, 11000, 179);
+    EXPECT_TRUE(fe3 != NULL);
+    EXPECT_TRUE(fe3->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe3->is_flags_set(FlowEntry::BgpRouterService));
+
+
+    TxTcpPacket(VmInterfaceGet(5)->id(), "5.5.5.50", "5.5.5.5", 21000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe4 = FlowGet(VmInterfaceGet(5)->flow_key_nh()->id(),
+                            "5.5.5.50", "5.5.5.5", 6, 21000, 179);
+    EXPECT_TRUE(fe4 != NULL);
+    EXPECT_TRUE(fe4->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe4->is_flags_set(FlowEntry::BgpRouterService));
+
+    TxTcpPacket(VmInterfaceGet(6)->id(), "6.6.6.60", "6.6.6.6", 31000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe5 = FlowGet(VmInterfaceGet(6)->flow_key_nh()->id(),
+                            "6.6.6.60", "6.6.6.6", 6, 31000, 179);
+    EXPECT_TRUE(fe5 != NULL);
+    EXPECT_TRUE(fe5->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe5->is_flags_set(FlowEntry::BgpRouterService));
+
     DeleteBgpPeer(peer);
     client->WaitForIdle();
 }
@@ -168,6 +270,11 @@ TEST_F(BgpServiceTest, Test_2) {
 
 TEST_F(BgpServiceTest, Test_3) {
     AddAap("vnet1", 1, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:01");
+    AddAap("vnet2", 2, Ip4Address::from_string("20.20.20.20"), "00:00:02:02:02:02");
+    AddAap("vnet3", 3, Ip4Address::from_string("30.30.30.30"), "00:00:03:03:03:03");
+    AddAap("vnet4", 4, Ip4Address::from_string("40.40.40.40"), "00:00:04:04:04:04");
+    AddAap("vnet5", 5, Ip4Address::from_string("50.50.50.50"), "00:00:05:05:05:05");
+    AddAap("vnet6", 6, Ip4Address::from_string("60.60.60.60"), "00:00:06:06:06:06");
     peer = CreateBgpPeer("127.0.0.1", "remote");
     client->WaitForIdle();
 
