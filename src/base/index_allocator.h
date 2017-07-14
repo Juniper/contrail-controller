@@ -18,6 +18,8 @@ public:
 
     size_t AllocIndex();
     void FreeIndex(size_t index);
+    bool NoneIndexSet();
+    bool AnyIndexSet();
 
 private:
     BitSet bitset_;

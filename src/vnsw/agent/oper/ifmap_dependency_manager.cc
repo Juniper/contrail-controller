@@ -81,6 +81,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "floating-ip-pool",
         "forwarding-class",
         "global-qos-config",
+        "global-system-config",
         "instance-ip",
         "logical-interface",
         "network-ipam",

@@ -45,6 +45,7 @@
 #include <oper/qos_config.h>
 #include <oper/qos_queue.h>
 #include <oper/global_qos_config.h>
+#include <oper/global_system_config.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -225,6 +226,8 @@ void OperDB::CreateDBTables(DB *db) {
     vrouter_ = std::auto_ptr<VRouter> (new VRouter(this));
     bgp_as_a_service_ = std::auto_ptr<BgpAsAService>(new BgpAsAService(agent_));
     global_qos_config_ = std::auto_ptr<GlobalQosConfig>(new GlobalQosConfig(this));
+    global_system_config_ =
+        std::auto_ptr<GlobalSystemConfig>(new GlobalSystemConfig(this));
 }
 
 void OperDB::Init() {
@@ -297,6 +300,7 @@ void OperDB::Shutdown() {
     global_vrouter_.reset();
 
     global_qos_config_.reset();
+    global_system_config_.reset();
 
     route_preference_module_->Shutdown();
     multicast_->Shutdown();
