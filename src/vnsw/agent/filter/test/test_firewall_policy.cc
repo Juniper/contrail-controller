@@ -11,14 +11,14 @@
 using namespace std;
 
 TestTag src[] = {
-    {"Tag1", 1, (1 << 27) | 1},
-    {"Tag2", 2, (2 << 27) | 2},
+    {"Tag1", 1, (1 << TagEntry::kTagTypeBitShift) | 1},
+    {"Tag2", 2, (2 << TagEntry::kTagTypeBitShift) | 2},
     {"Tag13", 13, 13}
 };
 
 TestTag dst[] = {
-    {"Tag3", 3, (1 << 27) | 3},
-    {"Tag4", 4, (2<< 27) | 4}
+    {"Tag3", 3, (1 << TagEntry::kTagTypeBitShift) | 3},
+    {"Tag4", 4, (2<< TagEntry::kTagTypeBitShift) | 4}
 };
 
 TestTag label[] = {
@@ -395,14 +395,14 @@ TEST_F(FirewallPolicy, Test7) {
     packet1->dst_tags_.push_back(2);
     EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
 
-    packet1->src_tags_.push_back(1 << 27 | 0x2);
-    packet1->dst_tags_.push_back(1 << 27 | 0x3);
+    packet1->src_tags_.push_back(1 << TagEntry::kTagTypeBitShift | 0x2);
+    packet1->dst_tags_.push_back(1 << TagEntry::kTagTypeBitShift | 0x3);
     EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
 
     packet1->src_tags_.clear();
     packet1->dst_tags_.clear();
-    packet1->src_tags_.push_back(1 << 27 | 0x2);
-    packet1->dst_tags_.push_back(1 << 27 | 0x2);
+    packet1->src_tags_.push_back(1 << TagEntry::kTagTypeBitShift | 0x2);
+    packet1->dst_tags_.push_back(1 << TagEntry::kTagTypeBitShift | 0x2);
     EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
 
     //Change the tag match type
@@ -417,16 +417,16 @@ TEST_F(FirewallPolicy, Test7) {
     tag_match.push_back(TagTable::TIER);
     EXPECT_TRUE(tm->tag_list() == tag_match);
 
-    packet1->src_tags_.push_back(2 << 27 | 0x1);
-    packet1->dst_tags_.push_back(2 << 27 | 0x1);
+    packet1->src_tags_.push_back(2 << TagEntry::kTagTypeBitShift | 0x1);
+    packet1->dst_tags_.push_back(2 << TagEntry::kTagTypeBitShift | 0x1);
     std::sort(packet1->src_tags_.begin(), packet1->src_tags_.end());
     std::sort(packet1->dst_tags_.begin(), packet1->dst_tags_.end());
     EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
 
-    packet1->src_tags_[1] = (2 << 27 | 0x2);
-    packet1->dst_tags_[1] = (2 << 27 | 0x1);
-    packet1->src_tags_.push_back(2 << 27 | 0x3);
-    packet1->dst_tags_.push_back(2 << 27 | 0x3);
+    packet1->src_tags_[1] = (2 << TagEntry::kTagTypeBitShift | 0x2);
+    packet1->dst_tags_[1] = (2 << TagEntry::kTagTypeBitShift | 0x1);
+    packet1->src_tags_.push_back(2 << TagEntry::kTagTypeBitShift | 0x3);
+    packet1->dst_tags_.push_back(2 << TagEntry::kTagTypeBitShift | 0x3);
     EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
 
     TagList swap = packet1->src_tags_;
