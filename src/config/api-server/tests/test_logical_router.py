@@ -33,6 +33,7 @@ from netaddr import IPNetwork, IPAddress
 
 import cfgm_common
 from cfgm_common import vnc_cgitb
+from cfgm_common import get_lr_internal_vn_name
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
@@ -545,6 +546,85 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.logical_router_delete(id=lr.uuid)
 
     # end test_same_network_not_attached_to_lr
+
+    def test_vxlan_routing_for_internal_vn(self):
+        global_vrouter_config = GlobalVrouterConfig()
+        self._vnc_lib.global_vrouter_config_create(global_vrouter_config)
+
+        project = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                      'default-project'])
+        project.set_vxlan_routing(True)
+        self._vnc_lib.project_update(project)
+
+        # Create Logical Router
+        lr = LogicalRouter('router-test-v4-%s' %(self.id()), project)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        logger.debug('Created Logical Router ')
+
+        # Check to see whether internal VN for VxLAN Routing is created.
+        int_vn_name = get_lr_internal_vn_name(lr_uuid)
+        int_vn_fqname = ['default-domain', 'default-project', int_vn_name]
+        try:
+            int_vn = self._vnc_lib.virtual_network_read(fq_name=int_vn_fqname)
+        except NoIdError as e:
+            # Invisible objects do not come up in read
+            # calls but throws up a exception saying the
+            # object is invisible but cannot be read, confirming
+            # the presence of the object. Hack!
+            if "This object is not visible" not in str(e):
+                logger.debug('FAIL - Internal VN not created for Logical Router')
+                assert(False)
+        logger.debug('PASS - Internal VN created for Logical Router')
+
+        # Check to see if we are not able to attach Ext Gateway when
+        # VxLAN Routing is enabled.
+        ext_vn = VirtualNetwork(name=self.id()+'_ext_lr')
+        ext_vn_uuid = self._vnc_lib.virtual_network_create(ext_vn)
+        ext_vn = self._vnc_lib.virtual_network_read(id=ext_vn_uuid)
+        lr.add_virtual_network(ext_vn)
+        try:
+            self._vnc_lib.logical_router_update(lr)
+        except cfgm_common.exceptions.BadRequest as e:
+            logger.debug('PASS - Not able to attach Ext GW when VxLAN Routing is enabled')
+        else:
+            logger.debug('FAIL - Able to attach Ext GW when VxLAN Routing is enabled')
+            assert(False)
+
+        # Check to see if we are not able to disable VxLAN routing in the
+        # project when there is one LR in the project.
+        project.set_vxlan_routing(False)
+        try:
+            self._vnc_lib.project_update(project)
+        except cfgm_common.exceptions.BadRequest as e:
+            logger.debug('PASS - Checking not updating vxlan_routing in project')
+        else:
+            logger.debug('FAIL - VxLAN Routing cant be updated in Project when LR exists')
+            assert(False)
+
+        # Check to see if deleting the VN deletes the internal VN
+        # that was created.
+        self._vnc_lib.logical_router_delete(id=lr_uuid)
+        try:
+            int_vn = self._vnc_lib.virtual_network_read(fq_name=int_vn_fqname)
+        except NoIdError:
+            logger.debug('PASS - Internal VN created for Logical Router is purged')
+        else:
+            logger.debug('FAIL - Internal VN created for Logical Router is not purged')
+            assert(False)
+
+        # Check to see if we are able to disable VxLAN Routing
+        # after LR is deleted in the project.
+        project.set_vxlan_routing(False)
+        try:
+            self._vnc_lib.project_update(project)
+        except cfgm_common.exceptions.BadRequest as e:
+            logger.debug('FAIL - VxLAN Routing update not allowed when LR doesnt exist')
+            assert(False)
+        else:
+            logger.debug('PASS - VxLAN Routing update successful')
+    #end test_vxlan_routing
+
 #end class TestLogicalRouter
 
 if __name__ == '__main__':

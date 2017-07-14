@@ -6,9 +6,8 @@
 This file contains implementation of data model for physical router
 configuration manager
 """
-from physical_router_config import PhysicalRouterConfig
-from physical_router_config import JunosInterface
-from physical_router_config import PushConfigState
+from device_conf import DeviceConf
+from dm_utils import PushConfigState
 from dm_utils import DMUtils
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
@@ -89,21 +88,25 @@ class PhysicalRouterDM(DBBaseDM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.virtual_networks = set()
+        self.logical_routers = set()
         self.bgp_router = None
         self.config_manager = None
         self.nc_q = queue.Queue(maxsize=1)
         self.vn_ip_map = {'irb': {}, 'lo0': {}}
-        self.device_config = {}
+        self.config_sent = False
         self.init_cs_state()
         self.update(obj_dict)
-        self.config_manager = PhysicalRouterConfig(
-            self.management_ip, self.user_credentials, self.vendor,
-            self.product, self._logger)
-        self.set_conf_sent_state(False)
-        self.config_repush_interval = PushConfigState.get_repush_interval()
-        self.nc_handler_gl = vnc_greenlets.VncGreenlet("VNC Device Manager",
+        plugin_params = {
+                "physical_router": self
+            }
+        self.config_manager = DeviceConf.plugin(self.vendor, self.product,
+                                                 plugin_params, self._logger)
+        if self.config_manager:
+            self.set_conf_sent_state(False)
+            self.config_repush_interval = PushConfigState.get_repush_interval()
+            self.nc_handler_gl = vnc_greenlets.VncGreenlet("VNC Device Manager",
                                                        self.nc_handler)
-        self.uve_send()
+            self.uve_send()
     # end __init__
 
     def update(self, obj=None):
@@ -116,26 +119,32 @@ class PhysicalRouterDM(DBBaseDM):
         self.vendor = obj.get('physical_router_vendor_name', '')
         self.product = obj.get('physical_router_product_name', '')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
+        self.physical_router_role = obj.get('physical_router_role')
         self.user_credentials = obj.get('physical_router_user_credentials')
         self.junos_service_ports = obj.get(
             'physical_router_junos_service_ports')
         self.update_single_ref('bgp_router', obj)
         self.update_multiple_refs('virtual_network', obj)
+        self.update_multiple_refs('logical_router', obj)
         self.physical_interfaces = set([pi['uuid'] for pi in
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
-        if self.config_manager is not None:
-            self.config_manager.update(
-                self.management_ip, self.user_credentials, self.vendor,
-                self.product)
-            self.init_device_config()
+        plugin_params = {
+                "physical_router": self
+            }
+        # reinit plugin, find out new plugin if vendor/product is changed
+        if not self.config_manager:
+            self.config_manager = DeviceConf.plugin(self.vendor, self.product,
+                                                          plugin_params, self._logger)
+        else:
+            if self.config_manager.verify_plugin(self.vendor, self.product):
+                self.config_manager.update()
+            else:
+                self.config_manager.clear()
+                self.config_manager = DeviceConf.plugin(self.vendor, self.product,
+                                                          plugin_params, self._logger)
     # end update
-
-    def init_device_config(self):
-        if not self.device_config:
-            self.device_config = self.config_manager.get_device_config()
-    # end init_device_config
 
     @classmethod
     def delete(cls, uuid):
@@ -143,11 +152,12 @@ class PhysicalRouterDM(DBBaseDM):
             return
         obj = cls._dict[uuid]
         if obj.is_vnc_managed() and obj.is_conf_sent():
-            obj.config_manager.delete_bgp_config()
+            obj.config_manager.push_conf(is_delete=True)
         obj._object_db.delete_pr(uuid)
         obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
+        obj.update_multiple_refs('logical_router', {})
         del cls._dict[uuid]
     # end delete
 
@@ -311,39 +321,7 @@ class PhysicalRouterDM(DBBaseDM):
             self.vn_ip_map[ip_used_for][vn_subnet] = ip_addr + '/' + length
     # end evaluate_vn_irb_ip_map
 
-    def get_vn_li_map(self):
-        vn_dict = {}
-        for vn_id in self.virtual_networks:
-            vn_dict[vn_id] = []
-
-        li_set = self.logical_interfaces
-        for pi_uuid in self.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if pi is None:
-                continue
-            li_set |= pi.logical_interfaces
-        for li_uuid in li_set:
-            li = LogicalInterfaceDM.get(li_uuid)
-            if li is None:
-                continue
-            vmi_id = li.virtual_machine_interface
-            vmi = VirtualMachineInterfaceDM.get(vmi_id)
-            if vmi is None:
-                continue
-            vn_id = vmi.virtual_network
-            vn_dict.setdefault(vn_id, []).append(
-                JunosInterface(li.name, li.li_type, li.vlan_tag))
-        return vn_dict
-    # end
-
     def is_vnc_managed(self):
-
-        if (self.vendor is None or self.product is None or
-                self.vendor.lower() != "juniper" or self.product.lower()[:2] != "mx"):
-            self._logger.info("auto configuraion of physical router is not supported "
-               "vendor family(%s:%s), ip: %s, not pushing netconf message" %
-                              (str(self.vendor),  str(self.product), self.management_ip))
-            return False
 
         if not self.vnc_managed:
             self._logger.info("vnc managed property must be set for a physical router to get auto "
@@ -363,8 +341,11 @@ class PhysicalRouterDM(DBBaseDM):
 
     def delete_config(self):
         if self.is_conf_sent() and (not self.is_vnc_managed() or not self.bgp_router):
+            if not self.config_manager:
+                self.uve_send()
+                return False
             # user must have unset the vnc managed property
-            self.config_manager.delete_bgp_config()
+            self.config_manager.push_conf(is_delete=True)
             if self.config_manager.retry():
                 # failed commit: set repush interval upto max value
                 self.config_repush_interval = min([2 * self.config_repush_interval,
@@ -375,6 +356,7 @@ class PhysicalRouterDM(DBBaseDM):
             self.config_repush_interval = PushConfigState.get_repush_interval()
             self.set_conf_sent_state(False)
             self.uve_send()
+            self.config_manager.clear()
             return True
         return False
     # end delete_config
@@ -399,62 +381,6 @@ class PhysicalRouterDM(DBBaseDM):
             "ip_address": ip,
             "vlan_id": resources['vlan_id'],
             "unit_id": resources['unit_id']}
-    # end
-
-    def config_pnf_logical_interface(self):
-        pnf_dict = {}
-        pnf_ris = set()
-        # make it fake for now
-        # sholud save to the database, the allocation
-        self.vlan_alloc = {"max": 1}
-        self.ip_alloc = {"max": -1}
-        self.li_alloc = {}
-
-        for pi_uuid in self.physical_interfaces:
-            pi = PhysicalInterfaceDM.get(pi_uuid)
-            if pi is None:
-                continue
-            for pi_pi_uuid in pi.physical_interfaces:
-                pi_pi = PhysicalInterfaceDM.get(pi_pi_uuid)
-                for pi_vmi_uuid in pi_pi.virtual_machine_interfaces:
-                    allocate_li = False
-                    pi_vmi = VirtualMachineInterfaceDM.get(pi_vmi_uuid)
-                    if (pi_vmi is None or
-                            pi_vmi.service_instance is None or
-                            pi_vmi.service_interface_type is None):
-                        continue
-                    if pi_vmi.routing_instances:
-                        for ri_id in pi_vmi.routing_instances:
-                            ri_obj = RoutingInstanceDM.get(ri_id)
-                            if ri_obj and ri_obj.routing_instances and ri_obj.service_chain_address:
-                                pnf_ris.add(ri_obj)
-                                # If this service is on a service chain, we need allocate
-                                # a logic interface for its VMI
-                                allocate_li = True
-
-                    if allocate_li:
-                        resources = self.allocate_pnf_resources(pi_vmi)
-                        if (not resources or
-                                not resources["ip_address"] or
-                                not resources["vlan_id"] or
-                                not resources["unit_id"]):
-                            self._logger.error(
-                                "Cannot allocate PNF resources for "
-                                "Virtual Machine Interface" + pi_vmi_uuid)
-                            return
-                        logical_interface = JunosInterface(
-                            pi.name + '.' + resources["unit_id"],
-                            "l3", resources["vlan_id"], resources["ip_address"])
-                        self.config_manager.add_pnf_logical_interface(
-                            logical_interface)
-                        lis = pnf_dict.setdefault(
-                            pi_vmi.service_instance,
-                            {"left": [], "right": [],
-                                "mgmt": [], "other": []}
-                        )[pi_vmi.service_interface_type]
-                        lis.append(logical_interface)
-
-        return (pnf_dict, pnf_ris)
     # end
 
     def compute_pnf_static_route(self, ri_obj, pnf_dict):
@@ -504,207 +430,23 @@ class PhysicalRouterDM(DBBaseDM):
         return static_routes
     # end
 
-    def add_pnf_vrfs(self, first_vrf, pnf_dict, pnf_ris):
-        is_first_vrf = False
-        is_left_first_vrf = False
-        for ri_obj in pnf_ris:
-            if ri_obj in first_vrf:
-                is_first_vrf = True
-            else:
-                is_first_vrf = False
-            export_set = copy.copy(ri_obj.export_targets)
-            import_set = copy.copy(ri_obj.import_targets)
-            for ri2_id in ri_obj.routing_instances:
-                ri2 = RoutingInstanceDM.get(ri2_id)
-                if ri2 is None:
-                    continue
-                import_set |= ri2.export_targets
-
-            pnf_inters = set()
-            static_routes = self.compute_pnf_static_route(ri_obj, pnf_dict)
-            if_type = ""
-            for vmi_uuid in ri_obj.virtual_machine_interfaces:
-                vmi_obj = VirtualMachineInterfaceDM.get(vmi_uuid)
-                if vmi_obj.service_instance is not None:
-                    si_obj = ServiceInstanceDM.get(vmi_obj.service_instance)
-                    if_type = vmi_obj.service_interface_type
-                    pnf_li_inters = pnf_dict[
-                        vmi_obj.service_instance][if_type]
-                    if if_type == 'left' and is_first_vrf:
-                        is_left_first_vrf = True
-                    else:
-                        is_left_first_vrf = False
-
-                    for pnf_li in pnf_li_inters:
-                        pnf_inters.add(pnf_li)
-
-            if pnf_inters:
-                vrf_name = self.get_pnf_vrf_name(
-                    si_obj, if_type, is_left_first_vrf)
-                vrf_interfaces = pnf_inters
-                ri_conf = { 'ri_name': vrf_name }
-                ri_conf['import_targets'] = import_set
-                ri_conf['export_targets'] = export_set
-                ri_conf['interfaces'] = vrf_interfaces
-                ri_conf['static_routes'] = static_routes
-                ri_conf['no_vrf_table_label'] = True
-                self.config_manager.add_routing_instance(ri_conf)
-
     def push_config(self):
+        if not self.config_manager:
+            self._logger.info("plugin not found for vendor family(%s:%s), \
+                  ip: %s, not pushing netconf message" % (str(self.vendor),
+                                     str(self.product), self.management_ip))
+            return
         if self.delete_config() or not self.is_vnc_managed():
             return
-        self.config_manager.reset_bgp_config()
-
-        self.init_device_config()
-        model = self.device_config.get('product-model')
-        if 'mx' not in model.lower():
-            self._logger.error("physical router: %s, product model is not supported. "
-                      "device configuration=%s" % (self.uuid, str(self.device_config)))
-            self.device_config = {}
+        self.config_manager.initialize()
+        if not self.config_manager.validate_device():
+            self._logger.error("physical router: %s, device config validation failed. "
+                  "device configuration=%s" % (self.uuid, \
+                           str(self.config_manager.get_device_config())))
             return
-
-        bgp_router = BgpRouterDM.get(self.bgp_router)
-        if bgp_router:
-            for peer_uuid, attr in bgp_router.bgp_routers.items():
-                peer = BgpRouterDM.get(peer_uuid)
-                if peer is None:
-                    continue
-                local_as = (bgp_router.params.get('local_autonomous_system') or
-                               bgp_router.params.get('autonomous_system'))
-                peer_as = (peer.params.get('local_autonomous_system') or
-                               peer.params.get('autonomous_system'))
-                external = (local_as != peer_as)
-                self.config_manager.add_bgp_peer(peer.params['address'],
-                                                 peer.params, attr, external, peer)
-            self.config_manager.set_bgp_config(bgp_router.params, bgp_router)
-            self.config_manager.set_global_routing_options(bgp_router.params)
-            bgp_router_ips = bgp_router.get_all_bgp_router_ips()
-            tunnel_ip = self.dataplane_ip
-            if not tunnel_ip and bgp_router.params:
-                tunnel_ip = bgp_router.params.get('address')
-            if (tunnel_ip and self.is_valid_ip(tunnel_ip)):
-                self.config_manager.add_dynamic_tunnels(
-                    tunnel_ip,
-                    GlobalSystemConfigDM.ip_fabric_subnets,
-                    bgp_router_ips)
-
-        if self.loopback_ip:
-            self.config_manager.add_lo0_unit_0_interface(self.loopback_ip)
-
-        vn_dict = self.get_vn_li_map()
-        self.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
-        self.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l3', 'lo0', True)
-        vn_irb_ip_map = self.get_vn_irb_ip_map()
-
-        first_vrf = []
-        pnfs = self.config_pnf_logical_interface()
-        pnf_dict = pnfs[0]
-        pnf_ris = pnfs[1]
-
-        for vn_id, interfaces in vn_dict.items():
-            vn_obj = VirtualNetworkDM.get(vn_id)
-            if (vn_obj is None or
-                    vn_obj.get_vxlan_vni() is None or
-                    vn_obj.vn_network_id is None):
-                continue
-            export_set = None
-            import_set = None
-            for ri_id in vn_obj.routing_instances:
-                # Find the primary RI by matching the name
-                ri_obj = RoutingInstanceDM.get(ri_id)
-                if ri_obj is None:
-                    continue
-                if ri_obj.fq_name[-1] == vn_obj.fq_name[-1]:
-                    vrf_name_l2 = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
-                                                   vn_obj.vn_network_id, 'l2')
-                    vrf_name_l3 = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
-                                                   vn_obj.vn_network_id, 'l3')
-                    export_set = copy.copy(ri_obj.export_targets)
-                    import_set = copy.copy(ri_obj.import_targets)
-                    for ri2_id in ri_obj.routing_instances:
-                        ri2 = RoutingInstanceDM.get(ri2_id)
-                        if ri2 in pnf_ris:
-                            first_vrf.append(ri2)
-                        if ri2 is None:
-                            continue
-                        import_set |= ri2.export_targets
-
-                    if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3']:
-                        irb_ips = None
-                        if vn_obj.get_forwarding_mode() == 'l2_l3':
-                            irb_ips = vn_irb_ip_map['irb'].get(vn_id, [])
-
-                        ri_conf = { 'ri_name': vrf_name_l2, 'vn': vn_obj }
-                        ri_conf['is_l2'] = True
-                        ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
-                        ri_conf['import_targets'] = import_set
-                        ri_conf['export_targets'] = export_set
-                        ri_conf['prefixes'] = vn_obj.get_prefixes()
-                        ri_conf['gateways'] = irb_ips
-                        ri_conf['router_external'] = vn_obj.router_external
-                        ri_conf['interfaces'] = interfaces
-                        ri_conf['vni'] = vn_obj.get_vxlan_vni()
-                        ri_conf['network_id'] = vn_obj.vn_network_id
-                        ri_conf['highest_enapsulation_priority'] = \
-                                  GlobalVRouterConfigDM.global_encapsulation_priority
-                        self.config_manager.add_routing_instance(ri_conf)
-
-                    if vn_obj.get_forwarding_mode() in ['l3', 'l2_l3']:
-                        interfaces = []
-                        lo0_ips = None
-                        if vn_obj.get_forwarding_mode() == 'l2_l3':
-                            interfaces = [
-                                 JunosInterface(
-                                'irb.' + str(vn_obj.vn_network_id),
-                                'l3', 0)]
-                        else:
-                            lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
-                        ri_conf = { 'ri_name': vrf_name_l3, 'vn': vn_obj }
-                        ri_conf['is_l2_l3'] = (vn_obj.get_forwarding_mode() == 'l2_l3')
-                        ri_conf['import_targets'] = import_set
-                        ri_conf['export_targets'] = export_set
-                        ri_conf['prefixes'] = vn_obj.get_prefixes()
-                        ri_conf['router_external'] = vn_obj.router_external
-                        ri_conf['interfaces'] = interfaces
-                        ri_conf['gateways'] = lo0_ips
-                        ri_conf['network_id'] = vn_obj.vn_network_id
-                        self.config_manager.add_routing_instance(ri_conf)
-                    break
-
-            if (export_set is not None and
-                    self.is_junos_service_ports_enabled() and
-                    len(vn_obj.instance_ip_map) > 0):
-                service_port_ids = DMUtils.get_service_ports(vn_obj.vn_network_id)
-                if self.is_service_port_id_valid(service_port_ids[0]) == False:
-                    self._logger.error("DM can't allocate service interfaces for "
-                                       "(vn, vn-id)=(%s,%s)" % (
-                        vn_obj.fq_name,
-                        vn_obj.vn_network_id))
-                else:
-                    vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
-                                                 vn_obj.vn_network_id, 'l3', True)
-                    interfaces = []
-                    service_ports = self.junos_service_ports.get(
-                        'service_port')
-                    interfaces.append(
-                        JunosInterface(
-                            service_ports[0] + "." + str(service_port_ids[0]),
-                            'l3', 0))
-                    interfaces.append(
-                        JunosInterface(
-                            service_ports[0] + "." + str(service_port_ids[1]),
-                            'l3', 0))
-                    ri_conf = { 'ri_name': vrf_name, 'vn': vn_obj }
-                    ri_conf['import_targets'] = import_set
-                    ri_conf['interfaces'] = interfaces
-                    ri_conf['fip_map'] = vn_obj.instance_ip_map
-                    ri_conf['network_id'] = vn_obj.vn_network_id
-                    ri_conf['restrict_proxy_arp'] = vn_obj.router_external
-                    self.config_manager.add_routing_instance(ri_conf)
-        # Add PNF ri configuration
-        self.add_pnf_vrfs(first_vrf, pnf_dict, pnf_ris)
-
-        config_size = self.config_manager.send_bgp_config()
+        config_size = self.config_manager.push_conf()
+        if not config_size:
+            return
         self.set_conf_sent_state(True)
         self.uve_send()
         if self.config_manager.retry():
@@ -748,17 +490,20 @@ class PhysicalRouterDM(DBBaseDM):
             pr_msg.send(sandesh=DBBaseDM._sandesh)
             return
 
-        commit_stats = self.config_manager.get_commit_stats()
+        commit_stats = {}
+        if self.config_manager:
+            commit_stats = self.config_manager.get_commit_stats()
 
         if self.is_vnc_managed():
             pr_trace.netconf_enabled_status = True
-            pr_trace.last_commit_time = commit_stats['last_commit_time']
-            pr_trace.last_commit_duration = commit_stats[
-                'last_commit_duration']
-            pr_trace.commit_status_message = commit_stats[
-                'commit_status_message']
-            pr_trace.total_commits_sent_since_up = commit_stats[
-                'total_commits_sent_since_up']
+            pr_trace.last_commit_time = \
+                   commit_stats.get('last_commit_time', '')
+            pr_trace.last_commit_duration = \
+                   commit_stats.get('last_commit_duration', 0)
+            pr_trace.commit_status_message = \
+                   commit_stats.get('commit_status_message', '')
+            pr_trace.total_commits_sent_since_up = \
+                   commit_stats.get('total_commits_sent_since_up', 0)
         else:
             pr_trace.netconf_enabled_status = False
 
@@ -827,7 +572,6 @@ class GlobalVRouterConfigDM(DBBaseDM):
         obj = cls._dict[uuid]
     # end delete
 # end GlobalVRouterConfigDM
-
 
 class GlobalSystemConfigDM(DBBaseDM):
     _dict = {}
@@ -1077,6 +821,59 @@ class VirtualMachineInterfaceDM(DBBaseDM):
 
 # end VirtualMachineInterfaceDM
 
+class LogicalRouterDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'logical_router'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.physical_routers = set()
+        self.virtual_machine_interfaces = set()
+        # internal virtual-network
+        self.virtual_network = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+            vn_name = DMUtils.get_lr_internal_vn_name(self.uuid)
+            vn_obj = VirtualNetworkDM.find_by_name_or_uuid(vn_name)
+            if vn_obj:
+                self.virtual_network = vn_obj.uuid
+        self.update_multiple_refs('physical_router', obj)
+        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.fq_name = obj['fq_name']
+    # end update
+
+    def get_internal_vn_name(self):
+        return '__contrail_' + self.uuid + '_lr_internal_vn__'
+    # end get_internal_vn_name
+
+    def get_connected_networks(self, include_internal=True):
+        vn_list = []
+        if include_internal and self.virtual_network:
+            vn_list.append(self.virtual_network)
+        for vmi_uuid in self.virtual_machine_interfaces or []:
+            vmi = VirtualMachineInterfaceDM.get(vmi_uuid)
+            if vmi:
+                vn_list.append(vmi.virtual_network)
+        return vn_list
+    # end get_connected_networks
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('physical_router', {})
+        obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_single_ref('virtual_network', None)
+        del cls._dict[uuid]
+    # end delete
+
+# end LogicalRouterDM
+
 
 class VirtualNetworkDM(DBBaseDM):
     _dict = {}
@@ -1084,7 +881,9 @@ class VirtualNetworkDM(DBBaseDM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.name = None
         self.physical_routers = set()
+        self.logical_router = None
         self.router_external = False
         self.forwarding_mode = None
         self.gateways = None
@@ -1092,11 +891,21 @@ class VirtualNetworkDM(DBBaseDM):
         self.update(obj_dict)
     # end __init__
 
+    def set_logical_router(self, name):
+        if DMUtils.get_lr_internal_vn_prefix() in name:
+            lr_uuid = DMUtils.extract_lr_uuid_from_internal_vn_name(name)
+            lr_obj = LogicalRouterDM.get(lr_uuid)
+            if lr_obj:
+                self.logical_router = lr_obj.uuid
+    # end set_logical_router
+
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+            self.set_logical_router(obj.get("fq_name")[-1])
         self.update_multiple_refs('physical_router', obj)
         self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
         try:
             self.router_external = obj['router_external']
         except KeyError:

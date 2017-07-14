@@ -55,7 +55,13 @@ local_sources = [
     'device_manager/db.py',
     'device_manager/dm_utils.py',
     'device_manager/dm_amqp.py',
-    'device_manager/physical_router_config.py',
+    'device_manager/device_conf.py',
+    'device_manager/plugins/imports.py',
+    'device_manager/plugins/juniper/juniper_conf.py',
+    'device_manager/plugins/juniper/mx/mx_conf.py',
+    'device_manager/plugins/juniper/qfx/qfx_conf.py',
+    'device_manager/plugins/juniper/qfx/series5K/qfx_5k.py',
+    'device_manager/plugins/juniper/qfx/series10K/qfx_10k.py',
     'device_manager/logger.py',
 ]
 
