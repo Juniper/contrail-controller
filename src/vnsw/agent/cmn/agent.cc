@@ -369,7 +369,7 @@ void Agent::InitControllerList() {
     if (controller_list_.size() >= 1) {
         boost::split(servers, controller_list_[0], boost::is_any_of(":"));
         xs_addr_[0] = servers[0];
-        std::istringstream converter(servers[1]);
+        std::istringstream converter(servers[0]);
         converter >> xs_port_[0];
         if (controller_list_.size() >= 2) {
             boost::split(servers, controller_list_[1], boost::is_any_of(":"));
