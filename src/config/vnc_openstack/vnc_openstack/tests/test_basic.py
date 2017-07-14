@@ -911,19 +911,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         fip_pool_obj = self._vnc_lib.floating_ip_pool_read(
             fq_name=fip_pool_fq_name)
-        self.assertEqual(fip_pool_obj.perms2.global_access, PERMS_NONE)
-
-        self.update_resource('network', net_q['id'], proj_obj.uuid,
-                             extra_res_fields={'shared': True})
-        fip_pool_obj = self._vnc_lib.floating_ip_pool_read(
-            fq_name=fip_pool_fq_name)
         self.assertEqual(fip_pool_obj.perms2.global_access, PERMS_RWX)
-
-        self.update_resource('network', net_q['id'], proj_obj.uuid,
-                             extra_res_fields={'shared': False})
-        fip_pool_obj = self._vnc_lib.floating_ip_pool_read(
-            fq_name=fip_pool_fq_name)
-        self.assertEqual(fip_pool_obj.perms2.global_access, PERMS_NONE)
+        self.delete_resource('network', proj_obj.uuid, net_q['id'])
     # end test_external_network_fip_pool
 # end class TestBasic
 
