@@ -125,7 +125,9 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTestClusterProjectDefined):
         # Create network for Pod
         proj_fq_name = [self.domain, self.cluster_project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        self.create_network(self.vn_name, proj_obj)
+
+        self.create_network(self.vn_name, proj_obj, '10.32.0.0/12',
+                            '10.96.0.0/12')
 
         vn_dict = {'domain': self.domain,
                    'project': self.cluster_project,

@@ -43,7 +43,8 @@ class VncKubernetes(VncCommon):
 
     _vnc_kubernetes = None
 
-    def __init__(self, args=None, logger=None, q=None, kube=None):
+    def __init__(self, args=None, logger=None, q=None, kube=None,
+                 vnc_kubernetes_config_dict=None):
         self._name = type(self).__name__
         self.args = args
         self.logger = logger
@@ -92,13 +93,17 @@ class VncKubernetes(VncCommon):
         # provision cluster
         self._provision_cluster()
 
+        if vnc_kubernetes_config_dict:
+            self.vnc_kube_config.update(**vnc_kubernetes_config_dict)
+        else:
+            # Update common config.
+            self.vnc_kube_config.update(
+                cluster_pod_ipam_fq_name=self._get_cluster_pod_ipam_fq_name(),
+                cluster_service_fip_pool=self._get_cluster_service_fip_pool())
+
         # handle events
         self.label_cache = label_cache.LabelCache()
-
-        # Update common config.
-        self.vnc_kube_config.update(label_cache=self.label_cache,
-            cluster_pod_ipam_fq_name=self._get_cluster_pod_ipam_fq_name(),
-            cluster_service_fip_pool=self._get_cluster_service_fip_pool())
+        self.vnc_kube_config.update(label_cache=self.label_cache)
 
         self.network_policy_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_network_policy.VncNetworkPolicy')
@@ -415,6 +420,3 @@ class VncKubernetes(VncCommon):
         DBBase.clear()
         inst._db = None
         VncKubernetes._vnc_kubernetes = None
-
-
-

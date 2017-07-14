@@ -137,7 +137,8 @@ def generate_logconf_file_contents():
     return cfg_parser
 # end generate_logconf_file_contents
 
-def launch_kube_manager(test_id, conf_sections, kube_api_skip, event_queue):
+def launch_kube_manager(test_id, conf_sections, kube_api_skip, event_queue,
+                        vnc_kubernetes_config_dict=None):
     args_str = ""
     vnc_cgitb.enable(format='text')
 
@@ -152,7 +153,9 @@ def launch_kube_manager(test_id, conf_sections, kube_api_skip, event_queue):
         logconf.flush()
 
         args_str= ["-c", conf.name]
-        kube_manager.main(args_str, kube_api_skip=kube_api_skip, event_queue=event_queue)
+        kube_manager.main(args_str, kube_api_skip=kube_api_skip,
+                          event_queue=event_queue,
+                          vnc_kubernetes_config_dict=vnc_kubernetes_config_dict)
 #end launch_kube_manager
 
 def launch_mesos_manager(test_id, conf_sections, mesos_api_skip, event_queue):
