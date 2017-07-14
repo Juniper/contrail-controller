@@ -67,7 +67,7 @@ public:
     typedef std::vector<PolicySetRef> PolicySetList;
 
     static const uint32_t kInvalidTagId = 0xFFFFFFFF;
-    static const uint32_t kTagTypeBitShift = 27;
+    static const uint32_t kTagTypeBitShift = 16;
     static const std::map<uint32_t, std::string> TagTypeStr;
 
     TagEntry(const boost::uuids::uuid tag_uuid) :
