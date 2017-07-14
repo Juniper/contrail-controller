@@ -369,13 +369,21 @@ void Agent::InitControllerList() {
     if (controller_list_.size() >= 1) {
         boost::split(servers, controller_list_[0], boost::is_any_of(":"));
         xs_addr_[0] = servers[0];
-        std::istringstream converter(servers[1]);
-        converter >> xs_port_[0];
+	if (servers.size() > 1) {
+	    std::istringstream converter(servers[1]);
+	    converter >> xs_port_[0];
+	} else {
+	    xs_port_[0] = XMPP_SERVER_PORT;
+	}
         if (controller_list_.size() >= 2) {
             boost::split(servers, controller_list_[1], boost::is_any_of(":"));
             xs_addr_[1] = servers[0];
-            std::istringstream converter2(servers[1]);
-            converter2 >> xs_port_[1];
+	    if (servers.size() > 1) {
+                std::istringstream converter2(servers[1]);
+                converter2 >> xs_port_[1];
+	    } else {
+	        xs_port_[1] = XMPP_SERVER_PORT;
+	    }
         }
     }
 }
