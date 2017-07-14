@@ -51,6 +51,8 @@ TEST_F(BgpCfgTest, Test_1) {
     };
 
     client->Reset();
+    AddBgpaasPortRange(50000, 50512);
+    client->WaitForIdle();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
@@ -72,6 +74,7 @@ TEST_F(BgpCfgTest, Test_1) {
         agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
     EXPECT_TRUE(bgp_service_count == 0);
     EXPECT_FALSE(VmPortActive(input, 0));
+    DelBgpaasPortRange();
 }
 
 TEST_F(BgpCfgTest, Test_2) {
@@ -80,6 +83,8 @@ TEST_F(BgpCfgTest, Test_2) {
     };
 
     client->Reset();
+    AddBgpaasPortRange(50000, 50512);
+    client->WaitForIdle();
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
@@ -101,6 +106,7 @@ TEST_F(BgpCfgTest, Test_2) {
         agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
     EXPECT_TRUE(bgp_service_count == 0);
     EXPECT_FALSE(VmPortActive(input, 0));
+    DelBgpaasPortRange();
 }
 
 int main(int argc, char **argv) {

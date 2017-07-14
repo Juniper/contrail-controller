@@ -27,6 +27,7 @@
 #include <oper/vm.h>
 #include <oper/interface_common.h>
 #include <oper/global_qos_config.h>
+#include <oper/global_system_config.h>
 #include <oper/qos_config.h>
 #include <oper/vrouter.h>
 #include <oper/global_vrouter.h>
@@ -296,6 +297,8 @@ void ConfigManager::Init() {
         (new ConfigManagerNodeList(oper_db->vrouter()));
     global_qos_config_list_.reset
         (new ConfigManagerNodeList(oper_db->global_qos_config()));
+    global_system_config_list_.reset
+        (new ConfigManagerNodeList(oper_db->global_system_config()));
     network_ipam_list_.reset
         (new ConfigManagerNodeList(oper_db->network_ipam()));
     virtual_dns_list_.reset(new ConfigManagerNodeList(oper_db->virtual_dns()));
@@ -306,6 +309,7 @@ uint32_t ConfigManager::Size() const {
         global_vrouter_list_->Size() +
         virtual_router_list_->Size() +
         global_qos_config_list_->Size() +
+        global_system_config_list_->Size() +
         network_ipam_list_->Size() + + +
         virtual_dns_list_->Size() +
         vmi_list_->Size() +
@@ -329,6 +333,7 @@ uint32_t ConfigManager::ProcessCount() const {
         global_vrouter_list_->process_count() +
         virtual_router_list_->process_count() +
         global_qos_config_list_->process_count() +
+        global_system_config_list_->process_count() +
         network_ipam_list_->process_count() +
         virtual_dns_list_->process_count() +
         vmi_list_->process_count() +
@@ -392,6 +397,7 @@ int ConfigManager::Run() {
     count += global_vrouter_list_->Process(max_count - count);
     count += virtual_router_list_->Process(max_count - count);
     count += global_qos_config_list_->Process(max_count - count);
+    count += global_system_config_list_->Process(max_count - count);
     count += network_ipam_list_->Process(max_count - count);
     count += virtual_dns_list_->Process(max_count - count);
     count += sg_list_->Process(max_count - count);
@@ -501,6 +507,10 @@ uint32_t ConfigManager::PhysicalDeviceVnCount() const {
 
 void ConfigManager::AddGlobalQosConfigNode(IFMapNode *node) {
     global_qos_config_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddGlobalSystemConfigNode(IFMapNode *node) {
+    global_system_config_list_->Add(agent_, this, node);
 }
 
 void ConfigManager::AddNetworkIpamNode(IFMapNode *node) {

@@ -48,6 +48,7 @@
 #include <oper/qos_config.h>
 #include <oper/qos_queue.h>
 #include <oper/global_qos_config.h>
+#include <oper/global_system_config.h>
 #include <oper/bridge_domain.h>
 #include <oper/agent_route_walker.h>
 #include <oper/security_logging_object.h>
@@ -266,6 +267,8 @@ void OperDB::CreateDBTables(DB *db) {
     vrouter_ = std::auto_ptr<VRouter> (new VRouter(agent_));
     global_qos_config_ =
         std::auto_ptr<GlobalQosConfig>(new GlobalQosConfig(agent_));
+    global_system_config_ =
+        std::auto_ptr<GlobalSystemConfig>(new GlobalSystemConfig(agent_));
     network_ipam_ = std::auto_ptr<OperNetworkIpam>
         (new OperNetworkIpam(agent_, domain_config_.get()));
     virtual_dns_ = std::auto_ptr<OperVirtualDns>
@@ -343,6 +346,7 @@ void OperDB::Shutdown() {
     global_vrouter_.reset();
 
     global_qos_config_.reset();
+    global_system_config_.reset();
 
     route_preference_module_->Shutdown();
     multicast_->Shutdown();
