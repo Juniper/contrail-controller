@@ -31,7 +31,8 @@ class KubeNetworkManager(object):
 
     _kube_network_manager = None
 
-    def __init__(self, args=None, logger=None, kube_api_connected=False, queue=None):
+    def __init__(self, args=None, logger=None, kube_api_connected=False, queue=None,
+                 vnc_kubernetes_config_dict=None):
         if queue:
             self.q = queue
         else:
@@ -77,8 +78,9 @@ class KubeNetworkManager(object):
         for monitor in self.monitors.values():
             monitor.register_monitor()
 
-        self.vnc = vnc_kubernetes.VncKubernetes(args=self.args,
-            logger=self.logger, q=self.q, kube=self.kube)
+        self.vnc = vnc_kubernetes.VncKubernetes(
+            args=self.args, logger=self.logger, q=self.q, kube=self.kube,
+            vnc_kubernetes_config_dict=vnc_kubernetes_config_dict)
     # end __init__
 
     def _kube_object_cache_enabled(self):
@@ -133,12 +135,14 @@ class KubeNetworkManager(object):
         inst.q = None
         KubeNetworkManager._kube_network_manager = None
 
-def run_kube_manager(km_logger, args, kube_api_skip, event_queue):
-    kube_nw_mgr = KubeNetworkManager(args, km_logger, kube_api_connected=kube_api_skip, queue=event_queue)
+def run_kube_manager(km_logger, args, kube_api_skip, event_queue, vnc_kubernetes_config_dict=None):
+    kube_nw_mgr = KubeNetworkManager(args, km_logger, kube_api_connected=kube_api_skip, queue=event_queue,
+                                     vnc_kubernetes_config_dict=vnc_kubernetes_config_dict)
     KubeNetworkManager._kube_network_manager = kube_nw_mgr
     kube_nw_mgr.start_tasks()
 
-def main(args_str=None, kube_api_skip=False, event_queue=None):
+def main(args_str=None, kube_api_skip=False, event_queue=None,
+         vnc_kubernetes_config_dict=None):
     _zookeeper_client = None
 
     args = kube_args.parse_args(args_str)
@@ -183,11 +187,12 @@ def main(args_str=None, kube_api_skip=False, event_queue=None):
         _zookeeper_client.master_election(zk_path_pfx+"/kube-manager",
                                           os.getpid(), run_kube_manager,
                                           km_logger, args, kube_api_skip, 
-                                          event_queue)
+                                          event_queue, vnc_kubernetes_config_dict)
         km_logger.notice("Elected master kube-manager node. Initializing...")
 
     else: #nested mode, skip zookeeper mastership check
-        run_kube_manager(km_logger, args, kube_api_skip, event_queue)
+        run_kube_manager(km_logger, args, kube_api_skip, event_queue,
+                         vnc_kubernetes_config_dict)
  
 if __name__ == '__main__':
     main()
