@@ -508,12 +508,11 @@ class DBInterface(object):
 
     def _floating_ip_pool_create(self, net_obj):
         fip_pool_obj = FloatingIpPool('floating-ip-pool', net_obj)
-        if net_obj.is_shared:
-            # if network is shared, fip pool should also be shared
-            fip_pool_obj.perms2 = PermType2(
-                net_obj.parent_uuid, PERMS_RWX,    # tenant, tenant-access
-                PERMS_RWX,                   # global-access
-                [])                          # share list
+        # fip pool should be shared
+        fip_pool_obj.perms2 = PermType2(
+            net_obj.parent_uuid, PERMS_RWX,    # tenant, tenant-access
+            PERMS_RWX,                   # global-access
+            [])                          # share list
         fip_pool_uuid = self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
 
         return fip_pool_uuid
@@ -2641,7 +2640,7 @@ class DBInterface(object):
             self._raise_contrail_exception('NetworkNotFound', net_id=net_uuid)
 
         return self._network_vnc_to_neutron(net_obj, net_repr='SHOW')
-    #end network_read
+    # end network_read
 
     @wait_for_api_server_connection
     def network_update(self, net_id, network_q):
@@ -2670,21 +2669,6 @@ class DBInterface(object):
                 except RefsExistError:
                     self._raise_contrail_exception('NetworkInUse',
                                                    net_id=net_id)
-        elif (shared != net_obj.is_shared) and net_obj.router_external:
-            # if changing from shared and network is already external,
-            # set the permissions on fip_pool also accordingly
-            fip_pool_fq_name = net_obj.fq_name + ['floating-ip-pool']
-            try:
-                fip_pool_uuid = self._vnc_lib.fq_name_to_id(
-                    'floating-ip-pool', fq_name=fip_pool_fq_name)
-                if net_obj.is_shared:
-                    global_access = PERMS_RWX
-                else:
-                    global_access = PERMS_NONE
-                self._vnc_lib.chmod(fip_pool_uuid, global_access=global_access)
-            except NoIdError:
-                # ignore NoIdError
-                pass
         self._virtual_network_update(net_obj)
 
         ret_network_q = self._network_vnc_to_neutron(net_obj, net_repr='SHOW')
