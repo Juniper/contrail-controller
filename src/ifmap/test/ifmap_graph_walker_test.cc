@@ -507,6 +507,7 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
     // Config
     ParseEventsJson("controller/src/ifmap/testdata/vr_gsc_config.json");
     FeedEventsJson();
+    task_util::WaitForIdle();
 
     // VR-reg 
     IFMapClientMock c1("gsc1:vr1");
@@ -542,12 +543,16 @@ TEST_F(IFMapGraphWalkerTest, VrsubConfig) {
     ParseEventsJson("controller/src/ifmap/testdata/vr_gsc_config.json");
     FeedEventsJson();
 
-    TASK_UTIL_EXPECT_EQ(3, c1.count());
-    TASK_UTIL_EXPECT_EQ(2, c1.node_count());
+    // Could end up sending GSC  dummy entry
+    TASK_UTIL_EXPECT_GE(4, c1.count());
+    TASK_UTIL_EXPECT_LE(3, c1.count());
+    TASK_UTIL_EXPECT_GE(3, c1.node_count());
+    TASK_UTIL_EXPECT_LE(2, c1.node_count());
     TASK_UTIL_EXPECT_EQ(1, c1.link_count());
 
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
-    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1);
+    TASK_UTIL_EXPECT_GE(2,c1.NodeKeyCount("global-system-config"));
+    TASK_UTIL_EXPECT_LE(1,c1.NodeKeyCount("global-system-config"));
     TASK_UTIL_EXPECT_EQ(1, c1.LinkKeyCount("virtual-router",
                                            "global-system-config"));
     TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router","global-system-config",

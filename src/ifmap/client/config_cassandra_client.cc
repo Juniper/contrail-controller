@@ -204,7 +204,7 @@ bool ConfigCassandraClient::ReadObjUUIDTable(set<string> *uuid_list) {
 // These lists are used to determine which list/map properties need to be pushed
 // to the backend, they are built as columns are parsed. Once all columns are
 // parsed,
-// in ListMapPropReviseUpdatelist, for each property name in
+// in ListMapPropReviseUpdateList, for each property name in
 // candidate_list_map_properties we check it is already in the
 // updated_list_map_property list, if not we proceed to find at least one stale
 // list/map key value pair with the property name in the ObJUuidCache, if one is
@@ -253,7 +253,7 @@ bool ConfigCassandraClient::ProcessObjUUIDTableEntry(const string &uuid_key,
         return false;
     }
 
-    GetPartition(uuid_key)->ListMapPropReviseUpdatelist(uuid_key, context);
+    GetPartition(uuid_key)->ListMapPropReviseUpdateList(uuid_key, context);
 
     // Read the context for map and list properties
     if (context.updated_list_map_properties.size()) {
@@ -737,31 +737,29 @@ void ConfigCassandraPartition::RemoveObjReqEntry(string &uuid) {
     uuid_read_set_.erase(req_it);
 }
 
-void ConfigCassandraPartition::ListMapPropReviseUpdatelist(
+void ConfigCassandraPartition::ListMapPropReviseUpdateList(
     const string &uuid, ConfigCassandraParseContext &context) {
-    if (context.candidate_list_map_properties.size()) {
-        for(std::set<std::string>::iterator it =
-                context.candidate_list_map_properties.begin();
-                it != context.candidate_list_map_properties.end(); it++) {
-            if (context.updated_list_map_properties.find(*it) !=
-                    context.updated_list_map_properties.end()) {
-                continue;
+    for (std::set<std::string>::iterator it =
+            context.candidate_list_map_properties.begin();
+            it != context.candidate_list_map_properties.end(); it++) {
+        if (context.updated_list_map_properties.find(*it) !=
+                context.updated_list_map_properties.end()) {
+            continue;
+        }
+        ObjectCacheMap::iterator uuid_iter = object_cache_map_.find(uuid);
+        assert(uuid_iter != object_cache_map_.end());
+        FieldDetailMap::iterator field_iter =
+            uuid_iter->second.lower_bound(*it);
+        assert(field_iter !=  uuid_iter->second.end());
+        assert(it->compare(0, it->size() - 1, field_iter->first,
+                    0, it->size() - 1) == 0);
+        while (it->compare(0, it->size() - 1, field_iter->first,
+                    0, it->size() - 1) == 0) {
+            if (field_iter->second.second == false) {
+                context.updated_list_map_properties.insert(*it);
+                break;
             }
-            ObjectCacheMap::iterator uuid_iter = object_cache_map_.find(uuid);
-            assert(uuid_iter != object_cache_map_.end());
-            FieldDetailMap::iterator field_iter =
-                uuid_iter->second.lower_bound(*it);
-            assert(field_iter !=  uuid_iter->second.end());
-            assert(it->compare(0, it->size() - 1, field_iter->first,
-                        0, it->size() - 1) == 0);
-            while (it->compare(0, it->size() - 1, field_iter->first,
-                        0, it->size() - 1) == 0) {
-                if (field_iter->second.second == false) {
-                    context.updated_list_map_properties.insert(*it);
-                    break;
-                }
-                field_iter++;
-            }
+            field_iter++;
         }
     }
 }
