@@ -105,7 +105,12 @@ struct NewCf {
         COLUMN_FAMILY_SQL = 1,
         COLUMN_FAMILY_NOSQL = 2,
     };
-    typedef std::map<std::string, GenDb::DbDataType::type> SqlColumnMap; /* columns meta-data */
+    struct ColumnAttrib {
+        GenDb::DbDataType::type datatype;
+        bool                    clus_col;
+    };
+    typedef std::map<std::string, ColumnAttrib> SqlColumnMap; /* columns meta-data */
+    typedef std::vector<ColumnAttrib> SqlColumnVec; /* columns meta-data */
 
     NewCf(const std::string& cfname, const DbDataTypeVec& key_type,
             const SqlColumnMap& cfcolumns) :
@@ -116,7 +121,7 @@ struct NewCf {
     }
 
     NewCf(const std::string& cfname, const DbDataTypeVec& key_type,
-            const DbDataTypeVec& comp_type,
+            const SqlColumnVec& comp_type,
             const DbDataTypeVec& valid_class) :
         cfname_(cfname),
         cftype_(COLUMN_FAMILY_NOSQL),
@@ -131,7 +136,7 @@ struct NewCf {
     ColumnFamilyType cftype_;
     DbDataTypeVec key_validation_class; /* for key-value comparison */
     SqlColumnMap cfcolumns_; /* columns meta-data */
-    DbDataTypeVec comparator_type; /* for column-name comparison */
+    SqlColumnVec comparator_type; /* for column-name comparison */
     DbDataTypeVec default_validation_class; /* for column-value comparison */
 };
 

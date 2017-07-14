@@ -14,7 +14,7 @@ std::vector<GenDb::NewCf> vizd_stat_tables;
 FlowTypeMap flow_msg2type_map;
 
 void init_tables(std::vector<GenDb::NewCf>& table,
-                std::vector<table_schema> schema) {
+                std::map<std::string, table_schema> schema) {
 
     GenDb::DbDataTypeVec flow_series_value_thrift = boost::assign::list_of
         (GenDb::DbDataType::Unsigned64Type)
@@ -31,34 +31,39 @@ void init_tables(std::vector<GenDb::NewCf>& table,
         (GenDb::DbDataType::Unsigned16Type)
         (GenDb::DbDataType::UTF8Type);
 
-    for(size_t i = 0; i < schema.size(); i++) {
+    for (std::map<std::string, table_schema>::const_iterator it = schema.begin();
+         it != schema.end(); ++it) {
+
         GenDb::DbDataTypeVec key_types;
-        GenDb::DbDataTypeVec comp_type;
+        GenDb::NewCf::SqlColumnVec comp_type;
         GenDb::DbDataTypeVec valid_class;
-        std::map<std::string, GenDb::DbDataType::type> cols;
-        if (schema[i].is_static) {
-            for(size_t j = 0; j < schema[i].columns.size(); j++) {
-                if (schema[i].columns[j].key) {
-                    key_types.push_back(schema[i].columns[j].datatype);
+        GenDb::NewCf::SqlColumnMap cols;
+        if (it->second.is_static) {
+            for(size_t j = 0; j < it->second.columns.size(); j++) {
+                if (it->second.columns[j].key) {
+                    key_types.push_back(it->second.columns[j].datatype);
                 } else {
-                    cols[schema[i].columns[j].name] =
+                    cols[it->second.columns[j].name].datatype =
                         static_cast<GenDb::DbDataType::type>(
-                                schema[i].columns[j].datatype);
+                                it->second.columns[j].datatype);
                 }
             }
-            table.push_back(GenDb::NewCf(schema[i].table_name,
+            table.push_back(GenDb::NewCf(it->first,
                             key_types, cols));
         } else {
-            for(size_t j = 0; j < schema[i].columns.size(); j++) {
-                if(boost::starts_with(schema[i].columns[j].name, "key")) {
-                    key_types.push_back(schema[i].columns[j].datatype);
-                } else if (schema[i].columns[j].name == "value") {
-                    valid_class.push_back(schema[i].columns[j].datatype);
+            for(size_t j = 0; j < it->second.columns.size(); j++) {
+                if(boost::starts_with(it->second.columns[j].name, "key")) {
+                    key_types.push_back(it->second.columns[j].datatype);
+                } else if (it->second.columns[j].name == "value") {
+                    valid_class.push_back(it->second.columns[j].datatype);
                 } else {
-                    comp_type.push_back(schema[i].columns[j].datatype);
+                    GenDb::NewCf::ColumnAttrib col_attrib =
+                            { it->second.columns[j].datatype,
+                              it->second.columns[j].clus_col };
+                    comp_type.push_back(col_attrib);
                 }
             }
-            table.push_back(GenDb::NewCf(schema[i].table_name,
+            table.push_back(GenDb::NewCf(it->first,
                         key_types, comp_type, valid_class));
         }
     }
