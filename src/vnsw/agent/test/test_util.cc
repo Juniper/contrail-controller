@@ -2757,6 +2757,20 @@ void DelEncapList(Agent *agent) {
     DelNode(agent, "global-vrouter-config", "vrouter-config");
 }
 
+void AddBgpaasPortRange(const int port_start, const int port_end) {
+    std::stringstream str;
+    str << "<bgp-as-service-global-config>" << endl;
+    str << "    <port-start>" << port_start << "</port-start>";
+    str << "    <port-end>" << port_end << "</port-end>";
+    str << "</bgp-as-service-global-config>";
+
+    AddNode("global-system-config", "system-config", 1, str.str().c_str());
+}
+
+void DelBgpaasPortRange() {
+    DelNode("global-system-config", "system-config");
+}
+
 void DelHealthCheckService(const char *name) {
     DelNode("service-health-check", name);
 }
