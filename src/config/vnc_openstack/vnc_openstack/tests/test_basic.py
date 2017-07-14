@@ -2,19 +2,20 @@ import sys
 import json
 import re
 
-from testtools.matchers import Equals, Contains
 from testtools import ExpectedException
 import webtest.app
 import datetime
 
 sys.path.append('../common/tests')
 from cfgm_common.exceptions import NoIdError
+from cfgm_common import PERMS_RWX, PERMS_NONE
 from test_utils import *
 import test_common
 
 import test_case
 
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
+
 
 class TestBasic(test_case.NeutronBackendTestCase):
     @classmethod
@@ -32,16 +33,15 @@ class TestBasic(test_case.NeutronBackendTestCase):
         data = {'fields': None,
                 'id': id}
         body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json('/neutron/%s' %(url_pfx), body)
+        resp = self._api_svr_app.post_json('/neutron/%s' % url_pfx, body)
         return json.loads(resp.text)
     # end read_resource
 
-    def list_resource(self, url_pfx,
-        proj_uuid=None, req_fields=None, req_filters=None,
-        is_admin=False):
-        if proj_uuid == None:
-            proj_uuid = self._vnc_lib.fq_name_to_id('project',
-            fq_name=['default-domain', 'default-project'])
+    def list_resource(self, url_pfx, proj_uuid=None, req_fields=None,
+                      req_filters=None, is_admin=False):
+        if proj_uuid is None:
+            proj_uuid = self._vnc_lib.fq_name_to_id(
+                'project', fq_name=['default-domain', 'default-project'])
 
         context = {'operation': 'READALL',
                    'user_id': '',
@@ -51,7 +51,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         data = {'fields': req_fields, 'filters': req_filters or {}}
         body = {'context': context, 'data': data}
         resp = self._api_svr_app.post_json(
-            '/neutron/%s' %(url_pfx), body)
+            '/neutron/%s' % url_pfx, body)
         return json.loads(resp.text)
     # end list_resource
 
@@ -72,7 +72,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             data['resource'].update(extra_res_fields)
 
         body = {'context': context, 'data': data}
-        resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
+        resp = self._api_svr_app.post_json('/neutron/%s' % res_type, body)
         return json.loads(resp.text)
 
     def delete_resource(self, res_type, proj_id, id, is_admin=False):
@@ -85,7 +85,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         data = {'id': id}
 
         body = {'context': context, 'data': data}
-        self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
+        self._api_svr_app.post_json('/neutron/%s' % res_type, body)
 
     def update_resource(self, res_type, res_id, proj_id, name=None, extra_res_fields=None,
                         is_admin=False, operation=None):
@@ -880,6 +880,48 @@ class TestBasic(test_case.NeutronBackendTestCase):
         # verify created timestamp and updated timestamp are not same
         self.assertIsNot(sn_dict_2['created_at'], sn_dict_2['updated_at'])
     # end test_subnet_timestamps
+
+    def test_external_network_fip_pool(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                       'default-project'])
+        net_q = self.create_resource('network', proj_obj.uuid,
+            extra_res_fields={'router:external': True, 'shared': True})
+        self.create_resource('subnet', proj_obj.uuid, extra_res_fields={
+                'network_id': net_q['id'],
+                'cidr': '1.1.1.0/24',
+                'ip_version': 4,
+        })
+
+        fip_pool_fq_name = net_q['fq_name'] + ['floating-ip-pool']
+        fip_pool_obj = self._vnc_lib.floating_ip_pool_read(
+            fq_name=fip_pool_fq_name)
+        self.assertEqual(fip_pool_obj.perms2.global_access, PERMS_RWX)
+        self.delete_resource('network', proj_obj.uuid, net_q['id'])
+
+        net_q = self.create_resource('network', proj_obj.uuid,
+            extra_res_fields={'router:external': True, 'shared': False})
+        self.create_resource('subnet', proj_obj.uuid, extra_res_fields={
+                'network_id': net_q['id'],
+                'cidr': '1.1.1.0/24',
+                'ip_version': 4,
+        })
+
+        fip_pool_obj = self._vnc_lib.floating_ip_pool_read(
+            fq_name=fip_pool_fq_name)
+        self.assertEqual(fip_pool_obj.perms2.global_access, PERMS_NONE)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'shared': True})
+        fip_pool_obj = self._vnc_lib.floating_ip_pool_read(
+            fq_name=fip_pool_fq_name)
+        self.assertEqual(fip_pool_obj.perms2.global_access, PERMS_RWX)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'shared': False})
+        fip_pool_obj = self._vnc_lib.floating_ip_pool_read(
+            fq_name=fip_pool_fq_name)
+        self.assertEqual(fip_pool_obj.perms2.global_access, PERMS_NONE)
+    # end test_external_network_fip_pool
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
@@ -1089,7 +1131,7 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         self.assertEqual(vn2_neutron_list[0]['id'], vn2_obj.uuid)
 
         #filter for list of router:external and
-        #shared network='Flase' should return 1
+        #shared network='False' should return 1
         vn3_neutron_list = self.list_resource(
                                 'network', proj_uuid=proj_obj.uuid,
                                 req_filters={'shared': [False],
