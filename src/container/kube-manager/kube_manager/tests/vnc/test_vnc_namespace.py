@@ -107,7 +107,8 @@ class VncNamespaceTest(KMTestCase):
         # Create network for Pod
         proj_fq_name = ['default-domain', 'default']
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        self.create_network('network1', proj_obj)
+        self.create_network('network1', proj_obj, '10.32.0.0/12',
+                            '10.96.0.0/12')
         # Add first namespace
         eval_vn_dict = \
             '{"domain":"default-domain","project":"default","name":"network1"}'

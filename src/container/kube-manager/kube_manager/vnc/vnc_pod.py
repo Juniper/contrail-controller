@@ -6,19 +6,28 @@
 VNC pod management for kubernetes
 """
 
+import json
 import uuid
 
-from vnc_api.vnc_api import *
-from config_db import *
-from kube_manager.common.kube_config_db import NamespaceKM
-from kube_manager.common.kube_config_db import PodKM
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from vnc_common import VncCommon
+from cStringIO import StringIO
+from cfgm_common.exceptions import RefsExistError, NoIdError
+from cfgm_common.utils import cgitb_hook
+from vnc_api.vnc_api import (
+    InstanceIp, FloatingIp, FloatingIpPool, VirtualMachine,
+    VirtualMachineInterface, VirtualMachineInterfacePropertiesType,
+    SecurityGroup)
+from kube_manager.vnc.config_db import (
+    DBBaseKM, VirtualNetworkKM, VirtualRouterKM, VirtualMachineKM,
+    VirtualMachineInterfaceKM, InstanceIpKM, FloatingIpKM, LoadbalancerKM)
+from kube_manager.vnc.vnc_common import VncCommon
+from kube_manager.common.kube_config_db import (NamespaceKM, PodKM)
+from kube_manager.vnc.vnc_kubernetes_config import (
+    VncKubernetesConfig as vnc_kube_config)
 
 class VncPod(VncCommon):
 
     def __init__(self, service_mgr, network_policy_mgr):
-        super(VncPod,self).__init__('Pod')
+        super(VncPod, self).__init__('Pod')
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
@@ -29,7 +38,8 @@ class VncPod(VncCommon):
         self._args = vnc_kube_config.args()
         self._logger = vnc_kube_config.logger()
 
-    def _get_label_diff(self, new_labels, vm):
+    @staticmethod
+    def _get_label_diff(new_labels, vm):
         old_labels = vm.pod_labels
         if old_labels == new_labels:
             return None
@@ -61,8 +71,9 @@ class VncPod(VncCommon):
         new_labels.update(namespace_label)
         for label in new_labels.items():
             key = self._label_cache._get_key(label)
-            self._label_cache._locate_label(key,
-                self._label_cache.pod_label_cache, label, vm.uuid)
+            pod_label_cache = self._label_cache.pod_label_cache
+            self._label_cache._locate_label(key, pod_label_cache, label,
+                                            vm.uuid)
         vm.pod_labels = new_labels
 
     def _clear_label_to_pod_cache(self, vm):
@@ -70,8 +81,9 @@ class VncPod(VncCommon):
             return
         for label in vm.pod_labels.items() or []:
             key = self._label_cache._get_key(label)
-            self._label_cache._remove_label(key,
-                self._label_cache.pod_label_cache, label, vm.uuid)
+            pod_label_cache = self._label_cache.pod_label_cache
+            self._label_cache._remove_label(key, pod_label_cache, label,
+                                            vm.uuid)
         vm.pod_labels = None
 
     def _update_label_to_pod_cache(self, new_labels, vm):
@@ -97,8 +109,8 @@ class VncPod(VncCommon):
         pod = PodKM.find_by_name_or_uuid(pod_id)
         if not pod:
             self._logger.notice("%s - Pod %s:%s:%s Not Found"
-                "(Might Got Delete Event From K8s)"
-                %(self._name, pod_namespace, pod_name, pod_id))
+                                "(Might Got Delete Event From K8s)"
+                                %(self._name, pod_namespace, pod_name, pod_id))
             return
 
         vn_fq_name = pod.get_vn_fq_name()
@@ -111,7 +123,7 @@ class VncPod(VncCommon):
         # If the pod's namespace is isolated, use the isolated virtual
         # network.
         if not vn_fq_name:
-            if self._is_pod_network_isolated(pod_namespace) == True:
+            if self._is_pod_network_isolated(pod_namespace):
                 vn_fq_name = ns.get_isolated_network_fq_name()
 
         # Finally, if no network was found, default to the cluster
@@ -122,18 +134,20 @@ class VncPod(VncCommon):
         vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         return vn_obj
 
-    def _get_namespace(self, pod_namespace):
+    @staticmethod
+    def _get_namespace(pod_namespace):
         return NamespaceKM.find_by_name_or_uuid(pod_namespace)
 
     def _is_pod_network_isolated(self, pod_namespace):
         return self._get_namespace(pod_namespace).is_isolated()
 
-
-    def _is_pod_nested(self):
+    @staticmethod
+    def _is_pod_nested():
         # Pod is nested if we are configured to run in nested mode.
         return DBBaseKM.is_nested()
 
-    def _get_host_ip(self, pod_name):
+    @staticmethod
+    def _get_host_ip(pod_name):
         pod = PodKM.find_by_name_or_uuid(pod_name)
         if pod:
             return pod.get_host_ip()
@@ -152,17 +166,17 @@ class VncPod(VncCommon):
             vnc_kube_config.pod_ipam_fq_name())
 
         # Create instance-ip.
-        display_name=VncCommon.make_display_name(pod_namespace, pod_name)
+        display_name = VncCommon.make_display_name(pod_namespace, pod_name)
         iip_uuid = str(uuid.uuid1())
         iip_name = VncCommon.make_name(pod_name, iip_uuid)
         iip_obj = InstanceIp(name=iip_name, subnet_uuid=pod_ipam_subnet_uuid,
-                    display_name=display_name)
+                             display_name=display_name)
         iip_obj.uuid = iip_uuid
         iip_obj.add_virtual_network(vn_obj)
 
         # Creation of iip requires the vmi vnc object.
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                      fq_name=vmi.fq_name)
+            fq_name=vmi.fq_name)
         iip_obj.add_virtual_machine_interface(vmi_obj)
 
         InstanceIpKM.add_annotations(self, iip_obj, pod_namespace, pod_name)
@@ -176,8 +190,9 @@ class VncPod(VncCommon):
     def _get_host_vmi(self, pod_name):
         host_ip = self._get_host_ip(pod_name)
         if host_ip:
-            iip = InstanceIpKM.get_object(host_ip,
-                vnc_kube_config.cluster_default_network_fq_name())
+            net_fq_name = vnc_kube_config.cluster_default_network_fq_name()
+            iip = InstanceIpKM.get_object(host_ip, net_fq_name)
+
             if iip:
                 for vmi_id in iip.virtual_machine_interfaces:
                     vm_vmi = VirtualMachineInterfaceKM.get(vmi_id)
@@ -203,17 +218,16 @@ class VncPod(VncCommon):
 
         # Create Floating-Ip object.
         obj_uuid = str(uuid.uuid1())
-        display_name=VncCommon.make_display_name(pod_namespace, pod_name)
+        display_name = VncCommon.make_display_name(pod_namespace, pod_name)
         name = VncCommon.make_name(pod_name, obj_uuid)
         fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (name),
-                    parent_obj=fip_pool_obj,
-                    floating_ip_traffic_direction='egress',
-                    display_name=display_name)
+                             parent_obj=fip_pool_obj,
+                             floating_ip_traffic_direction='egress',
+                             display_name=display_name)
         fip_obj.uuid = obj_uuid
 
         # Creation of fip requires the vmi vnc object.
-        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
-                      id=vmi_uuid)
+        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
         fip_obj.set_virtual_machine_interface(vmi_obj)
 
         FloatingIpKM.add_annotations(self, fip_obj, pod_namespace, pod_name)
@@ -228,7 +242,8 @@ class VncPod(VncCommon):
 
         return
 
-    def _associate_security_groups(self, vmi_obj, proj_obj, ns):
+    @staticmethod
+    def _associate_security_groups(vmi_obj, proj_obj, ns):
         sg_name = "-".join([vnc_kube_config.cluster_name(), ns, 'default'])
         sg_obj = SecurityGroup(sg_name, proj_obj)
         vmi_obj.add_security_group(sg_obj)
@@ -237,8 +252,7 @@ class VncPod(VncCommon):
         vmi_obj.add_security_group(sg_obj)
         return
 
-    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj,
-            parent_vmi):
+    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj, parent_vmi):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
@@ -254,17 +268,18 @@ class VncPod(VncCommon):
 
         obj_uuid = str(uuid.uuid1())
         name = VncCommon.make_name(pod_name, obj_uuid)
-        display_name=VncCommon.make_display_name(pod_namespace, pod_name)
-        vmi_obj = VirtualMachineInterface(name=name, parent_obj=proj_obj,
-                    virtual_machine_interface_properties=vmi_prop,
-                    display_name=display_name)
+        display_name = VncCommon.make_display_name(pod_namespace, pod_name)
+        vmi_obj = VirtualMachineInterface(
+            name=name, parent_obj=proj_obj,
+            virtual_machine_interface_properties=vmi_prop,
+            display_name=display_name)
 
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
         self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
         VirtualMachineInterfaceKM.add_annotations(self, vmi_obj, pod_namespace,
-            pod_name)
+                                                  pod_name)
 
         try:
             vmi_uuid = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
@@ -275,68 +290,76 @@ class VncPod(VncCommon):
         return vmi_uuid
 
     def _create_vm(self, pod_namespace, pod_id, pod_name, labels):
-        proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
         vm_name = VncCommon.make_name(pod_name, pod_id)
-        display_name=VncCommon.make_display_name(pod_namespace, pod_name)
-        vm_obj = VirtualMachine(name=vm_name,display_name=display_name)
+        display_name = VncCommon.make_display_name(pod_namespace, pod_name)
+        vm_obj = VirtualMachine(name=vm_name, display_name=display_name)
         vm_obj.uuid = pod_id
 
         VirtualMachineKM.add_annotations(self, vm_obj, pod_namespace, pod_name,
-            k8s_uuid=str(pod_id), labels=json.dumps(labels))
+                                         k8s_uuid=str(pod_id),
+                                         labels=json.dumps(labels))
         try:
             self._vnc_lib.virtual_machine_create(vm_obj)
         except RefsExistError:
             vm_obj = self._vnc_lib.virtual_machine_read(id=pod_id)
-        vm = VirtualMachineKM.locate(vm_obj.uuid)
+        VirtualMachineKM.locate(vm_obj.uuid)
         return vm_obj
 
     def _link_vm_to_node(self, vm_obj, pod_node):
         vrouter_fq_name = ['default-global-system-config', pod_node]
         try:
-            vrouter_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_fq_name)
-        except Exception as e:
+            vr_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_fq_name)
+        except NoIdError:
             self._logger.debug("%s - Vrouter %s Not Found for Pod %s"
-                %(self._name, vrouter_fq_name, pod_id))
+                               %(self._name, vrouter_fq_name, pod_node))
             return
+        except Exception:
+            string_buf = StringIO()
+            cgitb_hook(file=string_buf, format="text")
+            err_msg = string_buf.getvalue()
+            self.logger.error("%s - failed to read Vrouter for Pod %s. %s"
+                              %(self._name, pod_node, err_msg))
 
-        self._vnc_lib.ref_update('virtual-router', vrouter_obj.uuid,
-            'virtual-machine', vm_obj.uuid, None, 'ADD')
+        self._vnc_lib.ref_update('virtual-router', vr_obj.uuid,
+                                 'virtual-machine', vm_obj.uuid, None, 'ADD')
         vm = VirtualMachineKM.get(vm_obj.uuid)
         if vm:
-            vm.virtual_router = vrouter_obj.uuid
+            vm.virtual_router = vr_obj.uuid
 
-    def _check_pod_uuid_change(self, pod_uuid, pod_name, pod_namespace):
+    def _check_pod_uuid_change(self, pod_uuid, pod_name):
         vm_fq_name = [pod_name]
         vm_uuid = LoadbalancerKM.get_fq_name_to_uuid(vm_fq_name)
         if vm_uuid != pod_uuid:
             self.vnc_pod_delete(vm_uuid)
 
     def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, labels,
-            vm_vmi):
+                    vm_vmi):
         vm = VirtualMachineKM.get(pod_id)
         if vm:
             vm.pod_namespace = pod_namespace
             self._set_label_to_pod_cache(labels, vm)
             return vm
         else:
-            self._check_pod_uuid_change(pod_id, pod_name, pod_namespace)
+            self._check_pod_uuid_change(pod_id, pod_name)
 
         vn_obj = self._get_network(pod_id, pod_name, pod_namespace)
         if not vn_obj:
             return
 
         vm_obj = self._create_vm(pod_namespace, pod_id, pod_name, labels)
-        vmi_uuid = self._create_vmi(pod_name, pod_namespace,
-                vm_obj, vn_obj, vm_vmi)
+        vmi_uuid = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj,
+                                    vm_vmi)
         vmi = VirtualMachineInterfaceKM.get(vmi_uuid)
 
         if self._is_pod_nested() and vm_vmi:
             # Pod is nested.
             # Link the pod VMI to the VMI of the underlay VM.
             self._vnc_lib.ref_update('virtual-machine-interface', vm_vmi.uuid,
-                'virtual-machine-interface', vmi_uuid, None, 'ADD')
+                                     'virtual-machine-interface', vmi_uuid,
+                                     None, 'ADD')
             self._vnc_lib.ref_update('virtual-machine-interface', vmi_uuid,
-                'virtual-machine-interface', vm_vmi.uuid, None, 'ADD')
+                                     'virtual-machine-interface', vm_vmi.uuid,
+                                     None, 'ADD')
 
             # get host id for vm vmi
             vr_uuid = None
@@ -346,11 +369,13 @@ class VncPod(VncCommon):
                     break
             if not vr_uuid:
                 self._logger.error("No virtual-router object found for host: "
-                        + vm_vmi.host_id + ". Unable to add VM reference to a"
-                        " valid virtual-router")
+                                   + vm_vmi.host_id
+                                   + ". Unable to add VM reference to a"
+                                   + " valid virtual-router")
                 return
             self._vnc_lib.ref_update('virtual-router', vr_uuid,
-                'virtual-machine', vm_obj.uuid, None, 'ADD')
+                                     'virtual-machine', vm_obj.uuid, None,
+                                     'ADD')
 
         self._create_iip(pod_name, pod_namespace, vn_obj, vmi)
 
@@ -365,12 +390,12 @@ class VncPod(VncCommon):
             return vm
 
     def vnc_pod_update(self, pod_id, pod_name, pod_namespace, pod_node, labels,
-            vm_vmi):
+                       vm_vmi):
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             # If the vm is not created yet, do so now.
-            vm = self.vnc_pod_add(pod_id, pod_name, pod_namespace,
-                pod_node, labels, vm_vmi)
+            vm = self.vnc_pod_add(pod_id, pod_name, pod_namespace, pod_node,
+                                  labels, vm_vmi)
             if not vm:
                 return
         vm.pod_namespace = pod_namespace
@@ -414,7 +439,8 @@ class VncPod(VncCommon):
 
         if vm.virtual_router:
             self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
-                'virtual-machine', vm.uuid, None, 'DELETE')
+                                     'virtual-machine', vm.uuid, None,
+                                     'DELETE')
 
         for vmi_id in list(vm.virtual_machine_interfaces):
             self.vnc_port_delete(vmi_id)
@@ -441,8 +467,8 @@ class VncPod(VncCommon):
         vm_uuid_set = set(VirtualMachineKM.keys())
         pod_uuid_set = set(PodKM.keys())
         deleted_pod_set = vm_uuid_set - pod_uuid_set
-        for uuid in deleted_pod_set:
-            vm = VirtualMachineKM.get(uuid)
+        for pod_uuid in deleted_pod_set:
+            vm = VirtualMachineKM.get(pod_uuid)
             if not vm or vm.owner != 'k8s':
                 continue
             self._create_pod_event('delete', uuid, vm)
@@ -463,7 +489,8 @@ class VncPod(VncCommon):
         print("%s - Got %s %s %s:%s:%s"
               %(self._name, event_type, kind, pod_namespace, pod_name, pod_id))
         self._logger.debug("%s - Got %s %s %s:%s:%s"
-              %(self._name, event_type, kind, pod_namespace, pod_name, pod_id))
+                           %(self._name, event_type, kind, pod_namespace,
+                             pod_name, pod_id))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
 
@@ -488,13 +515,15 @@ class VncPod(VncCommon):
 
             if event['type'] == 'ADDED':
                 vm = self.vnc_pod_add(pod_id, pod_name, pod_namespace,
-                    pod_node, labels, vm_vmi)
+                                      pod_node, labels, vm_vmi)
                 if vm:
-                    self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
+                    self._network_policy_mgr.update_pod_np(pod_namespace,
+                                                           pod_id, labels)
             else:
-                vm = self.vnc_pod_update(pod_id, pod_name,
-                    pod_namespace, pod_node, labels, vm_vmi)
+                vm = self.vnc_pod_update(pod_id, pod_name, pod_namespace,
+                                         pod_node, labels, vm_vmi)
                 if vm:
-                    self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
+                    self._network_policy_mgr.update_pod_np(pod_namespace,
+                                                           pod_id, labels)
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
