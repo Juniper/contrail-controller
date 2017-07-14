@@ -7,7 +7,7 @@ The current collection focused on individual flows, which we are considering mov
 consider the use case below:
 
 ![Image of session-collection](images/session-collection1.png)
-Consider the session shown here. There is client on vRouter1, which initiates a session to a server on vRouter2, which then responds. We identify this session according to the packet header from the first packet sent from the client to the server: SVN = VN1, SIP = IP1, SPort = p1, DVN = VN2, DIP = IP2, DPort = p2, Protocol = X. Both vRouters are able to use the same identity for the session based on the forward flow seen by them. But vRouter1 will record the client part of the session, whereas vRouter2 will record the server part.
+Consider the session shown here. There is client on vRouter1, which initiates a session to a server on vRouter2, which then responds. We identify this session according to the packet header from the first packet sent from the client to the server: CVN = VN1, CIP = IP1, CPort = p1, SVN = SN2, SIP = IP2, SPort = p2, Protocol = X. Both vRouters are able to use the same identity for the session based on the forward flow seen by them. But vRouter1 will record the client part of the session, whereas vRouter2 will record the server part.
 
 Another usecase is detecting anomaly in the sessions. New config objects will be added, to indicate VMI's of interest along with anamoly detection algorithm. This can then be used to detect any abnormalities in session creation.
 
@@ -15,23 +15,23 @@ Another usecase is detecting anomaly in the sessions. New config objects will be
 
 We can always record traffic information for both the client and server part based on the 7-tuple, but some elements of this 7-tuple are more important for analysis than others. We need to design for more efficient queries for more important elements, and we can make less efficient queries for others. The maximum efficiency is gained by pre-aggregating when the information is recorded, so the number of records is reduced.  (e.g. for the sake of efficiency, we currently record InterVN stats explicitly by pre-aggregating across all elements of the 7-tuple except the VNs, even though we could have got the same information from flow records).
 
-Notice that the SPort is usually not interesting for analysis (on both the Client part and the Server part), because it is an ephemeral port. In fact, when use fat-flows, it is always recorded as 0.  (by contrast, both Client and Server session parts find Dport very interesting, because it usually represents the service being offered or consumed – 80 in the case of HTTP). So, we can pre-aggregate by SPort.
+Notice that the CPort is usually not interesting for analysis (on both the Client part and the Server part), because it is an ephemeral port. In fact, when use fat-flows, it is always recorded as 0.  (by contrast, both Client and Server session parts find SPort very interesting, because it usually represents the service being offered or consumed – 80 in the case of HTTP). So, we can pre-aggregate by CPort.
 
-Now let discuss the Client Part and the Server Part separately, starting with the Server part. The SIP and DIP fields are candidates for pre-aggregation also – they are less important than SVN/DVN. But there isn’t much to be gained on the Server part by pre-aggregating on a per DIP basis – a single vRouter will have a handful of DIPs anyway.
+Now let discuss the Client Part and the Server Part separately, starting with the Server part. The CIP and SIP fields are candidates for pre-aggregation also – they are less important than CVN/SVN. But there isn’t much to be gained on the Server part by pre-aggregating on a per Server-IP basis – a single vRouter will have a handful of Server-IPs anyway.
 
-So, we pre-aggregate based on SIP and SPORT, and send information per combination of SVN-DVN-DIP-Protocol-DPORT.
+So, we pre-aggregate based on CIP and CPORT, and send information per combination of CVN-SVN-SIP-Protocol-SPORT.
 
 This is what is needed for analyzing flows on the 7-tuple basis. But, we are also adding an enhanced security framework to manage connectivity between workloads (i.e. VMIs). Each VMI is “tagged” with the attributes of Deployment, App, Tier and Site. The user specifies security policies for VMIs in terms of values of these tags. We will need to analyze traffic flow between groups of VMI, where groups are categorized according to one or more values of these tags. These tags will also be communicated in routes, so that the vRouter has tag information about remote endpoints that it’s local VMIs are talking to. However, in the routes, these tags are IDs, not strings. When sending remote tags to analytics, vRouter agent should send names for tags in its own project and for global tags. Other tags may be sent as IDs.
 
-To give us the ability to analyze traffic between these VMI groups, as well as security policies, as well as SVN-DVN-DIP-Protocol-DPORT, we are proposing that the current Flow message be replaced by a “SessionEndpoint” message. This message has these parts:
+To give us the ability to analyze traffic between these VMI groups, as well as security policies, as well as CVN-SVN-SIP-Protocol-SPORT, we are proposing that the current Flow message be replaced by a “SessionEndpoint” message. This message has these parts:
 
 1.	The identity of the SessionEndpoint, which is a combination of:
-a.	VMI. Given the local VMI, its tags and VNs are known too.
-b.	Security Policy and Security Rule.
-c.	Route attributes for the remote endpoint – tags and VN. For North-South routes and ECMP routes, we can use the route prefix as well.
-2.	A SessionAggregate map, keyed by DIP-Protocol-DPort (for the Client part, it will be SIP-Protocol-DPort). The values in this map consist of the following:
-a.	Session map, which contains the actual individual sessions for the aggregate, keyed by SPort and SIP. (for the Client part, it will be SPort and DIP). A given session can be marked as logged, sampled or both. The sampling works in similar was as the current Flow Sampling, but we need to do “Session Sampling” instead of “Flow Sampling”. For any given session, we need to either send both the forward-flow and reverse-flow, or send neither of them. The thresholding, upscaling and probability check actions can be based on either forward flow or reverse flow metrics, but the actions will need to be taken on both the flows.
-b.	SessionAggregate counts - bytes/packets/flows. These counts should correspond exactly with the corresponding session map, and the sampled values in the session entries. Traffic analysis within and across Security Policies will use these session aggregate counts, instead of per-session counts.
+    *	VMI. Given the local VMI, its tags and VNs are known too.
+    *	Security Policy and Security Rule.
+    *	Route attributes for the remote endpoint – tags and VN. For North-South routes and ECMP routes, we can use the route prefix as well.
+2.	A SessionAggregate map, keyed by SIP-Protocol-SPort (for the Client part, it will be CIP-Protocol-SPort). The values in this map consist of the following:
+    *	Session map, which contains the actual individual sessions for the aggregate, keyed by CPort and CIP. (for the Client part, it will be CPort and SIP). A given session can be marked as logged, sampled or both. The sampling works in similar was as the current Flow Sampling, but we need to do “Session Sampling” instead of “Flow Sampling”. For any given session, we need to either send both the forward-flow and reverse-flow, or send neither of them. The thresholding, upscaling and probability check actions can be based on either forward flow or reverse flow metrics, but the actions will need to be taken on both the flows.
+    *	SessionAggregate counts - bytes/packets/flows. These counts should correspond exactly with the corresponding session map, and the sampled values in the session entries. Traffic analysis within and across Security Policies will use these session aggregate counts, instead of per-session counts.
 
 As had been discussed, Session data can belong to either Sampled or Logged Flows. The destinations to which the SessionAggregates will be sent are configurable. Collector, local log and syslog are the different destinations that will be supported for the SessionAggregates
 
@@ -105,7 +105,10 @@ Next is the SessionEndpointData object reported by agent periodically:
         15: bool is_si;
         16: string remote_prefix;
         /** @display_name: key is local session end point[sandesh keys have to be primitive values, hence the endpoint is defined as (protocol, port, ip address) and val is remote session end point*/
-        17: map<u16, map<u16, map<ipaddr, SessionAggInfo> > sess_agg_map;
+        17: u16 protocol;
+        18: u16 sport;
+        19: ipaddr ip;
+        20: SessionAggInfo sess_agg_map;
     };
     
     struct SessionAggInfo {
@@ -117,7 +120,7 @@ Next is the SessionEndpointData object reported by agent periodically:
         6: i64 logged_tx_pkts;
         7: i64 logged_rx_bytes;
         8: i64 logged_rx_pkts;
-        9: map<ipaddr, map<u16, RemoteSessionVal> > sessionMap;
+        9: map<ipaddr, map<u16, RemoteSessionVal>> sessionMap;
         10: string vrouter_ip;
     };
     
