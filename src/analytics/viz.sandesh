@@ -11,6 +11,7 @@ include "database/gendb.sandesh"
 const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
 const string COLLECTOR_KEYSPACE_CQL = "ContrailAnalyticsCql"
 const string COLLECTOR_GLOBAL_TABLE = "MessageTable"
+const string COLLECTOR_GLOBAL_TABLE2= "MessageTablev2"
 const string UUID_KEY               = "UuidKey"
 const string SOURCE                 = "Source"
 const string KEYWORD                = "Keyword"
@@ -197,6 +198,7 @@ const list<string> _MSG_TABLES = [
 
 const list<string> _NO_AUTO_PURGE_TABLES  = [
     COLLECTOR_GLOBAL_TABLE,
+    COLLECTOR_GLOBAL_TABLE2,
     FLOW_TABLE,
     SYSTEM_OBJECT_TABLE
 ]
@@ -620,12 +622,29 @@ const map<string, objtable_info> _OBJECT_TABLES = {
 
 // Analytics table schema defination
 
+// Secondary/SASI Index
+enum ColIndexType {
+    NONE = 0,
+    INDEX,          // secondary index
+    CUSTOM_INDEX    // sasi index
+}
+
+// SASI Index modes
+enum ColIndexMode {
+    NONE = 0,
+    PREFIX,
+    CONTAINS
+}
+
 // Description of the column
 struct schema_column
 {
     1: string    name;
     2: gendb.DbDataType datatype;
-    3: bool      key;
+    3: bool      key;           // partition-key
+    4: bool      clustering;    // clustering-column
+    5: ColIndexType index_type;
+    6: ColIndexMode index_mode;
 }
 
 // Description of the column
@@ -666,6 +685,8 @@ struct table_schema
     2: bool     is_static;
     3: bool     is_index_table;
     4: list<schema_column> columns;
+    5: map<string, string> column_to_query_column;
+    6: map<string, string> query_column_to_column;
 }
 
 struct stat_table
@@ -687,555 +708,561 @@ const string STAT_UUID_FIELD     = "UUID";
 const string STAT_VT_PREFIX      = "StatTable";
 const string STAT_VT_FIELDNAMES_PREFIX = "StatTable.FieldNames.";
 
-const list<table_schema> _VIZD_TABLE_SCHEMA = [
-{
-    'table_name' : MESSAGE_TABLE_SOURCE,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type },
-        { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : COLLECTOR_GLOBAL_TABLE,
-    'is_static' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.LexicalUUIDType, 'key'
-: true },
-        { 'name' : CATEGORY, 'datatype' : GenDb.DbDataType.UTF8Type },
-        { 'name' : CONTEXT, 'datatype' : GenDb.DbDataType.UTF8Type },
-        { 'name' : IPADDRESS, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : INSTANCE_ID, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : LEVEL, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-        { 'name' : TIMESTAMP, 'datatype' : Gendb.DbDataType.Unsigned64Type },
-        { 'name' : MESSAGE_TYPE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : MODULE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : NAMESPACE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : NODE_TYPE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : PID, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-        { 'name' : SEQUENCE_NUM, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-        { 'name' : SOURCE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : SANDESH_TYPE, 'datatype' : Gendb.DbDataType.Unsigned8Type },
-        { 'name' : VERSION, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-        { 'name' : DATA, 'datatype' : Gendb.DbDataType.UTF8Type },
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_MODULE_ID,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type },
-        { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_MESSAGE_TYPE,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type },
-        { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_CATEGORY,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,  'key'
-: true},
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type },
-        { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_TIMESTAMP,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key' :
-true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'column2', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : OBJECT_VALUE_TABLE,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key' :
-true },
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.UTF8Type 'key' : true },
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : SYSTEM_OBJECT_TABLE,
-    'is_static' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' : true},
-        { 'name' : SYSTEM_OBJECT_FLOW_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_CONFIG_AUDIT_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_FLOW_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_GLOBAL_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_MSG_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_STAT_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_STATS_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-    ]
-},
-{
-    'table_name' : OBJECT_TABLE,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_KEYWORD,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-    ]
-},
-]
+// NOTE
+// Order of definitions in schema should be as follows.
+// This helps during table creation, we dont need to walk complete column list
+// to know the clustering-columns
+// -- partition-keys
+// -- clustering-columns
+// -- regular columns
+const map<string, table_schema> _VIZD_TABLE_SCHEMA = {
+    MESSAGE_TABLE_SOURCE : {
+        'is_index_table' : true,
+        'columns' : [
+            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+        ]
+    }
+    COLLECTOR_GLOBAL_TABLE : {
+        'is_static' : true,
+        'columns' : [
+            { 'name' : 'key', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
+              'key' : true },
+            { 'name' : CATEGORY, 'datatype' : GenDb.DbDataType.UTF8Type },
+            { 'name' : CONTEXT, 'datatype' : GenDb.DbDataType.UTF8Type },
+            { 'name' : IPADDRESS, 'datatype' : Gendb.DbDataType.UTF8Type },
+            { 'name' : INSTANCE_ID, 'datatype' : Gendb.DbDataType.UTF8Type },
+            { 'name' : LEVEL, 'datatype' : Gendb.DbDataType.Unsigned32Type },
+            { 'name' : TIMESTAMP, 'datatype' : Gendb.DbDataType.Unsigned64Type },
+            { 'name' : MESSAGE_TYPE, 'datatype' : Gendb.DbDataType.UTF8Type },
+            { 'name' : MODULE, 'datatype' : Gendb.DbDataType.UTF8Type },
+            { 'name' : NAMESPACE, 'datatype' : Gendb.DbDataType.UTF8Type },
+            { 'name' : NODE_TYPE, 'datatype' : Gendb.DbDataType.UTF8Type },
+            { 'name' : PID, 'datatype' : Gendb.DbDataType.Unsigned32Type },
+            { 'name' : SEQUENCE_NUM, 'datatype' : Gendb.DbDataType.Unsigned32Type },
+            { 'name' : SOURCE, 'datatype' : Gendb.DbDataType.UTF8Type },
+            { 'name' : SANDESH_TYPE, 'datatype' : Gendb.DbDataType.Unsigned8Type },
+            { 'name' : VERSION, 'datatype' : Gendb.DbDataType.Unsigned32Type },
+            { 'name' : DATA, 'datatype' : Gendb.DbDataType.UTF8Type },
+        ]
+    }
+    MESSAGE_TABLE_MODULE_ID : {
+        'is_index_table' : true,
+        'columns' : [
+            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+        ]
+    }
+    MESSAGE_TABLE_MESSAGE_TYPE : {
+        'is_index_table' : true,
+        'columns' : [
+            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+        ]
+    }
+    MESSAGE_TABLE_CATEGORY : {
+        'is_index_table' : true,
+        'columns' : [
+            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+        ]
+    }
+    MESSAGE_TABLE_TIMESTAMP : {
+        'is_index_table' : true,
+        'columns' : [
+            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+        ]
+    }
+    OBJECT_VALUE_TABLE : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'key' : true },
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    SYSTEM_OBJECT_TABLE : {
+        'is_static' : true,
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' : true},
+            { 'name' : SYSTEM_OBJECT_FLOW_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : SYSTEM_OBJECT_CONFIG_AUDIT_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : SYSTEM_OBJECT_FLOW_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : SYSTEM_OBJECT_GLOBAL_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : SYSTEM_OBJECT_MSG_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : SYSTEM_OBJECT_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : SYSTEM_OBJECT_STAT_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : SYSTEM_OBJECT_STATS_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
+        ]
+    }
+    OBJECT_TABLE : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+        ]
+    }
+    MESSAGE_TABLE_KEYWORD : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+        ]
+    }
+    COLLECTOR_GLOBAL_TABLE2 : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'key' : true },
+            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned8Type,
+              'key' : true },
+            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
+            { 'name' : 'column4', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.INDEX },
+            { 'name' : 'column5', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.INDEX },
+            { 'name' : 'column6', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
+            { 'name' : 'column7', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
+            { 'name' : 'column8', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
+            { 'name' : 'column9', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
+            { 'name' : 'column10', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
+            { 'name' : 'column11', 'datatype' : GenDb.DbDataType.UTF8Type,
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
+            { 'name' : 'column12', 'datatype' : GenDb.DbDataType.UTF8Type },
+            { 'name' : 'column13', 'datatype' : GenDb.DbDataType.Unsigned32Type },
+            { 'name' : 'column14', 'datatype' : GenDb.DbDataType.UTF8Type },
+            { 'name' : 'column15', 'datatype' : GenDb.DbDataType.Unsigned32Type },
+            { 'name' : 'column16', 'datatype' : GenDb.DbDataType.UTF8Type },
+            { 'name' : 'column17', 'datatype' : GenDb.DbDataType.UTF8Type },
+            { 'name' : 'column18', 'datatype' : GenDb.DbDataType.Unsigned32Type },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type },
 
-const list<table_schema> _VIZD_THRIFT_TABLE_SCHEMA = [
-{
-    'table_name' : MESSAGE_TABLE_SOURCE,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.UTF8Type, 'key' :
-true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'value', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : COLLECTOR_GLOBAL_TABLE,
-    'is_static' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.LexicalUUIDType, 'key'
-: true },
-        { 'name' : CATEGORY, 'datatype' : GenDb.DbDataType.UTF8Type },
-        { 'name' : CONTEXT, 'datatype' : GenDb.DbDataType.UTF8Type },
-        { 'name' : IPADDRESS, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : INSTANCE_ID, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : LEVEL, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-        { 'name' : TIMESTAMP, 'datatype' : Gendb.DbDataType.Unsigned64Type },
-        { 'name' : MESSAGE_TYPE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : MODULE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : NAMESPACE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : NODE_TYPE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : PID, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-        { 'name' : SEQUENCE_NUM, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-        { 'name' : SOURCE, 'datatype' : Gendb.DbDataType.UTF8Type },
-        { 'name' : SANDESH_TYPE, 'datatype' : Gendb.DbDataType.Unsigned8Type },
-        { 'name' : VERSION, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-        { 'name' : DATA, 'datatype' : Gendb.DbDataType.UTF8Type },
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_MODULE_ID,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.UTF8Type, 'key' :
-true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'value', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_MESSAGE_TYPE,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.UTF8Type, 'key' :
-true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'value', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_CATEGORY,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'key2', 'datatype' : GenDb.DbDataType.UTF8Type, 'key' :
-true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'value', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_TIMESTAMP,
-    'is_index_table' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type, 'key'
-: true },
-        { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type },
-        { 'name' : 'value', 'datatype' : GenDb.DbDataType.LexicalUUIDType },
-    ]
-},
-{
-    'table_name' : OBJECT_VALUE_TABLE,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : SYSTEM_OBJECT_TABLE,
-    'is_static' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' : true},
-        { 'name' : SYSTEM_OBJECT_FLOW_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_CONFIG_AUDIT_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_FLOW_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_GLOBAL_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_MSG_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_STAT_START_TIME, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : SYSTEM_OBJECT_STATS_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
-    ]
-},
-{
-    'table_name' : OBJECT_TABLE,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-    ]
-},
-{
-    'table_name' : MESSAGE_TABLE_KEYWORD,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-    ]
-},
-]
+        ],
+        'column_to_query_column' : [
+            { 'key'      : 'T2' },
+            { 'key2'     : 'Partition' },
+            { 'column1'  : 'T1' },
+            { 'column2'  : 'UUID' },
+            { 'column3'  : 'Source' },
+            { 'column4'  : 'MessageType' },
+            { 'column5'  : 'Module' },
+            { 'column6'  : 'ObjectName1' },
+            { 'column7'  : 'ObjectName2' },
+            { 'column8'  : 'ObjectName3' },
+            { 'column9'  : 'ObjectName4' },
+            { 'column10' : 'ObjectName5' },
+            { 'column11' : 'ObjectName6' },
+            { 'column12' : 'IpAddress' },
+            { 'column13' : 'Pid' },
+            { 'column14' : 'Category' },
+            { 'column15' : 'Level' },
+            { 'column16' : 'NodeType' },
+            { 'column17' : 'InstanceId' },
+            { 'column18' : 'SequenceNum' },
+            { 'value'    : 'XMLMessage' },
+        ],
+        'query_column_to_column' : [
+            { 'T2'          : 'key'},
+            { 'Partition'   : 'key2'},
+            { 'T1'          : 'column1'},
+            { 'UUID'        : 'column2'},
+            { 'Source'      : 'column3'},
+            { 'MessageType' : 'column4'},
+            { 'Module'      : 'column5'},
+            { 'ObjectName1' : 'column6'},
+            { 'ObjectName2' : 'column7'},
+            { 'ObjectName3' : 'column8'},
+            { 'ObjectName4' : 'column9'},
+            { 'ObjectName5' : 'column10'},
+            { 'ObjectName6' : 'column11'},
+            { 'IpAddress'   : 'column12'},
+            { 'Pid'         : 'column13'},
+            { 'Category'    : 'column14'},
+            { 'Level'       : 'column15'},
+            { 'NodeType'    : 'column16'},
+            { 'InstanceId'  : 'column17'},
+            { 'SequenceNum' : 'column18'},
+            { 'XMLMessage'  : 'value'},
+        ]
+    }
+}
 
-const list<table_schema> _VIZD_FLOW_TABLE_SCHEMA = [
-{
-    'table_name' : FLOW_TABLE,
-    'is_static' : true,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.LexicalUUIDType, 'key'
-: true},
-        { 'name' : "vrouter", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "direction_ing", 'datatype' : Gendb.DbDataType.Unsigned8Type},
-        { 'name' : "sourcevn", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "sourceip", 'datatype' : Gendb.DbDataType.InetType},
-        { 'name' : "destvn", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "destip", 'datatype' : Gendb.DbDataType.InetType},
-        { 'name' : "protocol", 'datatype' : Gendb.DbDataType.Unsigned8Type},
-        { 'name' : "sport", 'datatype' : Gendb.DbDataType.Unsigned16Type},
-        { 'name' : "dport", 'datatype' : Gendb.DbDataType.Unsigned16Type},
-        { 'name' : "tos", 'datatype' : Gendb.DbDataType.Unsigned8Type},
-        { 'name' : "tcp_flags", 'datatype' : Gendb.DbDataType.Unsigned8Type},
-        { 'name' : "vm", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "input_interface", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "output_interface", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "mpls_label", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : "reverse_uuid", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "setup_time", 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : "teardown_time", 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : "min_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : "max_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : "mean_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : "stddev_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : "bytes", 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : "packets", 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : "data_sample", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "action", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "sg_rule_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : "nw_ace_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : "vrouter_ip", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "other_vrouter_ip", 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : "underlay_proto", 'datatype' : Gendb.DbDataType.Unsigned16Type},
-        { 'name' : "underlay_source_port", 'datatype' : Gendb.DbDataType.Unsigned16Type},
-        { 'name' : "vmi_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : "drop_reason", 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : FLOW_TABLE_SVN_SIP,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.InetType},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : FLOW_TABLE_DVN_DIP,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.InetType},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : FLOW_TABLE_PROT_SP,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned16Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : FLOW_TABLE_PROT_DP,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned16Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : FLOW_TABLE_VROUTER,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-]
+const map<string, table_schema> _VIZD_FLOW_TABLE_SCHEMA = {
+    FLOW_TABLE : {
+        'is_static' : true,
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'key' : true},
+            { 'name' : "vrouter", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "direction_ing", 'datatype' : Gendb.DbDataType.Unsigned8Type},
+            { 'name' : "sourcevn", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "sourceip", 'datatype' : Gendb.DbDataType.InetType},
+            { 'name' : "destvn", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "destip", 'datatype' : Gendb.DbDataType.InetType},
+            { 'name' : "protocol", 'datatype' : Gendb.DbDataType.Unsigned8Type},
+            { 'name' : "sport", 'datatype' : Gendb.DbDataType.Unsigned16Type},
+            { 'name' : "dport", 'datatype' : Gendb.DbDataType.Unsigned16Type},
+            { 'name' : "tos", 'datatype' : Gendb.DbDataType.Unsigned8Type},
+            { 'name' : "tcp_flags", 'datatype' : Gendb.DbDataType.Unsigned8Type},
+            { 'name' : "vm", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "input_interface", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "output_interface", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "mpls_label", 'datatype' : Gendb.DbDataType.Unsigned32Type},
+            { 'name' : "reverse_uuid", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "setup_time", 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : "teardown_time", 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : "min_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
+            { 'name' : "max_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
+            { 'name' : "mean_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
+            { 'name' : "stddev_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
+            { 'name' : "bytes", 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : "packets", 'datatype' : Gendb.DbDataType.Unsigned64Type},
+            { 'name' : "data_sample", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "action", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "sg_rule_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
+            { 'name' : "nw_ace_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
+            { 'name' : "vrouter_ip", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "other_vrouter_ip", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "underlay_proto", 'datatype' : Gendb.DbDataType.Unsigned16Type},
+            { 'name' : "underlay_source_port", 'datatype' : Gendb.DbDataType.Unsigned16Type},
+            { 'name' : "vmi_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
+            { 'name' : "drop_reason", 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    FLOW_TABLE_SVN_SIP : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.InetType,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    FLOW_TABLE_DVN_DIP : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.InetType,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    FLOW_TABLE_PROT_SP : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned16Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    FLOW_TABLE_PROT_DP : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned16Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    FLOW_TABLE_VROUTER : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+}
 
-const list<table_schema> _VIZD_STAT_TABLE_SCHEMA = [
-{
-    'table_name' : STATS_TABLE_BY_STR_STR_TAG,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : STATS_TABLE_BY_STR_U64_TAG,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : STATS_TABLE_BY_U64_STR_TAG,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : STATS_TABLE_BY_U64_U64_TAG,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : STATS_TABLE_BY_U64_TAG,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : STATS_TABLE_BY_DBL_TAG,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.DoubleType},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-{
-    'table_name' : STATS_TABLE_BY_STR_TAG,
-    'columns' : [
-        { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type, 'key'
-: true},
-        { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type, 'key'
-: true},
-        { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 'key' :
-true},
-        { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type},
-        { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type},
-        { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-        { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-    ]
-},
-]
+const map<string, table_schema> _VIZD_STAT_TABLE_SCHEMA = {
+    STATS_TABLE_BY_STR_STR_TAG : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    STATS_TABLE_BY_STR_U64_TAG : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned64Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    STATS_TABLE_BY_U64_STR_TAG : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    STATS_TABLE_BY_U64_U64_TAG : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned64Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    STATS_TABLE_BY_U64_TAG : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    STATS_TABLE_BY_DBL_TAG : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.DoubleType,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+    STATS_TABLE_BY_STR_TAG : {
+        'columns' : [
+            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'key' : true},
+            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
+              'key' : true},
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+              'key' : true},
+            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
+              'clustering' : true },
+            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
+              'clustering' : true },
+            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
+              'clustering' : true },
+            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
+        ]
+    }
+}
 
 const list<stat_table> _STAT_TEST_TABLES = [
 {

@@ -105,34 +105,37 @@ struct NewCf {
         COLUMN_FAMILY_SQL = 1,
         COLUMN_FAMILY_NOSQL = 2,
     };
-    typedef std::map<std::string, GenDb::DbDataType::type> SqlColumnMap; /* columns meta-data */
+    typedef std::map<std::string, GenDb::DbDataType::type> ColumnMap; /* columns meta-data */
 
-    NewCf(const std::string& cfname, const DbDataTypeVec& key_type,
-            const SqlColumnMap& cfcolumns) :
+    NewCf(const std::string& cfname, const DbDataTypeVec& keys,
+            const ColumnMap& cfcolumns) :
         cfname_(cfname),
         cftype_(COLUMN_FAMILY_SQL),
-        key_validation_class(key_type),
+        partition_keys(keys),
         cfcolumns_(cfcolumns) {
     }
 
-    NewCf(const std::string& cfname, const DbDataTypeVec& key_type,
-            const DbDataTypeVec& comp_type,
-            const DbDataTypeVec& valid_class) :
+    NewCf(const std::string& cfname, const DbDataTypeVec& keys,
+            const DbDataTypeVec& clustering_columns,
+            const DbDataTypeVec& columns,
+            const DbDataTypeVec& values) :
         cfname_(cfname),
         cftype_(COLUMN_FAMILY_NOSQL),
-        key_validation_class(key_type),
-        comparator_type(comp_type),
-        default_validation_class(valid_class) {
+        partition_keys(keys),
+        clustering_columns_(clustering_columns),
+        columns_(columns),
+        value_(values) {
     }
 
     ~NewCf() {}
 
     std::string cfname_;
     ColumnFamilyType cftype_;
-    DbDataTypeVec key_validation_class; /* for key-value comparison */
-    SqlColumnMap cfcolumns_; /* columns meta-data */
-    DbDataTypeVec comparator_type; /* for column-name comparison */
-    DbDataTypeVec default_validation_class; /* for column-value comparison */
+    DbDataTypeVec partition_keys; /* for key-value comparison */
+    ColumnMap cfcolumns_; /* column-name:datatype - static tables */
+    DbDataTypeVec clustering_columns_; /* clustering column datatype - dynamic tables */
+    DbDataTypeVec columns_; /* column datatype - dynamic tables */
+    DbDataTypeVec value_; /* actual data - used for dynamic tables */
 };
 
 struct NewCol {
