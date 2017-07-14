@@ -1521,15 +1521,25 @@ uint32_t CompositeNH::PickMember(uint32_t seed, uint32_t affinity_index) const {
     }
 
     idx = seed % size;
-    while (component_nh_list_[idx].get() == NULL ||
-           component_nh_list_[idx]->nh() == NULL ||
-           component_nh_list_[idx]->nh()->IsActive() == false) {
-        idx = (idx + 1) % size;
-        if (idx == seed % size) {
-            idx = kInvalidComponentNHIdx;
-            break;
+    if (component_nh_list_[idx].get() == NULL ||
+        component_nh_list_[idx]->nh() == NULL ||
+        component_nh_list_[idx]->nh()->IsActive() == false) {
+
+        std::vector<uint32_t> active_list;
+        for (uint32_t i = 0; i < size; i++) {
+            if (i == idx)
+                continue;
+            if (component_nh_list_[i].get() != NULL &&
+                component_nh_list_[i]->nh() != NULL &&
+                component_nh_list_[i]->nh()->IsActive()) {
+                active_list.push_back(i);
+            }
         }
+        idx = (active_list.size()) ?
+                active_list.at(seed % active_list.size()) :
+                kInvalidComponentNHIdx;
     }
+
     return idx;
 }
 
