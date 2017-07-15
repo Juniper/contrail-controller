@@ -2,6 +2,7 @@ import gevent
 import bottle
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import cfgm_common
+from datetime import datetime
 
 class ApiInternalRequest(object):
     def __init__(self, url, urlparts, environ, headers, json_as_dict, query):
@@ -33,6 +34,9 @@ class ApiContext(object):
         'PRE_DBE_DELETE': 'Before DB Entry Delete',
         'DBE_DELETE': 'DB Entry Delete',
         'POST_DBE_DELETE': 'After DB Entry Delete',
+
+        'PRE_KEYSTONE_REQ': 'Before Keystone request',
+        'POST_KEYSTONE_REQ': 'After Keystone request',
     }
 
     def __init__(self, external_req=None, internal_req=None):
@@ -40,6 +44,8 @@ class ApiContext(object):
         self.internal_req = internal_req
         self.proc_state = self.states['INIT']
         self.undo_callables_with_args = []
+        self.proc_times = {}
+        self.keystone_response_time = 0
     # end __init__
 
     @property
@@ -48,6 +54,20 @@ class ApiContext(object):
             return self.internal_req
         return self.external_req
     # end request
+
+    def set_proc_time(self, state):
+        self.proc_times[state] = datetime.utcnow()
+
+    def get_proc_time(self, state):
+        return self.proc_times[state]
+
+    def get_keystone_response_time(self):
+        if (('PRE_KEYSTONE_REQ' in self.proc_times)
+            and ('POST_KEYSTONE_REQ' in self.proc_times)):
+            pre = self.proc_times['PRE_KEYSTONE_REQ']
+            post = self.proc_times['POST_KEYSTONE_REQ']
+            return (post - pre)
+        return None
 
     def set_state(self, state):
         # set to enumerated or if no mapping, user-passed state-str

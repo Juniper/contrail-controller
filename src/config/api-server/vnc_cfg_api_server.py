@@ -39,6 +39,7 @@ from cStringIO import StringIO
 from cfgm_common import vnc_cgitb
 from cfgm_common import has_role
 
+from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStats, VncApiLatencyStatsLog
 logger = logging.getLogger(__name__)
 
 """
@@ -1528,6 +1529,23 @@ class VncApiServer(object):
         rest_trace.url = url
         rest_trace.method = method
         rest_trace.request_data = req_data
+
+        # Also log keystone response time against this request id,
+        # before returning the trace message.
+        if ((get_context().get_keystone_response_time()) is not None):
+            response_time = get_context().get_keystone_response_time()
+            response_time_in_usec = ((response_time.days*24*60*60) +
+                                      (response_time.seconds*1000000) +
+                                      response_time.microseconds)
+            stats = VncApiLatencyStats(
+                operation_type='VALIDATE',
+                application='KEYSTONE',
+                response_time_in_usec=response_time_in_usec,
+                response_size=0,
+                identifier=req_id,
+            )
+            stats_log = VncApiLatencyStatsLog(node_name="issu-vm6", api_latency_stats=stats, sandesh=self._sandesh)
+            x=stats_log.send(sandesh=self._sandesh)
         return rest_trace
     # end _generate_rest_api_request_trace
 
