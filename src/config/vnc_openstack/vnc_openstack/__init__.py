@@ -27,7 +27,6 @@ except ImportError:
     from common import vnc_plugin_base
     from cfgm_common import utils as cfgmutils
 from cfgm_common.utils import cgitb_hook
-from cfgm_common import exceptions
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.connection_info import ConnectionState
@@ -1069,7 +1068,7 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
                 return response
             except Exception as e:
                 # don't log details of bottle.abort i.e handled error cases
-                if not isinstance(e, exceptions.HttpError):
+                if not isinstance(e, bottle.HTTPError):
                     string_buf = StringIO()
                     cgitb_hook(file=string_buf, format="text",)
                     err_msg = string_buf.getvalue()
