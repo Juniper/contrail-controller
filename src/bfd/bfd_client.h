@@ -16,9 +16,9 @@ class Client {
 public:
     Client(Connection *cm, ClientId client_id = 0);
     virtual ~Client();
-    void AddConnection(const SessionKey &key, const SessionConfig &config);
-    void DeleteConnection(const SessionKey &key);
-    void DeleteClientConnections();
+    void AddSession(const SessionKey &key, const SessionConfig &config);
+    void DeleteSession(const SessionKey &key);
+    void DeleteClientSessions();
     bool Up(const SessionKey &key) const;
     Session *GetSession(const SessionKey &key) const;
 

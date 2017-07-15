@@ -30,49 +30,45 @@ Server::Server(EventManager *evm, Connection *communicator) :
 Server::~Server() {
 }
 
-void Server::AddConnection(const SessionKey &key, const SessionConfig &config,
-                           ChangeCb cb) {
+void Server::AddSession(const SessionKey &key, const SessionConfig &config,
+                        ChangeCb cb) {
     EnqueueEvent(new Event(ADD_CONNECTION, key, config, cb));
 }
 
-void Server::AddConnection(Event *event) {
+void Server::AddSession(Event *event) {
     CHECK_CONCURRENCY("BFD");
     Discriminator discriminator;
     ConfigureSession(event->key, event->config, &discriminator);
     sessions_.insert(event->key);
     Session *session = SessionByKey(event->key);
     if (session) {
-        session->RegisterChangeCallback(event->key.client_id, event->cb);
+        session->RegisterChangeCallback(0, event->cb);
         event->cb(session->key(), session->local_state());
     }
 }
 
-void Server::DeleteConnection(const SessionKey &key) {
+void Server::DeleteSession(const SessionKey &key) {
     EnqueueEvent(new Event(DELETE_CONNECTION, key));
 }
 
-void Server::DeleteConnection(Event *event) {
+void Server::DeleteSession(Event *event) {
     CHECK_CONCURRENCY("BFD");
     sessions_.erase(event->key);
     RemoveSessionReference(event->key);
 }
 
-void Server::DeleteClientConnections(const ClientId client_id) {
-    SessionKey key;
-    key.client_id = client_id;
-    EnqueueEvent(new Event(DELETE_CLIENT_CONNECTIONS, key));
+void Server::DeleteClientSessions() {
+    EnqueueEvent(new Event(DELETE_CLIENT_CONNECTIONS));
 }
 
-void Server::DeleteClientConnections(Event *event) {
+void Server::DeleteClientSessions(Event *event) {
     CHECK_CONCURRENCY("BFD");
     for (Sessions::iterator it = sessions_.begin(), next;
          it != sessions_.end(); it = next) {
         SessionKey key = *it;
         next = ++it;
-        if (!event->key.client_id || event->key.client_id == key.client_id) {
-            sessions_.erase(key);
-            RemoveSessionReference(key);
-        }
+        sessions_.erase(key);
+        RemoveSessionReference(key);
     }
 }
 
@@ -83,13 +79,13 @@ void Server::EnqueueEvent(Event *event) {
 bool Server::EventCallback(Event *event) {
     switch (event->type) {
     case ADD_CONNECTION:
-        AddConnection(event);
+        AddSession(event);
         break;
     case DELETE_CONNECTION:
-        DeleteConnection(event);
+        DeleteSession(event);
         break;
     case DELETE_CLIENT_CONNECTIONS:
-        DeleteClientConnections(event);
+        DeleteClientSessions(event);
         break;
     case PROCESS_PACKET:
         ProcessControlPacket(event);
@@ -187,7 +183,7 @@ ResultCode Server::ProcessControlPacketActual(const ControlPacket *packet) {
             packet->receiver_discriminator);
         return kResultCode_UnknownSession;
     }
-    LOG(DEBUG, "Found session: " << session->toString());
+    LOG(DEBUG, __func__ << " Found session: " << session->toString());
     result = session->ProcessControlPacket(packet);
     if (result != kResultCode_Ok) {
         LOG(ERROR, "Unable to process session: " << result);

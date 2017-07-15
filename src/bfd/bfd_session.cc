@@ -70,7 +70,7 @@ bool Session::RecvTimerExpired() {
 
 std::string Session::toString() const {
     std::ostringstream out;
-    out << "SessoonKey: " << key_.to_string() << "\n";
+    out << "SessionKey: " << key_.to_string() << "\n";
     out << "LocalDiscriminator: 0x" << std::hex << localDiscriminator_ << "\n";
     out << "RemoteDiscriminator: 0x" << std::hex << remoteSession_.discriminator
         << "\n";
