@@ -335,7 +335,8 @@ class DeviceManager(object):
                        if new_chksum != self._chksum:
                            self._chksum = new_chksum
                            config.random_collectors = random.sample(collectors, len(collectors))
-                           self.logger.sandesh_reconfig_collectors(config)
+                       # Reconnect to achieve load-balance irrespective of list
+                       self.logger.sandesh_reconfig_collectors(config)
                except ConfigParser.NoOptionError as e:
                    pass
     # end sighup_handler

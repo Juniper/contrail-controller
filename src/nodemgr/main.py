@@ -228,6 +228,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     prog.send_process_state_db(prog.group_names)
     prog.config_file = config_file
     prog.collector_chksum = _args.chksum
+    prog.random_collectors = _args.random_collectors
 
     """ @sighup
     Reconfig of collector list
