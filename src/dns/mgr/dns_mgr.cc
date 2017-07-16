@@ -1186,10 +1186,10 @@ void PageReq::HandleRequest() const {
     string req_name, search_key;
     vector<string> tokens;
     boost::split(tokens, get_key(), boost::is_any_of(" "));
-    search_key = tokens[0];
-    req_name = tokens[1];
     DnsManager *dns_manager = Dns::GetDnsManager();
     if(dns_manager && (tokens.size() == 2)) {
+        search_key = tokens[0];
+        req_name = tokens[1];
         if(req_name == "VdnsServersReq") {
             dns_manager->VdnsServersMsgHandler(search_key, context());
         } else if(req_name == "DnsConfigReq") {
