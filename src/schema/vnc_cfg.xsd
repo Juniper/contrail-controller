@@ -972,6 +972,25 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              'global-system-config', 'bgp-router', ['ref'], 'required', 'R',
              'List of references to all bgp routers in systems.') -->
 
+<xsd:complexType name="BGPaaServiceParametersType">
+    <xsd:element name="port-start" type="xsd:integer" default="50000"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            port-start is the start of port range for bgp as service object.
+        </xsd:documentation>
+    </xsd:annotation>
+    <xsd:element name="port-end" type="xsd:integer" default="50512"/>
+    <xsd:annotation>
+        <xsd:documentation>
+            port-end is the end of port range for bgp as service object.
+        </xsd:documentation>
+    </xsd:annotation>
+</xsd:complexType>
+<xsd:element name="bgpaas-parameters" type="BGPaaServiceParametersType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgpaas-parameters', 'global-system-config', 'optional',
+              'CRUD', 'BGP As A Service Parameters configuration') -->
+
 <xsd:element name="security-logging-object" type="ifmap:IdentityType"/>
 
 <xsd:complexType name="SecurityLoggingObjectRuleEntryType">
