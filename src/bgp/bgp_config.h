@@ -566,6 +566,8 @@ public:
             last_change_at_(0), gr_time_(0), llgr_time_(0),
             end_of_rib_timeout_(kEndOfRibTime), gr_enable_(false),
             gr_bgp_helper_(false), gr_xmpp_helper_(false),
+            bgpaas_port_start_(0),
+            bgpaas_port_end_(0),
             always_compare_med_(false) {
     }
     ~BgpGlobalSystemConfig() { }
@@ -588,6 +590,14 @@ public:
     void set_always_compare_med(bool always_compare_med) {
         always_compare_med_ = always_compare_med;
     }
+    uint16_t bgpaas_port_start() const { return bgpaas_port_start_; }
+    void set_bgpaas_port_start(uint16_t bgpaas_port_start) {
+        bgpaas_port_start_ = bgpaas_port_start;
+    }
+    uint16_t bgpaas_port_end() const { return bgpaas_port_end_; }
+    void set_bgpaas_port_end(uint16_t bgpaas_port_end) {
+        bgpaas_port_end_ = bgpaas_port_end;
+    }
 
 private:
     mutable uint64_t last_change_at_;
@@ -597,6 +607,8 @@ private:
     bool gr_enable_;
     bool gr_bgp_helper_;
     bool gr_xmpp_helper_;
+    uint16_t bgpaas_port_start_;
+    uint16_t bgpaas_port_end_;
     bool always_compare_med_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);

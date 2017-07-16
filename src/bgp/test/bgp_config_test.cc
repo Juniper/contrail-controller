@@ -3783,6 +3783,37 @@ TEST_F(BgpConfigTest, BgpAlwaysCompareMedChange) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+TEST_F(BgpConfigTest, BgpaaServiceParametersChange) {
+    string content_a =
+        FileRead("controller/src/bgp/testdata/config_test_46a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, server_.global_config()->bgpaas_port_start());
+    TASK_UTIL_EXPECT_EQ(0, server_.global_config()->bgpaas_port_end());
+
+    string content_b =
+        FileRead("controller/src/bgp/testdata/config_test_46b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(10000, server_.global_config()->bgpaas_port_start());
+    TASK_UTIL_EXPECT_EQ(20000, server_.global_config()->bgpaas_port_end());
+
+    string content_c =
+        FileRead("controller/src/bgp/testdata/config_test_46c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(30000, server_.global_config()->bgpaas_port_start());
+    TASK_UTIL_EXPECT_EQ(0, server_.global_config()->bgpaas_port_end());
+
+    boost::replace_all(content_c, "<config>", "<delete>");
+    boost::replace_all(content_c, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
