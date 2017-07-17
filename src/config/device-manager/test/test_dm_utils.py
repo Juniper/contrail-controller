@@ -20,7 +20,13 @@ class FakeNetconfManager(object):
     __exit__ = stub
 
     def edit_config(self, target, config, test_option, default_operation):
-        self.configs.append(config)
+        self.configs = [config]
+
+    def get_config(self, source='running'):
+        model = FakeNetconfManager.model
+        version = FakeNetconfManager.version
+        self.data_xml = '<?xml version="1.0" encoding="UTF-8"?><rpc-reply message-id="urn:uuid:3bb07fe2-755d-11e7-a499-525400f3f0a5">\n<data>\n<configuration commit-seconds="1501173210" commit-localtime="2017-07-27 09:33:30 PDT" commit-user="root">\n<version>17.2-20170228_dev_common.1</version>\n<groups>\n<name>re0</name>\n<system>\n<host-name>access_re</host-name>\n<backup-router>\n<address>10.49.175.254</address>\n</backup-router>\n</system>\n<interfaces>\n<interface>\n<name>fxp0</name>\n<unit>\n<name>0</name>\n<family>\n<inet>\n<address>\n<name>10.49.167.121/20</name>\n</address>\n</inet>\n</family>\n</unit>\n</interface>\n</interfaces>\n</groups>\n<groups>\n<name>re1</name>\n<system>\n<host-name>access_re1</host-name>\n<backup-router>\n<address>10.49.175.254</address>\n</backup-router>\n</system>\n<interfaces>\n<interface>\n<name>fxp0</name>\n<unit>\n<name>0</name>\n<family>\n<inet>\n<address>\n<name>10.49.167.120/20</name>\n</address>\n</inet>\n</family>\n</unit>\n</interface>\n</interfaces>\n</groups>\n<groups>\n<name>global</name>\n<system>\n<domain-name>englab.juniper.net</domain-name>\n<domain-search>englab.juniper.net</domain-search>\n<domain-search>juniper.net</domain-search>\n<domain-search>jnpr.net</domain-search>\n<time-zone>America/Los_Angeles</time-zone>\n<undocumented><debugger-on-break/></undocumented>\n<undocumented><dump-on-panic>\n</dump-on-panic></undocumented>\n<authentication-order>password</authentication-order>\n<authentication-order>radius</authentication-order>\n<authentication-order>tacplus</authentication-order>\n<root-authentication>\n<encrypted-password>$1$ZUlES4dp$OUwWo1g7cLoV/aMWpHUnC/</encrypted-password>\n</root-authentication>\n<name-server>\n<name>10.49.0.4</name>\n</name-server>\n<name-server>\n<name>10.49.0.37</name>\n</name-server>\n<radius-server>\n<name>10.48.144.16</name>\n<secret>$9$iHfz9Cu0BRQznCApIRSreWxNVw2GjkKM4JGimP</secret>\n</radius-server>\n<radius-server>\n<name>10.48.144.17</name>\n<secret>$9$iHfz9Cu0BRQznCApIRSreWxNVw2GjkKM4JGimP</secret>\n</radius-server>\n<login>\n<class>\n<name>wheel</name>\n<permissions>snmp</permissions>\n</class>\n<user>\n<name>regress</name>\n<uid>928</uid>\n<class>superuser</class>\n<undocumented><shell>csh</shell></undocumented>\n<authentication>\n<encrypted-password>$1$kPU..$w.4FGRAGanJ8U4Yq6sbj7.</encrypted-password>'
+        return self
 
     @classmethod
     def set_model(cls, model):
