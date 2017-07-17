@@ -1,0 +1,25 @@
+//
+// service_status.sandesh
+//
+// UVE service status
+//
+// Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+//
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Configuration information of the UVE on this app instance.
+//
+struct UveServiceStatus {
+    1: string                           name (key="ObjectPRouter")
+    2: optional bool                    deleted
+    3: optional string                  ip_address
+    4: optional string                  service_name
+    5: optional string                  status_data
+    6: optional string                  operational_status
+    7: optional string                  last_get_time
+    // Add additional items here as needed
+}
+
+uve sandesh UveServiceStatusTrace {
+    1: UveServiceStatus                            data
+}
