@@ -92,7 +92,7 @@ class VncServerCassandraClient(VncCassandraClient):
             generate_url=db_client_mgr.generate_url, reset_config=reset_config,
             credential=cassandra_credential, walk=walk,
             obj_cache_entries=obj_cache_entries,
-            obj_cache_exclude_types=obj_cache_exclude_types)
+            obj_cache_exclude_types=obj_cache_exclude_types, pool_size=20)
         self._useragent_kv_cf = self._cf_dict[self._USERAGENT_KV_CF_NAME]
     # end __init__
 
