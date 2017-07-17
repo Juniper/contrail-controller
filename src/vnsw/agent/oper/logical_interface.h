@@ -49,6 +49,7 @@ class LogicalInterface : public Interface {
     PhysicalDeviceRef physical_device_;
     std::string phy_dev_display_name_;
     std::string phy_intf_display_name_;
+    boost::uuids::uuid vn_uuid_;
     DISALLOW_COPY_AND_ASSIGN(LogicalInterface);
 };
 

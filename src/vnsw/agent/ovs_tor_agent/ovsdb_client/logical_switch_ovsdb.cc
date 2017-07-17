@@ -452,6 +452,13 @@ void LogicalSwitchEntry::NotifyDelete(struct ovsdb_idl_row *row) {
     return;
 }
 
+// No config seen for this logical switch, so do the cleanup so that delete can
+// proceed.
+void LogicalSwitchEntry::StaleTimerExpired() {
+    //Release self reference.
+    local_mac_ref_ = NULL;
+}
+
 LogicalSwitchTable::LogicalSwitchTable(OvsdbClientIdl *idl) :
     OvsdbDBObject(idl, true) {
     idl->Register(OvsdbClientIdl::OVSDB_LOGICAL_SWITCH,
@@ -792,6 +799,14 @@ void LogicalSwitchSandeshTask::UpdateResp(KSyncEntry *kentry,
     lentry.set_vxlan_id_available(res.VxLanId() != 0);
     lentry.set_ovs_vxlan_id(res.active_vxlan_id());
     lentry.set_delete_in_progress(entry->IsDeleteOvsInProgress());
+
+    //Debugs to find out what keeps logical switch pending.
+    lentry.set_mcast_local_size(entry->mcast_local_row_list_size());
+    lentry.set_ucast_local_size(entry->ucast_local_row_list_size());
+    lentry.set_old_mcast_remote_size(entry->old_mcast_remote_row_list_size());
+    lentry.set_mcast_remote_set(entry->is_mcast_remote_set());
+    lentry.set_local_mac_ref_set(entry->is_local_mac_ref_set());
+
     if ((entry->IsDeleted() || entry->IsDeleteOvsInProgress()) &&
         entry->IsLocalMacsRef()) {
         lentry.set_message("Waiting for Local Macs Cleanup");
