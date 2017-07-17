@@ -27,6 +27,8 @@ setup(
               'cfgm_common.uve.nodeinfo',
               'cfgm_common.uve.nodeinfo.cpuinfo',
               'cfgm_common.uve.nodeinfo.process_info',
+              'cfgm_common.uve.physical_router_config',
+              'cfgm_common.uve.service_status',
               ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,

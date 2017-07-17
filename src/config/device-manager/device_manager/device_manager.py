@@ -42,7 +42,9 @@ from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
 from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM
+    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
+    ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
+    NetworkDeviceConfigDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from device_conf import DeviceConf
@@ -62,13 +64,18 @@ class DeviceManager(object):
         'physical_router': {
             'self': ['bgp_router',
                      'physical_interface',
-                     'logical_interface'],
+                     'logical_interface',
+                     'service_endpoint'],
             'bgp_router': [],
             'physical_interface': [],
             'logical_interface': [],
             'virtual_network': [],
             'logical_router': [],
             'global_system_config': [],
+            'network_device_config': [],
+            'service_endpoint': [],
+            'service_connection_module': [],
+            'service_object': [],
         },
         'global_system_config': {
             'self': ['physical_router'],
@@ -91,7 +98,8 @@ class DeviceManager(object):
         'logical_interface': {
             'self': ['physical_router',
                      'physical_interface',
-                     'virtual_machine_interface'],
+                     'virtual_machine_interface',
+                     'service_endpoint'],
             'physical_interface': ['virtual_machine_interface'],
             'virtual_machine_interface': ['physical_router',
                                           'physical_interface'],
@@ -104,14 +112,16 @@ class DeviceManager(object):
                      'logical_router',
                      'floating_ip',
                      'instance_ip',
-                     'port_tuple'],
+                     'port_tuple',
+                     'service_endpoint'],
             'logical_interface': ['virtual_network'],
             'virtual_network': ['logical_interface', 'logical_router'],
             'logical_router': [],
             'floating_ip': ['virtual_network'],
             'instance_ip': ['virtual_network'],
             'routing_instance': ['port_tuple','physical_interface'],
-            'port_tuple': ['physical_interface']
+            'port_tuple': ['physical_interface'],
+            'service_endpoint': ['physical_router'],
         },
         'service_instance': {
             'self': ['port_tuple'],
@@ -152,6 +162,25 @@ class DeviceManager(object):
         'instance_ip': {
             'self': ['virtual_machine_interface'],
             'virtual_machine_interface': [],
+        },
+        'service_endpoint': {
+            'self': ['physical_router',
+                     'virtual_machine_interface',
+                     'service_connection_module'],
+            'physical_router': ['service_connection_module'],
+            'logical_interface': ['service_connection_module'],
+            'virtual_machine_interface': ['service_connection_module'],
+            'service_connection_module': [],
+        },
+        'service_connection_module': {
+            'self': ['service_endpoint'],
+            'service_endpoint': [],
+        },
+        'service_object': {
+            'self': [],
+        },
+        'network_device_config': {
+            'self': [],
         },
     }
 
@@ -283,6 +312,18 @@ class DeviceManager(object):
 
         for vn in VirtualNetworkDM.values():
             vn.update_instance_ip_map()
+
+        for obj in ServiceEndpointDM.list_obj():
+            ServiceEndpointDM.locate(obj['uuid'], obj)
+
+        for obj in ServiceConnectionModuleDM.list_obj():
+            ServiceConnectionModuleDM.locate(obj['uuid'], obj)
+
+        for obj in ServiceObjectDM.list_obj():
+            ServiceObjectDM.locate(obj['uuid'], obj)
+
+        for obj in NetworkDeviceConfigDM.list_obj():
+            NetworkDeviceConfigDM.locate(obj['uuid'], obj)
 
         for pr in PhysicalRouterDM.values():
             pr.set_config_state()

@@ -20,7 +20,7 @@ class FakeNetconfManager(object):
     __exit__ = stub
 
     def edit_config(self, target, config, test_option, default_operation):
-        self.configs.append(config)
+        self.configs = [config]
 
     @classmethod
     def set_model(cls, model):
