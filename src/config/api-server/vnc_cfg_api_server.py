@@ -2753,11 +2753,6 @@ class VncApiServer(object):
                                      'dbe_list', result)
             raise cfgm_common.exceptions.HttpError(404, result)
 
-        (ok, err_msg) = r_class.post_dbe_list(result, self._db_conn)
-        if not ok:
-            (code, msg) = err_msg
-            raise cfgm_common.exceptions.HttpError(code, msg)
-
         # If only counting, return early
         if is_count and self.is_admin_request():
             return {'%ss' %(resource_type): {'count': result}}
@@ -2813,6 +2808,11 @@ class VncApiServer(object):
 
                 if not exclude_hrefs:
                     obj_dict['href'] = self.generate_url(resource_type, obj_result['uuid'])
+
+        (ok, err_msg) = r_class.post_dbe_list(obj_dicts, self._db_conn)
+        if not ok:
+            (code, msg) = err_msg
+            raise cfgm_common.exceptions.HttpError(code, msg)
 
         if is_count:
             return {'%ss' %(resource_type): {'count': len(obj_dicts)}}
