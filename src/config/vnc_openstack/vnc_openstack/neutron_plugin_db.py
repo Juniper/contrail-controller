@@ -2307,6 +2307,38 @@ class DBInterface(object):
         return rtr_back_refs[0]['uuid']
     #end _gw_port_vnc_to_neutron
 
+    def _get_router_gw_interface_for_neutron(self, context, router):
+        # Only admin user can list router gw inteface
+        if not context.get('is_admin', False):
+            return
+
+        si_ref = (router.get_service_instance_refs() or [None])[0]
+        if si_ref is None:
+            # No gateway set on that router
+            return
+
+        # Router's gateway is enabled on the router
+        # As Contrail model uses a service instance composed of 2 VM for the
+        # gw stuff, we use the first VMI of the first SI's VM as Neutron router
+        # gw port
+        si = self._vnc_lib.service_instance_read(
+            id=si_ref['uuid'],
+            fields=['virtual_machine_back_refs'],
+        )
+        for vm_ref in si.get_virtual_machine_back_refs() or []:
+            if not vm_ref['to'][-1].endswith('__1'):
+                continue
+            gw_vmi_fq_name = [vm_ref['to'][-1] + '__right__1']
+            gw_vmi_fq_name = si.fq_name[:-1] + gw_vmi_fq_name
+            try:
+                return self._virtual_machine_interface_read(
+                    fq_name=gw_vmi_fq_name)
+                break
+            except NoIdError:
+                # No able to find a SI VM's VMI to endorse the router gw
+                # interface role for the Neutron model
+                return
+
     @catch_convert_exception
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None, oper=READ):
         port_q_dict = {}
@@ -2491,6 +2523,10 @@ class DBInterface(object):
             if rtr_uuid:
                 port_q_dict['device_id'] = rtr_uuid
                 port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_GW
+                # Neutron router gateway interface is a system resource only
+                # visible by admin user. Neutron intentionally set the tenant
+                # id to None for that
+                port_q_dict['tenant_id'] = ''
             else:
                 port_q_dict['device_id'] = \
                     port_obj.get_virtual_machine_refs()[0]['to'][-1]
@@ -4243,10 +4279,17 @@ class DBInterface(object):
                     for vmi_ref in
                     router_obj.get_virtual_machine_interface_refs() or []
                 ]
-                # Read all logical router ports and add it to the list
+                # Add all router intefraces on private networks
                 if router_port_ids:
                     port_objs.extend(self._virtual_machine_interface_list(
                         obj_uuids=router_port_ids, parent_id=project_ids))
+
+                # Add router gateway interface
+                for router in router_objs:
+                    gw_vmi = self._get_router_gw_interface_for_neutron(context,
+                                                                       router)
+                    if gw_vmi is not None:
+                        port_objs.append(gw_vmi)
 
             # Filter it with project ids if there are.
             if project_ids:
