@@ -13,4 +13,5 @@ def import_plugins():
     from qfx_conf import QfxConf
     from qfx_5k import Qfx5kConf
     from qfx_10k import Qfx10kConf
+    from e2_conf import MxE2Conf
 # end import_plugins
