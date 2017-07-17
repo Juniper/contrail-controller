@@ -1423,6 +1423,8 @@ void AgentXmppChannel::NotReady() {
                      "NULL", "BGP peer decommissioned for xmpp channel.");
     //Stop stale cleanup if its running
     bgp_peer_id()->StopDeleteStale();
+    //Also stop notify as there is no CN for this peer.
+    StopEndOfRibTxWalker();
     //Also stop end-of-rib rx fallback and retain.
     end_of_rib_rx_timer()->Cancel();
 
