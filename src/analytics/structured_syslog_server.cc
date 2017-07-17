@@ -19,6 +19,10 @@
 #include <io/tcp_session.h>
 #include <io/udp_server.h>
 
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
 #include "analytics/structured_syslog_server.h"
 #include "analytics/structured_syslog_server_impl.h"
 #include "generator.h"
@@ -36,6 +40,7 @@ void StructuredSyslogDecorate(SyslogParser::syslog_m_t &v, StructuredSyslogConfi
 void StructuredSyslogPush(SyslogParser::syslog_m_t v, StatWalker::StatTableInsertFn stat_db_callback,
     std::vector<std::string> tagged_fields);
 void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user);
+boost::shared_ptr<std::string> StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v);
 
 size_t DecorateMsg(boost::shared_ptr<std::string> msg, const std::string &key, const std::string &val, size_t prev_pos) {
     if (msg == NULL) {
@@ -99,11 +104,8 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
   Remove unnecessary fields so that we avoid writing them into DB
   */
   v.erase("msglen");
-  v.erase("facsev");
   v.erase("severity");
   v.erase("facility");
-  v.erase("pid");
-  v.erase("version");
   v.erase("year");
   v.erase("month");
   v.erase("day");
@@ -111,6 +113,8 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
   v.erase("min");
   v.erase("sec");
   v.erase("msec");
+  if (SyslogParser::GetMapVal(v, "pid", -1) == -1)
+    v.erase("pid");
 
   const std::string body(SyslogParser::GetMapVals(v, "body", ""));
   std::size_t start = 0, end = 0;
@@ -142,31 +146,31 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
   LOG(DEBUG, "structured_syslog - message_config: " << mc->name());
   boost::shared_ptr<std::string> msg;
   boost::shared_ptr<std::string> hostname;
+  start = end + 1;
+  v.insert(std::pair<std::string, SyslogParser::Holder>("tag",
+        SyslogParser::Holder("tag", tag)));
+
+  end = body.find(' ', start);
+  if (end == std::string::npos) {
+    LOG(ERROR, "BAD structured_syslog: " << body);
+    return false;
+  }
+  const std::string hardware = body.substr(start+1, end-start-1);
+  start = end + 1;
+  LOG(DEBUG, "structured_syslog - hardware: " << hardware);
+  v.insert(std::pair<std::string, SyslogParser::Holder>("hardware",
+        SyslogParser::Holder("hardware", hardware)));
+
+  end = body.find(']', start);
+  std::string structured_part = body.substr(start, end-start);
+  LOG(DEBUG, "structured_syslog - struct_data: " << structured_part);
+
+  bool ret = ParseStructuredPart(&v, structured_part, mc->ints(), msg);
+  if (ret == false){
+    return ret;
+  }
   if (mc->process_and_store() == true || mc->process_before_forward() == true
       || mc->process_and_summarize() == true) {
-      start = end + 1;
-      v.insert(std::pair<std::string, SyslogParser::Holder>("tag",
-            SyslogParser::Holder("tag", tag)));
-
-      end = body.find(' ', start);
-      if (end == std::string::npos) {
-        LOG(ERROR, "BAD structured_syslog: " << body);
-        return false;
-      }
-      const std::string hardware = body.substr(start+1, end-start-1);
-      start = end + 1;
-      LOG(DEBUG, "structured_syslog - hardware: " << hardware);
-      v.insert(std::pair<std::string, SyslogParser::Holder>("hardware",
-            SyslogParser::Holder("hardware", hardware)));
-
-      end = body.find(']', start);
-      std::string structured_part = body.substr(start, end-start);
-      LOG(DEBUG, "structured_syslog - struct_data: " << structured_part);
-
-      bool ret = ParseStructuredPart(&v, structured_part, mc->ints(), msg);
-      if (ret == false){
-        return ret;
-      }
       if (forwarder != NULL && mc->forward() == true) {
         msg.reset(new std::string (message, message + message_len));
         hostname.reset(new std::string (SyslogParser::GetMapVals(v, "hostname", "")));
@@ -176,17 +180,22 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
         bool syslog_summarize_user = mc->process_and_summarize_user();
         StructuredSyslogUVESummarize(v, syslog_summarize_user);
       }
-      if (mc->process_and_store() == true) {
-        StructuredSyslogPush(v, stat_db_callback, mc->tags());
-      }
       if (forwarder != NULL && mc->forward() == true &&
           mc->process_before_forward() == true) {
         std::stringstream msglength;
         msglength << msg->length();
         msg->insert(0, msglength.str() + " ");
         LOG(DEBUG, "forwarding after decoration - " << *msg);
-        boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(), hostname));
+        boost::shared_ptr<std::string> json_msg;
+        if (forwarder->kafkaForwarder()) {
+            json_msg = StructuredSyslogJsonMessage(v);
+        }
+        boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(),
+                                                                                          json_msg, hostname));
         forwarder->Forward(ssqe);
+      }
+      if (mc->process_and_store() == true) {
+        StructuredSyslogPush(v, stat_db_callback, mc->tags());
       }
   }
   if (forwarder != NULL && mc->forward() == true &&
@@ -197,7 +206,12 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
     msglength << msg->length();
     msg->insert(0, msglength.str() + " ");
     LOG(DEBUG, "forwarding without decoration - " << *msg);
-    boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(), hostname));
+    boost::shared_ptr<std::string> json_msg;
+    if (forwarder->kafkaForwarder()) {
+        json_msg = StructuredSyslogJsonMessage(v);
+    }
+    boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(),
+                                                                                      json_msg, hostname));
     forwarder->Forward(ssqe);
   }
   return true;
@@ -290,6 +304,35 @@ void StructuredSyslogPush(SyslogParser::syslog_m_t v, StatWalker::StatTableInser
     StatWalker stat_walker(stat_db_callback, (uint64_t)SyslogParser::GetMapVal (v, "timestamp", 0),
                            "JunosSyslog", top_tags);
     PushStructuredSyslogStats(v, std::string(), &stat_walker, tagged_fields);
+}
+
+boost::shared_ptr<std::string>
+StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v) {
+    contrail_rapidjson::Document doc;
+    doc.SetObject();
+    for (std::map<std::string, SyslogParser::Holder>::iterator i=v.begin(); i!=v.end(); ++i) {
+        SyslogParser::Holder val = i->second;
+        const std::string &key(val.key);
+        if (val.type == SyslogParser::str_type) {
+            contrail_rapidjson::Value vk;
+            contrail_rapidjson::Value value(contrail_rapidjson::kStringType);
+            value.SetString(val.s_val.c_str(), doc.GetAllocator());
+            doc.AddMember(vk.SetString(key.c_str(),
+                                 doc.GetAllocator()), value, doc.GetAllocator());
+        }
+        else if (val.type == SyslogParser::int_type) {
+            contrail_rapidjson::Value vk;
+            contrail_rapidjson::Value value(contrail_rapidjson::kNumberType);
+            value.SetUint64(val.i_val);
+            doc.AddMember(vk.SetString(key.c_str(),
+                                 doc.GetAllocator()), value, doc.GetAllocator());
+        }
+    }
+    contrail_rapidjson::StringBuffer buffer;
+    contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+    boost::shared_ptr<std::string> json_msg(new std::string(buffer.GetString()));
+    return json_msg;
 }
 
 void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user) {
@@ -1015,6 +1058,10 @@ void StructuredSyslogForwarder::Forward(boost::shared_ptr<StructuredSyslogQueueE
     work_queue_.Enqueue(sqe);
 }
 
+bool StructuredSyslogForwarder::kafkaForwarder() {
+    return (kafkaForwarder_ != NULL);
+}
+
 bool StructuredSyslogForwarder::Client(boost::shared_ptr<StructuredSyslogQueueEntry> sqe) {
     bool ret = true;
     for (std::vector<boost::shared_ptr<StructuredSyslogTcpForwarder> >::iterator it = tcpForwarder_.begin();
@@ -1026,14 +1073,16 @@ bool StructuredSyslogForwarder::Client(boost::shared_ptr<StructuredSyslogQueueEn
         }
     }
     if (kafkaForwarder_ != NULL) {
-        kafkaForwarder_->Send(*(sqe->data), *(sqe->skey));
+        LOG(DEBUG, "forwarding json  - " << *(sqe->json_data));
+        kafkaForwarder_->Send(*(sqe->json_data), *(sqe->skey));
     }
     return ret;
 }
 
 StructuredSyslogQueueEntry::StructuredSyslogQueueEntry(boost::shared_ptr<std::string> d, size_t len,
+                                                       boost::shared_ptr<std::string> jd,
                                                        boost::shared_ptr<std::string> key):
-        length(len), data(d), skey(key) {
+        length(len), data(d), json_data(jd),skey(key) {
 }
 
 StructuredSyslogQueueEntry::~StructuredSyslogQueueEntry() {
