@@ -7,6 +7,9 @@ xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2"
 xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2" 
 targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
+<!-- E2 services -->
+<xsd:include schemaLocation='e2_services.xsd'/>
+
 <!-- Definition of IFMAP-SEMANTICS-IDL 
      It describes relationship and properties of meta data elements with 
      respect to identifier. It appears in comment after the referenced 
@@ -2087,9 +2090,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:simpleType>
 
 <xsd:simpleType name="PhysicalRouterRole">
-     <xsd:restriction base='xsd:string'>
+     <xsd:restriction base='xsd:string'
          <xsd:enumeration value='spine'/>
          <xsd:enumeration value='leaf'/>
+         <xsd:enumeration value='e2-access'/>
+         <xsd:enumeration value='e2-provider'/>
+         <xsd:enumeration value='e2-internet'/>
      </xsd:restriction>
 </xsd:simpleType>
 
@@ -2135,12 +2141,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('physical-router-role', 'physical-router', 'optional', 'CRUD',
               'Physical router role (e.g spine or leaf), used by the device manager to provision physical router, for e.g device manager may choose to configure physical router based on its role.') -->
 
-<xsd:complexType name="UserCredentials">
-    <xsd:all>
-        <xsd:element name="username" type="xsd:string"/>
-        <xsd:element name="password" type="xsd:string"/>
-    </xsd:all>
-</xsd:complexType>
+<xsd:element name="physical-router-snmp" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-snmp', 'physical-router', 'optional', 'CRUD',
+              'SNMP support on this router') -->
+
+<xsd:element name="physical-router-lldp" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-lldp', 'physical-router', 'optional', 'CRUD',
+              'LLDP support on this router') -->
 
 <xsd:element name="physical-router-user-credentials" type="UserCredentials"/>
 <!--#IFMAP-SEMANTICS-IDL
