@@ -366,6 +366,7 @@ static void FillBgpNeighborConfigInfo(ShowBgpNeighborConfig *sbnc,
         sbnfc.set_family(family_config.family);
         sbnfc.set_loop_count(family_config.loop_count);
         sbnfc.set_prefix_limit(family_config.prefix_limit);
+        sbnfc.set_idle_timeout(family_config.idle_timeout);
         if (family_config.family == "inet") {
             IpAddress address = neighbor->gateway_address(Address::INET);
             if (!address.is_unspecified())
