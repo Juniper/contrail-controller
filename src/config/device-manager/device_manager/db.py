@@ -23,6 +23,7 @@ from netaddr import IPAddress
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common import vnc_greenlets
 from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
+import db_e2
 
 
 class DBBaseDM(DBBase):
@@ -91,10 +92,13 @@ class PhysicalRouterDM(DBBaseDM):
         self.logical_routers = set()
         self.bgp_router = None
         self.config_manager = None
+        self.service_endpoints = set()
+        self.router_mode = None
         self.nc_q = queue.Queue(maxsize=1)
         self.vn_ip_map = {'irb': {}, 'lo0': {}}
         self.config_sent = False
         self.init_cs_state()
+        self.physical_router_e2 = db_e2.PhysicalRouterE2DM(uuid)
         self.update(obj_dict)
         plugin_params = {
                 "physical_router": self
@@ -120,7 +124,12 @@ class PhysicalRouterDM(DBBaseDM):
         self.product = obj.get('physical_router_product_name', '')
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.physical_router_role = obj.get('physical_router_role')
+        self.router_mode = obj.get('physical_router_mode')
         self.user_credentials = obj.get('physical_router_user_credentials')
+        self.physical_router_property = obj.get('physical_router_property')
+        self.physical_router_id = obj.get('physical_router_id')
+        self.physical_router_loopback_id = obj.get('physical_router_loopback_id')
+        self.telemetry_info = obj.get('telemetry_info')
         self.junos_service_ports = obj.get(
             'physical_router_junos_service_ports')
         self.update_single_ref('bgp_router', obj)
@@ -130,6 +139,7 @@ class PhysicalRouterDM(DBBaseDM):
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
+        self.update_multiple_refs('service_endpoint', obj)
         plugin_params = {
                 "physical_router": self
             }
@@ -137,13 +147,16 @@ class PhysicalRouterDM(DBBaseDM):
         if not self.config_manager:
             self.config_manager = DeviceConf.plugin(self.vendor, self.product,
                                                           plugin_params, self._logger)
+            self.physical_router_e2.fetch_device_config(plugin_params)
         else:
             if self.config_manager.verify_plugin(self.vendor, self.product):
                 self.config_manager.update()
+                self.physical_router_e2.fetch_device_config(plugin_params)
             else:
                 self.config_manager.clear()
                 self.config_manager = DeviceConf.plugin(self.vendor, self.product,
                                                           plugin_params, self._logger)
+                self.physical_router_e2.fetch_device_config(plugin_params)
     # end update
 
     @classmethod
@@ -431,6 +444,9 @@ class PhysicalRouterDM(DBBaseDM):
     # end
 
     def push_config(self):
+        if self.router_mode == 'non-contrail':
+            self.physical_router_e2.push_config()
+            return;
         if not self.config_manager:
             self._logger.info("plugin not found for vendor family(%s:%s), \
                   ip: %s, not pushing netconf message" % (str(self.vendor),
@@ -614,6 +630,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.physical_interfaces = set()
+        self.mtu = 0
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -650,6 +667,7 @@ class LogicalInterfaceDM(DBBaseDM):
         self.virtual_machine_interface = None
         self.vlan_tag = 0
         self.li_type = None
+        self.logical_interface_e2 = db_e2.LogicalInterfaceE2DM()
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -682,6 +700,8 @@ class LogicalInterfaceDM(DBBaseDM):
             parent = PhysicalInterfaceDM.get(obj.physical_router)
         if parent:
             parent.logical_interfaces.discard(obj.uuid)
+            if len(parent.logical_interfaces) == 0:
+                obj.logical_interface_e2.delete_state(obj, parent)
         obj.update_single_ref('virtual_machine_interface', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
@@ -773,6 +793,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.port_tuple = None
         self.routing_instances = set()
         self.service_instance = None
+        self.service_endpoint = None
         self.update(obj_dict)
     # end __init__
 
@@ -796,6 +817,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             pt = PortTupleDM.get(self.port_tuple)
             if pt:
                 self.service_instance = pt.parent_uuid
+        self.update_single_ref('service_endpoint', obj)
     # end update
 
     def is_device_owner_bms(self):
@@ -816,6 +838,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         obj.update_single_ref('physical_interface', {})
         obj.update_multiple_refs('routing_instance', {})
         obj.update_single_ref('port_tuple', {})
+        obj.update_single_ref('service_endpoint', {})
         del cls._dict[uuid]
     # end delete
 

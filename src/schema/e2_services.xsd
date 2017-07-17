@@ -1,0 +1,129 @@
+<!--
+ Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
+
+<xsd:include schemaLocation='vnc_cfg.xsd'/>
+
+<xsd:complexType name="ResourceDict">
+    <xsd:all>
+        <xsd:element name="rkey" type="xsd:string"/>
+        <xsd:element name="rvalue" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name='ServiceEndPointParams'>
+    <xsd:sequence>
+        <xsd:element name='resources' type="ResourceDict" maxOccurs='unbounded' required='optional'
+             description='List of resources that will be sent'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name='service-endpoint' type="ifmap:IdentityType"/>
+<xsd:element name='service-endpoint-info' type='ServiceEndPointParams'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-endpoint-info', 'service-endpoint', 'system-only', 'CRUD',
+              'Service endpoint information, should not be modified.') -->
+
+<xsd:element name="virtual-machine-interface-service-endpoint"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-interface-service-endpoint',
+          'virtual-machine-interface', 'service-endpoint', ['ref'], 'optional', 'CRUD',
+          'Links the access endpoint i.e virtual-machine-interface to service endpoint.') -->
+
+<xsd:simpleType name="E2servicetype">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="point-to-point"/>
+        <xsd:enumeration value="point-to-list"/>
+        <xsd:enumeration value="multi-point-to-multi-point"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="ServiceConnectionType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="vpws-l2ckt"/>
+        <xsd:enumeration value="vpws-l2vpn"/>
+        <xsd:enumeration value="vpws-evpn"/>
+        <xsd:enumeration value="fabric-interface"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name='ServiceConnectionProp'>
+    <xsd:all>
+        <xsd:element name="e2service" type="E2servicetype" required='true'
+            description='E2 service-types'/>
+        <xsd:element name="service-type" type="ServiceConnectionType" required='true'
+            description='type of services '/>
+        <xsd:element name="set-config" type="xsd:boolean" required='optional'
+            description='set-config for this service'/>
+        <xsd:element name='resources' type="ResourceDict" maxOccurs='unbounded' required='optional'
+             description='List of resources that will be sent'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name='service-connection-module' type="ifmap:IdentityType"/>
+<xsd:element name='service-connection-info' type='ServiceConnectionProp'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-connection-info', 'service-connection-module', 'system-only', 'CRUD',
+              'Service Connection module information, can be modified.') -->
+
+<xsd:element name="service-endpoint-service-connection-module"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('service-endpoint-service-connection-module',
+          'service-endpoint', 'service-connection-module', ['ref'], 'optional', 'CRUD',
+          'Link the service endpoint to service connection node') -->
+          
+<!-- connectivity of service-endpoint to physical-router -->
+<xsd:element name="service-endpoint-physical-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('service-endpoint-physical-router',
+          'service-endpoint', 'physical-router', ['ref'], 'optional', 'CRUD',
+          'Reference to Router for a given service.') -->
+
+<xsd:complexType name='ServiceConnectionObjParams'>
+    <xsd:sequence>
+        <xsd:element name="check-state" type="xsd:boolean" required='optional'
+            description='check the state for this service'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name='service-object' type="ifmap:IdentityType"/>
+<xsd:element name='service-object-info' type='ServiceConnectionObjParams'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-object-info', 'service-object', 'system-only', 'CRUD',
+              'Service object property, should not be modified.') -->
+
+<xsd:element name="service-endpoint-service-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('service-endpoint-service-object',
+          'service-endpoint', 'service-object', ['ref'], 'optional', 'CRUD',
+          'Links the service-endpoints to a service object.') -->
+
+<xsd:element name="service-connection-module-service-object"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('service-connection-module-service-object',
+          'service-connection-module', 'service-object', ['ref'], 'optional', 'CRUD',
+          'Links the service-connection-module to a service object.') -->
+
+<xsd:complexType name='NetworkDeviceConfigParams'>
+    <xsd:sequence>
+        <xsd:element name='config-object-name' type='xsd:string' required='true' operations='CUR'
+            description='config-object that connects the physical router'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name='network-device-config' type="ifmap:IdentityType"/>
+<xsd:element name='config-object-info' type='NetworkDeviceConfigParams'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('config-object-info', 'network-device-config', 'system-only', 'CRUD',
+              'Config object property, should not be modified.') -->
+
+<xsd:element name="network-device-config-physical-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('network-device-config-physical-router',
+          'network-device-config', 'physical-router', ['ref'], 'optional', 'CRUD',
+          'Network device config of a physical router.') -->
+
+</xsd:schema>
