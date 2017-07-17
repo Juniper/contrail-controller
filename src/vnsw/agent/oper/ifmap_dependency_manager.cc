@@ -23,6 +23,7 @@
 #include "oper/config_manager.h"
 #include "oper/vrouter.h"
 #include "oper/global_qos_config.h"
+#include "oper/global_system_config.h"
 #include "oper/global_vrouter.h"
 #include "oper/bridge_domain.h"
 #include "filter/policy_set.h"
@@ -96,6 +97,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "floating-ip-pool",
         "forwarding-class",
         "global-qos-config",
+        "global-system-config",
         "instance-ip",
         "logical-interface",
         "network-ipam",
@@ -877,6 +879,8 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     RegisterConfigHandler(this, "virtual-router", agent->oper_db()->vrouter());
     RegisterConfigHandler(this, "global-qos-config",
                           agent->oper_db()->global_qos_config());
+    RegisterConfigHandler(this, "global-system-config",
+                          agent->oper_db()->global_system_config());
     RegisterConfigHandler(this, "network-ipam",
                           agent->oper_db()->network_ipam());
     RegisterConfigHandler(this, "virtual-DNS",
