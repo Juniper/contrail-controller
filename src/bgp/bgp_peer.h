@@ -52,6 +52,7 @@ struct BgpPeerFamilyAttributes {
         const BgpFamilyAttributesConfig &family_config);
     uint8_t loop_count;
     uint32_t prefix_limit;
+    uint32_t idle_timeout;
     IpAddress gateway_address;
 };
 
@@ -64,6 +65,7 @@ struct BgpPeerFamilyAttributesCompare {
         if (lhs && rhs) {
             KEY_COMPARE(lhs->loop_count, rhs->loop_count);
             KEY_COMPARE(lhs->prefix_limit, rhs->prefix_limit);
+            KEY_COMPARE(lhs->idle_timeout, rhs->idle_timeout);
             KEY_COMPARE(lhs->gateway_address, rhs->gateway_address);
         } else {
             KEY_COMPARE(lhs, rhs);
@@ -136,6 +138,7 @@ public:
 
     void StartKeepaliveTimer();
     bool KeepaliveTimerRunning();
+    bool PrefixLimitIdleTimerRunning() const;
     void SetSendReady();
 
     // thread: io::ReaderTask
@@ -372,6 +375,12 @@ private:
     void StopKeepaliveTimerUnlocked();
     bool KeepaliveTimerExpired();
 
+    void StartPrefixLimitIdleTimer(uint32_t plim_idle_time_msecs);
+    void StopPrefixLimitIdleTimer();
+    bool PrefixLimitIdleTimerExpired();
+    void PrefixLimitIdleTimerErrorHandler(std::string error_name,
+                                          std::string error_message);
+
     RibExportPolicy BuildRibExportPolicy(Address::Family family) const;
     void StartEndOfRibReceiveTimer(Address::Family family);
     bool EndOfRibReceiveTimerExpired(Address::Family family);
@@ -431,6 +440,7 @@ private:
     // Global peer index
     int index_;
     TaskTrigger trigger_;
+    Timer *prefix_limit_idle_timer_;
     mutable TaskTrigger prefix_limit_trigger_;
 
     // The mutex is used to protect the session, keepalive timer and the

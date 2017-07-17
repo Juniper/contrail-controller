@@ -275,12 +275,13 @@
 <xsd:complexType name='BgpPrefixLimit'>
     <xsd:annotation>
         <xsd:documentation>
-            This is used to configure the maximum number of received prefixes.
-            More fields to control the behavior can be added in future e.g. if
-            the session should be torn down when the maximum is reached.
+            This is used to configure the maximum number of received prefixes
+            and control the behavior of the session when the maximum is reached.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:element name='maximum' type='xsd:integer'/>
+    <xsd:element name='idle-timeout' type='xsd:integer' required='optional' operation='CRUD'
+         description='Time after which the session is allowed to re-establish after teardown.'/>
 </xsd:complexType>
 
 <xsd:simpleType name='AddressFamily'>
