@@ -820,4 +820,4 @@ class MxConf(JuniperConf):
         return self.send_conf()
     # end push_conf
 
-# end PhycalRouterConfig
+# end MxConf

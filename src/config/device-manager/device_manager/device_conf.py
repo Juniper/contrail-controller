@@ -126,6 +126,8 @@ class DeviceConf(object):
     def validate_device(self):
         if not self.device_config:
             self.device_config = self.device_get()
+        if not self.device_config:
+            return False
         model = self.device_config.get('product-model')
         if not self.is_product_supported(model):
             self._logger.error("product model mismatch: device model = %s," \
@@ -180,6 +182,12 @@ class DeviceConf(object):
     def push_conf(self, is_delete=False):
         """push config to device"""
         return 0
-    # end send_conf
+    # end push_conf
+
+    @abc.abstractmethod
+    def get_service_status(self, service_params={}):
+        """Get service status for a given service """
+        return {}
+    # end get_service_status
 
 # end DeviceConf

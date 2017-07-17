@@ -79,6 +79,32 @@ class FakeDeviceConnect(object):
     # end send_netconf
 
     @classmethod
+    def send_e2_netconf(cls, obj, new_config, default_operation="merge",
+                        operation="replace"):
+        add_config = etree.Element(
+            "config",
+            nsmap={"xc": "urn:ietf:params:xml:ns:netconf:base:1.0"})
+        config = etree.SubElement(add_config, "configuration")
+        config_group = etree.SubElement(
+            config, "groups", operation=operation)
+        contrail_group = etree.SubElement(config_group, "name")
+        contrail_group.text = "__contrail-e2__"
+        if isinstance(new_config, list):
+            for nc in new_config:
+                config_group.append(nc)
+        else:
+            config_group.append(new_config)
+        print etree.tostring(add_config, pretty_print=True)
+        cls.params = {
+                                     "pr_config": obj,
+                                     "config": new_config,
+                                     "default_operation": default_operation,
+                                     "operation": operation
+                                   }
+        return len(new_config)
+    # end send_e2_netconf
+
+    @classmethod
     def get_xml_config(cls):
         return cls.params.get('config')
     # end get_xml_config
@@ -91,3 +117,6 @@ class FakeDeviceConnect(object):
 
 def fake_send_netconf(self, new_config, default_operation="merge", operation="replace"):
     return FakeDeviceConnect.send_netconf(self, new_config, default_operation, operation)
+
+def fake_send_e2_netconf(self, new_config, default_operation="merge", operation="replace"):
+    return FakeDeviceConnect.send_e2_netconf(self, new_config, default_operation, operation)
