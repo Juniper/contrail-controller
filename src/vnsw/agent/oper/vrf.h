@@ -55,7 +55,8 @@ struct VrfData : public AgentOperDBData {
             uint32_t mac_aging_time, bool learning_enabled) :
         AgentOperDBData(agent, node), flags_(flags), vn_uuid_(vn_uuid),
         isid_(isid), bmac_vrf_name_(bmac_vrf_name),
-        mac_aging_time_(mac_aging_time), learning_enabled_(learning_enabled) {}
+        mac_aging_time_(mac_aging_time), learning_enabled_(learning_enabled),
+        forwarding_vrf_name_("") {}
     virtual ~VrfData() {}
 
     uint32_t ConfigFlags() {
@@ -68,6 +69,7 @@ struct VrfData : public AgentOperDBData {
     std::string bmac_vrf_name_;
     uint32_t mac_aging_time_;
     bool learning_enabled_;
+    std::string forwarding_vrf_name_;
 };
 
 class VrfEntry : AgentRefCount<VrfEntry>, public AgentOperDBEntry {
@@ -196,6 +198,10 @@ public:
         mac_aging_time_ = aging_time;
     }
 
+    VrfEntry* forwarding_vrf() const {
+        return forwarding_vrf_.get();
+    }
+
 private:
     friend class VrfTable;
     void CreateRouteTables();
@@ -223,6 +229,7 @@ private:
     bool learning_enabled_;
     bool layer2_control_word_;
     bool l2_;
+    VrfEntryRef forwarding_vrf_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 

@@ -359,7 +359,7 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
                 static_cast<const VmInterface *>(in->intf_);
             if (vm_intf->device_type() == VmInterface::LOCAL_DEVICE) {
                 out->nh_ = arp_nh->id();
-            } else {
+            } else if (arp_nh->GetInterface()->flow_key_nh()) {
                 out->nh_ = arp_nh->GetInterface()->flow_key_nh()->id();
             }
         }
@@ -1297,6 +1297,13 @@ const NextHop *PktFlowInfo::TunnelToNexthop(const PktInfo *pkt) {
 
         return NULL;
     } else {
+        AgentRoute *rt = FlowEntry::GetUcRoute(agent->fabric_vrf(),
+                                               pkt->ip_daddr);
+        if (rt != NULL) {
+            return rt->GetActiveNextHop();
+        }
+
+
         LogError(pkt, this, "Invalid tunnel type in egress flow");
         return NULL;
     }

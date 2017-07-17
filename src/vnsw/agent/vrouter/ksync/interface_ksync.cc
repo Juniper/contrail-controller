@@ -346,6 +346,9 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
         if (intf->type() == Interface::VM_INTERFACE) {
             VmInterface *vm_port = static_cast<VmInterface *>(intf);
+            if (vm_port->forwarding_vrf()) {
+                vrf_id = vm_port->forwarding_vrf()->vrf_id();
+            }
             has_service_vlan = vm_port->HasServiceVlan();
             policy_enabled = vm_port->policy_enabled();
             analyzer_name = vm_port->GetAnalyzer();

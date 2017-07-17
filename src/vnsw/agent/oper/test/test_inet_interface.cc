@@ -314,9 +314,11 @@ static void InetTestCleanup(Agent *agent, const Ip4Address &addr,
 static void RestoreInetConfig(Agent *agent) {
     InetUnicastAgentRouteTable *table = agent->fabric_inet4_unicast_table();
     AgentParam *param = client->param();
+    VnListType vn_list;
+    vn_list.insert(agent->fabric_vrf_name());
     table->AddGatewayRouteReq(agent->local_peer(), agent->fabric_vrf_name(),
                            Ip4Address(0), 0, param->vhost_gw(),
-                           agent->fabric_vrf_name(),
+                           vn_list,
                            MplsTable::kInvalidLabel, SecurityGroupList(),
                            TagList(), CommunityList());
     client->WaitForIdle();

@@ -781,6 +781,13 @@ public:
         fabric_vrf_name_ = name;
     }
 
+    const std::string &fabric_policy_vrf_name() const {
+        return fabric_policy_vrf_name_;
+    }
+    void set_fabric_policy_vrf_name(const std::string &name) {
+        fabric_policy_vrf_name_ = name;
+    }
+
     VrfEntry *fabric_vrf() const { return fabric_vrf_; }
     void set_fabric_vrf(VrfEntry *vrf) { fabric_vrf_ = vrf; }
 
@@ -1375,6 +1382,7 @@ public:
     static const std::set<std::string> null_string_list_;
     static std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;
+    static std::string fabric_policy_vrf_name_;
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;
     static const MacAddress vrrp_mac_;
