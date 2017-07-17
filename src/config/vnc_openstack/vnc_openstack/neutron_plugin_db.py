@@ -4248,6 +4248,28 @@ class DBInterface(object):
                     port_objs.extend(self._virtual_machine_interface_list(
                         obj_uuids=router_port_ids, parent_id=project_ids))
 
+                for router in router_objs:
+                    si_ref = (router.get_service_instance_refs() or [])[0]
+                    # Router's gateway is enabled on the router
+                    si = self._vnc_lib.service_instance_read(
+                        id=si_ref['uuid'],
+                        fields=['virtual_machine_back_refs'],
+                    )
+                    for vm_ref in si.get_virtual_machine_back_refs() or []:
+                        # Use the first rigth VMI of the first SI's VM
+                        if not vm_ref['to'][-1].endswith('__1'):
+                            continue
+                        vmi_fq_name = [vm_ref['to'][-1] + '__right__1']
+                        vmi_fq_name = si.fq_name[:-1] + vmi_fq_name
+                        try:
+                            port_objs.append(
+                                self._virtual_machine_interface_read(
+                                    fq_name=vmi_fq_name,
+                                ),
+                            )
+                        except NoIdError:
+                            break
+
             # Filter it with project ids if there are.
             if project_ids:
                 port_objs.extend([p for p in port_objs_filtered_by_device_id
