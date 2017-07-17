@@ -1022,9 +1022,19 @@ class VncCassandraClient(object):
                         full_match = False
                         break
                     prop_value = properties[property]
-                    if not isinstance(prop_value, (basestring, bool, int)):
-                        prop_value = json.dumps(prop_value)
-                    if prop_value not in filter_values:
+                    if isinstance(prop_value, dict):
+                        for filter_value in filter_values:
+                            try:
+                                filter_dict = json.loads(filter_value)
+                            except ValueError:
+                                continue
+                            if (filter_dict.viewitems() <=
+                                    prop_value.viewitems()):
+                                break
+                        else:
+                            full_match = False
+                            break
+                    elif prop_value not in filter_values:
                         full_match = False
                         break
 

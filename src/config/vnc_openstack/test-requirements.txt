@@ -26,3 +26,4 @@ vnc_cfg_api_server
 sandesh
 sandesh-common
 pyOpenSSL
+mock
