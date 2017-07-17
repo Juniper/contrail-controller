@@ -91,3 +91,4 @@ class FakeDeviceConnect(object):
 
 def fake_send_netconf(self, new_config, default_operation="merge", operation="replace"):
     return FakeDeviceConnect.send_netconf(self, new_config, default_operation, operation)
+
