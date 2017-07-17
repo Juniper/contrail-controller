@@ -2135,6 +2135,76 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('physical-router-role', 'physical-router', 'optional', 'CRUD',
               'Physical router role (e.g spine or leaf), used by the device manager to provision physical router, for e.g device manager may choose to configure physical router based on its role.') -->
 
+<xsd:element name="physical-router-id" type="smi:IpAddress"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-id', 'physical-router', 'optional', 'CRUD',
+              'Physical router id. This will be the router-id') -->
+
+<xsd:element name="physical-router-loopback-id" type="smi:IpAddress"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-loopback-id', 'physical-router', 'optional', 'CRUD',
+              'Physical router loopback id. This will be the router loopback id') -->
+
+<xsd:simpleType name="PhysicalRouterType">
+     <xsd:restriction base='xsd:string' required='optional' operations='CRUD'
+          description_1='contrail-gateway'
+          description_2='mx router for general provisioning'>
+         <xsd:enumeration value='contrail'/>
+         <xsd:enumeration value='non-contrail'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="physical-router-mode" type="PhysicalRouterType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-mode', 'physical-router', 'optional', 'CRUD',
+              'Physical router mode. Check the PhysicalRouterType') -->
+
+<xsd:simpleType name="PhysicalRouterRole">
+     <xsd:restriction base='xsd:string' required='optional' operations='CRUD'
+          description_1='if the router plays an access role'
+          description_2='if the router plays provider role'
+          description_3='If the router plays internet role'>
+         <xsd:enumeration value='access'/>
+         <xsd:enumeration value='provider-edge'/>
+         <xsd:enumeration value='internet'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="PhysicalRouterParams">
+    <xsd:all>
+        <xsd:element name="snmp" type="xsd:boolean"/>
+        <xsd:element name="lldp" type="xsd:boolean"/>
+        <xsd:element name="as-number" type="xsd:integer"/>
+        <xsd:element name="role" type="PhysicalRouterRole"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="physical-router-property" type="PhysicalRouterParams"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-property', 'physical-router', 'optional', 'CRUD',
+              'Physical router properties. Check the PhysicalRouterParams') -->
+
+<xsd:complexType name="TelemetryResourceInfo">
+    <xsd:all>
+        <xsd:element name="rname" type="xsd:string"/>
+        <xsd:element name="rpath" type="xsd:string"/>
+        <xsd:element name="rrate" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="TelemetryStateInfo">
+    <xsd:all>
+        <xsd:element name="resource" type="TelemetryResourceInfo" maxOccurs="unbounded"/>
+        <xsd:element name="server-ip" type="xsd:string"/>
+        <xsd:element name="server-port" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="telemetry-info" type="TelemetryStateInfo"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('telemetry-info', 'physical-router', 'optional', 'CRUD',
+              'Telemetry info of router. Check TelemetryStateInfo') -->
+
 <xsd:complexType name="UserCredentials">
     <xsd:all>
         <xsd:element name="username" type="xsd:string"/>
