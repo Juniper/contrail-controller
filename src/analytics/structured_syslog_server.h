@@ -43,9 +43,11 @@ class  StructuredSyslogQueueEntry {
 public:
     size_t      length;
     boost::shared_ptr<std::string> data;
+    boost::shared_ptr<std::string> json_data;
     boost::shared_ptr<std::string> skey;
 
     StructuredSyslogQueueEntry(boost::shared_ptr<std::string> d, size_t len,
+                               boost::shared_ptr<std::string> jd,
                                boost::shared_ptr<std::string> key);
     virtual ~StructuredSyslogQueueEntry();
 };
@@ -86,6 +88,7 @@ public:
     virtual ~StructuredSyslogForwarder();
     void Forward(boost::shared_ptr<StructuredSyslogQueueEntry> sqe);
     void Shutdown();
+    bool kafkaForwarder();
 
 protected:
     bool PollTcpForwarder();
