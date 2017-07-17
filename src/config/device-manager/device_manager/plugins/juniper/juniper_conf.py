@@ -6,6 +6,7 @@
 This file contains generic plugin implementation for juniper devices
 """
 
+from lxml import etree
 from ncclient import manager
 from ncclient.xml_ import new_ele
 import time
@@ -41,6 +42,7 @@ class JuniperConf(DeviceConf):
 
     def __init__(self):
         self._nc_manager = None
+        self.e2_config = None
         self.user_creds = self.physical_router.user_credentials
         self.management_ip = self.physical_router.management_ip
         self.timeout = 10
@@ -115,6 +117,14 @@ class JuniperConf(DeviceConf):
         self.route_targets = set()
         self.bgp_peers = {}
         self.external_peers = {}
+        self.e2_phy_intf_config = None
+        self.e2_fab_intf_config = None
+        self.e2_routing_config = None 
+        self.e2_services_prot_config = None
+        self.e2_services_ri_config = None
+        self.e2_chassis_config = None
+        self.e2_router_config = None
+        self.e2_telemetry_config = None
     # ene initialize
 
     def device_send(self, conf, default_operation="merge",
@@ -199,6 +209,31 @@ class JuniperConf(DeviceConf):
                                           self.management_ip, e.message))
         return dev_conf
     # end device_get
+
+    def device_get_config(self):
+        host=self.management_ip
+        if self.vendor.lower() == 'juniper':
+            device_params = {'name':'junos'}
+        elif self.vendor.lower() == 'nokia':
+            device_params = {'name':'alu'}
+        else:
+            device_params = {'name':'junos'}
+        try:
+            with manager.connect(host, port=22,
+                                 username=self.user_creds['username'],
+                                 password=self.user_creds['password'],
+                                 timeout=100,
+                                 device_params = device_params,
+                                 unknown_host_cb=lambda x, y: True) as m:
+                config_data = m.get_config(source='running').data_xml
+                with open("/var/log/contrail/%s.xml" % host, 'w') as f:
+                    f.write(config_data)
+                return config_data
+        except Exception as e:
+            if self._logger:
+                self._logger.error("could not fetch device configuration from router %s: %s" % (
+                                          host, e.message))
+        return None
 
     def get_vn_li_map(self):
         pr = self.physical_router
@@ -523,6 +558,38 @@ class JuniperConf(DeviceConf):
         self.set_bgp_group_config()
     # end build_bgp_config
 
+    def build_e2_router_config(self):
+        if not self.e2_config:
+            self.e2_config = JuniperConfE2()
+        self.e2_config.config_e2_router_config(self)
+    # end build_e2_router_config
+
+    def build_e2_telemetry_config(self):
+        if not self.e2_config:
+            self.e2_config = JuniperConfE2()
+        self.e2_config.config_e2_telemetry_config(self)
+    # end build_e2_router_config
+
+    def service_request_rpc(self, rpc_command):
+        res = self._nc_manager.rpc(rpc_command)
+        return res
+    # end service_request_rpc
+
+    def has_e2_conf(self):
+        #if not self.proto_config or not self.proto_config.get_bgp():
+            #return False
+        return True
+    # end has_e2_conf
+
+    def send_e2_conf(self, is_delete=False):
+        if not self.has_e2_conf() and not is_delete:
+            return 0
+        default_operation = "none" if is_delete else "merge"
+        operation = "delete" if is_delete else "replace"
+        conf = self.e2_config.device_e2_send(self, default_operation, operation)
+        return conf
+    # end send_e2_conf
+
 # end JuniperConf
 
 class JunosInterface(object):
@@ -544,3 +611,269 @@ class JunosInterface(object):
     # end is_untagged
 
 # end JunosInterface
+
+class JuniperConfE2(object):
+
+    def config_e2_router_config(self, obj):
+        if obj.physical_router.vendor.lower() == 'juniper':
+            self.config_e2_router_config_juniper(obj)
+    # end config_e2_router_config
+
+    def config_e2_router_config_juniper(self, obj):
+        snmp = False
+        lldp = False
+        if 'snmp'in obj.physical_router.physical_router_property:
+            snmp = obj.physical_router.physical_router_property['snmp']
+        if 'lldp'in obj.physical_router.physical_router_property:
+            lldp = obj.physical_router.physical_router_property['lldp']
+        self.add_e2_router_config_xml(obj, snmp, lldp)
+    # end config_e2_router_config_juniper
+
+    def config_e2_telemetry_config(self, obj):
+        if obj.physical_router.vendor.lower() == 'nokia':
+            return
+        server_ip = None
+        server_port = 0
+        telemetry_info = obj.physical_router.telemetry_info
+
+        for tkey, tdk in telemetry_info.iteritems():
+            if 'server_ip' in tkey:
+                server_ip = tdk
+            if 'server_port' in tkey:
+                server_port = tdk
+            if 'resource' in tkey:
+                for res_entry in tdk:
+                    rname = rpath = rrate = None
+                    for res_key, res_value in res_entry.iteritems():
+                        if 'rname' in res_key:
+                            rname = res_value
+                        if 'rpath' in res_key:
+                            rpath = res_value
+                        if 'rrate' in res_key:
+                            rrate = res_value
+                    self.add_e2_telemetry_per_resource_config_xml(obj,\
+                                rname, rpath, rrate)
+
+        self.add_e2_telemetry_config_xml(obj, server_ip, server_port)
+    # end config_e2_telemetry_config
+
+    def device_e2_send(self, obj, default_operation="merge",
+                     operation="replace"):
+        e2_router_config = obj.e2_router_config
+        if e2_router_config is not None:
+            config_list = [e2_router_config]
+        else:
+            config_list = []
+        if obj.e2_chassis_config is not None:
+            if not config_list:
+                config_list = obj.e2_chassis_config
+            else:
+                config_list.append(obj.e2_chassis_config)
+        if obj.e2_phy_intf_config is not None:
+            if not config_list:
+                config_list = obj.e2_phy_intf_config
+            else:
+                config_list.append(obj.e2_phy_intf_config)
+        if obj.e2_fab_intf_config is not None:
+            if not config_list:
+                config_list = [obj.e2_fab_intf_config]
+            else:
+                config_list.append(obj.e2_fab_intf_config)
+        if obj.e2_routing_config is not None:
+            if not config_list:
+                config_list = [obj.e2_routing_config]
+            else:
+                config_list.append(obj.e2_routing_config)
+        if obj.e2_services_prot_config is not None:
+            if not config_list:
+                config_list = [obj.e2_services_prot_config]
+            else:
+                config_list.append(obj.e2_services_prot_config)
+        if obj.e2_services_ri_config is not None:
+            if not config_list:
+                config_list = [obj.e2_services_ri_config]
+            else:
+                config_list.append(obj.e2_services_ri_config)
+        if obj.e2_telemetry_config is not None:
+            telemetry_cfg = etree.Element("services")
+            telemetry_cfg.append(obj.e2_telemetry_config)
+            if not config_list:
+                config_list = [telemetry_cfg]
+            else:
+                config_list.append(telemetry_cfg)
+        #no element exists, so delete e2 config.
+        if len(config_list) == 1:
+           return self.send_e2_netconf(obj, [], default_operation="none", \
+                                       operation="delete")
+        return self.send_e2_netconf(obj, config_list)
+    # end device_e2_send
+
+    def send_e2_netconf(self, obj, new_config, default_operation="merge",
+                        operation="replace"):
+        if obj.physical_router.vendor.lower() == 'juniper':
+            config_size = self.send_e2_juniper_netconf(obj, new_config, \
+                                       default_operation, operation)
+            return config_size
+        if obj.physical_router.vendor.lower() == 'nokia':
+            config_size = self.send_e2_nokia_netconf(new_config, "merge", "merge")
+            return config_size
+    # end send_e2_netconf
+
+    def send_e2_juniper_netconf(self, obj, new_config, default_operation, \
+                                operation):
+        obj.push_config_state = PushConfigState.PUSH_STATE_INIT
+        start_time = None
+        config_size = 0
+        try:
+            with manager.connect(host=obj.management_ip, port=22,
+                                 username=obj.user_creds['username'],
+                                 password=obj.user_creds['password'],
+                                 unknown_host_cb=lambda x, y: True) as m:
+                add_config = etree.Element(
+                    "config",
+                    nsmap={"xc": "urn:ietf:params:xml:ns:netconf:base:1.0"})
+                config = etree.SubElement(add_config, "configuration")
+                config_group = etree.SubElement(
+                    config, "groups", operation=operation)
+                contrail_group = etree.SubElement(config_group, "name")
+                contrail_group.text = "__contrail-e2__"
+                if isinstance(new_config, list):
+                    for nc in new_config:
+                        config_group.append(nc)
+                else:
+                    config_group.append(new_config)
+                if operation == "delete":
+                    apply_groups = etree.SubElement(
+                        config, "apply-groups", operation=operation)
+                    apply_groups.text = "__contrail-e2__"
+                else:
+                    apply_groups = etree.SubElement(config, "apply-groups", insert="first")
+                    apply_groups.text = "__contrail-e2__"
+                obj._logger.info("\nsend netconf message: Router %s: %s\n" % (
+                    obj.management_ip,
+                    etree.tostring(add_config, pretty_print=True)))
+                config_str = etree.tostring(add_config)
+                config_size = len(config_str)
+                m.edit_config(
+                    target='candidate', config=config_str,
+                    test_option='test-then-set',
+                    default_operation=default_operation)
+                obj.commit_stats['total_commits_sent_since_up'] += 1
+                start_time = time.time()
+                m.commit()
+                end_time = time.time()
+                obj.commit_stats['commit_status_message'] = 'success'
+                obj.commit_stats['last_commit_time'] = \
+                    datetime.datetime.fromtimestamp(
+                    end_time).strftime('%Y-%m-%d %H:%M:%S')
+                obj.commit_stats['last_commit_duration'] = str(
+                    end_time - start_time)
+                obj.push_config_state = PushConfigState.PUSH_STATE_SUCCESS
+        except Exception as e:
+            if obj._logger:
+                obj._logger.error("Router %s: %s" % (obj.management_ip,
+                                                      e.message))
+                obj.commit_stats[
+                    'commit_status_message'] = 'failed to apply config,\
+                                                router response: ' + e.message
+                if start_time is not None:
+                    obj.commit_stats['last_commit_time'] = \
+                        datetime.datetime.fromtimestamp(
+                            start_time).strftime('%Y-%m-%d %H:%M:%S')
+                    obj.commit_stats['last_commit_duration'] = str(
+                        time.time() - start_time)
+                obj.push_config_state = PushConfigState.PUSH_STATE_RETRY
+        return config_size
+    # end send_e2_juniper_netconf
+
+    def add_e2_router_config_xml(self, obj, snmp, lldp):
+        #SNMP protocol config
+        snmp_cfg = self._get_snmp_config_xml()
+        obj.e2_router_config = snmp_cfg
+
+        #LLDP protocol config
+        lldp_cfg, lldp_med_cfg = self._get_lldp_config_xml()
+        if obj.e2_services_prot_config is not None:
+            obj.e2_services_prot_config.append(lldp_cfg)
+            obj.e2_services_prot_config.append(lldp_med_cfg)
+        else:
+            protocol_cfg = etree.Element("protocols")
+            protocol_cfg.append(lldp_cfg)
+            protocol_cfg.append(lldp_med_cfg)
+            obj.e2_services_prot_config = protocol_cfg
+    # end add_e2_router_config_xml
+
+    def _get_lldp_config_xml(self):
+        lldp_config = etree.Element("lldp")
+        lldp_info = etree.SubElement(lldp_config, "interface")
+        etree.SubElement(lldp_info, "name").text = "all"
+        lldp_med_config = etree.Element("lldp-med")
+        lldp_info = etree.SubElement(lldp_med_config, "interface")
+        etree.SubElement(lldp_info, "name").text = "all"
+        return lldp_config, lldp_med_config
+    # end _get_lldp_config_xml
+
+    def _get_snmp_config_xml(self):
+        snmp_config = etree.Element("snmp")
+        etree.SubElement(snmp_config, "interface").text = "fxp0.0"
+        comm_pub = etree.SubElement(snmp_config, "community")
+        etree.SubElement(comm_pub, "name").text = "public"
+        etree.SubElement(comm_pub, "authorization").text = "read-only"
+        comm_pub = etree.SubElement(snmp_config, "community")
+        etree.SubElement(comm_pub, "name").text = "private"
+        etree.SubElement(comm_pub, "authorization").text = "read-write"
+        return snmp_config
+    # end _get_snmp_config_xml
+
+    def _get_telemetry_global_config_xml(self, server_ip, server_port):
+        analytics_cfg = etree.Element("streaming-server")
+        etree.SubElement(analytics_cfg, "name").text = "AnalyticsNode"
+        etree.SubElement(analytics_cfg, "remote-address").text = server_ip
+        etree.SubElement(analytics_cfg, "remote-port").text = str(server_port)
+        return analytics_cfg
+    # end _get_telemetry_global_config_xml
+
+    def add_e2_telemetry_config_xml(self, obj, server_ip, server_port):
+        #Global config
+        tele_gcfg = self._get_telemetry_global_config_xml(server_ip, server_port)
+        if obj.e2_telemetry_config is not None:
+            obj.e2_telemetry_config.insert(0, tele_gcfg)
+        else:
+            analytics_cfg = etree.Element("analytics")
+            analytics_cfg.append(tele_gcfg)
+            obj.e2_telemetry_config = analytics_cfg
+    # end add_e2_telemetry_config_xml
+
+    def _get_telemetry_pre_resource_config_xml(self, management_ip, rname,\
+                                               rpath, rrate):
+        rprofile = rname + '-profile'
+        eprof_cfg = etree.Element("export-profile")
+        etree.SubElement(eprof_cfg, "name").text = rprofile
+        etree.SubElement(eprof_cfg, "local-address").text = management_ip
+        etree.SubElement(eprof_cfg, "local-port").text = str(50000)
+        etree.SubElement(eprof_cfg, "reporting-rate").text = str(rrate)
+        etree.SubElement(eprof_cfg, "format").text = 'gpb'
+        etree.SubElement(eprof_cfg, "transport").text = 'udp'
+        asensor_cfg = etree.Element("sensor")
+        etree.SubElement(asensor_cfg, "name").text = rname
+        etree.SubElement(asensor_cfg, "server-name").text = 'AnalyticsNode'
+        etree.SubElement(asensor_cfg, "export-name").text = rprofile
+        etree.SubElement(asensor_cfg, "resource").text = rpath
+        return eprof_cfg, asensor_cfg
+    # end _get_telemetry_pre_resource_config_xml
+
+    def add_e2_telemetry_per_resource_config_xml(self, obj,\
+                                                 rname, rpath, rrate):
+        management_ip = obj.physical_router.management_ip
+        #Per resource config
+        tele_rcfg, tele_scfg = self._get_telemetry_pre_resource_config_xml(\
+                                         management_ip, rname, rpath, rrate)
+        if obj.e2_telemetry_config is not None:
+            obj.e2_telemetry_config.insert(0, tele_rcfg)
+            obj.e2_telemetry_config.insert(0, tele_scfg)
+        else:
+            analytics_cfg = etree.Element("analytics")
+            analytics_cfg.append(tele_rcfg)
+            analytics_cfg.append(tele_scfg)
+            obj.e2_telemetry_config = analytics_cfg
+    # end add_e2_telemetry_per_resource_config_xml

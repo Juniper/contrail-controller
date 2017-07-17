@@ -171,6 +171,12 @@ class DeviceConf(object):
     # end device_get
 
     @abc.abstractmethod
+    def device_get_config(self, filters={}):
+        """Retrieve entire device current configuration """
+        return {}
+    # end device_get_config
+
+    @abc.abstractmethod
     def get_commit_stats(self):
         """return Commit Statistics if any"""
         return self.commit_stats
@@ -180,6 +186,12 @@ class DeviceConf(object):
     def push_conf(self, is_delete=False):
         """push config to device"""
         return 0
-    # end send_conf
+    # end push_conf
+
+    @abc.abstractmethod
+    def get_service_status(self, service_params={}):
+        """Get service status for a given service """
+        return {}
+    # end get_service_status
 
 # end DeviceConf

@@ -44,4 +44,8 @@ targets = env.TypeAutogen('services.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
 lib = env.Library('services', lib_srcs)
 
+targets = env.IFMapAutogen('e2_services.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('e2_services', lib_srcs)
+
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
