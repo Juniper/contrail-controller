@@ -53,20 +53,21 @@ class DeviceConf(object):
     # instantiate a plugin dynamically
     @classmethod
     def plugin(cls, vendor, product, params, logger):
+        pr = params.get("physical_router")
         pconfs = DeviceConf._plugins.get(vendor)
         for pconf in pconfs or []:
             inst_cls = pconf.get('class')
-            if inst_cls.is_product_supported(product):
+            if inst_cls.is_product_supported(product, pr.physical_router_role):
                 return  inst_cls(logger, params)
-        pr = params.get("physical_router")
         name = vendor + ":" + product
         logger.warning("No plugin found for pr=%s, vendor/product=%s"%(pr.uuid, name))
         return None
     # end plugin
 
     # validate plugin name
-    def verify_plugin(self, vendor, product):
-        if vendor.lower() == self._vendor.lower() and self.is_product_supported(product):
+    def verify_plugin(self, vendor, product, role):
+        if vendor.lower() == self._vendor.lower() and \
+        self.is_product_supported(product, role):
             return True
         return False
     # end verify_plugin
@@ -109,7 +110,7 @@ class DeviceConf(object):
     # end register
 
     @classmethod
-    def is_product_supported(cls, product):
+    def is_product_supported(cls, product, role):
         """ check if plugin is capable of supporting product """
         return False
     # end is_product_supported
@@ -126,8 +127,12 @@ class DeviceConf(object):
     def validate_device(self):
         if not self.device_config:
             self.device_config = self.device_get()
+        if not self.device_config:
+            self.device_config = {}
+            return False
         model = self.device_config.get('product-model')
-        if not self.is_product_supported(model):
+        if not self.is_product_supported(model, \
+               self.physical_router.physical_router_role):
             self._logger.error("product model mismatch: device model = %s," \
                       " plugin mode = %s" % (model, str(self._products)))
             self.device_config = {}
@@ -180,6 +185,12 @@ class DeviceConf(object):
     def push_conf(self, is_delete=False):
         """push config to device"""
         return 0
-    # end send_conf
+    # end push_conf
+
+    @abc.abstractmethod
+    def get_service_status(self, service_params={}):
+        """Get service status for a given service """
+        return {}
+    # end get_service_status
 
 # end DeviceConf
