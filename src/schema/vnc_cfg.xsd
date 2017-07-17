@@ -1549,6 +1549,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'virtual-network', 'network-policy', ['ref'], 'optional', 'CRUD',
           'Reference to network-policy attached to this network. It has sequence number to specify attachment order.') -->
 
+<xsd:element name="virtual-network-provider-network"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-provider-network',
+          'virtual-network', 'virtual-network', ['ref'], 'optional', 'CRUD',
+          'Reference to a virtual network which is the provider network for the given virtual network. Traffic forwarding happens in the routing instance of the provider network.') -->
+
 <xsd:element name="quota" type="QuotaType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('quota', 'project', 'required', 'CRUD',
