@@ -1,6 +1,7 @@
 import sys
 import json
 import re
+import mock
 
 from testtools import ExpectedException
 import webtest.app
@@ -546,7 +547,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         sg_q = self.create_resource('security_group', proj_obj.uuid)
         net_q = self.create_resource('network', proj_obj.uuid,
-            extra_res_fields={'router:external': True})
+            extra_res_fields={'router:external': True,
+                              'port_security_enabled': True})
         subnet_q = self.create_resource('subnet', proj_obj.uuid,
             extra_res_fields={
                 'network_id': net_q['id'],
@@ -582,7 +584,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         sg_q = self.create_resource('security_group', proj_obj.uuid)
 
         pvt_net_q = self.create_resource('network', proj_obj.uuid,
-            extra_res_fields={'router:external': True})
+            extra_res_fields={'router:external': True,
+                              'port_security_enabled': True})
         pvt_subnet_q = self.create_resource('subnet', proj_obj.uuid,
             extra_res_fields={
                 'network_id': pvt_net_q['id'],
@@ -669,7 +672,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         def create_net_subnet_port_assoc_fip(i, pub_net_q_list,
                                              has_routers=True):
             net_q_list = [self.create_resource('network', proj_objs[i].uuid,
-                name='network-%s-%s-%s' %(self.id(), i, j)) for j in range(2)]
+                name='network-%s-%s-%s' %(self.id(), i, j),
+                extra_res_fields={'port_security_enabled': True}) for j in range(2)]
             subnet_q_list = [self.create_resource('subnet', proj_objs[i].uuid,
                 name='subnet-%s-%s-%s' %(self.id(), i, j),
                 extra_res_fields={
@@ -806,7 +810,10 @@ class TestBasic(test_case.NeutronBackendTestCase):
                                           'ip_version': 4})
 
         # private network
-        pvt_net_q = self.create_resource('network', proj_id)
+        pvt_net_q = self.create_resource(
+            'network', proj_id,
+            extra_res_fields={'port_security_enabled': True},
+        )
         pvt_subnet_q = self.create_resource('subnet', proj_id,
                                              extra_res_fields=
                                              {'network_id': pvt_net_q['id'],
@@ -914,6 +921,120 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.assertEqual(fip_pool_obj.perms2.global_access, PERMS_RWX)
         self.delete_resource('network', proj_obj.uuid, net_q['id'])
     # end test_external_network_fip_pool
+
+    def test_list_router_interfaces(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                       'default-project'])
+        # public network/subnet
+        public_net = self.create_resource(
+            'network',
+            proj_obj.uuid,
+            'public-%s' % self.id(),
+            extra_res_fields={'router:external': True},
+        )
+        self.create_resource(
+            'subnet',
+            proj_obj.uuid,
+            'public-%s' % self.id(),
+            extra_res_fields={
+                'network_id': public_net['id'],
+                'cidr': '80.0.0.0/24',
+                'ip_version': 4,
+            },
+        )
+        public_net_obj = self._vnc_lib.virtual_network_read(
+            id=public_net['id'])
+
+        # private network/subnet
+        privat_net = self.create_resource('network', proj_obj.uuid,
+                                          name='private-%s' % self.id())
+        private_subnet = self.create_resource(
+            'subnet',
+            proj_obj.uuid,
+            'private-%s' % self.id(),
+            extra_res_fields={
+                'network_id': privat_net['id'],
+                'cidr': '10.0.0.0/24',
+                'ip_version': 4,
+            },
+        )
+
+        # Router with a gateway on the public network
+        router = self.create_resource(
+            'router',
+            proj_obj.uuid,
+            name='router-%s' % self.id(),
+            extra_res_fields={
+                'external_gateway_info': {
+                    'network_id': public_net['id'],
+                }
+            },
+        )
+
+        # Add router interface on the private network/subnet
+        self.update_resource(
+            'router',
+            router['id'],
+            proj_obj.uuid,
+            is_admin=True,
+            operation='ADDINTERFACE',
+            extra_res_fields={'subnet_id': private_subnet['id']},
+        )
+        router_obj = self._vnc_lib.logical_router_read(id=router['id'])
+
+        def router_with_fake_si_ref(orig_method, *args, **kwargs):
+            if 'obj_uuids' in kwargs and kwargs['obj_uuids'] == [router['id']]:
+                mock_router_si_ref = mock.patch.object(
+                    router_obj,
+                    'get_service_instance_refs',
+                ).start()
+                mock_router_si_ref.return_value = [{'uuid': 'fake_si_uuid'}]
+                return [router_obj]
+            return orig_method(*args, **kwargs)
+
+        def fake_si_obj(orig_method, *args, **kwargs):
+            if 'id' in kwargs and kwargs['id'] == 'fake_si_uuid':
+                si = mock.Mock()
+                si.get_virtual_machine_back_refs.return_value = \
+                    [{'to': 'fake_vm_name', 'uuid': 'fake_vm_uuid'}]
+                return si
+            return orig_method(*args, **kwargs)
+
+        def return_router_gw_interface(orig_method, *args, **kwargs):
+            if ('back_ref_id' in kwargs and
+                    kwargs['back_ref_id'] == ['fake_vm_uuid']):
+                fake_gw = vnc_api.VirtualMachineInterface('fake_gw_interface',
+                                                          proj_obj)
+                fake_gw.add_virtual_network(public_net_obj)
+                fake_gw_id = self._vnc_lib.virtual_machine_interface_create(
+                    fake_gw)
+                return [self._vnc_lib.virtual_machine_interface_read(
+                    id=fake_gw_id)]
+            return orig_method(*args, **kwargs)
+
+        neutron_api_obj = FakeExtensionManager.get_extension_objects(
+            'vnc_cfg_api.neutronApi')[0]
+        neutron_db_obj = neutron_api_obj._npi._cfgdb
+        with test_common.patch(neutron_db_obj._vnc_lib, 'logical_routers_list',
+                               router_with_fake_si_ref), \
+                test_common.patch(neutron_db_obj._vnc_lib,
+                                  'service_instance_read', fake_si_obj), \
+                test_common.patch(neutron_db_obj._vnc_lib,
+                                  'virtual_machine_interfaces_list',
+                                  return_router_gw_interface):
+                router_interfaces = self.list_resource(
+                    'port',
+                    proj_uuid=proj_obj.uuid,
+                    req_filters={'device_id': [router['id']]},
+                )
+                self.assertEqual(len(router_interfaces), 1)
+                router_interfaces2 = self.list_resource(
+                    'port',
+                    proj_uuid=proj_obj.uuid,
+                    req_filters={'device_id': [router['id']]},
+                    is_admin=True,
+                )
+                self.assertEqual(len(router_interfaces2), 2)
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):

@@ -1024,9 +1024,19 @@ class VncCassandraClient(object):
                         full_match = False
                         break
                     prop_value = properties[property]
-                    if not isinstance(prop_value, (basestring, bool, int)):
-                        prop_value = json.dumps(prop_value)
-                    if prop_value not in filter_values:
+                    if isinstance(prop_value, dict):
+                        for filter_value in filter_values:
+                            try:
+                                filter_dict = json.loads(filter_value)
+                            except ValueError:
+                                continue
+                            if (filter_dict.viewitems() <=
+                                    prop_value.viewitems()):
+                                break
+                        else:
+                            full_match = False
+                            break
+                    elif prop_value not in filter_values:
                         full_match = False
                         break
 
@@ -1201,7 +1211,7 @@ class VncCassandraClient(object):
         if count:
             return (True, len(children_fq_names_uuids), None)
 
-        # for anchored list with pagination, 
+        # for anchored list with pagination,
         # prune from union of anchors and last uuid is marker
         if paginate_start and anchored_op:
             children_fq_names_uuids = sorted(children_fq_names_uuids,
