@@ -70,8 +70,9 @@ class StateMachineImpl : public StateMachine,
                 process_event(EvRecvUp());
                 break;
         }
-        if (old_state != GetState())
+        if (old_state != GetState()) {
             Notify(GetState());
+        }
     }
 
     void ProcessTimeout() {

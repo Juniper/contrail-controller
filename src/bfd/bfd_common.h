@@ -84,30 +84,19 @@ public:
 
 struct SessionKey {
 public:
-    SessionKey(const ClientId &client_id,
-               const boost::asio::ip::address &remote_address,
-               const SessionIndex &session_index = SessionIndex(),
-               uint16_t remote_port = kSingleHop,
-               const boost::asio::ip::address &local_address =
-                   boost::asio::ip::address()) :
-            client_id(client_id), local_address(local_address),
-            remote_address(remote_address), index(session_index),
-            remote_port(remote_port) {
-    }
-
-    SessionKey() : client_id(0), remote_port(kSingleHop) { }
     SessionKey(const boost::asio::ip::address &remote_address,
                const SessionIndex &session_index = SessionIndex(),
                uint16_t remote_port = kSingleHop,
                const boost::asio::ip::address &local_address =
                    boost::asio::ip::address()) :
-            client_id(0), local_address(local_address),
+            local_address(local_address),
             remote_address(remote_address), index(session_index),
             remote_port(remote_port) {
     }
 
+    SessionKey() : remote_port(kSingleHop) { }
+
     bool operator<(const SessionKey &other) const {
-        BOOL_KEY_COMPARE(client_id, other.client_id);
         BOOL_KEY_COMPARE(local_address, other.local_address);
         BOOL_KEY_COMPARE(remote_address, other.remote_address);
         BOOL_KEY_COMPARE(remote_port, other.remote_port);
@@ -122,7 +111,6 @@ public:
         return os.str();
     }
 
-    ClientId client_id;
     boost::asio::ip::address local_address;
     boost::asio::ip::address remote_address;
     SessionIndex index; // InterfaceIndex or VrfIndex

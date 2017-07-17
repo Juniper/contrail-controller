@@ -77,8 +77,8 @@ class ClientTest : public ::testing::Test {
     }
 
     virtual void TearDown() {
-        server_.DeleteClientConnections();
-        server_test_.DeleteClientConnections();
+        server_.DeleteClientSessions();
+        server_test_.DeleteClientSessions();
         TASK_UTIL_EXPECT_TRUE(server_.event_queue()->IsQueueEmpty());
         TASK_UTIL_EXPECT_TRUE(server_test_.event_queue()->IsQueueEmpty());
         task_util::WaitForIdle();
@@ -143,17 +143,17 @@ TEST_F(ClientTest, BasicSingleHop1) {
     sc.desiredMinTxInterval = boost::posix_time::milliseconds(30);
     sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc.detectionTimeMultiplier = 3;
-    client_.AddConnection(client_key, sc);
+    client_.AddSession(client_key, sc);
 
     SessionConfig sc_t;
     sc_t.desiredMinTxInterval = boost::posix_time::milliseconds(30);
     sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc_t.detectionTimeMultiplier = 3;
-    client_test_.AddConnection(client_test_key, sc_t);
+    client_test_.AddSession(client_test_key, sc_t);
     TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
     TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
 
-    client_.DeleteConnection(client_key);
+    client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
 }
 
@@ -179,8 +179,8 @@ TEST_F(ClientTest, BasicSingleHop2) {
     sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc.detectionTimeMultiplier = 3;
 
-    client_.AddConnection(client_key, sc);
-    client_test_.AddConnection(client_test_key, sc);
+    client_.AddSession(client_key, sc);
+    client_test_.AddSession(client_test_key, sc);
     TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
     TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
 
@@ -195,8 +195,8 @@ TEST_F(ClientTest, BasicSingleHop2) {
         make_pair(Communicator::LinksKey(client_test_address,
                                          client_test_key2.index), &cm_));
 
-    client_.AddConnection(client_key2, sc);
-    client_test_.AddConnection(client_test_key2, sc);
+    client_.AddSession(client_key2, sc);
+    client_test_.AddSession(client_test_key2, sc);
 
     TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
                         GetSession(server_, client_key));
@@ -215,12 +215,86 @@ TEST_F(ClientTest, BasicSingleHop2) {
     TASK_UTIL_EXPECT_TRUE(Up(client_, client_key2));
     TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key2));
 
-    client_.DeleteConnection(client_key);
+    client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
 
-    client_.DeleteConnection(client_key2);
+    client_.DeleteSession(client_key2);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key2));
 }
+
+// Multiple sessions with same same ifindex connected to different IPs
+TEST_F(ClientTest, BasicSingleHop3) {
+    boost::asio::ip::address client_address =
+        boost::asio::ip::address::from_string("10.10.10.66");
+    boost::asio::ip::address client_test_address1 =
+        boost::asio::ip::address::from_string("10.10.10.1");
+    boost::asio::ip::address client_test_address2 =
+        boost::asio::ip::address::from_string("10.10.10.2");
+
+
+    SessionKey client_key1 = SessionKey(client_address, SessionIndex(2),
+                                        kSingleHop, client_test_address1);
+    SessionKey client_key2 = SessionKey(client_address, SessionIndex(2),
+                                        kSingleHop, client_test_address2);
+
+    SessionKey client_test_key1 = SessionKey(client_test_address1, 
+                                             SessionIndex(2), kSingleHop,
+                                             client_address);
+    SessionKey client_test_key2 = SessionKey(client_test_address2, 
+                                             SessionIndex(2), kSingleHop,
+                                             client_address);
+
+    // Connect two bfd links
+    cm_.links()->insert(make_pair(
+        Communicator::LinksKey(client_address, client_key1.index), &cm_test_));
+    cm_test_.links()->insert(
+        make_pair(Communicator::LinksKey(client_test_address1,
+                                         client_test_key1.index), &cm_));
+
+    SessionConfig sc;
+    sc.desiredMinTxInterval = boost::posix_time::milliseconds(30);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
+    sc.detectionTimeMultiplier = 3;
+
+    client_.AddSession(client_key1, sc);
+    client_test_.AddSession(client_test_key1, sc);
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key1));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key1));
+
+    // Connect two bfd links
+    cm_.links()->insert(make_pair(
+        Communicator::LinksKey(client_address, client_key2.index), &cm_test_));
+    cm_test_.links()->insert(
+        make_pair(Communicator::LinksKey(client_test_address2,
+                                         client_test_key2.index), &cm_));
+
+    client_.AddSession(client_key2, sc);
+    client_test_.AddSession(client_test_key2, sc);
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key2));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key2));
+
+
+    TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
+                        GetSession(server_, client_key1));
+    TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
+                        GetSession(server_, client_key2));
+    TASK_UTIL_EXPECT_NE(GetSession(server_, client_key1),
+                        GetSession(server_, client_key2));
+
+    TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
+              GetSession(server_test_, client_test_key1));
+    TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
+              GetSession(server_test_, client_test_key2));
+    TASK_UTIL_EXPECT_NE(GetSession(server_test_, client_test_key1),
+                        GetSession(server_test_, client_test_key2));
+
+    client_.DeleteSession(client_key1);
+    TASK_UTIL_EXPECT_FALSE(Up(client_, client_key1));
+
+    client_.DeleteSession(client_key2);
+    TASK_UTIL_EXPECT_FALSE(Up(client_, client_key2));
+}
+
 
 TEST_F(ClientTest, BasicMultiHop1) {
     boost::asio::ip::address client_address =
@@ -242,17 +316,17 @@ TEST_F(ClientTest, BasicMultiHop1) {
     sc.desiredMinTxInterval = boost::posix_time::milliseconds(30);
     sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc.detectionTimeMultiplier = 3;
-    client_.AddConnection(client_key, sc);
+    client_.AddSession(client_key, sc);
 
     SessionConfig sc_t;
     sc_t.desiredMinTxInterval = boost::posix_time::milliseconds(30);
     sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc_t.detectionTimeMultiplier = 3;
-    client_test_.AddConnection(client_test_key, sc_t);
+    client_test_.AddSession(client_test_key, sc_t);
     TASK_UTIL_EXPECT_TRUE(client_.Up(client_key));
     TASK_UTIL_EXPECT_TRUE(client_test_.Up(client_test_key));
 
-    client_.DeleteConnection(client_key);
+    client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
 }
 
@@ -278,8 +352,8 @@ TEST_F(ClientTest, BasicMultipleHop2) {
     sc.requiredMinRxInterval = boost::posix_time::milliseconds(10000);
     sc.detectionTimeMultiplier = 3;
 
-    client_.AddConnection(client_key, sc);
-    client_test_.AddConnection(client_test_key, sc);
+    client_.AddSession(client_key, sc);
+    client_test_.AddSession(client_test_key, sc);
     TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
     TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
 
@@ -294,8 +368,8 @@ TEST_F(ClientTest, BasicMultipleHop2) {
         make_pair(Communicator::LinksKey(client_test_address,
                                          client_test_key2.index), &cm_));
 
-    client_.AddConnection(client_key2, sc);
-    client_test_.AddConnection(client_test_key2, sc);
+    client_.AddSession(client_key2, sc);
+    client_test_.AddSession(client_test_key2, sc);
 
     TASK_UTIL_EXPECT_NE(static_cast<Session *>(NULL),
                         GetSession(server_, client_key));
@@ -313,10 +387,10 @@ TEST_F(ClientTest, BasicMultipleHop2) {
     TASK_UTIL_EXPECT_TRUE(Up(client_, client_key2));
     TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key2));
 
-    client_.DeleteConnection(client_key);
+    client_.DeleteSession(client_key);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
 
-    client_.DeleteConnection(client_key2);
+    client_.DeleteSession(client_key2);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key2));
 }
 

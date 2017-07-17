@@ -51,10 +51,10 @@ class Server {
     Session *SessionByKey(const SessionKey &key);
     Session *SessionByKey(const SessionKey &key) const;
     Connection *communicator() const { return communicator_; }
-    void AddConnection(const SessionKey &key, const SessionConfig &config,
+    void AddSession(const SessionKey &key, const SessionConfig &config,
                        ChangeCb cb);
-    void DeleteConnection(const SessionKey &key);
-    void DeleteClientConnections(const ClientId client_id = 0);
+    void DeleteSession(const SessionKey &key);
+    void DeleteClientSessions();
     WorkQueue<Event *> *event_queue() { return event_queue_.get(); }
 
  private:
@@ -114,6 +114,8 @@ class Server {
                 remote_endpoint(remote_endpoint), session_index(session_index),
                 recv_buffer(recv_buffer), bytes_transferred(bytes_transferred) {
         }
+        Event(EventType type) : type(type) {
+        }
 
         EventType type;
         SessionKey key;
@@ -126,9 +128,9 @@ class Server {
         std::size_t bytes_transferred;
     };
 
-    void AddConnection(Event *event);
-    void DeleteConnection(Event *event);
-    void DeleteClientConnections(Event *event);
+    void AddSession(Event *event);
+    void DeleteSession(Event *event);
+    void DeleteClientSessions(Event *event);
     void ProcessControlPacket(Event *event);
     void EnqueueEvent(Event *event);
     bool EventCallback(Event *event);

@@ -24,11 +24,11 @@ Client::Client(Connection *cm, ClientId id) : id_(id), cm_(cm) {
 }
 
 Client::~Client() {
-    DeleteClientConnections();
+    DeleteClientSessions();
 }
 
-void Client::DeleteClientConnections() {
-    cm_->GetServer()->DeleteClientConnections(id_);
+void Client::DeleteClientSessions() {
+    cm_->GetServer()->DeleteClientSessions();
 }
 
 Session *Client::GetSession(const SessionKey &key) const {
@@ -40,13 +40,13 @@ bool Client::Up(const SessionKey &key) const {
     return session && session->Up();
 }
 
-void Client::AddConnection(const SessionKey &key, const SessionConfig &config) {
-    cm_->GetServer()->AddConnection(key, config, bind(&Client::Notify, this, _1,
+void Client::AddSession(const SessionKey &key, const SessionConfig &config) {
+    cm_->GetServer()->AddSession(key, config, bind(&Client::Notify, this, _1,
                                                       _2));
 }
 
-void Client::DeleteConnection(const SessionKey &key) {
-    cm_->GetServer()->DeleteConnection(key);
+void Client::DeleteSession(const SessionKey &key) {
+    cm_->GetServer()->DeleteSession(key);
 }
 
 void Client::Notify(const SessionKey &key, const BFD::BFDState &new_state) {
