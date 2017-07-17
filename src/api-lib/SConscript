@@ -25,6 +25,7 @@ autogen_sources = [
                  '#controller/src/schema/bgp_schema.xsd',
                  '#controller/src/schema/ietf-l3vpn-schema.xsd',
                  '#controller/src/schema/smi-base.xsd',
+                 '#controller/src/schema/e2_services.xsd',
                 ]
 
 autogen_script = File('#tools/generateds/generateDS.py').path
