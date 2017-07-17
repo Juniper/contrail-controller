@@ -43,6 +43,7 @@ struct ShowBgpNeighborFamily {
     1: string family;
     2: u32 loop_count;
     3: u32 prefix_limit;
+    5: i32 idle_timeout;
     4: string gateway_address;
 }
 
@@ -631,6 +632,7 @@ struct ShowBgpNeighborFamilyConfig {
     1: string family;
     2: i32 loop_count;
     3: i32 prefix_limit;
+    5: i32 idle_timeout;
     4: string gateway_address;
 }
 

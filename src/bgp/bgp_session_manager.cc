@@ -207,6 +207,14 @@ bool BgpSessionManager::ProcessSession(BgpSession *session) {
         return true;
     }
 
+    // Ignore if the peer's prefix limit idle timer is running.
+    if (peer->PrefixLimitIdleTimerRunning()) {
+        session->SendNotification(BgpProto::Notification::Cease,
+                                  BgpProto::Notification::MaxPrefixes);
+        DeleteSession(session);
+        return true;
+    }
+
     // Ignore if this peer is being closed.
     if (peer->IsCloseInProgress()) {
         session->SendNotification(BgpProto::Notification::Cease,
