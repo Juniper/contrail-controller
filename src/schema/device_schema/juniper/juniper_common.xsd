@@ -98,6 +98,13 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="Esi">
+    <xsd:all>
+        <xsd:element name="identifier" type="xsd:string"/>
+        <xsd:element name="all-active"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Interface">
     <xsd:all>
         <xsd:element name="comment" type="xsd:string"/>
@@ -106,6 +113,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="flexible-vlan-tagging"/>
         <xsd:element name="encapsulation" type="xsd:string"/>
         <xsd:element name="unit" type="Unit" maxOccurs="unbounded"/>
+        <xsd:element name="esi" type="Esi"/>
     </xsd:all>
 </xsd:complexType>
 
