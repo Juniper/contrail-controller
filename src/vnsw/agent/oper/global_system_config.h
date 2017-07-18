@@ -9,6 +9,11 @@
 #include <oper/oper_db.h>
 
 class IFMapNode;
+struct BGPaaServiceParameters {
+typedef std::pair<uint16_t, uint16_t> BGPaaServicePortRangePair;
+    int port_start;
+    int port_end;
+};
 class GlobalSystemConfig {
 public:
     GlobalSystemConfig(OperDB *oper_db);
@@ -19,12 +24,13 @@ public:
     OperDB* oper_db() const {
         return oper_db_;
     }
-    const std::vector<uint16_t> &bgpaas_port_range() const {
-         return bgpaas_port_range_;
+    BGPaaServiceParameters::BGPaaServicePortRangePair bgpaas_port_range() const {
+         return std::make_pair(bgpaas_parameters_.port_start,
+                               bgpaas_parameters_.port_end);
     }
 private:
     DBTableBase::ListenerId global_system_config_listener_id_;
     OperDB *oper_db_;
-    std::vector<uint16_t>  bgpaas_port_range_;
+    BGPaaServiceParameters bgpaas_parameters_;
 };
 #endif
