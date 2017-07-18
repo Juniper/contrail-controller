@@ -27,7 +27,7 @@ class VncServiceTest(KMTestCase):
         super(VncServiceTest, self).tearDown()
     #end tearDown
 
-    def test_vnc_service_add_delete_service_with_default_namespace_with_cluster_defined(self):
+    def test_add_delete_service_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         network = self._create_virtual_network(cluster_project)
@@ -44,7 +44,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_service_with_default_namespace_with_no_cluster_defined(self):
+    def test_add_delete_service_with_default_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
@@ -58,7 +58,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_service_with_isolated_namespace_with_cluster_defined(self):
+    def test_add_delete_service_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace(isolated=True)
         network = self._create_virtual_network(cluster_project)
@@ -75,7 +75,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_service_with_isolated_namespace_with_no_cluster_defined(self):
+    def test_add_delete_service_with_isolated_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace(isolated=True)
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
@@ -89,7 +89,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_service_with_custom_isolated_namespace_with_no_cluster_defined(self):
+    def test_add_delete_service_with_custom_isolated_namespace_with_no_cluster_defined(self):
         custom_network = 'custom_network'
         project = 'default'
         network = self._create_virtual_network(project, network=custom_network)
@@ -107,7 +107,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_service_with_custom_isolated_namespace_with_cluster_defined(self):
+    def test_add_delete_service_with_custom_isolated_namespace_with_cluster_defined(self):
         project = self._set_cluster_project()
         custom_network = 'custom_network'
         cluster_network_config = {'virtual_network': 'custom_network',
@@ -132,7 +132,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_loadbalancer_with_default_namespace_with_cluster_defined(self):
+    def test_add_delete_loadbalancer_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         network = self._create_virtual_network(cluster_project)
@@ -149,7 +149,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_loadbalancer_with_default_namespace_with_no_cluster_defined(self):
+    def test_add_delete_loadbalancer_with_default_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
@@ -163,7 +163,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_loadbalancer_with_isolated_namespace_with_cluster_defined(self):
+    def test_add_delete_loadbalancer_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace(isolated=True)
         network = self._create_virtual_network(cluster_project)
@@ -180,7 +180,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_loadbalancer_with_isolated_namespace_with_no_cluster_defined(self):
+    def test_add_delete_loadbalancer_with_isolated_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace(isolated=True)
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
@@ -194,7 +194,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_loadbalancer_with_custom_isolated_namespace_with_no_cluster_defined(self):
+    def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_no_cluster_defined(self):
         custom_network = 'custom_network'
         project = 'default'
         network = self._create_virtual_network(project, network=custom_network)
@@ -212,7 +212,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_add_delete_loadbalancer_with_custom_isolated_namespace_with_cluster_defined(self):
+    def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_cluster_defined(self):
         project = self._set_cluster_project()
         custom_network = 'custom_network'
         cluster_network_config = {'virtual_network': 'custom_network',
@@ -237,7 +237,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_vnc_service_kubernetes(self):
+    def test_add_delete_kubernetes_service(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_kubernetes_service(namespace_name)
         self.wait_for_all_tasks_done()
@@ -252,7 +252,7 @@ class VncServiceTest(KMTestCase):
         lb = LoadbalancerKM.locate(srv_uuid)
         self.assertIsNone(lb)
 
-    def test_negative(self):
+    def test_delete_add_service_after_kube_manager_is_killed(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         ports, srv_meta, srv_type, _ = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
