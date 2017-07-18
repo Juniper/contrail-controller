@@ -35,7 +35,7 @@ class KMTestCase(test_common.TestCase):
         cls.spawn_kube_manager()
 
     @classmethod
-    def spawn_kube_manager(cls):
+    def spawn_kube_manager(cls, extra_args=None):
         kube_config = [
             ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
             ('VNC', 'vnc_endpoint_ip', cls._api_server_ip),
@@ -46,6 +46,7 @@ class KMTestCase(test_common.TestCase):
             ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
             ('KUBERNETES', 'cluster_name', "test-cluster"),
         ]
+        kube_config.extend(extra_args or [])
         cls._km_greenlet = gevent.spawn(test_common.launch_kube_manager,
                                         cls.__name__, kube_config, True, cls.event_queue)
         test_common.wait_for_kube_manager_up()
