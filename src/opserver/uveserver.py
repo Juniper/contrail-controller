@@ -126,7 +126,7 @@ class UVEServer(object):
                         rinst.redis_handle = StrictRedisWrapper(
                             host=rkey.ip, port=rkey.port,
                             password=self._redis_password, db=1,
-                            socket_timeout=90)
+                            socket_timeout=30)
                         rinst.collector_pid = None
 
                     # check for known collector pid string
