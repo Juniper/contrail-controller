@@ -134,7 +134,7 @@ public:
             peer_manager->ClearAllPeers();
         }
 
-        if (clear_bgpaas_peers)
+        if (clear_peers || clear_bgpaas_peers)
             server_->ClearBgpaaSPeers();
     }
 
