@@ -29,14 +29,14 @@ void GlobalSystemConfig::GlobalSystemConfigHandler(DBTablePartBase *partition,
         autogen::GlobalSystemConfig *cfg =
                 static_cast<autogen::GlobalSystemConfig *>(node->GetObject());
         if (cfg) {
-            bgpaas_port_range_.push_back(
-                    cfg->bgpaas_parameters().port_start);
-            bgpaas_port_range_.push_back(
-                    cfg->bgpaas_parameters().port_end);
+            bgpaas_parameters_.port_start = cfg->bgpaas_parameters().port_start;
+            bgpaas_parameters_.port_end = cfg->bgpaas_parameters().port_end;
         } else {
-            bgpaas_port_range_.clear();
+            bgpaas_parameters_.port_start = 0;
+            bgpaas_parameters_.port_end = 0;
         }
     } else {
-        bgpaas_port_range_.clear();
+        bgpaas_parameters_.port_start = 0;
+        bgpaas_parameters_.port_end = 0;
     }
 }
