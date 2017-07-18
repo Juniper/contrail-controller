@@ -111,7 +111,7 @@ class UveCacheProcessor(object):
                     host=pi.ip_address, 
                     port=pi.port,
                     password=self._rpass,
-                    db=7, socket_timeout=90)
+                    db=7, socket_timeout=30)
             ppe = lredis.pipeline()
             luves = list(uveparts[pkey])
             for elem in luves:
@@ -346,7 +346,7 @@ class UveStreamPart(gevent.Greenlet):
                         host=self._pi.ip_address,
                         port=self._pi.port,
                         password=self._rpass,
-                        db=7, socket_timeout=90)
+                        db=7, socket_timeout=30)
                 pb = lredis.pubsub()
                 inst = self._pi.instance_id
                 part = self._partno
