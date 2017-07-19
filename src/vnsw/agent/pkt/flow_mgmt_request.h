@@ -24,6 +24,7 @@ public:
         DELETE_BGP_AAS_FLOWS,
         UPDATE_FLOW_STATS,
         IMPLICIT_ROUTE_DELETE,
+        DELETE_LAYER2_FLOW,
         DUMMY
 
     };

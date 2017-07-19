@@ -3,6 +3,7 @@
  */
 
 #include <pkt/pkt_sandesh_flow.h>
+#include <pkt/flow_mgmt.h>
 #include <vector>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <sstream>
@@ -15,6 +16,17 @@
 #include <vrouter/ksync/ksync_flow_index_manager.h>
 
 using boost::system::error_code;
+
+static string InetRouteFlowMgmtKeyToString(uint16_t id,
+                                           InetRouteFlowMgmtKey *key) {
+    stringstream ss;
+    uint16_t plen = key->plen();
+    ss << id << PktSandeshFlow::kDelimiter;
+    ss << key->vrf_id() << PktSandeshFlow::kDelimiter;
+    ss << key->ip().to_string() << PktSandeshFlow::kDelimiter;
+    ss << plen;
+    return ss.str();
+}
 
 #define SET_SANDESH_FLOW_DATA(agent, data, fe, info)                        \
     data.set_vrf(fe->data().vrf);                                           \
@@ -107,7 +119,27 @@ using boost::system::error_code;
     data.set_deleted(fe->deleted());\
     SandeshFlowIndexInfo flow_index_info;\
     fe->SetEventSandeshData(&flow_index_info);\
-    data.set_flow_index_info(flow_index_info);
+    data.set_flow_index_info(flow_index_info); \
+    FlowEntryInfo *mgmt_info = fe->flow_mgmt_info(); \
+    const FlowMgmtKeyTree &key_tree = mgmt_info->tree(); \
+    FlowMgmtKeyTree::const_iterator kt_it = key_tree.begin(); \
+    std::vector<SandeshInetRouteFlowMgmtEntryLink> key_list;\
+    while (kt_it != key_tree.end()) { \
+        InetRouteFlowMgmtKey *key = dynamic_cast<InetRouteFlowMgmtKey *> \
+            (kt_it->first);\
+        ++kt_it;\
+        if (!key) {\
+            continue;\
+        }\
+        if (id == 0xFFFF) {\
+            continue;\
+        }\
+        string key_str = InetRouteFlowMgmtKeyToString(id, key);\
+        SandeshInetRouteFlowMgmtEntryLink entry;\
+        entry.set_inet_route_flow_mgmt_key(key_str);\
+        key_list.push_back(entry);\
+    }\
+    data.set_inet_rt_keys(key_list);
 
 const std::string PktSandeshFlow::start_key = "0-0-0-0-0-0.0.0.0-0.0.0.0";
 
@@ -648,3 +680,114 @@ void SandeshFlowTableInfoRequest::HandleRequest() const {
     resp->Response();
 }
 ////////////////////////////////////////////////////////////////////////////////
+
+static InetRouteFlowMgmtKey* StringToInetRouteFlowMgmtKey(const string &key,
+                                                          uint16_t *id) {
+    Agent *agent = Agent::GetInstance();
+    const char ch = PktSandeshFlow::kDelimiter;
+    size_t n = std::count(key.begin(), key.end(), ch);
+    if (n != 3) {
+        return NULL;
+    }
+    stringstream ss(key);
+    string item, ip_str;
+    uint32_t vrf_id;
+    uint16_t plen, mgr_id;
+
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> mgr_id;
+    }
+    if (mgr_id >= agent->pkt()->flow_mgmt_manager_list().size()) {
+        return NULL;
+    }
+    *id = mgr_id;
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> vrf_id;
+    }
+    if (getline(ss, item, ch)) {
+        ip_str = item;
+    }
+    if (getline(ss, item, ch)) {
+        istringstream(item) >> plen;
+    }
+    error_code ec;
+    IpAddress ip = IpAddress::from_string(ip_str.c_str(), ec);
+    if (ec) {
+        return NULL;
+    }
+    InetRouteFlowMgmtKey* ret = new InetRouteFlowMgmtKey(vrf_id, ip, plen);
+    return ret;
+}
+
+void FlowsPerInetRouteFlowMgmtKeyReq::HandleRequest() const {
+    FlowsPerInetRouteFlowMgmtKeyResp *resp= new
+        FlowsPerInetRouteFlowMgmtKeyResp();
+    resp->set_context(context());
+    resp->set_more(false);
+    std::vector<SandeshFlowData> &resp_list =
+        const_cast<std::vector<SandeshFlowData>&>(resp->get_flow_list());
+    Agent *agent = Agent::GetInstance();
+    uint16_t mgr_id = 0;
+    FlowMgmtManager *mgr = NULL;
+    InetRouteFlowMgmtKey *ikey = StringToInetRouteFlowMgmtKey(get_key(),
+                                                              &mgr_id);
+    if (!ikey) {
+        resp->Response();
+        return;
+    }
+    mgr = agent->pkt()->flow_mgmt_manager(mgr_id);
+    InetRouteFlowMgmtTree* tree = mgr->ip4_route_flow_mgmt_tree();
+    FlowMgmtEntry *entry = tree->Find(ikey);
+    delete ikey;
+    if (!entry) {
+        resp->Response();
+        return;
+    }
+    if (entry->Size() == 0) {
+        resp->Response();
+        return;
+    }
+    const FlowMgmtEntry::FlowList &flow_list = entry->flow_list();
+    FlowMgmtEntry::FlowList::const_iterator it = flow_list.begin();
+    while (it != flow_list.end()) {
+        const FlowMgmtKeyNode *node = &(*it);
+        FlowEntry *fe = node->flow_entry();
+        SandeshFlowData data;
+        const FlowExportInfo *info = NULL;
+        SET_SANDESH_FLOW_DATA(agent, data, fe, info);
+        resp_list.push_back(data);
+        it++;
+    }
+    resp->Response();
+}
+
+void Inet4FlowTreeReq::HandleRequest() const {
+    Agent *agent = Agent::GetInstance();
+    std::vector<FlowMgmtManager *>::const_iterator it =
+        agent->pkt()->flow_mgmt_manager_iterator_begin();
+    Inet4FlowTreeResponse *resp = new Inet4FlowTreeResponse();
+    std::vector<SandeshInetRouteFlowMgmtEntryLink> &resp_list =
+        const_cast<std::vector<SandeshInetRouteFlowMgmtEntryLink>&>
+            (resp->get_keys());
+    uint16_t mgr_idx = 0;
+    while (it != agent->pkt()->flow_mgmt_manager_iterator_end()) {
+        FlowMgmtManager *mgr = *it;
+        it++;
+        InetRouteFlowMgmtTree* tree = mgr->ip4_route_flow_mgmt_tree();
+        FlowMgmtTree::Tree &list = tree->tree();
+        FlowMgmtTree::Tree::iterator tree_it = list.begin();
+        while(tree_it != list.end()) {
+            InetRouteFlowMgmtKey *key = static_cast<InetRouteFlowMgmtKey *>
+                (tree_it->first);
+            string key_str = InetRouteFlowMgmtKeyToString(mgr_idx, key);
+            SandeshInetRouteFlowMgmtEntryLink entry;
+            entry.set_inet_route_flow_mgmt_key(key_str);
+            resp_list.push_back(entry);
+            ++tree_it;
+        }
+        ++mgr_idx;
+    }
+    resp->set_context(context());
+    resp->set_more(false);
+    resp->Response();
+}
