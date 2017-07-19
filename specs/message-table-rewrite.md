@@ -62,8 +62,8 @@ We achieve the above as follows
 CREATE TABLE "ContrailAnalyticsCql".messagetablev2 (
     key int,        // T2
     key2 int,       // Partition
-    column1 int,    // T1               <<< 23 bits LSB
-    column2 uuid,   // UUID
+    column1 int,    // T1   (clustering-col) <<< 23 bits LSB
+    column2 uuid,   // UUID (clustering-col)
     column3 text,   // T2:Source
     column4 text,   // T2:Messagetype
     column5 text,   // T2:ModuleId
@@ -73,13 +73,13 @@ CREATE TABLE "ContrailAnalyticsCql".messagetablev2 (
     column9 text,   // T2:<object-type4>:<object-value4>)
     column10 text,  // T2:<object-type5>:<object-value5>)
     column11 text,  // T2:<object-type6>:<object-value6>)
-    column12 text,  // Category
-    column13 int,   // Level
-    column14 int,   // Type
-    column15 text,  // InstanceId
+    column12 text,  // IpAddress
+    column13 int,   // Pid
+    column14 text,  // Category
+    column15 int,   // Level
     column16 text,  // NodeType
-    column17 int,   // SequenceNum
-    column18 text,  // Context
+    column17 text,  // InstanceId
+    column18 int,   // SequenceNum
     value   text    // XMLmessage
     PRIMARY KEY ((key, key2), column1, column2)
 )
