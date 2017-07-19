@@ -379,8 +379,8 @@ class UveStreamPart(gevent.Greenlet):
                                     break
                             if not kfilter_match:
                                 continue
-                        if elem["type"] and self._cfilter:
-                            if not elem["type"] in self._cfilter:
+                        if self._cfilter:
+                            if elem["type"] not in self._cfilter:
                                 continue
                         lelems.append(elem)
                         if self._content:
