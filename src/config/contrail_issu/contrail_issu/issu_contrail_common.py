@@ -91,13 +91,13 @@ class ICCassandraClient():
             issu_funct = self._fetch_issu_func(ks)
             for cf in cflist:
                 newList = []
-                newversion_result = self._newversion_handle.get_range(cf)
+                newversion_result = self._newversion_handle.get_range(cf) or {}
                 self._logger(
                         "Building New DB memory for columnfamily: " + str(cf),
                         level=SandeshLevel.SYS_INFO)
                 new_db = dict(newversion_result)
 
-                oldversion_result = self._oldversion_handle.get_range(cf)
+                oldversion_result = self._oldversion_handle.get_range(cf) or {}
                 self._logger(
                     "Doing ISSU copy for columnfamily: " + str(cf),
                     level=SandeshLevel.SYS_INFO)
@@ -128,7 +128,7 @@ class ICCassandraClient():
                 self._logger(
                     "Issu Copy KeySpace: " + str(ks) +
                     " Column Family: " + str(cf), level=SandeshLevel.SYS_INFO)
-                oldversion_result = self._oldversion_handle.get_range(cf)
+                oldversion_result = self._oldversion_handle.get_range(cf) or {}
 
                 for rows, columns in oldversion_result:
                     out = issu_funct(ks, cf, columns)
