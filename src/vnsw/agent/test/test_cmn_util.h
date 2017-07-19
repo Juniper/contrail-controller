@@ -459,7 +459,7 @@ void AddAap(std::string intf_name, int intf_id,
 void AddEcmpAap(std::string intf_name, int intf_id, Ip4Address ip,
                 const std::string &mac);
 void AddAap(std::string intf_name, int intf_id, Ip4Address ip,
-            const std::string &mac);
+            const std::string &mac, uint32_t plen = 32);
 void AddAapWithDisablePolicy(std::string intf_name, int intf_id,
                              std::vector<Ip4Address> aap_list,
                              bool disable_policy);

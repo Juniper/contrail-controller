@@ -3,6 +3,7 @@
  */
 
 #include <stdint.h>
+#include <math.h>
 #include "vr_defs.h"
 #include "oper/route_common.h"
 #include "oper/operdb_init.h"
@@ -164,11 +165,18 @@ bool ArpHandler::HandlePacket() {
                 uint32_t ip;
                 memcpy(&ip, arp_->arp_spa, sizeof(ip));
                 ip = ntohl(ip);
-                //Enqueue a request to trigger state machine
+                /* Enqueue a request to trigger state machine. The prefix-len
+                 * of 32 passed below is not used. We do LPMFind on IP to
+                 * figure out the actual prefix-len inside
+                 * EnqueueTrafficSeen
+                 */
                 agent()->oper_db()->route_preference_module()->
                     EnqueueTrafficSeen(Ip4Address(ip), 32, itf->id(),
                                        vrf->vrf_id(),
                                        MacAddress(arp_->arp_sha));
+                arp_proto->HandlePathPreferenceArpReply(vrf, itf->id(),
+                                                        Ip4Address(ip));
+
                 if(entry) {
                     entry->HandleArpReply(MacAddress(arp_->arp_sha));
                 }
@@ -361,6 +369,37 @@ void ArpHandler::SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
     pkt_info_->set_len(l2_len + sizeof(ether_arp));
 
     Send(itf, vrf, AgentHdr::TX_SWITCH, PktHandler::ARP);
+}
+
+void ArpHandler::SendArpRequestByPlen(uint32_t itf, const MacAddress &smac,
+                                      const ArpPathPreferenceState *data,
+                                      const Ip4Address &tpa) {
+    if (data->plen() == Address::kMaxV4PrefixLen) {
+        SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
+                MacAddress(), MacAddress::BroadcastMac(),
+                data->ip().to_v4().to_ulong(), itf, data->vrf_id());
+        agent()->GetArpProto()->IncrementStatsVmArpReq();
+    } else {
+        if (!tpa.is_unspecified()) {
+            SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
+                    MacAddress(), MacAddress::BroadcastMac(), tpa.to_ulong(),
+                    itf, data->vrf_id());
+            agent()->GetArpProto()->IncrementStatsVmArpReq();
+            return;
+        }
+        /* Loop through all the IPs for the prefix-len and send Arp for each
+         * IP*/
+        uint8_t diff_plen = Address::kMaxV4PrefixLen - data->plen();
+        uint32_t num_addresses = pow(2, diff_plen);
+        uint32_t base_addr = data->ip().to_v4().to_ulong();
+        for (uint32_t i = 1; i < (num_addresses - 1); ++i) {
+            uint32_t addr = base_addr + i;
+            SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
+                    MacAddress(), MacAddress::BroadcastMac(), addr, itf,
+                    data->vrf_id());
+            agent()->GetArpProto()->IncrementStatsVmArpReq();
+        }
+    }
 }
 
 void intrusive_ptr_add_ref(const ArpHandler *p) {

@@ -58,6 +58,11 @@ struct SandeshFlowIndexInfo {
     1: i32 trace_index;
     2: list<SandeshFlowIndexTrace> flow_index_trace;
 }
+
+struct SandeshInetRouteFlowMgmtEntryLink {
+    1: string inet_route_flow_mgmt_key (link="FlowsPerInetRouteFlowMgmtKeyReq");
+}
+
 /**
  * Sandesh definition for flow
  */
@@ -120,6 +125,7 @@ struct SandeshFlowData {
     58: u16 table_id;
     59: bool deleted;
     60: SandeshFlowIndexInfo flow_index_info;
+    65: list<SandeshInetRouteFlowMgmtEntryLink> inet_rt_keys;
 }
 
 /**
@@ -508,4 +514,19 @@ struct SandeshFlowFilterInfo {
 response sandesh SandeshFlowFilterResponse {
     1: SandeshFlowFilterInfo ipv4_filter;
     2: SandeshFlowFilterInfo ipv6_filter;
+}
+
+response sandesh FlowsPerInetRouteFlowMgmtKeyResp {
+    1: list<SandeshFlowData> flow_list;
+}
+
+request sandesh FlowsPerInetRouteFlowMgmtKeyReq {
+    1: string key;
+}
+
+response sandesh Inet4FlowTreeResponse {
+    1: list<SandeshInetRouteFlowMgmtEntryLink> keys;
+}
+
+request sandesh Inet4FlowTreeReq  {
 }

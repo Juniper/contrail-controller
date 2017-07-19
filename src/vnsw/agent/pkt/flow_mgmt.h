@@ -367,6 +367,7 @@ public:
     void set_oper_state(State state) { oper_state_ = state; }
     State oper_state() const { return oper_state_; }
     uint32_t gen_id() const { return gen_id_; }
+    const FlowList &flow_list() const { return flow_list_; }
 protected:
     // Add seen from OperDB entry
     State oper_state_;
@@ -765,6 +766,8 @@ public:
     }
 
     bool NeedsReCompute(const FlowEntry *flow);
+    IpAddress ip() const { return ip_; }
+    uint8_t plen() const { return plen_; }
 
 
 private:
@@ -783,6 +786,8 @@ public:
     bool RecomputeCoveringRouteEntry(FlowMgmtManager *mgr,
                                      InetRouteFlowMgmtKey *covering_route,
                                      InetRouteFlowMgmtKey *key);
+    bool HandleNhChange(FlowMgmtManager *mgr, const FlowMgmtRequest *req,
+                        FlowMgmtKey *key);
 private:
     DISALLOW_COPY_AND_ASSIGN(InetRouteFlowMgmtEntry);
 };
@@ -828,6 +833,7 @@ public:
     }
    bool RecomputeCoveringRoute(InetRouteFlowMgmtKey *covering_route,
                                InetRouteFlowMgmtKey *key);
+   bool RouteNHChangeEvent(const FlowMgmtRequest *req, FlowMgmtKey *key);
 
 private:
     LpmTree lpm_tree_;
@@ -1049,6 +1055,7 @@ public:
         flow_(flow), tree_(), count_(0), ingress_(false), local_flow_(false) {
     }
     virtual ~FlowEntryInfo() { assert(tree_.size() == 0); }
+    const FlowMgmtKeyTree &tree() const { return tree_; }
 private:
     friend class FlowMgmtManager;
     FlowEntryPtr flow_;
@@ -1112,6 +1119,7 @@ public:
     void AddDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
     void ChangeDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
     void DeleteDBEntryEvent(const DBEntry *entry, uint32_t gen_id);
+    void RouteNHChangeEvent(const DBEntry *entry, uint32_t gen_id);
     void RetryVrfDeleteEvent(const VrfEntry *vrf);
     void RetryVrfDelete(uint32_t vrf_id);
     // Dummy event used for testing
@@ -1139,6 +1147,9 @@ public:
     void FlowUpdateQueueDisable(bool val);
     size_t FlowUpdateQueueLength();
     size_t FlowDBQueueLength();
+    InetRouteFlowMgmtTree* ip4_route_flow_mgmt_tree() {
+        return &ip4_route_flow_mgmt_tree_;
+    }
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
     void AddFlow(FlowEntryPtr &flow);
