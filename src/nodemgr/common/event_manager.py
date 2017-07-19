@@ -461,11 +461,24 @@ class EventManager(object):
                 self.curr_build_info = self.new_build_info
         return self.curr_build_info
 
+    def get_corefile_path(self):
+        self.core_file_path = "/var/crashes"
+        cat_command = "cat /proc/sys/kernel/core_pattern"
+        (core_pattern, stderr) = Popen(
+                cat_command.split(),
+                stdout=PIPE, close_fds=True).communicate()
+        if core_pattern is not None:
+            dirname_cmd = "dirname " + core_pattern
+            (self.core_file_path, stderr) = Popen(
+                dirname_cmd.split(),
+                stdout=PIPE, close_fds=True).communicate()
+        return self.core_file_path
+
     def update_process_core_file_list(self):
         #LOG_DEBUG sys.stderr.write('update_process_core_file_list: begin:')
         ret_value = False
         try:
-            ls_command = "ls -1 /var/crashes"
+            ls_command = "ls -1 " + self.get_corefile_path()
             (corenames, stderr) = Popen(
                 ls_command.split(),
                 stdout=PIPE, close_fds=True).communicate()
@@ -542,14 +555,14 @@ class EventManager(object):
     # end send_process_state_db
 
     def update_all_core_file(self):
-        stat_command_option = "stat --printf=%Y /var/crashes"
+        stat_command_option = "stat --printf=%Y " + self.get_corefile_path()
         modified_time = Popen(
             stat_command_option.split(),
             stdout=PIPE, close_fds=True).communicate()
         if modified_time[0] == self.core_dir_modified_time:
             return False
         self.core_dir_modified_time = modified_time[0]
-        ls_command_option = "ls /var/crashes"
+        ls_command_option = "ls " + self.get_corefile_path()
         (corename, stderr) = Popen(
             ls_command_option.split(),
             stdout=PIPE, close_fds=True).communicate()
@@ -601,7 +614,7 @@ class EventManager(object):
                 proc_stat.last_exit_unexpected = True
                 # check for core file for this exit
                 find_command_option = \
-                    "find /var/crashes -name core.[A-Za-z]*." + \
+                    "find " + self.get_corefile_path() + " -name core.[A-Za-z]*." + \
                     process_info['pid'] + "*"
                 self.stderr.write(
                     "find command option for cores:" +
