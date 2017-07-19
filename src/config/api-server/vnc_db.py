@@ -80,7 +80,7 @@ class VncServerCassandraClient(VncCassandraClient):
 
     def __init__(self, db_client_mgr, cass_srv_list, reset_config, db_prefix,
                       cassandra_credential, walk, obj_cache_entries,
-                      obj_cache_exclude_types, log_response_time=None):
+                      obj_cache_exclude_types, log_response_time=None, pool_size=20):
         self._db_client_mgr = db_client_mgr
         keyspaces = self._UUID_KEYSPACE.copy()
         keyspaces[self._USERAGENT_KEYSPACE_NAME] = {
