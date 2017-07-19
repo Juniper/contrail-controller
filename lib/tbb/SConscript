@@ -5,10 +5,15 @@ import re
 import subprocess
 import sys
 
-vpath = '#/third_party/tbb40_20111130oss'
+vpath_old = '#/third_party/tbb40_20111130oss'
+vpath_new = '#/third_party/tbb42_20131118oss'
+
+if os.path.exists(Dir(vpath_old).abspath):
+    vpath = vpath_old
+else:
+    vpath = vpath_new
 
 env = DefaultEnvironment()
-
 #make =  env['ENV']['DEVELOPER_BIN_DIR'] + '/make'
 if sys.platform.startswith('freebsd'):
     make = 'gmake'
