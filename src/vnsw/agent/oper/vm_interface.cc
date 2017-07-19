@@ -2045,12 +2045,23 @@ bool VmInterface::AllowedAddressPair::AddL2(const Agent *agent,
         return false;
 
     IpAddress dependent_rt;
+    IpAddress route_addr;
     if (addr_.is_v4()) {
+        if (plen_ == 32) {
+            route_addr = addr_;
+        } else {
+            route_addr = Ip4Address(0);
+        }
         dependent_rt = Ip4Address(0);
     } else if (addr_.is_v6()) {
+        if (plen_ == 128) {
+            route_addr = addr_;
+        } else {
+            route_addr = Ip6Address();
+        }
         dependent_rt = Ip6Address();
     }
-    vmi->AddL2InterfaceRoute(addr_, mac_, dependent_rt);
+    vmi->AddL2InterfaceRoute(route_addr, mac_, dependent_rt);
     return true;
 }
 
@@ -2059,7 +2070,21 @@ bool VmInterface::AllowedAddressPair::DeleteL2(const Agent *agent,
     if (vrf_ == NULL || mac_ == MacAddress::kZeroMac)
         return false;
 
-    vmi->DeleteL2InterfaceRoute(vrf_, ethernet_tag_, addr_, mac_);
+    IpAddress route_addr;
+    if (addr_.is_v4()) {
+        if (plen_ == 32) {
+            route_addr = addr_;
+        } else {
+            route_addr = Ip4Address(0);
+        }
+    } else if (addr_.is_v6()) {
+        if (plen_ == 128) {
+            route_addr = addr_;
+        } else {
+            route_addr = Ip6Address();
+        }
+    }
+    vmi->DeleteL2InterfaceRoute(vrf_, ethernet_tag_, route_addr, mac_);
     return true;
 }
 
