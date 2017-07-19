@@ -275,8 +275,14 @@ class PortTupleAgent(Agent):
                 vmi.interface_route_tables.remove(irt_id)
 
         for health_id in list(vmi.service_health_checks):
+            # delete the service-health-check link if it is created by si
+            if not vmi.port_tuple:
+                continue
             health = ServiceHealthCheckSM.get(health_id)
-            if health and health.service_instances:
+            if not health or not health.service_instances:
+                continue
+            pt = PortTupleSM.get(vmi.port_tuple)
+            if pt and pt.parent == health.service_instances:
                 self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                     'service-health-check', health.uuid, None, 'DELETE')
                 vmi.service_health_checks.remove(health_id)
