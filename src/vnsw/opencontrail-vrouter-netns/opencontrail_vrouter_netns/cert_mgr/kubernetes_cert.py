@@ -22,7 +22,7 @@ class KubernetesCert:
         self.verify = False
         if self.kubernetes_token:
             protocol = "https"
-            header = {'Authorization': "Bearer " + self.token}
+            header = {'Authorization': "Bearer " + self.kubernetes_token}
             self.headers.update(header)
             self.verify = False
             self.kubernetes_api_server_port = self.kubernetes_api_secure_port
