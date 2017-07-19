@@ -59,6 +59,9 @@ private:
     bool RouteDelPeer(DBTablePartBase *partition, DBEntryBase *e);
     bool RouteStaleMarker(DBTablePartBase *partition, DBEntryBase *e);
 
+    //Helpers
+    bool IgnoreNotify();
+
     Peer *peer_;
     bool associate_;
     Type type_;
