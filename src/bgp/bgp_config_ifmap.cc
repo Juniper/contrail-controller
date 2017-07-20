@@ -205,6 +205,8 @@ static void BuildFamilyAttributesList(BgpNeighborConfig *neighbor,
             family_config.address_family);
         family_attributes.loop_count = family_config.loop_count;
         family_attributes.prefix_limit = family_config.prefix_limit.maximum;
+        family_attributes.idle_timeout =
+            family_config.prefix_limit.idle_timeout;
         family_attributes_list.push_back(family_attributes);
         family_set.insert(family_config.address_family);
     }

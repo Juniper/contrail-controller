@@ -255,15 +255,23 @@
      </xsd:restriction>
 </xsd:simpleType> 
 
+<xsd:simpleType name='BgpPrefixLimitIdleTimeout'>
+     <xsd:restriction base='xsd:integer'>
+         <xsd:minInclusive value='0'/>
+         <xsd:maxInclusive value='86400'/>
+     </xsd:restriction>
+</xsd:simpleType> 
+
 <xsd:complexType name='BgpPrefixLimit'>
     <xsd:annotation>
         <xsd:documentation>
-            This is used to configure the maximum number of received prefixes.
-            More fields to control the behavior can be added in future e.g. if
-            the session should be torn down when the maximum is reached.
+            This is used to configure the maximum number of received prefixes
+            and control the behavior of the session when the maximum is reached.
         </xsd:documentation>
     </xsd:annotation>
     <xsd:element name='maximum' type='xsd:integer'/>
+    <xsd:element name='idle-timeout' type='BgpPrefixLimitIdleTimeout' required='optional' operation='CRUD'
+         description='Time in seconds after which the session is allowed to re-establish after teardown.'/>
 </xsd:complexType>
 
 <xsd:simpleType name='AddressFamily'>
