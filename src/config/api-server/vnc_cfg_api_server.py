@@ -55,7 +55,6 @@ threading._DummyThread._Thread__stop = lambda x: 42
 CONFIG_VERSION = '1.0'
 
 import bottle
-bottle.BaseRequest.MEMFILE_MAX = 1024000
 
 import utils
 import context
@@ -1316,6 +1315,9 @@ class VncApiServer(object):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
+
+        # set the max size of the api requests
+        bottle.BaseRequest.MEMFILE_MAX = self._args.max_request_size
 
         # aaa-mode is ignored if multi_tenancy is configured by user
         if self._args.multi_tenancy is None:
@@ -2670,6 +2672,7 @@ class VncApiServer(object):
                                           /home/contrail/source/ifmap-server/]
                                          [--default_encoding ascii ]
                                          --ifmap_health_check_interval 60
+                                         --max_request_size 1024000
         '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args

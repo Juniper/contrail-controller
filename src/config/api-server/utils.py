@@ -80,6 +80,7 @@ def parse_args(args_str):
         'kombu_ssl_keyfile': '',
         'kombu_ssl_certfile': '',
         'kombu_ssl_ca_certs': '',
+        'max_request_size': 1024000,
     }
     # ssl options
     secopts = {
@@ -299,6 +300,8 @@ def parse_args(args_str):
         help="Role name of cloud administrator")
     parser.add_argument( "--global_read_only_role",
         help="Role name of user with Read-Only access to all objects")
+    parser.add_argument("--max_request_size", type=int,
+            help="Maximum size of bottle requests served by api server")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
     args_obj.config_sections = config
