@@ -8,6 +8,98 @@
  * Flow sandesh definitions
  */
 
+struct Sessioninfo {
+    1: optional i64 sampled_tx_bytes;
+    2: optional i64 sampled_tx_pkts;
+    3: optional i64 sampled_rx_bytes;
+    4: optional i64 sampled_rx_pkts;
+    5: optional i64 logged_tx_bytes;
+    6: optional i64 logged_tx_pkts;
+    7: optional i64 logged_rx_bytes;
+    8: optional i64 logged_rx_pkts;
+    9: optional string forward_flow_uuid;
+   10: optional string reverse_flow_uuid;
+   11: optional i16 local_tcp_flags;
+   12: optional i16 reverse_tcp_flags;
+   13: optional string vm;
+   14: optional i64 setup_time;
+   15: optional i64 teardown_time;
+   16: optional string action;
+   17: optional string reverse_action;
+   18: optional string sg_rule_uuid;
+   19: optional string reverse_sg_rule_uuid;
+   20: optional ipaddr other_vrouter_ip;
+   21: optional string nw_ace_uuid;
+   22: optional string reverse_nw_ace_uuid;
+   23: optional u16 underlay_proto;
+   24: optional u16 underlay_source_port;
+   25: optional u16 reverse_underlay_source_port;
+   26: optional string drop_reason;
+   27: optional string reverse_drop_reason;
+}
+
+/** map of all the remote session endpoints keyed by remote IP */
+typedef map<ipaddr, Sessioninfo> sessionProtPortMap
+
+/**
+ * @description:This structure contains a map of all the remote
+ * session end points connected to this session. key uniquely
+ * identifies the remote session end point and value is the
+ * traffic info, security info, to that end point
+ */
+struct SessionAggInfo {
+    1: optional i64 sampled_tx_bytes;
+    2: optional i64 sampled_tx_pkts;
+    3: optional i64 sampled_rx_bytes;
+    4: optional i64 sampled_rx_pkts;
+    5: optional i64 logged_tx_bytes;
+    6: optional i64 logged_tx_pkts;
+    7: optional i64 logged_rx_bytes;
+    8: optional i64 logged_rx_pkts;
+    /** key is - 16 MSB Protocol and 16 LSB Port */
+    9: map<u32, sessionProtPortMap> sessionMap;
+}
+
+/**
+ * @description: This structure contains a map of all the sessions for the given
+ * vmi. key uniquely identifies the local session endpoint (keyed by 
+ * server_port-protocol-local_ip) and value is the aggregated values for the
+ * session and map of all the remote session endpoints.
+ */
+struct SessionEndpoint {
+    1: string vmi;
+    2: string vn;
+    3: optional string deployment;
+    4: optional string tier
+    5: optional string application;
+    6: optional string site;
+    7: optional set<string> labels;
+    8: optional string remote_deployment;
+    9: optional string remote_tier;
+    10: optional string remote_application;
+    11: optional string remote_site;
+    12: optional set<string> remote_labels;
+    13: string remote_vn;
+    /** @display_name: Whether the session endpoint is a client or server*/
+    14: bool is_client_session;
+    /** @display_name: Whether the VMI belongs to a service instance*/
+    15: bool is_si;
+    16: optional string remote_prefix;
+    17: ipaddr vrouter_ip;
+    /**
+     *  @display_name: key is local session end point[sandesh keys have to be primitive values, hence the endpoint is defined as (protocol-port, ip address) and val is remote session end point
+     *  here key is 32 Bits where 16 MSB are Port and 16 LSB are Protocol
+     */
+    /** key is - 16 MSB Protocol and 16 LSB Port, key for the inner map is 
+     *  local ip
+     */
+    18: map<u32, map<ipaddr, SessionAggInfo>> sess_agg_info;
+}
+
+flowlog sandesh SessionEndpointObject {
+    1: list<SessionEndpoint> session_data;
+}
+
 struct FlowLogData {
     1: string             flowuuid;
     2: byte               direction_ing;
