@@ -18,6 +18,12 @@ ResourceTable *Resource::Create(Type type, ResourceManager *rm) {
     case MPLS_INDEX: {
         return new IndexResourceTable(rm);
     }
+    case INTERFACE_INDEX: {
+        return new IndexResourceTable(rm);
+    }
+    case VRF_INDEX: {
+        return new IndexResourceTable(rm);
+    }
     default: {
         assert(0);
     }
