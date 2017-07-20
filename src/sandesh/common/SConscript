@@ -18,7 +18,8 @@ env.Append(CPPPATH = env['TOP'])
 SandeshGenFiles = env.SandeshGenCpp('flow.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 SandeshGenHdrs = env.ExtractHeader(SandeshGenFiles)
-libsandeshflow = env.Library(target = 'sandeshflow', source = SandeshGenSrcs)
+libsandeshflow = env.Library(target = 'sandeshflow', source = [SandeshGenSrcs,
+                                                               'flow_sandesh_impl.cc'])
 env.Install(env['TOP_LIB'], libsandeshflow)
 env.Install(env['TOP_INCLUDE'] + '/sandesh/common', SandeshGenHdrs)
 
