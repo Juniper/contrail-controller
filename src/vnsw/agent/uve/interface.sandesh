@@ -231,6 +231,8 @@ struct UveVMInterfaceAgent {
    39: optional u16 rx_vlan;
    /** Parent interface name */
    40: optional string parent_interface;
+   /** Vhostuser mode */
+   41: optional byte vhostuser_mode;
 }
 
 /**
