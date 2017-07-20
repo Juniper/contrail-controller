@@ -45,6 +45,29 @@ struct  RouteMplsResource {
 }
 
 /**
+ *  Backup VmInterface resource
+*/
+struct  VmInterfaceIndexResource {
+    2: string uuid;
+    4: u64 time_stamp;
+}
+/**
+ * Backup Vrf resource
+*/
+struct  VrfIndexResource {
+    1: string vrf_name;
+    2: u64 time_stamp;
+}
+
+/**
+ *  Backup Qos resource
+*/
+struct  QosIndexResource {
+    2: string uuid;
+    4: u64 time_stamp;
+}
+
+/**
  * Map of Interface Mpls Resource data.
 */
 buffer sandesh InterfaceIndexResourceMapSandesh {
@@ -127,4 +150,19 @@ traceobject sandesh  RouteMplsData {
     2: string route_prefix;
     3: u32 label;
     4: string operation;
+}
+
+buffer sandesh VmInterfaceIndexResourceMapSandesh {
+    1: map<u32, VmInterfaceIndexResource> index_map;
+    2: u64 time_stamp;
+}
+
+buffer sandesh VrfIndexResourceMapSandesh {
+    1: map<u32, VrfIndexResource> index_map;
+    2: u64 time_stamp;
+}
+
+buffer sandesh QosIndexResourceMapSandesh {
+    1: map<u32, QosIndexResource> index_map;
+    2: u64 time_stamp;
 }

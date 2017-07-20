@@ -41,6 +41,9 @@
 #include <sandesh/common/vns_constants.h>
 #include <filter/acl.h>
 #include <filter/policy_set.h>
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_table.h>
+#include <resource_manager/vm_interface_index.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -124,6 +127,16 @@ std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
                                   (key->AllocEntry(this)));
 }
 
+void InterfaceTable::FreeInterfaceId(size_t index) {
+    // reserved index
+    if (index < Interface::MAX_ID) {
+        agent()->resource_manager()->ReleaseIndex(Resource::INTERFACE_INDEX, 1);
+    } else {
+        agent()->resource_manager()->Release(Resource::INTERFACE_INDEX, index);
+    }
+    index_table_.Remove(index);
+}
+
 DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
     InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
@@ -136,9 +149,44 @@ DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
     } else  if (intf->type_ == Interface::LOGICAL) {
         li_count_++;
     }
+    switch (intf->type_) {
+    case Interface::VM_INTERFACE:
+    {
+        ResourceManager::KeyPtr rkey(new VmInterfaceIndexResourceKey(
+                                 agent()->resource_manager(), key->uuid_));
+        intf->id_ = static_cast<IndexResourceData *>(agent()->resource_manager()->
+                        Allocate(rkey).get())->index();
+        // 8 is some reserved value.
+        index_table_.InsertAtIndex(intf->id_, intf);
+        break;
+    }
+    // Reserved the index for PHYSICAL & INET & PACKET.
+    case Interface::PHYSICAL:
+    {
+        agent()->resource_manager()->ReserveIndex(Resource::INTERFACE_INDEX,
+                                                  Interface::PHYSICAL_INDEX_ID);
+        index_table_.InsertAtIndex(Interface::PHYSICAL_INDEX_ID, intf);
+        break;
+    }
+    case Interface::INET:
+    {
+        agent()->resource_manager()->ReserveIndex(Resource::INTERFACE_INDEX,
+                                                  Interface::INET_INDEX_ID);
+        index_table_.InsertAtIndex(Interface::INET_INDEX_ID, intf);
+        break;
+    }
 
-    intf->id_ = index_table_.Insert(intf);
+    case Interface::PACKET:
+    {
+        agent()->resource_manager()->ReserveIndex(Resource::INTERFACE_INDEX,
+                                                  Interface::PACKET_INDEX_ID);
+        index_table_.InsertAtIndex(Interface::PACKET_INDEX_ID, intf);
+        break;
+    }
 
+    default:
+        break;
+    }
     intf->transport_ = data->transport_;
     // Get the os-ifindex and mac of interface
     intf->GetOsParams(agent());

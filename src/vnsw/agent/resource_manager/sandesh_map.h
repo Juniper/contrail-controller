@@ -127,6 +127,55 @@ public:
 private:
     Map map_;
 };
+
+// interface backup resource table to maintains sandesh encoded data for route info
+class VmInterfaceBackUpResourceTable : public BackUpResourceTable {
+public:
+    typedef std::map<uint32_t, VmInterfaceIndexResource> Map;
+    typedef Map::iterator MapIter;
+    VmInterfaceBackUpResourceTable(ResourceBackupManager *manager);
+    virtual ~VmInterfaceBackUpResourceTable();
+
+    bool WriteToFile();
+    void ReadFromFile();
+    void RestoreResource();
+    Map& map() {return map_;}
+private:
+    Map map_;
+};
+
+// interface backup resource table to maintains sandesh encoded data for route info
+class VrfBackUpResourceTable : public BackUpResourceTable {
+public:
+    typedef std::map<uint32_t, VrfIndexResource> Map;
+    typedef Map::iterator MapIter;
+    VrfBackUpResourceTable(ResourceBackupManager *manager);
+    virtual ~VrfBackUpResourceTable();
+
+    bool WriteToFile();
+    void ReadFromFile();
+    void RestoreResource();
+    Map& map() {return map_;}
+private:
+    Map map_;
+};
+
+// Qos backup resource table to maintains sandesh encoded data for route info
+class QosBackUpResourceTable : public BackUpResourceTable {
+public:
+    typedef std::map<uint32_t, QosIndexResource> Map;
+    typedef Map::iterator MapIter;
+    QosBackUpResourceTable(ResourceBackupManager *manager);
+    virtual ~QosBackUpResourceTable();
+
+    bool WriteToFile();
+    void ReadFromFile();
+    void RestoreResource();
+    Map& map() {return map_;}
+private:
+    Map map_;
+};
+
 // Maintians all the Sandesh encoded structures
 class ResourceSandeshMaps {
 public:
@@ -135,6 +184,10 @@ public:
     typedef pair<uint32_t, InterfaceIndexResource>
         InterfaceMplsResourcePair;
     typedef pair<uint32_t, RouteMplsResource> RouteMplsResourcePair;
+    typedef pair<uint32_t, VmInterfaceIndexResource>
+        VmInterfaceIndexResourcePair;
+    typedef pair<uint32_t, VrfIndexResource> VrfIndexResourcePair;
+    typedef pair<uint32_t, QosIndexResource> QosIndexResourcePair;
     ResourceSandeshMaps(ResourceBackupManager *manager);
     virtual ~ResourceSandeshMaps();
     void ReadFromFile();
@@ -152,6 +205,19 @@ public:
     void AddRouteMplsResourceEntry(uint32_t index,
                                    RouteMplsResource data);
     void DeleteRouteMplsResourceEntry(uint32_t index);
+
+    void AddVmInterfaceResourceEntry(uint32_t index,
+                                    VmInterfaceIndexResource data);
+    void DeleteVmInterfaceResourceEntry(uint32_t index);
+
+    void AddVrfResourceEntry(uint32_t index,
+                             VrfIndexResource data);
+    void DeleteVrfResourceEntry(uint32_t index);
+
+    void AddQosResourceEntry(uint32_t index,
+                             QosIndexResource data);
+    void DeleteQosResourceEntry(uint32_t index);
+
     InterfaceMplsBackUpResourceTable& interface_mpls_index_table() {
        return interface_mpls_index_table_;
     }
@@ -168,6 +234,18 @@ public:
         return route_mpls_index_table_;
     }
 
+    VmInterfaceBackUpResourceTable& vm_interface_index_table() {
+        return vm_interface_index_table_;
+    }
+
+    VrfBackUpResourceTable& vrf_index_table() {
+        return vrf_index_table_;
+    }
+
+    QosBackUpResourceTable& qos_index_table() {
+        return qos_index_table_;
+    }
+
 private:
     ResourceBackupManager *backup_manager_;
     Agent *agent_;
@@ -175,6 +253,9 @@ private:
     VrfMplsBackUpResourceTable vrf_mpls_index_table_;
     VlanMplsBackUpResourceTable vlan_mpls_index_table_;
     RouteMplsBackUpResourceTable route_mpls_index_table_;
+    VmInterfaceBackUpResourceTable vm_interface_index_table_;
+    VrfBackUpResourceTable vrf_index_table_;
+    QosBackUpResourceTable qos_index_table_;
     DISALLOW_COPY_AND_ASSIGN(ResourceSandeshMaps);
 };
 #endif
