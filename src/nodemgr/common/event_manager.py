@@ -35,6 +35,7 @@ except:
 from functools import partial
 from nodemgr.common.process_stat import ProcessStat
 from nodemgr.common.sandesh.nodeinfo.ttypes import *
+from nodemgr.common.sandesh.supervisor_events.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
 from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import ProcessState, \
     ProcessStatus, ProcessInfo, DiskPartitionUsageStats
@@ -49,19 +50,28 @@ from pysandesh.sandesh_base import Sandesh
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.connection_info import ConnectionState
+from pysandesh.util import UTCTimestampUsec
 from nodemgr.utils import NodeMgrUtils
 
 class SupervisorEventListener(supervisor_event_listener_cls_type):
+    def __init__(self):
+        self.supervisor_events_ctr = 0
+        self.supervisor_events_timestamp = None
+        self.supervisor_events_error_ctr = 0
+        self.supervisor_events_error_timestamp = None
+
     def wait(self, stdin=sys.stdin, stdout=sys.stdout):
         self.ready(stdout)
         while 1:
-            if select.select([sys.stdin], [], [])[0]:
+            if select.select([stdin], [], [])[0]:
                 line = stdin.readline()
                 if line is not None:
-                    sys.stderr.write("wokeup and found a line\n")
+                    self.supervisor_events_ctr += 1
+                    self.supervisor_events_timestamp = str(UTCTimestampUsec())
                     break
                 else:
-                    sys.stderr.write("wokeup from select just like that\n")
+                    self.supervisor_events_error_ctr += 1
+                    self.supervisor_events_error_timestamp = str(UTCTimestampUsec)
         headers = childutils.get_headers(line)
         payload = stdin.read(int(headers['len']))
         return headers, payload
@@ -72,11 +82,6 @@ class SupervisorEventListener(supervisor_event_listener_cls_type):
 class SupervisorProcessInfoManager(object):
     def __init__(self, stdin, stdout, server_url, event_handlers,
             update_process_list = False):
-        if not 'SUPERVISOR_SERVER_URL' in os.environ:
-            sys.stderr.write('Node manager must be run as a supervisor event '
-                         'listener\n')
-            sys.stderr.flush()
-            exit(-1)
         self._stdin = stdin
         self._stdout = stdout
         # ServerProxy won't allow us to pass in a non-HTTP url,
@@ -322,23 +327,12 @@ class EventManager(object):
         self.last_cpu = None
         self.last_time = 0
         self.installed_package_version = None
+        SupervisorEventsReq.handle_request = self.sandesh_supervisor_handle_request
         event_handlers = {}
         event_handlers['PROCESS_STATE'] = self.event_process_state
         event_handlers['PROCESS_COMMUNICATION'] = \
             self.event_process_communication
         event_handlers['PROCESS_LIST_UPDATE'] = self.update_current_process
-        if is_systemd_based():
-            if not pydbus_present:
-                sys.stderr.write('Node manager cannot run without pydbus\n')
-                sys.stderr.flush()
-                exit(-1)
-            self.process_info_manager = SystemdProcessInfoManager(
-                self.type_info._unit_names, event_handlers,
-                update_process_list)
-        else:
-            self.process_info_manager = SupervisorProcessInfoManager(
-                self.stdin, self.stdout, self.type_info._supervisor_serverurl,
-                event_handlers, update_process_list)
         ConnectionState.init(self.sandesh_instance, socket.gethostname(),
             self.type_info._module_name, self.instance_id,
             staticmethod(ConnectionState.get_process_state_cb),
@@ -351,15 +345,42 @@ class EventManager(object):
             ['nodemgr.common.sandesh'] + self.type_info._sandesh_packages,
             config = sandesh_config)
         self.sandesh_instance.set_logging_params(enable_local_log=True)
+        self.logger = self.sandesh_instance.logger()
+        if is_systemd_based():
+            if not pydbus_present:
+                self.msg_log('Node manager cannot run without pydbus', SandeshLevel.SYS_ERR)
+                exit(-1)
+            self.process_info_manager = SystemdProcessInfoManager(
+                self.type_info._unit_names, event_handlers,
+                update_process_list)
+        else:
+            if not 'SUPERVISOR_SERVER_URL' in os.environ:
+                self.msg_log('Node manager must be run as a supervisor event listener',
+                              SandeshLevel.SYS_ERR)
+                exit(-1)
+            self.process_info_manager = SupervisorProcessInfoManager(
+                self.stdin, self.stdout, self.type_info._supervisor_serverurl,
+                event_handlers, update_process_list)
         self.add_current_process()
         self.send_init_info()
         self.third_party_process_dict = self.type_info._third_party_processes
     # end __init__
 
     def msg_log(self, msg, level):
-        self.sandesh_instance.logger().log(SandeshLogger.get_py_logger_level(
+        self.logger.log(SandeshLogger.get_py_logger_level(
                             level), msg)
     # end msg_log
+
+    def sandesh_supervisor_handle_request(self, req):
+        supervisor_resp = SupervisorEventsResp()
+        if not is_systemd_based():
+            supervisor_resp.supervisor_events = SupervisorEvents( \
+                count = self.process_info_manager._event_listener.supervisor_events_ctr,
+                last_event_timestamp = self.process_info_manager._event_listener.supervisor_events_timestamp)
+            supervisor_resp.supervisor_events_error = SupervisorEvents( \
+                count = self.process_info_manager._event_listener.supervisor_events_error_ctr,
+                last_event_timestamp = self.process_info_manager._event_listener.supervisor_events_error_timestamp)
+        supervisor_resp.response(req.context())
 
     def load_rules_data(self):
         if self.rule_file and os.path.isfile(self.rule_file):
@@ -450,7 +471,8 @@ class EventManager(object):
             version = os.popen(command).read()
             version_partials = version.split()
             if len(version_partials) < 3:
-                sys.stderr.write('Not enough values to parse package version %s' % version)
+                self.msg_log('Not enough values to parse package version %s' % version,
+                             SandeshLevel.SYS_ERR)
                 return ""
             else:
                 _, rpm_version, build_num = version_partials
@@ -708,8 +730,8 @@ class EventManager(object):
             installed_package_version = \
                 NodeMgrUtils.get_package_version(self.get_package_name())
             if installed_package_version is None:
-                sys.stderr.write("Error getting %s package version\n"
-                             % (self.get_package_name()))
+                self.msg_log('Error getting %s package version' % (self.get_package_name()),
+                          SandeshLevel.SYS_ERR)
                 exit(-1)
             else:
                 self.installed_package_version = installed_package_version
@@ -731,8 +753,8 @@ class EventManager(object):
                     mem_cpu_usage_data = MemCpuUsageData(pstat.pid, pstat.last_cpu, pstat.last_time)
                     process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                 except psutil.NoSuchProcess:
-                    sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
-                                     % (pstat.pname, pstat.pid))
+                    self.msg_log('NoSuchProcess: process name: %s pid:%d' % (pstat.pname, pstat.pid),
+                                 SandeshLevel.SYS_ERR)
                 else:
                     process_mem_cpu.__key = pstat.pname
                     process_mem_cpu_usage[process_mem_cpu.__key] = process_mem_cpu
@@ -758,8 +780,8 @@ class EventManager(object):
                     mem_cpu_usage_data = MemCpuUsageData(pstat.pid, pstat.last_cpu, pstat.last_time)
                     process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                 except psutil.NoSuchProcess:
-                    sys.stderr.write("NoSuchProcess: process name:%s pid:%d\n"
-                                     % (pstat.pname, pstat.pid))
+                    self.msg_log('NoSuchProcess: process name:%s pid:%d' % (pstat.pname, pstat.pid),
+                                 SandeshLevel.SYS_ERR)
                     self.third_party_process_state_db.pop(pstat.pname)
                 else:
                     process_mem_cpu.__key = pname
@@ -796,7 +818,7 @@ class EventManager(object):
                     int(round((float(disk_usage_stat.partition_space_used_1k)/ \
                         float(total_disk_space))*100))
             except ValueError:
-                sys.stderr.write("Failed to get local disk space usage" + "\n")
+                self.msg_log('Failed to get local disk space usage', SandeshLevel.SYS_ERR)
             else:
                 disk_usage_info[partition_name] = disk_usage_stat
         return disk_usage_info
@@ -908,8 +930,8 @@ class EventManager(object):
             installed_package_version = \
                 NodeMgrUtils.get_package_version(self.get_package_name())
             if installed_package_version is None:
-                sys.stderr.write("Error getting %s package version\n"
-                                 % (self.get_package_name()))
+                self.msg_log('Error getting %s package version' % (self.get_package_name()),
+                              SandeshLevel.SYS_ERR)
                 installed_package_version = "package-version-unknown"
             if (installed_package_version != self.installed_package_version):
                 node_status.installed_package_version = installed_package_version
@@ -930,8 +952,8 @@ class EventManager(object):
             if duration < interval:
                 gevent.sleep(interval-duration)
             else:
-                sys.stderr.write("function %s duration exceeded %f interval "
-                    "(took %f)" % (function.__name__, interval, duration))
+                self.msg_log('function %s duration exceeded %f interval (took %f)'
+                             % (function.__name__, interval, duration), SandeshLevel.SYS_ERR)
     # end run_periodically
 
     def runforever(self, test=False):

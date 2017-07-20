@@ -10,11 +10,17 @@ import socket
 
 from nodemgr.common.process_stat import ProcessStat
 
+from pysandesh.sandesh_logger import SandeshLogger
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 class VrouterProcessStat(ProcessStat):
-    def __init__(self, pname):
+    def __init__(self, pname, sandesh_logger):
+        self.logger = sandesh_logger
         ProcessStat.__init__(self, pname)
         (self.group, self.name) = self.get_vrouter_process_info(pname)
+
+    def msg_log(self, msg, level):
+        self.logger.log(SandeshLogger.get_py_logger_level(level), msg)
 
     def get_vrouter_process_info(self, proc_name):
         vrouter_file = "/etc/contrail/supervisord_vrouter_files"
@@ -28,25 +34,25 @@ class VrouterProcessStat(ProcessStat):
                                     for line in open(filename)))
                     except IOError:
                         msg = "This file does not exist anymore so continuing:  "
-                        sys.stderr.write(msg + filename + "\n")
+                        self.msg_log(msg + filename, SandeshLevel.SYS_ERR)
                         continue
                     Config = ConfigParser.SafeConfigParser()
                     Config.readfp(data)
                     sections = Config.sections()
                     if not sections[0]:
                         msg = "Section not present in the ini file : "
-                        sys.stderr.write(msg + filename + "\n")
+                        self.msg_log(msg + filename, SandeshLevel.SYS_ERR)
                         continue
                     name = sections[0].split(':')
                     if len(name) < 2:
                         msg = "Incorrect section name in the ini file : "
-                        sys.stderr.write(msg + filename + "\n")
+                        self.msg_log(msg + filename, SandeshLevel.SYS_ERR)
                         continue
                     if name[1] == proc_name:
                         command = Config.get(sections[0], "command")
                         if not command:
                             msg = "Command not present in the ini file : "
-                            sys.stderr.write(msg + filename + "\n")
+                            self.msg_log(msg + filename, SandeshLevel.SYS_ERR)
                             continue
                         args = command.split()
                         if (args[0] == '/usr/bin/contrail-tor-agent'):
@@ -59,7 +65,7 @@ class VrouterProcessStat(ProcessStat):
                             except Exception, err:
                                 msg = "Tor Agent command does " + \
                                       "not have config file : "
-                                sys.stderr.write(msg + command + "\n")
+                                self.msg_log(msg + command, SandeshLevel.SYS_ERR)
         return ('vrouter_group', socket.gethostname())
     # end get_vrouter_process_info
 
@@ -73,8 +79,8 @@ class VrouterProcessStat(ProcessStat):
                 Config = ConfigParser.SafeConfigParser()
                 Config.readfp(data)
             except Exception, err:
-                sys.stderr.write("Error reading file : " + conf_file +
-                                 " Error : " + str(err) + "\n")
+                self.msg_log("Error reading file : " + conf_file + " Error : " + str(err),
+                                SandeshLevel.SYS_ERR)
                 return tor_agent_name
             tor_agent_name = Config.get("DEFAULT", "agent_name")
         return tor_agent_name
