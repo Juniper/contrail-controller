@@ -1647,9 +1647,20 @@ class AddrMgmt(object):
         return False
     # end _net_ip_free_req
 
-    def ip_free_req(self, ip_addr, vn_fq_name, sub=None):
+    def ip_free_req(self, ip_addr, vn_fq_name, alloc_id=None, sub=None):
         db_conn = self._get_db_conn()
         vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+
+        if (alloc_id and
+                alloc_id != self.is_ip_allocated(ip_addr, vn_fq_name,
+                                                 vn_uuid=vn_uuid, sub=sub)):
+            # In case of inconsistency in the zk db, we should read and check
+            # the allocated IP belongs to the interface we are freing. If not
+            # continuing to delete the interface and keeping the zk IP lock.
+            # That permits to recover from the zk inconsistency.
+            # https://bugs.launchpad.net/juniperopenstack/+bug/1702596
+            return
+
         if not (self._net_ip_free_req(ip_addr, vn_uuid, vn_fq_name, sub)):
             self._ipam_ip_free_req(ip_addr, vn_uuid, sub)
     # end ip_free_req
@@ -1739,9 +1750,21 @@ class AddrMgmt(object):
         return False
     # end _net_ip_free_notify
 
-    def ip_free_notify(self, ip_addr, vn_fq_name):
+    def ip_free_notify(self, ip_addr, vn_fq_name, alloc_id=None):
         db_conn = self._get_db_conn()
         vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+
+        if alloc_id:
+            # In case of inconsistency in the zk db, we should read and check
+            # the allocated IP belongs to the interface we are freing. If not
+            # continuing to delete the interface and keeping the zk IP lock.
+            # That permits to recover from the zk inconsistency.
+            # https://bugs.launchpad.net/juniperopenstack/+bug/1702596
+            allocated_id = self.is_ip_allocated(ip_addr, vn_fq_name,
+                                                vn_uuid=vn_uuid)
+            if allocated_id is not None and alloc_id != allocated_id:
+                return
+
         if not (self._net_ip_free_notify(ip_addr, vn_uuid)):
             self._ipam_ip_free_notify(ip_addr, vn_uuid)
     # end _ip_free_notify
