@@ -70,7 +70,8 @@ class VrouterPortControl(object):
                     ret_code = 4
                 else:
                     ret_code = 0
-                if ret_code == 0 and self._args.vif_type == "VhostUser":
+                if ret_code == 0 and self._args.vif_type == "VhostUser" and \
+                        self._args.vhostuser_mode == 0:
                     #In DPDK mode we should wait until socket is created by
                     #vrouter module
                     ret_code  = self.WaitForSocketFile()
@@ -151,6 +152,9 @@ class VrouterPortControl(object):
                             default=False)
         parser.add_argument("--vif_type", help = "VIF type", default="Vrouter")
         parser.add_argument("--vhostuser_socket", help = "Path of vhostuser socket file")
+        parser.add_argument("--vhostuser_mode",
+                            help = "mode of operation of vhostuser socket",
+                            default="0")
 
         self._args = parser.parse_args(remaining_argv)
 
@@ -170,6 +174,7 @@ class VrouterPortControl(object):
             self._args.tx_vlan_id = self.StripQuotes(self._args.tx_vlan_id)
             self._args.vif_type = self.StripQuotes(self._args.vif_type)
             self._args.vhostuser_socket = self.StripQuotes(self._args.vhostuser_socket)
+            self._args.vhostuser_mode = self.StripQuotes(self._args.vhostuser_mode)
             if self._args.no_persist:
                 self._args.no_persist = True
 
@@ -200,6 +205,10 @@ class VrouterPortControl(object):
                     print "Invalid argument for tx_vlan_id %s" % (self._args.tx_vlan_id)
                     sys.exit(1)
                 self._args.tx_vlan_id = int(self._args.tx_vlan_id)
+
+            if self._args.vhostuser_mode:
+                self._args.vhostuser_mode = int(self._args.vhostuser_mode)
+
     #end _parse_args
 
     def CreateDirectoryTree(self, path):
@@ -225,6 +234,7 @@ class VrouterPortControl(object):
                     "type" : port_type,
                     "rx-vlan-id" : self._args.rx_vlan_id,
                     "tx-vlan-id" : self._args.tx_vlan_id,
+                    "vhostuser-mode" : self._args.vhostuser_mode,
                     "author" : __file__,
                     "time" : str(datetime.datetime.now())
                }
