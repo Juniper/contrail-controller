@@ -192,10 +192,19 @@ void FlowMgmtManager::ChangeDBEntryEvent(const DBEntry *entry,
                                                entry, gen_id));
     db_event_queue_.Enqueue(req);
 }
+
 void FlowMgmtManager::DeleteDBEntryEvent(const DBEntry *entry,
                                          uint32_t gen_id) {
     FlowMgmtRequestPtr req(new FlowMgmtRequest(FlowMgmtRequest::DELETE_DBENTRY,
                                                entry, gen_id));
+    db_event_queue_.Enqueue(req);
+}
+
+void FlowMgmtManager::RouteNHChangeEvent(const DBEntry *entry,
+                                         uint32_t gen_id) {
+    FlowMgmtRequestPtr req(new FlowMgmtRequest
+                               (FlowMgmtRequest::DELETE_LAYER2_FLOW,
+                                entry, gen_id));
     db_event_queue_.Enqueue(req);
 }
 
@@ -243,6 +252,7 @@ size_t FlowMgmtManager::FlowDBQueueLength() {
 /////////////////////////////////////////////////////////////////////////////
 static bool ProcessEvent(FlowMgmtRequest *req, FlowMgmtKey *key,
                          FlowMgmtTree *tree) {
+    InetRouteFlowMgmtTree* itree = dynamic_cast<InetRouteFlowMgmtTree*>(tree);
     switch (req->event()) {
     case FlowMgmtRequest::ADD_DBENTRY:
         tree->OperEntryAdd(req, key);
@@ -254,6 +264,11 @@ static bool ProcessEvent(FlowMgmtRequest *req, FlowMgmtKey *key,
 
     case FlowMgmtRequest::DELETE_DBENTRY:
         tree->OperEntryDelete(req, key);
+        break;
+
+    case FlowMgmtRequest::DELETE_LAYER2_FLOW:
+        assert(itree);
+        itree->RouteNHChangeEvent(req, key);
         break;
 
     default:
@@ -500,7 +515,8 @@ bool FlowMgmtManager::DBRequestHandler(FlowMgmtRequestPtr req) {
     switch (req->event()) {
     case FlowMgmtRequest::ADD_DBENTRY:
     case FlowMgmtRequest::CHANGE_DBENTRY:
-    case FlowMgmtRequest::DELETE_DBENTRY: {
+    case FlowMgmtRequest::DELETE_DBENTRY:
+    case FlowMgmtRequest::DELETE_LAYER2_FLOW: {
         DBRequestHandler(req.get(), req->db_entry());
         break;
     }
@@ -1520,19 +1536,30 @@ void InetRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
                                         uint32_t vrf, const IpAddress &ip,
                                         uint8_t plen) {
     // We do not support renewal of VRF, so skip flow if VRF is deleted
-    if (mgr_->agent()->vrf_table()->FindVrfFromId(vrf) == NULL) {
+    VrfEntry *vrfp = mgr_->agent()->vrf_table()->FindVrfFromId(vrf);
+    if (vrfp == NULL) {
         return;
     }
 
     InetRouteFlowMgmtKey *key = NULL;
-    if (ip.is_v4()) {
-        Ip4Address ip4 = Address::GetIp4SubnetAddress(ip.to_v4(), plen);
-        key = new InetRouteFlowMgmtKey(vrf, ip4, plen);
+    if (flow->l3_flow()) {
+        if (ip.is_v4()) {
+            Ip4Address ip4 = Address::GetIp4SubnetAddress(ip.to_v4(), plen);
+            key = new InetRouteFlowMgmtKey(vrf, ip4, plen);
+        } else {
+            Ip6Address ip6 = Address::GetIp6SubnetAddress(ip.to_v6(), plen);
+            key = new InetRouteFlowMgmtKey(vrf, ip6, plen);
+        }
     } else {
-        Ip6Address ip6 = Address::GetIp6SubnetAddress(ip.to_v6(), plen);
-        key = new InetRouteFlowMgmtKey(vrf, ip6, plen);
+        InetUnicastRouteEntry *rt = vrfp->GetUcRoute(ip);
+        if (rt) {
+            key = new InetRouteFlowMgmtKey(vrf, rt->addr(), rt->plen());
+        }
     }
-    AddFlowMgmtKey(tree, key);
+
+    if (key) {
+        AddFlowMgmtKey(tree, key);
+    }
 }
 
 void InetRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree,
@@ -1688,6 +1715,39 @@ bool InetRouteFlowMgmtKey::NeedsReCompute(const FlowEntry *flow) {
     return false;
 }
 
+bool InetRouteFlowMgmtTree::RouteNHChangeEvent(const FlowMgmtRequest *req,
+                                               FlowMgmtKey *key) {
+    InetRouteFlowMgmtEntry *entry = static_cast<InetRouteFlowMgmtEntry*>
+        (Find(key));
+    if (entry == NULL) {
+        return true;
+    }
+
+    return entry->HandleNhChange(mgr_, req, key);
+}
+
+bool InetRouteFlowMgmtEntry::HandleNhChange(FlowMgmtManager *mgr,
+                                            const FlowMgmtRequest *req,
+                                            FlowMgmtKey *key) {
+    assert(req->event() == FlowMgmtRequest::DELETE_LAYER2_FLOW);
+
+    FlowList::iterator it = flow_list_.begin();
+    while (it != flow_list_.end()) {
+        FlowEvent::Event event;
+        FlowMgmtKeyNode *node = &(*it);
+        it++;
+        FlowEntry *fe = node->flow_entry();
+        if (fe->l3_flow()) {
+            event = FlowEvent::RECOMPUTE_FLOW;
+        } else {
+            event = FlowEvent::DELETE_FLOW;
+        }
+
+        mgr->DBEntryEvent(event, key, fe);
+    }
+
+    return true;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Bridge Route Flow Management
 /////////////////////////////////////////////////////////////////////////////

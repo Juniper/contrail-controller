@@ -23,6 +23,7 @@ public:
         RETRY_DELETE_VRF,
         DELETE_BGP_AAS_FLOWS,
         UPDATE_FLOW_STATS,
+        DELETE_LAYER2_FLOW,
         DUMMY
 
     };

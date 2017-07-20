@@ -4681,10 +4681,18 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
         Ip6Address v6ip;
         if (addr_.is_v4()) {
             dependent_rt = Ip4Address(0);
-            v4ip = addr_.to_v4();
+            if (plen_ == 32) {
+                v4ip = addr_.to_v4();
+            } else {
+                v4ip = Ip4Address(0);
+            }
         } else if (addr_.is_v6()) {
             dependent_rt = Ip6Address();
-            v6ip = addr_.to_v6();
+            if (plen_ == 128) {
+                v6ip = addr_.to_v6();
+            } else {
+                v6ip = Ip6Address();
+            }
         }
 
         if (interface->bridging()) {
@@ -4720,9 +4728,17 @@ void VmInterface::AllowedAddressPair::L2DeActivate(VmInterface *interface) const
     Ip4Address v4ip(0);
     Ip6Address v6ip;
     if (addr_.is_v4()) {
-        v4ip = addr_.to_v4();
+        if (plen_ == 32) {
+            v4ip = addr_.to_v4();
+        } else {
+            v4ip = Ip4Address(0);
+        }
     } else if (addr_.is_v6()) {
-        v6ip = addr_.to_v6();
+        if (plen_ == 128) {
+            v6ip = addr_.to_v6();
+        } else {
+            v6ip = Ip6Address();
+        }
     }
     interface->DeleteL2InterfaceRoute(true, vrf_ref_.get(), v4ip,
                                       v6ip, ethernet_tag_, mac_);
