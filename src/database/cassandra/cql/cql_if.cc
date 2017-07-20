@@ -428,17 +428,17 @@ std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     // Table name
     query << "CREATE TABLE IF NOT EXISTS " << cf.cfname_ << " ";
     // Row key
-    const GenDb::DbDataTypeVec &rkeys(cf.key_validation_class);
+    const GenDb::DbDataTypeVec &rkeys(cf.partition_keys_);
     assert(rkeys.size() == 1);
     query << "(key " << DbDataType2CassType(rkeys[0]) <<
         " PRIMARY KEY";
     // Columns
-    const GenDb::NewCf::SqlColumnMap &columns(cf.cfcolumns_);
-    assert(!columns.empty());
-    BOOST_FOREACH(const GenDb::NewCf::SqlColumnMap::value_type &column,
-        columns) {
-        query << ", \"" << column.first << "\" " <<
-            DbDataType2CassType(column.second);
+    const GenDb::NewCf::ColumnMap &cfcolumns(cf.cfcolumns_);
+    assert(!cfcolumns.empty());
+    BOOST_FOREACH(const GenDb::NewCf::ColumnMap::value_type &cfcolumn,
+        cfcolumns) {
+        query << ", \"" << cfcolumn.first << "\" " <<
+            DbDataType2CassType(cfcolumn.second);
     }
     char cbuf[512];
     int n(snprintf(cbuf, sizeof(cbuf), kQCompactionStrategy,
@@ -468,7 +468,7 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     // Table name
     query << "CREATE TABLE IF NOT EXISTS " << cf.cfname_ << " (";
     // Row key
-    const GenDb::DbDataTypeVec &rkeys(cf.key_validation_class);
+    const GenDb::DbDataTypeVec &rkeys(cf.partition_keys_);
     int rk_size(rkeys.size());
     for (int i = 0; i < rk_size; i++) {
         if (i) {
@@ -479,16 +479,24 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
         }
         query << " " << DbDataType2CassType(rkeys[i]) << ", ";
     }
-    // Column name
-    const GenDb::DbDataTypeVec &cnames(cf.comparator_type);
-    int cn_size(cnames.size());
-    for (int i = 0; i < cn_size; i++) {
+    // clustering columns
+    const GenDb::DbDataTypeVec &clustering_columns(cf.clustering_columns_);
+    int ccn_size(clustering_columns.size());
+    for (int i = 0; i < ccn_size; i++) {
         int cnum(i + 1);
         query << "column" << cnum << " " <<
-            DbDataType2CassType(cnames[i]) << ", ";
+            DbDataType2CassType(clustering_columns[i]) << ", ";
+    }
+    // columns
+    const GenDb::DbDataTypeVec &columns(cf.columns_);
+    int cn_size(columns.size());
+    for (int i = 0; i < cn_size; i++) {
+        int cnum(i + 1 + ccn_size);
+        query << "column" << cnum << " " <<
+            DbDataType2CassType(columns[i]) << ", ";
     }
     // Value
-    const GenDb::DbDataTypeVec &values(cf.default_validation_class);
+    const GenDb::DbDataTypeVec &values(cf.value_);
     if (values.size() > 0) {
         query << "value" << " " << DbDataTypes2CassTypes(values) << ", ";
     }
@@ -508,7 +516,7 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     } else {
         query << rkey_ss.str() << ", ";
     }
-    for (int i = 0; i < cn_size; i++) {
+    for (int i = 0; i < ccn_size; i++) {
         int cnum(i + 1);
         if (i) {
             query << ", ";
@@ -681,17 +689,17 @@ std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
     // Table name
     query << "INSERT INTO " << cf.cfname_ << " ";
     // Row key
-    const GenDb::DbDataTypeVec &rkeys(cf.key_validation_class);
+    const GenDb::DbDataTypeVec &rkeys(cf.partition_keys_);
     assert(rkeys.size() == 1);
     std::ostringstream values_ss;
     query << "(key";
     values_ss << ") VALUES (?";
     // Columns
-    const GenDb::NewCf::SqlColumnMap &columns(cf.cfcolumns_);
-    assert(!columns.empty());
-    BOOST_FOREACH(const GenDb::NewCf::SqlColumnMap::value_type &column,
-        columns) {
-        query << ", \"" << column.first << "\"";
+    const GenDb::NewCf::ColumnMap &cfcolumns(cf.cfcolumns_);
+    assert(!cfcolumns.empty());
+    BOOST_FOREACH(const GenDb::NewCf::ColumnMap::value_type &cfcolumn,
+        cfcolumns) {
+        query << ", \"" << cfcolumn.first << "\"";
         values_ss << ", ?";
     }
     query << values_ss.str();
@@ -704,7 +712,7 @@ std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
     // Table name
     query << "INSERT INTO " << cf.cfname_ << " (";
     // Row key
-    const GenDb::DbDataTypeVec &rkeys(cf.key_validation_class);
+    const GenDb::DbDataTypeVec &rkeys(cf.partition_keys_);
     int rk_size(rkeys.size());
     std::ostringstream values_ss;
     for (int i = 0; i < rk_size; i++) {
@@ -717,11 +725,27 @@ std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
         query << ", ";
         values_ss << "?, ";
     }
-    // Column name
-    const GenDb::DbDataTypeVec &cnames(cf.comparator_type);
-    int cn_size(cnames.size());
-    for (int i = 0; i < cn_size; i++) {
+    // Clustering Column name
+    const GenDb::DbDataTypeVec &clustering_columns(cf.clustering_columns_);
+    int ccn_size(clustering_columns.size());
+    for (int i = 0; i < ccn_size; i++) {
         int cnum(i + 1);
+        query << "column" << cnum;
+        values_ss << "?";
+        if (i != ccn_size - 1) {
+            query << ", ";
+            values_ss << ", ";
+        }
+    }
+    // Column name
+    const GenDb::DbDataTypeVec &columns(cf.columns_);
+    int cn_size(columns.size());
+    if (cn_size > 0) {
+        query << ", ";
+        values_ss << ", ";
+    }
+    for (int i = 0; i < cn_size; i++) {
+        int cnum(i + 1 + ccn_size);
         query << "column" << cnum;
         values_ss << "?";
         if (i != cn_size - 1) {
@@ -730,7 +754,7 @@ std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
         }
     }
     // Value
-    const GenDb::DbDataTypeVec &values(cf.default_validation_class);
+    const GenDb::DbDataTypeVec &values(cf.value_);
     if (values.size() > 0) {
         query << ", value";
         values_ss << ", ?";
