@@ -49,6 +49,11 @@ struct VrfData : public AgentOperDBData {
         //flag(Ex PbbVrf) and not flag indicating Config origination(ex: GwVrf)
     };
 
+    enum VrfId {
+        FABRIC_VRF_ID,
+        LINKLOCAL_VRF_ID
+    };
+
     VrfData(Agent *agent, IFMapNode *node, uint32_t flags,
             const boost::uuids::uuid &vn_uuid, uint32_t isid,
             const std::string bmac_vrf_name,
@@ -290,7 +295,7 @@ public:
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index);
     VrfEntry *FindVrfFromIdIncludingDeletedVrf(size_t index);
-    void FreeVrfId(size_t index) {index_table_.Remove(index);};
+    void FreeVrfId(size_t index);
 
     virtual bool CanNotify(IFMapNode *dbe);
     

@@ -15,6 +15,8 @@ public:
     enum Type {
         INVALID = 0,
         MPLS_INDEX,
+        INTERFACE_INDEX,
+        VRF_INDEX,
         MAX,
     };
 
