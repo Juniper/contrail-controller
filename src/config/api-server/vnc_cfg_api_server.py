@@ -59,7 +59,6 @@ threading._DummyThread._Thread__stop = lambda x: 42
 CONFIG_VERSION = '1.0'
 
 import bottle
-bottle.BaseRequest.MEMFILE_MAX = 1024000
 
 import utils
 import context
@@ -1243,6 +1242,9 @@ class VncApiServer(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
+        # set the max size of the api requests
+        bottle.BaseRequest.MEMFILE_MAX = self._args.max_request_size
+
         # aaa-mode is ignored if multi_tenancy is configured by user
         if self._args.multi_tenancy is None:
             # MT unconfigured by user - determine from aaa-mode
@@ -2340,6 +2342,7 @@ class VncApiServer(object):
                                          [--default_encoding ascii ]
                                          --object_cache_size 10000
                                          --object_cache_exclude_types ''
+                                         --max_request_size 1024000
         '''
         self._args, _ = utils.parse_args(args_str)
     # end _parse_args
