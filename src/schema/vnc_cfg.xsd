@@ -71,6 +71,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="start" type="xsd:string"/>
         <xsd:element name="end" type="xsd:string"/>
+        <xsd:element name="vrouter-specific-pool" type="xsd:boolean"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -1536,6 +1537,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('virtual-network-network-ipam',
           'virtual-network', 'network-ipam', ['ref'], 'required', 'CRUD',
           'Reference to network-ipam this network is using. It has list of subnets that are being used as property of the reference.') -->
+<xsd:element name="virtual-router-network-ipam" type="AllocationPoolType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-router-network-ipam',
+          'virtual-router', 'network-ipam', ['ref'], 'optional', 'CRUD',
+          'Reference to network-ipam this virtual-router is using. It has list of virtual-router specific allocation-pools that are being used as property of the reference.') -->
 
 <xsd:element name="network-policy" type="ifmap:IdentityType"/>
 <xsd:element name="project-network-policy"/>
@@ -1882,6 +1888,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'instance-ip', 'physical-router', ['ref'], 'optional', 'CRUD',
           'This instance ip is used as IRB address on the referenced physical router (e.g.MX), In case of OVSDB TOR usecase this address will be used as default gateway for Host behind the TOR.') -->
 
+<xsd:element name="instance-ip-virtual-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('instance-ip-virtual-router',
+          'instance-ip', 'virtual-router', ['ref'], 'optional', 'CRUD',
+          'Reference to virtual router of this instance ip.') -->
 <xsd:element name="subnet" type="ifmap:IdentityType"/>
 <xsd:element name="subnet-ip-prefix" type="SubnetType"/>
 <!--#IFMAP-SEMANTICS-IDL
