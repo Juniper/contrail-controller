@@ -3391,7 +3391,7 @@ class BgpvpnServer(Resource, Bgpvpn):
             return ok, (500, 'Error in dbe_list: %s' % pformat(result))
         bgpvpns = result
 
-        vpn_types = set(bgpvpn['bgpvpn_type'] for bgpvpn in bgpvpns)
+        vpn_types = set(bgpvpn.get('bgpvpn_type', 'l3') for bgpvpn in bgpvpns)
         if len(vpn_types) > 1:
             msg = ("Cannot associates different bgpvpn types '%s' on a "
                    "virtual network with a forwarding mode different to"
@@ -3424,7 +3424,7 @@ class BgpvpnServer(Resource, Bgpvpn):
         bgpvpns = result
 
         bgpvpn_not_supported = [bgpvpn for bgpvpn in bgpvpns
-                                if bgpvpn['bgpvpn_type'] != 'l3']
+                                if bgpvpn.get('bgpvpn_type', 'l3') != 'l3']
 
         if not bgpvpn_not_supported:
             return True, ''
@@ -3433,7 +3433,7 @@ class BgpvpnServer(Resource, Bgpvpn):
         for bgpvpn in bgpvpn_not_supported:
             msg += ("- bgpvpn %s(%s) type is %s\n" %
                     (bgpvpn.get('display_name', bgpvpn['fq_name'][-1]),
-                     bgpvpn['uuid'], bgpvpn['bgpvpn_type']))
+                     bgpvpn['uuid'], bgpvpn.get('bgpvpn_type', 'l3')))
         return False, (400, msg)
 
     @classmethod
