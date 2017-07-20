@@ -207,18 +207,35 @@ class Controller(object):
                             0]['lldpLocPortDesc']
                     pl['lldpRemLocalPortNum'] = [k for k in ifm if ifm[
                                             k] == loc_pname][0]
+                elif d['PRouterEntry']['lldpTable']['lldpLocalSystemData'][
+                       'lldpLocSysDesc'].startswith('Arista'):
+                       loc_pname = [x for x in d['PRouterEntry']['lldpTable'][
+                               'lldpLocalSystemData']['lldpLocPortTable'] if x[
+                               'lldpLocPortNum'] == pl['lldpRemLocalPortNum']][
+                               0]['lldpLocPortId']
+                       pl['lldpRemLocalPortNum'] = [k for k in ifm if ifm[
+                                               k] == loc_pname][0]
                 if pl['lldpRemLocalPortNum'] in ifm and self._chk_lnk(
                         d['PRouterEntry'], pl['lldpRemLocalPortNum']):
                     if pl['lldpRemPortId'].isdigit():
                         rii = int(pl['lldpRemPortId'])
                     else:
                         try:
-                            rpn = filter(lambda y: y['lldpLocPortId'] == pl[
-                                    'lldpRemPortId'], [
-                                    x for x in self.prouters if x.name == pl[
-                                    'lldpRemSysName']][0].data['PRouterEntry'][
-                                    'lldpTable']['lldpLocalSystemData'][
-                                    'lldpLocPortTable'])[0]['lldpLocPortDesc']
+                            if d['PRouterEntry']['lldpTable']['lldpLocalSystemData'][
+                                  'lldpLocSysDesc'].startswith('Arista'):
+                                   rpn = filter(lambda y: y['lldpLocPortId'] == pl[
+                                           'lldpRemPortId'], [
+                                           x for x in self.prouters if x.name == pl[
+                                           'lldpRemSysName']][0].data['PRouterEntry'][
+                                           'lldpTable']['lldpLocalSystemData'][
+                                           'lldpLocPortTable'])[0]['lldpLocPortId']
+                            else:
+                                 rpn = filter(lambda y: y['lldpLocPortId'] == pl[
+                                  'lldpRemPortId'], [
+                                  x for x in self.prouters if x.name == pl[
+                                  'lldpRemSysName']][0].data['PRouterEntry'][
+                                  'lldpTable']['lldpLocalSystemData'][
+                                  'lldpLocPortTable'])[0]['lldpLocPortDesc']
                             rii = filter(lambda y: y['ifDescr'] == rpn,
                                     [ x for x in self.prouters \
                                     if x.name == pl['lldpRemSysName']][0].data[
@@ -226,15 +243,27 @@ class Controller(object):
                         except:
                             rii = 0
 
-                    if self._add_link(
+                    if d['PRouterEntry']['lldpTable']['lldpLocalSystemData'][
+                         'lldpLocSysDesc'].startswith('Arista'):
+                       if self._add_link(
                             prouter=prouter,
                             remote_system_name=pl['lldpRemSysName'],
                             local_interface_name=ifm[pl['lldpRemLocalPortNum']],
-                            remote_interface_name=pl['lldpRemPortDesc'],
+                            remote_interface_name=pl['lldpRemPortId'],
                             local_interface_index=pl['lldpRemLocalPortNum'],
                             remote_interface_index=rii,
                             link_type=1):
-                        lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
+                                lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
+                    else:
+                         if self._add_link(
+                              prouter=prouter,
+                              remote_system_name=pl['lldpRemSysName'],
+                              local_interface_name=ifm[pl['lldpRemLocalPortNum']],
+                              remote_interface_name=pl['lldpRemPortDesc'],
+                              local_interface_index=pl['lldpRemLocalPortNum'],
+                              remote_interface_index=rii,
+                              link_type=1):
+                                  lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
 
             vrouter_neighbors = []
             if 'fdbPortIfIndexTable' in d['PRouterEntry']:
