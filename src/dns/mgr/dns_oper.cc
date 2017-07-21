@@ -125,9 +125,8 @@ void VnniConfig::FindSubnets(IFMapNode *node, Subnets &subnets) {
     for (unsigned int i = 0; i < subnets_type.ipam_subnets.size(); ++i) {
         Subnet subnet(subnets_type.ipam_subnets[i].subnet.ip_prefix,
                subnets_type.ipam_subnets[i].subnet.ip_prefix_len);
-        subnets.push_back(subnet);
+        subnets.insert(subnet);
     }
-    std::sort(subnets.begin(), subnets.end());
 }
 
 bool VnniConfig::NotifySubnets(Subnets &old_nets, Subnets &new_nets,
@@ -245,8 +244,9 @@ void IpamConfig::Notify(DnsConfigEvent ev) {
     for (IpamConfig::VnniList::iterator it = vnni_list_.begin();
          it != vnni_list_.end(); ++it) {
         Subnets &subnets = (*it)->GetSubnets();
-        for (unsigned int i = 0; i < subnets.size(); i++) {
-            VdnsZoneCallback(subnets[i], virtual_dns_, ev);
+        Subnets::iterator it = subnets.begin();
+        for (; it != subnets.end(); ++it) {
+            VdnsZoneCallback(*it, virtual_dns_, ev);
         }
     }
 }
@@ -384,7 +384,7 @@ bool VirtualDnsConfig::GetObject(IFMapNode *node,
     return true;
 }
 
-bool VirtualDnsConfig::GetSubnet(uint32_t addr, Subnet &subnet) const {
+bool VirtualDnsConfig::GetSubnet(const IpAddress &addr, Subnet &subnet) const {
     for (IpamList::iterator ipam_iter = ipams_.begin();
          ipam_iter != ipams_.end(); ++ipam_iter) {
         IpamConfig *ipam = *ipam_iter;
@@ -392,11 +392,10 @@ bool VirtualDnsConfig::GetSubnet(uint32_t addr, Subnet &subnet) const {
         for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
              vnni_it != vnni.end(); ++vnni_it) {
             Subnets &subnets = (*vnni_it)->GetSubnets();
-            for (unsigned int i = 0; i < subnets.size(); i++) {
-                uint32_t mask =
-                    subnets[i].plen ? (0xFFFFFFFF << (32 - subnets[i].plen)) : 0;
-                if ((addr & mask) == (subnets[i].prefix.to_ulong() & mask)) {
-                    subnet = subnets[i];
+            Subnets::iterator it = subnets.cbegin();
+            for (; it != subnets.cend(); ++it) {
+                if ((*it).Contains(addr)) {
+                    subnet = *it;
                     return true;
                 }
             }
@@ -590,8 +589,8 @@ bool VirtualDnsRecordConfig::CanNotify() {
         if (!virt_dns_->IsReverseResolutionEnabled()) {
             return false;
         }
-        uint32_t addr;
-        if (BindUtil::IsIPv4(rec_.name, addr) ||
+        IpAddress addr;
+        if (BindUtil::IsIP(rec_.name, addr) ||
             BindUtil::GetAddrFromPtrName(rec_.name, addr)) {
             Subnet net;
             return virt_dns_->GetSubnet(addr, net);

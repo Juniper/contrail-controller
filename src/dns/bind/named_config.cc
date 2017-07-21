@@ -89,7 +89,7 @@ void NamedConfig::AddAllViews() {
 
 void NamedConfig::AddZone(const Subnet &subnet, const VirtualDnsConfig *vdns) {
     ZoneList zones;
-    BindUtil::GetReverseZones(subnet, zones);
+    subnet.GetReverseZones(zones);
     // Ignore zone files which already exist
     for (unsigned int i = 0; i < zones.size();) {
         std::ifstream file(zones[i].c_str());
@@ -111,7 +111,7 @@ void NamedConfig::DelZone(const Subnet &subnet, const VirtualDnsConfig *vdns) {
     UpdateNamedConf();
     ZoneList vdns_zones, snet_zones;
     MakeZoneList(vdns, vdns_zones);
-    BindUtil::GetReverseZones(subnet, snet_zones);
+    subnet.GetReverseZones(snet_zones);
     // Ignore zones which are still in use
     for (unsigned int i = 0; i < snet_zones.size();) {
         unsigned int j;
@@ -317,7 +317,7 @@ void NamedConfig::WriteZone(const string &vdns, const string &name,
         file_ << "        file \"" << GetZoneFilePath(vdns, name) << "\";" << endl;
         file_ << "        allow-update {127.0.0.1;};" << endl;
         if (!next_dns.empty()) {
-            if (!is_rr && (name.find("in-addr.arpa") != std::string::npos)) {
+            if (!is_rr && BindUtil::IsReverseZone(name)) {
                 file_ << "        forwarders { };" << endl;
             }
         } else {
@@ -333,8 +333,7 @@ void NamedConfig::WriteZone(const string &vdns, const string &name,
 
 void NamedConfig::AddZoneFiles(ZoneList &zones, const VirtualDnsConfig *vdns) {
     for (unsigned int i = 0; i < zones.size(); i++) {
-        bool ns = (zones[i].find("in-addr.arpa") == std::string::npos);
-        CreateZoneFile(zones[i], vdns, ns);
+        CreateZoneFile(zones[i], vdns, !BindUtil::IsReverseZone(zones[i]));
     }
 }
 
@@ -447,11 +446,12 @@ void NamedConfig::MakeReverseZoneList(const VirtualDnsConfig *vdns_config,
                 continue;
             }
             const Subnets &subnets = (*vnni_it)->GetSubnets();
-            for (unsigned int i = 0; i < subnets.size(); ++i) {
-                const Subnet &subnet = subnets[i];
+            Subnets::const_iterator it = subnets.cbegin();
+            for (; it != subnets.cend(); ++it) {
+                const Subnet &subnet = (*it);
                 if (subnet.IsDeleted())
                     continue;
-                BindUtil::GetReverseZones(subnet, zones);
+                subnet.GetReverseZones(zones);
             }
         }
     }
