@@ -103,7 +103,7 @@ public:
     typedef BgpAsAServiceEntryMap::iterator BgpAsAServiceEntryMapIterator;
     typedef BgpAsAServiceEntryMap::const_iterator BgpAsAServiceEntryMapConstIterator;
 
-    typedef std::map<uint32_t, IndexAllocator*> BgpAsAServicePortMap;
+    typedef std::map<uint32_t, IndexVector<boost::uuids::uuid>* > BgpAsAServicePortMap;
     typedef BgpAsAServicePortMap::iterator BgpAsAServicePortMapIterator;
     typedef BgpAsAServicePortMap::const_iterator BgpAsAServicePortMapConstIterator;
 
@@ -118,9 +118,11 @@ public:
                                         const IpAddress &dest,
                                         IpAddress *nat_server,
                                         uint32_t *sport) const;
-    size_t AllocateBgpVmiServicePortIndex(const uint32_t sport);
+    size_t AllocateBgpVmiServicePortIndex(const uint32_t sport,
+                                          const boost::uuids::uuid vm_uuid);
     void FreeBgpVmiServicePortIndex(const uint32_t sport);
-    uint32_t AddBgpVmiServicePortIndex(const uint32_t source_port);
+    uint32_t AddBgpVmiServicePortIndex(const uint32_t source_port,
+                                       const boost::uuids::uuid vm_uuid);
     void ProcessConfig(const std::string &vrf_name,
                        std::list<IFMapNode *> &node_list,
                        const boost::uuids::uuid &vmi_uuid);
@@ -135,7 +137,8 @@ private:
     void BindBgpAsAServicePorts(const std::vector<uint16_t> &ports);
     void BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                 BgpAsAServiceEntryList &new_list,
-                                const std::string &vrf_name);
+                                const std::string &vrf_name,
+                                const boost::uuids::uuid &vm_uuid);
 
     const Agent *agent_;
     BgpAsAServiceEntryMap bgp_as_a_service_entry_map_;

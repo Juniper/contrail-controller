@@ -67,6 +67,7 @@ public:
         flow_proto_ = agent_->pkt()->get_flow_proto();
         AgentParam *params = agent_->params();
         params->set_bgpaas_max_shared_sessions(4);
+        AddBgpaasPortRange(50000, 50512);
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
         CreateVmportEnv(input, 6);
@@ -128,19 +129,18 @@ public:
         DelIPAM("vn5");
         DelIPAM("vn6");
         DeleteVmportEnv(input, 6, true);
+        DelBgpaasPortRange();
         client->WaitForIdle();
     }
 
     Agent *agent_;
     FlowProto *flow_proto_;
-    BgpPeer *peer;
 };
 
 //TTL 1
 TEST_F(BgpServiceTest, Test_ttl_1) {
     AddAap("vnet1", 1, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:01");
 
-    peer = CreateBgpPeer("127.0.0.1", "remote");
     client->WaitForIdle();
 
     TxTcpPacket(VmInterfaceGet(1)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
@@ -151,18 +151,17 @@ TEST_F(BgpServiceTest, Test_ttl_1) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
     EXPECT_TRUE(fe->data().ttl == BGP_SERVICE_TTL_FWD_FLOW);
     EXPECT_TRUE(fe->reverse_flow_entry()->data().ttl ==
                 BGP_SERVICE_TTL_REV_FLOW);
 
-    DeleteBgpPeer(peer);
     client->WaitForIdle();
 }
 
 //TTL 64
 TEST_F(BgpServiceTest, Test_ttl_2) {
     AddAap("vnet1", 1, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:01");
-    peer = CreateBgpPeer("127.0.0.1", "remote");
     client->WaitForIdle();
 
     TxTcpPacket(VmInterfaceGet(1)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
@@ -176,14 +175,10 @@ TEST_F(BgpServiceTest, Test_ttl_2) {
     EXPECT_TRUE(fe->data().ttl == 0);
     EXPECT_TRUE(fe->reverse_flow_entry()->data().ttl == 0);
 
-    DeleteBgpPeer(peer);
     client->WaitForIdle();
 }
 
 TEST_F(BgpServiceTest, Test_1) {
-    peer = CreateBgpPeer("127.0.0.1", "remote");
-    client->WaitForIdle();
-
     TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.10", "1.1.1.1", 10000, 179,
                 false);
     client->WaitForIdle();
@@ -240,14 +235,9 @@ TEST_F(BgpServiceTest, Test_1) {
     EXPECT_TRUE(fe5->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe5->is_flags_set(FlowEntry::BgpRouterService));
 
-    DeleteBgpPeer(peer);
-    client->WaitForIdle();
 }
 
 TEST_F(BgpServiceTest, Test_2) {
-    peer = CreateBgpPeer("127.0.0.1", "remote");
-    client->WaitForIdle();
-
     TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.10", "1.1.1.1", 10000, 179,
                 false);
     client->WaitForIdle();
@@ -256,13 +246,11 @@ TEST_F(BgpServiceTest, Test_2) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
 
     //Explicitly call deleteall on bgp service tree.
     //agent_->pkt()->flow_mgmt_manager()->ControllerNotify(0);
     //agent_->pkt()->flow_mgmt_manager()->ControllerNotify(1);
-    client->WaitForIdle();
-
-    DeleteBgpPeer(peer);
     client->WaitForIdle();
 }
 
@@ -273,7 +261,6 @@ TEST_F(BgpServiceTest, Test_3) {
     AddAap("vnet4", 4, Ip4Address::from_string("40.40.40.40"), "00:00:04:04:04:04");
     AddAap("vnet5", 5, Ip4Address::from_string("50.50.50.50"), "00:00:05:05:05:05");
     AddAap("vnet6", 6, Ip4Address::from_string("60.60.60.60"), "00:00:06:06:06:06");
-    peer = CreateBgpPeer("127.0.0.1", "remote");
     client->WaitForIdle();
 
     TxTcpPacket(VmInterfaceGet(1)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
@@ -284,17 +271,56 @@ TEST_F(BgpServiceTest, Test_3) {
     EXPECT_TRUE(fe != NULL);
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
+    client->WaitForIdle();
+}
 
-    DeleteBgpPeer(peer);
+TEST_F(BgpServiceTest, Test_4) {
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                              "virtual-machine-interface");
+    IFMapNode *node = table->FindNode("vnet1");
+    if (node == NULL) {
+        assert(0);
+    }
+
+    InterfaceTable *intf_table = agent_->interface_table();
+
+    //simulate the same session add for the same vmi
+    DBRequest request1;
+    boost::uuids::uuid u;
+    intf_table->IFNodeToUuid(node, u);
+    intf_table->VmiProcessConfig(node, request1, u);
+
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Stop();
+    intf_table->Enqueue(&request1);
+
+    scheduler->Start();
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.10", "1.1.1.1", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+                            "1.1.1.10", "1.1.1.1", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
     client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
     int ret = 0;
+    BgpPeer *peer;
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
+    peer = CreateBgpPeer("127.0.0.1", "remote");
+    client->WaitForIdle();
     ret = RUN_ALL_TESTS();
     usleep(100000);
+    DeleteBgpPeer(peer);
+    client->WaitForIdle();
     TestShutdown();
     delete client;
     return ret;
