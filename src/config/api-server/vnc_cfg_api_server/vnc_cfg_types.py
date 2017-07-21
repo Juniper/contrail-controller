@@ -4198,7 +4198,9 @@ class VirtualDnsRecordServer(Resource, VirtualDnsRecord):
         # check rec_name validity
         if rec_type == "ptr":
             if (not VirtualDnsServer.is_valid_ipv4_address(rec_name) and
-                    not "in-addr.arpa" in rec_name.lower()):
+                    not VirtualDnsServer.is_valid_ipv6_address(rec_name) and
+                    not "in-addr.arpa" in rec_name.lower() and
+                    not "ip6.arpa" in rec_name.lower()):
                 return (
                     False,
                     (403,
