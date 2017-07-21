@@ -1,6 +1,6 @@
 [Unit]
-Description=Contrail kube-manager
-Documentation=Contrail kube manager
+Description="Contrail kube-manager"
+Documentation="Contrail kube manager"
 After=network.target
 
 [Service]
