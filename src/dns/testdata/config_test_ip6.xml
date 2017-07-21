@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <network-ipam name='ipam1'>
+        <ipam-method>dhcp</ipam-method>
+        <ipam-dns-method>virtual-dns-server</ipam-dns-method>
+        <ipam-dns-server>
+            <virtual-dns-server-name>ip6-DNS</virtual-dns-server-name>
+        </ipam-dns-server>
+        <dhcp-option-list></dhcp-option-list>
+    </network-ipam>
+    <virtual-network-network-ipam ipam='ipam1' vn='vn1'>
+        <ipam-subnets>
+            <subnet>
+                <ip-prefix>1.2.3.0</ip-prefix>
+                <ip-prefix-len>24</ip-prefix-len>
+            </subnet>
+            <default-gateway>1.2.3.254</default-gateway>
+        </ipam-subnets>
+        <ipam-subnets>
+            <subnet>
+                <ip-prefix>fdb2:e867:ea99:5a93::</ip-prefix>
+                <ip-prefix-len>64</ip-prefix-len>
+            </subnet>
+            <default-gateway>fdb2:e867:ea99:5a93::1</default-gateway>
+        </ipam-subnets>
+    </virtual-network-network-ipam>
+    <virtual-DNS name='ip6-DNS' domain='new-domain'>
+        <domain-name>test.example.com</domain-name>
+        <dynamic-records-from-client>0</dynamic-records-from-client>
+        <record-order>random</record-order>
+        <default-ttl-seconds>60</default-ttl-seconds>
+        <next-virtual-DNS>example.com</next-virtual-DNS>
+        <external-visible>true</external-visible>
+        <reverse-resolution>true</reverse-resolution>
+    </virtual-DNS>
+    <virtual-DNS-record name='rec1' dns='ip6-DNS'>
+        <record-name>host1</record-name>
+        <record-type>A</record-type>
+        <record-class>IN</record-class>
+        <record-data>1.2.3.5</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+    <virtual-DNS-record name='rec2' dns='ip6-DNS'>
+        <record-name>5.3.2.1.in-addr.arpa</record-name>
+        <record-type>PTR</record-type>
+        <record-class>IN</record-class>
+        <record-data>host1</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+    <virtual-DNS-record name='rec3' dns='ip6-DNS'>
+        <record-name>host2</record-name>
+        <record-type>AAAA</record-type>
+        <record-class>IN</record-class>
+        <record-data>fdb2:e867:ea99:5a93::2</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+    <virtual-DNS-record name='rec4' dns='ip6-DNS'>
+        <record-name>2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.9.a.5.9.9.a.e.7.6.8.e.2.b.d.f.ip6.arpa</record-name>
+        <record-type>PTR</record-type>
+        <record-class>IN</record-class>
+        <record-data>host2</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+</config>

@@ -1,0 +1,80 @@
+options {
+    directory "./";
+    managed-keys-directory "./";
+    empty-zones-enable no;
+    pid-file "./contrail-named.pid";
+    session-keyfile "./session.key";
+    listen-on port 53 { any; };
+    allow-query { any; };
+    allow-recursion { any; };
+    allow-query-cache { any; };
+    max-cache-size 100M;
+};
+
+key "rndc-key" {
+    algorithm hmac-md5;
+    secret "xvysmOR8lnUQRBcunkC6vg==";
+};
+
+controls {
+    inet 127.0.0.1 port 8094
+    allow { 127.0.0.1; }  keys { "rndc-key"; };
+};
+
+logging {
+    channel debug_log {
+        file "/var/log/named/bind.log" versions 3 size 5m;
+        severity debug;
+        print-time yes;
+        print-severity yes;
+        print-category yes;
+    };
+    category default {
+        debug_log;
+    };
+    category queries {
+        debug_log;
+    };
+};
+
+view "ip6-DNS" {
+    rrset-order {order random;};
+    virtual-forwarder "example.com";
+    zone "3.2.1.in-addr.arpa." IN {
+        type master;
+        file "./3.2.1.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "3.9.a.5.9.9.a.e.7.6.8.e.2.b.d.f.ip6.arpa." IN {
+        type master;
+        file "./3.9.a.5.9.9.a.e.7.6.8.e.2.b.d.f.ip6.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "test.example.com" IN {
+        type master;
+        file "./test.example.com.zone";
+        allow-update {127.0.0.1;};
+    };
+};
+
+view "_default_view_" {
+    match-clients {any;};
+    match-destinations {any;};
+    match-recursive-only no;
+    zone "3.2.1.in-addr.arpa." IN {
+        type static-stub;
+        virtual-server-name "ip6-DNS";
+        server-addresses {127.0.0.1;};
+    };
+    zone "3.9.a.5.9.9.a.e.7.6.8.e.2.b.d.f.ip6.arpa." IN {
+        type static-stub;
+        virtual-server-name "ip6-DNS";
+        server-addresses {127.0.0.1;};
+    };
+    zone "test.example.com" IN {
+        type static-stub;
+        virtual-server-name "ip6-DNS";
+        server-addresses {127.0.0.1;};
+    };
+};
+
