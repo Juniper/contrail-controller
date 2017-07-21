@@ -547,11 +547,14 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_multiple_refs('service_health_check', obj)
         self.update_single_ref('physical_interface',obj)
         self.update_multiple_refs('security_group', obj)
+        port_tuple = self.port_tuple
         self.update_single_ref('port_tuple', obj)
         if self.virtual_machine:
             vm = VirtualMachineSM.get(self.virtual_machine)
             if vm:
                 self.service_instance = vm.service_instance
+        if port_tuple:
+            self._manager.port_tuple_agent.update_port_tuple(self)
         return obj
     # end update
 
@@ -580,8 +583,6 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         vm = VirtualMachineSM.get(self.virtual_machine)
         if vm:
             self._manager.port_delete_or_si_link(vm, self)
-
-        self._manager.port_tuple_agent.update_port_tuple(self)
 
 # end VirtualMachineInterfaceSM
 
@@ -697,7 +698,6 @@ class ServiceInstanceSM(DBBaseSM):
     def evaluate(self):
         self.state = 'launch'
         self._manager.create_service_instance(self)
-
         for pt_id in self.port_tuples:
             self._manager.port_tuple_agent.update_port_tuple(pt_id=pt_id)
 
