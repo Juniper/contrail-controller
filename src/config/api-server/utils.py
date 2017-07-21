@@ -96,6 +96,7 @@ def parse_args(args_str):
         'ifmap_queue_size': 10000,
         'ifmap_max_message_size': 1024*1024,
         'ifmap_health_check_interval': '60', # in seconds
+        'max_request_size': 1024000,
     }
     # ssl options
     secopts = {
@@ -340,6 +341,8 @@ def parse_args(args_str):
     parser.add_argument('--ifmap_credentials',
                         help="List of user and password: <username:password>",
                         type=user_password, nargs='*')
+    parser.add_argument("--max_request_size", type=int,
+            help="Maximum size of bottle requests served by api server")
     args_obj, remaining_argv = parser.parse_known_args(remaining_argv)
     args_obj.conf_file = args.conf_file
     args_obj.config_sections = config
