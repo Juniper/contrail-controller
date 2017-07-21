@@ -64,32 +64,35 @@ class VncCfgApiClient(object):
                 time.sleep(3)
     # end connect
 
-    def is_read_permission(self, user_token, uuid):
-        result = self._get_user_token_info(user_token, uuid)
-        if not result or 'permissions' not in result:
-            self._logger.error('Permissions for token %s NOT FOUND' % \
-                (str(user_token)))
-            return False
-        return 'R' in result['permissions']
-    # end is_read_permission
+    def get_resource_list(self, obj_type, token):
+        if self._vnc_api_client:
+            res_list = self._vnc_api_client.resource_list(obj_type,\
+                        token=token)
+            return res_list
+        else:
+            self._logger.error('VNC Config API Client NOT FOUND')
+            return dict()
+    # end get_resource_list
 
-    def is_role_cloud_admin(self, user_token):
+    def is_role_cloud_admin(self, user_token, user_token_info=None):
         result = self._get_user_token_info(user_token)
         if not result or not result['token_info']:
             self._logger.error(
-                'Token info for %s NOT FOUND' % str(user_token))
+                    'Token info for %s NOT FOUND' % str(user_token))
             return False
         # Handle v2 and v3 responses
         token_info = result['token_info']
+        if user_token_info is not None:
+            user_token_info.update(result)
         if 'access' in token_info:
             roles_list = [roles['name'] for roles in \
-                token_info['access']['user']['roles']]
+                    token_info['access']['user']['roles']]
         elif 'token' in token_info:
             roles_list = [roles['name'] for roles in \
-                token_info['token']['roles']]
+                    token_info['token']['roles']]
         else:
             self._logger.error('Role info for %s NOT FOUND: %s' % \
-                (str(user_token), str(token_info)))
+                    (str(user_token), str(token_info)))
             return False
         return self._conf_info['cloud_admin_role'] in roles_list
     # end is_role_cloud_admin

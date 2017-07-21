@@ -2247,6 +2247,18 @@ class AnalyticsFixture(fixtures.Fixture):
         return not connected
     # end verify_opserver_redis_uve_connection
 
+    def get_ops_vns(self, opserver, token):
+        self.logger.info('get_ops_vns')
+        headers = {'X-Auth-Token' : token}
+        vops = VerificationOpsSrvIntrospect('127.0.0.1', self.opserver.rest_api_port,
+            self.admin_user, self.admin_password, headers=headers)
+        try:
+            return vops.get_ops_vns()
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return []
+    #end get_uves
+
     @retry(delay=2, tries=5)
     def set_opserver_db_info(self, opserver,
                              disk_usage_percentage_in = None,

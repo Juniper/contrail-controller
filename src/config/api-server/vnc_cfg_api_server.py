@@ -1640,7 +1640,7 @@ class VncApiServer(object):
     def is_auth_disabled(self):
         return self._args.auth is None or self._args.auth.lower() != 'keystone'
 
-    def is_admin_request(self):
+    def is_admin_request(self, req=None):
         if not self.is_multi_tenancy_set():
             return True
 
@@ -1760,10 +1760,27 @@ class VncApiServer(object):
                 elif 'token' in token_info:
                     roles_list = [roles['name'] for roles in \
                         token_info['token']['roles']]
-                result['is_cloud_admin_role'] = has_role(self.cloud_admin_role, roles_list)
-                result['is_global_read_only_role'] = has_role(self.global_read_only_role, roles_list)
+                result['is_cloud_admin_role'] = has_role(\
+                        self.cloud_admin_role, roles_list)
+                result['is_global_read_only_role'] = has_role(\
+                        self.global_read_only_role, roles_list)
                 if obj_uuid:
-                    result['permissions'] = self._permissions.obj_perms(get_request(), obj_uuid)
+                    result['permissions'] = self._permissions.obj_perms(\
+                            get_request(), obj_uuid)
+                if 'token' in token_info.keys():
+                    if 'project' in  token_info['token'].keys():
+                        domain = None
+                        try:
+                            domain = token_info['token']['project']['domain']['id']
+                            domain = str(uuid.UUID(domain))
+                        except ValueError, TypeError:
+                            if domain == 'default':
+                                domain = 'default-domain'
+                            domain = self._db_conn.fq_name_to_uuid('domain', \
+                                    [domain])
+                        if domain:
+                            domain = domain.replace('-','')
+                            token_info['token']['project']['domain']['id'] = domain
             else:
                 raise cfgm_common.exceptions.HttpError(403, " Permission denied")
         finally:
@@ -2824,13 +2841,31 @@ class VncApiServer(object):
                          exclude_hrefs=False, pagination=None):
         resource_type, r_class = self._validate_resource_type(obj_type)
 
-        is_admin = self.is_admin_request()
+        is_admin = False
+        if 'HTTP_X_USER_TOKEN' in get_request().environ:
+            user_token = get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
+            orig_context = get_context()
+            orig_request = get_request()
+            b_req = bottle.BaseRequest(
+                            {
+                            'HTTP_X_AUTH_TOKEN':  user_token,
+                            'REQUEST_METHOD'   : 'GET',
+                            'bottle.app': orig_request.environ['bottle.app'],
+                            })
+            i_req = context.ApiInternalRequest(
+                    b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
+            set_context(context.ApiContext(internal_req=i_req))
+            token_info = self._auth_svc.validate_user_token(get_request())
+            is_admin = self.is_admin_request(get_request())
+        else:
+            is_admin = self.is_admin_request()
+
         if is_admin:
             field_names = req_fields
         else:
             field_names = [u'id_perms'] + (req_fields or [])
 
-        if is_count and self.is_admin_request():
+        if is_count and is_admin:
             ret_result = 0
         else:
             ret_result = []
@@ -2854,7 +2889,7 @@ class VncApiServer(object):
 
         while not page_filled:
             (ok, result, ret_marker) = self._db_conn.dbe_list(obj_type,
-                                 parent_uuids, back_ref_uuids, obj_uuids, is_count and self.is_admin_request(),
+                                 parent_uuids, back_ref_uuids, obj_uuids, is_count and is_admin,
                                  filters, is_detail=is_detail, field_names=field_names,
                                  include_shared=include_shared,
                                  paginate_start=page_start,
@@ -2865,7 +2900,7 @@ class VncApiServer(object):
                 raise cfgm_common.exceptions.HttpError(404, result)
 
             # If only counting, return early
-            if is_count and self.is_admin_request():
+            if is_count and is_admin:
                 ret_result += result
                 return {'%ss' %(resource_type): {'count': ret_result}}
 

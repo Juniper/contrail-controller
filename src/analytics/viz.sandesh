@@ -429,6 +429,7 @@ struct objtable_info {
     2: string log_query_name
     3: bool is_uve
     4: bool global_system_object
+    5: string config_object_type
 }
 
 const map<string, objtable_info> _OBJECT_TABLES = {
@@ -443,24 +444,28 @@ const map<string, objtable_info> _OBJECT_TABLES = {
         'log_query_name'        : "virtual-network"
         'is_uve'                : true
         'global_system_object'  : false
+        'config_object_type'    : "virtual_network"
     }
     VM_TABLE               : {
         'objtable_display_name' : VM_DISPLAY_NAME
         'log_query_name'        : "virtual-machine"
         'is_uve'                : true
         'global_system_object'  : false
+        'config_object_type'    : "virtual_machine"
     }
     VMI_TABLE              : {
         'objtable_display_name' : VMI_DISPLAY_NAME
         'log_query_name'        : "virtual-machine-interface"
         'is_uve'                : true
         'global_system_object'  : false
+        'config_object_type'    : "virtual_machine_interface"
     }
     SI_TABLE               : {
         'objtable_display_name' : SI_DISPLAY_NAME
         'log_query_name'        : "service-instance"
         'is_uve'                : true
         'global_system_object'  : false
+        'config_object_type'    : "service_instance"
     }
     LB_TABLE               : {
         'objtable_display_name' : LB_DISPLAY_NAME
@@ -677,6 +682,7 @@ struct stat_query_column
     2: string datatype;
     3: bool index;
     4: list<string> suffixes;
+    5: string uve_type;
 }
 
 struct table_schema
