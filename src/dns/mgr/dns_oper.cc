@@ -384,7 +384,7 @@ bool VirtualDnsConfig::GetObject(IFMapNode *node,
     return true;
 }
 
-bool VirtualDnsConfig::GetSubnet(uint32_t addr, Subnet &subnet) const {
+bool VirtualDnsConfig::GetSubnet(const IpAddress &addr, Subnet &subnet) const {
     for (IpamList::iterator ipam_iter = ipams_.begin();
          ipam_iter != ipams_.end(); ++ipam_iter) {
         IpamConfig *ipam = *ipam_iter;
@@ -393,9 +393,7 @@ bool VirtualDnsConfig::GetSubnet(uint32_t addr, Subnet &subnet) const {
              vnni_it != vnni.end(); ++vnni_it) {
             Subnets &subnets = (*vnni_it)->GetSubnets();
             for (unsigned int i = 0; i < subnets.size(); i++) {
-                uint32_t mask =
-                    subnets[i].plen ? (0xFFFFFFFF << (32 - subnets[i].plen)) : 0;
-                if ((addr & mask) == (subnets[i].prefix.to_ulong() & mask)) {
+                if (subnets[i].Contains(addr)) {
                     subnet = subnets[i];
                     return true;
                 }
@@ -592,8 +590,8 @@ bool VirtualDnsRecordConfig::CanNotify() {
         if (!virt_dns_->IsReverseResolutionEnabled()) {
             return false;
         }
-        uint32_t addr;
-        if (BindUtil::IsIPv4(rec_.name, addr) ||
+        IpAddress addr;
+        if (BindUtil::IsIP(rec_.name, addr) ||
             BindUtil::GetAddrFromPtrName(rec_.name, addr)) {
             Subnet net;
             return virt_dns_->GetSubnet(addr, net);

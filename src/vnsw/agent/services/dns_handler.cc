@@ -461,12 +461,14 @@ bool DnsHandler::ResolveLinkLocalRequest(DnsItems::iterator &item,
 
     case DNS_PTR_RECORD: {
         std::set<std::string> service_names;
-        uint32_t addr;
-        if (!BindUtil::GetAddrFromPtrName(item->name, addr)) {
+        boost::asio::ip::address addr;
+        if (!BindUtil::GetAddrFromPtrName(item->name, addr) ||
+            !addr.is_v4()) {
+            // TODO: Support link-local services on IPv6 links.
             break;
         }
         if (global_vrouter->FindLinkLocalService(
-                boost::asio::ip::address_v4(addr), &service_names)) {
+                addr.to_v4(), &service_names)) {
             for (std::set<std::string>::iterator it = service_names.begin();
                  it != service_names.end(); ++it) {
                 item->data = *it;
@@ -766,9 +768,10 @@ bool DnsHandler::HandleModifyVdns() {
         goto done;
     for (unsigned int i = 0; i < change_list.size(); i++) {
         change_list[i]->xmpp_data->virtual_dns = ipc->new_vdns;
-        if (change_list[i]->xmpp_data->zone.find(".in-addr.arpa") ==
-                                                 std::string::npos)
-            change_list[i]->xmpp_data->zone = ipc->new_domain;
+	std::string &zone = change_list[i]->xmpp_data->zone;
+        if (zone.find(".in-addr.arpa") == std::string::npos &&
+            zone.find(".ip6.arpa") == std::string::npos)
+            zone = ipc->new_domain;
         for (DnsItems::iterator item = change_list[i]->xmpp_data->items.begin();
              item != change_list[i]->xmpp_data->items.end(); ++item) {
             (*item).eclass = DNS_CLASS_IN;

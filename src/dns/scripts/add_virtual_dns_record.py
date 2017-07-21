@@ -38,8 +38,10 @@ class AddVirtualDnsRecord(object):
                return
         elif self._args.rec_type == 'PTR':
             vstr = self._args.rec_data
-            if not rec_name.endswith('.in-addr.arpa'): 
-                if not DnsProvisioner.is_valid_ipv4_address(rec_name):
+            if (not rec_name.endswith('.in-addr.arpa') and
+                    not rec_name.endswith('.ip6.arpa')):
+                if (not DnsProvisioner.is_valid_ipv4_address(rec_name) and
+                        not DnsProvisioner.is_valid_ipv6_address(rec_name)):
                     print 'Invalid PTR record name ', self._args.rec_name
                     return
         elif self._args.rec_type == 'NS' or self._args.rec_type == 'MX' or self._args.rec_type == 'CNAME':
