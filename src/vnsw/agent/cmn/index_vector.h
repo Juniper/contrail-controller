@@ -82,6 +82,10 @@ public:
         entries_[index] = EntryType();
     }
 
+    bool NoneIndexSet() {
+        return (bitmap_.count() == bitmap_.size());
+    }
+
 private:
     typedef boost::dynamic_bitset<> Bitmap;
     Bitmap bitmap_;
