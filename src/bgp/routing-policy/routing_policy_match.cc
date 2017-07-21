@@ -17,60 +17,161 @@
 #include "bgp/bgp_path.h"
 #include "net/community_type.h"
 
-using std::ostringstream;
-using std::string;
+using boost::regex;
+using boost::regex_match;
+using std::includes;
 using std::make_pair;
-using std::vector;
 using std::map;
+using std::ostringstream;
+using std::sort;
+using std::string;
+using std::unique;
+using std::vector;
 
-MatchCommunity::MatchCommunity(const vector<string> &communities) {
+MatchCommunity::MatchCommunity(const vector<string> &communities,
+    bool singleton, bool match_all)
+        : singleton_(singleton),
+          match_all_(match_all) {
+    // Assume that the each community string that doesn't correspond to a
+    // community name or value is a regex string.
     BOOST_FOREACH(const string &community, communities) {
         uint32_t value = CommunityType::CommunityFromString(community);
-        // Invalid community from config is ignored
         if (value) {
-            to_match_.push_back(value);
+            to_match_.insert(value);
+        } else {
+            to_match_regex_strings_.push_back(community);
         }
     }
 
-    std::sort(to_match_.begin(), to_match_.end());
-    vector<uint32_t>::iterator it =
-        std::unique(to_match_.begin(), to_match_.end());
-    to_match_.erase(it, to_match_.end());
+    // Sort and uniquify the vector of regex strings.
+    sort(to_match_regex_strings_.begin(), to_match_regex_strings_.end());
+    vector<string>::iterator it =
+        unique(to_match_regex_strings_.begin(), to_match_regex_strings_.end());
+    to_match_regex_strings_.erase(it, to_match_regex_strings_.end());
+
+    // Build a vector of regexs corresponding to the regex strings.
+    BOOST_FOREACH(string regex_str, regex_strings()) {
+        to_match_regexs_.push_back(regex(regex_str));
+    }
 }
 
 MatchCommunity::~MatchCommunity() {
 }
 
-bool MatchCommunity::Match(const BgpRoute *route, const BgpPath *path,
-                           const BgpAttr *attr) const {
+//
+// Return true if all community strings (normal or regex) are matched by the
+// community values in the BgpAttr.
+//
+bool MatchCommunity::MatchAll(const BgpAttr *attr) const {
+    // Bail if there's no community values in the BgpAttr.
     const Community *comm = attr->community();
-    if (comm) {
-        vector<uint32_t> list = comm->communities();
-        if (list.size() < to_match_.size()) return false;
-        std::sort(list.begin(), list.end());
-        if (std::includes(list.begin(), list.end(),
-                         to_match_.begin(), to_match_.end())) return true;
+    if (!comm)
+        return false;
+
+    // Make sure that all non-regex communities in this MatchCommunity are
+    // present in the BgpAttr.
+    vector<uint32_t> list = comm->communities();
+    sort(list.begin(), list.end());
+    if (!includes(list.begin(), list.end(),
+        communities().begin(), communities().end())) {
+        return false;
+    }
+
+    // Make sure that each regex in this MatchCommunity is matched by one
+    // of the communities in the BgpAttr.
+    BOOST_FOREACH(const regex &match_expr, regexs()) {
+        bool matched = false;
+        BOOST_FOREACH(uint32_t community, comm->communities()) {
+            string community_str = CommunityType::CommunityToString(community);
+            if (regex_match(community_str, match_expr)) {
+                matched = true;
+                break;
+            }
+        }
+        if (!matched)
+            return false;
+    }
+
+    return true;
+}
+
+//
+// Return true if any community strings (normal or regex) is matched by the
+// community values in the BgpAttr.
+//
+bool MatchCommunity::MatchAny(const BgpAttr *attr) const {
+    // Bail if there's no community values in the BgpAttr.
+    const Community *comm = attr->community();
+    if (!comm)
+        return false;
+
+    // Check if any of the community values in the BgpAttr matches one of
+    // the normal community strings.
+    BOOST_FOREACH(uint32_t community, comm->communities()) {
+        if (communities().find(community) != communities().end())
+            return true;
+    }
+
+    // Check if any of the community values in the BgpAttr matches one of
+    // the community regexs.
+    BOOST_FOREACH(uint32_t community, comm->communities()) {
+        string community_str = CommunityType::CommunityToString(community);
+        BOOST_FOREACH(const regex &match_expr, regexs()) {
+            if (regex_match(community_str, match_expr))
+                return true;
+        }
     }
 
     return false;
 }
 
+//
+// Return true if the BgpPath matches this MatchCommunity.
+//
+bool MatchCommunity::Match(const BgpRoute *route, const BgpPath *path,
+                           const BgpAttr *attr) const {
+    return (match_all_ ? MatchAll(attr) : MatchAny(attr));
+}
+
+//
+// Return string representation of this MatchCommunity.
+//
 string MatchCommunity::ToString() const {
     ostringstream oss;
-    oss << "community [ ";
+    if (singleton_) {
+        oss << "community [ ";
+    } else if (match_all_) {
+        oss << "community-all [ ";
+    } else {
+        oss << "community-any [ ";
+    }
     BOOST_FOREACH(uint32_t community, communities()) {
         string name = CommunityType::CommunityToString(community);
         oss << name << ",";
+    }
+    BOOST_FOREACH(string regex_str, regex_strings()) {
+        oss << regex_str << ",";
     }
     oss.seekp(-1, oss.cur);
     oss << " ]";
     return oss.str();
 }
 
+//
+// Return true if this MatchCommunity is equal to the one supplied.
+//
 bool MatchCommunity::IsEqual(const RoutingPolicyMatch &community) const {
-    const MatchCommunity in_comm =
-        static_cast<const MatchCommunity&>(community);
-    return (communities() == in_comm.communities());
+    const MatchCommunity in_community =
+        static_cast<const MatchCommunity &>(community);
+    if (singleton() != in_community.singleton())
+        return false;
+    if (match_all() != in_community.match_all())
+        return false;
+    if (communities() != in_community.communities())
+        return false;
+    if (regex_strings() != in_community.regex_strings())
+        return false;
+    return true;
 }
 
 template <typename T>
@@ -118,7 +219,6 @@ bool MatchPrefix<T>::IsEqual(const RoutingPolicyMatch &prefix) const {
     const MatchPrefix in_prefix =
         static_cast<const MatchPrefix&>(prefix);
     return (in_prefix.match_list_ == match_list_);
-    //std::equal(in_prefix.match_list_.begin(), in_prefix.match_list_.end(), match_list_.begin());
 }
 
 template <typename T>
