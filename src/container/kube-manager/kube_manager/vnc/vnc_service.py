@@ -259,9 +259,8 @@ class VncService(VncCommon):
 
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
-            self.logger.warning("public_fip_pool [%s, %s] doesn't exists" %
-                                 (self._args.public_network,
-                                 self._args.public_fip_pool))
+            self.logger.warning("public_fip_pool %s doesn't exists" %
+                                 self._args.public_fip_pool)
             return None
 
         def _allocate_floating_ip(lb, vmi, fip_pool, external_ip=None):
@@ -370,15 +369,15 @@ class VncService(VncCommon):
 
         if service_type in ["ClusterIP"]:
             if allocated_fips and len(allocated_fips) > 0:
-                if len(external_ips) is 0:
+                if (not external_ips) or (len(external_ips) is 0):
                     self._deallocate_floating_ips(service_id)
                 else:
-                    if external_ips != allocated_fips:
+                    if allocated_fips != external_ips:
                         self._deallocate_floating_ips(service_id)
                         self._allocate_floating_ips(service_id, external_ips)
 
             else:  #allocated_fip is None 
-                if len(external_ips) > 0:
+                if external_ips and len(external_ips) > 0:
                     self._allocate_floating_ips(service_id, external_ips)
                 else:
                     self._allocate_floating_ips(service_id)
