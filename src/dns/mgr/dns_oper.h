@@ -160,7 +160,7 @@ struct VirtualDnsConfig : public DnsConfig {
     autogen::VirtualDnsType GetVDns() const { return rec_; }
 
     bool GetObject(IFMapNode *node, autogen::VirtualDnsType &data);
-    bool GetSubnet(uint32_t addr, Subnet &subnet) const;
+    bool GetSubnet(const IpAddress &addr, Subnet &subnet) const;
     void NotifyPendingDnsRecords();
     bool HasChanged();
 

@@ -14,6 +14,9 @@
 #include "bind/bind_types.h"
 #include "bind/xmpp_dns_agent.h"
 
+#include "net/address.h"
+#include "net/address_util.h"
+
 extern SandeshTraceBufferPtr DnsBindTraceBuf;
 #define DNS_BIND_TRACE(obj, arg)                                              \
 do {                                                                          \
@@ -242,8 +245,10 @@ struct DnsUpdateData {
     }
 };
 
+typedef std::vector<std::string> ZoneList;
+
 struct Subnet {
-    boost::asio::ip::address_v4 prefix;
+    IpAddress prefix;
     uint32_t plen;
     uint8_t flags;
 
@@ -253,26 +258,21 @@ struct Subnet {
 
     Subnet() : plen(0), flags(0) {}
     Subnet(std::string addr, uint32_t len) : plen(len), flags(0) {
-        boost::system::error_code ec;
-        prefix = boost::asio::ip::address_v4::from_string(addr, ec);
+        prefix = boost::asio::ip::address::from_string(addr);
     }
 
-    bool operator< (const Subnet &rhs) const {
-        if (prefix != rhs.prefix) {
-            return (prefix < rhs.prefix);
-        }
-        return plen < rhs.plen;
-    }
+    bool operator< (const Subnet &rhs) const;
 
     void MarkDelete() { flags |= DeleteMarked; }
     bool IsDeleted() const { return (flags & DeleteMarked); }
     void ClearDelete() { flags &= ~DeleteMarked; }
 
-    std::string ToString() const { return prefix.to_string(); }
+    void GetReverseZones(ZoneList &zones) const;
+
+    bool Contains(const IpAddress &addr) const;
 };
 
 typedef std::vector<Subnet> Subnets;
-typedef std::vector<std::string> ZoneList;
 
 class BindUtil {
 public:
@@ -318,10 +318,21 @@ public:
                                       uint16_t size) {
         return (offset ? (plen ? plen + 2 + 1 : 2) : (size ? size + 2 : 1));
     }
-    static bool IsIPv4(std::string name, uint32_t &addr);
-    static void GetReverseZones(const Subnet &subnet, ZoneList &zones);
-    static void GetReverseZone(uint32_t addr, uint32_t plen, std::string &zone);
-    static bool GetAddrFromPtrName(std::string &ptr_name, uint32_t &mask);
+    static bool IsIP(const std::string &name, IpAddress &addr);
+    static bool IsReverseZone(const std::string &name);
+    static void GetReverseZoneList(const IpAddress &mask, uint32_t plen,
+                                   ZoneList &zones);
+    // DnsProto::SendUpdateDnsEntry() needs the following two methods...
+    static void GetReverseZone(const Ip4Address &addr, uint32_t plen,
+                               std::string &zone);
+    static void GetReverseZone(const Ip6Address &addr, uint32_t plen,
+                               std::string &zone);
+    static void GetReverseZone(const IpAddress &addr, uint32_t plen,
+                               std::string &zone);
+    static bool GetAddrFromPtrName(std::string &ptr_name, IpAddress &mask);
+    // ...and these two as well.
+    static std::string GetPtrNameFromAddr(const Ip4Address &ip);
+    static std::string GetPtrNameFromAddr(const Ip6Address &ip6);
     static std::string GetFQDN(const std::string &name, const std::string &domain,
                                const std::string &match);
     static bool HasSpecialChars(const std::string &name);
@@ -395,6 +406,20 @@ private:
                                   DnsItem &item);
     static bool ReadAnswerEntry(uint8_t *dns, uint16_t dnslen, int *remlen,
                                 DnsItem &item);
+    static bool IsReverseZoneV4(const std::string &name);
+    static bool IsReverseZoneV6(const std::string &name);
+    static void GetReverseZoneList(const Ip4Address &mask, uint32_t plen,
+                                   ZoneList &zones);
+    static void GetReverseZoneList(const Ip6Address &mask, uint32_t plen,
+                                   ZoneList &zones);
+    static bool GetAddrFromPtrName(std::string &ptr_name,
+                                   Ip4Address &ip);
+    static bool GetAddrFromPtrName(std::string &ptr_name,
+                                   Ip6Address &ip);
+    static uint8_t GetNibble(const Ip6Address::bytes_type &addr,
+                             size_t bit);
+    static std::string BuildIp6ArpaSuffix(const Ip6Address::bytes_type &addr,
+                                          uint32_t plen);
 };
 
 // Identify the offsets for names in a DNS message
