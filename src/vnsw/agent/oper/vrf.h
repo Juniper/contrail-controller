@@ -175,7 +175,6 @@ public:
         allow_route_add_on_deleted_vrf_ = val;
     }
     InetUnicastAgentRouteTable *GetInetUnicastRouteTable(const IpAddress &addr) const;
-    int RDInstanceId() const;
     void ReleaseWalker();
 
     uint32_t isid() const {
@@ -201,11 +200,14 @@ public:
     VrfEntry* forwarding_vrf() const {
         return forwarding_vrf_.get();
     }
+    int rd() const {return rd_;}
+    void set_rd(int rd) {rd_ = rd;}
 
 private:
     friend class VrfTable;
     void CreateRouteTables();
     void SetNotify();
+    int RDInstanceId(bool tor_agent_enabled) const;
 
     class DeleteActor;
     string name_;
@@ -230,6 +232,7 @@ private:
     bool layer2_control_word_;
     bool l2_;
     VrfEntryRef forwarding_vrf_;
+    int rd_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
 
