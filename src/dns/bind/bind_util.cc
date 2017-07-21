@@ -2,7 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/algorithm/string/join.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/regex.hpp>
 #include <bind/bind_util.h>
 
 using namespace boost::assign;
@@ -61,6 +63,50 @@ DnsResponseMap g_dns_response_map = map_list_of<uint16_t, std::string>
 std::string DnsItem::ToString() const {
     return BindUtil::DnsClass(eclass) + "/" +
            BindUtil::DnsType(type) + "/" + name + "/" + data + ";";
+}
+
+bool Subnet::operator< (const Subnet &rhs) const {
+    if (prefix.is_v4()) {
+        if (rhs.prefix.is_v4()) {
+            Ip4Address me = prefix.to_v4(),
+                       they = rhs.prefix.to_v4();
+            if (me != they) {
+                return me < they;
+            }
+            return plen < rhs.plen;
+        } else {
+            // IPv4 goes before IPv6 and garbage
+            return true;
+        }
+    } else if (prefix.is_v6()) {
+        if (rhs.prefix.is_v6()) {
+            Ip6Address me = prefix.to_v6(),
+                       they = rhs.prefix.to_v6();
+            if (me != they)
+                return me < they;
+            return plen < rhs.plen;
+        } else {
+            // IPv4 goes before IPv6, IPv6 goes before garbage
+            return !rhs.prefix.is_v4();
+        }
+    } else {
+        // Garbage always sorts towards the end
+        return false;
+    }
+}
+
+bool Subnet::Contains(const IpAddress &addr) const {
+    if (prefix.is_v4() && addr.is_v4()) {
+        return IsIp4SubnetMember(addr.to_v4(), prefix.to_v4(), plen);
+    } else if (prefix.is_v6() && addr.is_v6()) {
+        return IsIp6SubnetMember(addr.to_v6(), prefix.to_v6(), plen);
+    } else {
+        return false;
+    }
+}
+
+void Subnet::GetReverseZones(ZoneList &zones) const {
+    BindUtil::GetReverseZoneList(prefix, plen, zones);
 }
 
 uint16_t BindUtil::DnsClass(const std::string &cl) {
@@ -649,22 +695,61 @@ int BindUtil::BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid,
     return len;
 }
 
-bool BindUtil::IsIPv4(std::string name, uint32_t &addr) {
+bool BindUtil::IsReverseZoneV4(const std::string &name) {
+    // According to the docs, boost::regex is thread-safe. Compile once then.
+    static boost::regex in_addr_arpa("(?:[0-9]+\\.){1,4}in-addr\\.arpa\\.?",
+                                     boost::regex::perl | boost::regex::icase);
+    return boost::regex_match(name, in_addr_arpa);
+}
+
+bool BindUtil::IsReverseZoneV6(const std::string &name) {
+    static boost::regex ip6_arpa("(?:[0-9a-f]\\.){1,32}ip6\\.arpa\\.?",
+                                 boost::regex::perl | boost::regex::icase);
+    return boost::regex_match(name, ip6_arpa);
+}
+
+bool BindUtil::IsReverseZone(const std::string &name) {
+    return BindUtil::IsReverseZoneV4(name) || BindUtil::IsReverseZoneV6(name);
+}
+
+bool BindUtil::IsIP(const std::string &name, IpAddress &addr) {
     boost::system::error_code ec;
-    boost::asio::ip::address_v4 address(boost::asio::ip::address_v4::
-                                        from_string(name, ec));
-    if (!ec.value()) {
-        addr = address.to_ulong();
-        return true;
+    addr = boost::asio::ip::address::from_string(name, ec);
+    return !ec.value();
+}
+
+inline uint8_t BindUtil::GetNibble(const Ip6Address::bytes_type &addr, size_t bit)
+{
+    assert((bit >> 3) < 16);
+    uint8_t buf = addr[bit >> 3];
+    return ((bit & 0x7) ? (buf & 0xF) : (buf >> 4));
+}
+
+// Takes nibbles up to (but not necessarily including) plen and builds
+// ip6.arpa zone name suffix for them. The caller is responsible for
+// prefixing it with remaining plen bits when plen is not a multiply of 4.
+std::string BindUtil::BuildIp6ArpaSuffix(const Ip6Address::bytes_type &addr,
+                                         uint32_t plen) {
+    std::vector<std::string> items;
+    uint8_t buf;
+
+    for (size_t i = 0; i < (plen >> 2); i++) {
+        buf = GetNibble(addr, i << 2);
+        std::stringstream str;
+        str << std::hex << static_cast<unsigned int>(buf);
+        items.push_back(str.str());
     }
-    return false;
+
+    std::reverse(items.begin(), items.end());
+    items.push_back("ip6.arpa");
+    return boost::algorithm::join(items, ".");
 }
 
 // Get list of reverse zones, given a subnet
-void BindUtil::GetReverseZones(const Subnet &subnet, ZoneList &zones) {
+void BindUtil::GetReverseZoneList(const Ip4Address &mask, uint32_t plen,
+                                  ZoneList &zones) {
+    uint32_t addr = mask.to_ulong();
     std::string zone_name = "in-addr.arpa.";
-    uint32_t plen = subnet.plen;
-    uint32_t addr = subnet.prefix.to_ulong();
     while (plen >= 8) {
         std::stringstream str;
         str << (addr >> 24);
@@ -689,7 +774,44 @@ void BindUtil::GetReverseZones(const Subnet &subnet, ZoneList &zones) {
     }
 }
 
-void BindUtil::GetReverseZone(uint32_t addr, uint32_t plen, std::string &zone) {
+void BindUtil::GetReverseZoneList(const Ip6Address &mask, uint32_t plen,
+                                  ZoneList &zones) {
+    Ip6Address::bytes_type addr = mask.to_bytes();
+    std::string zone_name;
+    uint8_t buf;
+
+    if (!plen || plen > 128)
+        return;
+
+    zone_name = BindUtil::BuildIp6ArpaSuffix(addr, plen) + ".";
+
+    uint32_t bits_rem = plen & 0x3;
+    // Prefix doesn't end on nibble boundary
+    if (bits_rem) {
+        buf = BindUtil::GetNibble(addr, plen - bits_rem);
+        for (int j = 0; j <= (0xF >> bits_rem); j++) {
+            std::stringstream str;
+            str << std::hex << static_cast<unsigned int>(buf + j)
+                << "." << zone_name;
+            zones.push_back(str.str());
+        }
+    } else {
+        zones.push_back(zone_name);
+    }
+}
+
+void BindUtil::GetReverseZoneList(const IpAddress &mask, uint32_t plen,
+                        ZoneList &zones) {
+    if (mask.is_v4()) {
+        GetReverseZoneList(mask.to_v4(), plen, zones);
+    } else if (mask.is_v6()) {
+        GetReverseZoneList(mask.to_v6(), plen, zones);
+    }
+}
+
+void BindUtil::GetReverseZone(const Ip4Address &ip, uint32_t plen,
+                              std::string &zone) {
+    uint32_t addr = ip.to_ulong();
     zone = "in-addr.arpa";
     while (plen >= 8) {
         std::stringstream str;
@@ -707,16 +829,42 @@ void BindUtil::GetReverseZone(uint32_t addr, uint32_t plen, std::string &zone) {
     zone = str.str() + "." + zone;
 }
 
-bool BindUtil::GetAddrFromPtrName(std::string &ptr_name, uint32_t &mask) {
-    std::string name = boost::to_lower_copy(ptr_name);
-    std::size_t pos = name.find(".in-addr.arpa");
-    if (pos == std::string::npos)
-        return false;
+void BindUtil::GetReverseZone(const Ip6Address &ip, uint32_t plen,
+                              std::string &zone) {
+    Ip6Address::bytes_type addr = ip.to_bytes();
+    uint8_t buf;
 
-    mask = 0;
+    if (!plen || plen > 128)
+        return;
+
+    zone = BindUtil::BuildIp6ArpaSuffix(addr, plen);
+
+    uint32_t bits_rem = plen & 0x3;
+    // Add the trailing nibble
+    if (bits_rem) {
+        buf = BindUtil::GetNibble(addr, plen - bits_rem);
+        std::stringstream str;
+        str << std::hex << static_cast<unsigned int>(buf) << "." << zone;
+        zone = str.str();
+    }
+}
+
+void BindUtil::GetReverseZone(const IpAddress &addr, uint32_t plen,
+                              std::string &zone) {
+    if (addr.is_v4()) {
+        GetReverseZone(addr.to_v4(), plen, zone);
+    } else if (addr.is_v6()) {
+        GetReverseZone(addr.to_v6(), plen, zone);
+    }
+}
+
+bool BindUtil::GetAddrFromPtrName(std::string &ptr_name, Ip4Address &ip) {
+    uint32_t addr = 0;
     uint8_t dot;
     uint32_t num;
-    std::stringstream str(name);
+    if (!BindUtil::IsReverseZoneV4(ptr_name))
+        return false;
+    std::stringstream str(ptr_name);
     if (str.peek() == '.')
         str >> dot;
     int count = 0;
@@ -725,12 +873,119 @@ bool BindUtil::GetAddrFromPtrName(std::string &ptr_name, uint32_t &mask) {
             break;
         str >> num;
         str >> dot;
-        mask |= (num << (8 * count));
+        addr |= (num << (8 * count));
         count++;
     }
     while (count++ < 4)
-        mask = mask << 8;
+        addr = addr << 8;
+    ip = Ip4Address(addr);
     return true;
+}
+
+bool BindUtil::GetAddrFromPtrName(std::string &ptr_name, Ip6Address &ip) {
+    Ip6Address::bytes_type addr;
+    BOOST_ASSERT(addr.size() == 16);
+
+    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+    typedef boost::array<uint8_t, 32> nibbles;
+
+    if (!BindUtil::IsReverseZoneV6(ptr_name))
+        return false;
+
+    tokenizer tok(ptr_name, boost::char_separator<char>("."));
+    nibbles nib;
+
+    tokenizer::const_iterator tok_it = tok.begin();
+    nibbles::iterator nib_it = nib.begin();
+    for (; tok_it != tok.end() && nib_it != nib.end(); ++tok_it, ++nib_it) {
+        std::stringstream str(*tok_it);
+        unsigned int buf;
+
+        // found ip6.arpa
+        if (!(str >> std::hex >> buf))
+            break;
+
+        *nib_it = static_cast<uint8_t>(buf);
+    }
+
+    std::fill(addr.begin(), addr.end(), 0);
+
+    std::reverse_iterator<nibbles::const_iterator> r_nib_it(nib_it);
+    Ip6Address::bytes_type::iterator addr_it = addr.begin();
+
+    // the most significant nibble is #0 thus always even
+    bool odd_nib = false;
+    // we should never get past addr.end() as nib.size() is 2 * 16
+    for (; r_nib_it != nib.rend(); ++r_nib_it) {
+        if (odd_nib) {
+            *addr_it |= (*r_nib_it & 0xF);
+            ++addr_it;
+        } else {
+            *addr_it |= (*r_nib_it << 4);
+        }
+        odd_nib = !odd_nib;
+    }
+
+    ip = Ip6Address(addr);
+    return true;
+}
+
+bool BindUtil::GetAddrFromPtrName(std::string &ptr_name,
+                                  IpAddress &ip) {
+    std::string name = boost::to_lower_copy(ptr_name);
+    std::size_t pos;
+
+    pos = name.find(".in-addr.arpa");
+    if (pos != std::string::npos) {
+        Ip4Address out;
+        bool success = BindUtil::GetAddrFromPtrName(ptr_name, out);
+        if (success)
+            ip = out;
+        return success;
+    }
+
+    pos = name.find(".ip6.arpa");
+    if (pos != std::string::npos) {
+        Ip6Address out;
+        bool success = BindUtil::GetAddrFromPtrName(ptr_name, out);
+        if (success)
+            ip = out;
+        return success;
+    }
+
+    return false;
+}
+
+std::string BindUtil::GetPtrNameFromAddr(const Ip4Address &ip) {
+    std::stringstream str;
+    for (int i = 0; i < 4; i++) {
+        str << ((ip.to_ulong() >> (i * 8)) & 0xFF) << ".";
+    }
+    str << "in-addr.arpa";
+    return str.str();
+}
+
+std::string BindUtil::GetPtrNameFromAddr(const Ip6Address &ip6) {
+    std::stringstream str;
+    // we start with nibble #31 which is always odd
+    bool odd_nibble = true;
+
+    Ip6Address::bytes_type addr = ip6.to_bytes();
+    Ip6Address::bytes_type::reverse_iterator it = addr.rbegin();
+    while (it != addr.rend()) {
+        unsigned int buf;
+        if (odd_nibble) {
+            buf = (*it & 0xF);
+        } else {
+            buf = (*it >> 4);
+            ++it;
+        }
+        str << std::hex << buf << '.';
+        odd_nibble = !odd_nibble;
+    }
+    str << "ip6.arpa";
+
+    return str.str();
 }
 
 std::string BindUtil::GetFQDN(const std::string &name, const std::string &domain,

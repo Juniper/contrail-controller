@@ -291,9 +291,9 @@ bool DnsManager::SendRecordUpdate(BindUtil::Operation op,
                            " not added - reverse resolution is not enabled");
             return false;
         }
-        uint32_t addr;
-        if (BindUtil::IsIPv4(item.name, addr)) {
-            BindUtil::GetReverseZone(addr, 32, item.name);
+        IpAddress addr;
+        if (BindUtil::IsIP(item.name, addr)) {
+            BindUtil::GetReverseZone(addr, addr.is_v4() ? 32 : 128, item.name);
         } else {
             if (!BindUtil::GetAddrFromPtrName(item.name, addr)) {
                 DNS_BIND_TRACE(DnsBindError, "Virtual DNS Record <" <<
@@ -320,9 +320,39 @@ bool DnsManager::SendRecordUpdate(BindUtil::Operation op,
             !CheckName(config->GetName(), item.name)) {
             return false;
         }
-        zone = config->GetVDns().domain_name;
-        item.name = BindUtil::GetFQDN(item.name,
-                                      vdns.domain_name, vdns.domain_name);
+        if (BindUtil::IsReverseZone(item.name)) {
+            if (item.type != DNS_NS_RECORD) {
+                DNS_BIND_TRACE(DnsBindError, "Virtual DNS Record <" <<
+                               config->GetName() <<
+                               "> only PTR and NS records allowed in reverse zone; ignoring");
+                return false;
+            }
+            if (!vdns.reverse_resolution) {
+                DNS_BIND_TRACE(DnsBindTrace, "Virtual DNS Record <" <<
+                               config->GetName() << "> NS name " << item.name <<
+                               " not added - reverse resolution is not enabled");
+                return false;
+            }
+            IpAddress addr;
+            if (!BindUtil::GetAddrFromPtrName(item.name, addr)) {
+                DNS_BIND_TRACE(DnsBindError, "Virtual DNS Record <" <<
+                               config->GetName() << "> invalid reverse name " <<
+                               item.name << "; ignoring");
+                return false;
+            }
+            Subnet net;
+            if (!config->GetVirtualDns()->GetSubnet(addr, net)) {
+                DNS_BIND_TRACE(DnsBindError, "Virtual DNS Record <" <<
+                               config->GetName() <<
+                               "> doesnt belong to a known subnet; ignoring");
+                return false;
+            }
+            BindUtil::GetReverseZone(addr, net.plen, zone);
+        } else {
+            zone = config->GetVDns().domain_name;
+            item.name = BindUtil::GetFQDN(item.name,
+                                          vdns.domain_name, vdns.domain_name);
+        }
         if (item.type == DNS_CNAME_RECORD || item.type == DNS_MX_RECORD)
             item.data = BindUtil::GetFQDN(item.data, vdns.domain_name, ".");
         // In case of NS record, ensure that there are no special characters in data.
@@ -560,7 +590,7 @@ bool DnsManager::CheckZoneDelete(ZoneList &zones, PendingList &pend) {
 void DnsManager::PendingListZoneDelete(const Subnet &subnet,
                                        const VirtualDnsConfig *config) {
     ZoneList zones;
-    BindUtil::GetReverseZones(subnet, zones);
+    subnet.GetReverseZones(zones);
 
     for (PendingListMap::iterator it = pending_map_.begin();
          it != pending_map_.end(); ) {
@@ -828,11 +858,12 @@ void DnsManager::VdnsServersMsgHandler(const std::string &key,
             for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
                 vnni_it != vnni.end(); ++vnni_it) {
                 Subnets &subnets = (*vnni_it)->GetSubnets();
-                for (unsigned int i = 0; i < subnets.size(); i++) {
+                Subnets::const_iterator it = subnets.begin();
+                for (; it != subnets.end(); ++it) {
                     std::stringstream str;
-                    str << subnets[i].prefix.to_string();
+                    str << (*it).prefix.to_string();
                     str << "/";
-                    str << subnets[i].plen;
+                    str << (*it).plen;
                     net_list_sandesh.push_back(str.str());
                 }
             }
@@ -913,11 +944,12 @@ void DnsManager::DnsConfigMsgHandler(const std::string &key,
             for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
                  vnni_it != vnni.end(); ++vnni_it) {
                 Subnets &subnets = (*vnni_it)->GetSubnets();
-                for (unsigned int i = 0; i < subnets.size(); i++) {
+                Subnets::const_iterator it = subnets.begin();
+                for (; it != subnets.end(); ++it); i++) {
                     std::stringstream str;
-                    str << subnets[i].prefix.to_string();
+                    str << (*it).prefix.to_string();
                     str << "/";
-                    str << subnets[i].plen;
+                    str << (*it).plen;
                     net_list_sandesh.push_back(str.str());
                 }
             }
