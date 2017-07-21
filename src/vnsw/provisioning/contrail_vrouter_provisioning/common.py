@@ -737,7 +737,10 @@ SUBCHANNELS=1,2,3
         if self.pdist not in ['Ubuntu']:
             for svc in ['supervisor-vrouter']:
                 local('sudo chkconfig %s on' % svc)
-        if self.running_in_container:
+                local('sudo service supervisor-vrouter start')
+        # contrail-vrouter-nodemgr isnt recognized as a service in centos/redhat
+        # LP #1705658 and hence skipping for centos/redhat
+        if self.running_in_container and self.pdist not in ['centos', 'redhat']:
             for svc in ['contrail-vrouter-agent', 'contrail-vrouter-nodemgr']:
                 local('sudo service %s restart' % svc)
 
