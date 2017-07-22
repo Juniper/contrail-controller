@@ -199,6 +199,11 @@ struct OvsdbLogicalSwitchEntry {
     7: string tor_service_node;
     8: bool delete_in_progress;
     9: optional string message;
+   10: optional i64 mcast_local_size;
+   11: optional i64 ucast_local_size;
+   12: optional bool mcast_remote_set;
+   13: optional i64 old_mcast_remote_size;
+   14: optional bool local_mac_ref_set;
 }
 
 /**
