@@ -705,7 +705,7 @@ SUBCHANNELS=1,2,3
                 local("sudo sync", warn_only=True)
                 # make ifcfg-$dev
                 ifcfg = "/etc/sysconfig/network-scripts/ifcfg-%s" % self.dev
-                ifcfg_bkp = "/etc/sysconfig/network-scripts/ifcfg-%s.rpmsave"\
+                ifcfg_bkp = "/etc/sysconfig/network-scripts/orig.ifcfg-%s.rpmsave"\
                             % self.dev
                 if not os.path.isfile(ifcfg_bkp):
                     local("sudo cp %s %s" % (ifcfg, ifcfg_bkp), warn_only=True)
