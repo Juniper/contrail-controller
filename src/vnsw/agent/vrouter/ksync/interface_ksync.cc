@@ -149,6 +149,15 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         }
         vmi_device_type_ = vmitf->device_type();
         vmi_type_ = vmitf->vmi_type();
+        if (vmi_type_ == VmInterface::VHOST) {
+            InterfaceKSyncEntry tmp(ksync_obj_, vmitf->parent());
+            xconnect_ = ksync_obj_->GetReference(&tmp);
+            parent_ = NULL;
+            InterfaceKSyncEntry *xconnect = static_cast<InterfaceKSyncEntry *>
+                (xconnect_.get());
+            encap_type_ = xconnect->encap_type();
+            no_arp_ = xconnect->no_arp();
+        }
     } else if (type_ == Interface::INET) {
         const InetInterface *inet_intf =
         static_cast<const InetInterface *>(intf);
@@ -657,6 +666,19 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             mac = ksync_obj_->ksync()->agent()->vrrp_mac();
             encoder.set_vifr_type(VIF_TYPE_VIRTUAL);
         }
+
+        if (vmi_type_ == VmInterface::VHOST) {
+            encoder.set_vifr_type(VIF_TYPE_HOST);
+            if (xconnect_.get()) {
+                InterfaceKSyncEntry *xconnect =
+                    static_cast<InterfaceKSyncEntry *>(xconnect_.get());
+                encoder.set_vifr_cross_connect_idx(xconnect->os_index_);
+                mac = xconnect->mac();
+            } else {
+                encoder.set_vifr_cross_connect_idx(Interface::kInvalidIndex);
+            }
+        }
+
         std::vector<int8_t> intf_mac((int8_t *)mac,
                                      (int8_t *)mac + mac.size());
         encoder.set_vifr_mac(intf_mac);

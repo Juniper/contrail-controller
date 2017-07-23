@@ -10,7 +10,7 @@
 #include <base/test/task_test_util.h>
 
 VmInterface *vnet[16];
-InetInterface *vhost;
+Interface *vhost;
 char vhost_addr[32];
 char vnet_addr[16][32];
 

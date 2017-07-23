@@ -396,9 +396,12 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
     if (is_add) {
         if (vn_entry->layer3_forwarding()) {
             state->Add(key.linklocal_service_ip);
+            VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                                   agent->vhost_interface_name());
+
             rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
-                                        agent->vhost_interface_name(),
+                                        vmi_key,
                                         key.linklocal_service_ip, 32,
                                         vn_entry->GetName(),
                                         true);
@@ -455,11 +458,13 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
         const GlobalVrouter::LinkLocalServicesMap &services =
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
-             services.begin(); it != services.end(); ++it) {
+                services.begin(); it != services.end(); ++it) {
+            VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                               agent->vhost_interface_name());
             state->Add(it->first.linklocal_service_ip);
             rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
-                                        agent->vhost_interface_name(),
+                                        key,
                                         it->first.linklocal_service_ip, 32,
                                         vn_entry->GetName(),
                                         true);

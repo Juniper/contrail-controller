@@ -93,6 +93,7 @@ void AgentInit::InitPlatform() {
 // Trigger init in DBTable task context
 int AgentInit::Start() {
     agent_->set_task_scheduler(TaskScheduler::GetInstance());
+    agent_->set_agent_init(this);
 
     // Init platform specific information
     InitPlatform();
@@ -140,6 +141,12 @@ bool AgentInit::InitBase() {
     InitLoggingBase();
     CreatePeersBase();
     CreateModulesBase();
+    CreateResourceManager();
+    return true;
+}
+
+void AgentInit::SetResourceManagerReady() {
+    agent_->SetResourceManagerReady();
     CreateDBTablesBase();
     RegisterDBClientsBase();
     InitModulesBase();
@@ -149,10 +156,9 @@ bool AgentInit::InitBase() {
     CreateInterfacesBase();
     InitDoneBase();
 
-    bool ret = Init();
+    Init();
     agent_->set_init_done(true);
     ConnectToControllerBase();
-    return ret;
 }
 
 void AgentInit::InitLoggingBase() {
@@ -198,10 +204,12 @@ void AgentInit::CreateModulesBase() {
     stats_.reset(new AgentStats(agent()));
     agent()->set_stats(stats_.get());
 
-    resource_manager_.reset(new ResourceManager(agent()));
-    agent()->set_resource_manager(resource_manager_.get());
-
     CreateModules();
+}
+
+void AgentInit::CreateResourceManager() {
+    resource_manager_.reset(new ResourceManager(agent()));
+    resource_manager_->Init();
 }
 
 void AgentInit::CreateDBTablesBase() {
@@ -237,10 +245,6 @@ void AgentInit::InitModulesBase() {
         oper_->Init();
     }
 
-    if (resource_manager_.get()) {
-        resource_manager_->Init();
-    }
-
     InitModules();
 }
 
@@ -273,6 +277,7 @@ void AgentInit::CreateVrfBase() {
     VrfTable *vrf_table = agent_->vrf_table();
 
     vrf_table->CreateStaticVrf(agent_->fabric_vrf_name());
+    vrf_table->CreateFabricPolicyVrf(agent_->fabric_policy_vrf_name());
     VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->fabric_vrf_name());
     assert(vrf);
 
@@ -396,10 +401,23 @@ static bool FlushTable(AgentDBTable *table) {
     return true;
 }
 
+void AgentInit::DeleteVhost() {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                                     agent_->vhost_interface_name()));
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent_.get(), NULL);
+    req.data.reset(data);
+    agent_->interface_table()->Enqueue(&req);
+}
+
 void AgentInit::DeleteDBEntriesBase() {
     int task_id = agent_->task_scheduler()->GetTaskId(AGENT_SHUTDOWN_TASKNAME);
 
     RunInTaskContext(this, task_id, boost::bind(&DeleteRoutesInternal, this));
+
+    agent_->vrf_table()->DeleteStaticVrf(agent_->fabric_policy_vrf_name());
+
+    DeleteVhost();
 
     RunInTaskContext(this, task_id,
                      boost::bind(&FlushTable, agent_->interface_table()));
@@ -445,7 +463,7 @@ void AgentInit::WaitForDBEmpty() {
     WaitForDbCount(agent_->nexthop_table(), this, 0, 10000);
     WaitForDbCount(agent_->vm_table(), this, 0, 10000);
     WaitForDbCount(agent_->vn_table(), this, 0, 10000);
-    WaitForDbCount(agent_->mpls_table(), this, 0, 10000);
+    WaitForDbCount(agent_->mpls_table(), this, 2, 10000);
     WaitForDbCount(agent_->acl_table(), this, 0, 10000);
 }
 
@@ -540,11 +558,11 @@ static bool KSyncShutdownInternal(AgentInit *init) {
 void AgentInit::Shutdown() {
     int task_id = agent_->task_scheduler()->GetTaskId(AGENT_SHUTDOWN_TASKNAME);
 
+    DeleteDBEntriesBase();
     RunInTaskContext(this, task_id, boost::bind(&IoShutdownInternal, this));
     RunInTaskContext(this, task_id, boost::bind(&ProfileShutdownInternal, this));
     RunInTaskContext(this, task_id, boost::bind(&FlushFlowsInternal, this));
     RunInTaskContext(this, task_id, boost::bind(&VgwShutdownInternal, this));
-    DeleteDBEntriesBase();
     WaitForDBEmpty();
     RunInTaskContext(this, task_id, boost::bind(&ServicesShutdownInternal,
                                                 this));

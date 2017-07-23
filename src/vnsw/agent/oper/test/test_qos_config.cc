@@ -331,7 +331,7 @@ TEST_F(QosConfigClassTest, Test9) {
     AddQosConfig(data);
     client->WaitForIdle();
 
-    EXPECT_TRUE(InetInterfaceGet(agent->vhost_interface_name().c_str())
+    EXPECT_TRUE(VhostGet(agent->vhost_interface_name().c_str())
                 ->qos_config() == QosConfigGet(1));
     EXPECT_TRUE(EthInterfaceGet(agent->fabric_interface_name().c_str())
                 ->qos_config() == NULL);
@@ -339,7 +339,7 @@ TEST_F(QosConfigClassTest, Test9) {
     DelLink("qos-config", "qos_config", "global-qos-config",
             "default-global-system-config:default-global-qos-config");
     client->WaitForIdle();
-    EXPECT_TRUE(InetInterfaceGet(agent->vhost_interface_name().c_str())
+    EXPECT_TRUE(VhostGet(agent->vhost_interface_name().c_str())
                 ->qos_config() == NULL);
 
     DelNode("qos-config", "qos_config");
@@ -438,7 +438,7 @@ TEST_F(QosConfigClassTest, Test11) {
     EXPECT_TRUE(EthInterfaceGet(agent->fabric_interface_name().c_str())
                 ->qos_config() == QosConfigGet(2));
     //Safety check against fabric QOS config getting applied on vhost
-    EXPECT_TRUE(InetInterfaceGet(agent->vhost_interface_name().c_str())
+    EXPECT_TRUE(VhostGet(agent->vhost_interface_name().c_str())
                 ->qos_config() == NULL);
 
 

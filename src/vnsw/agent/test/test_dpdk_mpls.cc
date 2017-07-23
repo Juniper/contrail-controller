@@ -22,8 +22,8 @@ TEST_F(MplsTest, agent_dpdk_mode) {
     uint16_t label1 = AllocLabel("test_dpdk_1");
     uint16_t label2 = AllocLabel("test_dpdk_2");
 
-    EXPECT_TRUE(label1 == MplsTable::kStartLabel);
-    EXPECT_TRUE(label2 == MplsTable::kStartLabel + 1);
+    EXPECT_TRUE(label1 == MplsTable::kStartLabel + 4);
+    EXPECT_TRUE(label2 == MplsTable::kStartLabel + 5);
 
     FreeLabel(label1);
     FreeLabel(label2);

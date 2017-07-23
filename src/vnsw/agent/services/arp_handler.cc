@@ -139,6 +139,10 @@ bool ArpHandler::HandlePacket() {
     ArpKey key(arp_tpa_, vrf);
     ArpEntry *entry = arp_proto->FindArpEntry(key);
 
+    if (nh_vrf->forwarding_vrf()) {
+        nh_vrf = nh_vrf->forwarding_vrf();
+    }
+
     switch (arp_cmd) {
         case ARPOP_REQUEST: {
             arp_proto->IncrementStatsArpReq();

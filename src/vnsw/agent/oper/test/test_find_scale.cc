@@ -324,7 +324,7 @@ static uint64_t FindInterfaceScale(DBTable *table, uint32_t id,
         }
     } else {
         for (uint32_t i = 0; i < count; i++) {
-            VmInterface entry(u);
+            VmInterface entry(u, "");
             if (do_lock) {
                 assert(table->Find(&entry) != NULL);
             } else {

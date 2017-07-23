@@ -43,6 +43,14 @@ class InetInterfaceTest : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+
+        DBRequest req(DBRequest::DB_ENTRY_DELETE);
+        req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+                                         "vhost0"));
+        req.data.reset(new VmInterfaceConfigData(NULL, NULL));
+        agent_->interface_table()->Enqueue(&req);
+        client->WaitForIdle();
+
         interface_table_ = agent_->interface_table();
         nh_table_ = agent_->nexthop_table();
         vrf_table_ = agent_->vrf_table();
@@ -356,7 +364,7 @@ TEST_F(InetInterfaceTest, physical_eth_encap_1) {
              (RouteGet(agent_->fabric_vrf_name(),
                        Ip4Address::from_string("0.0.0.0"), 0) == NULL));
 
-    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    Ip4Address ip = Ip4Address::from_string("10.10.10.11");
     Ip4Address gw = Ip4Address::from_string("10.10.10.1");
     Ip4Address net = Ip4Address::from_string("10.10.10.0");
     uint8_t plen = 24;
@@ -392,7 +400,7 @@ TEST_F(InetInterfaceTest, physical_eth_encap_1) {
 TEST_F(InetInterfaceTest, physical_eth_raw_ip_1) {
     DelInetConfig(agent_);
 
-    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    Ip4Address ip = Ip4Address::from_string("10.10.10.11");
     Ip4Address gw = Ip4Address::from_string("10.10.10.1");
     Ip4Address net = Ip4Address::from_string("10.10.10.0");
     uint8_t plen = 24;
@@ -429,7 +437,7 @@ TEST_F(InetInterfaceTest, physical_eth_raw_ip_1) {
 TEST_F(InetInterfaceTest, physical_eth_no_arp_1) {
     DelInetConfig(agent_);
 
-    Ip4Address ip = Ip4Address::from_string("10.10.10.10");
+    Ip4Address ip = Ip4Address::from_string("10.10.10.11");
     Ip4Address gw = Ip4Address::from_string("10.10.10.1");
     Ip4Address net = Ip4Address::from_string("10.10.10.0");
     uint8_t plen = 24;

@@ -45,7 +45,7 @@ VmInterfaceKey::VmInterfaceKey(AgentKey::DBSubOperation sub_op,
 }
 
 Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table) const {
-    return new VmInterface(uuid_);
+    return new VmInterface(uuid_, name_);
 }
 
 Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table,
@@ -160,6 +160,58 @@ bool VmInterfaceConfigData::OnResync(const InterfaceTable *table,
     return ret;
 }
 
+//Configuration of vhost interface to be filled from
+//config file. This include
+//1> IP of vhost
+//2> Default route to be populated if any
+//3> Resolve route to be added
+//4> Multicast receive route
+void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
+    if (agent->params()->vrouter_on_host_dpdk()) {
+        transport_ = Interface::TRANSPORT_PMD;
+    } else {
+        transport_ = Interface::TRANSPORT_ETHERNET;
+    }
+
+    device_type_ = VmInterface::LOCAL_DEVICE;
+    vmi_type_ = VmInterface::VHOST;
+
+    vrf_name_ = agent->fabric_policy_vrf_name();
+    if (agent->params()->vhost_addr() != Ip4Address(0)) {
+        addr_ = agent->router_id();
+        instance_ipv4_list_.list_.insert(
+            VmInterface::InstanceIp(agent->router_id(), 32, false, true,
+                                    false, false, Ip4Address(0)));
+    }
+
+    boost::system::error_code ec;
+    IpAddress mc_addr =
+        Ip4Address::from_string(IPV4_MULTICAST_BASE_ADDRESS, ec);
+    receive_route_list_.list_.insert(
+            VmInterface::VmiReceiveRoute(mc_addr, MULTICAST_BASE_ADDRESS_PLEN,
+                                         false));
+
+    mc_addr = Ip6Address::from_string(IPV6_MULTICAST_BASE_ADDRESS, ec);
+    disable_policy_ = false;
+    receive_route_list_.list_.insert(
+            VmInterface::VmiReceiveRoute(mc_addr, MULTICAST_BASE_ADDRESS_PLEN,
+                                         false));
+
+    if (agent->params()->subnet_hosts_resolvable() == true) {
+        //Add resolve route
+        subnet_ = agent->params()->vhost_addr();
+        subnet_plen_ = agent->params()->vhost_plen();
+    }
+
+    physical_interface_ = agent->params()->eth_port();
+    //Add default route pointing to gateway
+    static_route_list_.list_.insert(
+            VmInterface::StaticRoute(Ip4Address(0), 0,
+                                     agent->params()->vhost_gw(),
+                                     CommunityList()));
+}
+
+
 bool VmInterface::CopyIp6Address(const Ip6Address &addr) {
     bool ret = false;
 
@@ -257,6 +309,10 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         }
 
         bool val = vn ? vn->layer3_forwarding() : false;
+        if (vmi_type_ == VHOST) {
+            val = true;
+        }
+
         if (layer3_forwarding_ != val) {
             layer3_forwarding_ = val;
             ret = true;
@@ -403,6 +459,13 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         if (ec.value() != 0) {
             vm_mac_ = MacAddress();
             mac_set_ = false;
+        }
+
+        if (vmi_type_ == VHOST) {
+            vm_mac_ = GetVifMac(table->agent());
+            if (vm_mac_ != MacAddress()) {
+                mac_set_ = true;
+            }
         }
         ret = true;
     }
@@ -561,6 +624,17 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
+    VmiReceiveRouteSet &old_recv_list = receive_route_list_.list_;
+    const VmiReceiveRouteSet &new_recv_list = data->receive_route_list_.list_;
+    *tag_changed = AuditList<VmiReceiveRouteList,
+                             VmiReceiveRouteSet::iterator>(receive_route_list_,
+                                                           old_recv_list.begin(),
+                                                           old_recv_list.end(),
+                                                           new_recv_list.begin(),
+                                                           new_recv_list.end());
+    if (*tag_changed) {
+        ret = true;
+    }
     bool pbb_interface = new_bd_list.size() ? true: false;
     if (pbb_interface_ != pbb_interface) {
         pbb_interface_ = pbb_interface;

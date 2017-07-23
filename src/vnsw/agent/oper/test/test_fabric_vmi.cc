@@ -82,6 +82,18 @@ public:
     BgpPeer *peer_;
 };
 
+TEST_F(FabricVmiTest, Vhost) {
+    Ip4Address ip = Ip4Address::from_string("10.1.1.1");
+
+    EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 32));
+    InetUnicastRouteEntry *rt = RouteGet(agent->fabric_policy_vrf_name(), ip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
+}
+
 TEST_F(FabricVmiTest, basic_1) {
     AddVrf(agent->fabric_policy_vrf_name().c_str(), 2, false);
     client->WaitForIdle();

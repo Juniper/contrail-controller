@@ -75,6 +75,7 @@ test_flow_qos = AgentEnv.MakeTestCmd(env, 'test_flow_qos',
                                      pkt_test_suite);
 test_policy_set_flow = AgentEnv.MakeTestCmd(env, 'test_policy_set_flow',
                                             pkt_test_suite)
+test_flow_vhost = AgentEnv.MakeTestCmd(env, 'test_flow_vhost', pkt_test_suite)
 test_xml_packet_ut = AgentEnv.MakeTestCmdSrc(env, 'test_xml_packet_ut',
                                                 [
                                                 'test_xml_packet_ut.cc',

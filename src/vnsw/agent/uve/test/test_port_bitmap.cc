@@ -80,7 +80,7 @@ public:
         //We don't reset bitmaps on removal of flows
         //EXPECT_TRUE(ValidateVrouter(0xFF, 0xFFFF, 0xFFFF));
         LOG(DEBUG, "Vrf table size " << Agent::GetInstance()->vrf_table()->Size());
-        WAIT_FOR(1000, 1000, (Agent::GetInstance()->vrf_table()->Size() == 1));
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->vrf_table()->Size() == 2));
     }
 
     bool ValidateBmap(const PortBucketBitmap &port, uint8_t proto,
@@ -377,7 +377,7 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (Agent::GetInstance()->vrf_table()->Size() == 1));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->vrf_table()->Size() == 2));
     TestShutdown();
     delete client;
     return ret;

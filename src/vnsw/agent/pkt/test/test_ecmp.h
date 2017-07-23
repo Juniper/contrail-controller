@@ -144,7 +144,7 @@ public:
 
         DeleteBgpPeer(bgp_peer_);
         FlowStatsTimerStartStop(agent_, false);
-        WAIT_FOR(1000, 1000, (agent_->vrf_table()->Size() == 1));
+        WAIT_FOR(1000, 1000, (agent_->vrf_table()->Size() == 2));
     }
 
     void GetInfo() {

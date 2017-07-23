@@ -137,9 +137,11 @@ void ContrailInitCommon::ProcessComputeAddress(AgentParam *param) {
         param->compute_node_address_list();
     AgentParam::AddressList::const_iterator it = addr_list.begin();
     while (it != addr_list.end()) {
+        VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                               param->vhost_name());
         rt_table->AddVHostRecvRouteReq(agent()->local_peer(),
                                        agent()->fabric_vrf_name(),
-                                       param->vhost_name(), *it, 32,
+                                       vmi_key, *it, 32,
                                        agent()->fabric_vn_name(), false);
         it++;
     }
@@ -183,14 +185,12 @@ void ContrailInitCommon::CreateInterfaces() {
     PhysicalInterfaceKey physical_key(agent()->fabric_interface_name());
     assert(table->FindActiveEntry(&physical_key));
 
-    InetInterface::Create(table, agent_param()->vhost_name(),
-                          InetInterface::VHOST, agent()->fabric_vrf_name(),
-                          agent_param()->vhost_addr(),
-                          agent_param()->vhost_plen(),
-                          agent_param()->vhost_gw(),
-                          agent_param()->eth_port(),
-                          agent()->fabric_vn_name(), vhost_transport);
-    InetInterfaceKey key(agent()->vhost_interface_name());
+    //Add the interface
+    table->CreateVhost();
+    //Trigger explicit change to sync the configuration
+    table->CreateVhost();
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                       agent()->vhost_interface_name());
     agent()->set_vhost_interface
         (static_cast<Interface *>(table->FindActiveEntry(&key)));
     assert(agent()->vhost_interface());
