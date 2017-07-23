@@ -24,7 +24,7 @@ Client::Client(Connection *cm, ClientId id) : id_(id), cm_(cm) {
 }
 
 Client::~Client() {
-    DeleteClientSessions();
+    // DeleteClientSessions();
 }
 
 void Client::DeleteClientSessions() {

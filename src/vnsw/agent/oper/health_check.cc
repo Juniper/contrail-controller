@@ -28,8 +28,212 @@
 SandeshTraceBufferPtr
 HealthCheckTraceBuf(SandeshTraceBufferCreate("HealthCheck", 5000));
 
-const std::string HealthCheckInstance::kHealthCheckCmd
+const std::string HealthCheckInstanceTask::kHealthCheckCmd
 ("/usr/bin/contrail-vrouter-agent-health-check.py");
+
+////////////////////////////////////////////////////////////////////////////////
+
+HealthCheckInstanceBase::HealthCheckInstanceBase(HealthCheckService *service,
+                                                 MetaDataIpAllocator *allocator,
+                                                 VmInterface *intf) :
+    service_(NULL), intf_(intf),
+    ip_(new MetaDataIp(allocator, intf, MetaDataIp::HEALTH_CHECK)),
+    last_update_time_("-"), deleted_(false) {
+    // start with health check instance state as active, unless reported
+    // down by the attached health check service, so that the existing
+    // running traffic is not affected by attaching health check service
+    active_ = true;
+    ip_->set_active(true);
+    intf->InsertHealthCheckInstance(this);
+    ResyncInterface(service);
+}
+
+HealthCheckInstanceBase::~HealthCheckInstanceBase() {
+    VmInterface *intf = static_cast<VmInterface *>(intf_.get());
+    intf->DeleteHealthCheckInstance(this);
+    ResyncInterface(service_.get());
+}
+
+void HealthCheckInstanceBase::ResyncInterface(HealthCheckService *service) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intf_->GetUuid(), ""));
+    req.data.reset(new VmInterfaceHealthCheckData());
+    service->table()->agent()->interface_table()->Enqueue(&req);
+}
+
+void HealthCheckInstanceBase::set_service(HealthCheckService *service) {
+    if (service_ == service) {
+        return;
+    }
+    service_ = service;
+    CreateInstanceTask();
+}
+
+std::string HealthCheckInstanceBase::to_string() {
+    std::string str("Instance for service ");
+    str += service_->name();
+    str += " interface " + intf_->name();
+    return str;
+}
+
+void HealthCheckInstanceBase::OnRead(const std::string &data) {
+    HealthCheckInstanceEvent *event =
+        new HealthCheckInstanceEvent(this,
+                                     HealthCheckInstanceEvent::MESSAGE_READ,
+                                     data);
+    service_->table()->InstanceEventEnqueue(event);
+}
+
+void HealthCheckInstanceBase::OnExit(const boost::system::error_code &ec) {
+    HealthCheckInstanceEvent *event =
+        new HealthCheckInstanceEvent(this,
+                                     HealthCheckInstanceEvent::TASK_EXIT, "");
+    service_->table()->InstanceEventEnqueue(event);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+HealthCheckInstanceTask::HealthCheckInstanceTask(HealthCheckService *service,
+                                                 MetaDataIpAllocator *allocator,
+                                                 VmInterface *intf) :
+    HealthCheckInstanceBase(service, allocator, intf), task_(NULL) {
+}
+
+HealthCheckInstanceTask::~HealthCheckInstanceTask() {
+}
+
+bool HealthCheckInstanceTask::CreateInstanceTask() {
+    if (!deleted_ && task_.get() != NULL) {
+        return false;
+    }
+
+    deleted_ = false;
+
+    HEALTH_CHECK_TRACE(Trace, "Starting " + this->to_string());
+
+    task_.reset(new HeathCheckProcessInstance("HealthCheckInstance", "", 0,
+                                   service_->table()->agent()->event_manager()));
+    if (task_.get() != NULL) {
+        task_->set_pipe_stdout(true);
+        task_->set_on_data_cb(
+                boost::bind(&HealthCheckInstanceBase::OnRead, this, _2));
+        task_->set_on_exit_cb(
+                boost::bind(&HealthCheckInstanceBase::OnExit, this, _2));
+        return RunInstanceTask();
+    }
+
+    return false;
+}
+
+bool HealthCheckInstanceTask::DestroyInstanceTask() {
+    if (deleted_) {
+        return true;
+    }
+
+    if (task_.get() == NULL) {
+        return false;
+    }
+
+    deleted_ = true;
+    StopInstanceTask();
+    return true;
+}
+
+bool HealthCheckInstanceTask::RunInstanceTask() {
+    UpdateInstanceTaskCommand();
+    return task_->Run();
+}
+
+bool HealthCheckInstanceTask::StopInstanceTask() {
+    task_->Stop();
+    return true;
+}
+
+void HealthCheckInstanceTask::UpdateInstanceTaskCommand() {
+    if (service_->table()->agent()->test_mode()) {
+        // in test mode, set task instance to run no-op shell
+        task_->set_cmd("sleep 1");
+        return;
+    }
+
+    std::stringstream cmd_str;
+    cmd_str << kHealthCheckCmd << " -m " << service_->monitor_type();
+    cmd_str << " -d " << ip_->GetLinkLocalIp().to_string();
+    if (service_->timeout())
+        cmd_str << " -t " << service_->timeout();
+    else
+        cmd_str << " -t " << service_->timeout_usecs() / 1000000;
+    cmd_str << " -r " << service_->max_retries();
+    if (service_->delay())
+        cmd_str << " -i " << service_->delay();
+    else
+        cmd_str << " -i " << service_->delay_usecs() / 1000000;
+
+    if (service_->monitor_type().find("HTTP") != std::string::npos &&
+        !service_->url_path().empty()) {
+        // append non empty url string to script for HTTP
+        cmd_str << " -u " << service_->url_path();
+    }
+
+    task_->set_cmd(cmd_str.str());
+}
+
+bool HealthCheckInstanceTask::IsRunning() const {
+    return (task_.get() != NULL ? task_->is_running(): false);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+HealthCheckInstanceService::HealthCheckInstanceService(
+    HealthCheckService *service, MetaDataIpAllocator *allocator,
+    VmInterface *intf) : HealthCheckInstanceBase(service, allocator, intf) {
+}
+
+HealthCheckInstanceService::~HealthCheckInstanceService() {
+}
+
+bool HealthCheckInstanceService::CreateInstanceTask() {
+    deleted_ = false;
+    HEALTH_CHECK_TRACE(Trace, "Starting " + this->to_string());
+    service_->table()->health_check_service_callback()
+                       (HealthCheckTable::CREATE_SERVICE, this);
+    return true;
+}
+
+bool HealthCheckInstanceService::DestroyInstanceTask() {
+    if (deleted_) {
+        return true;
+    }
+
+    service_->table()->health_check_service_callback()
+                       (HealthCheckTable::DELETE_SERVICE, this);
+
+    deleted_ = true;
+    return false;
+}
+
+bool HealthCheckInstanceService::RunInstanceTask() {
+    return service_->table()->health_check_service_callback()
+                              (HealthCheckTable::RUN_SERVICE, this);
+}
+
+bool HealthCheckInstanceService::StopInstanceTask() {
+    return service_->table()->health_check_service_callback()
+                              (HealthCheckTable::STOP_SERVICE, this);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+HealthCheckInstanceEvent::HealthCheckInstanceEvent(
+    HealthCheckInstanceBase *inst, EventType type, const std::string &message) :
+    instance_(inst), type_(type), message_(message) {
+}
+
+HealthCheckInstanceEvent::~HealthCheckInstanceEvent() {
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 HealthCheckService::HealthCheckService(const HealthCheckTable *table,
                                        const boost::uuids::uuid &id) :
@@ -43,140 +247,6 @@ HealthCheckService::~HealthCheckService() {
         intf_list_.erase(it);
         it = intf_list_.begin();
     }
-}
-
-HealthCheckInstance::HealthCheckInstance(HealthCheckService *service,
-                                         MetaDataIpAllocator *allocator,
-                                         VmInterface *intf) :
-    service_(NULL), intf_(intf),
-    ip_(new MetaDataIp(allocator, intf, MetaDataIp::HEALTH_CHECK)),
-    task_(NULL), last_update_time_("-"), deleted_(false) {
-    // start with health check instance state as active, unless reported
-    // down by the attached health check service, so that the existing
-    // running traffic is not affected by attaching health check service
-    active_ = true;
-    ip_->set_active(true);
-    intf->InsertHealthCheckInstance(this);
-    ResyncInterface(service);
-}
-
-HealthCheckInstance::~HealthCheckInstance() {
-    VmInterface *intf = static_cast<VmInterface *>(intf_.get());
-    intf->DeleteHealthCheckInstance(this);
-    ResyncInterface(service_.get());
-}
-
-void HealthCheckInstance::ResyncInterface(HealthCheckService *service) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intf_->GetUuid(), ""));
-    req.data.reset(new VmInterfaceHealthCheckData());
-    service->table_->agent()->interface_table()->Enqueue(&req);
-}
-
-bool HealthCheckInstance::CreateInstanceTask() {
-    if (!deleted_ && task_.get() != NULL) {
-        return false;
-    }
-
-    deleted_ = false;
-
-    HEALTH_CHECK_TRACE(Trace, "Starting " + this->to_string());
-
-    task_.reset(new HeathCheckProcessInstance("HealthCheckInstance", "", 0,
-                                   service_->table_->agent()->event_manager()));
-    if (task_.get() != NULL) {
-        UpdateInstanceTaskCommand();
-        task_->set_pipe_stdout(true);
-        task_->set_on_data_cb(
-                boost::bind(&HealthCheckInstance::OnRead, this, _1, _2));
-        task_->set_on_exit_cb(
-                boost::bind(&HealthCheckInstance::OnExit, this, _1, _2));
-        return task_->Run();
-    }
-
-    return false;
-}
-
-bool HealthCheckInstance::DestroyInstanceTask() {
-    if (deleted_) {
-        return true;
-    }
-
-    if (task_.get() == NULL) {
-        return false;
-    }
-
-    deleted_ = true;
-    task_->Stop();
-    return true;
-}
-
-void HealthCheckInstance::UpdateInstanceTaskCommand() {
-    if (service_->table_->agent()->test_mode()) {
-        // in test mode, set task instance to run no-op shell
-        task_->set_cmd("sleep 1");
-        return;
-    }
-
-    std::stringstream cmd_str;
-    cmd_str << kHealthCheckCmd << " -m " << service_->monitor_type_;
-    cmd_str << " -d " << ip_->GetLinkLocalIp().to_string();
-    cmd_str << " -t " << service_->timeout_;
-    cmd_str << " -r " << service_->max_retries_;
-    cmd_str << " -i " << service_->delay_;
-
-    if (service_->monitor_type_.find("HTTP") != std::string::npos &&
-        !service_->url_path_.empty()) {
-        // append non empty url string to script for HTTP
-        cmd_str << " -u " << service_->url_path_;
-    }
-
-    task_->set_cmd(cmd_str.str());
-}
-
-void HealthCheckInstance::set_service(HealthCheckService *service) {
-    if (service_ == service) {
-        return;
-    }
-    service_ = service;
-    CreateInstanceTask();
-}
-
-std::string HealthCheckInstance::to_string() {
-    std::string str("Instance for service ");
-    str += service_->name_;
-    str += " interface " + intf_->name();
-    return str;
-}
-
-void HealthCheckInstance::OnRead(InstanceTask *task, const std::string &data) {
-    HealthCheckInstanceEvent *event =
-        new HealthCheckInstanceEvent(this,
-                                     HealthCheckInstanceEvent::MESSAGE_READ,
-                                     data);
-    service_->table_->InstanceEventEnqueue(event);
-}
-
-void HealthCheckInstance::OnExit(InstanceTask *task,
-                                 const boost::system::error_code &ec) {
-    HealthCheckInstanceEvent *event =
-        new HealthCheckInstanceEvent(this,
-                                     HealthCheckInstanceEvent::TASK_EXIT, "");
-    service_->table_->InstanceEventEnqueue(event);
-}
-
-bool HealthCheckInstance::IsRunning() const {
-    return (task_.get() != NULL ? task_->is_running(): false);
-}
-
-HealthCheckInstanceEvent::HealthCheckInstanceEvent(HealthCheckInstance *inst,
-                                                   EventType type,
-                                                   const std::string &message) :
-    instance_(inst), type_(type), message_(message) {
-}
-
-HealthCheckInstanceEvent::~HealthCheckInstanceEvent() {
 }
 
 bool HealthCheckService::IsLess(const DBEntry &rhs) const {
@@ -212,7 +282,9 @@ bool HealthCheckService::DBEntrySandesh(Sandesh *sresp,
     data.set_url_path(url_path_);
     data.set_expected_codes(expected_codes_);
     data.set_delay(delay_);
+    data.set_delay_usecs(delay_usecs_);
     data.set_timeout(timeout_);
+    data.set_timeout_usecs(timeout_usecs_);
     data.set_max_retries(max_retries_);
 
     std::vector<HealthCheckInstanceSandeshData> inst_list;
@@ -221,13 +293,13 @@ bool HealthCheckService::DBEntrySandesh(Sandesh *sresp,
         HealthCheckInstanceSandeshData inst_data;
         inst_data.set_vm_interface(UuidToString(it->first));
         inst_data.set_metadata_ip
-            (it->second->ip_->GetLinkLocalIp().to_string());
-        inst_data.set_service_ip(it->second->ip_->service_ip().to_string());
+            (it->second->ip()->GetLinkLocalIp().to_string());
+        inst_data.set_service_ip(it->second->ip()->service_ip().to_string());
         inst_data.set_health_check_ip
-            (it->second->ip_->destination_ip().to_string());
-        inst_data.set_active(it->second->active_);
+            (it->second->ip()->destination_ip().to_string());
+        inst_data.set_active(it->second->active());
         inst_data.set_running(it->second->IsRunning());
-        inst_data.set_last_update_time(it->second->last_update_time_);
+        inst_data.set_last_update_time(it->second->last_update_time());
         inst_list.push_back(inst_data);
         it++;
     }
@@ -243,11 +315,16 @@ void HealthCheckService::PostAdd() {
     UpdateInstanceServiceReference();
 }
 
+bool HealthCheckService::IsInstanceTaskBased() const {
+    return (monitor_type_.find("BFD") == std::string::npos);
+}
+
 bool HealthCheckService::Copy(HealthCheckTable *table,
                               const HealthCheckServiceData *data) {
     bool ret = false;
     bool dest_ip_changed = false;
 
+    std::string old_monitor_type = monitor_type_;
     if (monitor_type_ != data->monitor_type_) {
         monitor_type_ = data->monitor_type_;
         ret = true;
@@ -283,8 +360,18 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
         ret = true;
     }
 
+    if (delay_usecs_ != data->delay_usecs_) {
+        delay_usecs_ = data->delay_usecs_;
+        ret = true;
+    }
+
     if (timeout_ != data->timeout_) {
         timeout_ = data->timeout_;
+        ret = true;
+    }
+
+    if (timeout_usecs_ != data->timeout_usecs_) {
+        timeout_usecs_ = data->timeout_usecs_;
         ret = true;
     }
 
@@ -304,7 +391,7 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
         // to force them restart with updated values.
         InstanceList::iterator it = intf_list_.begin();
         while (it != intf_list_.end()) {
-            it->second->task_->Stop();
+            it->second->StopInstanceTask();
             it++;
         }
     }
@@ -340,18 +427,24 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                 // of dependent config Health-Check-Service in this case to
                 // handle creation of interface later
                 if (intf != NULL) {
-                    HealthCheckInstance *inst = new HealthCheckInstance
-                        (this, table_->agent()->metadata_ip_allocator(), intf);
+                    HealthCheckInstanceBase *inst;
+                    if (IsInstanceTaskBased()) {
+                        inst = new HealthCheckInstanceTask
+                            (this, table_->agent()->metadata_ip_allocator(), intf);
+                    } else {
+                        inst = new HealthCheckInstanceService
+                            (this, table_->agent()->metadata_ip_allocator(), intf);
+                    }
                     intf_list_.insert(std::pair<boost::uuids::uuid,
-                            HealthCheckInstance *>(*(it_cfg), inst));
-                    inst->ip_->set_destination_ip(dest_ip_);
+                            HealthCheckInstanceBase *>(*(it_cfg), inst));
+                    inst->ip()->set_destination_ip(dest_ip_);
                     ret = true;
                 }
             } else {
-                if (dest_ip_changed) {
+                if (dest_ip_changed || IsInstanceTaskBased()) {
                     // change in destination IP needs to be propagated
                     // explicitly to metadata-IP object
-                    it->second->ip_->set_destination_ip(dest_ip_);
+                    it->second->ip()->set_destination_ip(dest_ip_);
                 }
                 it++;
             }
@@ -373,11 +466,15 @@ void HealthCheckService::UpdateInstanceServiceReference() {
 void HealthCheckService::DeleteInstances() {
     InstanceList::iterator it = intf_list_.begin();
     while (it != intf_list_.end()) {
-        it->second->DestroyInstanceTask();
+        if (!it->second->DestroyInstanceTask()) {
+            delete it->second;
+        }
         intf_list_.erase(it);
         it = intf_list_.begin();
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 HealthCheckTable::HealthCheckTable(Agent *agent, DB *db,
                                    const std::string &name) :
@@ -453,7 +550,12 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
     std::string url_path;
     uint8_t ip_proto = 0;
     uint16_t url_port = 0;
-    if (p.monitor_type.find("HTTP") == std::string::npos) {
+    if (p.monitor_type.find("BFD") != std::string::npos) {
+        boost::system::error_code ec;
+        dest_ip = Ip4Address::from_string(p.url_path, ec);
+        url_path = p.url_path;
+        ip_proto = IPPROTO_UDP;
+    } else if (p.monitor_type.find("HTTP") == std::string::npos) {
         boost::system::error_code ec;
         dest_ip = Ip4Address::from_string(p.url_path, ec);
         url_path = p.url_path;
@@ -483,7 +585,8 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
         new HealthCheckServiceData(agent, dest_ip, node->name(),
                                    p.monitor_type, ip_proto, p.http_method,
                                    url_path, url_port, p.expected_codes,
-                                   p.delay, p.timeout, p.max_retries, node);
+                                   p.delay, p.delayUsecs, p.timeout,
+                                   p.timeoutUsecs, p.max_retries, node);
 
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
@@ -566,7 +669,7 @@ HealthCheckTable::InstanceEventEnqueue(HealthCheckInstanceEvent *event) const {
 }
 
 bool HealthCheckTable::InstanceEventProcess(HealthCheckInstanceEvent *event) {
-    HealthCheckInstance *inst = event->instance_;
+    HealthCheckInstanceBase *inst = event->instance_;
     switch (event->type_) {
     case HealthCheckInstanceEvent::MESSAGE_READ:
         {
@@ -592,8 +695,7 @@ bool HealthCheckTable::InstanceEventProcess(HealthCheckInstanceEvent *event) {
     case HealthCheckInstanceEvent::TASK_EXIT:
         if (!inst->deleted_) {
             HEALTH_CHECK_TRACE(Trace, "Restarting " + inst->to_string());
-            inst->UpdateInstanceTaskCommand();
-            inst->task_->Run();
+            inst->RunInstanceTask();
         } else {
             HEALTH_CHECK_TRACE(Trace, "Stopped " + inst->to_string());
             delete inst;
@@ -619,3 +721,4 @@ void HealthCheckSandeshReq::HandleRequest() const {
     sand->DoSandesh(sand);
 }
 
+////////////////////////////////////////////////////////////////////////////////

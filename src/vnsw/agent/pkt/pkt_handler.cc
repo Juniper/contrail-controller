@@ -221,6 +221,17 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
         return DIAG;
     }
 
+    // BFD packets, if BFD health check is enabled on the interface
+    if (intf->type() == Interface::VM_INTERFACE && pkt_type == PktType::UDP &&
+        (pkt_info->dport == BFD_SINGLEHOP_CONTROL_PORT ||
+         pkt_info->dport == BFD_MULTIHOP_CONTROL_PORT ||
+         pkt_info->dport == BFD_ECHO_PORT)) {
+        const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+        if (vm_intf->IsHealthCheckEnabled()) {
+            return BFD;
+        }
+    }
+
     if (pkt_type == PktType::ICMP && IsGwPacket(intf, pkt_info->ip_daddr)) {
         return ICMP;
     }

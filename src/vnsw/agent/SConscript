@@ -63,6 +63,7 @@ def MapBuildDir(list):
 
 env.Append(LIBPATH = MapBuildDir([
     'base',
+    'bfd',
     'bgp',
     'db',
     'dns/bind',
@@ -105,6 +106,8 @@ env.Append(LIBPATH = MapBuildDir([
 
 # Common non-agent libraries
 env.Prepend(LIBS = [
+    'bfd_udp',
+    'bfd',
     'xmpp',
     'peer_sandesh',
     'xmpp_multicast',

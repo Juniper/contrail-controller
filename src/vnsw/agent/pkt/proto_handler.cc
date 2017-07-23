@@ -194,6 +194,14 @@ void ProtoHandler::IcmpChecksum(char *buff, uint16_t buf_len) {
     hdr->icmp_cksum = Csum((uint16_t *)buff, buf_len, 0);
 }
 
+void ProtoHandler::UdpHdr(udphdr *udp ,uint16_t len, const uint8_t *src,
+                          uint16_t src_port, const uint8_t *dest,
+                          uint16_t dest_port, uint8_t next_hdr) {
+    FillUdpHdr(udp, len, src_port, dest_port);
+    pkt_info_->transp.udp->uh_sum = Ipv6Csum(src, dest, len, next_hdr,
+                                            (uint16_t *)pkt_info_->transp.udp);
+}
+
 void ProtoHandler::UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,
                           const uint8_t *dest, uint16_t dest_port,
                           uint8_t next_hdr) {
