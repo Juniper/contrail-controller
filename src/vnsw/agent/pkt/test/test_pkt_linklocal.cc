@@ -20,7 +20,7 @@ int fd_table[MAX_VNET];
 #define linklocal_port 4000
 #define fabric_port 8000
 
-InetInterface *vhost;
+const Interface *vhost;
 struct PortInfo input[] = {
         {"vmi0", 1, vm1_ip, "00:00:00:01:01:01", 1, 1},
         {"vmi1", 2, vm2_ip, "00:00:00:01:01:02", 1, 2},
@@ -44,9 +44,7 @@ class FlowTest : public ::testing::Test {
 public:
     FlowTest() : agent_(Agent::GetInstance()) {
         flow_proto_ = agent_->pkt()->get_flow_proto();
-        boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
-        vhost = static_cast<InetInterface *>(Agent::GetInstance()->
-                interface_table()->FindActiveEntry(key.get()));
+        vhost = agent_->vhost_interface();
     }
 
     bool FlowTableWait(size_t count) {
@@ -153,7 +151,7 @@ protected:
         EXPECT_EQ(0U, agent()->vm_table()->Size());
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());
-        EXPECT_EQ(1U, agent()->vrf_table()->Size());
+        EXPECT_EQ(2U, agent()->vrf_table()->Size());
 
         EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);
         EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);

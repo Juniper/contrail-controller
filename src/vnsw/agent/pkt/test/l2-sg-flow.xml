@@ -57,13 +57,13 @@
      sip="1.1.1.2" dip="1.1.1.1" proto="udp" sport="1" dport="3"
      type="flow" />
     <validate name="validate-2">
-        <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.2"
+        <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="15" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
          dvn="vn1" action="deny"/>
-        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.2"
+        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="20" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="2" svn="vn1"
          dvn="vn1" action="deny"/>
-        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.2"
+        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="20" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="3" svn="vn1"
          dvn="vn1" action="deny"/>
     </validate>
@@ -72,13 +72,13 @@
      vn="vn1" vxlan_id="0" tunnel-dest="5.5.5.5" tunnel-type="vxlan" sg="1"
      label="5" />
     <validate name="validate-3">
-        <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="11" sip="1.1.1.2"
+        <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="15" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
          dvn="vn1" action="pass"/>
-        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.2"
+        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="20" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="2" svn="vn1"
          dvn="vn1" action="pass"/>
-        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="16" sip="1.1.1.2"
+        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="20" sip="1.1.1.2"
          dip="1.1.1.1" proto="udp" sport="1" dport="3" svn="vn1"
          dvn="vn1" action="pass"/>
     </validate>
@@ -93,13 +93,13 @@
     </acl>
 
     <validate name="validate-4">
-        <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="11"
+        <flow name="l2-vxlan-udp-to-vm-vxlan-1" uuid="1" vrf="vrf1" nh="15"
          sip="1.1.1.2" dip="1.1.1.1" proto="udp" sport="1" dport="1" svn="vn1"
          dvn="vn1" action="deny"/>
-        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="16"
+        <flow name="l2-gre-udp-to-vm-gre-1" uuid="1" vrf="vrf1" nh="20"
          sip="1.1.1.2" dip="1.1.1.1" proto="udp" sport="1" dport="2" svn="vn1"
          dvn="vn1" action="deny"/>
-        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="16"
+        <flow name="l3-gre-udp-to-vm-1" uuid="1" vrf="vrf1" nh="20"
          sip="1.1.1.2" dip="1.1.1.1" proto="udp" sport="1" dport="3" svn="vn1"
          dvn="vn1" action="deny"/>
     </validate>

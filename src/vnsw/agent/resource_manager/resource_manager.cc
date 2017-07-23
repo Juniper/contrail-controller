@@ -6,6 +6,7 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <init/agent_param.h>
+#include <init/agent_init.h>
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>
 #include <resource_manager/resource_backup.h>
@@ -26,11 +27,12 @@ ResourceManager::ResourceManager(Agent *agent) :
                                                       this));
     }
 
+    agent_->set_resource_manager(this);
     //Backup resource if configured
     if (agent_->params()->restart_backup_enable()) {
         backup_mgr_.reset(new ResourceBackupManager(this));
     } else {
-        agent_->SetResourceManagerReady();
+        agent_->agent_init()->SetResourceManagerReady();
     }
 }
 
@@ -58,7 +60,7 @@ void ResourceManager::EnqueueRestore(KeyPtr key, DataPtr data) {
 // Mark the resource key diry until we process the audit for validity of key.
 void ResourceManager::RestoreResource(KeyPtr key, DataPtr data) {
     if (dynamic_cast<ResourceBackupEndKey *>(key.get())) {
-        agent_->SetResourceManagerReady();
+        agent_->agent_init()->SetResourceManagerReady();
         return;
     }
 

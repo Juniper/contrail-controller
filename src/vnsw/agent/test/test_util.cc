@@ -874,6 +874,11 @@ Interface *VmPortGet(int id) {
     return static_cast<Interface *>(Agent::GetInstance()->interface_table()->Find(&key, false));
 }
 
+Interface *VhostGet(const char *ifname) {
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), ifname);
+    return static_cast<Interface *>(Agent::GetInstance()->interface_table()->Find(&key, false));
+}
+
 bool VmPortFloatingIpCount(int id, unsigned int count) {
     VmInterface *intf = static_cast<VmInterface *>(VmPortGet(id));
     EXPECT_TRUE(intf != NULL);

@@ -331,8 +331,10 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     client->WaitForIdle();
     vr->WaitForWalkCompletion();
 
-    WAIT_FOR(100, 100, (1U == vr->vrouter_msg_count()));
-    WAIT_FOR(100, 100, (1U == uve.get_virtual_machine_list().size()));
+    WAIT_FOR(100, 100, (2U == vr->vrouter_msg_count()));
+    if (uve.__isset.virtual_machine_list) {
+        WAIT_FOR(100, 100, (1U == uve.get_virtual_machine_list().size()));
+    }
 
     util_.VmAdd(2);
     client->WaitForIdle();
@@ -340,7 +342,7 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    WAIT_FOR(100, 100, (2U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (3U == vr->vrouter_msg_count()));
     WAIT_FOR(100, 100, (2U == uve.get_virtual_machine_list().size()));
 
     util_.VmDelete(2);
@@ -349,7 +351,7 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    WAIT_FOR(100, 100, (3U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (4U == vr->vrouter_msg_count()));
     WAIT_FOR(100, 100, (1U == uve.get_virtual_machine_list().size()));
 
     util_.VmDelete(1);
@@ -358,7 +360,7 @@ TEST_F(UveVrouterUveTest, VmAddDel) {
     EnqueueSendVrouterUveTask();
     vr->WaitForWalkCompletion();
 
-    WAIT_FOR(100, 100, (4U == vr->vrouter_msg_count()));
+    WAIT_FOR(100, 100, (5U == vr->vrouter_msg_count()));
     WAIT_FOR(100, 100, (0U == uve.get_virtual_machine_list().size()));
     vr->clear_count();
 }

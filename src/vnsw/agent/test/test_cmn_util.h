@@ -163,6 +163,7 @@ bool VmPortV6Active(PortInfo *input, int id);
 bool VmPortPolicyEnabled(int id);
 bool VmPortPolicyEnabled(PortInfo *input, int id);
 Interface *VmPortGet(int id);
+Interface *VhostGet(const char *name);
 bool VmPortFloatingIpCount(int id, unsigned int count);
 bool VmPortAliasIpCount(int id, unsigned int count);
 bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts);

@@ -766,11 +766,12 @@ private:
 
 class ReceiveRoute : public AgentRouteData {
 public:
-    ReceiveRoute(const InetInterfaceKey &intf, uint32_t label,
+    ReceiveRoute(const InterfaceKey &intf_key, uint32_t label,
                  uint32_t tunnel_bmap, bool policy, const std::string &vn) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
-        intf_(intf), label_(label), tunnel_bmap_(tunnel_bmap),
+        label_(label), tunnel_bmap_(tunnel_bmap),
         policy_(policy), proxy_arp_(false), vn_(vn), sg_list_(), tag_list_() {
+        intf_.reset(intf_key.Clone());
     }
     virtual ~ReceiveRoute() { }
     void set_proxy_arp() {proxy_arp_ = true;}
@@ -780,7 +781,7 @@ public:
     virtual bool UpdateRoute(AgentRoute *rt);
 
 private:
-    InetInterfaceKey intf_;
+    boost::scoped_ptr<InterfaceKey> intf_;
     uint32_t label_;
     int tunnel_bmap_;
     bool policy_;

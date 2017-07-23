@@ -1,0 +1,189 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#include "base/os.h"
+#include "test/test_cmn_util.h"
+#include "test_pkt_util.h"
+#include "pkt/flow_proto.h"
+#include "pkt/flow_mgmt.h"
+#include "pkt/pkt_handler.h"
+#include <base/task.h>
+#include <base/test/task_test_util.h>
+
+VmInterface *vnet[16];
+Interface *vhost;
+char vhost_addr[32];
+char vnet_addr[16][32];
+
+PhysicalInterface *eth;
+int hash_id;
+
+void RouterIdDepInit(Agent *agent) {
+}
+
+struct PortInfo input[] = {
+    {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:01", 1, 1},
+};
+
+IpamInfo ipam_info[] = {
+    {"1.1.1.0", 24, "1.1.1.1", true},
+};
+
+IpamInfo ipam_info_fabric[] = {
+    {"10.1.1.0", 24, "10.1.1.254", true},
+};
+
+#define DEFAULT_VN "default-domain:default-project:ip-fabric"
+#define DEFAULT_POLICY_VRF "default-domain:default-project:ip-fabric:ip-fabric"
+class VhostVmi : public ::testing::Test {
+public:
+    virtual void SetUp() {
+        agent_ = Agent::GetInstance();
+        flow_proto_ = agent_->pkt()->get_flow_proto();
+        CreateVmportEnv(input, 1);
+        AddIPAM("vn1", &ipam_info[0], 1);
+        peer = CreateBgpPeer("127.0.0.1", "remote");
+        client->WaitForIdle();
+        vnet0_ = EthInterfaceGet("vnet0");
+
+        AddVn(DEFAULT_VN, 2);
+        AddIPAM(DEFAULT_VN, &ipam_info_fabric[0], 1);
+        client->WaitForIdle();
+
+        std::stringstream str;
+        str << "<display-name>" << "vhost0" << "</display-name>";
+
+        AddNode("virtual-machine-interface", "vhost0", 10, str.str().c_str());
+        AddLink("virtual-machine-interface", "vhost0", 
+                "virtual-network", DEFAULT_VN);
+        AddAcl("Acl", 1, DEFAULT_VN, "vn1", "pass");
+        AddLink("virtual-network", DEFAULT_VN, "access-control-list", "Acl");
+        client->WaitForIdle();
+    }
+
+    virtual void TearDown() {
+        DelVn(DEFAULT_VN);
+        DelNode("virtual-machine-interface", "vhost0");
+        DelLink("virtual-machine-interface", "vhost0",
+                "virtual-network", DEFAULT_VN);
+        DelAcl("Acl");
+        DelLink("virtual-network", DEFAULT_VN, "access-control-list", "Acl");
+        client->WaitForIdle();
+
+        client->EnqueueFlowFlush();
+        client->WaitForIdle();
+        EXPECT_EQ(0U, flow_proto_->FlowCount());
+        client->WaitForIdle();
+        DelIPAM("vn1");
+        DeleteVmportEnv(input, 1, true);
+        DeleteBgpPeer(peer);
+        client->WaitForIdle();
+    }
+
+    Agent *agent_;
+    FlowProto *flow_proto_;
+    BgpPeer *peer;
+    PhysicalInterface *vnet0_;
+};
+
+TEST_F(VhostVmi, VhostToRemoteVhost) {
+    //Add a route to destination Vhost
+    AddArp("10.1.1.10", "00:00:01:01:01:01", 
+           agent_->fabric_interface_name().c_str());
+    client->WaitForIdle();
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "10.1.1.10", 1, 1,
+                false, 1, 0);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "10.1.1.10", 6, 1, 1);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+}
+
+TEST_F(VhostVmi, RemoteVhostToVhost) {
+    //Add a route to destination Vhost
+    AddArp("10.1.1.10", "00:00:01:01:01:01", 
+           agent_->fabric_interface_name().c_str());
+    client->WaitForIdle();
+
+    TxIpPacket(vnet0_->id(), "10.1.1.10", "10.1.1.1", 2);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, "10.1.1.10", "10.1.1.1", 2, 0, 0,
+                            vnet0_->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+}
+
+//Flow setup before resolving the destination
+TEST_F(VhostVmi, RemoteVhostToVhostBeforeResolve) {
+    TxIpPacket(vnet0_->id(), "10.1.1.10", "10.1.1.1", 2);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, "10.1.1.10", "10.1.1.1", 2, 0, 0,
+                            vnet0_->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+}
+
+TEST_F(VhostVmi, RemoteVhostToVhostWithAcl) {
+    Ip4Address addr = Ip4Address::from_string("10.1.1.10");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.10");
+    Inet4TunnelRouteAdd(peer, DEFAULT_POLICY_VRF, addr, 32, gw, 
+                        TunnelType::AllType(), 8, "vn1", 
+                        SecurityGroupList(), TagList(), PathPreference());
+    client->WaitForIdle();
+
+    TxTcpPacket(vnet0_->id(), "10.1.1.10", "10.1.1.1", 10, 20,
+                false, 1, 0);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, "10.1.1.10", "10.1.1.1", 6, 10, 20,
+                            vnet0_->flow_key_nh()->id());
+    WAIT_FOR(1000, 10000, 
+             fe->match_p().action_info.action == (1 << TrafficAction::PASS));
+
+    DeleteRoute(DEFAULT_POLICY_VRF, "10.1.1.10", 32, peer);
+    client->WaitForIdle();
+}
+
+TEST_F(VhostVmi, RemoteVhostToVhostWithDenyAcl) {
+    Ip4Address addr = Ip4Address::from_string("10.1.1.10");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.10");
+    Inet4TunnelRouteAdd(peer, DEFAULT_POLICY_VRF, addr, 32, gw, 
+                        TunnelType::AllType(), 8, "vn1", 
+                        SecurityGroupList(), TagList(), PathPreference());
+    client->WaitForIdle();
+
+    TxTcpPacket(vnet0_->id(), "10.1.1.10", "10.1.1.1", 10000, 20,
+                false, 1, 0);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, "10.1.1.10", "10.1.1.1", 6, 10000, 20,
+                            vnet0_->flow_key_nh()->id());
+    WAIT_FOR(1000, 10000, 
+             fe->match_p().action_info.action == 
+             (1 << TrafficAction::IMPLICIT_DENY | 1 << TrafficAction::DENY));
+
+    DeleteRoute(DEFAULT_POLICY_VRF, "10.1.1.10", 32, peer);
+    client->WaitForIdle();
+
+    EXPECT_TRUE((fe->data().match_p.action_info.action &
+                (1 << TrafficAction::IMPLICIT_DENY)) != 0);
+}
+
+int main(int argc, char *argv[]) {
+    int ret = 0;
+    GETUSERARGS();
+    client = TestInit(init_file, ksync_init, true, true, true, 100*1000);
+    ret = RUN_ALL_TESTS();
+    usleep(100000);
+    TestShutdown();
+    delete client;
+    return ret;
+}

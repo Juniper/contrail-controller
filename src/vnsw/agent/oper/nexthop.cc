@@ -409,14 +409,8 @@ void ArpNH::SetKey(const DBRequestKey *k) {
 
 bool ArpNH::ChangeEntry(const DBRequest *req) {
     bool ret= false;
-    const ArpNHKey *key = static_cast<const ArpNHKey *>(req->key.get());
+    //const ArpNHKey *key = static_cast<const ArpNHKey *>(req->key.get());
     const ArpNHData *data = static_cast<const ArpNHData *>(req->data.get());
-
-    if (policy_ != key->policy_) {
-        policy_ = key->policy_;
-        ret = true;
-    }
-
     if (valid_ != data->resolved_) {
         valid_ = data->resolved_;
         ret =  true;
@@ -584,10 +578,10 @@ const uuid &InterfaceNH::GetIfUuid() const {
 static void AddInterfaceNH(const uuid &intf_uuid, const MacAddress &dmac,
                           uint8_t flags, bool policy, const string vrf_name,
                           bool learning_enabled, bool etree_leaf,
-                          bool layer2_control_word) {
+                          bool layer2_control_word, const string &name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InterfaceNHKey
-                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
+                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, name),
                    policy, flags, dmac));
     req.data.reset(new InterfaceNHData(vrf_name, learning_enabled,
                                        etree_leaf, layer2_control_word));
@@ -599,17 +593,19 @@ static void AddInterfaceNH(const uuid &intf_uuid, const MacAddress &dmac,
 void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
                                         const MacAddress &dmac,
                                         const string &vrf_name,
-                                        bool learning_enabled) {
+                                        bool learning_enabled,
+                                        const string &intf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, true, vrf_name,
-                   learning_enabled, false, false);
+                   learning_enabled, false, false, intf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name,
-                   learning_enabled, false, false);
+                   learning_enabled, false, false, intf_name);
 }
 
 void InterfaceNH::DeleteL3InterfaceNH(const uuid &intf_uuid,
-                                      const MacAddress &mac) {
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4, mac);
-    DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4, mac);
+                                      const MacAddress &mac,
+                                      const string &intf_name) {
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4, mac, intf_name);
+    DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4, mac, intf_name);
 }
 
 void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
@@ -617,38 +613,45 @@ void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
                                         const string &vrf_name,
                                         bool learning_enabled,
                                         bool etree_leaf,
-                                        bool layer2_control_word) {
+                                        bool layer2_control_word,
+                                        const string &intf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::BRIDGE, false, vrf_name,
-                   learning_enabled, etree_leaf, layer2_control_word);
+                   learning_enabled, etree_leaf, layer2_control_word, intf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::BRIDGE, true, vrf_name,
-                   learning_enabled, etree_leaf, layer2_control_word);
+                   learning_enabled, etree_leaf, layer2_control_word, intf_name);
 }
 
 void InterfaceNH::DeleteL2InterfaceNH(const uuid &intf_uuid,
-                                      const MacAddress &dmac) {
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::BRIDGE, dmac);
-    DeleteNH(intf_uuid, true, InterfaceNHFlags::BRIDGE, dmac);
+                                      const MacAddress &dmac,
+                                      const string &intf_name) {
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::BRIDGE, dmac, intf_name);
+    DeleteNH(intf_uuid, true, InterfaceNHFlags::BRIDGE, dmac, intf_name);
 }
 
 void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
                                                const MacAddress &dmac,
-                                               const string &vrf_name) {
+                                               const string &vrf_name,
+                                               const string &intf_name) {
     AddInterfaceNH(intf_uuid, dmac, (InterfaceNHFlags::INET4 |
                                      InterfaceNHFlags::MULTICAST), false,
-                   vrf_name, false, true, false);
+                   vrf_name, false, true, false, intf_name);
 }
 
-void InterfaceNH::DeleteMulticastVmInterfaceNH(const uuid &intf_uuid) {
+void InterfaceNH::DeleteMulticastVmInterfaceNH(const uuid &intf_uuid,
+                                               const string &intf_name) {
     DeleteNH(intf_uuid, false, (InterfaceNHFlags::MULTICAST |
                                 InterfaceNHFlags::INET4),
-                                MacAddress::BroadcastMac());
+                                MacAddress::BroadcastMac(),
+                                intf_name);
 }
 
 void InterfaceNH::DeleteNH(const uuid &intf_uuid, bool policy,
-                          uint8_t flags, const MacAddress &mac) {
+                          uint8_t flags, const MacAddress &mac,
+                          const string &intf_name) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new InterfaceNHKey
-                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
+                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
+                                      intf_name),
                    policy, flags, mac));
     req.data.reset(NULL);
     NextHopTable::GetInstance()->Process(req);
@@ -656,13 +659,14 @@ void InterfaceNH::DeleteNH(const uuid &intf_uuid, bool policy,
 
 // Delete the 2 InterfaceNH. One with policy another without policy
 void InterfaceNH::DeleteVmInterfaceNHReq(const uuid &intf_uuid,
-                                         const MacAddress &mac) {
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::BRIDGE, mac);
-    DeleteNH(intf_uuid, true, InterfaceNHFlags::BRIDGE, mac);
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4, mac);
-    DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4, mac);
+                                         const MacAddress &mac,
+                                         const string &intf_name) {
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::BRIDGE, mac, intf_name);
+    DeleteNH(intf_uuid, true, InterfaceNHFlags::BRIDGE, mac, intf_name);
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4, mac, intf_name);
+    DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4, mac, intf_name);
     DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST,
-             MacAddress::BroadcastMac());
+             MacAddress::BroadcastMac(), intf_name);
 }
 
 void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
@@ -937,10 +941,16 @@ bool TunnelNH::ChangeEntry(const DBRequest *req) {
         //Trigger ARP resolution
         valid = false;
         rt_table->AddUnresolvedNH(this);
+
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
+        std::string nexthop_vrf = nh->interface()->vrf()->GetName();
+        if (nh->interface()->vrf()->forwarding_vrf()) {
+            nexthop_vrf = nh->interface()->vrf()->forwarding_vrf()->GetName();
+        }
+
         InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_,
-                                              nh->interface()->vrf()->GetName(),
+                                              nexthop_vrf,
                                               nh->interface(),
                                               nh->PolicyEnabled(),
                                               rt->GetActivePath()->dest_vn_list(),
@@ -1110,10 +1120,16 @@ bool MirrorNH::ChangeEntry(const DBRequest *req) {
         //Trigger ARP resolution
         valid = false;
         rt_table->AddUnresolvedNH(this);
+        
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
+        std::string nexthop_vrf = nh->interface()->vrf()->GetName();
+        if (nh->interface()->vrf()->forwarding_vrf()) {
+            nexthop_vrf = nh->interface()->vrf()->forwarding_vrf()->GetName();
+        }
+
         InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_.to_v4(),
-                                              nh->interface()->vrf()->GetName(),
+                                              nexthop_vrf,
                                               nh->interface(),
                                               nh->PolicyEnabled(),
                                               rt->GetActivePath()->dest_vn_list(),
@@ -1227,30 +1243,33 @@ void ReceiveNH::SetKey(const DBRequestKey *key) {
 
 // Create 2 ReceiveNH for every VPort. One with policy another without 
 // policy
-void ReceiveNH::Create(NextHopTable *table, const string &interface) {
+void ReceiveNH::Create(NextHopTable *table, const Interface *intf,
+                       bool policy) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    InetInterfaceKey *intf_key = new InetInterfaceKey(interface);
-    req.key.reset(new ReceiveNHKey(intf_key, false));
+    InterfaceKey *key =
+        static_cast<InterfaceKey *>(intf->GetDBRequestKey().get())->Clone();
+    req.key.reset(new ReceiveNHKey(key, policy));
     req.data.reset(new ReceiveNHData());
     table->Process(req);
 
-    intf_key = new InetInterfaceKey(interface);
-    req.key.reset(new ReceiveNHKey(intf_key, true));
+    key = static_cast<InterfaceKey *>(intf->GetDBRequestKey().get())->Clone();
+    req.key.reset(new ReceiveNHKey(key, true));
     table->Process(req);
 }
 
-void ReceiveNH::Delete(NextHopTable *table, const string &interface) {
+void ReceiveNH::Delete(NextHopTable *table, const Interface *intf,
+                       bool policy) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    InetInterfaceKey *intf_key = new InetInterfaceKey(interface);
-    req.key.reset(new ReceiveNHKey(intf_key, false));
+    InterfaceKey *key = 
+        static_cast<InterfaceKey *>(intf->GetDBRequestKey().get())->Clone();
+    req.key.reset(new ReceiveNHKey(key, policy));
     req.data.reset(NULL);
     table->Process(req);
 
-    intf_key = new InetInterfaceKey(interface);
-    req.key.reset(new ReceiveNHKey(intf_key, true));
+    key = static_cast<InterfaceKey *>(intf->GetDBRequestKey().get())->Clone();
+    req.key.reset(new ReceiveNHKey(key, true));
     table->Process(req);
 }
-
 
 void ReceiveNH::SendObjectLog(const NextHopTable *table,
                               AgentLogEvent::type event) const {

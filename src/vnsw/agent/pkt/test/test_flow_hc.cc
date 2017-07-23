@@ -58,9 +58,7 @@ public:
         EXPECT_TRUE(vmi_[2]->ip_active(Address::INET));
         EXPECT_TRUE(vmi_[3]->ip_active(Address::INET));
 
-        InetInterfaceKey key("vhost0");
-        vhost_ = static_cast<InetInterface *>
-            (agent_->interface_table()->FindActiveEntry(&key));
+        vhost_ = agent_->vhost_interface();
         router_id_ = agent_->router_id();
     }
 
@@ -85,7 +83,7 @@ public:
         client->WaitForIdle();
 
         FlowStatsTimerStartStop(agent_, false);
-        WAIT_FOR(1000, 1000, (agent_->vrf_table()->Size() == 1));
+        WAIT_FOR(1000, 1000, (agent_->vrf_table()->Size() == 2));
     }
 
     void GetInfo() {
@@ -210,7 +208,7 @@ protected:
     Agent *agent_;
     Ip4Address router_id_;
     FlowProto *flow_proto_;
-    InetInterface *vhost_;
+    const Interface *vhost_;
     VmInterface *vmi_[HC_VMI_MAX_COUNT];
     HealthCheckInstance *hc_instance_[HC_VMI_MAX_COUNT];
     const MetaDataIp *mip_[HC_VMI_MAX_COUNT];

@@ -48,7 +48,7 @@ public:
         client->WaitForIdle();
     }
     void TearDown() {
-        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
+        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 2);
         DeleteBgpPeer(bgp_peer);
         DelIPAM("vn1");
         client->WaitForIdle();

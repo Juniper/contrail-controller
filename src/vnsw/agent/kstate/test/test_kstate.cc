@@ -118,12 +118,13 @@ public:
             WAIT_FOR(1000, 1000, ((oper_if_count) ==
                                 Agent::GetInstance()->interface_table()->Size()));
         }
+        uint32_t port_with_vhost_count = num_ports + 1;
         //One EVPN label for VN, One for Vrf, 4 per VM port
-        WAIT_FOR(1000, 1000, (((num_ports * 4) + 2 ==
+        WAIT_FOR(1000, 1000, (((port_with_vhost_count * 4) + 2 ==
                             (Agent::GetInstance()->mpls_table()->Size()))));
         if (!ksync_init_) {
             //One EVPN label for VN, One for Vrf, 4 per VM port
-            WAIT_FOR(1000, 1000, ((num_ports * 4) + 2 ==
+            WAIT_FOR(1000, 1000, ((port_with_vhost_count * 4) + 2 ==
                                   (uint32_t)(KSyncSockTypeMap::MplsCount())));
             if (if_count) {
                 WAIT_FOR(1000, 1000, ((num_ports + if_count) ==
@@ -135,11 +136,13 @@ public:
                 // without policy)
                 //plus 4 Nexthops for each VRF (1 VRF NH and 3 Composite NHs
                 //i.e. TOR CNH, EVPN CNH, Fabric CNH)
-                WAIT_FOR(1000, 1000, ((nh_count + (num_ports * 4) + 4) ==
+                WAIT_FOR(1000, 1000, ((nh_count + 
+                                     (num_ports * 4) + 4) ==
                                     (uint32_t)KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
-                WAIT_FOR(1000, 1000, ((rt_count + (num_ports * 2) + 1) ==
+                WAIT_FOR(1000, 1000, ((rt_count + 
+                                    (port_with_vhost_count * 2) + 1) ==
                                     (uint32_t)KSyncSockTypeMap::RouteCount()));
             }
         }
@@ -151,7 +154,7 @@ public:
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vm_table()->Size()));
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->vn_table()->Size()));
         WaitForVrf(input, 0, false);
-        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->mpls_table()->Size()));
+        WAIT_FOR(1000, 1000, (4 == Agent::GetInstance()->mpls_table()->Size()));
     }
 
     void CreatePortsWithPolicy() {
@@ -427,13 +430,13 @@ TEST_F(KStateTest, RouteDumpTest) {
         // Each new VRF will have 3 AF_INET6 routes
         // Each VMI in the new VRF will have 1 AF_INET route if v6 IP is configured
 
-        TestRouteKState::Init(true, 1, AF_INET, (MAX_TEST_FD) + 6);
+        TestRouteKState::Init(true, 2, AF_INET, (MAX_TEST_FD) + 6);
         client->WaitForIdle();
         client->KStateResponseWait(1);
-        TestRouteKState::Init(true, 1, AF_INET6, 3);
+        TestRouteKState::Init(true, 2, AF_INET6, 3);
         client->WaitForIdle();
         client->KStateResponseWait(1);
-        TestRouteKState::Init(true, 1, AF_BRIDGE, (MAX_TEST_FD) + 3);
+        TestRouteKState::Init(true, 2, AF_BRIDGE, (MAX_TEST_FD) + 3);
         client->WaitForIdle();
         client->KStateResponseWait(1);
         DeletePorts();

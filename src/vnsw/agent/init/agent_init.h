@@ -101,6 +101,8 @@ public:
     virtual void InitDoneBase();
     virtual void InitDone() { }
 
+    void CreateResourceManager();
+    void SetResourceManagerReady();
     /////////////////////////////////////////////////////////////////////////
     // Shutdown routines
     /////////////////////////////////////////////////////////////////////////
@@ -160,6 +162,7 @@ public:
     // Utility
     virtual void WaitForIdle() = 0;
     void WaitForDBEmpty();
+    void DeleteVhost();
 
 private:
     std::auto_ptr<Agent> agent_;

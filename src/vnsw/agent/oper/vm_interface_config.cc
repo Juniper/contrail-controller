@@ -13,6 +13,7 @@
 #include <oper/sg.h>
 #include <oper/tag.h>
 #include <oper/bgp_as_service.h>
+#include <init/agent_param.h>
 #include "ifmap/ifmap_link.h"
 
 #include <port_ipc/port_ipc_handler.h>
@@ -1271,6 +1272,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
         (node->GetObject());
 
+    boost::uuids::uuid vmi_uuid = u;
     assert(cfg);
     // Handle object delete
     if (node->IsDeleted()) {
@@ -1427,13 +1429,20 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     ComputeTypeInfo(agent_, data, subscribe_entry.get(), prouter, node,
                     li_node);
 
+    if (cfg->display_name() == agent_->vhost_interface_name()) {
+        data->CopyVhostData(agent());
+        vmi_uuid = nil_uuid();
+    }
+
     InterfaceKey *key = NULL; 
-    if (data->device_type_ == VmInterface::VM_ON_TAP ||
-        data->device_type_ == VmInterface::DEVICE_TYPE_INVALID) {
+    if (cfg->display_name() == agent_->vhost_interface_name()) {
+        key = new VmInterfaceKey(AgentKey::RESYNC, vmi_uuid, node->name());
+    } else if (data->device_type_ == VmInterface::VM_ON_TAP ||
+                    data->device_type_ == VmInterface::DEVICE_TYPE_INVALID) {
         key = new VmInterfaceKey(AgentKey::RESYNC, u, "");
     } else {
-        key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, u,
-                                 cfg->display_name());
+        key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, vmi_uuid,
+                cfg->display_name());
     }
 
     if (data->device_type_ != VmInterface::DEVICE_TYPE_INVALID) {
