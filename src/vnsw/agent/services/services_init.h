@@ -46,6 +46,7 @@ private:
     boost::scoped_ptr<Dhcpv6Proto> dhcpv6_proto_;
     boost::scoped_ptr<DnsProto> dns_proto_;
     boost::scoped_ptr<ArpProto> arp_proto_;
+    boost::scoped_ptr<BfdProto> bfd_proto_;
     boost::scoped_ptr<IcmpProto> icmp_proto_;
     boost::scoped_ptr<Icmpv6Proto> icmpv6_proto_;
     boost::scoped_ptr<IcmpErrorProto> icmp_error_proto_;

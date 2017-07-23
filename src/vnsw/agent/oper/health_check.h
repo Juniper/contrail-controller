@@ -49,13 +49,15 @@ struct HealthCheckServiceData : public AgentOperDBData {
                            const std::string &url_path,
                            uint16_t url_port,
                            const std::string &expected_codes,
-                           uint32_t delay, uint32_t timeout,
+                           uint32_t delay, uint64_t delay_usecs,
+                           uint32_t timeout, uint64_t timeout_usecs,
                            uint32_t max_retries, IFMapNode *ifmap_node) :
         AgentOperDBData(agent, ifmap_node), dest_ip_(dest_ip), name_(name),
         monitor_type_(monitor_type), ip_proto_(ip_proto),
         http_method_(http_method), url_path_(url_path), url_port_(url_port),
-        expected_codes_(expected_codes), delay_(delay), timeout_(timeout),
-        max_retries_(max_retries) {
+        expected_codes_(expected_codes), delay_(delay),
+        delay_usecs_(delay_usecs), timeout_(timeout),
+        timeout_usecs_(timeout_usecs), max_retries_(max_retries) {
     }
     virtual ~HealthCheckServiceData() {}
 
@@ -68,7 +70,9 @@ struct HealthCheckServiceData : public AgentOperDBData {
     uint16_t url_port_;
     std::string expected_codes_;
     uint32_t delay_;
+    uint64_t delay_usecs_;
     uint32_t timeout_;
+    uint64_t timeout_usecs_;
     uint32_t max_retries_;
     std::set<boost::uuids::uuid> intf_uuid_list_;
 };
@@ -81,52 +85,49 @@ public:
         EVENT_MAX
     };
 
-    HealthCheckInstanceEvent(HealthCheckInstance *inst, EventType type,
+    HealthCheckInstanceEvent(HealthCheckInstanceBase *inst, EventType type,
                              const std::string &message);
     virtual ~HealthCheckInstanceEvent();
 
-    HealthCheckInstance *instance_;
+    HealthCheckInstanceBase *instance_;
     EventType type_;
     std::string message_;
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceEvent);
 };
 
-class HealthCheckInstance {
+class HealthCheckInstanceBase {
 public:
-    typedef InstanceTaskExecvp HeathCheckProcessInstance;
-    static const std::string kHealthCheckCmd;
 
-    HealthCheckInstance(HealthCheckService *service,
-                        MetaDataIpAllocator *allocator, VmInterface *intf);
-    ~HealthCheckInstance();
+    HealthCheckInstanceBase(HealthCheckService *service,
+                            MetaDataIpAllocator *allocator,
+                            VmInterface *intf);
+    virtual ~HealthCheckInstanceBase();
 
-    void ResyncInterface(HealthCheckService *service);
-
-    bool CreateInstanceTask();
+    virtual bool CreateInstanceTask() = 0;
 
     // return true it instance is scheduled to destroy
     // when API returns false caller need to assure delete of
     // Health Check Instance
-    bool DestroyInstanceTask();
-
-    // should be called only after creating task
-    void UpdateInstanceTaskCommand();
-
-    void set_service(HealthCheckService *service);
-
-    std::string to_string();
+    virtual bool DestroyInstanceTask() = 0;
+    virtual bool RunInstanceTask() = 0;
+    virtual bool StopInstanceTask() = 0;
 
     // OnRead Callback for Task
-    void OnRead(InstanceTask *task, const std::string &data);
+    void OnRead(const std::string &data);
     // OnExit Callback for Task
-    void OnExit(InstanceTask *task, const boost::system::error_code &ec);
-    bool active() {return active_;}
-    bool IsRunning() const;
+    void OnExit(const boost::system::error_code &ec);
 
+    void ResyncInterface(HealthCheckService *service);
+    void set_service(HealthCheckService *service);
+    std::string to_string();
+    bool active() {return active_;}
+    virtual bool IsRunning() const { return true; }
     HealthCheckService *service() const { return service_.get(); }
-    const MetaDataIp *ip() const { return ip_.get(); }
-private:
-    friend class HealthCheckService;
+    InterfaceRef interface() const { return intf_; }
+    MetaDataIp *ip() const { return ip_.get(); }
+    const std::string &last_update_time() const { return last_update_time_; }
+
+protected:
     friend class HealthCheckTable;
     // reference to health check service under
     // which this instance is running
@@ -137,21 +138,65 @@ private:
     boost::scoped_ptr<MetaDataIp> ip_;
     // current status of HealthCheckInstance
     bool active_;
-    // task managing external running script for status
-    boost::scoped_ptr<HeathCheckProcessInstance> task_;
     // last update time
     std::string last_update_time_;
     // instance is delete marked
     bool deleted_;
 
 private:
-    DISALLOW_COPY_AND_ASSIGN(HealthCheckInstance);
+    DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceBase);
+};
+
+// Health check instance using the instance task infrastructure
+class HealthCheckInstanceTask : public HealthCheckInstanceBase {
+public:
+    typedef InstanceTaskExecvp HeathCheckProcessInstance;
+    static const std::string kHealthCheckCmd;
+
+    HealthCheckInstanceTask(HealthCheckService *service,
+                            MetaDataIpAllocator *allocator, VmInterface *intf);
+    virtual ~HealthCheckInstanceTask();
+
+    virtual bool CreateInstanceTask();
+    virtual bool DestroyInstanceTask();
+    virtual bool RunInstanceTask();
+    virtual bool StopInstanceTask();
+    virtual bool IsRunning() const;
+
+private:
+    friend class HealthCheckTable;
+
+    void UpdateInstanceTaskCommand();
+
+    // task managing external running script for status
+    boost::scoped_ptr<HeathCheckProcessInstance> task_;
+
+    DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceTask);
+};
+
+// Health check instance using the services infrastructure
+class HealthCheckInstanceService : public HealthCheckInstanceBase {
+public:
+    HealthCheckInstanceService(HealthCheckService *service,
+                               MetaDataIpAllocator *allocator,
+                               VmInterface *intf);
+    virtual ~HealthCheckInstanceService();
+
+    virtual bool CreateInstanceTask();
+    virtual bool DestroyInstanceTask();
+    virtual bool RunInstanceTask();
+    virtual bool StopInstanceTask();
+
+private:
+    friend class HealthCheckTable;
+
+    DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceService);
 };
 
 class HealthCheckService : AgentRefCount<HealthCheckService>,
                            public AgentOperDBEntry {
 public:
-    typedef std::map<boost::uuids::uuid, HealthCheckInstance *> InstanceList;
+    typedef std::map<boost::uuids::uuid, HealthCheckInstanceBase *> InstanceList;
 
     HealthCheckService(const HealthCheckTable *table,
                        const boost::uuids::uuid &id);
@@ -178,15 +223,25 @@ public:
 
     uint8_t ip_proto() const { return ip_proto_; }
     uint16_t url_port() const { return url_port_; }
+    uint32_t delay() const { return delay_; }
+    uint64_t delay_usecs() const { return delay_usecs_; }
+    uint32_t timeout() const { return timeout_; }
+    uint64_t timeout_usecs() const { return timeout_usecs_; }
+    uint32_t max_retries() const { return max_retries_; }
+    const std::string &url_path() const { return url_path_; }
+    const std::string &monitor_type() const { return monitor_type_; }
+    const HealthCheckTable *table() const { return table_; }
+
 private:
-    friend class HealthCheckInstance;
     friend class HealthCheckInstanceEvent;
+
+    bool IsInstanceTaskBased() const;
 
     const HealthCheckTable *table_;
     boost::uuids::uuid uuid_;
     IpAddress dest_ip_;
     std::string name_;
-    // monitor type of service PING/HTTP etc
+    // monitor type of service PING/HTTP/BFD etc
     std::string monitor_type_;
     // ip_proto derived from monitor_type_
     uint8_t ip_proto_;
@@ -196,7 +251,9 @@ private:
     uint16_t url_port_;
     std::string expected_codes_;
     uint32_t delay_;
+    uint64_t delay_usecs_;
     uint32_t timeout_;
+    uint64_t timeout_usecs_;
     uint32_t max_retries_;
     // List of interfaces associated to this HealthCheck Service
     InstanceList intf_list_;
@@ -205,6 +262,16 @@ private:
 
 class HealthCheckTable : public AgentOperDBTable {
 public:
+    enum HealthCheckServiceAction {
+        CREATE_SERVICE,
+        DELETE_SERVICE,
+        RUN_SERVICE,
+        STOP_SERVICE
+    };
+    typedef boost::function<bool(HealthCheckServiceAction,
+                                 HealthCheckInstanceService *)>
+            HealthCheckServiceCallback;
+
     HealthCheckTable(Agent *agent, DB *db, const std::string &name);
     virtual ~HealthCheckTable();
 
@@ -233,8 +300,17 @@ public:
     void InstanceEventEnqueue(HealthCheckInstanceEvent *event) const;
     bool InstanceEventProcess(HealthCheckInstanceEvent *event);
 
+    void RegisterHealthCheckCallback(HealthCheckServiceCallback fn) {
+        health_check_service_cb_ = fn;
+    }
+    HealthCheckServiceCallback health_check_service_callback() const {
+        return health_check_service_cb_;
+    }
+
 private:
+
     WorkQueue<HealthCheckInstanceEvent *> *inst_event_queue_;
+    HealthCheckServiceCallback health_check_service_cb_;
 
     DISALLOW_COPY_AND_ASSIGN(HealthCheckTable);
 };

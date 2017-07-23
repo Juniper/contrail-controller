@@ -15,6 +15,7 @@
 #include "services/arp_proto.h"
 #include "services/icmp_proto.h"
 #include "services/icmpv6_proto.h"
+#include "services/bfd_proto.h"
 #include "services/metadata_proxy.h"
 #include "init/agent_param.h"
 
@@ -27,7 +28,7 @@ SandeshTraceBufferPtr MetadataTraceBuf(SandeshTraceBufferCreate("Metadata", 500)
 
 ServicesModule::ServicesModule(Agent *agent, const std::string &metadata_secret) 
     : agent_(agent), metadata_secret_key_(metadata_secret), dhcp_proto_(NULL),
-      dhcpv6_proto_(NULL), dns_proto_(NULL), arp_proto_(NULL),
+      dhcpv6_proto_(NULL), dns_proto_(NULL), arp_proto_(NULL), bfd_proto_(NULL),
       icmp_proto_(NULL), icmpv6_proto_(NULL), metadata_proxy_(NULL) {
 }
 
@@ -49,6 +50,9 @@ void ServicesModule::Init(bool run_with_vrouter) {
 
     arp_proto_.reset(new ArpProto(agent_, io, run_with_vrouter));
     agent_->SetArpProto(arp_proto_.get());
+
+    bfd_proto_.reset(new BfdProto(agent_, io));
+    agent_->SetBfdProto(bfd_proto_.get());
 
     icmp_proto_.reset(new IcmpProto(agent_, io));
     agent_->SetIcmpProto(icmp_proto_.get());
@@ -87,6 +91,10 @@ void ServicesModule::Shutdown() {
     arp_proto_->Shutdown();
     arp_proto_.reset(NULL);
     agent_->SetArpProto(NULL);
+
+    bfd_proto_->Shutdown();
+    bfd_proto_.reset(NULL);
+    agent_->SetBfdProto(NULL);
 
     icmp_proto_->Shutdown();
     icmp_proto_.reset(NULL);

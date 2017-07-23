@@ -796,7 +796,7 @@ void PktFlowInfo::ProcessHealthCheckFatFlow(const VmInterface *vmi,
         return;
 
     // Look for health-check rule
-    const HealthCheckInstance *hc_instance =
+    const HealthCheckInstanceBase *hc_instance =
         vmi->GetHealthCheckFromVmiFlow(pkt->ip_saddr, pkt->ip_daddr,
                                        pkt->ip_proto, pkt->sport);
     if (hc_instance == NULL)
