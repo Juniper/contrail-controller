@@ -88,10 +88,6 @@ class AuthPreKeystone(object):
         self.conf = conf
         self.server_mgr = server_mgr
 
-    @property
-    def mt(self):
-        return self.server_mgr.is_multi_tenancy_set()
-
     def path_in_white_list(self, path):
         for pattern in self.server_mgr.white_list:
             if re.search(pattern, path):
@@ -105,7 +101,7 @@ class AuthPreKeystone(object):
             env['HTTP_X_ROLE'] = ''
             app = self.server_mgr.api_bottle
         else:
-            app = self.app if self.mt else self.server_mgr.api_bottle
+            app = self.app if self._auth_needed else self.server_mgr.api_bottle
 
         get_context().set_proc_time('PRE_KEYSTONE_REQ')
         return app(env, start_response)
@@ -175,7 +171,7 @@ class AuthServiceKeystone(object):
         self._auth_method = args.auth
         self._auth_middleware = None
         self._mt_rbac = server_mgr.is_rbac_enabled()
-        self._multi_tenancy = server_mgr.is_multi_tenancy_set()
+        self._auth_needed = server_mgr.is_auth_needed()
         if not self._auth_method:
             return
         if self._auth_method != 'keystone':
@@ -187,7 +183,7 @@ class AuthServiceKeystone(object):
         self._ks_users = {}
 
         # configure memcache if enabled
-        if self._multi_tenancy and 'memcache_servers' in args:
+        if self._auth_needed and 'memcache_servers' in args:
             self._conf_info[
                 'memcached_servers'] = args.memcache_servers.split(',')
             if 'token_cache_time' in args:
@@ -198,7 +194,7 @@ class AuthServiceKeystone(object):
         if not self._auth_method:
             return None
 
-        if not self._multi_tenancy:
+        if not self._auth_needed:
             return None
 
         # keystone middleware is needed for fetching objects

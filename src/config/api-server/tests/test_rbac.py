@@ -158,7 +158,6 @@ class TestRbacMtDisabled(test_case.ApiServerTestCase):
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
-            ('DEFAULTS', 'multi_tenancy', False),
         ]
         super(TestRbacMtDisabled, cls).setUpClass(extra_config_knobs=extra_config_knobs)
 
@@ -195,7 +194,6 @@ class TestRbacMtEnabled(test_case.ApiServerTestCase):
         extra_config_knobs = [
             ('DEFAULTS', 'aaa_mode', 'rbac'),
             ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
-            ('DEFAULTS', 'multi_tenancy', True),
         ]
         super(TestRbacMtEnabled, cls).setUpClass(extra_config_knobs=extra_config_knobs)
 
