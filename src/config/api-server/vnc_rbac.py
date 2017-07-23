@@ -29,13 +29,11 @@ class VncRbac(object):
     def global_read_only_role(self):
         return self._server_mgr.global_read_only_role
 
-    def multi_tenancy_with_rbac(self):
+    def rbac_enabled(self):
         return self._server_mgr.is_rbac_enabled()
-    # end
 
     def validate_user_visible_perm(self, id_perms, is_admin):
         return id_perms.get('user_visible', True) is not False or is_admin
-    # end
 
     def read_default_rbac_rules(self, conf_file):
         config = ConfigParser.SafeConfigParser()
@@ -191,7 +189,7 @@ class VncRbac(object):
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
-        if not self.multi_tenancy_with_rbac():
+        if not self.rbac_enabled():
             return (True, '')
 
         err_msg = (403, 'Permission Denied')
