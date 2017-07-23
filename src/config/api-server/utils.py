@@ -62,7 +62,7 @@ def parse_args(args_str):
         'logging_conf': '',
         'logger_class': None,
         'multi_tenancy': None,
-        'aaa_mode': cfgm_common.AAA_MODE_DEFAULT_VALUE,
+        'aaa_mode': None,
         'zk_server_ip': '127.0.0.1:2181',
         'worker_id': '0',
         'rabbit_server': 'localhost',
