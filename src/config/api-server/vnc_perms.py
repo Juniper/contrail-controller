@@ -32,8 +32,8 @@ class VncPermissions(object):
         return self._server_mgr.global_read_only_role
 
     @property
-    def _multi_tenancy(self):
-        return self._server_mgr.is_multi_tenancy_set()
+    def _auth_needed(self):
+        return self._server_mgr.is_auth_needed()
     # end
 
     @property
@@ -197,7 +197,7 @@ class VncPermissions(object):
 
         if self._rbac:
             return self.validate_perms_rbac(request, id, PERMS_W)
-        elif self._multi_tenancy:
+        elif self._auth_needed:
             return self.validate_perms(request, id, PERMS_W)
         else:
             return (True, '')
@@ -211,7 +211,7 @@ class VncPermissions(object):
         if self._rbac:
             return self.validate_perms_rbac(request, id, PERMS_R,
                        perms2=obj_dict.get("perms2"))
-        elif self._multi_tenancy:
+        elif self._auth_needed:
             return self.validate_perms(request, id, PERMS_R,
                        id_perms=obj_dict.get("id_perms"))
         else:
@@ -225,7 +225,7 @@ class VncPermissions(object):
 
         if self._rbac:
             return self.validate_perms_rbac(request, id, PERMS_X)
-        elif self._multi_tenancy:
+        elif self._auth_needed:
             return self.validate_perms(request, id, PERMS_X)
         else:
             return (True, '')
@@ -242,7 +242,7 @@ class VncPermissions(object):
                              obj_uuid, obj_fields=['perms2'])
             obj_owner=obj_dict['perms2']['owner']
             return self.validate_perms_rbac(request, parent_uuid, PERMS_W, obj_owner_for_delete = obj_owner)
-        elif self._multi_tenancy:
+        elif self._auth_needed:
             return self.validate_perms(request, parent_uuid, PERMS_W)
         else:
             return (True, '')
@@ -256,7 +256,7 @@ class VncPermissions(object):
 
         if self._rbac:
             ok, perms = self.validate_perms_rbac(request, id, PERMS_RWX)
-        elif self._multi_tenancy:
+        elif self._auth_needed:
             ok, perms = self.validate_perms(request, id, PERMS_RWX)
         else:
             return 'RWX'
