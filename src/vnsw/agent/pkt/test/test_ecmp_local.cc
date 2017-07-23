@@ -500,16 +500,15 @@ TEST_F(LocalEcmpTest, EcmpToEcmp_RpfFail_1) {
 }
 
 TEST_F(LocalEcmpTest, Metadata_Ecmp_1) {
-    boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
-    const InetInterface *vhost = static_cast<InetInterface *>
-        (agent_->interface_table()->FindActiveEntry(key.get()));
+    const VmInterface *vhost = 
+        static_cast<const VmInterface *>(agent_->vhost_interface());
 
-    TxTcpPacket(vhost->id(), vhost->ip_addr().to_string().c_str(),
+    TxTcpPacket(vhost->id(), vhost->primary_ip_addr().to_string().c_str(),
                 vmi_[11]->mdata_ip_addr().to_string().c_str(), 100, 100, false,
                 0);
     client->WaitForIdle();
 
-    FlowEntry *flow = FlowGet(0, vhost->ip_addr().to_string().c_str(),
+    FlowEntry *flow = FlowGet(0, vhost->primary_ip_addr().to_string().c_str(),
                               vmi_[11]->mdata_ip_addr().to_string().c_str(),
                               IPPROTO_TCP, 100, 100,
                               vhost->flow_key_nh()->id());

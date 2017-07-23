@@ -242,7 +242,8 @@ public:
                                 const PathPreference &path_preference,
                                 const IpAddress &subnet_service_ip,
                                 const EcmpLoadBalance &ecmp_load_balance,
-                                bool is_local, bool is_health_check_service);
+                                bool is_local, bool is_health_check_service,
+                                const std::string &intf_name);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
@@ -308,15 +309,15 @@ public:
                                   uint32_t label,
                                   const VnListType &vn_list);
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
-                                  const string &interface,
+                                  const InterfaceKey &interface,
                                   const IpAddress &addr, uint8_t plen,
                                   const string &vn_name, bool policy);
     static void AddVHostRecvRouteReq(const Peer *peer, const string &vrf,
-                                     const string &interface,
+                                     const InterfaceKey &interface,
                                      const IpAddress &addr, uint8_t plen,
                                      const string &vn_name, bool policy);
     static void AddVHostSubnetRecvRoute(const Peer *peer, const string &vrf,
-                                        const string &interface,
+                                        const InterfaceKey &interface,
                                         const Ip4Address &addr, uint8_t plen,
                                         const std::string &vn_name,
                                         bool policy);

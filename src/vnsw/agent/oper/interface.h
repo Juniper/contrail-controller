@@ -412,6 +412,8 @@ public:
     uint32_t pi_ifnode_to_req() const { return pi_ifnode_to_req_; }
     //Shutdown
     virtual void Clear();
+    void CreateVhost();
+    void CreateVhostReq();
 
 private:
     bool L2VmInterfaceWalk(DBTablePartBase *partition,

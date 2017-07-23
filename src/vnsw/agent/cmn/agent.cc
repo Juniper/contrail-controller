@@ -918,7 +918,7 @@ void Agent::ConcurrencyCheck() {
        CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME,
                          kTaskFlowMgmt, kTaskFlowUpdate,
                          kTaskFlowEvent, kTaskFlowDelete, kTaskFlowKSync,
-                         kTaskHealthCheck);
+                         kTaskHealthCheck, kAgentResourceRestoreTask);
     }
 }
 

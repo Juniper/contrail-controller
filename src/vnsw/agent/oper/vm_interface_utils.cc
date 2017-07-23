@@ -93,7 +93,7 @@ bool VmInterface::NeedDevice() const {
     if (device_type_ == VM_VLAN_ON_VMI)
         ret = false;
 
-    if (subnet_.is_unspecified() == false) {
+    if (vmi_type_ != VHOST && subnet_.is_unspecified() == false) {
         ret = false;
     }
 
@@ -160,11 +160,18 @@ bool VmInterface::IsActive()  const {
             return false;
     }
 
-    if ((vn_.get() == NULL) || (vrf_.get() == NULL)) {
+    if (vmi_type_ == VHOST) {
+        //In case of vhost interface, upon interface
+        //addition we dont have corresponding VN, hence
+        //ignore VN name check for ip active
+        if (vrf_.get() == NULL) {
+            return false;
+        }
+    } else if ((vn_.get() == NULL) || (vrf_.get() == NULL)) {
         return false;
     }
 
-    if (!vn_.get()->admin_state()) {
+    if (vn_.get() && !vn_.get()->admin_state()) {
         return false;
     }
 
@@ -208,6 +215,10 @@ bool VmInterface::IsMetaDataL2Active() const {
 }
 
 bool VmInterface::IsIpv4Active() const {
+    if (vmi_type_ == VHOST) {
+        return IsActive();
+    }
+
     if (!layer3_forwarding()) {
         return false;
     }
@@ -228,6 +239,10 @@ bool VmInterface::IsIpv4Active() const {
 }
 
 bool VmInterface::IsIpv6Active() const {
+    if (vmi_type_ == VHOST) {
+        return IsActive();
+    }
+
     if (!layer3_forwarding() || (primary_ip6_addr_.is_unspecified())) {
         return false;
     }
@@ -240,6 +255,10 @@ bool VmInterface::IsIpv6Active() const {
 }
 
 bool VmInterface::IsL2Active() const {
+    if (vmi_type_ == VHOST) {
+        return IsActive();
+    }
+
     if (!bridging()) {
         return false;
     }
@@ -411,8 +430,13 @@ void VmInterface::AddL2InterfaceRoute(const IpAddress &ip,
         label = GetPbbLabel();
     }
 
+    std::string vn_name = Agent::NullString();
+    if (vn() != NULL) {
+        vn_name = vn()->GetName();
+    }
+
     table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this, ip,
-                           label, vn_->GetName(), sg_id_list,
+                           label, vn_name, sg_id_list,
                            tag_list, path_preference,
                            ethernet_tag_, etree_leaf_);
 }
@@ -456,7 +480,8 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     InetUnicastAgentRouteTable::AddLocalVmRoute
         (peer_.get(), vrf_name, addr, plen, GetUuid(), vn_list, label,
          sg_id_list, tag_list, communities, force_policy, path_preference,
-         service_ip, ecmp_load_balance, is_local, is_health_check_service);
+         service_ip, ecmp_load_balance, is_local, is_health_check_service,
+         name_);
     return;
 }
 

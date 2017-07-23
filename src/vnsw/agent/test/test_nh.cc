@@ -42,7 +42,7 @@ public:
         agent_ = Agent::GetInstance();
     }
     void TearDown() {
-        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
+        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 2);
         DeleteBgpPeer(bgp_peer_);
     }
 
@@ -635,7 +635,8 @@ TEST_F(CfgTest, Nexthop_keys) {
     EXPECT_TRUE(vrf_nh->vxlan_nh() == true);
     DoNextHopSandesh();
 
-    InetInterfaceKey vhost_intf_key(agent_->vhost_interface()->name());
+    VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                                  agent_->vhost_interface()->name());
     //Tunnel NH key
     agent_->
         fabric_inet4_unicast_table()->

@@ -44,6 +44,9 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
     BgpPeer *bgp_peer = static_cast<BgpPeer *>(bgp_xmpp_peer->bgp_peer_id());
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
 
+    if (vrf->GetName() == agent->fabric_policy_vrf_name()) {
+        return;
+    }
     //PBB VRF is implictly created, agent is not supposed to send RI
     //subscription message since control-node will not be aware of this RI
     //We still want to set a state and subscribe for bridge table for

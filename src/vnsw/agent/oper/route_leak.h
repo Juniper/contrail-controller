@@ -22,6 +22,7 @@ struct RouteLeakState :  public DBState {
 private:
     void AddIndirectRoute(const AgentRoute *route);
     void AddInterfaceRoute(const AgentRoute *route);
+    void AddReceiveRoute(const AgentRoute *route);
     Agent *agent_;
     VrfEntryRef dest_vrf_;
 };

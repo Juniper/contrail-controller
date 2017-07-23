@@ -183,7 +183,8 @@ static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
                           const Interface *xconnect, const Ip4Address &addr,
                           int plen, const string &vn_name) {
 
-    table->AddVHostRecvRoute(agent->local_peer(), vrf->GetName(), interface,
+    InetInterfaceKey intf_key(interface);
+    table->AddVHostRecvRoute(agent->local_peer(), vrf->GetName(), intf_key,
                              addr, 32, vn_name, false);
 
     const PhysicalInterface *physical_intf =
@@ -196,7 +197,7 @@ static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
     }
 
     table->AddVHostSubnetRecvRoute(agent->local_peer(), vrf->GetName(),
-                                   interface,
+                                   intf_key,
                                    GetIp4SubnetBroadcastAddress(addr, plen),
                                    32, vn_name, false);
     if (agent->params()->subnet_hosts_resolvable() == true) {
@@ -229,11 +230,12 @@ void InetInterface::AddHostMulticastRoutes() {
     InetUnicastAgentRouteTable *uc_rt_table =
         (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
     boost::system::error_code ec;
+    InetInterfaceKey intf_key(name_);
     // Add v4 route for covering multicast
     uc_rt_table->
         AddVHostRecvRoute(uc_rt_table->agent()->local_peer(),
                           vrf()->GetName(),
-                          name_,
+                          intf_key,
                           Ip4Address::from_string(IPV4_MULTICAST_BASE_ADDRESS,
                                                   ec),
                           MULTICAST_BASE_ADDRESS_PLEN,
@@ -243,7 +245,7 @@ void InetInterface::AddHostMulticastRoutes() {
     uc_rt_table->
         AddVHostRecvRoute(uc_rt_table->agent()->local_peer(),
                           vrf()->GetName(),
-                          name_,
+                          intf_key,
                           Ip6Address::from_string(IPV6_MULTICAST_BASE_ADDRESS,
                                                   ec),
                           MULTICAST_BASE_ADDRESS_PLEN,
@@ -280,7 +282,7 @@ void InetInterface::ActivateHostInterface() {
     Agent *agent = table->agent();
 
     // Create receive nexthops
-    ReceiveNH::Create(agent->nexthop_table(), name_);
+    ReceiveNH::Create(agent->nexthop_table(), this, false);
 
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     InetUnicastAgentRouteTable *uc_rt_table =
@@ -319,7 +321,7 @@ void InetInterface::DeActivateHostInterface() {
     }
 
     // Delete receive nexthops
-    ReceiveNH::Delete(agent->nexthop_table(), name_);
+    ReceiveNH::Delete(agent->nexthop_table(), this, false);
     flow_key_nh_ = NULL;
 }
 

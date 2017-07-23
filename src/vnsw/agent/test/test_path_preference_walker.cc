@@ -110,8 +110,8 @@ public:
         client->WaitForIdle();
         test_listener_->Init();
         client->WaitForIdle();
-        InetInterfaceKey vhost_intf_key(
-                Agent::GetInstance()->vhost_interface()->name());
+        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+                          Agent::GetInstance()->vhost_interface()->name());
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
                 Agent::GetInstance()->local_peer(),
                 Agent::GetInstance()->fabric_vrf_name(), server_ip_, 24,

@@ -74,6 +74,7 @@ bool PhysicalInterface::OnChange(const InterfaceTable *table,
 }
 
 bool PhysicalInterface::Delete(const DBRequest *req) {
+    flow_key_nh_.reset();
     InterfaceNH::DeletePhysicalInterfaceNh(name_, mac_);
     return true;
 }
@@ -90,6 +91,15 @@ void PhysicalInterface::PostAdd() {
     InterfaceNH::CreatePhysicalInterfaceNh(name_, mac_);
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    Agent *agent = table->agent();
+
+    InterfaceNHKey key(new PhysicalInterfaceKey(name_), false,
+            InterfaceNHFlags::INET4, mac_);
+    flow_key_nh_ = static_cast<InterfaceNH *>
+        (agent->nexthop_table()->FindActiveEntry(&key));
+    assert(flow_key_nh_);
+
+
     if (table->agent()->test_mode()) {
         return;
     }

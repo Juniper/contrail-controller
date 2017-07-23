@@ -414,6 +414,9 @@ public:
         if (vrf == -1) {
             if (intf && intf->vrf()) {
                 vrf = intf->vrf()->vrf_id();
+                if (intf->vrf()->forwarding_vrf()) {
+                    vrf = intf->vrf()->forwarding_vrf()->vrf_id();
+                }
             }
         }
         uint16_t nh = 0;
@@ -441,7 +444,9 @@ public:
             if (intf && intf->type() == Interface::VM_INTERFACE) {
                 VmInterface *vm_intf =
                     static_cast<VmInterface *>(intf);
-                if (intf->vrf() && intf->vrf()->vrf_id() == (uint32_t)vrf) {
+                if ((intf->vrf() && intf->vrf()->vrf_id() == (uint32_t)vrf) ||
+                    (intf->vrf() && intf->vrf()->forwarding_vrf() &&
+                     intf->vrf()->forwarding_vrf()->vrf_id() == (uint32_t)vrf)) {
                     if (intf->flow_key_nh()) {
                         nh = intf->flow_key_nh()->id();
                     }
