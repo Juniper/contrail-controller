@@ -2852,8 +2852,12 @@ struct HealthCheckSandeshData {
     6: string expected_codes;
     /** Delay for health check service */
     7: u32 delay;
+    /** Delay in usecs for health check service */
+    11: u64 delay_usecs;
     /** Timeout for health check service */
     8: u32 timeout;
+    /** Timeout in usecs for health check service */
+    12: u64 timeout_usecs;
     /** Maximum retries for health check service */
     9: u32 max_retries;
     /** List of health check instance information */
