@@ -61,7 +61,7 @@ def parse_args(args_str):
         'logging_conf': '',
         'logger_class': None,
         'multi_tenancy': None,
-        'aaa_mode': cfgm_common.AAA_MODE_DEFAULT_VALUE,
+        'aaa_mode': None,
         'disc_server_ip': None,
         'disc_server_port': '5998',
         'zk_server_ip': '127.0.0.1:2181',
