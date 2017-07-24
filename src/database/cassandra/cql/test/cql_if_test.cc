@@ -10,6 +10,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/random_generator.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <base/logging.h>
 #include <database/gendb_constants.h>
@@ -17,6 +18,7 @@
 #include <database/cassandra/cql/cql_if_impl.h>
 #include <database/cassandra/cql/test/mock_cql_lib_if.h>
 
+using namespace boost::system;
 using boost::assign::list_of;
 
 class CqlIfTest : public ::testing::Test {
@@ -98,18 +100,21 @@ TEST_F(CqlIfTest, StaticCfCreateTable) {
 }
 
 TEST_F(CqlIfTest, DynamicCfCreateTable) {
-    // Single elements in paritition key, column name, and value
+    // Single elements in paritition key, clustering column and value.
+    // No element in columns
     GenDb::NewCf dynamic_cf(
         "DynamicCf", // name
         boost::assign::list_of // partition key
             (GenDb::DbDataType::Unsigned32Type),
-        boost::assign::list_of // column name comparator
+        boost::assign::list_of // clustering columns
             (GenDb::DbDataType::Unsigned32Type),
-        boost::assign::list_of // column value validation class
+        std::vector<GenDb::DbDataType::type>(),// columns
+        boost::assign::list_of // values
             (GenDb::DbDataType::LexicalUUIDType));
+    boost::system::error_code ec = errc::make_error_code(errc::success);
     std::string actual_qstring(
         cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf,
-            GenDb::g_gendb_constants.LEVELED_COMPACTION_STRATEGY));
+            GenDb::g_gendb_constants.LEVELED_COMPACTION_STRATEGY, &ec));
     std::string expected_qstring(
         "CREATE TABLE IF NOT EXISTS DynamicCf ("
         "key int, "
@@ -119,8 +124,10 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "WITH compaction = {'class': "
         "'org.apache.cassandra.db.compaction.LeveledCompactionStrategy'} "
         "AND gc_grace_seconds = 0");
+    EXPECT_EQ(ec.value(), boost::system::errc::success);
     EXPECT_EQ(expected_qstring, actual_qstring);
-    // Multiple elements in partition key, column name, and single in value
+    // Multiple elements in partition key, clustering column and single in value
+    // No element in columns
     GenDb::DbDataTypeVec all_types = boost::assign::list_of
         (GenDb::DbDataType::AsciiType)
         (GenDb::DbDataType::LexicalUUIDType)
@@ -137,12 +144,14 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
     GenDb::NewCf dynamic_cf1(
         "DynamicCf1", // name
         all_types, // partition key
-        all_types, // column name comparator
-        boost::assign::list_of // column value validation class
+        all_types, // clustering columns
+        std::vector<GenDb::DbDataType::type>(),// columns
+        boost::assign::list_of // values
             (GenDb::DbDataType::UTF8Type));
+    ec = errc::make_error_code(errc::success);
     std::string actual_qstring1(
         cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf1,
-            GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY));
+            GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY, &ec));
     std::string expected_qstring1(
         "CREATE TABLE IF NOT EXISTS DynamicCf1 ("
         "key ascii, "
@@ -179,7 +188,87 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "'org.apache.cassandra.db.compaction.DateTieredCompactionStrategy'} "
         "AND read_repair_chance = 0.0 "
         "AND gc_grace_seconds = 0");
+    EXPECT_EQ(ec.value(), boost::system::errc::success);
     EXPECT_EQ(expected_qstring1, actual_qstring1);
+
+    // Multiple elements in partition key, column and single in value
+    // No element in clustering columns
+    // Error case
+    GenDb::NewCf dynamic_cf2(
+        "DynamicCf2", // name
+        all_types, // partition key
+        std::vector<GenDb::DbDataType::type>(),// clustering columns
+        all_types, // columns
+        boost::assign::list_of // values
+            (GenDb::DbDataType::UTF8Type));
+    ec = errc::make_error_code(errc::success);
+    cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf2,
+            GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY, &ec);
+    EXPECT_EQ(ec.value(), boost::system::errc::invalid_argument);
+
+    // Multiple elements in partition key, clustering columns, columns
+    // and single in value
+    GenDb::NewCf dynamic_cf3(
+        "DynamicCf3", // name
+        all_types, // partition key
+        all_types, // clustering columns
+        all_types, // columns
+        boost::assign::list_of // values
+            (GenDb::DbDataType::UTF8Type));
+    ec = errc::make_error_code(errc::success);
+    std::string actual_qstring3(
+        cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf3,
+            GenDb::g_gendb_constants.DATE_TIERED_COMPACTION_STRATEGY, &ec));
+    std::string expected_qstring3(
+        "CREATE TABLE IF NOT EXISTS DynamicCf3 ("
+        "key ascii, "
+        "key2 uuid, "
+        "key3 timeuuid, "
+        "key4 int, "
+        "key5 int, "
+        "key6 int, "
+        "key7 bigint, "
+        "key8 double, "
+        "key9 text, "
+        "key10 inet, "
+        "key11 varint, "
+        "key12 blob, "
+        "column1 ascii, "
+        "column2 uuid, "
+        "column3 timeuuid, "
+        "column4 int, "
+        "column5 int, "
+        "column6 int, "
+        "column7 bigint, "
+        "column8 double, "
+        "column9 text, "
+        "column10 inet, "
+        "column11 varint, "
+        "column12 blob, "
+        "column13 ascii, "
+        "column14 uuid, "
+        "column15 timeuuid, "
+        "column16 int, "
+        "column17 int, "
+        "column18 int, "
+        "column19 bigint, "
+        "column20 double, "
+        "column21 text, "
+        "column22 inet, "
+        "column23 varint, "
+        "column24 blob, "
+        "value text, "
+        "PRIMARY KEY ("
+        "(key, key2, key3, key4, key5, key6, key7, key8, key9, key10, key11, "
+        "key12), "
+        "column1, column2, column3, column4, column5, column6, column7, "
+        "column8, column9, column10, column11, column12)) "
+        "WITH compaction = {'class': "
+        "'org.apache.cassandra.db.compaction.DateTieredCompactionStrategy'} "
+        "AND read_repair_chance = 0.0 "
+        "AND gc_grace_seconds = 0");
+    EXPECT_EQ(ec.value(), boost::system::errc::success);
+    EXPECT_EQ(expected_qstring3, actual_qstring3);
 }
 
 TEST_F(CqlIfTest, CreateIndex) {
@@ -272,7 +361,8 @@ TEST_F(CqlIfTest, StaticCfInsertIntoTablePrepare) {
 }
 
 TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
-    // Multiple elements in partition key, column name, and single in value
+    // Multiple elements in partition key, clustering column and single in value
+    // No element in columns
     GenDb::DbDataTypeVec all_types = boost::assign::list_of
         (GenDb::DbDataType::AsciiType)
         (GenDb::DbDataType::LexicalUUIDType)
@@ -289,11 +379,13 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
     GenDb::NewCf dynamic_cf(
         "InsertIntoDynamicCf", // name
         all_types, // partition key
-        all_types, // column name comparator
-        boost::assign::list_of // column value validation class
+        all_types, // clustering columns
+        std::vector<GenDb::DbDataType::type>(),// columns
+        boost::assign::list_of // values
             (GenDb::DbDataType::UTF8Type));
+    boost::system::error_code ec = errc::make_error_code(errc::success);
     std::string actual_qstring(
-        cass::cql::impl::DynamicCf2CassPrepareInsertIntoTable(dynamic_cf));
+        cass::cql::impl::DynamicCf2CassPrepareInsertIntoTable(dynamic_cf, &ec));
     std::string expected_qstring(
         "INSERT INTO InsertIntoDynamicCf ("
         "key, "
@@ -346,7 +438,113 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
         "?, "
         "?, "
         "?) USING TTL ?");
+    EXPECT_EQ(ec.value(), boost::system::errc::success);
     EXPECT_EQ(expected_qstring, actual_qstring);
+
+    // Multiple elements in partition key, column and single in value
+    // No element in clustering columns
+    // Error case
+    GenDb::NewCf dynamic_cf1(
+        "InsertIntoDynamicCf1", // name
+        all_types, // partition key
+        std::vector<GenDb::DbDataType::type>(),// clustering columns
+        all_types, // columns
+        boost::assign::list_of // values
+            (GenDb::DbDataType::UTF8Type));
+    ec = errc::make_error_code(errc::success);
+    cass::cql::impl::DynamicCf2CassPrepareInsertIntoTable(dynamic_cf1, &ec);
+    EXPECT_EQ(ec.value(), boost::system::errc::invalid_argument);
+
+    // Multiple elements in partition key, clustering column, column
+    // and single in value
+    GenDb::NewCf dynamic_cf2(
+        "InsertIntoDynamicCf2", // name
+        all_types, // partition key
+        all_types, // clustering columns
+        all_types, // columns
+        boost::assign::list_of // values
+            (GenDb::DbDataType::UTF8Type));
+    ec = errc::make_error_code(errc::success);
+    std::string actual_qstring2(
+        cass::cql::impl::DynamicCf2CassPrepareInsertIntoTable(dynamic_cf2, &ec));
+    std::string expected_qstring2(
+        "INSERT INTO InsertIntoDynamicCf2 ("
+        "key, "
+        "key2, "
+        "key3, "
+        "key4, "
+        "key5, "
+        "key6, "
+        "key7, "
+        "key8, "
+        "key9, "
+        "key10, "
+        "key11, "
+        "key12, "
+        "column1, "
+        "column2, "
+        "column3, "
+        "column4, "
+        "column5, "
+        "column6, "
+        "column7, "
+        "column8, "
+        "column9, "
+        "column10, "
+        "column11, "
+        "column12, "
+        "column13, "
+        "column14, "
+        "column15, "
+        "column16, "
+        "column17, "
+        "column18, "
+        "column19, "
+        "column20, "
+        "column21, "
+        "column22, "
+        "column23, "
+        "column24, "
+        "value) VALUES ("
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?, "
+        "?) USING TTL ?");
+    EXPECT_EQ(ec.value(), boost::system::errc::success);
+    EXPECT_EQ(expected_qstring2, actual_qstring2);
 }
 
 static const std::string tstring_("Test");
