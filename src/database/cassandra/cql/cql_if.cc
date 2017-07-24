@@ -740,7 +740,7 @@ std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
     // Column name
     const GenDb::DbDataTypeVec &columns(cf.columns_);
     int cn_size(columns.size());
-    if (cn_size > 0) {
+    if (ccn_size && cn_size > 0) {
         query << ", ";
         values_ss << ", ";
     }
