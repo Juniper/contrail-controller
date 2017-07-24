@@ -465,6 +465,15 @@ std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
 std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     const std::string &compaction_strategy) {
     std::ostringstream query;
+
+    // sanity check - # of clustering_columns cannot be 0
+    // for dynamic tables
+    if (cf.clustering_columns_.size() == 0) {
+        query << cf.cfname_ << ":clustering columns count is 0.";
+        query << " This is not allowed for dynamic tables";
+        return query.str();
+    }
+
     // Table name
     query << "CREATE TABLE IF NOT EXISTS " << cf.cfname_ << " (";
     // Row key
@@ -500,7 +509,7 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     if (values.size() > 0) {
         query << "value" << " " << DbDataTypes2CassTypes(values) << ", ";
     }
-    // Primarry Key
+    // Primary Key
     query << "PRIMARY KEY (";
     std::ostringstream rkey_ss;
     for (int i = 0; i < rk_size; i++) {
@@ -709,6 +718,15 @@ std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
 
 std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
     std::ostringstream query;
+
+    // sanity check - # of clustering_columns cannot be 0
+    // for dynamic tables
+    if (cf.clustering_columns_.size() == 0) {
+        query << cf.cfname_ << ":clustering columns count is 0.";
+        query << " This is not allowed for dynamic tables";
+        return query.str();
+    }
+
     // Table name
     query << "INSERT INTO " << cf.cfname_ << " (";
     // Row key
