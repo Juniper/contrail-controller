@@ -20,7 +20,6 @@ from db import BgpRouterDM
 from db import GlobalSystemConfigDM
 from db import VirtualMachineInterfaceDM
 from device_api.juniper_common_xsd import *
-import abc
 
 class JuniperConf(DeviceConf):
     _vendor = "juniper"

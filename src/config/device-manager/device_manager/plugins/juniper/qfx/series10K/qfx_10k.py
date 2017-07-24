@@ -8,6 +8,7 @@ configuration manager
 """
 
 from qfx_conf import QfxConf
+from device_api.juniper_common_xsd import *
 
 class Qfx10kConf(QfxConf):
     _products = ['qfx10000']
@@ -32,11 +33,18 @@ class Qfx10kConf(QfxConf):
         pass
     # end set_product_specific_config
 
-    def check_vn_is_allowed(self, vn_obj):
-        if not vn_obj.get_vxlan_routing():
-            return False
+    def build_evpn_config(self):
+        evpn = Evpn(encapsulation='vxlan', extended_vni_list='all')
+        if self.is_spine():
+            evpn.set_default_gateway("no-gateway-community")
+        else:
+            evpn.set_default_gateway("do-not-advertise")
+        return evpn
+    # end build_evpn_config
+
+    def is_l3_supported(self, vn):
         return True
-    # end check_vn_is_allowed
+    # end is_l3_supported
 
     def push_conf(self, is_delete=False):
         if not self.physical_router:

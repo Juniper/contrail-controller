@@ -440,6 +440,8 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="vrf-export" type="xsd:string"/>
         <xsd:element name="vlan-id" type="xsd:string"/>
         <xsd:element name="routing-interface" type="xsd:string"/>
+        <xsd:element name="vrf-target" type="VniTarget"/>
+        <xsd:element name="vlans" type="Vlans"/>
         <xsd:element name="protocols" type="RoutingInstanceProtocols"/>
         <xsd:element name="bridge-domains" type="BridgeDomains"/>
         <xsd:element name="vrf-table-label"/>

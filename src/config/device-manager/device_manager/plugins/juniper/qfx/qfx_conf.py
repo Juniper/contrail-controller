@@ -11,6 +11,7 @@ from db import *
 from dm_utils import DMUtils
 from juniper_conf import JuniperConf
 from device_api.juniper_common_xsd import *
+import abc
 
 class QfxConf(JuniperConf):
 
@@ -23,6 +24,9 @@ class QfxConf(JuniperConf):
     def is_product_supported(cls, name):
         if name.lower() in cls._products:
             return True
+        for product in cls._products or []:
+            if name.lower().startswith(product.lower()):
+                return True
         return False
     # end is_product_supported
 
@@ -38,12 +42,6 @@ class QfxConf(JuniperConf):
             return True
         return False
     # end is_spine
-
-    def set_evpn_default_gateway_params(self, evpn_proto):
-        if self.is_spine():
-            evpn_proto.set_default_gateway("no-gateway-community")
-        else:
-            evpn_proto.set_default_gateway("do-not-advertise")
 
     def add_families(self, parent, params):
         if params.get('address_families') is None:
@@ -90,14 +88,13 @@ class QfxConf(JuniperConf):
         self.routing_instances[ri_name] = ri_conf
         ri_config = self.ri_config or RoutingInstances(comment=DMUtils.routing_instances_comment())
         policy_config = self.policy_config or PolicyOptions(comment=DMUtils.policy_options_comment())
-        ri = Instance(name=ri_name)
-
-        ri_config.add_instance(ri)
+        ri = None
         ri_opt = None
-
-        # for both l2 and l3
-        ri.set_vrf_import(DMUtils.make_import_name(ri_name))
-        ri.set_vrf_export(DMUtils.make_export_name(ri_name))
+        if not is_l2:
+            ri = Instance(name=ri_name)
+            ri_config.add_instance(ri)
+            ri.set_vrf_import(DMUtils.make_import_name(ri_name))
+            ri.set_vrf_export(DMUtils.make_export_name(ri_name))
 
         has_ipv6_prefixes = DMUtils.has_ipv6_prefixes(prefixes)
         has_ipv4_prefixes = DMUtils.has_ipv4_prefixes(prefixes)
@@ -118,8 +115,6 @@ class QfxConf(JuniperConf):
             if has_ipv4_prefixes or has_ipv6_prefixes:
                 auto_export = AutoExport(family=family)
                 ri_opt.set_auto_export(auto_export)
-        else:
-            ri.set_instance_type("virtual-switch")
 
         # add policies for export route targets
         ps = PolicyStatement(name=DMUtils.make_export_name(ri_name))
@@ -131,7 +126,7 @@ class QfxConf(JuniperConf):
                              community_name=DMUtils.make_community_name(route_target))
             then.add_community(comm)
             then.set_accept('')
-            self.add_vni_option(network_id, DMUtils.make_community_name(route_target))
+            self.add_vni_option(network_id, route_target)
         policy_config.add_policy_statement(ps)
         self.add_to_global_switch_opts(DMUtils.make_export_name(ri_name), False)
 
@@ -143,7 +138,7 @@ class QfxConf(JuniperConf):
         ps.add_term(term)
         for route_target in import_targets:
             from_.add_community(DMUtils.make_community_name(route_target))
-            self.add_vni_option(network_id, DMUtils.make_community_name(route_target))
+            self.add_vni_option(network_id, route_target)
         term.set_then(Then(accept=''))
         ps.set_then(Then(reject=''))
         policy_config.add_policy_statement(ps)
@@ -158,11 +153,6 @@ class QfxConf(JuniperConf):
         proto_config = self.proto_config
         if (is_l2 and vni is not None and
                 self.is_family_configured(self.bgp_params, "e-vpn")):
-            ri.set_vtep_source_interface("lo0.0")
-            evpn = Evpn(encapsulation='vxlan', extended_vni_list='all')
-            self.set_evpn_default_gateway_params(evpn)
-            ri.set_protocols(RoutingInstanceProtocols(evpn=evpn))
-
             interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
             if is_l2_l3:
                 irb_intf = Interface(name='irb', gratuitous_arp_reply='')
@@ -194,8 +184,16 @@ class QfxConf(JuniperConf):
                         addr.set_comment(DMUtils.irb_ip_comment(irb_ip))
                         if len(gateway) and gateway != '0.0.0.0':
                             addr.set_virtual_gateway_address(gateway)
-
             self.build_l2_evpn_interface_config(interfaces_config, interfaces, vn)
+
+        if (not is_l2 and vni is not None and
+                self.is_family_configured(self.bgp_params, "e-vpn")):
+            ri.set_vtep_source_interface("lo0.0")
+            evpn = self.build_evpn_config()
+            if evpn:
+                ri.set_protocols(RoutingInstanceProtocols(evpn=evpn))
+            #add vlans
+            self.add_ri_vlan_config(ri, vni)
 
         if (not is_l2 and not is_l2_l3 and gateways):
             interfaces_config = self.interfaces_config or Interfaces(comment=DMUtils.interfaces_comment())
@@ -266,10 +264,15 @@ class QfxConf(JuniperConf):
                                vlan_id=str(interface.vlan_tag)))
     # end build_l2_evpn_interface_config
 
+    @abc.abstractmethod
+    def build_evpn_config(self):
+        """build evpn config depending on qfx model"""
+    # end build_evpn_config
+
     def init_evpn_config(self):
-        self.evpn = Evpn(encapsulation='vxlan', extended_vni_list='all')
-        self.set_evpn_default_gateway_params(self.evpn)
+        self.evpn = self.build_evpn_config()
         self.proto_config.set_evpn(self.evpn)
+    # end init_evpn_config
 
     def add_vni_option(self, vn_id, vrf_target):
         vni_options = self.evpn.get_vni_options()
@@ -303,8 +306,8 @@ class QfxConf(JuniperConf):
     def add_vlan_config(self, vrf_name, vni, is_l3=False, irb_intf=None):
         if not self.vlans_config:
             self.vlans_config = Vlans(comment=DMUtils.vlans_comment())
-        vxlan = VXLan(vni=str(vni))
-        vlan = Vlan(name=vrf_name, vlan_id=str(vni), vxlan=vxlan)
+        vxlan = VXLan(vni=vni)
+        vlan = Vlan(name=vrf_name[1:], vlan_id=str(vni), vxlan=vxlan)
         if is_l3:
             if not irb_intf:
                 self._logger.error("Missing irb interface config l3 vlan: %s" % vrf_name)
@@ -313,16 +316,22 @@ class QfxConf(JuniperConf):
         self.vlans_config.add_vlan(vlan)
     # end add_vlan_config
 
+    def add_ri_vlan_config(self, ri, vni):
+        vxlan = VXLan(vni=vni)
+        vlan = Vlan(name=vrf_name[1:], vlan_id=str(vni), vxlan=vxlan)
+        vlans = ri.get_vlans()
+        if not vlans:
+            vlans = Vlans()
+        vlans.add_vlan(vlan)
+        ri.set_vlans(vlans)
+    # end add_vlan_config
+
     # Product Specific configuration, called from parent class
     def add_product_specific_config(self, groups):
         groups.set_switch_options(self.global_switch_options_config)
         if self.vlans_config:
             groups.set_vlans(self.vlans_config)
     # end add_product_specific_config
-
-    def check_vn_is_allowed(self,  vn_obj):
-        return True
-    # end check_vn_is_allowed
 
     def build_esi_config(self):
         pr = self.physical_router
@@ -373,6 +382,17 @@ class QfxConf(JuniperConf):
         return vn_dict
     # end
 
+    def is_l2_supported(self, vn):
+        """ Check l2 capability """
+        return True
+    # end is_l2_supported
+
+    @abc.abstractmethod
+    def is_l3_supported(self, vn):
+        """ Check l3 capability """
+        return False
+    # end is_l3_supported
+
     def build_ri_config(self):
         vn_dict = self.get_vn_li_map()
         self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
@@ -384,8 +404,6 @@ class QfxConf(JuniperConf):
             if (vn_obj is None or
                     vn_obj.get_vxlan_vni() is None or
                     vn_obj.vn_network_id is None):
-                continue
-            if not self.check_vn_is_allowed(vn_obj):
                 continue
             export_set = None
             import_set = None
@@ -407,7 +425,7 @@ class QfxConf(JuniperConf):
                             continue
                         import_set |= ri2.export_targets
 
-                    if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3']:
+                    if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3'] and self.is_l2_supported(vn_obj):
                         irb_ips = None
                         if vn_obj.get_forwarding_mode() == 'l2_l3':
                             irb_ips = vn_irb_ip_map['irb'].get(vn_id, [])
@@ -424,7 +442,7 @@ class QfxConf(JuniperConf):
                         ri_conf['network_id'] = vn_obj.vn_network_id
                         self.add_routing_instance(ri_conf)
 
-                    if vn_obj.get_forwarding_mode() in ['l3']:
+                    if vn_obj.get_forwarding_mode() in ['l3'] and self.is_l3_supported(vn_obj):
                         interfaces = []
                         lo0_ips = vn_irb_ip_map['lo0'].get(vn_id, [])
                         ri_conf = { 'ri_name': vrf_name_l3, 'vn': vn_obj }
