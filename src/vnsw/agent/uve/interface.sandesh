@@ -240,6 +240,8 @@ struct UveVMInterfaceAgent {
    47: optional string deployment;
    /** Firewall policy rules along with its policy set name */
    48: optional list<string> policy_rules;
+   /** Vhostuser mode */
+   49: optional byte vhostuser_mode;
 }
 
 /**
