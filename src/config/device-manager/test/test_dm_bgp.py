@@ -141,21 +141,24 @@ class TestBgpDM(TestCommonDM):
         bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1',
                                                           product=self.product)
         self.check_lo0_ip_config()
+        tunnels_needed = True
+        if 'qfx5' in self.product:
+            tunnels_needed = False
 
         pr.set_physical_router_loopback_ip("10.10.0.1")
         self._vnc_lib.physical_router_update(pr)
         self.check_lo0_ip_config("10.10.0.1/32")
-        self.check_tunnel_source_ip("10.10.0.1")
+        self.check_tunnel_source_ip("10.10.0.1", tunnels_needed)
 
         pr.set_physical_router_dataplane_ip("20.20.0.1")
         self._vnc_lib.physical_router_update(pr)
-        self.check_tunnel_source_ip("20.20.0.1")
+        self.check_tunnel_source_ip("20.20.0.1", tunnels_needed)
         self.check_lo0_ip_config("10.10.0.1/32")
 
         pr.set_physical_router_loopback_ip('')
         self._vnc_lib.physical_router_update(pr)
         self.check_lo0_ip_config()
-        self.check_tunnel_source_ip("20.20.0.1")
+        self.check_tunnel_source_ip("20.20.0.1", tunnels_needed)
 
         pr.set_physical_router_dataplane_ip('')
         self._vnc_lib.physical_router_update(pr)

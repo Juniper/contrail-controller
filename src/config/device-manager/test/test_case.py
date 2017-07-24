@@ -68,6 +68,7 @@ class DMTestCase(test_common.TestCase):
         bgp_router = BgpRouter(name, parent_obj=self._get_ip_fabric_ri_obj())
         params = BgpRouterParams()
         params.address = mgmt_ip
+        params.identifier = '1.1.1.1'
         params.address_families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
                                              'inet6-vpn'])
         params.autonomous_system = randint(0, 64512)
