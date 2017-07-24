@@ -117,7 +117,8 @@ void IntfCfgAddNoWait(int intf_id, const string &name, const string ipaddr,
 void IntfCfgAddThrift(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
-                const string ip6addr, int project_id = kProjectUuid);
+                const string ip6addr, uint8_t vhostuser_mode,
+                int project_id = kProjectUuid);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, const string ip6addr);
 void IntfCfgAdd(PortInfo *input, int id);

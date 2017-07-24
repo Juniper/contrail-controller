@@ -557,7 +557,8 @@ bool PortSubscribe(const std::string &ifname,
                             vmi_uuid, vm_uuid, vm_name, vn_uuid, project_uuid,
                             ip4_addr, ip6_addr, mac_addr,
                             VmInterface::kInvalidVlanId,
-                            VmInterface::kInvalidVlanId);
+                            VmInterface::kInvalidVlanId,
+                            VmInterface::vHostUserClient);
     return PortSubscribe(&entry);
 }
 
@@ -580,7 +581,7 @@ void IntfSyncMsg(PortInfo *input, int id) {
 
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac, uint16_t vlan,
-                const string ip6addr, int project_id) {
+                const string ip6addr, uint8_t vhostuser_mode, int project_id) {
     boost::system::error_code ec;
     Ip4Address ip = Ip4Address::from_string(ipaddr, ec);
     char vm_name[MAX_TESTNAME_LEN];
@@ -593,7 +594,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     VmiSubscribeEntry entry(PortSubscribeEntry::VMPORT, name, 0,
                             MakeUuid(intf_id), MakeUuid(vm_id), vm_name,
                             MakeUuid(vn_id), MakeUuid(project_id), ip, ip6,
-                            mac, vlan, vlan);
+                            mac, vlan, vlan, vhostuser_mode);
     string json;
     Agent *agent = Agent::GetInstance();
     agent->port_ipc_handler()->MakeVmiUuidJson(&entry, json, false);
@@ -606,7 +607,8 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac,
                 const string ip6addr) {
     IntfCfgAdd(intf_id, name, ipaddr, vm_id, vn_id, mac,
-               VmInterface::kInvalidVlanId, ip6addr);
+               VmInterface::kInvalidVlanId, ip6addr,
+               VmInterface::vHostUserClient);
 }
 
 void IntfCfgAdd(PortInfo *input, int id) {
