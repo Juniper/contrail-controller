@@ -24,14 +24,16 @@ namespace impl {
 std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     const std::string &compaction_strategy);
 std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
-    const std::string &compaction_strategy);
+    const std::string &compaction_strategy,
+    boost::system::error_code *ec);
 std::string CassCreateIndexIfNotExists(const std::string &cfname,
     const std::string &column, const std::string &indexname,
     const std::string &mode);
 std::string StaticCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns);
 std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf);
-std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf);
+std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf,
+                                                 boost::system::error_code *ec);
 std::string CassSelectFromTable(const std::string &table);
 std::string PartitionKey2CassSelectFromTable(const std::string &table,
     const GenDb::DbDataValueVec &rkeys);
