@@ -9,6 +9,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/unordered_map.hpp>
+#include <boost/system/error_code.hpp>
 
 #include <cassandra.h>
 
@@ -23,6 +24,7 @@
 #include <database/cassandra/cql/cql_if_impl.h>
 #include <database/cassandra/cql/cql_lib_if.h>
 
+using namespace boost::system;
 
 #define CQLIF_DEBUG "CqlTraceBufDebug"
 #define CQLIF_INFO "CqlTraceBufInfo"
@@ -463,8 +465,18 @@ std::string StaticCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
 }
 
 std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
-    const std::string &compaction_strategy) {
+    const std::string &compaction_strategy,
+    boost::system::error_code *ec) {
     std::ostringstream query;
+
+    *ec = errc::make_error_code(errc::success);
+    // sanity check - # of clustering_columns cannot be 0
+    // for dynamic tables
+    if (cf.clustering_columns_.size() == 0) {
+        *ec = errc::make_error_code(errc::invalid_argument);
+        return query.str();
+    }
+
     // Table name
     query << "CREATE TABLE IF NOT EXISTS " << cf.cfname_ << " (";
     // Row key
@@ -500,7 +512,7 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     if (values.size() > 0) {
         query << "value" << " " << DbDataTypes2CassTypes(values) << ", ";
     }
-    // Primarry Key
+    // Primary Key
     query << "PRIMARY KEY (";
     std::ostringstream rkey_ss;
     for (int i = 0; i < rk_size; i++) {
@@ -707,8 +719,18 @@ std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
     return query.str();
 }
 
-std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
+std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf, 
+                                                 boost::system::error_code *ec) {
     std::ostringstream query;
+
+    *ec = errc::make_error_code(errc::success);
+    // sanity check - # of clustering_columns cannot be 0
+    // for dynamic tables
+    if (cf.clustering_columns_.size() == 0) {
+        *ec = errc::make_error_code(errc::invalid_argument);
+        return query.str();
+    }
+
     // Table name
     query << "INSERT INTO " << cf.cfname_ << " (";
     // Row key
@@ -1847,15 +1869,25 @@ bool CqlIfImpl::CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
     std::string query;
     switch (cf.cftype_) {
       case GenDb::NewCf::COLUMN_FAMILY_SQL:
+      {
         query = impl::StaticCf2CassCreateTableIfNotExists(cf,
             compaction_strategy);
         break;
+      }
       case GenDb::NewCf::COLUMN_FAMILY_NOSQL:
+      {
+        boost::system::error_code ec;
         query = impl::DynamicCf2CassCreateTableIfNotExists(cf,
-            compaction_strategy);
+            compaction_strategy, &ec);
+        if (ec) {
+            return false;
+        }
         break;
+      }
       default:
+      {
         return false;
+      }
     }
     return impl::ExecuteQuerySync(cci_, session_.get(), query.c_str(),
         consistency);
@@ -2255,13 +2287,23 @@ bool CqlIfImpl::PrepareInsertIntoTableSync(const GenDb::NewCf &cf,
     std::string query;
     switch (cf.cftype_) {
       case GenDb::NewCf::COLUMN_FAMILY_SQL:
+      {
         query = impl::StaticCf2CassPrepareInsertIntoTable(cf);
         break;
+      }
       case GenDb::NewCf::COLUMN_FAMILY_NOSQL:
-        query = impl::DynamicCf2CassPrepareInsertIntoTable(cf);
+      {
+        boost::system::error_code ec;
+        query = impl::DynamicCf2CassPrepareInsertIntoTable(cf, &ec);
+        if (ec.value() != boost::system::errc::success) {
+            return false;
+        }
         break;
+      }
       default:
+      {
         return false;
+      }
     }
     return impl::PrepareSync(cci_, session_.get(), query.c_str(),
         prepared);
