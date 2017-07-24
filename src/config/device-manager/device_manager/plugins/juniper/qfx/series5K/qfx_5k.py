@@ -8,6 +8,7 @@ configuration manager
 """
 
 from qfx_conf import QfxConf
+from device_api.juniper_common_xsd import *
 
 class Qfx5kConf(QfxConf):
     _products = ['qfx5100', 'qfx5110']
@@ -31,8 +32,24 @@ class Qfx5kConf(QfxConf):
     def set_product_specific_config(self):
         if self.global_switch_options_config is None:
             self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
-        self.global_switch_options_config.set_route_distinguisher(self.bgp_params['identifier'])
+        if self.routing_instances:
+            self.global_switch_options_config.set_route_distinguisher(
+                                 RouteDistinguisher(rd_type=self.bgp_params['identifier'] + ":1"))
     # end set_product_specific_config
+
+    def build_evpn_config(self):
+        return Evpn(encapsulation='vxlan')
+    # end build_evpn_config
+
+    def add_dynamic_tunnels(self, tunnel_source_ip,
+                             ip_fabric_nets, bgp_router_ips):
+        # not supported
+        pass
+    # end add_dynamic_tunnels
+
+    def is_l3_supported(self, vn):
+        return False
+    # end is_l3_supported
 
     def push_conf(self, is_delete=False):
         if not self.physical_router:

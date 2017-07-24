@@ -20,7 +20,6 @@ from db import BgpRouterDM
 from db import GlobalSystemConfigDM
 from db import VirtualMachineInterfaceDM
 from device_api.juniper_common_xsd import *
-import abc
 
 class JuniperConf(DeviceConf):
     _vendor = "juniper"
@@ -111,6 +110,8 @@ class JuniperConf(DeviceConf):
         self.inet6_forwarding_filter = None
         self.forwarding_options_config = None
         self.global_routing_options_config = None
+        self.global_switch_options_config = None
+        self.vlans_config = None
         self.proto_config = None
         self.route_targets = set()
         self.bgp_peers = {}
@@ -493,6 +494,8 @@ class JuniperConf(DeviceConf):
 
     def build_bgp_config(self):
         bgp_router = BgpRouterDM.get(self.physical_router.bgp_router)
+        if not bgp_router:
+            return
         if bgp_router:
             for peer_uuid, attr in bgp_router.bgp_routers.items():
                 peer = BgpRouterDM.get(peer_uuid)
