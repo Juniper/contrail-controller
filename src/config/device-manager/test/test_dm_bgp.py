@@ -42,12 +42,15 @@ class TestBgpDM(TestCommonDM):
         self.wait_for_routers_delete(bgp_router_fq, pr_fq)
 
     @retries(5, hook=retry_exc_handler)
-    def check_dm_bgp_export_policy(self):
+    def check_dm_bgp_export_policy(self, product):
         config = FakeDeviceConnect.get_xml_config()
         bgp_groups = self.get_bgp_groups(config)
         for gp in bgp_groups or []:
             if gp.get_type() == 'internal':
-                self.assertEqual(gp.get_export(), DMUtils.make_ibgp_export_policy_name())
+                if 'qfx5' not in product:
+                    self.assertEqual(gp.get_export(), DMUtils.make_ibgp_export_policy_name())
+                else:
+                    self.assertIsNone(gp.get_export())
                 return
             if gp.get_type() == 'external':
                 self.assertThat(gp.get_export() != DMUtils.make_ibgp_export_policy_name())
@@ -59,7 +62,7 @@ class TestBgpDM(TestCommonDM):
     def verify_dm_bgp_export_policy(self):
         bgp_router, pr = self.create_router('router' + self.id() , '1.1.1.1',
                                                           product=self.product)
-        self.check_dm_bgp_export_policy()
+        self.check_dm_bgp_export_policy(self.product)
         bgp_router_fq = bgp_router.get_fq_name()
         pr_fq = pr.get_fq_name()
         self.delete_routers(bgp_router, pr)
@@ -141,21 +144,24 @@ class TestBgpDM(TestCommonDM):
         bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1',
                                                           product=self.product)
         self.check_lo0_ip_config()
+        tunnels_needed = True
+        if 'qfx5' in self.product:
+            tunnels_needed = False
 
         pr.set_physical_router_loopback_ip("10.10.0.1")
         self._vnc_lib.physical_router_update(pr)
         self.check_lo0_ip_config("10.10.0.1/32")
-        self.check_tunnel_source_ip("10.10.0.1")
+        self.check_tunnel_source_ip("10.10.0.1", tunnels_needed)
 
         pr.set_physical_router_dataplane_ip("20.20.0.1")
         self._vnc_lib.physical_router_update(pr)
-        self.check_tunnel_source_ip("20.20.0.1")
+        self.check_tunnel_source_ip("20.20.0.1", tunnels_needed)
         self.check_lo0_ip_config("10.10.0.1/32")
 
         pr.set_physical_router_loopback_ip('')
         self._vnc_lib.physical_router_update(pr)
         self.check_lo0_ip_config()
-        self.check_tunnel_source_ip("20.20.0.1")
+        self.check_tunnel_source_ip("20.20.0.1", tunnels_needed)
 
         pr.set_physical_router_dataplane_ip('')
         self._vnc_lib.physical_router_update(pr)

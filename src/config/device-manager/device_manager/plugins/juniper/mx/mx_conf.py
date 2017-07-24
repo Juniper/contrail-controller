@@ -36,7 +36,7 @@ class MxConf(JuniperConf):
     def is_product_supported(cls, name, role):
         if role and role.lower().startswith('e2-'):
             return False
-        for product in cls._products:
+        for product in cls._products or []:
             if name.lower().startswith(product.lower()):
                 return True
         return False
@@ -703,6 +703,10 @@ class MxConf(JuniperConf):
             return 0
         if is_delete:
             return self.send_conf(is_delete=True)
+        if not self.physical_router.bgp_router:
+            self._logger.info("bgp router not configured for pr: " + \
+                                                 self.physical_router.name)
+            return 0
         self.build_bgp_config()
         vn_dict = self.get_vn_li_map()
         self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
