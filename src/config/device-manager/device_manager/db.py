@@ -438,6 +438,9 @@ class PhysicalRouterDM(DBBaseDM):
             return
         if self.delete_config() or not self.is_vnc_managed():
             return
+        if not self.bgp_router:
+            self._logger.info("bgp router not configured for pr: " + self.name)
+            return
         self.config_manager.initialize()
         if not self.config_manager.validate_device():
             self._logger.error("physical router: %s, device config validation failed. "
@@ -838,6 +841,7 @@ class LogicalRouterDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        if not self.virtual_network:
             vn_name = DMUtils.get_lr_internal_vn_name(self.uuid)
             vn_obj = VirtualNetworkDM.find_by_name_or_uuid(vn_name)
             if vn_obj:

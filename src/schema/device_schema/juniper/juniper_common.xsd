@@ -7,6 +7,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
        <xsd:element name="vtep-source-interface" type="xsd:string"/>
        <xsd:element name="vrf-import" type="xsd:string" maxOccurs="unbounded"/>
        <xsd:element name="vrf-export" type="xsd:string" maxOccurs="unbounded"/>
+       <xsd:element name="vrf-target" type="VniTarget" maxOccurs="unbounded"/>
        <xsd:element name="route-distinguisher" type="RouteDistinguisher"/>
     </xsd:all>
 </xsd:complexType>
@@ -160,6 +161,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     <xsd:all>
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="static" type="Static"/>
+        <xsd:element name="resolution-ribs" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -185,6 +187,12 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="Resolution">
+    <xsd:all>
+        <xsd:element name="rib" type="RIB"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="RoutingOptions">
     <xsd:all>
         <xsd:element name="comment" type="xsd:string"/>
@@ -194,6 +202,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="route-distinguisher-id" type="xsd:string"/>
         <xsd:element name="autonomous-system" type="xsd:string"/>
         <xsd:element name="dynamic-tunnels" type="DynamicTunnels"/>
+        <xsd:element name="resolution" type="Resolution"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -373,6 +382,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 <xsd:complexType name="VniTarget">
     <xsd:all>
         <xsd:element name="community" type="xsd:string"/>
+        <xsd:element name="auto" />
     </xsd:all>
 </xsd:complexType>
 
@@ -440,6 +450,8 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="vrf-export" type="xsd:string"/>
         <xsd:element name="vlan-id" type="xsd:string"/>
         <xsd:element name="routing-interface" type="xsd:string"/>
+        <xsd:element name="vrf-target" type="VniTarget"/>
+        <xsd:element name="vlans" type="Vlans"/>
         <xsd:element name="protocols" type="RoutingInstanceProtocols"/>
         <xsd:element name="bridge-domains" type="BridgeDomains"/>
         <xsd:element name="vrf-table-label"/>
@@ -508,6 +520,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="name" type="xsd:string"/>
         <xsd:element name="vlan-id" type="xsd:string"/>
         <xsd:element name="l3-interface" type="xsd:string"/>
+        <xsd:element name="interface" type="Interface" maxOccurs="unbounded"/>
         <xsd:element name="vxlan" type="VXLan"/>
     </xsd:all>
 </xsd:complexType>

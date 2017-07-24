@@ -34,7 +34,9 @@ class MxConf(JuniperConf):
 
     @classmethod
     def is_product_supported(cls, name):
-        for product in cls._products:
+        if name.lower() in cls._products:
+            return True
+        for product in cls._products or []:
             if name.lower().startswith(product.lower()):
                 return True
         return False
