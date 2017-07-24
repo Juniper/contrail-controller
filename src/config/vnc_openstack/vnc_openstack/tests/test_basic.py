@@ -923,19 +923,17 @@ class TestBasic(test_case.NeutronBackendTestCase):
     # end test_external_network_fip_pool
 
     def test_list_router_interfaces(self):
-        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain',
-                                                       'default-project'])
+        proj_id = str(uuid.uuid4())
+        proj_name = 'proj-%s' % self.id()
+        test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
+        proj_obj = self._vnc_lib.project_read(id=proj_id)
         # public network/subnet
         public_net = self.create_resource(
-            'network',
-            proj_obj.uuid,
-            'public-%s' % self.id(),
+            'network', proj_obj.uuid, 'public-%s' % self.id(),
             extra_res_fields={'router:external': True},
         )
         self.create_resource(
-            'subnet',
-            proj_obj.uuid,
-            'public-%s' % self.id(),
+            'subnet', proj_obj.uuid, 'public-%s' % self.id(),
             extra_res_fields={
                 'network_id': public_net['id'],
                 'cidr': '80.0.0.0/24',
@@ -949,9 +947,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         privat_net = self.create_resource('network', proj_obj.uuid,
                                           name='private-%s' % self.id())
         private_subnet = self.create_resource(
-            'subnet',
-            proj_obj.uuid,
-            'private-%s' % self.id(),
+            'subnet', proj_obj.uuid, 'private-%s' % self.id(),
             extra_res_fields={
                 'network_id': privat_net['id'],
                 'cidr': '10.0.0.0/24',
@@ -961,9 +957,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         # Router with a gateway on the public network
         router = self.create_resource(
-            'router',
-            proj_obj.uuid,
-            name='router-%s' % self.id(),
+            'router', proj_obj.uuid, name='router-%s' % self.id(),
             extra_res_fields={
                 'external_gateway_info': {
                     'network_id': public_net['id'],
@@ -973,10 +967,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
 
         # Add router interface on the private network/subnet
         self.update_resource(
-            'router',
-            router['id'],
-            proj_obj.uuid,
-            is_admin=True,
+            'router', router['id'], proj_obj.uuid, is_admin=True,
             operation='ADDINTERFACE',
             extra_res_fields={'subnet_id': private_subnet['id']},
         )
@@ -985,9 +976,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         def router_with_fake_si_ref(orig_method, *args, **kwargs):
             if 'obj_uuids' in kwargs and kwargs['obj_uuids'] == [router['id']]:
                 mock_router_si_ref = mock.patch.object(
-                    router_obj,
-                    'get_service_instance_refs',
-                ).start()
+                    router_obj, 'get_service_instance_refs',).start()
                 mock_router_si_ref.return_value = [{'uuid': 'fake_si_uuid'}]
                 return [router_obj]
             return orig_method(*args, **kwargs)
