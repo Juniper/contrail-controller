@@ -485,4 +485,14 @@ class DMUtils(object):
         return uuid
     # end extract_lr_uuid_from_internal_vn_name
 
+    @classmethod
+    def get_switch_policy_name(cls):
+        return "_contrail_switch_policy_"
+    # end get_switch_policy_name
+
+    @classmethod
+    def get_switch_vrf_import(cls, asn):
+        return "target:" + str(asn) + ":1"
+    # end get_switch_vrf_import
+
 # end DMUtils
