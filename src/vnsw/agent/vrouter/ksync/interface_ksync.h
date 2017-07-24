@@ -96,6 +96,7 @@ private:
     bool metadata_l2_active_;
     bool metadata_ip_active_;
     bool bridging_;
+    VmInterface::ProxyArpMode proxy_arp_mode_;
     MacAddress mac_;
     MacAddress smac_;
     Interface::MirrorDirection mirror_direction_;

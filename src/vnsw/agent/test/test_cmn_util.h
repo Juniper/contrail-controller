@@ -587,7 +587,8 @@ void SendBgpServiceConfig(const std::string &ip,
 void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
                             const char *sip, const char *dip, int proto,
                             int sport_start, int sport_end, int dport_start,
-                            int dport_end, const char *vrf, const char *ignore_acl);
+                            int dport_end, const char *vrf, const char *ignore_acl,
+                            const char *svc_intf_type = NULL);
 void SendBgpServiceConfig(const std::string &ip,
                           uint32_t source_port,
                           uint32_t id,
