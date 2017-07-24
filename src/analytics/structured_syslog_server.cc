@@ -919,10 +919,7 @@ StructuredSyslogForwarder::StructuredSyslogForwarder(EventManager *evm,
                                                      const std::string &structured_syslog_kafka_broker,
                                                      const std::string &structured_syslog_kafka_topic,
                                                      uint16_t structured_syslog_kafka_partitions):
-    evm_(evm),
-    work_queue_(TaskScheduler::GetInstance()->GetTaskId(
-                "vizd::structured_syslog_forwarder"), 0, boost::bind(
-                    &StructuredSyslogForwarder::Client, this, _1)) {
+    evm_(evm) {
     if (tcp_forward_dst.size() != 0) {
         tcpForwarder_poll_timer_= TimerManager::CreateTimer(*evm->io_service(),
                                   "tcpForwarder poll timer",
@@ -995,7 +992,6 @@ bool StructuredSyslogForwarder::PollTcpForwarder() {
 }
 
 void StructuredSyslogForwarder::Shutdown() {
-    work_queue_.ScheduleShutdown();
     if (kafkaForwarder_ != NULL) {
         kafkaForwarder_->Shutdown();
     }
@@ -1003,15 +999,10 @@ void StructuredSyslogForwarder::Shutdown() {
 }
 
 void StructuredSyslogForwarder::Forward(boost::shared_ptr<StructuredSyslogQueueEntry> sqe) {
-    work_queue_.Enqueue(sqe);
-}
-
-bool StructuredSyslogForwarder::Client(boost::shared_ptr<StructuredSyslogQueueEntry> sqe) {
-    bool ret = true;
     for (std::vector<boost::shared_ptr<StructuredSyslogTcpForwarder> >::iterator it = tcpForwarder_.begin();
          it != tcpForwarder_.end(); ++it) {
         size_t bytes_written;
-        ret = (*it)->Send((const u_int8_t*)sqe->data->c_str(), sqe->length, &bytes_written);
+        (*it)->Send((const u_int8_t*)sqe->data->c_str(), sqe->length, &bytes_written);
         if (bytes_written < sqe->length) {
             LOG(DEBUG, "error writing - bytes_written: " << bytes_written);
         }
@@ -1019,7 +1010,6 @@ bool StructuredSyslogForwarder::Client(boost::shared_ptr<StructuredSyslogQueueEn
     if (kafkaForwarder_ != NULL) {
         kafkaForwarder_->Send(*(sqe->data), *(sqe->skey));
     }
-    return ret;
 }
 
 StructuredSyslogQueueEntry::StructuredSyslogQueueEntry(boost::shared_ptr<std::string> d, size_t len,

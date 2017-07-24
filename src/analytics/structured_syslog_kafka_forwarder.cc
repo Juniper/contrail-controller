@@ -3,6 +3,7 @@
  */
 
 #include <tbb/mutex.h>
+#include <tbb/atomic.h>
 #include <boost/bind.hpp>
 #include <boost/assert.hpp>
 #include "base/util.h"
@@ -32,10 +33,12 @@ using process::ConnectionStatus;
 
 class KafkaForwarderDeliveryReportCb : public RdKafka::DeliveryReportCb {
  public:
-  unsigned int count;
+  tbb::atomic<size_t> count;
   // This is to count the number of successful
   // kafka operations
-  KafkaForwarderDeliveryReportCb() : count(0) {}
+  KafkaForwarderDeliveryReportCb() {
+    count = 0;
+  }
 
   void dr_cb(RdKafka::Message &message) {
     if (message.err() != RdKafka::ERR_NO_ERROR) {
@@ -43,7 +46,7 @@ class KafkaForwarderDeliveryReportCb : public RdKafka::DeliveryReportCb {
             message.errstr() << " gen " <<
             string((char *)(message.msg_opaque())));
     } else {
-        count++;
+        count.fetch_and_increment();
     }
     char * cc = (char *)message.msg_opaque();
     delete[] cc;
@@ -86,8 +89,10 @@ static inline unsigned int djb_hash(const char *str, size_t len) {
 
 class KafkaForwarderPartitionerCb : public RdKafka::PartitionerCb {
   public:
-    unsigned int count;
-    KafkaForwarderPartitionerCb() : count(0) {}
+    tbb::atomic<size_t> count;
+    KafkaForwarderPartitionerCb() {
+        count = 0;
+    }
     int32_t partitioner_cb(const RdKafka::Topic *topic,
                                   const std::string *key,
                                   int32_t partition_cnt,
@@ -95,7 +100,7 @@ class KafkaForwarderPartitionerCb : public RdKafka::PartitionerCb {
         int32_t pt = djb_hash(key->c_str(), key->size()) % partition_cnt;
         LOG(DEBUG,"PartitionerCb key " << key->c_str()  << " len " << key->size() <<
                  key->size() << " count " << partition_cnt << " pt " << pt);
-        count++;
+        count.fetch_and_increment();
         return pt;
     }
 };
