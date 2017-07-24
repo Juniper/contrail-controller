@@ -97,10 +97,8 @@ protected:
                const std::string &structured_syslog_kafka_broker,
                const std::string &structured_syslog_kafka_topic,
                uint16_t structured_syslog_kafka_partitions);
-    bool Client(boost::shared_ptr<StructuredSyslogQueueEntry> sqe);
 private:
     EventManager                           *evm_;
-    WorkQueue<boost::shared_ptr<StructuredSyslogQueueEntry> > work_queue_;
     std::vector<boost::shared_ptr<StructuredSyslogTcpForwarder> > tcpForwarder_;
     KafkaForwarder*                            kafkaForwarder_;
     Timer                                  *tcpForwarder_poll_timer_;
