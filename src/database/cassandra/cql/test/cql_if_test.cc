@@ -103,9 +103,10 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
         "DynamicCf", // name
         boost::assign::list_of // partition key
             (GenDb::DbDataType::Unsigned32Type),
-        boost::assign::list_of // column name comparator
+        boost::assign::list_of // clustering columns
             (GenDb::DbDataType::Unsigned32Type),
-        boost::assign::list_of // column value validation class
+        std::vector<GenDb::DbDataType::type>(),// columns
+        boost::assign::list_of // values
             (GenDb::DbDataType::LexicalUUIDType));
     std::string actual_qstring(
         cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf,
@@ -137,8 +138,9 @@ TEST_F(CqlIfTest, DynamicCfCreateTable) {
     GenDb::NewCf dynamic_cf1(
         "DynamicCf1", // name
         all_types, // partition key
-        all_types, // column name comparator
-        boost::assign::list_of // column value validation class
+        all_types, // clustering columns
+        std::vector<GenDb::DbDataType::type>(),// columns
+        boost::assign::list_of // values
             (GenDb::DbDataType::UTF8Type));
     std::string actual_qstring1(
         cass::cql::impl::DynamicCf2CassCreateTableIfNotExists(dynamic_cf1,
@@ -289,8 +291,9 @@ TEST_F(CqlIfTest, DynamicCfInsertIntoTablePrepare) {
     GenDb::NewCf dynamic_cf(
         "InsertIntoDynamicCf", // name
         all_types, // partition key
-        all_types, // column name comparator
-        boost::assign::list_of // column value validation class
+        all_types, // clustering columns
+        std::vector<GenDb::DbDataType::type>(),// columns
+        boost::assign::list_of // values
             (GenDb::DbDataType::UTF8Type));
     std::string actual_qstring(
         cass::cql::impl::DynamicCf2CassPrepareInsertIntoTable(dynamic_cf));
