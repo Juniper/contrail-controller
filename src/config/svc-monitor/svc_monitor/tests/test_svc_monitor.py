@@ -50,6 +50,11 @@ vmi_add_info = {
     u'fq_name': [u'fake-domain', u'fake-project', u'fake-domain__fake-project__fake-instance__1__left__0'],
 }
 
+vmi_update_info = {
+    u'oper': u'UPDATE', u'uuid': u'fake-vmi', u'type': u'virtual-machine-interface',
+    u'fq_name': [u'fake-domain', u'fake-project', u'fake-domain__fake-project__'],
+}
+
 vmi_del_info = {
     u'oper': u'DELETE', u'uuid': u'left-vmi', u'type': u'virtual-machine-interface',
     u'fq_name': [u'fake-domain', u'fake-project', u'left-vmi'],
@@ -392,6 +397,22 @@ class SvcMonitorTest(unittest.TestCase):
         config_db.InterfaceRouteTableSM.locate(uuid)
         return irt_obj
 
+    def add_shc(self, name, uuid, parent_obj, shc_props, si_obj=None):
+        shc = ServiceHealthCheck(name=name, parent_obj=parent_obj,
+                service_health_check_properties=shc_props)
+        if si_obj:
+            si_inf_tag = ServiceInterfaceTag(interface_type='left')
+            shc.add_service_instance(si_obj, si_inf_tag)
+            shc._pending_field_updates.add('service_instance_refs')
+        shc_dict = self.obj_to_dict(shc)
+        shc_dict['uuid'] = uuid
+        shc_dict['parent_uuid'] = parent_obj.uuid
+        shc_obj = ServiceHealthCheck.from_dict(**shc_dict)
+        config_db.ServiceHealthCheckSM._object_db.object_read = \
+            mock.Mock(return_value=(True, [shc_dict]))
+        config_db.ServiceHealthCheckSM.locate(uuid)
+        return shc_obj
+
     def add_si(self, name, uuid, st):
         si = ServiceInstance(name=name)
         si.set_service_template(st)
@@ -438,8 +459,10 @@ class SvcMonitorTest(unittest.TestCase):
         config_db.VirtualNetworkSM.locate(uuid)
         return net_obj
 
-    def add_vmi(self, name, uuid, parent_obj, net_obj, vm_obj=None, irt_obj=None):
-        vmi = VirtualMachineInterface(name=name, parent_obj=parent_obj)
+    def add_vmi(self, name, uuid, parent_obj, net_obj,
+           vm_obj=None, irt_obj=None, shc_obj=None, annotations=None):
+        vmi = VirtualMachineInterface(name=name,
+                parent_obj=parent_obj, annotations=annotations)
         vmi.set_virtual_network(net_obj)
         if vm_obj:
             vmi.set_virtual_machine(vm_obj)
@@ -447,6 +470,9 @@ class SvcMonitorTest(unittest.TestCase):
         if irt_obj:
             vmi.add_interface_route_table(irt_obj)
             vmi._pending_field_updates.add('interface_route_table_refs')
+        if shc_obj:
+            vmi.add_service_health_check(shc_obj)
+            vmi._pending_field_updates.add('service_health_check_refs')
         vmi_dict = self.obj_to_dict(vmi)
         vmi_dict['parent_uuid'] = parent_obj.uuid
         vmi_dict['uuid'] = uuid
@@ -869,6 +895,26 @@ class SvcMonitorTest(unittest.TestCase):
         self.assertTrue(si.launch_count==1)
         match_str = "SI %s creation success" % (':').join(si.fq_name)
         ServiceMonitorLogger.info.assert_any_call(match_str)
+
+    def test_svc_monitor_non_service_vmi_service_health_check(self):
+        vm_obj = self.add_vm("fake-vm", 'fake-vm', None, 'virtual-machine')
+        project = self.add_project('fake-project', 'fake-project')
+        net_obj = self.add_vn('fake-vn', 'fake-vn', project)
+        shc_props = ServiceHealthCheckType()
+        shc_props.enabled = True
+        shc_props.health_check_type = 'link-local'
+        st_obj = self.add_st('fake-template', 'fake-template')
+        si_obj = self.add_si('fake-instance', 'fake-instance', st_obj)
+        shc_obj = self.add_shc('fake-shc', 'fake-shc', project,
+                          shc_props, si_obj=si_obj)
+        kvps_list = [{'key': '_service_vm_', 'value': 'False'}]
+        annotations = {}
+        annotations['key_value_pair'] = kvps_list
+        vmi_obj = self.add_vmi('fake-domain__fake-project__', 'fake-vmi', project,
+                         net_obj, vm_obj, shc_obj=shc_obj, annotations=annotations)
+        self._svc_monitor.rabbit._vnc_subscribe_callback(vmi_update_info)
+        vmi = config_db.VirtualMachineInterfaceSM.get('fake-vmi')
+        self.assertEqual(len(vmi.service_health_checks), 1)
 
     def test_svc_monitor_vmi_add(self):
         st_obj = self.add_st('fake-template', 'fake-template')
