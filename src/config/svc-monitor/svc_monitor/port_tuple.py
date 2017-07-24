@@ -276,7 +276,7 @@ class PortTupleAgent(Agent):
 
         for health_id in list(vmi.service_health_checks):
             health = ServiceHealthCheckSM.get(health_id)
-            if health and health.service_instances:
+            if health and health.service_instances and vmi.service_vm == True:
                 self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                     'service-health-check', health.uuid, None, 'DELETE')
                 vmi.service_health_checks.remove(health_id)
