@@ -36,7 +36,9 @@ class MxConf(JuniperConf):
     def is_product_supported(cls, name, role):
         if role and role.lower().startswith('e2-'):
             return False
-        for product in cls._products:
+        if name.lower() in cls._products:
+            return True
+        for product in cls._products or []:
             if name.lower().startswith(product.lower()):
                 return True
         return False
