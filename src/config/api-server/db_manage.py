@@ -588,8 +588,7 @@ class DatabaseManager(object):
             pfxlen_path = base_path + '/' + subnet
             pfxlen = self._zk_client.get_children(pfxlen_path)
             if not pfxlen:
-                subnet_key = '%s/24' % pfx
-                zk_all_vns[vn_fq_name_str][subnet_key] = []
+                zk_all_vns[vn_fq_name_str][pfx] = []
                 continue
             subnet_key = '%s/%s' % (pfx, pfxlen[0])
             zk_all_vns[vn_fq_name_str][subnet_key] = []
@@ -1040,8 +1039,8 @@ class DatabaseChecker(DatabaseManager):
         ret_errors.extend(errors)
 
         for vn_id, fq_name_uuids in duplicate_ids.items():
-            errmsg = ("Duplicate VN ID: '%s' used for VN(s) %s already used by"
-                      "another one" % (vn_id, fq_name_uuids))
+            errmsg = ("Duplicate VN ID: '%s' used for VN(s) %s already used "
+                      "by another one" % (vn_id, fq_name_uuids))
             ret_errors.append(VNDuplicateIdError(errmsg))
 
         extra_vn_ids = zk_set - cassandra_set
@@ -1068,8 +1067,8 @@ class DatabaseChecker(DatabaseManager):
         ret_errors.extend(errors)
 
         for sg_id, fq_name_uuids in duplicate_ids.items():
-            errmsg = ("Duplicate SG ID: '%s' used for SG(s) %s already used by"
-                      "another one" % (sg_id, fq_name_uuids))
+            errmsg = ("Duplicate SG ID: '%s' used for SG(s) %s already used "
+                      "by another one" % (sg_id, fq_name_uuids))
             ret_errors.append(SGDuplicateIdError(errmsg))
 
         extra_sg_ids = zk_set - cassandra_set
@@ -1321,7 +1320,7 @@ class DatabaseCleaner(DatabaseManager):
             fq_name = json.loads(cols.get('fq_name', '"UnknownFQN"'))
             stale_cols = []
             for col_name in cols:
-                if dangle_prefix not in col_name:
+                if not col_name.startswith(dangle_prefix):
                     continue
                 _, _, dangle_check_uuid = col_name.split(':')
                 try:
@@ -1390,9 +1389,7 @@ class DatabaseCleaner(DatabaseManager):
         # Clean extra subnet in zk
         extra_vn_sn = set(zk_all_vn_sn) - set(cassandra_all_vn_sn)
         for vn, sn_key in extra_vn_sn:
-            path = '%s/%s:%s/%d' % (self.base_subnet_zk_path, vn,
-                                    str(IPNetwork(sn_key).network),
-                                    IPNetwork(sn_key).prefixlen)
+            path = '%s/%s:%s' % (self.base_subnet_zk_path, vn, sn_key)
             if not self._args.execute:
                 logger.info("Would delete zk: %s", path)
             else:
@@ -1422,10 +1419,8 @@ class DatabaseCleaner(DatabaseManager):
                     continue
 
                 ip_str = "%(#)010d" % {'#': int(IPAddress(ip_addr[1]))}
-                path = ('%s/%s:%s/%d/%s' %
-                        (self.base_subnet_zk_path, vn,
-                         str(IPNetwork(sn_key).network),
-                         IPNetwork(sn_key).prefixlen, ip_str))
+                path = ('%s/%s:%s/%s' %
+                        self.base_subnet_zk_path, vn, sn_key, ip_str)
                 if not self._args.execute:
                     logger.info("Would delete zk: %s", path)
                 else:
@@ -1659,9 +1654,7 @@ class DatabaseHealer(DatabaseManager):
             for ip_addr in cassandra_all_vns[vn][sn_key]['addrs']:
                 ip_str = "%(#)010d" % {'#': int(IPAddress(ip_addr[1]))}
                 path = ('%s/%s:%s/%d/%s' %
-                        (self.base_subnet_zk_path, vn,
-                         str(IPNetwork(sn_key).network),
-                         IPNetwork(sn_key).prefixlen, ip_str))
+                        self.base_subnet_zk_path, vn, sn_key, ip_str)
                 if not self._args.execute:
                     logger.info("Would create zk: %s", path)
                 else:
@@ -1679,9 +1672,7 @@ class DatabaseHealer(DatabaseManager):
             for ip_addr in set(cassandra_ips) - set(zk_ips):
                 ip_str = "%(#)010d" % {'#': int(IPAddress(ip_addr[1]))}
                 path = ('%s/%s:%s/%d/%s' %
-                        (self.base_subnet_zk_path, vn,
-                         str(IPNetwork(sn_key).network),
-                         IPNetwork(sn_key).prefixlen, ip_str))
+                        self.base_subnet_zk_path, vn, sn_key, ip_str)
                 if not self._args.execute:
                     logger.info("Would create zk: %s", path)
                 else:
