@@ -12,7 +12,6 @@
 #include <vrouter/ksync/route_ksync.h>
 #include <vrouter/ksync/vxlan_ksync.h>
 #include <vrouter/ksync/vrf_assign_ksync.h>
-#include <vrouter/ksync/interface_scan.h>
 #include <vrouter/ksync/ksync_flow_index_manager.h>
 #include <oper/agent_profile.h>
 #include <vrouter/ksync/qos_queue_ksync.h>
@@ -52,9 +51,6 @@ public:
     }
     FlowTableKSyncObject *flow_table_ksync_obj(uint16_t index) const {
         return flow_table_ksync_obj_list_[index];
-    }
-    InterfaceKScan *interface_scanner() const {
-        return interface_scanner_.get();
     }
     VnswInterfaceListener *vnsw_interface_listner() const  {
         return vnsw_interface_listner_.get();
@@ -96,7 +92,6 @@ protected:
     boost::scoped_ptr<VrfKSyncObject> vrf_ksync_obj_;
     boost::scoped_ptr<VxLanKSyncObject> vxlan_ksync_obj_;
     boost::scoped_ptr<VrfAssignKSyncObject> vrf_assign_ksync_obj_;
-    boost::scoped_ptr<InterfaceKScan> interface_scanner_;
     boost::scoped_ptr<VnswInterfaceListener> vnsw_interface_listner_;
     boost::scoped_ptr<KSyncFlowMemory> ksync_flow_memory_;
     boost::scoped_ptr<KSyncFlowIndexManager> ksync_flow_index_manager_;
@@ -107,7 +102,6 @@ protected:
         bridge_route_audit_ksync_obj_;
     boost::scoped_ptr<KSyncBridgeMemory> ksync_bridge_memory_;
     virtual void InitFlowMem();
-    void VRouterInterfaceSnapshot();
     void ResetVRouter(bool run_sync_mode);
     int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
 private:
