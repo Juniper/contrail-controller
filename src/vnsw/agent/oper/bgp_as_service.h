@@ -103,7 +103,7 @@ public:
     typedef BgpAsAServiceEntryMap::iterator BgpAsAServiceEntryMapIterator;
     typedef BgpAsAServiceEntryMap::const_iterator BgpAsAServiceEntryMapConstIterator;
 
-    typedef std::map<uint32_t, IndexAllocator*> BgpAsAServicePortMap;
+    typedef std::map<uint32_t, IndexVector<boost::uuids::uuid>* > BgpAsAServicePortMap;
     typedef BgpAsAServicePortMap::iterator BgpAsAServicePortMapIterator;
     typedef BgpAsAServicePortMap::const_iterator BgpAsAServicePortMapConstIterator;
 
@@ -119,9 +119,10 @@ public:
                                         IpAddress *nat_server,
                                         uint32_t *sport) const;
     size_t AllocateBgpVmiServicePortIndex(const uint32_t sport,
-                                          const uint16_t max_shared_sessions);
+                                          const boost::uuids::uuid vm_uuid);
     void FreeBgpVmiServicePortIndex(const uint32_t sport);
-    uint32_t AddBgpVmiServicePortIndex(const uint32_t source_port);
+    uint32_t AddBgpVmiServicePortIndex(const uint32_t source_port,
+                                       const boost::uuids::uuid vm_uuid);
     void ProcessConfig(const std::string &vrf_name,
                        std::list<IFMapNode *> &node_list,
                        const boost::uuids::uuid &vmi_uuid);

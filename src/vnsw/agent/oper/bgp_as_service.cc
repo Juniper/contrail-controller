@@ -177,17 +177,11 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                      old_bgp_as_a_service_entry_list_iter->second->list_) {
                     source_port = bgp_router->parameters().source_port;
                 }
-                BgpAsAServiceEntryListIterator deleted_list_iter =
-                    temp_bgp_as_a_service_entry_list.begin();
-                while (deleted_list_iter !=
-                        temp_bgp_as_a_service_entry_list.end()) {
-                    BgpAsAServiceEntryListIterator prev = deleted_list_iter++;
-                    temp_bgp_as_a_service_entry_list.erase(prev);
-                }
             }
             if (!source_port) {
                 source_port = AddBgpVmiServicePortIndex(
-                                    bgp_router->parameters().source_port);
+                                    bgp_router->parameters().source_port,
+                                    vm_uuid);
             }
             if (source_port) {
                 new_list.insert(BgpAsAServiceEntry(peer_ip,
@@ -298,11 +292,11 @@ bool BgpAsAService::IsBgpService(const VmInterface *vm_intf,
 }
 
 void BgpAsAService::FreeBgpVmiServicePortIndex(const uint32_t sport) {
-    const std::vector<uint16_t> &ports =
-                    agent_->oper_db()->global_system_config()->bgpaas_port_range();
+    BGPaaServiceParameters:: BGPaaServicePortRangePair ports =
+                agent_->oper_db()->global_system_config()->bgpaas_port_range();
     BGPaaSUtils::BgpAsServicePortIndexPair portinfo =
                     BGPaaSUtils::DecodeBgpaasServicePort(sport,
-                        ports[0], ports[1]);
+                        ports.first, ports.second);
 
     BgpAsAServicePortMapIterator port_map_it =
                     bgp_as_a_service_port_map_.find(portinfo.first);
@@ -312,7 +306,7 @@ void BgpAsAService::FreeBgpVmiServicePortIndex(const uint32_t sport) {
 
     size_t vmi_service_port_index = portinfo.second;
 
-    port_map_it->second->FreeIndex(vmi_service_port_index);
+    port_map_it->second->Remove(vmi_service_port_index);
 
     if (port_map_it->second->NoneIndexSet()) {
         delete port_map_it->second;
@@ -321,24 +315,22 @@ void BgpAsAService::FreeBgpVmiServicePortIndex(const uint32_t sport) {
 }
 
 size_t BgpAsAService::AllocateBgpVmiServicePortIndex(const uint32_t sport,
-                                        const uint16_t max_shared_sessions) {
+                                        const boost::uuids::uuid vm_uuid) {
     BgpAsAServicePortMapIterator port_map_it =
                     bgp_as_a_service_port_map_.find(sport);
     if (port_map_it == bgp_as_a_service_port_map_.end()) {
-        bgp_as_a_service_port_map_[sport] = new IndexAllocator(
-                                                    max_shared_sessions);
+        bgp_as_a_service_port_map_[sport] = new IndexVector<boost::uuids::uuid>();
     }
-    return bgp_as_a_service_port_map_[sport]->AllocIndex();
+    return bgp_as_a_service_port_map_[sport]->Insert(NULL);
 }
 
-uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port) {
-    const std::vector<uint16_t> &ports =
-                    agent_->oper_db()->global_system_config()->bgpaas_port_range();
-    uint16_t port_range = ports[1] - ports[0] + 1;
-    uint16_t max_session = USHRT_MAX / port_range; 
+uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port,
+                                            const boost::uuids::uuid vm_uuid) {
+    BGPaaServiceParameters:: BGPaaServicePortRangePair ports =
+                agent_->oper_db()->global_system_config()->bgpaas_port_range();
 
     size_t vmi_service_port_index = AllocateBgpVmiServicePortIndex(source_port,
-                                                                max_session);
+                                                                   vm_uuid);
     if (vmi_service_port_index == BitSet::npos) {
         std::stringstream ss;
         ss << "Service Port Index is not available for ";
@@ -349,7 +341,7 @@ uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port) {
     return BGPaaSUtils::EncodeBgpaasServicePort(
                                 source_port,
                                 vmi_service_port_index,
-                                ports[0], ports[1]);
+                                ports.first, ports.second);
 }
 
 bool BgpAsAService::GetBgpRouterServiceDestination(const VmInterface *vm_intf,
