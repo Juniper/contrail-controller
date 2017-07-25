@@ -18,9 +18,10 @@ struct SandeshTaskEntry {
     1: i32 instance_id;
     2: u64 tasks_created;
     3: u64 total_tasks_completed;
-    4: u32 tasks_running;
-    5: u32 waitq_size;
-    6: u32 deferq_size;
+    4: u64 latest_exit_time;
+    5: u32 tasks_running;
+    6: u32 waitq_size;
+    7: u32 deferq_size;
 }
 
 struct SandeshTaskGroup {
