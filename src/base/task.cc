@@ -1504,6 +1504,7 @@ void TaskEntry::TaskExited(Task *t, TaskGroup *group) {
     
     run_count_--;
     stats_.total_tasks_completed_++;
+    stats_.latest_exit_time_ = UTCTimestampUsec();
     group->TaskExited(t);
 
     if (!group->run_count_ && !run_count_) {
@@ -1595,6 +1596,7 @@ void TaskEntry::GetSandeshData(SandeshTaskEntry *resp) const {
     resp->set_instance_id(task_instance_);
     resp->set_tasks_created(stats_.enqueue_count_);
     resp->set_total_tasks_completed(stats_.total_tasks_completed_);
+    resp->set_latest_exit_time(stats_.latest_exit_time_);
     resp->set_tasks_running(run_count_);
     resp->set_waitq_size(waitq_.size());
     resp->set_deferq_size(deferq_->size());
