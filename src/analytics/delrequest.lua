@@ -10,12 +10,12 @@ redis.call('select',db)
 local typ = redis.call('smembers',"TYPES:"..sm)
 
 local ism = redis.call('sismember', 'NGENERATORS', ngen_sm)
+local res = {}
 if ism == 0 then
-    return false
+    return res
 end
 redis.call('expire', "NGENERATORS", 40)
 
-local res = {}
 for k,v in pairs(typ) do
     redis.log(redis.LOG_NOTICE, "Read UVES:"..sm..":"..v)
     local lres = redis.call('zrange',"UVES:"..sm..":"..v, 0, -1, "withscores")
