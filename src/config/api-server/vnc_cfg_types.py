@@ -310,7 +310,8 @@ class FloatingIpServer(Resource, FloatingIp):
                     'AddrMgmt: free FIP %s for vn=%s tenant=%s, on undo'
                         % (fip_addr, vn_fq_name, tenant_name),
                            level=SandeshLevel.SYS_DEBUG)
-                cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
+                cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name,
+                                          alloc_id=obj_dict['uuid'])
                 return True, ""
             # end undo
             get_context().push_undo(undo)
@@ -335,11 +336,11 @@ class FloatingIpServer(Resource, FloatingIp):
         db_conn.config_log('AddrMgmt: free FIP %s for vn=%s'
                            % (fip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
-        cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name,
+                                  alloc_id=obj_dict['uuid'])
 
         return True, ""
     # end post_dbe_delete
-
 
     @classmethod
     def dbe_create_notification(cls, db_conn, obj_id):
@@ -361,7 +362,8 @@ class FloatingIpServer(Resource, FloatingIp):
 
         fip_addr = obj_dict['floating_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name,
+                                     alloc_id=obj_dict['uuid'])
     # end dbe_delete_notification
 
 # end class FloatingIpServer
@@ -383,7 +385,8 @@ class AliasIpServer(Resource, AliasIp):
                     'AddrMgmt: free FIP %s for vn=%s tenant=%s, on undo'
                         % (fip_addr, vn_fq_name, tenant_name),
                            level=SandeshLevel.SYS_DEBUG)
-                cls.addr_mgmt.ip_free_req(aip_addr, vn_fq_name)
+                cls.addr_mgmt.ip_free_req(aip_addr, vn_fq_name,
+                                          alloc_id=obj_dict['uuid'])
                 return True, ""
             # end undo
             get_context().push_undo(undo)
@@ -406,7 +409,8 @@ class AliasIpServer(Resource, AliasIp):
         db_conn.config_log('AddrMgmt: free AIP %s for vn=%s'
                            % (aip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
-        cls.addr_mgmt.ip_free_req(aip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_req(aip_addr, vn_fq_name,
+                                  alloc_id=obj_dict['uuid'])
 
         return True, ""
     # end post_dbe_delete
@@ -426,7 +430,8 @@ class AliasIpServer(Resource, AliasIp):
     def dbe_delete_notification(cls, obj_id, obj_dict):
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_free_notify(aip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_notify(aip_addr, vn_fq_name,
+                                     alloc_id=obj_dict['uuid'])
     # end dbe_delete_notification
 
 # end class AliasIpServer
@@ -523,7 +528,8 @@ class InstanceIpServer(Resource, InstanceIp):
                 db_conn.config_log('AddrMgmt: free IP %s, vn=%s tenant=%s on post fail'
                                    % (ip_addr, vn_fq_name, tenant_name),
                                    level=SandeshLevel.SYS_DEBUG)
-                cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
+                cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name,
+                                          alloc_id=obj_dict['uuid'])
                 return True, ""
             # end undo
             get_context().push_undo(undo)
@@ -597,7 +603,8 @@ class InstanceIpServer(Resource, InstanceIp):
         db_conn.config_log('AddrMgmt: free IP %s, vn=%s'
                            % (ip_addr, vn_fq_name),
                            level=SandeshLevel.SYS_DEBUG)
-        cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name,
+                                  alloc_id=obj_dict['uuid'])
 
         return True, ""
     # end post_dbe_delete
@@ -619,7 +626,8 @@ class InstanceIpServer(Resource, InstanceIp):
         except KeyError:
             return
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name,
+                                     alloc_id=obj_dict['uuid'])
     # end dbe_delete_notification
 
 # end class InstanceIpServer
@@ -2698,7 +2706,7 @@ class ProjectServer(Resource, Project):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         if 'vxlan_routing' in obj_dict:
             # VxLAN routing can be enabled or disabled
-            # only when the project does not have any 
+            # only when the project does not have any
             # Logical routers already attached.
             ok, result = cls.dbe_read(db_conn, 'project', id)
 
