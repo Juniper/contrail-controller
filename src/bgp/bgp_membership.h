@@ -487,10 +487,10 @@ private:
 
     // Testing only.
     void SetQueueDisable(bool value);
-    size_t GetQueueSize() const { return rib_state_list_.size(); }
+    size_t GetQueueSize() const { return rib_state_list_size_; }
     size_t GetPeerListSize() const { return peer_list_.size(); }
     size_t GetPeerRibListSize() const { return peer_rib_list_.size(); }
-    size_t GetRibOutStateListSize() const { return ribout_state_list_.size(); }
+    size_t GetRibOutStateListSize() const { return ribout_state_list_size_; }
     void PostponeWalk();
     void ResumeWalk();
 
@@ -508,6 +508,8 @@ private:
     PeerList peer_list_;
     RibOutStateMap ribout_state_map_;
     RibOutStateList ribout_state_list_;
+    size_t rib_state_list_size_;
+    size_t ribout_state_list_size_;
 
     DISALLOW_COPY_AND_ASSIGN(Walker);
 };
