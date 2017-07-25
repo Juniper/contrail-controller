@@ -21,6 +21,7 @@ struct SandeshTaskEntry {
     4: u32 tasks_running;
     5: u32 waitq_size;
     6: u32 deferq_size;
+    7: u64 last_exit_time;
 }
 
 struct SandeshTaskGroup {
