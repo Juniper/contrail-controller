@@ -49,7 +49,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     has_service_vlan_(entry->has_service_vlan_),
     interface_id_(entry->interface_id_),
     interface_name_(entry->interface_name_),
-    ip_(entry->ip_), hc_active_(false), ipv4_active_(false),
+    ip_(entry->ip_), primary_ip6_(entry->primary_ip6_),
+    hc_active_(false), ipv4_active_(false),
     layer3_forwarding_(entry->layer3_forwarding_),
     ksync_obj_(obj), l2_active_(false),
     metadata_l2_active_(entry->metadata_l2_active_),
@@ -138,9 +139,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     if (type_ == Interface::VM_INTERFACE) {
         const VmInterface *vmitf =
             static_cast<const VmInterface *>(intf);
-        if (vmitf->do_dhcp_relay()) {
-            ip_ = vmitf->primary_ip_addr().to_ulong();
-        }
+        ip_ = vmitf->primary_ip_addr().to_ulong();
+        primary_ip6_ = vmitf->primary_ip6_addr();
         network_id_ = vmitf->vxlan_id();
         rx_vlan_id_ = vmitf->rx_vlan_id();
         tx_vlan_id_ = vmitf->tx_vlan_id();
@@ -244,17 +244,16 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             ret = true;
         }
 
-        if (vm_port->do_dhcp_relay()) {
-            if (ip_ != vm_port->primary_ip_addr().to_ulong()) {
-                ip_ = vm_port->primary_ip_addr().to_ulong();
-                ret = true;
-            }
-        } else {
-            if (ip_) {
-                ip_ = 0;
-                ret = true;
-            }
+        if (ip_ != vm_port->primary_ip_addr().to_ulong()) {
+            ip_ = vm_port->primary_ip_addr().to_ulong();
+            ret = true;
         }
+
+        if (primary_ip6_ != vm_port->primary_ip6_addr()) {
+            primary_ip6_ = vm_port->primary_ip6_addr();
+            ret = true;
+        }
+
         if (layer3_forwarding_ != vm_port->layer3_forwarding()) {
             layer3_forwarding_ = vm_port->layer3_forwarding();
             ret = true;
@@ -694,6 +693,13 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             if (pbb_cmac_vrf_ != VrfEntry::kInvalidIndex) {
                 vrf_id = pbb_cmac_vrf_;
             }
+        }
+
+        if (!primary_ip6_.is_unspecified()) {
+            uint64_t data[2];
+            Ip6AddressToU64Array(primary_ip6_, data, 2);
+            encoder.set_vifr_ip6_u(data[0]);
+            encoder.set_vifr_ip6_l(data[1]);
         }
         encoder.set_vifr_vhostuser_mode(vhostuser_mode_);
         break;

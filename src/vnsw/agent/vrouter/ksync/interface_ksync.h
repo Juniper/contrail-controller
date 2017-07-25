@@ -87,6 +87,7 @@ private:
     uint32_t interface_id_;
     string interface_name_;     // Key
     uint32_t ip_;
+    Ip6Address primary_ip6_;
     bool hc_active_;
     bool ipv4_active_;
     bool layer3_forwarding_;
