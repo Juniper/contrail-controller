@@ -478,8 +478,10 @@ class DBInterface(object):
     #end _virtual_machine_interface_delete
 
     def _virtual_machine_interface_list(self, parent_id=None, back_ref_id=None,
-                                        obj_uuids=None, fields=None):
-        back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs', 'floating_ip_back_refs']
+                                        obj_uuids=None, fields=None,
+                                        filters=None):
+        back_ref_fields = ['logical_router_back_refs', 'instance_ip_back_refs',
+                           'floating_ip_back_refs']
         if fields:
             n_extra_fields = list(set(fields + back_ref_fields))
         else:
@@ -489,7 +491,8 @@ class DBInterface(object):
                                                      back_ref_id=back_ref_id,
                                                      obj_uuids=obj_uuids,
                                                      detail=True,
-                                                     fields=n_extra_fields)
+                                                     fields=n_extra_fields,
+                                                     filters=filters)
         return vmi_objs
     #end _virtual_machine_interface_list
 
@@ -3972,13 +3975,13 @@ class DBInterface(object):
         # if mac-address is specified, check against the exisitng ports
         # to see if there exists a port with the same mac-address
         if 'mac_address' in port_q:
-            ports = self._virtual_machine_interface_list(back_ref_id=net_id)
-            for port in ports:
-                macs = port.get_virtual_machine_interface_mac_addresses()
-                for mac in macs.get_mac_address():
-                    if mac == port_q['mac_address']:
-                        raise self._raise_contrail_exception("MacAddressInUse",
-                            net_id=net_id, mac=port_q['mac_address'])
+            mac_dict = {"mac_address": [port_q['mac_address']]}
+            filters = {'virtual_machine_interface_mac_addresses': json.dumps(mac_dict)}
+            ports = self._virtual_machine_interface_list(back_ref_id=net_id,
+                                                         filters=filters)
+            if ports:
+                raise self._raise_contrail_exception("MacAddressInUse",
+                    net_id=net_id, mac=port_q['mac_address'])
 
         # initialize port object
         port_obj = self._port_neutron_to_vnc(port_q, net_obj, CREATE)

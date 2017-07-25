@@ -956,6 +956,26 @@ class TestExtraFieldsAbsenceByKnob(test_case.NeutronBackendTestCase):
 
 class TestListWithFilters(test_case.NeutronBackendTestCase):
 
+    def create_resource(self, res_type, proj_id, name=None,
+                        extra_res_fields=None, is_admin=False):
+        context = {'operation': 'CREATE',
+                   'user_id': '',
+                   'is_admin': is_admin,
+                   'roles': '',
+                   'tenant_id': proj_id}
+        if name:
+            res_name = name
+        else:
+            res_name = '%s-%s' % (res_type, self.id())
+        data = {'resource': {'name': res_name,
+                             'tenant_id': proj_id}}
+        if extra_res_fields:
+            data['resource'].update(extra_res_fields)
+
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/%s' %(res_type), body)
+        return json.loads(resp.text)
+
     def list_resource(self, url_pfx,
         proj_uuid=None, req_fields=None, req_filters=None,
         is_admin=False):
@@ -1133,6 +1153,51 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn3_obj.uuid)
     # end test_filters_with_shared_and_router_external
+
+    def test_filters_with_complex_type(self):
+        proj_obj = vnc_api.Project('proj-%s' %(self.id()), vnc_api.Domain())
+        self._vnc_lib.project_create(proj_obj)
+
+        vn_obj = vnc_api.VirtualNetwork('vn1-%s' %(self.id()), proj_obj)
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(vnc_api.SubnetType('1.1.1.0', 28))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        mac = vnc_api.MacAddressesType(mac_address= ['00:01:00:00:0f:3c'])
+        vmi_obj = vnc_api.VirtualMachineInterface(
+                                 'vmi-%s' %(self.id()), proj_obj,
+                                 virtual_machine_interface_mac_addresses= mac)
+        vmi_obj.set_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        vmi2_obj = vnc_api.VirtualMachineInterface(
+                                 'vmi2-%s' %(self.id()), proj_obj)
+        vmi2_obj.set_virtual_network(vn_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi2_obj)
+
+        # creating a port with mac address that already exist should fail
+        # port_create will do port_list with filter on mac address
+        try:
+            port_dict = self.create_resource('port', proj_obj.uuid,
+                                             'vmi3-%s' % self.id(),
+                                             extra_res_fields={
+                                                 'network_id': vn_obj.uuid,
+                                                 'mac_address':
+                                                     '00:01:00:00:0f:3c'
+                                                 })
+            self.assertTrue(False,
+                'Create port with already existing mac address passed')
+        except webtest.app.AppError as e:
+            self.assertIsNot(re.search('Bad Request', str(e)), None)
+            self.assertIsNot(re.search('MacAddressInUse', str(e)), None)
+
+        # Cleanup
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi_obj.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=vmi2_obj.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+        self._vnc_lib.project_delete(id=proj_obj.uuid)
+    # end test_filters_with_complex_type
 # end class TestListWithFilters
 
 
