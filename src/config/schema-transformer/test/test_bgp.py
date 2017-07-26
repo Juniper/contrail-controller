@@ -26,15 +26,17 @@ class VerifyBgp(VerifyRouteTarget):
         self._vnc_lib = vnc_lib
 
     @retries(5)
-    def check_ri_asn(self, fq_name, rt_target):
+    def check_ri_target(self, fq_name, rt_target=None):
         ri = self._vnc_lib.routing_instance_read(fq_name)
         rt_refs = ri.get_route_target_refs()
         if not rt_refs:
             print "retrying ... ", test_common.lineno()
             raise Exception('ri_refs is None for %s' % fq_name)
+        if not rt_target:
+            return rt_refs[0]['to'][0]
         for rt_ref in rt_refs:
             if rt_ref['to'][0] == rt_target:
-                return
+                return rt_target
         raise Exception('rt_target %s not found in ri %s' % (rt_target, fq_name))
 
     @retries(5)
@@ -47,13 +49,15 @@ class VerifyBgp(VerifyRouteTarget):
         self.assertEqual(params.get_autonomous_system(), asn)
 
     @retries(5)
-    def check_lr_asn(self, fq_name, rt_target):
+    def check_lr_target(self, fq_name, rt_target=None):
         router = self._vnc_lib.logical_router_read(fq_name)
         rt_refs = router.get_route_target_refs()
         if not rt_refs:
             print "retrying ... ", test_common.lineno()
             raise Exception('ri_refs is None for %s' % fq_name)
-        self.assertEqual(rt_refs[0]['to'][0], rt_target)
+        if rt_target:
+            self.assertEqual(rt_refs[0]['to'][0], rt_target)
+        return rt_refs[0]['to'][0]
 
     @retries(5)
     def check_lr_is_deleted(self, uuid):
@@ -136,7 +140,7 @@ class TestBgp(STTestCase, VerifyBgp):
         lr.set_configured_route_target_list(rtgt_list)
         lr.add_virtual_machine_interface(vmi)
         self._vnc_lib.logical_router_create(lr)
-
+        lr_target = self.check_lr_target(lr.get_fq_name())
         ri_name = self.get_ri_name(vn1_obj)
         self.check_route_target_in_routing_instance(ri_name,rtgt_list.get_route_target())
 
@@ -157,7 +161,7 @@ class TestBgp(STTestCase, VerifyBgp):
         self.check_vn_is_deleted(uuid=vn1_obj.uuid)
         self._vnc_lib.logical_router_delete(id=lr.uuid)
         self.check_lr_is_deleted(uuid=lr.uuid)
-        self.check_rt_is_deleted(name='target:64512:8000002')
+        self.check_rt_is_deleted(name=lr_target)
 
     def test_ibgp_auto_mesh(self):
         # create router1
@@ -203,7 +207,7 @@ class TestBgp(STTestCase, VerifyBgp):
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')
         self.assertTill(self.vnc_db_has_ident, obj=vn1_obj)
 
-        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000001')
+        ri_target = self.check_ri_target(self.get_ri_name(vn1_obj))
 
         # create router1
         r1_name = self.id() + 'router1'
@@ -223,7 +227,7 @@ class TestBgp(STTestCase, VerifyBgp):
         lr = LogicalRouter(lr_name)
         lr.add_virtual_machine_interface(vmi)
         self._vnc_lib.logical_router_create(lr)
-        self.check_lr_asn(lr.get_fq_name(), 'target:64512:8000002')
+        lr_target = self.check_lr_target(lr.get_fq_name())
 
         #update global system config but dont change asn value for equality path
         gs = self._vnc_lib.global_system_config_read(
@@ -232,9 +236,9 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.global_system_config_update(gs)
 
         # check route targets
-        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:64512:8000001')
+        self.check_ri_target(self.get_ri_name(vn1_obj), ri_target)
         self.check_bgp_asn(router1.get_fq_name(), 64512)
-        self.check_lr_asn(lr.get_fq_name(), 'target:64512:8000002')
+        self.check_lr_target(lr.get_fq_name(), lr_target)
 
         #update ASN value
         gs = self._vnc_lib.global_system_config_read(
@@ -243,9 +247,9 @@ class TestBgp(STTestCase, VerifyBgp):
         self._vnc_lib.global_system_config_update(gs)
 
         # check new route targets
-        self.check_ri_asn(self.get_ri_name(vn1_obj), 'target:50000:8000001')
+        self.check_ri_target(self.get_ri_name(vn1_obj), ri_target.replace('64512', '50000'))
         self.check_bgp_asn(router1.get_fq_name(), 50000)
-        self.check_lr_asn(lr.get_fq_name(), 'target:50000:8000002')
+        self.check_lr_target(lr.get_fq_name(), lr_target.replace('64512', '50000'))
 
         self._vnc_lib.logical_router_delete(id=lr.uuid)
         self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)

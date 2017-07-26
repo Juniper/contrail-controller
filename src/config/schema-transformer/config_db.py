@@ -349,8 +349,6 @@ class VirtualNetworkST(DBBaseST):
             nid = prop.network_id or self._object_db.alloc_vn_id(name) + 1
             self.obj.set_virtual_network_network_id(nid)
             self._vnc_lib.virtual_network_update(self.obj)
-        if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
-            default_ri_fq_name = common.IP_FABRIC_RI_FQ_NAME
         elif self.obj.get_fq_name() == common.LINK_LOCAL_VN_FQ_NAME:
             default_ri_fq_name = common.LINK_LOCAL_RI_FQ_NAME
         else:
@@ -2002,8 +2000,8 @@ class RoutingInstanceST(DBBaseST):
         self.route_aggregates = set()
         self.service_chain_info = self.obj.get_service_chain_information()
         self.v6_service_chain_info = self.obj.get_ipv6_service_chain_information()
-        if self.obj.get_parent_fq_name() in [common.IP_FABRIC_VN_FQ_NAME,
-                                             common.LINK_LOCAL_VN_FQ_NAME]:
+        if self.obj.get_fq_name() in (common.IP_FABRIC_RI_FQ_NAME,
+                                      common.LINK_LOCAL_RI_FQ_NAME):
             return
         self.locate_route_target()
         for ri_ref in self.obj.get_routing_instance_refs() or []:
