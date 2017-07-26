@@ -28,6 +28,7 @@ public:
     }
 
     bool IsReady() const { return true; }
+    void TriggerPrefixLimitCheck() const { }
 };
 
 class BgpUpdateRxTest : public ::testing::Test {

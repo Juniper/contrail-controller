@@ -405,6 +405,7 @@ private:
     std::string BytesToHexString(const u_int8_t *msg, size_t size);
     virtual uint32_t GetOutputQueueDepth(Address::Family family) const;
     virtual time_t GetRTargetTableLastUpdatedTimeStamp() const;
+    virtual void TriggerPrefixLimitCheck() const;
 
     static const std::vector<Address::Family> supported_families_;
     BgpServer *server_;
