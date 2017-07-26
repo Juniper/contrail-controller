@@ -24,14 +24,17 @@
 
 #include "vr_defs.h"
 
-#define DHCP_SERVER_PORT 67
-#define DHCP_CLIENT_PORT 68
-#define DHCPV6_SERVER_PORT 547
-#define DHCPV6_CLIENT_PORT 546
-#define DNS_SERVER_PORT 53
-#define VXLAN_UDP_DEST_PORT 4789
-#define MPLS_OVER_UDP_DEST_PORT      51234
+#define DNS_SERVER_PORT              53
+#define DHCP_SERVER_PORT             67
+#define DHCP_CLIENT_PORT             68
+#define DHCPV6_SERVER_PORT           547
+#define DHCPV6_CLIENT_PORT           546
+#define BFD_SINGLEHOP_CONTROL_PORT   3784
+#define BFD_ECHO_PORT                3785
+#define BFD_MULTIHOP_CONTROL_PORT    4784
+#define VXLAN_UDP_DEST_PORT          4789
 #define IANA_MPLS_OVER_UDP_DEST_PORT 6635
+#define MPLS_OVER_UDP_DEST_PORT      51234
 
 #define IPv4_ALEN           4
 #define ARP_TX_BUFF_LEN     128
@@ -225,6 +228,7 @@ public:
         ICMPV6_ERROR,
         RX_PACKET,
         MAC_LEARNING,
+        BFD,
         MAX_MODULES
     };
 

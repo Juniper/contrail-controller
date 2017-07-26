@@ -114,7 +114,7 @@ struct VmInterfaceMirrorData;
 class OperDhcpOptions;
 class PathPreference;
 class MetaDataIp;
-class HealthCheckInstance;
+class HealthCheckInstanceBase;
 
 class LocalVmPortPeer;
 class VmInterface;
@@ -408,7 +408,7 @@ public:
     };
 
     typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
-    typedef std::set<HealthCheckInstance *> HealthCheckInstanceSet;
+    typedef std::set<HealthCheckInstanceBase *> HealthCheckInstanceSet;
 
     struct List {
     };
@@ -1166,14 +1166,13 @@ public:
     void DeleteMetaDataIpInfo(MetaDataIp *mip);
     void UpdateMetaDataIpInfo();
 
-    void InsertHealthCheckInstance(HealthCheckInstance *hc_inst);
-    void DeleteHealthCheckInstance(HealthCheckInstance *hc_inst);
+    void InsertHealthCheckInstance(HealthCheckInstanceBase *hc_inst);
+    void DeleteHealthCheckInstance(HealthCheckInstanceBase *hc_inst);
     const HealthCheckInstanceSet &hc_instance_set() const;
     bool IsHealthCheckEnabled() const;
-    const HealthCheckInstance *GetHealthCheckFromVmiFlow(const IpAddress &sip,
-                                                         const IpAddress &dip,
-                                                         uint8_t proto,
-                                                         uint16_t sport) const;
+    const HealthCheckInstanceBase *GetHealthCheckFromVmiFlow(
+                                   const IpAddress &sip, const IpAddress &dip,
+                                   uint8_t proto, uint16_t sport) const;
 
     const ServiceVlanList &service_vlan_list() const {
         return service_vlan_list_;

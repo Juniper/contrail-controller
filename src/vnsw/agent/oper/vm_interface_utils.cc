@@ -690,13 +690,13 @@ VrfEntry *VmInterface::GetAliasIpVrf(const IpAddress &ip) const {
     return NULL;
 }
 
-void VmInterface::InsertHealthCheckInstance(HealthCheckInstance *hc_inst) {
+void VmInterface::InsertHealthCheckInstance(HealthCheckInstanceBase *hc_inst) {
     std::pair<HealthCheckInstanceSet::iterator, bool> ret;
     ret = hc_instance_set_.insert(hc_inst);
     assert(ret.second);
 }
 
-void VmInterface::DeleteHealthCheckInstance(HealthCheckInstance *hc_inst) {
+void VmInterface::DeleteHealthCheckInstance(HealthCheckInstanceBase *hc_inst) {
     std::size_t ret = hc_instance_set_.erase(hc_inst);
     assert(ret != 0);
 }
@@ -713,12 +713,12 @@ bool VmInterface::IsHealthCheckEnabled() const {
 // Match the Health-Check instance for a packet from VM-Interface
 // A packet from vmi is assumed to be response for health-check request from
 // vhost0
-const HealthCheckInstance *VmInterface::GetHealthCheckFromVmiFlow
+const HealthCheckInstanceBase *VmInterface::GetHealthCheckFromVmiFlow
 (const IpAddress &sip, const IpAddress &dip, uint8_t proto,
  uint16_t sport) const {
     HealthCheckInstanceSet::const_iterator it = hc_instance_set_.begin();
     while (it != hc_instance_set_.end()) {
-        const HealthCheckInstance *hc_instance = *it;
+        const HealthCheckInstanceBase *hc_instance = *it;
         it++;
 
         // Match ip-proto and health-check port

@@ -97,7 +97,8 @@ public:
             EXPECT_TRUE(VmPortActive(i));
             const VmInterface::HealthCheckInstanceSet &set =
                 vmi_[i]->hc_instance_set();
-            hc_instance_[i] = *set.begin();
+            hc_instance_[i] =
+                static_cast<HealthCheckInstanceTask *>(*set.begin());
             mip_[i] = hc_instance_[i]->ip();
         }
     }
@@ -212,7 +213,7 @@ protected:
     FlowProto *flow_proto_;
     InetInterface *vhost_;
     VmInterface *vmi_[HC_VMI_MAX_COUNT];
-    HealthCheckInstance *hc_instance_[HC_VMI_MAX_COUNT];
+    HealthCheckInstanceTask *hc_instance_[HC_VMI_MAX_COUNT];
     const MetaDataIp *mip_[HC_VMI_MAX_COUNT];
 };
 

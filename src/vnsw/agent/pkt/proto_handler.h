@@ -57,6 +57,8 @@ public:
                 uint8_t hlim, uint8_t *src, uint8_t *dest);
     void UdpHdr(uint16_t len, in_addr_t src, uint16_t src_port, in_addr_t dest,
                 uint16_t dest_port);
+    void UdpHdr(udphdr *hdr, uint16_t len, const uint8_t *src, uint16_t src_port,
+                const uint8_t *dest, uint16_t dest_port, uint8_t next_hdr);
     void UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,
                 const uint8_t *dest, uint16_t dest_port, uint8_t next_hdr);
     uint16_t UdpHdr(udphdr *udp, uint16_t buf_len, uint16_t len, in_addr_t src,

@@ -162,7 +162,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     VmInterface::HealthCheckInstanceSet::const_iterator hc_it =
         hc_list.begin();
     while (hc_it != hc_list.end()) {
-        HealthCheckInstance *inst = (*hc_it);
+        HealthCheckInstanceBase *inst = (*hc_it);
         VmHealthCheckInstance uve_inst;
         uve_inst.set_name(inst->service()->name());
         uve_inst.set_uuid(to_string(inst->service()->uuid()));

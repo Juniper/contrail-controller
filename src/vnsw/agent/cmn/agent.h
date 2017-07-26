@@ -235,6 +235,7 @@ class ArpProto;
 class DhcpProto;
 class Dhcpv6Proto;
 class DnsProto;
+class BfdProto;
 class IcmpProto;
 class Icmpv6Proto;
 class FlowProto;
@@ -851,6 +852,9 @@ public:
     DnsProto *GetDnsProto() const { return dns_proto_; }
     void SetDnsProto(DnsProto *proto) { dns_proto_ = proto; }
 
+    BfdProto *GetBfdProto() const { return bfd_proto_; }
+    void SetBfdProto(BfdProto *proto) { bfd_proto_ = proto; }
+
     IcmpProto *GetIcmpProto() const { return icmp_proto_; }
     void SetIcmpProto(IcmpProto *proto) { icmp_proto_ = proto; }
 
@@ -1290,6 +1294,7 @@ private:
     ArpProto *arp_proto_;
     DhcpProto *dhcp_proto_;
     DnsProto *dns_proto_;
+    BfdProto *bfd_proto_;
     IcmpProto *icmp_proto_;
     Dhcpv6Proto *dhcpv6_proto_;
     Icmpv6Proto *icmpv6_proto_;

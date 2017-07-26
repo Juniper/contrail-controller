@@ -133,6 +133,9 @@ void MetaDataIpAllocator::ReleaseIndex(MetaDataIp *ip) {
 }
 
 void MetaDataIpAllocator::AddFabricRoute(MetaDataIp *ip) {
+    if (ip->intf_->vn() == NULL || ip->intf_->vrf() == NULL)
+        return;
+
     PathPreference path_preference;
     EcmpLoadBalance ecmp_load_balance;
     ip->intf_->SetPathPreference(&path_preference, false, Ip4Address(0));
