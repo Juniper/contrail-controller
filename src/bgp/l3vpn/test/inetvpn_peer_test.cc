@@ -301,7 +301,8 @@ protected:
         a_peer_red_ = dynamic_cast<BgpPeerTest *>(
             a_red->peer_manager()->PeerLocate(
                 a_.get(), a_peer_red_config_.get()));
-        a_peer_red_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
+        a_peer_red_->set_is_ready_fnc(
+            boost::bind(&L3VPNPeerTest::IsReady, this));
         a_peer_red_->Register(a_red_inet_, policy);
 
         a_peer_blue_config_.reset(new BgpNeighborConfig());
@@ -315,7 +316,8 @@ protected:
         a_peer_blue_ = dynamic_cast<BgpPeerTest *>(
             a_blue->peer_manager()->PeerLocate(
                 a_.get(), a_peer_blue_config_.get()));
-        a_peer_blue_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
+        a_peer_blue_->set_is_ready_fnc(
+            boost::bind(&L3VPNPeerTest::IsReady, this));
         a_peer_blue_->Register(a_blue_inet_, policy);
 
         b_peer_blue_config_.reset(new BgpNeighborConfig());
@@ -329,7 +331,8 @@ protected:
         b_peer_blue_ = dynamic_cast<BgpPeerTest *>(
             b_blue->peer_manager()->PeerLocate(
                 b_.get(), b_peer_blue_config_.get()));
-        b_peer_blue_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
+        b_peer_blue_->set_is_ready_fnc(
+            boost::bind(&L3VPNPeerTest::IsReady, this));
         b_peer_blue_->Register(b_blue_inet_, policy);
 
         WaitForIdle();

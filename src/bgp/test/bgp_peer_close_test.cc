@@ -765,14 +765,14 @@ void BgpPeerCloseTest::AddPeers(const BgpInstanceConfig *instance_config) {
 
         // Override certain default routines to customize behavior that we want
         // in this test.
-        npeer->peer()->SendUpdate_fnc_ =
+        npeer->peer()->set_send_update_fnc(
             boost::bind(&BgpPeerCloseTest::SendUpdate, this, npeer->peer(),
-                        _1, _2);
-        npeer->peer()->MpNlriAllowed_fnc_ =
+                        _1, _2));
+        npeer->peer()->set_mp_nlri_allowed_fnc(
             boost::bind(&BgpPeerCloseTest::MpNlriAllowed, this, npeer->peer(),
-                        _1, _2);
-        npeer->peer()->IsReady_fnc_ =
-            boost::bind(&BgpPeerCloseTest::IsReady, this, true);
+                        _1, _2));
+        npeer->peer()->set_is_ready_fnc(
+            boost::bind(&BgpPeerCloseTest::IsReady, this, true));
         peers_.push_back(npeer);
     }
 }
