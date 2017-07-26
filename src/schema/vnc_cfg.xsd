@@ -1774,13 +1774,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="virtual-machine-virtual-machine-interface"/> <!-- DEPRECATED -->
 <xsd:element name="project-virtual-machine-interface"/>
+<xsd:element name="virtual-router-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-virtual-machine-interface',
           'virtual-machine', 'virtual-machine-interface', ['has'], 'optional', 'CRUD',
-          'References to child interfaces this virtual machine has, this is being DEPRECATED.');
+          'References to child interfaces this virtual machine has, this is DEPRECATED.');
      Link('project-virtual-machine-interface',
           'project', 'virtual-machine-interface', ['has'], 'optional', 'CRUD',
           'Virtual machine interface represent a interface(port) into virtual network. It may or may not have corresponding virtual machine. A virtual machine interface has atleast a MAC address and Ip address.')
+     Link('virtual-router-virtual-machine-interface',
+          'virtual-router', 'virtual-machine-interface', ['has'], 'optional', 'CRUD',
+          'An interface on a virtual-router, e.g. vhost0')
  -->
 
 <xsd:element name="virtual-machine-interface-virtual-machine"/>
