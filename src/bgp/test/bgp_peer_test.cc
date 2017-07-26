@@ -54,6 +54,11 @@ public:
           sent_eor_(false) {
     }
 
+    ~BgpPeerMock() {
+        TASK_UTIL_EXPECT_FALSE(prefix_limit_trigger().IsSet());
+        TASK_UTIL_EXPECT_FALSE(trigger().IsSet());
+    }
+
     void set_elapsed(time_t elapsed) {
         elapsed_ = elapsed;
     }

@@ -337,6 +337,10 @@ public:
     virtual bool IsServerStartingUp() const;
     bool IsCloseGraceful() const;
     bool IsRouterTypeBGPaaS() const { return router_type_ == "bgpaas-client"; }
+    const TaskTrigger &trigger() const { return trigger_; }
+    const TaskTrigger &prefix_limit_trigger() const {
+        return prefix_limit_trigger_;
+    }
 
 protected:
     virtual void SendEndOfRIBActual(Address::Family family);
