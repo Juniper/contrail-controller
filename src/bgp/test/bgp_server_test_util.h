@@ -324,6 +324,8 @@ public:
         cond_var_.wait(lock);
     }
 
+    void TriggerPrefixLimitCheck() const { BgpPeer::TriggerPrefixLimitCheck(); }
+
     boost::function<bool(const uint8_t *, size_t)> SendUpdate_fnc_;
     boost::function<bool(uint16_t, uint8_t)> MpNlriAllowed_fnc_;
     boost::function<bool()> IsReady_fnc_;
