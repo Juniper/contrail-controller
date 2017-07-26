@@ -973,7 +973,9 @@ BgpMembershipManager::Walker::Walker(BgpMembershipManager *manager)
       postpone_walk_(false),
       walk_started_(false),
       walk_completed_(false),
-      rs_(NULL) {
+      rs_(NULL),
+      rib_state_list_size_(0),
+      ribout_state_list_size_(0) {
 }
 
 //
@@ -1000,6 +1002,7 @@ void BgpMembershipManager::Walker::Enqueue(RibState *rs) {
         return;
     rib_state_set_.insert(rs);
     rib_state_list_.push_back(rs);
+    rib_state_list_size_++;
     if (!walk_started_)
         trigger_->Set();
 }
@@ -1021,6 +1024,7 @@ BgpMembershipManager::Walker::LocateRibOutState(RibOut *ribout) {
         RibOutState *ros = new RibOutState(ribout);
         ribout_state_map_.insert(make_pair(ribout, ros));
         ribout_state_list_.push_back(ros);
+        ribout_state_list_size_++;
         return ros;
     } else {
         return loc->second;
@@ -1101,7 +1105,7 @@ void BgpMembershipManager::Walker::WalkStart() {
     assert(peer_list_.empty());
     assert(ribout_state_map_.empty());
     assert(ribout_state_list_.empty());
-    assert(rib_state_list_.size() == rib_state_set_.size());
+    assert(rib_state_list_size_ == rib_state_set_.size());
 
     // Bail if the list if empty.
     if (rib_state_list_.empty())
@@ -1110,6 +1114,7 @@ void BgpMembershipManager::Walker::WalkStart() {
     // Get and remove the first RibState from the RibStateList.
     rs_ = rib_state_list_.front();
     rib_state_list_.pop_front();
+    rib_state_list_size_--;
     assert(rib_state_set_.erase(rs_) == 1);
 
     // Process all pending PeerRibStates for chosen RibState.
@@ -1178,8 +1183,8 @@ void BgpMembershipManager::Walker::WalkFinish() {
     assert(rs_);
     assert(!peer_rib_list_.empty());
     assert(!peer_list_.empty() || !ribout_state_map_.empty());
-    assert(rib_state_list_.size() == rib_state_set_.size());
-    assert(ribout_state_list_.size() == ribout_state_map_.size());
+    assert(rib_state_list_size_ == rib_state_set_.size());
+    assert(ribout_state_list_size_ == ribout_state_map_.size());
 
     BgpTable *table = rs_->table();
     for (PeerRibList::iterator it = peer_rib_list_.begin();
@@ -1216,6 +1221,7 @@ void BgpMembershipManager::Walker::WalkFinish() {
     peer_rib_list_.clear();
     peer_list_.clear();
     ribout_state_list_.clear();
+    ribout_state_list_size_ = 0;
     STLDeleteElements(&ribout_state_map_);
 
     walk_started_ = false;
