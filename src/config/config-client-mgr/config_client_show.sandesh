@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ */
+
+
+struct ConfigDBConnInfo {
+    1: string cluster;
+    2: bool connection_status;
+    3: u64 connection_status_change_at;
+}
+
+struct ConfigAmqpConnInfo {
+    1: string url;
+    2: bool connection_status;
+    3: u64 connection_status_change_at;
+}
+
+struct ConfigClientManagerInfo {
+    1: bool end_of_rib_computed;
+    2: u64 end_of_rib_computed_at;
+}
+
+struct ConfigDBFQNameCacheEntry {
+    1: string uuid;
+    2: string obj_type;
+    3: string fq_name;
+    4: bool deleted;
+}
+
+struct ConfigDBUUIDCacheData {
+    1: string field_name;
+    2: string timestamp;
+    3: bool refresh;
+}
+
+struct ConfigDBUUIDCacheEntry {
+    1: string uuid;
+    2: string obj_type;
+    3: string fq_name;
+    4: string timestamp;
+    5: bool timer_created;
+    6: bool timer_running;
+    7: i32 retry_count;
+    8: list<ConfigDBUUIDCacheData> field_list
+}
