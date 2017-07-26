@@ -16,7 +16,7 @@
 #include "base/timer.h"
 #include "net/address.h"
 #include "base/queue_task.h"
-#include "ifmap/client/config_client_manager.h"
+#include "config/config-client/config_client_manager.h"
 
 class BgpRouterState;
 class DB;

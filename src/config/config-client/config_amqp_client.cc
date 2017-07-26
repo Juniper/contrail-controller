@@ -13,12 +13,11 @@
 #include "base/connection_info.h"
 #include "base/task.h"
 #include "base/string_util.h"
-#include "ifmap/ifmap_config_options.h"
-#include "ifmap/ifmap_factory.h"
-#include "ifmap/ifmap_server_show_types.h"
+#include "config_factory.h"
 #include "config_cassandra_client.h"
 #include "config_client_manager.h"
 #include "config_db_client.h"
+#include "config_client_show_types.h"
 
 using namespace boost;
 using namespace std;
@@ -30,7 +29,7 @@ class ConfigAmqpClient::RabbitMQReader : public Task {
 public:
     RabbitMQReader(ConfigAmqpClient *amqpclient) :
             Task(amqpclient->reader_task_id()), amqpclient_(amqpclient) {
-        channel_.reset(IFMapFactory::Create<ConfigAmqpChannel>());
+        channel_.reset(ConfigFactory::Create<ConfigAmqpChannel>());
 
         // Connect to rabbit-mq asap so that notification messages over
         // rabbit mq are never missed (during bulk db sync which happens
@@ -51,7 +50,7 @@ private:
 };
 
 ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
-                      string module_name, const IFMapConfigOptions &options) :
+                      string module_name, const ConfigClientOptions &options) :
     mgr_(mgr), hostname_(hostname), module_name_(module_name),
     current_server_index_(0), terminate_(false),
     rabbitmq_user_(options.rabbitmq_user),

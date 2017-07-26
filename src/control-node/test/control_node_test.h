@@ -7,6 +7,8 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <vector>
+
+#include "ifmap/client/config_json_parser.h"
 #include "ifmap/ifmap_config_options.h"
 
 class BgpServer;
@@ -46,6 +48,7 @@ public:
     BgpServerTest *bgp_server();
     XmppServer *xmpp_server();
     BgpXmppChannelManager *xmpp_channel_manager();
+    
     void Shutdown();
 
 private:
@@ -60,7 +63,8 @@ private:
     boost::scoped_ptr<IFMapServer> map_server_;
     boost::scoped_ptr<BgpXmppChannelManager> xmpp_manager_;
     boost::scoped_ptr<IFMapChannelManager> map_manager_;
-    const IFMapConfigOptions config_options_;
+    const ConfigClientOptions config_options_;
+    boost::scoped_ptr<ConfigJsonParser> config_json_parser_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
 };
 
