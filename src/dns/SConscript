@@ -13,6 +13,7 @@ env = BuildEnv.Clone()
 
 env.Prepend(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
+env.Append(CPPPATH = [env['TOP'] + '/config/config-client-mgr'])
 env.Prepend(CPPPATH = env['TOP'] + '/dns')
 env.Prepend(CPPPATH = env['TOP'] + '/dns/cmn')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
@@ -20,8 +21,8 @@ env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
 env.Prepend(CPPPATH = env['TOP'] + '/bgp')
 
-env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
-                  'xmpp', 'sandeshvns', 'peer_sandesh',
+env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'config_client_mgr',
+                  'ifmapio', 'xmpp', 'sandeshvns', 'peer_sandesh',
                   'curl', 'process_info',
                   'db', 'io', 'base', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
                   'cassandra', 'gendb', 'xml', 'pugixml', 'libxml2',

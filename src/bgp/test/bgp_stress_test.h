@@ -11,11 +11,12 @@
 #include "bgp/bgp_sandesh.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/inet/inet_route.h"
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_cassandra_client.h"
-#include "ifmap/client/config_client_manager.h"
-#include "ifmap/client/config_db_client.h"
+#include "config/config-client-mgr/config_amqp_client.h"
+#include "config/config-client-mgr/config_cassandra_client.h"
+#include "config/config-client-mgr/config_client_manager.h"
+#include "config/config-client-mgr/config_db_client.h"
 #include "ifmap/client/config_json_parser.h"
+#include "config/config-client-mgr/config_factory.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_table.h"
@@ -41,9 +42,8 @@ class XmppConnection;
 class ConfigCassandraClientTest : public ConfigCassandraClient {
 public:
     ConfigCassandraClientTest(ConfigClientManager *mgr, EventManager *evm,
-        const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
-        int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
-            num_workers) {
+        const ConfigClientOptions &options, int num_workers) 
+              : ConfigCassandraClient(mgr, evm, options, num_workers) {
     }
 
     virtual int HashUUID(const string &uuid_str) const {
@@ -51,7 +51,7 @@ public:
     }
 
     virtual void HandleObjectDelete(const std::string &uuid) {
-        ConfigCassandraClient::HandleObjectDelete(uuid);
+        ConfigCassandraClient::HandleObjectDelete(uuid, false);
     }
 
     virtual bool ProcessObjUUIDTableEntry(const string &uuid_key,

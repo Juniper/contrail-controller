@@ -1,0 +1,52 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# -*- mode: python; -*-
+
+Import('CfgmEnv')
+
+env = CfgmEnv.Clone()
+env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'] + '/config/config-client-mgr'])
+env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
+env.Append(CPPPATH = [env['TOP'] + '/database'])
+env.Prepend(LIBS=['io', 'base', 'cassandra_cql', 'cassandra', 'gendb', 'SimpleAmqpClient'])
+
+SandeshGenFiles = env.SandeshGenCpp('config_client_log.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('config_client_show.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+except_env = CfgmEnv.Clone()
+except_env.Append(CPPPATH = [env['TOP'] + '/config-client-mgr'])
+except_env.Append(CPPPATH = [env['TOP'] + '/base/sandesh'])
+except_env.CppEnableExceptions()
+except_env.Append(CPPPATH = env['TOP'])
+
+sandesh_objs = []
+for src in SandeshGenSrcs:
+    objname = src.replace('.cpp', '.o')
+    obj = except_env.Object(objname, src)
+    sandesh_objs.append(obj)
+
+except_env = CfgmEnv.Clone()
+except_env.CppEnableExceptions()
+except_env.Append(CPPPATH = env['TOP'])
+
+libconfig_client_mgr = env.Library('config_client_mgr',
+                         ['config_amqp_client.cc',
+                          'config_cass2json_adapter.cc',
+                          'config_cassandra_client.cc',
+                          'config_client_manager.cc',
+                          'config_db_client.cc',
+                          'config_factory.cc',
+                          'config_client_log.cc',
+                          'config_json_parser_base.cc',
+                         ] + sandesh_objs)
+
+env.Requires(libconfig_client_mgr, '#build/lib/libSimpleAmqpClient.a')
+env.Requires(libconfig_client_mgr, '#/build/include/rapidjson.h')
+env.Install(env['TOP_LIB'], libconfig_client_mgr)
+
+client_unit_tests = env.SConscript('test/SConscript', exports='CfgmEnv',
+                                   duplicate = 0)
+Return('client_unit_tests')

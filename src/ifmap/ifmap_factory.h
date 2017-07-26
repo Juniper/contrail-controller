@@ -13,11 +13,6 @@
 namespace cass { namespace cql { class CqlIf; } }
 using cass::cql::CqlIf;
 
-class ConfigAmqpChannel;
-class ConfigCassandraClient;
-class ConfigCassandraPartition;
-class ConfigClientManager;
-class ConfigJsonParser;
 class EventManager;
 class IFMapChannelManager;
 class IFMapConfigOptions;
@@ -26,14 +21,9 @@ class IFMapXmppChannel;
 class XmppChannel;
 
 class IFMapFactory : public Factory<IFMapFactory> {
-    FACTORY_TYPE_N0(IFMapFactory, ConfigAmqpChannel);
     FACTORY_TYPE_N3(IFMapFactory, IFMapXmppChannel, XmppChannel *,
                     IFMapServer *, IFMapChannelManager *);
-    FACTORY_TYPE_N5(IFMapFactory, ConfigCassandraClient, ConfigClientManager *,
-                    EventManager *, const IFMapConfigOptions &,
-                    ConfigJsonParser *, int);
-    FACTORY_TYPE_N2(IFMapFactory, ConfigCassandraPartition,
-                    ConfigCassandraClient *, size_t);
+    
     FACTORY_TYPE_N5(IFMapFactory, CqlIf, EventManager *,
                     const std::vector<std::string> &, int, const std::string &,
                     const std::string &);

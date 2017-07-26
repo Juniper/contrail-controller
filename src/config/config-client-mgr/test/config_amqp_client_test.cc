@@ -16,20 +16,14 @@
 #include "database/cassandra/cql/cql_if.h"
 #include "db/db.h"
 #include "db/db_graph.h"
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_cass2json_adapter.h"
-#include "ifmap/client/config_cassandra_client.h"
-#include "ifmap/client/config_client_manager.h"
-#include "ifmap/client/config_json_parser.h"
-#include "ifmap/ifmap_config_options.h"
-#include "ifmap/ifmap_factory.h"
-#include "ifmap/ifmap_link.h"
-#include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_node.h"
-#include "ifmap/ifmap_origin.h"
-#include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_show_types.h"
-#include "ifmap/test/ifmap_test_util.h"
+#include "config/config-client-mgr/config_amqp_client.h"
+#include "config/config-client-mgr/config_cass2json_adapter.h"
+#include "config/config-client-mgr/config_cassandra_client.h"
+#include "config/config-client-mgr/config_client_manager.h"
+#include "config/config-client-mgr/config_json_parser_base.h"
+#include "config/config-client-mgr/config_client_options.h"
+#include "config/config-client-mgr/config_factory.h"
+#include "config/config-client-mgr/config_client_show_types.h"
 #include "io/test/event_manager_test.h"
 
 #include "schema/bgp_schema_types.h"
@@ -86,10 +80,10 @@ public:
 class ConfigClientManagerTest : public ConfigClientManager {
 public:
     ConfigClientManagerTest(EventManager *evm,
-        IFMapServer *ifmap_server, string hostname, string module_name,
-        const IFMapConfigOptions& config_options) :
-                ConfigClientManager(evm, ifmap_server, hostname, module_name,
-                                    config_options, true) {
+         string hostname, string module_name,
+        const ConfigClientOptions& config_options) :
+                ConfigClientManager(evm, hostname, module_name,
+                                    config_options) {
         set_end_of_rib_computed(true);
     }
     void Initialize() {
@@ -101,14 +95,12 @@ class ConfigAmqpClientTest : public ::testing::Test {
 protected:
     ConfigAmqpClientTest() :
         thread_(&evm_),
-        db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-        ifmap_server_(new IFMapServer(&db_, &graph_, evm_.io_service())),
         config_client_manager_(new ConfigClientManagerTest(&evm_,
-            ifmap_server_.get(), "localhost", "config-test",
+            "localhost", "config-test",
             GetConfigOptions())) {
     }
 
-    IFMapConfigOptions GetConfigOptions() {
+    ConfigClientOptions GetConfigOptions() {
         config_options_.rabbitmq_server_list.push_back("127.0.0.1:100");
         config_options_.rabbitmq_user = "foo";
         config_options_.rabbitmq_password = "bar";
@@ -117,20 +109,11 @@ protected:
     }
 
     virtual void SetUp() {
-        IFMapLinkTable_Init(&db_, &graph_);
-        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
-        vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
-        bgp_schema_Server_ModuleInit(&db_, &graph_);
         thread_.Start();
     }
 
     virtual void TearDown() {
-        ifmap_server_->Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
-        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
@@ -138,10 +121,7 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    DB db_;
-    DBGraph graph_;
-    boost::scoped_ptr<IFMapServer> ifmap_server_;
-    IFMapConfigOptions config_options_;
+    ConfigClientOptions config_options_;
     boost::scoped_ptr<ConfigClientManagerTest> config_client_manager_;
 };
 
@@ -166,8 +146,8 @@ TEST_F(ConfigAmqpClientTest, Basic) {
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
-    ControlNode::SetDefaultSchedulingPolicy();
-    IFMapFactory::Register<ConfigAmqpChannel>(
+    //ControlNode::SetDefaultSchedulingPolicy();
+    ConfigFactory::Register<ConfigAmqpChannel>(
         boost::factory<AmqpClientInterfaceTest *>());
     int status = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
