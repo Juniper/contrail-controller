@@ -14,8 +14,9 @@
 #include <base/contrail_ports.h>
 #include <base/task.h>
 #include <io/process_signal.h>
+#include <config_client_manager.h>
 #include <db/db_graph.h>
-#include <ifmap/client/config_client_manager.h>
+#include <ifmap/client/config_json_parser.h>
 #include <ifmap/ifmap_link_table.h>
 #include "ifmap/ifmap_sandesh_context.h"
 #include <ifmap/ifmap_server.h>
@@ -105,9 +106,9 @@ static string FileRead(const string &filename) {
     return content;
 }
 
-static void IFMap_Initialize(IFMapServer *server, ConfigClientManager *mgr) {
+static void IFMap_Initialize(IFMapServer *server, ConfigJsonParser *json_parser) {
     IFMapLinkTable_Init(server->database(), server->graph());
-    vnc_cfg_JsonParserInit(mgr->config_json_parser());
+    vnc_cfg_JsonParserInit(json_parser);
     vnc_cfg_Server_ModuleInit(server->database(), server->graph());
     server->Initialize();
 }
@@ -219,10 +220,15 @@ int main(int argc, char *argv[]) {
     IFMapServer ifmap_server(&config_db, &config_graph,
                              Dns::GetEventManager()->io_service());
 
+    ConfigFactory::Register<ConfigJsonParserBase>(
+                          boost::factory<ConfigJsonParser *>());
     ConfigClientManager *config_client_manager =
-        new ConfigClientManager(Dns::GetEventManager(), &ifmap_server,
-            options.hostname(), module_name, options.configdb_options());
-    IFMap_Initialize(&ifmap_server, config_client_manager);
+        new ConfigClientManager(Dns::GetEventManager(), options.hostname(), 
+                  module_name, options.configdb_options());
+    ConfigJsonParser *json_parser =
+      static_cast<ConfigJsonParser *>(config_client_manager->config_json_parser());
+    json_parser->ifmap_server_set(&ifmap_server);
+    IFMap_Initialize(&ifmap_server, json_parser);
 
 
     DnsManager dns_manager;

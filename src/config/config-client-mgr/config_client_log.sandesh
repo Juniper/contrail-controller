@@ -321,3 +321,57 @@ trace sandesh ConfigurationMissingTypeWarningTrace {
     1: string uuid
     2: string type
 }
+
+/**
+ * @description: System log for config client module
+ * @severity: ERROR
+ * @cause: Connection to cassandra for config has initialization problems.
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh ConfigCassInitErrorMessage {
+    1: string message
+}
+
+/**
+ * @description: System log for config client module
+ * @severity: ERROR
+ * @cause: Error detected while reading a row from the database
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh ConfigClientGetRowError {
+    1: string message
+    2: string table_name
+    3: string uuid
+}
+
+/**
+ * @description: Trace message for config client module
+ * @severity: DEBUG
+ */
+trace sandesh ConfigCassInitErrorMessageTrace {
+    1: string message
+}
+
+trace sandesh ConfigClientGetRowErrorTrace {
+    1: string message
+    2: string table_name
+    3: string uuid
+}
+
+/**
+ * @description: System log for config client module
+ * @severity: DEBUG
+ */
+systemlog sandesh ConfigCassandraReadRetry {
+    1: string message
+    3: string uuid
+}
+
+/**
+ * @description: Trace message for config client module
+ * @severity: DEBUG
+ */
+trace sandesh ConfigCassandraReadRetryTrace {
+    1: string message
+    2: string uuid
+}

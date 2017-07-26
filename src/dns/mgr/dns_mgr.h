@@ -10,7 +10,7 @@
 #include <mgr/dns_oper.h>
 #include <bind/named_config.h>
 #include <cfg/dns_config.h>
-#include <ifmap/client/config_client_manager.h>
+#include <config_client_manager.h>
 
 class DB;
 class DBGraph;
