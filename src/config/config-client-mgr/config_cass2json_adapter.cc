@@ -11,9 +11,8 @@
 
 #include "base/string_util.h"
 #include "config_cassandra_client.h"
-#include "config_json_parser.h"
-#include "ifmap_log.h"
-#include "client/config_log_types.h"
+#include "config_client_log.h"
+#include "config_client_log_types.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 
@@ -46,9 +45,9 @@ bool ConfigCass2JsonAdapter::assert_on_parse_error_ =
     do {                                                                       \
         if (condition)                                                         \
             break;                                                             \
-        IFMAP_WARN_LOG(ConfigurationMalformed ## t ## Warning ## Log,          \
-                       Category::IFMAP, c.key, c.value, type_, uuid_);         \
-        IFMAP_TRACE(ConfigurationMalformed ## t ## Warning ## Trace,           \
+        CONFIG_CLIENT_WARN_LOG(ConfigurationMalformed ## t ## Warning ## Log,  \
+                       Category::CONFIG_CLIENT, c.key, c.value, type_, uuid_); \
+        CONFIG_CLIENT_TRACE(ConfigurationMalformed ## t ## Warning ## Trace,   \
                     c.key, c.value, type_, uuid_);                             \
         cout << "CONFIG_PARSE_ERROR " << __FILE__ << ":" << __LINE__ << " ";   \
         cout << type_ << " " << c.key << " " << c.value << " ";                \
@@ -102,7 +101,8 @@ void ConfigCass2JsonAdapter::AddOneEntry(Value *jsonObject,
         size_t from_back_pos = c.key.rfind(':');
         string prop_map = c.key.substr(from_front_pos + 1,
                                        from_back_pos - from_front_pos - 1);
-        string wrapper = cassandra_client_->mgr()->GetWrapperFieldName(type_,
+        string wrapper = cassandra_client_->mgr()-> \
+                 config_json_parser()->GetWrapperFieldName(type_,
                                                        prop_map);
         if (!jsonObject->HasMember(prop_map.c_str())) {
             Value v;
@@ -155,7 +155,8 @@ void ConfigCass2JsonAdapter::AddOneEntry(Value *jsonObject,
         v.AddMember("uuid", vs2.SetString(ref_uuid.c_str(), a), a);
 
         bool link_with_attr =
-            cassandra_client_->mgr()->IsLinkWithAttr(obj_type, ref_type);
+            cassandra_client_->mgr()->config_json_parser()->\
+            IsLinkWithAttr(obj_type, ref_type);
         if (link_with_attr) {
             Document ref_document(&a);
             ref_document.Parse<0>(c.value.c_str());
@@ -201,7 +202,7 @@ void ConfigCass2JsonAdapter::AddOneEntry(Value *jsonObject,
         // sub-document containing all other columns.
         CONFIG_PARSE_ASSERT(Type, type_ != obj_type);
         type_ = c.value;
-        type_.erase(remove(type_.begin(), type_.end(), '\"' ), type_.end());
+        type_.erase(remove(type_.begin(), type_.end(), '\"'), type_.end());
         return;
     }
 }
@@ -227,9 +228,10 @@ void ConfigCass2JsonAdapter::CreateJsonString(const string &obj_type,
     }
 
     if (type_.empty()) {
-        IFMAP_WARN_LOG(ConfigurationMissingTypeWarningLog, Category::IFMAP,
-                       uuid_, obj_type);
-        IFMAP_TRACE(ConfigurationMissingTypeWarningTrace, uuid_, obj_type);
+        CONFIG_CLIENT_WARN_LOG(ConfigurationMissingTypeWarningLog,
+                     Category::CONFIG_CLIENT, uuid_, obj_type);
+        CONFIG_CLIENT_TRACE(ConfigurationMissingTypeWarningTrace,
+                     uuid_, obj_type);
         return;
     }
 
