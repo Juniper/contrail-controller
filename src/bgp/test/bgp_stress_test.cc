@@ -449,17 +449,17 @@ void BgpStressTest::IFMapInitialize(const string &hostname) {
 
     ifmap_server_.reset(new IFMapServerTest(config_db_, config_graph_,
                                             evm_.io_service()));
+    config_json_parser_.reset(new ConfigJsonParser());
     config_client_manager_.reset(new ConfigClientManager(&evm_,
-        ifmap_server_.get(), hostname, "BgpServerTest",
-        IFMapConfigOptions()));
+        hostname, "BgpServerTest", ConfigClientOptions(), config_json_parser_.get()));
     static_cast<IFMapServerTest *>(ifmap_server_.get())->
         set_config_client_manager(config_client_manager_.get());
-
+    config_json_parser_->ifmap_server_set(ifmap_server_.get());
     IFMapLinkTable_Init(ifmap_server_->database(), ifmap_server_->graph());
-    vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
+    vnc_cfg_JsonParserInit(config_json_parser_.get());
     vnc_cfg_Server_ModuleInit(ifmap_server_->database(),
                               ifmap_server_->graph());
-    bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
+    bgp_schema_JsonParserInit(config_json_parser_.get());
     bgp_schema_Server_ModuleInit(ifmap_server_->database(),
                                  ifmap_server_->graph());
     ifmap_server_->Initialize();
@@ -3378,7 +3378,7 @@ static void SetUp() {
         boost::factory<BgpXmppMessageBuilder *>());
     IFMapFactory::Register<IFMapXmppChannel>(
         boost::factory<IFMapXmppChannelTest *>());
-    IFMapFactory::Register<ConfigCassandraClient>(
+    ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
     XmppObjectFactory::Register<XmppStateMachine>(
         boost::factory<XmppStateMachineTest *>());

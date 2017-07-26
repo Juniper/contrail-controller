@@ -8,10 +8,10 @@
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_cass2json_adapter.h"
-#include "ifmap/client/config_cassandra_client.h"
-#include "ifmap/client/config_client_manager.h"
+#include "config/config-client-mgr/config_amqp_client.h"
+#include "config/config-client-mgr/config_cass2json_adapter.h"
+#include "config/config-client-mgr/config_cassandra_client.h"
+#include "config/config-client-mgr/config_client_manager.h"
 #include "ifmap/client/config_json_parser.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_sandesh_context.h"
@@ -58,13 +58,15 @@ protected:
          : thread_(&evm_),
            db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
            ifmap_server_(&db_, &graph_, evm_.io_service()),
+           config_json_parser_(new ConfigJsonParser()),
            config_client_manager_(new ConfigClientManager(&evm_,
-               &ifmap_server_, "localhost", "config-test", config_options_)),
+               "localhost", "config-test", config_options_, config_json_parser_.get())),
            ifmap_sandesh_context_(new IFMapSandeshContext(&ifmap_server_)),
            exporter_(ifmap_server_.exporter()),
            xmpp_server_(NULL), vm_uuid_mapper_(NULL) {
         config_cassandra_client_=dynamic_cast<ConfigCassandraClientTest *>(
             config_client_manager_->config_db_client());
+        config_json_parser_->ifmap_server_set(&ifmap_server_);
     }
 
     void SandeshSetup() {
@@ -108,7 +110,7 @@ protected:
         task_util::WaitForIdle();
 
         IFMapTable::ClearTables(&db_);
-        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
+        config_json_parser_->MetadataClear("vnc_cfg");
         task_util::WaitForIdle();
 
         db_.Clear();
@@ -126,9 +128,9 @@ protected:
     void IFMap_Initialize() {
         ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
         IFMapLinkTable_Init(&db_, &graph_);
-        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
+        vnc_cfg_JsonParserInit(config_json_parser_.get());
         vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
+        bgp_schema_JsonParserInit(config_json_parser_.get());
         bgp_schema_Server_ModuleInit(&db_, &graph_);
         SandeshSetup();
         vm_uuid_mapper_ = ifmap_server_.vm_uuid_mapper();
@@ -341,8 +343,9 @@ protected:
     ServerThread thread_;
     DB db_;
     DBGraph graph_;
-    const IFMapConfigOptions config_options_;
+    const ConfigClientOptions config_options_;
     IFMapServer ifmap_server_;
+    boost::scoped_ptr<ConfigJsonParser> config_json_parser_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
     ConfigCassandraClientTest *config_cassandra_client_;
@@ -3881,7 +3884,7 @@ static void SetUp() {
     LoggingInit();
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
-    IFMapFactory::Register<ConfigCassandraClient>(
+    ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
 }
 

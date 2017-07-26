@@ -32,16 +32,18 @@ protected:
         : bgp_server_(&evm_, "localhost"),
           map_server_(bgp_server_.config_db(), bgp_server_.config_graph(),
                       evm_.io_service()),
+          config_json_parser_(new ConfigJsonParser()),
           config_client_manager_(new ConfigClientManager(&evm_,
-              &map_server_, "localhost", "config-test", config_options_)) {
+              "localhost", "config-test", config_options_, config_json_parser_.get())) {
         config_cassandra_client_=dynamic_cast<ConfigCassandraClientTest *>(
             config_client_manager_->config_db_client());
+        config_json_parser_->ifmap_server_set(&map_server_);
     }
 
     virtual void SetUp() {
         ConfigCass2JsonAdapter::set_assert_on_parse_error(false);
-        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
-        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
+        vnc_cfg_JsonParserInit(config_json_parser_.get());
+        bgp_schema_JsonParserInit(config_json_parser_.get());
         task_util::WaitForIdle();
     }
 
@@ -66,8 +68,9 @@ protected:
 
     EventManager evm_;
     BgpServerTest bgp_server_;
-    const IFMapConfigOptions config_options_;
+    const ConfigClientOptions config_options_;
     IFMapServer map_server_;
+    boost::scoped_ptr<ConfigJsonParser> config_json_parser_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     ConfigCassandraClientTest *config_cassandra_client_;
 };
