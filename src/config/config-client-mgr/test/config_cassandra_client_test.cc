@@ -15,20 +15,14 @@
 #include "database/cassandra/cql/cql_if.h"
 #include "db/db.h"
 #include "db/db_graph.h"
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_cass2json_adapter.h"
-#include "ifmap/client/config_cassandra_client.h"
-#include "ifmap/client/config_client_manager.h"
-#include "ifmap/client/config_json_parser.h"
-#include "ifmap/ifmap_config_options.h"
-#include "ifmap/ifmap_factory.h"
-#include "ifmap/ifmap_link.h"
-#include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_node.h"
-#include "ifmap/ifmap_origin.h"
-#include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_show_types.h"
-#include "ifmap/test/ifmap_test_util.h"
+#include "config/config-client-mgr/config_amqp_client.h"
+#include "config/config-client-mgr/config_cass2json_adapter.h"
+#include "config/config-client-mgr/config_cassandra_client.h"
+#include "config/config-client-mgr/config_client_manager.h"
+#include "config/config-client-mgr/config_json_parser_base.h"
+#include "config/config-client-mgr/config_client_options.h"
+#include "config/config-client-mgr/config_factory.h"
+#include "config/config-client-mgr/config_client_show_types.h"
 #include "io/test/event_manager_test.h"
 
 #include "schema/bgp_schema_types.h"
@@ -97,6 +91,16 @@ static std::vector<std::string> given_uuids;
 static std::vector<std::string> received_uuids;
 static bool empty_fqnames_db;
 static uint64_t timestamp_;
+
+class ConfigJsonParserTest : public ConfigJsonParserBase {
+    virtual void setup_schema_graph_filter() { }
+    virtual void setup_schema_wrapper_property_info() { }
+    virtual void setup_objector_filter() { }
+    virtual bool Receive(const ConfigCass2JsonAdapter &adapter,
+                         bool add_change) {
+        return true;
+    }
+};
 
 class CqlIfTest : public cass::cql::CqlIf {
 public:
@@ -237,23 +241,14 @@ public:
 class ConfigCassandraClientMock : public ConfigCassandraClient {
 public:
     ConfigCassandraClientMock(ConfigClientManager *mgr, EventManager *evm,
-        const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
-        int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
-            num_workers) {
+        const ConfigClientOptions &options,int num_workers) 
+            : ConfigCassandraClient(mgr, evm, options, num_workers) {
     }
     virtual bool BulkDataSync() {
         return ConfigCassandraClient::BulkDataSync();
     }
 
 private:
-    virtual void ParseContextAndPopulateIFMapTable(
-        const string &uuid_key, const ConfigCassandraParseContext &context,
-        const CassColumnKVVec &cass_data_vec) {
-        if (cass_data_vec.empty())
-            return;
-        tbb::mutex::scoped_lock lock(mutex_);
-        received_uuids.push_back(uuid_key);
-    }
     virtual uint32_t GetFQNameEntriesToRead() const { return asked; }
     virtual uint32_t GetNumReadRequestToBunch() const { return asked; }
     virtual const int GetMaxRequestsToYield() const { return 4; }
@@ -264,11 +259,10 @@ private:
 class ConfigClientManagerTest : public ConfigClientManager {
 public:
     ConfigClientManagerTest(EventManager *evm,
-        IFMapServer *ifmap_server, string hostname, string module_name,
-        const IFMapConfigOptions& config_options) :
-                ConfigClientManager(evm, ifmap_server, hostname, module_name,
+        string hostname, string module_name,
+        const ConfigClientOptions& config_options) :
+                ConfigClientManager(evm, hostname, module_name,
                                     config_options) {
-        ifmap_server->set_config_manager(this);
     }
 };
 
@@ -277,10 +271,8 @@ class ConfigCassandraClientTest : public ::testing::TestWithParam<TestParams> {
 protected:
     ConfigCassandraClientTest() :
         thread_(&evm_),
-        db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-        ifmap_server_(new IFMapServer(&db_, &graph_, evm_.io_service())),
         config_client_manager_(new ConfigClientManagerTest(&evm_,
-            ifmap_server_.get(), "localhost", "config-test", config_options_)) {
+            "localhost", "config-test", config_options_)) {
     }
 
     virtual void SetUp() {
@@ -295,21 +287,12 @@ protected:
         use_column_family_uuid_result_ = 2;
         use_column_family_fqn_result_ = 2;
 
-        IFMapLinkTable_Init(&db_, &graph_);
-        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
-        vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
-        bgp_schema_Server_ModuleInit(&db_, &graph_);
         thread_.Start();
         task_util::WaitForIdle();
     }
 
     virtual void TearDown() {
-        ifmap_server_->Shutdown();
         task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
-        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
@@ -341,10 +324,7 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    DB db_;
-    DBGraph graph_;
-    const IFMapConfigOptions config_options_;
-    boost::scoped_ptr<IFMapServer> ifmap_server_;
+    const ConfigClientOptions config_options_;
     boost::scoped_ptr<ConfigClientManagerTest> config_client_manager_;
 };
 
@@ -393,11 +373,12 @@ INSTANTIATE_TEST_CASE_P(ConfigCassandraClientTestWithParams,
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
-    ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
-    IFMapFactory::Register<ConfigCassandraClient>(
+    ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientMock *>());
-    IFMapFactory::Register<cass::cql::CqlIf>(boost::factory<CqlIfTest *>());
+    ConfigFactory::Register<cass::cql::CqlIf>(boost::factory<CqlIfTest *>());
+    ConfigFactory::Register<ConfigJsonParserBase>(
+        boost::factory<ConfigJsonParserTest *>());
     int status = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return status;
