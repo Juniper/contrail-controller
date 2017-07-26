@@ -2,10 +2,10 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-Import('BuildEnv')
+Import('CfgmEnv')
 import sys
 
-env = BuildEnv.Clone()
+env = CfgmEnv.Clone()
 
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/database'])
@@ -64,7 +64,8 @@ env.Alias('src/ifmap/client:config_amqp_client_test', config_amqp_client_test)
 #                      config_json_parser_test,
 #                      config_cassandra_client_reader_test,
 #                      config_cassandra_client_test ]
-client_unit_tests = [ ]
+
+client_unit_tests = []
 
 client_test = env.TestSuite('ifmap-test', client_unit_tests)
 
