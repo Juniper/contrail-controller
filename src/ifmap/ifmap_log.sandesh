@@ -215,16 +215,6 @@ systemlog sandesh IFMapSmTransitionMessage {
 /**
  * @description: System log for IFMap module
  * @severity: ERROR
- * @cause: Connection to cassandra for config has initialization problems.
- * @action: Contact your technical support representative
- */
-systemlog sandesh ConfigCassInitErrorMessage {
-    1: string message
-}
-
-/**
- * @description: System log for IFMap module
- * @severity: ERROR
  * @cause: VM messages are being received for unknown virtual router
  * @action: Contact your technical support representative
  */
@@ -621,14 +611,6 @@ trace sandesh IFMapSmTransitionMessageTrace {
     1: string from_state
     2: string to
     3: string to_state
-}
-
-/**
- * @description: Trace message for IFMap module
- * @severity: DEBUG
- */
-trace sandesh ConfigCassInitErrorMessageTrace {
-    1: string message
 }
 
 /**

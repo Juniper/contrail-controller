@@ -39,6 +39,7 @@ subdirs=[
     'uve',
     'vnc_openstack',
     'contrail_issu',
+    'config-client',
 ]
 
 CfgmEnv.SConscript(dirs=subdirs, exports='CfgmEnv', duplicate = 0)
