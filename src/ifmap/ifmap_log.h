@@ -17,7 +17,6 @@ extern SandeshTraceBufferPtr IFMapPeerTraceBuf;
 extern SandeshTraceBufferPtr IFMapSmTraceBuf;
 extern SandeshTraceBufferPtr IFMapUpdateSenderBuf;
 extern SandeshTraceBufferPtr IFMapXmppTraceBuf;
-extern SandeshTraceBufferPtr ConfigCassClientTraceBuf;
 
 // Log and trace regular messages
 
@@ -91,20 +90,6 @@ do { \
     if (!LoggingDisabled()) { \
         obj::TraceMsg(IFMapUpdateSenderBuf, __FILE__, __LINE__, __VA_ARGS__); \
     } \
-} while(0)
-
-#define CONFIG_CASS_CLIENT_TRACE(obj, ...) \
-do { \
-    if (!LoggingDisabled()) { \
-        obj::TraceMsg(ConfigCassClientTraceBuf, __FILE__, __LINE__, \
-                      __VA_ARGS__); \
-    } \
-} while(0)
-
-#define CONFIG_CASS_CLIENT_DEBUG(obj, ...) \
-do { \
-    IFMAP_DEBUG_LOG(obj, Category::CONFIG_CASS_CLIENT, __VA_ARGS__); \
-    CONFIG_CASS_CLIENT_TRACE(obj##Trace, __VA_ARGS__); \
 } while(0)
 
 // Log and trace big-sized messages

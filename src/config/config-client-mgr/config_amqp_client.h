@@ -2,8 +2,8 @@
  * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_config_amqp_client_h
-#define ctrlplane_config_amqp_client_h
+#ifndef config_amqp_client_h
+#define config_amqp_client_h
 
 #include <string>
 #include <vector>
@@ -13,7 +13,7 @@
 #include <SimpleAmqpClient/SimpleAmqpClient.h>
 #include <tbb/atomic.h>
 
-struct IFMapConfigOptions;
+struct ConfigClientOptions;
 class ConfigClientManager;
 struct ConfigAmqpConnInfo;
 
@@ -88,7 +88,7 @@ class ConfigAmqpClient {
 public:
     typedef boost::asio::ip::tcp::endpoint Endpoint;
     ConfigAmqpClient(ConfigClientManager *mgr, std::string hostname,
-                 std::string module_name, const IFMapConfigOptions &options);
+                 std::string module_name, const ConfigClientOptions &options);
     virtual ~ConfigAmqpClient() { }
 
     void StartRabbitMQReader();
@@ -172,4 +172,4 @@ private:
     tbb::atomic<uint64_t> connection_status_change_at_;
 };
 
-#endif // ctrlplane_config_amqp_client_h
+#endif  // config_amqp_client_h

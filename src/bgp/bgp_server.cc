@@ -28,9 +28,9 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-policy/routing_policy.h"
-
-#include "sandesh/sandesh.h"
+#include "config/config-client-mgr/config_client_show_types.h"
 #include "control-node/sandesh/control_node_types.h"
+#include "sandesh/sandesh.h"
 
 using boost::system::error_code;
 using boost::tie;
