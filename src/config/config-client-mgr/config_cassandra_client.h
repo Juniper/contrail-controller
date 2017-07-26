@@ -2,8 +2,8 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_config_cass_client_h
-#define ctrlplane_config_cass_client_h
+#ifndef config_cass_client_h
+#define config_cass_client_h
 
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/shared_ptr.hpp>
@@ -19,12 +19,13 @@
 #include "base/queue_task.h"
 #include "base/timer.h"
 
+#include "config_db_client.h"
+#include "config_json_parser_base.h"
+#include "config_cassandra_client.h"
 #include "database/gendb_if.h"
-#include "ifmap/client/config_db_client.h"
-#include "ifmap/client/json_adapter_data.h"
+#include "json_adapter_data.h"
 
 class EventManager;
-class ConfigJsonParser;
 class ConfigClientManager;
 struct ConfigDBConnInfo;
 class TaskTrigger;
@@ -60,7 +61,15 @@ class ConfigCassandraPartition {
         uint64_t time_stamp;
         bool refreshed;
     };
-    typedef std::map<std::string, FieldTimeStampInfo> FieldDetailMap;
+
+    struct cmp_json_key {
+        bool operator()(const JsonAdapterDataType &k1,
+                         const JsonAdapterDataType &k2) const {
+            return k1.key < k2.key;
+        }
+    };
+    typedef std::map<JsonAdapterDataType, FieldTimeStampInfo, cmp_json_key>
+                                                             FieldDetailMap;
     class ObjectCacheEntry {
      public:
         ObjectCacheEntry(ConfigCassandraPartition *parent,
@@ -106,9 +115,6 @@ class ConfigCassandraPartition {
     virtual int UUIDRetryTimeInMSec(const ObjectCacheEntry *obj) const;
     ObjectCacheEntry *GetObjectCacheEntry(const std::string &uuid);
     const ObjectCacheEntry *GetObjectCacheEntry(const std::string &uuid) const;
-    void FormDeleteRequestList(const std::string &uuid,
-                              ConfigClientManager::RequestList *req_list,
-                              IFMapTable::RequestKey *key, bool add_change);
     bool StoreKeyIfUpdated(const std::string &uuid, const std::string &key,
                            const std::string &value, uint64_t timestamp,
                            ConfigCassandraParseContext &context);
@@ -117,6 +123,9 @@ class ConfigCassandraPartition {
     ObjectCacheEntry *MarkCacheDirty(const std::string &uuid,
             ConfigCassandraParseContext &context);
     void Enqueue(ObjectProcessReq *req);
+
+    void HandleObjectDelete(const string &uuid, bool add_change);
+
     bool UUIDToObjCacheShow(const std::string &uuid,
                             ConfigDBUUIDCacheEntry &entry) const;
     bool UUIDToObjCacheShow(const std::string &start_uuid,
@@ -126,7 +135,8 @@ class ConfigCassandraPartition {
 
     boost::asio::io_service *ioservice();
 
- private:
+    bool IsListOrMapPropEmpty(const string &uuid_key, const string &lookup_key);
+private:
     friend class ConfigCassandraClient;
 
     struct ObjectProcessRequestType {
@@ -141,6 +151,7 @@ class ConfigCassandraPartition {
     };
 
     typedef std::map<std::string, ObjectProcessRequestType *> UUIDProcessSet;
+
     bool RequestHandler(ObjectProcessReq *req);
     void AddUUIDToRequestList(const std::string &oper,
                       const std::string &obj_type, const std::string &uuid_str);
@@ -148,10 +159,6 @@ class ConfigCassandraPartition {
     bool BunchReadReq(const std::set<std::string> &req_list);
     void RemoveObjReqEntries(std::set<std::string> &req_list);
     void RemoveObjReqEntry(std::string &uuid);
-
-    void UpdatePropertyDeleteToReqList(IFMapTable::RequestKey * key,
-       ObjectCacheMap::iterator uuid_iter, const std::string &lookup_key,
-       ConfigClientManager::RequestList *req_list);
 
     ConfigCassandraClient *client() { return config_client_; }
 
@@ -198,15 +205,14 @@ class ConfigCassandraClient : public ConfigDbClient {
     typedef std::vector<ConfigCassandraPartition *> PartitionList;
 
     ConfigCassandraClient(ConfigClientManager *mgr, EventManager *evm,
-                          const IFMapConfigOptions &options,
-                          ConfigJsonParser *in_parser, int num_workers);
+                          const ConfigClientOptions &options,
+                          int num_workers);
     virtual ~ConfigCassandraClient();
 
     virtual void InitDatabase();
     void BulkSyncDone();
     virtual void GetConnectionInfo(ConfigDBConnInfo &status) const;
     virtual uint32_t GetNumReadRequestToBunch() const;
-    ConfigJsonParser *json_parser() const { return parser_; }
     ConfigClientManager *mgr() { return mgr_; }
     const ConfigClientManager *mgr() const { return mgr_; }
     ConfigCassandraPartition *GetPartition(const std::string &uuid);
@@ -215,9 +221,6 @@ class ConfigCassandraClient : public ConfigDbClient {
 
     void EnqueueUUIDRequest(std::string oper, std::string obj_type,
                                     std::string uuid_str);
-    virtual void FormDeleteRequestList(const std::string &uuid,
-                                  ConfigClientManager::RequestList *req_list,
-                                  IFMapTable::RequestKey *key, bool add_change);
 
     // FQ Name Cache
     ObjTypeFQNPair UUIDToFQName(const std::string &uuid_str,
@@ -243,7 +246,9 @@ class ConfigCassandraClient : public ConfigDbClient {
                       std::vector<ConfigDBUUIDCacheEntry> &entries) const;
     virtual std::string uuid_str(const std::string &uuid);
 
- protected:
+    virtual bool IsListOrMapPropEmpty(const string &uuid_key,
+                               const string &lookup_key); 
+protected:
     typedef std::pair<std::string, std::string> ObjTypeUUIDType;
     typedef std::list<ObjTypeUUIDType> ObjTypeUUIDList;
 
@@ -255,21 +260,18 @@ class ConfigCassandraClient : public ConfigDbClient {
            uint64_t timestamp, CassColumnKVVec *cass_data_vec,
            ConfigCassandraParseContext &context);
 
-    virtual void ParseContextAndPopulateIFMapTable(const std::string &uuid_key,
-                                   const ConfigCassandraParseContext &context,
-                                   const CassColumnKVVec &cass_data_vec);
-
+    virtual void GenerateAndPushJson(
+            const string &uuid_key, const string &obj_type,
+            const CassColumnKVVec &cass_data_vec, bool add_change);
 
     void UpdateFQNameCache(const std::string &key, const std::string &obj_type,
                            ObjTypeUUIDList &uuid_list);
     virtual bool BulkDataSync();
     bool EnqueueDBSyncRequest(const ObjTypeUUIDList &uuid_list);
     virtual std::string FetchUUIDFromFQNameEntry(const std::string &key) const;
-    virtual void EnqueueDelete(const string &uuid,
-                      ConfigClientManager::RequestList req_list) const;
 
     virtual int HashUUID(const std::string &uuid_str) const;
-    virtual void HandleObjectDelete(const std::string &uuid);
+    virtual void HandleObjectDelete(const std::string &uuid, bool add_change);
     virtual std::string GetUUID(const std::string &key) const { return key; }
     virtual bool SkipTimeStampCheckForTypeAndFQName() const { return true; }
     virtual uint32_t GetFQNameEntriesToRead() const {
@@ -319,7 +321,6 @@ class ConfigCassandraClient : public ConfigDbClient {
     ConfigClientManager *mgr_;
     EventManager *evm_;
     GenDbIfPtr dbif_;
-    ConfigJsonParser *parser_;
     int num_workers_;
     PartitionList partitions_;
     boost::scoped_ptr<TaskTrigger> fq_name_reader_;
@@ -330,4 +331,4 @@ class ConfigCassandraClient : public ConfigDbClient {
     tbb::atomic<uint64_t> connection_status_change_at_;
 };
 
-#endif  // ctrlplane_config_cass_client_h
+#endif  // config_cass_client_h

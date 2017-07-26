@@ -30,6 +30,7 @@
 #include "bgp/routing-policy/routing_policy.h"
 
 #include "sandesh/sandesh.h"
+#include "config/config-client-mgr/config_client_show_types.h"
 #include "control-node/sandesh/control_node_types.h"
 
 using boost::system::error_code;

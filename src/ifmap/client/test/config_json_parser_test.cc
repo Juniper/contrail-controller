@@ -12,10 +12,10 @@
 #include "base/logging.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
+#include "config/config-client-mgr/config_client_options.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
-#include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
@@ -122,7 +122,7 @@ class ConfigJsonParserTest : public ::testing::Test {
         db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
         ifmap_server_(new IFMapServer(&db_, &graph_, evm_.io_service())),
         config_client_manager_(new ConfigClientManager(&evm_,
-            ifmap_server_.get(), "localhost", "config-test", config_options_)),
+            "localhost", "config-test", config_options_)),
         ifmap_sandesh_context_(new IFMapSandeshContext(ifmap_server_.get())),
         validate_done_(false) {
         ifmap_server_->set_config_manager(config_client_manager_.get());
@@ -154,9 +154,13 @@ class ConfigJsonParserTest : public ::testing::Test {
     virtual void SetUp() {
         ConfigCass2JsonAdapter::set_assert_on_parse_error(true);
         IFMapLinkTable_Init(&db_, &graph_);
-        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
+
+        ConfigJsonParser *config_json_parser =
+         static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
+        config_json_parser->ifmap_server_set(ifmap_server_.get());
+        vnc_cfg_JsonParserInit(config_json_parser);
         vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
+        bgp_schema_JsonParserInit(config_json_parser);
         bgp_schema_Server_ModuleInit(&db_, &graph_);
         SandeshSetup();
 
@@ -169,7 +173,9 @@ class ConfigJsonParserTest : public ::testing::Test {
         task_util::WaitForIdle();
         IFMapLinkTable_Clear(&db_);
         IFMapTable::ClearTables(&db_);
-        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
+        ConfigJsonParser *config_json_parser =
+         static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
+        config_json_parser->MetadataClear("vnc_cfg");
         SandeshTearDown();
         evm_.Shutdown();
         thread_.Join();
@@ -309,7 +315,7 @@ class ConfigJsonParserTest : public ::testing::Test {
     ServerThread thread_;
     DB db_;
     DBGraph graph_;
-    const IFMapConfigOptions config_options_;
+    const ConfigClientOptions config_options_;
     boost::scoped_ptr<IFMapServer> ifmap_server_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     boost::scoped_ptr<IFMapSandeshContext> ifmap_sandesh_context_;
@@ -2160,10 +2166,12 @@ int main(int argc, char **argv) {
     LoggingInit();
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
-    IFMapFactory::Register<ConfigCassandraPartition>(
+    ConfigFactory::Register<ConfigCassandraPartition>(
         boost::factory<ConfigCassandraPartitionTest *>());
-    IFMapFactory::Register<ConfigCassandraClient>(
+    ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
+    ConfigFactory::Register<ConfigJsonParserBase>(
+        boost::factory<ConfigJsonParser *>());
     int status = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return status;
