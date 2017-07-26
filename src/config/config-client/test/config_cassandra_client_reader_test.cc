@@ -3,7 +3,7 @@
  */
 #include <boost/foreach.hpp>
 #include <fstream>
-
+#include <iostream>
 #include <string>
 #include <vector>
 
@@ -16,20 +16,14 @@
 #include "database/cassandra/cql/cql_if.h"
 #include "db/db.h"
 #include "db/db_graph.h"
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_cass2json_adapter.h"
-#include "ifmap/client/config_cassandra_client.h"
-#include "ifmap/client/config_client_manager.h"
-#include "ifmap/client/config_json_parser.h"
-#include "ifmap/ifmap_config_options.h"
-#include "ifmap/ifmap_factory.h"
-#include "ifmap/ifmap_link.h"
-#include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_node.h"
-#include "ifmap/ifmap_origin.h"
-#include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_server_show_types.h"
-#include "ifmap/test/ifmap_test_util.h"
+#include "config/config-client/config_amqp_client.h"
+#include "config/config-client/config_cass2json_adapter.h"
+#include "config/config-client/config_cassandra_client.h"
+#include "config/config-client/config_client_manager.h"
+#include "config/config-client/config_json_parser_base.h"
+#include "config/config-client/config_client_options.h"
+#include "config/config-client/config_factory.h"
+#include "config/config-client/config_client_show_types.h"
 #include "io/test/event_manager_test.h"
 
 #include "schema/bgp_schema_types.h"
@@ -66,8 +60,10 @@ static const string fq_name_uuids[] = {
 static size_t total_uuids = sizeof(fq_name_uuids)/sizeof(fq_name_uuids[0]);
 
 static tbb::mutex mutex_;
-static vector<string> updated;
-static vector<string> deleted;
+vector<string> updated;
+vector<string> deleted;
+set<string> updates;
+set<string> deletes;
 
 class CqlIfTest : public cass::cql::CqlIf {
 public:
@@ -167,8 +163,8 @@ public:
 class ConfigCassandraClientMock : public ConfigCassandraClient {
 public:
     ConfigCassandraClientMock(ConfigClientManager *mgr, EventManager *evm,
-        const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
-        int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
+        const ConfigClientOptions &options,
+        int num_workers) : ConfigCassandraClient(mgr, evm, options,
             num_workers) {
     }
     virtual bool BulkDataSync() {
@@ -181,55 +177,53 @@ public:
     }
 
 private:
-    virtual void ParseContextAndPopulateIFMapTable(
-        const string &uuid_key, const ConfigCassandraParseContext &context,
-        const CassColumnKVVec &cass_data_vec) {
+    virtual void GenerateAndPushJson(
+    const string &uuid_key, const string &obj_type,
+    const CassColumnKVVec &cass_data_vec, bool add_change) {
         if (cass_data_vec.empty())
             return;
         tbb::mutex::scoped_lock lock(mutex_);
-        updated.push_back(uuid_key);
+        if (add_change) {
+            updated.push_back(uuid_key);
+        } else {
+            deleted.push_back(uuid_key);
+        }
     }
     virtual uint32_t GetFQNameEntriesToRead() const { return 4; }
     virtual uint32_t GetNumReadRequestToBunch() const { return 4; }
     virtual const int GetMaxRequestsToYield() const { return 4; }
     virtual const uint64_t GetInitRetryTimeUSec() const { return 10; }
     virtual bool SkipTimeStampCheckForTypeAndFQName() const { return false; }
-    virtual void EnqueueDelete(const string &uuid,
-            ConfigClientManager::RequestList req_list) const {
-        tbb::mutex::scoped_lock lock(mutex_);
-        deleted.push_back(uuid);
-        STLDeleteValues(&req_list);
+};
+
+class ConfigJsonParserTest : public ConfigJsonParserBase {
+    void setup_objector_filter() {
+        AddObjectType("virtual_network");
     }
 };
 
 class ConfigClientManagerTest : public ConfigClientManager {
 public:
     ConfigClientManagerTest(EventManager *evm,
-        IFMapServer *ifmap_server, string hostname, string module_name,
-        const IFMapConfigOptions& config_options) :
-                ConfigClientManager(evm, ifmap_server, hostname, module_name,
-                                    config_options) {
-        ifmap_server->set_config_manager(this);
+        string hostname, string module_name,
+        const ConfigClientOptions& config_options, ConfigJsonParserTest *json_parser) :
+                ConfigClientManager(evm, hostname, module_name,
+                                    config_options, json_parser) {
     }
 };
+
 
 class ConfigCassandraClientReaderTest : public ::testing::Test {
 protected:
     ConfigCassandraClientReaderTest() :
         thread_(&evm_),
-        db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-        ifmap_server_(new IFMapServer(&db_, &graph_, evm_.io_service())),
+        config_json_parser_(new ConfigJsonParserTest()), 
         config_client_manager_(new ConfigClientManagerTest(&evm_,
-            ifmap_server_.get(), "localhost", "config-test", config_options_)) {
+            "localhost", "config-test", config_options_, config_json_parser_.get())) {
     }
 
     virtual void SetUp() {
-        IFMapLinkTable_Init(&db_, &graph_);
         Clear();
-        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
-        vnc_cfg_Server_ModuleInit(&db_, &graph_);
-        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
-        bgp_schema_Server_ModuleInit(&db_, &graph_);
         thread_.Start();
         task_util::WaitForIdle();
 
@@ -254,12 +248,6 @@ protected:
             config_client_manager_->config_amqp_client()->EnqueueUUIDRequest(
                 "DELETE", "virtual_network", tokens[4]);
         }
-        task_util::WaitForIdle();
-        ifmap_server_->Shutdown();
-        task_util::WaitForIdle();
-        IFMapLinkTable_Clear(&db_);
-        IFMapTable::ClearTables(&db_);
-        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
@@ -296,13 +284,9 @@ protected:
 
     EventManager evm_;
     ServerThread thread_;
-    DB db_;
-    DBGraph graph_;
-    const IFMapConfigOptions config_options_;
-    boost::scoped_ptr<IFMapServer> ifmap_server_;
+    const ConfigClientOptions config_options_;
+    boost::scoped_ptr<ConfigJsonParserTest> config_json_parser_;
     boost::scoped_ptr<ConfigClientManagerTest> config_client_manager_;
-    set<string> updates;
-    set<string> deletes;
 };
 
 class ConfigCassandraClientReaderTest1 : public ConfigCassandraClientReaderTest,
@@ -437,11 +421,10 @@ INSTANTIATE_TEST_CASE_P(ConfigCassandraClientReaderTest3WithParams,
 int main(int argc, char **argv) {
     InitGoogleTest(&argc, argv);
     LoggingInit();
-    ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
-    IFMapFactory::Register<ConfigCassandraClient>(
+    ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientMock *>());
-    IFMapFactory::Register<cass::cql::CqlIf>(boost::factory<CqlIfTest *>());
+    ConfigFactory::Register<cass::cql::CqlIf>(boost::factory<CqlIfTest *>());
     int status = RUN_ALL_TESTS();
     TaskScheduler::GetInstance()->Terminate();
     return status;
