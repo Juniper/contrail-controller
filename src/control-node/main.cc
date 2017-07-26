@@ -31,11 +31,12 @@
 #include "bgp/xmpp_message_builder.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "config_client_manager.h"
 #include "control-node/buildinfo.h"
 #include "control-node/control_node.h"
 #include "control-node/options.h"
 #include "db/db_graph.h"
-#include "ifmap/client/config_client_manager.h"
+#include "ifmap/client/config_json_parser.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_sandesh_context.h"
 #include "ifmap/ifmap_server.h"
@@ -73,11 +74,11 @@ static string FileRead(const char *filename) {
     return content;
 }
 
-static void IFMap_Initialize(IFMapServer *server, ConfigClientManager *mgr) {
+static void IFMap_Initialize(IFMapServer *server, ConfigJsonParser *json_parser) {
     IFMapLinkTable_Init(server->database(), server->graph());
-    vnc_cfg_JsonParserInit(mgr->config_json_parser());
+    vnc_cfg_JsonParserInit(json_parser);
     vnc_cfg_Server_ModuleInit(server->database(), server->graph());
-    bgp_schema_JsonParserInit(mgr->config_json_parser());
+    bgp_schema_JsonParserInit(json_parser);
     bgp_schema_Server_ModuleInit(server->database(), server->graph());
     server->Initialize();
 }
@@ -265,11 +266,15 @@ int main(int argc, char *argv[]) {
     DBGraph config_graph;
     IFMapServer ifmap_server(&config_db, &config_graph, evm.io_service());
 
-    // TODO Coming Soon
+    ConfigFactory::Register<ConfigJsonParserBase>(
+                          boost::factory<ConfigJsonParser *>());   
     ConfigClientManager *config_client_manager =
-        new ConfigClientManager(&evm, &ifmap_server, options.hostname(),
+        new ConfigClientManager(&evm, options.hostname(),
                                 module_name, options.configdb_options());
-    IFMap_Initialize(&ifmap_server, config_client_manager);
+    ConfigJsonParser *json_parser = 
+      static_cast<ConfigJsonParser *>(config_client_manager->config_json_parser());
+    json_parser->ifmap_server_set(&ifmap_server);
+    IFMap_Initialize(&ifmap_server, json_parser);
     ifmap_server.set_config_manager(config_client_manager);
 
     BgpIfmapConfigManager *config_manager =

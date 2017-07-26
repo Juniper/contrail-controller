@@ -13,7 +13,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_session.h"
 #include "control-node/control_node.h"
-#include "ifmap/client/config_client_manager.h"
+#include "config/config-client-mgr/config_client_manager.h"
 
 // Use this test to mock BgpPeer and test selected functionality in BgpPeer as
 // desired. e.g. EndOfRibSendTimerExpired() API.
