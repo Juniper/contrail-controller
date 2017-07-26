@@ -64,6 +64,7 @@ private:
 
     //Helpers
     bool IsDeleteWalk() const;
+    bool IgnoreNotify();
 
     Peer *peer_;
     bool associate_;
