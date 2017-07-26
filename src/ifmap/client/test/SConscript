@@ -10,6 +10,7 @@ env = BuildEnv.Clone()
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/database'])
 env.Append(CPPPATH = env['TOP'] + '/ifmap/client/test')
+env.Append(CPPPATH = env['TOP'] + '/config/config-client-mgr')
 
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/db')
@@ -32,7 +33,7 @@ env.Prepend(LIBS = [
                     'ifmap_test_util', 'ifmap_test_util_agent',
                     'pugixml', 'xml', 'task_test', 'db', 'curl',
                     'base', 'gunit', 'crypto', 'ssl', 'boost_regex',
-                    'ifmapio', 'libbgp_schema',
+                    'config_client_mgr','ifmapio', 'libbgp_schema',
                     'libifmap_server', 'libifmap_vnc', 'cassandra_cql',
                     'cassandra', 'gendb', 'httpc',
                     'SimpleAmqpClient', 'rabbitmq'
@@ -45,25 +46,7 @@ config_json_parser_test = env.UnitTest('config_json_parser_test',
                                        ['config_json_parser_test.cc'])
 env.Alias('src/ifmap/client:config_json_parser_test', config_json_parser_test)
 
-config_cassandra_client_test = env.UnitTest('config_cassandra_client_test',
-                                       ['config_cassandra_client_test.cc'])
-env.Alias('src/ifmap/client:config_cassandra_client_test',
-          config_cassandra_client_test)
-
-config_cassandra_client_reader_test = \
-    env.UnitTest('config_cassandra_client_reader_test',
-                 ['config_cassandra_client_reader_test.cc'])
-env.Alias('src/ifmap/client:config_cassandra_client_reader_test',
-          config_cassandra_client_reader_test)
-
-config_amqp_client_test = env.UnitTest('config_amqp_client_test',
-                                       ['config_amqp_client_test.cc'])
-env.Alias('src/ifmap/client:config_amqp_client_test', config_amqp_client_test)
-
-client_unit_tests = [ config_amqp_client_test,
-                      config_json_parser_test,
-                      config_cassandra_client_reader_test,
-                      config_cassandra_client_test ]
+client_unit_tests = [config_json_parser_test]
 
 client_test = env.TestSuite('ifmap-test', client_unit_tests)
 
