@@ -87,10 +87,6 @@ class AuthPreKeystone(object):
         self.conf = conf
         self.server_mgr = server_mgr
 
-    @property
-    def mt(self):
-        return self.server_mgr.is_multi_tenancy_set()
-
     def path_in_white_list(self, path):
         for pattern in self.server_mgr.white_list:
             if re.search(pattern, path):
@@ -102,8 +98,10 @@ class AuthPreKeystone(object):
             # permit access to white list without requiring a token
             env['HTTP_X_ROLE'] = ''
             app = self.server_mgr.api_bottle
+        elif self.server_mgr.is_auth_needed():
+            app = self.app
         else:
-            app = self.app if self.mt else self.server_mgr.api_bottle
+            app = self.server_mgr.api_bottle
 
         return app(env, start_response)
 
@@ -155,7 +153,7 @@ class AuthServiceKeystone(object):
             'admin_port': args.admin_port,
             'max_requests': args.max_requests,
             'region_name': args.region_name,
-            'insecure':args.insecure,
+            'insecure': args.insecure,
             'identity_uri': identity_uri,
         }
         try:
@@ -165,12 +163,12 @@ class AuthServiceKeystone(object):
         except AttributeError:
             pass
         if _kscertbundle:
-           self._conf_info['cafile'] = _kscertbundle
+            self._conf_info['cafile'] = _kscertbundle
         self._server_mgr = server_mgr
         self._auth_method = args.auth
         self._auth_middleware = None
         self._mt_rbac = server_mgr.is_rbac_enabled()
-        self._multi_tenancy = server_mgr.is_multi_tenancy_set()
+        self._auth_needed = server_mgr.is_auth_needed()
         if not self._auth_method:
             return
         if self._auth_method != 'keystone':
@@ -182,7 +180,7 @@ class AuthServiceKeystone(object):
         self._ks_users = {}
 
         # configure memcache if enabled
-        if self._multi_tenancy and 'memcache_servers' in args:
+        if self._auth_needed and 'memcache_servers' in args:
             self._conf_info[
                 'memcached_servers'] = args.memcache_servers.split(',')
             if 'token_cache_time' in args:
@@ -193,7 +191,7 @@ class AuthServiceKeystone(object):
         if not self._auth_method:
             return None
 
-        if not self._multi_tenancy:
+        if not self._auth_needed:
             return None
 
         # keystone middleware is needed for fetching objects
@@ -205,17 +203,12 @@ class AuthServiceKeystone(object):
 
         # open access for troubleshooting
         admin_port = self._conf_info['admin_port']
-        self._local_auth_app = LocalAuth(self._server_mgr.api_bottle, self._conf_info)
-        vnc_greenlets.VncGreenlet("VNC Auth Keystone", self._local_auth_app.start_http_server)
+        self._local_auth_app = LocalAuth(self._server_mgr.api_bottle,
+                                         self._conf_info)
+        vnc_greenlets.VncGreenlet("VNC Auth Keystone",
+                                  self._local_auth_app.start_http_server)
 
-        app = auth_middleware
-
-        # allow multi tenancy to be updated dynamically
-        app = AuthPreKeystone(
-            auth_middleware,
-            None,
-            self._server_mgr)
-
+        app = AuthPreKeystone(auth_middleware, None, self._server_mgr)
         return app
     # end get_middleware_app
 

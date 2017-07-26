@@ -154,7 +154,7 @@ def ks_admin_authenticate(self, response=None, headers=None):
     new_headers['X-AUTH-TOKEN'] = rval
     return new_headers
 
-# aaa-mode is ignored if multi-tenancy is configured
+# aaa-mode is not ignored even if multi-tenancy is configured
 class TestRbacMtDisabled(test_case.ApiServerTestCase):
     domain_name = 'default-domain'
     fqdn = [domain_name]
@@ -176,17 +176,13 @@ class TestRbacMtDisabled(test_case.ApiServerTestCase):
 
     def test_rbac_config(self):
         rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
-        self.assertNotEquals(rv["aaa-mode"], "rbac")
-        self.assertEquals(rv["aaa-mode"], "no-auth")
-
-        rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
-        self.assertEquals(rv["enabled"], False)
+        self.assertEquals(rv["aaa-mode"], "rbac")
 
     def tearDown(self):
         super(TestRbacMtDisabled, self).tearDown()
     # end tearDown
 
-# aaa-mode is ignored if multi-tenancy is configured
+# aaa-mode is not ignored even if multi-tenancy is configured
 class TestRbacMtEnabled(test_case.ApiServerTestCase):
 
     @classmethod
@@ -205,11 +201,7 @@ class TestRbacMtEnabled(test_case.ApiServerTestCase):
 
     def test_rbac_config(self):
         rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
-        self.assertNotEquals(rv["aaa-mode"], "rbac")
-        self.assertEquals(rv["aaa-mode"], "cloud-admin")
-
-        rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
-        self.assertEquals(rv["enabled"], True)
+        self.assertEquals(rv["aaa-mode"], "rbac")
 
     def tearDown(self):
         super(TestRbacMtEnabled, self).tearDown()
@@ -235,9 +227,6 @@ class TestRbacAaaModeRbac(test_case.ApiServerTestCase):
         rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
         self.assertEquals(rv["aaa-mode"], "rbac")
 
-        rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
-        self.assertEquals(rv["enabled"], True)
-
     def tearDown(self):
         super(TestRbacAaaModeRbac, self).tearDown()
     # end tearDown
@@ -261,9 +250,6 @@ class TestRbacAaaModeAdminOnly(test_case.ApiServerTestCase):
     def test_rbac_config(self):
         rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
         self.assertEquals(rv["aaa-mode"], "cloud-admin")
-
-        rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
-        self.assertEquals(rv["enabled"], True)
 
     def tearDown(self):
         super(TestRbacAaaModeAdminOnly, self).tearDown()
@@ -289,9 +275,6 @@ class TestRbacAaaModeNoAuth(test_case.ApiServerTestCase):
         rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
         self.assertEquals(rv["aaa-mode"], "no-auth")
 
-        rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
-        self.assertEquals(rv["enabled"], False)
-
     def tearDown(self):
         super(TestRbacAaaModeNoAuth, self).tearDown()
     # end tearDown
@@ -314,9 +297,6 @@ class TestRbacAaaModeInvalid(test_case.ApiServerTestCase):
     def test_rbac_config(self):
         rv = self._vnc_lib._request(rest.OP_GET, '/aaa-mode')
         self.assertEquals(rv["aaa-mode"], "cloud-admin")
-
-        rv = self._vnc_lib._request(rest.OP_GET, '/multi-tenancy')
-        self.assertEquals(rv["enabled"], True)
 
     def tearDown(self):
         super(TestRbacAaaModeInvalid, self).tearDown()

@@ -1277,12 +1277,6 @@ class VncApi(object):
             self._action_uri['chmod'], data=json.dumps(payload))
         return content
 
-    def set_multi_tenancy(self, enabled):
-        url = self._action_uri['multi-tenancy']
-        data = {'enabled': enabled}
-        content = self._request_server(rest.OP_PUT, url, json.dumps(data))
-        return json.loads(content)
-
     def set_aaa_mode(self, mode):
         if mode not in cfgm_common.AAA_MODE_VALID_VALUES:
             raise HttpError(400, 'Invalid AAA mode')
