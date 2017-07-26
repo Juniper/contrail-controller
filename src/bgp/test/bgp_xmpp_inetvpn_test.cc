@@ -2630,7 +2630,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, UpdateSenderRibOutInvalidate) {
     agent_b_->SessionDown();
 }
 
-TEST_F(BgpXmppInetvpn2ControlNodeTest, TunnelEncap) {
+TEST_F(BgpXmppInetvpn2ControlNodeTest, TunnelEncap1) {
     Configure();
     task_util::WaitForIdle();
 
@@ -2662,6 +2662,52 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, TunnelEncap) {
         agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "udp");
     VerifyRouteExists(
         agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "udp");
+
+    // Delete route from agent A.
+    agent_a_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Verify that route is deleted at agents A and B.
+    VerifyRouteNoExists(agent_a_, "blue", route_a.str());
+    VerifyRouteNoExists(agent_b_, "blue", route_a.str());
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+TEST_F(BgpXmppInetvpn2ControlNodeTest, TunnelEncap2) {
+    Configure();
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    agent_b_->Subscribe("blue", 1);
+
+    // Add route from agent A.
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    test::NextHop next_hop("192.168.1.1", 0, "native");
+    agent_a_->AddRoute("blue", route_a.str(), next_hop, 100);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up on agents A and B.
+    VerifyRouteExists(
+        agent_a_, "blue", route_a.str(), "192.168.1.1", 100, "native");
+    VerifyRouteExists(
+        agent_b_, "blue", route_a.str(), "192.168.1.1", 100, "native");
 
     // Delete route from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());
