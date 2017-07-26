@@ -6,21 +6,22 @@
 
 #include <boost/foreach.hpp>
 #include <fstream>
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_cass2json_adapter.h"
-#include "ifmap/client/config_cassandra_client.h"
-#include "ifmap/client/config_client_manager.h"
+#include "config/config-client-mgr/config_amqp_client.h"
+#include "config/config-client-mgr/config_cass2json_adapter.h"
+#include "config/config-client-mgr/config_cassandra_client.h"
+#include "config/config-client-mgr/config_client_manager.h"
+#include "config/config-client-mgr/config_factory.h"
 #include "ifmap/client/config_json_parser.h"
 
 class ConfigCassandraClientTest : public ConfigCassandraClient {
 public:
     ConfigCassandraClientTest(ConfigClientManager *mgr, EventManager *evm,
-        const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
-        int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
+        const ConfigClientOptions &options,
+        int num_workers) : ConfigCassandraClient(mgr, evm, options,
             num_workers), db_index_(num_workers), cevent_(0) {
     }
 
-    virtual void HandleObjectDelete(const std::string &uuid) {
+    virtual void HandleObjectDelete(const std::string &uuid, bool add_change) {
         std::vector<std::string> tokens;
         boost::split(tokens, uuid, boost::is_any_of(":"));
         std::string u;
@@ -29,7 +30,7 @@ public:
         } else {
             u = uuid;
         }
-        ConfigCassandraClient::HandleObjectDelete(u);
+        ConfigCassandraClient::HandleObjectDelete(u, add_change);
     }
 
     virtual void AddFQNameCache(const std::string &uuid,

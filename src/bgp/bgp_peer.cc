@@ -33,7 +33,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/rtarget/rtarget_table.h"
 #include "control-node/control_node.h"
-#include "ifmap/client/config_client_manager.h"
+#include "config/config-client-mgr/config_client_manager.h"
 
 using boost::assign::list_of;
 using boost::assign::map_list_of;

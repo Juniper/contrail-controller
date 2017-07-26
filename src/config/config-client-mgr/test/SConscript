@@ -1,0 +1,60 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('CfgmEnv')
+import sys
+
+env = CfgmEnv.Clone()
+
+env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'] + '/database'])
+env.Append(CPPPATH = env['TOP'] + '/ifmap/client/test')
+
+env.Append(LIBPATH = env['TOP'] + '/io')
+env.Append(LIBPATH = env['TOP'] + '/db')
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/bgp')
+env.Append(LIBPATH = env['TOP'] + '/base/test')
+env.Append(LIBPATH = env['TOP'] + '/control-node')
+env.Append(LIBPATH = env['TOP'] + '/ifmap')
+env.Append(LIBPATH = env['TOP'] + '/ifmap/test')
+env.Append(LIBPATH = env['TOP'] + '/xml')
+env.Append(LIBPATH = env['TOP'] + '/xmpp')
+env.Append(LIBPATH = env['TOP'] + '/schema')
+
+env.Prepend(LIBS = [ 'config_client_mgr', 'peer_sandesh', 'sandesh', 'http', 'http_parser', 'httpc',
+                    'curl', 'sandeshvns', 'process_info', 'io', 
+                    'bgp_schema', 'pugixml', 'xml', 'task_test', 'db', 'curl',
+                    'base', 'gunit', 'crypto', 'ssl', 'boost_regex',
+                    'libbgp_schema', 'cassandra_cql', 'cassandra', 'gendb', 'httpc',
+                    'SimpleAmqpClient', 'rabbitmq'
+                   ])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['boost_chrono'])
+
+config_cassandra_client_test = env.UnitTest('config_cassandra_client_test',
+                                       ['config_cassandra_client_test.cc'])
+env.Alias('src/ifmap/client:config_cassandra_client_test',
+          config_cassandra_client_test)
+
+config_cassandra_client_reader_test = \
+    env.UnitTest('config_cassandra_client_reader_test',
+                 ['config_cassandra_client_reader_test.cc'])
+env.Alias('src/ifmap/client:config_cassandra_client_reader_test',
+          config_cassandra_client_reader_test)
+
+config_amqp_client_test = env.UnitTest('config_amqp_client_test',
+                                       ['config_amqp_client_test.cc'])
+env.Alias('src/config/config-client-mgr/client:config_amqp_client_test', config_amqp_client_test)
+
+client_unit_tests = [ config_amqp_client_test,
+                      config_cassandra_client_test, 
+                      config_cassandra_client_reader_test]
+
+client_test = env.TestSuite('ifmap-test', client_unit_tests)
+
+env.Alias('src/config/config-client-mgr/client:test', client_test)
+env.Alias('src/config/config-client-mgr/client:flaky-test', [ ])
+Return('client_unit_tests')

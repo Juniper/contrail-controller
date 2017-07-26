@@ -14,8 +14,9 @@
 #include "db/db_table_partition.h"
 #include "base/bitset.h"
 
-#include "ifmap/client/config_client_manager.h"
-#include "ifmap/client/config_db_client.h"
+#include "config_client_manager.h"
+#include "config_db_client.h"
+#include "config_client_show_types.h"
 
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_exporter.h"
