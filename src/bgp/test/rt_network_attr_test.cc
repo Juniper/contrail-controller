@@ -10,10 +10,11 @@
 #include "control-node/control_node.h"
 #include "control-node/test/control_node_test.h"
 #include "control-node/test/network_agent_mock.h"
-#include "ifmap/client/config_amqp_client.h"
-#include "ifmap/client/config_cass2json_adapter.h"
-#include "ifmap/client/config_cassandra_client.h"
-#include "ifmap/client/config_client_manager.h"
+#include "config/config-client-mgr/config_amqp_client.h"
+#include "config/config-client-mgr/config_cass2json_adapter.h"
+#include "config/config-client-mgr/config_cassandra_client.h"
+#include "config/config-client-mgr/config_client_manager.h"
+#include "config/config-client-mgr/config_factory.h"
 #include "ifmap/client/config_json_parser.h"
 #include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_link_table.h"
@@ -33,15 +34,18 @@ protected:
           map_server_(bgp_server_.config_db(), bgp_server_.config_graph(),
                       evm_.io_service()),
           config_client_manager_(new ConfigClientManager(&evm_,
-              &map_server_, "localhost", "config-test", config_options_)) {
+              "localhost", "config-test", config_options_)) {
         config_cassandra_client_=dynamic_cast<ConfigCassandraClientTest *>(
             config_client_manager_->config_db_client());
     }
 
     virtual void SetUp() {
         ConfigCass2JsonAdapter::set_assert_on_parse_error(false);
-        vnc_cfg_JsonParserInit(config_client_manager_->config_json_parser());
-        bgp_schema_JsonParserInit(config_client_manager_->config_json_parser());
+        ConfigJsonParser *config_json_parser_ =
+          static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
+        config_json_parser_->ifmap_server_set(&map_server_); 
+        vnc_cfg_JsonParserInit(config_json_parser_);
+        bgp_schema_JsonParserInit(config_json_parser_);
         task_util::WaitForIdle();
     }
 
@@ -50,7 +54,9 @@ protected:
         task_util::WaitForIdle();
         map_server_.Shutdown();
         task_util::WaitForIdle();
-        config_client_manager_->config_json_parser()->MetadataClear("vnc_cfg");
+        ConfigJsonParser *config_json_parser_ =
+          static_cast<ConfigJsonParser *>(config_client_manager_->config_json_parser());
+        config_json_parser_->MetadataClear("vnc_cfg");
         evm_.Shutdown();
         task_util::WaitForIdle();
     }
@@ -66,7 +72,7 @@ protected:
 
     EventManager evm_;
     BgpServerTest bgp_server_;
-    const IFMapConfigOptions config_options_;
+    const ConfigClientOptions config_options_;
     IFMapServer map_server_;
     boost::scoped_ptr<ConfigClientManager> config_client_manager_;
     ConfigCassandraClientTest *config_cassandra_client_;
@@ -349,8 +355,10 @@ static void SetUp() {
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<BgpXmppMessageBuilder>(
         boost::factory<BgpXmppMessageBuilder *>());
-    IFMapFactory::Register<ConfigCassandraClient>(
+    ConfigFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
+    ConfigFactory::Register<ConfigJsonParserBase>(
+        boost::factory<ConfigJsonParser *>());
 }
 
 static void TearDown() {
