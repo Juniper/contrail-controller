@@ -2577,8 +2577,10 @@ class VncApiServer(object):
         ip_fab_vn = self._create_singleton_entry(
             VirtualNetwork(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1]))
         self._create_singleton_entry(
-            RoutingInstance('__default__', ip_fab_vn,
+            RoutingInstance(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1], ip_fab_vn,
                 routing_instance_is_default=True))
+        self._create_singleton_entry(
+            RoutingInstance('__default__', ip_fab_vn))
         link_local_vn = self._create_singleton_entry(
             VirtualNetwork(cfgm_common.LINK_LOCAL_VN_FQ_NAME[-1]))
         self._create_singleton_entry(
