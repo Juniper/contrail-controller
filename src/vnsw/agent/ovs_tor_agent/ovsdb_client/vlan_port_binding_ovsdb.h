@@ -21,6 +21,7 @@ public:
     KSyncEntry *DBToKSyncEntry(const DBEntry*);
     DBFilterResp OvsdbDBEntryFilter(const DBEntry *entry,
                                     const OvsdbDBEntry *ovsdb_entry);
+    std::string GetLogicalSwitchName(const DBEntry *entry) const;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(VlanPortBindingTable);
@@ -58,6 +59,7 @@ protected:
 
 private:
     friend class VlanPortBindingTable;
+
     KSyncEntryPtr physical_port_;
     std::string logical_switch_name_;
     std::string physical_port_name_;
