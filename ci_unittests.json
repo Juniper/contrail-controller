@@ -41,7 +41,8 @@
             "controller/src/control-node",
             "controller/src/dns",
             "controller/src/ifmap",
-            "controller/src/xmpp"
+            "controller/src/xmpp",
+            "controller/src/config/config-client-mgr"
         ],
         "scons_test_targets" : [
             "controller/src/bgp:test",

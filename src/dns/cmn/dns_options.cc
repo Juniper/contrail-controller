@@ -14,7 +14,7 @@
 #include <base/options_util.h>
 #include "cmn/buildinfo.h"
 #include "cmn/dns_options.h"
-#include "ifmap/client/config_client_manager.h"
+#include "config_client_manager.h"
 #include "net/address_util.h"
 
 using namespace std;
@@ -216,7 +216,7 @@ uint32_t Options::GenerateHash(const std::vector<std::string> &list) {
     return(string_hash(concat_servers));
 }
 
-uint32_t Options::GenerateHash(const IFMapConfigOptions &config) {
+uint32_t Options::GenerateHash(const ConfigClientOptions &config) {
     uint32_t chk_sum = GenerateHash(config.config_db_server_list);
     chk_sum += GenerateHash(config.rabbitmq_server_list);
     boost::hash<std::string> string_hash;

@@ -4,6 +4,12 @@
 
 /** Definitions for showing ifmap-server state and stats **/
 
+include "config/config-client-mgr/config_client_show.sandesh"
+
+/**
+ * @description: get config client information
+ * @cli_name: read config client information
+ */
 request sandesh ConfigClientInfoReq {
 }
 
@@ -14,6 +20,16 @@ response sandesh ConfigClientReinitResp {
 request sandesh ConfigClientReinitReq {
 }
 
+/** Definitions for showing ifmap-server state and stats **/
+
+struct IFMapPeerServerInfoUI {
+    1: string url;
+    2: string connection_status;
+    3: u64 connection_status_change_at;
+}
+
+/** Definitions for showing ifmap-server state and stats **/
+
 struct IFMapPeerServerInfoUI {
     1: string url;
     2: string connection_status;
@@ -22,23 +38,6 @@ struct IFMapPeerServerInfoUI {
 
 struct IFMapServerInfoUI {
     1: u64 num_peer_clients;
-}
-
-struct ConfigDBConnInfo {
-    1: string cluster;
-    2: bool connection_status;
-    3: u64 connection_status_change_at;
-}
-
-struct ConfigAmqpConnInfo {
-    1: string url;
-    2: bool connection_status;
-    3: u64 connection_status_change_at;
-}
-
-struct ConfigClientManagerInfo {
-    1: bool end_of_rib_computed;
-    2: u64 end_of_rib_computed_at;
 }
 
 struct IFMapPeerTimedoutEntry {
@@ -77,6 +76,12 @@ struct IFMapDSPeerInfoEntry {
     3: bool in_use;
 }
 
+response sandesh ConfigClientInfoResp {
+    1: config_client_show.ConfigClientManagerInfo client_manager_info;
+    2: config_client_show.ConfigDBConnInfo db_conn_info;
+    3: config_client_show.ConfigAmqpConnInfo amqp_conn_info;
+}
+
 struct IFMapDSPeerInfo {
     1: i32 num_peers;
     2: list<IFMapDSPeerInfoEntry> ds_peer_list;
@@ -90,14 +95,10 @@ struct IFMapDSPeerInfo {
     10: u64 no_best_peer_count;
 }
 
-response sandesh ConfigClientInfoResp {
-    1: ConfigClientManagerInfo client_manager_info;
-    2: ConfigDBConnInfo db_conn_info;
-    3: ConfigAmqpConnInfo amqp_conn_info;
-}
-
-/** Definitions for showing the list of node ifmap tables **/
-
+/**
+ * @description: Definitions for showing the list of node ifmap tables
+ * @cli_name: read ifmap table list
+ */
 request sandesh IFMapNodeTableListShowReq {
 }
 
@@ -406,49 +407,33 @@ response sandesh IFMapPendingVmRegResp {
     2: list<IFMapPendingVmRegEntry> vm_reg_map;
 }
 
-request sandesh ConfigDBUUIDToFQNameReq {
-    /** Search string for uuid, Fq name or object type **/
-    1: string search_string;
-}
-
-struct ConfigDBFQNameCacheEntry {
-    1: string uuid;
-    2: string obj_type;
-    3: string fq_name;
-    4: bool deleted;
-}
-
-
 response sandesh ConfigDBUUIDToFQNameResp {
-    1:  list<ConfigDBFQNameCacheEntry> fqname_cache;
+    1:  list<config_client_show.ConfigDBFQNameCacheEntry> fqname_cache;
     2:  optional string next_batch (link="ConfigDBUUIDToFQNameReqIterate",
                                    link_title="next_batch");
 }
 
-request sandesh ConfigDBUUIDCacheReq {
-    /** Search string for uuid, Fq name or object type **/
-    1: string search_string;
-}
+/**
+ * @description: Definition for showing uuid to fq name mapping
+ * @cli_name: read uuid-fqname mapping
+ */
 
-struct ConfigDBUUIDCacheData {
-    1: string field_name;
-    2: string timestamp;
-    3: bool refresh;
-}
-
-struct ConfigDBUUIDCacheEntry {
+request sandesh ConfigDBUUIDToFQNameReq {
+    /** uuid for which fq-name is needed */
     1: string uuid;
-    2: string obj_type;
-    3: string fq_name;
-    4: string timestamp;
-    5: bool timer_created;
-    6: bool timer_running;
-    7: i32 retry_count;
-    8: list<ConfigDBUUIDCacheData> field_list
+}
+
+/**
+ * @description: Definition for showing uuid cache
+ * @cli_name: read uuid cache
+ */
+request sandesh ConfigDBUUIDCacheReq {
+    /** uuid whose cache information is required */
+    1: string uuid;
 }
 
 response sandesh ConfigDBUUIDCacheResp {
-    1:  list<ConfigDBUUIDCacheEntry> uuid_cache
+    1:  list<config_client_show.ConfigDBUUIDCacheEntry> uuid_cache
     2:  optional string next_batch (link="ConfigDBUUIDCacheReqIterate",
                                    link_title="next_batch");
 }
