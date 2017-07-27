@@ -513,6 +513,8 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.port_tuple = None
         self.fat_flow_ports = set()
         self.aaps = None
+        self.annotations = None
+        self.service_vm = True
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
     # end __init__
@@ -548,6 +550,12 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_single_ref('physical_interface',obj)
         self.update_multiple_refs('security_group', obj)
         self.update_single_ref('port_tuple', obj)
+        self.annotations = obj.get('annotations', None)
+        if self.annotations:
+            for kvp in self.annotations['key_value_pair'] or []:
+                if kvp['key'] == '_service_vm_':
+                    self.service_vm = eval(kvp['value'])
+                    break
         if self.virtual_machine:
             vm = VirtualMachineSM.get(self.virtual_machine)
             if vm:

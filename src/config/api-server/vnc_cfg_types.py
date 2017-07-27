@@ -981,6 +981,39 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         return True, ""
 
     @classmethod
+    def _check_service_health_check_type(cls, obj_dict, db_dict, db_conn):
+        service_health_check_refs = \
+                obj_dict.get('service_health_check_refs', None)
+        if not service_health_check_refs:
+            return (True, '')
+
+        if obj_dict and obj_dict.get('port_tuple_refs', None):
+            return (True, '')
+
+        if db_dict and db_dict.get('port_tuple_refs', None):
+            return (True, '')
+
+        for shc in service_health_check_refs or []:
+            if 'uuid' in shc:
+                shc_uuid = shc['uuid']
+            else:
+                shc_fq_name = shc['to']
+                shc_uuid = db_conn.fq_name_to_uuid('service_health_check', shc_fq_name)
+            ok, result = cls.dbe_read(db_conn, 'service_health_check', shc_uuid,
+                                      obj_fields=['service_health_check_properties'])
+            if not ok:
+                return (ok, result)
+
+            shc_type = result['service_health_check_properties']['health_check_type']
+            if shc_type != 'link-local':
+                msg = "Virtual machine interface(%s) of non service vm can only refer "\
+                      "link-local type service health check"\
+                      % obj_dict['uuid']
+                return (False, (400, msg))
+
+        return (True, '')
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict.get('uuid')
@@ -1095,6 +1128,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if not ok:
             return ok, result
 
+        (ok, result) = cls._check_service_health_check_type(obj_dict, None, db_conn)
+        if not ok:
+            return ok, result
+
         return True, ""
     # end pre_dbe_create
 
@@ -1195,6 +1232,11 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
         (ok,result) = cls._check_port_security_and_address_pairs(obj_dict,
                                                                  read_result)
+        if not ok:
+            return ok, result
+
+        (ok, result) = cls._check_service_health_check_type(
+                                      obj_dict, read_result, db_conn)
         if not ok:
             return ok, result
 
