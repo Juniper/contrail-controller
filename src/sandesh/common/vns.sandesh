@@ -573,7 +573,7 @@ const map<Module, list<Category>> ModuleCategoryMap = {
                                 ],
     Module.DISCOVERY_SERVICE  : [Category.DEFAULT,
                                  Category.DISCOVERY,
-                                ], 
+                                ],
     Module.CONTRAIL_SNMP_COLLECTOR : [Category.DEFAULT,
                                 ],
     Module.CONTRAIL_TOPOLOGY  : [Category.DEFAULT,
@@ -640,4 +640,46 @@ const list <string> APIAAAModes = [
     AAA_MODE_NO_AUTH,
     AAA_MODE_CLOUD_ADMIN,
     AAA_MODE_RBAC,
+]
+
+// Pre-defined Tag Type
+enum TagType {
+    LABEL,
+    APPLICATION,
+    TIER,
+    DEPLOYMENT,
+    SITE,
+}
+
+// Mapping Tag Type ID to Name
+const map<TagType, string> TagTypeIdToName = {
+    //ID to
+    TagType.LABEL: "label",
+    TagType.APPLICATION: "application",
+    TagType.TIER: "tier",
+    TagType.DEPLOYMENT: "deployment",
+    TagType.SITE: "site",
+}
+
+// Mapping Tag Type Name to ID
+const map<string, TagType> TagTypeNameToId = {
+    "label": TagType.LABEL,
+    "application": TagType.APPLICATION,
+    "tier": TagType.TIER,
+    "deployment": TagType.DEPLOYMENT,
+    "site": TagType.SITE,
+}
+
+// Tag Type authorized to NOT be unique on an object
+const list<string> TAG_TYPE_NOT_UNIQUE_PER_OBJECT = [
+    "label", //TagTypeIdToName[TagType.LABEL],
+]
+
+// Match Tag Types to use by default
+const list<TagType> DEFAULT_MATCH_TAG_TYPE = [
+    TagType.APPLICATION,
+]
+
+const list<TagType> TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP = [
+    "label", //TagTypeIdToName[TagType.LABEL],
 ]
