@@ -42,7 +42,7 @@ from provision_defaults import *
 from cfgm_common.exceptions import *
 from vnc_quota import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
+from sandesh_common.vns import constants
 from sandesh.traces.ttypes import DBRequestTrace, MessageBusNotifyTrace
 import functools
 
@@ -68,7 +68,7 @@ def trace_msg(trace_objs=[], trace_name='', sandesh_hdl=None, error_msg=None):
 
 class VncServerCassandraClient(VncCassandraClient):
     # Useragent datastore keyspace + tables (used by neutron plugin currently)
-    _USERAGENT_KEYSPACE_NAME = USERAGENT_KEYSPACE_NAME
+    _USERAGENT_KEYSPACE_NAME = constants.USERAGENT_KEYSPACE_NAME
     _USERAGENT_KV_CF_NAME = 'useragent_keyval_table'
 
     @classmethod
@@ -364,8 +364,12 @@ class VncZkClient(object):
     _SG_ID_ALLOC_PATH = "/id/security-groups/id/"
     _SG_MAX_ID = 1 << 32
 
-    _TAG_VALUE_ID_ALLOC_PATH = "/id/tag-values/%s/"
-    _TAG_VALUE_MAX_ID = (1<<27) - 1
+    _TAG_ID_ALLOC_ROOT_PATH = "/id/tags"
+    _TAG_TYPE_ID_ALLOC_PATH = "%s/types/" % _TAG_ID_ALLOC_ROOT_PATH
+    _TAG_VALUE_ID_ALLOC_PATH = "%s/values/%%s/" % _TAG_ID_ALLOC_ROOT_PATH
+    _TAG_TYPE_MAX_ID = (1 << 16) - 1
+    _TAG_TYPE_RESERVED_SIZE = 255
+    _TAG_VALUE_MAX_ID = (1 << 16) - 1
 
     def __init__(self, instance_id, zk_server_ip, reset_config, db_prefix,
                  sandesh_hdl, log_response_time=None):
@@ -382,7 +386,8 @@ class VncZkClient(object):
         self._fq_name_to_uuid_path = zk_path_pfx + self._FQ_NAME_TO_UUID_PATH
         _vn_id_alloc_path = zk_path_pfx + self._VN_ID_ALLOC_PATH
         _sg_id_alloc_path = zk_path_pfx + self._SG_ID_ALLOC_PATH
-        _tag_value_id_alloc_path = zk_path_pfx + self._TAG_VALUE_ID_ALLOC_PATH
+        _tag_type_id_alloc_path = zk_path_pfx + self._TAG_TYPE_ID_ALLOC_PATH
+        self._tag_value_id_alloc_path = zk_path_pfx + self._TAG_VALUE_ID_ALLOC_PATH
         self._zk_path_pfx = zk_path_pfx
 
         self._sandesh = sandesh_hdl
@@ -403,6 +408,8 @@ class VncZkClient(object):
             self._zk_client.delete_node(self._fq_name_to_uuid_path, True)
             self._zk_client.delete_node(_vn_id_alloc_path, True)
             self._zk_client.delete_node(_sg_id_alloc_path, True)
+            self._zk_client.delete_node(
+                zk_path_pfx + self._TAG_ID_ALLOC_ROOT_PATH, True)
 
         self._subnet_allocators = {}
 
@@ -421,11 +428,22 @@ class VncZkClient(object):
             self._sg_id_allocator.delete(0)
         self._sg_id_allocator.reserve(0, '__reserved__')
 
-        # Initialize the tag value ID allocator
-        self._tag_value_id_allocator = {tag_type: IndexAllocator(self._zk_client,
-                                               _tag_value_id_alloc_path % tag_type,
-                                               self._TAG_VALUE_MAX_ID)
-                                        for tag_type in cfgm_common.tag_dict.keys()}
+        # Initialize tag type ID allocator
+        self._tag_type_id_allocator = IndexAllocator(
+            self._zk_client,
+            _tag_type_id_alloc_path,
+            size=self._TAG_TYPE_MAX_ID,
+            start_idx=self._TAG_TYPE_RESERVED_SIZE,
+        )
+
+        # Initialize the tag value ID allocator for pref-defined tag-type.
+        # One allocator per tag type
+        self._tag_value_id_allocator = {
+            type_name: IndexAllocator(
+                self._zk_client,
+                self._tag_value_id_alloc_path % type_name,
+                self._TAG_VALUE_MAX_ID,
+            ) for type_name in constants.TagTypeNameToId.keys()}
     # end __init__
 
     def master_election(self, path, func, *args):
@@ -576,17 +594,55 @@ class VncZkClient(object):
                 sg_id < self._SG_MAX_ID):
             return self._sg_id_allocator.read(sg_id - SGID_MIN_ALLOC)
 
-    def alloc_tag_value_id(self, tag_type, name):
-        if name is not None:
-            return self._tag_value_id_allocator[tag_type].alloc(name)
+    def alloc_tag_type_id(self, type_str):
+        if type_str is not None:
+            return self._tag_type_id_allocator.alloc(type_str)
 
-    def free_tag_value_id(self, tag_type, tag_value_id):
-        if tag_value_id is not None and tag_value_id < self._TAG_VALUE_MAX_ID:
-            self._tag_value_id_allocator[tag_type].delete(tag_value_id)
+    def free_tag_type_id(self, type_id, notify=False):
+        if type_id is not None and type_id < self._TAG_TYPE_MAX_ID:
+            type_str = self._tag_type_id_allocator.read(type_id)
+            self._tag_type_id_allocator.delete(type_id)
+            if not notify:
+                IndexAllocator.delete_all(
+                    self._zk_client, self._tag_value_id_alloc_path % type_str)
+            self._tag_value_id_allocator.pop(type_str, None)
 
-    def get_tag_value_from_id(self, tag_type, tag_value_id):
-        if tag_value_id is not None and tag_value_id < self._TAG_VALUE_MAX_ID:
-            return self._tag_value_id_allocator[tag_type].read(tag_value_id)
+    def get_tag_type_from_id(self, type_id):
+        if type_id is not None and type_id < self._TAG_TYPE_MAX_ID:
+            return self._tag_type_id_allocator.read(type_id)
+
+    def alloc_tag_value_id(self, type_str, value_str):
+        if value_str is not None:
+            return self._tag_value_id_allocator.setdefault(
+                type_str,
+                IndexAllocator(
+                    self._zk_client,
+                    self._tag_value_id_alloc_path % type_str,
+                    self._TAG_VALUE_MAX_ID,
+                ),
+            ).alloc(value_str)
+
+    def free_tag_value_id(self, type_str, value_id):
+        if value_id is not None and value_id < self._TAG_VALUE_MAX_ID:
+            self._tag_value_id_allocator.setdefault(
+                type_str,
+                IndexAllocator(
+                    self._zk_client,
+                    self._tag_value_id_alloc_path % type_str,
+                    self._TAG_VALUE_MAX_ID,
+                ),
+            ).delete(value_id)
+
+    def get_tag_value_from_id(self, type_str, value_id):
+        if value_id is not None and value_id < self._TAG_VALUE_MAX_ID:
+            return self._tag_value_id_allocator.setdefault(
+                type_str,
+                IndexAllocator(
+                    self._zk_client,
+                    self._tag_value_id_alloc_path % type_str,
+                    self._TAG_VALUE_MAX_ID,
+                ),
+            ).read(value_id)
 # end VncZkClient
 
 
@@ -1286,7 +1342,7 @@ class VncDbClient(object):
                 shares = [(_uuid, _perms) for _uuid, _perms in shares
                     if _uuid > start]
 
-            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in 
+            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in
                                        owned_fq_name_uuids or []])
 
             collected = 0

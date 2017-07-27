@@ -60,7 +60,7 @@ DBEntryBase::KeyPtr AclDBEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void AclDBEntry::SetKey(const DBRequestKey *key) { 
+void AclDBEntry::SetKey(const DBRequestKey *key) {
     const AclKey *k = static_cast<const AclKey *>(key);
     uuid_ = k->uuid_;
 }
@@ -364,7 +364,7 @@ static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &
         } else if (action.ta_type == TrafficAction::ALERT_ACTION) {
             astr.action = TrafficAction::kActionAlertStr;
         } else if (action.ta_type == TrafficAction::MIRROR_ACTION) {
-            astr.action = action.ma.vrf_name + " " + 
+            astr.action = action.ma.vrf_name + " " +
                     action.ma.analyzer_name + " " +
                     action.ma.ip.to_string() + " " +
                     integerToString(action.ma.port);
@@ -384,7 +384,7 @@ static void AclObjectTrace(AgentLogEvent::type event, AclSpec &acl_spec)
     if (event == AgentLogEvent::ADD || event == AgentLogEvent::CHANGE) {
         std::vector<AclEntrySpec>::iterator it;
         std::vector<AclEntrySandeshData> acl_entries;
-        for (it = acl_spec.acl_entry_specs_.begin(); 
+        for (it = acl_spec.acl_entry_specs_.begin();
              it != acl_spec.acl_entry_specs_.end(); ++it) {
             AclEntrySandeshData ae_sandesh;
             AclEntrySpec ae_spec = *it;
@@ -747,7 +747,7 @@ void AclDBEntry::DeleteAllAclEntries()
     return;
 }
 
-bool AclDBEntry::PacketMatch(const PacketHeader &packet_header, 
+bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
 			                 MatchAclParams &m_acl, FlowPolicyInfo *info) const
 {
     AclEntries::const_iterator iter;
@@ -865,8 +865,8 @@ bool AclDBEntry::Changed(const AclEntries &new_entries) const {
     return true;
 }
 
-const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str, 
-                                          const string ctx, 
+const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str,
+                                          const string ctx,
                                           SandeshResponse *resp) {
     if (acl_uuid_str.empty()) {
         return NULL;
@@ -909,7 +909,7 @@ void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
     resp->Response();
 }
 
-void AclTable::AclFlowCountResponse(const string acl_uuid_str, 
+void AclTable::AclFlowCountResponse(const string acl_uuid_str,
                                     const string ctx,
                                     const string &ace_id) {
     AclFlowCountResp *resp = new AclFlowCountResp();
@@ -961,11 +961,11 @@ void AclFlowReq::HandleRequest() const {
     AclTable::AclFlowResponse(get_uuid(), context(), 0);
 }
 
-void AclFlowCountReq::HandleRequest() const { 
+void AclFlowCountReq::HandleRequest() const {
     AclTable::AclFlowCountResponse(get_uuid(), context(), Agent::NullString());
 }
 
-void NextAclFlowCountReq::HandleRequest() const { 
+void NextAclFlowCountReq::HandleRequest() const {
     string key = get_iteration_key();
     size_t n = std::count(key.begin(), key.end(), ':');
     if (n != 1) {
@@ -1147,14 +1147,14 @@ bool AclEntrySpec::BuildAddressGroup(Agent *agent, IFMapNode *node,
 
         const Tag* tag=
             static_cast<const Tag *>(tag_node->GetObject());
-        if (tag->id() == 0) {
+        if (strtol(tag->id().c_str(), NULL, 16) == 0) {
             continue;
         }
 
         if (source) {
-            src_tags.push_back(tag->id());
+            src_tags.push_back(strtol(tag->id().c_str(), NULL, 16));
         } else {
-            dst_tags.push_back(tag->id());
+            dst_tags.push_back(strtol(tag->id().c_str(), NULL, 16));
         }
     }
 
