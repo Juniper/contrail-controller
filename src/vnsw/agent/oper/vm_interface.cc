@@ -3585,21 +3585,6 @@ void VmInterface::UpdateVrfAssignRule() {
         vrf_translate_spec.vrf_translate.set_ignore_acl(it->ignore_acl_);
         ace_spec.action_l.push_back(vrf_translate_spec);
         acl_spec.acl_entry_specs_.push_back(ace_spec);
-
-        AclEntrySpec rev_ace_spec;
-        //Populate reverse rule
-        MatchConditionType rmatch_condition;
-        rmatch_condition = it->match_condition_;
-        rmatch_condition.src_address = it->match_condition_.dst_address;
-        rmatch_condition.dst_address = it->match_condition_.src_address;
-        rmatch_condition.src_port = it->match_condition_.dst_port;
-        rmatch_condition.dst_port = it->match_condition_.src_port;
-        if (rev_ace_spec.Populate(&(it->match_condition_)) == false) {
-            continue;
-        }
-        rev_ace_spec.id = id++;
-        rev_ace_spec.action_l.push_back(vrf_translate_spec);
-        acl_spec.acl_entry_specs_.push_back(rev_ace_spec);
     }
 
     DBRequest req;
