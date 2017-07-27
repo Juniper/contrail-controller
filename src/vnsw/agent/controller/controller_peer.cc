@@ -299,6 +299,8 @@ GetEnetTypeBitmap(const EnetTunnelEncapsulationListType &encap) {
             bmap |= (1 << TunnelType::MPLS_UDP);
         if (encap == TunnelEncapType::VXLAN)
             bmap |= (1 << TunnelType::VXLAN);
+        if (encap == TunnelEncapType::NATIVE_CONTRAIL)
+            bmap |= (1 << TunnelType::NATIVE);
     }
     return bmap;
 }
@@ -315,6 +317,8 @@ GetTypeBitmap(const TunnelEncapsulationListType &encap) {
             bmap |= (1 << TunnelType::MPLS_GRE);
         if (encap == TunnelEncapType::MPLS_O_UDP)
             bmap |= (1 << TunnelType::MPLS_UDP);
+        if (encap == TunnelEncapType::NATIVE_CONTRAIL)
+            bmap |= (1 << TunnelType::NATIVE);
     }
     return bmap;
 }
@@ -1051,7 +1055,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             }
 
             VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
-                                    intf_nh->GetIfUuid(), "");
+                                    intf_nh->GetIfUuid(), interface->name());
             EcmpLoadBalance ecmp_load_balance;
             GetEcmpHashFieldsToUse(item, ecmp_load_balance);
             BgpPeer *bgp_peer = bgp_peer_id();
@@ -1167,6 +1171,11 @@ void AgentXmppChannel::GetVnList(const std::vector<autogen::NextHopType> &nextho
 
 void AgentXmppChannel::AddRoute(string vrf_name, IpAddress prefix_addr,
                                 uint32_t prefix_len, ItemType *item) {
+    if (item->entry.next_hops.next_hop[0].label ==
+            MplsTable::kInvalidExportLabel) {
+        return;
+    }
+
     VnListType vn_list;
     GetVnList(item->entry.next_hops.next_hop, &vn_list);
     if (IsEcmp(item->entry.next_hops.next_hop)) {
@@ -1748,6 +1757,10 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
     }
     if (bmap & TunnelType::UDPType()) {
         nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+    }
+
+    if (bmap & TunnelType::NativeType()) {
+        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("native");
     }
 
     if (tag_list && tag_list->size()) {

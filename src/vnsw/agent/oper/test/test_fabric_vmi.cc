@@ -66,14 +66,17 @@ public:
         client->WaitForIdle();
         AddIPAM("vn1", ipam_info, 2);
         client->WaitForIdle();
+        AddVn(agent->fabric_vn_name().c_str(), 100);
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
         DelIPAM("vn1");
+        DelNode("virtual-network", agent->fabric_vn_name().c_str());
         client->WaitForIdle();
         DeleteBgpPeer(peer_);
         client->WaitForIdle();
-        WAIT_FOR(100, 1000, (agent->vrf_table()->Size() == 1U));
+        WAIT_FOR(100, 1000, (agent->vrf_table()->Size() == 2U));
         WAIT_FOR(100, 1000, (agent->vm_table()->Size() == 0U));
         WAIT_FOR(100, 1000, (agent->vn_table()->Size() == 0U));
     }
@@ -95,20 +98,6 @@ TEST_F(FabricVmiTest, Vhost) {
 }
 
 TEST_F(FabricVmiTest, basic_1) {
-    AddVrf(agent->fabric_policy_vrf_name().c_str(), 2, false);
-    client->WaitForIdle();
-
-    VrfEntry *vrf = VrfGet(agent->fabric_policy_vrf_name().c_str());
-    EXPECT_TRUE(vrf->forwarding_vrf() == agent->fabric_vrf());
-
-    DelVrf(agent->fabric_policy_vrf_name().c_str());
-    client->WaitForIdle();
-}
-
-TEST_F(FabricVmiTest, basic_2) {
-    AddVrf(agent->fabric_policy_vrf_name().c_str(), 2, false);
-    client->WaitForIdle();
-
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
 
@@ -137,21 +126,18 @@ TEST_F(FabricVmiTest, basic_2) {
     client->WaitForIdle();
 }
 
-TEST_F(FabricVmiTest, basic_3) {
+TEST_F(FabricVmiTest, basic_2) {
     struct PortInfo input1[] = {
         {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
     };
     CreateVmportEnv(input1, 1);
     client->WaitForIdle();
 
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new VrfKey("vrf1"));
-    VrfData *data = new VrfData(agent, NULL, VrfData::ConfigVrf,
-                                MakeUuid(1), 0, "", 0, false);
-    data->forwarding_vrf_name_ = agent->fabric_vrf_name();
-    req.data.reset(data);
-    agent->vrf_table()->Enqueue(&req);
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
     client->WaitForIdle();
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf()->GetName() ==
+                agent->fabric_vrf_name().c_str());
 
     Ip4Address ip = Ip4Address::from_string("1.1.1.1");
     //Route should be leaked to fabric VRF
@@ -162,18 +148,107 @@ TEST_F(FabricVmiTest, basic_3) {
     const InterfaceNH *intf_nh = 
         dynamic_cast<const InterfaceNH *>(vm_intf->flow_key_nh());
     EXPECT_TRUE(intf_nh->GetVrf()->GetName() == agent->fabric_vrf_name());
-#if 0
+    EXPECT_TRUE(vm_intf->proxy_arp_mode() == VmInterface::PROXY_ARP_UNRESTRICTED);
+
     //Verify that nexthop is ARP nexthop fpr server_ip
     InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
-#endif
-    AddVrf("vrf1");
+    EXPECT_TRUE(rt->GetActivePath()->peer() == agent->fabric_rt_export_peer());
+    EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
+                 TunnelType::NativeType()) != 0);
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
     client->WaitForIdle();
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf() == NULL);
 
     EXPECT_TRUE(vm_intf->forwarding_vrf()->GetName() == "vrf1");
     EXPECT_TRUE(intf_nh->GetVrf()->GetName() == "vrf1");
 
     DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    client->WaitForIdle();
+}
+
+//Export route in ip-fabric VRF with no forwarding VRF
+//Verify that NH is published with local peer and not
+//route export peer
+TEST_F(FabricVmiTest, basic_3) {
+    struct PortInfo input1[] = {
+        {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    VnListType vn_list;
+    agent->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer_,
+            agent->fabric_policy_vrf_name(), ip, 32, MakeUuid(2),
+            vn_list, 10, SecurityGroupList(),
+            TagList(), CommunityList(), false, PathPreference(),
+            Ip4Address(0), EcmpLoadBalance(), false, false);
+    client->WaitForIdle();
+
+    //Route should be leaked to fabric VRF
+    EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(2));
+    EXPECT_TRUE(vm_intf->forwarding_vrf()->GetName() == "vrf1");
+
+    //Verify that nexthop is ARP nexthop fpr server_ip
+    InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(rt->GetActivePath()->peer() == agent->local_peer());
+
+    //Add a local peer route
+    agent->fabric_inet4_unicast_table()->AddLocalVmRouteReq(vm_intf->peer(),
+            agent->fabric_policy_vrf_name(), ip, 32, MakeUuid(2),
+            vn_list, 10, SecurityGroupList(),
+            TagList(), CommunityList(), false, PathPreference(),
+            Ip4Address(0), EcmpLoadBalance(), false, false);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->peer() == agent->fabric_rt_export_peer());
+
+    //Delete local peer path route should we with local Peer now
+    agent->fabric_inet4_unicast_table()->DeleteReq(vm_intf->peer(),
+            agent->fabric_policy_vrf_name(), ip, 32, NULL);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActivePath()->peer() == agent->local_peer());
+
+    agent->fabric_inet4_unicast_table()->DeleteReq(peer_,
+            agent->fabric_policy_vrf_name(), ip, 32, NULL);
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+}
+
+//Add gateway if tunnel nh and addr mismatch
+TEST_F(FabricVmiTest, GatewayRoute) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.254");
+
+    PathPreference path_preference(1, PathPreference::LOW, false, false);
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    Inet4TunnelRouteAdd(peer_,
+                        agent->fabric_policy_vrf_name().c_str(),
+                        ip, 32, ip, bmap, 16, "vn1",
+                        SecurityGroupList(), TagList(), path_preference);
+    client->WaitForIdle();
+
+    //Route should be leaked to fabric VRF
+    EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+
+    //Verify that nexthop is ARP nexthop fpr server_ip
+    InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    EXPECT_TRUE(rt->GetActivePath()->gw_ip() == server_ip);
+
+    DeleteRoute(agent->fabric_policy_vrf_name().c_str(), "1.1.1.1", 32,
+                peer_);
     client->WaitForIdle();
 
     EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));

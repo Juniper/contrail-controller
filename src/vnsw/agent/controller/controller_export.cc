@@ -23,7 +23,7 @@ RouteExport::State::State() :
     DBState(), exported_(false), fabric_multicast_exported_(false),
     force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(), sg_list_(),
     tag_list_(), tunnel_type_(TunnelType::INVALID), path_preference_(),
-    destination_(), source_(), ecmp_load_balance_(), isid_(0) {
+    destination_(), source_(), ecmp_load_balance_(), isid_(0), tunnel_bmap_(0) {
 }
 
 bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path) const {
@@ -61,6 +61,9 @@ bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path)
     if (etree_leaf_ != path->etree_leaf())
         return true;
 
+    if (tunnel_bmap_ != path->tunnel_bmap())
+        return true;
+
     return false;
 }
 
@@ -75,6 +78,7 @@ void RouteExport::State::Update(const AgentRoute *route, const AgentPath *path) 
     path_preference_ = path->path_preference();
     ecmp_load_balance_ = path->ecmp_load_balance();
     etree_leaf_ = path->etree_leaf();
+    tunnel_bmap_ = path->tunnel_bmap();
 }
 
 RouteExport::RouteExport(AgentRouteTable *rt_table):
@@ -188,6 +192,12 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     if (marked_delete_) {
         //Ignore route updates on delete marked vrf
         goto done;
+    }
+
+    if (path && route->vrf()->GetName() == table->agent()->fabric_vrf_name()) {
+        if (path->peer() != table->agent()->fabric_rt_export_peer()) {
+            path = NULL;
+        }
     }
 
     if (!state && route->IsDeleted()) {

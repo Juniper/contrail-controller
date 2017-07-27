@@ -37,6 +37,7 @@ public:
         EcmpLoadBalance ecmp_load_balance_;
         bool etree_leaf_;
         uint32_t isid_;
+        TunnelType::TypeBmap tunnel_bmap_;
 
         bool Changed(const AgentRoute *route, const AgentPath *path) const;
         void Update(const AgentRoute *route, const AgentPath *path);

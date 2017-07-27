@@ -359,6 +359,9 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
         data.set_vxlan_id(vxlan_id_);
         data.set_mac_aging_time(mac_aging_time_);
         data.set_layer2_control_word(layer2_control_word_);
+        if (forwarding_vrf_.get()) {
+            data.set_forwarding_vrf(forwarding_vrf_->name_);
+        }
         list.push_back(data);
         return true;
     }
@@ -907,11 +910,37 @@ bool VrfTable::CanNotify(IFMapNode *node) {
     return true;
 }
 
+static void BuildForwardingVrf(Agent *agent, IFMapNode *vn_node,
+                               std::string &forwarding_vrf_name) {
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(vn_node->table());
+    DBGraph *graph = table->GetGraph();
+    for (DBGraphVertex::adjacency_iterator iter = vn_node->begin(graph);
+         iter != vn_node->end(graph); ++iter) {
+         IFMapNode *adj_node =
+                         static_cast<IFMapNode *>(iter.operator->());
+        if (iter->IsDeleted() ||
+           (adj_node->table() != agent->cfg()->cfg_vn_table())) {
+            continue;
+        }
+
+        VirtualNetwork *cfg =
+            static_cast <VirtualNetwork *> (adj_node->GetObject());
+        if (cfg == NULL) {
+            continue;
+        }
+
+        if (adj_node->name() == agent->fabric_vn_name()) {
+            forwarding_vrf_name = agent->fabric_vrf_name();
+        }
+    }
+}
+
 static VrfData *BuildData(Agent *agent, IFMapNode *node) {
     boost::uuids::uuid vn_uuid = nil_uuid();
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
     bool learning_enabled = false;
+    std::string forwarding_vrf = "";
 
     uint32_t aging_timeout = 0;
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
@@ -930,6 +959,8 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
             continue;
         }
 
+        BuildForwardingVrf(agent, adj_node, forwarding_vrf);
+
         if (!IsVRFServiceChainingInstance(adj_node->name(), node->name())) {
             autogen::IdPermsType id_perms = cfg->id_perms();
             CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
@@ -944,6 +975,8 @@ static VrfData *BuildData(Agent *agent, IFMapNode *node) {
                                     aging_timeout, learning_enabled);
     if (node->name() == agent->fabric_policy_vrf_name()) {
         vrf_data->forwarding_vrf_name_ = agent->fabric_vrf_name();
+    } else {
+        vrf_data->forwarding_vrf_name_ = forwarding_vrf;
     }
 
     return vrf_data;

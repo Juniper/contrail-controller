@@ -67,7 +67,8 @@ public:
                          const TagList &tag_id_list,
                          const PathPreference &path_pref,
                          uint32_t ethernet_tag,
-                         bool etree_leaf);
+                         bool etree_leaf,
+                         const std::string &interface_name);
 
     void AddLocalVmRouteReq(const Peer *peer, const std::string &vrf_name,
                          const MacAddress &mac, const VmInterface *intf,

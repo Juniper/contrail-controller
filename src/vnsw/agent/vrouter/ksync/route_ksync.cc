@@ -348,7 +348,11 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
 
     // VRouter does not honour flood/proxy_arp flags for fabric-vrf
     if (rt->vrf()->GetName() == agent->fabric_vrf_name()) {
-        proxy_arp = false;
+        if (mac != MacAddress() || nh->GetType() == NextHop::INTERFACE) {
+            proxy_arp = true;
+        } else {
+            proxy_arp = false;
+        }
         flood = false;
     }
 
@@ -448,7 +452,7 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         bool wait_for_traffic = false;
 
         if (obj->RouteNeedsMacBinding(uc_rt)) {
-            mac = obj->GetIpMacBinding(uc_rt->vrf(), addr_);
+            mac = obj->GetIpMacBinding(uc_rt->vrf(), addr_, uc_rt);
             wait_for_traffic = obj->GetIpMacWaitForTraffic(uc_rt->vrf(), addr_);
         }
 
@@ -934,10 +938,13 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
     if (rt->addr().is_v6() && rt->plen() != 128)
         return false;
 
-    //Check if VN is enabled for bridging, if not then skip mac binding.
-    VnEntry *vn= rt->vrf()->vn();
-    if (vn == NULL || (vn->bridging() == false))
-        return false;
+    VnEntry *vn = NULL;
+    if (rt->vrf() != ksync_->agent()->fabric_vrf()) {
+        //Check if VN is enabled for bridging, if not then skip mac binding.
+        VnEntry *vn= rt->vrf()->vn();
+        if (vn == NULL || (vn->bridging() == false))
+            return false;
+    }
 
     const NextHop *nh = rt->GetActiveNextHop();
     if (nh == NULL)
@@ -945,11 +952,21 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
 
     if (nh->GetType() != NextHop::INTERFACE &&
         nh->GetType() != NextHop::TUNNEL &&
-        nh->GetType() != NextHop::VLAN)
+        nh->GetType() != NextHop::VLAN &&
+        nh->GetType() != NextHop::ARP)
         return false;
 
     if (IsGatewayOrServiceInterface(nh) == true)
         return false;
+
+    if (nh->GetType() == NextHop::ARP &&
+        rt->GetActivePath()->gw_ip() == Ip4Address(0)) {
+        return false;
+    }
+
+    if (nh->GetType() == NextHop::ARP && nh->IsValid() == false) {
+        return false;
+    }
 
     //Is this a IPAM gateway? It may happen that better path is present pointing
     //to tunnel. In this case IPAM gateway path will not be active path and
@@ -957,7 +974,7 @@ bool VrfKSyncObject::RouteNeedsMacBinding(const InetUnicastRouteEntry *rt) {
     //node.
     //This has to be done only when layer3 forwarding is enabled on VN,
     //else mac binding should be done irrespective of IPAM gateway.
-    if (vn->layer3_forwarding()) {
+    if (vn && vn->layer3_forwarding()) {
         const Agent *agent = ksync()->agent();
         if (agent->tsn_enabled() == false) {
             const AgentPath *path = rt->FindPath(agent->local_peer());
@@ -1048,11 +1065,23 @@ bool VrfKSyncObject::GetIpMacWaitForTraffic(VrfEntry *vrf,
 }
 
 MacAddress VrfKSyncObject::GetIpMacBinding(VrfEntry *vrf,
-                                           const IpAddress &ip) const {
+                                           const IpAddress &ip,
+                                           const InetUnicastRouteEntry *rt)
+                                           const {
     VrfState *state = static_cast<VrfState *>
         (vrf->GetState(vrf->get_table(), vrf_listener_id_));
     if (state == NULL)
         return MacAddress::ZeroMac();
+
+    if (vrf->GetName() == ksync_->agent()->fabric_vrf_name()) {
+        if (rt->GetActivePath()->gw_ip() != Ip4Address(0)) {
+            const ArpNH *arp_nh =
+                dynamic_cast<const ArpNH *>(rt->GetActiveNextHop());
+            if (arp_nh) {
+                return arp_nh->GetMac();
+            }
+        }
+    }
 
     IpToMacBinding::const_iterator it = state->ip_mac_binding_.find(ip);
     if (it == state->ip_mac_binding_.end())

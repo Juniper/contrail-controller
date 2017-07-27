@@ -1323,9 +1323,11 @@ VmInterfaceState::Op VmInterface::InstanceIp::GetOpL2
     if (GetInstanceIpActiveState(this, vmi) == false)
         return VmInterfaceState::DEL;
 
-    // Add route only when vn IPAM exists for the IP
-    if (vmi->vn() && vmi->vn()->GetIpam(ip_) == false)
-        return VmInterfaceState::DEL;
+    if (vmi->vmi_type() != VmInterface::VHOST) {
+        // Add route only when vn IPAM exists for the IP
+        if (vmi->vn() && vmi->vn()->GetIpam(ip_) == false)
+            return VmInterfaceState::DEL;
+    }
 
     if (IsL3Only())
         return VmInterfaceState::DEL;
@@ -1363,9 +1365,11 @@ VmInterfaceState::Op VmInterface::InstanceIp::GetOpL3
     if (GetInstanceIpActiveState(this, vmi) == false)
         return VmInterfaceState::DEL;
 
-    // Add route only when vn IPAM exists for the IP
-    if (vmi->vn() && vmi->vn()->GetIpam(ip_) == false)
-        return VmInterfaceState::DEL;
+    if (vmi->vmi_type() != VmInterface::VHOST) {
+        // Add route only when vn IPAM exists for the IP
+        if (vmi->vn() && vmi->vn()->GetIpam(ip_) == false)
+            return VmInterfaceState::DEL;
+    }
 
     if (vrf_ != vmi->vrf())
         return VmInterfaceState::DEL_ADD;

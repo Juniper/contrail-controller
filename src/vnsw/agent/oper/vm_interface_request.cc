@@ -89,7 +89,7 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false), 
     qos_config_uuid_(), learning_enabled_(false),
     vhostuser_mode_(VmInterface::vHostUserClient),
-    si_other_end_vmi(nil_uuid()) {
+    si_other_end_vmi(nil_uuid()), vmi_cfg_uuid_(nil_uuid()) {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -174,6 +174,7 @@ void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
         transport_ = Interface::TRANSPORT_ETHERNET;
     }
 
+    proxy_arp_mode_ = VmInterface::PROXY_ARP_NONE;
     device_type_ = VmInterface::LOCAL_DEVICE;
     vmi_type_ = VmInterface::VHOST;
 
@@ -204,7 +205,14 @@ void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
         subnet_plen_ = agent->params()->vhost_plen();
     }
 
-    physical_interface_ = agent->params()->eth_port();
+    physical_interface_ = agent->fabric_interface_name();
+
+    PhysicalInterfaceKey physical_key(agent->fabric_interface_name());
+    const Interface *pif =
+        static_cast<const Interface *>(agent->interface_table()->
+                                           FindActiveEntry(&physical_key));
+    vm_mac_ = pif->mac().ToString();
+
     //Add default route pointing to gateway
     static_route_list_.list_.insert(
             VmInterface::StaticRoute(Ip4Address(0), 0,
@@ -284,6 +292,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
+    if (vmi_cfg_uuid_ != data->vmi_cfg_uuid_) {
+        vmi_cfg_uuid_ = data->vmi_cfg_uuid_;
+        ret = true;
+    }
+
     if (vhostuser_mode_ != data->vhostuser_mode_) {
         vhostuser_mode_ = data->vhostuser_mode_;
         ret = true;
@@ -320,6 +333,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         }
 
         val = vn ? vn->bridging() : false;
+        if (vmi_type_ == VHOST) {
+            //Bridging not supported on VHOST vmi
+            val = false;
+        }
+
         if (bridging_ != val) {
             bridging_ = val;
             ret = true;

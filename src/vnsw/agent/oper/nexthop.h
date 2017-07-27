@@ -242,7 +242,8 @@ public:
         INVALID,
         MPLS_GRE,
         MPLS_UDP,
-        VXLAN
+        VXLAN,
+        NATIVE
     };
     // Bitmap of supported tunnel types
     typedef uint32_t TypeBmap;
@@ -265,6 +266,8 @@ public:
            return "MPLSoUDP";
        case VXLAN:
            return "VXLAN";
+       case NATIVE:
+           return "Native";
        default:
            break;
        }
@@ -284,6 +287,11 @@ public:
         if (type & ( 1 << VXLAN)) {
             tunnel_type << "VxLAN";
         }
+
+        if (type & (1 << NATIVE)) {
+            tunnel_type << "Underlay";
+        }
+
         return tunnel_type.str();
     }
 
@@ -308,6 +316,7 @@ public:
                                        (1 << VXLAN));}
     static TypeBmap GREType() {return (1 << MPLS_GRE);}
     static TypeBmap UDPType() {return (1 << MPLS_UDP);}
+    static TypeBmap NativeType() {return (1 << NATIVE);}
     static bool EncapPrioritySync(const std::vector<std::string> &cfg_list);
     static void DeletePriorityList();
 
