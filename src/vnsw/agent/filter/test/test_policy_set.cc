@@ -36,22 +36,22 @@ TEST_F(PolicySetTest, Test2) {
     client->WaitForIdle();
 
     PolicySet *ps = PolicySetGet(1);
-    EXPECT_TRUE(ps->GetAcl(0) == AclGet(1));
+    EXPECT_EQ(ps->GetAcl(0), AclGet(1));
 
     AddNode("firewall-policy", "fp2", 2);
     AddPolicySetFirewallPolicyLink("link2", "app1", "fp2", "2");
     client->WaitForIdle();
 
-    EXPECT_TRUE(ps->GetAcl(0) == AclGet(1));
-    EXPECT_TRUE(ps->GetAcl(1) == AclGet(2));
+    EXPECT_EQ(ps->GetAcl(0), AclGet(1));
+    EXPECT_EQ(ps->GetAcl(1), AclGet(2));
 
     //Swap the list
     AddPolicySetFirewallPolicyLink("link1", "app1", "fp1", "2");
     AddPolicySetFirewallPolicyLink("link2", "app1", "fp2", "1");
     client->WaitForIdle();
 
-    EXPECT_TRUE(ps->GetAcl(0) == AclGet(2));
-    EXPECT_TRUE(ps->GetAcl(1) == AclGet(1));
+    EXPECT_EQ(ps->GetAcl(0), AclGet(2));
+    EXPECT_EQ(ps->GetAcl(1), AclGet(1));
 
     DelPolicySetFirewallPolicyLink("link1", "app1", "fp1");
     DelPolicySetFirewallPolicyLink("link2", "app1", "fp2");
@@ -66,7 +66,7 @@ TEST_F(PolicySetTest, Global) {
     client->WaitForIdle();
 
     PolicySet *ps = PolicySetGet(1);
-    EXPECT_TRUE(ps->global() == true);
+    EXPECT_TRUE(ps->global());
 
     DelNode("application-policy-set", "app1");
     client->WaitForIdle();
