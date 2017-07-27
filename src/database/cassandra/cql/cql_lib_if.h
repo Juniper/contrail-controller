@@ -92,6 +92,8 @@ class CassLibrary {
     virtual void CassStatementFree(CassStatement* statement) = 0;
     virtual CassError CassStatementSetConsistency(CassStatement* statement,
         CassConsistency consistency) = 0;
+    virtual CassError CassStatementBindNull(CassStatement* statement,
+        size_t index) = 0;
     virtual CassError CassStatementBindStringN(CassStatement* statement,
         size_t index, const char* value, size_t value_length) = 0;
     virtual CassError CassStatementBindInt32(CassStatement* statement,
@@ -244,6 +246,8 @@ class CassDatastaxLibrary : public CassLibrary {
     virtual void CassStatementFree(CassStatement* statement);
     virtual CassError CassStatementSetConsistency(CassStatement* statement,
         CassConsistency consistency);
+    virtual CassError CassStatementBindNull(
+        CassStatement* statement, size_t index);
     virtual CassError CassStatementBindStringN(CassStatement* statement,
         size_t index, const char* value, size_t value_length);
     virtual CassError CassStatementBindInt32(CassStatement* statement,
