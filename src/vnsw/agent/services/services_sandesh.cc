@@ -13,6 +13,7 @@
 #include <services/dhcp_proto.h>
 #include <services/dhcpv6_proto.h>
 #include <services/arp_proto.h>
+#include <services/bfd_proto.h>
 #include <services/dns_proto.h>
 #include <services/icmp_proto.h>
 #include <services/icmpv6_proto.h>
@@ -220,6 +221,18 @@ void ServicesSandesh::ArpStatsSandesh(std::string ctxt, bool more) {
     arp->set_context(ctxt);
     arp->set_more(more);
     arp->Response();
+}
+
+void ServicesSandesh::BfdStatsSandesh(std::string ctxt, bool more) {
+    BfdProto *bfd_proto = Agent::GetInstance()->GetBfdProto();
+    BfdStats *bfd = new BfdStats();
+    const BfdProto::BfdStats &stats = bfd_proto->GetStats();
+    bfd->set_bfd_sent(stats.bfd_sent);
+    bfd->set_bfd_received(stats.bfd_received);
+    bfd->set_bfd_active_sessions(bfd_proto->ActiveSessions());
+    bfd->set_context(ctxt);
+    bfd->set_more(more);
+    bfd->Response();
 }
 
 void ServicesSandesh::DnsStatsSandesh(std::string ctxt, bool more) {
@@ -798,6 +811,10 @@ void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
                              static_cast<ArpPktSandesh *>(resp));
             break;
 
+        case PktHandler::BFD:
+            BfdStatsSandesh(ctxt, false);
+            return;
+
         case PktHandler::DHCP:
             resp = new DhcpPktSandesh();
             DhcpStatsSandesh(ctxt, true);
@@ -888,6 +905,11 @@ void Dhcpv6Info::HandleRequest() const {
 void ArpInfo::HandleRequest() const {
     ServicesSandesh ssandesh;
     ssandesh.HandleRequest(PktHandler::ARP, context());
+}
+
+void BfdInfo::HandleRequest() const {
+    ServicesSandesh ssandesh;
+    ssandesh.HandleRequest(PktHandler::BFD, context());
 }
 
 void DnsInfo::HandleRequest() const {

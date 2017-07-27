@@ -42,6 +42,13 @@ request sandesh ArpInfo {
 }
 
 /**
+ * @description: Request message to get BFD health check info from agent
+ * @cli_name: read bfd info
+ */
+request sandesh BfdInfo {
+}
+
+/**
  * @description: Request message to get dns info from agent
  * @cli_name: read dns info
  */
@@ -201,6 +208,15 @@ response sandesh ArpStats {
    10: i32 arp_invalid_interface;
    11: i32 arp_invalid_vrf;
    12: i32 arp_invalid_address;
+}
+
+/**
+ * Response message for BFD stats
+ */
+response sandesh BfdStats {
+    1: i32 bfd_sent;
+    2: i32 bfd_received;
+    3: i32 bfd_active_sessions;
 }
 
 /**
@@ -837,3 +853,18 @@ trace sandesh Icmpv6Trace {
 trace sandesh MetadataTrace {
     1: string msg;
 }
+
+/**
+ * @description: Trace message for BFD service
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh BfdTrace {
+    1: string operation;
+    2: string remote_ip;
+    3: string local_ip;
+    4: u32 interface_id;
+    5: u64 delay;
+    6: u32 multiplier;
+}
+

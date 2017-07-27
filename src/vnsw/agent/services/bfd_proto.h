@@ -18,8 +18,21 @@
 
 #define BFD_TX_BUFF_LEN 128
 
+#define BFD_TRACE(obj, ...)                                                 \
+do {                                                                        \
+    Bfd##obj::TraceMsg(BfdTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);     \
+} while (false)
+
 class BfdProto : public Proto {
 public:
+    struct BfdStats {
+        BfdStats() { Reset(); }
+        void Reset() { bfd_sent = bfd_received = 0; }
+
+        uint32_t bfd_sent;
+        uint32_t bfd_received;
+    };
+
     class BfdCommunicator : public BFD::Connection {
     public:
         BfdCommunicator(BfdProto *bfd_proto) :
@@ -59,8 +72,14 @@ public:
     bool BfdHealthCheckSessionControl(
                HealthCheckTable::HealthCheckServiceAction action,
                HealthCheckInstanceService *service);
+    bool GetServiceAddress(uint32_t interface, IpAddress &address);
     void NotifyHealthCheckInstanceService(uint32_t interface, std::string &data);
     BfdCommunicator &bfd_communicator() { return communicator_; }
+
+    void IncrementSent() { stats_.bfd_sent++; }
+    void IncrementReceived() { stats_.bfd_received++; }
+    const BfdStats &GetStats() const { return stats_; }
+    uint32_t ActiveSessions() const { return sessions_.size(); }
 
 private:
     friend BfdCommunicator;
@@ -75,6 +94,7 @@ private:
     BFD::Client *client_;
     BfdHandler handler_;
     Sessions sessions_;
+    BfdStats stats_;
 
     DISALLOW_COPY_AND_ASSIGN(BfdProto);
 };
