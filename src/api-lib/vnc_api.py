@@ -1417,26 +1417,46 @@ class VncApi(object):
         rv = self._request_server(rest.OP_GET, url)
         return rv
 
-    # associate a tag to an object
-    def set_tag(self, obj, tag_type, tag_value, is_global=False):
-        url = self._action_uri['set-tag-%s' % tag_type.lower()]
+    # associate a tags to an object
+    def set_tags(self, obj, tags_dict):
+        url = self._action_uri['set-tag']
         data = {
+            'obj_type': obj.object_type,
             'obj_uuid': obj.get_uuid(),
-            'tag_value': tag_value,
-            'is_global': is_global
         }
+        data.update(tags_dict)
         content = self._request_server(rest.OP_POST, url, json.dumps(data))
         return json.loads(content)
 
-    # disassociate tag from an object
-    def unset_tag(self, obj, tag_type, tag_value, is_global=False):
-        url = self._action_uri['set-tag-%s' % tag_type.lower()]
-        data = {
-            'obj_uuid': obj.get_uuid(),
-            'tag_value': tag_value,
-            'is_global': is_global
+    # associate one tags to an object
+    def set_tag(self, obj, type, value, is_global=False):
+        tags_dict = {
+            type: {
+                'is_global': is_global,
+                'value': value,
+            },
         }
-        content = self._request_server(rest.OP_DELETE, url, json.dumps(data))
+        return self.set_tags(obj, tags_dict)
+
+    # disassociate tags from an object
+    def unset_tags(self, obj, tags_dict):
+        url = self._action_uri['unset-tag']
+        data = {
+            'obj_type': obj.object_type,
+            'obj_uuid': obj.get_uuid(),
+        }
+        data.update(tags_dict)
+        content = self._request_server(rest.OP_POST, url, json.dumps(data))
         return json.loads(content)
+
+    # disassociate one tag from an object
+    def unset_tag(self, obj, type, value, is_global=False):
+        tags_dict = {
+            type: {
+                'is_global': is_global,
+                'value': value,
+            },
+        }
+        return self.unset_tags(obj, tags_dict)
 
 # end class VncApi
