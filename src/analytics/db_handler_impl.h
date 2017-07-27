@@ -16,6 +16,9 @@
 typedef boost::array<GenDb::DbDataValue,
     FlowRecordFields::FLOWREC_MAX> FlowValueArray;
 
+typedef boost::array<GenDb::DbDataValue,
+    SessionRecordCols::SESSION_MAX> SessionValueArray;
+
 typedef boost::function<void (const std::string&, const std::string&, int)>
     FlowFieldValuesCb;
 typedef boost::function<bool (std::auto_ptr<GenDb::ColList>)> DbInsertCb;

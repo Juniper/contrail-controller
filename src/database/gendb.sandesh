@@ -20,6 +20,7 @@ enum DbDataType {
     InetType          = 10, // IPv4 or IPv6 addresses
     IntegerType       = 11, // varint
     BlobType          = 12, // blob / bytes
+    SetTextType       = 13, // Set of text
 }
 
 const string DATE_TIERED_COMPACTION_STRATEGY = "DateTieredCompactionStrategy";

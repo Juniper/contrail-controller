@@ -36,6 +36,16 @@ using namespace GenDb;
 
 TtlMap ttl_map = g_viz_constants.TtlValuesDefault;
 
+namespace std {
+    ostream& operator<<(ostream& os, const std::vector<std::string> &vec) {
+        for (std::vector<std::string>::const_iterator it = vec.begin(); it != vec.begin();
+                ++it) {
+            os << *it << " ";
+        }
+        return os;
+    }
+}
+
 struct DbHandlerCacheParam {
         uint32_t field_cache_index_;
         std::set<std::string> field_cache_set_;
@@ -158,6 +168,12 @@ protected:
             boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
     }
 
+    void SessionTableInsert(const pugi::xml_node& parent,
+        const SandeshHeader &header) {
+        db_handler()->SessionTableInsert(parent, header,
+            boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
+    }
+
 private:
     EventManager evm_;
     CqlIfMock *dbif_mock_;
@@ -168,6 +184,327 @@ private:
 
 DbHandlerTest::SandeshXMLMessageTestBuilder
     DbHandlerTest::SandeshXMLMessageTestBuilder::instance_;
+
+
+MATCHER_P(RowKeyEqSession, rowkey, "") {
+    bool match(arg.size() == rowkey.size());
+    if (!match) {
+        *result_listener << "Row key size: actual: " << arg.size() <<
+            ", expected: " << rowkey.size();
+        return match;
+    }
+    for (size_t i = 0; i < arg.size(); i++) {
+       // Don't compare the partition
+       if (i == 1) {
+           continue;
+       }
+       // boost::variant does not provide operator!=
+       if (!(arg[i] == rowkey[i])) {
+           *result_listener << "Row key element [" << i << "] actual:"
+               << arg[i] << ", expected: " << rowkey[i];
+           match = false;
+       }
+    }
+    return match;
+}
+
+MATCHER_P(ColumnMatcherEq, ecolumns, "") {
+    bool match(arg.size() == ecolumns.size());
+    if (!match) {
+        *result_listener << "Column size: actual: " << arg.size() <<
+            ", expected: " << ecolumns.size();
+        return match;
+    }
+
+    GenDb::DbDataValueVec* acol = arg[0].name.get();
+    GenDb::DbDataValueVec* ecol = ecolumns[0].name.get();
+
+    match = acol->size() == ecol->size();
+
+    if (!match) {
+        *result_listener << "colname size: actual: " << acol->size() <<
+            ", expected: " << ecol->size();
+        return match;
+    }
+    for (size_t i = 0; i < acol->size(); i++) {
+        if (i == 3) {
+            continue;
+        }
+        if (!(acol->at(i) == ecol->at(i))) {
+            *result_listener << "colname element [" << i << "] actual:"
+                << acol->at(i) << ", expected: " << ecol->at(i);
+            return false;
+        }
+    }
+
+    GenDb::DbDataValueVec* aval = arg[0].value.get();
+    GenDb::DbDataValueVec* eval = ecolumns[0].value.get();
+
+    match = aval->size() == eval->size();
+   
+    return match; 
+}
+
+TEST_F(DbHandlerTest, SessionTableInsertTest) {
+    init_vizd_tables();
+    SandeshHeader hdr;
+
+    hdr.set_Timestamp(UTCTimestampUsec());
+    hdr.set_Module("VizdTest");
+    hdr.set_Source("127.0.0.1");
+    std::string messagetype("");
+    std::vector<std::pair<std::string, std::vector<SessionEndpoint> > >
+        session_msgs;
+    
+    {
+        std::string xmlstring = "<SessionEndpointObject type=\"sandesh\"><sessiondata type=\"list\"><list type=\"struct\" size=\"1\"><SessionEndpoint><vmi type=\"string\" identifier=\"1\">4618cc76-789f-446c-897a-88803a5ed1c7</vmi><vn type=\"string\" identifier=\"2\">default-domain:mock-gen-test:vn0</vn><deployment type=\"string\">Dep1</deployment><tier type=\"string\">Tier3</tier><application type=\"string\">App1</application><site type=\"string\">Site1</site><remote_deployment type=\"string\">Dep3</remote_deployment><remote_tier type=\"string\">Tier4</remote_tier><remote_application type=\"string\">App3</remote_application><remote_site type=\"string\">Site4</remote_site><remote_vn type=\"string\">default-domain:mock-gen-test:vn50</remote_vn><is_client_session type=\"bool\">false</is_client_session><is_si type=\"byte\">1</is_si><vrouter_ip type=\"string\">1.0.0.81</vrouter_ip><sess_agg_map type=\"map\"><map key=\"u32\" value=\"map\" size=\"1\"><element>29032454</element><map key=\"ipaddr\" value=\"struct\" size=\"1\"><element>1.0.0.2</element><SessionAggInfo><sampled_tx_bytes type=\"i64\">3870823</sampled_tx_bytes><sampled_tx_pkts type=\"i64\">7290</sampled_tx_pkts><sampled_rx_bytes type=\"i64\">3870823</sampled_rx_bytes><sampled_rx_pkts type=\"i64\">6913</sampled_rx_pkts><sessionMap type=\"map\"><map key=\"u32\" value=\"map\" size=\"3\"><element>981530023</element><map key=\"ipaddr\" value=\"struct\" size=\"1\"><element>1.0.0.53</element><RemoteSessionVal><sampled_tx_bytes type=\"i64\">7407</sampled_tx_bytes><sampled_tx_pkts type=\"i64\">9</sampled_tx_pkts><sampled_rx_bytes type=\"i64\">24402</sampled_rx_bytes><sampled_rx_pkts type=\"i64\">98</sampled_rx_pkts></RemoteSessionVal></map><element>3008986555</element><map key=\"ipaddr\" value=\"struct\" size=\"1\"><element>1.0.0.52</element><RemoteSessionVal><sampled_tx_bytes type=\"i64\">11525</sampled_tx_bytes><sampled_tx_pkts type=\"i64\">25</sampled_tx_pkts><sampled_rx_bytes type=\"i64\">51606</sampled_rx_bytes><sampled_rx_pkts type=\"i64\">94</sampled_rx_pkts></RemoteSessionVal></map><element>3091146357</element><map key=\"ipaddr\" value=\"struct\" size=\"1\"><element>1.0.0.51</element><RemoteSessionVal><sampled_tx_bytes type=\"i64\">50400</sampled_tx_bytes><sampled_tx_pkts type=\"i64\">70</sampled_tx_pkts><sampled_rx_bytes type=\"i64\">1178</sampled_rx_bytes><sampled_rx_pkts type=\"i64\">38</sampled_rx_pkts></RemoteSessionVal></map></map></sessionMap></SessionAggInfo></map><element>529530897</element><map key=\"ipaddr\" value=\"struct\" size=\"1\"><element>1.0.0.2</element><SessionAggInfo><sampled_tx_bytes type=\"i64\">498623</sampled_tx_bytes><sampled_tx_pkts type=\"i64\">802</sampled_tx_pkts><sampled_rx_bytes type=\"i64\">498623</sampled_rx_bytes><sampled_rx_pkts type=\"i64\">981</sampled_rx_pkts><sessionMap type=\"map\"><map key=\"u32\" value=\"map\" size=\"1\"><element>796862004</element><map key=\"ipaddr\" value=\"struct\" size=\"1\"><element>1.0.0.51</element><RemoteSessionVal><sampled_tx_bytes type=\"i64\">19150</sampled_tx_bytes><sampled_tx_pkts type=\"i64\">50</sampled_tx_pkts><sampled_rx_bytes type=\"i64\">72</sampled_rx_bytes><sampled_rx_pkts type=\"i64\">8</sampled_rx_pkts></RemoteSessionVal></map></map></sessionMap></SessionAggInfo></map></map></sess_agg_map></SessionEndpoint></list></sessiondata></SessionEndpointObject>";
+
+        std::vector<SessionEndpoint> session_list;
+        SessionEndpoint end_point;
+        end_point.set_vmi("4618cc76-789f-446c-897a-88803a5ed1c7");
+        end_point.set_vn("default-domain:mock-gen-test:vn0");
+        end_point.set_remote_vn("default-domain:mock-gen-test:vn50");
+        end_point.set_deployment("Dep1");
+        end_point.set_tier("Tier3");
+        end_point.set_application("App1");
+        end_point.set_site("Site1");
+        end_point.set_remote_deployment("Dep3");
+        end_point.set_remote_tier("Tier4");
+        end_point.set_remote_application("App3");
+        end_point.set_remote_site("Site4");
+        end_point.set_is_client_session(false);
+        end_point.set_is_si(1);
+        end_point.set_vrouter_ip(Ip4Address::from_string("1.0.0.81"));
+        std::map<uint32_t, std::map<IpAddress, SessionAggInfo> > sess_agg_pp_map;
+        std::map<IpAddress, SessionAggInfo> sess_agg_ip_map;
+        {
+            {
+                SessionAggInfo session_agg_info;
+                session_agg_info.set_sampled_tx_bytes(3870823);
+                session_agg_info.set_sampled_tx_pkts(7290);
+                session_agg_info.set_sampled_rx_bytes(3870823);
+                session_agg_info.set_sampled_rx_pkts(6913);
+                std::map<uint32_t, std::map<IpAddress, RemoteSessionVal> > session_map;
+                {
+                    std::map<IpAddress, RemoteSessionVal> session_ip_map;
+                    RemoteSessionVal session_val;
+                    session_val.set_sampled_tx_bytes(7407);
+                    session_val.set_sampled_tx_pkts(9);
+                    session_val.set_sampled_rx_bytes(24402);
+                    session_val.set_sampled_rx_pkts(98);
+                    session_ip_map.insert(std::make_pair(Ip4Address(16777269), session_val));
+                    session_map.insert(std::make_pair(981530023, session_ip_map));
+                }
+                {
+                    std::map<IpAddress, RemoteSessionVal> session_ip_map;
+                    RemoteSessionVal session_val;
+                    session_val.set_sampled_tx_bytes(11525);
+                    session_val.set_sampled_tx_pkts(25);
+                    session_val.set_sampled_rx_bytes(51606);
+                    session_val.set_sampled_rx_pkts(94);
+                    session_ip_map.insert(std::make_pair(Ip4Address(16777268), session_val));
+                    session_map.insert(std::make_pair(3008986555, session_ip_map));
+                }
+                {
+                    std::map<IpAddress, RemoteSessionVal> session_ip_map;
+                    RemoteSessionVal session_val;
+                    session_val.set_sampled_tx_bytes(7407);
+                    session_val.set_sampled_tx_pkts(9);
+                    session_val.set_sampled_rx_bytes(24402);
+                    session_val.set_sampled_rx_pkts(98);
+                    session_ip_map.insert(std::make_pair(Ip4Address(16777267), session_val));
+                    session_map.insert(std::make_pair(3091146357, session_ip_map));
+                }
+                session_agg_info.set_sessionMap(session_map);
+                sess_agg_ip_map.insert(std::make_pair(Ip4Address(16777218), session_agg_info));
+            }
+            sess_agg_pp_map.insert(std::make_pair(29032454, sess_agg_ip_map));
+        }
+        {
+            {
+                SessionAggInfo session_agg_info;
+                session_agg_info.set_sampled_tx_bytes(498623);
+                session_agg_info.set_sampled_tx_pkts(802);
+                session_agg_info.set_sampled_rx_bytes(498623);
+                session_agg_info.set_sampled_rx_pkts(981);
+                std::map<uint32_t, std::map<IpAddress, RemoteSessionVal> > session_map;
+                {
+                    std::map<IpAddress, RemoteSessionVal> session_ip_map;
+                    RemoteSessionVal session_val;
+                    session_val.set_sampled_tx_bytes(19150);
+                    session_val.set_sampled_tx_pkts(50);
+                    session_val.set_sampled_rx_bytes(72);
+                    session_val.set_sampled_rx_pkts(8);
+                    session_ip_map.insert(std::make_pair(Ip4Address(16777267), session_val));
+                    session_map.insert(std::make_pair(796862004, session_ip_map));
+                }
+                session_agg_info.set_sessionMap(session_map);
+                sess_agg_ip_map.insert(std::make_pair(Ip4Address(16777218), session_agg_info));
+            }
+            sess_agg_pp_map.insert(std::make_pair(529530897, sess_agg_ip_map));
+        }
+        end_point.set_sess_agg_map(sess_agg_pp_map);
+        session_list.push_back(end_point);
+        session_msgs.push_back(std::make_pair(xmlstring, session_list));
+    }
+    
+    std::vector<std::pair<std::string, std::vector<SessionEndpoint> > >::
+        const_iterator sit;
+    for (sit = session_msgs.begin(); sit != session_msgs.end(); sit++) {
+        std::auto_ptr<SandeshXMLMessageTest> msg(
+            dynamic_cast<SandeshXMLMessageTest *>(
+                builder_->Create(reinterpret_cast<const uint8_t *>(
+                    sit->first.c_str()), sit->first.size())));
+        
+        msg->SetHeader(hdr);
+        std::vector<SessionEndpoint>::const_iterator dit;
+        for (dit = sit->second.begin(); dit != sit->second.end(); dit++) {
+
+           int ttl = ttl_map.find(TtlType::FLOWDATA_TTL)->second*3600;
+ 
+           {
+                GenDb::DbDataValueVec rowkey;
+                std::string t2 = integerToString(
+                    (hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
+                rowkey.push_back((uint32_t)(hdr.get_Timestamp() >>
+                    g_viz_constants.RowTimeInBits));
+                rowkey.push_back((uint32_t)0);
+                rowkey.push_back((uint8_t)dit->get_is_si());
+
+                GenDb::DbDataValueVec* colname(new GenDb::DbDataValueVec());
+                colname->reserve(21);
+                colname->push_back((uint16_t)(29032454 & 0x0000ffff));//protocol
+                colname->push_back((uint16_t)(29032454 >> 16));  // server-port
+                colname->push_back((uint32_t)(hdr.get_Timestamp()
+                    & g_viz_constants.RowTimeInMask));
+                colname->push_back(boost::uuids::random_generator()()); // uuid
+                std::vector<std::string> tags;
+                tags.push_back(t2 + ":Dep1");
+                tags.push_back(t2 + ":Tier3");
+                tags.push_back(t2 + ":App1");
+                tags.push_back(t2 + ":Site1");
+                colname->push_back(tags);
+                colname->push_back(boost::blank());
+                std::vector<std::string> remote_tags;
+                remote_tags.push_back(t2 + ":Dep3");
+                remote_tags.push_back(t2 + ":Tier4");
+                remote_tags.push_back(t2 + ":App3");
+                remote_tags.push_back(t2 + ":Site4");
+                colname->push_back(remote_tags);
+                colname->push_back(boost::blank());
+                colname->push_back(boost::lexical_cast<boost::uuids::uuid>(dit->get_vmi()));
+                colname->push_back(Ip4Address(16777218)); //local-ip
+                colname->push_back(dit->get_vn());
+                colname->push_back(dit->get_remote_vn());
+                colname->push_back(dit->get_vrouter_ip());
+                colname->push_back((uint64_t)3870823);
+                colname->push_back((uint64_t)7290);
+                colname->push_back((uint64_t)3870823);
+                colname->push_back((uint64_t)6913);
+                colname->push_back(boost::blank());
+                colname->push_back(boost::blank());
+                colname->push_back(boost::blank());
+                colname->push_back(boost::blank());
+
+                GenDb::DbDataValueVec* colvalue(new GenDb::DbDataValueVec());
+                colvalue->reserve(1);
+                colvalue->push_back("");
+ 
+                boost::ptr_vector<GenDb::NewCol> ecolumns =
+                        boost::assign::ptr_list_of<GenDb::NewCol>
+                        (GenDb::NewCol(colname, colvalue, ttl));
+
+                std::string cfname(
+                   dit->is_client_session?g_viz_constants.CLIENT_SESSION_TABLE:
+                   g_viz_constants.SERVER_SESSION_TABLE);
+  
+                EXPECT_CALL(*dbif_mock(),
+                        Db_AddColumnProxy(
+                            Pointee(
+                                AllOf(Field(&GenDb::ColList::cfname_,
+                                            cfname),
+                                    Field(&GenDb::ColList::rowkey_,
+                                        RowKeyEqSession(rowkey)),
+                                    Field(&GenDb::ColList::columns_,
+                                        ColumnMatcherEq(ecolumns))))))
+                        .Times(1)
+                        .WillOnce(Return(true));
+            }
+            {
+
+                GenDb::DbDataValueVec rowkey;
+                std::string t2 = integerToString(
+                    (hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
+                rowkey.push_back((uint32_t)(hdr.get_Timestamp() >>
+                    g_viz_constants.RowTimeInBits));
+                rowkey.push_back((uint32_t)0);
+                rowkey.push_back((uint8_t)dit->get_is_si());
+
+                GenDb::DbDataValueVec* colname(new GenDb::DbDataValueVec());
+                colname->reserve(21);
+                colname->push_back((uint16_t)(529530897 & 0x0000ffff));//protocol
+                colname->push_back((uint16_t)(529530897 >> 16));  // server-port
+                colname->push_back((uint32_t)(hdr.get_Timestamp()
+                    & g_viz_constants.RowTimeInMask));
+                colname->push_back(boost::uuids::random_generator()()); // uuid
+                std::vector<std::string> tags;
+                tags.push_back(t2 + ":Dep1");
+                tags.push_back(t2 + ":Tier3");
+                tags.push_back(t2 + ":App1");
+                tags.push_back(t2 + ":Site1");
+                colname->push_back(tags);
+                colname->push_back(boost::blank());
+                std::vector<std::string> remote_tags;
+                remote_tags.push_back(t2 + ":Dep3");
+                remote_tags.push_back(t2 + ":Tier4");
+                remote_tags.push_back(t2 + ":App3");
+                remote_tags.push_back(t2 + ":Site4");
+                colname->push_back(remote_tags);
+                colname->push_back(boost::blank());
+                colname->push_back(boost::lexical_cast<boost::uuids::uuid>(dit->get_vmi()));
+                colname->push_back(Ip4Address(16777218)); //local-ip
+                colname->push_back(dit->get_vn());
+                colname->push_back(dit->get_remote_vn());
+                colname->push_back(dit->get_vrouter_ip());
+                colname->push_back((uint64_t)498623);
+                colname->push_back((uint64_t)802);
+                colname->push_back((uint64_t)498623);
+                colname->push_back((uint64_t)981);
+                colname->push_back(boost::blank());
+                colname->push_back(boost::blank());
+                colname->push_back(boost::blank());
+                colname->push_back(boost::blank());
+
+                GenDb::DbDataValueVec* colvalue(new GenDb::DbDataValueVec());
+                colvalue->reserve(1);
+                colvalue->push_back("");
+ 
+                boost::ptr_vector<GenDb::NewCol> expected_columns =
+                        boost::assign::ptr_list_of<GenDb::NewCol>
+                        (GenDb::NewCol(colname, colvalue, ttl));
+
+                std::string cfname(
+                   dit->is_client_session?g_viz_constants.CLIENT_SESSION_TABLE:
+                   g_viz_constants.SERVER_SESSION_TABLE);
+  
+                EXPECT_CALL(*dbif_mock(),
+                        Db_AddColumnProxy(
+                            Pointee(
+                                AllOf(Field(&GenDb::ColList::cfname_,
+                                            cfname),
+                                    Field(&GenDb::ColList::rowkey_,
+                                        RowKeyEqSession(rowkey)),
+                                    Field(&GenDb::ColList::columns_,
+                                        ColumnMatcherEq(expected_columns))))))
+                        .Times(1)
+                        .WillOnce(Return(true));
+            }
+
+            SessionTableInsert(msg->GetMessageNode(),msg->GetHeader());
+        }
+    }
+}
+
 
 TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
     SandeshHeader hdr;
