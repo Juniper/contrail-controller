@@ -317,6 +317,9 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
     if (dependant_rt_.get() != rt) {
         dependant_rt_.reset(rt);
         ret = true;
+        if (rt) {
+            set_tunnel_bmap(dependant_rt_->GetActivePath()->tunnel_bmap());
+        }
     }
     return ret;
 }
@@ -665,6 +668,16 @@ bool LocalVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         }
     }
 
+    if (vm_port && vm_port->vrf() &&
+        vm_port->vrf()->forwarding_vrf() == agent->fabric_vrf()) {
+        tunnel_bmap_ |= (1 << TunnelType::NATIVE);
+    }
+
+    if (tunnel_bmap_ != path->tunnel_bmap()) {
+        path->set_tunnel_bmap(tunnel_bmap_);
+        ret = true;
+    }
+
     path->set_tunnel_bmap(tunnel_bmap_);
     TunnelType::Type new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
     if (new_tunnel_type == TunnelType::VXLAN &&
@@ -977,6 +990,8 @@ bool ReceiveRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         path->set_label(label_);
         ret = true;
     }
+
+    path->set_tunnel_bmap(tunnel_bmap_);
 
     if (path->ChangeNH(agent, nh) == true)
         ret = true;

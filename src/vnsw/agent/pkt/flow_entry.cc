@@ -583,6 +583,12 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
         reset_flags(FlowEntry::AliasIpFlow);
     }
 
+    if (IsFabricControlFlow()) {
+        set_flags(FlowEntry::FabricControlFlow);
+    } else {
+        reset_flags(FlowEntry::FabricControlFlow);
+    }
+
     data_.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
     data_.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
     data_.in_vm_entry.SetVm(ctrl->vm_);
@@ -754,6 +760,44 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
     data_.dest_sg_id_l = default_sg_list();
 }
 
+
+// Fabric control flows are following,
+// - XMPP connection to control node
+// - SSH connection to vhost
+// - Ping to vhost
+// - Introspect to vhost
+// - Port-IPC connection to vhost
+// - Contrail-Status UVE
+// TODO : Review this
+bool FlowEntry::IsFabricControlFlow() const {
+    Agent *agent = flow_table()->agent();
+    if (key_.protocol == IPPROTO_TCP) {
+        if (key_.dst_addr == agent->router_id()) {
+            return (key_.dst_port == 22 || key_.dst_port == 8085 ||
+                    key_.dst_port == 9091 || key_.dst_port == 8097);
+        }
+
+        if (key_.src_addr == agent->router_id()) {
+            for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
+                if (key_.dst_addr.to_string() !=
+                        agent->controller_ifmap_xmpp_server(i))
+                    continue;
+
+                return (key_.dst_port == agent->controller_ifmap_xmpp_port(i));
+            }
+        }
+
+        return false;
+    }
+
+    if (key_.protocol == IPPROTO_ICMP) {
+        return (key_.src_addr == agent->router_id() ||
+                key_.dst_addr == agent->router_id());
+    }
+
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Utility routines
 /////////////////////////////////////////////////////////////////////////////
@@ -860,7 +904,14 @@ void FlowEntry::RevFlowDepInfo(RevFlowDepParams *params) {
         params->sg_uuid_ = rev_flow->sg_rule_uuid();
         params->rev_egress_uuid_ = rev_flow->egress_uuid();
         if (rev_flow->intf_entry()) {
-            params->vmi_uuid_ = UuidToString(rev_flow->intf_entry()->GetUuid());
+            const VmInterface *vmi =
+                dynamic_cast<const VmInterface *>(rev_flow->intf_entry());
+            if (vmi) {
+                params->vmi_uuid_ = UuidToString(vmi->vmi_cfg_uuid());
+            } else {
+                params->vmi_uuid_ = UuidToString(rev_flow->intf_entry()->
+                                                 GetUuid());
+            }
         }
 
         if (key().family != Address::INET) {
@@ -1412,7 +1463,8 @@ void FlowEntry::GetPolicy(const VnEntry *vn, const FlowEntry *rflow) {
     // and subnet broadcast flow
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
         is_flags_set(FlowEntry::Multicast) ||
-        is_flags_set(FlowEntry::BgpRouterService)) {
+        is_flags_set(FlowEntry::BgpRouterService) ||
+        is_flags_set(FlowEntry::FabricControlFlow)) {
         return;
     }
 
@@ -1464,7 +1516,8 @@ void FlowEntry::GetVrfAssignAcl() {
 
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
         is_flags_set(FlowEntry::Multicast) ||
-        is_flags_set(FlowEntry::BgpRouterService)) {
+        is_flags_set(FlowEntry::BgpRouterService) ||
+        is_flags_set(FlowEntry::FabricControlFlow)) {
         return;
     }
 
@@ -1494,7 +1547,8 @@ void FlowEntry::GetSgList(const Interface *intf) {
     // Dont apply network-policy for linklocal and multicast flows
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
         is_flags_set(FlowEntry::Multicast) ||
-        is_flags_set(FlowEntry::BgpRouterService)) {
+        is_flags_set(FlowEntry::BgpRouterService) ||
+        is_flags_set(FlowEntry::FabricControlFlow)) {
         return;
     }
 
@@ -1538,8 +1592,9 @@ void FlowEntry::GetSgList(const Interface *intf) {
 void FlowEntry::GetApplicationPolicySet(const Interface *intf,
         const FlowEntry *rflow) {
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
-            is_flags_set(FlowEntry::Multicast) ||
-            is_flags_set(FlowEntry::BgpRouterService)) {
+        is_flags_set(FlowEntry::Multicast) ||
+        is_flags_set(FlowEntry::BgpRouterService) ||
+        is_flags_set(FlowEntry::FabricControlFlow)) {
         return;
     }
 

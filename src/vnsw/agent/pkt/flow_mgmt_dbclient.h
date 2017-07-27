@@ -38,7 +38,8 @@ public:
 
     struct VmIntfFlowHandlerState : public FlowMgmtState {
         VmIntfFlowHandlerState(const VnEntry *vn) : vn_(vn),
-            vrf_assign_acl_(NULL), is_vn_qos_config_(false) { }
+            vrf_assign_acl_(NULL), is_vn_qos_config_(false),
+            forwarding_vrf_id_(VrfEntry::kInvalidIndex) { }
         virtual ~VmIntfFlowHandlerState() { }
 
         VnEntryConstRef vn_;
@@ -48,6 +49,7 @@ public:
         bool is_vn_qos_config_;
         AgentQosConfigConstRef qos_config_;
         FirewallPolicyList fw_policy_list_;
+        uint32_t forwarding_vrf_id_;
     };
 
     struct VrfFlowHandlerState : public FlowMgmtState {
@@ -89,6 +91,7 @@ public:
         FixedIpMap fixed_ip_map_;
         EcmpLoadBalance ecmp_load_balance_;
         TagList tags_l_;
+        TunnelType::TypeBmap tunnel_bmap_;
     };
 
     struct NhFlowHandlerState : public FlowMgmtState {

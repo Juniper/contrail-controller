@@ -128,6 +128,9 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         state->is_vn_qos_config_ = vm_port->is_vn_qos_config();
         state->qos_config_ = vm_port->qos_config();
         state->fw_policy_list_ = vm_port->fw_policy_list();
+        if (vm_port->forwarding_vrf()) {
+            state->forwarding_vrf_id_ = vm_port->forwarding_vrf()->vrf_id();
+        }
         changed = true;
     } else {
         if (state->deleted_) {
@@ -163,6 +166,15 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
         if (state->fw_policy_list_ != vm_port->fw_policy_list()) {
             state->fw_policy_list_ = vm_port->fw_policy_list();
             changed = true;
+        }
+
+        uint32_t forwarding_vrf_id = VrfEntry::kInvalidIndex;
+        if (vm_port->forwarding_vrf()) {
+            forwarding_vrf_id = vm_port->forwarding_vrf()->vrf_id();
+        }
+
+        if (state->forwarding_vrf_id_ != forwarding_vrf_id) {
+            state->forwarding_vrf_id_ = forwarding_vrf_id;
         }
     }
 
@@ -677,6 +689,11 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
 
     if (state->tags_l_ != path->tag_list()) {
         state->tags_l_ = path->tag_list();
+        changed = true;
+    }
+
+    if (state->tunnel_bmap_ != path->tunnel_bmap()) {
+        state->tunnel_bmap_ = path->tunnel_bmap();
         changed = true;
     }
 

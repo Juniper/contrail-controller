@@ -627,6 +627,8 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     ////////////////////////////////////////////////////////////////////////
     AddDependencyPath("routing-instance",
                       MakePath("virtual-network-routing-instance",
+                               "virtual-network", true,
+                               "virtual-network-provider-network",
                                "virtual-network", true));
     RegisterConfigHandler(this, "routing-instance",
                           agent ? agent->vrf_table() : NULL);
@@ -671,12 +673,25 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-sub-interface",
                                "virtual-machine-interface", true));
+
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("virtual-machine-interface-routing-instance",
+                               "virtual-machine-interface-routing-instance",
+                               true,
+                               "virtual-machine-interface-routing-instance",
+                               "routing-instance", true,
+                               "virtual-network-routing-instance",
+                               "virtual-network", true,
+                               "virtual-network-provider-network",
+                               "virtual-network", true));
+
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-routing-instance",
                                "virtual-machine-interface-routing-instance",
                                true,
                                "virtual-machine-interface-routing-instance",
                                "routing-instance", true));
+
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-security-group",
                                "security-group", true));

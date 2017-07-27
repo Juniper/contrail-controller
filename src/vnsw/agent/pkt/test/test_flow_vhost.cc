@@ -12,7 +12,7 @@
 #include <base/test/task_test_util.h>
 
 VmInterface *vnet[16];
-Interface *vhost;
+const VmInterface *vhost;
 char vhost_addr[32];
 char vnet_addr[16][32];
 
@@ -40,6 +40,7 @@ class VhostVmi : public ::testing::Test {
 public:
     virtual void SetUp() {
         agent_ = Agent::GetInstance();
+        vhost = static_cast<const VmInterface *>(agent_->vhost_interface());
         flow_proto_ = agent_->pkt()->get_flow_proto();
         CreateVmportEnv(input, 1);
         AddIPAM("vn1", &ipam_info[0], 1);
@@ -134,9 +135,10 @@ TEST_F(VhostVmi, RemoteVhostToVhostBeforeResolve) {
 TEST_F(VhostVmi, RemoteVhostToVhostWithAcl) {
     Ip4Address addr = Ip4Address::from_string("10.1.1.10");
     Ip4Address gw = Ip4Address::from_string("10.1.1.10");
-    Inet4TunnelRouteAdd(peer, DEFAULT_POLICY_VRF, addr, 32, gw, 
-                        TunnelType::AllType(), 8, "vn1", 
-                        SecurityGroupList(), TagList(), PathPreference());
+    Inet4TunnelRouteAdd(peer, DEFAULT_POLICY_VRF, addr, 32, gw,
+                        TunnelType::AllType() | TunnelType::NativeType(),
+                        8, "vn1", SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     TxTcpPacket(vnet0_->id(), "10.1.1.10", "10.1.1.1", 10, 20,
@@ -145,7 +147,7 @@ TEST_F(VhostVmi, RemoteVhostToVhostWithAcl) {
 
     FlowEntry *fe = FlowGet(0, "10.1.1.10", "10.1.1.1", 6, 10, 20,
                             vnet0_->flow_key_nh()->id());
-    WAIT_FOR(1000, 10000, 
+    WAIT_FOR(1000, 10000,
              fe->match_p().action_info.action == (1 << TrafficAction::PASS));
 
     DeleteRoute(DEFAULT_POLICY_VRF, "10.1.1.10", 32, peer);
@@ -155,9 +157,10 @@ TEST_F(VhostVmi, RemoteVhostToVhostWithAcl) {
 TEST_F(VhostVmi, RemoteVhostToVhostWithDenyAcl) {
     Ip4Address addr = Ip4Address::from_string("10.1.1.10");
     Ip4Address gw = Ip4Address::from_string("10.1.1.10");
-    Inet4TunnelRouteAdd(peer, DEFAULT_POLICY_VRF, addr, 32, gw, 
-                        TunnelType::AllType(), 8, "vn1", 
-                        SecurityGroupList(), TagList(), PathPreference());
+    Inet4TunnelRouteAdd(peer, DEFAULT_POLICY_VRF, addr, 32, gw,
+                        TunnelType::AllType() | TunnelType::NativeType(),
+                        8, "vn1", SecurityGroupList(),
+                        TagList(), PathPreference());
     client->WaitForIdle();
 
     TxTcpPacket(vnet0_->id(), "10.1.1.10", "10.1.1.1", 10000, 20,
@@ -177,6 +180,86 @@ TEST_F(VhostVmi, RemoteVhostToVhostWithDenyAcl) {
                 (1 << TrafficAction::IMPLICIT_DENY)) != 0);
 }
 
+TEST_F(VhostVmi, OverlayFromVhost) {
+    Ip4Address addr = Ip4Address::from_string("10.1.1.10");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.10");
+    Inet4TunnelRouteAdd(peer, DEFAULT_POLICY_VRF, addr, 32, gw,
+            TunnelType::AllType(), 8, "vn1",
+            SecurityGroupList(), TagList(), PathPreference());
+    client->WaitForIdle();
+
+    TxTcpPacket(vhost->id(), "10.1.1.1", "10.1.1.10", 10, 20,
+                false, 1, 0);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, "10.1.1.1", "10.1.1.10", 6, 10, 20,
+                            vhost->flow_key_nh()->id());
+    EXPECT_TRUE(fe->data().dest_vrf == vhost->vrf()->vrf_id());
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    client->WaitForIdle();
+
+    DeleteRoute(DEFAULT_POLICY_VRF, "10.1.1.10", 32, peer);
+    client->WaitForIdle();
+}
+
+TEST_F(VhostVmi, OverlayToVhost) {
+    Ip4Address addr = Ip4Address::from_string("10.1.1.10");
+    Ip4Address gw = Ip4Address::from_string("10.1.1.10");
+    Inet4TunnelRouteAdd(peer, DEFAULT_POLICY_VRF, addr, 32, gw,
+            TunnelType::AllType(), 8, "vn1",
+            SecurityGroupList(), TagList(), PathPreference());
+    client->WaitForIdle();
+
+    TxIpMplsPacket(vnet0_->id(), "10.1.1.10", "10.1.1.1", vhost->label(),
+                   "10.1.1.10", "10.1.1.1", 1, 10);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, "10.1.1.1", "10.1.1.10", 1, 0, 0,
+                            vhost->flow_key_nh()->id());
+    EXPECT_TRUE(fe->data().dest_vrf == vhost->vrf()->vrf_id());
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    client->WaitForIdle();
+
+    DeleteRoute(DEFAULT_POLICY_VRF, "10.1.1.10", 32, peer);
+    client->WaitForIdle();
+}
+#if 0
+TEST_F(VhostVmi, VmiToLocalVhost) {
+    AddLink("virtual-network", "vn1", "virtual-network", DEFAULT_VN);
+    client->WaitForIdle();
+
+    Ip4Address sip = Ip4Address::from_string("10.1.1.1");
+	VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "vhost0");
+
+	InetUnicastAgentRouteTable *table =
+		static_cast<InetUnicastAgentRouteTable *>(
+				agent_->fabric_vrf()->GetInet4UnicastRouteTable());
+	table->AddVHostRecvRoute(peer, "vrf1", vmi_key, sip,
+                             32, agent_->fabric_vn_name(), 
+                             false); 
+    client->WaitForIdle();
+
+    const Interface *vm_intf = VmPortGet(1);
+
+    TxTcpPacket(vm_intf->id(), "1.1.1.10", "10.1.1.1", 10, 20,
+                false, 1, 0);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, "1.1.1.10", "10.1.1.1", IPPROTO_TCP, 10, 20,
+                            vm_intf->flow_key_nh()->id());
+    EXPECT_TRUE(fe->data().dest_vrf == 0);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    client->WaitForIdle();
+
+    DelLink("virtual-network", "vn1", "virtual-network", DEFAULT_VN);
+    client->WaitForIdle();
+    //Packet VRF doesnt change hence VRF change also doenst happen
+    //EXPECT_TRUE(fe->data().dest_vrf == vm_intf->vrf()->vrf_id());
+
+	DeleteRoute("vrf1", "10.1.1.1", 32, peer);
+	client->WaitForIdle();
+}
+#endif
 int main(int argc, char *argv[]) {
     int ret = 0;
     GETUSERARGS();

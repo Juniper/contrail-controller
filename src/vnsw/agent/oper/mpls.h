@@ -88,6 +88,7 @@ private:
 class MplsTable : public AgentDBTable {
 public:
     static const uint32_t kInvalidLabel = 0xFFFFFFFF;
+    static const uint32_t kInvalidExportLabel = 0;
     static const uint32_t kStartLabel = 16;
     static const uint32_t kDpdkShiftBits = 4;
 

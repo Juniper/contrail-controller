@@ -111,6 +111,8 @@ public:
                                    uint32_t sport,
                                    uint32_t dport,
                                    const Interface *intf);
+    void OverlayForwarding(const VmInterface *intf, const PktInfo *pkt,
+                           PktControlInfo *in, PktControlInfo *out);
 public:
     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
                      const IpAddress &addr, const MacAddress &mac,

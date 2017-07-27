@@ -215,7 +215,8 @@ public:
                          bool wait_for_traffic);
     void DelIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac);
-    MacAddress GetIpMacBinding(VrfEntry *vrf, const IpAddress &ip) const;
+    MacAddress GetIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
+                               const InetUnicastRouteEntry *rt) const;
     bool GetIpMacWaitForTraffic(VrfEntry *vrf,
                                 const IpAddress &ip) const;
     void NotifyUcRoute(VrfEntry *vrf, VrfState *state, const IpAddress &ip);

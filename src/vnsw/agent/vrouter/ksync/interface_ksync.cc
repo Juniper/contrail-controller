@@ -672,7 +672,6 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 InterfaceKSyncEntry *xconnect =
                     static_cast<InterfaceKSyncEntry *>(xconnect_.get());
                 encoder.set_vifr_cross_connect_idx(xconnect->os_index_);
-                mac = xconnect->mac();
             } else {
                 encoder.set_vifr_cross_connect_idx(Interface::kInvalidIndex);
             }

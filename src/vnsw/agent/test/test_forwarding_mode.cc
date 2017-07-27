@@ -250,8 +250,8 @@ protected:
         EXPECT_TRUE(ksync->proxy_arp());
         EXPECT_FALSE(ksync->flood());
         EXPECT_TRUE(vrf1_obj->RouteNeedsMacBinding(local_vm_rt));
-        EXPECT_TRUE(vrf1_obj->GetIpMacBinding(local_vm_rt->vrf(), local_vm_ip4_)
-                    != MacAddress());
+        EXPECT_TRUE(vrf1_obj->GetIpMacBinding(local_vm_rt->vrf(), local_vm_ip4_,
+                    NULL) != MacAddress());
         EXPECT_FALSE(l2_ksync->proxy_arp());
         EXPECT_FALSE(l2_ksync->flood());
 
@@ -280,8 +280,8 @@ protected:
         EXPECT_TRUE(remote_ksync->proxy_arp());
         EXPECT_FALSE(remote_ksync->flood());
         EXPECT_TRUE(vrf1_obj->RouteNeedsMacBinding(remote_vm_rt));
-        EXPECT_TRUE(vrf1_obj->GetIpMacBinding(remote_vm_rt->vrf(), remote_vm_ip4_)
-                    != MacAddress());
+        EXPECT_TRUE(vrf1_obj->GetIpMacBinding(remote_vm_rt->vrf(), remote_vm_ip4_,
+                    NULL) != MacAddress());
         EXPECT_FALSE(remote_l2_ksync->proxy_arp());
         EXPECT_FALSE(remote_l2_ksync->flood());
         //repeat same for subnet.

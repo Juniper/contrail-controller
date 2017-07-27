@@ -1276,6 +1276,9 @@ public:
     const FirewallPolicyList& fw_policy_list() const {
         return fw_policy_list_;
     }
+    const boost::uuids::uuid& vmi_cfg_uuid() const {
+        return vmi_cfg_uuid_;
+    }
 
     const boost::uuids::uuid &si_other_end_vmi() const {
         return si_other_end_vmi_;
@@ -1487,6 +1490,8 @@ private:
      * nil_uuid if current VMI is not SI VMI.
      */
     boost::uuids::uuid si_other_end_vmi_;
+    //In case Vhost interface, uuid_ is stored here
+    boost::uuids::uuid vmi_cfg_uuid_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -1663,6 +1668,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     UuidList slo_list_;
     uint8_t vhostuser_mode_;
     boost::uuids::uuid si_other_end_vmi;
+    boost::uuids::uuid vmi_cfg_uuid_;
 };
 
 // Definition for structures when request queued from Nova

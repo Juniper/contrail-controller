@@ -243,11 +243,12 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           const TagList &tag_id_list,
                                           const PathPreference &path_pref,
                                           uint32_t ethernet_tag,
-                                          bool etree_leaf) {
+                                          bool etree_leaf,
+                                          const std::string &name) {
     assert(peer);
 
     Agent *agent = static_cast<AgentDBTable *>(intf->get_table())->agent();
-    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf->GetUuid(), "");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf->GetUuid(), name);
     VnListType vn_list;
     vn_list.insert(vn_name);
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
