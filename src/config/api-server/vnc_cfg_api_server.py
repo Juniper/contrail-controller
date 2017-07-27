@@ -75,7 +75,7 @@ from cfgm_common.uve.vnc_api.ttypes import VncApiCommon, VncApiConfigLog,\
 from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
-    NodeTypeNames, INSTANCE_ID_DEFAULT
+    NodeTypeNames, INSTANCE_ID_DEFAULT, TagTypeNamesToId
 
 from provision_defaults import Provision
 from vnc_quota import *
@@ -1100,13 +1100,15 @@ class VncApiServer(object):
             set_context(orig_context)
     # end internal_request_delete
 
-    def internal_request_ref_update(self,
-        res_type, obj_uuid, operation, ref_res_type, ref_uuid, attr=None):
+    def internal_request_ref_update(self, res_type, obj_uuid, operation,
+                                    ref_res_type, ref_uuid=None,
+                                    ref_fq_name=None, attr=None):
         req_dict = {'type': res_type,
                     'uuid': obj_uuid,
                     'operation': operation,
                     'ref-type': ref_res_type,
                     'ref-uuid': ref_uuid,
+                    'ref-fq-name': ref_fq_name,
                     'attr': attr}
         try:
             orig_context = get_context()
@@ -1340,21 +1342,8 @@ class VncApiServer(object):
         # Enable/Disable aaa mode
         self.route('/aaa-mode',      'GET', self.aaa_mode_http_get)
         self.route('/aaa-mode',      'PUT', self.aaa_mode_http_put)
-
-        for tag_type in cfgm_common.tag_dict.keys():
-            link = LinkObject('action', self._base_url,
-                       '/set-tag-%s' % tag_type,
-                       'set-tag-%s' % tag_type,
-                       'POST')
-            self._homepage_links.append(link)
-            setattr(self, 'set_tag_%s' %(tag_type),
-                functools.partial(self.set_tag_type, tag_type))
-            self.route('/set-tag-%s' % tag_type,
-                'POST', getattr(self, 'set_tag_%s' % tag_type))
-            setattr(self, 'unset_tag_%s' %(tag_type),
-                functools.partial(self.unset_tag_type, tag_type))
-            self.route('/set-tag-%s' % tag_type,
-                'DELETE', getattr(self, 'unset_tag_%s' % tag_type))
+        self.route('/set-tag',       'POST', self.set_tag)
+        self.route('/unset-tag',     'POST', self.set_tag)
 
         # randomize the collector list
         self._random_collectors = self._args.collectors
@@ -2670,6 +2659,10 @@ class VncApiServer(object):
         self._create_singleton_entry(DiscoveryServiceAssignment())
         self._create_singleton_entry(GlobalQosConfig())
 
+        # Create pre-defined tag-type
+        for type_str, type_id in TagTypeNamesToId.items():
+            self._create_singleton_entry(TagType(name=tag_str, id=type_id))
+
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
 
@@ -3531,118 +3524,123 @@ class VncApiServer(object):
     def global_read_only_role(self):
         return self._args.global_read_only_role
 
-    def set_tag_type(self, tag_type):
-        tag_value = get_request().json['tag_value']
-        is_global = get_request().json['is_global']
-        id = get_request().json['obj_uuid']
+    def set_tag(self):
+        req_dict = get_request().json
+        obj_type = req_dict.pop('obj_type')
+        obj_uuid = req_dict.pop('obj_uuid')
 
-        try:
-            obj_type = self._db_conn.uuid_to_obj_type(id)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'Object Not Found: ' + id)
+        if obj_dict is None or obj_uuid is None:
+            msg = "Obejct type and UUID must be specified"
+            raise cfgm_common.exceptions.HttpError(400, msg)
 
-        # unless global, inherit project id from caller
-        if is_global:
-            tag_fq_name = [tag_type + "=" + tag_value]
-        else:
-            tag_fq_name = self._db_conn.uuid_to_fq_name(id)
-            tag_fq_name[-1] = tag_type + "=" + tag_value
+        ok, result = self._db_conn.dbe_read(obj_type, obj_uuid,
+                                            obj_fields=['tag_refs'])
+        if not ok:
+            raise cfgm_common.exceptions.HttpError(*result)
+        obj_dict = result
 
-        # address-group object can only be associated with label
-        if obj_type == 'address_group' and tag_type != 'label':
-            raise cfgm_common.exceptions.HttpError(
-                400, 'Invalid tag type %s for object type %s' % (tag_type, obj_type))
+        def _locate_tag(type, value, is_global=False):
+            name = type + "=" + value
+            # unless global, inherit project id from caller
+            if is_global:
+                fq_name = [name]
+            else:
+                fq_name = copy.deepcopy(obj_dict['fq_name'])
+                fq_name[-1] = name
 
-        # lookup (validate) tag
-        try:
-            tag_uuid = self._db_conn.fq_name_to_uuid('tag', tag_fq_name)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'Name ' + pformat(tag_fq_name) + ' not found')
+            # lookup (validate) tag
+            try:
+                uuid = self._db_conn.fq_name_to_uuid('tag', fq_name)
+            except NoIdError:
+                msg = "Name %s not found" % pformat(tag_fq_name)
+                raise cfgm_common.exceptions.HttpError(404, msg)
 
-        obj_fields = ['tag_refs']
-        (read_ok, obj_dict) = self._db_conn.dbe_read(obj_type, id, obj_fields)
-        if not read_ok:
-            bottle.abort(
-                404, 'No %s object found for id %s' %(obj_type, id))
+        for tag_type, attrs in req_dict.items:
+            is_global = attrs.get('global', False)
+            value = attrs.get('value')
+            add_values = set(attrs.get('add_values', []))
+            delete_values = set(attrs.get('delete_values', []))
 
-        if not 'tag_refs' in obj_dict:
-            obj_dict['tag_refs'] = []
+            # tag type is unique per object, unless
+            # TAG_TYPE_NOT_UNIQUE_PER_OBJECT type
+            if tag_type not in constant.TAG_TYPE_NOT_UNIQUE_PER_OBJECT:
+                if add_values or delete_values:
+                    msg = ("Tag type %s cannot be set multiple times on a "
+                           "same object." % tag_type)
+                    raise cfgm_common.exceptions.HttpError(400, msg)
 
-        # check if ref already exists
-        for ref in list(obj_dict['tag_refs']):
-            if ref['uuid'] == tag_uuid:
-                return {}
-            # allow single instance of a type unless label
-            ref_tag_name = ref['to'][-1]
-            ref_tag_type, ref_tag_value = ref_tag_name.split("=", 1)
-            if tag_type == 'label':
-                if ref_tag_value == tag_value:
-                    return {}
-            elif ref_tag_type == tag_type:
-                obj_dict['tag_refs'].remove(ref)
-                break
+            # address-group object can only be associated with label
+            if (obj_type == 'address_group' and
+                    tag_type != constants.TagType.LABEL):
+                msg = ("Invalid tag type %s for object type %s" %
+                       (tag_type, obj_type))
+                raise cfgm_common.exceptions.HttpError(400, msg)
 
-        ref = {
-            'to': tag_fq_name,
-            'attr': None,
-            'uuid': tag_uuid
-        }
-        obj_dict['tag_refs'].append(ref)
-        self._db_conn.dbe_update(obj_type, id, obj_dict)
-        return {}
-    # end
+            refs_per_values = {ref['to'][-1].partition('=')[2]: ref for ref
+                               in obj_dict.get('tag_refs', [])
+                               if ref['to'][-1].partition('=')[0] == tag_type}
+            if tag_type not in constant.TAG_TYPE_NOT_UNIQUE_PER_OBJECT:
+                if value is None or isinstance(value, list):
+                    msg = "No valid value provided for tag type %s" % tag_type
+                    raise cfgm_common.exceptions.HttpError(400, msg)
 
-    def unset_tag_type(self, tag_type):
-        tag_value = get_request().json['tag_value']
-        is_global = get_request().json['is_global']
-        id = get_request().json['obj_uuid']
+                # don't need to update if tag type with same value already
+                # referenced
+                if refs_per_values.get(value) is not None:
+                    continue
 
-        try:
-            obj_type = self._db_conn.uuid_to_obj_type(id)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'Object Not Found: ' + id)
+                for ref in refs_per_values.values():
+                    # object already have a reference to that tag type with a
+                    # different value, remove it
+                    obj_dict['tag_refs'].remove(ref)
 
-        # unless global, inherit project id from caller
-        if is_global:
-            tag_fq_name = [tag_type + "=" + tag_value]
-        else:
-            tag_fq_name = self._db_conn.uuid_to_fq_name(id)
-            tag_fq_name[-1] = tag_type + "=" + tag_value
-
-        # lookup (validate) tag
-        try:
-            tag_uuid = self._db_conn.fq_name_to_uuid('tag', tag_fq_name)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'Name ' + pformat(tag_fq_name) + ' not found')
-
-        obj_fields = ['tag_refs']
-        (read_ok, obj_dict) = self._db_conn.dbe_read(obj_type, id, obj_fields)
-        if not read_ok:
-            bottle.abort(
-                404, 'No %s object found for id %s' %(obj_type, id))
-
-        # check if ref exists
-        for ref in list(obj_dict['tag_refs']):
-            if ref['uuid'] == tag_uuid:
-                obj_dict['tag_refs'].remove(ref)
+                # finally, reference the tag type with the new value
+                tag_fq_name, tag_uuid = _locate_tag(tag_type, value)
+                obj_dict['tag_refs'].append({
+                    'uuid': tag_uuid
+                    'to': tag_fq_name,
+                    'attr': None,
+                })
+            else:
+                for value in add_values - set(refs_per_values.keys()):
+                    tag_fq_name, tag_uuid = _locate_tag(tag_type, value)
+                    obj_dict['tag_refs'].append({
+                        'uuid': tag_uuid
+                        'to': tag_fq_name,
+                        'attr': None,
+                    })
+                for value in delete_values & set(ref_tag_type.keys()):
+                    obj_dict['tag_refs'].remove(refs_per_values[value])
 
         self._db_conn.dbe_update(obj_type, id, obj_dict)
         return {}
-    # end
 
-    def keystone_version(self):
-        k_v = 'v2.0'
-        try:
-            if 'v3' in self._args.auth_url:
-                k_v = 'v3'
-        except AttributeError:
-            pass
-        return k_v
+    def unset_tag_type(self):
+        req_dict = get_request().json
+        obj_type = req_dict.pop('obj_type')
+        obj_uuid = req_dict.pop('obj_uuid')
 
+        if obj_dict is None or obj_uuid is None:
+            msg = "Obejct type and UUID must be specified"
+            raise cfgm_common.exceptions.HttpError(400, msg)
+
+        ok, result = self._db_conn.dbe_read(obj_type, obj_uuid,
+                                            obj_fields=['tag_refs'])
+        if not ok:
+            raise cfgm_common.exceptions.HttpError(*result)
+        obj_dict = result
+
+        refs_per_types = {}
+        for ref in obj_dict.get('tag_refs', []):
+            ref_type = ref['to'][-1].partition('=')[0]
+            refs_per_types.setdefault(ref_type, []).append(ref)
+        for tag_type, attrs in req_dict.items:
+            is_global = attrs.get('global', False)
+            for ref in refs_per_types[tag_type]:
+                obj_dict['tag_refs'].remove(ref)
+
+        self._db_conn.dbe_update(obj_type, id, obj_dict)
+        return {}
 # end class VncApiServer
 
 def main(args_str=None, server=None):

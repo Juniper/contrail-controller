@@ -138,7 +138,20 @@ class ResourceDbMixin(object):
 # end class ResourceDbMixin
 
 class Resource(ResourceDbMixin):
-    server = None
+    _server = None
+
+    class __metaclass__(type):
+        @property
+        def server(cls):
+            return cls._server
+
+        @property.setter
+        def server(cls, value):
+            cls.server = value
+
+        @property
+        def db_conn(cls):
+            return cls.server.get_db_connection()
 
     @classmethod
     def dbe_read(cls, db_conn, res_type, obj_uuid, obj_fields=None):
@@ -152,6 +165,32 @@ class Resource(ResourceDbMixin):
 
         return (True, result)
     # end dbe_read
+
+    @classmethod
+    def locate(cls, fq_name, **kwargs):
+        uuid = None
+        if 'uuid' not in kwargs or kwargs['uuid'] is None:
+            try:
+                uuid = cls.db_conn.fq_name_to_uuid(cls.obj_type, fq_name)
+            except cfgm_common.exceptions.NoIdError:
+                pass
+        else:
+            uuid = kwargs['uuid']
+        if uuid:
+            ok, result = cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
+            if not ok and result[0] == 404:
+                pass
+            else:
+                return ok, result
+
+        obj = cls(fq_name=fq_name, **kwargs)
+        cls.server.internal_request_create(cls.resource_type,
+                                           obj.serialize_to_json())
+        try:
+            uuid = cls.db_conn.fq_name_to_uuid(cls.obj_type, fq_name)
+        except cfgm_common.exceptions.NoIdError as e:
+            return False, (404, str(e))
+        return cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
 # end class Resource
 
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
@@ -1294,59 +1333,132 @@ class ServiceGroupServer(Resource, ServiceGroup):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         return cls.pre_dbe_create(None, obj_dict, db_conn)
-
-
 # end class ServiceGroupServer
 
-class TagServer(Resource, Tag):
 
+class TagTypeServer(Resource, TagType):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        type_str = obj_dict.get['fq_name'][-1]
+        obj_dict['name'] = type_str
+        obj_dict['display_name'] = type_str
 
-        tag_type = obj_dict.get('tag_type')
-        tag_value = obj_dict.get('tag_value')
+        # Allocate ID for tag-type
+        type_id = cls.vnc_zk_client.alloc_tag_type_id(type_str)
 
-        if tag_type is None or tag_value is None:
-            msg = "Tag must be created with type and value"
-            return (False, (400, msg))
-        if tag_type not in cfgm_common.tag_dict:
-            msg = "Invalid tag type %s" % tag_type
-            return (False, (400, msg))
+        def undo_type_id():
+            cls.vnc_zk_client.free_tag_type_id(type_id)
+            return True, ""
+        get_context().push_undo(undo_type_id)
 
-        if obj_dict.get('tag_id'):
-            msg = "Tag id is not setable"
-            return (False, (400, msg))
+        obj_dict['id'] = "0x{:04x}".format(type_id)
 
-        # assign name automatically
-        tag_type = tag_type.lower()
-        tag_name = tag_type + "=" + tag_value
+        return True, ""
 
-        if obj_dict.get('parent_type') == 'project':
-            tag_fq_name = copy.deepcopy(obj_dict['fq_name'])
-            tag_fq_name[-1] = tag_name
-        else:
-            tag_fq_name = [tag_name]
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        # Deallocate tag-type ID
+        cls.vnc_zk_client.free_tag_type_id(obj_dict['id'])
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        # Deallocate in memory tag-type ID
+        cls.vnc_zk_client.free_tag_type_id(obj_dict['id'], notify=True)
+
+    @classmethod
+    def get_all_tag_types(cls):
+        # NOTE(ethuleau): could it be more efficient to use zk to obtain that
+        #                 list?
+        ok, result, _ = cls.db_conn.dbe_list(cls.object_type,
+                                             field_names=['name'])
+        if not ok:
+            return False, (500, 'Error in dbe_list: %s' % pformat(result))
+        tag_types = result
+
+        return True, [tag_type['name'] for tag_type in tag_types]
+
+    @classmethod
+    def get_tag_type_id(cls, type_str):
+        if type_str in constants.TagTypeNamesToId:
+            return True, constants.TagTypeNamesToId[type_str]
+
         try:
-            tag_uuid = db_conn.fq_name_to_uuid('tag', tag_fq_name)
-            (ok, tag_dict) = db_conn.dbe_read(obj_type='tag', obj_id=tag_uuid)
-            return (False, (400, 'Existing tag object found for name %s' % tag_name))
+            uuid = db_conn.fq_name_to_uuid('tag_type', [type_str])
         except cfgm_common.exceptions.NoIdError:
             pass
+        ok, result = db_conn.dbe_read(obj_type='tag_type', obj_id=uuid)
+        if not ok:
+            return False, result
+        tag_type = result
 
-        obj_dict['name'] = tag_name
-        obj_dict['fq_name'][-1] = tag_name
-        obj_dict['tag_type'] = tag_type
+        return True, tag_type['id']
 
-        # Allocate id for tag value
-        tag_fq_name = ':'.join(obj_dict['fq_name'])
-        tag_value_id = cls.vnc_zk_client.alloc_tag_value_id(tag_type, tag_fq_name)
-        def undo_tag_value_id():
-            cls.vnc_zk_client.free_tag_value_id(tag_type, tag_value_id)
+
+class TagServer(Resource, Tag):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        type_str, _, value_str = obj_dict.get('value', '').partition('=')
+        type_str = type_str.lower()
+        tag_type_fq_name = [type_str]
+
+        if not type_str or not value_str:
+            msg = ("Tag value must be compose to a key/value with that "
+                   "format: 'type=value'")
+            return (False, (400, msg))
+
+        if obj_dict.get('id') is not None:
+            msg = "Tag ID is not setable"
+            return (False, (400, msg))
+
+        ok, result = TagTypeServer.locate(tag_type_fq_name)
+        if not ok:
+            return False, result
+        tag_type = result
+
+        def undo_tag_type():
+            cls.server.internal_request_delete('tag-type', tag_type['uuid'])
+            return True, ''
+        get_context().push_undo(undo_tag_type)
+
+        obj_dict['tag_type_refs'] = [
+            {
+                'uuid': tag_type['uuid'],
+                'to': tag_type['fq_name'],
+                'attr': None,
+            },
+        ]
+
+        # Assign name automatically
+        name = type_str + "=" + value_str
+
+        # if obj_dict.get('parent_type') == 'project':
+        #     fq_name = copy.deepcopy(obj_dict['fq_name'])
+        #     fq_name[-1] = name
+        # else:
+        #     fq_name = [name]
+        # try:
+        #     uuid = db_conn.fq_name_to_uuid('tag', tag_fq_name)
+        #     (ok, tag_dict) = db_conn.dbe_read(obj_type='tag', obj_id=tag_uuid)
+        #     return (False, (400, 'Existing tag object found for name %s' % tag_name))
+        # except cfgm_common.exceptions.NoIdError:
+        #     pass
+
+        obj_dict['name'] = name
+        obj_dict['fq_name'][-1] = name
+
+        # Allocate ID for tag value
+        value_id = cls.vnc_zk_client.alloc_tag_value_id(
+            type_str, ':'.join(obj_dict['fq_name']))
+
+        def undo_value_id():
+            cls.vnc_zk_client.free_tag_value_id(type_str, value_id)
             return True, ""
-        get_context().push_undo(undo_tag_value_id)
-        obj_dict['tag_id'] = cfgm_common.tag_dict[tag_type] << 27 | tag_value_id
+        get_context().push_undo(undo_value_id)
+
+        # Compose Tag ID with the type ID and value ID
+        obj_dict['id'] = "{}{:04x}".format(tag_type['id'], value_id)
+
         return True, ""
-    # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
@@ -1354,22 +1466,28 @@ class TagServer(Resource, Tag):
         if not ok:
             return ok, read_result
 
-        # user can't update type or value once created
-        if obj_dict.get('tag_type') or obj_dict.get('tag_value') or obj_dict.get('tag_id'):
-            msg = "Tag type, value or id cannot be updated"
+        # User can't update type or value once created
+        if obj_dict.get('value') or obj_dict.get('id'):
+            msg = "Tag value or ID cannot be updated"
             return (False, (400, msg))
 
         return True, ""
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
-        # Deallocate the tag value id
-        tag_value_id = obj_dict['tag_id'] & ((1<<27)-1)
+        # Deallocate ID for tag value
+        value_id = int(obj_dict['id']) & 0x0000ffff
         cls.vnc_zk_client.free_tag_value_id(
-            obj_dict['tag_type'], tag_value_id)
+            obj_dict['tag_type'], value_id)
+
+        # Try to delete referenced tag-type and ignore RefExistError which
+        # means it's still in use
+        if 'tag_type_refs' in obj_dict and obj_dict['tag_type_refs']:
+            # Tag can have only one tag-type reference
+            tag_type_uuid = obj_dict['tag_type_refs'][0]['uuid']
+            cls.server.internal_request_delete('tag-type', tag_type_uuid)
         return True, ""
-    # end post_dbe_delete
-# end class TagServer
+
 
 class FirewallRuleServer(Resource, FirewallRule):
 
@@ -1400,17 +1518,25 @@ class FirewallRuleServer(Resource, FirewallRule):
     @classmethod
     def _frs_fix_match_tags(cls, obj_dict):
         if 'match_tags' in obj_dict:
-            obj_dict['match_tag_types'] = {'tag_type': []}
             for tag_type in obj_dict['match_tags'].get('tag_list', []):
                 tag_type = tag_type.lower()
-                if tag_type not in cfgm_common.tag_dict:
-                    return (False, (400, 'match-tags with invalid type : %s' % tag_type))
+                ok, reuslt = TagTypeServer.get_all_tag_types()
+                if not ok:
+                    return False, result
+                tag_type_names = result
+                if tag_type not in tag_type_names:
+                    return (False, (400, 'match-tags with invalid type : %s'
+                                         % tag_type))
+
                 if tag_type == 'label':
                     return (False, (400, 'labels not allowed as match-tags'))
-                tag_type_val = cfgm_common.tag_dict[tag_type];
-                if 'match_tag_types' not in obj_dict:
-                    obj_dict['match_tag_types'] = {'tag_type': []}
-                obj_dict['match_tag_types']['tag_type'].append(tag_type_val)
+
+                ok, result = TagTypeServer.get_tag_type_id(tag_type)
+                if not ok:
+                    return False, result
+                tag_type_id = result
+                obj_dict['match_tag_types'].setdefault('tag_type', []).append(
+                     tag_type_id)
 
         return True, ""
 
@@ -1485,7 +1611,7 @@ class FirewallRuleServer(Resource, FirewallRule):
         # create default match tag if use doesn't specifiy any explicitly
         if 'match_tags' not in obj_dict:
             obj_dict['match_tag_types'] = {
-                'tag_type': [cfgm_common.tag_dict[tag_type] for tag_type in cfgm_common.DEFAULT_MATCH_TAG_TYPE]
+                'tag_type': constants.DEFAULT_MATCH_TAG_TYPE
             }
 
         # create protcol id

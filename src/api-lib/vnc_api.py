@@ -1417,26 +1417,26 @@ class VncApi(object):
         rv = self._request_server(rest.OP_GET, url)
         return rv
 
-    # associate a tag to an object
-    def set_tag(self, obj, tag_type, tag_value, is_global=False):
-        url = self._action_uri['set-tag-%s' % tag_type.lower()]
+    # associate a tags to an object
+    def set_tag(self, obj, tag_types):
+        url = self._action_uri['set-tag']
         data = {
+            'obj_type': obj.object_type,
             'obj_uuid': obj.get_uuid(),
-            'tag_value': tag_value,
-            'is_global': is_global
         }
+        data.update(tag_types)
         content = self._request_server(rest.OP_POST, url, json.dumps(data))
         return json.loads(content)
 
-    # disassociate tag from an object
-    def unset_tag(self, obj, tag_type, tag_value, is_global=False):
-        url = self._action_uri['set-tag-%s' % tag_type.lower()]
+    # disassociate tags from an object
+    def unset_tag(self, obj, tag_types):
+        url = self._action_uri['unset-tag']
         data = {
+            'obj_type': obj.object_type,
             'obj_uuid': obj.get_uuid(),
-            'tag_value': tag_value,
-            'is_global': is_global
         }
-        content = self._request_server(rest.OP_DELETE, url, json.dumps(data))
+        data.update(tag_types)
+        content = self._request_server(rest.OP_POST, url, json.dumps(data))
         return json.loads(content)
 
 # end class VncApi
