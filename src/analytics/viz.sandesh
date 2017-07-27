@@ -137,6 +137,9 @@ const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
+const string CLIENT_SESSION_TABLE   = "ClientSessionTable"
+const string SERVER_SESSION_TABLE   = "ServerSessionTable"
+
 const string OVERLAY_TO_UNDERLAY_FLOW_MAP = "OverlayToUnderlayFlowMap"
 
 const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTagV3"
@@ -201,6 +204,100 @@ const list<string> _NO_AUTO_PURGE_TABLES  = [
     COLLECTOR_GLOBAL_TABLE2,
     FLOW_TABLE,
     SYSTEM_OBJECT_TABLE
+]
+
+// SessionRecordCols
+enum SessionRecordCols {
+   SESSION_T2,
+   SESSION_PARTITION_NO,
+   SESSION_IS_SI,
+   SESSION_PROTOCOL,
+   SESSION_SPORT,
+   SESSION_T1,
+   SESSION_UUID,
+   SESSION_TAGS,
+   SESSION_LABELS,
+   SESSION_REMOTE_TAGS,
+   SESSION_REMOTE_LABELS,
+   SESSION_VMI,
+   SESSION_IP,
+   SESSION_VN,
+   SESSION_REMOTE_VN,
+   SESSION_VROUTER_IP,
+   SESSION_REMOTE_PREFIX,
+   SESSION_SAMPLED_TX_BYTES,
+   SESSION_SAMPLED_TX_PKTS,
+   SESSION_SAMPLED_RX_BYTES,
+   SESSION_SAMPLED_RX_PKTS,
+   SESSION_LOGGED_TX_BYTES,
+   SESSION_LOGGED_TX_PKTS,
+   SESSION_LOGGED_RX_BYTES,
+   SESSION_LOGGED_RX_PKTS,
+   SESSION_MAP,
+   SESSION_MAX,
+}
+
+// SessionRecordFields and SessionRecordNames
+enum SessionRecordFields {
+   SESSION_IS_SI,
+   SESSION_PROTOCOL,
+   SESSION_SPORT,
+   SESSION_DEPLOYMENT,
+   SESSION_TIER,
+   SESSION_APPLICATION,
+   SESSION_SITE,
+   SESSION_LABELS,
+   SESSION_REMOTE_DEPLOYMENT,
+   SESSION_REMOTE_TIER,
+   SESSION_REMOTE_APPLICATION,
+   SESSION_REMOTE_SITE,
+   SESSION_REMOTE_LABELS,
+   SESSION_VMI,
+   SESSION_IP,
+   SESSION_VN,
+   SESSION_REMOTE_VN,
+   SESSION_VROUTER_IP,
+   SESSION_REMOTE_PREFIX,
+   SESSION_SAMPLED_TX_BYTES,
+   SESSION_SAMPLED_TX_PKTS,
+   SESSION_SAMPLED_RX_BYTES,
+   SESSION_SAMPLED_RX_PKTS,
+   SESSION_LOGGED_TX_BYTES,
+   SESSION_LOGGED_TX_PKTS,
+   SESSION_LOGGED_RX_BYTES,
+   SESSION_LOGGED_RX_PKTS,
+   SESSION_MAP,
+}
+
+const list<string> SessionRecordNames = [
+   "is_si",
+   "protocol",
+   "sport",
+   "deployment",
+   "tier",
+   "application",
+   "site",
+   "labels",
+   "remote_deployment",
+   "remote_tier",
+   "remote_application",
+   "remote_site",
+   "remote_labels",
+   "vmi",
+   "ip",
+   "vn",
+   "remote_vn",
+   "vrouter_ip",
+   "remote_prefix",
+   "sampled_tx_bytes",
+   "sampled_tx_pkts",
+   "sampled_rx_bytes",
+   "sampled_rx_pkts",
+   "logged_tx_bytes",
+   "logged_tx_pkts",
+   "logged_rx_bytes",
+   "logged_rx_pkts",
+   "sessionMap",
 ]
 
 // Please keep FlowRecordFields and FlowRecordNames in sync
@@ -1101,6 +1198,77 @@ const map<string, table_schema> _VIZD_FLOW_TABLE_SCHEMA = {
               'clustering' : true },
             { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
         ]
+    }
+}
+
+const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
+    CLIENT_SESSION_TABLE : {
+        'columns' : [
+            {'name' : 'key', 'datatype': Gendb.DbDataType.Unsigned32Type },
+            {'name' : 'key2', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'key3', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'column1', 'datatype'
+: Gendb.DbDataType.Unsigned16Type, 'clustering': true },
+        {'name' : 'column2', 'datatype'
+: Gendb.DbDataType.Unsigned16Type, 'clustering': true },
+        {'name' : 'column3', 'datatype'
+: Gendb.DbDataType.Unsigned32Type, 'clustering': true },
+        {'name' : 'column4', 'datatype'
+: Gendb.DbDataType.LexicalUUIDType, 'clustering': true},
+        {'name' : 'column5', 'datatype': Gendb.DbDataType.SetTextType},
+        {'name' : 'column6', 'datatype': Gendb.DbDataType.SetTextType},
+        {'name' : 'column7', 'datatype': Gendb.DbDataType.SetTextType},
+        {'name' : 'column8', 'datatype': Gendb.DbDataType.SetTextType},
+        {'name' : 'column9', 'datatype': Gendb.DbDataType.AsciiType },
+        {'name' : 'column10', 'datatype': Gendb.DbDataType.AsciiType },
+        {'name' : 'column11', 'datatype': Gendb.DbDataType.AsciiType },
+        {'name' : 'column12', 'datatype': Gendb.DbDataType.AsciiType },
+        {'name' : 'column13', 'datatype': Gendb.DbDataType.InetType },
+        {'name' : 'column14', 'datatype': Gendb.DbDataType.UTF8Type },
+        {'name' : 'column15', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column16', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column17', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column18', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column19', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column20', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column21', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column22', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'value', 'datatype': Gendb.DbDataType.UTF8Type },
+    ]
+    }
+    SERVER_SESSION_TABLE : {
+        'columns' : [
+            {'name' : 'key', 'datatype': Gendb.DbDataType.Unsigned32Type },
+            {'name' : 'key2', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'key3', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'column1', 'datatype'
+: Gendb.DbDataType.Unsigned16Type, 'clustering': true },
+        {'name' : 'column2', 'datatype'
+: Gendb.DbDataType.Unsigned16Type, 'clustering': true },
+        {'name' : 'column3', 'datatype'
+: Gendb.DbDataType.Unsigned32Type, 'clustering': true },
+        {'name' : 'column4', 'datatype'
+: Gendb.DbDataType.LexicalUUIDType, 'clustering': true},
+        {'name' : 'column5', 'datatype': Gendb.DbDataType.SetTextType},
+        {'name' : 'column6', 'datatype': Gendb.DbDataType.SetTextType},
+        {'name' : 'column7', 'datatype': Gendb.DbDataType.SetTextType},
+        {'name' : 'column8', 'datatype': Gendb.DbDataType.SetTextType},
+        {'name' : 'column9', 'datatype': Gendb.DbDataType.AsciiType },
+        {'name' : 'column10', 'datatype': Gendb.DbDataType.AsciiType },
+        {'name' : 'column11', 'datatype': Gendb.DbDataType.AsciiType },
+        {'name' : 'column12', 'datatype': Gendb.DbDataType.AsciiType },
+        {'name' : 'column13', 'datatype': Gendb.DbDataType.InetType },
+        {'name' : 'column14', 'datatype': Gendb.DbDataType.UTF8Type },
+        {'name' : 'column15', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column16', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column17', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column18', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column19', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column20', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column21', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'column22', 'datatype': Gendb.DbDataType.Unsigned64Type },
+        {'name' : 'value', 'datatype': Gendb.DbDataType.UTF8Type },
+    ]
     }
 }
 

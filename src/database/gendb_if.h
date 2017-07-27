@@ -72,12 +72,43 @@ inline bool operator<(const Blob &lhs, const Blob &rhs) {
     return lhs.data_ < rhs.data_;
 }
 
+struct SetText {
+    SetText(const std::vector<std::string> &data):
+        data_(data) {
+    }
+    size_t size() const {
+        return data_.size();
+    }
+    std::vector<std::string>::const_iterator begin() const {
+        return data_.begin();
+    }
+    std::vector<std::string>::const_iterator end() const {
+        return data_.end();
+    }
+    std::vector<std::string> data_;
+
+ private:
+    friend inline bool operator==(const SetText &lhs, const SetText &rhs);
+    friend inline bool operator<(const SetText &lhs, const SetText &rhs);
+};
+
+inline bool operator==(const SetText &lhs, const SetText &rhs) {
+    return lhs.data_ == rhs.data_;
+}
+
+inline bool operator<(const SetText &lhs, const SetText &rhs) {
+    return lhs.data_ < rhs.data_;
+}
+
+std::ostream& operator<<(std::ostream &out, const SetText &value);
+
 std::ostream& operator<<(std::ostream &out, const Blob &value);
 
 /* New stuff */
 typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t,
-    boost::uuids::uuid, uint8_t, uint16_t, double, IpAddress, Blob>
-    DbDataValue;
+    boost::uuids::uuid, uint8_t, uint16_t, double, IpAddress, Blob,
+    SetText > DbDataValue;
+//    DbDataValue;
 
 enum DbDataValueType {
     DB_VALUE_BLANK = 0,
@@ -90,6 +121,7 @@ enum DbDataValueType {
     DB_VALUE_DOUBLE = 7,
     DB_VALUE_INET = 8,
     DB_VALUE_BLOB = 9,
+    DB_VALUE_SET_TEXT = 11,
 };
 
 typedef std::vector<DbDataValue> DbDataValueVec;
