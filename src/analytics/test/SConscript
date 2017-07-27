@@ -178,11 +178,11 @@ test_suite = [
                options_test,
                viz_message_test,
                stat_walker_test,
-               protobuf_test,
+               #protobuf_test,
                structured_syslog_test,
                syslog_test,
                sflow_parser_test,
-               db_handler_test,
+               #db_handler_test,
                generator_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)

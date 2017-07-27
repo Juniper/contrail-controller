@@ -166,7 +166,9 @@ static const char * DbDataType2CassType(
       case GenDb::DbDataType::TimeUUIDType:
         return "timeuuid";
       case GenDb::DbDataType::Unsigned8Type:
+        return "tinyint";
       case GenDb::DbDataType::Unsigned16Type:
+        return "smallint";
       case GenDb::DbDataType::Unsigned32Type:
         return "int";
       case GenDb::DbDataType::Unsigned64Type:
@@ -181,6 +183,8 @@ static const char * DbDataType2CassType(
         return "varint";
       case GenDb::DbDataType::BlobType:
         return "blob";
+      case GenDb::DbDataType::SetTextType:
+        return "set<text>";
       default:
         assert(false && "Invalid data type");
         return "";
@@ -265,6 +269,9 @@ class CassQueryPrinter : public boost::static_visitor<> {
     void operator()(const IpAddress &tipaddr) const {
         os_ << "'" << tipaddr << "'";
     }
+    void operator()(const std::vector<std::string> &tvec) const {
+    
+    }
     std::ostream &os_;
     bool quote_strings_;
 };
@@ -280,7 +287,9 @@ class CassStatementIndexBinder : public boost::static_visitor<> {
         statement_(statement) {
     }
     void operator()(const boost::blank &tblank, size_t index) const {
-        assert(false && "CassStatement bind to boost::blank not supported");
+        CassError rc(cci_->CassStatementBindNull(statement_, index));
+        assert(rc == CASS_OK);
+//        assert(false && "CassStatement bind to boost::blank not supported");
     }
     void operator()(const std::string &tstring, size_t index) const {
         CassError rc(cci_->CassStatementBindStringN(statement_, index,
@@ -294,11 +303,12 @@ class CassStatementIndexBinder : public boost::static_visitor<> {
         assert(rc == CASS_OK);
     }
     void operator()(const uint8_t &tu8, size_t index) const {
-        CassError rc(cci_->CassStatementBindInt32(statement_, index, tu8));
+        CassError rc(cci_->CassStatementBindInt8(statement_, index, tu8));
         assert(rc == CASS_OK);
     }
     void operator()(const uint16_t &tu16, size_t index) const {
-        CassError rc(cci_->CassStatementBindInt32(statement_, index, tu16));
+        assert(tu16 <= (uint16_t)std::numeric_limits<int16_t>::max());
+        CassError rc(cci_->CassStatementBindInt16(statement_, index, tu16));
         assert(rc == CASS_OK);
     }
     void operator()(const uint32_t &tu32, size_t index) const {
@@ -334,6 +344,18 @@ class CassStatementIndexBinder : public boost::static_visitor<> {
     void operator()(const GenDb::Blob &tblob, size_t index) const {
         CassError rc(cci_->CassStatementBindBytes(statement_, index,
             tblob.data(), tblob.size()));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const std::vector<std::string> &tvec, size_t index) const {
+        CassCollection *cset = cci_->CassCollectionNew(
+            CASS_COLLECTION_TYPE_SET, tvec.size());
+        for (std::vector<std::string>::const_iterator it = tvec.begin();
+                it != tvec.end(); ++it) {
+            CassError rc(cci_->CassCollectionAppendString(cset, it->c_str()));
+            assert(rc == CASS_OK);
+        }
+        CassError rc(cci_->CassStatementBindCollection(statement_, index, cset));
+        cci_->CassCollectionFree(cset);
         assert(rc == CASS_OK);
     }
     interface::CassLibrary *cci_;
@@ -405,6 +427,19 @@ class CassStatementNameBinder : public boost::static_visitor<> {
     void operator()(const GenDb::Blob &tblob, const char *name) const {
         CassError rc(cci_->CassStatementBindBytesByNameN(statement_, name,
             strlen(name), tblob.data(), tblob.size()));
+        assert(rc == CASS_OK);
+    }
+    void operator()(const std::vector<std::string> &tvec, const char *name) const {
+        CassCollection *cset = cci_->CassCollectionNew(
+            CASS_COLLECTION_TYPE_SET, tvec.size());
+        for (std::vector<std::string>::const_iterator it = tvec.begin();
+                it != tvec.end(); ++it) {
+            CassError rc(cci_->CassCollectionAppendString(cset, it->c_str()));
+            assert(rc == CASS_OK);
+        }
+        CassError rc(cci_->CassStatementBindCollectionByName(statement_, name,
+                        cset));
+        cci_->CassCollectionFree(cset);
         assert(rc == CASS_OK);
     }
     interface::CassLibrary *cci_;
@@ -500,6 +535,7 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     if (values.size() > 0) {
         query << "value" << " " << DbDataTypes2CassTypes(values) << ", ";
     }
+
     // Primarry Key
     query << "PRIMARY KEY (";
     std::ostringstream rkey_ss;
@@ -758,7 +794,7 @@ std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf) {
     if (values.size() > 0) {
         query << ", value";
         values_ss << ", ?";
-    }
+    } 
     query << ") VALUES (";
     values_ss << ")";
     query << values_ss.str();
@@ -3016,6 +3052,21 @@ const CassRow* CassDatastaxLibrary::CassIteratorGetRow(
     return cass_iterator_get_row(iterator);
 }
 
+// CassCollection
+CassCollection* CassDatastaxLibrary::CassCollectionNew(CassCollectionType type,
+    size_t item_count) {
+    return cass_collection_new(type, item_count);
+}
+
+void CassDatastaxLibrary::CassCollectionFree(CassCollection* collection) {
+    cass_collection_free(collection);
+}
+
+CassError CassDatastaxLibrary::CassCollectionAppendString(
+    CassCollection* collection, const char* value) {
+    return cass_collection_append_string(collection, value);
+}
+
 // CassStatement
 CassStatement* CassDatastaxLibrary::CassStatementNew(const char* query,
     size_t parameter_count) {
@@ -3031,10 +3082,25 @@ CassError CassDatastaxLibrary::CassStatementSetConsistency(
     return cass_statement_set_consistency(statement, consistency);
 }
 
+CassError CassDatastaxLibrary::CassStatementBindNull(
+    CassStatement* statement, size_t index) {
+    return cass_statement_bind_null(statement, index);
+}
+
 CassError CassDatastaxLibrary::CassStatementBindStringN(
     CassStatement* statement,
     size_t index, const char* value, size_t value_length) {
     return cass_statement_bind_string_n(statement, index, value, value_length);
+}
+
+CassError CassDatastaxLibrary::CassStatementBindInt8(CassStatement* statement,
+    size_t index, cass_int8_t value) {
+    return cass_statement_bind_int8(statement, index, value);
+}
+
+CassError CassDatastaxLibrary::CassStatementBindInt16(CassStatement* statement,
+    size_t index, cass_int16_t value) {
+    return cass_statement_bind_int16(statement, index, value);
 }
 
 CassError CassDatastaxLibrary::CassStatementBindInt32(CassStatement* statement,
@@ -3066,6 +3132,12 @@ CassError CassDatastaxLibrary::CassStatementBindBytes(
     CassStatement* statement,
     size_t index, const cass_byte_t* value, size_t value_length) {
     return cass_statement_bind_bytes(statement, index, value, value_length);
+}
+
+CassError CassDatastaxLibrary::CassStatementBindCollection(
+    CassStatement* statement, size_t index,
+    const CassCollection* ccollection) {
+    return cass_statement_bind_collection(statement, index, ccollection);
 }
 
 CassError CassDatastaxLibrary::CassStatementBindStringByNameN(
@@ -3107,6 +3179,12 @@ CassError CassDatastaxLibrary::CassStatementBindBytesByNameN(
     size_t value_length) {
     return cass_statement_bind_bytes_by_name_n(statement, name, name_length,
         value, value_length);
+}
+
+CassError CassDatastaxLibrary::CassStatementBindCollectionByName(
+    CassStatement* statement, const char* name,
+    const CassCollection* ccollection) {
+    return cass_statement_bind_collection_by_name(statement, name, ccollection);
 }
 
 // CassPrepare

@@ -852,6 +852,18 @@ bool Ruleeng::handle_flow_object(const pugi::xml_node &parent,
     return true;
 }
 
+bool Ruleeng::handle_session_object(const pugi::xml_node &parent,
+    DbHandler *db, const SandeshHeader &header,
+    GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    if (header.get_Type() != SandeshType::FLOW) {
+        return true;
+    }
+    if(!(db->SessionTableInsert(parent, header, db_cb))) {
+        return false;
+    }
+    return true;
+}
+
 bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
     const SandeshXMLMessage *sxmsg =
@@ -873,6 +885,8 @@ bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
     if (uveproc) handle_uve_statistics(parent, vmsgp, db, header, db_cb);
 
     handle_flow_object(parent, db, header, db_cb);
+
+    //handle_session_object(parent, db, header, db_cb);
 
     RuleMsg rmsg(vmsgp); 
     rulelist_->rule_execute(rmsg);

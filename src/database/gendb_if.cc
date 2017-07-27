@@ -133,6 +133,17 @@ class DbDataValuePrinter : public boost::static_visitor<std::string> {
     std::string operator()(const IntegerType &tint) const {
         return integerToString(tint);
     }
+    std::string operator()(const std::vector<std::string> &tvec) const {
+        std::ostringstream oss;
+        for (size_t i = 0; i < tvec.size(); i++) {
+            if (i != 0) {
+                oss << ", ";
+            }
+            oss << tvec[i]; 
+        }
+        return oss.str();
+    }
+    
     std::string operator()(const std::string &tstring) const {
         return tstring;
     }

@@ -76,8 +76,9 @@ std::ostream& operator<<(std::ostream &out, const Blob &value);
 
 /* New stuff */
 typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t,
-    boost::uuids::uuid, uint8_t, uint16_t, double, IpAddress, Blob>
-    DbDataValue;
+    boost::uuids::uuid, uint8_t, uint16_t, double, IpAddress, Blob,
+    std::vector<std::string> > DbDataValue;
+//    DbDataValue;
 
 enum DbDataValueType {
     DB_VALUE_BLANK = 0,
@@ -90,6 +91,7 @@ enum DbDataValueType {
     DB_VALUE_DOUBLE = 7,
     DB_VALUE_INET = 8,
     DB_VALUE_BLOB = 9,
+    DB_VALUE_SET_TEXT = 11,
 };
 
 typedef std::vector<DbDataValue> DbDataValueVec;

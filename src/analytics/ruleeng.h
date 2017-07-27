@@ -56,6 +56,9 @@ class Ruleeng {
 
         bool handle_flow_object(const pugi::xml_node& parent, DbHandler *db,
             const SandeshHeader &header, GenDb::GenDbIf::DbAddColumnCb db_cb);
+        
+        bool handle_session_object(const pugi::xml_node& parent, DbHandler *db,
+            const SandeshHeader &header, GenDb::GenDbIf::DbAddColumnCb db_cb);
 
         void handle_object_log(const pugi::xml_node& parent,
             const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header,

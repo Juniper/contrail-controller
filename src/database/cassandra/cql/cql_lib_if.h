@@ -92,8 +92,14 @@ class CassLibrary {
     virtual void CassStatementFree(CassStatement* statement) = 0;
     virtual CassError CassStatementSetConsistency(CassStatement* statement,
         CassConsistency consistency) = 0;
+    virtual CassError CassStatementBindNull(CassStatement* statement,
+        size_t index) = 0;
     virtual CassError CassStatementBindStringN(CassStatement* statement,
         size_t index, const char* value, size_t value_length) = 0;
+    virtual CassError CassStatementBindInt8(CassStatement* statement,
+        size_t index, cass_int8_t value) = 0;
+    virtual CassError CassStatementBindInt16(CassStatement* statement,
+        size_t index, cass_int16_t value) = 0;
     virtual CassError CassStatementBindInt32(CassStatement* statement,
         size_t index, cass_int32_t value) = 0;
     virtual CassError CassStatementBindInt64(CassStatement* statement,
@@ -106,6 +112,8 @@ class CassLibrary {
         size_t index, CassInet value) = 0;
     virtual CassError CassStatementBindBytes(CassStatement* statement,
         size_t index, const cass_byte_t* value, size_t value_length) = 0;
+    virtual CassError CassStatementBindCollection(CassStatement* statement,
+        size_t index, const CassCollection* collection) = 0;
     virtual CassError CassStatementBindStringByNameN(CassStatement* statement,
         const char* name, size_t name_length, const char* value,
         size_t value_length) = 0;
@@ -122,6 +130,8 @@ class CassLibrary {
     virtual CassError CassStatementBindBytesByNameN(CassStatement* statement,
         const char* name, size_t name_length, const cass_byte_t* value,
         size_t value_length) = 0;
+    virtual CassError CassStatementBindCollectionByName(CassStatement* statement,
+        const char* name, const CassCollection* collection) = 0;
 
     // CassPrepare
     virtual void CassPreparedFree(const CassPrepared* prepared) = 0;
@@ -148,6 +158,13 @@ class CassLibrary {
     virtual CassError CassValueGetBytes(const CassValue* value,
         const cass_byte_t** output, size_t* output_size) = 0;
     virtual cass_bool_t CassValueIsNull(const CassValue* value) = 0;
+
+    // CassCollection
+    virtual CassCollection* CassCollectionNew(CassCollectionType type,
+        size_t item_count) = 0;
+    virtual void CassCollectionFree(CassCollection* collection) = 0;
+    virtual CassError CassCollectionAppendString(CassCollection* collection,
+        const char* value) = 0;
 
     // CassInet
     virtual CassInet CassInetInitV4(const cass_uint8_t* address) = 0;
@@ -244,8 +261,14 @@ class CassDatastaxLibrary : public CassLibrary {
     virtual void CassStatementFree(CassStatement* statement);
     virtual CassError CassStatementSetConsistency(CassStatement* statement,
         CassConsistency consistency);
+    virtual CassError CassStatementBindNull(
+        CassStatement* statement, size_t index);
     virtual CassError CassStatementBindStringN(CassStatement* statement,
         size_t index, const char* value, size_t value_length);
+    virtual CassError CassStatementBindInt8(CassStatement* statement,
+        size_t index, cass_int8_t value);
+    virtual CassError CassStatementBindInt16(CassStatement* statement,
+        size_t index, cass_int16_t value);
     virtual CassError CassStatementBindInt32(CassStatement* statement,
         size_t index, cass_int32_t value);
     virtual CassError CassStatementBindInt64(CassStatement* statement,
@@ -258,6 +281,8 @@ class CassDatastaxLibrary : public CassLibrary {
         size_t index, CassInet value);
     virtual CassError CassStatementBindBytes(CassStatement* statement,
         size_t index, const cass_byte_t* value, size_t value_length);
+    virtual CassError CassStatementBindCollection(CassStatement* statement,
+        size_t index, const CassCollection* collection);
     virtual CassError CassStatementBindStringByNameN(CassStatement* statement,
         const char* name, size_t name_length, const char* value,
         size_t value_length);
@@ -274,6 +299,8 @@ class CassDatastaxLibrary : public CassLibrary {
     virtual CassError CassStatementBindBytesByNameN(CassStatement* statement,
         const char* name, size_t name_length, const cass_byte_t* value,
         size_t value_length);
+    virtual CassError CassStatementBindCollectionByName(CassStatement* statement,
+        const char* name, const CassCollection* collection);
 
     // CassPrepare
     virtual void CassPreparedFree(const CassPrepared* prepared);
@@ -300,6 +327,13 @@ class CassDatastaxLibrary : public CassLibrary {
     virtual CassError CassValueGetBytes(const CassValue* value,
         const cass_byte_t** output, size_t* output_size);
     virtual cass_bool_t CassValueIsNull(const CassValue* value);
+
+    // CassCollection
+    virtual CassCollection* CassCollectionNew(CassCollectionType type,
+        size_t item_count);
+    virtual void CassCollectionFree(CassCollection* collection);
+    virtual CassError CassCollectionAppendString(CassCollection* collection,
+        const char* value);
 
     // CassInet
     virtual CassInet CassInetInitV4(const cass_uint8_t* address);
