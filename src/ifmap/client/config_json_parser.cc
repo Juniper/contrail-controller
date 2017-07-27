@@ -219,9 +219,11 @@ bool ConfigJsonParser::ParseRef(const ConfigCass2JsonAdapter &adapter,
     auto_ptr<AutogenProperty> pvalue;
     if (ref_entry.HasMember("attr")) {
         const Value& attr_node = ref_entry["attr"];
-        bool success = (loc->second)(attr_node, &pvalue);
-        CONFIG_PARSE_ASSERT(ReferenceLinkAttributes, success, metaname,
-                            "Link attribute parse error");
+        if (!attr_node.IsNull()) {
+            bool success = (loc->second)(attr_node, &pvalue);
+            CONFIG_PARSE_ASSERT(ReferenceLinkAttributes, success, metaname,
+                                "Link attribute parse error");
+        }
     }
 
     string neigh_name;
