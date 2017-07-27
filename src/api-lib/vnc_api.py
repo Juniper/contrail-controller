@@ -1421,26 +1421,86 @@ class VncApi(object):
         rv = self._request_server(rest.OP_GET, url)
         return rv
 
-    # associate a tag to an object
-    def set_tag(self, obj, tag_type, tag_value, is_global=False):
-        url = self._action_uri['set-tag-%s' % tag_type.lower()]
+    def set_tags(self, obj, tags_dict):
+        """Associate mutliple tags to a resource
+
+        Adds tags to a resource and also permits to set/unset multiple values
+        for tags which are authorized to be set multiple time on a same
+        resource (ie. `label` tag only).
+
+        :param obj: Resource object to update associated tags
+        :param tags_dict: Dict indexed by tag type name that describe values to
+            add or remove. Example:
+            {
+                'application': {
+                    'is_global': True,
+                    'value': 'production',
+                },
+                'label': {
+                    'is_global': False,
+                    'add_values': ['blue', 'grey'],
+                    'delete_values': ['red'],
+                },
+                'tier': {
+                    'value': 'backend',
+                },
+            }
+        """
+        url = self._action_uri['set-tag']
         data = {
+            'obj_type': obj.object_type,
             'obj_uuid': obj.get_uuid(),
-            'tag_value': tag_value,
-            'is_global': is_global
+        }
+        data.update(tags_dict)
+        content = self._request_server(rest.OP_POST, url, json.dumps(data))
+        return json.loads(content)
+
+    def set_tag(self, obj, type, value, is_global=False):
+        """Associate a defined tag to a resource
+
+        :param obj: Resource object to associate the defined tag
+        :param type: Tag type name
+        :param value: Tag value
+        :param is_global: Set tag global to all project (default: False)
+        """
+        tags_dict = {
+            type: {
+                'is_global': is_global,
+                'value': value,
+            },
+        }
+        return self.set_tags(obj, tags_dict)
+
+    def unset_tags(self, obj, types=None):
+        """Remove multiple tags assocaited to a resource_list
+
+        Remove all tags associated to the resource if the tag type is contained
+        in the tag type list.
+
+        :param obj: Resource object to disassociate tags
+        :param types: Iterable of tag type names
+        """
+
+        if types is None:
+            return {}
+        elif not isinstance(types, list):
+            raise HttpError(400, 'Need a list of tag types')
+
+        url = self._action_uri['unset-tag']
+        data = {
+            'obj_type': obj.object_type,
+            'obj_uuid': obj.get_uuid(),
+            'types': types,
         }
         content = self._request_server(rest.OP_POST, url, json.dumps(data))
         return json.loads(content)
 
-    # disassociate tag from an object
-    def unset_tag(self, obj, tag_type, tag_value, is_global=False):
-        url = self._action_uri['set-tag-%s' % tag_type.lower()]
-        data = {
-            'obj_uuid': obj.get_uuid(),
-            'tag_value': tag_value,
-            'is_global': is_global
-        }
-        content = self._request_server(rest.OP_DELETE, url, json.dumps(data))
-        return json.loads(content)
+    def unset_tag(self, obj, type):
+        """Disassociate tags of a certain type
+
+        :param obj: Resource object to disassociate tags
+        :param type: tag type name
+        """
+        return self.unset_tags(obj, types=[type])
 
 # end class VncApi
