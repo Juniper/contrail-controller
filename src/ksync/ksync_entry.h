@@ -148,6 +148,8 @@ public:
     // ksync-tx supports multiple queues for KSync events. Get index of queue
     // to use
     virtual uint32_t GetTableIndex() const { return 0; }
+    // On stale timer expiration, notify entry for same
+    virtual void StaleTimerExpired() { }
 
     size_t GetIndex() const {return index_;};
     KSyncState GetState() const {return state_;};

@@ -1209,6 +1209,7 @@ public:
     bool NeedDevice() const;
     bool IsActive() const;
     bool InstallBridgeRoutes() const;
+    bool IsBareMetal() const {return (vmi_type_ == BAREMETAL);}
 
     bool NeedMplsLabel() const;
     bool SgExists(const boost::uuids::uuid &id, const SgList &sg_l);

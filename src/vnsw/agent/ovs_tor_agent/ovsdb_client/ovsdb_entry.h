@@ -76,6 +76,8 @@ public:
     virtual void DeleteMsg(struct ovsdb_idl_txn *) {}
 
     virtual void OvsdbChange() {}
+    // All stale entries get a prior notification before action is taken.
+    virtual void StaleTimerExpired() { }
 
     bool AllowDeleteStateComp() {return false;}
     virtual void NotifyAdd(struct ovsdb_idl_row *);
