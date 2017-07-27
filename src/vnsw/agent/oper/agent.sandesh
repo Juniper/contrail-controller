@@ -793,6 +793,8 @@ struct VrfSandeshData {
    13: i32 mac_aging_time;
    /** Layer 2 control word */
    14: bool layer2_control_word;
+   /** Forwarding VRF */
+   15: string forwarding_vrf;
 }
 
 /**

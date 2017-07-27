@@ -894,6 +894,9 @@ public:
     const Peer *mac_vm_binding_peer() const {return mac_vm_binding_peer_.get();}
     const Peer *inet_evpn_peer() const {return inet_evpn_peer_.get();}
     const Peer *mac_learning_peer() const {return mac_learning_peer_.get();}
+    const Peer *fabric_rt_export_peer() const {
+        return fabric_rt_export_peer_.get();
+    }
 
     // Agent Modules
     AgentConfig *cfg() const; 
@@ -1314,6 +1317,7 @@ private:
     std::auto_ptr<Peer> mac_vm_binding_peer_;
     std::auto_ptr<Peer> inet_evpn_peer_;
     std::auto_ptr<Peer> mac_learning_peer_;
+    std::auto_ptr<Peer> fabric_rt_export_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
 

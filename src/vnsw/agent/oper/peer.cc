@@ -229,13 +229,11 @@ void BgpPeer::DeleteVrfState(DBTablePartBase *partition,
 
     if (vrf_state == NULL)
         return;
-    
-    if (vrf->GetName().compare(agent()->fabric_vrf_name()) != 0) {
-        for (uint8_t table_type = (Agent::INVALID + 1);
-                table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
-            if (vrf_state->rt_export_[table_type]) 
-                vrf_state->rt_export_[table_type]->Unregister();
-        }
+
+    for (uint8_t table_type = (Agent::INVALID + 1);
+         table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
+        if (vrf_state->rt_export_[table_type]) 
+            vrf_state->rt_export_[table_type]->Unregister();
     }
 
     if (vrf_state->exported_ == true) {

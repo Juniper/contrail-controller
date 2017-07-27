@@ -633,6 +633,9 @@ void Agent::InitPeers() {
     mac_learning_peer_.reset(new Peer(Peer::MAC_LEARNING_PEER,
                                       MAC_LEARNING_PEER_NAME,
                                       false));
+    fabric_rt_export_peer_.reset(new Peer(Peer::LOCAL_VM_PEER,
+                                          FABRIC_RT_EXPORT,
+                                          true));
 }
 
 void Agent::ReconfigSignalHandler(boost::system::error_code ec, int signum) {

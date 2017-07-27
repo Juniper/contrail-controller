@@ -174,8 +174,7 @@ bool ControllerRouteWalker::VrfNotifyInternal(DBTablePartBase *partition,
         VrfExport::State *state = 
             static_cast<VrfExport::State *>(vrf->GetState(partition->parent(), 
                                                           id)); 
-        //TODO check if state is not added for default vrf
-        if (state && (vrf->GetName().compare(agent()->fabric_vrf_name()) != 0)) {
+        if (state) {
             StartRouteWalk(vrf);
         }
 

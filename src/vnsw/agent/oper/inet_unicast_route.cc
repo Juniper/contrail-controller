@@ -606,6 +606,18 @@ bool InetUnicastRouteEntry::ReComputePathAdd(AgentPath *path) {
                                                 uc_rt_table->agent()->
                                                 inet_evpn_peer());
 
+    if (path->nexthop() && path->nexthop()->IsValid() &&
+        path->nexthop()->GetType() == NextHop::ARP) {
+        //Add bridge route for IP fabric ARP routes, so that
+        //MAC stitching can be done for VM routes based on corresponding
+        //compute node
+        const ArpNH *arp_nh = static_cast<const ArpNH *>(path->nexthop());
+        BridgeAgentRouteTable *table =
+            static_cast<BridgeAgentRouteTable *>(vrf()->GetBridgeRouteTable());
+        table->AddMacVmBindingRoute(path->peer(), vrf()->GetName(), arp_nh->GetMac(),
+                                    NULL, false);
+    }
+
     // ECMP path are managed by route module. Update ECMP path with
     // addition of new path
     ret |= EcmpAddPath(path);
@@ -616,6 +628,16 @@ bool InetUnicastRouteEntry::ReComputePathDeletion(AgentPath *path) {
     if (IsHostRoute() == false) {
         //TODO merge both evpn inet and subnet routes handling
         UpdateDependantRoutes();
+    }
+
+
+    if (path->nexthop() && path->nexthop()->GetType() == NextHop::ARP) {
+        const ArpNH *arp_nh =
+            static_cast<const ArpNH *>(path->nexthop());
+        BridgeAgentRouteTable *table =
+            static_cast<BridgeAgentRouteTable *>(vrf()->GetBridgeRouteTable());
+        table->DeleteMacVmBindingRoute(path->peer(), vrf()->GetName(),
+                                       arp_nh->GetMac(), NULL);
     }
 
     //Subnet discard = Ipam subnet route.
@@ -1002,7 +1024,7 @@ bool InetUnicastRouteEntry::UpdateRouteFlags(bool ipam_subnet_route,
 
 bool Inet4UnicastArpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                                  const AgentRoute *rt) {
-    bool ret = false;
+    bool ret = true;
 
     ArpNHKey key(vrf_name_, addr_, policy_);
     NextHop *nh = 
@@ -1033,6 +1055,8 @@ bool Inet4UnicastArpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         }
     }
 
+    path->set_tunnel_bmap(1 << TunnelType::NATIVE);
+
     return ret;
 }
 
@@ -1050,8 +1074,12 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
         path->set_unresolved(true);
+        std::string nexthop_vrf = nh->interface()->vrf()->GetName();
+        if (nh->interface()->vrf()->forwarding_vrf()) {
+            nexthop_vrf = nh->interface()->vrf()->forwarding_vrf()->GetName();
+        }
         InetUnicastAgentRouteTable::AddArpReq(vrf_name_, gw_ip_.to_v4(),
-                                              nh->interface()->vrf()->GetName(),
+                                              nexthop_vrf,
                                               nh->interface(), nh->PolicyEnabled(),
                                               vn_list_, sg_list_, tag_list_);
     } else {
@@ -1083,6 +1111,9 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
     //Reset to new gateway route, no nexthop for indirect route
     path->set_gw_ip(gw_ip_);
     path->ResetDependantRoute(rt);
+    if (rt) {
+        path->set_tunnel_bmap(rt->GetActivePath()->tunnel_bmap());
+    }
 
     if (path->dest_vn_list() != vn_list_) {
         path->set_dest_vn_list(vn_list_);
@@ -1652,7 +1683,12 @@ InetUnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name,
         // Currently, default GW Arp is added during init
         return;
     }
-    AddArpReq(vrf_name, ip, intf->vrf()->GetName(), intf, false, vn_list, sg, tag);
+
+    std::string nexthop_vrf = intf->vrf()->GetName();
+    if (intf->vrf()->forwarding_vrf()) {
+        nexthop_vrf = intf->vrf()->forwarding_vrf()->GetName();
+    }
+    AddArpReq(vrf_name, ip, nexthop_vrf, intf, false, vn_list, sg, tag);
 }
 
 void InetUnicastAgentRouteTable::AddResolveRoute(const Peer *peer,
@@ -1713,8 +1749,10 @@ static void AddVHostRecvRouteInternal(DBRequest *req, const Peer *peer,
     req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req->key.reset(new InetUnicastRouteKey(peer, vrf, addr, plen));
 
-    req->data.reset(new ReceiveRoute(intf_key, MplsTable::kInvalidLabel,
-                                    TunnelType::AllType(), policy, vn_name));
+    req->data.reset(new ReceiveRoute(intf_key, MplsTable::kInvalidExportLabel,
+                                    TunnelType::AllType() |
+                                    TunnelType::NativeType(),
+                                    policy, vn_name));
 }
 
 void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,

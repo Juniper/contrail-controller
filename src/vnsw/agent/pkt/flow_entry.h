@@ -513,7 +513,8 @@ class FlowEntry {
         TcpAckFlow      = 1 << 10,
         UnknownUnicastFlood = 1 << 11,
         BgpRouterService   = 1 << 12,
-        AliasIpFlow     = 1 << 13
+        AliasIpFlow     = 1 << 13,
+        FabricControlFlow = 1 << 14
     };
 
     FlowEntry(FlowTable *flow_table);
@@ -675,6 +676,7 @@ class FlowEntry {
     void set_deleted(bool deleted) { deleted_ = deleted; }
     void SetAclAction(std::vector<AclAction> &acl_action_l) const;
     void UpdateReflexiveAction();
+    bool IsFabricControlFlow() const;
     void SetAclFlowSandeshData(const AclDBEntry *acl,
                                FlowSandeshData &fe_sandesh_data,
                                Agent *agent) const;
