@@ -158,7 +158,7 @@ uint16_t ProtoHandler::UdpHdr(udphdr *udp, uint16_t buf_len, uint16_t len,
 
     FillUdpHdr(udp, len, src_port, dest_port);
 #ifdef VNSW_AGENT_UDP_CSUM
-    udp->check = UdpCsum(src, dest, len, pkt_info_->transp.udp);
+    udp->uh_sum = UdpCsum(src, dest, len, udp);
 #endif
 
     return sizeof(udphdr);

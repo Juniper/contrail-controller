@@ -36,6 +36,7 @@ private:
     void DhcpStatsSandesh(std::string ctxt, bool more);
     void Dhcpv6StatsSandesh(std::string ctxt, bool more);
     void ArpStatsSandesh(std::string ctxt, bool more);
+    void BfdStatsSandesh(std::string ctxt, bool more);
     void DnsStatsSandesh(std::string ctxt, bool more);
     void IcmpStatsSandesh(std::string ctxt, bool more);
     void Icmpv6StatsSandesh(std::string ctxt, bool more);

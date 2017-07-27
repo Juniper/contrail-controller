@@ -111,6 +111,7 @@ public:
     virtual bool DestroyInstanceTask() = 0;
     virtual bool RunInstanceTask() = 0;
     virtual bool StopInstanceTask() = 0;
+    virtual bool UpdateInstanceTask() { return true; }
 
     // OnRead Callback for Task
     void OnRead(const std::string &data);
@@ -186,6 +187,7 @@ public:
     virtual bool DestroyInstanceTask();
     virtual bool RunInstanceTask();
     virtual bool StopInstanceTask();
+    virtual bool UpdateInstanceTask();
 
 private:
     friend class HealthCheckTable;
@@ -266,7 +268,8 @@ public:
         CREATE_SERVICE,
         DELETE_SERVICE,
         RUN_SERVICE,
-        STOP_SERVICE
+        STOP_SERVICE,
+        UPDATE_SERVICE
     };
     typedef boost::function<bool(HealthCheckServiceAction,
                                  HealthCheckInstanceService *)>
