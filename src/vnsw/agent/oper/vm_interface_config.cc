@@ -159,7 +159,7 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                  node1->begin(pool_graph);
                  node1_iter != node1->end(pool_graph); ++node1_iter) {
 
-                IFMapNode *vn_node = 
+                IFMapNode *vn_node =
                     static_cast<IFMapNode *>(node1_iter.operator->());
                 if (BuildFloatingIpVnVrf(agent, data, node, vn_node) == true)
                     break;
@@ -268,7 +268,7 @@ static void BuildAliasIpList(InterfaceTable *intf_table,
 
 // Build list of static-routes on virtual-machine-interface
 static void BuildStaticRouteList(VmInterfaceConfigData *data, IFMapNode *node) {
-    InterfaceRouteTable *entry = 
+    InterfaceRouteTable *entry =
         static_cast<InterfaceRouteTable*>(node->GetObject());
     assert(entry);
 
@@ -310,7 +310,7 @@ static void BuildStaticRouteList(VmInterfaceConfigData *data, IFMapNode *node) {
 }
 
 static void BuildResolveRoute(VmInterfaceConfigData *data, IFMapNode *node) {
-    Subnet *entry = 
+    Subnet *entry =
         static_cast<Subnet *>(node->GetObject());
     assert(entry);
     Ip4Address ip;
@@ -399,7 +399,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
                                        IFMapNode *node) {
 
     ConfigManager *cfg_manager= agent->config_manager();
-    VirtualMachineInterfaceRoutingInstance *entry = 
+    VirtualMachineInterfaceRoutingInstance *entry =
         static_cast<VirtualMachineInterfaceRoutingInstance*>(node->GetObject());
     assert(entry);
 
@@ -410,7 +410,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
     }
 
     // Find VRF by looking for link
-    // virtual-machine-interface-routing-instance <-> routing-instance 
+    // virtual-machine-interface-routing-instance <-> routing-instance
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
 
@@ -635,7 +635,7 @@ static void BuildTagList(VmInterface::TagEntryList *tag_list, IFMapNode *node) {
     autogen::IdPermsType id_perms = tag_cfg->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                tag_uuid);
-    uint32_t tag_type = TagEntry::GetTypeVal(tag_cfg->type());
+    uint32_t tag_type = TagEntry::GetTypeVal(tag_cfg->type_name());
     tag_list->list_.insert(VmInterface::TagEntry(tag_type, tag_uuid));
 }
 
@@ -805,7 +805,7 @@ static void CompareVnVm(const uuid &vmi_uuid, VmInterfaceConfigData *data,
      */
     if (entry && entry->type() == PortSubscribeEntry::VMPORT &&
         (entry->MatchVn(data->vn_uuid_) == false)) {
-        IFMAP_ERROR(InterfaceConfiguration, 
+        IFMAP_ERROR(InterfaceConfiguration,
                     "Virtual-network UUID mismatch for interface:",
                     UuidToString(vmi_uuid),
                     "configuration VN uuid",
@@ -1195,7 +1195,7 @@ static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
         data->vrf_name_ == agent->linklocal_vrf_name()) {
         data->fabric_port_ = true;
         data->need_linklocal_ip_ = false;
-    } 
+    }
 
     if (agent->isXenMode()) {
         data->need_linklocal_ip_ = false;
@@ -1362,7 +1362,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     data->vmi_cfg_uuid_ = vmi_uuid;
     std::list<IFMapNode *> bgp_as_a_service_node_list;
     for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph()); 
+         node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
@@ -1499,7 +1499,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         vmi_uuid = nil_uuid();
     }
 
-    InterfaceKey *key = NULL; 
+    InterfaceKey *key = NULL;
     if (cfg->display_name() == agent_->vhost_interface_name()) {
         key = new VmInterfaceKey(AgentKey::RESYNC, vmi_uuid, cfg->display_name());
     } else if (data->device_type_ == VmInterface::VM_ON_TAP ||
@@ -1584,7 +1584,7 @@ bool InterfaceTable::VmiIFNodeToReq(IFMapNode *node, DBRequest &req,
     return false;
 }
 
-bool InterfaceTable::VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) { 
+bool InterfaceTable::VmiIFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
 
     VirtualMachineInterface *cfg = static_cast <VirtualMachineInterface *>
         (node->GetObject());
