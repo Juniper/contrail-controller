@@ -124,6 +124,16 @@ std::ostream& GenDb::operator<<(std::ostream &out, const Blob &value) {
     return out;
 }
 
+std::ostream& GenDb::operator<<(std::ostream &out, const SetText &value) {
+    for (size_t i = 0; i < value.size(); i++) {
+        if (i != 0) {
+            out << ", ";
+        }
+       out << value.data_[i];
+    }
+    return out;
+}
+
 // DbDataValue Printer
 class DbDataValuePrinter : public boost::static_visitor<std::string> {
  public:
@@ -132,6 +142,11 @@ class DbDataValuePrinter : public boost::static_visitor<std::string> {
     template <typename IntegerType>
     std::string operator()(const IntegerType &tint) const {
         return integerToString(tint);
+    }
+    std::string operator()(const GenDb::SetText &tset) const {
+        std::ostringstream oss;
+        oss << tset;
+        return oss.str();
     }
     std::string operator()(const std::string &tstring) const {
         return tstring;

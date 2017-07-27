@@ -93,8 +93,14 @@ class MockCassLibrary : public interface::CassLibrary {
     MOCK_METHOD1(CassStatementFree, void (CassStatement* statement));
     MOCK_METHOD2(CassStatementSetConsistency, CassError (
         CassStatement* statement, CassConsistency consistency));
+    MOCK_METHOD2(CassStatementBindNull, CassError (CassStatement* statement,
+        size_t index));
     MOCK_METHOD4(CassStatementBindStringN, CassError (CassStatement* statement,
         size_t index, const char* value, size_t value_length));
+    MOCK_METHOD3(CassStatementBindInt8, CassError (CassStatement* statement,
+        size_t index, cass_int8_t value));
+    MOCK_METHOD3(CassStatementBindInt16, CassError (CassStatement* statement,
+        size_t index, cass_int16_t value));
     MOCK_METHOD3(CassStatementBindInt32, CassError (CassStatement* statement,
         size_t index, cass_int32_t value));
     MOCK_METHOD3(CassStatementBindInt64, CassError (CassStatement* statement,
@@ -107,6 +113,9 @@ class MockCassLibrary : public interface::CassLibrary {
         size_t index, CassInet value));
     MOCK_METHOD4(CassStatementBindBytes, CassError (CassStatement* statement,
         size_t index, const cass_byte_t* value, size_t value_length));
+    MOCK_METHOD3(CassStatementBindCollection, CassError (
+        CassStatement* statement, size_t index,
+        const CassCollection* collection));
     MOCK_METHOD5(CassStatementBindStringByNameN, CassError (
         CassStatement* statement, const char* name, size_t name_length,
         const char* value, size_t value_length));
@@ -123,6 +132,9 @@ class MockCassLibrary : public interface::CassLibrary {
     MOCK_METHOD5(CassStatementBindBytesByNameN, CassError (
         CassStatement* statement, const char* name, size_t name_length,
         const cass_byte_t* value, size_t value_length));
+    MOCK_METHOD3(CassStatementBindCollectionByName, CassError (
+        CassStatement* statement, const char* name,
+        const CassCollection* collection));
 
     // CassPrepare
     MOCK_METHOD1(CassPreparedFree, void (const CassPrepared* prepared));
@@ -150,6 +162,13 @@ class MockCassLibrary : public interface::CassLibrary {
     MOCK_METHOD3(CassValueGetBytes, CassError (const CassValue* value,
         const cass_byte_t** output, size_t* output_size));
     MOCK_METHOD1(CassValueIsNull, cass_bool_t (const CassValue* value));
+
+    // CassCollection
+    MOCK_METHOD2(CassCollectionNew, CassCollection* (CassCollectionType type,
+        size_t size));
+    MOCK_METHOD1(CassCollectionFree, void (CassCollection* collection));
+    MOCK_METHOD2(CassCollectionAppendString, CassError (
+        CassCollection * collection, const char* str));
 
     // CassInet
     MOCK_METHOD1(CassInetInitV4, CassInet (const cass_uint8_t* address));
