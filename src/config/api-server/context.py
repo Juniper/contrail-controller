@@ -23,6 +23,9 @@ class ApiContext(object):
     states = {
         'INIT': 'Initializing',
 
+        'PRE_DBE_ALLOC': 'Before IDs allocation',
+        'DBE_ALLOC': 'IDs allocation',
+
         'PRE_DBE_CREATE': 'Before DB Entry Creation',
         'DBE_CREATE': 'DB Entry Creation',
         'POST_DBE_CREATE': 'After DB Entry Creation',

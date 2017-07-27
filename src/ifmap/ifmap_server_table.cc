@@ -517,4 +517,3 @@ void IFMapServerTable::RemoveObjectAndDeleteNode(IFMapNode *node,
     }
     table->DeleteIfEmpty(node);
 }
-
