@@ -582,7 +582,8 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
         //Physical interface list
         vnsConstants vnsVrouterType;
         //vhost attributes
-        InetInterfaceKey key(agent_->vhost_interface_name());
+        VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                           agent_->vhost_interface_name());
         const Interface *vhost = static_cast<const Interface *>(
              agent_->interface_table()->FindActiveEntry(&key));
         if (vhost) {

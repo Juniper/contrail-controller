@@ -100,8 +100,8 @@ TEST_F(FabricVmiTest, CrossConnect) {
     const VmInterface *vm_intf = 
         static_cast<const VmInterface *>(VhostGet("vhost0"));
     EXPECT_TRUE(vm_intf->parent()->name() == "vnet0");
-    //EXPECT_TRUE(vm_intf->mac() == vm_intf->parent()->mac());
     EXPECT_TRUE(vm_intf->vmi_type() == VmInterface::VHOST);
+    EXPECT_TRUE(vm_intf->bridging() == false);
 }
 
 TEST_F(FabricVmiTest, VerifyReceiveRoute) {
@@ -177,6 +177,15 @@ TEST_F(FabricVmiTest, Tag) {
     client->WaitForIdle();
 }
 
+//Delete the IPAM
+TEST_F(FabricVmiTest, NoIpam) {
+    Ip4Address ip = Ip4Address::from_string("10.1.1.1");
+    DelIPAM(DEFAULT_VN);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 32));
+    client->WaitForIdle();
+}
 int main(int argc, char *argv[]) {
     int ret = 0;
     GETUSERARGS();

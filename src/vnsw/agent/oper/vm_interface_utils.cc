@@ -438,7 +438,7 @@ void VmInterface::AddL2InterfaceRoute(const IpAddress &ip,
     table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this, ip,
                            label, vn_name, sg_id_list,
                            tag_list, path_preference,
-                           ethernet_tag_, etree_leaf_);
+                           ethernet_tag_, etree_leaf_, name_);
 }
 
 // Delete EVPN route

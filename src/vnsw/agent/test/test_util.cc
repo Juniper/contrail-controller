@@ -209,6 +209,8 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("project", "tag", "project-tag");
     AddLinkToMetadata("application-policy-set", "tag");
     AddLinkToMetadata("policy-management", "application-policy-set");
+    AddLinkToMetadata("virtual-network", "virtual-network",
+                      "virtual-network-provider-network");
 }
 
 string GetMetadata(const char *node1, const char *node2,

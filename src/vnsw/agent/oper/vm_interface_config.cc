@@ -498,7 +498,6 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
 // Note: Right interface of in-network-nat will not have vrf-assign
 static void BuildProxyArpFlags(Agent *agent, VmInterfaceConfigData *data,
                                VirtualMachineInterface *cfg) {
-    data->proxy_arp_mode_ = VmInterface::PROXY_ARP_NONE;
     if (cfg->vrf_assign_table().size() == 0)
         return;
 
@@ -802,6 +801,13 @@ static void BuildVn(VmInterfaceConfigData *data,
             iter != node->end(table->GetGraph()); ++iter) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent->config_manager()->CanUseNode(adj_node,
+                                                agent->cfg()->cfg_vn_table())) {
+            if (adj_node->name() == agent->fabric_vn_name()) {
+                data->proxy_arp_mode_ = VmInterface::PROXY_ARP_UNRESTRICTED;
+            }
+        }
+
         if (agent->config_manager()->SkipNode(adj_node,
                                               agent->cfg()->cfg_tag_table())) {
             continue;
@@ -1301,6 +1307,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     VmInterface::TagEntryList vn_list;
     VmInterface::TagEntryList project_list;
 
+    data->vmi_cfg_uuid_ = vmi_uuid;
     std::list<IFMapNode *> bgp_as_a_service_node_list;
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph()); 
@@ -1436,7 +1443,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     InterfaceKey *key = NULL; 
     if (cfg->display_name() == agent_->vhost_interface_name()) {
-        key = new VmInterfaceKey(AgentKey::RESYNC, vmi_uuid, node->name());
+        key = new VmInterfaceKey(AgentKey::RESYNC, vmi_uuid, cfg->display_name());
     } else if (data->device_type_ == VmInterface::VM_ON_TAP ||
                     data->device_type_ == VmInterface::DEVICE_TYPE_INVALID) {
         key = new VmInterfaceKey(AgentKey::RESYNC, u, "");

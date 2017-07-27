@@ -1049,6 +1049,42 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     return;
 }
 
+void PktFlowInfo::OverlayForwarding(const VmInterface *intf, const PktInfo *pkt,
+                                    PktControlInfo *in, PktControlInfo *out) {
+
+    if (nat_done) {
+        return;
+    }
+
+    //Do route lookup in policy VRF and if the tunnel encap list
+    //doesnt support fabric forwarding, we will do vrf translate
+    //and do forwarding in overlay network
+     AgentRoute *src_rt = FlowEntry::GetUcRoute(intf->vrf(), pkt->ip_saddr);
+     AgentRoute *dst_rt = FlowEntry::GetUcRoute(intf->vrf(), pkt->ip_daddr);
+
+     if (src_rt == NULL || dst_rt == NULL) {
+         return;
+     }
+
+     uint32_t src_tunnel_bmap = src_rt->GetActivePath()->tunnel_bmap();
+     uint32_t dst_tunnel_bmap = dst_rt->GetActivePath()->tunnel_bmap();
+
+     if ((src_tunnel_bmap & (1 << TunnelType::NATIVE)) &&
+         (dst_tunnel_bmap & (1 << TunnelType::NATIVE))) {
+         //Use native forwarding, no change
+         return;
+     }
+
+     const VrfEntry *vrf = intf->vrf();
+     ChangeVrf(pkt, out, vrf);
+     dest_vrf = vrf->vrf_id();
+     alias_ip_flow = true;
+     UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, pkt->dmac,
+                 flow_dest_plen_map);
+     UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, pkt->smac,
+                 flow_source_plen_map);
+}
+
 bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
                                PktControlInfo *out, const IpAddress &src_ip,
                                bool nat_flow) {
@@ -1066,6 +1102,11 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     //If interface has a VRF assign rule, choose the acl and match the
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
+
+    if (vm_intf->vrf() != vm_intf->forwarding_vrf()) {
+        OverlayForwarding(vm_intf, pkt, in, out);
+    }
+
     const AclDBEntry *acl = NULL;
     if (nat_flow == false) {
         acl = vm_intf->vrf_assign_acl();

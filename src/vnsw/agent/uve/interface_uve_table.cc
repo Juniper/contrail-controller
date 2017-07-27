@@ -179,7 +179,7 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     s_intf->set_active(intf_->IsUveActive());
     s_intf->set_admin_state(intf_->admin_state());
 
-    s_intf->set_uuid(to_string(intf_->GetUuid()));
+    s_intf->set_uuid(to_string(intf_->vmi_cfg_uuid()));
     string gw;
     if (GetVmInterfaceGateway(intf_, gw)) {
         s_intf->set_gateway(gw);
