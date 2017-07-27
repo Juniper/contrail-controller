@@ -60,6 +60,13 @@ TEST_F(TunnelEncapTest, String_7) {
     EXPECT_EQ("vxlan-gpe", tunnel_encap.ToXmppString());
 }
 
+TEST_F(TunnelEncapTest, String_8) {
+    TunnelEncap tunnel_encap("native");
+    EXPECT_EQ(TunnelEncapType::NATIVE_CONTRAIL, tunnel_encap.tunnel_encap());
+    EXPECT_EQ("encapsulation:native", tunnel_encap.ToString());
+    EXPECT_EQ("native", tunnel_encap.ToXmppString());
+}
+
 TEST_F(TunnelEncapTest, EncapType_1a) {
     TunnelEncap tunnel_encap(TunnelEncapType::GRE);
     EXPECT_EQ(TunnelEncapType::GRE, tunnel_encap.tunnel_encap());
@@ -113,6 +120,13 @@ TEST_F(TunnelEncapTest, EncapType_7) {
     EXPECT_EQ(TunnelEncapType::VXLAN_GPE, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:vxlan-gpe", tunnel_encap.ToString());
     EXPECT_EQ("vxlan-gpe", tunnel_encap.ToXmppString());
+}
+
+TEST_F(TunnelEncapTest, EncapType_8) {
+    TunnelEncap tunnel_encap(TunnelEncapType::NATIVE_CONTRAIL);
+    EXPECT_EQ(TunnelEncapType::NATIVE_CONTRAIL, tunnel_encap.tunnel_encap());
+    EXPECT_EQ("encapsulation:native", tunnel_encap.ToString());
+    EXPECT_EQ("native", tunnel_encap.ToXmppString());
 }
 
 TEST_F(TunnelEncapTest, ByteArray_1a) {
@@ -185,6 +199,15 @@ TEST_F(TunnelEncapTest, ByteArray_7) {
     EXPECT_EQ(TunnelEncapType::VXLAN_GPE, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:vxlan-gpe", tunnel_encap.ToString());
     EXPECT_EQ("vxlan-gpe", tunnel_encap.ToXmppString());
+}
+
+TEST_F(TunnelEncapTest, ByteArray_8) {
+    TunnelEncap::bytes_type data =
+        { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x90, 0x8b } };
+    TunnelEncap tunnel_encap(data);
+    EXPECT_EQ(TunnelEncapType::NATIVE_CONTRAIL, tunnel_encap.tunnel_encap());
+    EXPECT_EQ("encapsulation:native", tunnel_encap.ToString());
+    EXPECT_EQ("native", tunnel_encap.ToXmppString());
 }
 
 int main(int argc, char **argv) {
