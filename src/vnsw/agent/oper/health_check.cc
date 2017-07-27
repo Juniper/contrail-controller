@@ -64,6 +64,7 @@ void HealthCheckInstanceBase::ResyncInterface(HealthCheckService *service) {
 
 void HealthCheckInstanceBase::set_service(HealthCheckService *service) {
     if (service_ == service) {
+        UpdateInstanceTask();
         return;
     }
     service_ = service;
@@ -135,6 +136,7 @@ bool HealthCheckInstanceTask::DestroyInstanceTask() {
         return false;
     }
 
+    HEALTH_CHECK_TRACE(Trace, "Deleting " + this->to_string());
     deleted_ = true;
     StopInstanceTask();
     return true;
@@ -196,8 +198,12 @@ HealthCheckInstanceService::~HealthCheckInstanceService() {
 bool HealthCheckInstanceService::CreateInstanceTask() {
     deleted_ = false;
     HEALTH_CHECK_TRACE(Trace, "Starting " + this->to_string());
-    service_->table()->health_check_service_callback()
-                       (HealthCheckTable::CREATE_SERVICE, this);
+    if (service_->table()->health_check_service_callback()
+                           (HealthCheckTable::CREATE_SERVICE, this) == false) {
+        HEALTH_CHECK_TRACE(Trace, "Failed to start  " + this->to_string());
+        service_ = NULL;
+        return false;
+    }
     return true;
 }
 
@@ -206,6 +212,7 @@ bool HealthCheckInstanceService::DestroyInstanceTask() {
         return true;
     }
 
+    HEALTH_CHECK_TRACE(Trace, "Deleting " + this->to_string());
     service_->table()->health_check_service_callback()
                        (HealthCheckTable::DELETE_SERVICE, this);
 
@@ -221,6 +228,12 @@ bool HealthCheckInstanceService::RunInstanceTask() {
 bool HealthCheckInstanceService::StopInstanceTask() {
     return service_->table()->health_check_service_callback()
                               (HealthCheckTable::STOP_SERVICE, this);
+}
+
+bool HealthCheckInstanceService::UpdateInstanceTask() {
+    HEALTH_CHECK_TRACE(Trace, "Updating " + this->to_string());
+    return service_->table()->health_check_service_callback()
+                              (HealthCheckTable::UPDATE_SERVICE, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

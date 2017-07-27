@@ -59,5 +59,6 @@ extern SandeshTraceBufferPtr Dhcpv6TraceBuf;
 extern SandeshTraceBufferPtr Icmpv6TraceBuf;
 extern SandeshTraceBufferPtr ArpTraceBuf;
 extern SandeshTraceBufferPtr MetadataTraceBuf;
+extern SandeshTraceBufferPtr BfdTraceBuf;
 
 #endif

@@ -302,6 +302,9 @@ public:
     void CalculatePort(PktInfo *pkt_info);
     const PktHandlerQueue *work_queue() const { return &work_queue_; }
 
+    bool IsBFDHealthCheckPacket(const PktInfo *pkt_info,
+                                const Interface *interface);
+
 private:
     void PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
                           boost::shared_ptr<PktInfo> pkt_info, uint8_t *pkt);
