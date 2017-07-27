@@ -301,7 +301,7 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
     IFMapNode *midnode = NULL;
     bool mchanged = false;
 
-    if (mtable != NULL) {
+    if (mtable != NULL && data->content.get() != NULL) {
         // link with attribute
         string id_mid = LinkAttrKey(first, second);
         if (request->oper == DBRequest::DB_ENTRY_DELETE) {
@@ -517,4 +517,3 @@ void IFMapServerTable::RemoveObjectAndDeleteNode(IFMapNode *node,
     }
     table->DeleteIfEmpty(node);
 }
-
