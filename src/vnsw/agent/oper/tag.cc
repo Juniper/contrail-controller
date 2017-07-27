@@ -248,13 +248,14 @@ TagData* TagTable::BuildData(Agent *agent, IFMapNode *node) {
         }
     }
 
-    TagData *data = new TagData(agent, node, cfg->id());
+    TagData *data = new TagData(agent, node,
+                                strtol(cfg->id().c_str(), NULL, 16));
     data->policy_set_uuid_list_ = global_policy_set;
     data->policy_set_uuid_list_.insert(data->policy_set_uuid_list_.end(),
                                        prj_policy_set.begin(),
                                        prj_policy_set.end());
     data->name_ = node->name();
-    data->tag_type_ = TagEntry::GetTypeVal(cfg->type());
+    data->tag_type_ = TagEntry::GetTypeVal(cfg->type_());
     data->tag_value_ = cfg->value();
     return data;
 }
