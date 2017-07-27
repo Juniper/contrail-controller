@@ -3141,6 +3141,11 @@ CassError CassDatastaxLibrary::CassStatementSetConsistency(
     return cass_statement_set_consistency(statement, consistency);
 }
 
+CassError CassDatastaxLibrary::CassStatementBindNull(
+    CassStatement* statement, size_t index) {
+    return cass_statement_bind_null(statement, index);
+}
+
 CassError CassDatastaxLibrary::CassStatementBindStringN(
     CassStatement* statement,
     size_t index, const char* value, size_t value_length) {

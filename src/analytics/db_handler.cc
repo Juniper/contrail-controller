@@ -355,6 +355,14 @@ bool DbHandler::CreateTables() {
         }
     }
 
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_session_tables.begin();
+            it != vizd_session_tables.end(); it++) {
+        if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
+            DB_LOG(ERROR, it->cfname_ << " FAILED");
+            return false;
+        }
+    }
+
     GenDb::ColList col_list;
     std::string cfname = g_viz_constants.SYSTEM_OBJECT_TABLE;
     GenDb::DbDataValueVec key;
@@ -1479,6 +1487,7 @@ class FlowValueJsonPrinter : public boost::static_visitor<> {
         name_() {
         dd_.SetObject();
     }
+
     void operator()(const boost::uuids::uuid &tuuid) {
         std::string tuuid_s(to_string(tuuid));
         contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
@@ -1759,6 +1768,369 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
     return true;
 }
 
+SessionValueArray default_col_values = boost::assign::list_of
+    (GenDb::DbDataValue((uint32_t)0))
+    (GenDb::DbDataValue((uint8_t)0))
+    (GenDb::DbDataValue((uint8_t)0))
+    (GenDb::DbDataValue((uint8_t)0))
+    (GenDb::DbDataValue((uint16_t)0))
+    (GenDb::DbDataValue((uint16_t)0))
+    (GenDb::DbDataValue((uint32_t)0))
+    (GenDb::DbDataValue(boost::uuids::nil_uuid()))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue(IpAddress()))
+    (GenDb::DbDataValue((uint64_t)0))
+    (GenDb::DbDataValue((uint64_t)0))
+    (GenDb::DbDataValue((uint64_t)0))
+    (GenDb::DbDataValue((uint64_t)0))
+    (GenDb::DbDataValue((uint64_t)0))
+    (GenDb::DbDataValue((uint64_t)0))
+    (GenDb::DbDataValue((uint64_t)0))
+    (GenDb::DbDataValue((uint64_t)0))
+    (GenDb::DbDataValue(""));
+
+static bool PopulateSessionTable(SessionValueArray& svalues,
+    DbInsertCb db_insert_cb, TtlMap& ttl_map) {
+
+    // RowKey
+    GenDb::DbDataValueVec rkey;
+    rkey.reserve(3);
+    rkey.push_back(svalues[SessionRecordFields::SESSION_T2]);
+    rkey.push_back(svalues[SessionRecordFields::SESSION_PARTITION_NO]);
+    rkey.push_back(svalues[SessionRecordFields::SESSION_IS_SI]);
+    rkey.push_back(svalues[SessionRecordFields::SESSION_IS_CLIENT_SESSION]);
+
+    // Column Names
+    GenDb::DbDataValueVec* cnames(new GenDb::DbDataValueVec);
+    for (int sfield = SessionRecordFields::SESSION_PROTOCOL;
+            sfield != SessionRecordFields::SESSION_MAP; sfield++) {
+        if (svalues[sfield].which() == GenDb::DB_VALUE_BLANK) {
+            cnames->push_back(default_col_values[sfield]);
+        }
+        else {
+            cnames->push_back(svalues[sfield]);
+        }
+    }
+
+    // Column Values
+    GenDb::DbDataValueVec* cvalue(new GenDb::DbDataValueVec);
+    cvalue->reserve(1);
+    cvalue->push_back(svalues[SessionRecordFields::SESSION_MAP]);
+
+    int ttl = DbHandler::GetTtlFromMap(ttl_map, TtlType::FLOWDATA_TTL);
+
+    std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
+    colList->cfname_ = g_viz_constants.SESSION_TABLE;
+    colList->rowkey_ = rkey;
+    colList->columns_.push_back(new GenDb::NewCol(cnames, cvalue, ttl));
+    if (!db_insert_cb(colList)) {
+            LOG(ERROR, "Populating SessionTable FAILED");
+    }
+
+
+    return true;
+}
+
+bool JsonifySessionMap(const pugi::xml_node& root, std::string& json_string) {
+
+    contrail_rapidjson::Document session_map;
+    session_map.SetObject();
+    contrail_rapidjson::Document::AllocatorType& allocator =
+        session_map.GetAllocator();
+
+    for (pugi::xml_node ip_port = root.first_child(); ip_port; ip_port =
+        ip_port.next_sibling().next_sibling()) {
+        std::ostringstream ip_port_ss;
+        ip_port_ss << ip_port.child("port").child_value() << ":"
+            << ip_port.child("ip").child_value();
+        contrail_rapidjson::Value session_val(contrail_rapidjson::kObjectType);
+        pugi::xml_node session(ip_port.next_sibling());
+        for (pugi::xml_node field = session.first_child(); field;
+            field = field.next_sibling()) {
+            contrail_rapidjson::Value fk(contrail_rapidjson::kStringType);
+            std::string fname(field.name());
+            uint64_t val;
+            if (fname == "forward_flow_info" || fname == "reverse_flow_info") {
+                contrail_rapidjson::Value flow_info(contrail_rapidjson::kObjectType);
+                for (pugi::xml_node finfo = field.child("Flowinfo").first_child();
+                    finfo; finfo = finfo.next_sibling()) {
+                    std::string name(finfo.name());
+                    std::string value(finfo.child_value());
+                    if (stringToInteger(value, val)) {
+                        contrail_rapidjson::Value fv(contrail_rapidjson::kNumberType);
+                        name += "|n";
+                        flow_info.AddMember(fk.SetString(name.c_str(), allocator),
+                            fv.SetUint64(val), allocator);
+                    } else {
+                        contrail_rapidjson::Value fv(contrail_rapidjson::kStringType);
+                        name += "|s";
+                        flow_info.AddMember(fk.SetString(name.c_str(), allocator),
+                            fv.SetString(value.c_str(), allocator), allocator);
+                    }
+                }
+                session_val.AddMember(fk.SetString(fname.c_str(), allocator),
+                    flow_info, allocator);
+            }
+            else {
+                std::string fvalue(field.child_value());
+                if (stringToInteger(fvalue, val)) {
+                    contrail_rapidjson::Value fv(contrail_rapidjson::kNumberType);
+                    fname += "|n";
+                    session_val.AddMember(fk.SetString(fname.c_str(), allocator),
+                        fv.SetUint64(val), allocator);
+                } else {
+                    contrail_rapidjson::Value fv(contrail_rapidjson::kStringType);
+                    fname += "|s";
+                    session_val.AddMember(fk.SetString(fname.c_str(), allocator),
+                        fv.SetString(fvalue.c_str(), allocator), allocator);
+                }
+            }
+        }
+        contrail_rapidjson::Value vk(contrail_rapidjson::kStringType);
+        session_map.AddMember(vk.SetString(ip_port_ss.str().c_str(),
+            allocator), session_val, allocator);
+    }
+
+    contrail_rapidjson::StringBuffer sb;
+    contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(sb);
+    session_map.Accept(writer);
+    json_string = sb.GetString();
+
+    return true;
+}
+
+/*
+ * process the session sample and insert into the appropriate table
+ */
+bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
+                                 const SandeshHeader& header,
+                                 GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    SessionValueArray session_entry_values;
+    pugi::xml_node &mnode = const_cast<pugi::xml_node &>(session_sample);
+
+    // Set T1 and T2 from timestamp
+    uint64_t timestamp(header.get_Timestamp());
+    uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
+    uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
+    session_entry_values[SessionRecordFields::SESSION_T2] = T2;
+    session_entry_values[SessionRecordFields::SESSION_T1] = T1;
+    // Partition No
+    uint8_t partition_no = gen_partition_no_();
+    session_entry_values[SessionRecordFields::SESSION_PARTITION_NO] = partition_no;
+    // vectors to store tags and remote tags
+    std::vector<std::string> tags(4, "");
+    std::vector<std::string> remote_tags(4, "");
+    // vrouter
+    session_entry_values[SessionRecordFields::SESSION_VROUTER] = header.get_Source();
+
+    pugi::xml_node session_agg_info_node;
+    // Populate session_entry_values from message
+    for (pugi::xml_node sfield = mnode.first_child(); sfield;
+            sfield = sfield.next_sibling()) {
+        
+        std::string col_type(sfield.attribute("type").value());
+        std::string col_name(sfield.name());
+        SessionTypeMap::const_iterator it = session_msg2type_map.find(col_name);
+        if (it != session_msg2type_map.end()) {
+            const SessionTypeInfo &stinfo(it->second);
+
+            if (col_type == "set") {
+                pugi::xml_node set = sfield.child("set");
+                std::ostringstream set_value;
+                int i = 0;
+                for (pugi::xml_node set_elem = set.first_child(); set_elem;
+                        set_elem = set_elem.next_sibling()) {
+                    if (i) {
+                        set_value << ";";
+                    }
+                    std::string val = set_elem.child_value();
+                    TXMLProtocol::unescapeXMLControlChars(val);
+                    set_value << val;
+                    i++;
+                }
+                session_entry_values[stinfo.get<0>()] = set_value.str();
+                continue;
+            }
+
+            switch(stinfo.get<1>()) {
+            case GenDb::DbDataType::Unsigned8Type:
+                {
+                    uint8_t val;
+                    stringToInteger(sfield.child_value(), val);
+                    session_entry_values[stinfo.get<0>()] =
+                        static_cast<uint8_t>(val);
+                    break;
+                }
+            case GenDb::DbDataType::Unsigned16Type:
+                {
+                    uint16_t val;
+                    stringToInteger(sfield.child_value(), val);
+                    session_entry_values[stinfo.get<0>()] =
+                        static_cast<uint16_t>(val);
+                    break;
+                }
+            case GenDb::DbDataType::Unsigned32Type:
+                {
+                    uint32_t val;
+                    stringToInteger(sfield.child_value(), val);
+                    session_entry_values[stinfo.get<0>()] =
+                        static_cast<uint32_t>(val);
+                    break;
+                }
+            case GenDb::DbDataType::Unsigned64Type:
+                {
+                    uint64_t val;
+                    stringToInteger(sfield.child_value(), val);
+                    session_entry_values[stinfo.get<0>()] =
+                        static_cast<uint64_t>(val);
+                    break;
+                }
+            case GenDb::DbDataType::LexicalUUIDType:
+            case GenDb::DbDataType::TimeUUIDType:
+                {
+                    std::stringstream ss;
+                    ss << sfield.child_value();
+                    boost::uuids::uuid u;
+                    if (!ss.str().empty()) {
+                        ss >> u;
+                        if (ss.fail()) {
+                            LOG(ERROR, "SessionTable: " << col_name << ": (" <<
+                                sfield.child_value() << ") INVALID");
+                        }
+                    }
+                    session_entry_values[stinfo.get<0>()] = u;
+                    break;
+                }
+            case GenDb::DbDataType::AsciiType:
+            case GenDb::DbDataType::UTF8Type:
+                {
+                    std::string val = sfield.child_value();
+                    TXMLProtocol::unescapeXMLControlChars(val);
+                    switch(stinfo.get<0>()) {
+                    case SessionRecordFields::SESSION_DEPLOYMENT:
+                    case SessionRecordFields::SESSION_TIER:
+                    case SessionRecordFields::SESSION_APPLICATION:
+                    case SessionRecordFields::SESSION_SITE:
+                    case SessionRecordFields::SESSION_REMOTE_DEPLOYMENT:
+                    case SessionRecordFields::SESSION_REMOTE_TIER:
+                    case SessionRecordFields::SESSION_REMOTE_APPLICATION:
+                    case SessionRecordFields::SESSION_REMOTE_SITE:
+                    case SessionRecordFields::SESSION_SECURITY_POLICY_RULE:
+                    case SessionRecordFields::SESSION_VMI:
+                    case SessionRecordFields::SESSION_VN:
+                    case SessionRecordFields::SESSION_REMOTE_VN:
+                        {
+                            std::ostringstream v;
+                            v << T2 << ":" << val;
+                            session_entry_values[stinfo.get<0>()] = v.str();
+                            break;
+                        }
+                    default:
+                        {
+                            session_entry_values[stinfo.get<0>()] = val;
+                            break;
+                        }
+                    }
+             
+                    break;
+                }
+            case GenDb::DbDataType::InetType:
+                {
+                    boost::system::error_code ec;
+                    IpAddress ipaddr(IpAddress::from_string(
+                                     sfield.child_value(), ec));
+                    if (ec) {
+                        LOG(ERROR, "SessionRecordTable: " << col_name << ": ("
+                            << sfield.child_value() << ") INVALID");
+                    }
+                    session_entry_values[stinfo.get<0>()] = ipaddr;
+                    break;
+                }
+            default:
+                {
+                    VIZD_ASSERT(0);
+                    break;
+                }
+            }
+        } else if (col_type == "map" && col_name == "sess_agg_info") {
+            session_agg_info_node = sfield.child("map");
+            continue;
+        }
+
+    }
+    
+    for (pugi::xml_node ip_port_proto = session_agg_info_node.first_child(); 
+        ip_port_proto; ip_port_proto = ip_port_proto.next_sibling().next_sibling()) {
+        uint16_t val;
+        stringToInteger(ip_port_proto.child("port").child_value(), val);
+        session_entry_values[SessionRecordFields::SESSION_SPORT] = val;
+        stringToInteger(ip_port_proto.child("protocol").child_value(), val);
+        session_entry_values[SessionRecordFields::SESSION_PROTOCOL] = val;
+        session_entry_values[SessionRecordFields::SESSION_UUID] = umn_gen_();
+        std::ostringstream oss;
+        oss << T2 << ":" << ip_port_proto.child("ip").child_value();
+        session_entry_values[SessionRecordFields::SESSION_IP] = oss.str();
+        pugi::xml_node sess_agg_info = ip_port_proto.next_sibling();
+        for (pugi::xml_node agg_info = sess_agg_info.first_child();
+            agg_info; agg_info = agg_info.next_sibling()) {
+            if (strcmp(agg_info.attribute("type").value(), "map") == 0) {
+                std::string sessionmap("");
+                JsonifySessionMap(agg_info.child("map"), sessionmap);
+                session_entry_values[SessionRecordFields::SESSION_MAP]
+                    = sessionmap;
+                continue;
+            }
+            std::string field_name(agg_info.name());
+            SessionTypeMap::const_iterator it =
+                session_msg2type_map.find(field_name);
+            if (it != session_msg2type_map.end()) {
+                const SessionTypeInfo &stinfo(it->second);
+                uint64_t val;
+                stringToInteger(agg_info.child_value(), val);
+                session_entry_values[stinfo.get<0>()]
+                    = static_cast<uint64_t>(val);
+            }
+        }
+        DbInsertCb db_insert_cb =
+            boost::bind(&DbHandler::InsertIntoDb, this, _1,
+            GenDb::DbConsistency::LOCAL_ONE, db_cb);
+        if (!PopulateSessionTable(session_entry_values,
+            db_insert_cb, ttl_map_)) {
+                DB_LOG(ERROR, "Populating SessionRecordTable FAILED");
+        }
+    }
+
+    int ttl = DbHandler::GetTtlFromMap(ttl_map_, TtlType::FLOWDATA_TTL);
+    // insert into FieldNames table
+    FieldNamesTableInsert(timestamp, g_viz_constants.SESSION_TABLE, ":vrouter",
+        boost::get<std::string>(session_entry_values[
+            SessionRecordFields::SESSION_VROUTER]), ttl, db_cb);
+    FieldNamesTableInsert(timestamp, g_viz_constants.SESSION_TABLE, ":vn",
+        boost::get<std::string>(session_entry_values[
+            SessionRecordFields::SESSION_VN]), ttl, db_cb);
+    FieldNamesTableInsert(timestamp, g_viz_constants.SESSION_TABLE, ":remote_vn",
+        boost::get<std::string>(session_entry_values[
+            SessionRecordFields::SESSION_REMOTE_VN]), ttl, db_cb);
+
+    return true;
+}
+
 /*
  * process the flow sample and insert into the appropriate tables
  */
@@ -1822,6 +2194,27 @@ bool DbHandler::FlowSampleAdd(const pugi::xml_node& flow_sample,
                 db_insert_cb, ttl_map_, fncb2)) {
            DB_LOG(ERROR, "Populating FlowIndexTables FAILED");
        }
+    }
+    return true;
+}
+
+/*
+ * process the session sandesh message
+ */
+
+bool DbHandler::SessionTableInsert(const pugi::xml_node &parent,
+    const SandeshHeader& header, GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    pugi::xml_node sessiondata(parent.child("session_data"));
+    // Flow sandesh message may contain a list of flow samples or
+    // a single flow sample
+    if (strcmp(sessiondata.attribute("type").value(), "list") == 0) {
+        pugi::xml_node session_list = sessiondata.child("list");
+        for (pugi::xml_node ssample = session_list.first_child(); ssample;
+            ssample = ssample.next_sibling()) {
+            SessionSampleAdd(ssample, header, db_cb);
+        }
+    } else {
+        SessionSampleAdd(sessiondata.first_child(), header, db_cb);
     }
     return true;
 }
