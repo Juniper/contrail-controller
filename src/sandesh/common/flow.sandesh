@@ -8,6 +8,31 @@
  * Flow sandesh definitions
  */
 
+const string IP       = "ip";
+const string PORT     = "port";
+const string PROTOCOL = "protocol";
+
+const map<string, bool> SessionFlowInfoField2Type = {
+    "sampled_bytes" : 1,
+    "sampled_pkts"  : 1,
+    "logged_bytes"  : 1,
+    "logged_pkts"   : 1,
+    "flow_uuid"     : 0,
+    "tcp_flags"     : 1,
+    "setup_time"    : 1,
+    "teardown_time" : 1,
+    "teardown_bytes": 1,
+    "teardown_pkts" : 1,
+    "action"        : 0,
+    "sg_rule_uuid"  : 0,
+    "nw_ace_uuid"   : 0,
+    "underlay_source_port" : 1,
+    "drop_reason"   : 1,
+    "vm"            : 0,
+    "other_vrouter_ip"     : 0,
+    "underlay_proto": 1,
+}
+
 struct SessionFlowInfo {
     1: optional i64 sampled_bytes;
     2: optional i64 sampled_pkts;
