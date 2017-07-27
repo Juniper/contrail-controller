@@ -235,9 +235,19 @@ class VncRbac(object):
         else:
             obj_key = obj_type
 
-        try:
-            obj_dict = dict(request.json[obj_key])
-        except Exception:
+        if request.json is not None:
+            # Make a shallow copy of the dict body as RBAC supports only on
+            # first level of fields
+            try:
+                if isinstance(request.json[obj_key], dict):
+                    obj_dict = dict(request.json[obj_key])
+                else:
+                    obj_dict = dict(request.json)
+            # Special API calls do not have obj_key in the POST dict
+            # ie. ref-update, list-bulk-collection, set-tag...
+            except KeyError:
+                obj_dict = dict(request.json)
+        else:
             obj_dict = {}
 
         msg = 'rbac: u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s(%s), dom:%s' \
