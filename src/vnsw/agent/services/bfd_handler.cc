@@ -24,7 +24,6 @@ bool BfdHandler::Run() {
     }
 
     BfdProto *bfd_proto = agent()->GetBfdProto();
-
     uint8_t len = ntohs(pkt_info_->transp.udp->len) - 8;
     uint8_t *data = new uint8_t[len];
     memcpy(data, pkt_info_->data, len);
@@ -39,6 +38,7 @@ bool BfdHandler::Run() {
                                   buffer, local_endpoint, remote_endpoint,
                                   BFD::SessionIndex(GetInterfaceIndex()),
                                   len, ec);
+    bfd_proto->IncrementReceived();
 
     return true;
 }
@@ -70,8 +70,8 @@ void BfdHandler::SendPacket(
 
     uint16_t eth_proto = is_v4 ? ETHERTYPE_IP : ETHERTYPE_IPV6;
     len += EthHdr(ptr + len, buf_len - len,
-                  agent()->vhost_interface()->mac(),
-                  vm_interface->mac(),
+                  agent()->vrrp_mac(),
+                  vm_interface->vm_mac(),
                   eth_proto, vm_interface->tx_vlan_id());
 
     if (is_v4) {
@@ -79,7 +79,7 @@ void BfdHandler::SendPacket(
         len += IpHdr(ptr + len, buf_len - len, ip_len,
                      htonl(local_endpoint.address().to_v4().to_ulong()),
                      htonl(remote_endpoint.address().to_v4().to_ulong()),
-                     IPPROTO_UDP, 0, 64);
+                     IPPROTO_UDP, 0, 255);
         len += UdpHdr((udphdr *)(ptr + len), buf_len - len, packet_length,
                       htonl(local_endpoint.address().to_v4().to_ulong()),
                       local_endpoint.port(),

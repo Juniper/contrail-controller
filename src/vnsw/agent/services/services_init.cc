@@ -25,6 +25,7 @@ SandeshTraceBufferPtr Dhcpv6TraceBuf(SandeshTraceBufferCreate("Dhcpv6", 1000));
 SandeshTraceBufferPtr Icmpv6TraceBuf(SandeshTraceBufferCreate("Icmpv6", 500));
 SandeshTraceBufferPtr ArpTraceBuf(SandeshTraceBufferCreate("Arp", 1000));
 SandeshTraceBufferPtr MetadataTraceBuf(SandeshTraceBufferCreate("Metadata", 500));
+SandeshTraceBufferPtr BfdTraceBuf(SandeshTraceBufferCreate("Bfd", 500));
 
 ServicesModule::ServicesModule(Agent *agent, const std::string &metadata_secret) 
     : agent_(agent), metadata_secret_key_(metadata_secret), dhcp_proto_(NULL),

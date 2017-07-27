@@ -322,6 +322,8 @@ struct FlowData {
     uint32_t rpf_vrf;
     uint8_t rpf_plen;
 
+    bool disable_validation; // ignore RPF on specific flows (like BFD health check)
+
     std::string vm_cfg_name;
     uint32_t acl_assigned_vrf_index_;
     uint32_t qos_config_idx;
