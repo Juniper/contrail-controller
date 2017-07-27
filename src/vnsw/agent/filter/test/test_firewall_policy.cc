@@ -18,7 +18,7 @@ TestTag src[] = {
 
 TestTag dst[] = {
     {"Tag3", 3, (1 << TagEntry::kTagTypeBitShift) | 3},
-    {"Tag4", 4, (2<< TagEntry::kTagTypeBitShift) | 4}
+    {"Tag4", 4, (2 << TagEntry::kTagTypeBitShift) | 4}
 };
 
 TestTag label[] = {
@@ -46,7 +46,7 @@ public:
 protected:
     void CreateTags(TestTag *tag, uint32_t count) {
         for (uint32_t i = 0; i < count; i++) {
-            AddTag(tag[i].name_.c_str(), tag[i].id_, tag[i].id_);
+            AddTag(tag[i].name_.c_str(), tag[i].uuid_, tag[i].id_);
         }
     }
 

@@ -1857,8 +1857,9 @@ void AddBridgeDomain(const char *name, uint32_t id, uint32_t isid,
 void AddTag(const char *name, uint32_t uuid, uint32_t id,
             const std::string type) {
     std::stringstream str;
-    str << "<tag-type>" << type << "</tag-type>";
-    str << "<tag-id> " << id << "</tag-id>";
+    str << "<type>" << type << "</type>";
+    str << "<id> 0x" << std::setfill('0') << std::setw(8) << std::hex << id << "</id>";
+    // str << "<id> " << id << "</id>";
     str << "<display-name>" << name << "</display-name>";
 
     char buff[10240];
@@ -2077,8 +2078,8 @@ void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt,
         o_str << "<next-hop-type>\" \"</next-hop-type>\n";
         o_str << "<community-attributes>\n";
         BOOST_FOREACH(string community, communities) {
-            o_str << "<community-attribute>" 
-                  << community 
+            o_str << "<community-attribute>"
+                  << community
                   << "</community-attribute>\n";
         }
         o_str << "</community-attributes>\n";
@@ -4206,7 +4207,7 @@ void DeleteBgpPeer(Peer *peer) {
     client->WaitForIdle();
     Agent::GetInstance()->reset_controller_xmpp_channel(0);
     Agent::GetInstance()->reset_controller_xmpp_channel(1);
-    WAIT_FOR(1000, 1000, (trigger_->IsSet() == false)); 
+    WAIT_FOR(1000, 1000, (trigger_->IsSet() == false));
 }
 
 void FillEvpnNextHop(BgpPeer *peer, std::string vrf_name,

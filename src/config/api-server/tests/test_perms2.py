@@ -1495,7 +1495,11 @@ class TestPermissions(test_case.ApiServerTestCase):
         global_rg = vnc_read_obj(self.admin.vnc_lib, 'api-access-list',
             name = ['default-global-system-config', 'default-api-access-list'])
         for tag_type in ["deployment", "site"]:
-            vnc_aal_add_rule(self.admin.vnc_lib, global_rg, "set-tag-%s cloud-admin:CRUD" % tag_type)
+            vnc_aal_add_rule(
+                self.admin.vnc_lib,
+                global_rg,
+                "set-tag.%s cloud-admin:C" % tag_type,
+            )
 
         tag_list = [
             # tag-type, tag-value, set/unset allowed by non-admin
@@ -1507,7 +1511,7 @@ class TestPermissions(test_case.ApiServerTestCase):
 
         tag_uuids = []
         for tt, tv, allowed in tag_list:
-            tag_obj = Tag(tag_type=tt, tag_value=tv, parent_obj=self.alice.project_obj)
+            tag_obj = Tag(type=tt, value=tv, parent_obj=self.alice.project_obj)
             self.admin.vnc_lib.tag_create(tag_obj)
             tag = self.admin.vnc_lib.tag_read(id=tag_obj.uuid)
             tag_uuids.append(tag.uuid)
@@ -1519,7 +1523,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         vn = self.admin.vnc_lib.virtual_network_read(id=vn_obj.uuid)
         for tt, tv, allowed in tag_list:
             try:
-                self.alice.vnc_lib.set_tag(vn_obj, tag_type=tt, tag_value=tv)
+                self.alice.vnc_lib.set_tag(vn_obj, type=tt, value=tv)
                 tag_set = True
             except PermissionDenied as e:
                 tag_set = False
@@ -1536,7 +1540,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         # deattach some tags
         for tt, tv, allowed in tag_list:
             try:
-                self.alice.vnc_lib.unset_tag(vn_obj, tag_type=tt, tag_value=tv)
+                self.alice.vnc_lib.unset_tag(vn_obj, tt)
                 tag_unset = True
             except PermissionDenied as e:
                 tag_unset = False
@@ -1549,7 +1553,7 @@ class TestPermissions(test_case.ApiServerTestCase):
 
         # verify admin can attach restrictive tag
         for tt, tv, allowed in tag_list:
-            self.admin.vnc_lib.set_tag(vn_obj, tag_type=tt, tag_value=tv)
+            self.admin.vnc_lib.set_tag(vn_obj, type=tt, value=tv)
         vn = self.admin.vnc_lib.virtual_network_read(id=vn_obj.uuid)
         tag_refs = vn.get_tag_refs()
         self.assertEqual(len(tag_refs), 4)
@@ -1560,7 +1564,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         # verify non-admin can't deattach some tags
         for tt, tv, allowed in tag_list:
             try:
-                self.alice.vnc_lib.unset_tag(vn_obj, tag_type=tt, tag_value=tv)
+                self.alice.vnc_lib.unset_tag(vn_obj, tt)
                 tag_unset = True
             except PermissionDenied as e:
                 tag_unset = False
@@ -1574,14 +1578,18 @@ class TestPermissions(test_case.ApiServerTestCase):
 
         # give permission to alice to remove tags
         for tag_type in ["deployment", "site"]:
-            vnc_aal_add_rule(self.admin.vnc_lib, global_rg, "set-tag-%s alice-role:D, cloud-admin:CRUD" % tag_type)
+            vnc_aal_add_rule(
+                self.admin.vnc_lib,
+                global_rg,
+                "set-tag.%s alice-role:C, cloud-admin:C" % tag_type,
+            )
         for tt, tv, allowed in tag_list:
             if not allowed:
-                self.alice.vnc_lib.unset_tag(vn_obj, tag_type=tt, tag_value=tv)
+                self.alice.vnc_lib.unset_tag(vn_obj, tt)
         vn = self.admin.vnc_lib.virtual_network_read(id=vn_obj.uuid)
         tag_refs = vn.get_tag_refs()
         self.assertEqual(tag_refs, None)
-    # end test_unset_tag
+    # end test_set_tag
 
     def test_bug_1646200(self):
         obj_type = 'virtual-network'
