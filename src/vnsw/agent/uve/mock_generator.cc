@@ -24,11 +24,16 @@
 
 namespace opt = boost::program_options;
 
+typedef std::map<SessionIpPortProtocol, SessionAggInfo> SessionAggMap;
+typedef std::map<IpAddress, RemoteSessionVal> SessionPortProtMap;
+
 class MockGenerator {
 public:
     const static int kNumFlowSamplesPerSec;
     const static int kNumFlowSamplesInMessage;
     const static int kNumVRouterErrorMessagesPerSec;
+    const static int kNumSessionSamplesPerSec;
+    const static int kNumSessionSamplesInMessage;
 
     MockGenerator(std::string &hostname, std::string &module_name,
                   std::string &node_type_name,
@@ -41,6 +46,9 @@ public:
                   int num_flow_samples_per_sec,
                   int num_flow_samples_in_message,
                   int num_vrouter_error_messages_per_sec,
+                  int num_sessions_per_vm,
+                  int num_session_samples_per_sec,
+                  int num_session_samples_in_message,
                   EventManager *evm) :
         hostname_(hostname),
         module_name_(module_name),
@@ -56,8 +64,12 @@ public:
         ip_vns_(ip_vns),
         ip_start_index_(ip_start_index),
         num_flows_per_vm_(num_flows_per_vm),
+        num_session_per_vm_(num_sessions_per_vm),
         num_flow_samples_per_sec_(num_flow_samples_per_sec),
+//        num_flow_samples_per_sec_(num_flow_samples_per_sec),
+        num_session_samples_per_sec_(num_session_samples_per_sec),
         num_flow_samples_in_message_(num_flow_samples_in_message),
+        num_session_samples_in_message_(num_session_samples_in_message),
         num_vrouter_error_messages_per_sec_(num_vrouter_error_messages_per_sec),
         rgen_(std::time(0)),
         u_rgen_(&rgen_),
@@ -75,6 +87,11 @@ public:
             SendFlowTask *ftask(new SendFlowTask(this,
                 scheduler->GetTaskId("mockgen::SendFlowTask"), -1));
             scheduler->Enqueue(ftask);
+        }
+        if (num_session_samples_per_sec_) {
+            SendSessionTask *stask(new SendSessionTask(this,
+                scheduler->GetTaskId("mockgen::SendSessionTask"), -1));
+            scheduler->Enqueue(stask);
         }
         if (num_vrouter_error_messages_per_sec_) {
             SendMessageTask *mtask(new SendMessageTask(this,
@@ -248,6 +265,167 @@ private:
         MockGenerator *mgen_;
     };
 
+    class SendSessionTask : public Task {
+    public:
+        SendSessionTask(MockGenerator *mock_generator,
+            int task_id, int task_instance) :
+            Task(task_id, task_instance),
+            mgen_(mock_generator) {
+        }
+
+        bool Run() {
+            if (mgen_->sessions_.empty()) {
+                int other_vn = mgen_->other_vn_;
+                for (int vn = mgen_->start_vn_; vn < mgen_->end_vn_; vn++) {
+                    for (int nvm = 0; nvm < mgen_->vm_iterations_; nvm++) {
+                        for (int nsession = 0; nsession < mgen_->num_session_per_vm_;
+                                nsession++) {
+                            SessionEndpoint end_point;
+                            end_point.set_vmi(to_string(mgen_->u_rgen_()));
+                            end_point.set_vn(mgen_->kVnPrefix +
+                                integerToString(vn));
+                            end_point.set_remote_vn(mgen_->kVnPrefix +
+                                integerToString(other_vn));
+                            end_point.set_is_client_session(mgen_->dClientSession(
+                                mgen_->rgen_));
+                            end_point.set_deployment(
+                                mgen_->kDeployment[mgen_->dTagIdx(mgen_->rgen_)]);
+                            end_point.set_tier(mgen_->kTier[mgen_->dTagIdx(
+                                mgen_->rgen_)]);
+                            end_point.set_application(
+                                mgen_->kApplication[mgen_->dTagIdx(mgen_->rgen_)]);
+                            end_point.set_site(mgen_->kSite[mgen_->dTagIdx(
+                                mgen_->rgen_)]);
+                            end_point.set_remote_deployment(
+                                mgen_->kDeployment[mgen_->dTagIdx(mgen_->rgen_)]);
+                            end_point.set_remote_tier(
+                                mgen_->kTier[mgen_->dTagIdx(mgen_->rgen_)]);
+                            end_point.set_remote_application(
+                                mgen_->kApplication[mgen_->dTagIdx(mgen_->rgen_)]);
+                            end_point.set_remote_site(mgen_->kSite[mgen_->dTagIdx(
+                                mgen_->rgen_)]);
+                            end_point.set_is_si(mgen_->dClientSession(mgen_->rgen_));
+                            std::vector<std::string> labels;
+                            int nlables(mgen_->nlabels(mgen_->rgen_));
+                            for (int i = 0; i < nlables + 1; i++) {
+                                labels.push_back(
+                                    mgen_->kLabels[mgen_->nlabels(mgen_->rgen_)]);
+                            }
+                            end_point.set_labels(
+                                std::set<string>(labels.begin(),labels.end()));
+                            SessionAggMap sess_agg_map;
+                            int nsport = mgen_->nport(mgen_->rgen_);
+                            for (int i = 0; i < nsport; i++) {
+                                IpAddress ipaddr(Ip4Address(mgen_->ip_vns_[vn] +
+                                    mgen_->ip_start_index_ + nvm));
+                                uint16_t protoIdx(mgen_->dProtocols(mgen_->rgen_));
+                                uint16_t port = mgen_->kPorts[protoIdx];
+                                uint16_t proto = mgen_->kProtocols[protoIdx];
+                                SessionIpPortProtocol sess_ip_port_proto;
+                                sess_ip_port_proto.set_ip(ipaddr);
+                                sess_ip_port_proto.set_port(port);
+                                sess_ip_port_proto.set_protocol(proto);
+                                SessionAggInfo place_holder;
+                                sess_agg_map[sess_ip_port_proto];
+                            }
+                            end_point.set_sess_agg_map(sess_agg_map);
+                            mgen_->sessions_.push_back(end_point);
+                        } 
+                    }
+                other_vn = (other_vn + 1) % mgen_->num_vns_;
+                }
+            }
+
+            int lsession_cnt = 0;
+            int last_lsession_cnt = 0;
+            std::vector<SessionEndpoint>::iterator begin(mgen_->sessions_.begin() +
+                mgen_->session_counter_);
+            for (std::vector<SessionEndpoint>::iterator it = begin;
+                it != mgen_->sessions_.end(); ++it) {
+                bool sent_message(false);
+                SessionEndpoint &end_point(*it);
+                SessionAggMap sess_agg_info_map;
+                for (SessionAggMap::const_iterator it2 
+                    = end_point.get_sess_agg_map().begin();
+                    it2 != end_point.get_sess_agg_map().end(); ++it2) {
+                    SessionAggInfo sess_agg_info;
+                    sess_agg_info.set_sampled_tx_bytes(0);
+                    sess_agg_info.set_sampled_tx_pkts(0);
+                    sess_agg_info.set_sampled_rx_bytes(0);
+                    sess_agg_info.set_sampled_rx_pkts(0);
+                    std::map<SessionIpPort, RemoteSessionVal> session_map;
+                    int ncport = mgen_->nport(mgen_->rgen_);
+                    for (int i = 0; i < ncport; i++) {
+                        uint16_t cport(mgen_->dPort(mgen_->rgen_));
+                        int nip = mgen_->nip(mgen_->rgen_);
+                        for (int j = 0; j < nip; j++) {
+                            int other_vn; 
+                            stringToInteger(end_point.get_remote_vn()
+                                .substr(MockGenerator::kVnPrefix.length(),
+                                    std::string::npos), other_vn);
+                            IpAddress ipaddr(Ip4Address(mgen_->ip_vns_[other_vn]
+                                + mgen_->ip_start_index_ + j));
+                            SessionIpPort sess_ip_port;
+                            sess_ip_port.set_port(cport);
+                            sess_ip_port.set_ip(ipaddr);
+                            std::map<SessionIpPort, RemoteSessionVal>::iterator iter
+                                = session_map.find(sess_ip_port);
+                            if (iter != session_map.end()) {
+                                continue;
+                            }
+                            RemoteSessionVal session_val;
+                            uint64_t tx_pkts(mgen_->dFlowPktsPerSec(
+                                mgen_->rgen_));
+                            uint64_t rx_pkts(mgen_->dFlowPktsPerSec(
+                                mgen_->rgen_));
+                            session_val.set_sampled_tx_pkts(tx_pkts);
+                            session_val.set_sampled_tx_bytes(tx_pkts *
+                                mgen_->dBytesPerPacket(mgen_->rgen_));
+                            session_val.set_sampled_rx_pkts(rx_pkts);
+                            session_val.set_sampled_rx_bytes(rx_pkts *
+                                mgen_->dBytesPerPacket(mgen_->rgen_));
+                            sess_agg_info.set_sampled_tx_pkts(
+                                sess_agg_info.get_sampled_tx_pkts() + tx_pkts);
+                            sess_agg_info.set_sampled_tx_bytes(
+                                sess_agg_info.get_sampled_tx_bytes() +
+                                    session_val.get_sampled_tx_bytes());
+                            sess_agg_info.set_sampled_rx_pkts(
+                                sess_agg_info.get_sampled_rx_pkts() + rx_pkts);
+                            sess_agg_info.set_sampled_rx_bytes(
+                                sess_agg_info.get_sampled_rx_bytes() +
+                                    session_val.get_sampled_rx_bytes());
+                            session_map[sess_ip_port] = session_val;
+                        }
+                    }
+                    sess_agg_info.set_sessionMap(session_map);
+                    sess_agg_info_map[it2->first] = sess_agg_info;
+                } 
+                end_point.set_sess_agg_map(sess_agg_info_map);
+                lsession_cnt++;
+                mgen_->session_counter_++;
+                SESSION_ENDPOINT_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
+                    std::vector<SessionEndpoint>(begin+last_lsession_cnt, it + 1));
+                sent_message = true;
+                last_lsession_cnt = lsession_cnt;
+                if (lsession_cnt == mgen_->num_session_samples_per_sec_) {
+                    if (!sent_message) {
+                        SESSION_ENDPOINT_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
+                            std::vector<SessionEndpoint>(begin+last_lsession_cnt, it + 1));
+                    }
+                    return false;
+                }
+            }
+            mgen_->session_counter_ = 0;
+            return false;
+        }
+
+        std::string Description() const {
+            return "SendSessionTask";
+        }
+    private:
+        MockGenerator *mgen_;
+    };
+
     const static std::string kVnPrefix;
     const static std::string kVmPrefix;
     const static int kBytesPerPacket = 1024;
@@ -255,6 +433,8 @@ private:
     const static int kUveMsgIntvlInSec = 10;
     const static int kFlowMsgIntvlInSec = 1;
     const static int kFlowPktsPerSec = 100;
+    const static int maxNip = 64;
+    const static int maxNport = 5;
 
     const static boost::random::uniform_int_distribution<>
         dBytesPerPacket;
@@ -265,11 +445,26 @@ private:
     const static boost::random::uniform_int_distribution<>
         dDirection;
     const static boost::random::uniform_int_distribution<>
+        dClientSession;
+    const static boost::random::uniform_int_distribution<>
         dPort;
+    const static boost::random::uniform_int_distribution<>
+        nip;
+    const static boost::random::uniform_int_distribution<>
+        nport;
+    const static boost::random::uniform_int_distribution<>
+        nlabels;
     const static std::vector<int> kProtocols;
     const static boost::random::uniform_int_distribution<>
         dProtocols;
-
+    const static boost::random::uniform_int_distribution<>
+        dTagIdx;
+    const static std::vector<string> kLabels;
+    const static std::vector<std::string> kDeployment;
+    const static std::vector<std::string> kTier;
+    const static std::vector<std::string> kSite;
+    const static std::vector<std::string> kApplication;
+    const static std::vector<int> kPorts;
     const std::string hostname_;
     const std::string module_name_;
     const std::string node_type_name_;
@@ -284,11 +479,16 @@ private:
     const std::vector<uint32_t> ip_vns_;
     const int ip_start_index_;
     const int num_flows_per_vm_;
+    const int num_session_per_vm_;
     const int num_flow_samples_per_sec_;
+    const int num_session_samples_per_sec_;
     const int num_flow_samples_in_message_;
+    const int num_session_samples_in_message_;
     const int num_vrouter_error_messages_per_sec_;
     std::vector<FlowLogData> flows_;
+    std::vector<SessionEndpoint> sessions_;
     static int flow_counter_;
+    static int session_counter_;
     boost::random::mt19937 rgen_;
     boost::uuids::random_generator u_rgen_;
     EventManager *evm_;
@@ -308,15 +508,41 @@ const boost::random::uniform_int_distribution<>
 const boost::random::uniform_int_distribution<>
     MockGenerator::dDirection(0, 1);
 const boost::random::uniform_int_distribution<>
+    MockGenerator::dClientSession(0, 1);
+const boost::random::uniform_int_distribution<>
     MockGenerator::dPort(0, 65535);
 const std::vector<int> MockGenerator::kProtocols = boost::assign::list_of
     (6)(17)(1);
 const boost::random::uniform_int_distribution<>
     MockGenerator::dProtocols(0, MockGenerator::kProtocols.size() - 1);
+const std::vector<int> MockGenerator::kPorts = boost::assign::list_of
+    (443)(8080)(22);
+const std::vector<std::string> MockGenerator::kDeployment = boost::assign::list_of
+    ("Dep1")("Dep2")("Dep3")("Dep4");
+const std::vector<std::string> MockGenerator::kTier = boost::assign::list_of
+    ("Tier1")("Tier2")("Tier3")("Tier4");
+const std::vector<std::string> MockGenerator::kApplication = boost::assign::list_of
+    ("App1")("App2")("App3")("App4");
+const std::vector<std::string> MockGenerator::kSite = boost::assign::list_of
+    ("Site1")("Site2")("Site3")("Site4");
+const std::vector<std::string> MockGenerator::kLabels = boost::assign::list_of
+    ("Label1")("Label2")("Label3")("Label4")("Label5");
+const boost::random::uniform_int_distribution<>
+    MockGenerator::dTagIdx(0, MockGenerator::kDeployment.size() - 1);
+const boost::random::uniform_int_distribution<>
+    MockGenerator::nip(1, MockGenerator::maxNip);
+const boost::random::uniform_int_distribution<>
+    MockGenerator::nport(1, MockGenerator::maxNport);
+const boost::random::uniform_int_distribution<>
+    MockGenerator::nlabels(0, MockGenerator::kLabels.size() - 1);
+   
 int MockGenerator::flow_counter_(0);
-const int MockGenerator::kNumFlowSamplesPerSec(200);
-const int MockGenerator::kNumFlowSamplesInMessage(32);
+int MockGenerator::session_counter_(0);
+const int MockGenerator::kNumFlowSamplesPerSec(0);
+const int MockGenerator::kNumFlowSamplesInMessage(0);
 const int MockGenerator::kNumVRouterErrorMessagesPerSec(50);
+const int MockGenerator::kNumSessionSamplesPerSec(0);
+const int MockGenerator::kNumSessionSamplesInMessage(0);
 
 int main(int argc, char *argv[]) {
     bool log_local(false), use_syslog(false), log_flow(false);
@@ -334,6 +560,8 @@ int main(int argc, char *argv[]) {
          "Number of virtual networks")
         ("num_flows_per_instance", opt::value<int>()->default_value(10),
          "Number of flows per instance")
+        ("num_sessions_per_instance", opt::value<int>()->default_value(10),
+         "Number of sessions per instance")
         ("start_ip_address",
          opt::value<std::string>()->default_value("1.0.0.1"),
          "Start IP address to be used for instances")
@@ -352,6 +580,12 @@ int main(int argc, char *argv[]) {
         ("num_vrouter_errors_per_second", opt::value<int>()->default_value(
             MockGenerator::kNumVRouterErrorMessagesPerSec),
          "Number of VRouterErrror messages to send in one second")
+        ("num_session_samples_per_second", opt::value<int>()->default_value(
+            MockGenerator::kNumSessionSamplesPerSec),
+         "Number of session messages to send in one second")
+        ("num_session_samples_in_message", opt::value<int>()->default_value(
+            MockGenerator::kNumSessionSamplesInMessage),
+         "Number of session samples to send in one message")
         ("log_property_file", opt::value<std::string>()->default_value(""),
             "log4cplus property file name")
         ("log_files_count", opt::value<int>()->default_value(10),
@@ -458,10 +692,15 @@ int main(int argc, char *argv[]) {
 
     EventManager evm;
     int num_flows_per_instance(var_map["num_flows_per_instance"].as<int>());
+    int num_sessions_per_instance(var_map["num_sessions_per_instance"].as<int>());
     int num_flow_samples_per_sec(
         var_map["num_flow_samples_per_second"].as<int>());
+    int num_session_samples_per_sec(
+        var_map["num_session_samples_per_second"].as<int>());
     int num_flow_samples_in_message(
         var_map["num_flow_samples_in_message"].as<int>());
+    int num_session_samples_in_message(
+        var_map["num_session_samples_in_message"].as<int>());
     int num_vrouter_error_messages_per_sec(
         var_map["num_vrouter_errors_per_second"].as<int>());
     std::string instance_id(integerToString(gen_id));
@@ -469,7 +708,9 @@ int main(int argc, char *argv[]) {
         instance_id, http_server_port, start_vn, end_vn, other_vn,
         num_networks, instance_iterations, collectors, ip_vns, start_ip_index,
         num_flows_per_instance, num_flow_samples_per_sec,
-        num_flow_samples_in_message, num_vrouter_error_messages_per_sec, &evm);
+        num_flow_samples_in_message, num_vrouter_error_messages_per_sec,
+        num_sessions_per_instance, num_session_samples_per_sec, 
+        num_session_samples_in_message, &evm);
     mock_generator.Run();
     evm.Run();
     return 0;
