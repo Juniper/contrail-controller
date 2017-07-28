@@ -30,6 +30,7 @@ public:
     bool IsReady() const { return true; }
     bool notification() const { return notification_; }
     void set_notification(bool notification) { notification_ = notification; }
+    void TriggerPrefixLimitCheck() const { }
 private:
     bool notification_;
 };
