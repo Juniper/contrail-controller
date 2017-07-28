@@ -1,9 +1,15 @@
 from kazoo.client import KazooClient
+from kazoo.client import KazooState
 from kazoo.exceptions import CancelledError
 import gevent
+import os
 from gevent import Greenlet
 from consistent_hash import ConsistentHash
 import logging
+from pysandesh.connection_info import ConnectionState
+from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
+    ConnectionType
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 """ Partition Library 
 This library provides functionality to implement partition sharing between
@@ -57,6 +63,7 @@ class PartitionClient(object):
         self._target_part_ownership_list = []
         self._con_hash = ConsistentHash(cluster_list)
         self._name = self_name
+        self._app_name = app_name
 
         # some sanity check
         if not(self._name in cluster_list):
@@ -72,30 +79,39 @@ class PartitionClient(object):
         self._sandesh_connection_info_update(status='INIT', message='')
 
         # connect to zookeeper
-        self._zk = KazooClient(zk_server)
         while True:
             try:
+                self._logger.error("Libpartition zk start")
+                self._zk = KazooClient(zk_server)
+                self._zk.add_listener(self._zk_listen)
                 self._zk.start()
+                while self._conn_state != ConnectionStatus.UP:
+                    gevent.sleep(1)
+                self._connected_cb()
                 break
-            except gevent.event.Timeout as e:
-                # Update connection info
-                self._sandesh_connection_info_update(status='DOWN',
-                                                     message=str(e))
-                gevent.sleep(1)
-            # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
                 # Update connection info
                 self._sandesh_connection_info_update(status='DOWN',
                                                      message=str(e))
+                try:
+                    self._zk.stop()
+                    self._zk.close()
+                except Exception as ex:
+                    template = "Exception {0} in Libpartition zkstart. Args:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("%s : traceback %s for %s" % \
+                        (messag, traceback.format_exc(), self._name))
+                finally:
+                    self._zk = None
                 gevent.sleep(1)
-        # Update connection info
-        self._sandesh_connection_info_update(status='UP', message='')
-        # Done connecting to ZooKeeper
 
+    #end __init__
+
+    def _connected_cb(self):
         # create a lock array to contain locks for each partition
         self._part_locks = []
         for part in range(0, self._max_partition):
-            lockpath = "/lockpath/"+ app_name + "/" + str(part)
+            lockpath = "/lockpath/"+ self._app_name + "/" + str(part)
             l = self._zk.Lock(lockpath, self._name)
             self._part_locks.append(l)
 
@@ -112,14 +128,7 @@ class PartitionClient(object):
         # update current ownership list
         self._acquire_partition_ownership()
 
-    #end __init__
-
     def _sandesh_connection_info_update(self, status, message):
-        from pysandesh.connection_info import ConnectionState
-        from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
-            ConnectionType
-        from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-
         new_conn_state = getattr(ConnectionStatus, status)
         ConnectionState.update(conn_type = ConnectionType.ZOOKEEPER,
                 name = 'Zookeeper', status = new_conn_state,
@@ -138,6 +147,24 @@ class PartitionClient(object):
         self._conn_state = new_conn_state
     # end _sandesh_connection_info_update
 
+    def _zk_listen(self, state):
+        self._logger.error("Libpartition listen %s" % str(state))
+        if state == KazooState.CONNECTED:
+            # Update connection info
+            self._sandesh_connection_info_update(status='UP', message='')
+        elif state == KazooState.LOST:
+            self._logger.error("Libpartition connection LOST")
+            # Lost the session with ZooKeeper Server
+            # Best of option we have is to exit the process and restart all 
+            # over again
+            self._sandesh_connection_info_update(status='DOWN',
+                                      message='Connection to Zookeeper lost')
+            os._exit(2)
+        elif state == KazooState.SUSPENDED:
+            self._logger.error("Libpartition connection SUSPENDED")
+            # Update connection info
+            self._sandesh_connection_info_update(status='INIT',
+                message = 'Connection to zookeeper lost. Retrying')
 
     # following routine is the greenlet task function to acquire the lock
     # for a partition
