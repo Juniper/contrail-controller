@@ -141,6 +141,60 @@ class IndexAllocator(object):
         return self._in_use.count()
     # end get_alloc_count
 
+    def extend_range(self, start, end):
+        for i, alloc in enumerate(self._alloc_list):
+            if (i != 0 and self._alloc_list[i-1]['end']) == start:
+                start = start + 1
+            if (i != len(self._alloc_list) - 1 and
+                self._alloc_list[i+1]['start'] == end):
+                end = end - 1
+            if start <= alloc['start']:
+                if end < alloc['start']:
+                    # This is a new range with no overlap with ranges.
+                    # which needs to be added to the front the bitarray.
+                    temp = bitarray(end-start+1)
+                    temp.setall(0)
+                    temp.extend(self._in_use)
+                    self._in_use = temp
+                    self._alloc_list.insert(i, {'start':start,'end':end})
+                    break
+                # The new range starts before the current range,
+                # hence extend the current range in the front.
+                if (self._alloc_list[i]['start'] - start) != 0:
+                    temp = bitarray(self._alloc_list[i]['start']-start)
+                    temp.setall(0)
+                    temp.extend(self._in_use)
+                    self._in_use = temp
+                self._alloc_list[i]['start'] = start
+
+                if end <= alloc['end']:
+                    # The current range overlaps with the new range.
+                    # So nothing to change.
+                    break
+                # The new range encompasses the current range
+                # completely. Move the start after the current
+                # range ends and continue through the list of
+                # ranges.
+                start = alloc['end'] + 1
+            else:
+                if start <= alloc['end']:
+                    # The new range is within an already existing
+                    # range. No-op. Existing ranges cannot be
+                    # shrunk
+                    break
+        if (self._alloc_list[-1]['end'] < end and
+            self._alloc_list[-1]['end'] < start):
+            self._alloc_list.append({'start':start, 'end':end})
+            temp = bitarray(end-start+1)
+            temp.setall(0)
+            self._in_use.extend(temp)
+        elif self._alloc_list[-1]['end'] < end:
+            temp = bitarray(end-self._alloc_list[-1]['end'])
+            temp.setall(0)
+            self._in_use.extend(temp)
+            self._alloc_list[-1]['end'] = end
+    #end extend_range
+
     def alloc(self, value=None):
         # Allocates a index from the allocation list
         if self._in_use.all():
