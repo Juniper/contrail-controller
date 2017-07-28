@@ -110,10 +110,27 @@ class SchemaTransformerDB(VncObjectDBClient):
             zkclient, self._zk_path_pfx+self._BGP_RTGT_ALLOC_PATH,
             self._BGP_RTGT_MAX_ID, common.BGP_RTGT_MIN_ID)
 
-        self._bgpaas_port_allocator = IndexAllocator(
-            zkclient, self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH,
-            self._args.bgpaas_port_end - self._args.bgpaas_port_start,
-            self._args.bgpaas_port_start)
+        def _init_bgpaas_ports_index_allocator():
+            bgpaas_port_start = self._args.bgpaas_port_start
+            bgpaas_port_end = self._args.bgpaas_port_end
+
+            ok, cfg, _ = self._object_db.object_list('global_system_config')
+
+            # Assuming there is going to be only one Global System Config.
+            if ok and cfg[0]:
+                global_cfg_uuid = cfg[0][1]
+                _, cfg = self._object_db.object_read('global_system_config',
+                                                     [global_cfg_uuid])
+                cfg_bgpaas_ports = cfg[0].get('bgpaas_parameters')
+                if cfg_bgpaas_ports:
+                    bgpaas_port_start = cfg_bgpaas_ports['port_start']
+                    bgpaas_port_end = cfg_bgpaas_ports['port_end']
+
+            self._bgpaas_port_allocator = IndexAllocator(
+                zkclient, self._zk_path_pfx + self._BGPAAS_PORT_ALLOC_PATH,
+                bgpaas_port_end - bgpaas_port_start, bgpaas_port_start)
+
+        _init_bgpaas_ports_index_allocator()
 
         self._sc_vlan_allocator_dict = {}
         self._upgrade_vlan_alloc_path()
