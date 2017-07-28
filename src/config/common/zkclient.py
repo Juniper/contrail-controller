@@ -32,20 +32,7 @@ class IndexAllocator(object):
             sorted_alloc_list = sorted(alloc_list, key=lambda k: k['start'])
             self._alloc_list = sorted_alloc_list
 
-        alloc_count = len(self._alloc_list)
-        total_size = 0
-        size = 0
-
-        #check for overlap in alloc_list --TODO
-        for alloc_idx in range (0, alloc_count -1):
-            idx_start_addr = self._alloc_list[alloc_idx]['start']
-            idx_end_addr = self._alloc_list[alloc_idx]['end']
-            next_start_addr = self._alloc_list[alloc_idx+1]['start']
-            if next_start_addr <= idx_end_addr:
-                raise Exception(
-                    'Allocation Lists Overlapping: %s' %(alloc_list))
-            size += idx_end_addr - idx_start_addr + 1
-        size += self._alloc_list[alloc_count-1]['end'] - self._alloc_list[alloc_count-1]['start'] + 1
+        size = self._get_range_size(self._alloc_list)
 
         if max_alloc == 0:
             self._max_alloc = size
@@ -59,9 +46,62 @@ class IndexAllocator(object):
         for idx in self._zookeeper_client.get_children(path):
             idx_int = self._get_bit_from_zk_index(int(idx))
             if idx_int >= 0:
-                self._set_in_use(idx_int)
+                self._set_in_use(self._in_use, idx_int)
         # end for idx
     # end __init__
+
+    def _get_range_size(self, alloc_list):
+        alloc_count = len(alloc_list)
+        size = 0
+
+        #check for overlap in alloc_list --TODO
+        for alloc_idx in range (0, alloc_count -1):
+            idx_start_addr = alloc_list[alloc_idx]['start']
+            idx_end_addr = alloc_list[alloc_idx]['end']
+            next_start_addr = alloc_list[alloc_idx+1]['start']
+            if next_start_addr <= idx_end_addr:
+                raise Exception(
+                    'Allocation Lists Overlapping: %s' %(alloc_list))
+            size += idx_end_addr - idx_start_addr + 1
+        size += alloc_list[alloc_count-1]['end'] - alloc_list[alloc_count-1]['start'] + 1
+
+        return size
+
+    def _is_range_in_list(self, r, alloc_list):
+        for i, alloc in enumerate(alloc_list):
+            if r['start'] >= alloc['start']:
+                while i < len(alloc_list) - 1:
+                    if r['end'] <= alloc_list[i]['end']:
+                        return True
+                    elif alloc_list[i+1]['start'] != alloc_list[i]['end'] + 1:
+                        return False
+                    i = i + 1
+                if r['end'] <= alloc_list[-1]['end']:
+                    return True
+                else
+                    return False
+        return True
+
+    def reallocate(self, new_alloc_list):
+        sorted_alloc_list = sorted(new_alloc_list,
+                                   key=lambda k: k['start'])
+
+        for alloc in self._alloc_list:
+            if not self._is_range_in_list(alloc, sorted_alloc_list):
+                raise Exception('Indexes already allocated cannot be shrunk: %s' %
+                                (alloc_list))
+
+        size = self._get_range_size(sorted_alloc_list)
+        self._max_alloc = size
+
+        new_in_use = bitarray(0)
+        for idx in self._zookeeper_client.get_children(path):
+            idx_int = self._get_bit_from_zk_index(int(idx))
+            if idx_int >= 0:
+                self._set_in_use(new_in_use, idx_int)
+
+        self._in_use = new_in_use
+        # end for idx
 
     def _get_zk_index_from_bit(self, idx):
         size = idx
@@ -96,19 +136,19 @@ class IndexAllocator(object):
         return -1
     # end _get_bit_from_zk_index
 
-    def _set_in_use(self, bitnum):
+    def _set_in_use(self, array, bitnum):
         # if the index is higher than _max_alloc, do not use the bitarray, in
         # order to reduce the size of the bitarray. Otherwise, set the bit
         # corresponding to idx to 1 and extend the _in_use bitarray if needed
         if bitnum > self._max_alloc:
             return
-        if bitnum >= self._in_use.length():
-            temp = bitarray(bitnum - self._in_use.length())
+        if bitnum >= array.length():
+            temp = bitarray(bitnum - array.length())
             temp.setall(0)
             temp.append('1')
-            self._in_use.extend(temp)
+            array.extend(temp)
         else:
-            self._in_use[bitnum] = 1
+            array[bitnum] = 1
     # end _set_in_use
 
     def _reset_in_use(self, bitnum):
@@ -127,7 +167,7 @@ class IndexAllocator(object):
         bit_idx = self._get_bit_from_zk_index(idx)
         if bit_idx < 0:
             return
-        self._set_in_use(bit_idx)
+        self._set_in_use(self._in_use, bit_idx)
     # end set_in_use
 
     def reset_in_use(self, idx):
@@ -199,7 +239,7 @@ class IndexAllocator(object):
         if id_val is not None:
             bit_idx = self._get_bit_from_zk_index(idx)
             if bit_idx >= 0:
-                self._set_in_use(bit_idx)
+                self._set_in_use(self._in_use, bit_idx)
         return id_val
     # end read
 
