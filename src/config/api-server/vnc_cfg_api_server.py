@@ -768,8 +768,8 @@ class VncApiServer(object):
 
         # Early return if there is no body or an empty body
         request = get_request()
-        if (not hasattr(request, 'json') or
-            not request.json or
+        if (not request.json or
+            not hasattr(request, 'json') or
             not request.json[resource_type]):
             return
 

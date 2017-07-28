@@ -16,6 +16,7 @@ import copy
 import uuid
 
 import itertools
+import socket
 import cfgm_common as common
 from netaddr import IPNetwork, IPAddress
 from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
@@ -28,6 +29,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from cfgm_common.uve.virtual_network.ttypes import *
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
+from cfgm_common.uve.config_req.ttypes import *
 try:
     # python2.7
     from collections import OrderedDict
@@ -47,6 +49,14 @@ _PROTO_STR_TO_NUM = {
 SGID_MIN_ALLOC = common.SGID_MIN_ALLOC
 
 
+def _raise_and_send_uve_to_sandesh(obj_type, err_info, sandesh):
+    config_req_err = UveConfigReq(obj_type=obj_type,
+                                  err_info=err_info)
+    config_req_err.name = socket.gethostname()
+    config_req_trace = UveConfigReqTrace(data=config_req_err,
+                                         sandesh=sandesh)
+    config_req_trace.send(sandesh=sandesh)
+
 def _access_control_list_update(acl_obj, name, obj, entries):
     if acl_obj is None:
         if entries is None:
@@ -55,6 +65,15 @@ def _access_control_list_update(acl_obj, name, obj, entries):
         try:
             DBBaseST._vnc_lib.access_control_list_create(acl_obj)
             return acl_obj
+        except HttpError as he:
+            # log the error and raise an alarm
+            DBBaseST._logger.error(
+                "HTTP error while creating acl %s for %s: %d, %s" %
+                (name, obj.get_fq_name_str(), he.status_code, he.content))
+            if he.status_code == 413:
+                err_info = {'acl rule limit exceeded': 'http_413'}
+                _raise_and_send_uve_to_sandesh('ACL', err_info,
+                                               DBBaseST._sandesh)
         except (NoIdError, BadRequest) as e:
             DBBaseST._logger.error(
                 "Error while creating acl %s for %s: %s" %
@@ -82,6 +101,10 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             DBBaseST._logger.error(
                 "HTTP error while updating acl %s for %s: %d, %s" %
                 (name, obj.get_fq_name_str(), he.status_code, he.content))
+            if he.status_code == 413:
+                err_info = {'acl rule limit exceeded': 'http_413'}
+                _raise_and_send_uve_to_sandesh('ACL', err_info,
+                                               DBBaseST._sandesh)
         except NoIdError:
             DBBaseST._logger.error("NoIdError while updating acl %s for %s" %
                                    (name, obj.get_fq_name_str()))

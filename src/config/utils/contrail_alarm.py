@@ -743,6 +743,37 @@ alarm_list = [
                 "vrouter"
             ]
         }
+    },
+    {
+        "alarm_rules": {
+            "or_list" : [
+                {
+                    "and_list": [
+                        {
+                            "operand1": "UveConfigReq.err_info.*.",
+                            "operation": "==",
+                            "operand2": {
+                                "json_value": "http_413"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "alarm_severity": 1,
+        "fq_name": [
+            "default-global-system-config",
+            "system-defined-bottle-request-size-limit"
+        ],
+        "id_perms": {
+            "description": "Bottle request size limit exceeded."
+        },
+        "parent_type": "global-system-config",
+        "uve_keys": {
+            "uve_key": [
+                "config-node"
+            ]
+        }
     }
 ]
     
