@@ -72,21 +72,26 @@ class PartitionClient(object):
         self._sandesh_connection_info_update(status='INIT', message='')
 
         # connect to zookeeper
-        self._zk = KazooClient(zk_server)
         while True:
             try:
+                self._logger.error("Libpartition zk start")
+                self._zk = KazooClient(zk_server)
                 self._zk.start()
                 break
-            except gevent.event.Timeout as e:
-                # Update connection info
-                self._sandesh_connection_info_update(status='DOWN',
-                                                     message=str(e))
-                gevent.sleep(1)
-            # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
                 # Update connection info
                 self._sandesh_connection_info_update(status='DOWN',
                                                      message=str(e))
+                try:
+                    self._zk.stop()
+                    self._zk.close()
+                except Exception as ex:
+                    template = "Exception {0} in Libpartition zkstart. Args:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("%s : traceback %s for %s" % \
+                        (messag, traceback.format_exc(), self._name))
+                finally:
+                    self._zk = None
                 gevent.sleep(1)
         # Update connection info
         self._sandesh_connection_info_update(status='UP', message='')

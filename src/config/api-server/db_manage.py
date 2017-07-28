@@ -1,4 +1,5 @@
 import sys
+import os
 reload(sys)
 sys.setdefaultencoding('UTF8')
 import socket
@@ -103,6 +104,7 @@ class DatabaseManager(object):
         self._parse_args(args_str)
 
         self._logger = utils.ColorLog(logging.getLogger(__name__))
+        self._svc_name = os.path.basename(sys.argv[0])
         log_level = 'ERROR'
         if self._args.verbose:
             log_level = 'INFO'
@@ -144,9 +146,28 @@ class DatabaseManager(object):
         self.base_rtgt_id_zk_path = cluster_id + self.BASE_RTGT_ID_ZK_PATH
         self.base_sg_id_zk_path = cluster_id + self.BASE_SG_ID_ZK_PATH
         self.base_subnet_zk_path = cluster_id + self.BASE_SUBNET_ZK_PATH
-        self._zk_client = kazoo.client.KazooClient(self._api_args.zk_server_ip)
 
-        self._zk_client.start()
+        while True:
+            try:
+                self._logger.error("Api Server zk start")
+                self._zk_client = kazoo.client.KazooClient(self._api_args.zk_server_ip)
+                self._zk_client.start()
+                break
+            except Exception as e:
+                # Update connection info
+                self._sandesh_connection_info_update(status='DOWN',
+                                                     message=str(e))
+                try:
+                    self._zk_client.stop()
+                    self._zk_client.close()
+                except Exception as ex:
+                    template = "Exception {0} in ApiServer zkstart. Args:\n{1!r}"
+                    messag = template.format(type(ex).__name__, ex.args)
+                    self._logger.error("%s : traceback %s for %s" % \
+                        (messag, traceback.format_exc(), self._svc_name))
+                finally:
+                    self._zk_client = None
+                gevent.sleep(1)
 
         # Get the system global autonomous system
         self.global_asn = self.get_autonomous_system()
@@ -681,10 +702,13 @@ class DatabaseChecker(DatabaseManager):
                 stat_out = zk_client.command('stat')
                 self._logger.debug("Got: %s" %(stat_out))
                 zk_client.stop()
+                zk_client.close()
                 stats[server] = stat_out
             except Exception as e:
                 msg = "Cannot get stats on zk node %s: %s" % (server, str(e))
                 ret_errors.append(ZkStandaloneError(msg))
+            finally:
+                zk_client = None
 
         # Check mode
         for stat_out in stats.values():
