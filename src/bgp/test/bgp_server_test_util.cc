@@ -191,12 +191,12 @@ BgpPeerTest::BgpPeerTest(BgpServer *server, RoutingInstance *rtinst,
                          const BgpNeighborConfig *config)
         : BgpPeer(server, rtinst, config), id_(0),
           work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-                      boost::bind(&BgpPeerTest::ProcessRequest, this, _1)) {
-    SendUpdate_fnc_ = boost::bind(&BgpPeerTest::BgpPeerSendUpdate, this,
-                                  _1, _2);
-    MpNlriAllowed_fnc_ = boost::bind(&BgpPeerTest::BgpPeerMpNlriAllowed, this,
-                                     _1, _2);
-    IsReady_fnc_ = boost::bind(&BgpPeerTest::BgpPeerIsReady, this);
+                      boost::bind(&BgpPeerTest::ProcessRequest, this, _1)),
+          send_update_fnc_(boost::bind(&BgpPeerTest::BgpPeerSendUpdate, this,
+                                       _1, _2)),
+          mp_nlri_allowed_fnc_(boost::bind(&BgpPeerTest::BgpPeerMpNlriAllowed,
+                                           this, _1, _2)),
+          is_ready_fnc_(boost::bind(&BgpPeerTest::BgpPeerIsReady, this)) {
 }
 
 BgpPeerTest::~BgpPeerTest() {

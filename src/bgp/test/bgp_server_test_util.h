@@ -275,12 +275,26 @@ public:
 
     bool BgpPeerSendUpdate(const uint8_t *msg, size_t msgsize);
     virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) {
-        return SendUpdate_fnc_(msg, msgsize);
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        return send_update_fnc_(msg, msgsize);
+    }
+
+    void set_send_update_fnc(
+            boost::function<bool(const uint8_t *, size_t)> send_update_fnc) {
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        send_update_fnc_ = send_update_fnc;
     }
 
     bool BgpPeerMpNlriAllowed(uint16_t afi, uint8_t safi);
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi) {
-        return MpNlriAllowed_fnc_(afi, safi);
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        return mp_nlri_allowed_fnc_(afi, safi);
+    }
+
+    void set_mp_nlri_allowed_fnc(
+            boost::function<bool(uint16_t, uint8_t)> mp_nlri_allowed_fnc) {
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        mp_nlri_allowed_fnc_ = mp_nlri_allowed_fnc;
     }
 
     bool BgpPeerIsReady();
@@ -295,7 +309,16 @@ public:
         }
     }
 
-    virtual bool IsReady() const { return IsReady_fnc_(); }
+    virtual bool IsReady() const {
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        return is_ready_fnc_();
+    }
+
+    void set_is_ready_fnc(boost::function<bool()> is_ready_fnc) {
+        tbb::mutex::scoped_lock lock(fnc_mutex_);
+        is_ready_fnc_ = is_ready_fnc;
+    }
+
     void set_vpn_tables_registered(bool flag) { vpn_tables_registered_ = flag; }
     const int id() const { return id_; }
     void set_id(int id) { id_ = id; }
@@ -317,10 +340,6 @@ public:
         cond_var_.wait(lock);
     }
 
-    boost::function<bool(const uint8_t *, size_t)> SendUpdate_fnc_;
-    boost::function<bool(uint16_t, uint8_t)> MpNlriAllowed_fnc_;
-    boost::function<bool()> IsReady_fnc_;
-
     BgpTestUtil util_;
 
 private:
@@ -338,6 +357,11 @@ private:
     WorkQueue<Request *> work_queue_;
     tbb::mutex work_mutex_;
     tbb::interface5::condition_variable cond_var_;
+
+    mutable tbb::mutex fnc_mutex_;
+    boost::function<bool(const uint8_t *, size_t)> send_update_fnc_;
+    boost::function<bool(uint16_t, uint8_t)> mp_nlri_allowed_fnc_;
+    boost::function<bool()> is_ready_fnc_;
 };
 
 class PeerManagerTest : public PeerManager {
