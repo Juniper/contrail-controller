@@ -768,9 +768,9 @@ class VncApiServer(object):
 
         # Early return if there is no body or an empty body
         request = get_request()
-        if (not hasattr(request, 'json') or
-            not request.json or
-            not request.json[resource_type]):
+        req_json = request.json
+
+        if not req_json or not req_json[resource_type]:
             return
 
         obj_dict = get_request().json[resource_type]
@@ -2658,6 +2658,33 @@ class VncApiServer(object):
         self._create_singleton_entry(
             RoutingInstance('__link_local__', link_local_vn,
                 routing_instance_is_default=True))
+
+        # specifying alarm kwargs like contrail_alarm.py
+        alarm_kwargs = {"alarm_rules":
+                        {"or_list" : [
+                         {"and_list": [
+                           { "operand1": "UveConfigReq.err_info.*.",
+                            "operation": "==",
+                            "operand2": {"json_value": "True"}
+                           }          ]
+                         }           ]
+                        },
+                        "alarm_severity": 1,
+                        "fq_name": [
+                            "default-global-system-config",
+                            "system-defined-bottle-request-size-limit"
+                        ],
+                        "id_perms": {
+                            "description": "Bottle request size limit exceeded."
+                        },
+                        "parent_type": "global-system-config",
+                        "uve_keys": {
+                            "uve_key": [
+                                "config-node"
+                            ]
+                        }
+                       }
+        self._create_singleton_entry(Alarm(**alarm_kwargs))
         try:
             self._create_singleton_entry(
                 RoutingInstance('default-virtual-network',
