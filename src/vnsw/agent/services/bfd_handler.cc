@@ -24,7 +24,6 @@ bool BfdHandler::Run() {
     }
 
     BfdProto *bfd_proto = agent()->GetBfdProto();
-
     uint8_t len = ntohs(pkt_info_->transp.udp->len) - 8;
     uint8_t *data = new uint8_t[len];
     memcpy(data, pkt_info_->data, len);
@@ -39,6 +38,7 @@ bool BfdHandler::Run() {
                                   buffer, local_endpoint, remote_endpoint,
                                   BFD::SessionIndex(GetInterfaceIndex()),
                                   len, ec);
+    bfd_proto->IncrementReceived();
 
     return true;
 }
@@ -68,10 +68,11 @@ void BfdHandler::SendPacket(
     bool is_v4 = local_endpoint.address().is_v4();
     uint16_t len = 0;
 
+    uint8_t *data = boost::asio::buffer_cast<uint8_t *>(packet);
     uint16_t eth_proto = is_v4 ? ETHERTYPE_IP : ETHERTYPE_IPV6;
     len += EthHdr(ptr + len, buf_len - len,
-                  agent()->vhost_interface()->mac(),
-                  vm_interface->mac(),
+                  agent()->vrrp_mac(),
+                  vm_interface->vm_mac(),
                   eth_proto, vm_interface->tx_vlan_id());
 
     if (is_v4) {
@@ -79,19 +80,23 @@ void BfdHandler::SendPacket(
         len += IpHdr(ptr + len, buf_len - len, ip_len,
                      htonl(local_endpoint.address().to_v4().to_ulong()),
                      htonl(remote_endpoint.address().to_v4().to_ulong()),
-                     IPPROTO_UDP, 0, 64);
-        len += UdpHdr((udphdr *)(ptr + len), buf_len - len, packet_length,
+                     IPPROTO_UDP, 0, 255);
+        memcpy(ptr + len + sizeof(udphdr), data, packet_length);
+        len += UdpHdr((udphdr *)(ptr + len), buf_len - len,
+                      sizeof(udphdr) + packet_length,
                       htonl(local_endpoint.address().to_v4().to_ulong()),
                       local_endpoint.port(),
                       htonl(remote_endpoint.address().to_v4().to_ulong()),
                       remote_endpoint.port());
     } else {
-        Ip6Hdr((ip6_hdr *)(ptr + len), sizeof(udphdr) + packet_length,
+        Ip6Hdr((ip6_hdr *)(ptr + len),
+               sizeof(struct ip6_hdr) + sizeof(udphdr) + packet_length,
                IPPROTO_UDP, 64,
                local_endpoint.address().to_v6().to_bytes().data(),
                remote_endpoint.address().to_v6().to_bytes().data());
         len += sizeof(ip6_hdr);
-        UdpHdr((udphdr *)(ptr + len), len,
+        memcpy(ptr + len + sizeof(udphdr), data, packet_length);
+        UdpHdr((udphdr *)(ptr + len), sizeof(udphdr) + packet_length,
                local_endpoint.address().to_v6().to_bytes().data(),
                local_endpoint.port(),
                remote_endpoint.address().to_v6().to_bytes().data(),
@@ -99,8 +104,6 @@ void BfdHandler::SendPacket(
         len += sizeof(udphdr);
     }
 
-    uint8_t *data = boost::asio::buffer_cast<uint8_t *>(packet);
-    memcpy(ptr + len, data, packet_length);
     len += packet_length;
 
     pkt_info_->set_len(len);

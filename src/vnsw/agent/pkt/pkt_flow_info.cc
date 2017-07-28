@@ -1437,8 +1437,18 @@ bool PktFlowInfo::UnknownUnicastFlow(const PktInfo *pkt,
     return ret;
 }
 
+// Ignore in case of BFD health check
+bool IsValidationDisabled(Agent *agent, const PktInfo *pkt,
+                          const Interface *interface) {
+    if (!interface)
+        return false;
+    return agent->pkt()->pkt_handler()->IsBFDHealthCheckPacket(pkt, interface);
+}
+
 // Basic config validations for the flow
 bool PktFlowInfo::ValidateConfig(const PktInfo *pkt, PktControlInfo *in) {
+    disable_validation = IsValidationDisabled(agent, pkt, in->intf_);
+
     if (agent->tsn_enabled()) {
         short_flow = true;
         short_flow_reason = FlowEntry::SHORT_FLOW_ON_TSN;
@@ -1453,7 +1463,7 @@ bool PktFlowInfo::ValidateConfig(const PktInfo *pkt, PktControlInfo *in) {
     }
 
     const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(in->intf_);
-    if (l3_flow == true) {
+    if (l3_flow == true && !disable_validation) {
         if (vm_intf && in->intf_->ip_active(pkt->family) == false) {
             in->intf_ = NULL;
             LogError(pkt, this, "IP protocol inactive on interface");
@@ -1470,7 +1480,7 @@ bool PktFlowInfo::ValidateConfig(const PktInfo *pkt, PktControlInfo *in) {
         }
     }
 
-    if (l3_flow == false) {
+    if (l3_flow == false && !disable_validation) {
         if (in->intf_->l2_active() == false) {
             in->intf_ = NULL;
             LogError(pkt, this, "L2 inactive on interface");
@@ -1524,25 +1534,30 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    if (in->rt_ == NULL) {
-        LogError(pkt, this, "Flow : No route for Src-IP");
-        short_flow = true;
-        short_flow_reason = FlowEntry::SHORT_NO_SRC_ROUTE;
-        return false;
-    }
+    if (!disable_validation) {
+        if (in->rt_ == NULL) {
+            LogError(pkt, this, "Flow : No route for Src-IP");
+            short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_NO_SRC_ROUTE;
+            return false;
+        }
 
-    if (out->rt_ == NULL) {
-        LogError(pkt, this, "Flow : No route for Dst-IP");
-        short_flow = true;
-        short_flow_reason = FlowEntry::SHORT_NO_DST_ROUTE;
-        return false;
+        if (out->rt_ == NULL) {
+            LogError(pkt, this, "Flow : No route for Dst-IP");
+            short_flow = true;
+            short_flow_reason = FlowEntry::SHORT_NO_DST_ROUTE;
+            return false;
+        }
+
+        flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->vrf_id();
+        flow_dest_vrf = out->rt_->vrf_id();
+    } else {
+        flow_source_vrf = flow_dest_vrf = in->vrf_->vrf_id();
     }
-    flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->vrf_id();
-    flow_dest_vrf = out->rt_->vrf_id();
 
     //If source is ECMP, establish a reverse flow pointing
     //to the component index
-    if (in->rt_->GetActiveNextHop() &&
+    if (in->rt_ && in->rt_->GetActiveNextHop() &&
         in->rt_->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
         ecmp = true;
     }

@@ -843,7 +843,11 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     ////////////////////////////////////////////////////////////////////////
     AddDependencyPath("service-health-check",
                       MakePath("service-port-health-check",
-                               "virtual-machine-interface", true));
+                               "virtual-machine-interface", true,
+                               "virtual-machine-interface-virtual-network",
+                               "virtual-network", false,
+                               "virtual-network-network-ipam",
+                               "virtual-network-network-ipam", true));
     RegisterConfigHandler(this, "service-health-check",
                           agent ? agent->health_check_table() : NULL);
 

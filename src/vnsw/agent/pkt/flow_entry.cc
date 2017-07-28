@@ -284,6 +284,7 @@ void FlowData::Reset() {
     rpf_nh.reset(NULL);
     rpf_plen = Address::kMaxV4PrefixLen;
     rpf_vrf = VrfEntry::kInvalidIndex;
+    disable_validation = false;
     vm_cfg_name = "";
     bgp_as_a_service_port = 0;
     acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
@@ -609,6 +610,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     } else {
         reset_flags(FlowEntry::IngressDir);
     }
+    data_.disable_validation = info->disable_validation;
     if (ctrl->rt_ != NULL) {
         RpfInit(ctrl->rt_);
     }
@@ -685,6 +687,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
             reset_flags(FlowEntry::IngressDir);
         }
     }
+    data_.disable_validation = info->disable_validation;
     if (ctrl->rt_ != NULL) {
         RpfInit(ctrl->rt_);
     }
@@ -1005,6 +1008,8 @@ void FlowEntry::RpfInit(const AgentRoute *rt) {
     bool rpf_enable = true;
     if (data_.vn_entry && data_.vn_entry->enable_rpf() == false)
         rpf_enable = false;
+    if (data_.disable_validation)
+        rpf_enable = false;
 
     // The src_ip_nh can change below only for l2 flows
     // For l3-flow, rt will already be a INET route
@@ -1143,6 +1148,10 @@ void FlowEntry::RpfUpdate() {
     data_.enable_rpf = true;
     if (data_.vn_entry) {
         data_.enable_rpf = data_.vn_entry->enable_rpf();
+    }
+
+    if (data_.disable_validation) {
+        data_.enable_rpf = false;
     }
 
     if (data_.enable_rpf == false) {
