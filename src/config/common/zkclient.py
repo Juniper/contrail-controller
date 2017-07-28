@@ -141,6 +141,95 @@ class IndexAllocator(object):
         return self._in_use.count()
     # end get_alloc_count
 
+    # Utility function to extend the _in_use bit array
+    # by 'size'. If append is True, then in_use array
+    # is extended to the right, or 'size' bits are prepended
+    # to _in_use bitarray otherwise.
+    def extend_bitarray(self, size, append=True):
+        temp = bitarray(size)
+        temp.setall(0)
+        if append:
+            self._in_use.extend(temp)
+        else:
+            temp.extend(self._in_use)
+            self._in_use = temp
+
+    # Function to extend the existing range in _alloc_list from 'start'
+    # to 'end'. The _in_use bitarray is also adjusted/extended
+    # accordingly.
+    #
+    # Lets assume the existing range is 10-20, 21-25, 30-40
+    # Cases covered
+    # 1. Input 1-5 :  1-5, 10-20, 21-25, 30-40
+    # 2. Input 1-100: 1-9, 10-20, 21-25, 26-29, 30-100
+    # 3. Input 14-18: 10-20, 21-25, 30-40 (Shrinking is not allowed)
+    # 4. Input 26-26: 10-20, 21-26, 30-40
+    # 5. Input 26-45: 10-20, 21-25, 26-29, 30-45
+    # 6. Input 50-100: 10-20, 21-25, 30-40, 50-100
+    #
+    # Algorithm is to identify the block in alloc_list where this
+    # input block would fit. There are 5 possibilities
+    #   1.  New block has no overlap and the entire range is before
+    #       the existing block.
+    #   2.  New block has overlap, starts before the current range
+    #       but ends before the current range.
+    #   3.  New block has overlap, but is within the current range.
+    #       This is no-op.
+    #   4.  New block has overlap, starts after the start of the
+    #       current range but ends after the end of the current range.
+    #   5.  New block has no overlap, and needs to be appended to 
+    #       the end of the current block. In this case, move the current
+    #       range to the end of the current block and iterate to
+    #       cover the rest of the range values in the current block.
+
+    def extend_range(self, start, end):
+        for i, alloc in enumerate(self._alloc_list):
+            if (i != 0 and self._alloc_list[i-1]['end']) == start:
+                start = start + 1
+            if (i != len(self._alloc_list) - 1 and
+                self._alloc_list[i+1]['start'] == end):
+                end = end - 1
+            if start <= alloc['start']:
+                if end < alloc['start']:
+                    # This is a new range with no overlap with ranges.
+                    # which needs to be added to the front the bitarray.
+                    self.extend_bitarray(end-start+1, append=False)
+                    self._alloc_list.insert(i, {'start':start,'end':end})
+                    break
+                # The new range starts before the current range,
+                # hence extend the current range in the front.
+                if (self._alloc_list[i]['start'] - start) > 0:
+                    self.extend_bitarray(self._alloc_list[i]['start']-start,
+                                         append=False)
+                self._alloc_list[i]['start'] = start
+
+                if end <= alloc['end']:
+                    # The current range overlaps with the new range.
+                    # So nothing to change.
+                    break
+                # The new range encompasses the current range
+                # completely. Move the start after the current
+                # range ends and continue through the list of
+                # ranges.
+                start = alloc['end'] + 1
+            else:
+                if end <= alloc['end']:
+                    # The new range is within an already existing
+                    # range. No-op. Existing ranges cannot be
+                    # shrunk
+                    break
+                if start < alloc['end']:
+                    start = alloc['end'] + 1
+
+        if (self._alloc_list[-1]['end'] < end and
+            self._alloc_list[-1]['end'] < start):
+            self._alloc_list.append({'start':start, 'end':end})
+            self.extend_bitarray(end-start+1)
+        elif self._alloc_list[-1]['end'] < end:
+            extend_bitarray(end-self._alloc_list[-1]['end'])
+            self._alloc_list[-1]['end'] = end
+    #end extend_range
+
     def alloc(self, value=None):
         # Allocates a index from the allocation list
         if self._in_use.all():

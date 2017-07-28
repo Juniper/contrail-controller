@@ -975,14 +975,23 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              'global-system-config', 'bgp-router', ['ref'], 'required', 'R',
              'List of references to all bgp routers in systems.') -->
 
+<xsd:simpleType name="PortRange">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="65535"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+        <xsd:element name='segmentation-id' type="VlanIdType"/>
+
 <xsd:complexType name="BGPaaServiceParametersType">
-    <xsd:element name="port-start" type="xsd:integer" default="50000"/>
+    <xsd:element name="port-start" type="PortRange" default="50000"/>
     <xsd:annotation>
         <xsd:documentation>
             port-start is the start of port range for bgp as service object.
         </xsd:documentation>
     </xsd:annotation>
-    <xsd:element name="port-end" type="xsd:integer" default="50512"/>
+    <xsd:element name="port-end" type="PortRange" default="50512"/>
     <xsd:annotation>
         <xsd:documentation>
             port-end is the end of port range for bgp as service object.
@@ -2218,6 +2227,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('autonomous-system', 'bgp-as-a-service', 'required', 'CRUD',
               'Autonomous system number for the BGP peer.') -->
+<xsd:element name='bgpaas-shared' type='xsd:boolean' default='false'/>
+    <xsd:annotation>
+        <xsd:documentation>
+            Enforces to create just one BGP Router irrespective of the number of
+            VMIs that are linked to the BGPaaS object.
+        </xsd:documentation>
+    </xsd:annotation>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('bgpaas-shared', 'bgp-as-a-service', 'optional', 'CRUD',
+              'True if only one BGP router needs to be created. Otherwise, one BGP router is created for each VMI') -->
 <xsd:element name="bgpaas-ip-address" type="IpAddressType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('bgpaas-ip-address', 'bgp-as-a-service', 'required', 'CRUD',
