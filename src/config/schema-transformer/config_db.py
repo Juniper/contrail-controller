@@ -16,10 +16,11 @@ import copy
 import uuid
 
 import itertools
+import socket
 import cfgm_common as common
 from netaddr import IPNetwork, IPAddress
 from cfgm_common.exceptions import NoIdError, RefsExistError, BadRequest
-from cfgm_common.exceptions import HttpError
+from cfgm_common.exceptions import HttpError, BottleReqSizeError
 from cfgm_common import svc_info
 from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import *
@@ -28,6 +29,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from cfgm_common.uve.virtual_network.ttypes import *
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
+from cfgm_common.uve.config_req.ttypes import *
 try:
     # python2.7
     from collections import OrderedDict
@@ -47,6 +49,14 @@ _PROTO_STR_TO_NUM = {
 SGID_MIN_ALLOC = common.SGID_MIN_ALLOC
 
 
+def _raise_and_send_uve_to_sandesh(obj_type, err_info, sandesh):
+    config_req_err = SystemConfigReq(obj_type=obj_type,
+                                  err_info=err_info)
+    config_req_err.name = socket.gethostname()
+    config_req_trace = SystemConfigReqTrace(data=config_req_err,
+                                         sandesh=sandesh)
+    config_req_trace.send(sandesh=sandesh)
+
 def _access_control_list_update(acl_obj, name, obj, entries):
     if acl_obj is None:
         if entries is None:
@@ -59,6 +69,14 @@ def _access_control_list_update(acl_obj, name, obj, entries):
             DBBaseST._logger.error(
                 "Error while creating acl %s for %s: %s" %
                 (name, obj.get_fq_name_str(), str(e)))
+        except BottleReqSizeError as e:
+            # log the error and raise an alarm
+            DBBaseST._logger.error(
+                "Bottle request size error while creating acl %s for %s" %
+                (name, obj.get_fq_name_str()))
+            err_info = {'acl rule limit exceeded': True}
+            _raise_and_send_uve_to_sandesh('ACL', err_info,
+                                           DBBaseST._sandesh)
         return None
     else:
         if entries is None:
@@ -85,6 +103,14 @@ def _access_control_list_update(acl_obj, name, obj, entries):
         except NoIdError:
             DBBaseST._logger.error("NoIdError while updating acl %s for %s" %
                                    (name, obj.get_fq_name_str()))
+        except BottleReqSizeError as e:
+            # log the error and raise an alarm
+            DBBaseST._logger.error(
+                "Bottle request size error while creating acl %s for %s" %
+                (name, obj.get_fq_name_str()))
+            err_info = {'acl rule limit exceeded': True}
+            _raise_and_send_uve_to_sandesh('ACL', err_info,
+                                           DBBaseST._sandesh)
     return acl_obj
 # end _access_control_list_update
 

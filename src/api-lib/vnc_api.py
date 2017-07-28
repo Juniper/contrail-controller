@@ -28,7 +28,7 @@ from cfgm_common import _obj_serializer_all
 from cfgm_common.exceptions import (
         ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
         RefsExistError, TimeOutError, BadRequest, HttpError,
-        ResourceTypeUnknownError)
+        ResourceTypeUnknownError, BottleReqSizeError)
 from cfgm_common import ssl_adapter
 
 
@@ -937,6 +937,8 @@ class VncApi(object):
                 raise OverQuota(content)
             elif status == 409:
                 raise RefsExistError(content)
+            elif status == 413:
+                raise BottleReqSizeError(content)
             elif status == 504:
                 # Request sent to API server, but no response came within 50s
                 raise TimeOutError('Gateway Timeout 504')
