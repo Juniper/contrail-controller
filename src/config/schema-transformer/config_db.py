@@ -3593,21 +3593,14 @@ class VirtualMachineInterfaceST(DBBaseST):
                     if si_name not in service_chain.service_list:
                         continue
                     ri_name = vn.get_service_name(service_chain.name, si_name)
-                    left_addr = AddressType(virtual_network=service_chain.left_vn)
-                    right_addr = AddressType(virtual_network=service_chain.right_vn)
-
                     for sp in service_chain.sp_list:
                         for dp in service_chain.dp_list:
                             if self.service_interface_type == 'left':
-                                mc = MatchConditionType(src_address=right_addr,
-                                                        dst_address=left_addr,
-                                                        src_port=dp,
+                                mc = MatchConditionType(src_port=dp,
                                                         dst_port=sp,
                                                         protocol=service_chain.protocol)
                             else:
-                                mc = MatchConditionType(src_address=left_addr,
-                                                        dst_address=right_addr,
-                                                        src_port=sp,
+                                mc = MatchConditionType(src_port=sp,
                                                         dst_port=dp,
                                                         protocol=service_chain.protocol)
 
