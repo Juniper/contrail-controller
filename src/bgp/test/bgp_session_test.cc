@@ -39,6 +39,7 @@ public:
     vector<int>::const_iterator end() const {
         return sizes.end();
     }
+    void TriggerPrefixLimitCheck() const { }
 
 private:
     vector<int> sizes;
