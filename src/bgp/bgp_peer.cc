@@ -793,7 +793,6 @@ bool BgpPeer::ProcessFamilyAttributesConfig(const BgpNeighborConfig *config) {
     STLDeleteValues(&family_attributes_list_);
     family_attributes_list_ = family_attributes_list;
     configured_families_ = config->GetAddressFamilies();
-    prefix_limit_trigger_.Set();
     return (ret != 0);
 }
 
@@ -803,6 +802,10 @@ void BgpPeer::ProcessEndpointConfig(const BgpNeighborConfig *config) {
     } else {
         endpoint_ = TcpSession::Endpoint();
     }
+}
+
+void BgpPeer::TriggerPrefixLimitCheck() const {
+    prefix_limit_trigger_.Set();
 }
 
 void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
@@ -918,6 +921,8 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (ProcessFamilyAttributesConfig(config)) {
         peer_info.set_configured_families(configured_families_);
         clear_session = true;
+    } else {
+        TriggerPrefixLimitCheck();
     }
 
     // Note that the state machine would have been stopped via SetAdminDown
@@ -1750,7 +1755,7 @@ void BgpPeer::UpdatePrimaryPathCount(int count, Address::Family family) const {
     if (family_attributes_list_[family])
         limit = family_attributes_list_[family]->prefix_limit;
     if (limit && family_primary_path_count_[family] > limit)
-        prefix_limit_trigger_.Set();
+        TriggerPrefixLimitCheck();
 }
 
 void BgpPeer::StartPrefixLimitIdleTimer(uint32_t plim_idle_time_msecs) {

@@ -55,6 +55,7 @@ public:
     }
     uint64_t path_cb_count() const { return path_cb_count_; }
     virtual bool IsInGRTimerWaitState() const { return false; }
+    void TriggerPrefixLimitCheck() const { }
 
 private:
     RibExportPolicy policy_;

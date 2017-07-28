@@ -64,6 +64,7 @@ public:
         is_ready_ = is_ready;
     }
 
+    void TriggerPrefixLimitCheck() const { }
     virtual void StartKeepaliveTimerUnlocked() { }
     virtual time_t GetEorSendTimerElapsedTime() const { return elapsed_; }
     virtual bool IsReady() const { return is_ready_; }
