@@ -259,9 +259,8 @@ class VncService(VncCommon):
 
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
-            self.logger.warning("public_fip_pool [%s, %s] doesn't exists" %
-                                 (self._args.public_network,
-                                 self._args.public_fip_pool))
+            self.logger.warning("public_fip_pool %s doesn't exists" %
+                                 self._args.public_fip_pool)
             return None
 
         def _allocate_floating_ip(lb, vmi, fip_pool, external_ip=None):
@@ -341,7 +340,7 @@ class VncService(VncCommon):
                 if loadBalancerIp:
                     allocated_fip = self._allocate_floating_ips(service_id, set([loadBalancerIp]))
                     self._update_service_external_ip(service_namespace, service_name, allocated_fip)
-                elif external_ips and len(external_ips):
+                elif external_ips:
                     allocated_fips = self._allocate_floating_ips(service_id, external_ips)
                 else:
                     allocated_fip = self._allocate_floating_ips(service_id)
@@ -356,29 +355,29 @@ class VncService(VncCommon):
                     self._update_service_external_ip(service_namespace, service_name, loadBalancerIp)
                     return
 
-                if external_ips and len(external_ips) and external_ips != allocated_fips:
+                if external_ips and external_ips != allocated_fips:
                     # If Service's EXTERNAL-IP is not same as allocated floating-ip,
                     # update kube-api server with allocated fip as the EXTERNAL-IP
                     self._deallocate_floating_ips(service_id)
                     self._allocate_floating_ips(service_id, external_ips)
                     return
 
-                if external_ips and len(external_ips) is False:
+                if not external_ips :
                     self._update_service_external_ip(service_namespace, service_name, allocated_fips)
                     return
             return
 
         if service_type in ["ClusterIP"]:
-            if allocated_fips and len(allocated_fips) > 0:
-                if len(external_ips) is 0:
+            if allocated_fips:
+                if not external_ips :
                     self._deallocate_floating_ips(service_id)
                 else:
-                    if external_ips != allocated_fips:
+                    if allocated_fips != external_ips:
                         self._deallocate_floating_ips(service_id)
                         self._allocate_floating_ips(service_id, external_ips)
 
             else:  #allocated_fip is None 
-                if len(external_ips) > 0:
+                if external_ips:
                     self._allocate_floating_ips(service_id, external_ips)
                 else:
                     self._allocate_floating_ips(service_id)
