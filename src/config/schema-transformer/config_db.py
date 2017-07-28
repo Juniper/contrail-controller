@@ -153,7 +153,7 @@ class GlobalSystemConfigST(DBBaseST):
     obj_type = 'global_system_config'
     _autonomous_system = 0
     ibgp_auto_mesh = None
-    prop_fields = ['autonomous_system', 'ibgp_auto_mesh']
+    prop_fields = ['autonomous_system', 'ibgp_auto_mesh', 'bgpaas_parameters']
 
     @classmethod
     def reinit(cls):
@@ -175,8 +175,16 @@ class GlobalSystemConfigST(DBBaseST):
         changed = self.update_vnc_obj(obj)
         if 'autonomous_system' in changed :
             self.update_autonomous_system(self.obj.autonomous_system)
+        if 'bgpaas_parameters' in changed:
+            self.update_bgpaas_parameters(self.obj.bgpaas_parameters)
         return changed
     # end update
+
+    def update_bgpaas_parameters(self, bgpaas_params):
+        self._object_db._bgpaas_port_allocator.extend_range(
+                        bgpaas_params.port_start, bgpaas_params.port_end)
+        #end update_bgpaas_parameters
+
 
     @classmethod
     def get_autonomous_system(cls):
