@@ -555,6 +555,26 @@ class TestCrud(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_machine_interface_update(vmi)
         # end test_bridge_domain_with_multiple_bd_in_vn
 
+    def test_vmi_with_end_to_end_shc(self):
+        project = Project()
+        vn = VirtualNetwork('vn-%s' %(self.id()))
+        self._vnc_lib.virtual_network_create(vn)
+        vmi_obj = VirtualMachineInterface(
+                  str(uuid.uuid4()), parent_obj=project)
+        vmi_obj.uuid = vmi_obj.name
+        vmi_obj.set_virtual_network(vn)
+        vmi_id = self._vnc_lib.virtual_machine_interface_create(vmi_obj)
+
+        shc_props = ServiceHealthCheckType()
+        shc_props.enabled = True
+        shc_props.health_check_type = 'end-to-end'
+        shc_obj = ServiceHealthCheck(str(uuid.uuid4()), parent_obj=project,
+                                service_health_check_properties=shc_props)
+        shc_id = self._vnc_lib.service_health_check_create(shc_obj)
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
+                                 'service-health-check', shc_id, None, 'ADD')
+
     def test_sub_interfaces_with_same_vlan_tags(self):
         vn = VirtualNetwork('vn-%s' %(self.id()))
         self._vnc_lib.virtual_network_create(vn)
