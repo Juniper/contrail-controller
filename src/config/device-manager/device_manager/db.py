@@ -625,6 +625,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
         self.name = obj.get('fq_name')[-1]
+        self.esi = obj.get('ethernet_segment_identifier')
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('physical_interface', obj)
         return obj
