@@ -174,7 +174,8 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
                     return (False, (400, "Virtual network %s is configured "
                             "with a route target with this ASN and route "
                             "target value in the same range as used by "
-                            "automatically allocated route targets" % vn['name']))
+                            "automatically allocated route targets" %
+                            vn['fq_name'][-1]))
         return (True, '')
     # end _check_asn
 
