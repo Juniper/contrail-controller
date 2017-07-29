@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-policy name='test_policy'>
+        <term>
+            <term-match-condition>
+                <community-match-all>true</community-match-all>
+                <community>23:11</community>
+                <community-list>33:.*</community-list>
+                <community-list>43:11</community-list>
+                <community-list>53:.*</community-list>
+            </term-match-condition>
+            <term-action-list>
+                <update>
+                    <local-pref>99</local-pref>
+                </update>
+                <action>accept</action>
+            </term-action-list>
+        </term>
+    </routing-policy>
+    <routing-instance name="test">
+        <routing-policy to="test_policy">
+            <sequence>1.0</sequence>
+        </routing-policy>
+    </routing-instance>
+</config>

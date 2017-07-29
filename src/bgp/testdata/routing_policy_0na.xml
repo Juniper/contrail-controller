@@ -3,8 +3,9 @@
     <routing-policy name='test_policy'>
         <term>
             <term-match-condition>
-                <community-all>23:.*</community-all>
-                <community-all>33:.*</community-all>
+                <community-match-all>true</community-match-all>
+                <community-list>23:.*</community-list>
+                <community-list>33:.*</community-list>
             </term-match-condition>
             <term-action-list>
                 <update>

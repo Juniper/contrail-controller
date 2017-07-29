@@ -31,40 +31,9 @@ protected:
     BgpAttrDB *attr_db_;
 };
 
-TEST_F(MatchCommunityTest, ToString1) {
-    vector<string> communities = list_of("23:11");
-    MatchCommunity match(communities, true, true);
-    EXPECT_EQ(1, match.communities().size());
-    EXPECT_EQ("community [ 23:11 ]", match.ToString());
-}
-
-TEST_F(MatchCommunityTest, ToString2) {
-    vector<string> communities = list_of("23:.*");
-    MatchCommunity match(communities, true, true);
-    EXPECT_EQ(1, match.regex_strings().size());
-    EXPECT_EQ(1, match.regexs().size());
-    EXPECT_EQ("community [ 23:.* ]", match.ToString());
-}
-
-TEST_F(MatchCommunityTest, IsEqual1) {
-    vector<string> communities = list_of("23:11");
-    MatchCommunity match1(communities, false, true);
-    MatchCommunity match2(communities, true, true);
-    EXPECT_FALSE(match1.IsEqual(match2));
-    EXPECT_FALSE(match2.IsEqual(match1));
-}
-
-TEST_F(MatchCommunityTest, IsEqual2) {
-    vector<string> communities = list_of("23:.*");
-    MatchCommunity match1(communities, false, true);
-    MatchCommunity match2(communities, true, true);
-    EXPECT_FALSE(match1.IsEqual(match2));
-    EXPECT_FALSE(match2.IsEqual(match1));
-}
-
 TEST_F(MatchCommunityTest, MatchAll1) {
     vector<string> communities = list_of("23:11")("43:11");
-    MatchCommunity match(communities, false, true);
+    MatchCommunity match(communities, true);
 
     uint32_t value0 = CommunityType::CommunityFromString(communities[0]);
     uint32_t value1 = CommunityType::CommunityFromString(communities[1]);
@@ -109,7 +78,7 @@ TEST_F(MatchCommunityTest, MatchAll1) {
 
 TEST_F(MatchCommunityTest, MatchAll2) {
     vector<string> communities = list_of("33:.*")("53:.*");
-    MatchCommunity match(communities, false, true);
+    MatchCommunity match(communities, true);
 
     uint32_t value0 = CommunityType::CommunityFromString("33:11");
     uint32_t value1 = CommunityType::CommunityFromString("53:11");
@@ -156,7 +125,7 @@ TEST_F(MatchCommunityTest, MatchAll2) {
 
 TEST_F(MatchCommunityTest, MatchAll3) {
     vector<string> communities = list_of("33:.*")("43:11")("53:.*");
-    MatchCommunity match(communities, false, true);
+    MatchCommunity match(communities, true);
 
     uint32_t value0 = CommunityType::CommunityFromString("33:11");
     uint32_t value1 = CommunityType::CommunityFromString("43:11");
@@ -235,7 +204,7 @@ TEST_F(MatchCommunityTest, MatchAll3) {
 
 TEST_F(MatchCommunityTest, MatchAll4) {
     vector<string> communities = list_of("33:.*")("33:11")("53:.*");
-    MatchCommunity match(communities, false, true);
+    MatchCommunity match(communities, true);
 
     uint32_t value0 = CommunityType::CommunityFromString("33:11");
     uint32_t value1 = CommunityType::CommunityFromString("43:11");
@@ -286,7 +255,7 @@ TEST_F(MatchCommunityTest, MatchAll4) {
 
 TEST_F(MatchCommunityTest, MatchAny1) {
     vector<string> communities = list_of("23:11")("43:11");
-    MatchCommunity match(communities, false, false);
+    MatchCommunity match(communities, false);
 
     uint32_t value0 = CommunityType::CommunityFromString(communities[0]);
     uint32_t value1 = CommunityType::CommunityFromString(communities[1]);
@@ -325,7 +294,7 @@ TEST_F(MatchCommunityTest, MatchAny1) {
 
 TEST_F(MatchCommunityTest, MatchAny2) {
     vector<string> communities = list_of("33:.*")("53:.*");
-    MatchCommunity match(communities, false, false);
+    MatchCommunity match(communities, false);
 
     uint32_t value0 = CommunityType::CommunityFromString("33:11");
     uint32_t value1 = CommunityType::CommunityFromString("53:11");
@@ -364,7 +333,7 @@ TEST_F(MatchCommunityTest, MatchAny2) {
 
 TEST_F(MatchCommunityTest, MatchAny3) {
     vector<string> communities = list_of("23:11")("33:.*")("43:11")("53:.*");
-    MatchCommunity match(communities, false, false);
+    MatchCommunity match(communities, false);
 
     uint32_t value0 = CommunityType::CommunityFromString("43:11");
     uint32_t value1 = CommunityType::CommunityFromString("53:11");
@@ -412,8 +381,7 @@ class MatchCommunityParamTest:
 //
 TEST_P(MatchCommunityParamTest, Constructor1a) {
     vector<string> communities = list_of("23:11")("43:11");
-    MatchCommunity match(communities, false, GetParam());
-    EXPECT_FALSE(match.singleton());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
     EXPECT_EQ(2, match.communities().size());
     EXPECT_EQ(0, match.regex_strings().size());
@@ -430,8 +398,7 @@ TEST_P(MatchCommunityParamTest, Constructor1a) {
 //
 TEST_P(MatchCommunityParamTest, Constructor1b) {
     vector<string> communities = list_of("23:11")("43:11")("23:11")("43:11");
-    MatchCommunity match(communities, false, GetParam());
-    EXPECT_FALSE(match.singleton());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
     EXPECT_EQ(2, match.communities().size());
     EXPECT_EQ(0, match.regex_strings().size());
@@ -448,8 +415,7 @@ TEST_P(MatchCommunityParamTest, Constructor1b) {
 //
 TEST_P(MatchCommunityParamTest, Constructor2a) {
     vector<string> communities = list_of("33:.*")("53:.*");
-    MatchCommunity match(communities, false, GetParam());
-    EXPECT_FALSE(match.singleton());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
     EXPECT_EQ(0, match.communities().size());
     EXPECT_EQ(2, match.regex_strings().size());
@@ -465,8 +431,7 @@ TEST_P(MatchCommunityParamTest, Constructor2a) {
 //
 TEST_P(MatchCommunityParamTest, Constructor2b) {
     vector<string> communities = list_of("33:.*")("53:.*")("33:.*")("53:.*");
-    MatchCommunity match(communities, false, GetParam());
-    EXPECT_FALSE(match.singleton());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
     EXPECT_EQ(0, match.communities().size());
     EXPECT_EQ(2, match.regex_strings().size());
@@ -483,8 +448,7 @@ TEST_P(MatchCommunityParamTest, Constructor2b) {
 TEST_P(MatchCommunityParamTest, Constructor3a) {
     vector<string> communities =
         list_of("23:11")("33:.*")("43:11")("53:.*");
-    MatchCommunity match(communities, false, GetParam());
-    EXPECT_FALSE(match.singleton());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
     EXPECT_EQ(2, match.communities().size());
     EXPECT_EQ(2, match.regex_strings().size());
@@ -506,8 +470,7 @@ TEST_P(MatchCommunityParamTest, Constructor3a) {
 TEST_P(MatchCommunityParamTest, Constructor3b) {
     vector<string> communities =
         list_of("23:11")("33:.*")("43:11")("53:.*")("23:11")("33:.*");
-    MatchCommunity match(communities, false, GetParam());
-    EXPECT_FALSE(match.singleton());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(GetParam(), match.match_all());
     EXPECT_EQ(2, match.communities().size());
     EXPECT_EQ(2, match.regex_strings().size());
@@ -528,12 +491,12 @@ TEST_P(MatchCommunityParamTest, Constructor3b) {
 //
 TEST_P(MatchCommunityParamTest, ToString1) {
     vector<string> communities = list_of("23:11")("43:11");
-    MatchCommunity match(communities, false, GetParam());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(2, match.communities().size());
     if (GetParam()) {
-        EXPECT_EQ("community-all [ 23:11,43:11 ]", match.ToString());
+        EXPECT_EQ("community (all) [ 23:11,43:11 ]", match.ToString());
     } else {
-        EXPECT_EQ("community-any [ 23:11,43:11 ]", match.ToString());
+        EXPECT_EQ("community (any) [ 23:11,43:11 ]", match.ToString());
     }
 }
 
@@ -542,13 +505,13 @@ TEST_P(MatchCommunityParamTest, ToString1) {
 //
 TEST_P(MatchCommunityParamTest, ToString2) {
     vector<string> communities = list_of("33:.*")("53:.*");
-    MatchCommunity match(communities, false, GetParam());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(2, match.regex_strings().size());
     EXPECT_EQ(2, match.regexs().size());
     if (GetParam()) {
-        EXPECT_EQ("community-all [ 33:.*,53:.* ]", match.ToString());
+        EXPECT_EQ("community (all) [ 33:.*,53:.* ]", match.ToString());
     } else {
-        EXPECT_EQ("community-any [ 33:.*,53:.* ]", match.ToString());
+        EXPECT_EQ("community (any) [ 33:.*,53:.* ]", match.ToString());
     }
 }
 
@@ -557,14 +520,14 @@ TEST_P(MatchCommunityParamTest, ToString2) {
 //
 TEST_P(MatchCommunityParamTest, ToString3) {
     vector<string> communities = list_of("33:.*")("43:11")("53:.*");
-    MatchCommunity match(communities, false, GetParam());
+    MatchCommunity match(communities, GetParam());
     EXPECT_EQ(1, match.communities().size());
     EXPECT_EQ(2, match.regex_strings().size());
     EXPECT_EQ(2, match.regexs().size());
     if (GetParam()) {
-        EXPECT_EQ("community-all [ 43:11,33:.*,53:.* ]", match.ToString());
+        EXPECT_EQ("community (all) [ 43:11,33:.*,53:.* ]", match.ToString());
     } else {
-        EXPECT_EQ("community-any [ 43:11,33:.*,53:.* ]", match.ToString());
+        EXPECT_EQ("community (any) [ 43:11,33:.*,53:.* ]", match.ToString());
     }
 }
 
@@ -575,8 +538,8 @@ TEST_P(MatchCommunityParamTest, ToString3) {
 TEST_P(MatchCommunityParamTest, IsEqual1a) {
     vector<string> communities1 = list_of("23:11")("43:11");
     vector<string> communities2 = list_of("23:11")("43:12");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, GetParam());
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
@@ -588,8 +551,8 @@ TEST_P(MatchCommunityParamTest, IsEqual1a) {
 TEST_P(MatchCommunityParamTest, IsEqual1b) {
     vector<string> communities1 = list_of("23:11")("43:11");
     vector<string> communities2 = list_of("23:12")("43:11");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, GetParam());
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
@@ -601,8 +564,8 @@ TEST_P(MatchCommunityParamTest, IsEqual1b) {
 TEST_P(MatchCommunityParamTest, IsEqual1c) {
     vector<string> communities1 = list_of("23:11")("43:11")("63:11");
     vector<string> communities2 = list_of("23:11")("43:11");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, GetParam());
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
@@ -613,8 +576,8 @@ TEST_P(MatchCommunityParamTest, IsEqual1c) {
 TEST_P(MatchCommunityParamTest, IsEqual1d) {
     vector<string> communities1 = list_of("23:11")("43:11");
     vector<string> communities2 = list_of("43:11")("23:11");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, GetParam());
     EXPECT_TRUE(match1.IsEqual(match2));
     EXPECT_TRUE(match2.IsEqual(match1));
 }
@@ -626,8 +589,8 @@ TEST_P(MatchCommunityParamTest, IsEqual1d) {
 TEST_P(MatchCommunityParamTest, IsEqual1e) {
     vector<string> communities1 = list_of("23:11")("43:11");
     vector<string> communities2 = list_of("43:11")("23:11");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, !GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, !GetParam());
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
@@ -639,8 +602,8 @@ TEST_P(MatchCommunityParamTest, IsEqual1e) {
 TEST_P(MatchCommunityParamTest, IsEqual2a) {
     vector<string> communities1 = list_of("23:.*")("43:.*");
     vector<string> communities2 = list_of("23:.*")("44:.*");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, GetParam());
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
@@ -652,8 +615,8 @@ TEST_P(MatchCommunityParamTest, IsEqual2a) {
 TEST_P(MatchCommunityParamTest, IsEqual2b) {
     vector<string> communities1 = list_of("23:.*")("43:.*");
     vector<string> communities2 = list_of("24:.*")("43:.*");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, GetParam());
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
@@ -665,8 +628,8 @@ TEST_P(MatchCommunityParamTest, IsEqual2b) {
 TEST_P(MatchCommunityParamTest, IsEqual2c) {
     vector<string> communities1 = list_of("23:.*")("43:.*")("63:.*");
     vector<string> communities2 = list_of("23:.*")("43:.*");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, GetParam());
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
@@ -677,8 +640,8 @@ TEST_P(MatchCommunityParamTest, IsEqual2c) {
 TEST_P(MatchCommunityParamTest, IsEqual2d) {
     vector<string> communities1 = list_of("23:.*")("43:.*");
     vector<string> communities2 = list_of("43:.*")("23:.*");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, GetParam());
     EXPECT_TRUE(match1.IsEqual(match2));
     EXPECT_TRUE(match2.IsEqual(match1));
 }
@@ -690,8 +653,8 @@ TEST_P(MatchCommunityParamTest, IsEqual2d) {
 TEST_P(MatchCommunityParamTest, IsEqual2e) {
     vector<string> communities1 = list_of("23:.*")("43:.*");
     vector<string> communities2 = list_of("43:.*")("23:.*");
-    MatchCommunity match1(communities1, false, GetParam());
-    MatchCommunity match2(communities2, false, !GetParam());
+    MatchCommunity match1(communities1, GetParam());
+    MatchCommunity match2(communities2, !GetParam());
     EXPECT_FALSE(match1.IsEqual(match2));
     EXPECT_FALSE(match2.IsEqual(match1));
 }
