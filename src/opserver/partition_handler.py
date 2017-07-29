@@ -728,7 +728,7 @@ class PartitionHandler(gevent.Greenlet):
             except Exception as ex:
                 self.part_cur_time = time.time()
                 if self.part_prev_time == 0 or self.part_cur_time - self.part_prev_time > 60:
-                    slef.part_prev_time = self.part_cur_time
+                    self.part_prev_time = self.part_cur_time
                     template = "An exception of type {0} occured. Arguments:\n{1!r}"
                     messag = template.format(type(ex).__name__, ex.args)
                     self._logger.error("%s %s : traceback %s" % \
