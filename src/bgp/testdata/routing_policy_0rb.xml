@@ -3,10 +3,11 @@
     <routing-policy name='test_policy'>
         <term>
             <term-match-condition>
-                <community-any>23:11</community-any>
-                <community-any>33:.*</community-any>
-                <community-any>43:11</community-any>
-                <community-any>53:.*</community-any>
+                <community-match-all>false</community-match-all>
+                <community>23:11</community>
+                <community-list>33:.*</community-list>
+                <community-list>43:11</community-list>
+                <community-list>53:.*</community-list>
             </term-match-condition>
             <term-action-list>
                 <update>

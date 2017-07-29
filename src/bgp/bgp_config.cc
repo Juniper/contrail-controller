@@ -381,12 +381,10 @@ string RoutingPolicyMatchConfig::ToString() const {
         oss << " ]";
     }
     if (!community_match.empty()) {
-        if (community_singleton) {
-            oss << "    community [ ";
-        } else if (community_match_all) {
-            oss << "    community-all [ ";
+        if (community_match_all) {
+            oss << "    community (all) [ ";
         } else {
-            oss << "    community-any [ ";
+            oss << "    community (any) [ ";
         }
         BOOST_FOREACH(const string &community, community_match) {
             oss << community << ",";

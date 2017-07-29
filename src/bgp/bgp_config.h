@@ -328,9 +328,8 @@ typedef std::vector<PrefixMatchConfig> PrefixMatchConfigList;
 struct RoutingPolicyMatchConfig {
     ProtocolList protocols_match;
     PrefixMatchConfigList prefixes_to_match;
-    bool community_singleton;
-    bool community_match_all;
     CommunityList community_match;
+    bool community_match_all;
     std::string ToString() const;
 };
 

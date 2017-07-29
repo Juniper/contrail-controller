@@ -1685,21 +1685,15 @@ static void BuildPolicyTerm(autogen::PolicyTermType cfg_term,
             "exact" : prefix_match.prefix_type;
         term->match.prefixes_to_match.push_back(match);
     }
+    term->match.community_match_all =
+        cfg_term.term_match_condition.community_match_all;
+    if (!cfg_term.term_match_condition.community_list.empty()) {
+        term->match.community_match =
+            cfg_term.term_match_condition.community_list;
+    }
     if (!cfg_term.term_match_condition.community.empty()) {
-        term->match.community_singleton = true;
-        term->match.community_match_all = true;
         term->match.community_match.push_back(
             cfg_term.term_match_condition.community);
-    } else if (!cfg_term.term_match_condition.community_all.empty()) {
-        term->match.community_singleton = false;
-        term->match.community_match_all = true;
-        term->match.community_match =
-            cfg_term.term_match_condition.community_all;
-    } else if (!cfg_term.term_match_condition.community_any.empty()) {
-        term->match.community_singleton = false;
-        term->match.community_match_all = false;
-        term->match.community_match =
-            cfg_term.term_match_condition.community_any;
     }
 
     BOOST_FOREACH(const string community,
