@@ -1230,6 +1230,8 @@ class VncApi(object):
                       back_ref_id=None, obj_uuids=None, fields=None,
                       detail=False, count=False, filters=None, shared=False,
                       token=None):
+        if obj_uuids == [] or back_ref_id == []:
+            return []
         self._headers['X-USER-TOKEN'] = token
         if not obj_type:
             raise ResourceTypeUnknownError(obj_type)
