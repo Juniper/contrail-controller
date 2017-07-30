@@ -1293,19 +1293,30 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         vn2_name = self.id() + 'vn2'
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
-        service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name],
+        service_names = [self.id() + 's1', self.id() + 's2']
+        np = self.create_network_policy(vn1_obj, vn2_obj, service_names,
                                         service_mode='in-network',
-                                        auto_policy=True)
+                                        auto_policy=False)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
+        sc_ri_names = ['service-'+sc+'-default-domain_default-project_'
+                       + service_name for service_name in service_names]
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
-                                  self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn1_obj, sc_ri_names[0]))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_names[0]),
+                                  self.get_ri_name(vn1_obj, sc_ri_names[1]))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_names[1]),
                                   self.get_ri_name(vn2_obj))
 
-        vmi_fq_name = 'default-domain:default-project:default-domain__default-project__%s.test_fips1__1__left__1' % self._class_str()
+        vmi_fq_name = 'default-domain:default-project:default-domain__default-project__%ss2__1__left__1' % self.id()
+
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name.split(':'))
 
         vn3_name = 'vn-public'
@@ -1340,6 +1351,10 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                         link_name=vmi_fq_name)
         self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
 
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
         self.delete_network_policy(np)
         gevent.sleep(1)
         self._vnc_lib.floating_ip_pool_delete(id=fip_pool.uuid)
