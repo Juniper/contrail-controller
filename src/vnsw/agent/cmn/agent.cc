@@ -491,6 +491,7 @@ void Agent::CopyConfig(AgentParam *params) {
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
     server_gateway_mode_ = params_->isServerGatewayMode();
+    vcpe_gateway_mode_ = params_->isVcpeGatewayMode();
     flow_thread_count_ = params_->flow_thread_count();
     flow_trace_enable_ = params_->flow_trace_enable();
     flow_add_tokens_ = params_->flow_add_tokens();
