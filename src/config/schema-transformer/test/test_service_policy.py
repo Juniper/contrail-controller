@@ -1311,19 +1311,30 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         vn2_name = self.id() + 'vn2'
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
-        service_name = self.id() + 's1'
-        np = self.create_network_policy(vn1_obj, vn2_obj, [service_name],
+        service_names = [self.id() + 's1', self.id() + 's2']
+        np = self.create_network_policy(vn1_obj, vn2_obj, service_names,
                                         service_mode='in-network',
-                                        auto_policy=True)
+                                        auto_policy=False)
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
 
         sc = self.wait_to_get_sc()
-        sc_ri_name = 'service-'+sc+'-default-domain_default-project_' + service_name
+        sc_ri_names = ['service-'+sc+'-default-domain_default-project_'
+                       + service_name for service_name in service_names]
         self.check_ri_ref_present(self.get_ri_name(vn1_obj),
-                                  self.get_ri_name(vn1_obj, sc_ri_name))
-        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_name),
+                                  self.get_ri_name(vn1_obj, sc_ri_names[0]))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_names[0]),
+                                  self.get_ri_name(vn1_obj, sc_ri_names[1]))
+        self.check_ri_ref_present(self.get_ri_name(vn2_obj, sc_ri_names[1]),
                                   self.get_ri_name(vn2_obj))
 
-        vmi_fq_name = 'default-domain:default-project:default-domain__default-project__%s.test_fips1__1__left__1' % self._class_str()
+        vmi_fq_name = 'default-domain:default-project:default-domain__default-project__%ss2__1__left__1' % self.id()
+
         vmi = self._vnc_lib.virtual_machine_interface_read(vmi_fq_name.split(':'))
 
         vn3_name = 'vn-public'
@@ -1359,6 +1370,10 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                         ref_name='virtual_machine_interface_refs')
         self.check_vrf_assign_table(vmi.get_fq_name(), fip, False)
 
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
         self.delete_network_policy(np)
         gevent.sleep(1)
         self._vnc_lib.floating_ip_pool_delete(id=fip_pool.uuid)
@@ -1744,20 +1759,18 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         vn2_name = self.id() + 'vn2'
         vn2_obj = self.create_virtual_network(vn2_name, '20.0.0.0/24')
 
-        service_name = self.id() + 's1'
-        rules = []
-        rule1 = {"protocol": "icmp",
-                 "direction": "<>",
-                 "src": [{"type": "cidr", "value": "10.0.0.0/24"},
-                         {"type": "vn", "value": vn1_obj}],
-                 "dst": [{"type": "vn", "value": vn2_obj}],
-                 "dst-port": PortType(22,22),
-                 "action": "pass",
-                 "service_list": [service_name],
-                 "service_kwargs": {"service_mode": "in-network"},
-                 "auto_policy": False
-                 }
-        rules.append(rule1)
+        service_names = [self.id() + 's1', self.id() + 's2']
+        rules = [{"protocol": "icmp",
+                  "direction": "<>",
+                  "src": [{"type": "cidr", "value": "10.0.0.0/24"},
+                          {"type": "vn", "value": vn1_obj}],
+                  "dst": [{"type": "vn", "value": vn2_obj}],
+                  "dst-port": PortType(22,22),
+                  "action": "pass",
+                  "service_list": service_names,
+                  "service_kwargs": {"service_mode": "in-network"},
+                  "auto_policy": False
+                 }]
 
         np = self.create_network_policy_with_multiple_rules(rules)
         seq = SequenceType(1, 1)
@@ -1770,26 +1783,29 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         policy_entry = np.get_network_policy_entries()
         prule = policy_entry.get_policy_rule()
 
-        si_name = prule[0].action_list.apply_service
+        si_names = prule[0].action_list.apply_service
+        left_vmis = []
+        right_vmis = []
+        for si_name in si_names:
+            si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_name)
+            vm_obj = self.get_si_vm_obj(si_obj)
 
-        si_obj = self._vnc_lib.service_instance_read(fq_name_str=si_name[0])
-        vm_obj = self.get_si_vm_obj(si_obj)
+            vmi_refs = vm_obj.get_virtual_machine_interface_back_refs()
+            for vmi_ref in vmi_refs:
+                vmi_id = vmi_ref['uuid']
+                vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
+                vmi_props = vmi.get_virtual_machine_interface_properties()
+                if vmi_props.service_interface_type == 'left':
+                    left_vmis.append(vmi)
+                else:
+                    right_vmis.append(vmi)
 
-        vmi_refs = vm_obj.get_virtual_machine_interface_back_refs()
-
-        left_vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_refs[0]['uuid'])
-        right_vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_refs[1]['uuid'])
-
-        if(left_vmi.get_virtual_machine_interface_properties()
-           .service_interface_type == 'right'):
-            vmi = right_vmi
-            right_vmi = left_vmi
-            left_vmi = vmi
-
-        self.check_vrf_assign_table(vmi_fq_name=left_vmi.fq_name, is_present=True,
+        self.check_vrf_assign_table(vmi_fq_name=left_vmis[0].fq_name, is_present=False)
+        self.check_vrf_assign_table(vmi_fq_name=left_vmis[1].fq_name, is_present=True,
                                     src_port=prule[0].dst_ports, dst_port=prule[0].src_ports)
-        self.check_vrf_assign_table(vmi_fq_name=right_vmi.fq_name, is_present=True,
+        self.check_vrf_assign_table(vmi_fq_name=right_vmis[0].fq_name, is_present=True,
                                     src_port=prule[0].src_ports, dst_port=prule[0].dst_ports)
+        self.check_vrf_assign_table(vmi_fq_name=right_vmis[1].fq_name, is_present=False)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
@@ -1801,7 +1817,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
         self.delete_vn(fq_name=vn1_obj.get_fq_name())
         self.delete_vn(fq_name=vn2_obj.get_fq_name())
-    #end test vrf_assign_rules
+    # end test_vrf_assign_rules
 
     def test_service_policy_vmi_with_multi_port_tuples(self):
 
