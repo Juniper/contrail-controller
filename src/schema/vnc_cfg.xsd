@@ -2657,6 +2657,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'virtual-machine-interface', 'service-health-check', ['ref', 'derived'], 'optional', 'CRUD',
           'Reference to health check object attached to this interface.') -->
 
+<xsd:element name="bgpaas-health-check"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('bgpaas-health-check',
+          'bgp-as-a-service', 'service-health-check', ['ref'], 'optional', 'CRUD',
+          'Reference to health check object attached to BGPaaS object, used to enable BFD health check over active BGPaaS VMI.') -->
+
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-route-table"/>
 <!--#IFMAP-SEMANTICS-IDL 
