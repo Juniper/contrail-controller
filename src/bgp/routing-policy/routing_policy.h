@@ -10,16 +10,18 @@
 #include <boost/shared_ptr.hpp>
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
+#include <sandesh/sandesh_trace.h>
 
+#include <list>
 #include <map>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "base/lifetime.h"
 #include "base/util.h"
 #include "bgp/bgp_common.h"
 #include "db/db_table.h"
-
-#include <sandesh/sandesh_trace.h>
 
 class BgpAttr;
 class BgpPath;
@@ -31,7 +33,7 @@ class BgpRoutingPolicyConfig;
 class RoutingInstance;
 class RoutingPolicyMatch;
 class RoutingPolicyAction;
-class RoutingPolicyTerm;
+class RoutingPolicyTermConfig;
 class TaskTrigger;
 
 // Routing Policy Manager
@@ -106,7 +108,7 @@ class TaskTrigger;
 // the routing policy it is referring undergoes a change.
 //
 // Routing Instance
-// Routing instance maintains an ordered list of routing policies that is refers.
+// Routing instance maintains ordered list of routing policies that it refers.
 // This is represented as std::list of pair<RoutingPolicyPtr, gen-id of policy>.
 // Please note RoutingPolicyPtr is an intrusive pointer to RoutingPolicy object.
 //
@@ -193,8 +195,8 @@ class TaskTrigger;
 //
 class PolicyTerm {
 public:
-    typedef std::vector<RoutingPolicyAction*> ActionList;
-    typedef std::vector<RoutingPolicyMatch*> MatchList;
+    typedef std::vector<RoutingPolicyAction *> ActionList;
+    typedef std::vector<RoutingPolicyMatch *> MatchList;
     PolicyTerm();
     ~PolicyTerm();
     bool terminal() const;
@@ -213,6 +215,7 @@ public:
         return actions_;
     }
     bool operator==(const PolicyTerm &term) const;
+
 private:
     MatchList matches_;
     ActionList actions_;
@@ -263,7 +266,7 @@ private:
     friend void intrusive_ptr_add_ref(RoutingPolicy *policy);
     friend void intrusive_ptr_release(RoutingPolicy *policy);
 
-    PolicyTermPtr BuildTerm(const RoutingPolicyTerm &term);
+    PolicyTermPtr BuildTerm(const RoutingPolicyTermConfig &term);
     std::string name_;
     BgpServer *server_;
     RoutingPolicyMgr *mgr_;
@@ -344,9 +347,9 @@ public:
     const BgpServer *server() const { return server_; }
     LifetimeActor *deleter();
 
-    RoutingPolicy::PolicyResult ExecuteRoutingPolicy(const RoutingPolicy *policy,
-               const BgpRoute *route, const BgpPath *path, BgpAttr *attr) const;
-
+    RoutingPolicy::PolicyResult ExecuteRoutingPolicy(
+        const RoutingPolicy *policy, const BgpRoute *route,
+        const BgpPath *path, BgpAttr *attr) const;
 
     // Update the routing policy list on attach point
     bool UpdateRoutingPolicyList(const RoutingPolicyConfigList &cfg_list,
@@ -372,4 +375,4 @@ private:
     SandeshTraceBufferPtr trace_buf_;
 };
 
-#endif // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_H_
+#endif  // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_H_

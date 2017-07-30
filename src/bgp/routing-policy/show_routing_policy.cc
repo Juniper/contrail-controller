@@ -2,8 +2,6 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_show_handler.h"
-
 #include <boost/foreach.hpp>
 
 #include "bgp/bgp_server.h"

@@ -24,6 +24,9 @@ public:
             return IsEqual(action);
         return false;
     }
+    virtual bool operator!=(const RoutingPolicyAction &action) const {
+        return !operator==(action);
+    }
     virtual bool IsEqual(const RoutingPolicyAction &action) const = 0;
 };
 
@@ -83,13 +86,14 @@ public:
         SET
     };
     UpdateCommunity(const std::vector<std::string> communities, std::string op);
-    virtual ~UpdateCommunity() {};
+    virtual ~UpdateCommunity() {}
     virtual void operator()(BgpAttr *out_attr) const;
     std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyAction &community) const;
     const CommunityList &communities() const {
         return communities_;
     }
+
 private:
     CommunityList communities_;
     CommunityUpdateOp op_;
@@ -97,24 +101,26 @@ private:
 
 class UpdateLocalPref : public RoutingPolicyUpdateAction {
 public:
-    UpdateLocalPref(uint32_t local_pref);
+    explicit UpdateLocalPref(uint32_t local_pref);
     virtual ~UpdateLocalPref() {}
     virtual void operator()(BgpAttr *out_attr) const;
     std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyAction &local_pref) const;
+
 private:
     uint32_t local_pref_;
 };
 
 class UpdateMed : public RoutingPolicyUpdateAction {
 public:
-    UpdateMed(uint32_t med);
+    explicit UpdateMed(uint32_t med);
     virtual ~UpdateMed() {}
     virtual void operator()(BgpAttr *out_attr) const;
     std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyAction &med) const;
+
 private:
     uint32_t med_;
 };
 
-#endif // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_ACTION_H_
+#endif  // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_ACTION_H_
