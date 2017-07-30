@@ -391,6 +391,17 @@ void ProuterUveTable::FrameProuterMsg(ProuterUveEntry *entry,
             uve->set_connected_agent_list(empty_agent_list);
         }
     }
+    vnsConstants vnsVrouterType;
+    if (agent_->vcpe_gateway_mode()) {
+        uve->set_gateway_mode(vnsVrouterType.VrouterAgentGatewayModeMap.at
+                              (VrouterAgentGatewayMode::VCPE));
+    } else if (agent_->server_gateway_mode()) {
+        uve->set_gateway_mode(vnsVrouterType.VrouterAgentGatewayModeMap.at
+                              (VrouterAgentGatewayMode::SERVER));
+    } else {
+        uve->set_gateway_mode(vnsVrouterType.VrouterAgentGatewayModeMap.at
+                              (VrouterAgentGatewayMode::NONE));
+    }
 }
 
 bool ProuterUveTable::SendProuterMsg(ProuterUveEntry *entry) {
