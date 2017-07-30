@@ -917,7 +917,7 @@ class VirtualNetworkST(DBBaseST):
         vmis = vm_pt.virtual_machine_interfaces
         for vmi_name in vmis:
             vmi = VirtualMachineInterfaceST.get(vmi_name)
-            if vmi and vmi.service_interface_type == 'left':
+            if vmi and vmi.is_left():
                 vn_analyzer = vmi.virtual_network
                 ip_analyzer = vmi.get_any_instance_ip_address()
                 break
@@ -2581,8 +2581,7 @@ class ServiceChain(DBBaseST):
             interface = VirtualMachineInterfaceST.get(interface_name)
             if not interface:
                 continue
-            if interface.service_interface_type not in ['left',
-                                                        'right']:
+            if not (interface.is_left() or interface.is_right()):
                 continue
             v4_addr = None
             v6_addr = None
@@ -2819,7 +2818,7 @@ class ServiceChain(DBBaseST):
             direction='both', vlan_tag=vlan, service_chain_address=v4_address,
             ipv6_service_chain_address=v6_address)
 
-        if vmi.service_interface_type == 'left':
+        if vmi.is_left():
             pbf.set_src_mac('02:00:00:00:00:01')
             pbf.set_dst_mac('02:00:00:00:00:02')
         else:
@@ -3376,6 +3375,12 @@ class VirtualMachineInterfaceST(DBBaseST):
         self.recreate_vrf_assign_table()
     # end evaluate
 
+    def is_left(self):
+        return (self.service_interface_type == 'left')
+
+    def is_right(self):
+        return (self.service_interface_type == 'right')
+
     def get_any_instance_ip_address(self, ip_version=0):
         for ip_name in self.instance_ips:
             ip = InstanceIpST.get(ip_name)
@@ -3466,7 +3471,7 @@ class VirtualMachineInterfaceST(DBBaseST):
     # end get_virtual_machine_or_port_tuple
 
     def _add_pbf_rules(self):
-        if self.service_interface_type not in ['left', 'right']:
+        if not (self.is_left() or self.is_right()):
             return
 
         vm_pt_list = self.get_virtual_machine_or_port_tuple()
@@ -3478,7 +3483,7 @@ class VirtualMachineInterfaceST(DBBaseST):
                     continue
                 if not service_chain.created:
                     continue
-                if self.service_interface_type == 'left':
+                if self.is_left():
                     vn_obj = VirtualNetworkST.locate(service_chain.left_vn)
                     vn1_obj = vn_obj
                 else:
@@ -3530,7 +3535,7 @@ class VirtualMachineInterfaceST(DBBaseST):
     # end process_analyzer
 
     def recreate_vrf_assign_table(self):
-        if self.service_interface_type not in ['left', 'right']:
+        if not (self.is_left() or self.is_right()):
             self._set_vrf_assign_table(None)
             return
         vn = VirtualNetworkST.get(self.virtual_network)
@@ -3581,21 +3586,21 @@ class VirtualMachineInterfaceST(DBBaseST):
                 vrf_table.add_vrf_assign_rule(vrf_rule)
 
             si_name = vm_pt.service_instance
-            if smode == 'in-network-nat' and self.service_interface_type == 'right':
-                vn_service_chains = []
-            else:
-                vn_service_chains = vn.service_chains.values()
-
-            for service_chain_list in vn_service_chains:
+            for service_chain_list in vn.service_chains.values():
                 for service_chain in service_chain_list:
                     if not service_chain.created:
                         continue
+                    service_list = service_chain.service_list
                     if si_name not in service_chain.service_list:
+                        continue
+                    if ((si_name == service_list[0] and self.is_left()) or
+                        (si_name == service_list[-1] and self.is_right())):
+                        # Do not generate VRF assign rules for 'book-ends'
                         continue
                     ri_name = vn.get_service_name(service_chain.name, si_name)
                     for sp in service_chain.sp_list:
                         for dp in service_chain.dp_list:
-                            if self.service_interface_type == 'left':
+                            if self.is_left():
                                 mc = MatchConditionType(src_port=dp,
                                                         dst_port=sp,
                                                         protocol=service_chain.protocol)
