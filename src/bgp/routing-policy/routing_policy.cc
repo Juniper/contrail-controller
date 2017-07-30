@@ -223,7 +223,8 @@ bool RoutingPolicyMgr::UpdateRoutingPolicyList(
         } else {
             // Policy Order is updated or new policy is added
             // or policy is deleted
-            RoutingPolicy *policy = GetRoutingPolicy(config_it->routing_policy_);
+            RoutingPolicy *policy =
+                GetRoutingPolicy(config_it->routing_policy_);
             if (policy) {
                 *oper_it = std::make_pair(policy, policy->generation());
                 ++oper_it;
@@ -313,7 +314,8 @@ RoutingPolicy::~RoutingPolicy() {
     terms_.clear();
 }
 
-RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &cfg_term) {
+RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(
+    const RoutingPolicyTermConfig &cfg_term) {
     PolicyTerm::ActionList actions;
     PolicyTerm::MatchList matches;
 
@@ -334,7 +336,8 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &c
     if (!cfg_term.match.prefixes_to_match.empty()) {
         PrefixMatchConfigList inet_prefix_list;
         PrefixMatchConfigList inet6_prefix_list;
-        BOOST_FOREACH(PrefixMatchConfig match, cfg_term.match.prefixes_to_match) {
+        BOOST_FOREACH(PrefixMatchConfig match,
+            cfg_term.match.prefixes_to_match) {
             boost::system::error_code ec;
             Ip4Address ip4;
             int plen;
@@ -352,7 +355,7 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &c
         if (!inet_prefix_list.empty()) {
             PrefixMatchInet *prefix = new PrefixMatchInet(inet_prefix_list);
             matches.push_back(prefix);
-        } 
+        }
         if (!inet6_prefix_list.empty()) {
             PrefixMatchInet6 *prefix = new PrefixMatchInet6(inet6_prefix_list);
             matches.push_back(prefix);
@@ -412,7 +415,7 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &c
 }
 
 void RoutingPolicy::ProcessConfig() {
-    BOOST_FOREACH(const RoutingPolicyTerm cfg_term, config_->terms()) {
+    BOOST_FOREACH(const RoutingPolicyTermConfig cfg_term, config_->terms()) {
         // Build each terms and insert to operational data
         PolicyTermPtr term = BuildTerm(cfg_term);
         if (term)
@@ -572,25 +575,21 @@ bool PolicyTerm::operator==(const PolicyTerm &rhs) const {
     // Different number of actions conditions
     if (actions().size() != rhs.actions().size()) return false;
 
+    // Walk the list of match conditions and compare each match
     for (MatchList::const_iterator rhs_matches_cit = rhs.matches().begin(),
          lhs_matches_cit = matches().begin();
          lhs_matches_cit != matches().end();
-         lhs_matches_cit++,rhs_matches_cit++) {
-        // Walk the list of match conditions and compare each match
-        if (**rhs_matches_cit == **lhs_matches_cit)
-            continue;
-        else
+         lhs_matches_cit++, rhs_matches_cit++) {
+        if (**rhs_matches_cit != **lhs_matches_cit)
             return false;
     }
 
+    // Walk the list of actions and compare each action
     for (ActionList::const_iterator lhs_actions_cit = actions().begin(),
          rhs_actions_cit = rhs.actions().begin();
          lhs_actions_cit != actions().end();
-         lhs_actions_cit++,rhs_actions_cit++) {
-        // Walk the list of actions and compare each action
-        if (**rhs_actions_cit == **lhs_actions_cit)
-            continue;
-        else
+         lhs_actions_cit++, rhs_actions_cit++) {
+        if (**rhs_actions_cit != **lhs_actions_cit)
             return false;
     }
     return true;
