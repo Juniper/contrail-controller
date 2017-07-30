@@ -284,6 +284,18 @@ const map<byte, string> VrouterAgentVmStateMap = {
     VrouterAgentVmState.VROUTER_AGENT_VM_UNKNOWN    : 'UNKNOWN'
 }
 
+enum VrouterAgentGatewayMode {
+    VCPE,
+    SERVER,
+    NONE
+}
+
+const map<byte, string> VrouterAgentGatewayModeMap = {
+    VrouterAgentGatewayMode.VCPE   : 'VCPE',
+    VrouterAgentGatewayMode.SERVER : 'SERVER',
+    VrouterAgentGatewayMode.NONE   : 'NONE'
+}
+
 const string MODULE_CONTROL_NODE_NAME = SERVICE_CONTROL_NODE
 const string MODULE_VROUTER_AGENT_NAME = SERVICE_VROUTER_AGENT
 const string MODULE_API_SERVER_NAME = SERVICE_API_SERVER
