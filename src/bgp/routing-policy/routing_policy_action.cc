@@ -9,10 +9,10 @@
 #include <algorithm>
 #include <sstream>
 
-#include <bgp/bgp_attr.h>
-#include <bgp/bgp_server.h>
-#include <bgp/community.h>
-#include <net/community_type.h>
+#include "bgp/bgp_attr.h"
+#include "bgp/bgp_server.h"
+#include "bgp/community.h"
+#include "net/community_type.h"
 
 using std::copy;
 using std::ostringstream;

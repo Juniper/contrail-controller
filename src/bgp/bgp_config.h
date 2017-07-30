@@ -355,7 +355,7 @@ struct RoutingPolicyActionConfig {
     std::string ToString() const;
 };
 
-struct RoutingPolicyTerm {
+struct RoutingPolicyTermConfig {
     RoutingPolicyMatchConfig match;
     RoutingPolicyActionConfig action;
 };
@@ -363,13 +363,13 @@ struct RoutingPolicyTerm {
 // Route Policy configuration.
 class BgpRoutingPolicyConfig {
 public:
-    typedef std::vector<RoutingPolicyTerm> RoutingPolicyTermList;
+    typedef std::vector<RoutingPolicyTermConfig> RoutingPolicyTermList;
     explicit BgpRoutingPolicyConfig(const std::string &name);
     virtual ~BgpRoutingPolicyConfig();
 
     const std::string &name() const { return name_; }
     void set_last_change_at(uint64_t tstamp) const { last_change_at_ = tstamp; }
-    void add_term(const RoutingPolicyTerm &term) {
+    void add_term(const RoutingPolicyTermConfig &term) {
         terms_.push_back(term);
     }
     const RoutingPolicyTermList &terms() const { return terms_;}

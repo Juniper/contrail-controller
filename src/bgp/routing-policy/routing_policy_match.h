@@ -39,6 +39,9 @@ public:
             return(IsEqual(match));
         return false;
     }
+    virtual bool operator!=(const RoutingPolicyMatch &match) const {
+        return !operator==(match);
+    }
     virtual bool IsEqual(const RoutingPolicyMatch &match) const = 0;
 };
 
@@ -94,6 +97,7 @@ public:
     const PathSourceList &protocols() const {
         return to_match_;
     }
+
 private:
     PathSourceList to_match_;
 };
@@ -128,6 +132,7 @@ public:
                        const BgpPath *path, const BgpAttr *attr) const;
     virtual std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyMatch &prefix) const;
+
 private:
     PrefixMatchList match_list_;
 };

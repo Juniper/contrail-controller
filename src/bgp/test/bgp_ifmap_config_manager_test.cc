@@ -2353,7 +2353,7 @@ TEST_F(BgpIfmapConfigManagerShowTest, RoutingPolicy_Show_0) {
         ShowBgpRoutingPolicyConfig policy;
         policy.set_name(config->name());
         std::vector<ShowBgpRoutingPolicyTermConfig> terms_list;
-        BOOST_FOREACH(const RoutingPolicyTerm &term, config->terms()) {
+        BOOST_FOREACH(const RoutingPolicyTermConfig &term, config->terms()) {
             ShowBgpRoutingPolicyTermConfig sbrptc;
             sbrptc.set_match(term.match.ToString());
             sbrptc.set_action(term.action.ToString());
@@ -2452,7 +2452,7 @@ TEST_F(BgpIfmapConfigManagerShowTest, RoutingPolicy_Show_1) {
         ShowBgpRoutingPolicyConfig policy;
         policy.set_name(config->name());
         std::vector<ShowBgpRoutingPolicyTermConfig> terms_list;
-        BOOST_FOREACH(const RoutingPolicyTerm &term, config->terms()) {
+        BOOST_FOREACH(const RoutingPolicyTermConfig &term, config->terms()) {
             ShowBgpRoutingPolicyTermConfig sbrptc;
             sbrptc.set_match(term.match.ToString());
             sbrptc.set_action(term.action.ToString());
