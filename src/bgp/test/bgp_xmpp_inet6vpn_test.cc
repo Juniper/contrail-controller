@@ -13,6 +13,7 @@
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
+#include "bgp/inet6vpn/inet6vpn_table.h"
 
 using namespace std;
 using boost::assign::list_of;
@@ -1451,6 +1452,42 @@ protected:
         } else {
             return false;
         }
+    }
+
+    bool CheckRoute(test::NetworkAgentMock *agent, string net, string prefix,
+                    string nexthop) {
+        const autogen::ItemType *rt = agent->Inet6RouteLookup(net, prefix);
+        if (!rt) {
+            return false;
+        }
+        if (rt->entry.next_hops.next_hop[0].address != nexthop) {
+            return false;
+        }
+        return true;
+    }
+
+    void VerifyRouteExists(test::NetworkAgentMock *agent, string net,
+                           string prefix, string nexthop) {
+        TASK_UTIL_EXPECT_TRUE(CheckRoute(agent, net, prefix, nexthop));
+    }
+
+    // Check for a route's existence in l3vpn table.
+    bool CheckL3VPNRouteExists(BgpServerTestPtr server, string prefix) {
+        BgpTable *table = static_cast<BgpTable *>(
+            server->database()->FindTable("bgp.l3vpn-inet6.0"));
+        if (!table)
+            return false;
+
+        boost::system::error_code error;
+        Inet6VpnPrefix nlri = Inet6VpnPrefix::FromString(prefix, &error);
+        EXPECT_FALSE(error);
+        Inet6VpnTable::RequestKey key(nlri, NULL);
+        BgpRoute *rt = static_cast<BgpRoute *>(table->Find(&key));
+        return(rt != NULL);
+    }
+
+    void VerifyL3VPNRouteExists(BgpServerTestPtr server, string prefix) {
+        TASK_UTIL_EXPECT_TRUE(CheckL3VPNRouteExists(server, prefix));
     }
 
     EventManager evm_;
@@ -5689,6 +5726,146 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpConnectLater) {
     agent_b_->SessionDown();
     agent_y1_->SessionDown();
     agent_y2_->SessionDown();
+}
+
+static const char *config_1_cluster_seed_1_vn = "\
+<config>\
+    <global-system-config>\
+        <rd-cluster-seed>100</rd-cluster-seed>\
+    </global-system-config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+static const char *config_2_cluster_seed_1_vn = "\
+<config>\
+    <global-system-config>\
+        <rd-cluster-seed>200</rd-cluster-seed>\
+    </global-system-config>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+static const char *config_1_cluster_seed_1_vn_new_seed = "\
+<config>\
+    <global-system-config>\
+        <rd-cluster-seed>101</rd-cluster-seed>\
+    </global-system-config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+//
+// Two agents connected to two different xmpp/bgp servers: same VN on
+// different CNs. Each CN has a different route distinguisher cluster
+// seed to create unique RD values. Even though the agents advertise
+// the same route, the l3vpn table will store them as two different
+// VPN prefixes.
+//
+TEST_F(BgpXmppInet6Test2Peers, ClusterSeedTest) {
+    Configure(bgp_server1_, config_1_cluster_seed_1_vn);
+    task_util::WaitForIdle();
+    Configure(bgp_server2_, config_2_cluster_seed_1_vn);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xmpp_server1_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xmpp_server2_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Inet6Subscribe("blue", 1);
+    task_util::WaitForIdle();
+    agent_b_->Inet6Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    stringstream route_a;
+    route_a << "2001:db8:85a3::8a2e:0:0/96";
+    test::NextHop nexthop_a("192.168.1.1");
+
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
+    task_util::WaitForIdle();
+    // Verify that route showed up in blue instance on Agent A.
+    TASK_UTIL_EXPECT_EQ(1, agent_a_->Inet6RouteCount("blue"));
+    VerifyRouteExists(agent_a_.get(), "blue", route_a.str(), "192.168.1.1");
+
+    agent_b_->AddInet6Route("blue", route_a.str(), nexthop_a);
+    task_util::WaitForIdle();
+
+    // Verify that route showed up in blue instance on Agent B.
+    TASK_UTIL_EXPECT_EQ(1, agent_b_->Inet6RouteCount("blue"));
+    VerifyRouteExists(agent_b_.get(), "blue", route_a.str(), "192.168.1.1");
+
+    // Check l3vpn table to verify route with correct RD
+    VerifyL3VPNRouteExists(bgp_server1_, "0.100.1.1:1:2001:db8:85a3::8a2e:0:0/96");
+    task_util::WaitForIdle();
+
+    VerifyL3VPNRouteExists(bgp_server2_, "0.200.1.1:1:2001:db8:85a3::8a2e:0:0/96");
+    task_util::WaitForIdle();
+
+    // Reconfigure bgp_server1 with a different cluster seed.
+    Configure(bgp_server1_, config_1_cluster_seed_1_vn_new_seed);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(101, bgp_server1_->global_config()->rd_cluster_seed());
+
+    // Check the agent connection is no longer in Established state.
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+
+    // Check the agent connection is back up.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    agent_a_->Inet6Subscribe("blue", 1);
+    agent_a_->AddInet6Route("blue", route_a.str(), nexthop_a);
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_a_.get(), "blue", route_a.str(), "192.168.1.1");
+
+    // Check l3vpn table to verify route with correct RD
+    VerifyL3VPNRouteExists(bgp_server1_, "0.101.1.1:1:2001:db8:85a3::8a2e:0:0/96");
+    task_util::WaitForIdle();
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
 }
 
 class BgpXmppInet6ErrorTest : public BgpXmppInet6Test {

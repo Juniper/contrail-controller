@@ -1884,6 +1884,11 @@ bool BgpIfmapGlobalSystemConfig::Update(BgpIfmapConfigManager *manager,
         changed |= true;
     }
 
+    if (data_.rd_cluster_seed() != system->rd_cluster_seed()) {
+        data_.set_rd_cluster_seed(system->rd_cluster_seed());
+        changed |= true;
+    }
+
     if (data_.bgpaas_port_start() != system->bgpaas_parameters().port_start) {
         data_.set_bgpaas_port_start(system->bgpaas_parameters().port_start);
         changed |= true;
