@@ -87,12 +87,13 @@ private:
 //
 struct BgpFamilyAttributesConfig {
     explicit BgpFamilyAttributesConfig(const std::string &family)
-        : family(family), loop_count(0), prefix_limit(0) {
+        : family(family), loop_count(0), prefix_limit(0), idle_timeout(0) {
     }
 
     std::string family;
     uint8_t loop_count;
     uint32_t prefix_limit;
+    uint32_t idle_timeout;
 };
 
 //
@@ -104,6 +105,7 @@ struct BgpFamilyAttributesConfigCompare {
         KEY_COMPARE(lhs.family, rhs.family);
         KEY_COMPARE(lhs.loop_count, rhs.loop_count);
         KEY_COMPARE(lhs.prefix_limit, rhs.prefix_limit);
+        KEY_COMPARE(lhs.idle_timeout, rhs.idle_timeout);
         return 0;
     }
 };
