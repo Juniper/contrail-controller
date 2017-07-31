@@ -75,6 +75,28 @@ static const char *bgp_unconfig = "\
 </delete>\
 ";
 
+static const char *cluster_seed_config_template = "\
+<config>\
+    <global-system-config>\
+        <rd-cluster-seed>%d</rd-cluster-seed>\
+    </global-system-config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <autonomous-system>%d</autonomous-system>\
+        <local-autonomous-system>%d</local-autonomous-system>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
 //
 // 1 BGP and XMPP server X.
 // Agents A, B, C.
@@ -162,6 +184,15 @@ protected:
         agent_a_->SessionDown();
         agent_b_->SessionDown();
         agent_c_->SessionDown();
+    }
+
+    void Configure(const char *cfg_template, uint16_t cluster_seed,
+                   uint32_t asn, uint32_t local_asn) {
+        char config[4096];
+        snprintf(config, sizeof(config), cfg_template,
+                 cluster_seed, asn, local_asn,
+                 bs_x_->session_manager()->GetPort());
+        bs_x_->Configure(config);
     }
 
     void Configure(const char *cfg_template, uint32_t asn, uint32_t local_asn) {
@@ -546,6 +577,47 @@ TEST_P(BgpXmppBasicParamTest, ChangeLocalAsNumber) {
     Configure(bgp_config_template, 64512, 64512);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(bs_x_->HasSelfConfiguration());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    DestroyAgents();
+}
+
+TEST_P(BgpXmppBasicParamTest, ChangeClusterSeed) {
+    Configure(cluster_seed_config_template, 100, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(100, bs_x_->global_config()->rd_cluster_seed());
+
+    CreateAgents();
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+    TASK_UTIL_EXPECT_TRUE(agent_c_->IsEstablished());
+
+    uint32_t client_flap_a = agent_a_->flap_count();
+    uint32_t client_flap_b = agent_b_->flap_count();
+    uint32_t client_flap_c = agent_c_->flap_count();
+
+    uint32_t server_flap_a = GetXmppConnectionFlapCount(agent_a_->hostname());
+    uint32_t server_flap_b = GetXmppConnectionFlapCount(agent_b_->hostname());
+    uint32_t server_flap_c = GetXmppConnectionFlapCount(agent_c_->hostname());
+
+    Configure(cluster_seed_config_template, 200, 64512, 64512);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(200, bs_x_->global_config()->rd_cluster_seed());
+
+    TASK_UTIL_EXPECT_TRUE(agent_a_->flap_count() > client_flap_a);
+    TASK_UTIL_EXPECT_TRUE(agent_b_->flap_count() > client_flap_b);
+    TASK_UTIL_EXPECT_TRUE(agent_c_->flap_count() > client_flap_c);
+
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_a_->hostname()) > server_flap_a);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_b_->hostname()) > server_flap_b);
+    TASK_UTIL_EXPECT_TRUE(
+        GetXmppConnectionFlapCount(agent_c_->hostname()) > server_flap_c);
 
     TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
