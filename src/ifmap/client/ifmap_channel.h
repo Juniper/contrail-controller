@@ -232,11 +232,9 @@ private:
     void ProcResponseInMainThr(size_t bytes_to_read);
     void StartStaleEntriesCleanupTimer();
     void StopStaleEntriesCleanupTimer();
-    void ExpireStaleEntriesCleanupTimer();
     bool ProcessStaleEntriesTimeout();
     void StartEndOfRibTimer();
     void StopEndOfRibTimer();
-    void ExpireEndOfRibTimer();
     bool ProcessEndOfRibTimeout();
 
     IFMapManager *manager_;
