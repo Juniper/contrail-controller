@@ -1627,6 +1627,17 @@ void InetRouteFlowMgmtTree::ExtractKeys(FlowEntry *flow,
     }
     ExtractKeys(flow, tree, flow->key().dst_addr,
                 &flow->data().flow_dest_plen_map);
+
+    if (flow->data().src_policy_vrf != VrfEntry::kInvalidIndex) {
+        ExtractKeys(flow, tree, flow->data().src_policy_vrf,
+                    flow->key().src_addr, flow->data().src_policy_plen);
+    }
+
+    if (flow->data().dst_policy_vrf != VrfEntry::kInvalidIndex) {
+        ExtractKeys(flow, tree, flow->data().dst_policy_vrf,
+                    flow->key().dst_addr, flow->data().dst_policy_plen);
+    }
+
 }
 
 FlowMgmtEntry *InetRouteFlowMgmtTree::Allocate(const FlowMgmtKey *key) {

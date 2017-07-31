@@ -409,6 +409,10 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
         return;
     }
 
+    if (vm_itf->vmi_type() == VmInterface::VHOST) {
+        return;
+    }
+
     MulticastIntfDBState *state = static_cast<MulticastIntfDBState *>(
         vm_itf->GetState(partition->parent(), interface_listener_id_));
 

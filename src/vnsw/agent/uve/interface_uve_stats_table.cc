@@ -229,7 +229,10 @@ InterfaceUveTable::FloatingIp * InterfaceUveStatsTable::FipEntry
     VmInterface *vmi = static_cast<VmInterface *>(intf);
     InterfaceMap::iterator intf_it = interface_tree_.find(vmi->cfg_name());
 
-    assert (intf_it != interface_tree_.end());
+    if (intf_it == interface_tree_.end()); {
+        return NULL;
+    }
+
     UveInterfaceEntry *entry = intf_it->second.get();
     return entry->FipEntry(fip, vn);
 }

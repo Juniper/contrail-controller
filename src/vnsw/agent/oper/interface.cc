@@ -224,6 +224,7 @@ bool InterfaceTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
             intf->qos_config_ = qos_config;
             return true;
         }
+        return false;
     }
 
     if (key->type_ != Interface::VM_INTERFACE)
@@ -323,6 +324,10 @@ bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
     if (!vm_intf->IsActive())
         return true;
 
+    if (!vn) {
+        return true;
+    }
+
     VmInterfaceGlobalVrouterData data(vn->bridging(),
                                  vn->layer3_forwarding(),
                                  vn->GetVxLanId());
@@ -349,6 +354,30 @@ InterfaceConstRef InterfaceTable::FindVmi(const boost::uuids::uuid &vmi_uuid) {
     Interface *intf = static_cast<Interface *>(Find(&key, false));
     InterfaceConstRef ref(intf);
     return ref;
+}
+
+void InterfaceTable::CreateVhost() {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                                     agent()->vhost_interface_name()));
+
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+    data->CopyVhostData(agent());
+
+    req.data.reset(data);
+    Process(req);
+}
+
+void InterfaceTable::CreateVhostReq() {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                                     agent()->vhost_interface_name()));
+
+    VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
+    data->CopyVhostData(agent());
+
+    req.data.reset(data);
+    Enqueue(&req);
 }
 /////////////////////////////////////////////////////////////////////////////
 // Interface Base Entry routines
@@ -694,6 +723,8 @@ static string VmiTypeToString(VmInterface::VmiType type) {
         return "Remote VM";
     } else if (type == VmInterface::SRIOV) {
         return "Sriov";
+    } else if (type == VmInterface::VHOST) {
+        return "VHOST";
     }
     return "Invalid";
 }

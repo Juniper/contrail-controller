@@ -150,8 +150,9 @@ void AgentQosConfig::HandleVhostQosConfig(const Agent *agent,
     }
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    InetInterfaceKey *key =
-        new InetInterfaceKey(agent->vhost_interface_name());
+    VmInterfaceKey *key =
+        new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
+                           agent->vhost_interface_name());
     key->sub_op_ = AgentKey::RESYNC;
     boost::uuids::uuid qos_config_uuid = table->GetActiveVhostQosConfig();
     InterfaceQosConfigData *qos_data =

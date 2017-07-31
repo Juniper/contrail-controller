@@ -143,7 +143,8 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        InetInterfaceKey vhost_key(agent_->vhost_interface()->name());
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+                                 agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute(
                 agent_->local_peer(),
                 agent_->fabric_vrf_name(), server_ip, plen, vhost_key,

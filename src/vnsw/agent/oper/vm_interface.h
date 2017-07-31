@@ -268,6 +268,8 @@ struct NextHopState : public VmInterfaceState {
     mutable NextHopRef l3_nh_policy_;
     mutable NextHopRef l3_nh_no_policy_;
     mutable uint32_t l3_label_;
+
+    mutable NextHopRef receive_nh_;
 };
 
 struct MetaDataIpState : public VmInterfaceState {
@@ -387,7 +389,8 @@ public:
         BAREMETAL,
         GATEWAY,
         REMOTE_VM,
-        SRIOV
+        SRIOV,
+        VHOST
     };
 
     // Interface uses different type of labels. Enumeration of different
@@ -962,6 +965,48 @@ public:
         BridgeDomainEntrySet list_;
     };
 
+    struct VmiReceiveRoute : ListEntry, VmInterfaceState {
+        VmiReceiveRoute();
+        VmiReceiveRoute(const VmiReceiveRoute &rhs);
+        VmiReceiveRoute(const IpAddress &addr, uint32_t plen, bool add_l2);
+        virtual ~VmiReceiveRoute() {}
+
+        bool operator() (const VmiReceiveRoute &lhs,
+                         const VmiReceiveRoute &rhs) const;
+        bool IsLess(const VmiReceiveRoute *rhs) const;
+
+        VmInterfaceState::Op GetOpL2(const Agent *agent,
+                const VmInterface *vmi) const;
+        bool DeleteL2(const Agent *agent, VmInterface *vmi) const;
+        bool AddL2(const Agent *agent, VmInterface *vmi) const;
+
+        void Copy(const Agent *agent, const VmInterface *vmi) const;
+        VmInterfaceState::Op GetOpL3(const Agent *agent,
+                                     const VmInterface *vmi) const;
+        bool AddL3(const Agent *agent, VmInterface *vmi) const;
+        bool DeleteL3(const Agent *agent, VmInterface *vmi) const;
+
+        IpAddress  addr_;
+        uint32_t   plen_;
+        bool       add_l2_; //Pick mac from interface and then add l2 route
+        mutable VrfEntryRef vrf_;
+    };
+
+    typedef std::set<VmiReceiveRoute, VmiReceiveRoute> VmiReceiveRouteSet;
+
+    struct VmiReceiveRouteList : List {
+        VmiReceiveRouteList() : List(), list_() { }
+        ~VmiReceiveRouteList() { }
+        void Insert(const VmiReceiveRoute *rhs);
+        void Update(const VmiReceiveRoute *lhs, const VmiReceiveRoute *rhs);
+        void Remove(VmiReceiveRouteSet::iterator &it);
+
+        bool UpdateList(const Agent *agent, VmInterface *vmi,
+                        VmInterfaceState::Op l2_force_op,
+                        VmInterfaceState::Op l3_force_op);
+        VmiReceiveRouteSet list_;
+    };
+
     enum Trace {
         ADD,
         DELETE,
@@ -975,7 +1020,7 @@ public:
         SERVICE_CHANGE,
     };
 
-    VmInterface(const boost::uuids::uuid &uuid);
+    VmInterface(const boost::uuids::uuid &uuid, const std::string &name);
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
                 const Ip4Address &addr, const MacAddress &mac,
                 const std::string &vm_name,
@@ -1150,6 +1195,10 @@ public:
 
     const BridgeDomainList &bridge_domain_list() const {
         return bridge_domain_list_;
+    }
+
+    const VmiReceiveRouteList &receive_route_list() const {
+        return receive_route_list_;
     }
 
     void set_subnet_bcast_addr(const Ip4Address &addr) {
@@ -1396,6 +1445,7 @@ private:
     FatFlowList fat_flow_list_;
     BridgeDomainList bridge_domain_list_;
     VrfAssignRuleList vrf_assign_rule_list_;
+    VmiReceiveRouteList receive_route_list_;
 
     // Peer for interface routes
     std::auto_ptr<LocalVmPortPeer> peer_;
@@ -1537,6 +1587,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
                           VmInterface *entry) const;
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
                           bool *force_update) const;
+    void CopyVhostData(const Agent *agent);
 
     Ip4Address addr_;
     Ip6Address ip6_addr_;
@@ -1578,6 +1629,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::InstanceIpList instance_ipv6_list_;
     VmInterface::FatFlowList fat_flow_list_;
     VmInterface::BridgeDomainList bridge_domain_list_;
+    VmInterface::VmiReceiveRouteList receive_route_list_;
     VmInterface::DeviceType device_type_;
     VmInterface::VmiType vmi_type_;
     // Parent physical-interface. Used in VMWare/ ToR logical-interface

@@ -683,7 +683,8 @@ TEST_F(KStateSandeshTest, MplsTest) {
 
     //verify the response
     EXPECT_TRUE((type_specific_response_count_ != 0));
-    EXPECT_EQ(2U, num_entries_);
+    //4 for vhost interface
+    EXPECT_EQ(6U, num_entries_);
 
     //cleanup
     KSyncSockTypeMap::MplsDelete(9);
@@ -853,7 +854,7 @@ TEST_F(KStateSandeshTest, RouteTest) {
 
     //Send route DUMP request for entries of vrf 1
     ClearCount();
-    RouteGet(1);
+    RouteGet(2);
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (response_count_ == 1));
 

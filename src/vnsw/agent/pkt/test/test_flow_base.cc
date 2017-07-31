@@ -50,7 +50,7 @@ struct TestFlowKey {
 #define remote_vm1_ip_plen 24
 
 int fd_table[MAX_VNET];
-InetInterface *vhost;
+const Interface *vhost;
 struct PortInfo input[] = {
         {"flow0", 6, vm1_ip, "00:00:00:01:01:01", 5, 1},
         {"flow1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
@@ -111,9 +111,7 @@ class FlowTest : public ::testing::Test {
 public:
     FlowTest() : peer_(NULL), agent_(Agent::GetInstance()) {
         flow_proto_ = agent_->pkt()->get_flow_proto();
-        boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
-        vhost = static_cast<InetInterface *>(Agent::GetInstance()->
-                interface_table()->FindActiveEntry(key.get()));
+        vhost = agent_->vhost_interface();
         flow_stats_collector_ = Agent::GetInstance()->flow_stats_manager()->
                                     default_flow_stats_collector_obj();
     }
@@ -733,7 +731,7 @@ protected:
         EXPECT_EQ(0U, agent()->vm_table()->Size());
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());
-        EXPECT_EQ(1U, agent()->vrf_table()->Size());
+        EXPECT_EQ(2U, agent()->vrf_table()->Size());
         DeleteBgpPeer(peer_);
         FlowStatsTimerStartStop(agent_, false);
         client->WaitForIdle(3);

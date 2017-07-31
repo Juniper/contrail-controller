@@ -354,9 +354,9 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
     }
 
     // Check if vhost already has address. We cant handle IP address change yet
-    const InetInterface *vhost =
-        static_cast<const InetInterface *>(agent_->vhost_interface());
-    if (vhost->ip_addr().to_ulong() != 0) {
+    const VmInterface *vhost =
+        static_cast<const VmInterface *>(agent_->vhost_interface());
+    if (vhost->receive_route_list().list_.size() != 0) {
         return;
     }
 
@@ -374,14 +374,9 @@ void VnswInterfaceListenerBase::HandleAddressEvent(const Event *event) {
     // Update vhost ip-address and enqueue db request
     agent_->set_router_id(event->addr_);
     agent_->set_vhost_prefix_len(event->plen_);
-    InetInterface::CreateReq(agent_->interface_table(),
-                             agent_->vhost_interface_name(),
-                             InetInterface::VHOST,
-                             agent_->fabric_vrf_name(),
-                             event->addr_, event->plen_,
-                             agent_->vhost_default_gateway(),
-                             Agent::NullString(), agent_->fabric_vrf_name(),
-                             Interface::TRANSPORT_ETHERNET);
+
+    agent_->interface_table()->CreateVhostReq();
+
     if (dep_init_reqd)
         agent_->agent_init()->ConnectToControllerBase();
 }

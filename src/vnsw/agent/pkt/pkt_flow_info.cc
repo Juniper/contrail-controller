@@ -136,18 +136,6 @@ static uint32_t NhToVrf(const NextHop *nh) {
     return vrf->vrf_id();
 }
 
-static const NextHop* GetPolicyDisabledNH(NextHopTable *nh_table,
-                                          const NextHop *nh) {
-    if (nh->PolicyEnabled() == false) {
-        return nh;
-    }
-    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
-    NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
-    nh_key->SetPolicy(false);
-    return static_cast<const NextHop *>
-        (nh_table->FindActiveEntryNoLock(key.get()));
-}
-
 static bool IsVgwOrVmInterface(const Interface *intf) {
     if (intf->type() == Interface::VM_INTERFACE)
         return true;
@@ -233,7 +221,6 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
         return false;
     }
 
-    NextHopTable *nh_table = info->agent->nexthop_table();
     // Pick out going attributes based on the NH selected above
     switch (nh->GetType()) {
     case NextHop::INTERFACE:
@@ -271,7 +258,10 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
         assert(info->l3_flow == true);
         out->intf_ = static_cast<const ReceiveNH *>(nh)->GetInterface();
         out->vrf_ = out->intf_->vrf();
-        out->nh_ = GetPolicyDisabledNH(nh_table, nh)->id();
+        if (out->intf_->vrf()->forwarding_vrf()) {
+            out->vrf_ = out->intf_->vrf()->forwarding_vrf();
+        }
+        out->nh_ = out->intf_->flow_key_nh()->id();
         break;
 
     case NextHop::VLAN: {
@@ -357,13 +347,16 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
         if (in->intf_->type() == Interface::VM_INTERFACE) {
             const VmInterface *vm_intf =
                 static_cast<const VmInterface *>(in->intf_);
-            if (vm_intf->device_type() == VmInterface::LOCAL_DEVICE) {
+            if (vm_intf->vmi_type() == VmInterface::VHOST) {
+                out->nh_ = in->intf_->flow_key_nh()->id();
+                out->intf_ = in->intf_;
+            } else if (vm_intf->device_type() == VmInterface::LOCAL_DEVICE) {
                 out->nh_ = arp_nh->id();
-            } else if (arp_nh->GetInterface()->flow_key_nh()) {
-                out->nh_ = arp_nh->GetInterface()->flow_key_nh()->id();
+                out->intf_ = arp_nh->GetInterface();
             }
+        } else {
+            out->intf_ = arp_nh->GetInterface();
         }
-        out->intf_ = arp_nh->GetInterface();
         out->vrf_ = arp_nh->GetVrf();
         break;
     }
@@ -697,7 +690,8 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
 
 void PktFlowInfo::LinkLocalServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
                                             PktControlInfo *out) {
-    if (in->intf_->type() == Interface::VM_INTERFACE) {
+    const VmInterface *vm_intf = dynamic_cast<const VmInterface *>(in->intf_);
+    if (vm_intf->vmi_type() != VmInterface::VHOST) {
         LinkLocalServiceFromVm(pkt, in, out);
     } else {
         LinkLocalServiceFromHost(pkt, in, out);

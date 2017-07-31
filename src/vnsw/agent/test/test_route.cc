@@ -65,11 +65,7 @@ protected:
         agent_ = Agent::GetInstance();
         default_dest_ip_ = Ip4Address::from_string("0.0.0.0");
 
-        if (agent_->router_id_configured()) {
-            vhost_ip_ = agent_->router_id();
-        } else {
-            vhost_ip_ = Ip4Address::from_string("10.1.1.10");
-        }
+        secondary_vhost_ip_ = Ip4Address::from_string("10.1.1.20");
         if (agent_->vhost_default_gateway() != default_dest_ip_) {
             is_gateway_configured = true;
             fabric_gw_ip_ = agent_->vhost_default_gateway();
@@ -118,20 +114,20 @@ protected:
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();
 
-        TestRouteTable table1(1);
+        TestRouteTable table1(2);
         WAIT_FOR(100, 1000, (table1.Size() == 0));
         EXPECT_EQ(table1.Size(), 0U);
 
-        TestRouteTable table2(2);
+        TestRouteTable table2(3);
         WAIT_FOR(100, 1000, (table2.Size() == 0));
         EXPECT_EQ(table2.Size(), 0U);
 
-        TestRouteTable table3(3);
+        TestRouteTable table3(4);
         WAIT_FOR(100, 1000, (table3.Size() == 0));
         EXPECT_EQ(table3.Size(), 0U);
 
         WAIT_FOR(100, 1000, (VrfFind(vrf_name_.c_str()) != true));
-        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
+        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 2);
         DeleteBgpPeer(bgp_peer_);
     }
 
@@ -142,9 +138,11 @@ protected:
     }
 
     void AddVhostRoute() {
+        VmInterfaceKey vhost_key(AgentKey::ADD_DEL_CHANGE, 
+                                 nil_uuid(), "vhost0");
         agent_->fabric_inet4_unicast_table()->AddVHostRecvRouteReq
-            (agent_->local_peer(), agent_->fabric_vrf_name(), "vhost0",
-             vhost_ip_, 32, "", false);
+            (agent_->local_peer(), agent_->fabric_vrf_name(), vhost_key,
+             secondary_vhost_ip_, 32, "", false);
         client->WaitForIdle();
     }
 
@@ -166,7 +164,8 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        InetInterfaceKey vhost_intf_key(agent_->vhost_interface()->name());
+        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), 
+                                      agent_->vhost_interface()->name());
         agent_->fabric_inet4_unicast_table()->AddResolveRoute
             (agent_->local_peer(), agent_->fabric_vrf_name(), server_ip, plen,
              vhost_intf_key, 0, false, "", SecurityGroupList(), TagList());
@@ -230,7 +229,7 @@ protected:
     Ip4Address  subnet_vm_ip_3_;
     Ip4Address  remote_vm_ip_;
     Ip4Address  remote_subnet_ip_;
-    Ip4Address  vhost_ip_;
+    Ip4Address  secondary_vhost_ip_;
     Ip4Address  fabric_gw_ip_;
     Ip4Address  foreign_gw_ip_;
     Ip4Address  trap_ip_;
@@ -450,10 +449,11 @@ TEST_F(RouteTest, VhostRecvRoute_1) {
     //Recv route for IP address set on vhost interface
     //Add and delete recv route on fabric VRF
     AddVhostRoute();
-    EXPECT_TRUE(RouteFind(agent_->fabric_vrf_name(), vhost_ip_, 32));
+    EXPECT_TRUE(RouteFind(agent_->fabric_vrf_name(), secondary_vhost_ip_, 32));
     
-    DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(), vhost_ip_, 32);
-    EXPECT_FALSE(RouteFind(agent_->fabric_vrf_name(), vhost_ip_, 32));
+    DeleteRoute(agent_->local_peer(), agent_->fabric_vrf_name(), 
+                secondary_vhost_ip_, 32);
+    EXPECT_FALSE(RouteFind(agent_->fabric_vrf_name(), secondary_vhost_ip_, 32));
 }
 
 TEST_F(RouteTest, LocalVmRoute_1) {
@@ -654,6 +654,14 @@ TEST_F(RouteTest, RemoteVmRoute_5) {
 }
 
 TEST_F(RouteTest, RemoteVmRoute_no_gw) {
+    const VmInterface *vmi =
+                static_cast<const VmInterface *>(agent_->vhost_interface());
+    Ip4Address ip(0);
+    agent_->fabric_inet4_unicast_table()->DeleteReq(vmi->peer(),
+                                                   agent_->fabric_vrf_name(),
+                                                   ip, 0, NULL);
+    client->WaitForIdle();
+
     if (is_gateway_configured) {
         agent_->set_vhost_default_gateway(default_dest_ip_);
         AddGatewayRoute(agent_->fabric_vrf_name(), default_dest_ip_, 0,
@@ -2342,7 +2350,6 @@ TEST_F(RouteTest, fip_evpn_route_local) {
     item.entry.next_hops.next_hop.push_back(nh);
     item.entry.med = 0;
 
-
     bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute("default-project:vn1:vn1",
                                                    "00:00:01:01:01:10",
                                                  &item);
@@ -2359,6 +2366,15 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
     eth_itf = Agent::GetInstance()->fabric_interface_name();
+
+    Agent *agent = Agent::GetInstance();
+    const VmInterface *vmi =
+        static_cast<const VmInterface *>(agent->vhost_interface());
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.11");
+    agent->fabric_inet4_unicast_table()->DeleteReq(vmi->peer(),
+                                                   agent->fabric_vrf_name(),
+                                                   server_ip, 24, NULL);
+    client->WaitForIdle();
 
     RouteTest::SetTunnelType(TunnelType::MPLS_GRE);
     int ret = RUN_ALL_TESTS();

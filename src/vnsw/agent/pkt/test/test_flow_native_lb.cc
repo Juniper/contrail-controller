@@ -116,7 +116,7 @@ public:
         EXPECT_EQ(0U, agent()->vm_table()->Size());
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());
-        EXPECT_EQ(1U, agent()->vrf_table()->Size());
+        EXPECT_EQ(2U, agent()->vrf_table()->Size());
         StopAgingTimer(false);
         client->WaitForIdle();
         WAIT_FOR(100, 1, (0U == flow_proto_->FlowCount()));

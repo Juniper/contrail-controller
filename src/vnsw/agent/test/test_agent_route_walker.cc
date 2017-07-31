@@ -163,7 +163,7 @@ public:
         if (num_vrfs > 2) {
             VrfAddReq(vrf_name_3_.c_str());
         }
-        InetInterfaceKey vhost_intf_key(
+        VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
                 Agent::GetInstance()->vhost_interface()->name());
         Agent::GetInstance()->fabric_inet4_unicast_table()->AddResolveRoute(
                 Agent::GetInstance()->local_peer(),
@@ -314,7 +314,7 @@ TEST_F(Test, walk_all_routes_wih_no_vrf) {
     client->Reset();
     SetupEnvironment(0);
     walker()->StartVrfWalk();
-    VerifyNotifications(9, 1, 1, Agent::ROUTE_TABLE_MAX - 1);
+    VerifyNotifications(11, 2, 1, (Agent::ROUTE_TABLE_MAX - 1) * 2);
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(0);
@@ -324,7 +324,7 @@ TEST_F(Test, walk_all_routes_wih_1_vrf) {
     client->Reset();
     SetupEnvironment(1);
     walker()->StartVrfWalk();
-    VerifyNotifications(22, 2, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 2));
+    VerifyNotifications(24, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
 }
@@ -333,7 +333,7 @@ TEST_F(Test, walk_all_routes_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
     walker()->StartVrfWalk();
-    VerifyNotifications(35, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
+    VerifyNotifications(37, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(2);
@@ -343,7 +343,7 @@ TEST_F(Test, walk_all_routes_with_3_vrf) {
     client->Reset();
     SetupEnvironment(3);
     walker()->StartVrfWalk();
-    VerifyNotifications(48, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
+    VerifyNotifications(50, 5, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 5));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(3);

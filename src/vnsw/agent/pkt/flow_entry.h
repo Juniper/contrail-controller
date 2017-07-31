@@ -298,6 +298,14 @@ struct FlowData {
     uint32_t component_nh_idx;
     uint32_t bgp_as_a_service_port;
     uint32_t ttl;
+    // In case of policy on fabric, the forwarding happens in
+    // agent_->fabric_vrf(), but policy processing must happen in
+    // agent_->fabric_policy_vrf(). Storing the route infor for
+    // fabric_policy_vrf() for tracking purpose
+    uint32_t src_policy_vrf;
+    uint32_t src_policy_plen;
+    uint32_t dst_policy_vrf;
+    uint32_t dst_policy_plen;
 
     // Stats
     uint8_t source_plen;

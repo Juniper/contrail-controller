@@ -172,11 +172,11 @@ bool AgentUtXmlPacketUtils::InetPacket(Interface *intf, Agent *agent,
     TunnelType::Type tun_type = GetTunnelType();
     if (tun_type != TunnelType::INVALID) {
         pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-        const InetInterface *vhost = static_cast<const InetInterface *>
+        const VmInterface *vhost = static_cast<const VmInterface *>
             (agent->vhost_interface());
         string dip = tunnel_dip_;
         if (dip == "0.0.0.0") {
-            dip = vhost->ip_addr().to_string();
+            dip = vhost->primary_ip_addr().to_string();
         }
 
         uint8_t proto = IPPROTO_UDP;
@@ -263,9 +263,9 @@ bool AgentUtXmlPacketUtils::MakePacket(Agent *agent, PktGen *pkt) {
 
     uint16_t if_id = intf_id_;
     if (tunnel_type != TunnelType::INVALID) {
-        const InetInterface *vhost = static_cast<const InetInterface *>
+        const VmInterface *vhost = static_cast<const VmInterface *>
             (agent->vhost_interface());
-        if_id = vhost->xconnect()->id();
+        if_id = vhost->parent()->id();
     }
 
     int vxlan_id = 0;

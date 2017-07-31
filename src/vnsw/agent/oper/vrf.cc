@@ -192,11 +192,11 @@ void VrfEntry::PostAdd() {
     // Add the L2 Receive routes for xconnect interface to vhost
     // Note, vhost is not created when fabric VRF is created. We only need
     // VRRP MAC on fabric vrf. So, we are good for now
-    const InetInterface *vhost = static_cast<const InetInterface *>
+    const VmInterface *vhost = dynamic_cast<const VmInterface *>
         (agent->vhost_interface());
-    if (vhost && vhost->xconnect()) {
+    if (vhost && vhost->parent()) {
         l2_table->AddBridgeReceiveRoute(agent->local_vm_peer(), name_, 0,
-                                        vhost->xconnect()->mac(), "");
+                                        vhost->parent()->mac(), "");
     }
 
     //Add receive route for vmware physical interface mac, so
@@ -567,6 +567,9 @@ DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
         vrf->layer2_control_word_ = vrf->vn_->layer2_control_word();
     }
     vrf->set_rd(vrf->RDInstanceId(agent()->tor_agent_enabled()));
+    if (data->forwarding_vrf_name_ != Agent::NullString()) {
+        vrf->forwarding_vrf_ = FindVrfFromName(data->forwarding_vrf_name_);
+    }
     return vrf;
 }
 
@@ -662,11 +665,11 @@ bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
         (vrf->rt_table_db_[Agent::BRIDGE]);
     l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
                      agent()->vrrp_mac(), 0);
-    const InetInterface *vhost = static_cast<const InetInterface *>
+    const VmInterface *vhost = dynamic_cast<const VmInterface *>
         (agent()->vhost_interface());
-    if (vhost && vhost->xconnect()) {
+    if (vhost && vhost->parent()) {
         l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
-                         vhost->xconnect()->mac(), 0);
+                         vhost->parent()->mac(), 0);
     }
 
     if (agent()->isVmwareMode()) {
@@ -848,6 +851,16 @@ void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
 void VrfTable::CreateStaticVrf(const string &name) {
     static_vrf_set_.insert(name);
     CreateVrf(name, nil_uuid(), VrfData::ConfigVrf);
+}
+
+void VrfTable::CreateFabricPolicyVrf(const string &name) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VrfKey(name));
+    VrfData *data = new VrfData(agent(), NULL, VrfData::ConfigVrf,
+                                nil_uuid(), 0, "", 0, false);
+    data->forwarding_vrf_name_ = agent()->fabric_vrf_name();
+    req.data.reset(data);
+    Process(req);
 }
 
 void VrfTable::DeleteStaticVrf(const string &name) {
