@@ -108,6 +108,13 @@ public:
             clear_peers = true;
         }
 
+        // Clear peers if there's a change in route-distinguisher-cluster-seed knob.
+        if (server_->global_config()->route_distinguisher_cluster_seed() !=
+            new_config->route_distinguisher_cluster_seed()) {
+          server_->global_config()->set_route_distinguisher_cluster_seed(new_config->route_distinguisher_cluster_seed());
+          clear_peers = true;
+        }
+
         bool clear_bgpaas_peers = false;
 
         // Clear bgpaas peers if there's a change in bgpaas-port-start.

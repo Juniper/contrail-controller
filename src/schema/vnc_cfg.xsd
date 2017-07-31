@@ -964,6 +964,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('bgp-always-compare-med', 'global-system-config', 'optional', 'CRUD',
               'Always compare MED even if paths are received from different ASes.') -->
 
+<xsd:element name="route-distinguisher-cluster-seed" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('route-distinguisher-cluster-seed', 'global-system-config', 'optional', 'CRUD',
+              'Used to create collision-free RouteDistinguishers.') -->
+
 <xsd:element name="ip-fabric-subnets" type="SubnetListType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('ip-fabric-subnets', 'global-system-config', 'optional', 'CRUD',

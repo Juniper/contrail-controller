@@ -3814,6 +3814,34 @@ TEST_F(BgpConfigTest, BgpaaServiceParametersChange) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+TEST_F(BgpConfigTest, RouteDistinguisherClusterSeedChange) {
+    string content_a =
+        FileRead("controller/src/bgp/testdata/config_test_47a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, server_.global_config()->route_distinguisher_cluster_seed());
+
+    string content_b =
+        FileRead("controller/src/bgp/testdata/config_test_47b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(100, server_.global_config()->route_distinguisher_cluster_seed());
+
+    string content_c =
+        FileRead("controller/src/bgp/testdata/config_test_47c.xml");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(200, server_.global_config()->route_distinguisher_cluster_seed());
+
+    boost::replace_all(content_c, "<config>", "<delete>");
+    boost::replace_all(content_c, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();

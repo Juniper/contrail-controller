@@ -27,6 +27,14 @@ RouteDistinguisher::RouteDistinguisher(uint32_t address, uint16_t vrf_id) {
     put_value(data_ + 6, 2, vrf_id);
 }
 
+RouteDistinguisher::RouteDistinguisher(uint32_t address, uint16_t vrf_id,
+                                       uint16_t cluster_seed) {
+    put_value(data_, 2, TypeClusterSeedBased);
+    put_value(data_ + 2, 2, cluster_seed);
+    put_value(data_ + 4, 2, static_cast<uint16_t>(address));
+    put_value(data_ + 6, 2, vrf_id);
+}
+
 uint16_t RouteDistinguisher::Type() const {
     return get_value(data_, 2);
 }
@@ -58,6 +66,12 @@ string RouteDistinguisher::ToString() const {
         uint16_t value = get_value(data_ + 6, 2);
         snprintf(temp, sizeof(temp), "%u:%u", asn, value);
         return string(temp);
+    } else if (rd_type == TypeClusterSeedBased) {
+      uint16_t cluster_seed = get_value(data_ + 2, 2);
+      uint16_t ip = get_value(data_ + 4, 2);
+      uint16_t vrf_id = get_value(data_ + 6, 2);
+      snprintf(temp, sizeof(temp), "%u:%u:%u", cluster_seed, ip, vrf_id);
+      return string(temp);
     } else {
         snprintf(temp, sizeof(temp), "%u:%02x:%02x:%02x:%02x:%02x:%02x",
             rd_type, data_[2], data_[3], data_[4], data_[5], data_[6],
@@ -136,6 +150,17 @@ RouteDistinguisher RouteDistinguisher::FromString(
         return RouteDistinguisher::kZeroRd;
     }
 
+    //cluster seed based
+    if(offset == 4 && value <= 0xFFFF) {
+      pos = second.rfind(':');
+      if (pos != string::npos) {
+        put_value(rd.data_, 2, 3);
+        put_value(rd.data_ + 4, 2, value);  //last 2 bytes of IP
+        string third(second, pos + 1);
+        value = strtol(third.c_str(), &endptr, 10);
+        offset = 6;
+      }
+    }
     put_value(rd.data_ + offset, 8 - offset, value);
     return rd;
 }

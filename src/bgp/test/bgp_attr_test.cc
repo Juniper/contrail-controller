@@ -1533,6 +1533,22 @@ TEST_F(BgpAttrTest, SourceRdBasic3) {
     EXPECT_EQ(rd2, ptr->source_rd());
 }
 
+TEST_F(BgpAttrTest, SourceRdBasic4) {
+    BgpAttrSpec attr_spec;
+
+    RouteDistinguisher rd1 = RouteDistinguisher::FromString("100:1:1");
+    BgpAttrSourceRd rd_spec(rd1);
+    attr_spec.push_back(&rd_spec);
+    BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
+    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(rd1, ptr->source_rd());
+
+    RouteDistinguisher rd2 = RouteDistinguisher::FromString("100:1:2");
+    ptr = attr_db_->ReplaceSourceRdAndLocate(ptr.get(), rd2);
+    EXPECT_EQ(1, attr_db_->Size());
+    EXPECT_EQ(rd2, ptr->source_rd());
+}
+
 TEST_F(BgpAttrTest, SourceRdCompareTo) {
     RouteDistinguisher rd1 = RouteDistinguisher::FromString("192.168.0.1:1");
     RouteDistinguisher rd2 = RouteDistinguisher::FromString("192.168.0.1:2");

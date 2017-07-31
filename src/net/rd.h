@@ -17,12 +17,14 @@ public:
         Type2ByteASBased = 0,
         TypeIpAddressBased = 1,
         Type4ByteASBased = 2,
+        TypeClusterSeedBased = 2,
     };
 
     RouteDistinguisher();
 
     explicit RouteDistinguisher(const uint8_t *data);
     RouteDistinguisher(uint32_t address, uint16_t vrf_id);
+    RouteDistinguisher(uint32_t address, uint16_t vrf_id, uint16_t cluster_seed);
     RouteDistinguisher(const RouteDistinguisher &rhs) {
         memcpy(data_, rhs.data_, kSize);
     }

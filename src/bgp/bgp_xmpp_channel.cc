@@ -1137,11 +1137,19 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                 comm.communities.push_back(rt_community);
             }
 
-            BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
+            uint32_t addr = nh_address.to_v4().to_ulong();
+            BgpAttrNextHop nexthop(addr);
             attrs.push_back(&nexthop);
-
-            BgpAttrSourceRd source_rd(
-                RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
+            uint32_t cluster_seed =
+              bgp_server_->global_config()->route_distinguisher_cluster_seed();
+            BgpAttrSourceRd source_rd;
+            if (cluster_seed) {
+              source_rd = BgpAttrSourceRd(
+                RouteDistinguisher(addr, instance_id, cluster_seed));
+            } else {
+              source_rd = BgpAttrSourceRd(
+                RouteDistinguisher(addr, instance_id));
+            }
             if (!master)
                 attrs.push_back(&source_rd);
 
@@ -1424,8 +1432,16 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             BgpAttrSourceRd source_rd;
             if (!master) {
                 uint32_t addr = nh_address.to_v4().to_ulong();
-                source_rd =
-                    BgpAttrSourceRd(RouteDistinguisher(addr, instance_id));
+                uint32_t cluster_seed =
+                  bgp_server_->global_config()->route_distinguisher_cluster_seed();
+                BgpAttrSourceRd source_rd;
+                if (cluster_seed) {
+                  source_rd = BgpAttrSourceRd(
+                    RouteDistinguisher(addr, instance_id, cluster_seed));
+                } else {
+                  source_rd = BgpAttrSourceRd(
+                    RouteDistinguisher(addr, instance_id));
+                }
                 attrs.push_back(&source_rd);
             }
 
