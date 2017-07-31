@@ -290,11 +290,17 @@ static BgpPath::PathSource PathSourceFromMatchProtocol(
 MatchProtocol::MatchProtocol(const vector<string> &protocols) {
     BOOST_FOREACH(const string &protocol, protocols) {
         MatchProtocolType value = MatchProtocolFromString(protocol);
-        // Invalid community from config is ignored
-        if (value != Unspecified) {
-            to_match_.push_back(value);
-        }
+        // Ignore invalid protocol values.
+        if (value == Unspecified)
+            continue;
+        to_match_.push_back(value);
     }
+
+    // Sort and uniquify the vector match protocols.
+    sort(to_match_.begin(), to_match_.end());
+    vector<MatchProtocolType>::iterator it =
+        unique(to_match_.begin(), to_match_.end());
+    to_match_.erase(it, to_match_.end());
 }
 
 MatchProtocol::~MatchProtocol() {

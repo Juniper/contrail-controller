@@ -7,6 +7,7 @@
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_path.h"
 #include "bgp/bgp_server.h"
 #include "bgp/routing-policy/routing_policy_match.h"
 #include "control-node/control_node.h"
@@ -15,6 +16,56 @@
 using boost::assign::list_of;
 using std::find;
 using std::string;
+
+class PeerMock : public IPeer {
+public:
+    PeerMock(bool is_xmpp, const string &address_str)
+        : is_xmpp_(is_xmpp) {
+        boost::system::error_code ec;
+        address_ = Ip4Address::from_string(address_str, ec);
+        assert(ec.value() == 0);
+        address_str_ = address_.to_string();
+    }
+    virtual ~PeerMock() { }
+    virtual const std::string &ToString() const { return address_str_; }
+    virtual const std::string &ToUVEKey() const { return address_str_; }
+    virtual bool SendUpdate(const uint8_t *msg, size_t msgsize) { return true; }
+    virtual BgpServer *server() { return NULL; }
+    virtual BgpServer *server() const { return NULL; }
+    virtual IPeerClose *peer_close() { return NULL; }
+    virtual IPeerClose *peer_close() const { return NULL; }
+    virtual void UpdateCloseRouteStats(Address::Family family,
+        const BgpPath *old_path, uint32_t path_flags) const {
+    }
+    virtual IPeerDebugStats *peer_stats() { return NULL; }
+    virtual const IPeerDebugStats *peer_stats() const { return NULL; }
+    virtual bool IsReady() const { return true; }
+    virtual bool IsXmppPeer() const { return is_xmpp_; }
+    virtual bool IsRegistrationRequired() const { return false; }
+    virtual void Close(bool graceful) { }
+    BgpProto::BgpPeerType PeerType() const {
+        return is_xmpp_ ? BgpProto::XMPP : BgpProto::EBGP;
+    }
+    virtual uint32_t bgp_identifier() const {
+        return htonl(address_.to_ulong());
+    }
+    virtual const std::string GetStateName() const { return ""; }
+    virtual void UpdateTotalPathCount(int count) const { }
+    virtual int GetTotalPathCount() const { return 0; }
+    virtual void UpdatePrimaryPathCount(int count,
+        Address::Family family) const { }
+    virtual int GetPrimaryPathCount() const { return 0; }
+    virtual void MembershipRequestCallback(BgpTable *table) { }
+    virtual bool MembershipPathCallback(DBTablePartBase *tpart,
+        BgpRoute *route, BgpPath *path) { return false; }
+    virtual bool CanUseMembershipManager() const { return true; }
+    virtual bool IsInGRTimerWaitState() const { return false; }
+
+private:
+    bool is_xmpp_;
+    Ip4Address address_;
+    std::string address_str_;
+};
 
 class MatchCommunityTest : public ::testing::Test {
 protected:
@@ -660,6 +711,168 @@ TEST_P(MatchCommunityParamTest, IsEqual2e) {
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, MatchCommunityParamTest, ::testing::Bool());
+
+class MatchProtocolTest : public ::testing::Test {
+protected:
+    MatchProtocolTest() { }
+};
+
+TEST_F(MatchProtocolTest, Constructor1) {
+    vector<string> protocols = list_of("bgp")("xmpp")("static");
+    MatchProtocol match(protocols);
+    EXPECT_EQ(3, match.protocols().size());
+
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::BGP) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::XMPP) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::StaticRoute) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::ServiceChainRoute) == match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::AggregateRoute) == match.protocols().end());
+}
+
+TEST_F(MatchProtocolTest, Constructor2) {
+    vector<string> protocols = list_of("service-chain")("aggregate")("static");
+    MatchProtocol match(protocols);
+    EXPECT_EQ(3, match.protocols().size());
+
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::BGP) == match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::XMPP) == match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::StaticRoute) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::ServiceChainRoute) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::AggregateRoute) != match.protocols().end());
+}
+
+TEST_F(MatchProtocolTest, Constructor3) {
+    vector<string> protocols = list_of("bgp")("xmpp")("static")("xyz");
+    MatchProtocol match(protocols);
+    EXPECT_EQ(3, match.protocols().size());
+
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::BGP) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::XMPP) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::StaticRoute) != match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::ServiceChainRoute) == match.protocols().end());
+    EXPECT_TRUE(find(match.protocols().begin(), match.protocols().end(),
+        MatchProtocol::AggregateRoute) == match.protocols().end());
+}
+
+TEST_F(MatchProtocolTest, ToString1a) {
+    vector<string> protocols = list_of("bgp")("xmpp")("static");
+    MatchProtocol match(protocols);
+    EXPECT_EQ("protocol [ bgp,xmpp,static ]", match.ToString());
+}
+
+TEST_F(MatchProtocolTest, ToString1b) {
+    vector<string> protocols = list_of("xmpp")("static")("bgp");
+    MatchProtocol match(protocols);
+    EXPECT_EQ("protocol [ bgp,xmpp,static ]", match.ToString());
+}
+
+TEST_F(MatchProtocolTest, ToString2a) {
+    vector<string> protocols = list_of("static")("service-chain")("aggregate");
+    MatchProtocol match(protocols);
+    EXPECT_EQ("protocol [ static,service-chain,aggregate ]", match.ToString());
+}
+
+TEST_F(MatchProtocolTest, ToString2b) {
+    vector<string> protocols = list_of("service-chain")("aggregate")("static");
+    MatchProtocol match(protocols);
+    EXPECT_EQ("protocol [ static,service-chain,aggregate ]", match.ToString());
+}
+
+TEST_F(MatchProtocolTest, IsEqual1) {
+    vector<string> protocols1 = list_of("bgp")("xmpp")("static");
+    vector<string> protocols2 = list_of("bgp")("xmpp")("static");
+    MatchProtocol match1(protocols1);
+    MatchProtocol match2(protocols2);
+    EXPECT_TRUE(match1.IsEqual(match2));
+    EXPECT_TRUE(match2.IsEqual(match1));
+}
+
+TEST_F(MatchProtocolTest, IsEqual2) {
+    vector<string> protocols1 = list_of("bgp")("xmpp")("static");
+    vector<string> protocols2 = list_of("bgp")("static")("xmpp");
+    MatchProtocol match1(protocols1);
+    MatchProtocol match2(protocols2);
+    EXPECT_TRUE(match1.IsEqual(match2));
+    EXPECT_TRUE(match2.IsEqual(match1));
+}
+
+TEST_F(MatchProtocolTest, IsEqual3) {
+    vector<string> protocols1 = list_of("bgp")("xmpp")("static");
+    vector<string> protocols2 = list_of("bgp")("xmpp")("static")("aggregate");
+    MatchProtocol match1(protocols1);
+    MatchProtocol match2(protocols2);
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+TEST_F(MatchProtocolTest, IsEqual4) {
+    vector<string> protocols1 = list_of("xmpp")("static")("aggregate");
+    vector<string> protocols2 = list_of("bgp")("xmpp")("static")("aggregate");
+    MatchProtocol match1(protocols1);
+    MatchProtocol match2(protocols2);
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+TEST_F(MatchProtocolTest, Match1) {
+    vector<string> protocols = list_of("bgp")("static");
+    MatchProtocol match(protocols);
+    BgpAttrPtr attr;
+
+    PeerMock peer1(false, "10.1.1.1");
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr, 0, 0);
+    EXPECT_TRUE(match.Match(NULL, &path1, NULL));
+
+    PeerMock peer2(true, "20.1.1.1");
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr, 0, 0);
+    EXPECT_FALSE(match.Match(NULL, &path2, NULL));
+
+    BgpPath path3(BgpPath::StaticRoute, attr);
+    EXPECT_TRUE(match.Match(NULL, &path3, NULL));
+
+    BgpPath path4(BgpPath::ServiceChain, attr);
+    EXPECT_FALSE(match.Match(NULL, &path4, NULL));
+
+    BgpPath path5(BgpPath::Aggregate, attr);
+    EXPECT_FALSE(match.Match(NULL, &path5, NULL));
+}
+
+TEST_F(MatchProtocolTest, Match2) {
+    vector<string> protocols = list_of("service-chain")("xmpp")("aggregate");
+    MatchProtocol match(protocols);
+    BgpAttrPtr attr;
+
+    PeerMock peer1(false, "10.1.1.1");
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr, 0, 0);
+    EXPECT_FALSE(match.Match(NULL, &path1, NULL));
+
+    PeerMock peer2(true, "20.1.1.1");
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr, 0, 0);
+    EXPECT_TRUE(match.Match(NULL, &path2, NULL));
+
+    BgpPath path3(BgpPath::StaticRoute, attr);
+    EXPECT_FALSE(match.Match(NULL, &path3, NULL));
+
+    BgpPath path4(BgpPath::ServiceChain, attr);
+    EXPECT_TRUE(match.Match(NULL, &path4, NULL));
+
+    BgpPath path5(BgpPath::Aggregate, attr);
+    EXPECT_TRUE(match.Match(NULL, &path5, NULL));
+}
 
 static void SetUp() {
     bgp_log_test::init();
