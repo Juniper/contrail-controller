@@ -627,10 +627,6 @@ int IFMapChannel::ReadPollResponse() {
                 // If this is a reconnection, keep re-arming the stale entries
                 // cleanup timer as long as we receive searchResults.
                 StartStaleEntriesCleanupTimer();
-            } else {
-                // Artificially expire the state entries cleanup timer if we
-                // receive updateResult or deleteResult.
-                ExpireStaleEntriesCleanupTimer();
             }
         }
         if (!end_of_rib_computed()) {
@@ -639,10 +635,6 @@ int IFMapChannel::ReadPollResponse() {
                 // searchResults, we have not received the entire db. Keep
                 // re-arming the EOR timer as long as we receive searchResults.
                 StartEndOfRibTimer();
-            } else {
-                // Artificially expire the EOR timer if we receive updateResult
-                // or deleteResult.
-                ExpireEndOfRibTimer();
             }
         }
 
@@ -684,16 +676,6 @@ void IFMapChannel::StopStaleEntriesCleanupTimer() {
     }
 }
 
-void IFMapChannel::ExpireStaleEntriesCleanupTimer() {
-    CHECK_CONCURRENCY("ifmap::StateMachine");
-    IFMAP_PEER_DEBUG(IFMapServerConnection,
-                     integerToString(stale_entries_cleanup_timeout_ms_),
-                     "millisecond stale cleanup timer expired artificially");
-    stale_entries_cleanup_timer_->Cancel();
-    set_start_stale_entries_cleanup(false);
-    manager_->ifmap_server()->ProcessStaleEntriesTimeout();
-}
-
 // Called in the context of the main thread.
 bool IFMapChannel::ProcessStaleEntriesTimeout() {
     IFMAP_PEER_DEBUG(IFMapServerConnection,
@@ -722,16 +704,6 @@ void IFMapChannel::StopEndOfRibTimer() {
     if (end_of_rib_timer_->running()) {
         end_of_rib_timer_->Cancel();
     }
-}
-
-void IFMapChannel::ExpireEndOfRibTimer() {
-    CHECK_CONCURRENCY("ifmap::StateMachine");
-    IFMAP_PEER_DEBUG(IFMapServerConnection,
-                     integerToString(end_of_rib_timeout_ms_),
-                     "millisecond end of rib timer expired artificially");
-    end_of_rib_timer_->Cancel();
-    set_end_of_rib_computed(true);
-    process::ConnectionState::GetInstance()->Update();
 }
 
 // Called in the context of the main thread.
