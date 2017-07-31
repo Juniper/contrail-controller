@@ -693,6 +693,18 @@ bool BgpConfigParser::ParseGlobalSystemConfig(const xml_node &node,
                     "bgp-always-compare-med", requests);
             }
         }
+        if (strcmp(child.name(), "route-distinguisher-cluster-seed") == 0) {
+            auto_ptr<autogen::GlobalSystemConfig::NtProperty> property(
+                new autogen::GlobalSystemConfig::NtProperty);
+            property->data = atoi(child.child_value());
+            if (add_change) {
+                MapObjectSetProperty("global-system-config", "",
+                    "route-distinguisher-cluster-seed", property.release(), requests);
+            } else {
+                MapObjectClearProperty("global-system-config", "",
+                    "route-distinguisher-cluster-seed", requests);
+            }
+        }
     }
     return true;
 }

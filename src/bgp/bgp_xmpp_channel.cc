@@ -819,7 +819,16 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
     }
 
     // Build the key to the Multicast DBTable
-    RouteDistinguisher mc_rd(peer_->bgp_identifier(), instance_id);
+    uint16_t cluster_seed =
+        bgp_server_->global_config()->rd_cluster_seed();
+    RouteDistinguisher mc_rd;
+    if (cluster_seed) {
+        mc_rd = RouteDistinguisher(cluster_seed, peer_->bgp_identifier(),
+                                   instance_id);
+    } else {
+        mc_rd = RouteDistinguisher(peer_->bgp_identifier(), instance_id);
+    }
+
     ErmVpnPrefix mc_prefix(ErmVpnPrefix::NativeRoute, mc_rd,
         grp_address.to_v4(), src_address.to_v4());
 
@@ -1137,11 +1146,19 @@ bool BgpXmppChannel::ProcessItem(string vrf_name,
                 comm.communities.push_back(rt_community);
             }
 
-            BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
+            uint32_t addr = nh_address.to_v4().to_ulong();
+            BgpAttrNextHop nexthop(addr);
             attrs.push_back(&nexthop);
-
-            BgpAttrSourceRd source_rd(
-                RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
+            uint16_t cluster_seed =
+                bgp_server_->global_config()->rd_cluster_seed();
+            BgpAttrSourceRd source_rd;
+            if (cluster_seed) {
+                source_rd = BgpAttrSourceRd(
+                    RouteDistinguisher(cluster_seed, addr, instance_id));
+            } else {
+                source_rd = BgpAttrSourceRd(
+                    RouteDistinguisher(addr, instance_id));
+            }
             if (!master)
                 attrs.push_back(&source_rd);
 
@@ -1424,8 +1441,16 @@ bool BgpXmppChannel::ProcessInet6Item(string vrf_name,
             BgpAttrSourceRd source_rd;
             if (!master) {
                 uint32_t addr = nh_address.to_v4().to_ulong();
-                source_rd =
-                    BgpAttrSourceRd(RouteDistinguisher(addr, instance_id));
+                uint16_t cluster_seed =
+                  bgp_server_->global_config()->rd_cluster_seed();
+                BgpAttrSourceRd source_rd;
+                if (cluster_seed) {
+                    source_rd = BgpAttrSourceRd(
+                        RouteDistinguisher(cluster_seed, addr, instance_id));
+                } else {
+                    source_rd = BgpAttrSourceRd(
+                        RouteDistinguisher(addr, instance_id));
+                }
                 attrs.push_back(&source_rd);
             }
 
@@ -1697,8 +1722,16 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
 
-        BgpAttrSourceRd source_rd(
-            RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
+        uint16_t cluster_seed =
+            bgp_server_->global_config()->rd_cluster_seed();
+        BgpAttrSourceRd source_rd;
+        if (cluster_seed) {
+            source_rd = BgpAttrSourceRd(RouteDistinguisher(cluster_seed,
+                nh_address.to_v4().to_ulong(), instance_id));
+        } else {
+            source_rd = BgpAttrSourceRd(RouteDistinguisher(
+                nh_address.to_v4().to_ulong(), instance_id));
+        }
         attrs.push_back(&source_rd);
 
         // Process security group list.
