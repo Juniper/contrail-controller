@@ -12,6 +12,27 @@ using std::string;
 class RouteDistinguisherTest : public ::testing::Test {
 };
 
+TEST_F(RouteDistinguisherTest, ConstructorType1_0) {
+    RouteDistinguisher rd(0x01020304, 1);
+    EXPECT_FALSE(rd.IsZero());
+    EXPECT_EQ(1, rd.Type());
+    EXPECT_EQ("1.2.3.4:1", rd.ToString());
+}
+
+TEST_F(RouteDistinguisherTest, ConstructorType1_1) {
+    RouteDistinguisher rd(5, 0x01020304, 1);
+    EXPECT_FALSE(rd.IsZero());
+    EXPECT_EQ(1, rd.Type());
+    EXPECT_EQ("0.5.3.4:1", rd.ToString());
+}
+
+TEST_F(RouteDistinguisherTest, ConstructorType1_2) {
+    RouteDistinguisher rd(1000, 0x01020304, 1);
+    EXPECT_FALSE(rd.IsZero());
+    EXPECT_EQ(1, rd.Type());
+    EXPECT_EQ("62.8.3.4:1", rd.ToString());
+}
+
 TEST_F(RouteDistinguisherTest, ByteArrayType0_0) {
     uint8_t data[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     RouteDistinguisher rd(data);
