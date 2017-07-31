@@ -3,40 +3,41 @@
 #
 
 from gevent import monkey
+
 monkey.patch_all()
 
 from netaddr import IPNetwork, IPAddress
 import uuid
+from cfgm_common.exceptions import NoIdError
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
-from kube_manager.vnc.config_db import LoadbalancerListenerKM
-from kube_manager.vnc.vnc_service import LoadbalancerKM
+from kube_manager.common.kube_config_db import NamespaceKM
 from test_case import KMTestCase
 from vnc_api.gen.resource_client import VirtualNetwork, FloatingIpPool
 from vnc_api.gen.resource_xsd import IpamSubnetType, SubnetType, VnSubnetsType
 
 
 class VncServiceTest(KMTestCase):
-
     def setUp(self, extra_config_knobs=None):
         super(VncServiceTest, self).setUp()
-        self.namespace = 'guestbook'
         self._set_default_kube_config()
+        self.external_ip = '10.0.0.54'
+        self.namespace = 'guestbook'
         self.pub_net_uuid, self.pub_fip_pool_uuid = self._create_fip_pool_and_public_network()
-    #end setUp
 
     def tearDown(self):
         self._delete_public_network(self.pub_net_uuid, self.pub_fip_pool_uuid)
         super(VncServiceTest, self).tearDown()
-    #end tearDown
 
     def test_add_delete_service_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         network = self._create_virtual_network(cluster_project)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid, expected_vn_uuid=network)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
@@ -44,31 +45,45 @@ class VncServiceTest(KMTestCase):
         self._delete_virtual_network(network)
         self._delete_project(cluster_project)
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=vn_uuid,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_service_with_default_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=None,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_service_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace(isolated=True)
         network = self._create_virtual_network(cluster_project)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid, expected_vn_uuid=network)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
@@ -76,106 +91,145 @@ class VncServiceTest(KMTestCase):
         self._delete_virtual_network(network)
         self._delete_project(cluster_project)
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=vn_uuid,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_service_with_isolated_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace(isolated=True)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=None,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_service_with_custom_isolated_namespace_with_no_cluster_defined(self):
         custom_network = 'custom_network'
         project = 'default'
         network = self._create_virtual_network(project, network=custom_network)
-        namespace_name, namespace_uuid = self._enqueue_add_custom_isolated_namespace(project, custom_network)
+        namespace_name, namespace_uuid = self._enqueue_add_custom_isolated_namespace(project,
+                                                                                     custom_network)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid, expected_vn_uuid=network)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
         self._delete_virtual_network(network)
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=vn_uuid,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_service_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         custom_network = 'custom_network'
-        cluster_network_config = {'virtual_network': custom_network,
-                                  'domain': 'default-domain',
-                                  'project': cluster_project,
-                                  'name': custom_network}
-        kube_config.VncKubernetesConfig.args().cluster_network = str(cluster_network_config)
-
         self.create_project(cluster_project)
-
         network = self._create_virtual_network(cluster_project, network=custom_network)
-        namespace_name, namespace_uuid = self._enqueue_add_custom_isolated_namespace(cluster_project, custom_network)
+        namespace_name, namespace_uuid = self._enqueue_add_custom_isolated_namespace(
+            cluster_project, custom_network)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid, expected_vn_uuid=network)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
         self._delete_virtual_network(network)
         self._delete_project(cluster_project)
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=vn_uuid,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_loadbalancer_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         network = self._create_virtual_network(cluster_project)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid, expected_vn_uuid=network)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
         self._delete_virtual_network(network)
         self._delete_project(cluster_project)
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=vn_uuid,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_loadbalancer_with_default_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=None,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_loadbalancer_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace(isolated=True)
         network = self._create_virtual_network(cluster_project)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid, expected_vn_uuid=network)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
@@ -183,81 +237,110 @@ class VncServiceTest(KMTestCase):
         self._delete_virtual_network(network)
         self._delete_project(cluster_project)
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=vn_uuid,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_loadbalancer_with_isolated_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace(isolated=True)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=None,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_no_cluster_defined(self):
         custom_network = 'custom_network'
         project = 'default'
-        network = self._create_virtual_network(project, network=custom_network)
-        namespace_name, namespace_uuid = self._enqueue_add_custom_isolated_namespace(project, custom_network)
+        network_uuid = self._create_virtual_network(project, network=custom_network)
+        namespace_name, namespace_uuid = self._enqueue_add_custom_isolated_namespace(project,
+                                                                                     custom_network)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid, expected_vn_uuid=network_uuid)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
-        self._delete_virtual_network(network)
+        self._delete_virtual_network(network_uuid)
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=vn_uuid,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         custom_network = 'custom_network'
-        cluster_network_config = {'virtual_network': custom_network,
-                                  'domain': 'default-domain',
-                                  'project': cluster_project,
-                                  'name': custom_network}
-        kube_config.VncKubernetesConfig.args().cluster_network = str(cluster_network_config)
-
         self.create_project(cluster_project)
-
         network = self._create_virtual_network(cluster_project, network=custom_network)
-        namespace_name, namespace_uuid = self._enqueue_add_custom_isolated_namespace(cluster_project, custom_network)
+        namespace_name, namespace_uuid = self._enqueue_add_custom_isolated_namespace(
+            cluster_project, custom_network)
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid, expected_vn_uuid=network)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
         self._delete_virtual_network(network)
         self._delete_project(cluster_project)
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=vn_uuid,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_add_delete_kubernetes_service(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
+
         ports, srv_meta, srv_type, srv_uuid = self._enqueue_add_kubernetes_service(namespace_name)
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid)
         self._assert_link_local_service(ports)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=None,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
 
     def test_delete_add_service_after_kube_manager_is_killed(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
@@ -277,14 +360,86 @@ class VncServiceTest(KMTestCase):
         self.spawn_kube_manager(extra_args=[('VNC', 'public_fip_pool', public_fip_pool_config)])
         self.wait_for_all_tasks_done()
 
-        self._assert_loadbalancer(srv_uuid, ports)
+        lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid, lb_listener_uuid, pub_fip_uuid = \
+            self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta, srv_type)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
 
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNone(lb)
+        self._assert_all_is_down(lb_uuid=lb_uuid,
+                                 vmi_uuid=vmi_uuid,
+                                 vn_uuid=None,
+                                 instance_ip_uuid=instance_ip_uuid,
+                                 fip_uuid=fip_uuid,
+                                 lb_listener_uuid=lb_listener_uuid,
+                                 pub_fip_uuid=pub_fip_uuid)
+
+    def _assert_all_is_up(self, ports, srv_uuid, expected_vn_uuid=None):
+        # loadbalancer
+        lb = self._vnc_lib.loadbalancer_read(id=srv_uuid,
+                                             fields=['loadbalancer_listener_back_refs'])
+
+        # virtual machine interface
+        vmi_uuid = lb.virtual_machine_interface_refs[0]['uuid']
+        vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
+
+        # virtual network
+        vn_uuid = vmi.virtual_network_refs[0]['uuid']
+        vn = self._vnc_lib.virtual_network_read(id=vn_uuid, fields=['instance_ip_back_refs'])
+        if expected_vn_uuid:
+            self.assertEquals(expected_vn_uuid, vn_uuid)
+
+        # instance ip
+        instance_ips = vn.instance_ip_back_refs
+        self.assertEqual(1, len(instance_ips))
+        instance_ip_uuid = instance_ips[0]['uuid']
+        instance_ip = self._vnc_lib.instance_ip_read(id=instance_ip_uuid,
+                                                     fields=['instance-ip-floating-ip'])
+
+        # floating ip
+        floating_ips = instance_ip.get_floating_ips()
+        self.assertEqual(1, len(floating_ips))
+        floating_ip_uuid = floating_ips[0]['uuid']
+        floating_ip = self._vnc_lib.floating_ip_read(id=floating_ip_uuid)
+
+        # loadbalancer listener
+        lb_listeners = lb.loadbalancer_listener_back_refs
+        self.assertEqual(1, len(lb_listeners))
+        lb_listener_uuid = lb_listeners[0]['uuid']
+        lb_listener = self._vnc_lib.loadbalancer_listener_read(
+            id=lb_listener_uuid,
+            fields=['loadbalancer_pool_back_refs'])
+        self._assert_loadbalancer_listener(lb_listener, ports)
+
+        # loadbalancer pool
+        lb_pools = lb_listener.loadbalancer_pool_back_refs
+        self.assertEqual(1, len(lb_pools))
+        lb_pool_uuid = lb_pools[0]['uuid']
+        lb_pool = self._vnc_lib.loadbalancer_pool_read(id=lb_pool_uuid)
+        self._assert_loadbalancer_pool(lb_pool, ports)
+
+        # public floating ip
+        pub_fip_pool = self._vnc_lib.floating_ip_pool_read(id=self.pub_fip_pool_uuid,
+                                                           fields=['floating-ip-pool-floating-ip'])
+        pub_fips = pub_fip_pool.get_floating_ips()
+        self.assertEqual(1, len(pub_fips))
+        pub_fip_uuid = pub_fips[0]['uuid']
+        pub_fip = self._vnc_lib.floating_ip_read(id=pub_fip_uuid)
+        self._assert_fip(pub_fip, vmi_uuid)
+
+        return lb.uuid, vmi.uuid, vn_uuid, instance_ip.uuid, floating_ip.uuid, lb_listener.uuid, pub_fip.uuid
+
+    def _assert_all_is_down(self, lb_uuid, vmi_uuid, vn_uuid, instance_ip_uuid, fip_uuid,
+                            lb_listener_uuid, pub_fip_uuid):
+        self.assertRaises(NoIdError, self._vnc_lib.loadbalancer_read, id=lb_uuid)
+        self.assertRaises(NoIdError, self._vnc_lib.virtual_machine_interface_read, id=vmi_uuid)
+        if vn_uuid:
+            self.assertRaises(NoIdError, self._vnc_lib.virtual_network_read, id=vn_uuid)
+        self.assertRaises(NoIdError, self._vnc_lib.instance_ip_read, id=instance_ip_uuid)
+        self.assertRaises(NoIdError, self._vnc_lib.floating_ip_pool_read, id=fip_uuid)
+        self.assertRaises(NoIdError, self._vnc_lib.loadbalancer_listener_read, id=lb_listener_uuid)
+        self.assertRaises(NoIdError, self._vnc_lib.floating_ip_pool_read, id=pub_fip_uuid)
 
     def _create_fip_pool_and_public_network(self):
         net_uuid = self._create_virtual_network(network='public')
@@ -305,19 +460,25 @@ class VncServiceTest(KMTestCase):
             fq_name=['default-global-system-config', 'default-global-vrouter-config'])
         expected_port = ports[0]['port']
         linklocal_service_port = \
-            proj_obj._linklocal_services.linklocal_service_entry[0].linklocal_service_port
+            proj_obj.linklocal_services.linklocal_service_entry[0].linklocal_service_port
         self.assertEquals(expected_port, linklocal_service_port)
 
-    def _assert_loadbalancer(self, srv_uuid, ports):
-        lb = LoadbalancerKM.locate(srv_uuid)
-        self.assertIsNotNone(lb)
-        ll = LoadbalancerListenerKM.locate(list(lb.loadbalancer_listeners)[0])
-        self.assertIsNotNone(ll)
-        self.assertEquals(ports[0]['port'], ll.params['protocol_port'])
+    def _assert_loadbalancer_pool(self, lb_pool, ports):
+        self.assertEquals(ports[0]['protocol'], lb_pool.loadbalancer_pool_properties.protocol)
+
+    def _assert_loadbalancer_listener(self, lb_listener, ports):
+        self.assertEquals(ports[0]['protocol'],
+                          lb_listener.loadbalancer_listener_properties.protocol)
+        self.assertEquals(ports[0]['port'],
+                          lb_listener.loadbalancer_listener_properties.protocol_port)
+
+    def _assert_fip(self, fip, vmi_uuid):
+        self.assertEquals(self.external_ip, fip.floating_ip_address)
+        self.assertEquals(vmi_uuid, fip.virtual_machine_interface_refs[0]['uuid'])
 
     def _set_cluster_project(self):
         cluster_project = 'cluster_project'
-        kube_config.VncKubernetesConfig.args().cluster_project = "{'project':'" + cluster_project + "'}"
+        kube_config.VncKubernetesConfig.args().cluster_project = str({'project': cluster_project})
         return cluster_project
 
     def _set_default_kube_config(self):
@@ -331,18 +492,25 @@ class VncServiceTest(KMTestCase):
         if isolated:
             annotations = {'opencontrail.org/isolation': 'true'}
             ns_add_event['object']['metadata']['annotations'] = annotations
+        NamespaceKM.locate(namespace_name, ns_add_event['object'])
         self.enqueue_event(ns_add_event)
         return namespace_name, ns_uuid
 
     def _enqueue_add_custom_isolated_namespace(self, project, network):
-        annotations = {
-            "opencontrail.org/network":
-                '{"domain":"default-domain", "project": "' + project + '", "name":"' + network + '"}'
-        }
+        custom_network_config = {'virtual_network': network,
+                                 'domain': 'default-domain',
+                                 'project': project,
+                                 'name': network}
+        kube_config.VncKubernetesConfig.args().cluster_network = str(custom_network_config)
         ns_uuid = str(uuid.uuid4())
         namespace_name = 'custom_isolated_namespace'
         ns_add_event = self.create_add_namespace_event(namespace_name, ns_uuid)
+        annotations = {'opencontrail.org/network':
+                           str({'domain': 'default-domain',
+                                'project': project,
+                                'name': network})}
         ns_add_event['object']['metadata']['annotations'] = annotations
+        NamespaceKM.locate(namespace_name, ns_add_event['object'])
         self.enqueue_event(ns_add_event)
         return namespace_name, ns_uuid
 
@@ -363,7 +531,7 @@ class VncServiceTest(KMTestCase):
         srv_uuid = str(uuid.uuid4())
         srv_meta = {'name': srv_name, 'uid': srv_uuid, 'namespace': namespace_name}
         ports = [{'name': 'http', 'protocol': 'TCP', 'port': 80, 'targetPort': 9376}]
-        srv_spec = {'type': srv_type, 'ports': ports, 'externalIPs': ['10.0.0.66']}
+        srv_spec = {'type': srv_type, 'ports': ports, 'externalIPs': [self.external_ip]}
         srv_add_event = self.create_event('Service', srv_spec, srv_meta, 'ADDED')
         self.enqueue_event(srv_add_event)
         return ports, srv_meta, srv_type, srv_uuid
