@@ -570,7 +570,8 @@ public:
             gr_bgp_helper_(false), gr_xmpp_helper_(false),
             bgpaas_port_start_(0),
             bgpaas_port_end_(0),
-            always_compare_med_(false) {
+            always_compare_med_(false),
+            rd_cluster_seed_(0) {
     }
     ~BgpGlobalSystemConfig() { }
 
@@ -592,6 +593,12 @@ public:
     void set_always_compare_med(bool always_compare_med) {
         always_compare_med_ = always_compare_med;
     }
+    uint16_t rd_cluster_seed() const {
+        return rd_cluster_seed_;
+    }
+    void set_rd_cluster_seed(uint16_t seed) {
+        rd_cluster_seed_ = seed;
+    }
     uint16_t bgpaas_port_start() const { return bgpaas_port_start_; }
     void set_bgpaas_port_start(uint16_t bgpaas_port_start) {
         bgpaas_port_start_ = bgpaas_port_start;
@@ -612,6 +619,7 @@ private:
     uint16_t bgpaas_port_start_;
     uint16_t bgpaas_port_end_;
     bool always_compare_med_;
+    uint16_t rd_cluster_seed_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);
 };
