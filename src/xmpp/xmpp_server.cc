@@ -147,6 +147,12 @@ public:
         config_.set_end_of_rib_timeout(system->end_of_rib_timeout());
         config_.set_gr_xmpp_helper(system->gr_xmpp_helper());
 
+        // Process any change in rd-cluster-seed knob
+        if (config_.rd_cluster_seed() != system->rd_cluster_seed()) {
+            config_.set_rd_cluster_seed(system->rd_cluster_seed());
+            clear_peers = true;
+        }
+
         if (!clear_peers)
             return;
         server_->ClearAllConnections();

@@ -109,6 +109,13 @@ public:
             clear_peers = true;
         }
 
+        // Process a change in rd-cluster-seed knob.
+        if (server_->global_config()->rd_cluster_seed() !=
+            new_config->rd_cluster_seed()) {
+          server_->global_config()->set_rd_cluster_seed(
+              new_config->rd_cluster_seed());
+        }
+
         bool clear_bgpaas_peers = false;
 
         // Clear bgpaas peers if there's a change in bgpaas-port-start.

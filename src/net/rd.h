@@ -23,6 +23,8 @@ public:
 
     explicit RouteDistinguisher(const uint8_t *data);
     RouteDistinguisher(uint32_t address, uint16_t vrf_id);
+    RouteDistinguisher(uint16_t cluster_seed, uint32_t address,
+                       uint16_t vrf_id);
     RouteDistinguisher(const RouteDistinguisher &rhs) {
         memcpy(data_, rhs.data_, kSize);
     }
