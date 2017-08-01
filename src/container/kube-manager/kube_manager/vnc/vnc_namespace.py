@@ -452,3 +452,6 @@ class VncNamespace(VncCommon):
             self._network_policy_mgr.update_ns_np(name, ns_id, labels, self._ns_sg[name])
         elif event['type'] == 'DELETED':
             self.vnc_namespace_delete(ns_id, name)
+        else:
+            self._logger.warning(
+                'Unknown event type: "{}" Ignoring'.format(event['type']))

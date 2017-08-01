@@ -104,6 +104,7 @@ class VncPod(VncCommon):
         vn_fq_name = pod.get_vn_fq_name()
         ns = self._get_namespace(pod_namespace)
 
+        # FIXME: Check if ns is not None
         # Check of virtual network configured on the namespace.
         if not vn_fq_name:
             vn_fq_name = ns.get_annotated_network_fq_name()
@@ -296,7 +297,7 @@ class VncPod(VncCommon):
             vrouter_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_fq_name)
         except Exception as e:
             self._logger.debug("%s - Vrouter %s Not Found for Pod %s"
-                %(self._name, vrouter_fq_name, pod_id))
+                %(self._name, vrouter_fq_name, vm_obj.uuid))
             return
 
         self._vnc_lib.ref_update('virtual-router', vrouter_obj.uuid,
@@ -498,3 +499,6 @@ class VncPod(VncCommon):
                     self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
+        else:
+            self._logger.warning(
+                'Unknown event type: "{}" Ignoring'.format(event['type']))
