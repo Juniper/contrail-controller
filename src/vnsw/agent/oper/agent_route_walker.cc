@@ -411,7 +411,7 @@ void AgentRouteWalker::StopAllWalks() {
     for (uint8_t type = (Agent::INVALID + 1); type < Agent::ROUTE_TABLE_MAX;
          type++) {
         for (VrfRouteWalkerIdMapIterator iter = route_walkid_[type].begin();
-             iter != route_walkid_[type].end(); iter++) {
+             iter != route_walkid_[type].end();) {
             if (iter != route_walkid_[type].end()) {
                 //Note: This is also done at CancelRouteWalkInternal
                 //however it requires VRF and here blindly all vrf walks are
@@ -419,7 +419,7 @@ void AgentRouteWalker::StopAllWalks() {
                 //TODO: Both CancelRouteWalkInternal and StopAllWalks
                 //can use common API.
                 walker->WalkCancel(iter->second);
-                route_walkid_[type].erase(iter);
+                route_walkid_[type].erase(iter++);
                 DecrementWalkCount();
             }
         }
