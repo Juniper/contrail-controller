@@ -259,8 +259,7 @@ class VncService(VncCommon):
 
         fip_pool = self._get_public_fip_pool()
         if fip_pool is None:
-            self.logger.warning("public_fip_pool %s doesn't exists" %
-                                 self._args.public_fip_pool)
+            self.logger.warning("public_fip_pool doesn't exists")
             return None
 
         def _allocate_floating_ip(lb, vmi, fip_pool, external_ip=None):
@@ -322,7 +321,7 @@ class VncService(VncCommon):
         merge_patch = {'spec': {'externalIPs': [', '.join(external_ips)]}}
         self.kube.patch_resource(resource_type="services", resource_name=service_name,
                            namespace=service_namespace, merge_patch=merge_patch)
-        self.logger.notice("Service (%s, %s) updated with EXTERNAL-IP (%s)" 
+        self.logger.notice("Service (%s, %s) updated with EXTERNAL-IP (%s)"
                                % (service_namespace, service_name, external_ips));
 
     def _update_service_public_ip(self, service_id, service_name,
@@ -378,7 +377,7 @@ class VncService(VncCommon):
                         self._deallocate_floating_ips(service_id)
                         self._allocate_floating_ips(service_id, external_ips)
 
-            else:  #allocated_fip is None 
+            else:  #allocated_fip is None
                 if external_ips:
                     self._allocate_floating_ips(service_id, external_ips)
                 else:
@@ -386,7 +385,7 @@ class VncService(VncCommon):
             return
         return
 
-    def _check_service_uuid_change(self, svc_uuid, svc_name, 
+    def _check_service_uuid_change(self, svc_uuid, svc_name,
                                    svc_namespace, ports):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(svc_namespace)
         lb_fq_name = proj_fq_name + [svc_name]
@@ -538,7 +537,7 @@ class VncService(VncCommon):
         ports = event['object']['spec'].get('ports')
         service_type  = event['object']['spec'].get('type')
         loadBalancerIp  = event['object']['spec'].get('loadBalancerIP', None)
-        externalIps  = event['object']['spec'].get('externalIPs', None)
+        externalIps  = event['object']['spec'].get('externalIPs', [])
 
         print("%s - Got %s %s %s:%s:%s"
               %(self._name, event_type, kind,
@@ -554,3 +553,6 @@ class VncService(VncCommon):
         elif event['type'] == 'DELETED':
             self.vnc_service_delete(service_id, service_name, service_namespace,
                                     ports)
+        else:
+            self.logger.warning(
+                'Unknown event type: "{}" Ignoring'.format(event['type']))
