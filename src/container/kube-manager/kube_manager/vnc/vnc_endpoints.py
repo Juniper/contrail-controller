@@ -54,8 +54,8 @@ class VncEndpoints(VncCommon):
 
     def _is_service_exists(self, service_name, service_namespace):
         resource_type = "services"
-        service_info = self._kube.get_resource(resource_type,
-                       service_name, service_namespace)
+        service_info = self._kube.get_resource(
+            resource_type, service_name, service_namespace)
         if service_info and 'metadata' in service_info:
             uid = service_info['metadata'].get('uid')
             if not uid:
@@ -199,7 +199,7 @@ class VncEndpoints(VncCommon):
                 if member.vm:
                     pod_members.add(member.vm)
 
-            return pod_members
+        return pod_members
 
     def _get_ports_from_endpoint_event(self, event):
         ports = []
@@ -239,7 +239,7 @@ class VncEndpoints(VncCommon):
         exists, service_id = self._is_service_exists(name, namespace)
         if exists == False:
             self.logger.warning("Add/Modify endpoint event when service "
-                + name + " not existing");
+                + name + " not existing")
             return
 
         #Get curr list of Pods matching Service Selector as listed
@@ -265,13 +265,13 @@ class VncEndpoints(VncCommon):
 
             # If Pod present in both lists, do nothing
 
-    def vnc_endpoint_delete(self, uid, name, namespace):
+    def vnc_endpoint_delete(self, uid, name, namespace, event):
         # Does service exists in contrail-api server,
         # If No, log and return
         exists, service_id = self._is_service_exists(name, namespace)
         if exists is False:
             self.logger.warning("Delete endpoint event when service "
-                + name + " doesn't exist.. ignore endpoint delete");
+                + name + " doesn't exist.. ignore endpoint delete")
             return
 
         # Get list of Pods attached to the Service.
@@ -282,7 +282,7 @@ class VncEndpoints(VncCommon):
         cur_pod_ids = self._get_service_pod_list(event)
 
         # Compare 2 lists. Should be same.. any diff is a sign of warning
-        pod_diff = set(prev_pod_ids) - set(cur_pod_ids)
+        # pod_diff = set(prev_pod_ids) - set(cur_pod_ids)
 
         # loadbalancer members source of truth. Delete them'all
         for pod_id in prev_pod_ids:
@@ -303,4 +303,4 @@ class VncEndpoints(VncCommon):
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_endpoint_add(uid, name, namespace, event)
         elif event['type'] == 'DELETED':
-            self.vnc_endpoint_delete(uid, name, namespace)
+            self.vnc_endpoint_delete(uid, name, namespace, event)
