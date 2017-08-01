@@ -15,9 +15,12 @@
 
 ResourceTable *Resource::Create(Type type, ResourceManager *rm) {
     switch (type) {
-    case MPLS_INDEX: {
+    case MPLS_INDEX: 
+    case INTERFACE_INDEX: 
+    case VRF_INDEX: 
+    case QOS_INDEX: 
+    case BGP_AS_SERVICE_INDEX: 
         return new IndexResourceTable(rm);
-    }
     default: {
         assert(0);
     }
