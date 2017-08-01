@@ -27,6 +27,7 @@ setup(
               'cfgm_common.uve.nodeinfo',
               'cfgm_common.uve.nodeinfo.cpuinfo',
               'cfgm_common.uve.nodeinfo.process_info',
+              'cfgm_common.uve.config_req',
               ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,

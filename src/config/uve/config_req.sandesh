@@ -1,0 +1,22 @@
+//
+// config_req.sandesh
+//
+// UVE config req
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Config state of the UVE on this app instance.
+//
+struct SystemConfigReq {
+    1: string name (key="ObjectConfigNode")
+    2: optional bool deleted
+    3: optional string obj_type
+    4: optional map<string,bool> err_info
+    // Add additional items here as needed
+}
+
+uve sandesh SystemConfigReqTrace {
+    1: SystemConfigReq data;
+}

@@ -75,6 +75,7 @@ pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', '
        env.SandeshGenPy('#controller/src/config/uve/cfgm_cpuinfo.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/greenlets.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/msg_traces.sandesh', 'cfgm_common/uve/', False),
+       env.SandeshGenPy('#controller/src/config/uve/config_req.sandesh', 'cfgm_common/uve/', False),
 ]
 
 # Generate the sandesh cpuinfo from base

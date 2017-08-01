@@ -152,3 +152,7 @@ class AmbiguousParentError(VncError):
 class InvalidSessionID(VncError):
     pass
 # end InvalidSessionID
+
+class RequestSizeError(VncError):
+    pass
+# end class RequestSizeError
