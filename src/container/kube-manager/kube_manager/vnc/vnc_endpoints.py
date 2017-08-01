@@ -54,8 +54,8 @@ class VncEndpoints(VncCommon):
 
     def _is_service_exists(self, service_name, service_namespace):
         resource_type = "services"
-        service_info = self._kube.get_resource(resource_type,
-                       service_name, service_namespace)
+        service_info = self._kube.get_resource(
+            resource_type, service_name, service_namespace)
         if service_info and 'metadata' in service_info:
             uid = service_info['metadata'].get('uid')
             if not uid:
@@ -199,7 +199,7 @@ class VncEndpoints(VncCommon):
                 if member.vm:
                     pod_members.add(member.vm)
 
-            return pod_members
+        return pod_members
 
     def _get_ports_from_endpoint_event(self, event):
         ports = []
@@ -239,7 +239,7 @@ class VncEndpoints(VncCommon):
         exists, service_id = self._is_service_exists(name, namespace)
         if exists == False:
             self.logger.warning("Add/Modify endpoint event when service "
-                + name + " not existing");
+                + name + " not existing")
             return
 
         #Get curr list of Pods matching Service Selector as listed
