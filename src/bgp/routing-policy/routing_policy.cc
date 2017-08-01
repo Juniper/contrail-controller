@@ -316,12 +316,12 @@ RoutingPolicy::~RoutingPolicy() {
 RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &cfg_term) {
     PolicyTerm::ActionList actions;
     PolicyTerm::MatchList matches;
-    // Build the Match object
+
     if (!cfg_term.match.community_match.empty()) {
-        std::vector<std::string> communities_to_match =
-            boost::assign::list_of(cfg_term.match.community_match);
-        MatchCommunity *community =
-         new MatchCommunity(communities_to_match);
+        MatchCommunity *community = new MatchCommunity(
+            cfg_term.match.community_match,
+            cfg_term.match.community_singleton,
+            cfg_term.match.community_match_all);
         matches.push_back(community);
     }
 

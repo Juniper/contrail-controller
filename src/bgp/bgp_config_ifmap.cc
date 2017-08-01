@@ -1677,7 +1677,6 @@ void BgpIfmapRoutingPolicyConfig::RemoveInstance(BgpIfmapInstanceConfig *rti) {
 static void BuildPolicyTerm(autogen::PolicyTermType cfg_term,
     RoutingPolicyTerm *term) {
     term->match.protocols_match = cfg_term.term_match_condition.protocol;
-    term->match.community_match = cfg_term.term_match_condition.community;
     BOOST_FOREACH(const autogen::PrefixMatchType &prefix_match,
                   cfg_term.term_match_condition.prefix) {
         PrefixMatchConfig match;
@@ -1685,6 +1684,22 @@ static void BuildPolicyTerm(autogen::PolicyTermType cfg_term,
         match.prefix_match_type = prefix_match.prefix_type.empty() ?
             "exact" : prefix_match.prefix_type;
         term->match.prefixes_to_match.push_back(match);
+    }
+    if (!cfg_term.term_match_condition.community.empty()) {
+        term->match.community_singleton = true;
+        term->match.community_match_all = true;
+        term->match.community_match.push_back(
+            cfg_term.term_match_condition.community);
+    } else if (!cfg_term.term_match_condition.community_all.empty()) {
+        term->match.community_singleton = false;
+        term->match.community_match_all = true;
+        term->match.community_match =
+            cfg_term.term_match_condition.community_all;
+    } else if (!cfg_term.term_match_condition.community_any.empty()) {
+        term->match.community_singleton = false;
+        term->match.community_match_all = false;
+        term->match.community_match =
+            cfg_term.term_match_condition.community_any;
     }
 
     BOOST_FOREACH(const string community,

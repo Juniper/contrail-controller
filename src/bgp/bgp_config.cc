@@ -381,7 +381,18 @@ string RoutingPolicyMatchConfig::ToString() const {
         oss << " ]";
     }
     if (!community_match.empty()) {
-        oss << "    community " << community_match << endl;
+        if (community_singleton) {
+            oss << "    community [ ";
+        } else if (community_match_all) {
+            oss << "    community-all [ ";
+        } else {
+            oss << "    community-any [ ";
+        }
+        BOOST_FOREACH(const string &community, community_match) {
+            oss << community << ",";
+        }
+        oss.seekp(-1, oss.cur);
+        oss << " ]";
     }
     if (!prefixes_to_match.empty()) {
         BOOST_FOREACH(const PrefixMatchConfig &match, prefixes_to_match) {
