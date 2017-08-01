@@ -42,6 +42,9 @@ size_t DecorateMsg(boost::shared_ptr<std::string> msg, const std::string &key, c
         return 0;
     }
     size_t pos = msg->find(']', prev_pos);
+    if (pos == std::string::npos) {
+        return 0;
+    }
     std::string insert_str = " " + key + "=\"" + val + "\"";
     msg->insert(pos, insert_str);
     return pos;
@@ -56,7 +59,7 @@ bool ParseStructuredPart(SyslogParser::syslog_m_t *v, const std::string &structu
         start = end + 2;
         end = structured_part.find('"', start);
         if (end == std::string::npos) {
-            LOG(ERROR, "BAD structured_syslog");
+            LOG(ERROR, "BAD structured_syslog: " << structured_part);
             return false;
           }
         const std::string val = structured_part.substr(start, end - start);
@@ -115,17 +118,17 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
 
   end = body.find('[', start);
   if (end == std::string::npos) {
-    LOG(ERROR, "BAD structured_syslog");
+    LOG(ERROR, "BAD structured_syslog: " << body);
     return false;
   }
   end = body.find(']', end+1);
   if (end == std::string::npos) {
-    LOG(ERROR, "BAD structured_syslog");
+    LOG(ERROR, "BAD structured_syslog: " << body);
     return false;
   }
   end = body.find(' ', start);
   if (end == std::string::npos) {
-    LOG(ERROR, "BAD structured_syslog");
+    LOG(ERROR, "BAD structured_syslog: " << body);
     return false;
   }
   const std::string tag = body.substr(start, end-start);
@@ -147,7 +150,7 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
 
       end = body.find(' ', start);
       if (end == std::string::npos) {
-        LOG(ERROR, "BAD structured_syslog");
+        LOG(ERROR, "BAD structured_syslog: " << body);
         return false;
       }
       const std::string hardware = body.substr(start+1, end-start-1);
@@ -164,20 +167,23 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
       if (ret == false){
         return ret;
       }
-      if (mc->forward() == true) {
+      if (forwarder != NULL && mc->forward() == true) {
         msg.reset(new std::string (message, message + message_len));
         hostname.reset(new std::string (SyslogParser::GetMapVals(v, "hostname", "")));
       }
       StructuredSyslogDecorate(v, config_obj, msg);
-      if (mc->process_and_store() == true) {
-        StructuredSyslogPush(v, stat_db_callback, mc->tags());
-      }
       if (mc->process_and_summarize() == true) {
         bool syslog_summarize_user = mc->process_and_summarize_user();
         StructuredSyslogUVESummarize(v, syslog_summarize_user);
       }
+      if (mc->process_and_store() == true) {
+        StructuredSyslogPush(v, stat_db_callback, mc->tags());
+      }
       if (forwarder != NULL && mc->forward() == true &&
           mc->process_before_forward() == true) {
+        std::stringstream msglength;
+        msglength << msg->length();
+        msg->insert(0, msglength.str() + " ");
         LOG(DEBUG, "forwarding after decoration - " << *msg);
         boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(), hostname));
         forwarder->Forward(ssqe);
@@ -187,6 +193,9 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
       mc->process_before_forward() == false) {
     msg.reset(new std::string (message, message + message_len));
     hostname.reset(new std::string (SyslogParser::GetMapVals(v, "hostname", "")));
+    std::stringstream msglength;
+    msglength << msg->length();
+    msg->insert(0, msglength.str() + " ");
     LOG(DEBUG, "forwarding without decoration - " << *msg);
     boost::shared_ptr<StructuredSyslogQueueEntry> ssqe(new StructuredSyslogQueueEntry(msg, msg->length(), hostname));
     forwarder->Forward(ssqe);
@@ -536,14 +545,14 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
           }
           LOG(DEBUG, "structured_syslog message_len: " << message_len);
           SyslogParser::PostParsing(v);
-          if (StructuredSyslogPostParsing(v, config_obj, stat_db_callback, p + start, message_len, forwarder) == false)
+          if (StructuredSyslogPostParsing(v, config_obj, stat_db_callback, p + start, end-start, forwarder) == false)
           {
             LOG(DEBUG, "structured_syslog not handled");
           }
-          start += message_len + 1;
+          start += message_len;
       } else {
           LOG(ERROR, "structured_syslog parse failed for: " << std::string(p + start, p + end));
-          start += end + 1;
+          start = end;
       }
       while (!v.empty()) {
           v.erase(v.begin());
