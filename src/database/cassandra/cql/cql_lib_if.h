@@ -147,6 +147,7 @@ class CassLibrary {
         CassInet* output) = 0;
     virtual CassError CassValueGetBytes(const CassValue* value,
         const cass_byte_t** output, size_t* output_size) = 0;
+    virtual cass_bool_t CassValueIsNull(const CassValue* value) = 0;
 
     // CassInet
     virtual CassInet CassInetInitV4(const cass_uint8_t* address) = 0;
@@ -298,6 +299,7 @@ class CassDatastaxLibrary : public CassLibrary {
         CassInet* output);
     virtual CassError CassValueGetBytes(const CassValue* value,
         const cass_byte_t** output, size_t* output_size);
+    virtual cass_bool_t CassValueIsNull(const CassValue* value);
 
     // CassInet
     virtual CassInet CassInetInitV4(const cass_uint8_t* address);
