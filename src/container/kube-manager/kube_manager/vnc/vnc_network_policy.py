@@ -649,3 +649,6 @@ class VncNetworkPolicy(VncCommon):
                 pass
             elif event['type'] == 'DELETED':
                 self.vnc_network_policy_delete(namespace, name, uid)
+            else:
+                self._logger.warning(
+                    'Unknown event type: "{}" Ignoring'.format(event['type']))

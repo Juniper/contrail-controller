@@ -829,3 +829,6 @@ class VncIngress(VncCommon):
             self._update_ingress(name, uid, event)
         elif event['type'] == 'DELETED':
             self._delete_ingress(uid)
+        else:
+            self._logger.warning(
+                'Unknown event type: "{}" Ignoring'.format(event['type']))
