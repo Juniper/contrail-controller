@@ -25,8 +25,6 @@
 #include "analytics/syslog_collector.h"
 #include "analytics/structured_syslog_config.h"
 
-//#define STRUCTURED_SYSLOG_DEBUG 1
-
 using std::make_pair;
 
 namespace structured_syslog {
@@ -511,18 +509,21 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
   boost::system::error_code ec;
   const std::string ip(remote_address.to_string(ec));
   const uint8_t *p = data;
-  size_t start = 0;
+  size_t end, start = 0;
   bool r;
 
   while (!*(p + len - 1))
       --len;
+  LOG(DEBUG, "full structured_syslog: " << std::string(p + start, p + len) << " len: " << len);
   do {
       SyslogParser::syslog_m_t v;
-      r = SyslogParser::parse_syslog (p + start, p + len, v);
-#ifdef STRUCTURED_SYSLOG_DEBUG
-      std::string app_str (p + start, p + len);
-      LOG(DEBUG, "structured_syslog: " << app_str << " len: " << len << " parsed " << r << ".");
-#endif
+      end = start + 1;
+      while ((*(p + end - 1) != ']') && (end < len))
+        ++end;
+
+      r = SyslogParser::parse_syslog (p + start, p + end, v);
+      LOG(DEBUG, "structured_syslog: " << std::string(p + start, p + end) <<
+                 " start: " << start << " end: " << end << " parsed " << r);
       if (r) {
           v.insert(std::pair<std::string, SyslogParser::Holder>("ip",
                 SyslogParser::Holder("ip", ip)));
@@ -539,12 +540,15 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
           {
             LOG(DEBUG, "structured_syslog not handled");
           }
-          start += message_len;
+          start += message_len + 1;
+      } else {
+          LOG(ERROR, "structured_syslog parse failed for: " << std::string(p + start, p + end));
+          start += end + 1;
       }
       while (!v.empty()) {
           v.erase(v.begin());
       }
-  } while (r && start<len);
+  } while (start<len);
   return r;
 }
 
