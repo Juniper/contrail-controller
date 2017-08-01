@@ -133,7 +133,7 @@ class KMTestCase(test_common.TestCase):
         return event
 
     def create_event(self, kind, spec, meta, type):
-        # type: (object, object, object, object) -> object
+        # type: (object, object, object, object) -> dict
         event = {}
         object = {}
         object['kind'] = kind
