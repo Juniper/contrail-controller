@@ -54,6 +54,7 @@ utils_scripts = [
   'update_default_global_qos_config.py',
   'vnc_admin_api.py',
   'provision_global_vrouter_config.py',
+  'chownproj.py',
 ]
 
 for utils in utils_scripts:
