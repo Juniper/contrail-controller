@@ -397,7 +397,7 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_security_group(*it)) {
             SecurityGroup sg(*it);
             communities->push_back(sg.ToString());
-        } else if (ExtCommunity::is_route_target(*it)) {
+        } else if (ExtCommunity::is_site_of_origin(*it)) {
             SiteOfOrigin soo(*it);
             communities->push_back(soo.ToString());
         } else if (ExtCommunity::is_tunnel_encap(*it)) {
@@ -425,6 +425,51 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         }
     }
     show_path->set_tunnel_encap(tunnel_encap);
+}
+
+static void FillEdgeForwardingInfo(const EdgeForwarding *edge_forwarding,
+    ShowRoutePath *show_path) {
+    vector<ShowEdgeForwarding> show_ef;
+    vector<EdgeForwardingSpec::Edge *> edge_list =
+	edge_forwarding->edge_forwarding().edge_list;
+    for (vector<EdgeForwardingSpec::Edge *>::const_iterator it =
+	    edge_list.begin(); it != edge_list.end(); ++it) {
+        const EdgeForwardingSpec::Edge *edge = *it;
+	ShowEdgeForwarding ef;
+	std::ostringstream oss;
+	oss << edge->GetInboundIp4Address() << ":" << edge->inbound_label;
+	ef.set_in_address_label(oss.str());
+	oss.str("");
+	oss.clear();
+	oss << edge->GetOutboundIp4Address() << ":" << edge->outbound_label;
+	ef.set_out_address_label(oss.str());
+	show_ef.push_back(ef);
+    }
+    show_path->set_edge_forwarding(show_ef);
+}
+
+static void FillEdgeDiscoveryInfo(const EdgeDiscovery *edge_discovery,
+    ShowRoutePath *show_path) {
+    vector<ShowEdgeDiscovery> show_ed;
+    vector<EdgeDiscoverySpec::Edge *> edge_list = edge_discovery->edge_discovery().edge_list;
+    int idx = 0;
+    for (vector<EdgeDiscoverySpec::Edge *>::const_iterator it =
+	    edge_list.begin();
+         it != edge_list.end(); ++it, ++idx) {
+        const EdgeDiscoverySpec::Edge *edge = *it;
+	ShowEdgeDiscovery ed;
+	std::ostringstream oss;
+        uint32_t first_label, last_label;
+        oss << edge->GetIp4Address();
+	ed.set_address(oss.str());
+	oss.str("");
+	oss.clear();
+        edge->GetLabels(&first_label, &last_label);
+        oss << first_label << "-" << last_label;
+	ed.set_labels(oss.str());
+	show_ed.push_back(ed);
+    }
+    show_path->set_edge_discovery(show_ed);
 }
 
 static void FillOriginVnPathInfo(const OriginVnPath *ovnpath,
@@ -487,6 +532,12 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
         }
 
         const BgpAttr *attr = path->GetAttr();
+	if (attr->edge_forwarding()) {
+	    FillEdgeForwardingInfo(attr->edge_forwarding(), &srp);
+	}
+	if (attr->edge_discovery()) {
+	    FillEdgeDiscoveryInfo(attr->edge_discovery(), &srp);
+	}
         srp.set_origin(attr->origin_string());
         if (attr->as_path() != NULL)
             srp.set_as_path(attr->as_path()->path().ToString());
