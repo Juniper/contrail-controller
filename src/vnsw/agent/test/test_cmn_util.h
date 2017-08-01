@@ -466,6 +466,8 @@ void AddHealthCheckService(const char *name, int id, const char *url_path,
 void VxLanNetworkIdentifierMode(bool config);
 void GlobalForwardingMode(std::string mode);
 void AddFlowExportRate(int cfg_flow_export_rate);
+void AddBgpaasPortRange(const int port_start, const int port_end);
+void DelBgpaasPortRange();
 int MplsToVrfId(int label);
 const NextHop* MplsToNextHop(uint32_t label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr,
