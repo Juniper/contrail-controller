@@ -11,6 +11,7 @@ import errno
 import uuid
 import logging
 import coverage
+import mock
 
 import testtools
 from testtools.matchers import Equals, MismatchError, Not, Contains
@@ -294,7 +295,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #add ipam1 with overlapping subnets on vn->ipam1 link
-        #update network should fail 
+        #update network should fail
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam1_v4_overlap]))
         with ExpectedException(cfgm_common.exceptions.BadRequest,
                                'Overlapping addresses: \[IPNetwork\(\'11.1.2.0/23\'\), IPNetwork\(\'11.1.3.248/28\'\)\]') as e:
@@ -310,7 +311,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #change subnets on vn->ipam1 link to make it non-overlap within this
-        #link and non overlap with vn->ipam0 link 
+        #link and non overlap with vn->ipam0 link
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam5_v4]))
         self._vnc_lib.virtual_network_update(vn)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -706,7 +707,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             self._vnc_lib.network_ipam_update(ipam)
 
         #Delete ipam_subnet which is not used for any ip-allocation so far
-        #ipam_update should go through 
+        #ipam_update should go through
         ipam.set_ipam_subnets(IpamSubnets([ipam1_sn_v4]))
         self._vnc_lib.network_ipam_update(ipam)
 
@@ -1287,7 +1288,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         ipv4_obj5 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
         ipv4_obj5.uuid = ipv4_obj5.name
-        #there are two ipams with different subnet-method and virttual-network 
+        #there are two ipams with different subnet-method and virttual-network
         #configuration is flat-subnet-only, if instance-ip is created with a
         # specific ip address from subnets defined at ipam, allocation should
         # be sucessful
@@ -1549,12 +1550,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
         logger.debug('Wrong ip address request,not aligned with alloc-unit')
-        ipv4_obj1.set_instance_ip_address('11.1.1.249') 
+        ipv4_obj1.set_instance_ip_address('11.1.1.249')
         with ExpectedException(BadRequest,
             'Virtual-Network\(default-domain:my-v4-v6-proj-%s:my-v4-v6-vn:11.1.1.0/24\) has invalid alloc_unit\(4\) in subnet\(11.1.1.0/24\)' %(self.id())) as e:
             ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
          
-        ipv4_obj1.set_instance_ip_address(None) 
+        ipv4_obj1.set_instance_ip_address(None)
         logger.debug('Allocating an IP4 address for first VM')
         ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
         ipv4_obj1 = self._vnc_lib.instance_ip_read(id=ipv4_id1)
@@ -1884,13 +1885,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ip_addr2 != 'fd14::fd':
             logger.debug('Allocation failed, expected v6 IP Address fd14::fd')
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address' )
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
 
@@ -1976,20 +1977,20 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         if ip_addr2 != 'fd14::30':
             logger.debug('Allocation failed, expected v6 IP Address fd14::30')
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address')
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
 
 
         #cleanup
         logger.debug('Cleaning up')
-        #cleanup subnet and allocation pools 
+        #cleanup subnet and allocation pools
         self._vnc_lib.instance_ip_delete(id=ip_id1)
         self._vnc_lib.instance_ip_delete(id=ip_id2)
         self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
@@ -2027,13 +2028,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         logger.debug('Created Virtual Network object %s', vn.uuid)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
-        # Read gateway ip address 
+        # Read gateway ip address
         logger.debug('Read default gateway ip address')
         ipam_refs = net_obj.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
             subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
-                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(), 
+                logger.debug('Gateway for subnet (%s/%s) is (%s)' %(subnet.subnet.get_ip_prefix(),
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
                 if subnet.subnet.get_ip_prefix() == '11.1.1.0':
@@ -2653,6 +2654,48 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             self._vnc_lib.virtual_machine_interface_update(
                 isolated_vmi_obj)
     # end test_ip_alloc_clash
+
+    def test_keep_ip_allocation_in_inconsistency_case(self):
+        """
+        Check if IP address correctly belongs to the delete interface before
+        removing the IP allocation.
+        https://bugs.launchpad.net/juniperopenstack/+bug/1702596
+        """
+
+        # Create IIP on a subnet/network
+        ipam = vnc_api.NetworkIpam('ipam-%s' % self.id())
+        self._vnc_lib.network_ipam_create(ipam)
+        vn = VirtualNetwork('vn-%s' % self.id())
+        vn.add_network_ipam(
+            ipam, VnSubnetsType([IpamSubnetType(SubnetType('1.1.1.0', 28))]))
+        self._vnc_lib.virtual_network_create(vn)
+        vmi = VirtualMachineInterface('vmi-%s' % self.id(),
+                                      parent_obj=Project())
+        vmi.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+        iip = InstanceIp('iip-%s' % self.id(), instance_ip_family='v4')
+        iip.set_virtual_machine_interface(vmi)
+        iip.set_virtual_network(vn)
+        self._vnc_lib.instance_ip_create(iip)
+        iip = self._vnc_lib.instance_ip_read(id=iip.uuid)
+
+        # Try to free the IIP's address with a wrong allocation ID
+        with mock.patch.object(self._api_server._addr_mgmt,
+                               '_net_ip_free_req') as mock_ip_free_req:
+            self._api_server._addr_mgmt.ip_free_req(
+                iip.get_instance_ip_address(), vn.fq_name, 'fake_alloc_id')
+        # Validate the IP address allocation free was not called
+        msg = "Deleted allocated IP address with a wrong allocation ID"
+        assert not mock_ip_free_req.called, msg
+
+        # Try to notify free the IIP's address with a wrong allocation ID
+        with mock.patch.object(self._api_server._addr_mgmt,
+                               '_net_ip_free_req') as mock_ip_free_req:
+            self._api_server._addr_mgmt.ip_free_notify(
+                iip.get_instance_ip_address(), vn.fq_name, 'fake_alloc_id')
+        # Validate the IP address allocation free was not called
+        msg = "Deleted allocated IP address with a wrong allocation ID"
+        assert not mock_ip_free_req.called, msg
 
 #end class TestIpAlloc
 

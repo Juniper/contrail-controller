@@ -8,3 +8,4 @@ pyaml
 keystonemiddleware
 junitxml
 pyOpenSSL
+mock
