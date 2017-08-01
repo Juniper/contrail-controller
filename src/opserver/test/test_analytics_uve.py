@@ -140,7 +140,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_vm_uve_with_password
 
-    #@unittest.skip('verify redis-uve restart')
+    @unittest.skip('verify redis-uve restart')
     def test_03_redis_uve_restart(self):
         logging.info('%%% test_03_redis_uve_restart %%%')
 
