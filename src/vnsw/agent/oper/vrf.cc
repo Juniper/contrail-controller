@@ -29,7 +29,7 @@
 #include <oper/agent_route_resync.h>
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/mpls_index.h>
-
+#include <resource_manager/vrf_index.h>
 using namespace std;
 using namespace autogen;
 
@@ -82,7 +82,14 @@ VrfEntry::~VrfEntry() {
         if (are_flags_set(VrfData::PbbVrf)) {
             table->VrfReuse(bmac_vrf_name_);
         }
-
+        if (GetName() == table->agent()->fabric_vrf_name()) {
+            table->agent()->resource_manager()->ReleaseIndex
+                (Resource::VRF_INDEX, VrfData::FABRIC_VRF_ID);
+        }
+        else if (GetName() ==  table->agent()->linklocal_vrf_name()) {
+            table->agent()->resource_manager()->ReleaseIndex
+                (Resource::VRF_INDEX, VrfData::LINKLOCAL_VRF_ID);
+        } 
         table->FreeVrfId(id_);
         table->VrfReuse(GetName());
         vrf_node_ptr_ = NULL;
@@ -526,6 +533,10 @@ public:
 private:
 };
 
+void VrfTable::FreeVrfId(size_t index) {
+    agent()->resource_manager()->Release(Resource::VRF_INDEX, index);
+    index_table_.Remove(index);
+};
 void VrfTable::Clear() {
     if (route_delete_walker_.get())
         agent()->oper_db()->agent_route_walk_manager()->
@@ -555,7 +566,24 @@ DBEntry *VrfTable::OperDBAdd(const DBRequest *req) {
         assert(0);
         return NULL;
     }
-    vrf->id_ = index_table_.Insert(vrf);
+    if (vrf && !IsStaticVrf(key->name_)) {
+        ResourceManager::KeyPtr rkey(new VrfIndexResourceKey(
+                                     agent()->resource_manager(), key->name_));
+        vrf->id_ = static_cast<IndexResourceData *>(agent()->resource_manager()->
+                                                    Allocate(rkey).get())->index();
+        index_table_.InsertAtIndex(vrf->id_, vrf);
+    } else {
+        if (key->name_ == agent()->fabric_vrf_name()) {
+            agent()->resource_manager()->ReserveIndex(Resource::VRF_INDEX,
+                                                      VrfData::FABRIC_VRF_ID);
+            index_table_.InsertAtIndex(VrfData::FABRIC_VRF_ID, vrf);
+        }
+        else if (key->name_ ==  agent()->linklocal_vrf_name()) {
+            agent()->resource_manager()->ReserveIndex(Resource::VRF_INDEX,
+                                                      VrfData::LINKLOCAL_VRF_ID);
+            index_table_.InsertAtIndex(VrfData::LINKLOCAL_VRF_ID, vrf);
+        }
+    }
     name_tree_.insert( VrfNamePair(key->name_, vrf));
 
     vrf->vn_.reset(agent()->vn_table()->Find(data->vn_uuid_));

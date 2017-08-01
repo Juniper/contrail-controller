@@ -12,6 +12,9 @@
 #include <oper/interface_common.h>
 #include <forwarding_class.h>
 #include <qos_config.h>
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_table.h>
+#include <resource_manager/qos_index.h>
 
 using namespace autogen;
 AgentQosConfig::AgentQosConfig(const boost::uuids::uuid uuid):
@@ -294,7 +297,12 @@ DBEntry* AgentQosConfigTable::OperDBAdd(const DBRequest *req) {
     const AgentQosConfigKey *key =
         static_cast<const AgentQosConfigKey *>(req->key.get());
     AgentQosConfig *qc = new AgentQosConfig(key->uuid_);
-    qc->set_id(index_table_.Insert(qc));
+    ResourceManager::KeyPtr rkey(new QosIndexResourceKey(
+                                 agent()->resource_manager(), key->uuid_));
+    int id = static_cast<IndexResourceData *>(agent()->resource_manager()->
+                                               Allocate(rkey).get())->index();
+    index_table_.InsertAtIndex(id, qc);
+    qc->set_id(id);
     qc->Change(req);
     name_map_.insert(AgentQosConfigNamePair(qc->name(), qc));
     return static_cast<DBEntry *>(qc);
@@ -318,6 +326,7 @@ bool AgentQosConfigTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
 
 void AgentQosConfigTable::ReleaseIndex(AgentQosConfig *qc) {
     if (qc->id() != kInvalidIndex) {
+        agent()->resource_manager()->Release(Resource::QOS_INDEX, qc->id());
         index_table_.Remove(qc->id());
     }
 }

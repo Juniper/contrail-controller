@@ -15,7 +15,11 @@ public:
     enum Type {
         INVALID = 0,
         MPLS_INDEX,
-        MAX,
+        INTERFACE_INDEX,
+        VRF_INDEX,
+        QOS_INDEX,
+        BGP_AS_SERVICE_INDEX,
+        MAX
     };
 
     static ResourceTable *Create(Type type, ResourceManager *rm);

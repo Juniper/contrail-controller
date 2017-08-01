@@ -237,6 +237,11 @@ void AgentInit::RegisterDBClientsBase() {
 }
 
 void AgentInit::InitModulesBase() {
+
+    if (resource_manager_.get()) {
+        resource_manager_->Init();
+    }
+
     if (cfg_.get()) {
         cfg_->Init();
     }
