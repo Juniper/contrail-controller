@@ -79,6 +79,7 @@ static const char *cfg_template = "\
                   <address-family>%s</address-family>\
                   <prefix-limit>\
                       <maximum>%d</maximum>\
+                      <idle-timeout>%d</idle-timeout>\
                   </prefix-limit>\
               </family-attributes>\
         </session>\
@@ -93,6 +94,7 @@ static const char *cfg_template = "\
                   <address-family>%s</address-family>\
                   <prefix-limit>\
                       <maximum>%d</maximum>\
+                      <idle-timeout>%d</idle-timeout>\
                   </prefix-limit>\
               </family-attributes>\
         </session>\
@@ -146,13 +148,15 @@ protected:
         delete peer2_;
     }
 
-    void Configure(int prefix_limit = 0) {
+    void Configure(int prefix_limit = 0, int idle_timeout = 0) {
         char config[4096];
         snprintf(config, sizeof(config), cfg_template,
             bs_x_->session_manager()->GetPort(),
-            GetFamily() == Address::INET ? "inet" : "inet6", prefix_limit,
+            GetFamily() == Address::INET ? "inet" : "inet6",
+            prefix_limit, idle_timeout,
             bs_y_->session_manager()->GetPort(),
-            GetFamily() == Address::INET ? "inet" : "inet6", prefix_limit);
+            GetFamily() == Address::INET ? "inet" : "inet6",
+            prefix_limit, idle_timeout);
         bs_x_->Configure(config);
         bs_y_->Configure(config);
     }
@@ -554,13 +558,15 @@ TYPED_TEST(BgpIpTest, MultiplePrefixMultipath) {
 }
 
 //
+// Configure a prefix limit and a 0 idle timeout.
 // Add multiple prefixes such that the prefix limit configured on Y for
-// the peering to X is exceeded. Verify that the peering keeps flapping.
-// Then increase the prefix limit and verify that all the expected paths
-// exist on Y. Then lower the limit again and verify that the peering
-// keeps flapping again.
+// the peering to X is exceeded.
+// Verify that the peering keeps flapping.
+// Then increase the prefix limit and verify the peering gets re-established
+// and all the expected paths exist on Y.
+// Then lower the limit again and verify that the peering keeps flapping.
 //
-TYPED_TEST(BgpIpTest, PrefixLimit) {
+TYPED_TEST(BgpIpTest, PrefixLimit1) {
     BgpServerTestPtr bs_x = this->bs_x_;
     BgpServerTestPtr bs_y = this->bs_y_;
     PeerMock *peer1 = this->peer1_;
@@ -610,6 +616,112 @@ TYPED_TEST(BgpIpTest, PrefixLimit) {
 
     TASK_UTIL_EXPECT_TRUE(peer_yx->flap_count() > flap_count_yx + 3);
     TASK_UTIL_EXPECT_TRUE(peer_xy->flap_count() > flap_count_xy + 3);
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(idx));
+        this->DeleteRoute(bs_x, peer2, master, this->BuildPrefix(idx));
+    }
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyRouteNoExists(bs_x, master, this->BuildPrefix(idx));
+        this->VerifyRouteNoExists(bs_y, master, this->BuildPrefix(idx));
+    }
+}
+
+//
+// Configure a prefix limit and a very high idle timeout.
+// Add multiple prefixes such that the prefix limit configured on Y for
+// the peering to X is exceeded
+// Verify that the peering flaps once and doesn't get re-established.
+// Then increase the prefix limit and verify that that the peering gets
+// re-established and all the expected paths exist on Y.
+//
+TYPED_TEST(BgpIpTest, PrefixLimit2) {
+    BgpServerTestPtr bs_x = this->bs_x_;
+    BgpServerTestPtr bs_y = this->bs_y_;
+    PeerMock *peer1 = this->peer1_;
+    PeerMock *peer2 = this->peer2_;
+    BgpPeer *peer_xy = this->peer_xy_;
+    BgpPeer *peer_yx = this->peer_yx_;
+    const string &master = this->master_;
+
+    this->Configure(DB::PartitionCount() * 2 - 1, 3600);
+    task_util::WaitForIdle();
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->AddRoute(bs_x, peer2, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer2->ToString()));
+        this->AddRoute(bs_x, peer1, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer1->ToString()));
+    }
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer2, this->BuildNextHopAddress(peer2->ToString()));
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer1, this->BuildNextHopAddress(peer1->ToString()));
+    }
+
+    usleep(3000000);
+    TASK_UTIL_EXPECT_EQ(1, peer_yx->flap_count());
+    TASK_UTIL_EXPECT_EQ(1, peer_xy->flap_count());
+
+    this->Configure(DB::PartitionCount() * 2, 3600);
+    task_util::WaitForIdle();
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer2, this->BuildNextHopAddress(peer2->ToString()));
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer1, this->BuildNextHopAddress(peer1->ToString()));
+        this->VerifyPathExists(bs_y, master, this->BuildPrefix(idx),
+            peer_yx, this->BuildNextHopAddress(peer1->ToString()));
+        this->VerifyPathNoExists(bs_y, master, this->BuildPrefix(idx),
+            peer_yx, this->BuildNextHopAddress(peer2->ToString()));
+    }
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(idx));
+        this->DeleteRoute(bs_x, peer2, master, this->BuildPrefix(idx));
+    }
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyRouteNoExists(bs_x, master, this->BuildPrefix(idx));
+        this->VerifyRouteNoExists(bs_y, master, this->BuildPrefix(idx));
+    }
+}
+
+//
+// Configure a prefix limit and a small non-zero idle timeout.
+// Add multiple prefixes such that the prefix limit configured on Y for
+// the peering to X is exceeded.
+// Verify that the peering keeps flapping.
+//
+TYPED_TEST(BgpIpTest, PrefixLimit3) {
+    BgpServerTestPtr bs_x = this->bs_x_;
+    BgpServerTestPtr bs_y = this->bs_y_;
+    PeerMock *peer1 = this->peer1_;
+    PeerMock *peer2 = this->peer2_;
+    BgpPeer *peer_xy = this->peer_xy_;
+    BgpPeer *peer_yx = this->peer_yx_;
+    const string &master = this->master_;
+
+    this->Configure(DB::PartitionCount() * 2 - 1, 1);
+    task_util::WaitForIdle();
+
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->AddRoute(bs_x, peer2, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer2->ToString()));
+        this->AddRoute(bs_x, peer1, master, this->BuildPrefix(idx),
+            this->BuildNextHopAddress(peer1->ToString()));
+    }
+    for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer2, this->BuildNextHopAddress(peer2->ToString()));
+        this->VerifyPathExists(bs_x, master, this->BuildPrefix(idx),
+            peer1, this->BuildNextHopAddress(peer1->ToString()));
+    }
+
+    usleep(3000000);
+    TASK_UTIL_EXPECT_TRUE(peer_yx->flap_count() > 3);
+    TASK_UTIL_EXPECT_TRUE(peer_xy->flap_count() > 3);
 
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
         this->DeleteRoute(bs_x, peer1, master, this->BuildPrefix(idx));

@@ -209,6 +209,7 @@ BgpPeerFamilyAttributes::BgpPeerFamilyAttributes(
         loop_count = config->loop_count();
     }
     prefix_limit = family_config.prefix_limit;
+    idle_timeout = family_config.idle_timeout;
 
     if (config->router_type() == "bgpaas-client") {
         if (family_config.family == "inet") {
@@ -455,6 +456,11 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetTaskInstance()),
+          prefix_limit_idle_timer_(
+              TimerManager::CreateTimer(*server->ioservice(),
+              "BGP prefix limit idle timer",
+              TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+              GetTaskInstance())),
           prefix_limit_trigger_(boost::bind(&BgpPeer::CheckPrefixLimits, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetTaskInstance()),
@@ -756,6 +762,7 @@ bool BgpPeer::CheckPrefixLimits() {
         if (family_primary_path_count_[idx] <= family_attributes->prefix_limit)
             continue;
         Clear(BgpProto::Notification::MaxPrefixes);
+        StartPrefixLimitIdleTimer(family_attributes->idle_timeout * 1000);
         break;
     }
     return true;
@@ -930,6 +937,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
 
     // Send the UVE as appropriate.
     if (admin_down_changed || clear_session) {
+        StopPrefixLimitIdleTimer();
         BGPPeerInfoSend(peer_info);
     }
 }
@@ -965,6 +973,7 @@ void BgpPeer::PostCloseRelease() {
         index_ = -1;
     }
     TimerManager::DeleteTimer(keepalive_timer_);
+    TimerManager::DeleteTimer(prefix_limit_idle_timer_);
 
     for (Address::Family family = Address::UNSPEC;
             family < Address::NUM_FAMILIES;
@@ -1109,10 +1118,12 @@ const string BgpPeer::GetStateName() const {
 }
 
 BgpSession *BgpPeer::CreateSession() {
-    TcpSession *session = server_->session_manager()->CreateSession();
-    if (session == NULL) {
+    if (PrefixLimitIdleTimerRunning())
         return NULL;
-    }
+
+    TcpSession *session = server_->session_manager()->CreateSession();
+    if (session == NULL)
+        return NULL;
 
     // Set valid keys, if any, in the socket.
     SetSessionSocketAuthKey(session);
@@ -1748,6 +1759,30 @@ void BgpPeer::UpdatePrimaryPathCount(int count, Address::Family family) const {
         TriggerPrefixLimitCheck();
 }
 
+void BgpPeer::StartPrefixLimitIdleTimer(uint32_t plim_idle_time_msecs) {
+    prefix_limit_idle_timer_->Start(plim_idle_time_msecs,
+        boost::bind(&BgpPeer::PrefixLimitIdleTimerExpired, this),
+        boost::bind(&BgpPeer::PrefixLimitIdleTimerErrorHandler, this, _1, _2));
+}
+
+void BgpPeer::StopPrefixLimitIdleTimer() {
+    prefix_limit_idle_timer_->Cancel();
+}
+
+bool BgpPeer::PrefixLimitIdleTimerRunning() const {
+    return prefix_limit_idle_timer_->running();
+}
+
+bool BgpPeer::PrefixLimitIdleTimerExpired() {
+    return false;
+}
+
+void BgpPeer::PrefixLimitIdleTimerErrorHandler(string error_name,
+                                               string error_message) {
+    BGP_LOG_PEER_CRITICAL(Timer, this, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+        "Timer error: " << error_name << " " << error_message);
+}
+
 void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
                                         string error_message) {
     BGP_LOG_PEER_CRITICAL(Timer, this, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
@@ -2114,6 +2149,8 @@ void BgpPeer::FillBgpNeighborFamilyAttributes(BgpNeighborResp *nbr) const {
             family_attributes_list_[idx]->loop_count);
         show_family_attributes.set_prefix_limit(
             family_attributes_list_[idx]->prefix_limit);
+        show_family_attributes.set_idle_timeout(
+            family_attributes_list_[idx]->idle_timeout);
         if (!family_attributes_list_[idx]->gateway_address.is_unspecified()) {
             show_family_attributes.set_gateway_address(
                 family_attributes_list_[idx]->gateway_address.to_string());
