@@ -870,7 +870,8 @@ bool DynamicCf2CassPrepareBind(interface::CassLibrary *cci,
 static std::string CassSelectFromTableInternal(const std::string &table,
     const std::vector<GenDb::DbDataValueVec> &rkeys,
     const GenDb::ColumnNameRange &ck_range,
-    const GenDb::FieldNamesToReadVec &read_vec) {
+    const GenDb::FieldNamesToReadVec &read_vec,
+    const GenDb::WhereFromIndexVec &where_vec) {
     std::ostringstream query;
     // Table
     if (read_vec.empty()) {
@@ -954,11 +955,35 @@ static std::string CassSelectFromTableInternal(const std::string &table,
             finish_ss << ")";
             query << finish_ss.str();
         }
-        if (ck_range.count_) {
-            query << " LIMIT " << ck_range.count_;
+    }
+    if (!where_vec.empty()) {
+        for (GenDb::WhereFromIndexVec::const_iterator it = where_vec.begin();
+            it != where_vec.end(); ++it) {
+            std::ostringstream value_ss;
+            CassQueryPrinter value_vprinter(value_ss);
+            boost::apply_visitor(value_vprinter, it->get<2>());
+            query << " AND ";
+            query << "column" << it->get<0>();
+            query << " " << GenDb::Op::ToString(it->get<1>());
+            query << " " << value_ss.str();
         }
     }
+    if (!ck_range.IsEmpty() && ck_range.count_) {
+        query << " LIMIT " << ck_range.count_;
+    }
+
     return query.str();
+}
+
+std::string ClusteringKeyRangeAndIndexVal2CassSelectFromTable(
+    const std::string &table, const GenDb::DbDataValueVec &rkeys,
+    const GenDb::ColumnNameRange &ck_range,
+    const GenDb::WhereFromIndexVec &where_vec,
+    const GenDb::FieldNamesToReadVec &read_vec) {
+    std::vector<GenDb::DbDataValueVec> rkey_vec;
+    rkey_vec.push_back(rkeys);
+    return CassSelectFromTableInternal(table, rkey_vec, ck_range,
+        read_vec, where_vec);
 }
 
 std::string PartitionKey2CassSelectFromTable(const std::string &table,
@@ -966,7 +991,8 @@ std::string PartitionKey2CassSelectFromTable(const std::string &table,
     std::vector<GenDb::DbDataValueVec> rkey_vec;
     rkey_vec.push_back(rkeys);
     return CassSelectFromTableInternal(table, rkey_vec, GenDb::ColumnNameRange(),
-                                       GenDb::FieldNamesToReadVec());
+                                       GenDb::FieldNamesToReadVec(),
+                                       GenDb::WhereFromIndexVec());
 }
 
 std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
@@ -975,20 +1001,23 @@ std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
     const GenDb::FieldNamesToReadVec &read_vec) {
     std::vector<GenDb::DbDataValueVec> rkey_vec;
     rkey_vec.push_back(rkeys);
-    return CassSelectFromTableInternal(table, rkey_vec, ck_range, read_vec);
+    return CassSelectFromTableInternal(table, rkey_vec, ck_range, read_vec,
+        GenDb::WhereFromIndexVec());
 }
 
 std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
     const std::string &table, const std::vector<GenDb::DbDataValueVec> &rkeys,
     const GenDb::ColumnNameRange &ck_range,
     const GenDb::FieldNamesToReadVec &read_vec) {
-    return CassSelectFromTableInternal(table, rkeys, ck_range, read_vec);
+    return CassSelectFromTableInternal(table, rkeys, ck_range, read_vec,
+        GenDb::WhereFromIndexVec());
 }
 
 std::string CassSelectFromTable(const std::string &table) {
     std::vector<GenDb::DbDataValueVec> rkey_vec;
     return CassSelectFromTableInternal(table, rkey_vec,
-        GenDb::ColumnNameRange(), GenDb::FieldNamesToReadVec());
+        GenDb::ColumnNameRange(), GenDb::FieldNamesToReadVec(),
+        GenDb::WhereFromIndexVec());
 }
 
 static GenDb::DbDataValue CassValue2DbDataValue(
@@ -1974,6 +2003,30 @@ bool CqlIfImpl::SelectFromTableAsync(const std::string &cfname,
    }
 }
 
+bool CqlIfImpl::SelectFromTableClusteringKeyRangeAndIndexValAsync(
+    const std::string &cfname, const GenDb::DbDataValueVec &rkey,
+    const GenDb::ColumnNameRange &ck_range,
+    const GenDb::WhereFromIndexVec &where_vec,
+    const GenDb::FieldNamesToReadVec &read_vec, CassConsistency consistency,
+    impl::CassAsyncQueryCallback cb) {
+        if (session_state_ != SessionState::CONNECTED) {
+        return false;
+    }
+    std::string query(
+        impl::ClusteringKeyRangeAndIndexVal2CassSelectFromTable(cfname,
+        rkey, ck_range, where_vec, read_vec));
+    assert(IsTableDynamic(cfname));
+    size_t rk_count;
+    assert(impl::GetCassTablePartitionKeyCount(cci_, session_.get(),
+        keyspace_, cfname, &rk_count));
+    size_t ck_count;
+    assert(impl::GetCassTableClusteringKeyCount(cci_, session_.get(),
+        keyspace_, cfname, &ck_count));
+    return impl::DynamicCfGetResultAsync(cci_, session_.get(),
+        query.c_str(), consistency, cb, rk_count, ck_count, cfname.c_str(),
+        rkey);
+}
+
 bool CqlIfImpl::SelectFromTableClusteringKeyRangeAsync(
     const std::string &cfname, const GenDb::DbDataValueVec &rkey,
     const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
@@ -2646,6 +2699,21 @@ bool CqlIf::Db_GetRowAsync(const std::string &cfname,
     bool success(impl_->SelectFromTableAsync(cfname, rowkey,
         consistency, boost::bind(&CqlIf::OnAsyncRowGetCompletion, this, _1, _2,
         cfname, cb, true, task_id, task_instance)));
+    if (!success) {
+        IncrementTableReadFailStats(cfname);
+        IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);
+    }
+    return success;
+}
+
+bool CqlIf::Db_GetRowAsync(const std::string &cfname,
+    const GenDb::DbDataValueVec &rowkey, const GenDb::ColumnNameRange &crange,
+    const GenDb::WhereFromIndexVec &where_vec,
+    GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
+    bool success(impl_->SelectFromTableClusteringKeyRangeAndIndexValAsync(cfname,
+        rowkey, crange, where_vec, GenDb::FieldNamesToReadVec(), consistency,
+        boost::bind(&CqlIf::OnAsyncRowGetCompletion, this, _1, _2, cfname, cb)));
     if (!success) {
         IncrementTableReadFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN_FAMILY);

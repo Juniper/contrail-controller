@@ -35,6 +35,11 @@ std::string StaticCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf);
 std::string DynamicCf2CassPrepareInsertIntoTable(const GenDb::NewCf &cf,
                                                  boost::system::error_code *ec);
 std::string CassSelectFromTable(const std::string &table);
+std::string ClusteringKeyRangeAndIndexVal2CassSelectFromTable(
+    const std::string &table, const GenDb::DbDataValueVec &rkeys,
+    const GenDb::ColumnNameRange &ck_range,
+    const GenDb::WhereFromIndexVec &where_vec,
+    const GenDb::FieldNamesToReadVec &read_vec = GenDb::FieldNamesToReadVec());
 std::string PartitionKey2CassSelectFromTable(const std::string &table,
     const GenDb::DbDataValueVec &rkeys);
 std::string PartitionKeyAndClusteringKeyRange2CassSelectFromTable(
@@ -268,6 +273,12 @@ class CqlIfImpl {
     bool SelectFromTableClusteringKeyRangeAsync(const std::string &cfname,
         const GenDb::DbDataValueVec &rkey,
         const GenDb::ColumnNameRange &ck_range, CassConsistency consistency,
+        cass::cql::impl::CassAsyncQueryCallback cb);
+    bool SelectFromTableClusteringKeyRangeAndIndexValAsync(
+        const std::string &cfname, const GenDb::DbDataValueVec &rkey,
+        const GenDb::ColumnNameRange &ck_range,
+        const GenDb::WhereFromIndexVec &where_vec,
+        const GenDb::FieldNamesToReadVec &read_vec, CassConsistency consistency,
         cass::cql::impl::CassAsyncQueryCallback cb);
 
     void ConnectAsync();

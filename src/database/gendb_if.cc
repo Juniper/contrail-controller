@@ -88,6 +88,10 @@ std::string Op::ToString(Op::type op) {
         return "<=";
       case Op::LT:
         return "<";
+      case Op::EQ:
+        return "=";
+      case Op::CONTAINS:
+        return "CONTAINS";
       default:
         assert(0);
     }

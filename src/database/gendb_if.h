@@ -44,6 +44,8 @@ struct Op {
         GT,
         LE,
         LT,
+        EQ,
+        CONTAINS,
     };
     static std::string ToString(Op::type op);
 };
@@ -224,6 +226,9 @@ struct ColumnNameRange {
     Op::type finish_op_;
 };
 
+typedef boost::tuple<uint16_t, GenDb::Op::type, DbDataValue> WhereIndexInfo;
+typedef std::vector<WhereIndexInfo> WhereFromIndexVec;
+
 // fields to read, whether the field is rowkey, whether the field is column,
 // whether to read writetime
 typedef boost::tuple<std::string, bool, bool, bool> FieldNamesToReadInfo;
@@ -298,6 +303,11 @@ public:
         const DbDataValueVec& rowkey, const ColumnNameRange &crange,
         DbConsistency::type dconsistency, int task_id, int task_instance,
         DbGetRowCb cb) = 0;
+    virtual bool Db_GetRowAsync(const std::string &cfname,
+        const GenDb::DbDataValueVec &rowkey, const GenDb::ColumnNameRange &crange,
+        const GenDb::WhereFromIndexVec &where_vec,
+        GenDb::DbConsistency::type dconsistency,
+        GenDb::GenDbIf::DbGetRowCb cb) = 0;
     virtual bool Db_GetAllRows(ColListVec *ret,
         const std::string& cfname, DbConsistency::type dconsistency) = 0;
     // Queue
