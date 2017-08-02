@@ -942,6 +942,16 @@ bool VmInterface::CopyIpAddress(Ip4Address &addr) {
     return ret;
 }
 
+VmInterface * VmInterface::GetOtherInterface() const {
+    if (si_other_end_vmi_ == nil_uuid()) {
+        return NULL;
+    }
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, si_other_end_vmi_, "");
+    VmInterface *intf = static_cast<VmInterface *>(table->Find(&key, false));
+    return intf;
+}
+
 void VmInterface::SendTrace(const AgentDBTable *table, Trace event) const {
     InterfaceInfo intf_info;
     intf_info.set_name(name_);

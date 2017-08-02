@@ -8,8 +8,10 @@
 #include <base/logging.h>
 #include <net/address.h>
 #include <base/timer.h>
+#include <base/queue_task.h>
 #include "boost/date_time/posix_time/posix_time.hpp"
-#include "diag/diag_pkt_handler.h"
+
+class Agent;
 struct AgentDiagPktData;
 struct OverlayOamPktData;
 class DiagProto;
@@ -26,6 +28,7 @@ public:
               int timeout, int count, DiagTable *diag_table);
     virtual ~DiagEntry();
     void Init();
+    void EnqueueForceDelete();
     virtual void SendRequest() = 0;
     virtual void HandleReply(DiagPktHandler *handler) = 0;
     virtual void RequestTimedOut(uint32_t seq_no) = 0;
@@ -83,6 +86,7 @@ struct DiagEntryOp {
         ADD = 1,
         DELETE,
         RETRY,
+        FORCE_DELETE
     };
 
     DiagEntryOp(DiagEntryOp::Op op, DiagEntry *de): op_(op), de_(de) {
@@ -105,6 +109,7 @@ public:
     void Enqueue(DiagEntryOp *op);
     bool Process(DiagEntryOp *op);
     Agent* agent() const { return agent_; }
+    DiagProto *diag_proto() const { return diag_proto_.get(); }
 
 private:
     uint16_t index_;

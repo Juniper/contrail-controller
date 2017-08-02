@@ -304,6 +304,8 @@ public:
 
     bool IsBFDHealthCheckPacket(const PktInfo *pkt_info,
                                 const Interface *interface);
+    bool IsSegmentHealthCheckPacket(const PktInfo *pkt_info,
+                                    const Interface *interface);
 
 private:
     void PktModuleEnqueue(PktModuleName mod, const AgentHdr &hdr,
@@ -369,6 +371,7 @@ struct PktInfo {
     uint32_t            sport;
     uint32_t            dport;
     uint32_t            ttl;
+    uint16_t            icmp_chksum;
 
     MacAddress          b_smac;
     MacAddress          b_dmac;

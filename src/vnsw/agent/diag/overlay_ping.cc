@@ -3,6 +3,7 @@
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "diag/diag_types.h"
+#include "diag/diag_pkt_handler.h"
 #include "diag/diag.h"
 #include "diag/overlay_ping.h"
 #include <oper/route_common.h>
