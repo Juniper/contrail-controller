@@ -190,7 +190,7 @@ bool ConfigJsonParser::ParseLinks(const ConfigCass2JsonAdapter &adapter,
                 // Get the parent name from our name.
                 string parent_name = key.id_name.substr(0, pos);
                 string metaname =
-                    config_mgr()->GetLinkName(parent_type,key.id_type);
+                    config_mgr()->GetParentName(parent_type,key.id_type);
                 CONFIG_PARSE_ASSERT(Parent, !metaname.empty(), parent_type,
                                     "Missing link name");
                 auto_ptr<AutogenProperty > pvalue;

@@ -891,10 +891,10 @@ void ConfigCassandraPartition::FormDeleteRequestList(const string &uuid,
                     ref_name = temp_str.substr(sec_sep_pos+1);
                     if (is_ref) {
                         metaname =
-                            client()->mgr()->GetLinkName(key->id_type, ref_type);
+                           client()->mgr()->GetLinkName(key->id_type, ref_type);
                     } else {
                         metaname =
-                            client()->mgr()->GetLinkName(ref_type, key->id_type);
+                         client()->mgr()->GetParentName(ref_type, key->id_type);
                     }
                 } else {
                     size_t from_back_pos = it->first.rfind(':');

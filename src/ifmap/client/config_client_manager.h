@@ -66,6 +66,8 @@ public:
         RequestList *req_list) const;
     void EnqueueListToTables(RequestList *req_list) const;
 
+    std::string GetParentName(const std::string &left,
+                              const std::string &right) const;
     std::string GetLinkName(const std::string &left,
                             const std::string &right) const;
     bool IsLinkWithAttr(const std::string &left,
@@ -126,6 +128,7 @@ public:
 private:
     typedef std::pair<std::string, std::string> LinkMemberPair;
     typedef std::pair<std::string, bool> LinkDataPair;
+    typedef std::map<LinkMemberPair, std::string> ParentNameMap;
     typedef std::map<LinkMemberPair, LinkDataPair> LinkNameMap;
     typedef std::map<std::string, std::string> WrapperFieldMap;
 
@@ -134,6 +137,7 @@ private:
     void PostShutdown();
 
     LinkNameMap link_name_map_;
+    ParentNameMap parent_name_map_;
     EventManager *evm_;
     IFMapServer *ifmap_server_;
     boost::scoped_ptr<ConfigJsonParser> config_json_parser_;
