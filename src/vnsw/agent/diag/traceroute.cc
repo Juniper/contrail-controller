@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <netinet/udp.h>
+#include <netinet/icmp6.h>
 #include "vr_defs.h"
 #include "cmn/agent_cmn.h"
 #include "oper/nexthop.h"
@@ -12,9 +13,10 @@
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "diag/diag_types.h"
+#include "diag/diag_pkt_handler.h"
 #include "diag/diag.h"
 #include "diag/traceroute.h"
-#include <netinet/icmp6.h>
+
 void 
 TraceRoute::SendSandeshReply(const std::string &address,
                              const std::string &context,

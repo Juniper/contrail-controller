@@ -313,6 +313,9 @@ struct ItfSandeshData {
    62: list<SecurityLoggingObjectLink> slo_list;
    /** Mode of vhostuser */
    63: byte vhostuser_mode;
+   /** If current VMI is SI VMI, then below field is uuid of VMI of other
+       end of SI */
+   64: string si_other_end_vmi;
 }
 
 /**
@@ -2844,6 +2847,8 @@ struct HealthCheckSandeshData {
     1: string uuid;
     /** Name of health check service */
     2: string name;
+    /** Type of health check service - segment/end-to-end/link-local */
+    13: string service_type;
     /** Type of monitor for health check service - HTTP,... */
     3: string monitor_type;
     /** Http method for health check service */

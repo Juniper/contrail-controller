@@ -170,3 +170,32 @@ response sandesh TraceRouteErrResp {
     /** Error response after issuing request */
     1: string error_response;
 }
+
+/**
+ * Segment Health-check statistics for a given interface
+ */
+struct SegmentHealthCheckStats {
+    /** Interface to which the statistics apply*/
+    1: u32 interface_index;
+    /** Count of Segment health-check request packets sent */
+    2: u64 requests_sent;
+    /** Count of Segment health-check request packets received */
+    3: u64 requests_received;
+    /** Count of Segment health-check reply packets sent */
+    4: u64 replies_sent;
+    /** Count of Segment health-check reply packets received */
+    5: u64 replies_received;
+}
+
+/**
+ * Response message for SegmentHealthCheckPktStats request
+ */
+response sandesh SegmentHealthCheckPktStatsResp {
+    /** Each hop IP address */
+    1: list<SegmentHealthCheckStats> stats;
+}
+/**
+ * @description: Request message to get segment health-check packet statistics
+ */
+request sandesh SegmentHealthCheckPktStats {
+}

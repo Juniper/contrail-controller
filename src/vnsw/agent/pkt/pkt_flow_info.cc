@@ -1436,7 +1436,10 @@ bool IsValidationDisabled(Agent *agent, const PktInfo *pkt,
                           const Interface *interface) {
     if (!interface)
         return false;
-    return agent->pkt()->pkt_handler()->IsBFDHealthCheckPacket(pkt, interface);
+    return ((agent->pkt()->pkt_handler()->
+             IsBFDHealthCheckPacket(pkt, interface)) ||
+            (agent->pkt()->pkt_handler()->
+             IsSegmentHealthCheckPacket(pkt, interface)));
 }
 
 // Basic config validations for the flow

@@ -14,6 +14,7 @@
 #include "diag/overlay_traceroute.h"
 #include "diag/overlay_ping.h"
 #include "diag/traceroute.h"
+#include "diag/diag_pkt_handler.h"
 
 using namespace boost::posix_time;
 OverlayTraceRoute::OverlayTraceRoute(const OverlayTraceReq *traceroute_req,
