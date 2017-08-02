@@ -916,6 +916,57 @@ TEST_F(CqlIfTest, SelectFromTableReadFields) {
     EXPECT_EQ(expected_qstring4, actual_qstring4);
 }
 
+TEST_F(CqlIfTest, SelectFromTableIndexColumnRead) {
+    std::string table("IndexColumnSelectTable");
+
+    // Empty WhereFromIndex list
+    GenDb::ColumnNameRange empty_crange;
+    GenDb::FieldNamesToReadVec empty_fields;
+    GenDb::WhereIndexInfoVec empty_where;
+    std::string actual_qstring(
+        cass::cql::impl::ClusteringKeyRangeAndIndexValue2CassSelectFromTable(
+            table, all_values, empty_crange, empty_where, empty_fields));
+    std::string expected_qstring(
+        "SELECT * FROM IndexColumnSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839");
+    EXPECT_EQ(expected_qstring, actual_qstring);
+
+    std::string prefix_value("Te%");
+    GenDb::WhereIndexInfoVec where_vec = boost::assign::tuple_list_of
+        ("column1", GenDb::Op::LIKE, GenDb::DbDataValue(prefix_value))
+        ("column2", GenDb::Op::LE, all_values[1])
+        ("column3", GenDb::Op::GE, all_values[2])
+        ("column4", GenDb::Op::CONTAINS, all_values[3])
+        ("column5", GenDb::Op::EQ, all_values[4]);
+
+    std::string actual_qstring2(
+        cass::cql::impl::ClusteringKeyRangeAndIndexValue2CassSelectFromTable(
+            table, all_values, empty_crange, where_vec, empty_fields));
+    std::string expected_qstring2(
+        "SELECT * FROM IndexColumnSelectTable "
+        "WHERE key='Test' AND "
+        "key2=123456789 AND "
+        "key3=123456789 AND "
+        "key4=" + tuuid_s_ + " AND "
+        "key5=128 AND "
+        "key6=65535 AND "
+        "key7=1.123 AND "
+        "key8=0x303132333435363738393031323334353637383930313233343536373839 AND"
+        " column1 LIKE 'Te%' AND "
+        "column2 <= 123456789 AND "
+        "column3 >= 123456789 AND "
+        "column4 CONTAINS " + tuuid_s_ + " AND "
+        "column5 = 128");
+    EXPECT_EQ(expected_qstring2, actual_qstring2);
+}
+
 TEST_F(CqlIfTest, SelectFromTableMultipleRead) {
     std::string table("SliceSelectTable");
     // Empty field list. Read all fields

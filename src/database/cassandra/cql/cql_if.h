@@ -92,6 +92,10 @@ class CqlIf : public GenDb::GenDbIf {
         const GenDb::ColumnNameRange &crange,
         GenDb::DbConsistency::type dconsistency, int task_id,
         int task_instance, GenDb::GenDbIf::DbGetRowCb cb);
+    virtual bool Db_GetRowAsync(const std::string &cfname,
+        const GenDb::DbDataValueVec &rowkey, const GenDb::ColumnNameRange &crange,
+        const GenDb::WhereIndexInfoVec &where_vec,
+        GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb);
     virtual bool Db_GetAllRows(GenDb::ColListVec *out,
         const std::string &cfname, GenDb::DbConsistency::type dconsistency);
     // Queue
