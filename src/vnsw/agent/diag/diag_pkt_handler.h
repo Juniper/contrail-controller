@@ -68,6 +68,8 @@ private:
     void SwapIpHdr();
     void SwapIp6Hdr();
     void SwapEthHdr();
+    void BuildReply();
+    void SegmentHealthCheckReply();
 
     bool done_;
     DiagTable *diag_table_;

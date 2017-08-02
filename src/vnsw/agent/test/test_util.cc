@@ -251,7 +251,13 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
 
 void DelLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2,
-                   const char *name2) {
+                   const char *name2, const char* mdata) {
+    const char *mdata_value = NULL;
+    if (!mdata) {
+        mdata_value = GetMetadata(node_name1, node_name2).c_str();
+    } else {
+        mdata_value = mdata;
+    }
     sprintf(buff + len,
             "       <link>\n"
             "           <node type=\"%s\">\n"
@@ -261,8 +267,8 @@ void DelLinkString(char *buff, int &len, const char *node_name1,
             "               <name>%s</name>\n"
             "           </node>\n"
             "           <metadata type=\"%s\"/>\n"
-            "       </link>\n", node_name1, name1, node_name2, name2, 
-            GetMetadata(node_name1, node_name2).c_str());
+            "       </link>\n", node_name1, name1, node_name2, name2,
+            mdata_value);
     len = strlen(buff);
 }
 
@@ -459,12 +465,12 @@ void AddLink(const char *node_name1, const char *name1,
 }
 
 void DelLink(const char *node_name1, const char *name1,
-             const char *node_name2, const char *name2) {
+             const char *node_name2, const char *name2, const char* mdata) {
     char buff[1024];
     int len = 0;
 
     DelXmlHdr(buff, len);
-    DelLinkString(buff, len, node_name1, name1, node_name2, name2);
+    DelLinkString(buff, len, node_name1, name1, node_name2, name2, mdata);
     DelXmlTail(buff, len);
     //LOG(DEBUG, buff);
     ApplyXmlString(buff);
@@ -2784,12 +2790,13 @@ void DelHealthCheckService(const char *name) {
 
 void AddHealthCheckService(const char *name, int id,
                            const char *url_path,
-                           const char *monitor_type) {
+                           const char *monitor_type,
+                           const char *service_type) {
     char buf[1024];
 
     sprintf(buf, "<service-health-check-properties>"
                  "    <enabled>false</enabled>"
-                 "    <health-check-type>end-to-end</health-check-type>"
+                 "    <health-check-type>%s</health-check-type>"
                  "    <monitor-type>%s</monitor-type>"
                  "    <delay>5</delay>"
                  "    <timeout>5</timeout>"
@@ -2797,7 +2804,8 @@ void AddHealthCheckService(const char *name, int id,
                  "    <http-method></http-method>"
                  "    <url-path>%s</url-path>"
                  "    <expected-codes></expected-codes>"
-                 "</service-health-check-properties>", monitor_type, url_path);
+                 "</service-health-check-properties>", service_type,
+                 monitor_type, url_path);
     AddNode("service-health-check", name, id, buf);
 }
 

@@ -14,6 +14,7 @@
 #include "diag/diag_proto.h"
 #include "diag/ping.h"
 #include "oper/mirror_table.h"
+#include "diag/diag_pkt_handler.h"
 
 
 const std::string KDiagName("DiagTimeoutHandler");
@@ -41,6 +42,11 @@ DiagEntry::~DiagEntry() {
 
 void DiagEntry::Init() {
     DiagEntryOp *entry_op = new DiagEntryOp(DiagEntryOp::ADD, this);
+    diag_table_->Enqueue(entry_op);
+}
+
+void DiagEntry::EnqueueForceDelete() {
+    DiagEntryOp *entry_op = new DiagEntryOp(DiagEntryOp::FORCE_DELETE, this);
     diag_table_->Enqueue(entry_op);
 }
 
@@ -82,6 +88,11 @@ bool DiagTable::Process(DiagEntryOp *op) {
             op->de_->SendSummary();
             delete op->de_;
         }
+        break;
+
+    case DiagEntryOp::FORCE_DELETE:
+        op->de_->TimerCancel();
+        delete op->de_;
         break;
 
     case DiagEntryOp::RETRY:

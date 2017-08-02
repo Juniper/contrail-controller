@@ -153,6 +153,17 @@ bool PktHandler::IsBFDHealthCheckPacket(const PktInfo *pkt_info,
     return false;
 }
 
+bool PktHandler::IsSegmentHealthCheckPacket(const PktInfo *pkt_info,
+                                        const Interface *interface) {
+    if (interface->type() == Interface::VM_INTERFACE &&
+        pkt_info->ip_proto == IPPROTO_ICMP) {
+        if (pkt_info->icmp_chksum == 0xffff) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Process the packet received from tap interface
 PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
                                                   PktInfo *pkt_info,
@@ -239,6 +250,11 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
 
     if (IsBFDHealthCheckPacket(pkt_info, intf)) {
         return BFD;
+    }
+
+    if (pkt_type == PktType::ICMP && IsSegmentHealthCheckPacket(pkt_info,
+                                                                intf)) {
+        return DIAG;
     }
 
     if (pkt_type == PktType::ICMP && IsGwPacket(intf, pkt_info->ip_daddr)) {
@@ -446,11 +462,12 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         pkt_type = PktType::ICMP;
 
         struct icmp *icmp = (struct icmp *)(pkt + len);
-
+        pkt_info->icmp_chksum = icmp->icmp_cksum;
         pkt_info->dport = htons(icmp->icmp_type);
         if (icmp->icmp_type == ICMP_ECHO || icmp->icmp_type == ICMP_ECHOREPLY) {
             pkt_info->dport = ICMP_ECHOREPLY;
             pkt_info->sport = htons(icmp->icmp_id);
+            pkt_info->data = (pkt + len + ICMP_MINLEN);
         } else if (IsFlowPacket(pkt_info) &&
                    ((icmp->icmp_type == ICMP_DEST_UNREACH) ||
                     (icmp->icmp_type == ICMP_TIME_EXCEEDED))) {
@@ -1023,7 +1040,7 @@ PktInfo::PktInfo(const PacketBufferPtr &buff) :
     pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID), agent_hdr(),
     ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-    ttl(0), tcp_ack(false), tunnel(),
+    ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
     l3_label(false), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
@@ -1032,7 +1049,7 @@ PktInfo::PktInfo(const PacketBufferPtr &buff, const AgentHdr &hdr) :
     pkt(buff->data()), len(buff->data_len()), max_pkt_len(buff->buffer_len()),
     data(), ipc(), family(Address::UNSPEC), type(PktType::INVALID),
     agent_hdr(hdr), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(),
-    dport(), ttl(0), tcp_ack(false), tunnel(),
+    dport(), ttl(0), icmp_chksum(0), tcp_ack(false), tunnel(),
     l3_label(false), eth(), arp(), ip(), ip6(), packet_buffer_(buff) {
     transp.tcp = 0;
 }
@@ -1042,8 +1059,8 @@ PktInfo::PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName mod,
     module(mod),
     len(), max_pkt_len(), data(), ipc(), family(Address::UNSPEC),
     type(PktType::INVALID), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
-    ip_proto(), sport(), dport(), ttl(0), tcp_ack(false), tunnel(),
-    l3_label(false), eth(), arp(), ip(), ip6() {
+    ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
+    tunnel(), l3_label(false), eth(), arp(), ip(), ip6() {
 
     packet_buffer_ = agent->pkt()->packet_buffer_manager()->Allocate
         (module, buff_len, mdata);
@@ -1058,8 +1075,8 @@ PktInfo::PktInfo(PktHandler::PktModuleName mod, InterTaskMsg *msg) :
     module(mod),
     pkt(), len(), max_pkt_len(0), data(), ipc(msg), family(Address::UNSPEC),
     type(PktType::MESSAGE), agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(),
-    ip_proto(), sport(), dport(), ttl(0), tcp_ack(false), tunnel(),
-    l3_label(false), eth(), arp(), ip(), ip6(), packet_buffer_() {
+    ip_proto(), sport(), dport(), ttl(0), icmp_chksum(0), tcp_ack(false),
+    tunnel(), l3_label(false), eth(), arp(), ip(), ip6(), packet_buffer_() {
     transp.tcp = 0;
 }
 

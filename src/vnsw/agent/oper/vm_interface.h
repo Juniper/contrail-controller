@@ -1277,6 +1277,11 @@ public:
         return fw_policy_list_;
     }
 
+    const boost::uuids::uuid &si_other_end_vmi() const {
+        return si_other_end_vmi_;
+    }
+    VmInterface * PortTuplePairedInterface() const;
+
     // Static methods
     // Add a vm-interface
     static void NovaAdd(InterfaceTable *table,
@@ -1476,6 +1481,12 @@ private:
     VrfEntryRef forwarding_vrf_;
     // vhostuser mode
     uint8_t vhostuser_mode_;
+    /* If current interface is SI VMI, then the below field indicates the VMI
+     * uuid of the other end of SI. If current VMI is left VMI of SI si1, then
+     * below field indicates right VMI of SI si1 and vice versa. This will have
+     * nil_uuid if current VMI is not SI VMI.
+     */
+    boost::uuids::uuid si_other_end_vmi_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -1651,6 +1662,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool learning_enabled_;
     UuidList slo_list_;
     uint8_t vhostuser_mode_;
+    boost::uuids::uuid si_other_end_vmi;
 };
 
 // Definition for structures when request queued from Nova
