@@ -68,10 +68,10 @@
 
 <xsd:complexType name="TermMatchConditionType">
     <xsd:element name="protocol" type="PathSourceType" maxOccurs="unbounded"/>
-    <xsd:element name="community" type="xsd:string"/>
-    <xsd:element name="community-all" type="xsd:string" maxOccurs="unbounded"/>
-    <xsd:element name="community-any" type="xsd:string" maxOccurs="unbounded"/>
     <xsd:element name="prefix" type="PrefixMatchType" maxOccurs="unbounded"/>
+    <xsd:element name="community" type="xsd:string"/> <!-- DEPRECATED -->
+    <xsd:element name="community-list" type="xsd:string" maxOccurs="unbounded"/>
+    <xsd:element name="community-match-all" type="xsd:boolean"/>
 </xsd:complexType>
 
 <xsd:complexType name='PolicyTermType'>

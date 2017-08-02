@@ -48,14 +48,12 @@ public:
     typedef std::vector<std::string> CommunityRegexStringList;
     typedef std::vector<boost::regex> CommunityRegexList;
 
-    MatchCommunity(const std::vector<std::string> &communities,
-        bool singleton, bool match_all);
+    MatchCommunity(const std::vector<std::string> &communities, bool match_all);
     virtual ~MatchCommunity();
     virtual bool Match(const BgpRoute *route,
                        const BgpPath *path, const BgpAttr *attr) const;
     virtual std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyMatch &community) const;
-    bool singleton() const { return singleton_; }
     bool match_all() const { return match_all_; }
     const CommunityList &communities() const { return to_match_; }
     const CommunityRegexStringList &regex_strings() const {
@@ -67,7 +65,6 @@ private:
     bool MatchAll(const BgpAttr *attr) const;
     bool MatchAny(const BgpAttr *attr) const;
 
-    bool singleton_;
     bool match_all_;
     CommunityList to_match_;
     CommunityRegexStringList to_match_regex_strings_;
