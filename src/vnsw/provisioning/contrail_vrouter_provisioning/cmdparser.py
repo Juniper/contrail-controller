@@ -83,6 +83,7 @@ class ComputeArgsParser(object):
                 'GLOBAL', 'introspect_ssl_enable', False),
             'register': False,
             'flow_thread_count': '2',
+            'metadata_secret': '',
         }
 
         self.parse_args(args_str)
