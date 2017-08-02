@@ -1121,6 +1121,8 @@ class VncApi(object):
     def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
                       back_ref_id=None, obj_uuids=None, fields=None,
                       detail=False, count=False, filters=None):
+        if obj_uuids == [] or back_ref_id == []:
+            return []
         if not obj_type:
             raise ResourceTypeUnknownError(obj_type)
 
