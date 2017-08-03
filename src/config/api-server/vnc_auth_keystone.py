@@ -164,6 +164,13 @@ class AuthServiceKeystone(object):
         try:
             if 'v3' in args.auth_url:
                 self._conf_info['auth_version'] = 'v3.0'
+                self._conf_info['auth_type'] = 'password'
+                self._conf_info['auth_url'] = args.auth_url
+                self._conf_info['user_domain_name'] = args.admin_user_domain_name
+                self._conf_info['project_domain_name'] = args.project_domain_name
+                self._conf_info['project_name'] = args.admin_tenant_name
+                self._conf_info['username'] = args.admin_user
+                self._conf_info['password'] = args.admin_password
             self._conf_info['auth_uri'] = args.auth_url
         except AttributeError:
             pass
