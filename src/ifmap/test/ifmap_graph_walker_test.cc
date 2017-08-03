@@ -509,7 +509,7 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
     FeedEventsJson();
 
     // VR-reg 
-    IFMapClientMock c1("vr1");
+    IFMapClientMock c1("gsc1:vr1");
     server_->AddClient(&c1);
     task_util::WaitForIdle();
 
@@ -519,10 +519,10 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
 
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1);
-    TASK_UTIL_EXPECT_EQ(1, c1.LinkKeyCount("global-system-config",
-                "virtual-router"));
-    TASK_UTIL_EXPECT_TRUE(c1.LinkExists("global-system-config",
-                "virtual-router", "gsc1", "vr1"));
+    TASK_UTIL_EXPECT_EQ(1, c1.LinkKeyCount("virtual-router",
+                                           "global-system-config"));
+    TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router","global-system-config",
+                                        "gsc1:vr1","gsc1"));
     c1.PrintLinks();
     c1.PrintNodes();
 }
@@ -530,7 +530,7 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
 // Receive VR-subscribe and then config
 TEST_F(IFMapGraphWalkerTest, DISABLED_VrsubConfig) {
     // VR-reg 
-    IFMapClientMock c1("vr1");
+    IFMapClientMock c1("gsc1:vr1");
     server_->AddClient(&c1);
     task_util::WaitForIdle();
 
@@ -548,10 +548,10 @@ TEST_F(IFMapGraphWalkerTest, DISABLED_VrsubConfig) {
 
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
     TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1);
-    TASK_UTIL_EXPECT_EQ(1, c1.LinkKeyCount("global-system-config",
-                "virtual-router"));
-    TASK_UTIL_EXPECT_TRUE(c1.LinkExists("global-system-config",
-                "virtual-router", "gsc1", "vr1"));
+    TASK_UTIL_EXPECT_EQ(1, c1.LinkKeyCount("virtual-router",
+                                           "global-system-config"));
+    TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router","global-system-config",
+                                        "gsc1:vr1","gsc1"));
     c1.PrintLinks();
     c1.PrintNodes();
 }
