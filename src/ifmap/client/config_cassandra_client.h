@@ -9,6 +9,7 @@
 #include <tbb/spin_rw_mutex.h>
 
 #include "base/queue_task.h"
+#include "base/timer.h"
 
 #include "config_db_client.h"
 #include "database/gendb_if.h"
@@ -60,7 +61,8 @@ public:
     void ListMapPropReviseUpdateList(const string &uuid,
                                      ConfigCassandraParseContext &context);
 
-    void MarkCacheDirty(const std::string &uuid);
+    void MarkCacheDirty(const std::string &uuid,
+            ConfigCassandraParseContext &context);
 
     void Enqueue(ObjectProcessReq *req);
 
@@ -70,6 +72,20 @@ public:
     bool UUIDToObjCacheShow(const std::string &start_uuid,
                             uint32_t num_entries,
                             std::vector<ConfigDBUUIDCacheEntry> &entries) const;
+
+    void EnableUUIDReadRetry(const string &uuid);
+
+    void DisableUUIDReadRetry(const string &uuid);
+
+    bool UUIDRetryTimerExpired(string uuid);
+
+    void UUIDRetryTimerErrorHandler();
+
+    int GetInstanceId() const {
+        return worker_id_;
+    }
+
+    boost::asio::io_service *ioservice();
 
 private:
     friend class ConfigCassandraClient;
@@ -85,11 +101,29 @@ private:
         std::string uuid;
     };
 
+    static const uint32_t kMaxUUIDRetryTimePowOfTwo = 16;
+
     typedef std::map<std::string, ObjectProcessRequestType *> UUIDProcessSet;
-    typedef std::pair<uint64_t, bool> FieldTimeStampInfo;
+    struct FieldTimeStampInfo {
+        uint64_t time_stamp;
+        bool refreshed;
+    };
+
     typedef std::map<std::string, FieldTimeStampInfo> FieldDetailMap;
     // Map of UUID to Field mapping
-    typedef std::map<std::string, FieldDetailMap> ObjectCacheMap;
+    struct ObjectCacheEntry {
+        ObjectCacheEntry(std::string &obj_type, uint64_t last_read_tstamp)
+            : obj_type(obj_type), retry_count(0),
+              retry_timer(NULL), last_read_tstamp(last_read_tstamp) {
+        }
+        std::string obj_type;
+        uint32_t retry_count;
+        Timer *retry_timer;
+        uint64_t last_read_tstamp;
+        FieldDetailMap field_detail_map;
+    };
+
+    typedef std::map<std::string, ObjectCacheEntry *> ObjectCacheMap;
 
     bool RequestHandler(ObjectProcessReq *req);
     void AddUUIDToRequestList(const std::string &oper,
@@ -238,6 +272,10 @@ protected:
         return partitions_;
     }
     virtual void PostShutdown();
+
+    EventManager* event_manager() {
+        return  evm_;
+    }
 
 private:
     friend class ConfigCassandraPartition;
