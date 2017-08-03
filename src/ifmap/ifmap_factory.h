@@ -23,6 +23,7 @@ class IFMapConfigOptions;
 class IFMapServer;
 class IFMapXmppChannel;
 class XmppChannel;
+class ConfigCassandraPartition;
 
 class IFMapFactory : public Factory<IFMapFactory> {
     FACTORY_TYPE_N0(IFMapFactory, ConfigAmqpChannel);
@@ -31,6 +32,8 @@ class IFMapFactory : public Factory<IFMapFactory> {
     FACTORY_TYPE_N5(IFMapFactory, ConfigCassandraClient, ConfigClientManager *,
                     EventManager *, const IFMapConfigOptions &,
                     ConfigJsonParser *, int);
+    FACTORY_TYPE_N2(IFMapFactory, ConfigCassandraPartition,
+                    ConfigCassandraClient *, size_t);
     FACTORY_TYPE_N5(IFMapFactory, CqlIf, EventManager *,
                     const std::vector<std::string> &, int, const std::string &,
                     const std::string &);
