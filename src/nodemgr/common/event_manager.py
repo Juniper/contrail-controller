@@ -303,7 +303,7 @@ class SystemdProcessInfoManager(object):
                 gevent.sleep(seconds=5)
         else:
             for unit_name, unit in self._units.items():
-                unit_properties_changed_cb = partial(self.UnitPropertiesChanged,
+                unit_properties_changed_cb = partial(self._UnitPropertiesChanged,
                     unit_name = unit_name)
                 unit.PropertiesChanged.connect(unit_properties_changed_cb)
             while True:
