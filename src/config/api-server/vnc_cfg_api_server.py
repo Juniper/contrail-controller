@@ -3033,14 +3033,19 @@ class VncApiServer(object):
         # include objects shared with tenant
         if include_shared:
             env = get_request().headers.environ
-            tenant_uuid = env.get('HTTP_X_PROJECT_ID')
+            try:
+                tenant_uuid = str(uuid.UUID(env.get('HTTP_X_PROJECT_ID')))
+            except (TypeError):
+                tenant_uuid = ''
+            except (ValueError):
+                pass
             domain = env.get('HTTP_X_DOMAIN_ID')
             if domain is None:
                 domain = env.get('HTTP_X_USER_DOMAIN_ID')
                 try:
                     domain = str(uuid.UUID(domain))
-                except ValueError:
-                    if domain == 'default':
+                except (TypeError, ValueError):
+                    if domain == 'default' or domain is None:
                         domain = 'default-domain'
                     domain = self._db_conn.fq_name_to_uuid('domain', [domain])
             if domain:
