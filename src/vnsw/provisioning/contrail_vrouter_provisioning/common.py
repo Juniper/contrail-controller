@@ -571,7 +571,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                         'introspect_ssl_enable':
                         self._args.introspect_ssl_enable},
                     'FLOWS': {
-                        'thread_count': flow_thread_count}
+                        'thread_count': flow_thread_count},
+                    'METADATA': {
+                        'metadata_proxy_secret': self._args.metadata_secret},
                     }
 
             # VGW configs
@@ -603,10 +605,6 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                                                  'ip_blocks': ip_blocks,
                                                  'routes': routes,
                                                  'routing_instance': vgw_public_vn_name[i]}
-
-            if self._args.metadata_secret:
-                configs['METADATA'] = {
-                    'metadata_proxy_secret': self._args.metadata_secret}
 
             for section, key_vals in configs.items():
                 for key, val in key_vals.items():
