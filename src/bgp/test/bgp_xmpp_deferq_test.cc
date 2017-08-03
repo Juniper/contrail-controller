@@ -961,10 +961,10 @@ TEST_F(BgpXmppUnitTest, RegisterRibInWithoutRoutingInstance) {
     TASK_UTIL_EXPECT_EQ(1, PeerInstanceUnsubscribe(channel()));
 
     // Verify table subscribe/unsubscribe counts.
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeStart(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeStart(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeStart(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeStart(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     agent_a_->SessionDown();
     task_util::WaitForIdle();
@@ -1194,10 +1194,10 @@ TEST_F(BgpXmppUnitTest, RegisterRibInWithDeletedRoutingInstance) {
     TASK_UTIL_EXPECT_EQ(1, PeerInstanceUnsubscribe(channel()));
 
     // Verify table subscribe/unsubscribe counts.
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeStart(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeStart(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeStart(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeStart(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     agent_a_->SessionDown();
     task_util::WaitForIdle();
@@ -2215,7 +2215,7 @@ TEST_F(BgpXmppUnitTest, RegisterUnregisterWithDeletedBgpTableThenRegisterAgain1)
 
     // Resume the peer membership manager.
     ResumePeerRibMembershipManager();
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
 
     // The subscribe request should have been processed by the membership
     // manager and a response returned.  The membership manager will have
@@ -3296,8 +3296,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine1) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(channel(), "red"));
     BgpTable *red_table = VerifyBgpTable("red", Address::INET);
@@ -3316,7 +3316,7 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine2) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
     TASK_UTIL_EXPECT_EQ(0, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerRegistered(channel(), "red", 2));
@@ -3338,7 +3338,7 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine3) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
     TASK_UTIL_EXPECT_EQ(0, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerRegistered(channel(), "red", 2));
@@ -3362,8 +3362,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine4) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(channel(), "red"));
     BgpTable *red_table = VerifyBgpTable("red", Address::INET);
@@ -3375,7 +3375,7 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine5) {
     TASK_UTIL_EXPECT_TRUE(PeerRegistered(channel(), "red", 1));
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
 
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
     TASK_UTIL_EXPECT_EQ(0, PeerTableUnsubscribeComplete(channel()));
 
     PausePeerRibMembershipManager();
@@ -3388,8 +3388,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine5) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(8, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(10, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerRegistered(channel(), "red", 3));
     BgpTable *red_table = VerifyBgpTable("red", Address::INET);
@@ -3402,7 +3402,7 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine6) {
     TASK_UTIL_EXPECT_TRUE(PeerRegistered(channel(), "red", 1));
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
 
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
     TASK_UTIL_EXPECT_EQ(0, PeerTableUnsubscribeComplete(channel()));
 
     PausePeerRibMembershipManager();
@@ -3416,8 +3416,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine6) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(channel(), "red"));
     BgpTable *red_table = VerifyBgpTable("red", Address::INET);
@@ -3438,8 +3438,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine7) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(channel(), "red"));
     BgpTable *red_table = VerifyBgpTable("red", Address::INET);
@@ -3460,8 +3460,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine8) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerNotRegistered(channel(), "red"));
     BgpTable *red_table = VerifyBgpTable("red", Address::INET);
@@ -3480,8 +3480,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine9) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(8, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(10, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerRegisteredRibIn(channel(), "red"));
     TASK_UTIL_EXPECT_FALSE(PeerRegisteredRibOut(channel(), "red"));
@@ -3501,8 +3501,8 @@ TEST_F(BgpXmppSerializeMembershipReqTest, MembershipRequestStateMachine10) {
     ResumePeerRibMembershipManager();
 
     TASK_UTIL_EXPECT_FALSE(PeerHasPendingMembershipRequests(channel()));
-    TASK_UTIL_EXPECT_EQ(8, PeerTableSubscribeComplete(channel()));
-    TASK_UTIL_EXPECT_EQ(4, PeerTableUnsubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(10, PeerTableSubscribeComplete(channel()));
+    TASK_UTIL_EXPECT_EQ(5, PeerTableUnsubscribeComplete(channel()));
 
     TASK_UTIL_EXPECT_TRUE(PeerRegisteredRibIn(channel(), "red"));
     TASK_UTIL_EXPECT_TRUE(PeerRegisteredRibOut(channel(), "red"));

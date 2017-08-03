@@ -241,7 +241,7 @@ protected:
             }
         }
         // VNs * Tables per VN * Agents + Peers * AFs
-        TASK_UTIL_EXPECT_EQ(4 * 4 * 12 + 2 * 1,
+        TASK_UTIL_EXPECT_EQ(4 * 5 * 12 + 2 * 1,
             bgp_server_x_->membership_mgr()->GetMembershipCount());
         task_util::WaitForIdle();
     }

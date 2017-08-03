@@ -20,6 +20,7 @@ static const std::map<string, Address::Family>
         ("inet6-vpn", Address::INET6VPN) 
         ("route-target", Address::RTARGET) 
         ("e-vpn", Address::EVPN)
+        ("m-vpn", Address::MVPN)
         ("erm-vpn", Address::ERMVPN);
 
 static const std::map<Address::Family, string>  
@@ -31,6 +32,7 @@ static const std::map<Address::Family, string>
         (Address::INET6VPN, "inet6-vpn") 
         (Address::RTARGET, "route-target") 
         (Address::EVPN, "e-vpn")
+        (Address::MVPN, "m-vpn")
         (Address::ERMVPN, "erm-vpn");
 
 static const std::map<string, Address::Family>
@@ -42,6 +44,7 @@ static const std::map<string, Address::Family>
         ("l3vpn-inet6", Address::INET6VPN)
         ("rtarget", Address::RTARGET)
         ("evpn", Address::EVPN)
+        ("mvpn", Address::MVPN)
         ("ermvpn", Address::ERMVPN);
 
 static const std::map<Address::Family, string>
@@ -53,6 +56,7 @@ static const std::map<Address::Family, string>
         (Address::INET6VPN, "l3vpn-inet6")
         (Address::RTARGET, "rtarget")
         (Address::EVPN, "evpn")
+        (Address::MVPN, "mvpn")
         (Address::ERMVPN, "ermvpn");
 
 Address::Family Address::FamilyFromString(const std::string &family) {
@@ -96,6 +100,8 @@ Address::Family Address::VpnFamilyFromFamily(Address::Family family) {
         return Address::INET6VPN;
     case Address::EVPN:
         return Address::EVPN;
+    case Address::MVPN:
+        return Address::MVPN;
     case Address::ERMVPN:
         return Address::ERMVPN;
     default:
