@@ -525,11 +525,11 @@ class VncApi(object):
     @check_homepage
     def _objects_list(self, res_type, parent_id=None, parent_fq_name=None,
                      obj_uuids=None, back_ref_id=None, fields=None,
-                     detail=False, count=False, filters=None):
+                     detail=False, count=False, filters=None, shared=None):
         return self.resource_list(res_type, parent_id=parent_id,
             parent_fq_name=parent_fq_name, back_ref_id=back_ref_id,
             obj_uuids=obj_uuids, fields=fields, detail=detail, count=count,
-            filters=filters)
+            filters=filters, shared=shared)
     # end _objects_list
 
     @check_homepage
@@ -1120,7 +1120,7 @@ class VncApi(object):
     @check_homepage
     def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
                       back_ref_id=None, obj_uuids=None, fields=None,
-                      detail=False, count=False, filters=None):
+                      detail=False, count=False, filters=None, shared=None):
         if obj_uuids == [] or back_ref_id == []:
             return []
         if not obj_type:
@@ -1165,6 +1165,8 @@ class VncApi(object):
         query_params['detail'] = detail
 
         query_params['count'] = count
+        if shared is not None:
+            query_params['shared'] = shared
 
         if filters:
             query_params['filters'] = ','.join(
