@@ -175,7 +175,7 @@ protected:
             agent1_->Subscribe(vn_name, idx);
             agent2_->Subscribe(vn_name, idx);
         }
-        TASK_UTIL_EXPECT_EQ((912 - 900) * 4 * 2, // VNs * Tables per VN * Agents
+        TASK_UTIL_EXPECT_EQ((912 - 900) * 5 * 2, // VNs * Tables per VN * Agents
             server_->membership_mgr()->GetMembershipCount());
         task_util::WaitForIdle();
     }

@@ -25,6 +25,7 @@ public:
         Unicast = 1,
         EVpn = 70,
         Vpn = 128,
+        MVpn = 129,
         RTarget = 132,
         Mcast = 241,
         Enet = 242,
