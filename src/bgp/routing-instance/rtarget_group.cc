@@ -24,7 +24,8 @@ using std::vector;
 RtGroup::RtGroup(const RouteTarget &rt)
     : rt_(rt), dep_(RTargetDepRouteList(DB::PartitionCount())) {
     vector<Address::Family> vpn_family_list = list_of
-        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
+        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN)
+	(Address::MVPN);
     BOOST_FOREACH(Address::Family vpn_family, vpn_family_list) {
         import_[vpn_family] = RtGroupMemberList();
         export_[vpn_family] = RtGroupMemberList();
