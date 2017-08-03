@@ -6,6 +6,7 @@
 
 #include <boost/foreach.hpp>
 #include <fstream>
+#include <sstream>
 #include "ifmap/client/config_amqp_client.h"
 #include "ifmap/client/config_cass2json_adapter.h"
 #include "ifmap/client/config_cassandra_client.h"
@@ -17,7 +18,13 @@ public:
     ConfigCassandraClientTest(ConfigClientManager *mgr, EventManager *evm,
         const IFMapConfigOptions &options, ConfigJsonParser *in_parser,
         int num_workers) : ConfigCassandraClient(mgr, evm, options, in_parser,
-            num_workers), db_index_(num_workers), cevent_(0) {
+            num_workers), db_index_(num_workers), curr_db_idx_(0), cevent_(0) {
+    }
+
+    virtual std::string uuid_str(const std::string &uuid) {
+        std::stringstream ss;
+        ss << curr_db_idx_ << ":" << uuid;
+        return (ss.str());
     }
 
     virtual void HandleObjectDelete(const std::string &uuid) {
@@ -63,6 +70,7 @@ public:
             std::string u = tokens[1];
             assert((*events())[index].IsObject());
             int idx = HashUUID(u);
+            curr_db_idx_ = index;
             db_index_[idx].insert(make_pair(u, index));
             ProcessObjUUIDTableEntry(u, GenDb::ColList());
         }
@@ -231,6 +239,7 @@ public:
 private:
     typedef std::map<std::string, int> UUIDIndexMap;
     std::vector<UUIDIndexMap> db_index_;
+    int curr_db_idx_;
     contrail_rapidjson::Document events_;
     contrail_rapidjson::Document db_load_;
     size_t cevent_;
