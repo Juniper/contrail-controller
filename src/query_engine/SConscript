@@ -90,7 +90,9 @@ env.Install('', '../analytics/analytics.sandesh')
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('qe.sandesh')
 SandeshGenFiles += env.SandeshGenOnlyCpp('nodeinfo.sandesh')
-SandeshGenFiles += env.SandeshGenOnlyCpp('analytics.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp(
+    'analytics.sandesh', extra_suffixes=['_request_skeleton.cpp']
+)
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 SandeshGenObjs = env.Object(SandeshGenSrcs)
