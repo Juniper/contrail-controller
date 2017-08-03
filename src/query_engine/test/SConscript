@@ -25,8 +25,6 @@ env_noWerror_excep.CppEnableExceptions()
 
 RedisConn_obj = env.Object('redis_connection.o', '../../analytics/redis_connection.cc')
 Analytics_obj = env.Object('vizd_table_desc.o', '../../analytics/vizd_table_desc.cc')
-AnalyticsRequest_obj = env.Object('analytics_request_skeleton.o',
-                            '../../analytics/analytics_request_skeleton.cpp')
 
 query_test_obj = env_noWerror_excep.Object('query_test.o', 'query_test.cc');
 
@@ -34,7 +32,6 @@ query_test = env.UnitTest('query_test',
                                     [query_test_obj,
                                      RedisConn_obj,
                                      Analytics_obj,
-                                     AnalyticsRequest_obj,
                                      env['QE_SANDESH_GEN_OBJS'],
                                      '../../analytics/viz_constants.o',
                                      '../rac_alloc.o',
@@ -68,7 +65,6 @@ select_test = env.UnitTest('select_test',
                            [select_test_obj,
                            RedisConn_obj,
                            Analytics_obj,
-                           AnalyticsRequest_obj,
                            env['QE_SANDESH_GEN_OBJS'],
                            '../../analytics/viz_constants.o',
                            '../rac_alloc.o',
@@ -84,6 +80,27 @@ select_test = env.UnitTest('select_test',
                            '../utils.o',
                            '../QEOpServerProxy.o'])
 
+select_fs_query_test_obj = env_noWerror_excep.Object('select_fs_query_test.o',
+                                                     'select_fs_query_test.cc')
+select_fs_query_test = env.UnitTest('select_fs_query_test',
+                                    [select_fs_query_test_obj,
+                                     RedisConn_obj,
+                                     Analytics_obj,
+                                     env['QE_SANDESH_GEN_OBJS'],
+                                     '../../analytics/viz_constants.o',
+                                     '../rac_alloc.o',
+                                     '../query.o',
+                                     '../where_query.o',
+                                     '../db_query.o',
+                                     '../set_operation.o',
+                                     '../select.o',
+                                     '../select_fs_query.o',
+                                     '../stats_select.o',
+                                     '../stats_query.o',
+                                     '../post_processing.o',
+                                     '../utils.o',
+                                     '../QEOpServerProxy.o'])
+
 db_query_test_obj = env_noWerror_excep.Object('db_query_test.o',
                                                      'db_query_test.cc')
 
@@ -91,7 +108,6 @@ db_query_test = env.UnitTest('db_query_test',
                                     [db_query_test_obj,
                                      RedisConn_obj,
                                      Analytics_obj,
-                                     AnalyticsRequest_obj,
                                      env['QE_SANDESH_GEN_OBJS'],
                                      '../../analytics/viz_constants.o',
                                      '../rac_alloc.o',
