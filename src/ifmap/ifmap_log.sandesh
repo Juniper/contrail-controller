@@ -445,6 +445,15 @@ systemlog sandesh IFMapGetRowError {
 }
 
 /**
+ * @description: System log for IFMap module
+ * @severity: DEBUG 
+ */
+systemlog sandesh IFMapCassReadRetry {
+    1: string message
+    3: string uuid
+}
+
+/**
  * @description: Trace message for IFMap module
  * @severity: DEBUG
  */
@@ -519,6 +528,15 @@ trace sandesh IFMapTblNotFoundTrace {
 trace sandesh IFMapIdentifierNotFoundTrace {
     1: string error_msg
     2: string identifier_name
+}
+
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
+trace sandesh IFMapCassReadRetryTrace {
+    1: string message
+    2: string uuid
 }
 
 /**
