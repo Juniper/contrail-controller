@@ -478,6 +478,7 @@ void RoutingInstanceMgr::SetTableStatsUve(Address::Family family,
     case Address::ERMVPN:
         instance_info->set_raw_ermvpn_stats(stats_map);
         break;
+    case Address::MVPN:
     case Address::NUM_FAMILIES:
         break;
     }
