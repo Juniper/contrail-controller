@@ -385,12 +385,12 @@ TEST_F(BgpXmppChannelTest, Connection) {
         static_cast<BgpMembershipManagerTest *>(server_->membership_mgr());
     EXPECT_FALSE(mock_manager == NULL);
     EXPECT_CALL(*mock_manager, Register(_, _, _, _))
-        .Times(4)
+        .Times(5)
         .WillRepeatedly(Invoke(mock_manager,
                          &BgpMembershipManagerTest::MockRegister))
         ;
     EXPECT_CALL(*mock_manager, Unregister(_, _))
-        .Times(4)
+        .Times(5)
         .WillRepeatedly(Invoke(mock_manager,
                          &BgpMembershipManagerTest::MockUnregister))
         ;
@@ -485,6 +485,11 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
     task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
                         channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
 
+    // Verify that EoR Send timer is not longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.mvpn.0"), "xmpp::StateMachine");
+
     // Verify that EoR Send timer is running again now.
     TASK_UTIL_EXPECT_TRUE(FindChannel(a.get())->eor_send_timer()->running());
 
@@ -518,6 +523,8 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_1) {
                         channel_a_, "purple.evpn.0"), "xmpp::StateMachine");
     task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
                         channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.mvpn.0"), "xmpp::StateMachine");
 
     // Wait until unregister go through
     instname = msg->node;
@@ -580,6 +587,11 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_2) {
     task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
                         channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
 
+    // Verify that EoR Send timer is not longer running.
+    TASK_UTIL_EXPECT_FALSE(channel_a_->eor_send_timer()->running());
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.mvpn.0"), "xmpp::StateMachine");
+
     // Verify that EoR Send timer is running again now.
     TASK_UTIL_EXPECT_TRUE(FindChannel(a.get())->eor_send_timer()->running());
 
@@ -604,6 +616,8 @@ TEST_F(BgpXmppChannelTest, EndOfRibSend_2) {
                         channel_a_, "purple.evpn.0"), "xmpp::StateMachine");
     task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
                         channel_a_, "purple.ermvpn.0"), "xmpp::StateMachine");
+    task_util::TaskFire(boost::bind(&BgpXmppChannel::MembershipResponseHandler,
+                        channel_a_, "purple.mvpn.0"), "xmpp::StateMachine");
 
     // Wait until unregister go through
     instname = msg->node;
