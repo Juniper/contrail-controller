@@ -225,6 +225,16 @@ systemlog sandesh ConfigCassInitErrorMessage {
 /**
  * @description: System log for IFMap module
  * @severity: ERROR
+ * @cause:  Timer used to retry objects with unresolved ref/parent
+ * @action: Contact your technical support representative
+ */
+systemlog sandesh ConfigCassandraPartitionTimerErrorMessage {
+    1: string message
+}
+
+/**
+ * @description: System log for IFMap module
+ * @severity: ERROR
  * @cause: VM messages are being received for unknown virtual router
  * @action: Contact your technical support representative
  */
@@ -584,6 +594,14 @@ trace sandesh IFMapStaleEntriesCleanerInfoTrace {
     8: u32 links_deleted
     9: "ObjectsDeleted:"
     10: u32 objects_deleted
+}
+
+/**
+ * @description: Trace message for IFMap module
+ * @severity: DEBUG
+ */
+trace sandesh ConfigCassandraPartitionTimerErrorMessageTrace {
+    1: string message
 }
 
 /**
