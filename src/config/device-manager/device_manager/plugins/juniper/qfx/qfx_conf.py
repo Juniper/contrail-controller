@@ -20,7 +20,9 @@ class QfxConf(JuniperConf):
     }
 
     @classmethod
-    def is_product_supported(cls, name):
+    def is_product_supported(cls, name, role):
+        if role and role.lower().startswith('e2-'):
+            return False
         if name.lower() in cls._products:
             return True
         return False

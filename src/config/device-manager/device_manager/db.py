@@ -23,6 +23,9 @@ from netaddr import IPAddress
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common import vnc_greenlets
 from sandesh_common.vns.constants import DEVICE_MANAGER_KEYSPACE_NAME
+from time import gmtime, strftime
+from cfgm_common.uve.physical_router_config.ttypes import *
+from cfgm_common.uve.service_status.ttypes import *
 
 
 class DBBaseDM(DBBase):
@@ -91,6 +94,9 @@ class PhysicalRouterDM(DBBaseDM):
         self.logical_routers = set()
         self.bgp_router = None
         self.config_manager = None
+        self.service_endpoints = set()
+        self.router_mode = None
+        self.e2_service_index = 0
         self.nc_q = queue.Queue(maxsize=1)
         self.vn_ip_map = {'irb': {}, 'lo0': {}}
         self.config_sent = False
@@ -121,6 +127,9 @@ class PhysicalRouterDM(DBBaseDM):
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.physical_router_role = obj.get('physical_router_role')
         self.user_credentials = obj.get('physical_router_user_credentials')
+        self.physical_router_snmp = obj.get('physical_router_snmp')
+        self.physical_router_lldp = obj.get('physical_router_lldp')
+        self.telemetry_info = obj.get('telemetry_info')
         self.junos_service_ports = obj.get(
             'physical_router_junos_service_ports')
         self.update_single_ref('bgp_router', obj)
@@ -130,6 +139,7 @@ class PhysicalRouterDM(DBBaseDM):
                                         obj.get('physical_interfaces', [])])
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
+        self.update_multiple_refs('service_endpoint', obj)
         plugin_params = {
                 "physical_router": self
             }
@@ -138,7 +148,8 @@ class PhysicalRouterDM(DBBaseDM):
             self.config_manager = DeviceConf.plugin(self.vendor, self.product,
                                                           plugin_params, self._logger)
         else:
-            if self.config_manager.verify_plugin(self.vendor, self.product):
+            if self.config_manager.verify_plugin(self.vendor, self.product,
+                                                 self.physical_router_role):
                 self.config_manager.update()
             else:
                 self.config_manager.clear()
@@ -158,6 +169,7 @@ class PhysicalRouterDM(DBBaseDM):
         obj.update_single_ref('bgp_router', {})
         obj.update_multiple_refs('virtual_network', {})
         obj.update_multiple_refs('logical_router', {})
+        obj.update_multiple_refs('service_endpoint', {})
         del cls._dict[uuid]
     # end delete
 
@@ -614,6 +626,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.physical_interfaces = set()
+        self.mtu = 0
         obj = self.update(obj_dict)
         self.add_to_parent(obj)
     # end __init__
@@ -774,6 +787,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         self.port_tuple = None
         self.routing_instances = set()
         self.service_instance = None
+        self.service_endpoint = None
         self.update(obj_dict)
     # end __init__
 
@@ -797,6 +811,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
             pt = PortTupleDM.get(self.port_tuple)
             if pt:
                 self.service_instance = pt.parent_uuid
+        self.update_single_ref('service_endpoint', obj)
     # end update
 
     def is_device_owner_bms(self):
@@ -817,6 +832,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
         obj.update_single_ref('physical_interface', {})
         obj.update_multiple_refs('routing_instance', {})
         obj.update_single_ref('port_tuple', {})
+        obj.update_single_ref('service_endpoint', {})
         del cls._dict[uuid]
     # end delete
 
@@ -1102,6 +1118,222 @@ class PortTupleDM(DBBaseDM):
         del cls._dict[uuid]
     # end delete
 # end PortTupleDM
+
+
+class ServiceEndpointDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_endpoint'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.physical_router = None
+        self.service_connection_modules = set()
+        self.virtual_machine_interface = None
+        self.site_id = 0
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.service_name = obj.get('service_name')
+        self.update_single_ref('physical_router', obj)
+        self.update_multiple_refs('service_connection_module', obj)
+        self.update_single_ref('virtual_machine_interface', obj)
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('physical_router', {})
+        obj.update_multiple_refs('service_connection_module', {})
+        obj.update_single_ref('virtual_machine_interface', {})
+        del cls._dict[uuid]
+# end class ServiceEndpointDM
+
+class ServiceConnectionModuleDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_connection_module'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_endpoints = set()
+        self.service_object = None
+        self.circuit_id = 0
+        self.mtu = 0
+        self.no_control_word = False
+        self.management_ip = None
+        self.user_creds = None
+        self.sap_info = None
+        self.sdp_info = None
+        self.id_perms = None
+        self.service_type = None
+        self.commit_stats = {
+            'last_commit_time': '',
+            'last_commit_duration': '',
+            'commit_status_message': '',
+            'total_commits_sent_since_up': 0,
+        }
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.e2service = obj.get('e2service')
+        self.id_perms = obj.get('id_perms')
+        self.annotations = obj.get('annotations')
+        self.service_type = obj.get('service_type')
+        self.update_multiple_refs('service_endpoint', obj)
+        self.update_single_ref('service_object', obj)
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('service_endpoint', {})
+        obj.update_single_ref('service_object', {})
+        del cls._dict[uuid]
+# end class ServiceConnectionModuleDM
+
+
+class ServiceObjectDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'service_object'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.service_connection_module = None
+        self.sep_list = None
+        self.physical_router = None
+        self.service_status = {}
+        self.management_ip = None
+        self.user_creds = None
+        self.service_type = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.service_object_name = obj.get('service_object_name')
+        self.update_single_ref('service_connection_module', obj)
+        circuit_id = 0
+        if self.service_connection_module is not None:
+            scm = ServiceConnectionModuleDM.get(self.service_connection_module)
+            if scm is not None:
+                circuit_id = scm.circuit_id
+                if circuit_id == 0 and \
+                   scm.service_type != 'fabric-interface':
+                    return
+                found = False
+                neigbor_id = None
+                for sindex, sep_uuid in enumerate(scm.service_endpoints):
+                    sep = ServiceEndpointDM.get(sep_uuid)
+                    if sep is None:
+                        continue
+                    pr_uuid = sep.physical_router
+                    pr = PhysicalRouterDM.get(pr_uuid)
+                    if pr is not None and pr.vendor.lower() == "juniper" \
+                                                       and found != True:
+                        self.management_ip = pr.management_ip
+                        self.user_creds    = pr.user_credentials
+                        self.service_type = scm.service_type
+                        found = True
+                    elif pr is not None:
+                        bgp_uuid = pr.bgp_router
+                        bgp_entry = BgpRouterDM.get(bgp_uuid)
+                        neigbor_id = bgp_entry.params['address']
+                if found == True:
+                    service_params = {
+                            "service_type": self.service_type,
+                            "circuit_id": circuit_id,
+                            "neigbor_id": neigbor_id,
+                    }
+                    self.service_status = \
+                    pr.config_manager.get_service_status(service_params)
+                    self.uve_send()
+
+    def uve_send(self):
+        mydata=self.service_status
+        if self.service_status is not None:
+            last_timestamp = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+            pr_trace = UveServiceStatus(
+                    name=self.name,
+                    ip_address=self.management_ip,
+                    service_name=self.name,
+                    status_data=str(mydata),
+                    operational_status="None",
+                    last_get_time=last_timestamp)
+
+            pr_msg = UveServiceStatusTrace(
+                data=pr_trace, sandesh=DBBaseDM._sandesh)
+            pr_msg.send(sandesh=DBBaseDM._sandesh)
+    # end uve_send
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('service_connection_module', {})
+        del cls._dict[uuid]
+# end class ServiceObjectDM
+
+
+class NetworkDeviceConfigDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'network_device_config'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.physical_router = None
+        self.management_ip = None
+        self.config_manager = None
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.config_object_name = obj.get('config_object_name')
+        self.update_single_ref('physical_router', obj)
+        if self.physical_router is not None:
+            pr = PhysicalRouterDM.get(self.physical_router)
+            if pr is not None:
+                self.management_ip = pr.management_ip
+                self.config_manager = pr.config_manager
+                self.uve_send()
+    # end update
+
+    def uve_send(self):
+        mydata = self.config_manager.get_device_config()
+        if mydata:
+            last_timestamp = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+            pr_trace = UvePhysicalRouterConfiguration(
+                    name=self.name,
+                    ip_address=self.management_ip,
+                    config_data=mydata,
+                    last_get_time=last_timestamp)
+
+            pr_msg = UvePhysicalRouterConfigurationTrace(
+                data=pr_trace, sandesh=DBBaseDM._sandesh)
+            pr_msg.send(sandesh=DBBaseDM._sandesh)
+    # end uve_send
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('physical_router', {})
+        del cls._dict[uuid]
+# end class NetworkDeviceConfigDM
 
 
 class DMCassandraDB(VncObjectDBClient):

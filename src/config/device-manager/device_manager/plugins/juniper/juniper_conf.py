@@ -200,6 +200,17 @@ class JuniperConf(DeviceConf):
         return dev_conf
     # end device_get
 
+    def device_get_config(self, filters = {}):
+        try:
+            self.device_connect()
+            config_data = self._nc_manager.get_config(source='running').data_xml
+        except Exception as e:
+            if self._logger:
+                self._logger.error("could not fetch config from router %s: %s" % (
+                                          self.management_ip, e.message))
+        return config_data
+    # end device_get_config
+
     def get_vn_li_map(self):
         pr = self.physical_router
         vn_dict = {}
