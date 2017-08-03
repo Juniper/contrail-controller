@@ -46,6 +46,10 @@ struct RoutingInstanceStatsData {
     15: optional map<string, RoutingTableStats> raw_ermvpn_stats (hidden="yes");
     /** @display_name:Routing Instance ErmVpn Information*/
     16: optional map<string, RoutingTableStats> ermvpn_stats (mstats="raw_ermvpn_stats:DSChange", tags=".__key", aggtype="union");
+
+    17: optional map<string, RoutingTableStats> raw_mvpn_stats (hidden="yes");
+    /** @display_name:Routing Instance MVpn Information*/
+    18: optional map<string, RoutingTableStats> mvpn_stats (mstats="raw_mvpn_stats:DSChange", tags=".__key", aggtype="union");
 }
 
 /**
