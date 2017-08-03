@@ -25,8 +25,6 @@ env_noWerror_excep.CppEnableExceptions()
 
 RedisConn_obj = env.Object('redis_connection.o', '../../analytics/redis_connection.cc')
 Analytics_obj = env.Object('vizd_table_desc.o', '../../analytics/vizd_table_desc.cc')
-AnalyticsRequest_obj = env.Object('analytics_request_skeleton.o',
-                            '../../analytics/analytics_request_skeleton.cpp')
 
 query_test_obj = env_noWerror_excep.Object('query_test.o', 'query_test.cc');
 

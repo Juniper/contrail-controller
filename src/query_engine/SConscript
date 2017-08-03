@@ -71,8 +71,6 @@ env.Append(CPPPATH = includes)
 env.Append(CPPPATH = ['#/src/analytics'])
 
 RedisConn_obj = env.Object('redis_connection.o', '../analytics/redis_connection.cc')
-AnalyticsRequest_obj = env.Object('analytics_request_skeleton.o',
-                                  '../analytics/analytics_request_skeleton.cpp')
 
 # copied from analytics SConscript
 env_excep = env.Clone()
@@ -90,7 +88,9 @@ env.Install('', '../analytics/analytics.sandesh')
 # Generate the source files
 SandeshGenFiles  = env.SandeshGenCpp('qe.sandesh')
 SandeshGenFiles += env.SandeshGenOnlyCpp('nodeinfo.sandesh')
-SandeshGenFiles += env.SandeshGenOnlyCpp('analytics.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp(
+    'analytics.sandesh', extra_suffixes=['_request_skeleton.cpp']
+)
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 SandeshGenObjs = env.Object(SandeshGenSrcs)
@@ -153,7 +153,7 @@ else:
 qed = env.Program(
         target = 'qed', 
         source = qed_objs + qed_except_objs + build_obj +
-        SandeshGenObjs +  RedisConn_obj + AnalyticsRequest_obj +
+        SandeshGenObjs +  RedisConn_obj +
         ['../analytics/vizd_table_desc.o', 'rac_alloc.cc', '../analytics/viz_constants.o']
         )
 
@@ -168,7 +168,7 @@ else:
 qedt = env.UnitTest(
         target = 'qedt', 
         source = qed_objs + qed_except_objs + build_obj +
-        SandeshGenObjs +  RedisConn_obj + AnalyticsRequest_obj +
+        SandeshGenObjs +  RedisConn_obj +
         ['../analytics/vizd_table_desc.o', rac,
         '../analytics/viz_constants.o'])
 
