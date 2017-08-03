@@ -35,6 +35,43 @@ using namespace std;
 using namespace autogen;
 using boost::assign::list_of;
 
+class ConfigCassandraPartitionTest: public ConfigCassandraPartition {
+  public:
+    static const int kUUIDReadRetryTimeInMsec = 300000;
+    ConfigCassandraPartitionTest(ConfigCassandraClient *client, size_t idx)
+        : ConfigCassandraPartition(client, idx),
+        retry_time_ms_(kUUIDReadRetryTimeInMsec) {
+    }
+
+    virtual int UUIDRetryTimeInMSec(ObjectCacheEntry *obj) {
+        return retry_time_ms_;
+    }
+
+    uint32_t GetUUIDReadRetryCount(string uuid) {
+        ObjectCacheEntry *obj = GetObjectCacheEntry(uuid);
+        if (obj) return (obj->GetRetryCount());
+        return 0;
+    }
+
+    void FireUUIDReadRetryTimer(string uuid) {
+        ObjectCacheEntry *obj = GetObjectCacheEntry(uuid);
+        if (obj) {
+            if (obj->IsRetryTimerCreated()) {
+                obj->GetRetryTimer()->Cancel();
+                obj->GetRetryTimer()->Start(10,
+                    boost::bind(
+                        &ConfigCassandraPartition::ObjectCacheEntry::CassReadRetryTimerExpired,
+                        obj, uuid),
+                    boost::bind(
+                        &ConfigCassandraPartition::ObjectCacheEntry::CassReadRetryTimerErrorHandler,
+                        obj));
+            }
+        }
+    }
+  private:
+    int retry_time_ms_;
+};
+
 class ConfigJsonParserTest : public ::testing::Test {
  public:
     void ValidateFQNameCacheResponse(Sandesh *sandesh,
@@ -221,6 +258,32 @@ class ConfigJsonParserTest : public ::testing::Test {
     void FeedEventsJson() {
         ConfigCassandraClientTest::FeedEventsJson(config_client_manager_.get());
     }
+
+    ConfigCassandraPartitionTest *GetConfigCassandraPartition(const string uuid ) {
+        ConfigCassandraClientTest *config_cassandra_client =
+            dynamic_cast<ConfigCassandraClientTest *>(
+                    config_client_manager_.get()->config_db_client());
+        return(dynamic_cast<ConfigCassandraPartitionTest *>
+                (config_cassandra_client->GetPartition(uuid)));
+    }
+
+    int GetConfigCassandraPartitionInstanceId(string uuid ) {
+        ConfigCassandraClientTest *config_cassandra_client =
+            dynamic_cast<ConfigCassandraClientTest *>(
+                    config_client_manager_.get()->config_db_client());
+        return(config_cassandra_client->GetPartition(uuid)->GetInstanceId());
+    }
+
+    uint32_t GetConfigCassandraPartitionUUIDReadRetryCount(string uuid ) {
+        ConfigCassandraClientTest *config_cassandra_client =
+            dynamic_cast<ConfigCassandraClientTest *>(
+                    config_client_manager_.get()->config_db_client());
+        ConfigCassandraPartitionTest *config_cassandra_partition =
+            dynamic_cast<ConfigCassandraPartitionTest *>(
+                    config_cassandra_client->GetPartition(uuid));
+        return(config_cassandra_partition->GetUUIDReadRetryCount(uuid));
+    }
+
 
     EventManager evm_;
     ServerThread thread_;
@@ -1647,6 +1710,68 @@ TEST_F(ConfigJsonParserTest, ServerParser16InParts) {
     TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
 }
 
+// In 3 separate messages:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
+// 2) create link(vr,gsc), then gsc-with-properties
+// 3) delete link(vr,gsc), then delete gsc, then delete vr
+TEST_F(ConfigJsonParserTest, ServerParser17InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/server_parser_test16_p2.json");
+    FeedEventsJson();
+    FeedEventsJson();
+    FeedEventsJson();
+    string uuid = "8c5eeb87-0b08-4724-b53f-0a0368055374";
+    task_util::TaskFire(boost::bind(
+                &ConfigCassandraPartitionTest::FireUUIDReadRetryTimer,
+                GetConfigCassandraPartition(uuid), uuid),
+                "cassandra::Reader",
+                GetConfigCassandraPartitionInstanceId(uuid));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, GetConfigCassandraPartitionUUIDReadRetryCount(uuid));
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc")->Find(
+                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "gsc:vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("global-system-config", "gsc"),
+        NodeLookup("virtual-router", "gsc:vr1"),
+                   "global-system-config-virtual-router") != NULL);
+
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+}
+
 
 //
 // Validate the handling of object without type field
@@ -2011,6 +2136,8 @@ int main(int argc, char **argv) {
     LoggingInit();
     ControlNode::SetDefaultSchedulingPolicy();
     ConfigAmqpClient::set_disable(true);
+    IFMapFactory::Register<ConfigCassandraPartition>(
+        boost::factory<ConfigCassandraPartitionTest *>());
     IFMapFactory::Register<ConfigCassandraClient>(
         boost::factory<ConfigCassandraClientTest *>());
     int status = RUN_ALL_TESTS();
