@@ -103,7 +103,7 @@ SandeshGenPyFiles  = AnalyticsEnv.SandeshGenPy('viz.sandesh')
 SandeshGenPyFiles  += AnalyticsEnv.SandeshGenPy('collector_uve.sandesh')
 AnalyticsVizSandeshGenFiles = AnalyticsEnv.SandeshGenOnlyCpp('viz.sandesh')
 AnalyticsSandeshGenFiles  = AnalyticsEnv.SandeshGenCpp('collector_uve.sandesh')
-AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCpp('analytics.sandesh')
+AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCppWithSkeletor('analytics.sandesh')
 AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCpp('uve_aggregator.sandesh')
 AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCpp('kafka.sandesh')
 AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCpp('redis.sandesh')
@@ -177,9 +177,19 @@ ProtobufGenSrcs = AnalyticsEnv.ExtractCpp(ProtobufGenFiles)
 ProtobufGenObjs = AnalyticsEnv.Object(ProtobufGenSrcs)
 AnalyticsEnv['ANALYTICS_PROTOBUF_GEN_OBJS'] = ProtobufGenObjs
 
+# filter out the sandesh-generated files that duplicate symbols from
+# existing sources, for example analytics_request_skeleton.cpp
+# has stubs for methods from analytics_request.cpp
+analytics_sandesh_srcs_filtered = \
+    list(
+        filter(
+            lambda src: src != 'analytics_request_skeleton.cpp',
+            AnalyticsSandeshGenSrcs)
+    )
+
 AnalyticsEnv.GenerateBuildInfoCode(
     target=['buildinfo.h', 'buildinfo.cc'],
-    source = AnalyticsSandeshGenSrcs + vizd_sources + ProtobufGenSrcs +
+    source = analytics_sandesh_srcs_filtered + vizd_sources + ProtobufGenSrcs +
     ['OpServerProxy.cc',
      'db_handler.cc',
      'structured_syslog_config.cc',
@@ -188,7 +198,7 @@ AnalyticsEnv.GenerateBuildInfoCode(
     path=str(Dir('.').abspath))
 
 vizd = AnalyticsEnv.Program(target = 'vizd',
-        source = AnalyticsSandeshGenSrcs + vizd_sources +
+        source = analytics_sandesh_srcs_filtered + vizd_sources +
         ProtobufGenObjs +
         [main_obj,
         'buildinfo.cc',
