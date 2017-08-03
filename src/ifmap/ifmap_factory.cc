@@ -13,6 +13,8 @@ IFMapFactory *Factory<IFMapFactory>::singleton_ = NULL;
 FACTORY_STATIC_REGISTER(IFMapFactory, IFMapXmppChannel, IFMapXmppChannel);
 
 #include "ifmap/client/config_cassandra_client.h"
+FACTORY_STATIC_REGISTER(IFMapFactory, ConfigCassandraPartition,
+                        ConfigCassandraPartition);
 FACTORY_STATIC_REGISTER(IFMapFactory, ConfigCassandraClient,
                         ConfigCassandraClient);
 
