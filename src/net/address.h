@@ -30,6 +30,7 @@ public:
         RTARGET = 5,
         EVPN = 6,
         ERMVPN = 7,
+        MVPN = 8,
         NUM_FAMILIES
     };
 
