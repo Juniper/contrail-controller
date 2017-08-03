@@ -673,8 +673,14 @@ bool PeerCloseManager::MembershipPathCallback(DBTablePartBase *root,
             // Stale paths must be deleted.
             if (!path->IsStale() && !path->IsLlgrStale())
                 return false;
-            path->ResetStale();
-            path->ResetLlgrStale();
+            if (path->IsStale()) {
+                path->ResetStale();
+                table->UpdateStalePathCount(-1);
+            }
+            if (path->IsLlgrStale()) {
+                path->ResetLlgrStale();
+                table->UpdateLlgrStalePathCount(-1);
+            }
             oper = DBRequest::DB_ENTRY_DELETE;
             attrs = NULL;
             stats_.route_stats[table->family()].deleted++;
