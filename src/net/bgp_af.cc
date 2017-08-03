@@ -43,6 +43,9 @@ string BgpAf::ToString(uint16_t afi, uint8_t safi) {
         case ErmVpn:
             out << "ErmVpn";
             break;
+        case MVpn:
+            out << "Mvpn";
+            break;
         case RTarget:
             out << "RTarget";
             break;
@@ -62,6 +65,8 @@ Address::Family BgpAf::AfiSafiToFamily(uint16_t afi, uint8_t safi) {
         return Address::RTARGET;
     if (afi == BgpAf::IPv4 && safi == BgpAf::ErmVpn)
         return Address::ERMVPN;
+    if (afi == BgpAf::IPv4 && safi == BgpAf::MVpn)
+        return Address::MVPN;
     if (afi == BgpAf::IPv6 && safi == BgpAf::Unicast)
         return Address::INET6;
     if (afi == BgpAf::IPv6 && safi == BgpAf::Vpn)
@@ -82,6 +87,8 @@ pair<uint16_t, uint8_t> BgpAf::FamilyToAfiSafi(Address::Family family) {
         return make_pair(BgpAf::IPv4, BgpAf::RTarget);
     case Address::ERMVPN:
         return make_pair(BgpAf::IPv4, BgpAf::ErmVpn);
+    case Address::MVPN:
+        return make_pair(BgpAf::IPv4, BgpAf::MVpn);
     case Address::INET6:
         return make_pair(BgpAf::IPv6, BgpAf::Unicast);
     case Address::INET6VPN:
@@ -103,6 +110,8 @@ BgpAf::Afi BgpAf::FamilyToAfi(Address::Family family) {
     case Address::RTARGET:
         return BgpAf::IPv4;
     case Address::ERMVPN:
+        return BgpAf::IPv4;
+    case Address::MVPN:
         return BgpAf::IPv4;
     case Address::INET6:
         return BgpAf::IPv6;
@@ -126,6 +135,8 @@ BgpAf::Safi BgpAf::FamilyToSafi(Address::Family family) {
         return BgpAf::RTarget;
     case Address::ERMVPN:
         return BgpAf::ErmVpn;
+    case Address::MVPN:
+        return BgpAf::MVpn;
     case Address::INET6:
         return BgpAf::Unicast;
     case Address::INET6VPN:

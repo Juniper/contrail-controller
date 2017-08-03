@@ -23,6 +23,7 @@ env.Append(LIBPATH = env['TOP'] + '/bgp/inet6')
 env.Append(LIBPATH = env['TOP'] + '/bgp/inet6vpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/evpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/ermvpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/mvpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/test')
 env.Append(LIBPATH = env['TOP'] + '/bgp/l3vpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
@@ -78,6 +79,7 @@ env.Prepend(LIBS = [
                     'bgp_inet6',
                     'bgp_inet6vpn',
                     'bgp_ermvpn',
+                    'bgp_mvpn',
                     'bgp_evpn',
                     'bgp_l3vpn',
                     'xmpp_unicast',
@@ -100,6 +102,7 @@ if sys.platform != 'darwin':
     env.Append(LIBS=['rt', 'extended_community'])
     env.Prepend(LINKFLAGS = ['-Wl,--whole-archive',
                              '-lbgp_ermvpn',
+                             '-lbgp_mvpn',
                              '-lbgp_evpn',
                              '-lbgp_inet',
                              '-lbgp_inet6',
@@ -111,6 +114,8 @@ if sys.platform != 'darwin':
 else:
     lib_ermvpn = Dir('../../ermvpn').path + '/libbgp_ermvpn.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_ermvpn])
+    lib_mvpn = Dir('../../mvpn').path + '/libbgp_mvpn.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_mvpn])
     lib_evpn = Dir('../../evpn').path + '/libbgp_evpn.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn])
     lib_inet = Dir('../../inet').path + '/libbgp_inet.a'
