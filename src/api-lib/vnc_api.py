@@ -23,12 +23,14 @@ from gen.resource_client import *
 from gen.generatedssuper import GeneratedsSuper
 
 import cfgm_common
+import cfgm_common.exceptions as errors
 from cfgm_common import rest, utils
 from cfgm_common import _obj_serializer_all
 from cfgm_common.exceptions import (
-        ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
-        RefsExistError, TimeOutError, BadRequest, HttpError,
-        ResourceTypeUnknownError, RequestSizeError)
+        ServiceUnavailableError, DatabaseUnavailableError, 
+        MaxRabbitPendingError, ResourceExistsError, NoIdError, 
+        PermissionDenied, OverQuota, RefsExistError, TimeOutError, 
+        BadRequest, HttpError, ResourceTypeUnknownError, RequestSizeError)
 from cfgm_common import ssl_adapter
 
 
@@ -919,43 +921,47 @@ class VncApi(object):
             if status == 200:
                 return content
 
-            # Exception Response, see if it can be resolved
-            if ((status == 401) and (not self._auth_token_input) and
-                    (not retry_after_authn)):
-                self._headers = self._authenticate(content, self._headers)
-                # Recursive call after authentication (max 1 level)
-                content = self._request(
-                        op, url, data=data, retry_after_authn=True)
+            e = None
 
-                return content
-            elif status == 404:
-                raise NoIdError('Error: oper %s url %s body %s response %s'
-                                % (op, url, data, content))
-            elif status == 403:
-                raise PermissionDenied(content)
-            elif status == 412:
-                raise OverQuota(content)
-            elif status == 409:
-                raise RefsExistError(content)
-            elif status == 413:
-                raise RequestSizeError(content)
-            elif status == 504:
-                # Request sent to API server, but no response came within 50s
-                raise TimeOutError('Gateway Timeout 504')
-            elif status in [502, 503]:
-                # 502: API server died after accepting request, so retry
-                # 503: no API server available even before sending the request
-                retried += 1
-                if retried >= retry_count:
-                    raise ServiceUnavailableError(
-                            'Service Unavailable Timeout %d' % status)
+            try:
+                # Exception Response, see if it can be resolved
+                if ((status == 401) and (not self._auth_token_input) and
+                        (not retry_after_authn)):
+                    self._headers = self._authenticate(content, self._headers)
+                    # Recursive call after authentication (max 1 level)
+                    content = self._request(
+                            op, url, data=data, retry_after_authn=True)
 
-                time.sleep(1)
-                continue
-            elif status == 400:
-                raise BadRequest(status, content)
-            else:  # Unknown Error
+                    return content
+                elif status in [502, 503]:
+                    # 502: API server died after accepting request, so retry
+                    # 503: no API server available even before sending the request
+                    retried += 1
+                    if retried >= retry_count:
+                        try:
+                            error_content = json.loads(content)
+                            e = getattr(errors, error_content['error'], None)(**error_content)
+                        except ValueError:
+                            e = ServiceUnavailableError('API Server')
+
+                    time.sleep(1)
+                    continue
+                elif status == 504:
+                    # Request sent to API server, but no response came within 50s
+                    e = TimeOutError('Gateway')
+                elif status in [404, 403, 412, 409, 400, 500]:
+                    error_content = json.loads(content)
+                    if hasattr(errors, error_content['error']):
+                        e = getattr(errors, error_content['error'], None)(**error_content)
+                    else:
+                        e = HttpError(status, content)
+                else:  # Unknown Error
+                    e = HttpError(status, content)
+            except:
                 raise HttpError(status, content)
+
+            if e is not None:
+                raise e
         # end while True
 
     # end _request_server
@@ -1410,7 +1416,7 @@ class VncApi(object):
 
     def set_aaa_mode(self, mode):
         if mode not in cfgm_common.AAA_MODE_VALID_VALUES:
-            raise HttpError(400, 'Invalid AAA mode')
+            raise BadRequest('Invalid AAA mode')
         url = self._action_uri['aaa-mode']
         data = {'aaa-mode': mode}
         content = self._request_server(rest.OP_PUT, url, json.dumps(data))
@@ -1444,3 +1450,4 @@ class VncApi(object):
         return json.loads(content)
 
 # end class VncApi
+
