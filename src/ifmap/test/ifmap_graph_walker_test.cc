@@ -528,7 +528,7 @@ TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
 }
 
 // Receive VR-subscribe and then config
-TEST_F(IFMapGraphWalkerTest, DISABLED_VrsubConfig) {
+TEST_F(IFMapGraphWalkerTest, VrsubConfig) {
     // VR-reg 
     IFMapClientMock c1("vr1");
     server_->AddClient(&c1);
