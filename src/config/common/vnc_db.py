@@ -308,7 +308,7 @@ class DBBase(object):
         if not ok:
             cls._logger.error(
                 'Cannot read %s %s, error %s' % (obj_type, uuid, objs))
-            raise NoIdError(uuid)
+            raise NoIdError(uuid, obj_type)
         return objs[0]
     # end read_obj
 

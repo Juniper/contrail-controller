@@ -23,12 +23,9 @@ from gen.resource_client import *
 from gen.generatedssuper import GeneratedsSuper
 
 import cfgm_common
+from cfgm_common import exceptions as errors
 from cfgm_common import rest, utils
 from cfgm_common import _obj_serializer_all
-from cfgm_common.exceptions import (
-        ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
-        RefsExistError, TimeOutError, BadRequest, HttpError,
-        ResourceTypeUnknownError, RequestSizeError)
 from cfgm_common import ssl_adapter
 
 
@@ -449,7 +446,7 @@ class VncApi(object):
                 homepage = self._request(rest.OP_GET, self._base_url,
                                          retry_on_error=False)
                 self._parse_homepage(homepage)
-            except ServiceUnavailableError as e:
+            except errors.ServiceUnavailableError as e:
                 logger = logging.getLogger(__name__)
                 logger.warn("Exception: %s", str(e))
                 if wait_for_connect:
@@ -919,43 +916,50 @@ class VncApi(object):
             if status == 200:
                 return content
 
-            # Exception Response, see if it can be resolved
-            if ((status == 401) and (not self._auth_token_input) and
-                    (not retry_after_authn)):
-                self._headers = self._authenticate(content, self._headers)
-                # Recursive call after authentication (max 1 level)
-                content = self._request(
-                        op, url, data=data, retry_after_authn=True)
+            e = None
 
-                return content
-            elif status == 404:
-                raise NoIdError('Error: oper %s url %s body %s response %s'
-                                % (op, url, data, content))
-            elif status == 403:
-                raise PermissionDenied(content)
-            elif status == 412:
-                raise OverQuota(content)
-            elif status == 409:
-                raise RefsExistError(content)
-            elif status == 413:
-                raise RequestSizeError(content)
-            elif status == 504:
-                # Request sent to API server, but no response came within 50s
-                raise TimeOutError('Gateway Timeout 504')
-            elif status in [502, 503]:
-                # 502: API server died after accepting request, so retry
-                # 503: no API server available even before sending the request
-                retried += 1
-                if retried >= retry_count:
-                    raise ServiceUnavailableError(
-                            'Service Unavailable Timeout %d' % status)
+            try:
+                # Exception Response, see if it can be resolved
+                if ((status == 401) and (not self._auth_token_input) and
+                        (not retry_after_authn)):
+                    self._headers = self._authenticate(content, self._headers)
+                    # Recursive call after authentication (max 1 level)
+                    content = self._request(
+                            op, url, data=data, retry_after_authn=True)
 
-                time.sleep(1)
-                continue
-            elif status == 400:
-                raise BadRequest(status, content)
-            else:  # Unknown Error
-                raise HttpError(status, content)
+                    return content
+                elif status in [502, 503]:
+                    # 502: API server died after accepting request, so retry
+                    # 503: no API server available even before sending the request
+                    retried += 1
+                    if retried >= retry_count:
+                        try:
+                            error_content = json.loads(content)
+                            if hasattr(errors, error_content['error']):
+                                e = getattr(errors, error_content['error'], None)(**error_content)
+                            else:
+                                e = errors.HttpError(status, content)
+                        except ValueError:
+                            e = errors.ServiceUnavailableError('API Server')
+
+                    time.sleep(1)
+                    continue
+                elif status == 504:
+                    # Request sent to API server, but no response came within 50s
+                    e = errors.TimeOutError('Gateway')
+                elif status in [404, 403, 412, 409, 400, 500]:
+                    error_content = json.loads(content)
+                    if hasattr(errors, error_content['error']):
+                        e = getattr(errors, error_content['error'], None)(**error_content)
+                    else:
+                        e = errors.HttpError(status, content)
+                else:  # Unknown Error
+                    e = errors.HttpError(status, content)
+            except:
+                raise errors.HttpError(status, content)
+
+            if e is not None:
+                raise e
         # end while True
 
     # end _request_server
@@ -1055,7 +1059,7 @@ class VncApi(object):
         uri = self._action_uri['ref-update']
         try:
             content = self._request_server(rest.OP_POST, uri, data=json_body)
-        except HttpError as he:
+        except errors.HttpError as he:
             if he.status_code == 404:
                 return None
             raise he
@@ -1072,7 +1076,7 @@ class VncApi(object):
 
         try:
             content = self._request_server(rest.OP_POST, uri, data=json_body)
-        except HttpError as he:
+        except errors.HttpError as he:
             if he.status_code == 404:
                 return None
             raise he
@@ -1090,7 +1094,7 @@ class VncApi(object):
         uri = self._action_uri['name-to-id']
         try:
             content = self._request_server(rest.OP_POST, uri, data=json_body)
-        except HttpError as he:
+        except errors.HttpError as he:
             if he.status_code == 404:
                 return None
             raise he
@@ -1236,11 +1240,11 @@ class VncApi(object):
             return []
         self._headers['X-USER-TOKEN'] = token
         if not obj_type:
-            raise ResourceTypeUnknownError(obj_type)
+            raise errors.ResourceTypeUnknownError(obj_type)
 
         obj_class = utils.obj_type_to_vnc_class(obj_type, __name__)
         if not obj_class:
-            raise ResourceTypeUnknownError(obj_type)
+            raise errors.ResourceTypeUnknownError(obj_type)
 
         query_params = {}
         do_post_for_list = False
@@ -1310,7 +1314,7 @@ class VncApi(object):
             try:
                 response = self._request_server(
                         rest.OP_GET, obj_class.create_uri, data=query_params)
-            except NoIdError:
+            except errors.NoIdError:
                 # dont allow NoIdError propagate to user
                 return []
 
@@ -1360,7 +1364,7 @@ class VncApi(object):
         try:
             rv = self._request_server(rest.OP_GET, "/obj-perms", data=query)
             return rv
-        except PermissionDenied:
+        except errors.PermissionDenied:
             rv = None
         finally:
             if 'X-USER-TOKEN' in self._headers:
@@ -1410,7 +1414,7 @@ class VncApi(object):
 
     def set_aaa_mode(self, mode):
         if mode not in cfgm_common.AAA_MODE_VALID_VALUES:
-            raise HttpError(400, 'Invalid AAA mode')
+            raise errors.BadRequest('Invalid AAA mode')
         url = self._action_uri['aaa-mode']
         data = {'aaa-mode': mode}
         content = self._request_server(rest.OP_PUT, url, json.dumps(data))
@@ -1444,3 +1448,5 @@ class VncApi(object):
         return json.loads(content)
 
 # end class VncApi
+
+
