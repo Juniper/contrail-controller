@@ -19,24 +19,19 @@ bool unit_test_;
 
 static void init_common() {
     unit_test_ = true;
+    bool log_disable = getenv("LOG_DISABLE") != NULL;
 
-    //
     // By default, we log all messages from all categories.
-    //
-    Sandesh::SetLoggingParams(true, "", Sandesh::LoggingUtLevel());
+    Sandesh::SetLoggingParams(!log_disable, "", Sandesh::LoggingUtLevel());
 
-    //
     // Have ability to filter messages via environment variables.
-    //
     const char *category = getenv("BGP_UT_LOG_CATEGORY");
     if (category) Sandesh::SetLoggingCategory(category);
 
     const char *level = getenv("BGP_UT_LOG_LEVEL");
     if (level) Sandesh::SetLoggingLevel(level);
 
-    if (getenv("LOG_DISABLE") != NULL) {
-        SetLoggingDisabled(true);
-    }
+    SetLoggingDisabled(log_disable);
 }
 
 void init() {
