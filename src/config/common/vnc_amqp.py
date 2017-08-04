@@ -14,42 +14,46 @@ from cfgm_common.uve.msg_traces.ttypes import MessageBusNotifyTrace,\
 
 class VncAmqpHandle(object):
 
-    def __init__(self, logger, db_cls, reaction_map, q_name_prefix, args=None):
+    def __init__(self, sandesh, logger, db_cls, reaction_map, q_name_prefix,
+                 rabbitmq_cfg, trace_file=None):
+        self.sandesh = sandesh
         self.logger = logger
         self.db_cls = db_cls
         self.reaction_map = reaction_map
         self.q_name_prefix = q_name_prefix
         self._db_resync_done = gevent.event.Event()
-        self._args = args
+        self._rabbitmq_cfg = rabbitmq_cfg
+        self._trace_file = trace_file
 
     def establish(self):
         q_name = '.'.join([self.q_name_prefix, socket.gethostname()])
         self._vnc_kombu = VncKombuClient(
-                self._args.rabbit_server, self._args.rabbit_port,
-                self._args.rabbit_user, self._args.rabbit_password,
-                self._args.rabbit_vhost, self._args.rabbit_ha_mode,
+                self._rabbitmq_cfg['servers'], self._rabbitmq_cfg['port'],
+                self._rabbitmq_cfg['user'], self._rabbitmq_cfg['password'],
+                self._rabbitmq_cfg['vhost'], self._rabbitmq_cfg['ha_mode'],
                 q_name, self._vnc_subscribe_callback,
-                self.logger.log, rabbit_use_ssl=self._args.rabbit_use_ssl,
-                kombu_ssl_version=self._args.kombu_ssl_version,
-                kombu_ssl_keyfile=self._args.kombu_ssl_keyfile,
-                kombu_ssl_certfile=self._args.kombu_ssl_certfile,
-                kombu_ssl_ca_certs=self._args.kombu_ssl_ca_certs)
+                self.logger.log, rabbit_use_ssl=self._rabbitmq_cfg['use_ssl'],
+                kombu_ssl_version=self._rabbitmq_cfg['ssl_version'],
+                kombu_ssl_keyfile=self._rabbitmq_cfg['ssl_keyfile'],
+                kombu_ssl_certfile=self._rabbitmq_cfg['ssl_certfile'],
+                kombu_ssl_ca_certs=self._rabbitmq_cfg['ssl_ca_certs'])
 
     def msgbus_store_err_msg(self, msg):
         self.msg_tracer.error = msg
 
     def msgbus_trace_msg(self):
         self.msg_tracer.trace_msg(name='MessageBusNotifyTraceBuf',
-                                  sandesh=self.logger._sandesh)
+                                  sandesh=self.sandesh)
 
     def log_exception(self):
         string_buf = cStringIO.StringIO()
         cgitb_hook(file=string_buf, format="text")
         self.logger.error(string_buf.getvalue())
-
         self.msgbus_store_err_msg(string_buf.getvalue())
+        if not self._trace_file:
+            return
         try:
-            with open(self._args.trace_file, 'a') as err_file:
+            with open(self._trace_file, 'a') as err_file:
                 err_file.write(string_buf.getvalue())
         except IOError:
             pass

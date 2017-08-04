@@ -15,8 +15,19 @@ class STAmqpHandle(VncAmqpHandle):
 
     def __init__(self, logger, reaction_map, args):
         q_name_prefix = 'schema_transformer'
-        super(STAmqpHandle, self).__init__(logger, DBBaseST, reaction_map,
-                                           q_name_prefix, args=args)
+        rabbitmq_cfg = {
+            'servers': args.rabbit_server, 'port': args.rabbit_port,
+            'user': args.rabbit_user, 'password': args.rabbit_password,
+            'vhost': args.rabbit_vhost, 'ha_mode': args.rabbit_ha_mode,
+            'use_ssl': args.rabbit_use_ssl,
+            'ssl_version': args.kombu_ssl_version,
+            'ssl_keyfile': args.kombu_ssl_keyfile,
+            'ssl_certfile': args.kombu_ssl_certfile,
+            'ssl_ca_certs': args.kombu_ssl_ca_certs
+        }
+        super(STAmqpHandle, self).__init__(logger._sandesh, logger, DBBaseST,
+                                           reaction_map, q_name_prefix,
+                                           rabbitmq_cfg, args.trace_file)
 
     def evaluate_dependency(self):
         if not self.dependency_tracker:
