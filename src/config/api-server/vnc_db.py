@@ -682,7 +682,7 @@ class VncDbClient(object):
             (ok, result) = self.dbe_read('project', proj_id)
         except NoIdError as e:
             ok = False
-            result = 'Project Not Found: %s' %(proj_id)
+            result = NoIdError(proj_id, 'project')
         if not ok:
             self.config_log("Updating default quota failed: %s." %(result),
                 level=SandeshLevel.SYS_ERR)
@@ -749,7 +749,7 @@ class VncDbClient(object):
                 try:
                     self._object_db.uuid_to_fq_name(str(id))
                     # not stale
-                    raise ResourceExistsError(fq_name, str(id), 'cassandra')
+                    raise ResourceExistsError(fq_name, id, 'cassandra')
                 except NoIdError:
                     lock_msecs = float(time.time()*1000 - epoch_msecs)
                     stale_msecs_cfg = 1000 * float(
@@ -869,7 +869,7 @@ class VncDbClient(object):
                                                       flat_ipam_uuid_list)
             if not ok:
                     return
-        
+
             for ipam_dict, subnet_uuid in zip(result, flat_sn_uuid_list):
                 ipam_subnets_dict = ipam_dict.get('ipam_subnets') or {}
                 ipam_subnets = ipams_subnets_dict.get('subnets') or []
@@ -1014,7 +1014,7 @@ class VncDbClient(object):
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
         except ResourceExistsError as e:
-            return (False, (409, str(e)))
+            return (False, (409, json.dumps(e.__dict__)))
 
         return (True, obj_dict['uuid'])
     # end dbe_alloc
@@ -1164,10 +1164,10 @@ class VncDbClient(object):
             # if NoIdError is for obj itself (as opposed to say for parent
             # or ref), let caller decide if this can be handled gracefully
             # by re-raising
-            if e._unknown_id == obj_id:
+            if e.unknown_id == obj_id:
                 raise
 
-            return (False, str(e))
+            return (False, e)
 
         return (ok, cassandra_result[0])
     # end dbe_read
@@ -1177,7 +1177,7 @@ class VncDbClient(object):
             (ok, cassandra_result) = self._object_db.object_count_children(
                 obj_type, obj_id, child_type)
         except NoIdError as e:
-            return (False, str(e))
+            return (False, e)
 
         return (ok, cassandra_result)
     # end dbe_count_children
@@ -1271,7 +1271,7 @@ class VncDbClient(object):
                 shares = [(_uuid, _perms) for _uuid, _perms in shares
                     if _uuid > start]
 
-            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in 
+            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in
                                        owned_fq_name_uuids or []])
 
             collected = 0
@@ -1352,7 +1352,7 @@ class VncDbClient(object):
                 obj_type, obj_ids_list, obj_fields, ret_readonly=True)
         except NoIdError as e:
             ok = False
-            read_result = str(e)
+            read_result = e
 
         if not ok:
             return ok, read_result, None
