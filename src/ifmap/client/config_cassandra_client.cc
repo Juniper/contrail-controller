@@ -795,6 +795,8 @@ bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
         string ref_uuid = key.substr(from_back_pos+1);
         string ref_name = client()->UUIDToFQName(ref_uuid).second;
         if (ref_name == "ERROR") {
+            IFMAP_WARN(IFMapGetRowError, "Out of order parent or ref",
+                    uuid_key, field_name);
             return false;
         }
         field_name = key.substr(0, from_back_pos+1) + ref_name;
