@@ -125,6 +125,7 @@ IFMapLink *IFMapServerTable::LinkNodeAdd(IFMapNode *first, IFMapNode *second,
     IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
         database()->FindTable("__ifmap_metadata__.0"));
     assert(table != NULL);
+    IFMAP_DEBUG(IFMapLinkOperation, "Creating", metadata);
     return table->AddLink(first, second, metadata, sequence_number, origin);
 }
 
@@ -134,10 +135,12 @@ void IFMapServerTable::LinkNodeUpdate(IFMapLink *link, uint64_t sequence_number,
     link->UpdateProperties(origin, sequence_number);
 }
 
-void IFMapServerTable::LinkNodeDelete(IFMapLink *link, const IFMapOrigin &origin) {
+void IFMapServerTable::LinkNodeDelete(IFMapLink *link,
+        const IFMapOrigin &origin) {
     IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
         database()->FindTable("__ifmap_metadata__.0"));
     assert(table != NULL);
+    IFMAP_DEBUG(IFMapLinkOperation, "Deleting", link->ToString());
     table->DeleteLink(link, origin);
 }
 

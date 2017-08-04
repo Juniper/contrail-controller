@@ -1583,6 +1583,8 @@ TEST_F(ConfigJsonParserTest, ServerParser16InParts) {
     ParseEventsJson(
             "controller/src/ifmap/testdata/server_parser_test16_p1.json");
     FeedEventsJson();
+    FeedEventsJson();
+    FeedEventsJson();
     TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
     TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
@@ -1602,6 +1604,7 @@ TEST_F(ConfigJsonParserTest, ServerParser16InParts) {
         "virtual-router-virtual-machine") != NULL);
 
     // Using datafile from test13_p2
+    FeedEventsJson();
     FeedEventsJson();
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
