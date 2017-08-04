@@ -318,6 +318,7 @@ class SvcMonitorTest(unittest.TestCase):
     def setUp(self):
         self.args = svc_monitor.parse_args('')
         ServiceMonitorLogger.__init__ = mock.MagicMock(return_value=None)
+        ServiceMonitorLogger._sandesh = mock.MagicMock()
         ServiceMonitorLogger.log = mock.MagicMock()
         ServiceMonitorLogger.info = mock.MagicMock()
         ServiceMonitorLogger.notice = mock.MagicMock()

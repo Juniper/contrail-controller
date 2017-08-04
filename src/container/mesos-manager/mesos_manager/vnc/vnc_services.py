@@ -16,6 +16,7 @@ from cfgm_common import importutils
 from cfgm_common import vnc_cgitb
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+import common.args as mesos_args
 import mesos_manager.mesos_consts as mesos_consts
 from vnc_api.vnc_api import *
 from config_db import *
@@ -50,9 +51,10 @@ class VncService(object):
         self._db = db.MesosNetworkManagerDB(self.args, self.logger)
         DBBaseMM.init(self, self.logger, self._db)
 
+        rabbitmq_cfg = mesos_args.rabbitmq_args(self.args)
         # init rabbit connection
-        self.rabbit = VncAmqpHandle(self.logger, DBBaseMM, REACTION_MAP,
-                                    'mesos_manager', args=self.args)
+        self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseMM,
+                                    REACTION_MAP, 'mesos_manager', rabbitmq_cfg)
         self.rabbit.establish()
 
         # sync api server db in local cache
