@@ -355,7 +355,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("global-system-config-global-qos-config")
                 ("qos-config-global-system-config"))
         ("provider-attachment", std::set<std::string>())
-        ("service-instance", list_of("service-instance-service-template"))
+        ("service-instance", list_of("service-instance-service-template")
+                                    ("service-instance-port-tuple"))
         ("global-vrouter-config",
           list_of("application-policy-set-global-vrouter-config")
                  ("global-vrouter-config-security-logging-object"))
@@ -377,6 +378,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("virtual-machine-interface-bridge-domain")
                 ("virtual-machine-interface-security-logging-object")
                 ("project-virtual-machine-interface")
+                ("port-tuple-interface")
                 ("virtual-machine-interface-tag"))
         ("virtual-machine-interface-bridge-domain",
          list_of("virtual-machine-interface-bridge-domain"))
@@ -447,5 +449,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
         ("service-group", std::set<std::string>())
         ("address-group", list_of("address-group-tag"))
         ("project", list_of("project-tag"))
+        ("port-tuple", list_of("service-instance-port-tuple")
+                              ("port-tuple-interface"))
         ("policy-management", std::set<std::string>());
 }

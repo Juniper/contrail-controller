@@ -10,10 +10,12 @@
 #include "cmn/agent_cmn.h"
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
+#include "diag/diag_pkt_handler.h"
 #include "diag/diag.h"
 #include "diag/diag_proto.h"
 #include "diag/ping.h"
 #include "diag/overlay_ping.h"
+#include "diag/segment_health_check.h"
 #include "oper/mirror_table.h"
 #include <oper/bridge_route.h>
 #include <oper/vxlan.h>
@@ -54,12 +56,26 @@ void DiagPktHandler::SetDiagChkSum() {
     }
 }
 
-void DiagPktHandler::Reply() {
+void DiagPktHandler::BuildReply() {
     SetReply();
     Swap();
     SetDiagChkSum();
+}
+
+void DiagPktHandler::Reply() {
+    BuildReply();
     Send(GetInterfaceIndex(), GetVrfIndex(), AgentHdr::TX_ROUTE,
          CMD_PARAM_PACKET_CTRL, CMD_PARAM_1_DIAG, PktHandler::DIAG);
+}
+
+void DiagPktHandler::SegmentHealthCheckReply() {
+    diag_table_->diag_proto()->IncrementDiagStats(GetInterfaceIndex(),
+                                                  DiagProto::REQUESTS_RECEIVED);
+    BuildReply();
+    Send(GetInterfaceIndex(), GetVrfIndex(), AgentHdr::TX_SWITCH,
+         CMD_PARAM_PACKET_CTRL, CMD_PARAM_1_DIAG, PktHandler::DIAG);
+    diag_table_->diag_proto()->IncrementDiagStats(GetInterfaceIndex(),
+                                                  DiagProto::REPLIES_SENT);
 }
 
 bool DiagPktHandler::IsTraceRoutePacket() {
@@ -373,6 +389,12 @@ bool DiagPktHandler::Run() {
         return true;
     }
 
+    SegmentHealthCheckPkt *segment_hc_pkt = NULL;
+    DiagEntry::DiagKey key = ntohs(ad->key_);
+    DiagEntry *entry = diag_table_->Find(key);
+    if (entry) {
+        segment_hc_pkt = dynamic_cast< SegmentHealthCheckPkt * >(entry);
+    }
     if (ntohl(ad->op_) == AgentDiagPktData::DIAG_REQUEST) {
         //Request received swap the packet
         //and dump the packet back
@@ -381,7 +403,11 @@ bool DiagPktHandler::Run() {
             SendOverlayResponse();
             return true;
         } 
-        Reply();
+        if (segment_hc_pkt) {
+            SegmentHealthCheckReply();
+        } else {
+            Reply();
+        }
         return true;
     }
 
@@ -389,12 +415,15 @@ bool DiagPktHandler::Run() {
         return true;
     }
     //Reply for a query we sent
-    DiagEntry::DiagKey key = ntohs(ad->key_);
-    DiagEntry *entry = diag_table_->Find(key);
     if (!entry) {
         return true;
     }
     entry->HandleReply(this);
+
+    if (segment_hc_pkt) {
+        /* No further processing required for Segment Health check packet */
+        return true;
+    }
 
     if (entry->GetSeqNo() == entry->GetMaxAttempts()) {
         DiagEntryOp *op;
@@ -469,12 +498,18 @@ void DiagPktHandler::SwapL4() {
                 htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
                 ntohs(tcp->th_sport), false, ntohs(tcp->th_ack),
                 ntohs(pkt_info_->ip->ip_len) - sizeof(struct ip));
-    }
-     else if(pkt_info_->ip_proto == IPPROTO_UDP) {
+    } else if (pkt_info_->ip_proto == IPPROTO_UDP) {
         udphdr *udp = pkt_info_->transp.udp;
         UdpHdr(ntohs(udp->uh_ulen), pkt_info_->ip_daddr.to_v4().to_ulong(),
                ntohs(udp->uh_dport), pkt_info_->ip_saddr.to_v4().to_ulong(),
                ntohs(udp->uh_sport));
+    } else if (pkt_info_->ip_proto == IPPROTO_ICMP) {
+        struct icmp *hdr = (struct icmp *) (pkt_info_->transp.icmp);
+        if (hdr->icmp_type == ICMP_ECHO) {
+            hdr->icmp_type = ICMP_ECHOREPLY;
+            hdr->icmp_code = 0;
+        }
+        /* We do not change sequence and identifier fields of ICMP header */
     }
 }
 

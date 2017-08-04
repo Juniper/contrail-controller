@@ -88,7 +88,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     service_health_check_ip_(), service_ip_(0),
     service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false), 
     qos_config_uuid_(), learning_enabled_(false),
-    vhostuser_mode_(VmInterface::vHostUserClient) {
+    vhostuser_mode_(VmInterface::vHostUserClient),
+    si_other_end_vmi(nil_uuid()) {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -439,6 +440,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
 
     if (disable_policy_ != data->disable_policy_) {
         disable_policy_ = data->disable_policy_;
+        ret = true;
+    }
+
+    if (si_other_end_vmi_ != data->si_other_end_vmi) {
+        si_other_end_vmi_ = data->si_other_end_vmi;
         ret = true;
     }
 

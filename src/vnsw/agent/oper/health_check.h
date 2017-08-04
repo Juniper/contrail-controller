@@ -44,6 +44,7 @@ struct HealthCheckServiceData : public AgentOperDBData {
     HealthCheckServiceData(Agent *agent, IpAddress dest_ip,
                            const std::string &name,
                            const std::string &monitor_type,
+                           const std::string &stype,
                            uint8_t ip_proto,
                            const std::string &http_method,
                            const std::string &url_path,
@@ -53,7 +54,7 @@ struct HealthCheckServiceData : public AgentOperDBData {
                            uint32_t timeout, uint64_t timeout_usecs,
                            uint32_t max_retries, IFMapNode *ifmap_node) :
         AgentOperDBData(agent, ifmap_node), dest_ip_(dest_ip), name_(name),
-        monitor_type_(monitor_type), ip_proto_(ip_proto),
+        monitor_type_(monitor_type), service_type_(stype), ip_proto_(ip_proto),
         http_method_(http_method), url_path_(url_path), url_port_(url_port),
         expected_codes_(expected_codes), delay_(delay),
         delay_usecs_(delay_usecs), timeout_(timeout),
@@ -64,6 +65,8 @@ struct HealthCheckServiceData : public AgentOperDBData {
     IpAddress dest_ip_;
     std::string name_;
     std::string monitor_type_;
+    // Service type of HealthCheck segment/end-to-end/link-local
+    std::string service_type_;
     uint8_t ip_proto_;
     std::string http_method_;
     std::string url_path_;
@@ -118,7 +121,7 @@ public:
     // OnExit Callback for Task
     void OnExit(const boost::system::error_code &ec);
 
-    void ResyncInterface(HealthCheckService *service);
+    virtual void ResyncInterface(const HealthCheckService *service) const;
     void set_service(HealthCheckService *service);
     std::string to_string();
     bool active() {return active_;}
@@ -129,6 +132,7 @@ public:
     const std::string &last_update_time() const { return last_update_time_; }
 
 protected:
+    void EnqueueResync(const HealthCheckService *service, Interface *itf) const;
     friend class HealthCheckTable;
     // reference to health check service under
     // which this instance is running
@@ -180,7 +184,7 @@ class HealthCheckInstanceService : public HealthCheckInstanceBase {
 public:
     HealthCheckInstanceService(HealthCheckService *service,
                                MetaDataIpAllocator *allocator,
-                               VmInterface *intf);
+                               VmInterface *intf, VmInterface *other_intf);
     virtual ~HealthCheckInstanceService();
 
     virtual bool CreateInstanceTask();
@@ -188,9 +192,14 @@ public:
     virtual bool RunInstanceTask();
     virtual bool StopInstanceTask();
     virtual bool UpdateInstanceTask();
+    virtual void ResyncInterface(const HealthCheckService *service) const;
 
 private:
     friend class HealthCheckTable;
+    /* Other Interface associated to this HealthCheck Instance when
+     * HealthCheck service type is "segment"
+     */
+    InterfaceRef other_intf_;
 
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceService);
 };
@@ -233,6 +242,7 @@ public:
     const std::string &url_path() const { return url_path_; }
     const std::string &monitor_type() const { return monitor_type_; }
     const HealthCheckTable *table() const { return table_; }
+    bool IsSegmentHealthCheckService() const;
 
 private:
     friend class HealthCheckInstanceEvent;
@@ -245,6 +255,8 @@ private:
     std::string name_;
     // monitor type of service PING/HTTP/BFD etc
     std::string monitor_type_;
+    // Service type of HealthCheck segment/end-to-end/link-local
+    std::string service_type_;
     // ip_proto derived from monitor_type_
     uint8_t ip_proto_;
     std::string http_method_;

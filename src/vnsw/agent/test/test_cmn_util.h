@@ -80,7 +80,8 @@ void AddLinkString(char *buff, int &len, const char *node_name1,
                    const char *name1, const char *node_name2, const char *name2,
                    const char *metadata = NULL);
 void DelLinkString(char *buff, int &len, const char *node_name1,
-                   const char *name1, const char *node_name2, const char *name2);
+                   const char *name1, const char *node_name2, const char *name2,
+                   const char* mdata = NULL);
 void AddNodeString(char *buff, int &len, const char *node_name, const char *name,
                    int id, const char *attr, bool admin_state = true);
 void AddNodeString(char *buff, int &len, const char *node_name,
@@ -97,7 +98,7 @@ string GetMetadata(const char *node1, const char *node2,
 void AddLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2, const char *mdata = NULL);
 void DelLink(const char *node_name1, const char *name1, const char *node_name2,
-             const char *name2);
+             const char *name2, const char* mdata = NULL);
 void AddNode(const char *node_name, const char *name, int id);
 void AddNode(const char *node_name, const char *name, int id, const char *attr,
              bool admin_state = true);
@@ -476,7 +477,8 @@ void DelEncapList(Agent *agent);
 
 void DelHealthCheckService(const char *name);
 void AddHealthCheckService(const char *name, int id, const char *url_path,
-                           const char *monitor_type);
+                           const char *monitor_type,
+                           const char *service_type = "end-to-end");
 
 void VxLanNetworkIdentifierMode(bool config, const char *encap1 = NULL,
                                 const char *encap2 = NULL,

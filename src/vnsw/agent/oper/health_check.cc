@@ -54,12 +54,18 @@ HealthCheckInstanceBase::~HealthCheckInstanceBase() {
     ResyncInterface(service_.get());
 }
 
-void HealthCheckInstanceBase::ResyncInterface(HealthCheckService *service) {
+void HealthCheckInstanceBase::EnqueueResync(const HealthCheckService *service,
+                                            Interface *itf) const {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intf_->GetUuid(), ""));
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, itf->GetUuid(), ""));
     req.data.reset(new VmInterfaceHealthCheckData());
     service->table()->agent()->interface_table()->Enqueue(&req);
+}
+
+void HealthCheckInstanceBase::ResyncInterface(const HealthCheckService *service)
+    const {
+    EnqueueResync(service, intf_.get());
 }
 
 void HealthCheckInstanceBase::set_service(HealthCheckService *service) {
@@ -185,10 +191,18 @@ bool HealthCheckInstanceTask::IsRunning() const {
 
 HealthCheckInstanceService::HealthCheckInstanceService(
     HealthCheckService *service, MetaDataIpAllocator *allocator,
-    VmInterface *intf) : HealthCheckInstanceBase(service, allocator, intf) {
+    VmInterface *intf, VmInterface *other_intf) :
+    HealthCheckInstanceBase(service, allocator, intf), other_intf_(other_intf) {
+    if (service->IsSegmentHealthCheckService() && other_intf) {
+        other_intf->InsertHealthCheckInstance(this);
+    }
 }
 
 HealthCheckInstanceService::~HealthCheckInstanceService() {
+    if (service()->IsSegmentHealthCheckService() && other_intf_.get()) {
+        VmInterface *vmi = static_cast<VmInterface *>(other_intf_.get());
+        vmi->DeleteHealthCheckInstance(this);
+    }
 }
 
 bool HealthCheckInstanceService::CreateInstanceTask() {
@@ -230,6 +244,14 @@ bool HealthCheckInstanceService::UpdateInstanceTask() {
     HEALTH_CHECK_TRACE(Trace, "Updating " + this->to_string());
     return service_->table()->health_check_service_callback()
                               (HealthCheckTable::UPDATE_SERVICE, this);
+}
+
+void HealthCheckInstanceService::ResyncInterface(const HealthCheckService
+                                                 *service) const {
+    HealthCheckInstanceBase::ResyncInterface(service);
+    if (service->IsSegmentHealthCheckService() && other_intf_.get()) {
+        EnqueueResync(service, other_intf_.get());
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -286,6 +308,7 @@ bool HealthCheckService::DBEntrySandesh(Sandesh *sresp,
     HealthCheckSandeshData data;
     data.set_uuid(UuidToString(uuid()));
     data.set_name(name_);
+    data.set_service_type(service_type_);
     data.set_monitor_type(monitor_type_);
     data.set_http_method(http_method_);
     data.set_url_path(url_path_);
@@ -324,18 +347,30 @@ void HealthCheckService::PostAdd() {
     UpdateInstanceServiceReference();
 }
 
+bool HealthCheckService::IsSegmentHealthCheckService() const {
+    return (service_type_.find("segment") != std::string::npos);
+}
+
 bool HealthCheckService::IsInstanceTaskBased() const {
-    return (monitor_type_.find("BFD") == std::string::npos);
+    return ((monitor_type_.find("BFD") == std::string::npos) &&
+            !IsSegmentHealthCheckService());
 }
 
 bool HealthCheckService::Copy(HealthCheckTable *table,
                               const HealthCheckServiceData *data) {
     bool ret = false;
-    bool dest_ip_changed = false;
+    bool dest_ip_changed = false, service_type_changed = false;
+    bool is_prev_hc_segment = IsSegmentHealthCheckService();
 
     std::string old_monitor_type = monitor_type_;
     if (monitor_type_ != data->monitor_type_) {
         monitor_type_ = data->monitor_type_;
+        ret = true;
+    }
+
+    if (service_type_ != data->service_type_) {
+        service_type_ = data->service_type_;
+        service_type_changed = true;
         ret = true;
     }
 
@@ -396,12 +431,21 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
     }
 
     if (ret) {
-        // stop previously allocated health check instances
-        // to force them restart with updated values.
-        InstanceList::iterator it = intf_list_.begin();
-        while (it != intf_list_.end()) {
-            it->second->StopInstanceTask();
-            it++;
+        /* If service-type of health-check changes from segment to non-segment
+         * or vice-versa, remove all the health-check instance objects.
+         * Addition of new health-check instances with updated config happens
+         * later in this function */
+        if (service_type_changed &&
+            (is_prev_hc_segment != IsSegmentHealthCheckService())) {
+            DeleteInstances();
+        } else {
+            // stop previously allocated health check instances
+            // to force them restart with updated values.
+            InstanceList::iterator it = intf_list_.begin();
+            while (it != intf_list_.end()) {
+                it->second->StopInstanceTask();
+                it++;
+            }
         }
     }
 
@@ -436,17 +480,37 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                 // of dependent config Health-Check-Service in this case to
                 // handle creation of interface later
                 if (intf != NULL) {
+                    IpAddress segment_hc_other_ip;
+                    VmInterface * other_vmi = NULL;
+                    if (IsSegmentHealthCheckService()) {
+                        other_vmi = intf->PortTuplePairedInterface();
+                        if (other_vmi == NULL) {
+                            it_cfg++;
+                            continue;
+                        }
+                        segment_hc_other_ip = other_vmi->GetServiceIp
+                            (other_vmi->primary_ip_addr());
+                        if (segment_hc_other_ip.is_unspecified()) {
+                            it_cfg++;
+                            continue;
+                        }
+                    }
                     HealthCheckInstanceBase *inst;
                     if (IsInstanceTaskBased()) {
                         inst = new HealthCheckInstanceTask
                             (this, table_->agent()->metadata_ip_allocator(), intf);
                     } else {
                         inst = new HealthCheckInstanceService
-                            (this, table_->agent()->metadata_ip_allocator(), intf);
+                            (this, table_->agent()->metadata_ip_allocator(),
+                             intf, other_vmi);
                     }
                     intf_list_.insert(std::pair<boost::uuids::uuid,
                             HealthCheckInstanceBase *>(*(it_cfg), inst));
-                    inst->ip()->set_destination_ip(dest_ip_);
+                    if (IsSegmentHealthCheckService()) {
+                        inst->ip()->set_destination_ip(segment_hc_other_ip);
+                    } else {
+                        inst->ip()->set_destination_ip(dest_ip_);
+                    }
                     ret = true;
                 }
             } else {
@@ -592,7 +656,8 @@ static HealthCheckServiceData *BuildData(Agent *agent, IFMapNode *node,
     }
     HealthCheckServiceData *data =
         new HealthCheckServiceData(agent, dest_ip, node->name(),
-                                   p.monitor_type, ip_proto, p.http_method,
+                                   p.monitor_type, p.health_check_type,
+                                   ip_proto, p.http_method,
                                    url_path, url_port, p.expected_codes,
                                    p.delay, p.delayUsecs, p.timeout,
                                    p.timeoutUsecs, p.max_retries, node);

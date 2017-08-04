@@ -19,11 +19,13 @@ libdiag = env.Library('diag',
                    sandesh_objs +
                    [
                     'diag.cc',
+                    'diag_proto.cc',
                     'ping.cc',
                     'traceroute.cc',
                     'overlay_ping.cc',
                     'overlay_traceroute.cc',
-                    'diag_pkt_handler.cc'
+                    'diag_pkt_handler.cc',
+                    'segment_health_check.cc'
                    ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

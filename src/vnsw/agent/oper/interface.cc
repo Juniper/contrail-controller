@@ -1207,6 +1207,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             ++sit;
         }
         data.set_slo_list(slo_list);
+        data.set_si_other_end_vmi(UuidToString(vintf->si_other_end_vmi()));
         break;
     }
     case Interface::INET: {
