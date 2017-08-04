@@ -76,8 +76,10 @@ class SvcMonitor(object):
         DBBaseSM.init(self, self.logger, self._object_db)
 
         # init rabbit connection
-        self.rabbit = VncAmqpHandle(self.logger, DBBaseSM,
-                REACTION_MAP, 'svc_monitor', args=self._args)
+        rabbitmq_cfg = get_rabbitmq_cfg(args)
+        self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger,
+                DBBaseSM, REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
+                self._args.trace_file)
         self.rabbit.establish()
 
     def post_init(self, vnc_lib, args=None):
@@ -838,6 +840,17 @@ def parse_args(args_str):
 
     return args
 
+def get_rabbitmq_cfg(args):
+    return {
+        'servers': args.rabbit_server, 'port': args.rabbit_port,
+        'user': args.rabbit_user, 'password': args.rabbit_password,
+        'vhost': args.rabbit_vhost, 'ha_mode': args.rabbit_ha_mode,
+        'use_ssl': args.rabbit_use_ssl,
+        'ssl_version': args.kombu_ssl_version,
+        'ssl_keyfile': args.kombu_ssl_keyfile,
+        'ssl_certfile': args.kombu_ssl_certfile,
+        'ssl_ca_certs': args.kombu_ssl_ca_certs
+    }
 
 def run_svc_monitor(sm_logger, args=None):
     sm_logger.notice("Elected master SVC Monitor node. Initializing... ")
@@ -908,9 +921,11 @@ def main(args_str=None):
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
+    rabbitmq_cfg = get_rabbitmq_cfg(args)
     try:
-        vnc_amqp = VncAmqpHandle(sm_logger, DBBaseSM, REACTION_MAP, 'svc_monitor',
-                                 args=args)
+        vnc_amqp = VncAmqpHandle(sm_logger._sandesh, sm_logger, DBBaseSM,
+                                 REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
+                                 args.trace_file)
         vnc_amqp.establish()
         vnc_amqp.close()
     except Exception:
