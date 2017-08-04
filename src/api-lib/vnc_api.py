@@ -919,43 +919,64 @@ class VncApi(object):
             if status == 200:
                 return content
 
-            # Exception Response, see if it can be resolved
-            if ((status == 401) and (not self._auth_token_input) and
-                    (not retry_after_authn)):
-                self._headers = self._authenticate(content, self._headers)
-                # Recursive call after authentication (max 1 level)
-                content = self._request(
-                        op, url, data=data, retry_after_authn=True)
+            e = None
 
-                return content
-            elif status == 404:
-                raise NoIdError('Error: oper %s url %s body %s response %s'
-                                % (op, url, data, content))
-            elif status == 403:
-                raise PermissionDenied(content)
-            elif status == 412:
-                raise OverQuota(content)
-            elif status == 409:
-                raise RefsExistError(content)
-            elif status == 413:
-                raise RequestSizeError(content)
-            elif status == 504:
-                # Request sent to API server, but no response came within 50s
-                raise TimeOutError('Gateway Timeout 504')
-            elif status in [502, 503]:
-                # 502: API server died after accepting request, so retry
-                # 503: no API server available even before sending the request
-                retried += 1
-                if retried >= retry_count:
-                    raise ServiceUnavailableError(
-                            'Service Unavailable Timeout %d' % status)
+            try:
+                # Exception Response, see if it can be resolved
+                if ((status == 401) and (not self._auth_token_input) and
+                        (not retry_after_authn)):
+                    self._headers = self._authenticate(content, self._headers)
+                    # Recursive call after authentication (max 1 level)
+                    content = self._request(
+                            op, url, data=data, retry_after_authn=True)
 
-                time.sleep(1)
-                continue
-            elif status == 400:
-                raise BadRequest(status, content)
-            else:  # Unknown Error
+                    return content
+                elif status == 404:
+                    error_content = json.loads(content)
+                    e = NoIdError(**error_content)
+                elif status == 403:
+                    error_content = json.loads(content)
+                    e = PermissionDenied(**error_content)
+                elif status == 412:
+                    error_content = json.loads(content)
+                    e = OverQuota()
+                elif status == 409:
+                    error_content = json.loads(content)
+                    e = RefsExistError(**error_content)
+                elif status == 504:
+                    # Request sent to API server, but no response came within 50s
+                    e = TimeOutError('Gateway')
+                elif status in [502, 503]:
+                    # 502: API server died after accepting request, so retry
+                    # 503: no API server available even before sending the request
+                    retried += 1
+                    if retried >= retry_count:
+                        error_content = json.loads(content)
+                        if error_content['down_service'] == 'Database':
+                            e = DatabaseUnavailableError(**error_content)
+                        else:
+                            e = ServiceUnavailableError(**error_content)
+
+                    time.sleep(1)
+                    continue
+                elif status == 400:
+                    error_content = json.loads(content)
+                    if error_content['error'] == 'BadHeader':
+                        e = BadHeader(**error_content)
+                    elif error_content['error'] == 'BadParameter':
+                        e = BadParameter(**error_content)
+                    elif error_content['error'] == 'AccessDeniedError':
+                        e = AccessDeniedError(**error_content)
+                    else:
+                        e = BadRequest(**error_content)
+                else:  # Unknown Error
+                    # Consists of MaxRabbitPendingError,
+                    e = HttpError(status, content)
+            except:
                 raise HttpError(status, content)
+
+            if e is not None:
+                raise e
         # end while True
 
     # end _request_server
@@ -1410,7 +1431,7 @@ class VncApi(object):
 
     def set_aaa_mode(self, mode):
         if mode not in cfgm_common.AAA_MODE_VALID_VALUES:
-            raise HttpError(400, 'Invalid AAA mode')
+            raise BadRequest('Invalid AAA mode')
         url = self._action_uri['aaa-mode']
         data = {'aaa-mode': mode}
         content = self._request_server(rest.OP_PUT, url, json.dumps(data))
@@ -1444,3 +1465,4 @@ class VncApi(object):
         return json.loads(content)
 
 # end class VncApi
+
