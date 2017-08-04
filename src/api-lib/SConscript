@@ -30,7 +30,7 @@ autogen_sources = [
 autogen_script = File('#tools/generateds/generateDS.py').path
 autogen_cmd = '%s -f -o %s -g ifmap-frontend' % (autogen_script, Dir('vnc_api/gen/resource').path)
 
-generated_files = [ 
+generated_files = [
                   'vnc_api/gen/__init__.py',
                   'vnc_api/gen/resource_xsd.py',
                   'vnc_api/gen/resource_common.py',
@@ -52,6 +52,7 @@ setup_sources = [
            'tests',
            'requirements.txt',
            'test-requirements.txt',
+	          '../base/version.info'
           ]
 
 setup_sources_rules = []

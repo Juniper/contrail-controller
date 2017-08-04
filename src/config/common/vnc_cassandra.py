@@ -24,6 +24,7 @@ from operator import itemgetter
 import itertools
 import sys
 from collections import Mapping
+import re
 
 
 def merge_dict(orig_dict, new_dict):
@@ -287,7 +288,7 @@ class VncCassandraClient(object):
     def get_one_col(self, cf_name, key, column):
         col = self.multiget(cf_name, [key], columns=[column])
         if key not in col:
-            raise NoIdError(key)
+            raise NoIdError(key, column)
         elif len(col[key]) > 1:
             raise VncError('Multi match %s for %s' % (column, key))
         return col[key][column]
@@ -484,8 +485,9 @@ class VncCassandraClient(object):
                     self._logger(msg, level=SandeshLevel.SYS_ERR)
 
                 self._conn_state = ConnectionStatus.DOWN
-                raise DatabaseUnavailableError(
-                    'Error, %s: %s' % (str(e), utils.detailed_traceback()))
+                location = re.search('(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{2,4}', e[0]).group(1)
+                reason = re.search('([A-Za-z]*Error|[A-Za-z]*Exception)', e[0]).group(1)
+                raise DatabaseUnavailableError('cassandra', reason, location)
 
             finally:
                 if ((self.log_response_time) and (oper)):
@@ -826,7 +828,7 @@ class VncCassandraClient(object):
 
         if not obj_dicts:
             if len(obj_uuids) == 1:
-                raise NoIdError(obj_uuids[0])
+                raise NoIdError(obj_uuids[0], obj_type)
             else:
                 return (True, [])
 
@@ -1373,7 +1375,7 @@ class VncCassandraClient(object):
                              start=fq_name_str + ':',
                              finish=fq_name_str + ';')
         if not col_infos:
-            raise NoIdError('%s %s' % (obj_type, fq_name_str))
+            raise NoIdError(fq_name_str, obj_type)
         if len(col_infos) > 1:
             raise VncError('Multi match %s for %s' % (fq_name_str, obj_type))
         return col_infos.popitem()[0].split(':')[-1]
