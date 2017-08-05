@@ -57,15 +57,37 @@ static int GetOriginVnIndex(const BgpTable *table, const BgpRoute *route) {
 }
 
 template <typename T>
-ServiceChain<T>::ServiceChain(ServiceChainMgrT *manager, RoutingInstance *src,
-    RoutingInstance *dest, RoutingInstance *connected,
-    const vector<string> &subnets, AddressT addr)
+class ServiceChainMgr<T>::DeleteActor : public LifetimeActor {
+public:
+    explicit DeleteActor(ServiceChainMgr<T> *manager)
+        : LifetimeActor(manager->server_->lifetime_manager()),
+          manager_(manager) {
+    }
+    virtual bool MayDelete() const {
+        return manager_->MayDelete();
+    }
+    virtual void Shutdown() {
+    }
+    virtual void Destroy() {
+        manager_->Terminate();
+    }
+
+private:
+    ServiceChainMgr<T> *manager_;
+};
+
+template <typename T>
+ServiceChain<T>::ServiceChain(ServiceChainMgrT *manager,
+    ServiceChainGroup *group, RoutingInstance *src, RoutingInstance *dest,
+    RoutingInstance *connected, const vector<string> &subnets, AddressT addr)
     : manager_(manager),
+      group_(group),
       src_(src),
       dest_(dest),
       connected_(connected),
       connected_route_(NULL),
       service_chain_addr_(addr),
+      group_oper_state_up_(group ? false : true),
       connected_table_unregistered_(false),
       dest_table_unregistered_(false),
       aggregate_(false),
@@ -104,11 +126,19 @@ BgpTable *ServiceChain<T>::dest_table() const {
 template <typename T>
 bool ServiceChain<T>::CompareServiceChainConfig(
     const ServiceChainConfig &config) {
+    if (deleted())
+        return false;
     if (dest_->name() != config.routing_instance)
         return false;
     if (connected_->name() != config.source_routing_instance)
         return false;
     if (service_chain_addr_.to_string() != config.service_chain_address)
+        return false;
+    if (!group_ && !config.service_chain_group.empty())
+        return false;
+    if (group_ && config.service_chain_group.empty())
+        return false;
+    if (group_ && group_->name() != config.service_chain_group)
         return false;
 
     if (prefix_to_routelist_map_.size() != config.prefix.size())
@@ -331,9 +361,8 @@ void ServiceChain<T>::RemoveMatchState(BgpRoute *route,
     }
 }
 
-// RemoveServiceChainRoute
 template <typename T>
-void ServiceChain<T>::RemoveServiceChainRoute(PrefixT prefix, bool aggregate) {
+void ServiceChain<T>::DeleteServiceChainRoute(PrefixT prefix, bool aggregate) {
     CHECK_CONCURRENCY("bgp::ServiceChain");
 
     BgpTable *bgptable = src_table();
@@ -364,9 +393,8 @@ void ServiceChain<T>::RemoveServiceChainRoute(PrefixT prefix, bool aggregate) {
     }
 }
 
-// AddServiceChainRoute
 template <typename T>
-void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
+void ServiceChain<T>::UpdateServiceChainRoute(PrefixT prefix,
     const RouteT *orig_route, const ConnectedPathIdList &old_path_ids,
     bool aggregate) {
     CHECK_CONCURRENCY("bgp::ServiceChain");
@@ -628,7 +656,15 @@ bool ServiceChain<T>::DeleteMoreSpecific(PrefixT aggregate,
 
 template <typename T>
 void ServiceChain<T>::FillServiceChainInfo(ShowServicechainInfo *info) const {
-    info->set_state(deleted() ? "deleted" : "active");
+    if (deleted()) {
+        info->set_state("deleted");
+    } else if (!IsConnectedRouteValid()) {
+        info->set_state("down");
+    } else if (!group_oper_state_up()) {
+        info->set_state("group down");
+    } else {
+        info->set_state("active");
+    }
 
     ConnectedRouteInfo connected_rt_info;
     connected_rt_info.set_service_chain_addr(
@@ -691,6 +727,62 @@ void ServiceChain<T>::FillServiceChainInfo(ShowServicechainInfo *info) const {
     info->set_aggregate_enable(aggregate_enable());
 }
 
+ServiceChainGroup::ServiceChainGroup(IServiceChainMgr *manager,
+    const string &name)
+    : manager_(manager),
+      name_(name),
+      oper_state_up_(false) {
+}
+
+ServiceChainGroup::~ServiceChainGroup() {
+    assert(chain_set_.empty());
+}
+
+//
+// Add a RoutingInstance to this ServiceChainGroup.
+// The caller must ensure that multiple bgp::ConfigHelper tasks do not
+// invoke this method in parallel.
+//
+void ServiceChainGroup::AddRoutingInstance(RoutingInstance *rtinstance) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+    chain_set_.insert(rtinstance);
+}
+
+//
+// Delete a RoutingInstance from this ServiceChainGroup.
+// The caller must ensure that multiple bgp::ConfigHelper tasks do not
+// invoke this method in parallel.
+//
+void ServiceChainGroup::DeleteRoutingInstance(RoutingInstance *rtinstance) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+    chain_set_.erase(rtinstance);
+}
+
+//
+// Update the operational state of this ServiceChainGroup.
+// It's considered to be up if all ServiceChains in the ServiceChainGroup
+// are up.
+// Trigger an update on the operational state of each ServiceChain if the
+// operational state of the ServiceChainGroup changed.
+//
+void ServiceChainGroup::UpdateOperState() {
+    bool old_oper_state_up = oper_state_up_;
+    oper_state_up_ = true;
+    BOOST_FOREACH(RoutingInstance *rtinstance, chain_set_) {
+        if (manager_->ServiceChainIsUp(rtinstance))
+            continue;
+        oper_state_up_ = false;
+        break;
+    }
+
+    if (old_oper_state_up == oper_state_up_)
+        return;
+
+    BOOST_FOREACH(RoutingInstance *rtinstance, chain_set_) {
+        manager_->UpdateServiceChain(rtinstance, oper_state_up_);
+    }
+}
+
 template <typename T>
 bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
     CHECK_CONCURRENCY("bgp::ServiceChain");
@@ -718,20 +810,23 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
             if (state->deleted()) {
                 state->reset_deleted();
             }
-            if (info->AddMoreSpecific(aggregate_match, route) &&
-                info->IsConnectedRouteValid()) {
-                // Add the aggregate route
-                typename ServiceChainT::ConnectedPathIdList path_ids;
-                info->AddServiceChainRoute(
-                    aggregate_match, NULL, path_ids, true);
-            }
+            if (!info->AddMoreSpecific(aggregate_match, route))
+                break;
+            if (!info->IsConnectedRouteValid())
+                break;
+            if (!info->group_oper_state_up())
+                break;
+
+            typename ServiceChainT::ConnectedPathIdList path_ids;
+            info->UpdateServiceChainRoute(
+                aggregate_match, NULL, path_ids, true);
             break;
         }
         case ServiceChainRequestT::MORE_SPECIFIC_DELETE: {
             assert(state);
             if (info->DeleteMoreSpecific(aggregate_match, route)) {
                 // Delete the aggregate route
-                info->RemoveServiceChainRoute(aggregate_match, true);
+                info->DeleteServiceChainRoute(aggregate_match, true);
             }
             info->RemoveMatchState(route, state);
             break;
@@ -742,6 +837,7 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
                 !route->BestPath()->IsFeasible())  {
                 break;
             }
+            UpdateServiceChainGroup(info->group());
 
             if (state->deleted()) {
                 state->reset_deleted();
@@ -752,43 +848,16 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
                 info->GetConnectedPathIds();
             info->SetConnectedRoute(route);
 
-            typename ServiceChainT::PrefixToRouteListMap *vnprefix_list =
-                info->prefix_to_route_list_map();
-            for (typename ServiceChainT::PrefixToRouteListMap::iterator it =
-                 vnprefix_list->begin(); it != vnprefix_list->end(); ++it) {
-                // Add aggregate route.. Or if the route exists
-                // sync the path and purge old paths
-                if (!it->second.empty())
-                    info->AddServiceChainRoute(it->first, NULL, path_ids, true);
-            }
+            if (!info->group_oper_state_up())
+                break;
 
-            for (typename ServiceChainT::ExtConnectRouteList::iterator it =
-                 info->ext_connecting_routes()->begin();
-                 it != info->ext_connecting_routes()->end(); ++it) {
-                // Add ServiceChain route for external connecting route
-                RouteT *ext_route = static_cast<RouteT *>(*it);
-                info->AddServiceChainRoute(
-                    ext_route->GetPrefix(), ext_route, path_ids, false);
-            }
+            UpdateServiceChainRoutes(info, path_ids);
             break;
         }
         case ServiceChainRequestT::CONNECTED_ROUTE_DELETE: {
             assert(state);
-            // Delete ServiceChain route for aggregate.
-            typename ServiceChainT::PrefixToRouteListMap *vnprefix_list =
-                info->prefix_to_route_list_map();
-            for (typename ServiceChainT::PrefixToRouteListMap::iterator it =
-                vnprefix_list->begin(); it != vnprefix_list->end(); ++it) {
-                info->RemoveServiceChainRoute(it->first, true);
-            }
-
-            // Delete ServiceChain routes for external connecting routes.
-            for (typename ServiceChainT::ExtConnectRouteList::iterator it =
-                 info->ext_connecting_routes()->begin();
-                 it != info->ext_connecting_routes()->end(); ++it) {
-                RouteT *ext_route = static_cast<RouteT *>(*it);
-                info->RemoveServiceChainRoute(ext_route->GetPrefix(), false);
-            }
+            UpdateServiceChainGroup(info->group());
+            DeleteServiceChainRoutes(info);
             info->RemoveMatchState(route, state);
             info->SetConnectedRoute(NULL);
             break;
@@ -799,19 +868,21 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
                 state->reset_deleted();
             }
             info->ext_connecting_routes()->insert(route);
-            if (info->IsConnectedRouteValid()) {
-                RouteT *ext_route = dynamic_cast<RouteT *>(route);
-                typename ServiceChainT::ConnectedPathIdList path_ids;
-                info->AddServiceChainRoute(
-                    ext_route->GetPrefix(), ext_route, path_ids, false);
-            }
+            if (!info->IsConnectedRouteValid())
+                break;
+            if (!info->group_oper_state_up())
+                break;
+            RouteT *ext_route = dynamic_cast<RouteT *>(route);
+            typename ServiceChainT::ConnectedPathIdList path_ids;
+            info->UpdateServiceChainRoute(
+                ext_route->GetPrefix(), ext_route, path_ids, false);
             break;
         }
         case ServiceChainRequestT::EXT_CONNECT_ROUTE_DELETE: {
             assert(state);
             if (info->ext_connecting_routes()->erase(route)) {
                 RouteT *inet_route = dynamic_cast<RouteT *>(route);
-                info->RemoveServiceChainRoute(inet_route->GetPrefix(), false);
+                info->DeleteServiceChainRoute(inet_route->GetPrefix(), false);
             }
             info->RemoveMatchState(route, state);
             break;
@@ -823,28 +894,16 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
                 break;
             if (!info->connected_route())
                 break;
+            if (!info->group_oper_state_up())
+                break;
 
             typename ServiceChainT::ConnectedPathIdList path_ids =
                 info->GetConnectedPathIds();
-            typename ServiceChainT::PrefixToRouteListMap *vnprefix_list =
-                info->prefix_to_route_list_map();
-            for (typename ServiceChainT::PrefixToRouteListMap::iterator it =
-                 vnprefix_list->begin(); it != vnprefix_list->end(); ++it) {
-                // Add aggregate route.. Or if the route exists
-                // sync the path and purge old paths
-                if (!it->second.empty())
-                    info->AddServiceChainRoute(
-                        it->first, NULL, path_ids, true);
-            }
-
-            for (typename ServiceChainT::ExtConnectRouteList::iterator it =
-                 info->ext_connecting_routes()->begin();
-                 it != info->ext_connecting_routes()->end(); ++it) {
-                // Add ServiceChain route for external connecting route
-                RouteT *ext_route = static_cast<RouteT *>(*it);
-                info->AddServiceChainRoute(
-                    ext_route->GetPrefix(), ext_route, path_ids, false);
-            }
+            UpdateServiceChainRoutes(info, path_ids);
+            break;
+        }
+        case ServiceChainRequestT::DELETE_ALL_ROUTES: {
+            DeleteServiceChainRoutes(info);
             break;
         }
         case ServiceChainRequestT::STOP_CHAIN_DONE: {
@@ -864,6 +923,7 @@ bool ServiceChainMgr<T>::RequestHandler(ServiceChainRequestT *req) {
                 chain_set_.erase(info->src_routing_instance());
                 StartResolve();
             }
+            RetryDelete();
             break;
         }
         default: {
@@ -904,7 +964,12 @@ ServiceChainMgr<T>::ServiceChainMgr(BgpServer *server)
       resolve_trigger_(new TaskTrigger(
           bind(&ServiceChainMgr::ResolvePendingServiceChain, this),
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
-      aggregate_host_route_(false) {
+      group_trigger_(new TaskTrigger(
+          bind(&ServiceChainMgr::ProcessServiceChainGroups, this),
+          TaskScheduler::GetInstance()->GetTaskId("bgp::ServiceChain"), 0)),
+      aggregate_host_route_(false),
+      deleter_(new DeleteActor(this)),
+      server_delete_ref_(this, server->deleter()) {
     if (service_chain_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         service_chain_task_id_ = scheduler->GetTaskId("bgp::ServiceChain");
@@ -924,10 +989,101 @@ ServiceChainMgr<T>::ServiceChainMgr(BgpServer *server)
 
 template <typename T>
 ServiceChainMgr<T>::~ServiceChainMgr() {
+    assert(group_set_.empty());
+    assert(group_map_.empty());
+}
+
+template <typename T>
+void ServiceChainMgr<T>::Terminate() {
     process_queue_->Shutdown();
-    server_->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
+    RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
+    ri_mgr->UnregisterInstanceOpCallback(id_);
     BgpMembershipManager *membership_mgr = server_->membership_mgr();
     membership_mgr->UnregisterPeerRegistrationCallback(registration_id_);
+    server_delete_ref_.Reset(NULL);
+}
+
+template <typename T>
+void ServiceChainMgr<T>::ManagedDelete() {
+    deleter_->Delete();
+}
+
+template <typename T>
+bool ServiceChainMgr<T>::MayDelete() const {
+    if (!chain_set_.empty() || !pending_chains_.empty())
+        return false;
+    if (!group_set_.empty() || !group_map_.empty())
+        return false;
+    return true;
+}
+
+template <typename T>
+void ServiceChainMgr<T>::RetryDelete() {
+    if (!deleter_->IsDeleted())
+        return;
+    deleter_->RetryDelete();
+}
+
+template <typename T>
+ServiceChainGroup *ServiceChainMgr<T>::FindServiceChainGroup(
+    RoutingInstance *rtinstance) {
+    if (ServiceChainIsPending(rtinstance)) {
+        PendingChainState state = GetPendingServiceChain(rtinstance);
+        return state.group;
+    } else {
+        const ServiceChain<T> *chain = FindServiceChain(rtinstance);
+        return (chain ? chain->group() : NULL);
+    }
+}
+
+template <typename T>
+ServiceChainGroup *ServiceChainMgr<T>::FindServiceChainGroup(
+    const string &group_name) {
+    GroupMap::iterator loc = group_map_.find(group_name);
+    return (loc != group_map_.end() ? loc->second : NULL);
+}
+
+template <typename T>
+ServiceChainGroup *ServiceChainMgr<T>::LocateServiceChainGroup(
+    const string &group_name) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
+
+    GroupMap::iterator loc = group_map_.find(group_name);
+    ServiceChainGroup *group = (loc != group_map_.end()) ? loc->second : NULL;
+    if (!group) {
+        string temp_group_name(group_name);
+        group = new ServiceChainGroup(this, temp_group_name);
+        group_map_.insert(temp_group_name, group);
+    }
+    return group;
+}
+
+template <typename T>
+void ServiceChainMgr<T>::UpdateServiceChainGroup(ServiceChainGroup *group) {
+    CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper", "bgp::ServiceChain");
+
+    if (!group)
+        return;
+    group_set_.insert(group);
+    group_trigger_->Set();
+}
+
+template <typename T>
+bool ServiceChainMgr<T>::ProcessServiceChainGroups() {
+    CHECK_CONCURRENCY("bgp::ServiceChain");
+
+    BOOST_FOREACH(ServiceChainGroup *group, group_set_) {
+        if (group->empty()) {
+            string temp_group_name(group->name());
+            group_map_.erase(temp_group_name);
+        } else {
+            group->UpdateOperState();
+        }
+    }
+
+    group_set_.clear();
+    RetryDelete();
+    return true;
 }
 
 template <>
@@ -946,23 +1102,33 @@ void ServiceChainMgr<T>::Enqueue(ServiceChainRequestT *req) {
 }
 
 template <typename T>
-bool ServiceChainMgr<T>::IsPending(RoutingInstance *rtinstance,
+bool ServiceChainMgr<T>::ServiceChainIsPending(RoutingInstance *rtinstance,
     string *reason) const {
-    PendingServiceChainList::const_iterator loc =
+    typename PendingChainList::const_iterator loc =
         pending_chains_.find(rtinstance);
     if (loc != pending_chains_.end()) {
         if (reason)
-            *reason = loc->second;
+            *reason = loc->second.reason;
         return true;
     }
     return false;
 }
 
 template <typename T>
+bool ServiceChainMgr<T>::ServiceChainIsUp(RoutingInstance *rtinstance) const {
+    if (ServiceChainIsPending(rtinstance))
+        return false;
+    const ServiceChain<T> *service_chain = FindServiceChain(rtinstance);
+    if (!service_chain)
+        return false;
+    return service_chain->IsConnectedRouteValid();
+}
+
+template <typename T>
 bool ServiceChainMgr<T>::FillServiceChainInfo(RoutingInstance *rtinstance,
         ShowServicechainInfo *info) const {
     string pending_reason;
-    if (IsPending(rtinstance, &pending_reason)) {
+    if (ServiceChainIsPending(rtinstance, &pending_reason)) {
         info->set_state("pending");
         info->set_pending_reason(pending_reason);
         return true;
@@ -973,6 +1139,8 @@ bool ServiceChainMgr<T>::FillServiceChainInfo(RoutingInstance *rtinstance,
     service_chain->FillServiceChainInfo(info);
     return true;
 }
+
+
 
 template <typename T>
 bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
@@ -990,49 +1158,82 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
             return true;
         }
 
-        // Update of match condition.
-        // Add the routing instance to pending list so that service chain is
-        // created after stop done callback.
-        string reason = "Waiting for deletion of previous incarnation";
-        AddPendingServiceChain(rtinstance, reason);
-
-        if (it->second->deleted()) {
-            // Wait for the delete complete cb
-            return false;
+        ServiceChainGroup *group = chain->group();
+        if (group) {
+            group->DeleteRoutingInstance(rtinstance);
+            UpdateServiceChainGroup(group);
+            chain->clear_group();
         }
 
-        BgpConditionListener::RequestDoneCb callback =
+        // Update of ServiceChainConfig.
+        // Add the routing instance to pending list so that service chain is
+        // created after stop done callback for the current incarnation gets
+        // invoked.
+        if (config.service_chain_group.empty()) {
+            group = NULL;
+        } else {
+            group = LocateServiceChainGroup(config.service_chain_group);
+            group->AddRoutingInstance(rtinstance);
+            UpdateServiceChainGroup(group);
+        }
+        string reason = "Waiting for deletion of previous incarnation";
+        AddPendingServiceChain(rtinstance, group, reason);
+
+        // Wait for the delete complete callback.
+        if (chain->deleted())
+            return false;
+
+        BgpConditionListener::RequestDoneCb cb =
             bind(&ServiceChainMgr::StopServiceChainDone, this, _1, _2);
-
-        listener_->RemoveMatchCondition(
-                         chain->dest_table(), it->second.get(), callback);
-
-        listener_->RemoveMatchCondition(
-                         chain->connected_table(), it->second.get(), callback);
+        listener_->RemoveMatchCondition(chain->dest_table(), chain, cb);
+        listener_->RemoveMatchCondition(chain->connected_table(), chain, cb);
         return true;
     }
 
     RoutingInstanceMgr *mgr = server_->routing_instance_mgr();
     RoutingInstance *dest = mgr->GetRoutingInstance(config.routing_instance);
 
+    // Dissociate from the old ServiceChainGroup.
+    ServiceChainGroup *group = FindServiceChainGroup(rtinstance);
+    if (group) {
+        group->DeleteRoutingInstance(rtinstance);
+        UpdateServiceChainGroup(group);
+    }
+
+    // Delete from the pending list. The instance would already have been
+    // removed from the pending list if this method is called when trying
+    // to resolve items in the pending list.  However, if this method is
+    // called when processing a change in the service chain config, then
+    // we may need to remove it from the pending list.
+    DeletePendingServiceChain(rtinstance);
+
+    // Locate the new ServiceChainGroup.
+    if (config.service_chain_group.empty()) {
+        group = NULL;
+    } else {
+        group = LocateServiceChainGroup(config.service_chain_group);
+        group->AddRoutingInstance(rtinstance);
+        UpdateServiceChainGroup(group);
+    }
+
     // Destination routing instance does not exist.
     if (!dest) {
         string reason = "Destination routing instance does not exist";
-        AddPendingServiceChain(rtinstance, reason);
+        AddPendingServiceChain(rtinstance, group, reason);
         return false;
     }
 
     // Destination routing instance is being deleted.
     if (dest->deleted()) {
         string reason = "Destination routing instance is being deleted";
-        AddPendingServiceChain(rtinstance, reason);
+        AddPendingServiceChain(rtinstance, group, reason);
         return false;
     }
 
     // Destination virtual network index is unknown.
     if (!dest->virtual_network_index()) {
         string reason = "Destination virtual network index is unknown";
-        AddPendingServiceChain(rtinstance, reason);
+        AddPendingServiceChain(rtinstance, group, reason);
         return false;
     }
 
@@ -1047,14 +1248,14 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     // Connected routing instance does not exist.
     if (!connected_ri) {
         string reason = "Connected routing instance does not exist";
-        AddPendingServiceChain(rtinstance, reason);
+        AddPendingServiceChain(rtinstance, group, reason);
         return false;
     }
 
     // Connected routing instance is being deleted.
     if (connected_ri->deleted()) {
         string reason = "Connected routing instance is being deleted";
-        AddPendingServiceChain(rtinstance, reason);
+        AddPendingServiceChain(rtinstance, group, reason);
         return false;
     }
 
@@ -1064,7 +1265,7 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
         AddressT::from_string(config.service_chain_address, ec);
     if (ec != 0) {
         string reason = "Service chain address is invalid";
-        AddPendingServiceChain(rtinstance, reason);
+        AddPendingServiceChain(rtinstance, group, reason);
         return false;
     }
 
@@ -1074,9 +1275,9 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     BgpTable *dest_table = dest->GetTable(GetFamily());
     assert(dest_table);
 
-    // Allocate the new service chain and verify whether one already exists
-    ServiceChainPtr chain = ServiceChainPtr(new ServiceChainT(
-        this, rtinstance, dest, connected_ri, config.prefix, chain_addr));
+    // Allocate the new service chain.
+    ServiceChainPtr chain = ServiceChainPtr(new ServiceChainT(this, group,
+        rtinstance, dest, connected_ri, config.prefix, chain_addr));
 
     if (aggregate_host_route()) {
         ServiceChainT *obj = static_cast<ServiceChainT *>(chain.get());
@@ -1090,12 +1291,6 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     listener_->AddMatchCondition(
         dest_table, chain.get(), BgpConditionListener::RequestDoneCb());
 
-    // Delete from the pending list. The instance would already have been
-    // removed from the pending list if this method is called when trying
-    // to resolve items in the pending list.  However, if this method is
-    // called when processing a change in the service chain config, then
-    // we may need to remove it from the pending list.
-    DeletePendingServiceChain(rtinstance);
     return true;
 }
 
@@ -1126,17 +1321,23 @@ ServiceChain<T> *ServiceChainMgr<T>::FindServiceChain(
 template <typename T>
 bool ServiceChainMgr<T>::ResolvePendingServiceChain() {
     CHECK_CONCURRENCY("bgp::Config");
-    for (PendingServiceChainList::iterator it = pending_chains_.begin(), next;
+    for (typename PendingChainList::iterator it = pending_chains_.begin(), next;
          it != pending_chains_.end(); it = next) {
         next = it;
         ++next;
         RoutingInstance *rtinstance = it->first;
+        ServiceChainGroup *group = it->second.group;
+        if (group) {
+            group->DeleteRoutingInstance(rtinstance);
+            UpdateServiceChainGroup(group);
+        }
         pending_chains_.erase(it);
         const ServiceChainConfig *sc_config =
             rtinstance->config()->service_chain_info(GetFamily());
         if (sc_config)
             LocateServiceChain(rtinstance, *sc_config);
     }
+    RetryDelete();
     return true;
 }
 
@@ -1148,9 +1349,9 @@ void ServiceChainMgr<T>::RoutingInstanceCallback(string name, int op) {
 
 template <typename T>
 void ServiceChainMgr<T>::StartResolve() {
-    if (pending_chains_.empty() == false) {
-        resolve_trigger_->Set();
-    }
+    if (pending_chains_.empty())
+        return;
+    resolve_trigger_->Set();
 }
 
 template <typename T>
@@ -1170,20 +1371,98 @@ void ServiceChainMgr<T>::StopServiceChain(RoutingInstance *rtinstance) {
 
     // Remove the routing instance from pending chains list.
     tbb::mutex::scoped_lock lock(mutex_);
-    pending_chains_.erase(rtinstance);
+    if (ServiceChainIsPending(rtinstance)) {
+        ServiceChainGroup *group = FindServiceChainGroup(rtinstance);
+        if (group) {
+            group->DeleteRoutingInstance(rtinstance);
+            UpdateServiceChainGroup(group);
+        }
+        DeletePendingServiceChain(rtinstance);
+        RetryDelete();
+    }
 
-    ServiceChainMap::iterator it = chain_set_.find(rtinstance);
-    if (it == chain_set_.end())
-        return;
-    if (it->second->deleted())
+    ServiceChainT *chain = FindServiceChain(rtinstance);
+    if (!chain)
         return;
 
-    BgpConditionListener::RequestDoneCb callback =
+    ServiceChainGroup *group = chain->group();
+    if (group) {
+        group->DeleteRoutingInstance(rtinstance);
+        UpdateServiceChainGroup(group);
+        chain->clear_group();
+    }
+
+    if (chain->deleted())
+        return;
+
+    BgpConditionListener::RequestDoneCb cb =
         bind(&ServiceChainMgr::StopServiceChainDone, this, _1, _2);
+    listener_->RemoveMatchCondition(chain->dest_table(), chain, cb);
+    listener_->RemoveMatchCondition(chain->connected_table(), chain, cb);
+}
 
-    ServiceChainT *obj = static_cast<ServiceChainT *>(it->second.get());
-    listener_->RemoveMatchCondition(obj->dest_table(), obj, callback);
-    listener_->RemoveMatchCondition(obj->connected_table(), obj, callback);
+template <typename T>
+void ServiceChainMgr<T>::UpdateServiceChain(RoutingInstance *rtinstance,
+    bool group_oper_state_up) {
+    // Bail if there's no service chain for the instance.
+    ServiceChainT *chain = FindServiceChain(rtinstance);
+    if (!chain)
+        return;
+
+    // Update the state in the service chain.
+    chain->set_group_oper_state_up(group_oper_state_up);
+
+    // Post event to ServiceChain task to update/delete all routes.
+    typename ServiceChainRequestT::RequestType req_type;
+    if (group_oper_state_up) {
+        req_type = ServiceChainRequestT::UPDATE_ALL_ROUTES;
+    } else {
+        req_type = ServiceChainRequestT::DELETE_ALL_ROUTES;
+    }
+    ServiceChainRequestT *req = new ServiceChainRequestT(
+        req_type, NULL, NULL, PrefixT(), ServiceChainPtr(chain));
+    Enqueue(req);
+}
+
+template <typename T>
+void ServiceChainMgr<T>::UpdateServiceChainRoutes(ServiceChainT *chain,
+    const typename ServiceChainT::ConnectedPathIdList &old_path_ids) {
+    // Update ServiceChain routes for aggregates.
+    typename ServiceChainT::PrefixToRouteListMap *vn_prefix_list =
+        chain->prefix_to_route_list_map();
+    for (typename ServiceChainT::PrefixToRouteListMap::iterator it =
+        vn_prefix_list->begin(); it != vn_prefix_list->end(); ++it) {
+        if (!it->second.empty())
+            chain->UpdateServiceChainRoute(it->first, NULL, old_path_ids, true);
+    }
+
+    // Update ServiceChain routes for external connecting routes.
+    for (typename ServiceChainT::ExtConnectRouteList::iterator it =
+        chain->ext_connecting_routes()->begin();
+        it != chain->ext_connecting_routes()->end(); ++it) {
+        RouteT *ext_route = static_cast<RouteT *>(*it);
+        chain->UpdateServiceChainRoute(
+            ext_route->GetPrefix(), ext_route, old_path_ids, false);
+    }
+}
+
+template <typename T>
+void ServiceChainMgr<T>::DeleteServiceChainRoutes(ServiceChainT *chain) {
+    // Delete ServiceChain routes for aggregates.
+    typename ServiceChainT::PrefixToRouteListMap *vn_prefix_list =
+        chain->prefix_to_route_list_map();
+    for (typename ServiceChainT::PrefixToRouteListMap::iterator it =
+        vn_prefix_list->begin(); it != vn_prefix_list->end(); ++it) {
+        chain->DeleteServiceChainRoute(it->first, true);
+    }
+
+    // Delete ServiceChain routes for external connecting routes.
+    for (typename ServiceChainT::ExtConnectRouteList::iterator it =
+        chain->ext_connecting_routes()->begin();
+        it != chain->ext_connecting_routes()->end(); ++it) {
+        RouteT *ext_route = static_cast<RouteT *>(*it);
+        chain->DeleteServiceChainRoute(ext_route->GetPrefix(), false);
+    }
 }
 
 template <typename T>
@@ -1215,6 +1494,16 @@ void ServiceChainMgr<T>::DisableResolveTrigger() {
 template <typename T>
 void ServiceChainMgr<T>::EnableResolveTrigger() {
     resolve_trigger_->set_enable();
+}
+
+template <typename T>
+void ServiceChainMgr<T>::DisableGroupTrigger() {
+    group_trigger_->set_disable();
+}
+
+template <typename T>
+void ServiceChainMgr<T>::EnableGroupTrigger() {
+    group_trigger_->set_enable();
 }
 
 template <typename T>

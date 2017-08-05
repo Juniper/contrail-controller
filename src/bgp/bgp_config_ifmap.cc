@@ -976,7 +976,8 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
             inet_chain.prefix,
             inet_chain.service_chain_address,
             inet_chain.service_instance,
-            inet_chain.source_routing_instance
+            inet_chain.source_routing_instance,
+            inet_chain.service_chain_group
         };
         list.push_back(item);
     }
@@ -991,7 +992,8 @@ static void SetServiceChainConfig(BgpInstanceConfig *rti,
             inet6_chain.prefix,
             inet6_chain.service_chain_address,
             inet6_chain.service_instance,
-            inet6_chain.source_routing_instance
+            inet6_chain.source_routing_instance,
+            inet6_chain.service_chain_group
         };
         list.push_back(item);
     }

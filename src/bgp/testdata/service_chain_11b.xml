@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service-chain-info>
+    <routing-instance>blue</routing-instance>
+    <source-routing-instance>red</source-routing-instance>
+    <prefix>192.168.3.0/24</prefix>
+    <prefix>192.168.4.0/24</prefix>
+    <service-chain-address>2.1.2.3.xxx</service-chain-address>
+    <service-chain-group>group1</service-chain-group>
+</service-chain-info>

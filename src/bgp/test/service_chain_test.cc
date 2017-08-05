@@ -28,6 +28,7 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/service_chaining.h"
 #include "bgp/routing-instance/service_chaining_types.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
@@ -268,6 +269,14 @@ protected:
 
     void EnableResolveTrigger() {
         service_chain_mgr_->EnableResolveTrigger();
+    }
+
+    void DisableGroupTrigger() {
+        service_chain_mgr_->DisableGroupTrigger();
+    }
+
+    void EnableGroupTrigger() {
+        service_chain_mgr_->EnableGroupTrigger();
     }
 
     bool IsServiceChainQEmpty() {
@@ -616,6 +625,19 @@ protected:
         task_util::WaitForIdle();
     }
 
+    void AddConnectedRoute(string connected_table, const string &prefix,
+                   int localpref, const string &nexthop) {
+        assert((connected_table == "blue") || (connected_table == "red"));
+        if (connected_table == "blue" && service_is_transparent_)
+            connected_table = "blue-i1";
+        if (connected_table == "red" && service_is_transparent_)
+            connected_table = "red-i2";
+        AddRoute(NULL, connected_table, prefix, localpref,
+            vector<uint32_t>(), vector<uint32_t>(), set<string>(),
+            SiteOfOrigin(), nexthop,
+            0, 0, LoadBalance(), RouteDistinguisher(), vector<int>());
+    }
+
     void DeleteConnectedRoute(IPeer *peer, const string &prefix,
                           const RouteDistinguisher &rd = RouteDistinguisher()) {
         string connected_table = service_is_transparent_ ? "blue-i1" : "blue";
@@ -644,6 +666,15 @@ protected:
             DeleteRoute(peer, connected_table, prefix);
         }
         task_util::WaitForIdle();
+    }
+
+    void DeleteConnectedRoute(string connected_table, const string &prefix) {
+        assert((connected_table == "blue") || (connected_table == "red"));
+        if (connected_table == "blue" && service_is_transparent_)
+            connected_table = "blue-i1";
+        if (connected_table == "red" && service_is_transparent_)
+            connected_table = "red-i2";
+        DeleteRoute(NULL, connected_table, prefix);
     }
 
     int RouteCount(const string &instance_name) {
@@ -1219,6 +1250,11 @@ protected:
         VerifyServiceChainSandesh(self, pending, true, "pending");
     }
 
+    void VerifyDownServiceChainSandesh(ServiceChainTest *self,
+             vector<string> down) {
+        VerifyServiceChainSandesh(self, down, true, "down");
+    }
+
     void VerifyServiceChainCount(uint32_t count) {
         ConcurrencyScope scope("bgp::Config");
         TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_service_chains());
@@ -1227,6 +1263,52 @@ protected:
     void VerifyDownServiceChainCount(uint32_t count) {
         ConcurrencyScope scope("bgp::Config");
         TASK_UTIL_EXPECT_EQ(count, bgp_server_->num_down_service_chains());
+    }
+
+    bool CheckServiceChainGroup(const string &instance,
+        const string &group_name) {
+        task_util::TaskSchedulerLock lock;
+        RoutingInstance *rtinstance = ri_mgr_->GetRoutingInstance(instance);
+        if (!rtinstance)
+            return false;
+        ServiceChainGroup *group =
+            service_chain_mgr_->FindServiceChainGroup(rtinstance);
+        return (group && group->name() == group_name);
+    }
+
+    void VerifyServiceChainGroup(const string &instance,
+        const string &group_name) {
+        TASK_UTIL_EXPECT_TRUE(CheckServiceChainGroup(instance, group_name));
+    }
+
+    bool CheckNoServiceChainGroup(const string &instance) {
+        task_util::TaskSchedulerLock lock;
+        RoutingInstance *rtinstance = ri_mgr_->GetRoutingInstance(instance);
+        if (!rtinstance)
+            return false;
+        ServiceChainGroup *group =
+            service_chain_mgr_->FindServiceChainGroup(rtinstance);
+        return (group == NULL);
+    }
+
+    void VerifyNoServiceChainGroup(const string &instance) {
+        TASK_UTIL_EXPECT_TRUE(CheckNoServiceChainGroup(instance));
+    }
+
+    bool CheckGroup(const string &group_name, bool oper_state_up = false) {
+        task_util::TaskSchedulerLock lock;
+        ServiceChainGroup *group =
+            service_chain_mgr_->FindServiceChainGroup(group_name);
+        return (group != NULL && group->oper_state_up() == oper_state_up);
+    }
+
+    void VerifyGroupExists(const string &group_name,
+        bool oper_state_up = false) {
+        TASK_UTIL_EXPECT_TRUE(CheckGroup(group_name, oper_state_up));
+    }
+
+    void VerifyGroupNoExists(const string &group_name) {
+        TASK_UTIL_EXPECT_FALSE(CheckGroup(group_name));
     }
 
     Address::Family GetFamily() const {
@@ -1349,6 +1431,7 @@ TYPED_TEST(ServiceChainTest, Basic) {
 
     // Check for aggregated route
     this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyDownServiceChainSandesh(this, list_of("blue-i1"));
 
     // Add Connected
     this->AddConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32), 100,
@@ -1367,6 +1450,7 @@ TYPED_TEST(ServiceChainTest, Basic) {
 
     // Delete connected route
     this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
+    this->VerifyDownServiceChainSandesh(this, list_of("blue-i1"));
 
     this->VerifyServiceChainCount(1);
     this->VerifyDownServiceChainCount(1);
@@ -4428,6 +4512,580 @@ TYPED_TEST(ServiceChainTest, ExtConnectRouteSourceRDSame) {
                          RouteDistinguisher::FromString("192.168.1.1:2"));
     this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32),
                          RouteDistinguisher::FromString("192.168.1.1:2"));
+}
+
+//
+// Verify that service chain manager deletion does not complete if the
+// chain set is non-empty.
+//
+TYPED_TEST(ServiceChainTest, Shutdown1) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+    this->VerifyServiceChainCount(1);
+
+    this->DisableServiceChainQ();
+    this->ClearServiceChainInformation("blue-i1");
+    this->service_chain_mgr_->ManagedDelete();
+    task_util::WaitForIdle();
+    this->VerifyServiceChainCount(1);
+    this->EnableServiceChainQ();
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify that service chain manager deletion does not complete if the
+// pending chain map is non-empty.
+//
+TYPED_TEST(ServiceChainTest, Shutdown2) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+
+    this->service_chain_mgr_->ManagedDelete();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->ClearServiceChainInformation("blue-i1");
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+}
+
+//
+// Verify that service chain manager deletion does not complete if the
+// group set or map is non-empty.
+//
+TYPED_TEST(ServiceChainTest, Shutdown3) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->DisableGroupTrigger();
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+    this->service_chain_mgr_->ManagedDelete();
+    task_util::WaitForIdle();
+    this->VerifyGroupExists("group1");
+    this->EnableGroupTrigger();
+    this->VerifyGroupNoExists("group1");
+}
+
+//
+// Verify creation of chain with non-empty group name.
+//
+TYPED_TEST(ServiceChainTest, GroupBasic1) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+}
+
+//
+// Verify creation and explicit deletion of chain with non-empty group name.
+//
+TYPED_TEST(ServiceChainTest, GroupBasic2) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify update of group name for a chain after it's been created.
+//
+TYPED_TEST(ServiceChainTest, GroupBasic3) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10b.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group2");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify update of group name for a chain after it's been created without a
+// group name.
+//
+TYPED_TEST(ServiceChainTest, GroupBasic4) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyNoServiceChainGroup("blue-i1");
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10b.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group2");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify removal of group name for a chain after it's been created with a
+// non-empty group name.
+//
+TYPED_TEST(ServiceChainTest, GroupBasic5) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyNoServiceChainGroup("blue-i1");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify that a pending chain has the correct group after it gets resolved.
+//
+TYPED_TEST(ServiceChainTest, GroupPendingChain1) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    // Add "red" routing instance and create connection with "red-i2"
+    instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    connections = map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+}
+
+//
+// Verify that a pending chain has the correct group after it gets resolved
+// if the group changed while it was pending.
+//
+TYPED_TEST(ServiceChainTest, GroupPendingChain2) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10b.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group2");
+
+    // Add "red" routing instance and create connection with "red-i2"
+    instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    connections = map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(0, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group2");
+}
+
+//
+// Verify that a pending chain has the correct group and that cleanup happens
+// properly when it's explicitly deleted while it's pending.
+//
+TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain1) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify that a pending chain has the correct group if it's updated while it's
+// still pending and that cleanup happens properly when it's explicitly deleted
+// while it's pending.
+//
+TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain2) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10b.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group2");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify that a pending chain has the correct group if it's updated while it's
+// still pending and that cleanup happens properly when it's explicitly deleted
+// while it's pending.
+// Resolution is disabled while all these events happen.
+//
+TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain3) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->DisableResolveTrigger();
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10b.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group2");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+
+    this->EnableResolveTrigger();
+}
+
+//
+// Verify that a pending chain has the correct group if it's updated from empty
+// to non-empty while it's still pending.
+//
+TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain4) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyNoServiceChainGroup("blue-i1");
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10b.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group2");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify that a pending chain has the correct group if it's updated from non
+// empty to empty while it's still pending.
+//
+TYPED_TEST(ServiceChainTest, GroupUnresolvedPendingChain5) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyServiceChainGroup("blue-i1", "group1");
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+    this->VerifyServiceChainCount(1);
+    TASK_UTIL_EXPECT_EQ(1, this->ServiceChainPendingQSize());
+    this->VerifyNoServiceChainGroup("blue-i1");
+
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyServiceChainCount(0);
+}
+
+//
+// Verify group oper state is updated correctly when there are multiple service
+// chains in a group and the connected routes for the individual service chains
+// are added/deleted.
+//
+TYPED_TEST(ServiceChainTest, GroupOperState1) {
+    if (connected_rt_is_vpn)
+        return;
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->SetServiceChainInformation("red-i2",
+        "controller/src/bgp/testdata/service_chain_11a.xml");
+    this->VerifyGroupExists("group1", false);
+
+    this->AddConnectedRoute("blue", this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.1.1"));
+    this->VerifyGroupExists("group1", false);
+    this->AddConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyGroupExists("group1", true);
+
+    this->DeleteConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32));
+    this->VerifyGroupExists("group1", false);
+    this->DeleteConnectedRoute("blue", this->BuildPrefix("1.1.2.3", 32));
+    this->VerifyGroupExists("group1", false);
+}
+
+//
+// Verify group oper state is updated correctly when there are multiple service
+// chains in a group and one of the chains is in pending state.
+// Note that service_chain_11b.xml has an invalid service chain address.
+//
+TYPED_TEST(ServiceChainTest, GroupOperState2) {
+    if (connected_rt_is_vpn)
+        return;
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->SetServiceChainInformation("red-i2",
+        "controller/src/bgp/testdata/service_chain_11b.xml");
+
+    this->AddConnectedRoute("blue", this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.1.1"));
+    this->VerifyGroupExists("group1", false);
+    this->AddConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyGroupExists("group1", false);
+
+    this->SetServiceChainInformation("red-i2",
+        "controller/src/bgp/testdata/service_chain_11a.xml");
+    this->VerifyGroupExists("group1", true);
+
+    this->SetServiceChainInformation("red-i2",
+        "controller/src/bgp/testdata/service_chain_11b.xml");
+    this->VerifyGroupExists("group1", false);
+
+    this->DeleteConnectedRoute("blue", this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32));
+}
+
+//
+// Verify aggregate routes for all service chains are deleted/added when
+// the group oper state goes down/up.
+//
+TYPED_TEST(ServiceChainTest, GroupOperState3) {
+    if (connected_rt_is_vpn)
+        return;
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->SetServiceChainInformation("red-i2",
+        "controller/src/bgp/testdata/service_chain_11a.xml");
+    this->VerifyGroupExists("group1", false);
+
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32), 100);
+    this->AddRoute(NULL, "red", this->BuildPrefix("192.168.2.1", 32), 100);
+    this->AddRoute(NULL, "blue", this->BuildPrefix("192.168.3.1", 32), 100);
+    this->AddRoute(NULL, "blue", this->BuildPrefix("192.168.4.1", 32), 100);
+
+    this->AddConnectedRoute("blue", this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.1.1"));
+    this->AddConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyGroupExists("group1", true);
+
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.2.0", 24));
+    this->VerifyRouteExists("red", this->BuildPrefix("192.168.3.0", 24));
+    this->VerifyRouteExists("red", this->BuildPrefix("192.168.4.0", 24));
+
+    this->DeleteConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32));
+    this->VerifyGroupExists("group1", false);
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("192.168.2.0", 24));
+    this->VerifyRouteNoExists("red", this->BuildPrefix("192.168.3.0", 24));
+    this->VerifyRouteNoExists("red", this->BuildPrefix("192.168.4.0", 24));
+
+    this->AddConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyGroupExists("group1", true);
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.1.0", 24));
+    this->VerifyRouteExists("blue", this->BuildPrefix("192.168.2.0", 24));
+    this->VerifyRouteExists("red", this->BuildPrefix("192.168.3.0", 24));
+    this->VerifyRouteExists("red", this->BuildPrefix("192.168.4.0", 24));
+
+    this->DeleteConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32));
+    this->DeleteConnectedRoute("blue", this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.2.1", 32));
+    this->DeleteRoute(NULL, "blue", this->BuildPrefix("192.168.3.1", 32));
+    this->DeleteRoute(NULL, "blue", this->BuildPrefix("192.168.4.1", 32));
+}
+
+//
+// Verify ext connected routes for all service chains are deleted/added when
+// the group oper state goes down/up.
+//
+TYPED_TEST(ServiceChainTest, GroupOperState4) {
+    if (connected_rt_is_vpn)
+        return;
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_10a.xml");
+    this->SetServiceChainInformation("red-i2",
+        "controller/src/bgp/testdata/service_chain_11a.xml");
+    this->VerifyGroupExists("group1", false);
+
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24), 100);
+    this->AddRoute(NULL, "red", this->BuildPrefix("10.1.2.0", 24), 100);
+    this->AddRoute(NULL, "blue", this->BuildPrefix("10.1.3.0", 24), 100);
+    this->AddRoute(NULL, "blue", this->BuildPrefix("10.1.4.0", 24), 100);
+
+    this->AddConnectedRoute("blue", this->BuildPrefix("1.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.1.1"));
+    this->AddConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyGroupExists("group1", true);
+
+    this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
+    this->VerifyRouteExists("blue", this->BuildPrefix("10.1.2.0", 24));
+    this->VerifyRouteExists("red", this->BuildPrefix("10.1.3.0", 24));
+    this->VerifyRouteExists("red", this->BuildPrefix("10.1.4.0", 24));
+
+    this->DeleteConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32));
+    this->VerifyGroupExists("group1", false);
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.1.0", 24));
+    this->VerifyRouteNoExists("blue", this->BuildPrefix("10.1.2.0", 24));
+    this->VerifyRouteNoExists("red", this->BuildPrefix("10.1.3.0", 24));
+    this->VerifyRouteNoExists("red", this->BuildPrefix("10.1.4.0", 24));
+
+    this->AddConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32), 100,
+                            this->BuildNextHopAddress("172.16.2.1"));
+    this->VerifyGroupExists("group1", true);
+    this->VerifyRouteExists("blue", this->BuildPrefix("10.1.1.0", 24));
+    this->VerifyRouteExists("blue", this->BuildPrefix("10.1.2.0", 24));
+    this->VerifyRouteExists("red", this->BuildPrefix("10.1.3.0", 24));
+    this->VerifyRouteExists("red", this->BuildPrefix("10.1.4.0", 24));
+
+    this->DeleteConnectedRoute("red", this->BuildPrefix("2.1.2.3", 32));
+    this->DeleteConnectedRoute("blue", this->BuildPrefix("1.1.2.3", 32));
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.1.0", 24));
+    this->DeleteRoute(NULL, "red", this->BuildPrefix("10.1.2.0", 24));
+    this->DeleteRoute(NULL, "blue", this->BuildPrefix("10.1.3.0", 24));
+    this->DeleteRoute(NULL, "blue", this->BuildPrefix("10.1.4.0", 24));
 }
 
 class TestEnvironment : public ::testing::Environment {
