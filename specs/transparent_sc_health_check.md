@@ -78,13 +78,11 @@ the above information since previous send, then it won't be sent.
 ## 4.1 Work items
 
 ### 4.1.1 Control Node changes
-When contrail-vrouter-agent detects failure of service-instance and removes
-service-vlan routes from the interface attached to service-health-check,
-control-node removes service-vlan routes of other interface of service-instance.
-For example if service-health-check is attached to left interface of
-service-instance and contrail-vrouter-agent detects failure of that instance,
-contrail-vrouter-agent will remove service-vlan routes of left-interface. Using
-this as trigger control-node will remove service-vlan routes of right interface.
+When contrail-vrouter-agent detects failure of service-instance, it removes
+service-vlan routes from both left and right interfaces of service instance.
+Control-node uses this information to stop re-originating (and to remove already
+re-originated routes) to other service-instances of that service chain. This is
+required to prevent traffic black-holing
 
 The other change in control-node is to white-list port-tuple configuration so
 that agent can receive it to detect the other end of service-instance.
@@ -97,32 +95,33 @@ service-health-check object is attached to left or right interface of
 service-instance. It is responsible for verifying whether the packet it sent
 reaches back to it or not. Agent is also responsible for replying to
 health-check request packets with replies in the reverse direction.
-Agent will build health-check packet (ICMP packet) with source IP as service-ip
-of the interface's (to which service-health-check object is attached) VN and
-destination IP as service-ip of the VN of other interface of service-instance.
-To figure out the destination IP agent has to figure out the other end (the
-interface to which service-health-check object is NOT attached). For this,
-vrouter-agent will start parsing port-tuple configuration.
+Agent will build health-check packet (ICMP packet with some data in ICMP
+payload) with source IP as service-ip of the interface's (to which
+service-health-check object is attached) VN and destination IP as service-ip of
+the VN of other interface of service-instance. To figure out the destination IP
+agent has to figure out the other end (the interface to which
+service-health-check object is NOT attached). For this, vrouter-agent will start
+parsing port-tuple configuration.
 
 For example lets assume that health-check packet is attached to left interface
 of service-instance. Agent injects ping packet (ICMP echo request packet with
 source IP as service-IP of left interface's VN and destination IP as service-IP
 of right interface's VN) to the left interface. Agent expect the ping packet to
 reach it back via right interface. When agent receives echo request packet, it
-will reply with echo reply packet on right interface.
-The request and replies are co-related using identifier/sequence field of ICMP
-header. Vrouter-agent sends 'max-retries' number of health-check packets with an
-interval of 'delay' and waits for 'timeout' period for each reply to arrive. If
-no replies arrive for any of 'max-retries' number of requests, then
-vrouter-agent declares the service-instance as dead and retracts service-vlan
-routes added for left-interface. This in turn will trigger the control-node to
-remove service-vlan routes added to the right interface.
+will reply with echo reply packet on right interface. The request and replies
+are co-related using payload of ICMP packet. Vrouter-agent sends 'max-retries'
+number of health-check packets with an interval of 'delay' and waits for
+'timeout' period for each reply to arrive. If no replies arrive for any of
+'max-retries' number of requests, then vrouter-agent declares the
+service-instance as dead and retracts service-vlan routes added for both left
+and right interfaces. This in turn will trigger the control-node to retract
+re-originated routes from other service-instances in that service chain.
 
-Since packets are sent using native IPs of left and right interfaces and route
-retraction is done only for service vlans, when a dead service-instance comes
-back, vrouter-agent will be able to detect the aliveness of service-instance
-and add routes of service-vlan back. This will trigger control-node to add
-service-vlan routes for other end of service-instance.
+Even when agent has retracted routes from both left and right interfaces, it
+keeps sending health-check packets periodically. When agent receives
+health-check replies successfully, it adds the retracted routes back on both
+interfaces which triggers control-node to start re-originating routes to other
+service-instances on that service chain.
 
 ### 4.1.3 Vrouter changes
 Assuming packets were injected by vrouter-agent on left interface and packets

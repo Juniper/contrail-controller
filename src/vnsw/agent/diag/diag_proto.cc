@@ -36,9 +36,9 @@ bool DiagProto::SegmentHealthCheckProcess(
         case HealthCheckTable::CREATE_SERVICE:
         case HealthCheckTable::UPDATE_SERVICE:
             {
-                /* When we get create request for already created service,
-                 * remove the existing object and add the new object. This is
-                 * required to handle change in properties of service.
+                /* When we get create/update request for already created service,
+                 * we update the existing object to reflect change in properties
+                 * of service.
                  */
                 if (it != session_map_.end()) {
                     SegmentHealthCheckPkt *old_ptr = it->second;
