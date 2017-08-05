@@ -1858,6 +1858,33 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=project.uuid)
     #end
 
+    def test_ip_allocation_ipam(self):
+        project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+
+        ipam_subnet = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+        ipam_subnets = IpamSubnets([ipam_subnet])
+        ipam_obj = NetworkIpam('flat-ipam', project,
+                ipam_subnet_method="flat-subnet", ipam_subnets=ipam_subnets)
+        self._vnc_lib.network_ipam_create(ipam_obj)
+
+        iip_obj = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        iip_obj.uuid = iip_obj.name
+        iip_obj.add_network_ipam(ipam_obj)
+        logger.debug('Created Instance IP object 1 %s', iip_obj.uuid)
+        iip_id = self._vnc_lib.instance_ip_create(iip_obj)
+        iip_obj = self._vnc_lib.instance_ip_read(id=iip_id)
+        ip_addr = iip_obj.get_instance_ip_address()
+        logger.debug('  got v4 IP Address for first instance %s', ip_addr)
+        expected_ipaddr = '11.1.1.252'
+        if ip_addr != expected_ipaddr:
+            raise Exception('expected %s but got %s' %(expected_ipaddr, ip_addr))
+
+        #cleanup
+        self._vnc_lib.instance_ip_delete(id=iip_id)
+        self._vnc_lib.network_ipam_delete(id=ipam_obj.uuid)
+    #end
+
     def test_ip_alloction(self):
         # Create Project
         project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())

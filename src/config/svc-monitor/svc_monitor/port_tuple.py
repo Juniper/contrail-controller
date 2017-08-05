@@ -28,6 +28,7 @@ class PortTupleAgent(Agent):
     def __init__(self, svc_mon, vnc_lib, object_db, config_section, logger):
         super(PortTupleAgent, self).__init__(svc_mon, vnc_lib,
             object_db, config_section)
+        self.sc_ipam_obj = None
         self.logger = logger
 
         # Register log functions to be used for port tuple logs.
@@ -37,9 +38,22 @@ class PortTupleAgent(Agent):
                         MessageID.DEBUG : sandesh.PortTupleDebugLog,
                     }
         self.logger.add_messages(**log_funcs)
+        self._get_service_chain_ipam()
 
     def handle_service_type(self):
         return 'port-tuple'
+
+    def _get_service_chain_ipam(self):
+        try:
+            sc_ipam_subnet = IpamSubnetType(subnet=SubnetType('1.1.1.0', 8))
+            sc_ipam_subnets = IpamSubnets([sc_ipam_subnet])
+            sc_ipam_obj = NetworkIpam('service-chain-flat-ipam',
+                    ipam_subnet_method="flat-subnet", ipam_subnets=sc_ipam_subnets)
+            self._vnc_lib.network_ipam_create(sc_ipam_obj)
+        except RefsExistError:
+            fq_name = ['default-domain', 'default-project', 'service-chain-flat-ipam']
+            sc_ipam_obj = self._vnc_lib.network_ipam_read(fq_name=fq_name)
+        self.sc_ipam_obj = sc_ipam_obj
 
     def _allocate_iip_for_family(self, iip_family, si, port, vmi):
         create_iip = True
@@ -56,13 +70,19 @@ class PortTupleAgent(Agent):
 
         if create_iip:
             iip_obj = InstanceIp(name=iip_name, instance_ip_family=iip_family)
-            vn_obj = self._vnc_lib.virtual_network_read(id=vmi.virtual_network)
-            iip_obj.add_virtual_network(vn_obj)
             iip_obj.set_service_instance_ip(True)
             iip_obj.set_instance_ip_secondary(True)
             iip_obj.set_instance_ip_mode('active-active')
+            vn_obj = self._vnc_lib.virtual_network_read(id=vmi.virtual_network)
+            if iip_family == 'v4':
+                iip_obj.add_network_ipam(self.sc_ipam_obj)
+            else:
+                iip_obj.add_virtual_network(vn_obj)
             try:
                 self._vnc_lib.instance_ip_create(iip_obj)
+                if iip_family == 'v4':
+                    iip_obj.add_virtual_network(vn_obj)
+                    self._vnc_lib.instance_ip_update(iip_obj)
                 self._vnc_lib.ref_relax_for_delete(iip_obj.uuid, vn_obj.uuid)
             except RefsExistError:
                 self._vnc_lib.instance_ip_update(iip_obj)

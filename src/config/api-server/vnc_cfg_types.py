@@ -486,23 +486,28 @@ class InstanceIpServer(Resource, InstanceIp):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
+        if 'virtual_network_refs' in obj_dict:
+            vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
+            if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
-            # Ignore ip-fabric and link-local address allocations
-            return True,  ""
+                # Ignore ip-fabric and link-local address allocations
+                return True,  ""
 
-        req_ip = obj_dict.get("instance_ip_address")
-        vn_id = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-        ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_id,
+            vn_id = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+            ok, result = cls.dbe_read(db_conn, 'virtual_network', vn_id,
                          obj_fields=['router_external', 'network_ipam_refs',
                                      'address_allocation_mode'])
-        if not ok:
-            return ok, result
+            if not ok:
+                return ok, result
 
-        vn_dict = result
+            vn_dict = result
+            ipam_refs = None
+        else:
+            vn_fq_name = vn_id = vn_dict = None
+            ipam_refs = obj_dict['network_ipam_refs']
+
         subnet_uuid = obj_dict.get('subnet_uuid')
-
+        req_ip = obj_dict.get("instance_ip_address")
         req_ip_family = obj_dict.get("instance_ip_family")
         if req_ip_family == "v4":
             req_ip_version = 4
@@ -510,6 +515,11 @@ class InstanceIpServer(Resource, InstanceIp):
             req_ip_version = 6
         else:
             req_ip_version = None
+
+        # allocation for requested ip from a network_ipam is not supported
+        if ipam_refs and req_ip:
+            msg = "allocation for requested ip from a network_ipam is not supported"
+            return (False, (400, msg))
 
         # if request has ip and not g/w ip, report if already in use.
         # for g/w ip, creation allowed but only can ref to router port.
@@ -527,14 +537,15 @@ class InstanceIpServer(Resource, InstanceIp):
                 vn_fq_name, vn_dict=vn_dict, sub=subnet_uuid,
                 asked_ip_addr=req_ip,
                 asked_ip_version=req_ip_version,
-                alloc_id=obj_dict['uuid'])
+                alloc_id=obj_dict['uuid'],
+                ipam_refs=ipam_refs)
 
             def undo():
                 db_conn.config_log('AddrMgmt: free IP %s, vn=%s tenant=%s on post fail'
                                    % (ip_addr, vn_fq_name, tenant_name),
                                    level=SandeshLevel.SYS_DEBUG)
                 cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name,
-                                          alloc_id=obj_dict['uuid'])
+                        alloc_id=obj_dict['uuid'], ipam_refs=ipam_refs)
                 return True, ""
             # end undo
             get_context().push_undo(undo)
@@ -593,17 +604,32 @@ class InstanceIpServer(Resource, InstanceIp):
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
+        def _get_instance_ip(obj_dict):
+            ip_addr = obj_dict.get('instance_ip_address')
+            if not ip_addr:
+                db_conn.config_log('instance_ip_address missing for object %s'
+                            % (obj_dict['uuid']),
+                            level=SandeshLevel.SYS_NOTICE)
+                return False, ""
+            return True, ip_addr
+
+        if 'network_ipam_refs' in obj_dict:
+            ipam_refs = obj_dict['network_ipam_refs']
+            ok, ip_addr = _get_instance_ip(obj_dict)
+            if not ok:
+                return True, ""
+            cls.addr_mgmt.ip_free_req(ip_addr, None,
+                    ipam_refs=ipam_refs)
+            return True, ""
+
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric and link-local address allocations
             return True,  ""
 
-        ip_addr = obj_dict.get('instance_ip_address')
-        if not ip_addr:
-            db_conn.config_log('instance_ip_address missing for object %s'
-                           % (obj_dict['uuid']),
-                           level=SandeshLevel.SYS_NOTICE)
+        ok, ip_addr = _get_instance_ip(obj_dict)
+        if not ok:
             return True, ""
 
         db_conn.config_log('AddrMgmt: free IP %s, vn=%s'
@@ -621,8 +647,13 @@ class InstanceIpServer(Resource, InstanceIp):
         if not ok:
             return
         ip_addr = obj_dict['instance_ip_address']
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name)
+        vn_fq_name = None
+        ipam_refs = None
+        if 'virtual_network_refs' in obj_dict:
+            vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
+        else:
+            ipam_refs = obj_dict['network_ipam_refs']
+        cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name, ipam_refs)
     # end dbe_create_notification
 
     @classmethod
@@ -631,9 +662,13 @@ class InstanceIpServer(Resource, InstanceIp):
             ip_addr = obj_dict['instance_ip_address']
         except KeyError:
             return
-        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name,
-                                     alloc_id=obj_dict['uuid'])
+        vn_fq_name = None
+        ipam_refs = None
+        if 'virtual_network_refs' in obj_dict:
+            vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
+        else:
+            ipam_refs = obj_dict['network_ipam_refs']
+        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name, ipam_refs=ipam_refs)
     # end dbe_delete_notification
 
 # end class InstanceIpServer
