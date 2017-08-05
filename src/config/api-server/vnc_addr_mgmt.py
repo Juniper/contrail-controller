@@ -1349,48 +1349,49 @@ class AddrMgmt(object):
 
     def _ipam_ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None,
                           asked_ip_addr=None, asked_ip_version=4,
-                          alloc_id=None):
+                          alloc_id=None, ipam_refs=None):
         db_conn = self._get_db_conn()
-        ipam_refs = vn_dict['network_ipam_refs']
+        ipam_refs_passed = False
+        if not ipam_refs:
+            ipam_refs = vn_dict['network_ipam_refs']
+        else:
+            ipam_refs_passed = True
         subnets_tried = []
+        sn_uuid = None
         found_subnet_match = False
         for ipam_ref in ipam_refs:
-            ipam_fq_name = ipam_ref['to']
-
-            # ip alloc will go through only if ipam has a flat-subnet
-            # check the link between VN and ipam and it should have only one
-            # to with no ip_prefix and ipam_subnet with subnet_uuid
-            # otherwise it is not a flat subnet
-            vnsn_data = ipam_ref.get('attr') or {}
-            ipam_subnets = vnsn_data.get('ipam_subnets') or []
-            # if there are no ipam_subnets then either it is a user-define-subnet
-            # without any subnet added or flat-subnet ipam without and ipam_subnets
-            if len(ipam_subnets) is 0:
-                continue
-            first_ipam_subnet = ipam_subnets[0]
-            subnet = first_ipam_subnet.get('subnet') or {}
-            if ('ip_prefix' in subnet):
-                #This is a user-define-subnet
-                continue
-            sn_uuid = first_ipam_subnet.get('subnet_uuid')
-
-            #get subnet_uuid from ipam->vn link to return as a subnet_uuid
-           # along with ip_addr
-
-            if sub:
-                #check if subnet_uuid is stored in the vm->ipam link
-                # to represent this ipam for flat-allocation.
-                ipam_subnets = ipam_ref['attr'].get('ipam_subnets') or []
-                for ipam_subnet in ipam_subnets:
-                    ipam_subnet_uuid = ipam_subnet.get('subnet_uuid')
-                    if (ipam_subnet_uuid != None) and\
-                        (ipam_subnet_uuid == sub):
-                        sn_uuid = ipam_subnet_uuid
-                        found_subnet_match = True
-                        break
-                if not found_subnet_match:
+            if not ipam_refs_passed:
+                # ip alloc will go through only if ipam has a flat-subnet
+                # check the link between VN and ipam and it should have only one
+                # to with no ip_prefix and ipam_subnet with subnet_uuid
+                # otherwise it is not a flat subnet
+                vnsn_data = ipam_ref.get('attr') or {}
+                ipam_subnets = vnsn_data.get('ipam_subnets') or []
+                # if there are no ipam_subnets then either it is a user-define-subnet
+                # without any subnet added or flat-subnet ipam without and ipam_subnets
+                if len(ipam_subnets) is 0:
                     continue
+                first_ipam_subnet = ipam_subnets[0]
+                subnet = first_ipam_subnet.get('subnet') or {}
+                if ('ip_prefix' in subnet):
+                    #This is a user-define-subnet
+                    continue
+                sn_uuid = first_ipam_subnet.get('subnet_uuid')
 
+                if sub:
+                    #check if subnet_uuid is stored in the vm->ipam link
+                    # to represent this ipam for flat-allocation.
+                    ipam_subnets = ipam_ref['attr'].get('ipam_subnets') or []
+                    for ipam_subnet in ipam_subnets:
+                        ipam_subnet_uuid = ipam_subnet.get('subnet_uuid')
+                        if (ipam_subnet_uuid != None) and\
+                            (ipam_subnet_uuid == sub):
+                            sn_uuid = ipam_subnet_uuid
+                            found_subnet_match = True
+                            break
+                    if not found_subnet_match:
+                        continue
+            ipam_fq_name = ipam_ref['to']
             ipam_uuid = db_conn.fq_name_to_uuid('network_ipam', ipam_fq_name)
             subnet_objs = self._get_ipam_subnet_objs_from_ipam_uuid(
                                 ipam_fq_name, ipam_uuid, False)
@@ -1422,7 +1423,7 @@ class AddrMgmt(object):
                                 asked_ip_addr))
 
                     return (subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
-                                                  value=alloc_id), sn_uuid)
+                                                 value=alloc_id), sn_uuid)
                 try:
                     ip_addr = subnet_obj.ip_alloc(ipaddr=None,
                                                   value=alloc_id)
@@ -1517,8 +1518,13 @@ class AddrMgmt(object):
     # allocate an IP address for given virtual network
     # we use the first available subnet unless provided
     def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None,
-                     asked_ip_addr=None, asked_ip_version=4, alloc_id=None):
+                          asked_ip_addr=None, asked_ip_version=4,
+                          alloc_id=None, ipam_refs=None):
         db_conn = self._get_db_conn()
+        if ipam_refs:
+            return self._ipam_ip_alloc_req(vn_fq_name, vn_dict,
+                    sub, asked_ip_addr, asked_ip_version,
+                    alloc_id, ipam_refs=ipam_refs)
         if not vn_dict:
             obj_fields=['network_ipam_refs']
             (ok, vn_dict) = self._fq_name_to_obj_dict('virtual_network',
@@ -1577,17 +1583,19 @@ class AddrMgmt(object):
         return None
     # end ip_alloc_req
 
-    def _ipam_ip_alloc_notify(self, ip_addr, vn_uuid):
+    def _ipam_ip_alloc_notify(self, ip_addr, vn_uuid, ipam_refs=None):
         db_conn = self._get_db_conn()
 
-        # Read in the VN
-        obj_fields=['network_ipam_refs']
-        (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
+        if not ipam_refs:
+            # Read in the VN
+            obj_fields=['network_ipam_refs']
+            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                 vn_uuid, obj_fields)
-        if not ok:
-            raise cfgm_common.exceptions.VncError(vn_dict)
+            if not ok:
+                raise cfgm_common.exceptions.VncError(vn_dict)
 
-        ipam_refs = vn_dict['network_ipam_refs']
+            ipam_refs = vn_dict['network_ipam_refs']
+
         for ipam_ref in ipam_refs:
             ipam_fq_name = ipam_ref['to']
             ipam_uuid = ipam_ref['uuid']
@@ -1630,24 +1638,29 @@ class AddrMgmt(object):
         return False
     # end _net_ip_alloc_notify
 
-    def ip_alloc_notify(self, ip_addr, vn_fq_name):
+    def ip_alloc_notify(self, ip_addr, vn_fq_name, ipam_refs=None):
         db_conn = self._get_db_conn()
+        if ipam_refs:
+            self._ipam_ip_alloc_notify(ip_addr, None, ipam_refs)
+            return
         vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
         if (self._ipam_ip_alloc_notify(ip_addr, vn_uuid) == False):
             self._net_ip_alloc_notify(ip_addr, vn_uuid, vn_fq_name)
     # end ip_alloc_notify
 
-    def _ipam_ip_free_req(self, ip_addr, vn_uuid, sub=None):
+    def _ipam_ip_free_req(self, ip_addr, vn_uuid, sub=None, ipam_refs=None):
         db_conn = self._get_db_conn()
 
-        # Read in the VN
-        obj_fields=['network_ipam_refs']
-        (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
+        if not ipam_refs:
+            # Read in the VN
+            obj_fields=['network_ipam_refs']
+            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                vn_uuid, obj_fields)
-        if not ok:
-            raise cfgm_common.exceptions.VncError(vn_dict)
+            if not ok:
+                raise cfgm_common.exceptions.VncError(vn_dict)
 
-        ipam_refs = vn_dict['network_ipam_refs']
+            ipam_refs = vn_dict['network_ipam_refs']
+
         for ipam_ref in ipam_refs:
             ipam_fq_name = ipam_ref['to']
             ipam_uuid = ipam_ref['uuid']
@@ -1682,8 +1695,11 @@ class AddrMgmt(object):
         return False
     # end _net_ip_free_req
 
-    def ip_free_req(self, ip_addr, vn_fq_name, alloc_id=None, sub=None):
+    def ip_free_req(self, ip_addr, vn_fq_name, alloc_id=None, sub=None, ipam_refs=None):
         db_conn = self._get_db_conn()
+        if ipam_refs:
+            self._ipam_ip_free_req(ip_addr, None, sub, ipam_refs)
+            return;
         vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
 
         if (alloc_id and
@@ -1754,16 +1770,17 @@ class AddrMgmt(object):
                 return False
     # end is_ip_allocated
 
-    def _ipam_ip_free_notify(self, ip_addr, vn_uuid):
+    def _ipam_ip_free_notify(self, ip_addr, vn_uuid, ipam_refs=None):
         db_conn = self._get_db_conn()
-        # Read in the VN
-        obj_fields=['network_ipam_refs']
-        (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network', vn_uuid,
+        if not ipam_refs:
+            # Read in the VN
+            obj_fields=['network_ipam_refs']
+            (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network', vn_uuid,
                                                obj_fields)
-        if not ok:
-            raise cfgm_common.exceptions.VncError(vn_dict)
+            if not ok:
+                raise cfgm_common.exceptions.VncError(vn_dict)
+            ipam_refs = vn_dict['network_ipam_refs']
 
-        ipam_refs = vn_dict['network_ipam_refs']
         for ipam_ref in ipam_refs:
             ipam_uuid = ipam_ref['uuid']
 
@@ -1785,10 +1802,12 @@ class AddrMgmt(object):
         return False
     # end _net_ip_free_notify
 
-    def ip_free_notify(self, ip_addr, vn_fq_name, alloc_id=None):
+    def ip_free_notify(self, ip_addr, vn_fq_name, alloc_id=None, ipam_refs=None):
         db_conn = self._get_db_conn()
+        if ipam_refs:
+            self._ipam_ip_free_notify(ip_addr, None, ipam_refs)
+            return
         vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
-
         if alloc_id:
             # In case of inconsistency in the zk db, we should read and check
             # the allocated IP belongs to the interface we are freing. If not
