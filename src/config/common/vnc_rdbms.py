@@ -1171,7 +1171,9 @@ class VncRDBMSClient(object):
                        "id_perms": json.loads(row.id_perms)
                 }
                 for field in field_names_set:
-                    obj[field] = json.loads(getattr(row, field))
+                    _field = getattr(row, field)
+                    if _field:
+                        obj[field] = json.loads(_field)
                 objs.append(obj)
         return (True, objs, None)
     # end object_list

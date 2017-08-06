@@ -3418,7 +3418,7 @@ class BgpvpnServer(Resource, Bgpvpn):
         elif db_vn_dict and 'virtual_network_properties' in db_vn_dict:
             vn_props = db_vn_dict['virtual_network_properties']
         if vn_props is not None:
-            forwarding_mode = vn_props.get('forwarding_mode')
+            forwarding_mode = vn_props.get('forwarding_mode', 'l2_l3')
         # Forwarding mode 'l2_l3' (default mode) can support all vpn types
         if forwarding_mode == 'l2_l3':
             return True, ''
@@ -3444,12 +3444,12 @@ class BgpvpnServer(Resource, Bgpvpn):
 
         vpn_types = set(bgpvpn.get('bgpvpn_type', 'l3') for bgpvpn in bgpvpns)
         if len(vpn_types) > 1:
-            msg = ("Cannot associates different bgpvpn types '%s' on a "
+            msg = ("Cannot associate different bgpvpn types '%s' on a "
                    "virtual network with a forwarding mode different to"
                    "'l2_l3'" % vpn_types)
             return False, (400, msg)
         elif set([forwarding_mode]) != vpn_types:
-            msg = ("Cannot associates bgpvpn type '%s' with a virtual "
+            msg = ("Cannot associate bgpvpn type '%s' with a virtual "
                    "network in forwarding mode '%s'" % (vpn_types.pop(),
                                                         forwarding_mode))
             return False, (400, msg)
