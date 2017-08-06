@@ -20,6 +20,7 @@ from cfgm_common.exceptions import *
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api.vnc_api import *
+import kube_manager.common.args as kube_args
 from config_db import *
 import db
 import label_cache
@@ -75,8 +76,9 @@ class VncKubernetes(VncCommon):
             DBBaseKM.set_nested(True)
 
         # init rabbit connection
-        self.rabbit = VncAmqpHandle(self.logger, DBBaseKM,
-            REACTION_MAP, 'kube_manager', args=self.args)
+        rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
+        self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
+            REACTION_MAP, 'kube_manager', rabbitmq_cfg)
         self.rabbit.establish()
 
         # Cache common config.
