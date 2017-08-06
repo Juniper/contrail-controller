@@ -283,6 +283,27 @@ void ExtCommunity::RemoveSiteOfOrigin() {
     }
 }
 
+void ExtCommunity::RemoveSourceAS() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_source_as(*it)) {
+            it = communities_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+void ExtCommunity::RemoveVrfRouteImport() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_vrf_route_import(*it)) {
+            it = communities_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 void ExtCommunity::RemoveOriginVn() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
