@@ -20,6 +20,8 @@ struct BgpExtendedCommunitySubType {
     enum SubType {
         RouteTarget = 0x02,
         RouteOrigin = 0x03,
+        SourceAS = 0x09,
+        VrfRouteImport = 0x0B,
     };
 };
 
