@@ -33,9 +33,6 @@ public:
     virtual void NotifyStateChange(const SessionKey &key, const bool &up) = 0;
     virtual Server *GetServer() const = 0;
     virtual void SetServer(Server *server) = 0;
-private:
-    uint16_t src_port_;
-    uint16_t dst_port_;
 };
 
 }  // namespace BFD

@@ -22,6 +22,8 @@ class Session;
 class ControlPacket;
 class SessionConfig;
 
+typedef std::set<SessionKey> Sessions;
+
 // This class manages sessions with other BFD peers.
 class Server {
  class Event;
@@ -55,6 +57,7 @@ class Server {
                        ChangeCb cb);
     void DeleteSession(const SessionKey &key);
     void DeleteClientSessions();
+    Sessions *GetSessions() { return &sessions_; }
     WorkQueue<Event *> *event_queue() { return event_queue_.get(); }
 
  private:
@@ -141,7 +144,6 @@ class Server {
     Connection *communicator_;
     SessionManager session_manager_;
     boost::scoped_ptr<WorkQueue<Event *> > event_queue_;
-    typedef std::set<SessionKey> Sessions;
     Sessions sessions_;
 };
 

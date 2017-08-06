@@ -79,6 +79,8 @@ std::string Session::toString() const {
     out << "RequiredMinRxInterval: " << currentConfig_.requiredMinRxInterval
         << "\n";
     out << "RemoteMinRxInterval: " << remoteSession_.minRxInterval << "\n";
+    out << "State:" << local_state() << "\n";
+    out << "Remote State:" << remote_state().state << "\n";
 
     return out.str();
 }
@@ -169,7 +171,7 @@ ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
 }
 
 void Session::SendPacket(const ControlPacket *packet) {
-    LOG(DEBUG, __func__);
+    LOG(DEBUG, __func__ << " session:" << toString() << " state:" << packet->state);
     boost::asio::mutable_buffer buffer =
         boost::asio::mutable_buffer(new u_int8_t[kMinimalPacketLength],
                                     kMinimalPacketLength);
@@ -180,6 +182,7 @@ void Session::SendPacket(const ControlPacket *packet) {
     } else {
         communicator_->SendPacket(local_endpoint_, remote_endpoint_,
                                   key_.index, buffer, pktSize);
+        stats_.tx_count++;
     }
 }
 

@@ -35,6 +35,13 @@ struct BFDRemoteSessionState {
     BFDState state;
 };
 
+struct BFDStats {
+    int rx_count;
+    int tx_count;
+    int rx_err_count;
+    int tx_err_count;
+};
+
 class Session {
  public:
     Session(Discriminator localDiscriminator, const SessionKey &key,
@@ -56,6 +63,7 @@ class Session {
     BFDRemoteSessionState     remote_state() const;
     Discriminator             local_discriminator() const;
     bool                      Up() const;
+    BFDStats &                Stats() { return stats_; }         
 
     TimeInterval detection_time();
     TimeInterval tx_interval();
@@ -96,6 +104,7 @@ class Session {
     boost::asio::ip::udp::endpoint remote_endpoint_;
     bool                     stopped_;
     Callbacks                callbacks_;
+    BFDStats                 stats_;
 };
 
 }  // namespace BFD

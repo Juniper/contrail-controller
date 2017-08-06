@@ -21,6 +21,7 @@ public:
     void DeleteClientSessions();
     bool Up(const SessionKey &key) const;
     Session *GetSession(const SessionKey &key) const;
+    Connection *GetConnection() { return cm_; }
 
 private:
     void Notify(const SessionKey &key, const BFD::BFDState &new_state);
