@@ -43,6 +43,14 @@ site_of_origin_test = env.UnitTest('site_of_origin_test',
                                    ['site_of_origin_test.cc'])
 env.Alias('src/bgp/extended-community:site_of_origin_test', site_of_origin_test)
 
+source_as_test = env.UnitTest('source_as_test',
+                                   ['source_as_test.cc'])
+env.Alias('src/bgp/extended-community:source_as_test', source_as_test)
+
+vrf_route_import_test = env.UnitTest('vrf_route_import_test',
+                                   ['vrf_route_import_test.cc'])
+env.Alias('src/bgp/extended-community:vrf_route_import_test', vrf_route_import_test)
+
 load_balance_test = env.UnitTest('load_balance_test',
                                    ['load_balance_test.cc'])
 env.Alias('src/bgp/extended-community:load_balance_test', load_balance_test)
@@ -63,7 +71,9 @@ test_suite = [
     mac_mobility_test,
     router_mac_test,
     site_of_origin_test,
+    source_as_test,
     tag_test,
+    vrf_route_import_test,
 ]
 
 test = env.TestSuite('bgp-test', test_suite)

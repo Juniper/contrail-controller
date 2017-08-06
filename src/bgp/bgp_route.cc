@@ -15,7 +15,9 @@
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
 #include "bgp/extended-community/site_of_origin.h"
+#include "bgp/extended-community/source_as.h"
 #include "bgp/extended-community/tag.h"
+#include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -415,6 +417,12 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_tag(*it)) {
             Tag tag(*it);
             communities->push_back(tag.ToString());
+        } else if (ExtCommunity::is_source_as(*it)) {
+            SourceAs sas(*it);
+            communities->push_back(sas.ToString());
+        } else if (ExtCommunity::is_vrf_route_import(*it)) {
+            VrfRouteImport rt_import(*it);
+            communities->push_back(rt_import.ToString());
         } else {
             char temp[50];
             int len = snprintf(temp, sizeof(temp), "ext community: ");
