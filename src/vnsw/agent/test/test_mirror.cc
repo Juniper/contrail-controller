@@ -59,7 +59,7 @@ protected:
 
     virtual void TearDown() {
         WAIT_FOR(1002, 1000, agent_->nexthop_table()->Size() == nh_count_);
-        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
+        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 2);
         DeleteBgpPeer(bgp_peer_);
     }
 

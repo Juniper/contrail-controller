@@ -28,6 +28,9 @@
 #include <fcntl.h>
 #include "net/address_util.h"
 #include "oper/global_system_config.h"
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_table.h>
+#include <resource_manager/bgp_as_service_index.h>
 
 using namespace std;
 SandeshTraceBufferPtr BgpAsAServiceTraceBuf(SandeshTraceBufferCreate
@@ -305,7 +308,8 @@ void BgpAsAService::FreeBgpVmiServicePortIndex(const uint32_t sport) {
     }
 
     size_t vmi_service_port_index = portinfo.second;
-
+    agent_->resource_manager()->Release(Resource::BGP_AS_SERVICE_INDEX,
+                                        vmi_service_port_index);
     port_map_it->second->Remove(vmi_service_port_index);
 
     if (port_map_it->second->NoneIndexSet()) {
@@ -321,7 +325,12 @@ size_t BgpAsAService::AllocateBgpVmiServicePortIndex(const uint32_t sport,
     if (port_map_it == bgp_as_a_service_port_map_.end()) {
         bgp_as_a_service_port_map_[sport] = new IndexVector<boost::uuids::uuid>();
     }
-    return bgp_as_a_service_port_map_[sport]->Insert(vm_uuid);
+    ResourceManager::KeyPtr rkey(new BgpAsServiceIndexResourceKey
+                                 (agent_->resource_manager(), vm_uuid));
+    uint32_t index = static_cast<IndexResourceData *>
+        (agent_->resource_manager()->Allocate(rkey).get())->index();
+    bgp_as_a_service_port_map_[sport]->InsertAtIndex(index, vm_uuid);
+    return index;
 }
 
 uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port,

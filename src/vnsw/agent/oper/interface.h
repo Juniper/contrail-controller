@@ -359,7 +359,7 @@ public:
     MirrorEntry *FindMirrorRef(const std::string &name) const;
 
     // Interface index managing routines
-    void FreeInterfaceId(size_t index) { index_table_.Remove(index); }
+    void FreeInterfaceId(size_t index);
     Interface *FindInterface(size_t index);
     Interface *FindInterfaceFromMetadataIp(const Ip4Address &ip);
 
