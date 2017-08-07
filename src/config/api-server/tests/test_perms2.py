@@ -437,7 +437,7 @@ class TestPermissions(test_case.ApiServerTestCase):
             # note that collection API is set for create operation
             user.proj_rg = vnc_aal_create(self.admin.vnc_lib, user.project_obj)
             vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
-                rule_str = 'virtual-networks %s:C' % user.role)
+                rule_str = 'virtual-network %s:C' % user.role)
 
         logger.info( '')
         logger.info( 'alice: trying to create VN in her project')
@@ -451,6 +451,64 @@ class TestPermissions(test_case.ApiServerTestCase):
         self.assertThat(testfail, Equals(False))
 
         logger.info('')
+
+        #Most specific rule applied.
+        vn1 = VirtualNetwork('new-vn', self.alice.project_obj)
+        for user in self.users:
+            logger.info( "%s: project %s to allow full read access to role %s" % \
+                (user.name, user.project, user.role))
+            # note that collection API is set for create operation
+            user.proj_rg = vnc_aal_create(self.admin.vnc_lib, user.project_obj)
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
+                rule_str = '* %s:R' % user.role)
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
+                rule_str = 'virtual-network %s:D' % user.role)
+
+        logger.info( '')
+        logger.info( 'alice: trying to create VN in her project')
+        try:
+            v=self.alice.vnc_lib.virtual_network_create(vn1)
+            logger.info( 'Created virtual network %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test failed!')
+            testfail = True
+        self.assertThat(testfail, Equals(False))
+        vn_fq_name = [self.domain_name, alice.project, 'new-vn']
+        self.alice.vnc_lib.virtual_network_delete(fq_name = vn_fq_name)
+        logger.info('')
+
+        for user in self.users:
+            logger.info( "%s: project %s to allow full read access to role %s" % \
+                (user.name, user.project, user.role))
+            # note that collection API is set for create operation
+            user.proj_rg = vnc_aal_create(self.admin.vnc_lib, user.project_obj)
+            vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
+                rule_str = 'virtual-network.uuid %s:R' % user.role)
+
+        logger.info( '')
+        logger.info( 'alice: trying to create VN in her project')
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn1)
+            logger.info( 'Created virtual network %s ... test falied!' % vn.get_fq_name())
+            testfail = True
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test passed!')
+            testfail = False
+        self.assertThat(testfail, Equals(False))
+
+        logger.info('')
+
+        #Clean up last two rules.
+        for user in self.users:
+            user.proj_rg = vnc_aal_create(self.admin.vnc_lib, user.project_obj)
+            vnc_aal_del_rule(self.admin.vnc_lib, user.proj_rg,
+                 rule_str = 'virtual-network.uuid %s:R' % user.role)
+            vnc_aal_del_rule(self.admin.vnc_lib, user.proj_rg,
+                rule_str = '* %s:R' % user.role)
+            vnc_aal_del_rule(self.admin.vnc_lib, user.proj_rg,
+                rule_str = 'virtual-network %s:D' % user.role)
+
         logger.info( '########### API ACCESS (READ) ##################')
         logger.info( 'alice: trying to read VN in her project (should fail)')
         try:
