@@ -320,7 +320,6 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(const RoutingPolicyTerm &c
     if (!cfg_term.match.community_match.empty()) {
         MatchCommunity *community = new MatchCommunity(
             cfg_term.match.community_match,
-            cfg_term.match.community_singleton,
             cfg_term.match.community_match_all);
         matches.push_back(community);
     }

@@ -29,9 +29,7 @@ using std::unique;
 using std::vector;
 
 MatchCommunity::MatchCommunity(const vector<string> &communities,
-    bool singleton, bool match_all)
-        : singleton_(singleton),
-          match_all_(match_all) {
+    bool match_all) : match_all_(match_all) {
     // Assume that the each community string that doesn't correspond to a
     // community name or value is a regex string.
     BOOST_FOREACH(const string &community, communities) {
@@ -138,12 +136,10 @@ bool MatchCommunity::Match(const BgpRoute *route, const BgpPath *path,
 //
 string MatchCommunity::ToString() const {
     ostringstream oss;
-    if (singleton_) {
-        oss << "community [ ";
-    } else if (match_all_) {
-        oss << "community-all [ ";
+    if (match_all_) {
+        oss << "community (all) [ ";
     } else {
-        oss << "community-any [ ";
+        oss << "community (any) [ ";
     }
     BOOST_FOREACH(uint32_t community, communities()) {
         string name = CommunityType::CommunityToString(community);
@@ -163,8 +159,6 @@ string MatchCommunity::ToString() const {
 bool MatchCommunity::IsEqual(const RoutingPolicyMatch &community) const {
     const MatchCommunity in_community =
         static_cast<const MatchCommunity &>(community);
-    if (singleton() != in_community.singleton())
-        return false;
     if (match_all() != in_community.match_all())
         return false;
     if (communities() != in_community.communities())
