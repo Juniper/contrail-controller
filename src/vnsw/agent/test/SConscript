@@ -78,7 +78,7 @@ test_bgp_service_configuration = AgentEnv.MakeTestCmd(env,
                                                       agent_suite)
 test_agent_db_entry = AgentEnv.MakeTestCmd(env, 'test_agent_db_entry',
                                            agent_suite)
-test_llgr = AgentEnv.MakeTestCmd(env, 'test_llgr', flaky_agent_suite)
+test_llgr = AgentEnv.MakeTestCmd(env, 'test_llgr', agent_suite)
 test_event_notifier = AgentEnv.MakeTestCmd(env, 'test_event_notifier',
                                            agent_suite)
 test_integration = AgentEnv.MakeTestCmd(env, 'test_integration', agent_suite)

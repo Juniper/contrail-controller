@@ -198,7 +198,8 @@ protected:
         client->WaitForIdle();
         DeleteVmportEnv(input, 1, true);
         client->WaitForIdle();
-        DeleteRoute(bgp_peer_, vrf_name_, remote_vm_mac_, remote_vm_ip4_);
+        if (bgp_peer_)
+            DeleteRoute(bgp_peer_, vrf_name_, remote_vm_mac_, remote_vm_ip4_);
         client->WaitForIdle();
 
         WAIT_FOR(1000, 100,
@@ -408,7 +409,24 @@ TEST_F(LlgrTest, ready_on_ready_channel) {
     client->WaitForIdle();
     //Ready
     Ready(bgp_peer_, false);
+    client->WaitForIdle();
     //Cleanup
+    DeleteSingleVmEnvironment();
+    client->WaitForIdle();
+}
+
+TEST_F(LlgrTest, static_vrf_deleted_peer) {
+    SetupSingleVmEnvironment();
+    client->WaitForIdle();
+    //Ready
+    Ready(bgp_peer_, false);
+    agent_->vrf_table()->CreateVrfReq("vrf10");
+    client->WaitForIdle();
+    DeleteBgpPeer(bgp_peer_);
+    client->WaitForIdle();
+    bgp_peer_ = NULL;
+    //Cleanup
+    agent_->vrf_table()->DeleteVrfReq("vrf10");
     DeleteSingleVmEnvironment();
     client->WaitForIdle();
 }
