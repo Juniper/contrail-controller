@@ -53,6 +53,7 @@ utils_scripts = [
   'provision_issu.py',
   'issu_process.sh',
   'qosmap.py',
+  'chownproj.py', 
 ]
 
 for utils in utils_scripts:
