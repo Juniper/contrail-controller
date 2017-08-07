@@ -142,6 +142,10 @@ public:
     const uint64_t GetLlgrStalePathCount() const {
         return llgr_stale_path_count_;
     }
+    void UpdateStalePathCount(int count) { stale_path_count_ += count; }
+    void UpdateLlgrStalePathCount(int count) {
+        llgr_stale_path_count_ += count;
+    }
 
     // Check whether the route is aggregate route
     bool IsAggregateRoute(const BgpRoute *route) const;
