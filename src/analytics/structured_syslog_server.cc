@@ -71,7 +71,7 @@ bool ParseStructuredPart(SyslogParser::syslog_m_t *v, const std::string &structu
         if (std::find(int_fields.begin(), int_fields.end(),
                       key) != int_fields.end()) {
             LOG(DEBUG, "int field - " << key);
-            int ival = atoi(val.c_str());
+            int64_t ival = atol(val.c_str());
             v->insert(std::pair<std::string, SyslogParser::Holder>(key,
                   SyslogParser::Holder(key, ival)));
         } else {
@@ -396,8 +396,8 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
 void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
                                boost::shared_ptr<std::string> msg) {
 
-    int from_client = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
-    int from_server = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
+    int64_t from_client = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
+    int64_t from_server = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
     size_t prev_pos = 0;
     v.insert(std::pair<std::string, SyslogParser::Holder>("total-bytes",
     SyslogParser::Holder("total-bytes", (from_client + from_server))));
