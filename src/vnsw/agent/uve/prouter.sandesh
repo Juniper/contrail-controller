@@ -40,6 +40,10 @@ struct ProuterData {
      * mode only the master TSN agent name will be present in the list
      */
     8: optional list<string>  tsn_agent_list (aggtype="union")
+   /** Gateway mode as specified in configuration file. It indicates whether
+    * prouter is in Server mode, VCPE mode or None
+    */
+    9: optional string gateway_mode;
 }
 
 /**

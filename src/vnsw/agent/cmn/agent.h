@@ -996,7 +996,7 @@ public:
     bool tor_agent_enabled() const {return tor_agent_enabled_;}
     void set_tor_agent_enabled(bool val) {tor_agent_enabled_ = val;}
     bool server_gateway_mode() const {return server_gateway_mode_;}
-    void set_server_gateway_mode(bool val) {server_gateway_mode_ = val;}
+    bool vcpe_gateway_mode() const {return vcpe_gateway_mode_;}
 
     IFMapAgentParser *ifmap_parser() const {return ifmap_parser_;}
     void set_ifmap_parser(IFMapAgentParser *parser) {
@@ -1336,6 +1336,7 @@ private:
     bool tsn_enabled_;
     bool tor_agent_enabled_;
     bool server_gateway_mode_;
+    bool vcpe_gateway_mode_;
 
     // Flow information
     uint32_t flow_table_size_;

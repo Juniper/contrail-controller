@@ -337,6 +337,7 @@ public:
     bool isTsnAgent() const { return agent_mode_ == TSN_AGENT; }
     bool isTorAgent() const { return agent_mode_ == TOR_AGENT; }
     bool isServerGatewayMode() const { return gateway_mode_ == SERVER; }
+    bool isVcpeGatewayMode() const { return gateway_mode_ == VCPE; }
     GatewayMode gateway_mode() const { return gateway_mode_; }
 
     const AddressList &compute_node_address_list() const {
