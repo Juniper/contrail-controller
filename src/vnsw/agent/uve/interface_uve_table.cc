@@ -212,7 +212,7 @@ void InterfaceUveTable::UveInterfaceEntry::HandleTagListChange() {
     assert(intf_);
     /* No action is required if tags are not added yet. Addition of tags is
      * handled via FlowStats module notification */
-    if (!local_tagset_.size() != 0) {
+    if (local_tagset_.size() != 0) {
         TagList new_tag_list;
         intf_->CopyTagIdList(&new_tag_list);
         if (local_tagset_ != new_tag_list) {
@@ -669,22 +669,25 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateInterfaceFwPolicyStats
                                          (info.remote_tagset_,
                                           info.remote_prefix_, ""));
     if (it != security_policy_stats_map_.end()) {
-        InterfaceUveTable::SecurityPolicyStatsSet &remote_ep_list = it->second;
+        EndpointStatsContainer &cont = it->second;
+        InterfaceUveTable::SecurityPolicyStatsSet &remote_ep_list =
+            cont.ToList(info.initiator_);
         SecurityPolicyStatsSet::iterator ep_it = remote_ep_list.find(ep_key);
         if (ep_it != remote_ep_list.end()) {
             UveSecurityPolicyStatsPtr entry = *ep_it;
-            entry->UpdateSessionCount(info.initiator_);
+            ++entry->hits;
             return;
         } else {
-            ep_key->UpdateSessionCount(info.initiator_);
+            ++ep_key->hits;
             remote_ep_list.insert(ep_key);
         }
     } else {
-        ep_key->UpdateSessionCount(info.initiator_);
-        SecurityPolicyStatsSet remote_ep_list;
+        ++ep_key->hits;
+        EndpointStatsContainer cont;
+        SecurityPolicyStatsSet &remote_ep_list = cont.ToList(info.initiator_);
         remote_ep_list.insert(ep_key);
         security_policy_stats_map_.insert(SecurityPolicyStatsPair
-                                          (info.fw_policy_, remote_ep_list));
+                                          (info.fw_policy_, cont));
     }
 }
 
@@ -741,12 +744,14 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
         security_policy_stats_map_.find(info.policy);
     if (it == security_policy_stats_map_.end()) {
         UpdateSecurityPolicyStatsInternal(info, stats.get());
-        SecurityPolicyStatsSet stats_set;
+        EndpointStatsContainer cont;
+        SecurityPolicyStatsSet &stats_set = cont.ToList(info.client);
         stats_set.insert(stats);
         security_policy_stats_map_.insert(SecurityPolicyStatsPair(info.policy,
-                                                                  stats_set));
+                                                                  cont));
     } else {
-        SecurityPolicyStatsSet &stats_set = it->second;
+        EndpointStatsContainer &cont = it->second;
+        SecurityPolicyStatsSet &stats_set = cont.ToList(info.client);
         std::pair<SecurityPolicyStatsSet::iterator,bool> ret =
            stats_set.insert(stats);
         UveSecurityPolicyStatsPtr entry(*ret.first);
@@ -759,14 +764,6 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
     }
 }
 
-void InterfaceUveTable::UveSecurityPolicyStats::UpdateSessionCount
-(bool initiator) {
-    if (initiator) {
-        initiator_session_count++;
-    } else {
-        responder_session_count++;
-    }
-}
 string InterfaceUveTable::UveSecurityPolicyStats::GetTagStr
 (const InterfaceUveTable::UveInterfaceEntry *entry, uint32_t type) const {
     uint32_t tag = entry->GetTagOfType(type, remote_tagset);
@@ -798,9 +795,12 @@ uint32_t InterfaceUveTable::UveInterfaceEntry::GetTagOfType
 }
 
 string InterfaceUveTable::UveInterfaceEntry::GetTagStr(Agent *agent,
+                                                       const TagList &tl,
                                                        uint32_t type)
                                                        const {
-    uint32_t tag = GetTagOfType(type, local_tagset_);
+        TagList new_tag_list;
+        intf_->CopyTagIdList(&new_tag_list);
+    uint32_t tag = GetTagOfType(type, tl);
     TagTable *table = agent->tag_table();
     return table->TagName(tag);
 }
@@ -811,65 +811,67 @@ void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
     std::map<std::string, EndpointStats> eps;
 
     obj->set_name(intf_->cfg_name());
-    obj->set_app(GetTagStr(agent, TagTable::APPLICATION));
-    obj->set_tier(GetTagStr(agent, TagTable::TIER));
-    obj->set_site(GetTagStr(agent, TagTable::SITE));
-    obj->set_deployment(GetTagStr(agent, TagTable::DEPLOYMENT));
+    obj->set_app(GetTagStr(agent, local_tagset_, TagTable::APPLICATION));
+    obj->set_tier(GetTagStr(agent, local_tagset_, TagTable::TIER));
+    obj->set_site(GetTagStr(agent, local_tagset_, TagTable::SITE));
+    obj->set_deployment(GetTagStr(agent, local_tagset_, TagTable::DEPLOYMENT));
     obj->set_vn(local_vn_);
     SecurityPolicyStatsMap::const_iterator it =
         security_policy_stats_map_.begin();
     while (it != security_policy_stats_map_.end()) {
         std::vector<SecurityPolicyFlowStats> traffic_list;
-        const SecurityPolicyStatsSet &list = it->second;
-        SecurityPolicyStatsSet::const_iterator sit = list.begin();
-        while (sit != list.end()) {
-            SecurityPolicyFlowStats item;
-            UveSecurityPolicyStatsPtr entry(*sit);
-            item.set_remote_app_id(entry->GetTagStr(this,
-                                                    TagTable::APPLICATION));
-            item.set_remote_tier_id(entry->GetTagStr(this,
-                                                     TagTable::TIER));
-            item.set_remote_site_id(entry->GetTagStr(this,
-                                                     TagTable::SITE));
-            item.set_remote_deployment_id(entry->GetTagStr(this,
-                                                           TagTable::DEPLOYMENT));
-            item.set_remote_vn(entry->remote_vn);
-            item.set_initiator_session_count
-                (entry->initiator_session_count -
-                 entry->prev_initiator_session_count);
-            item.set_responder_session_count
-                (entry->responder_session_count -
-                 entry->prev_responder_session_count);
-            item.set_in_bytes(entry->in_bytes - entry->prev_in_bytes);
-            item.set_in_pkts(entry->in_pkts - entry->prev_in_pkts);
-            item.set_out_bytes(entry->out_bytes - entry->prev_out_bytes);
-            item.set_out_pkts(entry->out_pkts - entry->prev_out_pkts);
-            traffic_list.push_back(item);
-
-            entry->prev_in_bytes = entry->in_bytes;
-            entry->prev_in_pkts = entry->in_pkts;
-            entry->prev_out_bytes = entry->out_bytes;
-            entry->prev_out_pkts = entry->out_pkts;
-            entry->prev_initiator_session_count = entry->initiator_session_count;
-            entry->prev_responder_session_count = entry->responder_session_count;
-
-            ++sit;
-        }
+        const EndpointStatsContainer &cont = it->second;
         EndpointStats value;
-        value.set_traffic(traffic_list);
+        FillSecurityPolicyList(cont.client_list, &value.client);
+        FillSecurityPolicyList(cont.server_list, &value.server);
         eps.insert(make_pair(it->first, value));
         ++it;
     }
     obj->set_eps(eps);
 }
 
+void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
+    (const SecurityPolicyStatsSet &ilist,
+     std::vector<SecurityPolicyFlowStats> *olist) {
+    SecurityPolicyStatsSet::const_iterator sit = ilist.begin();
+    while (sit != ilist.end()) {
+        SecurityPolicyFlowStats item;
+        UveSecurityPolicyStatsPtr entry(*sit);
+        item.set_remote_app_id(entry->GetTagStr(this,
+                                                TagTable::APPLICATION));
+        item.set_remote_tier_id(entry->GetTagStr(this,
+                                                 TagTable::TIER));
+        item.set_remote_site_id(entry->GetTagStr(this,
+                                                 TagTable::SITE));
+        item.set_remote_deployment_id(entry->GetTagStr(this,
+                                                       TagTable::DEPLOYMENT));
+        item.set_remote_vn(entry->remote_vn);
+        item.set_hits(entry->hits - entry->prev_hits);
+        item.set_in_bytes(entry->in_bytes - entry->prev_in_bytes);
+        item.set_in_pkts(entry->in_pkts - entry->prev_in_pkts);
+        item.set_out_bytes(entry->out_bytes - entry->prev_out_bytes);
+        item.set_out_pkts(entry->out_pkts - entry->prev_out_pkts);
+        olist->push_back(item);
+
+        entry->prev_in_bytes = entry->in_bytes;
+        entry->prev_in_pkts = entry->in_pkts;
+        entry->prev_out_bytes = entry->out_bytes;
+        entry->prev_out_pkts = entry->out_pkts;
+        entry->prev_hits = entry->hits;
+
+        ++sit;
+    }
+}
+
 void InterfaceUveTable::UveInterfaceEntry::FillTagSetAndPolicyList
     (Agent *agent, UveVMInterfaceAgent *obj) {
     tbb::mutex::scoped_lock lock(mutex_);
-    obj->set_app(GetTagStr(agent, TagTable::APPLICATION));
-    obj->set_tier(GetTagStr(agent, TagTable::TIER));
-    obj->set_site(GetTagStr(agent, TagTable::SITE));
-    obj->set_deployment(GetTagStr(agent, TagTable::DEPLOYMENT));
+    TagList new_tag_list;
+    intf_->CopyTagIdList(&new_tag_list);
+    obj->set_app(GetTagStr(agent, new_tag_list, TagTable::APPLICATION));
+    obj->set_tier(GetTagStr(agent, new_tag_list, TagTable::TIER));
+    obj->set_site(GetTagStr(agent, new_tag_list, TagTable::SITE));
+    obj->set_deployment(GetTagStr(agent, new_tag_list, TagTable::DEPLOYMENT));
     vector<string> rule_list;
     SecurityPolicyStatsMap::const_iterator it =
         security_policy_stats_map_.begin();
@@ -878,7 +880,6 @@ void InterfaceUveTable::UveInterfaceEntry::FillTagSetAndPolicyList
         ++it;
     }
     obj->set_policy_rules(rule_list);
-
 }
 
 void InterfaceUveTable::UveInterfaceEntry::BuildSandeshUveTagList
@@ -893,6 +894,35 @@ void InterfaceUveTable::UveInterfaceEntry::BuildSandeshUveTagList
         tag_entry.set_name(table->agent()->tag_table()->TagName(*it));
         rts->push_back(tag_entry);
         ++it;
+    }
+}
+
+void InterfaceUveTable::UveInterfaceEntry::BuildInterfaceUveSecurityPolicyList
+    (const SecurityPolicyStatsSet &ilist,
+     vector<SandeshUveRemoteEndpoint> *olist) const {
+    SecurityPolicyStatsSet::const_iterator sit = ilist.begin();
+    while (sit != ilist.end()) {
+        SandeshUveRemoteEndpoint rep;
+        UveSecurityPolicyStatsPtr entry(*sit);
+        ++sit;
+
+        rep.set_remote_vn(entry->remote_vn);
+        rep.set_remote_prefix(entry->remote_prefix);
+
+        vector<SandeshUveTagInfo> rts;
+        BuildSandeshUveTagList(entry->remote_tagset, &rts);
+        rep.set_remote_tagset(rts);
+        rep.set_hits(entry->hits);
+        rep.set_in_bytes(entry->in_bytes);
+        rep.set_in_pkts(entry->in_pkts);
+        rep.set_out_bytes(entry->out_bytes);
+        rep.set_out_pkts(entry->out_pkts);
+        rep.set_prev_in_bytes(entry->prev_in_bytes);
+        rep.set_prev_in_pkts(entry->prev_in_pkts);
+        rep.set_prev_out_bytes(entry->prev_out_bytes);
+        rep.set_prev_out_pkts(entry->prev_out_pkts);
+
+        olist->push_back(rep);
     }
 }
 
@@ -911,35 +941,11 @@ void InterfaceUveTable::UveInterfaceEntry::BuildInterfaceUveInfo
     while (it != security_policy_stats_map_.end()) {
         SandeshUvePolicyInfo item;
         item.set_name(it->first);
-
-        vector<SandeshUveRemoteEndpoint> rep_list;
-        const SecurityPolicyStatsSet &list = it->second;
-        SecurityPolicyStatsSet::const_iterator sit = list.begin();
-        while (sit != list.end()) {
-            SandeshUveRemoteEndpoint rep;
-            UveSecurityPolicyStatsPtr entry(*sit);
-            ++sit;
-
-            rep.set_remote_vn(entry->remote_vn);
-            rep.set_remote_prefix(entry->remote_prefix);
-
-            vector<SandeshUveTagInfo> rts;
-            BuildSandeshUveTagList(entry->remote_tagset, &rts);
-            rep.set_remote_tagset(rts);
-            rep.set_initiator_session_count(entry->initiator_session_count);
-            rep.set_responder_session_count(entry->responder_session_count);
-            rep.set_in_bytes(entry->in_bytes);
-            rep.set_in_pkts(entry->in_pkts);
-            rep.set_out_bytes(entry->out_bytes);
-            rep.set_out_pkts(entry->out_pkts);
-            rep.set_prev_in_bytes(entry->prev_in_bytes);
-            rep.set_prev_in_pkts(entry->prev_in_pkts);
-            rep.set_prev_out_bytes(entry->prev_out_bytes);
-            rep.set_prev_out_pkts(entry->prev_out_pkts);
-
-            rep_list.push_back(rep);
-        }
-        item.set_ep_list(rep_list);
+        const EndpointStatsContainer &cont = it->second;
+        BuildInterfaceUveSecurityPolicyList(cont.client_list,
+                                            &item.client_list);
+        BuildInterfaceUveSecurityPolicyList(cont.server_list,
+                                            &item.server_list);
         policy_list.push_back(item);
         ++it;
     }

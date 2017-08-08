@@ -36,10 +36,8 @@ struct SandeshUveRemoteEndpoint {
     2: string remote_prefix;
     /** Remote tags list*/
     3: optional list<SandeshUveTagInfo> remote_tagset;
-    /** Number of sessions initiated by local endpoint */
-    4: u64 initiator_session_count;
-    /** Number of sessions responded by local endpoint */
-    5: u64 responder_session_count;
+    /** Number of sessions matching this endpoint */
+    4: u64 hits;
     /** Input bytes */
     6: u64 in_bytes;
     /** Input packets */
@@ -65,8 +63,10 @@ struct SandeshUveRemoteEndpoint {
 struct SandeshUvePolicyInfo {
     /** Firewall policy name and rule UUID */
     1: string name;
-    /** List of endpoints for the firewall policy rule*/
-    2: list<SandeshUveRemoteEndpoint> ep_list;
+    /** List of client endpoints for the firewall policy rule*/
+    2: list<SandeshUveRemoteEndpoint> client_list;
+    /** List of server endpoints for the firewall policy rule*/
+    3: list<SandeshUveRemoteEndpoint> server_list;
 }
 
 /**

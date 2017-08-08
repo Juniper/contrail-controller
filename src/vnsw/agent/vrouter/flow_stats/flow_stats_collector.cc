@@ -322,6 +322,11 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
         ep.local_vn = src_vn;
         ep.remote_vn = dst_vn;
         ep.in_stats = true;
+        if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
+            ep.client = false;
+        } else {
+            ep.client = true;
+        }
         itf_table->UpdateVmiTagBasedStats(ep);
 
         /* Local flows will not have egress flows in the system. So we need to
@@ -346,10 +351,20 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
             ep.local_vn = src_vn;
             ep.remote_vn = dst_vn;
             ep.in_stats = true;
+            if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
+                ep.client = false;
+            } else {
+                ep.client = true;
+            }
         } else {
             ep.local_vn = dst_vn;
             ep.remote_vn = src_vn;
             ep.in_stats = false;
+            if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
+                ep.client = true;
+            } else {
+                ep.client = false;
+            }
         }
         itf_table->UpdateVmiTagBasedStats(ep);
     }
