@@ -273,6 +273,7 @@ private:
     WaterMarkTuple pending_compaction_tasks_watermark_tuple_;
 
     friend class DbHandlerTest;
+    friend class DbHandlerMsgKeywordInsertTest;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
