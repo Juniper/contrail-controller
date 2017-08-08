@@ -363,12 +363,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                   vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
 
         si_name = 'default-domain:default-project:' + service_name
-        if version == 2:
-            v4_service_chain_address = '10.0.0.251'
-            v6_service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffb'
-        else:
-            v4_service_chain_address = '10.0.0.252'
-            v6_service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+        v4_service_chain_address = '10.0.0.252'
+        v6_service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
                                service_chain_address = v4_service_chain_address,
@@ -2049,22 +2045,22 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         # Checking the Service chain address in the service RI
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
-                               service_chain_address = '20.0.0.252',
+                               service_chain_address = '0.255.255.251',
                                service_instance = 'default-domain:default-project:' + service_name,
                                source_routing_instance = ':'.join(self.get_ri_name(vn2_obj)))
         self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci.prefix = ['1000::/16']
-        sci.service_chain_address = '2000:ffff:ffff:ffff:ffff:ffff:ffff:fffc' 
+        sci.service_chain_address = '::ffff:255.255.255.251'
         self.check_v6_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
 
         sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
-                               service_chain_address = '10.0.0.252',
+                               service_chain_address = '0.255.255.252',
                                service_instance = 'default-domain:default-project:' + service_name,
                                source_routing_instance = ':'.join(self.get_ri_name(vn1_obj)))
         self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
         sci.prefix = ['2000::/16']
-        sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+        sci.service_chain_address = '::ffff:255.255.255.252'
         self.check_v6_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
 
         left_ri_fq_name = ['default-domain', 'default-project', vn1_name, sc_ri_name]

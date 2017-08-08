@@ -1884,6 +1884,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('instance-ip-virtual-network',
           'instance-ip', 'virtual-network', ['ref'], 'required', 'CRUD',
           'Reference to virtual network of this instance ip.') -->
+<xsd:element name="instance-ip-network-ipam"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('instance-ip-network-ipam',
+          'instance-ip', 'network-ipam', ['ref'], 'required', 'CRUD',
+          'Reference to network ipam of this instance ip.') -->
 <xsd:element name="instance-ip-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('instance-ip-virtual-machine-interface',
