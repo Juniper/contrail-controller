@@ -436,7 +436,7 @@ HWADDR=%s
             cmd = "sudo echo 'SUBSYSTEM==\"net\", ACTION==\"add\","
             cmd += " DRIVERS==\"?*\","
             cmd += " ATTR{address}==\"%s\", ATTR{dev_id}==\"0x0\", " % mac_addr
-            cmd += "ATTR{type}==\"1\", KERNEL==\"eth*\", NAME=\"%s\"' >> %" %\
+            cmd += "ATTR{type}==\"1\", KERNEL==\"eth*\", NAME=\"%s\"' >> %s" %\
                    (intf, temp_udev_net_file)
             local(cmd)
             local("sudo mv -f %s %s" % (temp_udev_net_file, udev_net_file))
