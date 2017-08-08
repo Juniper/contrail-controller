@@ -34,7 +34,7 @@ class QfxConf(JuniperConf):
     # end __init__
 
     def is_spine(self):
-        if self.physical_router.physical_router_role == 'Spine':
+        if self.physical_router.physical_router_role == 'spine':
             return True
         return False
     # end is_spine
@@ -324,6 +324,21 @@ class QfxConf(JuniperConf):
         return True
     # end check_vn_is_allowed
 
+    def build_esi_config(self):
+        pr = self.physical_router
+        if not pr or self.is_spine():
+            return
+        if not self.interfaces_config:
+            self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
+        for pi_uuid in pr.physical_interfaces:
+            pi = PhysicalInterfaceDM.get(pi_uuid)
+            if not pi or not pi.esi:
+                continue
+            esi_conf = Esi(identifier=pi.esi, all_active='')
+            intf = Interface(name=pi.name, esi=esi_conf)
+            self.interfaces_config.add_interface(intf)
+    # end build_esi_config
+
     def get_vn_li_map(self):
         pr = self.physical_router
         vn_list = []
@@ -430,6 +445,7 @@ class QfxConf(JuniperConf):
         self.build_bgp_config()
         self.init_evpn_config()
         self.init_global_switch_opts()
+        self.build_esi_config()
         self.build_ri_config()
         self.set_route_targets_config()
         self.set_product_specific_config()

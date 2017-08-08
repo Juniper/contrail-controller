@@ -87,6 +87,41 @@ class TestQfxBasicDM(TestCommonDM):
         return gv
     # end create_global_vrouter_config
 
+    @retries(5, hook=retry_exc_handler)
+    def check_esi_config(self, pi_name, esi_value, should_present=True):
+        config = FakeDeviceConnect.get_xml_config()
+        if should_present:
+            interfaces = self.get_interfaces(config, pi_name)
+            if not interfaces:
+                raise Exception("No Interface Config generated")
+            intf = interfaces[0]
+            self.assertIsNotNone(intf.get_esi())
+            self.assertIsNotNone(intf.get_esi().get_all_active())
+            self.assertEqual(intf.get_esi().get_identifier(), esi_value)
+        else:
+            interfaces = self.get_interfaces(config, pi_name)
+            if not interfaces:
+                return
+            intf = interfaces[0]
+            if intf.get_esi():
+                raise Exception("ESI Config still exist")
+    # end check_esi_config
+
+    def test_esi_config(self):
+        FakeNetconfManager.set_model('qfx5110')
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product="qfx5110")
+        pr.set_physical_router_role("leaf")
+        self._vnc_lib.physical_router_update(pr)
+        pi = PhysicalInterface('pi1', parent_obj = pr)
+        esi_value = "33:33:33:33:33:33:33:33:33:33"
+        pi.set_ethernet_segment_identifier(esi_value)
+        pi_id = self._vnc_lib.physical_interface_create(pi)
+        self.check_esi_config('pi1', esi_value)
+        pi.set_ethernet_segment_identifier(None)
+        self._vnc_lib.physical_interface_update(pi)
+        self.check_esi_config('pi1', esi_value, False)
+    # end test_esi_config
+
     # check qfx switch options
     def test_dm_qfx_switch_options(self):
         # check basic valid vendor, product plugin
