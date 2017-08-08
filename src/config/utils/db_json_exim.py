@@ -1,3 +1,16 @@
+#USAGE STEPS:
+#To upload db
+#Stop all contrail services including zookeeper.
+#Remove/rename /var/lib/zookeeper/version-2
+#Remove/rename /var/lib/cassandra/data
+#Start Cassandra-database and zookeeper
+#Run the provided script to load the db.
+#Start all the services and wait till they are all up.
+#Provision control node
+
+#To take a db snapshot
+#python db_json_exim.py --export-to <filename>
+
 # Usage: python db_json_exim.py --import-from /import-data/db.json
 import sys
 reload(sys)
@@ -138,11 +151,17 @@ class DatabaseExim(object):
                         cf.insert(row, {col_name: col_val_ts[0]})
         # end seed cassandra
 
+        zk_ignore_list = ['consumers', 'config', 'controller',
+            'isr_change_notification', 'admin', 'brokers', 'zookeeper',
+            'controller_epoch', 'api-server-election', 'schema-transformer',
+            'device-manager', 'svc-monitor', 'contrail_cs', 'lockpath']
         # seed zookeeper
-        for path_value_ts in json.loads(self.import_data['zookeeper'] or "[]"):
+        for path_value_ts in json.loads(self.import_data['zookeeper'] or "{}"):
             path = path_value_ts[0]
             if path.endswith('/'):
                 path = path[:-1]
+            if path.split('/')[1] in zk_ignore_list:
+                continue
             value = path_value_ts[1][0]
             self._zookeeper.create(path, str(value), makepath=True)
     # end db_import
@@ -208,9 +227,9 @@ def main(args_str):
     except InvalidArguments as e:
         print str(e)
         return
-    if 'import_from' in args_str:
+    if 'import-from' in args_str:
         db_exim.db_import()
-    if 'export_to' in args_str:
+    if 'export-to' in args_str:
         db_exim.db_export()
 # end main
 
