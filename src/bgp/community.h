@@ -272,6 +272,26 @@ public:
                 (val[1] == BgpExtendedCommunitySubType::RouteOrigin));
     }
 
+    static bool is_source_as(const ExtCommunityValue &val) {
+        //
+        // Source AS extended community
+        // 1. 2 Octet AS specific extended community
+        // 2. 4 Octet AS specific extended community
+        //
+        return ((val[0] == BgpExtendedCommunityType::TwoOctetAS ||
+                (val[0] == BgpExtendedCommunityType::FourOctetAS)) &&
+                (val[1] == BgpExtendedCommunitySubType::SourceAS));
+    }
+
+    static bool is_vrf_route_import(const ExtCommunityValue &val) {
+        //
+        // VRF Route Import extended community
+        // IPv4 Address specific extended community
+        //
+        return ((val[0] == BgpExtendedCommunityType::IPv4Address) &&
+                (val[1] == BgpExtendedCommunitySubType::VrfRouteImport));
+    }
+
     static bool is_tunnel_encap(const ExtCommunityValue &val) {
         // Tunnel encap extended community
         return (val[0] == BgpExtendedCommunityType::Opaque) &&
@@ -312,6 +332,8 @@ private:
     void RemoveSGID();
     void RemoveTag();
     void RemoveSiteOfOrigin();
+    void RemoveSourceAS();
+    void RemoveVrfRouteImport();
     void RemoveOriginVn();
     void RemoveTunnelEncapsulation();
     void RemoveLoadBalance();
