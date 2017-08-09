@@ -10,7 +10,7 @@ import requests
 import re
 import uuid
 from cfgm_common import jsonutils as json
-from cfgm_common import PERMS_RWX, PERMS_NONE
+from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 import netaddr
 from netaddr import IPNetwork, IPSet, IPAddress
 import gevent
@@ -1220,6 +1220,13 @@ class DBInterface(object):
                     'SecurityGroupRemoteGroupAndRemoteIpPrefix')
             endpt = [AddressType(security_group='any')]
             if sgr_q['remote_ip_prefix']:
+                et = sgr_q.get('ethertype')
+                ip_net = netaddr.IPNetwork(sgr_q['remote_ip_prefix'])
+                if ((ip_net.version == 4 and et != 'IPv4') or
+                        (ip_net.version == 6 and et != 'IPv6')):
+                    self._raise_contrail_exception(
+                        'SecurityGroupRuleParameterConflict',
+                        ethertype=et, cidr=sgr_q['remote_ip_prefix'])
                 cidr = sgr_q['remote_ip_prefix'].split('/')
                 pfx = cidr[0]
                 pfx_len = int(cidr[1])
@@ -1298,6 +1305,13 @@ class DBInterface(object):
                 net_obj.router_external = False
             else:
                 net_obj.router_external = external_attr
+                # external network should be readable and reference-able from
+                # outside
+                if external_attr:
+                    net_obj.perms2 = PermType2(
+                        project_obj.uuid, PERMS_RWX, # tenant, tenant-access
+                        PERMS_RX,                    # global-access
+                        [])                          # share list
             if 'shared' in network_q:
                 net_obj.is_shared = network_q['shared']
             else:
@@ -1312,6 +1326,9 @@ class DBInterface(object):
                     net_obj.is_shared = network_q['shared']
                 if external_attr is not attr_not_specified:
                     net_obj.router_external = external_attr
+                    perms2 = net_obj.perms2
+                    perms2.global_access = PERMS_RX if external_attr else PERMS_NONE
+                    net_obj.perms2 = perms2
 
         if 'name' in network_q and network_q['name']:
             net_obj.display_name = network_q['name']

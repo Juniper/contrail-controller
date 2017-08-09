@@ -10,7 +10,7 @@ import datetime
 sys.path.append('../common/tests')
 from vnc_openstack import neutron_plugin_db
 from cfgm_common.exceptions import NoIdError
-from cfgm_common import PERMS_RWX, PERMS_NONE
+from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 from test_utils import *
 import test_common
 
@@ -890,6 +890,32 @@ class TestBasic(test_case.NeutronBackendTestCase):
         # verify created timestamp and updated timestamp are not same
         self.assertIsNot(sn_dict_2['created_at'], sn_dict_2['updated_at'])
     # end test_subnet_timestamps
+
+    def test_external_network_perms(self):
+        proj_obj = self._vnc_lib.project_read(fq_name=['default-domain',
+                                                       'default-project'])
+        net_q = self.create_resource('network', proj_obj.uuid,
+            extra_res_fields={'router:external': True})
+        self.create_resource('subnet', proj_obj.uuid, extra_res_fields={
+                'network_id': net_q['id'],
+                'cidr': '1.1.1.0/24',
+                'ip_version': 4,
+        })
+
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_RX)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'router:external':False})
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_NONE)
+
+        self.update_resource('network', net_q['id'], proj_obj.uuid,
+                             extra_res_fields={'router:external':True})
+        net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
+        self.assertEqual(net_obj.perms2.global_access, PERMS_RX)
+        self.delete_resource('network', proj_obj.uuid, net_q['id'])
+    # end test_external_network_perms
 
     def test_external_network_fip_pool(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain',
