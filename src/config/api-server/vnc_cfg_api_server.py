@@ -1366,6 +1366,7 @@ class VncApiServer(object):
         self._sandesh.trace_buffer_create(name="DBUVERequestTraceBuf", size=1000)
         self._sandesh.trace_buffer_create(name="MessageBusNotifyTraceBuf",
                                           size=1000)
+        VncGreenlet.register_sandesh_handler()
 
         self._sandesh.set_logging_params(
             enable_local_log=self._args.log_local,
