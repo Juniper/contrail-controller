@@ -43,8 +43,25 @@ class TestQfxBasicDM(TestCommonDM):
         self.assertIn(import_name, imports)
         export_name = DMUtils.make_export_name(vrf_name)
         exports = switch_opts.get_vrf_export() or []
-        self.assertIn(export_name, exports)
+        self.assertNotIn(export_name, exports)
     # end check_switch_options_config
+
+    @retries(5, hook=retry_exc_handler)
+    def check_ri_vlans_config(self, vn_obj, vni, vn_mode='l3'):
+        vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                  vn_obj.virtual_network_network_id, vn_mode)
+        config = FakeDeviceConnect.get_xml_config()
+        ris = self.get_routing_instances(config, ri_name)
+        if not ris:
+            self.assertTrue(check)
+        ri = ris[0]
+        vlans = ri.get_vlans() or []
+        vlans = vlans.get_vlan() or []
+        vlan_name = vrf_name[1:]
+        for vlan in vlans:
+            if vlan.get_name() == vlan_name and vlan.get_vlan_id() == str(vni):
+                return
+        raise Exception("RI Vlan Config Not Found: %s"%(vlan_name))
 
     @retries(5, hook=retry_exc_handler)
     def check_vlans_config(self, vn_obj, vni, vn_mode):
@@ -53,10 +70,11 @@ class TestQfxBasicDM(TestCommonDM):
         vlans = config.get_vlans()
         self.assertIsNotNone(vlans)
         vlans = vlans.get_vlan() or []
+        vlan_name = vrf_name[1:]
         for vlan in vlans:
-            if vlan.get_name() == vrf_name and vlan.get_vlan_id() == str(vni):
+            if vlan.get_name() == vlan_name and str(vlan.get_vxlan().get_vni()) == str(vni):
                 return
-        raise Exception("Vlan Config Not Found: %s"%(vrf_name))
+        raise Exception("Vlan Config Not Found: %s"%(vlan_name))
 
     @retries(5, hook=retry_exc_handler)
     def check_lr_internal_vn_state(self, lr_obj):
@@ -123,13 +141,13 @@ class TestQfxBasicDM(TestCommonDM):
     # end test_esi_config
 
     # check qfx switch options
-    def test_dm_qfx_switch_options(self):
+    def verify_dm_qfx_switch_options(self, product):
         # check basic valid vendor, product plugin
-        FakeNetconfManager.set_model('qfx5110')
+        FakeNetconfManager.set_model(product)
 
         # create global vrouter config object
         self.create_global_vrouter_config()
-        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product="qfx5110")
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product=product)
 
         # enable vxlan routing on project
         proj = self._vnc_lib.project_read(fq_name=["default-domain", "default-project"])
@@ -137,9 +155,9 @@ class TestQfxBasicDM(TestCommonDM):
         self._vnc_lib.project_update(proj)
 
         # create customer network, logical router and link to logical router
-        vn1_name = 'vn1' + self.id()
+        vn1_name = 'vn1' + self.id() + "-" + product
         vn1_obj = VirtualNetwork(vn1_name)
-        ipam_obj = NetworkIpam('ipam1' + self.id())
+        ipam_obj = NetworkIpam('ipam1' + self.id() + "-" + product)
         self._vnc_lib.network_ipam_create(ipam_obj)
         vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
             [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
@@ -152,12 +170,12 @@ class TestQfxBasicDM(TestCommonDM):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_uuid)
 
-        fq_name = ['default-domain', 'default-project', 'vmi1' + self.id()]
+        fq_name = ['default-domain', 'default-project', 'vmi1' + self.id() + "-" + product]
         vmi1 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
         vmi1.set_virtual_network(vn1_obj)
         self._vnc_lib.virtual_machine_interface_create(vmi1)
 
-        fq_name = ['default-domain', 'default-project', 'lr1' + self.id()]
+        fq_name = ['default-domain', 'default-project', 'lr1' + self.id() + "-" + product]
         lr = LogicalRouter(fq_name=fq_name, parent_type = 'project')
         lr.set_physical_router(pr)
         lr.add_virtual_machine_interface(vmi1)
@@ -169,10 +187,15 @@ class TestQfxBasicDM(TestCommonDM):
         # verify generated switch options config
         self.check_switch_options_config(vn1_obj, "l2")
         # verify internal vn's config
-        self.check_switch_options_config(int_vn, "l3")
+        if 'qfx5' not in self.product:
+            self.check_switch_options_config(int_vn, "l3")
 
         # check vlans config
-        self.check_vlans_config(vn1_obj, vn1_obj_properties.get_vxlan_network_identifier(), 'l2')
+        self.check_vlans_config(vn1_obj,
+                 vn1_obj_properties.get_vxlan_network_identifier(), 'l2')
+        if 'qfx10' in self.product:
+            self.check_ri_vlans_config(vn1_obj,
+                 vn1_obj_properties.get_vxlan_network_identifier(), 'l3')
 
         # cleanup
         pr = self._vnc_lib.physical_router_read(fq_name=pr.get_fq_name())
@@ -185,4 +208,9 @@ class TestQfxBasicDM(TestCommonDM):
         self.delete_routers(bgp_router, pr)
         self.wait_for_routers_delete(bgp_router_fq, pr_fq)
 
+    # end verify_dm_qfx_switch_options
+
+    def test_dm_qfx_switch_options(self):
+        self.verify_dm_qfx_switch_options('qfx5110')
+        self.verify_dm_qfx_switch_options('qfx10000')
     # end test_dm_qfx_switch_options

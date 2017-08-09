@@ -20,7 +20,6 @@ from db import BgpRouterDM
 from db import GlobalSystemConfigDM
 from db import VirtualMachineInterfaceDM
 from device_api.juniper_common_xsd import *
-import abc
 
 class JuniperConf(DeviceConf):
     _vendor = "juniper"
@@ -111,6 +110,8 @@ class JuniperConf(DeviceConf):
         self.inet6_forwarding_filter = None
         self.forwarding_options_config = None
         self.global_routing_options_config = None
+        self.global_switch_options_config = None
+        self.vlans_config = None
         self.proto_config = None
         self.route_targets = set()
         self.bgp_peers = {}
@@ -373,7 +374,7 @@ class JuniperConf(DeviceConf):
                     self._logger.info("DM does not support address family: %s" % fam)
     # end add_families
 
-    def add_ibgp_export_policy(self, params):
+    def add_ibgp_export_policy(self, params, bgp_group):
         if params.get('address_families') is None:
             return
         families = params['address_families'].get('family', [])
@@ -398,6 +399,7 @@ class JuniperConf(DeviceConf):
             term.set_then(then)
             from_.set_family(DMUtils.get_inet_family_name(is_v6))
             then.set_next_hop(NextHop(selfxx=''))
+        bgp_group.set_export(DMUtils.make_ibgp_export_policy_name())
     # end add_ibgp_export_policy
 
     def add_bgp_auth_config(self, bgp_config, bgp_params):
@@ -431,8 +433,7 @@ class JuniperConf(DeviceConf):
         else:
             bgp_group.set_name(DMUtils.make_bgp_group_name(self.get_asn(), False))
             bgp_group.set_type('internal')
-            self.add_ibgp_export_policy(self.bgp_params)
-            bgp_group.set_export(DMUtils.make_ibgp_export_policy_name())
+            self.add_ibgp_export_policy(self.bgp_params, bgp_group)
         bgp_group.set_local_address(self.bgp_params['address'])
         self.add_families(bgp_group, self.bgp_params)
         self.add_bgp_auth_config(bgp_group, self.bgp_params)
@@ -504,6 +505,8 @@ class JuniperConf(DeviceConf):
 
     def build_bgp_config(self):
         bgp_router = BgpRouterDM.get(self.physical_router.bgp_router)
+        if not bgp_router:
+            return
         if bgp_router:
             for peer_uuid, attr in bgp_router.bgp_routers.items():
                 peer = BgpRouterDM.get(peer_uuid)
