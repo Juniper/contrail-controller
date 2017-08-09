@@ -239,7 +239,6 @@ class Controller(object):
                 self.uve.send(data['snmp'])
                 self.uve.send_flow_uve({'name': dev,
                     'flow_export_source_ip': data['flow_export_source_ip']})
-                self.find_fix_name(data['name'], dev)
         self._logger.debug('@send_uve:Processed %d!' % (len(d)))
 
     def _send_snmp_collector_uve(self, members, partitions, prouters):
@@ -281,16 +280,6 @@ class Controller(object):
                 del self._work_set
         self._logger.debug('@do_work(%d):Processed %d!' % (i, len(devices)))
         return sleep_time
-
-    def find_fix_name(self, cfg_name, snmp_name):
-        if snmp_name != cfg_name:
-            self._logger.debug('@find_fix_name: snmp name %s differs from ' \
-                    'configured name %s, fixed for this run' % (
-                            snmp_name, cfg_name))
-            for d in self._work_set:
-                if d.name == cfg_name:
-                    d.name = snmp_name
-                    return
 
     def sighup_handler(self):
         if self._config._args.conf_file:
