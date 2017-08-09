@@ -31,6 +31,8 @@ class Controller(object):
             gevent.sleep(0)
             data = ses.get_data()
         if data['name'] != '__no_resp__':
+            # Replace snmp name with config name
+            data['name'] = netdev.name
             sessions.put_nowait({data['name']: {
                 'name': netdev.name,
                 'snmp': data,
