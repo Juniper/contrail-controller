@@ -30,8 +30,8 @@ env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/schema')
 
 env.Prepend(LIBS = [
-                    'ifmapio', 'bgp_schema', 'ifmap_vnc', 'ifmap_server',
-                    'xmpp', 'peer_sandesh',
+                    'config_client', 'ifmapio', 'bgp_schema', 'ifmap_vnc',
+                    'ifmap_server', 'xmpp', 'peer_sandesh',
                     'sandesh', 'http', 'net', 'http_parser', 'httpc',
                     'curl', 'sandeshvns', 'process_info', 'io', 'control_node',
                     'ifmap_common', 'bgp_schema', 'ifmap_vnc',

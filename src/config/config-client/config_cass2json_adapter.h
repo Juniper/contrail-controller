@@ -2,8 +2,8 @@
  * Copyright (c) 2016 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_config_cass2json_adapter_h
-#define ctrlplane_config_cass2json_adapter_h
+#ifndef config_cass2json_adapter_h
+#define config_cass2json_adapter_h
 #include <map>
 #include <set>
 #include <vector>
