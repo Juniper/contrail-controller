@@ -2409,7 +2409,8 @@ class DBInterface(object):
             kvps = bindings.get_key_value_pair()
             for kvp in kvps:
                 try:
-                    port_q_dict['binding:'+kvp.key] = json.loads(kvp.value)
+                    port_q_dict['binding:'+kvp.key] = json.loads(
+                        json.dumps(kvp.value))
                 except (ValueError, TypeError):
                     # native string case, so not stored as json
                     port_q_dict['binding:'+kvp.key] = kvp.value
