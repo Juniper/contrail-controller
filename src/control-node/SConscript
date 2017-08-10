@@ -44,7 +44,7 @@ rel_path = Dir('control_node').path
 def BuildInfoAction(target, source, env):
     env.GenerateBuildInfoPyCode(path=rel_path)
     
-build_info_rules = [env.Command(target='buildinfo.py', source = None, action=BuildInfoAction)]
+build_info_rules = [env.Command(target='control_node/buildinfo.py', source = None, action=BuildInfoAction)]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
