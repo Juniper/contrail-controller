@@ -120,7 +120,8 @@ class TestDbInterface(unittest.TestCase):
         id_perms_obj = flexmock(
             uuid = 'id_perms_uuid',
             get_created=lambda: 'create_time',
-            get_last_modified=lambda: 'last_modified_time')
+            get_last_modified=lambda: 'last_modified_time',
+            get_description=lambda: 'description')
 
         fip_obj = flexmock(
             uuid = 'fip_uuid',
