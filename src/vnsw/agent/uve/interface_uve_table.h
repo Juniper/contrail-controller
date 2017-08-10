@@ -34,6 +34,12 @@ struct EndpointStatsInfo {
     /* The following bool field indicates diff_bytes and diff_pkts are
      * in_stats or out_stats */
     bool in_stats;
+    /* The following bool field indicates whether endpoint data corresponds to
+     * client session or server session.
+     * Ingress+Forward and Egress+Reverse are client flows.
+     * Egress+Forward and Ingress+Reverse are server flows.
+     * in_stats or out_stats */
+    bool client;
 };
 
 //The container class for objects representing VMInterface UVEs
@@ -123,8 +129,7 @@ public:
         TagList remote_tagset;
         std::string remote_prefix;
         std::string remote_vn;
-        uint64_t initiator_session_count;
-        uint64_t responder_session_count;
+        uint64_t hits;
         uint64_t in_bytes;
         uint64_t in_pkts;
         uint64_t out_bytes;
@@ -133,20 +138,16 @@ public:
         uint64_t prev_in_pkts;
         uint64_t prev_out_bytes;
         uint64_t prev_out_pkts;
-        uint64_t prev_initiator_session_count;
-        uint64_t prev_responder_session_count;
+        uint64_t prev_hits;
         UveSecurityPolicyStats(const TagList &tset, const std::string &rprefix,
                                const std::string &rvn) :
             remote_tagset(tset), remote_prefix(rprefix), remote_vn(rvn),
-            initiator_session_count(0), responder_session_count(0),
-            in_bytes(0), in_pkts(0), out_bytes(0), out_pkts(0),
+            hits(0), in_bytes(0), in_pkts(0), out_bytes(0), out_pkts(0),
             prev_in_bytes(0) , prev_in_pkts(0), prev_out_bytes(0),
-            prev_out_pkts(0), prev_initiator_session_count(0),
-            prev_responder_session_count(0) {
+            prev_out_pkts(0), prev_hits(0) {
         }
         std::string GetTagStr(const InterfaceUveTable::UveInterfaceEntry *entry,
                               uint32_t type) const;
-        void UpdateSessionCount(bool initiator);
     };
     typedef boost::shared_ptr<UveSecurityPolicyStats> UveSecurityPolicyStatsPtr;
     struct PolicyCmp {
@@ -160,9 +161,20 @@ public:
     };
     typedef std::set<UveSecurityPolicyStatsPtr, PolicyCmp>
         SecurityPolicyStatsSet;
-    typedef std::map<std::string, SecurityPolicyStatsSet>
+    struct EndpointStatsContainer {
+        SecurityPolicyStatsSet client_list;
+        SecurityPolicyStatsSet server_list;
+        SecurityPolicyStatsSet &ToList(bool client) {
+            if (client) {
+                return client_list;
+            } else {
+                return server_list;
+            }
+        }
+    };
+    typedef std::map<std::string, EndpointStatsContainer>
         SecurityPolicyStatsMap;
-    typedef std::pair<std::string, SecurityPolicyStatsSet>
+    typedef std::pair<std::string, EndpointStatsContainer>
         SecurityPolicyStatsPair;
     typedef std::set<AceStats> AceStatsSet;
     struct UveInterfaceEntry {
@@ -233,12 +245,18 @@ public:
         void FillEndpointStats(Agent *agent, EndpointSecurityStats *obj);
         uint32_t GetTagOfType(uint32_t tag_type_value, const TagList &list)
             const;
-        std::string GetTagStr(Agent *agent, uint32_t type) const;
+        std::string GetTagStr(Agent *agent, const TagList &tl, uint32_t type)
+            const;
         void BuildInterfaceUveInfo(InterfaceUveInfo *r) const;
         void FillTagSetAndPolicyList(Agent *agent, UveVMInterfaceAgent *obj);
         void BuildSandeshUveTagList(const TagList &list,
                                     std::vector<SandeshUveTagInfo> *rts) const;
         void HandleTagListChange();
+        void FillSecurityPolicyList(const SecurityPolicyStatsSet &ilist,
+                                    std::vector<SecurityPolicyFlowStats> *ol);
+        void BuildInterfaceUveSecurityPolicyList
+            (const SecurityPolicyStatsSet &ilist,
+             std::vector<SandeshUveRemoteEndpoint> *olist) const;
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;
 

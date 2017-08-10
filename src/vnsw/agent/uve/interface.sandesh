@@ -271,10 +271,8 @@ struct SecurityPolicyFlowStats {
     5:  string remote_prefix;
     /** Remote Virtual network name*/
     6:  string remote_vn;
-    /** Number of sessions started by local_tagset */
-    7:  u64    initiator_session_count;
-    /** Number of sessions responded by local_tagset */
-    8:  u64    responder_session_count;
+    /** Number of sessions the statistics correspond to*/
+    7:  u64    hits;
     /** Incoming statistics in bytes */
     9:  u64    in_bytes;
     /** Outgoing statistics in bytes */
@@ -289,8 +287,10 @@ struct SecurityPolicyFlowStats {
  * Structure definition for holding details of list of endpoints
  */
 struct EndpointStats {
-    /** @display_name:Endpoints and their Statistics */
-    1: list<SecurityPolicyFlowStats> traffic (tags="")
+    /** @display_name:Endpoint statistics for client sessions */
+    1: list<SecurityPolicyFlowStats> client (tags="")
+    /** @display_name:Endpoint statistics for server sessions */
+    2: list<SecurityPolicyFlowStats> server (tags="")
 }
 
 /**
