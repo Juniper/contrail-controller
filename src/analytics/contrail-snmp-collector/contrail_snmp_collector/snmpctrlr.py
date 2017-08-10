@@ -77,7 +77,7 @@ class Controller(object):
         self._cleanup = None
         self._members = None
         self._partitions = None
-        self._prouters = None
+        self._prouters = {}
 
     def _make_if_cdata(self, data):
         if_cdata = {}
@@ -95,6 +95,10 @@ class Controller(object):
                     if_cdata[dev] = dict((k, (v, t)) for k, v in
                                     data[dev]['snmp']['ifOperStatus'].items())
         return if_cdata
+
+    def _delete_if_data(self, dev):
+        if dev in self._if_data:
+            del self._if_data[dev]
 
     def _set_status(self, _dict, dev, intf, val):
         if dev not in _dict:
@@ -250,9 +254,13 @@ class Controller(object):
         if self._partitions != partitions:
             self._partitions = partitions
             snmp_collector_info.partitions = partitions
-        if self._prouters != prouters:
-            self._prouters = prouters
-            snmp_collector_info.prouters = prouters
+        new_prouters = {p.name: p for p in prouters}
+        if self._prouters.keys() != new_prouters.keys():
+            deleted_prouters = [v for p, v in self._prouters.iteritems() \
+                if p not in new_prouters]
+            self._del_uves(deleted_prouters)
+            self._prouters = new_prouters
+            snmp_collector_info.prouters = self._prouters.keys()
         if snmp_collector_info != SnmpCollectorInfo():
             snmp_collector_info.name = self._hostname
             SnmpCollectorUVE(data=snmp_collector_info).send()
@@ -261,6 +269,7 @@ class Controller(object):
     def _del_uves(self, l):
         with self._sem:
             for dev in l:
+                self._delete_if_data(dev.name)
                 self.uve.delete(dev)
 
     def do_work(self, i, devices):
@@ -350,10 +359,10 @@ class Controller(object):
             if constnt_schdlr.schedule(self._config.devices()):
                 members = constnt_schdlr.members()
                 partitions = constnt_schdlr.partitions()
-                prouters = map(lambda x: x.name, constnt_schdlr.work_items())
-                self._send_snmp_collector_uve(members, partitions, prouters)
+                self._send_snmp_collector_uve(members, partitions,
+                    constnt_schdlr.work_items())
                 sleep_time = self.do_work(i, constnt_schdlr.work_items())
-                self._logger.debug('done work %s' % str(prouters))
+                self._logger.debug('done work %s' % str(self._prouters.keys()))
                 i += 1
                 gevent.sleep(sleep_time)
             else:

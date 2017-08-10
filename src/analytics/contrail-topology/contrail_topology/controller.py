@@ -45,7 +45,7 @@ class Controller(object):
         self._vnc = None
         self._members = None
         self._partitions = None
-        self._prouters = None
+        self._prouters = {}
 
     def stop(self):
         self._keep_running = False
@@ -102,8 +102,9 @@ class Controller(object):
         self.prouters = []
         for pr in self.analytic_api.list_prouters():
             try:
-                self.prouters.append(PRouter(pr, self.analytic_api.get_prouter(
-                            pr, 'PRouterEntry')))
+                data = self.analytic_api.get_prouter(pr, 'PRouterEntry')
+                if data:
+                    self.prouters.append(PRouter(pr, data))
             except Exception as e:
                 traceback.print_exc()
                 print str(e)
@@ -149,9 +150,13 @@ class Controller(object):
         if self._partitions != partitions:
             self._partitions = partitions
             topology_info.partitions = partitions
-        if self._prouters != prouters:
-            self._prouters = prouters
-            topology_info.prouters = prouters
+        new_prouters = {p.name: p for p in prouters}
+        if self._prouters.keys() != new_prouters.keys():
+            deleted_prouters = [v for p, v in self._prouters.iteritems() \
+                if p not in new_prouters]
+            self._del_uves(deleted_prouters)
+            self._prouters = new_prouters
+            topology_info.prouters = self._prouters.keys()
         if topology_info != TopologyInfo():
             topology_info.name = self._hostname
             TopologyUVE(data=topology_info).send()
@@ -398,9 +403,8 @@ class Controller(object):
             if self.constnt_schdlr.schedule(self.prouters):
                 members = self.constnt_schdlr.members()
                 partitions = self.constnt_schdlr.partitions()
-                prouters = map(lambda x: x.name,
+                self._send_topology_uve(members, partitions,
                     self.constnt_schdlr.work_items())
-                self._send_topology_uve(members, partitions, prouters)
                 try:
                     with self._sem:
                         self.compute()
