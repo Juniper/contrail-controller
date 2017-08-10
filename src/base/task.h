@@ -55,6 +55,7 @@ struct TaskStats {
     int     defer_count_;               // #Entries in deferq
     uint64_t enqueue_count_;            // #Tasks enqueued
     uint64_t total_tasks_completed_;    // #Total tasks ran
+    uint64_t last_exit_time_;           // #Time stamp of latest exist
 };
 
 struct TaskExclusion {

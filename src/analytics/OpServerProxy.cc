@@ -331,6 +331,7 @@ class OpServerProxy::OpServerImpl {
             // is busy executing a script and it has reached the maximum
             // execution time limit.
             assert(reply->type != REDIS_REPLY_ERROR);
+            assert(reply->type != REDIS_REPLY_NIL);
 
             if (rpi) {
                 rpi->ProcessCallback(reply);
