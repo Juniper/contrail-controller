@@ -290,12 +290,15 @@ class ZookeeperClient(object):
                 self._zk_client.start()
                 break
             except gevent.event.Timeout as e:
+                self._zk_client.close()
                 # Update connection info
                 self._sandesh_connection_info_update(status='DOWN',
                                                      message=str(e))
                 gevent.sleep(1)
             # Zookeeper is also throwing exception due to delay in master election
             except Exception as e:
+                self._zk_client.stop()
+                self._zk_client.close()
                 # Update connection info
                 self._sandesh_connection_info_update(status='DOWN',
                                                      message=str(e))
