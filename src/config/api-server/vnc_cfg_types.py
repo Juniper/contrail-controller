@@ -2701,7 +2701,8 @@ def _check_policy_rules(entries, network_policy_rule=False):
     if not entries:
         return True, ""
     rules = entries.get('policy_rule') or []
-    rules_no_uuid = [dict((k, v) for k, v in r.items() if k != 'rule_uuid')
+    ignore_keys = ['rule_uuid', 'created', 'last_modified']
+    rules_no_uuid = [dict((k, v) for k, v in r.items() if k not in ignore_keys)
                      for r in rules]
     for index, rule in enumerate(rules_no_uuid):
         rules_no_uuid[index] = None
