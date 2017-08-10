@@ -1922,6 +1922,14 @@ class DBInterface(object):
                          port_obj, iip_obj.get_instance_ip_address(), fip_obj)
                     fip_obj.set_floating_ip_fixed_ip_address(
                             iip_obj.get_instance_ip_address())
+        if 'description' in fip_q:
+            id_perms = fip_obj.get_id_perms()
+            if id_perms:
+                id_perms.set_description(fip_q['description'])
+            else:
+                id_perms = IdPermsType(enable=True,
+                                       description=fip_q['description'])
+            fip_obj.set_id_perms(id_perms)
 
         return fip_obj
     #end _floatingip_neutron_to_vnc
@@ -2005,9 +2013,14 @@ class DBInterface(object):
         fip_q_dict['router_id'] = router_id
         fip_q_dict['port_id'] = port_id
         fip_q_dict['fixed_ip_address'] = fip_obj.get_floating_ip_fixed_ip_address()
-        fip_q_dict['status'] = constants.PORT_STATUS_ACTIVE
+        if port_obj:
+            fip_q_dict['status'] = constants.PORT_STATUS_ACTIVE
+        else:
+            fip_q_dict['status'] = constants.PORT_STATUS_DOWN
         fip_q_dict['created_at'] = fip_obj.get_id_perms().get_created()
         fip_q_dict['updated_at'] = fip_obj.get_id_perms().get_last_modified()
+        if fip_obj.get_id_perms().get_description() is not None:
+            fip_q_dict['description'] = fip_obj.get_id_perms().get_description()
 
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
