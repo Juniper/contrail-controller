@@ -1926,6 +1926,12 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
                                      VmInterface *vmi) const {
     if (vrf_ == NULL)
         return false;
+    std::string vn_name = Agent::NullString();
+    if (vmi->vn()) {
+        vn_name = vmi->vn()->GetName();
+    } else if (vmi->vmi_type() == VHOST) {
+        vn_name  = agent->fabric_vn_name();
+    }
 
     if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != Ip4Address(0)) {
         SecurityGroupList sg_id_list;
@@ -1936,7 +1942,7 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
 
         VnListType vn_list;
         if (vmi->vn()) {
-            vn_list.insert(vmi->vn()->GetName());
+            vn_list.insert(vn_name);
         }
 
         if (vrf_->GetName() == agent->fabric_vrf_name()) {
@@ -1957,7 +1963,7 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
             dependent_ip = vmi->primary_ip6_addr();
             ecmp = vmi->ecmp6();
         }
-        vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
+        vmi->AddRoute(vrf_->GetName(), addr_, plen_, vn_name,
                       false, ecmp, false, false, vmi->GetServiceIp(addr_),
                       dependent_ip, communities_, vmi->label());
     }
