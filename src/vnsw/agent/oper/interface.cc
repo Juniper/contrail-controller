@@ -41,7 +41,9 @@
 #include <sandesh/common/vns_constants.h>
 #include <filter/acl.h>
 #include <filter/policy_set.h>
-
+#include <resource_manager/resource_manager.h>
+#include <resource_manager/resource_table.h>
+#include <resource_manager/vm_interface_index.h>
 using namespace std;
 using namespace boost::uuids;
 using boost::assign::map_list_of;
@@ -124,6 +126,11 @@ std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
                                   (key->AllocEntry(this)));
 }
 
+void InterfaceTable::FreeInterfaceId(size_t index) {
+    agent()->resource_manager()->Release(Resource::INTERFACE_INDEX, index);
+    index_table_.Remove(index);
+}
+
 DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
     InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
@@ -136,8 +143,12 @@ DBEntry *InterfaceTable::OperDBAdd(const DBRequest *req) {
     } else  if (intf->type_ == Interface::LOGICAL) {
         li_count_++;
     }
-
-    intf->id_ = index_table_.Insert(intf);
+    ResourceManager::KeyPtr rkey(new VmInterfaceIndexResourceKey
+                                 (agent()->resource_manager(), key->uuid_,
+                                  key->name_));
+    intf->id_ = static_cast<IndexResourceData *>(agent()->resource_manager()->
+                                                 Allocate(rkey).get())->index();
+    index_table_.InsertAtIndex(intf->id_, intf);
 
     intf->transport_ = data->transport_;
     // Get the os-ifindex and mac of interface
@@ -398,6 +409,7 @@ Interface::~Interface() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     if (id_ != kInvalidIndex) {
         table->FreeInterfaceId(id_);
+        id_ = kInvalidIndex;
         if (type_ == VM_INTERFACE) {
             table->decr_vmi_count();
         } else if (type_ == LOGICAL) {

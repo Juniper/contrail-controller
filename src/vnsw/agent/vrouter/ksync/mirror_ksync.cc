@@ -17,7 +17,8 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
     dport_(entry->dport_), analyzer_name_(entry->analyzer_name_),
     mirror_flag_(entry->mirror_flag_), vni_(entry->vni_),
     nic_assisted_mirroring_(entry->nic_assisted_mirroring_),
-    nic_assisted_mirroring_vlan_(entry->nic_assisted_mirroring_vlan_) {
+    nic_assisted_mirroring_vlan_(entry->nic_assisted_mirroring_vlan_),
+    mirror_index_(entry->mirror_index_) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
@@ -36,7 +37,8 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
     analyzer_name_(mirror_entry->GetAnalyzerName()),
     mirror_flag_(mirror_entry->GetMirrorFlag()), vni_(mirror_entry->GetVni()),
     nic_assisted_mirroring_(mirror_entry->nic_assisted_mirroring()),
-    nic_assisted_mirroring_vlan_(mirror_entry->nic_assisted_mirroring_vlan()) {
+    nic_assisted_mirroring_vlan_(mirror_entry->nic_assisted_mirroring_vlan()),
+    mirror_index_(mirror_entry->mirror_index()) {
 }
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
@@ -120,7 +122,7 @@ bool MirrorKSyncEntry::Sync(DBEntry *e) {
 int MirrorKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_mirror_req encoder;
     int encode_len;
-    encoder.set_mirr_index(GetIndex());
+    encoder.set_mirr_index(mirror_index_);
     encoder.set_h_op(op);
     encoder.set_mirr_rid(0);
     if (!nic_assisted_mirroring_) {

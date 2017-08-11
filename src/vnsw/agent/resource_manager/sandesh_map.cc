@@ -19,6 +19,11 @@
 #include "resource_manager/sandesh_map.h"
 #include "resource_manager/resource_manager.h"
 #include "resource_manager/mpls_index.h"
+#include "resource_manager/vm_interface_index.h"
+#include "resource_manager/vrf_index.h"
+#include "resource_manager/qos_index.h"
+#include "resource_manager/bgp_as_service_index.h"
+#include "resource_manager/mirror_index.h"
 #include <oper/nexthop.h>
 
 BackUpResourceTable::BackUpResourceTable(ResourceBackupManager *manager,
@@ -426,11 +431,204 @@ void InterfaceMplsBackUpResourceTable::RestoreResource() {
         EnqueueRestore(key, data);
     }
 }
+// Vm interface  backup.
+VmInterfaceBackUpResourceTable::VmInterfaceBackUpResourceTable
+(ResourceBackupManager *manager) :
+    BackUpResourceTable(manager, "VmInterfaceBackUpResourceTable",
+                        "contrail_vm_interface_resource") {
+}
+
+VmInterfaceBackUpResourceTable::~VmInterfaceBackUpResourceTable() {
+}
+
+bool VmInterfaceBackUpResourceTable::WriteToFile() {
+    VmInterfaceIndexResourceMapSandesh sandesh_data;
+    return WriteMapToFile<VmInterfaceIndexResourceMapSandesh, Map>
+        (&sandesh_data, map_);
+}
+
+void VmInterfaceBackUpResourceTable::ReadFromFile() {
+    VmInterfaceIndexResourceMapSandesh sandesh_data;
+    ReadMapFromFile<VmInterfaceIndexResourceMapSandesh>
+        (&sandesh_data, backup_dir());
+    map_ = sandesh_data.get_index_map();
+}
+
+void VmInterfaceBackUpResourceTable::RestoreResource() {
+    for (MapIter it = map_.begin(); it != map_.end(); it++) {
+        uint32_t index = it->first;
+        VmInterfaceIndexResource sandesh_key = it->second;
+
+        ResourceManager::KeyPtr key(new VmInterfaceIndexResourceKey(
+                                    backup_manager()->resource_manager(),
+                                    StringToUuid(sandesh_key.get_uuid()),
+                                    sandesh_key.get_interface_name()));
+        ResourceManager::DataPtr data(new IndexResourceData
+                                      (backup_manager()->resource_manager(),
+                                       index));
+        EnqueueRestore(key, data);
+    }
+}
+// Vrf  backup.
+VrfBackUpResourceTable::VrfBackUpResourceTable
+(ResourceBackupManager *manager) :
+    BackUpResourceTable(manager, "VrfBackUpResourceTable",
+                        "contrail_vrf_index_resource") {
+}
+
+VrfBackUpResourceTable::~VrfBackUpResourceTable() {
+}
+
+bool VrfBackUpResourceTable::WriteToFile() {
+    VrfIndexResourceMapSandesh sandesh_data;
+    return WriteMapToFile<VrfIndexResourceMapSandesh, Map>
+        (&sandesh_data, map_);
+}
+
+void VrfBackUpResourceTable::ReadFromFile() {
+    VrfIndexResourceMapSandesh sandesh_data;
+    ReadMapFromFile<VrfIndexResourceMapSandesh>
+        (&sandesh_data, backup_dir());
+    map_ = sandesh_data.get_index_map();
+}
+
+void VrfBackUpResourceTable::RestoreResource() {
+    for (MapIter it = map_.begin(); it != map_.end(); it++) {
+        uint32_t index = it->first;
+        VrfIndexResource sandesh_key = it->second;
+
+        ResourceManager::KeyPtr key(new VrfIndexResourceKey(
+                                    backup_manager()->resource_manager(),
+                                    sandesh_key.get_vrf_name()));
+        ResourceManager::DataPtr data(new IndexResourceData
+                                      (backup_manager()->resource_manager(),
+                                       index));
+        EnqueueRestore(key, data);
+    }
+}
+
+// Qos id backup.
+QosBackUpResourceTable::QosBackUpResourceTable
+(ResourceBackupManager *manager) :
+    BackUpResourceTable(manager, "QosBackUpResourceTable",
+                        "contrail_qos_resource") {
+}
+
+QosBackUpResourceTable::~QosBackUpResourceTable() {
+}
+
+bool QosBackUpResourceTable::WriteToFile() {
+    QosIndexResourceMapSandesh sandesh_data;
+    return WriteMapToFile<QosIndexResourceMapSandesh, Map>
+        (&sandesh_data, map_);
+}
+
+void QosBackUpResourceTable::ReadFromFile() {
+    QosIndexResourceMapSandesh sandesh_data;
+    ReadMapFromFile<QosIndexResourceMapSandesh>
+        (&sandesh_data, backup_dir());
+    map_ = sandesh_data.get_index_map();
+}
+
+void QosBackUpResourceTable::RestoreResource() {
+    for (MapIter it = map_.begin(); it != map_.end(); it++) {
+        uint32_t index = it->first;
+        QosIndexResource sandesh_key = it->second;
+
+        ResourceManager::KeyPtr key(new QosIndexResourceKey(
+                                    backup_manager()->resource_manager(),
+                                    StringToUuid(sandesh_key.get_uuid())));
+        ResourceManager::DataPtr data(new IndexResourceData
+                                      (backup_manager()->resource_manager(),
+                                       index));
+        EnqueueRestore(key, data);
+    }
+}
+
+// bgp as service id backup.
+BgpAsServiceBackUpResourceTable::BgpAsServiceBackUpResourceTable
+(ResourceBackupManager *manager) :
+    BackUpResourceTable(manager, "BgpAsServiceBackUpResourceTable",
+                        "contrail_bgp_as_service_resource") {
+}
+
+BgpAsServiceBackUpResourceTable::~BgpAsServiceBackUpResourceTable() {
+}
+
+bool BgpAsServiceBackUpResourceTable::WriteToFile() {
+    BgpAsServiceIndexResourceMapSandesh sandesh_data;
+    return WriteMapToFile<BgpAsServiceIndexResourceMapSandesh, Map>
+        (&sandesh_data, map_);
+}
+
+void BgpAsServiceBackUpResourceTable::ReadFromFile() {
+    BgpAsServiceIndexResourceMapSandesh sandesh_data;
+    ReadMapFromFile<BgpAsServiceIndexResourceMapSandesh>
+        (&sandesh_data, backup_dir());
+    map_ = sandesh_data.get_index_map();
+}
+
+void BgpAsServiceBackUpResourceTable::RestoreResource() {
+    for (MapIter it = map_.begin(); it != map_.end(); it++) {
+        uint32_t index = it->first;
+        BgpAsServiceIndexResource sandesh_key = it->second;
+
+        ResourceManager::KeyPtr key(new BgpAsServiceIndexResourceKey(
+                                    backup_manager()->resource_manager(),
+                                    StringToUuid(sandesh_key.get_uuid())));
+        ResourceManager::DataPtr data(new IndexResourceData
+                                      (backup_manager()->resource_manager(),
+                                       index));
+        EnqueueRestore(key, data);
+    }
+}
+
+// Mirror  backup.
+MirrorBackUpResourceTable::MirrorBackUpResourceTable
+(ResourceBackupManager *manager) :
+    BackUpResourceTable(manager, "MirrorBackUpResourceTable",
+                        "contrail_mirror_index_resource") {
+}
+
+MirrorBackUpResourceTable::~MirrorBackUpResourceTable() {
+}
+
+bool MirrorBackUpResourceTable::WriteToFile() {
+    MirrorIndexResourceMapSandesh sandesh_data;
+    return WriteMapToFile<MirrorIndexResourceMapSandesh, Map>
+        (&sandesh_data, map_);
+}
+
+void MirrorBackUpResourceTable::ReadFromFile() {
+    MirrorIndexResourceMapSandesh sandesh_data;
+    ReadMapFromFile<MirrorIndexResourceMapSandesh>
+        (&sandesh_data, backup_dir());
+    map_ = sandesh_data.get_index_map();
+}
+
+void MirrorBackUpResourceTable::RestoreResource() {
+    for (MapIter it = map_.begin(); it != map_.end(); it++) {
+        uint32_t index = it->first;
+        MirrorIndexResource sandesh_key = it->second;
+
+        ResourceManager::KeyPtr key(new MirrorIndexResourceKey(
+                                    backup_manager()->resource_manager(),
+                                    sandesh_key.get_analyzer_name()));
+        ResourceManager::DataPtr data(new IndexResourceData
+                                      (backup_manager()->resource_manager(),
+                                       index));
+        EnqueueRestore(key, data);
+    }
+}
+
 
 ResourceSandeshMaps::ResourceSandeshMaps(ResourceBackupManager *manager) :
     backup_manager_(manager), agent_(manager->agent()),
     interface_mpls_index_table_(manager), vrf_mpls_index_table_(manager),
-    vlan_mpls_index_table_(manager), route_mpls_index_table_(manager) {
+    vlan_mpls_index_table_(manager), route_mpls_index_table_(manager),
+    vm_interface_index_table_(manager), vrf_index_table_ (manager),
+    qos_index_table_ (manager), bgp_as_service_index_table_(manager),
+    mirror_index_table_(manager) {
 }
 
 ResourceSandeshMaps::~ResourceSandeshMaps() {
@@ -441,6 +639,11 @@ void ResourceSandeshMaps::ReadFromFile() {
     vrf_mpls_index_table_.ReadFromFile();
     vlan_mpls_index_table_.ReadFromFile();
     route_mpls_index_table_.ReadFromFile();
+    vm_interface_index_table_.ReadFromFile();
+    vrf_index_table_.ReadFromFile();
+    qos_index_table_.ReadFromFile();
+    bgp_as_service_index_table_.ReadFromFile();
+    mirror_index_table_.ReadFromFile();
 }
 
 void ResourceSandeshMaps::EndOfBackup() {
@@ -455,6 +658,11 @@ void ResourceSandeshMaps::RestoreResource() {
     vrf_mpls_index_table_.RestoreResource();
     vlan_mpls_index_table_.RestoreResource();
     route_mpls_index_table_.RestoreResource();
+    vm_interface_index_table_.RestoreResource();
+    vrf_index_table_.RestoreResource();
+    qos_index_table_.RestoreResource();
+    bgp_as_service_index_table_.RestoreResource();
+    mirror_index_table_.RestoreResource();
     EndOfBackup();
 }
 
@@ -471,6 +679,25 @@ void VlanMplsResourceMapSandesh::Process(SandeshContext*) {
 }
 
 void RouteMplsResourceMapSandesh::Process(SandeshContext*) {
+
+}
+
+void VmInterfaceIndexResourceMapSandesh::Process(SandeshContext*) {
+
+}
+
+void VrfIndexResourceMapSandesh::Process(SandeshContext*) {
+
+}
+
+void QosIndexResourceMapSandesh::Process(SandeshContext*) {
+
+}
+void BgpAsServiceIndexResourceMapSandesh::Process(SandeshContext*) {
+
+}
+
+void MirrorIndexResourceMapSandesh::Process(SandeshContext*) {
 
 }
 
@@ -508,4 +735,51 @@ void ResourceSandeshMaps::AddRouteMplsResourceEntry(uint32_t index,
 
 void ResourceSandeshMaps::DeleteRouteMplsResourceEntry(uint32_t index) {
     route_mpls_index_table_.map().erase(index);
+}
+
+void ResourceSandeshMaps::AddVmInterfaceResourceEntry(uint32_t index,
+                                       VmInterfaceIndexResource data ) {
+    vm_interface_index_table_.map().insert(VmInterfaceIndexResourcePair
+            (index, data));
+}
+void ResourceSandeshMaps::DeleteVmInterfaceResourceEntry(uint32_t index) {
+    vm_interface_index_table_.map().erase(index);
+}
+
+void ResourceSandeshMaps::AddVrfResourceEntry(uint32_t index,
+                                              VrfIndexResource data ) {
+    vrf_index_table_.map().insert(VrfIndexResourcePair
+            (index, data));
+}
+void ResourceSandeshMaps::DeleteVrfResourceEntry(uint32_t index) {
+    vrf_index_table_.map().erase(index);
+}
+
+void ResourceSandeshMaps::AddQosResourceEntry(uint32_t index,
+                                              QosIndexResource data ) {
+    qos_index_table_.map().insert(QosIndexResourcePair
+            (index, data));
+}
+void ResourceSandeshMaps::DeleteQosResourceEntry(uint32_t index) {
+    qos_index_table_.map().erase(index);
+}
+
+void ResourceSandeshMaps::AddBgpAsServiceResourceEntry
+(uint32_t index, BgpAsServiceIndexResource data ) {
+    bgp_as_service_index_table_.map().insert(BgpAsServiceIndexResourcePair
+            (index, data));
+}
+
+void ResourceSandeshMaps::DeleteBgpAsServiceResourceEntry(uint32_t index) {
+    bgp_as_service_index_table_.map().erase(index);
+}
+
+void ResourceSandeshMaps::AddMirrorResourceEntry(uint32_t index,
+                                                 MirrorIndexResource data ) {
+    mirror_index_table_.map().insert(MirrorIndexResourcePair
+            (index, data));
+}
+
+void ResourceSandeshMaps::DeleteMirrorResourceEntry(uint32_t index) {
+    mirror_index_table_.map().erase(index);
 }

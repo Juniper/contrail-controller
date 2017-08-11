@@ -72,7 +72,6 @@ public:
     }
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void set_mirror_entrySandeshData(MirrorEntrySandeshData &data) const;
-
     uint32_t vrf_id() const;
     const VrfEntry *GetVrf() const;
     const std::string GetAnalyzerName() const {return analyzer_name_;}
@@ -91,6 +90,8 @@ public:
     bool nic_assisted_mirroring() const {
         return nic_assisted_mirroring_;
     }
+    void set_mirror_index(uint32_t index) {mirror_index_ = index;}
+    uint32_t mirror_index() const { return mirror_index_; }
 private:
     std::string analyzer_name_;
     VrfEntryRef vrf_;
@@ -108,6 +109,7 @@ private:
     bool createdvrf_;
     bool nic_assisted_mirroring_;
     uint16_t nic_assisted_mirroring_vlan_;
+    uint32_t mirror_index_;
     friend class MirrorTable;
 };
 

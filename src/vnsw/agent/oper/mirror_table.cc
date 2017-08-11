@@ -16,7 +16,7 @@
 #include "oper/vrf.h"
 #include "oper/mirror_table.h"
 #include "oper/agent_sandesh.h"
-
+#include <resource_manager/mirror_index.h>
 using namespace std;
 using namespace boost::asio;
 MirrorTable *MirrorTable::mirror_table_;
@@ -52,6 +52,12 @@ std::auto_ptr<DBEntry> MirrorTable::AllocEntry(const DBRequestKey *k) const {
 DBEntry *MirrorTable::Add(const DBRequest *req) {
     const MirrorEntryKey *key = static_cast<const MirrorEntryKey *>(req->key.get());
     MirrorEntry *mirror_entry = new MirrorEntry(key->analyzer_name_);
+    ResourceManager::KeyPtr rkey(new MirrorIndexResourceKey
+                                 (agent()->resource_manager(),
+                                 key->analyzer_name_));
+    uint32_t index = static_cast<IndexResourceData *>
+        (agent()->resource_manager()->Allocate(rkey).get())->index();
+    mirror_entry->set_mirror_index(index);
     //Get Mirror NH
     OnChange(mirror_entry, req);
     return mirror_entry;
@@ -222,6 +228,8 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
 
 bool MirrorTable::Delete(DBEntry *entry, const DBRequest *request) {
     MirrorEntry *mirror_entry = static_cast<MirrorEntry *>(entry);
+    agent()->resource_manager()->Release(Resource::MIRROR_INDEX,
+                                         mirror_entry->mirror_index());
     RemoveUnresolved(mirror_entry);
     DeleteResolvedVrfMirrorEntry(mirror_entry);
     DeleteMirrorVrf(mirror_entry);
