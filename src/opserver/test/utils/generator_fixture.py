@@ -37,6 +37,14 @@ class GeneratorFixture(fixtures.Fixture):
     _VM_IF_PREFIX = 'vhost'
     _KSECINMSEC = 1000 * 1000
     _VN_PREFIX = 'default-domain:vn'
+    _SENDQ_WATERMARKS = [
+        # (size, sandesh_level, is_high_watermark)
+        (150*1024*1024, SandeshLevel.SYS_EMERG, True),
+        (100*1024*1024, SandeshLevel.SYS_ERR, True),
+        (50*1024*1024, SandeshLevel.SYS_DEBUG, True),
+        (125*1024*1024, SandeshLevel.SYS_ERR, False),
+        (75*1024*1024, SandeshLevel.SYS_DEBUG, False),
+        (25*1024*1024, SandeshLevel.INVALID, False)]
 
     def __init__(self, name, collectors, logger,
                  opserver_port, start_time=None, node_type="Test", hostname=socket.gethostname(), inst = "0"):
@@ -82,6 +90,10 @@ class GeneratorFixture(fixtures.Fixture):
         self._sandesh_instance._client._connection.set_admin_state(down=True)
     # end disconnect_from_collector
 
+    def set_sandesh_send_queue_watermarks(self):
+        self._sandesh_instance.client().connection().session().\
+            set_send_queue_watermarks(GeneratorFixture._SENDQ_WATERMARKS)
+    # end set_sandesh_send_queue_watermarks
     @retry(delay=2, tries=5)
     def verify_on_setup(self):
         try:
@@ -94,6 +106,7 @@ class GeneratorFixture(fixtures.Fixture):
     # end verify_on_setup
 
     def send_flow_stat(self, flow, flow_bytes, flow_pkts, ts=None):
+        self.set_sandesh_send_queue_watermarks()
         self._logger.info('Sending Flow Stats')
         if flow.bytes:
             first_sample = False
