@@ -115,6 +115,7 @@ protected:
             table_names->push_back("bgp.evpn.0");
             table_names->push_back("bgp.l3vpn-inet6.0");
             table_names->push_back("bgp.l3vpn.0");
+            table_names->push_back("bgp.mvpn.0");
             table_names->push_back("bgp.rtarget.0");
             table_names->push_back("inet.0");
             table_names->push_back("inet6.0");
@@ -123,6 +124,7 @@ protected:
             table_names->push_back(name + ".evpn.0");
             table_names->push_back(name + ".inet.0");
             table_names->push_back(name + ".inet6.0");
+            table_names->push_back(name + ".mvpn.0");
         }
     }
 
@@ -197,7 +199,7 @@ TEST_P(BgpShowRouteSummaryParamTest, Request1) {
 // Should return all tables.
 //
 TEST_P(BgpShowRouteSummaryParamTest, Request2) {
-    sandesh_context_.set_page_limit(54);
+    sandesh_context_.set_page_limit(64);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
@@ -243,11 +245,11 @@ TEST_P(BgpShowRouteSummaryParamTest, Request3) {
 
 //
 // Next instance = empty
-// Page limit = 16
-// Should return first 19 tables.
+// Page limit = 21
+// Should return first 24 tables.
 //
 TEST_P(BgpShowRouteSummaryParamTest, Request4) {
-    sandesh_context_.set_page_limit(16);
+    sandesh_context_.set_page_limit(21);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
@@ -321,12 +323,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch2) {
 
 //
 // Next instance = empty
-// Page limit = 48 (number of matching tables)
+// Page limit = 60 (number of matching tables)
 // Search string = "vn"
 // Should return all tables with "vn".
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch3) {
-    sandesh_context_.set_page_limit(48);
+    sandesh_context_.set_page_limit(60);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 900; idx < 912; ++idx) {
@@ -347,12 +349,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch3) {
 
 //
 // Next instance = empty
-// Page limit = 45 (includes one table from last matching instance)
+// Page limit = 60 (includes one table from last matching instance)
 // Search string = "vn"
 // Should return all tables with "vn".
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch4) {
-    sandesh_context_.set_page_limit(45);
+    sandesh_context_.set_page_limit(60);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 900; idx < 912; ++idx) {
@@ -399,12 +401,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch5) {
 
 //
 // Next instance = empty
-// Page limit = 13
+// Page limit = 18
 // Search string = "vn"
 // Should return tables from first 4 instances with "vn".
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch6) {
-    sandesh_context_.set_page_limit(13);
+    sandesh_context_.set_page_limit(18);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 900; idx < 904; ++idx) {
@@ -531,12 +533,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch10) {
 
 //
 // Next instance = empty
-// Page limit = 16
+// Page limit = 21
 // Search string = "deleted"
 // Should return first 19 tables (they are marked deleted)
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch11) {
-    sandesh_context_.set_page_limit(16);
+    sandesh_context_.set_page_limit(21);
     sandesh_context_.set_iter_limit(GetParam());
     PauseTableDeletion();
     server_->Shutdown(false);
@@ -633,11 +635,11 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterate1) {
 
 //
 // Next instance = "vn901"
-// Page limit = 44
+// Page limit = 55
 // Should return tables for all instances including and after "vn901"
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestIterate2) {
-    sandesh_context_.set_page_limit(44);
+    sandesh_context_.set_page_limit(55);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 901; idx < 912; ++idx) {
@@ -658,11 +660,11 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterate2) {
 
 //
 // Next instance = "vn901"
-// Page limit = 41
+// Page limit = 51
 // Should return tables for all instances including and after "vn901"
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestIterate3) {
-    sandesh_context_.set_page_limit(41);
+    sandesh_context_.set_page_limit(51);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 901; idx < 912; ++idx) {
@@ -683,11 +685,11 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterate3) {
 
 //
 // Next instance = "vn901"
-// Page limit = 16
+// Page limit = 20
 // Should return tables for first 4 instances including and after "vn901"
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestIterate4) {
-    sandesh_context_.set_page_limit(16);
+    sandesh_context_.set_page_limit(20);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 901; idx < 905; ++idx) {
@@ -708,11 +710,11 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterate4) {
 
 //
 // Next instance = "vn901"
-// Page limit = 13
+// Page limit = 18
 // Should return tables for first 4 instances including and after "vn901"
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestIterate5) {
-    sandesh_context_.set_page_limit(13);
+    sandesh_context_.set_page_limit(18);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 901; idx < 905; ++idx) {
@@ -869,12 +871,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterateWithSearch2) {
 
 //
 // Next instance = "vn901"
-// Page limit = 13
+// Page limit = 18
 // Search string = "vn90"
 // Should return tables for 4 instances including + after "vn901" with "vn90"
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestIterateWithSearch3) {
-    sandesh_context_.set_page_limit(13);
+    sandesh_context_.set_page_limit(18);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 901; idx < 905; ++idx) {
@@ -895,12 +897,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterateWithSearch3) {
 
 //
 // Next instance = "vn901"
-// Page limit = 36
+// Page limit = 45
 // Search string = "vn90"
 // Should return tables for 9 instances including and after "vn901" with "vn90"
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestIterateWithSearch4) {
-    sandesh_context_.set_page_limit(36);
+    sandesh_context_.set_page_limit(45);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 901; idx < 910; ++idx) {
@@ -921,12 +923,12 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterateWithSearch4) {
 
 //
 // Next instance = "vn901"
-// Page limit = 33
+// Page limit = 41
 // Search string = "vn90"
 // Should return tables for 9 instances including and after "vn901" with "vn90"
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestIterateWithSearch5) {
-    sandesh_context_.set_page_limit(36);
+    sandesh_context_.set_page_limit(41);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     for (int idx = 901; idx < 910; ++idx) {

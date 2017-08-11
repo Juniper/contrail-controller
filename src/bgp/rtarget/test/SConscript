@@ -16,6 +16,7 @@ env.Append(CPPPATH = [env['TOP'],
 env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
            env['TOP'] + '/bgp',
            env['TOP'] + '/bgp/ermvpn', env['TOP'] + '/bgp/evpn',
+           env['TOP'] + '/bgp/mvpn',
            env['TOP'] + '/bgp/extended-community',
            env['TOP'] + '/bgp/inet', env['TOP'] + '/bgp/l3vpn', 
            env['TOP'] + '/bgp/inet6', env['TOP'] + '/bgp/inet6vpn', 
@@ -38,7 +39,7 @@ env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
                     'http', 'http_parser', 'db', 'sandeshvns', 'io',
                     'process_info', 'base', 'gunit'])
 
-env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn'])
+env.Append(LIBS = ['bgp_ermvpn', 'bgp_evpn', 'bgp_mvpn'])
 env.Append(LIBS = ['bgp_inet', 'bgp_l3vpn'])
 env.Append(LIBS = ['bgp_inet6', 'bgp_inet6vpn'])
 env.Append(LIBS = ['routing_instance', 'rtarget', 'route', 'routing_policy', 'net'])
@@ -50,12 +51,14 @@ env.Append(LIBS = ['xmpp', 'xmpp_unicast',
 if sys.platform == 'darwin':
     bgp_inet = Dir('../../inet').path + '/libbgp_inet.a'
     bgp_ermvpn = Dir('../../ermvpn').path + '/libbgp_ermvpn.a'
+    bgp_mvpn = Dir('../../mvpn').path + '/libbgp_mvpn.a'
     bgp_evpn = Dir('../../evpn').path + '/libbgp_evpn.a'
     bgp_l3vpn = Dir('../../l3vpn').path + '/libbgp_l3vpn.a'
     bgp_rtarget = Dir('../../rtarget').path + '/librtarget.a'
     env.Prepend(LINKFLAGS =
                 ['-Wl,-force_load,' + bgp_inet,
                  '-Wl,-force_load,' + bgp_ermvpn,
+                 '-Wl,-force_load,' + bgp_mvpn,
                  '-Wl,-force_load,' + bgp_evpn,
                  '-Wl,-force_load,' + bgp_l3vpn,
                  '-Wl,-force_load,' + bgp_rtarget])
@@ -66,6 +69,7 @@ else:
                  '-lbgp_test_factory',
                  '-lbgp_inet',
                  '-lbgp_ermvpn',
+                 '-lbgp_mvpn',
                  '-lbgp_evpn',
                  '-lbgp_inet6',
                  '-lbgp_inet6vpn',

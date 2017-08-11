@@ -111,6 +111,8 @@ libbgp_yaml_config = env.Library('bgp_yaml_config',
                                      'bgp_config_yaml.cc',
                                  ])
 
+test_suite = env.SConscript('mvpn/SConscript', exports='BuildEnv',
+                            duplicate = 0)
 test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                             duplicate = 0)
 test_suite += env.SConscript('evpn/SConscript', exports='BuildEnv',

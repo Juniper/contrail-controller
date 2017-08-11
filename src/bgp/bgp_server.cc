@@ -432,6 +432,7 @@ BgpServer::BgpServer(EventManager *evm)
       inet6_condition_listener_(new BgpConditionListener(this)),
       inetvpn_replicator_(new RoutePathReplicator(this, Address::INETVPN)),
       ermvpn_replicator_(new RoutePathReplicator(this, Address::ERMVPN)),
+      mvpn_replicator_(new RoutePathReplicator(this, Address::MVPN)),
       evpn_replicator_(new RoutePathReplicator(this, Address::EVPN)),
       inet6vpn_replicator_(new RoutePathReplicator(this, Address::INET6VPN)),
       inet_service_chain_mgr_(
