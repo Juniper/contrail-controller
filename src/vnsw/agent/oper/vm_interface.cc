@@ -1378,7 +1378,7 @@ bool VmInterface::InstanceIp::AddL3(const Agent *agent,
     if (vrf_ == NULL)
         return false;
     assert(ip_.is_unspecified() == false);
-    std::string vn_name = Agent::NullString();
+    std::string vn_name;
     if (vmi->vn()) {
         vn_name = vmi->vn()->GetName();
     } else if (vmi->vmi_type() == VHOST) {
@@ -1659,7 +1659,7 @@ bool VmInterface::FloatingIp::AddL2(const Agent *agent,
     EvpnAgentRouteTable *evpn_table = static_cast<EvpnAgentRouteTable *>
         (vrf_->GetEvpnRouteTable());
 
-    std::string vn_name = Agent::NullString();
+    std::string vn_name;
     if (vmi->vn()) {
         vn_name = vmi->vn()->GetName();
     }
@@ -1809,8 +1809,9 @@ void VmInterface::AliasIp::Copy(const Agent *agent,
 }
 
 bool VmInterface::AliasIp::AddL3(const Agent *agent, VmInterface *vmi) const {
-    if (vrf_.get() == NULL)
+    if (vrf_.get() == NULL || vn_.get() == NULL)
         return false;
+    `
 
     uint8_t plen = alias_ip_.is_v4() ?
         Address::kMaxV4PrefixLen : Address::kMaxV6PrefixLen;
@@ -1926,6 +1927,12 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
                                      VmInterface *vmi) const {
     if (vrf_ == NULL)
         return false;
+    std::string vn_name;
+    if (vmi->vn()) {
+        vn_name = vmi->vn()->GetName();
+    } else if (vmi->vmi_type() == VHOST) {
+        vn_name  = agent->fabric_vn_name();
+    }
 
     if (gw_.is_v4() && addr_.is_v4() && gw_.to_v4() != Ip4Address(0)) {
         SecurityGroupList sg_id_list;
@@ -1936,7 +1943,7 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
 
         VnListType vn_list;
         if (vmi->vn()) {
-            vn_list.insert(vmi->vn()->GetName());
+            vn_list.insert(vn_name);
         }
 
         if (vrf_->GetName() == agent->fabric_vrf_name()) {
@@ -1957,7 +1964,7 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
             dependent_ip = vmi->primary_ip6_addr();
             ecmp = vmi->ecmp6();
         }
-        vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
+        vmi->AddRoute(vrf_->GetName(), addr_, plen_, vn_name,
                       false, ecmp, false, false, vmi->GetServiceIp(addr_),
                       dependent_ip, communities_, vmi->label());
     }
@@ -2153,7 +2160,7 @@ bool VmInterface::AllowedAddressPair::DeleteL3(const Agent *agent,
 
 bool VmInterface::AllowedAddressPair::AddL3(const Agent *agent,
                                             VmInterface *vmi) const {
-    if (vrf_ == NULL)
+    if (vrf_ == NULL || vn_ == NULL)
         return false;
 
     service_ip_ = vmi->GetServiceIp(addr_);
