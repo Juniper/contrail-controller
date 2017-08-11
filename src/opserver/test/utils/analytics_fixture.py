@@ -1214,6 +1214,8 @@ class AnalyticsFixture(fixtures.Fixture):
                              select_fields=['T'], dir=1, where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         if len(res) != generator_obj.num_flow_samples:
+            self.logger.error("Flow samples ingress: Actual %d, expected %d" % \
+                (len(res), generator_obj.num_flow_samples))
             return False
         
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
@@ -1224,6 +1226,8 @@ class AnalyticsFixture(fixtures.Fixture):
                              select_fields=['T'], dir=0, where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(result))
         if len(result) != generator_obj.egress_num_flow_samples:
+            self.logger.error("Flow samples egress: Actual %d, expected %d" % \
+                (len(result), generator_obj.egress_num_flow_samples))
             return False
 
         return True
@@ -2694,6 +2698,7 @@ class AnalyticsFixture(fixtures.Fixture):
     def process_stop(self, name, instance, log_file,
                      del_log=True, is_py=False):
         if is_py:
+            self.logger.info('%s' % ((35+len(name))*'*'))
             self.logger.info('Shutting down python : %s(obj.stop)' % name)
             instance._main_obj.stop()
             instance._main_obj = None
@@ -2702,7 +2707,9 @@ class AnalyticsFixture(fixtures.Fixture):
             gevent.kill(instance)
             rcode = 0
             self.logger.info('Shutting down python : %s(done)' % name)
+            self.logger.info('%s' % ((35+len(name))*'*'))
         else:
+            self.logger.info('%s' % ((35+len(name))*'*'))
             self.logger.info('Shutting down %s' % name)
             bad_term = False
             if instance.poll() == None:
@@ -2726,7 +2733,11 @@ class AnalyticsFixture(fixtures.Fixture):
                 self.logger.info('%s terminated stdout: %s' % (name, p_out))
                 self.logger.info('%s terminated stderr: %s' % (name, p_err))
                 with open(log_file, 'r') as fin:
+                    self.logger.info('%s' % ((35+len(name))*'*'))
+                    self.logger.info('Log for %s' % (name))
+                    self.logger.info('%s' % ((35+len(name))*'*'))
                     self.logger.info(fin.read())
+                    self.logger.info('%s' % ((35+len(name))*'*'))
         subprocess.call(['rm', '-rf', log_file])
         return rcode
 
