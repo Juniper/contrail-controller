@@ -974,7 +974,7 @@ class EventManager(object):
             if self.tick_count >= 10:
                 self.check_ntp_status()
             if self.update_process_core_file_list():
-                self.send_process_state_db(['default'])
+                self.send_process_state_db([group])
 
             process_mem_cpu_usage = self.get_group_processes_mem_cpu_usage(group)
 
