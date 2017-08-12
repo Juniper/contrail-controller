@@ -69,6 +69,7 @@ VrfEntry::VrfEntry(const string &name, uint32_t flags, Agent *agent) :
         layer2_control_word_(false),
         rd_(0) {
         nh_.reset();
+        forwarding_vrf_.reset();
 }
 
 VrfEntry::~VrfEntry() {
