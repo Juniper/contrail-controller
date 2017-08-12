@@ -24,6 +24,7 @@ from sandesh_common.vns.constants import (
 from pysandesh.connection_info import ConnectionState
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
+from vnc_greenlets import VncGreenlet
 
 
 class ConfigServiceLogger(object):
@@ -140,6 +141,7 @@ class ConfigServiceLogger(object):
                 self._instance_id,
                 staticmethod(ConnectionState.get_process_state_cb),
                 NodeStatusUVE, NodeStatus, self.table)
+        VncGreenlet.register_sandesh_handler()
 
     def introspect_init(self):
         self._sandesh.run_introspect_server(int(self._args.http_server_port))
