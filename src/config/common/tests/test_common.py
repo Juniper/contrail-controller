@@ -300,7 +300,8 @@ def kill_svc_monitor(glet):
 
 def kill_schema_transformer(glet):
     glet.kill()
-    to_bgp.transformer.reset()
+    if to_bgp.transformer:
+        to_bgp.transformer.reset()
 
 def kill_disc_server(glet):
     glet.kill()

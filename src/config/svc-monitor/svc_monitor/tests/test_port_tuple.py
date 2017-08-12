@@ -470,8 +470,8 @@ class PortTupleTest(unittest.TestCase):
         rvmi = self.__create_test_vmi(pt, 'right')
 
         # Invoke Port Tuple update with created vmi's
-        self.pt_agent.update_port_tuple(lvmi)
-        self.pt_agent.update_port_tuple(rvmi)
+        self.pt_agent.update_vmi_port_tuples(lvmi)
+        self.pt_agent.update_vmi_port_tuples(rvmi)
 
         # Validate the expected API invocations.
         self.mocked_vnc.ref_update.assert_any_call(
@@ -646,7 +646,9 @@ class PortTupleTest(unittest.TestCase):
                                               si.uuid)
 
         # Create and attach a service-health-check iip on the vmi under test.
-        iip = test_utils.create_test_iip('fake-domain:fake-project:liip')
+        iip_name  = si.uuid + '-' + 'left-v4-health-check-' + 'llip'
+        iip_fq_name = 'fake-domain:fake-project:' + iip_name
+        iip = test_utils.create_test_iip(iip_fq_name)
         iip.virtual_machine_interfaces = {lvmi.uuid}
         iip.service_health_check_ip = True
         lvmi.service_health_checks = ['lhiip']
