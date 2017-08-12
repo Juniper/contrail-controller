@@ -120,8 +120,7 @@ void AgentRouteWalkerManager::RegisterWalker(AgentRouteWalker *walker) {
 
 AgentRouteWalker::AgentRouteWalker(const std::string &name,
                                    Agent *agent) : agent_(agent), name_(name),
-    route_walk_count_(), walk_done_cb_(), route_walk_done_for_vrf_cb_(),
-    mgr_(NULL) {
+    walk_done_cb_(), route_walk_done_for_vrf_cb_(), mgr_(NULL) {
     walk_count_ = AgentRouteWalker::kInvalidWalkCount;
     vrf_walk_ref_ = agent_->vrf_table()->AllocWalker(
                             boost::bind(&AgentRouteWalker::VrfWalkNotify,
@@ -220,7 +219,7 @@ void AgentRouteWalker::WalkTable(AgentRouteTable *table,
                             DBTable::DBTableWalkRef &route_table_walk_ref) {
     if (route_table_walk_ref->in_progress() == false) {
         IncrementWalkCount();
-        IncrementRouteWalkCount(table->vrf_entry());
+        IncrementRouteWalkCount();
     }
     table->WalkAgain(route_table_walk_ref);
 }
@@ -298,7 +297,7 @@ void AgentRouteWalker::RouteWalkDoneInternal(DBTableBase *part) {
 
     AgentRouteTable *table = static_cast<AgentRouteTable *>(part);
     DecrementWalkCount();
-    DecrementRouteWalkCount(table->vrf_entry());
+    DecrementRouteWalkCount();
     uint32_t vrf_id = table->vrf_id();
 
     VrfEntry *vrf = agent_->vrf_table()->
@@ -315,21 +314,12 @@ void AgentRouteWalker::DecrementWalkCount() {
     walk_count_.fetch_and_decrement();
 }
 
-void AgentRouteWalker::DecrementRouteWalkCount(const VrfEntry *vrf) {
-    VrfRouteWalkCountMap::iterator it = route_walk_count_.find(vrf);
-    if (it != route_walk_count_.end()) {
-        it->second.fetch_and_decrement();
-        if (it->second == AgentRouteWalker::kInvalidWalkCount)
-            route_walk_count_.erase(vrf);
-    }
-}
-
-void AgentRouteWalker::IncrementRouteWalkCount(const VrfEntry *vrf) {
-    route_walk_count_[vrf].fetch_and_increment();
+void AgentRouteWalker::DecrementRouteWalkCount() {
+    route_walk_count_.fetch_and_decrement();
 }
 
 void AgentRouteWalker::Callback(VrfEntry *vrf) {
-    if (vrf && AreAllRouteWalksDone(vrf)) {
+    if (vrf && AreAllRouteWalksDone()) {
         //Deletes the state on VRF
         OnRouteTableWalkCompleteForVrf(vrf);
     }
@@ -384,9 +374,8 @@ bool AgentRouteWalker::AreAllWalksDone() const {
     return (walk_count_ == AgentRouteWalker::kInvalidWalkCount);
 }
 
-bool AgentRouteWalker::AreAllRouteWalksDone(const VrfEntry *vrf) const {
-    VrfRouteWalkCountMap::const_iterator it = route_walk_count_.find(vrf);
-    return (it == route_walk_count_.end());
+bool AgentRouteWalker::AreAllRouteWalksDone() const {
+    return (route_walk_count_ == AgentRouteWalker::kInvalidWalkCount);
 }
 
 /* Callback set, his is called when all walks are done i.e. VRF + route */

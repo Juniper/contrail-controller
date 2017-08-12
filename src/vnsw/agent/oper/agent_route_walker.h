@@ -92,7 +92,6 @@ public:
     static const int kInvalidWalkCount = 0;
     typedef boost::function<void()> WalkDone;
     typedef boost::function<void(VrfEntry *)> RouteWalkDoneCb;
-    typedef std::map<const VrfEntry *, tbb::atomic<int> > VrfRouteWalkCountMap;
 
     virtual ~AgentRouteWalker();
 
@@ -114,7 +113,7 @@ public:
     int walk_count() const {return walk_count_;}
     bool IsWalkCompleted() const {return (walk_count_ == kInvalidWalkCount);}
     bool AreAllWalksDone() const;
-    bool AreAllRouteWalksDone(const VrfEntry *vrf) const;
+    bool AreAllRouteWalksDone() const;
     bool IsRouteTableWalkCompleted(RouteWalkerDBState *state);
     AgentRouteWalkerManager *mgr() {return mgr_;}
     Agent *agent() const {return agent_;}
@@ -131,9 +130,9 @@ private:
     void Callback(VrfEntry *vrf);
     void OnRouteTableWalkCompleteForVrf(VrfEntry *vrf);
     void DecrementWalkCount();
-    void DecrementRouteWalkCount(const VrfEntry *vrf);
+    void DecrementRouteWalkCount();
     void IncrementWalkCount() {walk_count_.fetch_and_increment();}
-    void IncrementRouteWalkCount(const VrfEntry *vrf);
+    void IncrementRouteWalkCount() { route_walk_count_.fetch_and_increment(); }
     void WalkTable(AgentRouteTable *table,
                    DBTable::DBTableWalkRef &route_table_walk_ref);
     DBTable::DBTableWalkRef AllocateRouteTableReferences(AgentRouteTable *table);
@@ -156,7 +155,7 @@ private:
 
     Agent *agent_;
     std::string name_;
-    VrfRouteWalkCountMap route_walk_count_;
+    tbb::atomic<int> route_walk_count_;
     tbb::atomic<int> walk_count_;
     WalkDone walk_done_cb_;
     RouteWalkDoneCb route_walk_done_for_vrf_cb_;
