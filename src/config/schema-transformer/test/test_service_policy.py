@@ -29,6 +29,7 @@ from test_policy import VerifyPolicy
 sys.path.append("../common/tests")
 from test_utils import CassandraCFs
 import test_common
+from unittest import skip
 from netaddr import IPNetwork, IPAddress
 import uuid
 
@@ -1397,10 +1398,10 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn2_obj))
     # end test_pnf_service
 
+    @skip("Skipping test_interface_mirror due to a new dependency "
+          "tracker error appeared since we use the VNC ifmap "
+          "server instead of irond.")
     def test_interface_mirror(self):
-        self.skipTest("Skipping test_interface_mirror due to a new dependency "
-                      "tracker error appeared since we use the VNC ifmap "
-                      "server instead of irond.")
         # create  vn1
         vn1_name = self.id() + 'vn1'
         vn1_obj = self.create_virtual_network(vn1_name, '10.0.0.0/24')

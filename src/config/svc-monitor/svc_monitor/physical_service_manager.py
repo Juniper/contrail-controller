@@ -89,14 +89,15 @@ class PhysicalServiceManager(InstanceManager):
     def delete_vm(self,vm):
         if vm.virtual_machine_interfaces:
             vmi_list = list(vm.virtual_machine_interfaces)
-            pt_uuid = VirtualMachineInterfaceSM.get(vmi_list[0]).port_tuple
+            pt_uuid_list = VirtualMachineInterfaceSM.get(vmi_list[0]).port_tuples
             self.cleanup_pi_connections(vmi_list)
             self.cleanup_svc_vm_ports(vmi_list)
-            try:
-                self._vnc_lib.port_tuple_delete(id=pt_uuid)
-                PortTupleSM.delete(pt_uuid)
-            except NoIdError:
-                pass
+            for pt_uuid in pt_uuid_list:
+                try:
+                    self._vnc_lib.port_tuple_delete(id=pt_uuid)
+                    PortTupleSM.delete(pt_uuid)
+                except NoIdError:
+                    continue
         try:
             self._vnc_lib.virtual_machine_delete(id=vm.uuid)
             VirtualMachineSM.delete(vm.uuid)
