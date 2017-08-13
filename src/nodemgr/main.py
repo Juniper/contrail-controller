@@ -50,7 +50,9 @@ from nodemgr.control_nodemgr.control_event_manager import ControlEventManager
 from nodemgr.config_nodemgr.config_event_manager import ConfigEventManager
 from nodemgr.vrouter_nodemgr.vrouter_event_manager import VrouterEventManager
 from nodemgr.database_nodemgr.database_event_manager import DatabaseEventManager
-from pysandesh.sandesh_base import SandeshSystem, SandeshConfig
+from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
 
 def usage():
     print doc
@@ -73,6 +75,12 @@ def main(args_str=' '.join(sys.argv[1:])):
                'contrail_databases': 'config analytics',
                'cassandra_repair_interval': 24,
                'cassandra_repair_logdir': '/var/log/contrail/',
+               'log_local': False,
+               'log_level': SandeshLevel.SYS_DEBUG,
+               'log_category': '',
+               'log_file': Sandesh._DEFAULT_LOG_FILE,
+               'use_syslog': False,
+               'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY
               }
     default.update(SandeshConfig.get_default_options(['DEFAULTS']))
     sandesh_opts = SandeshConfig.get_default_options()
@@ -114,6 +122,18 @@ def main(args_str=' '.join(sys.argv[1:])):
                         nargs='+',
                         help='Collector addresses in format' +
                              'ip1:port1 ip2:port2')
+    parser.add_argument("--log_local", action="store_true",
+        help="Enable local logging of sandesh messages")
+    parser.add_argument("--log_level",
+        help="Severity level for local logging of sandesh messages")
+    parser.add_argument("--log_category",
+        help="Category filter for local logging of sandesh messages")
+    parser.add_argument("--log_file",
+        help="Filename for the logs to be written to")
+    parser.add_argument("--use_syslog", action="store_true",
+        help="Use syslog for logging")
+    parser.add_argument("--syslog_facility",
+        help="Syslog facility to receive log lines")
     SandeshConfig.add_parser_arguments(parser, add_dscp=True)
     if (node_type == 'contrail-database'):
         parser.add_argument("--minimum_diskGB",
@@ -136,7 +156,6 @@ def main(args_str=' '.join(sys.argv[1:])):
     except:
         usage()
     rule_file = _args.rules
-    collector_addr = _args.collectors
 
     # randomize collector list
     _args.chksum = ""
@@ -145,9 +164,6 @@ def main(args_str=' '.join(sys.argv[1:])):
         _args.random_collectors = random.sample(_args.collectors, len(_args.collectors))
         _args.collectors = _args.random_collectors
 
-    collector_addr = _args.collectors
-
-    sandesh_config = SandeshConfig.from_parser_arguments(_args)
     # done parsing arguments
 
     prog = None
@@ -163,8 +179,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-topology.service',
                       'contrail-analytics-nodemgr.service',
                      ]
-        prog = AnalyticsEventManager(
-            rule_file, unit_names, collector_addr, sandesh_config)
+        prog = AnalyticsEventManager(_args, rule_file, unit_names)
     elif (node_type == 'contrail-config'):
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_config_files/" + \
@@ -175,11 +190,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-device-manager.service',
                       'contrail-config-nodemgr.service',
                      ]
-        cassandra_repair_interval = _args.cassandra_repair_interval
-	cassandra_repair_logdir = _args.cassandra_repair_logdir
-        prog = ConfigEventManager(
-            rule_file, unit_names, collector_addr, sandesh_config,
-            cassandra_repair_interval, cassandra_repair_logdir)
+        prog = ConfigEventManager(_args, rule_file, unit_names)
     elif (node_type == 'contrail-control'):
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_control_files/" + \
@@ -189,8 +200,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-named.service',
                       'contrail-control-nodemgr.service',
                      ]
-        prog = ControlEventManager(
-            rule_file, unit_names, collector_addr, sandesh_config)
+        prog = ControlEventManager(_args, rule_file, unit_names)
     elif (node_type == 'contrail-vrouter'):
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_vrouter_files/" + \
@@ -198,8 +208,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         unit_names = ['contrail-vrouter-agent.service',
                       'contrail-vrouter-nodemgr.service',
                      ]
-        prog = VrouterEventManager(
-            rule_file, unit_names, collector_addr, sandesh_config)
+        prog = VrouterEventManager(_args, rule_file, unit_names)
     elif (node_type == 'contrail-database'):
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_database_files/" + \
@@ -208,15 +217,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'kafka.service',
                       'contrail-database-nodemgr.service',
                      ]
-        hostip = _args.hostip
-        minimum_diskgb = _args.minimum_diskgb
-        contrail_databases = _args.contrail_databases
-        cassandra_repair_interval = _args.cassandra_repair_interval
-	cassandra_repair_logdir = _args.cassandra_repair_logdir
-        prog = DatabaseEventManager(
-            rule_file, unit_names, collector_addr, sandesh_config, 
-            hostip, minimum_diskgb, contrail_databases,
-	    cassandra_repair_interval, cassandra_repair_logdir)
+        prog = DatabaseEventManager(_args, rule_file, unit_names)
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
         return

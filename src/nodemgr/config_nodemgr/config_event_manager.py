@@ -13,11 +13,7 @@ from pysandesh.sandesh_base import sandesh_global
 from sandesh_common.vns.ttypes import Module
 
 class ConfigEventManager(EventManager):
-    def __init__(self, rule_file, unit_names, collector_addr,
-                 sandesh_config,
-                 cassandra_repair_interval,
-                 cassandra_repair_logdir):
-
+    def __init__(self, config, rule_file, unit_names):
         if os.path.exists('/tmp/supervisord_config.sock'):
             supervisor_serverurl = "unix:///tmp/supervisord_config.sock"
         else:
@@ -27,12 +23,11 @@ class ConfigEventManager(EventManager):
             object_table = 'ObjectConfigNode',
             supervisor_serverurl = supervisor_serverurl,
             unit_names = unit_names)
-        EventManager.__init__(
-            self, type_info, rule_file, collector_addr, sandesh_global,
-            sandesh_config)
-        self.cassandra_repair_interval = cassandra_repair_interval
-        self.cassandra_repair_logdir = cassandra_repair_logdir
-        self.cassandra_mgr = CassandraManager(cassandra_repair_logdir)
+        super(ConfigEventManager, self).__init__(config, type_info, rule_file,
+                sandesh_global)
+        self.cassandra_repair_interval = config.cassandra_repair_interval
+        self.cassandra_repair_logdir = config.cassandra_repair_logdir
+        self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir)
     # end __init__
 
     def do_periodic_events(self):
