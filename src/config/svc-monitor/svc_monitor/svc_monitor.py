@@ -389,9 +389,9 @@ class SvcMonitor(object):
     #_create_default_analyzer_template
 
     def port_delete_or_si_link(self, vm, vmi):
-        if vmi.port_tuple:
+        if vmi.port_tuples:
             return
-        if (vmi.service_instance and vmi.virtual_machine == None):
+        if (vmi.service_instances and vmi.virtual_machine == None):
             self.vm_manager.cleanup_svc_vm_ports([vmi.uuid])
             return
 
@@ -568,9 +568,10 @@ def timer_callback(monitor):
     # delete vmis with si but no vms
     vmi_delete_list = []
     for vmi in VirtualMachineInterfaceSM.values():
-        si = ServiceInstanceSM.get(vmi.service_instance)
-        if si and not vmi.virtual_machine:
-            vmi_delete_list.append(vmi.uuid)
+        for si_uuid in vmi.service_instances:
+            si = ServiceInstanceSM.get(si_uuid)
+            if si and not vmi.virtual_machine:
+                vmi_delete_list.append(vmi.uuid)
     if len(vmi_delete_list):
         monitor.vm_manager.cleanup_svc_vm_ports(vmi_delete_list)
 

@@ -167,7 +167,7 @@ def create_test_vmi(fq_name_str, pt=None):
     vmi = VirtualMachineInterfaceSM.locate(vmi_obj['uuid'], vmi_obj)
     if pt:
         pt.virtual_machine_interfaces.add(vmi.uuid)
-        vmi.port_tuple = pt.uuid
+        vmi.port_tuples.add(pt.uuid)
     return vmi
 
 def delete_test_vmi(vmi):

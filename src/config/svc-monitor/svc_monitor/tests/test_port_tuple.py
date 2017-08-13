@@ -46,7 +46,7 @@ class PortTupleTest(unittest.TestCase):
         InterfaceRouteTableSM.reset()
         del InterfaceRouteTableSM._object_db
 
-    def __create_test_si(self):
+    def __create_test_si(self, name=None):
         """
         Create and return a fake/test service-instance(SI).
 
@@ -71,7 +71,9 @@ class PortTupleTest(unittest.TestCase):
                                        version='2')
 
         # Create test service-instance.
-        si = test_utils.create_test_si(name='fake-si-uuid',
+        if not name:
+            name = 'fake-si-uuid'
+        si = test_utils.create_test_si(name=name,
                                        count=1,
                                        intf_list=['public-vn',
                                                   'fake-vn-uuid'])
@@ -470,8 +472,8 @@ class PortTupleTest(unittest.TestCase):
         rvmi = self.__create_test_vmi(pt, 'right')
 
         # Invoke Port Tuple update with created vmi's
-        self.pt_agent.update_port_tuple(lvmi)
-        self.pt_agent.update_port_tuple(rvmi)
+        self.pt_agent.update_vmi_port_tuples(lvmi)
+        self.pt_agent.update_vmi_port_tuples(rvmi)
 
         # Validate the expected API invocations.
         self.mocked_vnc.ref_update.assert_any_call(
@@ -619,6 +621,85 @@ class PortTupleTest(unittest.TestCase):
                             'virtual-machine-interface', lvmi.uuid,
                             None, 'ADD')
 
+    def test_multiple_si_service_health_check_common_vmi(self):
+        """
+        Verify that we are able to add service health check on an
+        interface.
+
+        """
+        # Create a test Service Instance.
+        si1 = self.__create_test_si(name='fake-si1-uuid')
+        si2 = self.__create_test_si(name='fake-si2-uuid')
+        si3 = self.__create_test_si(name='fake-si3-uuid')
+
+        # Create ServiceHealthCheck object.
+        test_utils.create_test_service_health_check(
+                                              'fake-domain:fake-project:rhiip1',
+                                              si1.uuid)
+        test_utils.create_test_service_health_check(
+                                              'fake-domain:fake-project:rhiip2',
+                                              si2.uuid)
+        test_utils.create_test_service_health_check(
+                                              'fake-domain:fake-project:rhiip3',
+                                              si3.uuid)
+
+        # Enable ServiceHealthCheck on test SI.
+        si1.service_health_checks['rhiip1'] = {'interface_type':'right'}
+        si2.service_health_checks['rhiip2'] = {'interface_type':'right'}
+        si3.service_health_checks['rhiip3'] = {'interface_type':'right'}
+
+        #Create a Port Tuple.
+        pt1 = test_utils.create_test_port_tuple(
+                       'fake-domain:fake-project:fake-si1-uuid:fake-port-tuple1',
+                       si1.uuid)
+        l1vmi = self.__create_test_vmi(pt1, 'left', 'left1')
+        rvmi = self.__create_test_vmi(pt1, 'right', 'right1')
+
+        pt2 = test_utils.create_test_port_tuple(
+                       'fake-domain:fake-project:fake-si2-uuid:fake-port-tuple2',
+                       si2.uuid)
+        l2vmi = self.__create_test_vmi(pt2, 'left', 'left2')
+        pt2.virtual_machine_interfaces.add(rvmi.uuid)
+        rvmi.port_tuples.add(pt2.uuid)
+
+        pt3 = test_utils.create_test_port_tuple(
+                       'fake-domain:fake-project:fake-si3-uuid:fake-port-tuple3',
+                       si3.uuid)
+        l3vmi = self.__create_test_vmi(pt3, 'left', 'left3')
+        pt3.virtual_machine_interfaces.add(rvmi.uuid)
+        rvmi.port_tuples.add(pt3.uuid)
+
+        # Update PortTuple
+        self.pt_agent.update_port_tuple(pt_id='fake-port-tuple1')
+        self.pt_agent.update_port_tuple(pt_id='fake-port-tuple2')
+        self.pt_agent.update_port_tuple(pt_id='fake-port-tuple3')
+
+        # Validate the expected ADD API invocations.
+        self.mocked_vnc.ref_update.assert_any_call(
+                            'virtual-machine-interface', rvmi.uuid,
+                            'service-health-check', 'rhiip1',
+                            None, 'ADD')
+        self.mocked_vnc.ref_update.assert_any_call(
+                            'virtual-machine-interface', rvmi.uuid,
+                            'service-health-check', 'rhiip2',
+                            None, 'ADD')
+        self.mocked_vnc.ref_update.assert_any_call(
+                            'virtual-machine-interface', rvmi.uuid,
+                            'service-health-check', 'rhiip3',
+                            None, 'ADD')
+        self.mocked_vnc.ref_update.assert_any_call(
+                            'instance-ip', 'fake-iip-uuid',
+                            'virtual-machine-interface', rvmi.uuid,
+                            None, 'ADD')
+        self.mocked_vnc.ref_update.assert_any_call(
+                            'instance-ip', 'fake-iip-uuid',
+                            'virtual-machine-interface', rvmi.uuid,
+                            None, 'ADD')
+        self.mocked_vnc.ref_update.assert_any_call(
+                            'instance-ip', 'fake-iip-uuid',
+                            'virtual-machine-interface', rvmi.uuid,
+                            None, 'ADD')
+
     def test_vmi_delete_service_health_check(self):
         """
         Verify that we are able to delete service health check from an
@@ -646,7 +727,9 @@ class PortTupleTest(unittest.TestCase):
                                               si.uuid)
 
         # Create and attach a service-health-check iip on the vmi under test.
-        iip = test_utils.create_test_iip('fake-domain:fake-project:liip')
+        iip_name  = si.uuid + '-' + 'left-v4-health-check-' + 'llip'
+        iip_fq_name = 'fake-domain:fake-project:' + iip_name
+        iip = test_utils.create_test_iip(iip_fq_name)
         iip.virtual_machine_interfaces = {lvmi.uuid}
         iip.service_health_check_ip = True
         lvmi.service_health_checks = ['lhiip']
