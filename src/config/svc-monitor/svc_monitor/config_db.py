@@ -434,10 +434,10 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.interface_route_tables = set()
         self.service_health_checks = set()
         self.security_groups = set()
-        self.service_instance = None
+        self.service_instances = set()
         self.instance_id = None
         self.physical_interface = None
-        self.port_tuple = None
+        self.port_tuples = set()
         self.fat_flow_ports = set()
         self.aaps = None
         obj_dict = self.update(obj_dict)
@@ -473,11 +473,11 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_multiple_refs('service_health_check', obj)
         self.update_single_ref('physical_interface',obj)
         self.update_multiple_refs('security_group', obj)
-        self.update_single_ref('port_tuple', obj)
+        self.update_multiple_refs('port_tuple', obj)
         if self.virtual_machine:
             vm = VirtualMachineSM.get(self.virtual_machine)
-            if vm:
-                self.service_instance = vm.service_instance
+            if vm and vm.service_instance:
+                self.service_instances.add(vm.service_instance)
         return obj
     # end update
 
@@ -497,7 +497,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj.update_multiple_refs('interface_route_table', {})
         obj.update_multiple_refs('service_health_check', {})
         obj.update_multiple_refs('security_group', {})
-        obj.update_single_ref('port_tuple', {})
+        obj.update_multiple_refs('port_tuple', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
@@ -507,7 +507,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         if vm:
             self._manager.port_delete_or_si_link(vm, self)
 
-        self._manager.port_tuple_agent.update_port_tuple(self)
+        self._manager.port_tuple_agent.update_vmi_port_tuples(self)
 
 # end VirtualMachineInterfaceSM
 
