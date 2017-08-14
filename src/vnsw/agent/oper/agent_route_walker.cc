@@ -404,6 +404,9 @@ void AgentRouteWalker::RouteWalkDoneForVrfCallback(RouteWalkDoneCb cb) {
 
 void AgentRouteWalker::ReleaseVrfWalkReference() {
     agent_->vrf_table()->WalkAgain(delete_walk_ref_);
+    if (vrf_walk_ref_ != NULL) {
+        agent_->vrf_table()->ReleaseWalker(vrf_walk_ref());
+    }
     vrf_walk_ref_.reset();
 }
 
