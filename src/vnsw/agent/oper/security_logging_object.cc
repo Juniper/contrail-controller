@@ -14,7 +14,7 @@
 #include <cfg/cfg_init.h>
 
 SecurityLoggingObject::SecurityLoggingObject(const boost::uuids::uuid &uuid):
-    uuid_(uuid) {
+    uuid_(uuid), firewall_policy_list_(), firewall_rule_list_() {
 }
 
 SecurityLoggingObject::~SecurityLoggingObject() {
@@ -56,6 +56,24 @@ bool SecurityLoggingObject::DBEntrySandesh(Sandesh *sresp, std::string &name)
         ++it;
     }
     data.set_rules(rule_list);
+
+    vector<PolicyLinkData> fp_list;
+    UuidList::const_iterator fp_it = firewall_policy_list_.begin();
+    while (fp_it != firewall_policy_list_.end()) {
+        PolicyLinkData item;
+        item.set_firewall_policy(to_string(*fp_it));
+        fp_list.push_back(item);
+        ++fp_it;
+    }
+    data.set_firewall_policy_list(fp_list);
+
+    vector<string> fr_list;
+    UuidList::const_iterator fr_it = firewall_rule_list_.begin();
+    while (fr_it != firewall_rule_list_.end()) {
+        fr_list.push_back(to_string(*fr_it));
+        ++fr_it;
+    }
+    data.set_firewall_rule_list(fr_list);
 
     vector<SLOSandeshData> &list =
         const_cast<std::vector<SLOSandeshData>&>(resp->get_slo_list());
@@ -112,6 +130,17 @@ bool SecurityLoggingObject::Change(const DBRequest *req) {
         name_ = data->name_;
         ret = true;
     }
+
+    if (firewall_policy_list_ != data->firewall_policy_list_) {
+        firewall_policy_list_ = data->firewall_policy_list_;
+        ret = true;
+    }
+
+    if (firewall_rule_list_ != data->firewall_rule_list_) {
+        firewall_rule_list_ = data->firewall_rule_list_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -216,6 +245,35 @@ SecurityLoggingObjectTable::BuildData(IFMapNode *node) const {
     SecurityLoggingObjectData *slo_data =
         new SecurityLoggingObjectData(agent(), node, data->rules(),
                                       data->rate(), node->name());
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator iter =
+         node->begin(table->GetGraph());
+         iter != node->end(table->GetGraph()); ++iter) {
+
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent()->config_manager()->SkipNode(adj_node)) {
+            continue;
+        }
+
+        if (adj_node->table() == agent()->cfg()->cfg_firewall_policy_table()) {
+            uuid fp_uuid = nil_uuid();
+            autogen::FirewallPolicy *fp =
+                static_cast<autogen::FirewallPolicy *>(adj_node->GetObject());
+            autogen::IdPermsType id_perms = fp->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       fp_uuid);
+            slo_data->firewall_policy_list_.push_back(fp_uuid);
+        }
+        if (adj_node->table() == agent()->cfg()->cfg_firewall_rule_table()) {
+            uuid fr_uuid = nil_uuid();
+            autogen::FirewallRule *fr =
+                static_cast<autogen::FirewallRule *>(adj_node->GetObject());
+            autogen::IdPermsType id_perms = fr->id_perms();
+            CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       fr_uuid);
+            slo_data->firewall_rule_list_.push_back(fr_uuid);
+        }
+    }
     return slo_data;
 }
 
