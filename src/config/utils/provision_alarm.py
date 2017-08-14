@@ -45,7 +45,18 @@ class AlarmProvisioner(object):
             except AttributeError:
                 print "Invalid alarm config for %s" % (fq_name)
             except RefsExistError:
-                print "alarm config %s already created" % (fq_name)
+                print "alarm config %s already exists, updating" % (fq_name)
+                try:
+                    db_alarm_obj = self._vnc_lib.alarm_read(fq_name=fq_name)
+                    db_alarm_obj.set_alarm_rules(alarm_obj.get_alarm_rules())
+                    db_alarm_obj.set_alarm_severity(alarm_obj.get_alarm_severity())
+                    self._vnc_lib.alarm_update(db_alarm_obj)
+                except AttributeError:
+                    print "Invalid alarm config for %s" % (fq_name)
+                except Exception as e:
+                    print "Failed to update alarm config %s - %s" % (fq_name, str(e))
+                else:
+                    print "Updated alarm %s" % (fq_name)
             except Exception as e:
                 print "Failed to create alarm config %s - %s" % (fq_name, str(e))
             else:
