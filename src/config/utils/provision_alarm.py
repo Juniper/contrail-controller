@@ -45,7 +45,22 @@ class AlarmProvisioner(object):
             except AttributeError:
                 print "Invalid alarm config for %s" % (fq_name)
             except RefsExistError:
-                print "alarm config %s already created" % (fq_name)
+                print "alarm config %s already exists, updating" % (fq_name)
+                try:
+                    # we need to keep id_perms field empty in the alarm object
+                    # otherwise vnc-api expects a valid id_perms.uuid field.
+                    # existing id_perms.description field in alarm config db will
+                    # stay as is.
+                    # create an alarm object without id_perms field.
+                    del kwargs['id_perms']
+                    alarm_obj2 = Alarm(**kwargs)
+                    self._vnc_lib.alarm_update(alarm_obj2)
+                except AttributeError:
+                    print "Invalid alarm config for %s" % (fq_name)
+                except Exception as e:
+                    print "Failed to update alarm config %s - %s" % (fq_name, str(e))
+                else:
+                    print "Updated alarm %s" % (fq_name)
             except Exception as e:
                 print "Failed to create alarm config %s - %s" % (fq_name, str(e))
             else:
