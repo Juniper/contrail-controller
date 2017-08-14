@@ -11,7 +11,7 @@ from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
 from sandesh_common.vns.ttypes import Module
 
 class ControlEventManager(EventManager):
-    def __init__(self, rule_file, unit_names, collector_addr, sandesh_config):
+    def __init__(self, config, rule_file, unit_names):
 
         if os.path.exists('/tmp/supervisord_control.sock'):
             supervisor_serverurl = "unix:///tmp/supervisord_control.sock"
@@ -22,9 +22,8 @@ class ControlEventManager(EventManager):
             object_table = 'ObjectBgpRouter',
             supervisor_serverurl = supervisor_serverurl,
             unit_names = unit_names)
-        EventManager.__init__(
-            self, type_info, rule_file, collector_addr, sandesh_global,
-            sandesh_config)
+        super(ControlEventManager, self).__init__(config, type_info, rule_file,
+                sandesh_global)
     # end __init__
 
 # end class ControlEventManager

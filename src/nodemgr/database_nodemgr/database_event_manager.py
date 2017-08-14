@@ -23,10 +23,7 @@ from database.sandesh.database.ttypes import \
     CassandraStatusData,CassandraThreadPoolStats, CassandraCompactionTask
 
 class DatabaseEventManager(EventManager):
-    def __init__(self, rule_file, unit_names, collector_addr, sandesh_config,
-                 hostip, minimum_diskgb, contrail_databases,
-                 cassandra_repair_interval,
-                 cassandra_repair_logdir):
+    def __init__(self, config, rule_file, unit_names):
 
         if os.path.exists('/tmp/supervisord_database.sock'):
             supervisor_serverurl = "unix:///tmp/supervisord_database.sock"
@@ -43,15 +40,14 @@ class DatabaseEventManager(EventManager):
             },
             sandesh_packages = ['database.sandesh'],
             unit_names = unit_names)
-        EventManager.__init__(
-            self, type_info, rule_file,
-            collector_addr, sandesh_global, sandesh_config)
-        self.hostip = hostip
-        self.minimum_diskgb = minimum_diskgb
-        self.contrail_databases = contrail_databases
-        self.cassandra_repair_interval = cassandra_repair_interval
-        self.cassandra_repair_logdir = cassandra_repair_logdir
-        self.cassandra_mgr = CassandraManager(cassandra_repair_logdir)
+        super(DatabaseEventManager, self).__init__(config, type_info, rule_file,
+                sandesh_global)
+        self.hostip = config.hostip
+        self.minimum_diskgb = config.minimum_diskgb
+        self.contrail_databases = config.contrail_databases
+        self.cassandra_repair_interval = config.cassandra_repair_interval
+        self.cassandra_repair_logdir = config.cassandra_repair_logdir
+        self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir)
         # Initialize tpstat structures
         self.cassandra_status_old = CassandraStatusData()
         self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()

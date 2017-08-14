@@ -15,8 +15,7 @@ from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 class VrouterEventManager(EventManager):
-    def __init__(self, rule_file, unit_names,
-                 collector_addr, sandesh_config):
+    def __init__(self, config, rule_file, unit_names):
 
         if os.path.exists('/tmp/supervisord_vrouter.sock'):
             supervisor_serverurl = "unix:///tmp/supervisord_vrouter.sock"
@@ -29,9 +28,8 @@ class VrouterEventManager(EventManager):
             object_table = 'ObjectVRouter',
             supervisor_serverurl = supervisor_serverurl,
             unit_names = unit_names)
-        EventManager.__init__(self, type_info, rule_file,
-                              collector_addr, sandesh_global,
-                              sandesh_config, update_process_list = True)
+        super(VrouterEventManager, self).__init__(config, type_info, rule_file,
+                sandesh_global, update_process_list=True)
         self.lb_stats = LoadbalancerStatsUVE(self.logger)
     # end __init__
 
