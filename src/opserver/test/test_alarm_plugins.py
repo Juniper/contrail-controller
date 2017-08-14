@@ -1330,7 +1330,8 @@ class TestAlarmPlugins(unittest.TestCase):
             ),
             TestCase(
                 name='ContrailConfig.elements.virtual_router_refs != null &'
-                    ' ProuterData.tsn_agent_list == null',
+                    ' ProuterData.tsn_agent_list == null'
+                    ' ProuterData.gateway_mode == null',
                 input=TestInput(uve_key='ObjectPRouter:prouter1',
                     uve_data={
                         'ContrailConfig': {
@@ -1374,6 +1375,21 @@ class TestAlarmPlugins(unittest.TestCase):
                                         'json_operand1_val': 'null'
                                     }
                                 ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'ProuterData.gateway_mode',
+                                    'operand2': {
+                                        'json_value': '"SERVER"'
+                                    },
+                                    'operation': '!=',
+
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
                             }
                         ]
                     }
@@ -1381,7 +1397,8 @@ class TestAlarmPlugins(unittest.TestCase):
             ),
             TestCase(
                 name='ContrailConfig.elements.virtual_router_refs != null &'
-                    ' ProuterData.tsn_agent_list size!= 1',
+                    ' ProuterData.tsn_agent_list size!= 1'
+                    ' ProuterData.gateway_mode == null',
                 input=TestInput(uve_key='ObjectPRouter:prouter1',
                     uve_data={
                         'ContrailConfig': {
@@ -1426,10 +1443,113 @@ class TestAlarmPlugins(unittest.TestCase):
                                         'json_operand1_val': '["tor1", "tor2"]'
                                     }
                                 ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'ProuterData.gateway_mode',
+                                    'operand2': {
+                                        'json_value': '"SERVER"'
+                                    },
+                                    'operation': '!=',
+
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': 'null'
+                                    }
+                                ]
                             }
                         ]
                     }
                 ])
+            ),
+            TestCase(
+                name='ContrailConfig.elements.virtual_router_refs != null &'
+                    ' ProuterData.tsn_agent_list size = 0 &'
+                    ' ProuterData.gateway_mode = "VCPE"',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                                'virtual_router_refs': '[{"to": ["tor1"]}]'
+                            }
+                        },
+                        'ProuterData': {
+                            'tsn_agent_list': [],
+                            'gateway_mode': 'VCPE'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_refs',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val':
+                                            '[{"to": ["tor1"]}]'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'ProuterData.tsn_agent_list',
+                                    'operand2': {
+                                        'json_value': '1'
+                                    },
+                                    'operation': 'size!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '[]'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'ProuterData.gateway_mode',
+                                    'operand2': {
+                                        'json_value': '"SERVER"'
+                                    },
+                                    'operation': '!=',
+
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"VCPE"'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
+            ),
+            TestCase(
+                name='ContrailConfig.elements.virtual_router_refs != null &'
+                    ' ProuterData.tsn_agent_list size = 0 &'
+                    ' ProuterData.gateway_mode = "SERVER"',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                                'virtual_router_refs': '[{"to": ["tor1"]}]'
+                            }
+                        },
+                        'ProuterData': {
+                            'tsn_agent_list': [],
+                            'gateway_mode': 'SERVER'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
             ),
             TestCase(
                 name='ContrailConfig.elements.virtual_router_refs != null &'
@@ -1447,6 +1567,94 @@ class TestAlarmPlugins(unittest.TestCase):
                     }
                 ),
                 output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ContrailConfig.elements.virtual_router_refs != null &'
+                    ' ProuterData.tsn_agent_list size = 1 &'
+                    ' ProuterData.gateway_mode = "VCPE"',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                                'virtual_router_refs': '[{"to": ["tor1"]}]'
+                            }
+                        },
+                        'ProuterData': {
+                            'tsn_agent_list': ['tor1'],
+                            'gateway_mode': 'VCPE'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=None)
+            ),
+            TestCase(
+                name='ContrailConfig.elements.virtual_router_refs != null &'
+                    ' ProuterData.tsn_agent_list size = 1 &'
+                    ' ProuterData.gateway_mode = "SERVER"',
+                input=TestInput(uve_key='ObjectPRouter:prouter1',
+                    uve_data={
+                        'ContrailConfig': {
+                            'elements': {
+                                'virtual_router_refs': '[{"to": ["tor1"]}]'
+                            }
+                        },
+                        'ProuterData': {
+                            'tsn_agent_list': ['tor1'],
+                            'gateway_mode': 'SERVER'
+                        }
+                    }
+                ),
+                output=TestOutput(or_list=[
+                    {
+                        'and_list': [
+                            {
+                                'condition': {
+                                    'operand1': 'ContrailConfig.elements.'
+                                        'virtual_router_refs',
+                                    'operand2': {
+                                        'json_value': 'null'
+                                    },
+                                    'operation': '!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val':
+                                            '[{"to": ["tor1"]}]'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'ProuterData.tsn_agent_list',
+                                    'operand2': {
+                                        'json_value': '0'
+                                    },
+                                    'operation': 'size!='
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '["tor1"]'
+                                    }
+                                ]
+                            },
+                            {
+                                'condition': {
+                                    'operand1': 'ProuterData.gateway_mode',
+                                    'operand2': {
+                                        'json_value': '"SERVER"'
+                                    },
+                                    'operation': '==',
+
+                                },
+                                'match': [
+                                    {
+                                        'json_operand1_val': '"SERVER"'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ])
             )
         ]
         self._verify(tests, alarm_name="system-defined-prouter-tsn-connectivity")

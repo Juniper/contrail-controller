@@ -507,7 +507,39 @@ alarm_list = [
                             "operand2": {
                                 "json_value": "1"
                             }
-                        }
+                       },
+                       {
+                           "operand1": "ProuterData.gateway_mode",
+                           "operation": "!=",
+                           "operand2": {
+                               "json_value": "\"SERVER\""
+                           }
+                       }
+                    ]
+                },
+                {
+                    "and_list": [
+                        {
+                            "operand1": "ContrailConfig.elements.virtual_router_refs",
+                            "operation": "!=",
+                            "operand2": {
+                                "json_value": "null"
+                            }
+                        },
+                        {
+                            "operand1": "ProuterData.tsn_agent_list",
+                            "operation": "size!=",
+                            "operand2": {
+                                "json_value": "0"
+                            }
+                       },
+                       {
+                           "operand1": "ProuterData.gateway_mode",
+                           "operation": "==",
+                           "operand2": {
+                               "json_value": "\"SERVER\""
+                           }
+                       }
                     ]
                 }
             ]
