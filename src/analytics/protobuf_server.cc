@@ -20,9 +20,21 @@
 #include <io/io_types.h>
 #include <io/udp_server.h>
 
-#include "analytics/protobuf_schema.pb.h"
+#include "analytics/jti-protos/telemetry_top.pb.h"
 #include "analytics/protobuf_server.h"
 #include "analytics/protobuf_server_impl.h"
+
+#include "analytics/jti-protos/cpu_memory_utilization.pb.h"
+#include "analytics/jti-protos/firewall.pb.h"
+#include "analytics/jti-protos/inline_jflow.pb.h"
+#include "analytics/jti-protos/logical_port.pb.h"
+#include "analytics/jti-protos/lsp_mon.pb.h"
+#include "analytics/jti-protos/lsp_stats.pb.h"
+#include "analytics/jti-protos/npu_memory_utilization.pb.h"
+#include "analytics/jti-protos/npu_utilization.pb.h"
+#include "analytics/jti-protos/optics.pb.h"
+#include "analytics/jti-protos/packet_stats.pb.h"
+#include "analytics/jti-protos/port.pb.h"
 
 using ::google::protobuf::FileDescriptorSet;
 using ::google::protobuf::FileDescriptor;
@@ -52,66 +64,92 @@ const Message* ProtobufReader::GetPrototype(const Descriptor *mdesc) {
     return dmf_.GetPrototype(mdesc);
 }
 
-bool ProtobufReader::ParseSelfDescribingMessage(const uint8_t *data,
-    size_t size, uint64_t *timestamp, Message **msg,
-    ParseFailureCallback parse_failure_cb) {
-    // Parse the SelfDescribingMessage from data
-    SelfDescribingMessage sdm_message;
-    bool success = sdm_message.ParseFromArray(data, size);
+std::string GetJtiExtensionType (JuniperNetworksSensors *handle) {
+    const Reflection *reflection(handle->GetReflection());
+    std::vector<const FieldDescriptor*> fields;
+    reflection->ListFields(*handle, &fields);
+    if (fields.size() == 0) {
+	return "unknown";
+    } else {
+	return std::string(fields[0]->lowercase_name());
+    }
+}
+
+// All JTI messages will be encapsulated inside TelemetryStream message
+// This function parses the Telemetary Stream and populates the sensor message
+// encapsulated inside Telemetry Stream
+bool ProtobufReader::ParseTelemetryStreamMessage(TelemetryStream *tstream,
+						 const uint8_t *data,
+						 size_t size,
+						 uint64_t *tstamp,
+						 std::string *message_name,
+						 Message **msg,
+						 ParseFailureCallback 
+						 parse_failure_cb) {
+
+    LOG(DEBUG, "Parsing Telemetry Stream message JTI");
+    // Parse TelemetryStream from data
+    bool success = tstream->ParseFromArray(data, size);
     if (!success) {
         if (!parse_failure_cb.empty()) {
 	    parse_failure_cb("Unknown");
         }
-        LOG(ERROR, "SelfDescribingMessage: Parsing FAILED");
+        LOG(ERROR, "TelemetryStream: Parsing FAILED");
         return false;
     }
-    *timestamp = sdm_message.timestamp();
-    const std::string &msg_type(sdm_message.type_name());
-    // Extract the FileDescriptorProto and populate the Descriptor pool
-    const FileDescriptorSet &fds(sdm_message.proto_files());
-    for (int i = 0; i < fds.file_size(); i++) {
-        const FileDescriptorProto &fdp(fds.file(i));
-        tbb::mutex::scoped_lock lock(mutex_);
-        const FileDescriptor *fd(dpool_.BuildFile(fdp));
-        if (fd == NULL) {
-            if (!parse_failure_cb.empty()) {
-                parse_failure_cb(msg_type);
-            }
-            LOG(ERROR, "SelfDescribingMessage: " << msg_type <<
-                ": DescriptorPool BuildFile(" << i << ") FAILED");
-            return false;
-        }
-        lock.release();
+
+    *tstamp = UTCTimestampUsec();
+    // Sensor message is availabe in enterprise field on TelemetryStream
+    // message
+    // Get Extension Data
+    LOG(DEBUG, "JTI Tstream message" << tstream->DebugString());
+    JuniperNetworksSensors *jsensor(tstream->mutable_enterprise()
+				    ->MutableExtension(juniperNetworks));
+    message_name->append("enterprise.juniperNetworks");
+    const Reflection *reflection(jsensor->GetReflection());
+    std::vector<const FieldDescriptor*> fields;
+    reflection->ListFields(*jsensor, &fields);
+    if (fields.size() == 0) {
+	if (!parse_failure_cb.empty()) {
+	    parse_failure_cb("JuniperNetworksSensors");
+	}
+	LOG(ERROR, "TelemetryStream: No JuniperNetworksSensors data "
+	    << GetJtiExtensionType(jsensor));
+	return false;
     }
-    // Extract the Descriptor
-    const Descriptor *mdesc = dpool_.FindMessageTypeByName(msg_type);
+    // Message name of the sensor data
+    message_name->append("." + fields[0]->lowercase_name());
+
+    const FieldDescriptor *field(fields[0]);
+    const std::string &msg_type(field->type_name());
+    const Descriptor *mdesc(field->message_type());
+
     if (mdesc == NULL) {
-        if (!parse_failure_cb.empty()) {
-            parse_failure_cb(msg_type);
-        }
-        LOG(ERROR, "SelfDescribingMessage: " << msg_type << ": Descriptor " <<
-            "not FOUND");
-        return false;
+	if (!parse_failure_cb.empty()) {
+	    parse_failure_cb("TelemetryStream");
+	}
+	LOG(ERROR, "JuniperNetworksSensors: " << msg_type << ": Descriptor " <<
+	    "not FOUND");
+	return false;
     }
-    // Parse the message.
+
     const Message* msg_proto = GetPrototype(mdesc);
     if (msg_proto == NULL) {
-        if (!parse_failure_cb.empty()) {
-            parse_failure_cb(msg_type);
-        }
-        LOG(ERROR, msg_type << ": Prototype FAILED");
-        return false;
+	if (!parse_failure_cb.empty()) {
+	    parse_failure_cb("TelemetryStream");
+	}
+	LOG(ERROR, "TelemetryStream: Prototype FAILED");
+	return false;
     }
-    *msg = msg_proto->New();
-    success = (*msg)->ParseFromString(sdm_message.message_data());
+    LOG(DEBUG, "Populating extension message from Telemetry Stream");
+    *msg = msg_proto->New(); 
+    success = (*msg)->ParseFromString(reflection->GetMessage(*jsensor,
+							     field).SerializeAsString());
     if (!success) {
-        if (!parse_failure_cb.empty()) {
-            parse_failure_cb(msg_type);
-        }
-        LOG(ERROR, msg_type << ": Parsing FAILED");
-        delete *msg;
-        *msg = NULL;
-        return false;
+	if (!parse_failure_cb.empty()) {
+	    parse_failure_cb(msg_type);
+	}
+	return false;
     }
     return true;
 }
@@ -123,6 +161,7 @@ void PopulateProtobufTopLevelTags(const Message& message,
     boost::asio::ip::address remote_address(remote_endpoint.address());
     boost::system::error_code ec;
     const std::string saddr(remote_address.to_string(ec));
+    LOG(DEBUG, "Populating Top level tags for JTI message");
     if (ec) {
         LOG(ERROR, "Remote endpoint: " << remote_endpoint <<
             " address to string FAILED: " << ec);
@@ -336,6 +375,7 @@ void PopulateProtobufStats(const Message& message,
         }
         // Push the stats at this level
         stat_walker->Push(stat_attr_name, tags, attribs);
+	LOG(DEBUG, "Pushing JTI attribute name " << stat_attr_name);
     }
     // Perform traversal of children
     for (size_t i = 0; i < fields.size(); i++) {
@@ -365,19 +405,54 @@ void PopulateProtobufStats(const Message& message,
     }
     // Pop the stats at this level
     if (!top_level) {
+	LOG(DEBUG, "Populating JTI Stat");
         stat_walker->Pop();
     }
 }
 
-void ProcessProtobufMessage(const Message& message,
+void ProcessProtobufMessage(const TelemetryStream& tstream,
+    std::string message_name, const Message& message,
     const uint64_t &timestamp,
     const boost::asio::ip::udp::endpoint &remote_endpoint,
     StatWalker::StatTableInsertFn stat_db_callback) {
-    const std::string &message_name(message.GetTypeName());
     StatWalker::TagMap top_tags;
+   
+    // Extract all the fields present in the TelemetryStream message
+
+    LOG(DEBUG, "Processing JTI Protobuf message");
+
+    StatWalker::TagVal sysidvalue;
+    sysidvalue.val = tstream.system_id();
+    top_tags.insert(make_pair("system_id", sysidvalue));
+
+    StatWalker::TagVal compidvalue;
+    compidvalue.val = static_cast<uint64_t>(tstream.component_id());
+    top_tags.insert(make_pair("component_id", compidvalue));
+
+    StatWalker::TagVal subcompidvalue;
+    subcompidvalue.val = static_cast<uint64_t>(tstream.sub_component_id());
+    top_tags.insert(make_pair("sub_component_id", subcompidvalue));
+
+    StatWalker::TagVal sequencenum;
+    sequencenum.val = static_cast<uint64_t>(tstream.sequence_number());
+    top_tags.insert(make_pair("sequence_number", sequencenum));
+
+    StatWalker::TagVal sensorvalue;
+    sensorvalue.val = tstream.sensor_name();
+    top_tags.insert(make_pair("sensor_name", sensorvalue));
+
+    StatWalker::TagVal version_major;
+    version_major.val = static_cast<uint64_t>(tstream.version_major());
+    top_tags.insert(make_pair("version_major", version_major));
+
+    StatWalker::TagVal version_minor;
+    version_minor.val = static_cast<uint64_t>(tstream.version_minor());
+    top_tags.insert(make_pair("version_minor", version_minor));
+
+    // Populate the Message encapsulated inside TelemetryStream
     PopulateProtobufTopLevelTags(message, remote_endpoint, &top_tags);
-    StatWalker stat_walker(stat_db_callback, timestamp, message_name, top_tags);
-    PopulateProtobufStats(message, std::string(), &stat_walker);
+    StatWalker stat_walker(stat_db_callback, timestamp, "TelemetryStream", top_tags);
+    PopulateProtobufStats(message, message_name, &stat_walker);
 }
 
 }  // namespace impl
@@ -450,11 +525,17 @@ private:
         virtual void OnRead(const boost::asio::const_buffer &recv_buffer,
             const boost::asio::ip::udp::endpoint &remote_endpoint) {
             uint64_t timestamp;
+	    std::string message_name;
             Message *message = NULL;
+	    TelemetryStream tstream;
+	    // The data is available in recv_buffer encoded serially in 
+	    // protobuf format
             size_t recv_buffer_size(boost::asio::buffer_size(recv_buffer));
-            if (!reader_.ParseSelfDescribingMessage(
+	    LOG(INFO, "Received JTI data, parsing TelemetryStream");
+	    // Deserialize the data in the Message object
+	    if (!reader_.ParseTelemetryStreamMessage(&tstream,
                     boost::asio::buffer_cast<const uint8_t *>(recv_buffer),
-                    recv_buffer_size, &timestamp,
+                    recv_buffer_size, &timestamp, &message_name,
                     &message, boost::bind(&MessageStatistics::UpdateRxFail,
                     &msg_stats_, remote_endpoint, _1))) {
                 LOG(ERROR, "Reading protobuf message FAILED: " <<
@@ -462,9 +543,10 @@ private:
                 DeallocateBuffer(recv_buffer);
                 return;
             }
-            protobuf::impl::ProcessProtobufMessage(*message, timestamp,
-                remote_endpoint, stat_db_callback_);
-            const std::string &message_name(message->GetTypeName());
+	    protobuf::impl::ProcessProtobufMessage(tstream, message_name,
+						   *message, timestamp,
+						   remote_endpoint,
+						   stat_db_callback_);
             msg_stats_.UpdateRx(remote_endpoint, message_name,
                 recv_buffer_size);
             delete message;
@@ -650,8 +732,8 @@ void protobuf::impl::ProtobufLibraryLog(google::protobuf::LogLevel level,
     }
 }
 
-ProtobufServer::ProtobufServer(EventManager *evm,
-    uint16_t udp_server_port, StatWalker::StatTableInsertFn stat_db_fn) :
+ProtobufServer::ProtobufServer(EventManager *evm, uint16_t udp_server_port,
+			       StatWalker::StatTableInsertFn stat_db_fn) :
     shutdown_libprotobuf_on_delete_(true) {
     GOOGLE_PROTOBUF_VERIFY_VERSION;
     google::protobuf::SetLogHandler(&protobuf::impl::ProtobufLibraryLog);
