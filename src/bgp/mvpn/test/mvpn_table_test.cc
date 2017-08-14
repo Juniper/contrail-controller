@@ -281,6 +281,142 @@ TEST_F(MvpnTableTest, AddDeleteMultipleRoute3) {
     TASK_UTIL_EXPECT_EQ(del_notification_, kRouteCount);
 }
 
+TEST_F(MvpnTableTest, CreateType4LeafADRoutePrefix) {
+    ostringstream repr;
+    repr << "3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1";
+    AddRoute(blue_, repr.str());
+    task_util::WaitForIdle();
+    VerifyRouteExists(blue_, repr.str());
+    TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+
+    MvpnRoute *rt = FindRoute(blue_, repr.str());
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, rt->Afi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, rt->Safi());
+
+    MvpnPrefix type4_prefix = blue_->CreateType4LeafADRoutePrefix(rt);
+    const Ip4Address ip(Ip4Address::from_string("20.1.1.1"));
+    type4_prefix.set_originator(ip);
+    string prefix_str = type4_prefix.ToString();
+    AddRoute(blue_, prefix_str);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(2, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(2, master_->Size());
+
+    MvpnRoute *type4_rt = FindRoute(blue_, prefix_str);
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, type4_rt->Afi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, type4_rt->Safi());
+    TASK_UTIL_EXPECT_EQ(4, type4_rt->GetPrefix().type());
+    TASK_UTIL_EXPECT_EQ(rt->GetPrefix().source(),
+	    type4_rt->GetPrefix().source());
+    TASK_UTIL_EXPECT_EQ(rt->GetPrefix().group(),
+	    type4_rt->GetPrefix().group());
+
+    DelRoute(blue_, prefix_str);
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(blue_, prefix_str);
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+
+    DelRoute(blue_, repr.str());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(del_notification_, 2);
+    VerifyRouteNoExists(blue_, repr.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+}
+
+TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
+    ostringstream repr;
+    repr << "7-10.1.1.1:65535,12345,224.1.2.3,192.168.1.1";
+    AddRoute(blue_, repr.str());
+    task_util::WaitForIdle();
+    VerifyRouteExists(blue_, repr.str());
+    TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+
+    MvpnRoute *rt = FindRoute(blue_, repr.str());
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, rt->Afi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, rt->Safi());
+
+    MvpnPrefix type3_prefix = blue_->CreateType3SPMSIRoutePrefix(rt);
+    string prefix_str = type3_prefix.ToString();
+    AddRoute(blue_, prefix_str);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(2, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(2, master_->Size());
+
+    MvpnRoute *type3_rt = FindRoute(blue_, prefix_str);
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, type3_rt->Afi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, type3_rt->Safi());
+    TASK_UTIL_EXPECT_EQ(3, type3_rt->GetPrefix().type());
+    TASK_UTIL_EXPECT_EQ(rt->GetPrefix().source(),
+	    type3_rt->GetPrefix().source());
+    TASK_UTIL_EXPECT_EQ(rt->GetPrefix().group(),
+	    type3_rt->GetPrefix().group());
+    TASK_UTIL_EXPECT_EQ(blue_->server()->bgp_identifier(),
+	    rt->GetPrefix().originator().to_ulong());
+
+    DelRoute(blue_, prefix_str);
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(blue_, prefix_str);
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+
+    DelRoute(blue_, repr.str());
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(del_notification_, 2);
+    VerifyRouteNoExists(blue_, repr.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+}
+
+TEST_F(MvpnTableTest, CreateType2RoutePrefix) {
+    MvpnPrefix type2_prefix = blue_->CreateType2ADRoutePrefix();
+    string prefix_str = type2_prefix.ToString();
+    AddRoute(blue_, prefix_str);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+
+    MvpnRoute *rt = FindRoute(blue_, prefix_str);
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, rt->Afi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, rt->Safi());
+    TASK_UTIL_EXPECT_EQ(2, rt->GetPrefix().type());
+    TASK_UTIL_EXPECT_EQ(blue_->server()->autonomous_system(),
+	    rt->GetPrefix().asn());
+
+    DelRoute(blue_, prefix_str);
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(blue_, prefix_str);
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+}
+
+TEST_F(MvpnTableTest, CreateType1RoutePrefix) {
+    MvpnPrefix type1_prefix = blue_->CreateType1ADRoutePrefix();
+    string prefix_str = type1_prefix.ToString();
+    AddRoute(blue_, prefix_str);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+
+    MvpnRoute *rt = FindRoute(blue_, prefix_str);
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, rt->Afi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, rt->Safi());
+    TASK_UTIL_EXPECT_EQ(1, rt->GetPrefix().type());
+    TASK_UTIL_EXPECT_EQ(blue_->server()->bgp_identifier(),
+	    rt->GetPrefix().originator().to_ulong());
+
+    DelRoute(blue_, prefix_str);
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(blue_, prefix_str);
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+}
+
 TEST_F(MvpnTableTest, Hashing) {
     for (int idx = 1; idx <= 255; idx++) {
         ostringstream repr;
