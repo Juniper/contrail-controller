@@ -741,8 +741,9 @@ class VncApiServer(object):
 
             # build new links in returned dict based on permissions on linked object
             ret_obj_dict[link_field] = [l for l in links
-                if self._permissions.check_perms_read(get_request(), l['uuid'], id_perms=uuid_to_perms2[l['uuid']])[0] == True]
-
+                if ((l['uuid'] in uuid_to_perms2) and
+                    (self._permissions.check_perms_read( get_request(),
+                      l['uuid'], id_perms=uuid_to_perms2[l['uuid']])[0] == True))]
         return ret_obj_dict
 
     @log_api_stats
