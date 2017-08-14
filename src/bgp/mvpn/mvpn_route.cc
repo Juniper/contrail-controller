@@ -25,6 +25,12 @@ MvpnPrefix::MvpnPrefix(uint8_t type, const RouteDistinguisher &rd,
     assert(type == InterASPMSIADRoute);
 }
 
+MvpnPrefix::MvpnPrefix(uint8_t type, const Ip4Address &originator)
+    : type_(type), originator_(originator) {
+
+    assert(type == LeafADRoute);
+}
+
 MvpnPrefix::MvpnPrefix(uint8_t type, const RouteDistinguisher &rd,
     const Ip4Address &originator)
     : type_(type), rd_(rd), originator_(originator) {
@@ -171,6 +177,10 @@ int MvpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
     }
 
     return 0;
+}
+
+void MvpnPrefix::set_originator(const Ip4Address &originator) {
+    originator_ = originator;
 }
 
 int MvpnPrefix::FromProtoPrefix(BgpServer *server,
@@ -338,15 +348,6 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
         return null_prefix;
     }
 
-    if (prefix.type_ < MvpnPrefix::IntraASPMSIADRoute ||
-        prefix.type_ > MvpnPrefix::SourceTreeJoinRoute) {
-        if (errorp != NULL) {
-            *errorp = make_error_code(boost::system::errc::invalid_argument);
-        }
-        return null_prefix;
-    }
-
-
     switch (prefix.type_) {
     case IntraASPMSIADRoute: {
         // Look for RD.
@@ -470,20 +471,74 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
         break;
     }
     case LeafADRoute: {
-        // Look for route key
-        size_t pos2 = str.find('-', pos1 + 1);
-        temp_str = str.substr(pos1 + 1, pos2 - pos1 - 1);
-        copy(temp_str.begin(), temp_str.begin() + pos2, prefix.rt_key_.begin());
-        // rest is originator
-        temp_str = str.substr(pos2 + 1, string::npos);
-        boost::system::error_code originator_err;
-        prefix.originator_ = Ip4Address::from_string(temp_str, originator_err);
-        if (originator_err != 0) {
+        // Look for RD.
+        size_t pos2 = str.find(',', pos1 + 1);
+        if (pos2 == string::npos) {
             if (errorp != NULL) {
-                *errorp = originator_err;
+                *errorp = make_error_code(boost::system::errc::invalid_argument);
             }
             return null_prefix;
         }
+        temp_str = str.substr(pos1 + 1, pos2 - pos1 - 1);
+        boost::system::error_code rd_err;
+        prefix.rd_ = RouteDistinguisher::FromString(temp_str, &rd_err);
+        if (rd_err != 0) {
+            if (errorp != NULL) {
+                *errorp = rd_err;
+            }
+            return null_prefix;
+        }
+        // check if source ip or asn
+        size_t pos3 = str.find(',', pos2 + 1);
+        if (pos3 == string::npos) {
+            // check for asn
+            temp_str = str.substr(pos2 + 1, string::npos);
+            if (!stringToInteger(temp_str, prefix.asn_)) {
+                if (errorp != NULL) {
+                    *errorp = make_error_code(boost::system::errc::invalid_argument);
+                }
+                return null_prefix;
+            }
+            // everything will go in rt_key as well
+            temp_str = str.substr(pos1 + 1, string::npos);
+            prefix.rt_key_.resize(temp_str.size());
+            copy(temp_str.begin(), temp_str.begin() + temp_str.size(),
+                    prefix.rt_key_.begin());
+            break;
+        }
+        temp_str = str.substr(pos2 + 1, pos3 - pos2 - 1);
+        boost::system::error_code source_err;
+        prefix.source_ = Ip4Address::from_string(temp_str, source_err);
+        if (source_err != 0) {
+            if (errorp != NULL) {
+                *errorp = source_err;
+            }
+            return null_prefix;
+        }
+
+        // Look for group.
+        size_t pos4 = str.find(',', pos3 + 1);
+        if (pos4 == string::npos) {
+            if (errorp != NULL) {
+                *errorp = make_error_code(boost::system::errc::invalid_argument);
+            }
+            return null_prefix;
+        }
+        temp_str = str.substr(pos3 + 1, pos4 - pos3 - 1);
+        boost::system::error_code group_err;
+        prefix.group_ = Ip4Address::from_string(temp_str, group_err);
+        if (group_err != 0) {
+            if (errorp != NULL) {
+                *errorp = group_err;
+            }
+            return null_prefix;
+        }
+
+        // everything will go in rt_key as well
+        temp_str = str.substr(pos1 + 1, string::npos);
+        prefix.rt_key_.resize(temp_str.size());
+        copy(temp_str.begin(), temp_str.begin() + temp_str.size(),
+                prefix.rt_key_.begin());
         break;
     }
     case SourceActiveADRoute: {
@@ -522,15 +577,8 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
             return null_prefix;
         }
 
-        // Look for group.
-        size_t pos4 = str.find(',', pos3 + 1);
-        if (pos4 == string::npos) {
-            if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
-            }
-            return null_prefix;
-        }
-        temp_str = str.substr(pos3 + 1, pos4 - pos3 - 1);
+        // rest is group.
+        temp_str = str.substr(pos3 + 1, string::npos);
         boost::system::error_code group_err;
         prefix.group_ = Ip4Address::from_string(temp_str, group_err);
         if (group_err != 0) {
@@ -568,7 +616,7 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
             }
             return null_prefix;
         }
-        temp_str = str.substr(pos2 + 1, string::npos);
+        temp_str = str.substr(pos2 + 1, pos3 - pos2 - 1);
         if (!stringToInteger(temp_str, prefix.asn_)) {
             return null_prefix;
         }
@@ -590,15 +638,8 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
             return null_prefix;
         }
 
-        // Look for group.
-        size_t pos5 = str.find(',', pos4 + 1);
-        if (pos5 == string::npos) {
-            if (errorp != NULL) {
-                *errorp = make_error_code(boost::system::errc::invalid_argument);
-            }
-            return null_prefix;
-        }
-        temp_str = str.substr(pos4 + 1, pos5 - pos4 - 1);
+        // rest is group.
+        temp_str = str.substr(pos4 + 1, string::npos);
         boost::system::error_code group_err;
         prefix.group_ = Ip4Address::from_string(temp_str, group_err);
         if (group_err != 0) {
@@ -632,8 +673,30 @@ string MvpnPrefix::ToString() const {
             repr += "," + originator_.to_string();
             break;
         case LeafADRoute: {
-            string key(rt_key_.begin(), rt_key_.end());
-            repr += "-" + key;
+            size_t expected_type3_based_key_size = RouteDistinguisher::kSize +
+		(1 + Address::kMaxV4Bytes) * 2 + Address::kMaxV4Bytes;
+            RouteDistinguisher rd((const uint8_t *)(&rt_key_[0]));
+            repr += "-" + rd.ToString();
+	    // Check if it is type3 based or type2 based
+            if (expected_type3_based_key_size == rt_key_.size()) {
+                size_t key_size = RouteDistinguisher::kSize + 1;
+                Ip4Address ip = Ip4Address(get_value
+                    (&rt_key_[key_size], Address::kMaxV4Bytes));
+                repr += "," + ip.to_string();
+                key_size += Address::kMaxV4Bytes + 1;
+                ip = Ip4Address(get_value
+                    (&rt_key_[key_size], Address::kMaxV4Bytes));
+                key_size += Address::kMaxV4Bytes;
+                repr += "," + ip.to_string();
+                ip = Ip4Address(get_value
+                    (&rt_key_[key_size], Address::kMaxV4Bytes));
+                repr += "," + ip.to_string();
+            } else {
+                size_t key_size = RouteDistinguisher::kSize;
+                uint32_t asn;
+                asn = get_value(&rt_key_[key_size], sizeof(asn));
+                repr += "," + integerToString(asn);
+            }
             repr += "," + originator_.to_string();
             break;
         }
@@ -657,7 +720,7 @@ int MvpnPrefix::CompareTo(const MvpnPrefix &rhs) const {
     KEY_COMPARE(type_, rhs.type_);
 
     switch (type_) {
-    case IntraASPMSIADRoute: 
+    case IntraASPMSIADRoute:
         KEY_COMPARE(rd_, rhs.rd_);
         KEY_COMPARE(originator_, rhs.originator_);
         break;
@@ -698,9 +761,14 @@ void MvpnPrefix::SetRtKeyFromSPMSIADRoute(const MvpnPrefix prefix) {
     if (prefix.type() == SPMSIADRoute) {
         size_t rd_size = RouteDistinguisher::kSize;
         size_t key_size = 0;
+        size_t total_key_size = rd_size + (1 + Address::kMaxV4Bytes) * 2 +
+            Address::kMaxV4Bytes;
+        rt_key_.resize(total_key_size);
         copy(prefix.route_distinguisher().GetData(),
                 prefix.route_distinguisher().GetData() + rd_size,
                 rt_key_.begin());
+        RouteDistinguisher rd(prefix.route_distinguisher().GetData());
+        rd_ = rd;
         key_size = rd_size;
         rt_key_[key_size] = Address::kMaxV4PrefixLen;
         key_size += 1;
@@ -708,17 +776,23 @@ void MvpnPrefix::SetRtKeyFromSPMSIADRoute(const MvpnPrefix prefix) {
                 prefix.source().to_bytes();
         copy(source_bytes.begin(), source_bytes.begin() +
                     Address::kMaxV4Bytes, rt_key_.begin() + key_size);
-        key_size += Address::kMaxV4PrefixLen;
+        Ip4Address source(prefix.source().to_ulong());
+        source_ = source;
+        key_size += Address::kMaxV4Bytes;
         rt_key_[key_size] = Address::kMaxV4PrefixLen;
+        key_size += 1;
         const Ip4Address::bytes_type &group_bytes =
                 prefix.group().to_bytes();
         copy(group_bytes.begin(), group_bytes.begin() +
                     Address::kMaxV4Bytes, rt_key_.begin() + key_size);
-        key_size += Address::kMaxV4PrefixLen;
+        Ip4Address group(prefix.group().to_ulong());
+        group_ = group;
+        key_size += Address::kMaxV4Bytes;
         const Ip4Address::bytes_type &originator_bytes =
                 prefix.originator().to_bytes();
         copy(originator_bytes.begin(), originator_bytes.begin() +
                     Address::kMaxV4Bytes, rt_key_.begin() + key_size);
+        type_ = LeafADRoute;
     }
 }
 
