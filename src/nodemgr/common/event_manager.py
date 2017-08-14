@@ -47,7 +47,7 @@ from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT, \
     ServiceHttpPortMap, ModuleNames, Module2NodeType, NodeTypeNames, \
     UVENodeTypeNames
 from buildinfo import build_info
-from pysandesh.sandesh_base import Sandesh
+from pysandesh.sandesh_base import Sandesh, SandeshConfig
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.connection_info import ConnectionState
@@ -363,9 +363,9 @@ class EventManager(object):
     FAIL_STATUS_NTP_SYNC = 0x8
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
-    def __init__(self, type_info, rule_file,
-                 collector_addr, sandesh_instance,
-                 sandesh_config, update_process_list = False):
+    def __init__(self, config, type_info, rule_file, sandesh_instance,
+                 update_process_list=False):
+        self.config = config
         self.type_info = type_info
         self.stdin = sys.stdin
         self.stdout = sys.stdout
@@ -381,7 +381,7 @@ class EventManager(object):
         self.fail_status_bits = 0
         self.prev_fail_status_bits = 1
         self.instance_id = INSTANCE_ID_DEFAULT
-        self.collector_addr = collector_addr
+        self.collector_addr = self.config.collectors
         self.sandesh_instance = sandesh_instance
         self.curr_build_info = None
         self.new_build_info = None
@@ -404,8 +404,14 @@ class EventManager(object):
             self.collector_addr, self.type_info._module_name,
             ServiceHttpPortMap[self.type_info._module_name],
             ['nodemgr.common.sandesh'] + self.type_info._sandesh_packages,
-            config = sandesh_config)
-        self.sandesh_instance.set_logging_params(enable_local_log=True)
+            config=SandeshConfig.from_parser_arguments(self.config))
+        self.sandesh_instance.set_logging_params(
+            enable_local_log=self.config.log_local,
+            category=self.config.log_category,
+            level=self.config.log_level,
+            file=self.config.log_file,
+            enable_syslog=self.config.use_syslog,
+            syslog_facility=self.config.syslog_facility)
         self.logger = self.sandesh_instance.logger()
         if is_systemd_based():
             if not pydbus_present:
