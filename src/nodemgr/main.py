@@ -135,7 +135,7 @@ def main(args_str=' '.join(sys.argv[1:])):
     parser.add_argument("--syslog_facility",
         help="Syslog facility to receive log lines")
     SandeshConfig.add_parser_arguments(parser, add_dscp=True)
-    if (node_type == 'contrail-database'):
+    if (node_type == 'contrail-database' or node_type == 'contrail-config'):
         parser.add_argument("--minimum_diskGB",
                             type=int,
                             dest='minimum_diskgb',
