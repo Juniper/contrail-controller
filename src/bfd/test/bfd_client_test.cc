@@ -51,7 +51,7 @@ public:
             const boost::asio::mutable_buffer &buffer, int pktSize) {
         // Find other end-point from the links map.
         Links::const_iterator it = links_.find(
-            LinksKey(remote_endpoint.address(), local_endpoint.address(), 
+            LinksKey(remote_endpoint.address(), local_endpoint.address(),
                      session_index));
         if (it != links_.end()) {
             boost::system::error_code error;
@@ -140,7 +140,7 @@ TEST_F(ClientTest, BasicSingleHop1) {
                                             client_address);
     // Connect two bfd links
     cm_.links()->insert(make_pair(
-        Communicator::LinksKey(client_address, client_test_address, 
+        Communicator::LinksKey(client_address, client_test_address,
                                SessionIndex()), &cm_test_));
     cm_test_.links()->insert(
         make_pair(Communicator::LinksKey(client_test_address, client_address,
@@ -176,7 +176,7 @@ TEST_F(ClientTest, BasicSingleHop2) {
                                             client_address);
     // Connect two bfd links
     cm_.links()->insert(make_pair(
-        Communicator::LinksKey(client_address, client_test_address, 
+        Communicator::LinksKey(client_address, client_test_address,
                                client_key.index), &cm_test_));
     cm_test_.links()->insert(
         make_pair(Communicator::LinksKey(client_test_address, client_address,
@@ -245,16 +245,16 @@ TEST_F(ClientTest, BasicSingleHop3) {
     SessionKey client_key2 = SessionKey(client_address, SessionIndex(2),
                                         kSingleHop, client_test_address2);
 
-    SessionKey client_test_key1 = SessionKey(client_test_address1, 
+    SessionKey client_test_key1 = SessionKey(client_test_address1,
                                              SessionIndex(2), kSingleHop,
                                              client_address);
-    SessionKey client_test_key2 = SessionKey(client_test_address2, 
+    SessionKey client_test_key2 = SessionKey(client_test_address2,
                                              SessionIndex(2), kSingleHop,
                                              client_address);
 
     // Connect two bfd links
     cm_.links()->insert(make_pair(
-        Communicator::LinksKey(client_address, client_test_address1, 
+        Communicator::LinksKey(client_address, client_test_address1,
                                client_key1.index), &cm_test_));
     cm_test_.links()->insert(
         make_pair(Communicator::LinksKey(client_test_address1, client_address,
@@ -273,7 +273,7 @@ TEST_F(ClientTest, BasicSingleHop3) {
 
     // Connect two bfd links
     cm_.links()->insert(make_pair(
-        Communicator::LinksKey(client_address, client_test_address2, 
+        Communicator::LinksKey(client_address, client_test_address2,
                                client_key2.index), &cm_test_));
     cm_test_.links()->insert(
         make_pair(Communicator::LinksKey(client_test_address2, client_address,
@@ -300,7 +300,7 @@ TEST_F(ClientTest, BasicSingleHop3) {
                         GetSession(server_test_, client_test_key2));
 
     task_util::WaitForIdle();
-    // Check state of all sessions 
+    // Check state of all sessions
     Server *server = client_.GetConnection()->GetServer();
     Sessions *client_sessions = server->GetSessions();
     TASK_UTIL_EXPECT_EQ(client_sessions->size(),2);
@@ -365,7 +365,7 @@ TEST_F(ClientTest, BasicMultiHop1) {
                                             client_address);
     // Connect two bfd links
     cm_.links()->insert(make_pair(
-        Communicator::LinksKey(client_address, client_test_address, 
+        Communicator::LinksKey(client_address, client_test_address,
                                SessionIndex()), &cm_test_));
     cm_test_.links()->insert(
         make_pair(Communicator::LinksKey(client_test_address, client_address,
@@ -453,6 +453,161 @@ TEST_F(ClientTest, BasicMultipleHop2) {
     client_.DeleteSession(client_key2);
     TASK_UTIL_EXPECT_FALSE(Up(client_, client_key2));
 }
+
+TEST_F(ClientTest, BasicSingleHop_CfgChange_MinRxInterval) {
+    boost::asio::ip::address client_address =
+        boost::asio::ip::address::from_string("10.10.10.1");
+    boost::asio::ip::address client_test_address =
+        boost::asio::ip::address::from_string("10.10.10.2");
+    SessionKey client_key = SessionKey(client_address, SessionIndex(),
+                                       kSingleHop, client_test_address);
+    SessionKey client_test_key = SessionKey(client_test_address,
+                                            SessionIndex(), kSingleHop,
+                                            client_address);
+    // Connect two bfd links
+    cm_.links()->insert(make_pair(
+        Communicator::LinksKey(client_address, client_test_address,
+                               SessionIndex()), &cm_test_));
+    cm_test_.links()->insert(
+        make_pair(Communicator::LinksKey(client_test_address, client_address,
+                                         SessionIndex()),&cm_));
+    SessionConfig sc;
+    sc.desiredMinTxInterval = boost::posix_time::milliseconds(1000);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
+    sc.detectionTimeMultiplier = 3;
+    client_.AddSession(client_key, sc);
+
+    SessionConfig sc_t;
+    sc_t.desiredMinTxInterval = boost::posix_time::milliseconds(1000);
+    sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
+    sc_t.detectionTimeMultiplier = 3;
+    client_test_.AddSession(client_test_key, sc_t);
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
+
+    task_util::WaitForIdle();
+    Server *server = client_.GetConnection()->GetServer();
+    Sessions *client_sessions = server->GetSessions();
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
+    stringstream ss;
+    Session *session =  server->SessionByKey(client_key);
+    TASK_UTIL_EXPECT_GE(session->Stats().rx_count, 2);
+    TASK_UTIL_EXPECT_GE(session->Stats().tx_count, 2);
+    ss << session->local_state();
+    TASK_UTIL_EXPECT_EQ(kUp, BFDStateFromString(ss.str().c_str()));
+
+    task_util::WaitForIdle();
+    Server *server_test = client_test_.GetConnection()->GetServer();
+    Sessions *client_test_sessions = server_test->GetSessions();
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+    stringstream ss2;
+    Session *session_test =  server_test->SessionByKey(client_test_key);
+    TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 2);
+    TASK_UTIL_EXPECT_GE(session_test->Stats().tx_count, 2);
+    ss2 << session_test->local_state();
+    TASK_UTIL_EXPECT_EQ(kUp, BFDStateFromString(ss2.str().c_str()));
+
+    // Config update bfd.RequiredMinRxInterval
+    SessionConfig sc_updt;
+    sc_updt.desiredMinTxInterval = boost::posix_time::milliseconds(1000);
+    sc_updt.requiredMinRxInterval = boost::posix_time::milliseconds(500);
+    sc_updt.detectionTimeMultiplier = 3;
+    client_.AddSession(client_key, sc_updt);
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
+
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+
+    TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 4);
+    TASK_UTIL_EXPECT_EQ(sc_updt.requiredMinRxInterval,
+                        session_test->remote_state().minRxInterval);
+    TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count*2 ,
+                        session->Stats().rx_count);
+
+    client_.DeleteSession(client_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
+
+    client_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_, client_test_key));
+}
+
+TEST_F(ClientTest, BasicSingleHop_CfgChange_DesiredMinTxInterval) {
+    boost::asio::ip::address client_address =
+        boost::asio::ip::address::from_string("10.10.10.1");
+    boost::asio::ip::address client_test_address =
+        boost::asio::ip::address::from_string("10.10.10.2");
+    SessionKey client_key = SessionKey(client_address, SessionIndex(),
+                                       kSingleHop, client_test_address);
+    SessionKey client_test_key = SessionKey(client_test_address,
+                                            SessionIndex(), kSingleHop,
+                                            client_address);
+    // Connect two bfd links
+    cm_.links()->insert(make_pair(
+        Communicator::LinksKey(client_address, client_test_address,
+                               SessionIndex()), &cm_test_));
+    cm_test_.links()->insert(
+        make_pair(Communicator::LinksKey(client_test_address, client_address,
+                                         SessionIndex()),&cm_));
+    SessionConfig sc;
+    sc.desiredMinTxInterval = boost::posix_time::milliseconds(1000);
+    sc.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
+    sc.detectionTimeMultiplier = 3;
+    client_.AddSession(client_key, sc);
+
+    SessionConfig sc_t;
+    sc_t.desiredMinTxInterval = boost::posix_time::milliseconds(1000);
+    sc_t.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
+    sc_t.detectionTimeMultiplier = 3;
+    client_test_.AddSession(client_test_key, sc_t);
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
+
+    task_util::WaitForIdle();
+    Server *server = client_.GetConnection()->GetServer();
+    Sessions *client_sessions = server->GetSessions();
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
+    stringstream ss;
+    Session *session =  server->SessionByKey(client_key);
+    TASK_UTIL_EXPECT_GE(session->Stats().rx_count, 2);
+    TASK_UTIL_EXPECT_GE(session->Stats().tx_count, 2);
+    ss << session->local_state();
+    TASK_UTIL_EXPECT_EQ(kUp, BFDStateFromString(ss.str().c_str()));
+
+    task_util::WaitForIdle();
+    Server *server_test = client_test_.GetConnection()->GetServer();
+    Sessions *client_test_sessions = server_test->GetSessions();
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+    stringstream ss2;
+    Session *session_test =  server_test->SessionByKey(client_test_key);
+    TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 2);
+    TASK_UTIL_EXPECT_GE(session_test->Stats().tx_count, 2);
+    ss2 << session->local_state();
+    TASK_UTIL_EXPECT_EQ(kUp, BFDStateFromString(ss2.str().c_str()));
+
+    // Config update bfd.DesiredMinTxInterval
+    SessionConfig sc_updt;
+    sc_updt.desiredMinTxInterval = boost::posix_time::milliseconds(2000);
+    sc_updt.requiredMinRxInterval = boost::posix_time::milliseconds(1000);
+    sc_updt.detectionTimeMultiplier = 3;
+    client_.AddSession(client_key, sc_updt);
+    TASK_UTIL_EXPECT_TRUE(Up(client_, client_key));
+    TASK_UTIL_EXPECT_TRUE(Up(client_test_, client_test_key));
+
+    TASK_UTIL_EXPECT_EQ(client_sessions->size(),1);
+    TASK_UTIL_EXPECT_EQ(client_test_sessions->size(),1);
+
+    TASK_UTIL_EXPECT_GE(session_test->Stats().rx_count, 4);
+    TASK_UTIL_EXPECT_EQ(sc_updt.desiredMinTxInterval, session_test->remote_state().minTxInterval);
+    TASK_UTIL_EXPECT_GE(session->Stats().rx_count*2, session_test->Stats().rx_count);
+
+    client_.DeleteSession(client_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_, client_key));
+
+    client_.DeleteSession(client_test_key);
+    TASK_UTIL_EXPECT_FALSE(Up(client_, client_test_key));
+}
+
 
 int main(int argc, char **argv) {
     LoggingInit();

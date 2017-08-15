@@ -254,12 +254,10 @@ ResultCode Server::SessionManager::ConfigureSession(const SessionKey &key,
     Session *session = SessionByKey(key);
     if (session) {
         session->UpdateConfig(config);
-        refcounts_[session]++;
 
-        LOG(INFO, __func__ << ": Reference count incremented: "
+        LOG(INFO, __func__ << ": UpdateConfig : "
                   << session->key().to_string() << "/"
-                  << session->local_discriminator() << ","
-                  << refcounts_[session] << " refs");
+                  << session->local_discriminator());
 
         return kResultCode_Ok;
     }
