@@ -573,7 +573,14 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                     'FLOWS': {
                         'thread_count': flow_thread_count},
                     'METADATA': {
-                        'metadata_proxy_secret': self._args.metadata_secret},
+                        'metadata_proxy_secret': self._args.metadata_secret,
+                        'metadata_use_ssl': self._args.metadata_use_ssl,
+                        'metadata_client_cert': ('/etc/contrail/ssl/certs/server.pem'
+                                                 if self._args.metadata_use_ssl else ''),
+                        'metdata_client_cert_type': ('PEM' if self._args.metadata_use_ssl
+                                                     else ''),
+                        'metadata_client_key': ('/etc/contrail/ssl/private/server-privkey.pem'
+                                                if self._args.metadata_use_ssl else '')},
                     }
 
             # VGW configs
