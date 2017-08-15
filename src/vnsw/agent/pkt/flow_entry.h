@@ -31,6 +31,7 @@
 #include <oper/route_common.h>
 #include <oper/sg.h>
 #include <oper/vrf.h>
+#include <oper/health_check.h>
 #include <filter/acl.h>
 #include <sandesh/common/flow_types.h>
 
@@ -297,6 +298,9 @@ struct FlowData {
     uint32_t dest_vrf;
     uint32_t component_nh_idx;
     uint32_t bgp_as_a_service_port;
+    boost::uuids::uuid bgp_health_check_uuid;
+    HealthCheckService *bgp_health_check_service;
+    HealthCheckInstanceBase *bgp_health_check_instance;
     uint32_t ttl;
     // In case of policy on fabric, the forwarding happens in
     // agent_->fabric_vrf(), but policy processing must happen in
@@ -510,11 +514,12 @@ class FlowEntry {
         Multicast       = 1 << 8,
         // a local port bind is done (used as as src port for linklocal nat)
         LinkLocalBindLocalSrcPort = 1 << 9,
-        TcpAckFlow      = 1 << 10,
-        UnknownUnicastFlood = 1 << 11,
-        BgpRouterService   = 1 << 12,
-        AliasIpFlow     = 1 << 13,
-        FabricControlFlow = 1 << 14
+        TcpAckFlow                = 1 << 10,
+        UnknownUnicastFlood       = 1 << 11,
+        BgpRouterService          = 1 << 12,
+        BgpHealthCheckService     = 1 << 13,
+        AliasIpFlow               = 1 << 14,
+        FabricControlFlow         = 1 << 15
     };
 
     FlowEntry(FlowTable *flow_table);
@@ -641,6 +646,7 @@ class FlowEntry {
     bool IsEcmpFlow() const { return is_flags_set(FlowEntry::EcmpFlow); }
     bool IsNatFlow() const { return is_flags_set(FlowEntry::NatFlow); }
     bool IsIngressFlow() const { return is_flags_set(FlowEntry::IngressDir); }
+    bool IsBgpHealthCheckService() const { return is_flags_set(FlowEntry::BgpHealthCheckService); }
     // Flow action routines
     void ResyncFlow();
     void RpfUpdate();

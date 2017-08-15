@@ -726,7 +726,9 @@ void PktFlowInfo::BgpRouterServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
                                        pkt->ip_saddr.to_v4(),
                                        pkt->ip_daddr.to_v4(),
                                        &nat_server,
-                                       &sport) == false) {
+                                       &sport,
+                                       &bgp_health_check_configured,
+                                       &bgp_health_check_uuid) == false) {
         return;
     }
 

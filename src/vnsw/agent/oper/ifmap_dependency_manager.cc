@@ -735,6 +735,11 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "instance-bgp-router",
                                "routing-instance", true));
     AddDependencyPath("virtual-machine-interface",
+                      MakePath("bgpaas-virtual-machine-interface",
+                               "bgp-as-a-service", true,
+                               "bgpaas-health-check",
+                               "service-health-check", false));
+    AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-qos-config",
                           "qos-config", true));
     AddDependencyPath("virtual-machine-interface",
