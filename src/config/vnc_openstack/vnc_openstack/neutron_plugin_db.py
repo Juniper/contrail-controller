@@ -298,9 +298,12 @@ class DBInterface(object):
                 # if instance_id is not a valid uuid, let
                 # virtual_machine_create generate uuid for the vm
                 pass
-            self._vnc_lib.virtual_machine_create(instance_obj)
             # set instance ownership to real tenant
-            self._vnc_lib.chown(instance_id, tenant_id)
+            perms2 = PermType2()
+            perms2.owner = tenant_id
+            instance_obj.set_perms2(perms2)
+            # create object
+            self._vnc_lib.virtual_machine_create(instance_obj)
         except RefsExistError as e:
             instance_obj = self._vnc_lib.virtual_machine_read(id=instance_obj.uuid)
 
@@ -3957,10 +3960,13 @@ class DBInterface(object):
         if ip_addr:
             ip_obj.set_instance_ip_address(ip_addr)
 
-        ip_id = self._instance_ip_create(ip_obj)
         # set instance ip ownership to real tenant
+        perms2 = PermType2()
         tenant_id = self._get_obj_tenant_id('port', port_obj.get_uuid())
-        self._vnc_lib.chown(ip_id, tenant_id)
+        perms2.owner = tenant_id
+        ip_obj.set_perms2(perms2)
+        # create instance
+        ip_id = self._instance_ip_create(ip_obj)
         return ip_id
     # end _create_instance_ip
 
@@ -4035,6 +4041,11 @@ class DBInterface(object):
         # initialize port object
         port_obj = self._port_neutron_to_vnc(port_q, net_obj, CREATE)
 
+        # change owner
+        perms2 = PermType2()
+        perms2.owner = tenant_id
+        port_obj.set_perms2(perms2)
+
         # always request for v4 and v6 ip object and handle the failure
         # create the object
         try:
@@ -4049,7 +4060,6 @@ class DBInterface(object):
                 self._raise_contrail_exception(
                    'BadRequest', resource='port', msg=str(e))
 
-        self._vnc_lib.chown(port_id, tenant_id)
         # add support, nova boot --nic subnet-id=subnet_uuid
         subnet_id = port_q.get('subnet_id')
         if 'fixed_ips' in port_q:
