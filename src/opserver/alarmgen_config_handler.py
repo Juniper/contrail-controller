@@ -12,6 +12,7 @@ from vnc_api.gen.resource_xsd import IdPermsType, AlarmExpression, \
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh.alarmgen_ctrl.ttypes import AlarmgenConfigLog
 from config_handler import ConfigHandler
+from alarmgen_config_db import DBBaseAG, GlobalSystemConfigAG, AlarmAG
 from opserver_util import camel_case_to_hyphen, inverse_dict
 from plugins.alarm_base import AlarmBase 
 from sandesh.viz.constants import UVE_MAP
@@ -22,19 +23,23 @@ _INVERSE_UVE_MAP = inverse_dict(UVE_MAP)
 
 class AlarmGenConfigHandler(ConfigHandler):
 
-    def __init__(self, sandesh_instance, module_id, instance_id, logger,
-                 api_server_config, keystone_info, rabbitmq_info,
-                 alarm_plugins, alarm_config_change_callback):
+    REACTION_MAP = {
+        'global_system_config': {
+            'self': []
+        },
+        'alarm': {
+            'self': []
+        }
+    }
+
+    def __init__(self, sandesh, module_id, instance_id, rabbitmq_cfg,
+                 cassandra_cfg, alarm_plugins, alarm_config_change_callback):
         service_id = socket.gethostname()+':'+module_id+':'+instance_id
-        config_types = ['global-system-config', 'alarm']
-        super(AlarmGenConfigHandler, self).__init__(service_id, logger,
-              api_server_config, keystone_info, rabbitmq_info, config_types)
-        self._sandesh_instance = sandesh_instance
+        super(AlarmGenConfigHandler, self).__init__(sandesh, service_id,
+              rabbitmq_cfg, cassandra_cfg, DBBaseAG, self.REACTION_MAP)
         self._alarm_plugins = alarm_plugins
         self._alarm_config_change_callback = alarm_config_change_callback
         self._inbuilt_alarms = {}
-        self._config_ownership = False
-        self._inbuilt_alarms_created = False
         self._config_db = {}
         self._alarm_config_db = {}
         self._create_inbuilt_alarms_config()
@@ -48,6 +53,14 @@ class AlarmGenConfigHandler(ConfigHandler):
         return self._alarm_config_db
     # end alarm_config_db
 
+    def config_update(self, config_type, fq_name, config_obj):
+        self._handle_config_update(config_type, fq_name, 'UPDATE', config_obj)
+    # end config_update
+
+    def config_delete(self, config_type, fq_name):
+        self._handle_config_update(config_type, fq_name, 'DELETE')
+    # end config_delete
+
     def _update_alarm_config_table(self, alarm_fqname, alarm_obj, uve_keys,
                                    operation):
         alarm_config_change_map = {}
@@ -56,9 +69,8 @@ class AlarmGenConfigHandler(ConfigHandler):
             try:
                 table = UVE_MAP[uve_type_name[0]]
             except KeyError:
-                self._logger('Invalid uve_key "%s" specified in '
-                    'alarm config "%s"' % (key, alarm_fqname),
-                    SandeshLevel.SYS_ERR)
+                self._logger.error('Invalid uve_key "%s" specified in '
+                    'alarm config "%s"' % (key, alarm_fqname))
             else:
                 if len(uve_type_name) == 2:
                     uve_key = table+':'+uve_type_name[1]
@@ -134,24 +146,24 @@ class AlarmGenConfigHandler(ConfigHandler):
                     uve_keys, 'CREATE')
     # end _create_inbuilt_alarms_config
 
-    def _handle_config_update(self, config_type, fq_name, config_obj,
-                              operation):
+    def _handle_config_update(self, config_type, fq_name, operation,
+                              config_obj=None):
         # Log config update
         config_dict = None
         if config_obj is not None:
             config_dict = {k: json.dumps(v) for k, v in \
                 self.obj_to_dict(config_obj).iteritems()}
         alarmgen_config_log = AlarmgenConfigLog(fq_name, config_type,
-            operation, config_dict, sandesh=self._sandesh_instance)
-        alarmgen_config_log.send(sandesh=self._sandesh_instance)
+            operation, config_dict, sandesh=self._sandesh)
+        alarmgen_config_log.send(sandesh=self._sandesh)
         if not self._config_db.get(config_type):
             self._config_db[config_type] = {}
         alarm_config_change_map = {}
         if operation == 'CREATE' or operation == 'UPDATE':
             if config_type == 'alarm':
                 if '_alarm_rules' not in config_obj.__dict__:
-                    self._logger('Ignoring conf for inbuilt alarm %s' % \
-                            fq_name, SandeshLevel.SYS_INFO)
+                    self._logger.info('Ignoring conf for inbuilt alarm %s' % \
+                            fq_name)
                     return
                 alarm_config = self._config_db[config_type].get(fq_name)
                 if alarm_config is None:
@@ -198,14 +210,12 @@ class AlarmGenConfigHandler(ConfigHandler):
             self._alarm_config_change_callback(alarm_config_change_map)
     # end _handle_config_update
 
-    def _handle_config_sync(self, config):
-        for cfg_type, cfg_obj_list in config.iteritems():
-            self._logger('sync for config type "%s"' % (cfg_type),
-                SandeshLevel.SYS_INFO)
-            for cfg_obj in cfg_obj_list:
-                fq_name = self._fqname_to_str(cfg_obj.fq_name)
-                self._handle_config_update(cfg_type, fq_name, cfg_obj,
-                    'UPDATE')
+    def _handle_config_sync(self):
+        db_cls_list = [GlobalSystemConfigAG, AlarmAG]
+        for cls in db_cls_list:
+            for fq_name, alarmgen_db_obj in cls.items():
+                self._handle_config_update(cls.obj_type, fq_name, 'UPDATE',
+                    alarmgen_db_obj.obj)
     # end _handle_config_sync
 
 

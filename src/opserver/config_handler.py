@@ -3,62 +3,54 @@
 #
 
 
-import gevent
 import json
-from pprint import pformat
 
-from vnc_api.vnc_api import VncApi
-from cfgm_common.vnc_kombu import VncKombuClient
-from cfgm_common.exceptions import RefsExistError, NoIdError
-from pysandesh.connection_info import ConnectionState
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
-    ConnectionType
-from sandesh_common.vns.constants import API_SERVER_DISCOVERY_SERVICE_NAME
+from cfgm_common.vnc_amqp import VncAmqpHandle
+from cfgm_common.vnc_object_db import VncObjectDBClient
+from analytics_logger import AnalyticsLogger
 
 
 class ConfigHandler(object):
 
-    def __init__(self, service_id, logger, api_server_config,
-                 keystone_info, rabbitmq_info, config_types=None):
+    def __init__(self, sandesh, service_id, rabbitmq_cfg, cassandra_cfg,
+                 db_cls, reaction_map):
+        self._sandesh = sandesh
+        self._logger = AnalyticsLogger(self._sandesh)
         self._service_id = service_id
-        self._logger = logger
-        self._api_servers = api_server_config['api_server_list']
-        self._api_server_use_ssl = api_server_config['api_server_use_ssl']
-        self._keystone_info = keystone_info
-        self._rabbitmq_info = rabbitmq_info
-        self._config_types = config_types
-        self._active_api_server = None
-        self._api_client_connection_task = None
-        self._api_client = None
-        self._rabbitmq_client = None
-        self._config_sync_done = gevent.event.Event()
+        self._rabbitmq_cfg = rabbitmq_cfg
+        self._cassandra_cfg = cassandra_cfg
+        self._db_cls = db_cls
+        self._reaction_map = reaction_map
+        self._vnc_amqp = None
+        self._vnc_db = None
     # end __init__
 
     # Public methods
 
     def start(self):
-        self._update_apiserver_connection_status([], ConnectionStatus.INIT)
-        if self._api_servers:
-            self._api_client_connection_task = gevent.spawn(
-                self._connect_to_api_server)
         # Connect to rabbitmq for config update notifications
         rabbitmq_qname = self._service_id
-        self._rabbitmq_client = VncKombuClient(self._rabbitmq_info['servers'],
-            self._rabbitmq_info['port'], self._rabbitmq_info['user'],
-            self._rabbitmq_info['password'], self._rabbitmq_info['vhost'],
-            self._rabbitmq_info['ha_mode'], rabbitmq_qname,
-            self._rabbitmq_subscribe_callback, self._logger,
-            rabbit_use_ssl=self._rabbitmq_info['use_ssl'],
-            kombu_ssl_version=self._rabbitmq_info['ssl_version'],
-            kombu_ssl_keyfile=self._rabbitmq_info['ssl_keyfile'],
-            kombu_ssl_certfile=self._rabbitmq_info['ssl_certfile'],
-            kombu_ssl_ca_certs=self._rabbitmq_info['ssl_ca_certs'])
+        self._vnc_amqp = VncAmqpHandle(self._sandesh, self._logger,
+            self._db_cls, self._reaction_map, self._service_id,
+            self._rabbitmq_cfg)
+        self._vnc_amqp.establish()
+        cassandra_credential = {
+            'username': self._cassandra_cfg['user'],
+            'password': self._cassandra_cfg['password']
+        }
+        if not all(cassandra_credential.values()):
+            cassandra_credential = None
+        self._vnc_db = VncObjectDBClient(self._cassandra_cfg['servers'],
+            self._cassandra_cfg['cluster_id'], logger=self._logger.log,
+            credential=cassandra_credential)
+        self._db_cls.init(self, self._logger, self._vnc_db)
+        self._sync_config_db()
     # end start
 
     def stop(self):
-        if self._api_client_connection_task:
-            self._api_client_connection_task.kill()
+        self._vnc_amqp.close()
+        self._vnc_db = None
+        self._db_cls.clear()
     # end stop
 
     def obj_to_dict(self, obj):
@@ -71,158 +63,21 @@ class ConfigHandler(object):
         return json.loads(json.dumps(obj, default=to_json))
     # end obj_to_dict
 
-    def update_api_server_list(self, api_servers):
-        self._logger('Received update for api_server_list: %s'
-            % (str(api_servers)), SandeshLevel.SYS_INFO)
-        self._api_servers = api_servers
-        if self._api_client_connection_task:
-            self._api_client_connection_task.kill()
-            self._api_client_connection_task = None
-        if self._api_servers:
-            self._api_client_connection_task = \
-                gevent.spawn(self._connect_to_api_server)
-        else:
-            self._api_client = None
-            self._update_apiserver_connection_status([], ConnectionStatus.INIT)
-    # end update_api_server_list
-
     # Private methods
 
     def _fqname_to_str(self, fq_name):
         return ':'.join(fq_name)
     # end _fqname_to_str
 
-    def _update_apiserver_connection_status(self, api_servers, status, msg=''):
-        ConnectionState.update(conn_type=ConnectionType.APISERVER,
-            name='Config', status=status, message=msg,
-            server_addrs=api_servers)
-    # end _update_apiserver_connection_status
-
-    def _rabbitmq_subscribe_callback(self, notify_msg):
-        self._config_sync_done.wait()
-        if notify_msg['type'] not in self._config_types:
-            return
-        self._logger('Received config update: %s' % (pformat(notify_msg)),
-            SandeshLevel.SYS_INFO)
-        cfg_type = notify_msg['type'].replace('-', '_')
-        uuid = notify_msg['uuid']
-        if notify_msg['oper'] == 'CREATE' or notify_msg['oper'] == 'UPDATE':
-            cfg_obj = self._read_config(cfg_type, uuid)
-            if cfg_obj:
-                self._handle_config_update(cfg_type, cfg_obj.get_fq_name_str(),
-                    cfg_obj, notify_msg['oper'])
-            else:
-                self._logger('config object %s:%s not found in api-server' %
-                    (cfg_type, uuid), SandeshLevel.SYS_ERR)
-        elif notify_msg['oper'] == 'DELETE':
-            fq_name_str = self._fqname_to_str(
-                notify_msg['obj_dict']['fq_name'])
-            self._handle_config_update(cfg_type, fq_name_str, None,
-                notify_msg['oper'])
-    # end _rabbitmq_subscribe_callback
-
-    def _connect_to_api_server(self):
-        self._api_client = None
-        while not self._api_client:
-            api_server_list = [s.split(':')[0] for s in self._api_servers]
-            api_server_port = self._api_servers[0].split(':')[1] \
-                if self._api_servers else None
-            try:
-                self._api_client = VncApi(
-                    self._keystone_info['admin_user'],
-                    self._keystone_info['admin_password'],
-                    self._keystone_info['admin_tenant_name'],
-                    api_server_list, api_server_port,
-                    api_server_use_ssl=self._api_server_use_ssl,
-                    auth_host=self._keystone_info['auth_host'],
-                    auth_protocol=self._keystone_info['auth_protocol'],
-                    auth_port=self._keystone_info['auth_port'])
-            except Exception as e:
-                self._logger('Failed to connect to contrail-api '
-                    'server: %s' % (str(e)), SandeshLevel.SYS_ERR)
-                self._update_apiserver_connection_status(self._api_servers,
-                        ConnectionStatus.DOWN, str(e))
-                gevent.sleep(2)
-            else:
-                if self._sync_config():
-                    self._update_apiserver_connection_status(
-                        self._api_servers, ConnectionStatus.UP)
-                    break
-                else:
-                    self._api_client = None
-                    self._update_apiserver_connection_status(self._api_servers,
-                        ConnectionStatus.DOWN, 'Config sync failed')
-                    gevent.sleep(2)
-        self._api_client_connection_task = None
-    # end _connect_to_api_server
-
-    def _create_config(self, config_type, config_obj):
-        try:
-            config_create_method = getattr(self._api_client,
-                config_type.replace('-', '_')+'_create')
-            config_create_method(config_obj)
-        except AttributeError:
-            self._logger('Invalid config type "%s"' % (config_type),
-                SandeshLevel.SYS_ERR)
-        except RefsExistError:
-            self._logger('Config object "%s:%s" already created' %
-                (config_type, config_obj.name), SandeshLevel.SYS_ERR)
-            return True
-        except Exception as e:
-            self._logger('Failed to create config object "%s:%s - %s"' %
-                (config_type, config_obj.name, str(e)), SandeshLevel.SYS_ERR)
-        else:
-            return True
-        return False
-    # end _create_config
-
-    def _read_config(self, config_type, uuid):
-        try:
-            config_read_method = getattr(self._api_client,
-                config_type.replace('-', '_')+'_read')
-            config_obj = config_read_method(id=uuid)
-        except AttributeError:
-            self._logger('Invalid config type "%s"' % (config_type),
-                SandeshLevel.SYS_ERR)
-        except NoIdError:
-            self._logger('config object %s:%s not found' %
-                (config_type, uuid), SandeshLevel.SYS_ERR)
-        except Exception as e:
-            self._logger('Failed to get config object %s:%s - %s' %
-                (config_type, uuid, str(e)), SandeshLevel.SYS_ERR)
-        else:
-            return config_obj
-        return None
-    # end _read_config
-
-    def _sync_config(self):
-        config = {}
-        for cfg_type in self._config_types:
-            try:
-                config_list_method = getattr(self._api_client,
-                    cfg_type.replace('-', '_')+'s_list')
-                config[cfg_type] = config_list_method(detail=True)
-            except AttributeError:
-                self._logger('Invalid config type "%s"' % (cfg_type),
-                    SandeshLevel.SYS_ERR)
-                return False
-            except Exception as e:
-                self._logger('Failed to sync config type "%s" - %s' %
-                    (cfg_type, str(e)), SandeshLevel.SYS_ERR)
-                return False
-        self._handle_config_sync(config)
-        self._config_sync_done.set()
-        return True
-    # end _sync_config
+    def _sync_config_db(self):
+        for cls in self._db_cls.get_obj_type_map().values():
+            cls.reinit()
+        self._handle_config_sync()
+        self._vnc_amqp._db_resync_done.set()
+    # end _sync_config_db
 
     # Should be overridden by the derived class
-    def _handle_config_update(self, config_type, fq_name,
-                              config_obj, operation):
-        pass
-    # end _handle_config_update
-
-    # Should be overridden by the derived class
-    def _handle_config_sync(self, config):
+    def _handle_config_sync(self):
         pass
     # end _handle_config_sync
 

@@ -643,18 +643,17 @@ class TestAlarmGenConfigHandler(unittest.TestCase):
             'api_server_use_ssl': False
         }
         alarmgen_config_handler = AlarmGenConfigHandler(
-            sandesh_instance=sandesh_instance, module_id='test',
-            instance_id='0', logger=self._logger,
-            api_server_config=api_server_config,
-            keystone_info=None, rabbitmq_info=None, alarm_plugins={},
+            sandesh=sandesh_instance, module_id='test',
+            instance_id='0', rabbitmq_cfg=None, cassandra_cfg=None,
+            alarm_plugins={},
             alarm_config_change_callback=mock_alarm_config_change_callback)
         config_db = alarmgen_config_handler.config_db()
         alarm_config_db = alarmgen_config_handler.alarm_config_db()
         for test in tests:
             logging.info('== Test: %s ==' % (test.name))
             alarmgen_config_handler._handle_config_update(
-                test.input.config_type, test.input.fq_name, test.input.config,
-                test.input.operation)
+                test.input.config_type, test.input.fq_name,
+                test.input.operation, test.input.config)
             # verify that the config_db and alarm_config_db are updated as
             # expected after the call to handle_config_update()
             logging.info('Expected config_db: %s' %
