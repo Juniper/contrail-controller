@@ -953,7 +953,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('exp generator list: ' + str(set(exp_genlist)))
         return set(actual_genlist) == set(exp_genlist)
 
-    @retry(delay=1, tries=10)
+    @retry(delay=2, tries=30)
     def verify_generator_uve_list(self, exp_gen_list):
         self.logger.info('verify_generator_uve_list')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
@@ -963,7 +963,8 @@ class AnalyticsFixture(fixtures.Fixture):
             {'cfilt':'ModuleClientState:client_info'})
         try:
             actual_gen_list = [gen['name'] for gen in gen_list]
-            self.logger.info('generators: %s' % str(actual_gen_list))
+            self.logger.info('exp generators list: %s' % str(exp_gen_list))
+            self.logger.info('actual generators list: %s' % str(actual_gen_list))
             for gen in exp_gen_list:
                 if gen not in actual_gen_list:
                     return False
