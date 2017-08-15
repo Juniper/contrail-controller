@@ -313,6 +313,9 @@ class ComputeArgsParser(object):
         parser.add_argument(
                 "--flow_thread_count",
                 help="Number of threads for flow setup")
-
+        parser.add_argument(
+                "--metadata_use_ssl",
+                help="Enable (true) ssl support for metadata proxy service",
+                action="store_true")
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)
