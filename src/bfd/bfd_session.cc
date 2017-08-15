@@ -79,7 +79,7 @@ std::string Session::toString() const {
     out << "RequiredMinRxInterval: " << currentConfig_.requiredMinRxInterval
         << "\n";
     out << "RemoteMinRxInterval: " << remoteSession_.minRxInterval << "\n";
-    out << "State:" << local_state() << "\n";
+    out << "Local State:" << local_state() << "\n";
     out << "Remote State:" << remote_state().state << "\n";
 
     return out.str();
@@ -91,6 +91,14 @@ void Session::ScheduleSendTimer() {
 
     sendTimer_->Start(ti.total_milliseconds(),
                       boost::bind(&Session::SendTimerExpired, this));
+}
+
+void Session::ReScheduleSendTimer() {
+    if (sendTimer_->Cancel()) {
+        sendTimer_->Reschedule(tx_interval().total_milliseconds());
+        return;
+    }
+    LOG(ERROR, __func__ << "ReSchedule Timer failed");
 }
 
 void Session::ScheduleRecvDeadlineTimer() {
@@ -138,10 +146,11 @@ void Session::PreparePacket(const SessionConfig &config,
 
 ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
     remoteSession_.discriminator = packet->sender_discriminator;
-    if (remoteSession_.minRxInterval != packet->required_min_rx_interval) {
-        // TODO(bfd) schedule timer based on previous packet
-        ScheduleSendTimer();
-        remoteSession_.minRxInterval = packet->required_min_rx_interval;
+    if ((local_state_non_locking() == kUp) && packet->poll) {
+        if (packet->required_min_rx_interval < remoteSession_.minRxInterval) {
+            remoteSession_.minRxInterval = packet->required_min_rx_interval;
+            ReScheduleSendTimer();
+        }
     }
     remoteSession_.minTxInterval = packet->desired_min_tx_interval;
     remoteSession_.detectionTimeMultiplier = packet->detection_time_multiplier;
@@ -171,7 +180,7 @@ ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
 }
 
 void Session::SendPacket(const ControlPacket *packet) {
-    LOG(DEBUG, __func__ << " session:" << toString() << " state:" << packet->state);
+    LOG(DEBUG, __func__ << " session:" << toString());
     boost::asio::mutable_buffer buffer =
         boost::asio::mutable_buffer(new u_int8_t[kMinimalPacketLength],
                                     kMinimalPacketLength);
@@ -257,8 +266,10 @@ void Session::UnregisterChangeCallback(ClientId client_id) {
 }
 
 void Session::UpdateConfig(const SessionConfig& config) {
-    // TODO(bfd) implement UpdateConfig
-    LOG(ERROR, "Session::UpdateConfig not implemented");
+    nextConfig_.desiredMinTxInterval = config.desiredMinTxInterval;
+    nextConfig_.requiredMinRxInterval = config.requiredMinRxInterval;
+    nextConfig_.detectionTimeMultiplier = config.detectionTimeMultiplier;
+    pollSequence_ = true;
 }
 
 int Session::reference_count() {

@@ -23,7 +23,7 @@ class ControlPacket;
 
 struct BFDRemoteSessionState {
     BFDRemoteSessionState() : discriminator(0),
-        minRxInterval(boost::posix_time::seconds(0)),
+        minRxInterval(boost::posix_time::seconds(1)),
         minTxInterval(boost::posix_time::seconds(0)),
         detectionTimeMultiplier(0),
         state(kInit) {}
@@ -63,7 +63,7 @@ class Session {
     BFDRemoteSessionState     remote_state() const;
     Discriminator             local_discriminator() const;
     bool                      Up() const;
-    BFDStats &                Stats() { return stats_; }         
+    BFDStats &                Stats() { return stats_; }
 
     TimeInterval detection_time();
     TimeInterval tx_interval();
@@ -81,6 +81,7 @@ class Session {
 
     bool SendTimerExpired();
     void ScheduleSendTimer();
+    void ReScheduleSendTimer();
     void ScheduleRecvDeadlineTimer();
     void PreparePacket(const SessionConfig &config, ControlPacket *packet);
     void SendPacket(const ControlPacket *packet);
