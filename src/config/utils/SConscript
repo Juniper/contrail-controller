@@ -55,6 +55,7 @@ utils_scripts = [
   'vnc_admin_api.py',
   'provision_global_vrouter_config.py',
   'chownproj.py',
+  'db_json_exim.py',
 ]
 
 for utils in utils_scripts:
