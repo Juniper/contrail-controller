@@ -953,7 +953,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('exp generator list: ' + str(set(exp_genlist)))
         return set(actual_genlist) == set(exp_genlist)
 
-    @retry(delay=1, tries=10)
+    @retry(delay=2, tries=20)
     def verify_generator_uve_list(self, exp_gen_list):
         self.logger.info('verify_generator_uve_list')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
