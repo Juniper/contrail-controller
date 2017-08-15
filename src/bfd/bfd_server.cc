@@ -254,7 +254,7 @@ ResultCode Server::SessionManager::ConfigureSession(const SessionKey &key,
     Session *session = SessionByKey(key);
     if (session) {
         session->UpdateConfig(config);
-        refcounts_[session]++;
+        //refcounts_[session]++;
 
         LOG(INFO, __func__ << ": Reference count incremented: "
                   << session->key().to_string() << "/"
