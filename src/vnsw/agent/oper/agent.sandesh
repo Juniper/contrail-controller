@@ -3285,6 +3285,10 @@ struct SLOSandeshData {
     3: i32 rate;
     /** List of security-logging-object rules */
     4: list<SLOSandeshRule> rules;
+    /** List of firewall-policy objects */
+    5: list<PolicyLinkData> firewall_policy_list;
+    /** List of firewall-rule uuids*/
+    6: list<string> firewall_rule_list;
 }
 
 /**

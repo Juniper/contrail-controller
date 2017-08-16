@@ -32,11 +32,14 @@ public:
     SecurityLoggingObjectData(const Agent *agent, IFMapNode *node,
               const std::vector<autogen::SecurityLoggingObjectRuleEntryType> &lst,
               const int &rate, const std::string &name):
-    AgentOperDBData(agent, node), rules_(lst), rate_(rate), name_(name) {}
+    AgentOperDBData(agent, node), rules_(lst), rate_(rate), name_(name),
+        firewall_policy_list_(), firewall_rule_list_() {}
 
     std::vector<autogen::SecurityLoggingObjectRuleEntryType> rules_;
     int rate_;
     std::string name_;
+    UuidList firewall_policy_list_;
+    UuidList firewall_rule_list_;
 };
 
 class SecurityLoggingObject:
@@ -77,6 +80,8 @@ private:
     std::vector<autogen::SecurityLoggingObjectRuleEntryType> rules_;
     int rate_;
     std::string name_;
+    UuidList firewall_policy_list_;
+    UuidList firewall_rule_list_;
     DISALLOW_COPY_AND_ASSIGN(SecurityLoggingObject);
 };
 

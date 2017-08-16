@@ -905,6 +905,12 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("security-logging-object",
                        MakePath("security-logging-object-security-group",
                                 "security-group", true));
+    AddDependencyPath("security-logging-object",
+                       MakePath("firewall-policy-security-logging-object",
+                                "firewall-policy", true));
+    AddDependencyPath("security-logging-object",
+                       MakePath("firewall-rule-security-logging-object",
+                                "firewall-rule", true));
     RegisterConfigHandler(this, "security-logging-object",
                           agent ? agent->slo_table() : NULL);
 

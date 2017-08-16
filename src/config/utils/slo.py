@@ -60,6 +60,14 @@ class CreateDeleteSLO(object):
             python slo.py --name slo1 --oper=delete --parent="default-project"
             python slo.py --slo_fq_name=default-domain:default-project:slo1 --oper=associate --vn_fq_name=default-domain:demo:vn1
             python slo.py --slo_fq_name=default-domain:default-project:slo1 --oper=disassociate --vn_fq_name=default-domain:demo:vn1
+            python slo.py --slo_fq_name=default-domain:default-project:slo1 --oper=associate
+                          --fw_policy_fq_name=default-policy-management:fp1
+            python slo.py --slo_fq_name=default-domain:default-project:slo1 --oper=disassociate
+                          --fw_policy_fq_name=default-policy-management:fp1
+            python slo.py --slo_fq_name=default-domain:default-project:slo1 --oper=associate
+                          --fw_rule_fq_name=default-policy-management:82266dd8-2eb3-470c-ba21-80be8c11fc83
+            python slo.py --slo_fq_name=default-domain:default-project:slo1 --oper=disassociate
+                          --fw_rule_fq_name=default-policy-management:82266dd8-2eb3-470c-ba21-80be8c11fc83
         '''
 
         # Source any specified config/ini file
@@ -94,6 +102,8 @@ class CreateDeleteSLO(object):
         parser.add_argument("--slo_fq_name", help = "Fully qualified name of Security logging object")
         parser.add_argument("--vn_fq_name", help = "Fully qualified name of Virtual Network object")
         parser.add_argument("--vmi_fq_name", help = "Fully qualified name of Virtual Machine Interface object")
+        parser.add_argument("--fw_rule_fq_name", help = "Fully qualified name of Firewall rule object")
+        parser.add_argument("--fw_policy_fq_name", help = "Fully qualified name of Firewall policy object")
         parser.add_argument("--api_server_ip", help = "IP address of api server")
         parser.add_argument("--api_server_port", type = int, help = "Port of api server")
         parser.add_argument("--admin_user", help = "Name of keystone admin user")
@@ -107,8 +117,9 @@ class CreateDeleteSLO(object):
             if not self._args.slo_fq_name:
                 print "SLO FQ-name required for --oper=associate/disassociate"
                 ret_value = False
-            if not self._args.vn_fq_name and not self._args.vmi_fq_name:
-                print "VN FQ-name or VMI FQ-name required for --oper=associate/disassociate"
+            if not self._args.vn_fq_name and not self._args.vmi_fq_name and not self._args.fw_rule_fq_name and \
+                not self._args.fw_policy_fq_name:
+                print "VN/VMI/Firewall-rule/Firewall-policy FQ-name required for --oper=associate/disassociate"
                 ret_value = False
         else:
             if not self._args.name:
@@ -148,6 +159,28 @@ class CreateDeleteSLO(object):
             elif self._args.oper == 'disassociate':
                 vmi.del_security_logging_object(slo)
             self._vnc_lib.virtual_machine_interface_update(vmi)
+        elif self._args.fw_policy_fq_name:
+            try:
+                fp = self._vnc_lib.firewall_policy_read(fq_name_str = self._args.fw_policy_fq_name)
+            except NoIdError:
+                print "Firewall Policy %s does NOT exist" %(self._args.fw_policy_fq_name)
+                return
+            if self._args.oper == 'associate':
+                fp.add_security_logging_object(slo)
+            elif self._args.oper == 'disassociate':
+                fp.del_security_logging_object(slo)
+            self._vnc_lib.firewall_policy_update(fp)
+        elif self._args.fw_rule_fq_name:
+            try:
+                fr = self._vnc_lib.firewall_rule_read(fq_name_str = self._args.fw_rule_fq_name)
+            except NoIdError:
+                print "Firewall rule %s does NOT exist" %(self._args.fw_rule_fq_name)
+                return
+            if self._args.oper == 'associate':
+                fr.add_security_logging_object(slo)
+            elif self._args.oper == 'disassociate':
+                fr.del_security_logging_object(slo)
+            self._vnc_lib.firewall_rule_update(fr)
     #end HandleAssociateDisassociate
 
 #end class CreateDeleteSLO
