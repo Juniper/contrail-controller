@@ -564,7 +564,6 @@ class AddrMgmt(object):
                              subnet_obj
 
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
-                    ipam_subnet['dns_server_address'] = str(subnet_obj.dns_server_address)
     # end _create_subnet_objs
 
     def config_log(self, msg, level):
@@ -629,7 +628,6 @@ class AddrMgmt(object):
                     req_subnet['enable_dhcp'] = True
                 if (req_subnet['gw'] and req_subnet['gw'] != db_subnet['gw']):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
-                req_subnet['dns_server_address'] = db_subnet['dns_server_address']
 
                 req_alloc_list = req_subnet['allocation_pools'] or []
                 db_alloc_list = db_subnet['allocation_pools'] or []
