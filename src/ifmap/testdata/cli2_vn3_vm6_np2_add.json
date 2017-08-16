@@ -340,7 +340,7 @@
         "type": "\"routing_instance\"",
         "ref:route_target:afddbee3-4b87-4a35-990a-7155eccf5e04": "{\"attr\":{}}",
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"11443653850512969620\",\"uuid_lslong\":\"10233055247538407527\"},\"enable\":\"true\",\"created\":null,\"last_modified\":null}",
-        "parent:virtual_network:ebb7f70-6ce3-4eac-99e6-274b1b039ca2": "null"
+        "parent:virtual_network:debb7f70-6ce3-4eac-99e6-274b1b039ca2": "null"
       },
       "646115d9-fd44-400f-b324-8be9b2ee7c8f": {
         "fq_name": "[\"target\",\"64512\",\"74\"]",
