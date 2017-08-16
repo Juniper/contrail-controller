@@ -450,13 +450,17 @@ class VncIngress(VncCommon):
                     backend['listener']['protocol'] = 'HTTP'
                     backend['pool']['protocol'] = 'HTTP'
                     secretname = ""
+                    virtual_host = False
                     if 'host' in rule:
                         host = rule['host']
                         backend['annotations']['host'] = host
                         if host in tls_dict.keys():
                             secretname = tls_dict[host]
+                            virtual_host = True
                     if 'path' in path:
                         backend['annotations']['path'] = path['path']
+                        if virtual_host == False and 'ALL' in tls_dict.keys():
+                            secretname = 'ALL'
                     service = path['backend']
                     backend['annotations']['type'] = 'acl'
                     backend['member']['serviceName'] = service['serviceName']
@@ -465,7 +469,10 @@ class VncIngress(VncCommon):
                     if secretname:
                         backend_https = copy.deepcopy(backend)
                         backend_https['listener']['protocol'] = 'TERMINATED_HTTPS'
-                        backend_https['listener']['sni_containers'] = [secretname]
+                        if virtual_host:
+                            backend_https['listener']['sni_containers'] = [secretname]
+                        else:
+                            backend_https['listener']['default_tls_container'] = tls_dict['ALL']
                         backend_list.append(backend_https)
         if 'backend' in spec:
             service = spec['backend']
