@@ -73,6 +73,74 @@ DBTableBase *MvpnTable::CreateTable(DB *db, const string &name) {
     return table;
 }
 
+// Find or create the route.
+BgpRoute *MvpnTable::LocateRoute(MvpnPrefix &prefix) {
+    MvpnRoute rt_key(prefix);
+    DBTablePartition *rtp = static_cast<DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    BgpRoute *dest_route = static_cast<BgpRoute *>(rtp->Find(&rt_key));
+    if (dest_route == NULL) {
+        dest_route = new MvpnRoute(prefix);
+        rtp->Add(dest_route);
+    } else {
+        dest_route->ClearDelete();
+    }
+    return dest_route;
+}
+
+MvpnPrefix MvpnTable::CreateType4LeafADRoutePrefix(const MvpnRoute *type3_rt) {
+    assert(type3_rt->GetPrefix().type() == MvpnPrefix::SPMSIADRoute);
+    const Ip4Address originator_ip(server()->bgp_identifier());
+    MvpnPrefix prefix(MvpnPrefix::LeafADRoute, originator_ip);
+    prefix.SetRtKeyFromSPMSIADRoute(type3_rt->GetPrefix());
+    return prefix;
+}
+
+BgpRoute *MvpnTable::LocateType4LeafADRoute(const MvpnRoute *type3_spmsi_rt) {
+    MvpnPrefix prefix = CreateType4LeafADRoutePrefix(type3_spmsi_rt);
+    return LocateRoute(prefix);
+}
+
+MvpnPrefix MvpnTable::CreateType3SPMSIRoutePrefix(MvpnRoute *type7_rt) {
+    assert(type7_rt->GetPrefix().type() == MvpnPrefix::SourceTreeJoinRoute);
+    const RouteDistinguisher *rd = routing_instance()->GetRD();
+    Ip4Address source = type7_rt->GetPrefix().source();
+    Ip4Address group = type7_rt->GetPrefix().group();
+    const Ip4Address originator_ip(server()->bgp_identifier());
+    MvpnPrefix prefix(MvpnPrefix::SPMSIADRoute, *rd, originator_ip,
+            group, source);
+    return prefix;
+}
+
+BgpRoute *MvpnTable::LocateType3SPMSIRoute(MvpnRoute *type7_rt) {
+    MvpnPrefix prefix = CreateType3SPMSIRoutePrefix(type7_rt);
+    return LocateRoute(prefix);
+}
+
+MvpnPrefix MvpnTable::CreateType2ADRoutePrefix() {
+    const RouteDistinguisher *rd = routing_instance()->GetRD();
+    MvpnPrefix prefix(MvpnPrefix::InterASPMSIADRoute, *rd,
+            server()->autonomous_system());
+    return prefix;
+}
+
+BgpRoute *MvpnTable::LocateType2ADRoute() {
+    MvpnPrefix prefix = CreateType2ADRoutePrefix();
+    return LocateRoute(prefix);
+}
+
+MvpnPrefix MvpnTable::CreateType1ADRoutePrefix() {
+    const RouteDistinguisher *rd = routing_instance()->GetRD();
+    const Ip4Address originator_ip(server()->bgp_identifier());
+    MvpnPrefix prefix(MvpnPrefix::IntraASPMSIADRoute, *rd, originator_ip);
+    return prefix;
+}
+
+BgpRoute *MvpnTable::LocateType1ADRoute() {
+    MvpnPrefix prefix = CreateType1ADRoutePrefix();
+    return LocateRoute(prefix);
+}
+
 BgpRoute *MvpnTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr community) {

@@ -51,8 +51,17 @@ public:
     size_t HashFunction(const MvpnPrefix &prefix) const;
 
     virtual void set_routing_instance(RoutingInstance *rtinstance);
+    BgpRoute *LocateType1ADRoute();
+    BgpRoute *LocateType2ADRoute();
+    BgpRoute *LocateType3SPMSIRoute(MvpnRoute *type7_join_rt);
+    BgpRoute *LocateType4LeafADRoute(const MvpnRoute *type3_spmsi_rt);
+    MvpnPrefix CreateType4LeafADRoutePrefix(const MvpnRoute *type3_rt);
+    MvpnPrefix CreateType3SPMSIRoutePrefix(MvpnRoute *type7_rt);
+    MvpnPrefix CreateType2ADRoutePrefix();
+    MvpnPrefix CreateType1ADRoutePrefix();
 
 private:
+    BgpRoute *LocateRoute(MvpnPrefix &prefix);
     friend class BgpMulticastTest;
 
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
