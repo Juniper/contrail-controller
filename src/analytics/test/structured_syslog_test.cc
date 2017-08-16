@@ -203,7 +203,9 @@ TEST_F(StructuredSyslogStatWalkerTest, Basic) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj,
+        boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>(),
+        boost::shared_ptr<std::string>());
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -214,7 +216,7 @@ TEST_F(StructuredSyslogStatWalkerTest, Basic) {
 
 TEST_F(StructuredSyslogStatWalkerTest, DeviceMultiSyslog) {
     StatCbTester ct(PopulateTestMessageStatsInfo(false), true);
-    const std::string test_structured_syslog ("649 <14>1 2017-02-03T09:05:26.178Z syslog-hostname RT_FLOW - APPTRACK_SESSION_CREATE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\" destination-address=\"172.217.26.161\" destination-port=\"443\" service-name=\"junos-https\" application=\"UNKNOWN\" nested-application=\"UNKNOWN\" nat-source-address=\"10.213.17.220\" nat-source-port=\"10831\" nat-destination-address=\"172.217.26.161\" nat-destination-port=\"443\" src-nat-rule-name=\"r1\" dst-nat-rule-name=\"N/A\" protocol-id=\"6\" policy-name=\"default-permit\" source-zone-name=\"trust\" destination-zone-name=\"trust\" session-id-32=\"271992\" username=\"N/A\" roles=\"N/A\" encrypted=\"UNKNOWN\"] 639 <14>1 2017-02-03T09:05:27.776Z syslog-hostname RT_FLOW - APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\" destination-address=\"10.209.194.133\" destination-port=\"53\" service-name=\"junos-dns-udp\" application=\"DNS\" nested-application=\"UNKNOWN\" nat-source-address=\"10.213.17.220\" nat-source-port=\"14299\" nat-destination-address=\"10.209.194.133\" nat-destination-port=\"53\" src-nat-rule-name=\"r1\" dst-nat-rule-name=\"N/A\" protocol-id=\"17\" policy-name=\"default-permit\" source-zone-name=\"trust\" destination-zone-name=\"trust\" session-id-32=\"272036\" username=\"N/A\" roles=\"N/A\" encrypted=\"No\"]");
+    const std::string test_structured_syslog ("648 <14>1 2017-02-03T09:05:26.178Z syslog-hostname RT_FLOW - APPTRACK_SESSION_CREATE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\" destination-address=\"172.217.26.161\" destination-port=\"443\" service-name=\"junos-https\" application=\"UNKNOWN\" nested-application=\"UNKNOWN\" nat-source-address=\"10.213.17.220\" nat-source-port=\"10831\" nat-destination-address=\"172.217.26.161\" nat-destination-port=\"443\" src-nat-rule-name=\"r1\" dst-nat-rule-name=\"N/A\" protocol-id=\"6\" policy-name=\"default-permit\" source-zone-name=\"trust\" destination-zone-name=\"trust\" session-id-32=\"271992\" username=\"N/A\" roles=\"N/A\" encrypted=\"UNKNOWN\"]639 <14>1 2017-02-03T09:05:27.776Z syslog-hostname RT_FLOW - APPTRACK_SESSION_CLOSE [junos@2636.1.1.1.2.26 reason=\"TCP RST\" source-address=\"4.0.0.1\" source-port=\"13175\" destination-address=\"10.209.194.133\" destination-port=\"53\" service-name=\"junos-dns-udp\" application=\"DNS\" nested-application=\"UNKNOWN\" nat-source-address=\"10.213.17.220\" nat-source-port=\"14299\" nat-destination-address=\"10.209.194.133\" nat-destination-port=\"53\" src-nat-rule-name=\"r1\" dst-nat-rule-name=\"N/A\" protocol-id=\"17\" policy-name=\"default-permit\" source-zone-name=\"trust\" destination-zone-name=\"trust\" session-id-32=\"272036\" username=\"N/A\" roles=\"N/A\" encrypted=\"No\"]");
     boost::system::error_code ec;
     boost::asio::ip::address raddr(
         boost::asio::ip::address::from_string("127.0.0.1", ec));
@@ -225,7 +227,9 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceMultiSyslog) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj,
+        boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>(),
+        boost::shared_ptr<std::string>());
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -246,7 +250,9 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceSyslog) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj,
+        boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>(),
+        boost::shared_ptr<std::string>());
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -268,7 +274,9 @@ TEST_F(StructuredSyslogStatWalkerTest, DeviceSyslogTz) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj,
+        boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>(),
+        boost::shared_ptr<std::string>());
     delete config_obj;
     ASSERT_TRUE(r);
     if (r ==false) {
@@ -290,7 +298,9 @@ TEST_F(StructuredSyslogStatWalkerTest, ParseError) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj,
+        boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>(),
+        boost::shared_ptr<std::string>());
     delete config_obj;
     ASSERT_FALSE(r);
 
@@ -309,7 +319,9 @@ TEST_F(StructuredSyslogStatWalkerTest, BadStruct) {
                                VncApiConfig()));
     StructuredSyslogConfig *config_obj = new StructuredSyslogConfig(cfgdbConnection);
     bool r = structured_syslog::impl::ProcessStructuredSyslog(p, test_structured_syslog.length(), rep.address(),
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj, boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>());
+        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5), config_obj,
+        boost::shared_ptr<structured_syslog::StructuredSyslogForwarder>(),
+        boost::shared_ptr<std::string>());
     delete config_obj;
     ASSERT_TRUE(r);
 
