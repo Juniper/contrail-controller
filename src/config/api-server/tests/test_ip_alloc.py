@@ -1660,33 +1660,27 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
 
         #restore all gw_ips and change dns_server_address in ipam3_sn_v4
-        #we should expect bad request exception.
+        #dns_server_address update will go through
         ipam1_sn_v4.set_default_gateway('11.1.1.100')
         ipam3_sn_v4.set_dns_server_address('13.1.1.210')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'dns server change is not allowed orig:13.1.1.200, new: 13.1.1.210') as e:
-            self._vnc_lib.network_ipam_update(ipam)
+        self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
 
         #restore ipam3_sn_v4 dns_server_address and change in ipam2_sn_v4
-        #we should expect bad request exception.
+        #dns_server_address update will go through
         ipam3_sn_v4.set_dns_server_address('13.1.1.200')
         ipam2_sn_v4.set_dns_server_address('12.1.1.200')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'dns server change is not allowed orig:12.1.1.253, new: 12.1.1.200') as e:
-            self._vnc_lib.network_ipam_update(ipam)
+        self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
 
         #restore ipam2_sn_v4 dns_server_address and change in ipam1_sn_v4
-        #we should expect bad request exception.
+        #dns_server_address update will go through
         ipam2_sn_v4.set_dns_server_address('12.1.1.253')
         ipam1_sn_v4.set_dns_server_address('11.1.1.200')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'dns server change is not allowed orig:11.1.1.253, new: 11.1.1.200') as e:
-            self._vnc_lib.network_ipam_update(ipam)
+        self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
 
         #cleanup
@@ -1754,33 +1748,27 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #restore all gw_ips and change dns_server_address in ipam3_sn_v4
-        #we should expect bad request exception.
+        #dns_server_address update will go through
         ipam1_sn_v4.set_default_gateway('11.1.1.100')
         ipam3_sn_v4.set_dns_server_address('13.1.1.210')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'dns server change is not allowed orig:13.1.1.200, new: 13.1.1.210') as e:
-            self._vnc_lib.virtual_network_update(vn)
+        self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #restore ipam3_sn_v4 dns_server_address and change in ipam2_sn_v4
-        #we should expect bad request exception.
+        #dns_server_address update will go through
         ipam3_sn_v4.set_dns_server_address('13.1.1.200')
         ipam2_sn_v4.set_dns_server_address('12.1.1.200')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'dns server change is not allowed orig:12.1.1.253, new: 12.1.1.200') as e:
-            self._vnc_lib.virtual_network_update(vn)
+        self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #restore ipam2_sn_v4 dns_server_address and change in ipam1_sn_v4
-        #we should expect bad request exception.
+        #dns_server_address update will go through
         ipam2_sn_v4.set_dns_server_address('12.1.1.253')
         ipam1_sn_v4.set_dns_server_address('11.1.1.200')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
-                               'dns server change is not allowed orig:11.1.1.253, new: 11.1.1.200') as e:
-            self._vnc_lib.virtual_network_update(vn)
+        self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         # delete vn and create a new subnet with add from start and add
