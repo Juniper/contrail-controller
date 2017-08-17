@@ -244,6 +244,12 @@ enum FlowRecordFields {
    FLOWREC_UNDERLAY_SPORT,
    FLOWREC_VMI_UUID,
    FLOWREC_DROP_REASON,
+   FLOWREC_MIRROR_ID,
+   FLOWREC_SEC_MIRROR_ID,
+   FLOWREC_MIRROR_BYTES,
+   FLOWREC_MIRROR_PACKETS,
+   FLOWREC_SEC_MIRROR_BYTES,
+   FLOWREC_SEC_MIRROR_PACKETS,
    FLOWREC_MAX,
 }
 
@@ -287,6 +293,12 @@ const list<string> FlowRecordNames = [
     "underlay_source_port",
     "vmi_uuid",
     "drop_reason",
+    "mirror_id",
+    "sec_mirror_id",
+    "mirror_bytes",
+    "mirror_packets",
+    "sec_mirror_bytes",
+    "sec_mirror_packets",
     "invalid",
 ]
 
@@ -357,6 +369,10 @@ const map<string, string> UnderlayToUFlowDataFields = {
 const string FLOW_TABLE_UUID       = "UuidKey"
 const string FLOW_TABLE_AGG_PKTS   = "agg-packets"
 const string FLOW_TABLE_AGG_BYTES  = "agg-bytes"
+const string FLOW_TABLE_AGG_MIR_PKTS   = "agg-mir-packets"
+const string FLOW_TABLE_AGG_MIR_BYTES  = "agg-mir-bytes"
+const string FLOW_TABLE_AGG_SEC_MIR_PKTS   = "agg-sec-mir-packets"
+const string FLOW_TABLE_AGG_SEC_MIR_BYTES  = "agg-sec-mir-bytes"
 
 /* REDIS RELATED NAMES/CONSTANTS */
 
@@ -1007,6 +1023,12 @@ const map<string, table_schema> _VIZD_FLOW_TABLE_SCHEMA = {
             { 'name' : "underlay_source_port", 'datatype' : Gendb.DbDataType.Unsigned16Type},
             { 'name' : "vmi_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
             { 'name' : "drop_reason", 'datatype' : Gendb.DbDataType.UTF8Type},
+            { 'name' : "mirror_id", 'datatype' : Gendb.DbDataType.Unsigned8Type},
+            { 'name' : "sec_mirror_id", 'datatype' :Gendb.DbDataType.Unsigned8Type},
+            { 'name' : "mirror_bytes", 'datatype' :Gendb.DbDataType.Unsigned64Type},
+            { 'name' : "mirror_packets", 'datatype' :Gendb.DbDataType.Unsigned64Type},
+            { 'name' : "sec_mirror_bytes", 'datatype' :Gendb.DbDataType.Unsigned64Type},
+            { 'name' : "sec_mirror_packets", 'datatype' :Gendb.DbDataType.Unsigned64Type},
         ]
     }
     FLOW_TABLE_SVN_SIP : {
@@ -1745,6 +1767,12 @@ const list<query_table> _TABLES = [
                { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
                { 'name' : 'vmi_uuid', 'datatype' : 'uuid', 'index' : false },
                { 'name' : 'drop_reason', 'datatype' : 'string', 'index' : false },
+               { 'name' : FLOW_TABLE_AGG_MIR_PKTS, 'datatype' : 'long', 'index': false },
+               { 'name' : FLOW_TABLE_AGG_MIR_BYTES, 'datatype' : 'long', 'index' : false },
+               { 'name' : FLOW_TABLE_AGG_SEC_MIR_PKTS, 'datatype' : 'long', 'index' : false },
+               { 'name' : FLOW_TABLE_AGG_SEC_MIR_BYTES, 'datatype' : 'long', 'index' : false },
+               { 'name' : 'mirror_id', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sec_mirror_id', 'datatype' : 'int', 'index' : false },
                ]
          },
          'columnvalues' : [ ],

@@ -310,7 +310,8 @@ void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
 
 void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
                                         uint32_t bytes, uint32_t packets,
-                                        uint32_t oflow_bytes,
+                                        uint32_t oflow_bytes, uint32_t mir_bytes, uint32_t mir_packets, uint32_t mir_oflow_bytes,
+                                        uint32_t sec_mir_bytes, uint32_t sec_mir_packets, uint32_t sec_mir_oflow_bytes,
                                         const boost::uuids::uuid &u) {
     if (flow == NULL) {
         return;
@@ -323,7 +324,7 @@ void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
         return;
     }
 
-    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes, u);
+    fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes, mir_bytes, mir_packets, mir_oflow_bytes, sec_mir_bytes, sec_mir_packets, sec_mir_oflow_bytes,u);
 }
 
 uint32_t FlowStatsManager::AllocateIndex() {

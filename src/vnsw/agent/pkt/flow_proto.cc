@@ -584,10 +584,18 @@ void FlowProto::KSyncEventRequest(KSyncEntry *ksync_entry,
                                   uint32_t flow_handle, uint8_t gen_id,
                                   int ksync_error, uint64_t evict_flow_bytes,
                                   uint64_t evict_flow_packets,
-                                  int32_t evict_flow_oflow) {
+                                  int32_t evict_flow_oflow,
+                                  uint64_t evict_mir_bytes,
+                                  uint64_t evict_mir_packets,
+                                  int32_t evict_mir_oflow,
+                                  uint64_t evict_sec_mir_bytes,
+                                  uint64_t evict_sec_mir_packets,
+                                  int32_t evict_sec_mir_oflow) {
     EnqueueFlowEvent(new FlowEventKSync(ksync_entry, event, flow_handle,
                                         gen_id, ksync_error, evict_flow_bytes,
-                                        evict_flow_packets, evict_flow_oflow));
+                                        evict_flow_packets, evict_flow_oflow,
+                                        evict_mir_bytes, evict_mir_packets, evict_mir_oflow, evict_sec_mir_bytes,
+                                        evict_sec_mir_packets, evict_sec_mir_oflow));
 }
 
 void FlowProto::MessageRequest(FlowEntry *flow) {

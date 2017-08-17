@@ -65,6 +65,18 @@ class FlowQuerier(object):
             FlowRecordFields.FLOWREC_VMI_UUID]
         self._DROP_REASON = VizConstants.FlowRecordNames[
             FlowRecordFields.FLOWREC_DROP_REASON]
+        self._MIRROR_ID = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_MIRROR_ID]
+        self._SEC_MIRROR_ID = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_SEC_MIRROR_ID]
+        self._MIRROR_BYTES = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_MIRROR_BYTES]
+        self._MIRROR_PACKETS = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_MIRROR_PACKETS]
+        self._SEC_MIRROR_BYTES = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_SEC_MIRROR_BYTES]
+        self._SEC_MIRROR_PACKETS = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_SEC_MIRROR_PACKETS]
     # end __init__
 
     # Public functions
@@ -346,7 +358,13 @@ class FlowQuerier(object):
             self._VROUTER_IP,
             self._OTHER_VROUTER_IP,
             self._VMI_UUID,
-            self._DROP_REASON
+            self._DROP_REASON,
+            self._MIRROR_ID,
+            self._SEC_MIRROR_ID,
+            self._MIRROR_BYTES,
+            self._MIRROR_PACKETS,
+            self._SEC_MIRROR_BYTES,
+            self._SEC_MIRROR_PACKETS
         ]
         if self._args.tunnel_info:
             select_list.append(self._UNDERLAY_PROTO)
@@ -402,15 +420,23 @@ class FlowQuerier(object):
         nw_ace_uuid = output_dict['nw_ace_uuid']
         tunnel_info = output_dict['tunnel_info']
         flow_uuid = output_dict['flow_uuid']
+        mirror_id = output_dict['mirror_id']
+        sec_mirror_id = output_dict['sec_mirror_id']
+        mirror_bytes = output_dict['mirror_bytes']
+        mirror_packets = output_dict['mirror_packets']
+        sec_mirror_bytes = output_dict['sec_mirror_bytes']
+        sec_mirror_packets = output_dict['sec_mirror_packets']
 
         print '[SRC-VR:{0}{1}] {2} {3} {4} ({5} -- {6}) {7} '\
                 '{8}:{9}:{10}:{11} ---> {12}:{13}:{14}{15} <{16} P ({17} B)>'\
-                ' : SG:{18} ACL:{19} {20}{21}'.format(
+                ' : SG:{18} ACL:{19} {20}{21} MIRROR:{22}<{23} P ({24} B>'\
+                ' SMIRROR:{25}<{26} P ({27} B>'.format(
                vrouter, vrouter_ip, direction, action, drop_reason, setup_ts,
                teardown_ts, protocol, source_vn, source_ip, source_port,
                src_vmi_uuid, destination_vn, destination_ip, destination_port,
                other_vrouter_ip, agg_pkts, agg_bytes, sg_rule_uuid,
-               nw_ace_uuid, tunnel_info, flow_uuid)
+               nw_ace_uuid, tunnel_info, flow_uuid, mirror_id, mirror_packets,
+               mirror_bytes, sec_mirror_id, sec_mirror_packets, sec_mirror_bytes)
 
     def display(self, result):
         if result == [] or result is None:
@@ -596,6 +622,37 @@ class FlowQuerier(object):
             else:
                 drop_reason = ''
 
+            # Mirror Info
+            if self._MIRROR_ID in flow_dict and\
+                flow_dict[self._MIRROR_ID] is not None:
+                mirror_id = flow_dict[self._MIRROR_ID]
+            else:
+                mirror_id = 'Mirror ID: NA'
+            if self._MIRROR_BYTES in flow_dict and\
+                flow_dict[self._MIRROR_BYTES] is not None:
+                mirror_bytes = flow_dict[self._MIRROR_BYTES]
+            else:
+                mirror_bytes = 'Mirror Bytes: NA'
+            if self._MIRROR_PACKETS in flow_dict and\
+                flow_dict[self._MIRROR_PACKETS] is not None:
+                mirror_packets = flow_dict[self._MIRROR_PACKETS]
+            else:
+                mirror_packets = 'Mirror Packets: NA'
+            if self._SEC_MIRROR_ID in flow_dict and\
+                flow_dict[self._SEC_MIRROR_ID] is not None:
+                sec_mirror_id = flow_dict[self._SEC_MIRROR_ID]
+            else:
+                sec_mirror_id = 'SMirror ID: NA'
+            if self._SEC_MIRROR_BYTES in flow_dict and\
+                flow_dict[self._SEC_MIRROR_BYTES] is not None:
+                sec_mirror_bytes = flow_dict[self._SEC_MIRROR_BYTES]
+            else:
+                sec_mirror_bytes = 'SMirror Bytes: NA'
+            if self._SEC_MIRROR_PACKETS in flow_dict and\
+                flow_dict[self._SEC_MIRROR_PACKETS] is not None:
+                sec_mirror_packets = flow_dict[self._SEC_MIRROR_PACKETS]
+            else:
+                sec_mirror_packets = 'SMirror Packets: NA'
             output_dict = {}
             output_dict['vrouter'] = vrouter
             output_dict['vrouter_ip'] = vrouter_ip
@@ -619,6 +676,12 @@ class FlowQuerier(object):
             output_dict['nw_ace_uuid'] = nw_ace_uuid
             output_dict['tunnel_info'] = tunnel_info
             output_dict['flow_uuid'] = flow_uuid
+            output_dict['mirror_id'] = mirror_id
+            output_dict['mirror_bytes'] = mirror_bytes
+            output_dict['mirror_packets'] = mirror_packets
+            output_dict['sec_mirror_id'] = sec_mirror_id
+            output_dict['sec_mirror_bytes'] = sec_mirror_bytes
+            output_dict['sec_mirror_packets'] = sec_mirror_packets
             self.output(output_dict)
     # end display
 

@@ -32,6 +32,12 @@ struct FlowKSyncResponseInfo {
     uint64_t evict_flow_bytes_;
     uint64_t evict_flow_packets_;
     int32_t evict_flow_oflow_;
+    uint64_t evict_mir_bytes_;
+    uint64_t evict_mir_packets_;
+    int32_t evict_mir_oflow_;
+    uint64_t evict_sec_mir_bytes_;
+    uint64_t evict_sec_mir_packets_;
+    int32_t evict_sec_mir_oflow_;
 
     void Reset() {
         ksync_error_ = 0;
@@ -40,6 +46,12 @@ struct FlowKSyncResponseInfo {
         evict_flow_bytes_ = 0;
         evict_flow_packets_ = 0;
         evict_flow_oflow_ = 0;
+        evict_mir_bytes_ = 0;
+        evict_mir_packets_ = 0;
+        evict_mir_oflow_ = 0;
+        evict_sec_mir_bytes_ = 0;
+        evict_sec_mir_packets_ = 0;
+        evict_sec_mir_oflow_ = 0;
     }
     FlowKSyncResponseInfo() {
         Reset();

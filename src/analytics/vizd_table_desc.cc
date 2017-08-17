@@ -160,4 +160,16 @@ void init_vizd_tables() {
          FlowTypeInfo(FlowRecordFields::FLOWREC_VMI_UUID, GenDb::DbDataType::LexicalUUIDType);
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DROP_REASON]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_DROP_REASON, GenDb::DbDataType::UTF8Type);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_MIRROR_ID]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_MIRROR_ID, GenDb::DbDataType::Unsigned8Type);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SEC_MIRROR_ID]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_SEC_MIRROR_ID, GenDb::DbDataType::Unsigned8Type);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_MIRROR_BYTES]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_MIRROR_BYTES, GenDb::DbDataType::Unsigned64Type);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_MIRROR_PACKETS]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_MIRROR_PACKETS,GenDb::DbDataType::Unsigned64Type);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SEC_MIRROR_BYTES]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_SEC_MIRROR_BYTES, GenDb::DbDataType::Unsigned64Type);
+    flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SEC_MIRROR_PACKETS]] =
+         FlowTypeInfo(FlowRecordFields::FLOWREC_SEC_MIRROR_PACKETS,GenDb::DbDataType::Unsigned64Type);
 }

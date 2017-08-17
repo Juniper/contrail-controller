@@ -110,6 +110,12 @@ struct SandeshFlowExportInfo {
    21: u16 underlay_source_port;
    22: bool delete_enqueued;
    23: string uuid;
+   24: u64 mirror_bytes;
+   25: u64 sec_mirror_bytes;
+   26: u64 mirror_packets;
+   27: u64 sec_mirror_packets;
+   28: byte mirror_id;
+   29: byte sec_mirror_id;
 }
 
 /**

@@ -223,6 +223,21 @@ const vr_flow_entry *KSyncFlowMemory::GetKFlowStats(const FlowKey &key,
     return kflow;
 }
 
+const vr_flow_entry *KSyncFlowMemory::GetKMirrorStats(const FlowKey &key,
+                                                    uint32_t idx,
+                                                    uint8_t gen_id,
+                                                    vr_mirror_stats *mir_stat,
+                                                    vr_mirror_stats *sec_mir_stat) const{
+    const vr_flow_entry *kflow = GetValidKFlowEntry(key, idx, gen_id);
+    if (!kflow) {
+        return NULL;
+    }
+    *mir_stat = kflow->fe_mirror_stats;
+    *sec_mir_stat = kflow->fe_sec_mirror_stats;
+    kflow = GetValidKFlowEntry(key, idx, gen_id);
+    return kflow;
+}
+
 void KSyncFlowMemory::ReadFlowInfo(const vr_flow_entry *kflow,
                                    vr_flow_stats *stat, KFlowData *info) const {
     *stat = kflow->fe_stats;
@@ -235,8 +250,7 @@ const vr_flow_entry *KSyncFlowMemory::GetKFlowStatsAndInfo(const FlowKey &key,
                                                            uint32_t idx,
                                                            uint8_t gen_id,
                                                            vr_flow_stats *stats,
-                                                           KFlowData *info)
-    const {
+                                                           KFlowData *info) const {
     const vr_flow_entry *kflow = GetKernelFlowEntry(idx, false);
     if (!kflow) {
         return NULL;

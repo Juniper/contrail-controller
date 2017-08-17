@@ -763,7 +763,8 @@ void FlowTableKSyncObject::NetlinkAck(KSyncEntry *entry,
     proto->KSyncEventRequest(entry, event, resp->flow_handle_,
                              resp->gen_id_, resp->ksync_error_,
                              resp->evict_flow_bytes_, resp->evict_flow_packets_,
-                             resp->evict_flow_oflow_);
+                             resp->evict_flow_oflow_,resp->evict_mir_bytes_,resp->evict_mir_packets_,resp->evict_mir_oflow_,
+                             resp->evict_sec_mir_bytes_,resp->evict_sec_mir_packets_,resp->evict_sec_mir_oflow_);
 }
 
 void FlowTableKSyncObject::GenerateKSyncEvent(FlowTableKSyncEntry *entry,

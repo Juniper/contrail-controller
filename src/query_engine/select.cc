@@ -381,6 +381,46 @@ query_status_t SelectQuery::process_query() {
                                 integerToString(bt->second)));
                     continue;
                 }
+                if (*jt == "agg-mir-packets") {
+                    std::string mir_pkts(g_viz_constants.FlowRecordNames[
+                                    FlowRecordFields::FLOWREC_MIRROR_PACKETS]);
+                    std::map<std::string, GenDb::DbDataValue>::const_iterator pt =
+                        col_res_map.find(mir_pkts);
+                    QE_ASSERT(pt != col_res_map.end());
+                    cmap.insert(std::make_pair("agg-mir-packets",
+                                integerToString(pt->second)));
+                    continue;
+                }
+                if (*jt == "agg-mir-bytes") {
+                    std::string mir_bytes(g_viz_constants.FlowRecordNames[
+                                    FlowRecordFields::FLOWREC_MIRROR_BYTES]);
+                    std::map<std::string, GenDb::DbDataValue>::const_iterator bt =
+                        col_res_map.find(mir_bytes);
+                    QE_ASSERT(bt != col_res_map.end());
+                    cmap.insert(std::make_pair("agg-mir-bytes",
+                                integerToString(bt->second)));
+                    continue;
+                }
+                if (*jt == "agg-sec-mir-packets") {
+                    std::string sec_mir_pkts(g_viz_constants.FlowRecordNames[
+                                    FlowRecordFields::FLOWREC_SEC_MIRROR_PACKETS]);
+                    std::map<std::string, GenDb::DbDataValue>::const_iterator pt =
+                        col_res_map.find(sec_mir_pkts);
+                    QE_ASSERT(pt != col_res_map.end());
+                    cmap.insert(std::make_pair("agg-sec-mir-packets",
+                                integerToString(pt->second)));
+                    continue;
+                }
+                if (*jt == "agg-sec-mir-bytes") {
+                    std::string sec_mir_bytes(g_viz_constants.FlowRecordNames[
+                                    FlowRecordFields::FLOWREC_SEC_MIRROR_BYTES]);
+                    std::map<std::string, GenDb::DbDataValue>::const_iterator bt =
+                        col_res_map.find(sec_mir_bytes);
+                    QE_ASSERT(bt != col_res_map.end());
+                    cmap.insert(std::make_pair("agg-sec-mir-bytes",
+                                integerToString(bt->second)));
+                    continue;
+                }
                 if (*jt == "UuidKey") {
                     std::string u_ss = boost::lexical_cast<std::string>(u);
 
