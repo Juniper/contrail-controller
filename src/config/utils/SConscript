@@ -54,7 +54,6 @@ utils_scripts = [
   'issu_process.sh',
   'qosmap.py',
   'chownproj.py',
-  'db_json_exim.py',
 ]
 
 for utils in utils_scripts:
