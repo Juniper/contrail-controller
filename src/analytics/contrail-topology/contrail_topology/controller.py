@@ -13,6 +13,7 @@ import signal
 import random
 import hashlib
 from sandesh.topology_info.ttypes import TopologyInfo, TopologyUVE
+from sandesh.link.ttypes import RemoteType
 
 class PRouter(object):
     def __init__(self, name, data):
@@ -185,7 +186,7 @@ class Controller(object):
                                         remote_interface_name='em0',#no idea
                                         local_interface_index=ifi,
                                         remote_interface_index=1, #dont know TODO:FIX
-                                        link_type=2):
+                                        link_type=RemoteType.BMS):
                                     pass
             except:
                 traceback.print_exc()
@@ -257,7 +258,7 @@ class Controller(object):
                             remote_interface_name=pl['lldpRemPortId'],
                             local_interface_index=pl['lldpRemLocalPortNum'],
                             remote_interface_index=rii,
-                            link_type=1):
+                            link_type=RemoteType.PRouter):
                                 lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
                     else:
                          if self._add_link(
@@ -267,7 +268,7 @@ class Controller(object):
                               remote_interface_name=pl['lldpRemPortDesc'],
                               local_interface_index=pl['lldpRemLocalPortNum'],
                               remote_interface_index=rii,
-                              link_type=1):
+                              link_type=RemoteType.PRouter):
                                   lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
 
             vrouter_neighbors = []
@@ -298,7 +299,7 @@ class Controller(object):
                                                 'ifname'],
                                     local_interface_index=snmpport,
                                     remote_interface_index=1, #dont know TODO:FIX
-                                    link_type=2):
+                                    link_type=RemoteType.VRouter):
                                 vrouter_neighbors.append(
                                         vrouter_mac_entry['vrname'])
             for arp in d['PRouterEntry']['arpTable']:
@@ -323,7 +324,7 @@ class Controller(object):
                                 remote_interface_name=vr['if'][-1]['name'],#TODO
                                 local_interface_index=arp['localIfIndex'],
                                 remote_interface_index=1, #dont know TODO:FIX
-                                link_type=2):
+                                link_type=RemoteType.VRouter):
                             pass
 
     def send_uve(self):
