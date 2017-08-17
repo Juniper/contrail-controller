@@ -85,6 +85,7 @@ public:
     enum EventType {
         MESSAGE_READ = 0,
         TASK_EXIT,
+        STOP_TASK,
         EVENT_MAX
     };
 
@@ -103,7 +104,8 @@ public:
 
     HealthCheckInstanceBase(HealthCheckService *service,
                             MetaDataIpAllocator *allocator,
-                            VmInterface *intf);
+                            VmInterface *intf,
+                            bool ignore_status_event);
     virtual ~HealthCheckInstanceBase();
 
     virtual bool CreateInstanceTask() = 0;
@@ -120,6 +122,8 @@ public:
     void OnRead(const std::string &data);
     // OnExit Callback for Task
     void OnExit(const boost::system::error_code &ec);
+    // Callback to enqueue stop task
+    void StopTask();
 
     virtual void ResyncInterface(const HealthCheckService *service) const;
     void set_service(HealthCheckService *service);
@@ -130,6 +134,7 @@ public:
     InterfaceRef interface() const { return intf_; }
     MetaDataIp *ip() const { return ip_.get(); }
     const std::string &last_update_time() const { return last_update_time_; }
+    bool IsStatusEventIgnored() const { return ignore_status_event_; }
 
 protected:
     void EnqueueResync(const HealthCheckService *service, Interface *itf) const;
@@ -147,6 +152,8 @@ protected:
     std::string last_update_time_;
     // instance is delete marked
     bool deleted_;
+    // true if the health check up or down status event has to be ignored
+    bool ignore_status_event_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceBase);
@@ -159,7 +166,8 @@ public:
     static const std::string kHealthCheckCmd;
 
     HealthCheckInstanceTask(HealthCheckService *service,
-                            MetaDataIpAllocator *allocator, VmInterface *intf);
+                            MetaDataIpAllocator *allocator, VmInterface *intf,
+                            bool ignore_status_event);
     virtual ~HealthCheckInstanceTask();
 
     virtual bool CreateInstanceTask();
@@ -184,7 +192,8 @@ class HealthCheckInstanceService : public HealthCheckInstanceBase {
 public:
     HealthCheckInstanceService(HealthCheckService *service,
                                MetaDataIpAllocator *allocator,
-                               VmInterface *intf, VmInterface *other_intf);
+                               VmInterface *intf, VmInterface *other_intf,
+                               bool ignore_status_event);
     virtual ~HealthCheckInstanceService();
 
     virtual bool CreateInstanceTask();
@@ -226,6 +235,12 @@ public:
     void PostAdd();
     bool Copy(HealthCheckTable *table, const HealthCheckServiceData *data);
 
+    HealthCheckInstanceBase *StartHealthCheckService(VmInterface *interface) {
+        // health check status event is ignored
+        return StartHealthCheckService(interface, NULL, IpAddress(), true);
+    }
+    void StopHealthCheckService(HealthCheckInstanceBase *instance);
+
     void UpdateInstanceServiceReference();
     void DeleteInstances();
 
@@ -248,6 +263,10 @@ private:
     friend class HealthCheckInstanceEvent;
 
     bool IsInstanceTaskBased() const;
+    HealthCheckInstanceBase *StartHealthCheckService(VmInterface *interface,
+                                                     VmInterface *paired_vmi,
+                                                     const IpAddress &paired_ip,
+                                                     bool ignore_status_event);
 
     const HealthCheckTable *table_;
     boost::uuids::uuid uuid_;

@@ -54,6 +54,7 @@ public:
         fip_snat(false), fip_dnat(false), snat_fip(),
         short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID),
         flood_unknown_unicast(false), bgp_router_service_flow(false),
+        bgp_health_check_configured(false), bgp_health_check_uuid(),
         alias_ip_flow(false), ttl(0) {
     }
 
@@ -192,6 +193,8 @@ public:
 
     //BGP router service info
     bool                 bgp_router_service_flow;
+    bool                 bgp_health_check_configured;
+    boost::uuids::uuid   bgp_health_check_uuid;
 
     // Alias IP flow
     bool                 alias_ip_flow;

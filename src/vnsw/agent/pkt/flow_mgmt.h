@@ -1021,6 +1021,8 @@ public:
     virtual bool NonOperEntryDelete(FlowMgmtManager *mgr,
                                     const FlowMgmtRequest *req,
                                     FlowMgmtKey *key);
+    virtual bool HealthCheckUpdate(FlowMgmtManager *mgr,
+                                   BgpAsAServiceFlowMgmtRequest *req);
 
 private:
     DISALLOW_COPY_AND_ASSIGN(BgpAsAServiceFlowMgmtEntry);
@@ -1035,6 +1037,8 @@ public:
 
     void ExtractKeys(FlowEntry *flow, FlowMgmtKeyTree *tree);
     FlowMgmtEntry *Allocate(const FlowMgmtKey *key);
+    bool BgpAsAServiceHealthCheckUpdate(BgpAsAServiceFlowMgmtKey &key,
+                                        BgpAsAServiceFlowMgmtRequest *req);
     bool BgpAsAServiceDelete(BgpAsAServiceFlowMgmtKey &key,
                              const FlowMgmtRequest *req);
     void DeleteAll();
@@ -1143,6 +1147,10 @@ public:
     void DisableWorkQueue(bool disable) { request_queue_.set_disable(disable); }
     void BgpAsAServiceNotify(const boost::uuids::uuid &vm_uuid,
                              uint32_t source_port);
+    void BgpAsAServiceHealthCheckNotify(const boost::uuids::uuid &vm_uuid,
+                                        uint32_t source_port,
+                                        const boost::uuids::uuid &hc_uuid,
+                                        bool add);
     void EnqueueUveAddEvent(const FlowEntry *flow) const;
     void EnqueueUveDeleteEvent(const FlowEntry *flow) const;
 
@@ -1152,6 +1160,9 @@ public:
     InetRouteFlowMgmtTree* ip4_route_flow_mgmt_tree() {
         return &ip4_route_flow_mgmt_tree_;
     }
+
+    void StartHealthCheck(FlowEntry *flow, const boost::uuids::uuid &hc_uuid);
+    void StopHealthCheck(FlowEntry *flow);
 
 private:
     // Handle Add/Change of a flow. Builds FlowMgmtKeyTree for all objects
