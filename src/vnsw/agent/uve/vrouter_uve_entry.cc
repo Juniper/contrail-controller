@@ -64,6 +64,18 @@ bool VrouterUveEntry::SendVrouterMsg() {
         prev_stats_.set_out_bytes(agent_->stats()->out_bytes());
     }
 
+    if (prev_stats_.get_mir_tpkts() !=
+        agent_->stats()->mir_pkts() || first) {
+        stats.set_mir_tpkts(agent_->stats()->mir_pkts());
+        prev_stats_.set_mir_tpkts(agent_->stats()->mir_pkts());
+    }
+
+    if (prev_stats_.get_mir_bytes() !=
+        agent_->stats()->mir_bytes() || first) {
+        stats.set_mir_bytes(agent_->stats()->mir_bytes());
+        prev_stats_.set_mir_bytes(agent_->stats()->mir_bytes());
+    }
+
     if (prev_stats_.get_exception_packets() !=
         agent_->stats()->pkt_exceptions() || first) {
         stats.set_exception_packets(agent_->stats()->pkt_exceptions());
@@ -127,6 +139,14 @@ bool VrouterUveEntry::SendVrouterMsg() {
     if (prev_stats_.get_phy_if_info() != phy_if_info) {
         stats.set_phy_if_info(phy_if_info);
         prev_stats_.set_phy_if_info(phy_if_info);
+    }
+
+    vector<VrouterAnalyzerStats> analyzer_stats_list;
+    BuildAnalyzerStatsList(analyzer_stats_list);
+
+    if (prev_stats_.get_vrouter_analyzer_stats() != analyzer_stats_list) {
+       stats.set_vrouter_analyzer_stats(analyzer_stats_list);
+       prev_stats_.set_vrouter_analyzer_stats(analyzer_stats_list);
     }
 
     bandwidth_count_++;
@@ -270,6 +290,25 @@ uint64_t VrouterUveEntry::GetBandwidthUsage(StatsManager::InterfaceStats *s,
         }
     }
     return CalculateBandwitdh(bytes, s->speed, (mins * 60), util);
+}
+
+bool VrouterUveEntry::BuildAnalyzerStatsList(vector<VrouterAnalyzerStats> &list)
+                                             const {
+    bool changed = false;
+    AnalyzerStatsSet::iterator it = analyzer_stats_.begin();
+    AnalyzerStats *stats;
+    AnalyzerStatsPtr stats_ptr;
+    while (it != analyzer_stats_.end()) {
+        stats_ptr = *it;
+        stats = stats_ptr.get();
+        VrouterAnalyzerStats analyzer_stats;
+        analyzer_stats.set_analyzer_name(stats->analyzer_name_);
+        analyzer_stats.set_mir_bytes(stats->mir_bytes_);
+        analyzer_stats.set_mir_pkts(stats->mir_pkts_);
+        list.insert(list.end(), analyzer_stats);
+        changed = true;
+   }
+   return changed;
 }
 
 bool VrouterUveEntry::BuildPhysicalInterfaceList(map<string, PhyIfStats> &list,
@@ -559,4 +598,19 @@ void VrouterUveEntry::BuildAndSendVrouterControlStats(RouteTableSizeMapPtr
 
     stats.set_raw_rt_table_size(*(list.get()));
     DispatchVrouterControlStats(stats);
+}
+
+void VrouterUveEntry::UpdateAnalyzerStats(const std::string analyzer_name,
+                                          uint64_t mir_bytes, uint64_t mir_pkts) {
+    AnalyzerStatsPtr key(new AnalyzerStats(analyzer_name, 0, 0));
+    AnalyzerStatsSet::iterator stats_it = analyzer_stats_.find(key);
+    if (stats_it == analyzer_stats_.end()) {
+        AnalyzerStatsPtr stats(new AnalyzerStats(analyzer_name, mir_bytes, mir_pkts));
+        analyzer_stats_.insert(stats);
+    } else {
+        AnalyzerStatsPtr stats_ptr(*stats_it);
+        AnalyzerStats *stats = stats_ptr.get();
+        stats->mir_bytes_ += mir_bytes;
+        stats->mir_pkts_ += mir_pkts;
+    }
 }

@@ -172,6 +172,12 @@ void FlowMgmtManager::DeleteEvent(FlowEntry *flow,
 void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
                                            uint32_t packets,
                                            uint32_t oflow_bytes,
+                                           uint32_t mir_bytes,
+                                           uint32_t mir_packets,
+                                           uint32_t mir_oflow_bytes,
+                                           uint32_t sec_mir_bytes,
+                                           uint32_t sec_mir_packets,
+                                           uint32_t sec_mir_oflow_bytes,
                                            const boost::uuids::uuid &u) {
     if (bytes == 0 && packets == 0 && oflow_bytes == 0) {
         return;
@@ -183,7 +189,7 @@ void FlowMgmtManager::FlowStatsUpdateEvent(FlowEntry *flow, uint32_t bytes,
     }
     FlowMgmtRequestPtr req(new FlowMgmtRequest
                            (FlowMgmtRequest::UPDATE_FLOW_STATS, flow,
-                            bytes, packets, oflow_bytes, u));
+                            bytes, packets, oflow_bytes, mir_bytes, mir_packets, mir_oflow_bytes, sec_mir_bytes, sec_mir_packets, sec_mir_oflow_bytes, u));
     request_queue_.Enqueue(req);
 }
 
@@ -554,7 +560,9 @@ bool FlowMgmtManager::RequestHandler(FlowMgmtRequestPtr req) {
     case FlowMgmtRequest::UPDATE_FLOW_STATS: {
         //Handle Flow stats update for flow-mgmt
         UpdateFlowStats(req->flow(), req->bytes(), req->packets(),
-                        req->oflow_bytes(), req->flow_uuid());
+                        req->oflow_bytes(), req->mir_bytes(),
+                        req->mir_packets(), req->mir_oflow_bytes(), req->sec_mir_bytes(),
+                        req->sec_mir_packets(), req->sec_mir_oflow_bytes(), req->flow_uuid());
         break;
     }
 
@@ -787,11 +795,12 @@ void FlowMgmtManager::DeleteFlow(FlowEntryPtr &flow,
 }
 
 void FlowMgmtManager::UpdateFlowStats(FlowEntryPtr &flow, uint32_t bytes,
-                                      uint32_t packets, uint32_t oflow_bytes,
+                                      uint32_t packets, uint32_t oflow_bytes, uint32_t mir_bytes, uint32_t mir_packets, uint32_t mir_oflow_bytes,
+                                      uint32_t sec_mir_bytes, uint32_t sec_mir_packets, uint32_t sec_mir_oflow_bytes,
                                       const boost::uuids::uuid &u) {
     //Enqueue Flow Index Update Event request to flow-stats-collector
     agent_->flow_stats_manager()->UpdateStatsEvent(flow, bytes, packets,
-                                                   oflow_bytes, u);
+                                                   oflow_bytes, mir_bytes, mir_packets, mir_oflow_bytes, sec_mir_bytes, sec_mir_packets, sec_mir_oflow_bytes, u);
 }
 
 bool FlowMgmtManager::HasVrfFlows(uint32_t vrf_id) {

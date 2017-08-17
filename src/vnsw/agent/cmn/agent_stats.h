@@ -158,6 +158,12 @@ public:
     void incr_out_bytes(uint64_t count) {out_bytes_ += count;}
     uint64_t out_bytes() const {return out_bytes_;}
 
+    void incr_mir_pkts(uint64_t count) {mir_tpkts_ += count;}
+    uint64_t mir_pkts() const {return mir_tpkts_;}
+
+    void incr_mir_bytes(uint64_t count) {mir_bytes_ += count;}
+    uint64_t mir_bytes() const {return mir_bytes_;}
+
     uint32_t max_flow_adds_per_second() const {
         return added_.max_flows_per_second;
     }
@@ -241,6 +247,8 @@ private:
     uint64_t in_bytes_;
     uint64_t out_tpkts_;
     uint64_t out_bytes_;
+    uint64_t mir_tpkts_;
+    uint64_t mir_bytes_;
 
     static AgentStats *singleton_;
 };

@@ -1421,7 +1421,13 @@ static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
     (FlowRecordFields::FLOWREC_UNDERLAY_PROTO)
     (FlowRecordFields::FLOWREC_UNDERLAY_SPORT)
     (FlowRecordFields::FLOWREC_VMI_UUID)
-    (FlowRecordFields::FLOWREC_DROP_REASON);
+    (FlowRecordFields::FLOWREC_DROP_REASON)
+    (FlowRecordFields::FLOWREC_ANALYZER_NAME)
+    (FlowRecordFields::FLOWREC_SEC_ANALYZER_NAME)
+    (FlowRecordFields::FLOWREC_MIRROR_BYTES)
+    (FlowRecordFields::FLOWREC_MIRROR_PACKETS)
+    (FlowRecordFields::FLOWREC_SEC_MIRROR_BYTES)
+    (FlowRecordFields::FLOWREC_SEC_MIRROR_PACKETS);
 
 boost::uuids::uuid DbHandler::seed_uuid = StringToUuid(std::string("ffffffff-ffff-ffff-ffff-ffffffffffff"));
 

@@ -93,7 +93,13 @@ public:
                            uint8_t gen_id, int ksync_error,
                            uint64_t evict_flow_bytes,
                            uint64_t evict_flow_packets,
-                           int32_t evict_flow_oflow);
+                           int32_t evict_flow_oflow,
+                           uint64_t evict_mir_bytes,
+                           uint64_t evict_mir_packets,
+                           int32_t evict_mir_oflow,
+                           uint64_t evict_sec_mir_bytes,
+                           uint64_t evict_sec_mir_packets,
+                           int32_t evict_sec_mir_oflow);
     void MessageRequest(FlowEntry *flow);
 
     void DisableFlowEventQueue(uint32_t index, bool disabled);

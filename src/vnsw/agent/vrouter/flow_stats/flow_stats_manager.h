@@ -104,7 +104,8 @@ public:
     void AddEvent(FlowEntryPtr &flow);
     void DeleteEvent(const FlowEntryPtr &flow, const RevFlowDepParams &params);
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
-                          uint32_t packets, uint32_t oflow_bytes,
+                          uint32_t packets, uint32_t oflow_bytes, uint32_t mir_bytes, uint32_t mir_packets, uint32_t mir_oflow_bytes,
+                          uint32_t sec_mir_bytes, uint32_t sec_mir_packets, uint32_t sec_mir_oflow_bytes,
                           const boost::uuids::uuid &u);
 
     void Init(uint64_t flow_stats_interval, uint64_t flow_cache_timeout);

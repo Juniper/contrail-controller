@@ -17,6 +17,7 @@ class KSync;
 class FlowKey;
 struct vr_flow_entry;
 struct vr_flow_stats;
+struct vr_mirror_stats;
 struct KFlowData;
 
 class KSyncFlowMemory : public KSyncMemory {
@@ -35,6 +36,10 @@ public:
     const vr_flow_entry *GetKFlowStats(const FlowKey &key, uint32_t idx,
                                        uint8_t gen_id,
                                        vr_flow_stats *stats) const;
+    const vr_flow_entry *GetKMirrorStats(const FlowKey &key, uint32_t idx,
+                                        uint8_t gen_id,
+                                        vr_mirror_stats *mir_stats,
+                                        vr_mirror_stats *sec_mir_stats) const;
     const vr_flow_entry *GetKFlowStatsAndInfo(const FlowKey &key,
                                               uint32_t idx,
                                               uint8_t gen_id,

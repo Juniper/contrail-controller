@@ -12,6 +12,30 @@
 //required for sending VRouter UVE.
 class VrouterUveEntry : public VrouterUveEntryBase {
 public:
+    struct AnalyzerStats{
+          AnalyzerStats(std::string analyzer_name, uint64_t mir_bytes, uint64_t mir_pkts):
+                      analyzer_name_(analyzer_name), mir_bytes_(mir_bytes), mir_pkts_(mir_pkts) {}
+
+         ~AnalyzerStats() {}
+         std::string analyzer_name_;
+         uint64_t mir_bytes_;
+         uint64_t mir_pkts_;
+    };
+
+    typedef boost::shared_ptr<AnalyzerStats> AnalyzerStatsPtr;
+
+    class AnalyzerStatsCmp {
+        public:
+            bool operator()(const AnalyzerStatsPtr &lhs, const AnalyzerStatsPtr &rhs) const {
+                if (lhs.get()->analyzer_name_.compare(rhs.get()->analyzer_name_) < 0)
+                    return true;
+                return false;
+            }
+
+    };
+
+    typedef std::set<AnalyzerStatsPtr, AnalyzerStatsCmp> AnalyzerStatsSet;
+
     typedef std::map<std::string, RouteTableSize> RouteTableSizeMap;
     typedef std::pair<std::string, RouteTableSize> RouteTableSizePair;
     typedef boost::shared_ptr<RouteTableSizeMap> RouteTableSizeMapPtr;
@@ -23,11 +47,14 @@ public:
     virtual bool SendVrouterMsg();
     void SendVrouterControlStats();
     void UpdateBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
+    void UpdateAnalyzerStats(const std::string analyzer_name,
+                             uint64_t bytes, uint64_t pkts);
 
 protected:
     uint8_t bandwidth_count_;
     L4PortBitmap port_bitmap_;
     FlowRateComputeInfo flow_info_;
+    AnalyzerStatsSet analyzer_stats_;
 private:
     void DispatchVrouterControlStats(const VrouterControlStats &uve) const;
     void InitPrevStats() const;
@@ -48,6 +75,7 @@ private:
     bool BuildPhysicalInterfaceList(std::map<std::string, PhyIfStats> &list,
                                     std::map<std::string, PhyIfInfo> &info,
                                     std::map<std::string, AgentDropStats> &dsmap) const;
+    bool BuildAnalyzerStatsList(std::vector<VrouterAnalyzerStats> &list) const;
     std::string GetMacAddress(const MacAddress &mac) const;
     void BuildXmppStatsList(std::map<std::string, AgentXmppStats> *stats) const;
     void FetchIFMapStats(AgentUve::DerivedStatsMap *ds) const;

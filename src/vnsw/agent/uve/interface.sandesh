@@ -50,6 +50,10 @@ struct VmInterfaceStats {
     3: u64 out_pkts;
     /** Count of outgoing bytes */
     4: u64 out_bytes;
+    /** Count of mirrored packets */
+    5: u64 mir_pkts;
+    /** Count of mirrored bytes */
+    6: u64 mir_bytes;
 }
 
 /**

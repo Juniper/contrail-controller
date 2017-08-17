@@ -207,6 +207,92 @@ uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowExportInfo *stats,
     return (oflow_pkts |= k_flow_pkts);
 }
 
+uint64_t FlowStatsCollector::GetUpdatedMirrorBytes(const FlowExportInfo *stats,
+                                                 uint64_t k_mirror_bytes) {
+    uint64_t oflow_bytes = 0xffff000000000000ULL & stats->mirror_bytes();
+    uint64_t old_bytes = 0x0000ffffffffffffULL & stats->mirror_bytes();
+    if (old_bytes > k_mirror_bytes) {
+        oflow_bytes += 0x0001000000000000ULL;
+    }
+    return (oflow_bytes |= k_mirror_bytes);
+}
+
+uint64_t FlowStatsCollector::GetUpdatedMirrorPackets(const FlowExportInfo *stats,
+                                                   uint64_t k_mirror_pkts) {
+    uint64_t oflow_pkts = 0xffffff0000000000ULL & stats->mirror_packets();
+    uint64_t old_pkts = 0x000000ffffffffffULL & stats->mirror_packets();
+    if (old_pkts > k_mirror_pkts) {
+        oflow_pkts += 0x0000010000000000ULL;
+    }
+    return (oflow_pkts |= k_mirror_pkts);
+}
+
+uint64_t FlowStatsCollector::GetUpdatedSecMirrorBytes(const FlowExportInfo *stats,
+                                                 uint64_t k_mirror_bytes) {
+    uint64_t oflow_bytes = 0xffff000000000000ULL & stats->sec_mirror_bytes();
+    uint64_t old_bytes = 0x0000ffffffffffffULL & stats->sec_mirror_bytes();
+    if (old_bytes > k_mirror_bytes) {
+        oflow_bytes += 0x0001000000000000ULL;
+    }
+    return (oflow_bytes |= k_mirror_bytes);
+}
+
+uint64_t FlowStatsCollector::GetUpdatedSecMirrorPackets(const FlowExportInfo *stats,
+                                                   uint64_t k_mirror_pkts) {
+    uint64_t oflow_pkts = 0xffffff0000000000ULL & stats->sec_mirror_packets();
+    uint64_t old_pkts = 0x000000ffffffffffULL & stats->sec_mirror_packets();
+    if (old_pkts > k_mirror_pkts) {
+        oflow_pkts += 0x0000010000000000ULL;
+    }
+    return (oflow_pkts |= k_mirror_pkts);
+}
+
+void FlowStatsCollector::UpdateMirrorStatsInternal(FlowExportInfo *info,
+                                                 uint32_t mir_bytes,
+                                                 uint16_t mir_oflow_bytes,
+                                                 uint32_t mir_pkts,
+                                                 uint16_t mir_oflow_pkts,
+                                                 uint32_t sec_mir_bytes,
+                                                 uint16_t sec_mir_oflow_bytes,
+                                                 uint32_t sec_mir_pkts,
+                                                 uint16_t sec_mir_oflow_pkts) {
+    uint64_t k_mir_bytes, k_mir_packets, k_sec_mir_bytes, k_sec_mir_packets,total_mir_bytes, total_mir_packets, total_sec_mir_bytes, total_sec_mir_packets;
+    uint64_t diff_mir_bytes, diff_mir_pkts, diff_sec_mir_bytes, diff_sec_mir_pkts;
+
+    k_mir_bytes = GetFlowStats(mir_oflow_bytes, mir_bytes);
+    k_mir_packets = GetFlowStats(mir_oflow_pkts, mir_pkts);
+    k_sec_mir_bytes = GetFlowStats(sec_mir_oflow_bytes, sec_mir_bytes);
+    k_sec_mir_packets = GetFlowStats(sec_mir_oflow_pkts, sec_mir_pkts);
+    total_mir_bytes = GetUpdatedMirrorBytes(info, k_mir_bytes);
+    total_mir_packets = GetUpdatedMirrorPackets(info, k_mir_packets);
+    total_sec_mir_bytes = GetUpdatedSecMirrorBytes(info, k_sec_mir_bytes);
+
+    diff_mir_bytes = total_mir_bytes - info->mirror_bytes();
+    diff_mir_pkts = total_mir_packets - info->mirror_packets();
+    diff_sec_mir_bytes = total_sec_mir_bytes - info->sec_mirror_bytes();
+    diff_sec_mir_pkts = total_sec_mir_packets - info->sec_mirror_packets();
+    UpdateAnalyzerStats(info, diff_mir_bytes, diff_mir_pkts, diff_sec_mir_bytes, diff_sec_mir_pkts);
+
+    total_sec_mir_packets = GetUpdatedSecMirrorPackets(info, k_sec_mir_packets);
+    info->set_mirror_bytes(total_mir_bytes);
+    info->set_mirror_packets(total_mir_packets);
+    info->set_sec_mirror_bytes(total_sec_mir_bytes);
+    info->set_sec_mirror_packets(total_sec_mir_packets);
+}
+
+void FlowStatsCollector::UpdateAnalyzerNamesInternal(FlowExportInfo *info) {
+    MirrorActionSpec spec;
+    int total_analyzers = info->flow()->data().match_p.action_info.mirror_l.size();
+    if (total_analyzers > 0){
+       spec = info->flow()->data().match_p.action_info.mirror_l[0];
+       info->set_analyzer_name(spec.analyzer_name);
+       if (total_analyzers > 1){
+          spec = info->flow()->data().match_p.action_info.mirror_l[1];
+          info->set_sec_analyzer_name(spec.analyzer_name);
+       }
+    }
+}
+
 void FlowStatsCollector::UpdateFloatingIpStats(const FlowExportInfo *flow,
                                                uint64_t bytes, uint64_t pkts) {
     InterfaceUveTable::FipInfo fip_info;
@@ -390,6 +476,21 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
     }
 }
 
+void FlowStatsCollector::UpdateAnalyzerStats(FlowExportInfo *info,
+                                             uint64_t mir_bytes, uint64_t mir_pkts,
+                                             uint64_t sec_mir_bytes, uint64_t sec_mir_pkts) {
+    FlowEntry *flow = info->flow();
+    VrouterUveEntry *vrouter_uve_entry = static_cast<VrouterUveEntry *>
+          (agent_uve_->vrouter_uve_entry());
+    int total_analyzers = flow->data().match_p.action_info.mirror_l.size();
+    if (total_analyzers > 0) {
+       vrouter_uve_entry->UpdateAnalyzerStats(flow->data().match_p.action_info.mirror_l[0].analyzer_name, mir_bytes, mir_pkts);
+       if (total_analyzers > 1) {
+          vrouter_uve_entry->UpdateAnalyzerStats(flow->data().match_p.action_info.mirror_l[1].analyzer_name, sec_mir_bytes, sec_mir_pkts);
+       }
+    }
+}
+
 void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
                                             uint64_t bytes, uint64_t pkts) {
     FlowEntry *flow = info->flow();
@@ -444,11 +545,26 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
                                                            info->flow_handle(),
                                                            info->gen_id(),
                                                            &k_stats);
+    vr_mirror_stats k_mirror_stats;
+    vr_mirror_stats k_sec_mirror_stats;
+    k_flow = ksync_obj->GetKMirrorStats(fe->key(),
+                                        info->flow_handle(),
+                                        info->gen_id(),
+                                        &k_mirror_stats,
+                                        &k_sec_mirror_stats);
     if (k_flow) {
         UpdateAndExportInternal(info, k_stats.flow_bytes,
                                 k_stats.flow_bytes_oflow,
                                 k_stats.flow_packets,
                                 k_stats.flow_packets_oflow,
+                                k_mirror_stats.mir_bytes,
+                                k_mirror_stats.mir_bytes_oflow,
+                                k_mirror_stats.mir_packets,
+                                k_mirror_stats.mir_packets_oflow,
+                                k_sec_mirror_stats.mir_bytes,
+                                k_sec_mirror_stats.mir_bytes_oflow,
+                                k_sec_mirror_stats.mir_packets,
+                                k_sec_mirror_stats.mir_packets_oflow,
                                 teardown_time, true, p, read_flow);
         return;
     }
@@ -519,13 +635,23 @@ void FlowStatsCollector::UpdateAndExportInternalLocked(FlowExportInfo *info,
                                                        uint16_t oflow_bytes,
                                                        uint32_t pkts,
                                                        uint16_t oflow_pkts,
+                                                       uint32_t mir_bytes,
+                                                       uint16_t mir_oflow_bytes,
+                                                       uint32_t mir_pkts,
+                                                       uint16_t mir_oflow_pkts,
+                                                       uint32_t sec_mir_bytes,
+                                                       uint16_t sec_mir_oflow_bytes,
+                                                       uint32_t sec_mir_pkts,
+                                                       uint16_t sec_mir_oflow_pkts,
                                                        uint64_t time,
                                                        bool teardown_time,
                                                    const RevFlowDepParams *p) {
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
     FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
-    UpdateAndExportInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
+    UpdateAndExportInternal(info, bytes, oflow_bytes, pkts, oflow_pkts,
+                            mir_bytes, mir_oflow_bytes, mir_pkts, mir_oflow_pkts, sec_mir_bytes,
+                            sec_mir_oflow_bytes, sec_mir_pkts, sec_mir_oflow_pkts, time,
                             teardown_time, p, true);
 }
 
@@ -534,6 +660,14 @@ void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
                                                  uint16_t oflow_bytes,
                                                  uint32_t pkts,
                                                  uint16_t oflow_pkts,
+                                                 uint32_t mir_bytes,
+                                                 uint16_t mir_oflow_bytes,
+                                                 uint32_t mir_pkts,
+                                                 uint16_t mir_oflow_pkts,
+                                                 uint32_t sec_mir_bytes,
+                                                 uint16_t sec_mir_oflow_bytes,
+                                                 uint32_t sec_mir_pkts,
+                                                 uint16_t sec_mir_oflow_pkts,
                                                  uint64_t time,
                                                  bool teardown_time,
                                                  const RevFlowDepParams *p,
@@ -541,6 +675,8 @@ void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
     uint64_t diff_bytes, diff_pkts;
     UpdateFlowStatsInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
                             teardown_time, &diff_bytes, &diff_pkts);
+    UpdateAnalyzerNamesInternal(info);    
+    UpdateMirrorStatsInternal(info, mir_bytes, mir_oflow_bytes, mir_pkts, mir_oflow_pkts, sec_mir_bytes, sec_mir_oflow_bytes, sec_mir_pkts, sec_mir_oflow_pkts);
     ExportFlow(info, diff_bytes, diff_pkts, p, read_flow);
 }
 
@@ -574,6 +710,8 @@ bool FlowStatsCollector::EvictFlow(KSyncFlowMemory *ksync_obj,
 bool FlowStatsCollector::AgeFlow(KSyncFlowMemory *ksync_obj,
                                  const vr_flow_entry *k_flow,
                                  const vr_flow_stats &k_stats,
+                                 const vr_mirror_stats &k_mir_stats,
+                                 const vr_mirror_stats &k_sec_mir_stats,
                                  const KFlowData& kinfo,
                                  FlowExportInfo *info, uint64_t curr_time) {
     FlowEntry *fe = info->flow();
@@ -625,11 +763,17 @@ bool FlowStatsCollector::AgeFlow(KSyncFlowMemory *ksync_obj,
     // Update stats for flows not being deleted
     // Stats for deleted flow are updated when we get DELETE message
     if (deleted == false && k_flow) {
-        uint64_t k_bytes, bytes;
+        uint64_t k_bytes, bytes, k_mir_bytes, mir_bytes, k_sec_mir_bytes, sec_mir_bytes;
 
         k_bytes = GetFlowStats(k_stats.flow_bytes_oflow,
                                k_stats.flow_bytes);
         bytes = 0x0000ffffffffffffULL & info->bytes();
+        k_mir_bytes = GetFlowStats(k_mir_stats.mir_bytes_oflow,
+                               k_mir_stats.mir_bytes);
+        mir_bytes = 0x0000ffffffffffffULL & info->mirror_bytes();
+        k_sec_mir_bytes = GetFlowStats(k_sec_mir_stats.mir_bytes_oflow,
+                               k_sec_mir_stats.mir_bytes);
+        sec_mir_bytes = 0x0000ffffffffffffULL & info->sec_mirror_bytes();
         /* Always copy udp source port even though vrouter does not change
          * it. Vrouter many change this behavior and recompute source port
          * whenever flow action changes. To keep agent independent of this,
@@ -638,12 +782,20 @@ bool FlowStatsCollector::AgeFlow(KSyncFlowMemory *ksync_obj,
         info->set_tcp_flags(kinfo.tcp_flags);
         /* Don't account for agent overflow bits while comparing change in
          * stats */
-        if (bytes != k_bytes) {
+        if (bytes != k_bytes || mir_bytes != k_mir_bytes || sec_mir_bytes != k_sec_mir_bytes) {
             UpdateAndExportInternalLocked(info,
                                           k_stats.flow_bytes,
                                           k_stats.flow_bytes_oflow,
                                           k_stats.flow_packets,
                                           k_stats.flow_packets_oflow,
+                                          k_mir_stats.mir_bytes,
+                                          k_mir_stats.mir_bytes_oflow,
+                                          k_mir_stats.mir_packets,
+                                          k_mir_stats.mir_packets_oflow,
+                                          k_sec_mir_stats.mir_bytes,
+                                          k_sec_mir_stats.mir_bytes_oflow,
+                                          k_sec_mir_stats.mir_packets,
+                                          k_sec_mir_stats.mir_packets_oflow,
                                           curr_time, false, NULL);
         } else if (info->changed()) {
             /* export flow (reverse) for which traffic is not seen yet. */
@@ -688,6 +840,8 @@ uint32_t FlowStatsCollector::ProcessFlow(FlowExportInfoList::iterator &it,
     }
     const vr_flow_entry *k_flow = NULL;
     vr_flow_stats k_stats;
+    vr_mirror_stats k_mirror_stats;
+    vr_mirror_stats k_sec_mirror_stats;
     KFlowData kinfo;
 
     /* Teardown time is set when Evicted flow stats update message is received.
@@ -697,6 +851,11 @@ uint32_t FlowStatsCollector::ProcessFlow(FlowExportInfoList::iterator &it,
     if (!info->teardown_time()) {
         k_flow = ksync_obj->GetKFlowStatsAndInfo(fe->key(), flow_handle,
                                                  gen_id, &k_stats, &kinfo);
+        k_flow = ksync_obj->GetKMirrorStats(fe->key(),
+                                        flow_handle,
+                                        gen_id,
+                                        &k_mirror_stats,
+                                        &k_sec_mirror_stats);
 
         // Flow evicted?
         if (EvictFlow(ksync_obj, k_flow, kinfo.flags, flow_handle, gen_id,
@@ -717,7 +876,7 @@ uint32_t FlowStatsCollector::ProcessFlow(FlowExportInfoList::iterator &it,
 
 
     // Flow aged?
-    if (AgeFlow(ksync_obj, k_flow, k_stats, kinfo, info, curr_time) == false)
+    if (AgeFlow(ksync_obj, k_flow, k_stats, k_mirror_stats, k_sec_mirror_stats, kinfo, info, curr_time) == false)
         return count;
 
     // If retry_delete_ enabled, dont change flow_export_info_list_
@@ -865,11 +1024,18 @@ void FlowStatsCollector::UpdateStatsEvent(const FlowEntryPtr &flow,
                                           uint32_t bytes,
                                           uint32_t packets,
                                           uint32_t oflow_bytes,
+                                          uint32_t mir_bytes,
+                                          uint32_t mir_packets,
+                                          uint32_t mir_oflow_bytes,
+                                          uint32_t sec_mir_bytes,
+                                          uint32_t sec_mir_packets,
+                                          uint32_t sec_mir_oflow_bytes,
                                           const boost::uuids::uuid &u) {
     FlowExportInfo info(flow);
     boost::shared_ptr<FlowExportReq>
         req(new FlowExportReq(FlowExportReq::UPDATE_FLOW_STATS, info, bytes,
-                              packets, oflow_bytes, u));
+                              packets, oflow_bytes, mir_bytes, mir_packets,
+                              mir_oflow_bytes, sec_mir_bytes, sec_mir_packets, sec_mir_oflow_bytes, u));
     request_queue_.Enqueue(req);
 }
 
@@ -1101,8 +1267,14 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
     FlowLogData &s_flow = msg_list_[GetFlowMsgIdx()];
 
     s_flow.set_flowuuid(to_string(info->uuid()));
+    s_flow.set_mirror_bytes(info->mirror_bytes());
+    s_flow.set_sec_mirror_bytes(info->sec_mirror_bytes());
     s_flow.set_bytes(info->bytes());
+    s_flow.set_mirror_packets(info->mirror_packets());
+    s_flow.set_sec_mirror_packets(info->sec_mirror_packets());
     s_flow.set_packets(info->packets());
+    s_flow.set_analyzer_name(info->analyzer_name());
+    s_flow.set_sec_analyzer_name(info->sec_analyzer_name());
     s_flow.set_diff_bytes(diff_bytes);
     s_flow.set_diff_packets(diff_pkts);
     s_flow.set_setup_time(info->setup_time());
@@ -1347,8 +1519,8 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     }
 
     case FlowExportReq::UPDATE_FLOW_STATS: {
-        EvictedFlowStatsUpdate(flow, req->bytes(), req->packets(),
-                               req->oflow_bytes(), req->uuid());
+        EvictedFlowStatsUpdate(flow, req->bytes(), req->packets(), req->oflow_bytes(), req->mir_bytes(), req->mir_packets(),
+                               req->mir_oflow_bytes(), req->sec_mir_bytes(), req->sec_mir_packets(), req->sec_mir_oflow_bytes(), req->uuid());
         break;
     }
 
@@ -1518,6 +1690,12 @@ void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
                                                 uint32_t bytes,
                                                 uint32_t packets,
                                                 uint32_t oflow_bytes,
+                                                uint32_t mir_bytes,
+                                                uint32_t mir_packets,
+                                                uint32_t mir_oflow_bytes,
+                                                uint32_t sec_mir_bytes,
+                                                uint32_t sec_mir_packets,
+                                                uint32_t sec_mir_oflow_bytes,
                                                 const boost::uuids::uuid &u) {
     FlowExportInfo *info = FindFlowExportInfo(flow.get());
     if (info) {
@@ -1532,7 +1710,9 @@ void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
          * When delete event is being handled we don't export flow if
          * teardown time is set */
         UpdateAndExportInternal(info, bytes, oflow_bytes & 0xFFFF,
-                                packets, oflow_bytes & 0xFFFF0000,
+                                packets, oflow_bytes & 0xFFFF0000, mir_bytes,
+                                mir_oflow_bytes & 0xFFFF, mir_packets, mir_oflow_bytes & 0xFFFF0000, sec_mir_bytes,
+                                sec_mir_oflow_bytes & 0xFFFF, sec_mir_packets, sec_mir_oflow_bytes & 0xFFFF0000,
                                 GetCurrentTime(), true, NULL, false);
     }
 }

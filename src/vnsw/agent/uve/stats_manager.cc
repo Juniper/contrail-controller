@@ -205,15 +205,17 @@ StatsManager::InterfaceStats::InterfaceStats()
     : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
     out_pkts(0), out_bytes(0), prev_in_bytes(0), prev_out_bytes(0)
     , prev_5min_in_bytes(0), prev_5min_out_bytes(0), stats_time(0), flow_info(),
-    added(), deleted(), drop_stats_received(false) {
+    added(), deleted(), drop_stats_received(false), mir_bytes(0), mir_pkts(0) {
 }
 
 void StatsManager::InterfaceStats::UpdateStats
-    (uint64_t in_b, uint64_t in_p, uint64_t out_b, uint64_t out_p) {
+    (uint64_t in_b, uint64_t in_p, uint64_t out_b, uint64_t out_p, uint64_t mir_b, uint64_t mir_p) {
     in_bytes = in_b;
     in_pkts = in_p;
     out_bytes = out_b;
     out_pkts = out_p;
+    mir_bytes = mir_b;
+    mir_pkts = mir_p;
 }
 
 void StatsManager::InterfaceStats::UpdatePrevStats() {

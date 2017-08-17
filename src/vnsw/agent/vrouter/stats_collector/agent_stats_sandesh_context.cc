@@ -77,11 +77,17 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
                                        stats->out_pkts);
         agent_->stats()->incr_out_bytes(req->get_vifr_obytes() -
                                         stats->out_bytes);
+        agent_->stats()->incr_mir_bytes(req->get_vifr_mir_bytes() -
+                                        stats->mir_bytes);
+        agent_->stats()->incr_mir_pkts(req->get_vifr_mir_packets() -
+                                        stats->mir_pkts);
     }
 
     stats->drop_stats_received = false;
     stats->UpdateStats(req->get_vifr_ibytes(), req->get_vifr_ipackets(),
-                       req->get_vifr_obytes(), req->get_vifr_opackets());
+                       req->get_vifr_obytes(), req->get_vifr_opackets(),
+                       req->get_vifr_mir_bytes(), req->get_vifr_mir_packets());
+
     stats->speed = req->get_vifr_speed();
     stats->duplexity = req->get_vifr_duplex();
 }

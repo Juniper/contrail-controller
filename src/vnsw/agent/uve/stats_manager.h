@@ -35,7 +35,7 @@ class StatsManager {
     struct InterfaceStats {
         InterfaceStats();
         void UpdateStats(uint64_t in_b, uint64_t in_p, uint64_t out_b,
-                         uint64_t out_p);
+                         uint64_t out_p, uint64_t mir_b, uint64_t mir_p);
         void UpdatePrevStats();
         void GetDiffStats(uint64_t *in_b, uint64_t *out_b) const;
 
@@ -56,6 +56,8 @@ class StatsManager {
         AgentStats::FlowCounters deleted;
         bool drop_stats_received;
         vr_drop_stats_req drop_stats;
+        uint64_t mir_bytes;
+        uint64_t mir_pkts;
     };
     struct VrfStats {
         VrfStats();

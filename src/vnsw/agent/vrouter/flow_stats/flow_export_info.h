@@ -23,10 +23,22 @@ public:
     uint64_t last_modified_time() const { return last_modified_time_; }
     void set_last_modified_time(uint64_t time) { last_modified_time_ = time; }
 
+    uint64_t mirror_bytes() const { return mirror_bytes_; }
+    uint64_t sec_mirror_bytes() const { return sec_mirror_bytes_; }
     uint64_t bytes() const { return bytes_; }
+    void set_mirror_bytes(uint64_t value) {mirror_bytes_ = value;}
+    void set_sec_mirror_bytes(uint64_t value) {sec_mirror_bytes_ = value;}
     void set_bytes(uint64_t value) { bytes_ = value; }
+    uint64_t mirror_packets() const { return mirror_packets_; }
+    uint64_t sec_mirror_packets() const { return sec_mirror_packets_; }
     uint64_t packets() const { return packets_; }
+    void set_mirror_packets(uint64_t value) { mirror_packets_ = value; }
+    void set_sec_mirror_packets(uint64_t value) { sec_mirror_packets_ = value; }
     void set_packets(uint64_t value) { packets_ = value; }
+    std::string analyzer_name() const { return analyzer_name_; }
+    void set_analyzer_name(std::string value) { analyzer_name_ = value; }
+    std::string sec_analyzer_name() const { return sec_analyzer_name_; }
+    void set_sec_analyzer_name(std::string value) { sec_analyzer_name_ = value; }
     uint16_t underlay_source_port() const { return underlay_source_port_; }
     void set_underlay_source_port(uint16_t port) {
         underlay_source_port_ = port;
@@ -85,8 +97,14 @@ private:
     uint64_t setup_time_;
     uint64_t teardown_time_;
     uint64_t last_modified_time_; //used for aging
+    uint64_t mirror_bytes_;
+    uint64_t sec_mirror_bytes_;
     uint64_t bytes_;
+    uint64_t mirror_packets_;
+    uint64_t sec_mirror_packets_;
     uint64_t packets_;
+    std::string analyzer_name_;
+    std::string sec_analyzer_name_;
     //IP address of the src vrouter for egress flows and dst vrouter for
     //ingress flows. Used only during flow-export
     //Underlay IP protocol type. Used only during flow-export

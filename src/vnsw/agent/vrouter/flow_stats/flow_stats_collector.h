@@ -125,7 +125,8 @@ public:
                          KSyncFlowMemory *ksync_obj,
                          FlowExportInfo *info, uint64_t curr_time);
     bool AgeFlow(KSyncFlowMemory *ksync_obj, const vr_flow_entry *k_flow,
-                 const vr_flow_stats &k_stats, const KFlowData &kinfo,
+                 const vr_flow_stats &k_stats, const vr_mirror_stats &k_mir_stats,
+                 const vr_mirror_stats &k_sec_mir_stats, const KFlowData &kinfo,
                  FlowExportInfo *info, uint64_t curr_time);
     bool EvictFlow(KSyncFlowMemory *ksync_obj, const vr_flow_entry *k_flow,
                    uint16_t k_flow_flags, uint32_t flow_handle, uint16_t gen_id,
@@ -157,7 +158,8 @@ public:
     void UpdateFloatingIpStats(const FlowExportInfo *flow,
                                uint64_t bytes, uint64_t pkts);
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
-                          uint32_t packets, uint32_t oflow_bytes,
+                          uint32_t packets, uint32_t oflow_bytes, uint32_t mir_bytes, uint32_t mir_packets, uint32_t mir_oflow_bytes,
+                          uint32_t sec_mir_bytes, uint32_t sec_mir_packets, uint32_t sec_mir_oflow_bytes,
                           const boost::uuids::uuid &u);
     static void GetFlowSandeshActionParams(const FlowAction &action_info,
                                     std::string &action_str);
@@ -196,13 +198,23 @@ private:
     void UpdateStatsAndExportFlow(FlowExportInfo *info, uint64_t teardown_time,
                                   const RevFlowDepParams *params);
     void EvictedFlowStatsUpdate(const FlowEntryPtr &flow, uint32_t bytes,
-                                uint32_t packets, uint32_t oflow_bytes,
+                                uint32_t packets, uint32_t oflow_bytes, uint32_t mir_bytes,
+                                uint32_t mir_packets, uint32_t mir_oflow_bytes,
+                                uint32_t sec_mir_bytes, uint32_t sec_mir_packets, uint32_t sec_mir_oflow_bytes,
                                 const boost::uuids::uuid &u);
     void UpdateAndExportInternal(FlowExportInfo *info,
                                  uint32_t bytes,
                                  uint16_t oflow_bytes,
                                  uint32_t pkts,
                                  uint16_t oflow_pkts,
+                                 uint32_t mir_bytes,
+                                 uint16_t mir_oflow_bytes,
+                                 uint32_t mir_pkts,
+                                 uint16_t mir_oflow_pkts,
+                                 uint32_t sec_mir_bytes,
+                                 uint16_t sec_mir_oflow_bytes,
+                                 uint32_t sec_mir_pkts,
+                                 uint16_t sec_mir_oflow_pkts,
                                  uint64_t time,
                                  bool teardown_time,
                                  const RevFlowDepParams *params,
@@ -212,6 +224,14 @@ private:
                                        uint16_t oflow_bytes,
                                        uint32_t pkts,
                                        uint16_t oflow_pkts,
+                                       uint32_t mir_bytes,
+                                       uint16_t mir_oflow_bytes,
+                                       uint32_t mir_pkts,
+                                       uint16_t mir_oflow_pkts,
+                                       uint32_t sec_mir_bytes,
+                                       uint16_t sec_mir_oflow_bytes,
+                                       uint32_t sec_mir_pkts,
+                                       uint16_t sec_mir_oflow_pkts,
                                        uint64_t time,
                                        bool teardown_time,
                                        const RevFlowDepParams *params);
@@ -227,6 +247,18 @@ private:
     void FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t);
     void FlowEvictEnqueue(FlowExportInfo *info, uint64_t t,
                           uint32_t flow_handle, uint16_t gen_id);
+    void UpdateMirrorStatsInternal(FlowExportInfo *info,
+		uint32_t mir_bytes,
+		uint16_t mir_oflow_bytes,
+		uint32_t mir_pkts,
+		uint16_t mir_oflow_pkts,
+                uint32_t sec_mir_bytes,
+                uint16_t sec_mir_oflow_bytes,
+                uint32_t sec_mir_pkts,
+                uint16_t sec_mir_oflow_pkts);
+
+    void UpdateAnalyzerNamesInternal(FlowExportInfo *info);
+
     void EnqueueFlowMsg();
     void DispatchPendingFlowMsg();
     void SetUnderlayInfo(FlowExportInfo *info, FlowLogData &s_flow);
@@ -234,6 +266,10 @@ private:
 
     void UpdateInterVnStats(FlowExportInfo *info,
                             uint64_t bytes, uint64_t pkts);
+    void UpdateAnalyzerStats(FlowExportInfo *info,
+                            uint64_t mir_bytes, uint64_t mir_pkts,
+                            uint64_t sec_mir_bytes, uint64_t sec_mir_pkts);
+
     void UpdateVmiTagBasedStats(FlowExportInfo *info,
                                 uint64_t bytes, uint64_t pkts);
     bool ShouldBeAged(FlowExportInfo *info, const vr_flow_entry *k_flow,
@@ -242,6 +278,14 @@ private:
                                    uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowExportInfo *stats,
                                  uint64_t k_flow_bytes);
+    uint64_t GetUpdatedMirrorPackets(const FlowExportInfo *stats,
+		uint64_t k_mirror_pkts);
+    uint64_t GetUpdatedMirrorBytes(const FlowExportInfo *stats,
+		uint64_t k_mirror_bytes);
+    uint64_t GetUpdatedSecMirrorPackets(const FlowExportInfo *stats,
+                uint64_t k_sec_mirror_pkts);
+    uint64_t GetUpdatedSecMirrorBytes(const FlowExportInfo *stats,
+                uint64_t k_sec_mirror_bytes);
     InterfaceUveTable::FloatingIp *ReverseFlowFipEntry
         (const FlowExportInfo *flow);
     uint32_t ReverseFlowFip(const FlowExportInfo *info);
