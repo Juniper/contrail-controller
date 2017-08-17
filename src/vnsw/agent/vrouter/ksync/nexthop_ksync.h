@@ -53,7 +53,9 @@ public:
         return kDefaultNhMsgSize * ((component_nh_list_.size() / 128) + 1);
     }
     uint8_t SetEcmpFieldsToUse();
+    bool KSyncEntrySandesh(Sandesh *resp, std::string &name);
 private:
+    void SetKSyncNhListSandeshData(KSyncNhListSandeshData &data) const;
     class KSyncComponentNH {
     public:
         KSyncComponentNH(uint32_t label, KSyncEntry *entry) :

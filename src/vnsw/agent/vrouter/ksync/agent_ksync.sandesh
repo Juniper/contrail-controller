@@ -167,3 +167,96 @@ trace sandesh VnswIfInfoTrace {
     1: string info;
 }
 
+/**
+ * Structure definition for interface in ksync db
+ */
+struct KSyncItfSandeshData {
+    1: i32 interface_id;
+    2: string interface_name;     // Key
+    3: string ipv4_active;
+    4: string layer3_forwarding;
+    5: string l2_active;
+    6: string mac;
+    7: string smac;
+    8: i32 flow_key_nh_id;
+    9: i32 network_id;
+    10: i32 os_index;
+    11: string has_service_vlan;
+    12: string dhcp_service;
+    13: string drop_new_flows;
+    14: i32 ip;
+    15: string  health_check;
+    16: string pbb_mac;
+    17: i32 fd;       // FD opened for this
+    18: string metadata_l2_active;
+    19: string metadata_ip_active;
+    20: string bridging;
+    21: string policy_enabled;
+    22: i32 rx_vlan_id;
+    23: i32 tx_vlan_id;
+    24: i32 vrf_id;
+    25: string  persistent;
+    26: string no_arp;
+    27: string display_name;
+    28: string flood_unknown_unicast;
+    29: string learning;
+    30: i32 isid;
+    31: i32 pbb_cmac_vrf;
+    32: string analyzer_name;
+    33: string etree_leaf;
+    34: string pbb_interface;
+}
+
+
+/**
+ * @description: Request message for interface details from oper db
+ * @cli_name: read oper interface list
+ */
+request sandesh KSyncItfReq {
+    1: string interface_id;
+    2: string interface_name;     // Key
+}
+
+/**
+ * Response message for interface details
+ */
+response sandesh KSyncItfResp {
+    /** List of interface information */
+    1: list<KSyncItfSandeshData> KSyncitf_list;
+}
+
+/**
+ * Structure definition for nexthop in ksync db
+ */
+struct KSyncNhListSandeshData {
+    1: i32 nh_id;
+    2: i32 vrf_id;
+    3: i32 label;
+    4: string valid;
+    5: string policy;
+    6: string is_mcast_nh;
+    7: string defer;
+    8: i32 vlan_tag;
+    9: string is_local_ecmp_nh;
+    10: string is_bridge;
+    11: string vxlan_nh;
+    12: string flood_unknown_unicast;
+    13: i32 isid;
+}
+
+/**
+ * @description: Request message for nexthop details from ksync db
+ * @cli_name: read ksync nexthop list
+ */
+request sandesh KSyncNhListReq {
+    1: string type;
+    2: i32 vrf_id;
+}
+
+/**
+ * Response message for interface details
+ */
+response sandesh KSyncNhListResp {
+    /** List of interface information */
+    1: list<KSyncNhListSandeshData> KSyncNhList_list;
+}

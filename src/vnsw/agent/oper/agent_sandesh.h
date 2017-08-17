@@ -115,6 +115,8 @@ public:
     static void DoSandesh(AgentSandeshPtr sandesh);
     void MakeSandeshPageReq(PageReqData *req, DBTable *table, int first,
                             int last, int end, int count, int page_size);
+    virtual void DoKsyncSandesh(AgentSandeshPtr sandesh) { return;}
+    virtual void DoKsyncSandeshInternal(AgentSandeshPtr sandesh) {return;}
 
 protected:
     std::string name_; // name coming in the sandesh request
