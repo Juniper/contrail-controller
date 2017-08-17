@@ -272,8 +272,6 @@ void FlowStatsCollector::UpdateMirrorStatsInternal(FlowExportInfo *info,
 }
 
 void FlowStatsCollector::UpdateMirrorIndicesInternal(FlowExportInfo *info) {
-    LOG(DEBUG, "Sudheer: FlowStatsCollector::UpdateMirrorIndicesInternal");
-//    FlowData data = info->flow()->data();
     MirrorActionSpec spec;
     MirrorKSyncObject* obj = agent_uve_->agent()->ksync()->mirror_ksync_obj();
     int total_mirrors = info->flow()->data().match_p.action_info.mirror_l.size();
