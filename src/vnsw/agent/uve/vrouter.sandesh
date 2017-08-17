@@ -379,6 +379,19 @@ struct VrouterFlowRate {
 }
 
 /**
+ * Structure definition for Analyzer Statistics
+ */
+struct VrouterAnalyzerStats {
+    /** Name of the analyzer */
+    1: optional string analyzer_name;
+    /** Count of bytes mirrored to the analyzer */
+    2: optional u64 mir_bytes;
+    /** Count of packets mirrored to the analyzer */
+    3: optional u64 mir_pkts;
+}
+
+
+/**
  * Structure definition for vrouter statistics
  */
 struct VrouterStatsAgent {
@@ -537,6 +550,13 @@ struct VrouterStatsAgent {
     /** @display_name:Vrouter Physical Interface Drop Statistics*/
     82: optional map<string, AgentDropStats> phy_if_drop_stats (mstats="raw_phy_if_drop_stats:DSNon0:", tags="")
     83: optional map<string, AgentDropStats> phy_if_drop_stats_1h (mstats="raw_phy_if_drop_stats:DSSum:3600")
+
+    /** Mirrored packet counts **/
+    84: optional u64 mir_tpkts;
+    /** Mirrored byte counts **/
+    85: optional u64 mir_bytes;
+    /** Analyzer Mirror Stats **/
+    86: optional list<VrouterAnalyzerStats> vrouter_analyzer_stats;
 }
 
 /**

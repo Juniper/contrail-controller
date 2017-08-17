@@ -733,6 +733,12 @@ void FlowTable::ProcessKSyncFlowEvent(const FlowEventKSync *req,
                                       req->evict_flow_bytes(),
                                       req->evict_flow_packets(),
                                       req->evict_flow_oflow(),
+                                      req->evict_mir_bytes(),
+                                      req->evict_mir_packets(),
+                                      req->evict_mir_oflow(),
+                                      req->evict_sec_mir_bytes(),
+                                      req->evict_sec_mir_packets(),
+                                      req->evict_sec_mir_oflow(),
                                       evicted_flow->uuid());
         }
     }

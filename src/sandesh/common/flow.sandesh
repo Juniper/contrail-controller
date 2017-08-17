@@ -150,6 +150,12 @@ struct FlowLogData {
     35: optional string    vmi_uuid;
     36: optional string    drop_reason;
     37: optional bool      forward_flow;
+    38: optional string    analyzer_name;
+    39: optional string    sec_analyzer_name;
+    40: optional i64       mirror_bytes;
+    41: optional i64       mirror_packets;
+    42: optional i64       sec_mirror_bytes;
+    43: optional i64       sec_mirror_packets;
 }
 
 flowlog sandesh FlowLogDataObject {
