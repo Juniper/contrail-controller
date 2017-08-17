@@ -317,6 +317,9 @@ class QfxConf(JuniperConf):
         if self.global_switch_options_config is None:
             self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
         self.global_switch_options_config.set_vtep_source_interface("lo0.0")
+        if not self.routing_instances:
+            # no vn config then no need to configure vrf target
+            return
         self.global_switch_options_config.add_vrf_target(VniTarget(auto=''))
         switch_options_community = DMUtils.get_switch_vrf_import(self.get_asn())
         self.global_switch_options_config.add_vrf_target(VniTarget(community=switch_options_community))
