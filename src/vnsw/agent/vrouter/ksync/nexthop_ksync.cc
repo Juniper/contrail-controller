@@ -28,6 +28,8 @@
 #include "vrouter/ksync/ksync_init.h"
 #include "vr_types.h"
 #include "oper/ecmp_load_balance.h"
+#include "vrouter/ksync/agent_ksync_types.h"
+#include <vrouter/ksync/ksync_agent_sandesh.h>
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
                            uint32_t index) :
@@ -1345,3 +1347,79 @@ void vr_nexthop_req::Process(SandeshContext *context) {
     ioc->NHMsgHandler(this);
 }
 
+void NHKSyncEntry::SetKSyncNhListSandeshData(KSyncNhListSandeshData *data) const {
+    data->set_vrf_id(vrf_id_);
+    data->set_label(label_);
+    if (valid_) {
+        data->set_valid("Enable");
+    } else {
+        data->set_valid("Disable");
+    }
+
+    if (policy_) {
+        data->set_policy("Enable");
+    } else {
+        data->set_policy("Disable");
+    }
+
+    if (is_mcast_nh_) {
+        data->set_is_mcast_nh("True");
+    } else {
+        data->set_is_mcast_nh("False");
+    }
+
+    if (defer_) {
+        data->set_defer("Enable");
+    } else {
+        data->set_defer("Disable");
+    }
+
+    data->set_vlan_tag(vlan_tag_);
+
+    if (is_local_ecmp_nh_) {
+        data->set_is_local_ecmp_nh("True");
+    } else {
+        data->set_is_local_ecmp_nh("False");
+    }
+
+    if (is_bridge_) {
+        data->set_is_bridge("True");
+    } else {
+        data->set_is_bridge("False");
+    }
+
+    if (vxlan_nh_) {
+        data->set_vxlan_nh("Enable");
+    } else {
+        data->set_vxlan_nh("Disable");
+    }
+
+    if (flood_unknown_unicast_) {
+        data->set_flood_unknown_unicast("Enable");
+    } else {
+        data->set_flood_unknown_unicast("Disable");
+    }
+
+    data->set_nh_id(nh_id_);
+    data->set_isid(isid_);
+    return;
+}
+
+bool NHKSyncEntry::KSyncEntrySandesh(Sandesh *sresp,const std::string &name) {
+    KSyncNhListResp *resp = static_cast<KSyncNhListResp *> (sresp);
+
+    KSyncNhListSandeshData data;
+    SetKSyncNhListSandeshData(&data);
+    std::vector<KSyncNhListSandeshData> &list =
+            const_cast<std::vector<KSyncNhListSandeshData>&>(resp->get_KSyncNhList_list());
+    list.push_back(data);
+
+    return true;
+}
+
+void KSyncNhListReq::HandleRequest() const {
+    AgentKsyncSandeshPtr sand(new AgentKsyncNhListSandesh(context()));
+
+    sand->DoKsyncSandesh(sand);
+
+}
