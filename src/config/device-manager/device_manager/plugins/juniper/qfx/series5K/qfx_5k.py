@@ -30,6 +30,9 @@ class Qfx5kConf(QfxConf):
     # end register
 
     def set_product_specific_config(self):
+        if not self.routing_instances:
+            # no vn config then no need to configure route distinguisher
+            return
         if self.global_switch_options_config is None:
             self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
         self.global_switch_options_config.set_route_distinguisher(
