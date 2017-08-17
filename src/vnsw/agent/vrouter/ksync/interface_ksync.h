@@ -73,10 +73,12 @@ public:
     bool bridging() const {return bridging_;}
 
     int MsgLen() { return kDefaultInterfaceMsgSize; }
+    bool KSyncEntrySandesh(Sandesh *resp);
 
 private:
     friend class InterfaceKSyncObject;
     int Encode(sandesh_op::type op, char *buf, int buf_len);
+    void SetKsyncItfSandeshData(KSyncItfSandeshData *data) const;
 
     string analyzer_name_;
     bool drop_new_flows_;
