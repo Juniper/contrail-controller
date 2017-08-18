@@ -1214,6 +1214,7 @@ void VmInterface::InstanceIpList::Insert(const InstanceIp *rhs) {
 void VmInterface::InstanceIpList::Update(const InstanceIp *lhs,
                                          const InstanceIp *rhs) {
     lhs->ecmp_ = rhs->ecmp_;
+    lhs->is_service_ip_ = rhs->is_service_ip_;
     lhs->is_service_health_check_ip_ = rhs->is_service_health_check_ip_;
     lhs->is_local_ = rhs->is_local_;
     lhs->tracking_ip_ = rhs->tracking_ip_;
@@ -1247,7 +1248,8 @@ bool VmInterface::InstanceIpList::UpdateList
 
 VmInterface::InstanceIp::InstanceIp() :
     ListEntry(), VmInterfaceState(), ip_(), plen_(), ecmp_(false),
-    is_primary_(false), is_service_health_check_ip_(false), is_local_(false),
+    is_primary_(false), is_service_ip_(false),
+    is_service_health_check_ip_(false), is_local_(false),
     tracking_ip_(), vrf_(NULL), ethernet_tag_(0) {
 }
 
@@ -1255,7 +1257,7 @@ VmInterface::InstanceIp::InstanceIp(const InstanceIp &rhs) :
     ListEntry(rhs.del_pending_),
     VmInterfaceState(rhs.l2_installed_, rhs.l3_installed_),
     ip_(rhs.ip_), plen_(rhs.plen_), ecmp_(rhs.ecmp_),
-    is_primary_(rhs.is_primary_),
+    is_primary_(rhs.is_primary_), is_service_ip_(rhs.is_service_ip_),
     is_service_health_check_ip_(rhs.is_service_health_check_ip_),
     is_local_(rhs.is_local_), tracking_ip_(rhs.tracking_ip_),
     vrf_(NULL), ethernet_tag_(0) {
@@ -1263,11 +1265,12 @@ VmInterface::InstanceIp::InstanceIp(const InstanceIp &rhs) :
 
 VmInterface::InstanceIp::InstanceIp(const IpAddress &addr, uint8_t plen,
                                     bool ecmp, bool is_primary,
+                                    bool is_service_ip,
                                     bool is_service_health_check_ip,
                                     bool is_local,
                                     const IpAddress &tracking_ip) :
     ListEntry(), VmInterfaceState(), ip_(addr), plen_(plen), ecmp_(ecmp),
-    is_primary_(is_primary),
+    is_primary_(is_primary), is_service_ip_(is_service_ip),
     is_service_health_check_ip_(is_service_health_check_ip),
     is_local_(is_local), tracking_ip_(tracking_ip), vrf_(NULL),
     ethernet_tag_(0) {
@@ -1323,7 +1326,7 @@ VmInterfaceState::Op VmInterface::InstanceIp::GetOpL2
     if (GetInstanceIpActiveState(this, vmi) == false)
         return VmInterfaceState::DEL;
 
-    if (vmi->vmi_type() != VmInterface::VHOST) {
+    if (!is_service_ip_ && vmi->vmi_type() != VmInterface::VHOST) {
         // Add route only when vn IPAM exists for the IP
         if (vmi->vn() && vmi->vn()->GetIpam(ip_) == false)
             return VmInterfaceState::DEL;
@@ -1365,7 +1368,7 @@ VmInterfaceState::Op VmInterface::InstanceIp::GetOpL3
     if (GetInstanceIpActiveState(this, vmi) == false)
         return VmInterfaceState::DEL;
 
-    if (vmi->vmi_type() != VmInterface::VHOST) {
+    if (!is_service_ip_ && vmi->vmi_type() != VmInterface::VHOST) {
         // Add route only when vn IPAM exists for the IP
         if (vmi->vn() && vmi->vn()->GetIpam(ip_) == false)
             return VmInterfaceState::DEL;
