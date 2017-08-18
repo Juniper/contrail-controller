@@ -792,7 +792,7 @@ int ConfigCassandraPartition::UUIDRetryTimeInMSec(
     uint32_t retry_time_pow_of_two =
         obj->GetRetryCount() > kMaxUUIDRetryTimePowOfTwo ?
         kMaxUUIDRetryTimePowOfTwo : obj->GetRetryCount();
-    return ((1 << retry_time_pow_of_two) * 1000);
+    return ((1 << retry_time_pow_of_two) * kMinUUIDRetryTimeMSec);
 }
 
 ConfigCassandraPartition::ObjectCacheEntry::~ObjectCacheEntry() {
