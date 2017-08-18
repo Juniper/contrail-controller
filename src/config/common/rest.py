@@ -1,15 +1,8 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
-OP_POST = 1
-OP_GET = 2
-OP_PUT = 3
-OP_DELETE = 4
 
-
-def hdr_client_tenant():
-    return 'X-Tenant-Name'
-# end hdr_tenant_client
+from vnc_api import (OP_POST, OP_GET, OP_PUT, OP_DELETE, hdr_client_tenant)
 
 # TODO transform from client value
 
