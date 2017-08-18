@@ -315,13 +315,17 @@ class VncPod(VncCommon):
             vr_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_fq_name)
         except NoIdError:
             self._logger.debug("%s - Vrouter %s Not Found for Pod %s"
-                               %(self._name, vrouter_fq_name, pod_node))
+                %(self._name, vrouter_fq_name, vm_obj.uuid))
+            string_buf = StringIO()
+            cgitb_hook(file=string_buf, format="text")
+            err_msg = string_buf.getvalue()
+            self.logger.error("_link_vm_to_node: %s - %s" %(self._name, err_msg))
             return
         except Exception:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()
-            self.logger.error("%s - failed to read Vrouter for Pod %s. %s"
+            self.logger.error("%s - failed to read Vrouter for Pod-node %s. %s"
                               %(self._name, pod_node, err_msg))
 
         self._vnc_lib.ref_update('virtual-router', vr_obj.uuid,
