@@ -10,6 +10,7 @@ import requests
 import re
 import uuid
 from cfgm_common import jsonutils as json
+from cfgm_common import rest
 from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 import netaddr
 from netaddr import IPNetwork, IPSet, IPAddress
