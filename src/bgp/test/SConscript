@@ -351,6 +351,10 @@ bgp_xmpp_mcast_test = env.UnitTest('bgp_xmpp_mcast_test',
                                    ['bgp_xmpp_mcast_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_mcast_test', bgp_xmpp_mcast_test)
 
+bgp_xmpp_mvpn_test = env.UnitTest('bgp_xmpp_mvpn_test',
+                                   ['bgp_xmpp_mvpn_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_mvpn_test', bgp_xmpp_mvpn_test)
+
 bgp_xmpp_parse_test = env.UnitTest('bgp_xmpp_parse_test',
                                    ['bgp_xmpp_parse_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_parse_test', bgp_xmpp_parse_test)
@@ -630,6 +634,7 @@ test_suite = [
     bgp_xmpp_inet6vpn_test,
     bgp_xmpp_ip_test,
     bgp_xmpp_mcast_test,
+    bgp_xmpp_mvpn_test,
     bgp_xmpp_parse_test,
     bgp_xmpp_rtarget_test,
     bgp_xmpp_rtarget_manager_test,
