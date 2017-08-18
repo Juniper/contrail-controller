@@ -1230,7 +1230,7 @@ class VncDbClient(object):
             except ValueError:
                 if domain == 'default':
                     domain = 'default-domain'
-                domain = self._db_conn.fq_name_to_uuid('domain', [domain])
+                domain = self._object_db.fq_name_to_uuid('domain', [domain])
         if domain:
             domain = domain.replace('-', '')
         return domain, tenant_uuid
