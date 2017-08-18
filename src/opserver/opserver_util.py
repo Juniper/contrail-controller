@@ -9,6 +9,7 @@
 #
 
 from gevent import monkey
+import os
 monkey.patch_all()
 import datetime
 import time
@@ -87,16 +88,22 @@ class AnalyticsDiscovery(gevent.Greenlet):
     def _zk_listen(self, state):
         self._logger.error("Analytics Discovery listen %s" % str(state))
         if state == KazooState.CONNECTED:
-            if self._conn_state != ConnectionStatus.UP:
-                self._sandesh_connection_info_update(status='UP', message='')
-                self._logger.error("Analytics Discovery to publish %s" % str(self._pubinfo))
-                self._reconnect = True
-            else:
-                self._logger.error("Analytics Discovery already connected")
-        else:
-            self._logger.error("Analytics Discovery NOT connected")
-            if self._conn_state == ConnectionStatus.UP:
-                self._sandesh_connection_info_update(status='DOWN', message='')
+            self._sandesh_connection_info_update(status='UP', message='')
+            self._logger.error("Analytics Discovery to publish %s" % str(self._pubinfo))
+            self._reconnect = True
+        elif state == KazooState.LOST:
+            self._logger.error("Analytics Discovery connection LOST")
+            # Lost the session with ZooKeeper Server
+            # Best of option we have is to exit the process and restart all 
+            # over again
+            self._sandesh_connection_info_update(status='DOWN',
+                                      message='Connection to Zookeeper lost')
+            os._exit(2)
+        elif state == KazooState.SUSPENDED:
+            self._logger.error("Analytics Discovery connection SUSPENDED")
+            # Update connection info
+            self._sandesh_connection_info_update(status='INIT',
+                message = 'Connection to zookeeper lost. Retrying')
 
     def _zk_datawatch(self, watcher, child, data, stat, event="unknown"):
         self._logger.error(\
@@ -186,20 +193,24 @@ class AnalyticsDiscovery(gevent.Greenlet):
 
     def _run(self):
         while True:
+            self._logger.error("Analytics Discovery zk start")
+            self._zk = KazooClient(hosts=self._zkservers)
+            self._zk.add_listener(self._zk_listen)
             try:
-                self._logger.error("Analytics Discovery zk start")
-                self._zk = KazooClient(hosts=self._zkservers)
                 self._zk.start()
+                while self._conn_state != ConnectionStatus.UP:
+                    gevent.sleep(1)
                 break
             except Exception as e:
                 # Update connection info
                 self._sandesh_connection_info_update(status='DOWN',
                                                      message=str(e))
+                self._zk.remove_listener(self._zk_listen)
                 try:
                     self._zk.stop()
                     self._zk.close()
                 except Exception as ex:
-                    template = "Exception {0} in AnalyticsDiscovery zkstart. Args:\n{1!r}"
+                    template = "Exception {0} in AnalyticsDiscovery zk stop/close. Args:\n{1!r}"
                     messag = template.format(type(ex).__name__, ex.args)
                     self._logger.error("%s : traceback %s for %s" % \
                         (messag, traceback.format_exc(), self._svc_name))
@@ -213,7 +224,6 @@ class AnalyticsDiscovery(gevent.Greenlet):
             self._reconnect = False
             # Done connecting to ZooKeeper
 
-            self._zk.add_listener(self._zk_listen)
             for wk in self._watchers.keys():
                 self._zk.ensure_path(self._basepath + "/" + wk)
                 self._wchildren[wk] = {}
@@ -277,7 +287,20 @@ class AnalyticsDiscovery(gevent.Greenlet):
                 except gevent.GreenletExit:
                     self._logger.error("Exiting AnalyticsDiscovery for %s" % \
                             self._svc_name)
-                    self._zk.stop()
+                    self._zk.remove_listener(self._zk_listen)
+                    gevent.sleep(1)
+                    try:
+                        self._zk.stop()
+                    except:
+                        self._logger.error("Stopping kazooclient failed")
+                    else:
+                        self._logger.error("Stopping kazooclient successful")
+                    try:
+                        self._zk.close()
+                    except:
+                        self._logger.error("Closing kazooclient failed")
+                    else:
+                        self._logger.error("Closing kazooclient successful")
                     break
 
                 except Exception as ex:
