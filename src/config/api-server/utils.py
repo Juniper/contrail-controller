@@ -5,7 +5,7 @@
 Provides utility routines for modules in api-server
 """
 import argparse
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 import ConfigParser
 import gen.resource_xsd
 import vnc_quota

@@ -8,7 +8,7 @@ import time
 import argparse
 import ConfigParser
 
-from cfgm_common.exceptions import *
+from vnc_api.exceptions import *
 from provision_bgp import BgpProvisioner
 from vnc_api.vnc_api import *
 

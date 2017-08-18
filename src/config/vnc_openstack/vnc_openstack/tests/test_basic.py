@@ -9,7 +9,7 @@ import datetime
 
 sys.path.append('../common/tests')
 from vnc_openstack import neutron_plugin_db
-from cfgm_common.exceptions import NoIdError
+from vnc_api.exceptions import NoIdError
 from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 from test_utils import *
 import test_common

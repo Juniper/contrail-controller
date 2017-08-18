@@ -22,8 +22,8 @@ from vnc_api.vnc_api import *
 import kombu
 import cfgm_common.zkclient
 from cfgm_common.uve.vnc_api.ttypes import VncApiConfigLog
-from cfgm_common import vnc_cgitb
-from cfgm_common.utils import cgitb_hook
+from vnc_api import vnc_cgitb
+from vnc_api.utils import cgitb_hook
 
 from test_utils import *
 import bottle

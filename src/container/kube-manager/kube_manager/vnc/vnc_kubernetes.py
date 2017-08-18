@@ -15,9 +15,9 @@ import uuid
 
 from cStringIO import StringIO
 from cfgm_common import importutils
-from cfgm_common import vnc_cgitb
-from cfgm_common.exceptions import *
-from cfgm_common.utils import cgitb_hook
+from vnc_api import vnc_cgitb
+from vnc_api.exceptions import *
+from vnc_api.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from vnc_api.vnc_api import *
 import kube_manager.common.args as kube_args

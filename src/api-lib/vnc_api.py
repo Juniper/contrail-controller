@@ -7,7 +7,7 @@ from requests.exceptions import ConnectionError
 
 import ConfigParser
 import pprint
-from cfgm_common import jsonutils as json
+import jsonutils as json
 import time
 import platform
 import functools
@@ -22,14 +22,26 @@ from gen.resource_xsd import *
 from gen.resource_client import *
 from gen.generatedssuper import GeneratedsSuper
 
-import cfgm_common
-from cfgm_common import rest, utils
-from cfgm_common import _obj_serializer_all
-from cfgm_common.exceptions import (
-        ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
-        RefsExistError, TimeOutError, BadRequest, HttpError,
-        ResourceTypeUnknownError, RequestSizeError, AuthFailed)
-from cfgm_common import ssl_adapter
+import rest
+import utils
+# Replace this with "import exceptions as errors"
+# when the other changes are committed!
+from exceptions import (
+    ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
+    RefsExistError, TimeOutError, BadRequest, HttpError,
+    ResourceTypeUnknownError, RequestSizeError, AuthFailed)
+import ssl_adapter
+
+
+AAA_MODE_VALID_VALUES = ['no-auth', 'cloud-admin', 'rbac']
+
+
+def _obj_serializer_all(obj):
+    if hasattr(obj, 'serialize_to_json'):
+        return obj.serialize_to_json()
+    else:
+        return dict((k, v) for k, v in obj.__dict__.iteritems())
+# end _obj_serializer_all
 
 
 def check_homepage(func):
@@ -50,14 +62,14 @@ def get_object_class(res_type):
 
 
 def _read_cfg(cfg_parser, section, option, default):
-        try:
-            val = cfg_parser.get(section, option)
-        except (AttributeError,
-                ConfigParser.NoOptionError,
-                ConfigParser.NoSectionError):
-            val = default
+    try:
+        val = cfg_parser.get(section, option)
+    except (AttributeError,
+            ConfigParser.NoOptionError,
+            ConfigParser.NoSectionError):
+        val = default
 
-        return val
+    return val
 # end _read_cfg
 
 
@@ -81,6 +93,7 @@ class ActionUriDict(dict):
     """Action uri dictionary with operator([]) overloading to parse home page
        and populate the action_uri, if not populated already.
     """
+
     def __init__(self, vnc_api,  *args, **kwargs):
         dict.__init__(self, args, **kwargs)
         self.vnc_api = vnc_api
@@ -90,7 +103,7 @@ class ActionUriDict(dict):
             return dict.__getitem__(self, key)
         except KeyError:
             homepage = self.vnc_api._request(
-                    rest.OP_GET, self.vnc_api._base_url, retry_on_error=False)
+                rest.OP_GET, self.vnc_api._base_url, retry_on_error=False)
             self.vnc_api._parse_homepage(homepage)
             return dict.__getitem__(self, key)
 
@@ -119,14 +132,14 @@ class ApiServerSession(object):
             api_server_session.mount("http://", adapter)
             api_server_session.mount("https://", ssladapter)
             self.api_server_sessions.update(
-                    {api_server_host: api_server_session})
+                {api_server_host: api_server_session})
     # end create
 
     def get_url(self, url, api_server_host):
         parsed_url = urlparse(url)
         port = parsed_url.netloc.split(':')[-1]
         modified_url = parsed_url._replace(
-                netloc=':'.join([api_server_host, port]))
+            netloc=':'.join([api_server_host, port]))
         return modified_url.geturl()
     # end get_url
 
@@ -179,7 +192,7 @@ class VncApi(object):
         'Content-type': 'application/json; charset="UTF-8"',
         'X-Contrail-Useragent': '%s:%s' % (hostname,
                                            getattr(main, '__file__', '')),
-        }
+    }
 
     _NOAUTH_AUTHN_STRATEGY = 'noauth'
     _KEYSTONE_AUTHN_STRATEGY = 'keystone'
@@ -288,8 +301,8 @@ class VncApi(object):
             if apikeyfile and apicertfile:
                 certs = [apicertfile, apikeyfile, apicafile]
             apicertbundle = os.path.join(
-                    '/tmp', self._web_host.replace('.', '_'),
-                    VncApi._DEFAULT_API_CERT_BUNDLE)
+                '/tmp', self._web_host.replace('.', '_'),
+                VncApi._DEFAULT_API_CERT_BUNDLE)
             self._apicertbundle = utils.getCertKeyCaBundle(apicertbundle,
                                                            certs)
             self._use_api_certs = True
@@ -353,8 +366,8 @@ class VncApi(object):
                 if kskeyfile and kscertfile:
                     certs = [kscertfile, kskeyfile, kscafile]
                 kscertbundle = os.path.join(
-                        '/tmp', self._web_host.replace('.', '_'),
-                        VncApi._DEFAULT_KS_CERT_BUNDLE)
+                    '/tmp', self._web_host.replace('.', '_'),
+                    VncApi._DEFAULT_KS_CERT_BUNDLE)
                 self._kscertbundle = utils.getCertKeyCaBundle(kscertbundle,
                                                               certs)
                 self._use_ks_certs = True
@@ -365,24 +378,24 @@ class VncApi(object):
                 ' "password": "%s"},' % (self._password) + \
                 ' "tenantName":"%s"}}' % (self._tenant_name)
             self._v3_authn_body = \
-                    '{"auth":{"identity":{' + \
-                    '"methods": ["password"],' + \
-                    ' "password":{' + \
-                    ' "user":{' + \
-                    ' "name": "%s",' % (self._username) + \
-                    ' "domain": { "name": "%s" },' % (self._domain_name) +\
-                    ' "password": "%s"' % (self._password) + \
-                    '}' + \
-                    '}' + \
-                    '},' + \
-                    ' "scope":{' + \
-                    ' "project":{' + \
-                    ' "domain": { "name": "%s" },' % (self._domain_name) +\
-                    ' "name": "%s"' % (self._tenant_name) + \
-                    '}' + \
-                    '}' + \
-                    '}' + \
-                    '}'
+                '{"auth":{"identity":{' + \
+                '"methods": ["password"],' + \
+                ' "password":{' + \
+                ' "user":{' + \
+                ' "name": "%s",' % (self._username) + \
+                ' "domain": { "name": "%s" },' % (self._domain_name) +\
+                ' "password": "%s"' % (self._password) + \
+                '}' + \
+                '}' + \
+                '},' + \
+                ' "scope":{' + \
+                ' "project":{' + \
+                ' "domain": { "name": "%s" },' % (self._domain_name) +\
+                ' "name": "%s"' % (self._tenant_name) + \
+                '}' + \
+                '}' + \
+                '}' + \
+                '}'
             if not self._authn_url:
                 self._discover()
             elif 'v2' in self._authn_url:
@@ -480,7 +493,7 @@ class VncApi(object):
 
         json_body = '{"%s":%s}' % (res_type, obj_json_param)
         content = self._request_server(
-                rest.OP_POST, obj_cls.create_uri, data=json_body)
+            rest.OP_POST, obj_cls.create_uri, data=json_body)
 
         obj_dict = json.loads(content)[res_type]
         obj.uuid = obj_dict['uuid']
@@ -516,8 +529,8 @@ class VncApi(object):
         if prop_coll_body['updates']:
             prop_coll_json = json.dumps(prop_coll_body)
             self._request_server(
-                    rest.OP_POST, self._action_uri['prop-collection-update'],
-                    data=prop_coll_json)
+                rest.OP_POST, self._action_uri['prop-collection-update'],
+                data=prop_coll_json)
 
         return obj.uuid
     # end _object_create
@@ -572,7 +585,7 @@ class VncApi(object):
                 json_body = '{"%s":%s}' % (res_type, obj_json_param)
                 uri = obj_cls.resource_uri_base[res_type] + '/' + obj.uuid
                 content = self._request_server(
-                        rest.OP_PUT, uri, data=json_body)
+                    rest.OP_PUT, uri, data=json_body)
 
         # Generate POST on /prop-collection-update if needed/pending
         prop_coll_body = {'uuid': obj.uuid,
@@ -597,25 +610,25 @@ class VncApi(object):
         if prop_coll_body['updates']:
             prop_coll_json = json.dumps(prop_coll_body)
             self._request_server(
-                    rest.OP_POST, self._action_uri['prop-collection-update'],
-                    data=prop_coll_json)
+                rest.OP_POST, self._action_uri['prop-collection-update'],
+                data=prop_coll_json)
 
         # Generate POST on /ref-update if needed/pending
         for ref_name in obj._pending_ref_updates:
             ref_orig = set(
-                    [(x.get('uuid'), tuple(x.get('to', [])), x.get('attr'))
-                        for x in getattr(obj, '_original_' + ref_name, [])])
+                [(x.get('uuid'), tuple(x.get('to', [])), x.get('attr'))
+                 for x in getattr(obj, '_original_' + ref_name, [])])
             ref_new = set(
-                    [(x.get('uuid'), tuple(x.get('to', [])), x.get('attr'))
-                        for x in getattr(obj, ref_name, [])])
+                [(x.get('uuid'), tuple(x.get('to', [])), x.get('attr'))
+                 for x in getattr(obj, ref_name, [])])
             for ref in ref_orig - ref_new:
                 self.ref_update(
-                        res_type, obj.uuid, ref_name, ref[0], list(ref[1]),
-                        'DELETE')
+                    res_type, obj.uuid, ref_name, ref[0], list(ref[1]),
+                    'DELETE')
             for ref in ref_new - ref_orig:
                 self.ref_update(
-                        res_type, obj.uuid, ref_name, ref[0], list(ref[1]),
-                        'ADD', ref[2])
+                    res_type, obj.uuid, ref_name, ref[0], list(ref[1]),
+                    'ADD', ref[2])
         obj.clear_pending_updates()
 
         return content
@@ -626,9 +639,9 @@ class VncApi(object):
                       obj_uuids=None, back_ref_id=None, fields=None,
                       detail=False, count=False, filters=None, shared=False):
         return self.resource_list(
-                res_type, parent_id=parent_id, parent_fq_name=parent_fq_name,
-                back_ref_id=back_ref_id, obj_uuids=obj_uuids, fields=fields,
-                detail=detail, count=count, filters=filters, shared=shared)
+            res_type, parent_id=parent_id, parent_fq_name=parent_fq_name,
+            back_ref_id=back_ref_id, obj_uuids=obj_uuids, fields=fields,
+            detail=detail, count=count, filters=filters, shared=shared)
     # end _objects_list
 
     @check_homepage
@@ -665,7 +678,7 @@ class VncApi(object):
 
     def _create_api_server_session(self):
         self._api_server_session = ApiServerSession(
-                self._web_hosts, self._max_conns_per_pool, self._max_pools)
+            self._web_hosts, self._max_conns_per_pool, self._max_pools)
     # end _create_api_server_session
 
     def _discover(self):
@@ -741,14 +754,14 @@ class VncApi(object):
                                 self._web_host, self._web_port, uri)
         if self._apiinsecure:
             response = self._api_server_session.get(
-                    url, headers=headers, params=query_params, verify=False)
+                url, headers=headers, params=query_params, verify=False)
         elif not self._apiinsecure and self._use_api_certs:
             response = self._api_server_session.get(
-                   url, headers=headers, params=query_params,
-                   verify=self._apicertbundle)
+                url, headers=headers, params=query_params,
+                verify=self._apicertbundle)
         else:
             response = self._api_server_session.get(
-                    url, headers=headers, params=query_params)
+                url, headers=headers, params=query_params)
         # print 'Sending Request URL: ' + pformat(url)
         # print '                Headers: ' + pformat(headers)
         # print '                QParams: ' + pformat(query_params)
@@ -763,14 +776,14 @@ class VncApi(object):
                                 self._web_host, self._web_port, uri)
         if self._apiinsecure:
             response = self._api_server_session.post(
-                    url, data=body, headers=headers, verify=False)
+                url, data=body, headers=headers, verify=False)
         elif not self._apiinsecure and self._use_api_certs:
             response = self._api_server_session.post(
-                     url, data=body, headers=headers,
-                     verify=self._apicertbundle)
+                url, data=body, headers=headers,
+                verify=self._apicertbundle)
         else:
             response = self._api_server_session.post(
-                    url, data=body, headers=headers)
+                url, data=body, headers=headers)
         return (response.status_code, response.text)
     # end _http_post
 
@@ -779,14 +792,14 @@ class VncApi(object):
                                 self._web_host, self._web_port, uri)
         if self._apiinsecure:
             response = self._api_server_session.delete(
-                    url, data=body, headers=headers, verify=False)
+                url, data=body, headers=headers, verify=False)
         elif not self._apiinsecure and self._use_api_certs:
             response = self._api_server_session.delete(
-                    url, data=body, headers=headers,
-                    verify=self._apicertbundle)
+                url, data=body, headers=headers,
+                verify=self._apicertbundle)
         else:
             response = self._api_server_session.delete(
-                    url, data=body, headers=headers)
+                url, data=body, headers=headers)
         return (response.status_code, response.text)
     # end _http_delete
 
@@ -795,14 +808,14 @@ class VncApi(object):
                                 self._web_host, self._web_port, uri)
         if self._apiinsecure:
             response = self._api_server_session.put(
-                     url, data=body, headers=headers, verify=False)
+                url, data=body, headers=headers, verify=False)
         elif not self._apiinsecure and self._use_api_certs:
             response = self._api_server_session.put(
-                     url, data=body, headers=headers,
-                     verify=self._apicertbundle)
+                url, data=body, headers=headers,
+                verify=self._apicertbundle)
         else:
             response = self._api_server_session.put(
-                    url, data=body, headers=headers)
+                url, data=body, headers=headers)
         return (response.status_code, response.text)
     # end _http_delete
 
@@ -868,8 +881,8 @@ class VncApi(object):
             raise ConnectionError("Unable to retrive the api server root url.")
 
         return self._request(
-                op, url, data=data, retry_on_error=retry_on_error,
-                retry_after_authn=retry_after_authn, retry_count=retry_count)
+            op, url, data=data, retry_on_error=retry_on_error,
+            retry_after_authn=retry_after_authn, retry_count=retry_count)
     # end _request_server
 
     def _log_curl(self, op, url, data=None):
@@ -888,7 +901,7 @@ class VncApi(object):
             if data:
                 query_string = "?" + "&".join([str(i) + "=" + str(j)
                                                for (i, j) in data.items()])
-                cmd_url = base_url + url+query_string
+                cmd_url = base_url + url + query_string
         elif op == rest.OP_DELETE:
             pass
         else:
@@ -921,13 +934,13 @@ class VncApi(object):
                         content = json.loads(content)
                 elif (op == rest.OP_POST):
                     (status, content) = self._http_post(
-                            url, body=data, headers=headers)
+                        url, body=data, headers=headers)
                 elif (op == rest.OP_DELETE):
                     (status, content) = self._http_delete(
-                            url, body=data, headers=headers)
+                        url, body=data, headers=headers)
                 elif (op == rest.OP_PUT):
                     (status, content) = self._http_put(
-                            url, body=data, headers=headers)
+                        url, body=data, headers=headers)
                 else:
                     raise ValueError
             except ConnectionError:
@@ -948,7 +961,7 @@ class VncApi(object):
                 self._headers = self._authenticate(content, self._headers)
                 # Recursive call after authentication (max 1 level)
                 content = self._request(
-                        op, url, data=data, retry_after_authn=True)
+                    op, url, data=data, retry_after_authn=True)
 
                 return content
             elif status == 404:
@@ -971,7 +984,7 @@ class VncApi(object):
                 retried += 1
                 if retried >= retry_count:
                     raise ServiceUnavailableError(
-                            'Service Unavailable Timeout %d' % status)
+                        'Service Unavailable Timeout %d' % status)
 
                 time.sleep(1)
                 continue
@@ -1334,7 +1347,7 @@ class VncApi(object):
         else:  # GET /<collection>
             try:
                 response = self._request_server(
-                        rest.OP_GET, obj_class.create_uri, data=query_params)
+                    rest.OP_GET, obj_class.create_uri, data=query_params)
             except NoIdError:
                 # dont allow NoIdError propagate to user
                 return []
@@ -1405,8 +1418,8 @@ class VncApi(object):
     def chown(self, obj_uuid, owner):
         payload = {'uuid': obj_uuid, 'owner': owner}
         content = self._request_server(
-                rest.OP_POST, self._action_uri['chown'],
-                data=json.dumps(payload))
+            rest.OP_POST, self._action_uri['chown'],
+            data=json.dumps(payload))
         return content
     # end chown
 
@@ -1430,12 +1443,12 @@ class VncApi(object):
         if global_access is not None:
             payload['global_access'] = global_access
         content = self._request_server(
-                rest.OP_POST, self._action_uri['chmod'],
-                data=json.dumps(payload))
+            rest.OP_POST, self._action_uri['chmod'],
+            data=json.dumps(payload))
         return content
 
     def set_aaa_mode(self, mode):
-        if mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+        if mode not in AAA_MODE_VALID_VALUES:
             raise HttpError(400, 'Invalid AAA mode')
         url = self._action_uri['aaa-mode']
         data = {'aaa-mode': mode}

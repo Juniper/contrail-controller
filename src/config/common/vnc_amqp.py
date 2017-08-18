@@ -4,8 +4,8 @@ import cStringIO
 from pprint import pformat
 from requests.exceptions import ConnectionError
 
-from cfgm_common.utils import cgitb_hook
-from cfgm_common.exceptions import NoIdError
+from vnc_api.utils import cgitb_hook
+from vnc_api.exceptions import NoIdError
 from cfgm_common.vnc_kombu import VncKombuClient
 from cfgm_common.dependency_tracker import DependencyTracker
 from cfgm_common.uve.msg_traces.ttypes import MessageBusNotifyTrace,\

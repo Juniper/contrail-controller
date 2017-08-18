@@ -7,7 +7,7 @@ import logging
 from six import text_type
 import uuid
 
-from cfgm_common.exceptions import NoIdError
+from vnc_api.exceptions import NoIdError
 from keystoneclient import utils as kutils, exceptions as kexceptions
 
 from .resource import Resource

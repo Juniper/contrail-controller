@@ -1,4 +1,4 @@
-# always try to load simplejson first 
+# always try to load simplejson first
 # as we get better performance
 try:
     import simplejson as json
@@ -6,7 +6,7 @@ except ImportError:
     import json
 
 
-def load(fp, **kwargs):
+def load(fp, *args, **kwargs):
     return json.load(fp, *args, **kwargs)
 
 

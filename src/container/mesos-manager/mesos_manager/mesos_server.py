@@ -11,7 +11,7 @@ import bottle
 import json
 
 # Application library import
-from cfgm_common.rest import LinkObject
+from vnc_api.rest import LinkObject
 from mesos_cni import MESOSCniDataObject
 from vnc_api.vnc_api import *
 

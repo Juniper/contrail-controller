@@ -11,7 +11,7 @@ from testtools.matchers import MismatchError
 from testtools import ExpectedException
 
 from vnc_api.vnc_api import *
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')

@@ -12,7 +12,7 @@ import logging
 import socket
 import cStringIO
 
-from cfgm_common.utils import cgitb_hook
+from vnc_api.utils import cgitb_hook
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
 from pysandesh.sandesh_logger import SandeshLogger

@@ -17,10 +17,10 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from vnc_api import vnc_api
 from vnc_api.gen import vnc_api_client_gen
-import cfgm_common.utils
-from cfgm_common.exceptions import NoIdError, DatabaseUnavailableError, \
+import vnc_api.utils
+from vnc_api.exceptions import NoIdError, DatabaseUnavailableError, \
                                    NoUserAgentKey
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from vnc_api.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
 from sandesh_common.vns import constants
@@ -437,7 +437,7 @@ class VncRDBMSClient(object):
         for res_type in vnc_api_client_gen.all_resource_types:
             obj_type = to_obj_type(res_type)
             obj_class = vnc_api.get_object_class(res_type)
-            obj_class_name = cfgm_common.utils.CamelCase(res_type)
+            obj_class_name = vnc_api.utils.CamelCase(res_type)
             # Table for OBJ with PROPs
             sqa_class = type('Sqa'+obj_class_name,
                              (SqaObjectBase, Base),
@@ -486,11 +486,11 @@ class VncRDBMSClient(object):
         for res_type in vnc_api_client_gen.all_resource_types:
             obj_type = to_obj_type(res_type)
             obj_class = vnc_api.get_object_class(res_type)
-            obj_class_name = cfgm_common.utils.CamelCase(res_type)
+            obj_class_name = vnc_api.utils.CamelCase(res_type)
             # Table for OBJ with REFs
             for ref_field in obj_class.ref_fields:
                 ref_type = ref_field[:-5] # string trailing _refs
-                ref_class_name = cfgm_common.utils.CamelCase(ref_type)
+                ref_class_name = vnc_api.utils.CamelCase(ref_type)
                 sqa_table_name = to_ref_type(obj_type, ref_type)
                 from_obj_uuid= Column(String(36),
                                       _foreign_key(obj_type),
@@ -634,7 +634,7 @@ class VncRDBMSClient(object):
         session.commit()
 
     def _get_resource_class(self, obj_type):
-        cls_name = '%s' %(cfgm_common.utils.CamelCase(obj_type.replace('-', '_')))
+        cls_name = '%s' %(vnc_api.utils.CamelCase(obj_type.replace('-', '_')))
         return getattr(vnc_api, cls_name)
     # end _get_resource_class
 
@@ -2043,7 +2043,7 @@ def migrate_from_cassandra(mysql_server='127.0.0.1', mysql_username='root', mysq
 
         now = datetime.utcnow()
         epoch = (time.mktime(now.timetuple()) + now.microsecond*1e-6) * 1e6
-        obj_class_name = cfgm_common.utils.CamelCase(obj_type)
+        obj_class_name = vnc_api.utils.CamelCase(obj_type)
         try:
             sqa_class = sqa_classes[obj_type]
         except KeyError:

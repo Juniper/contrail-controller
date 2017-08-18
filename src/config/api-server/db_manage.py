@@ -3,7 +3,7 @@ reload(sys)
 sys.setdefaultencoding('UTF8')
 import re
 import logging
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 from netaddr import IPAddress, IPNetwork
 from netaddr.core import AddrFormatError
 import argparse
@@ -13,10 +13,10 @@ import kazoo.client
 import kazoo.exceptions
 import cfgm_common
 try:
-    from cfgm_common import vnc_cgitb
+    from vnc_api import vnc_cgitb
 except ImportError:
     import cgitb as vnc_cgitb
-from cfgm_common.utils import cgitb_hook
+from vnc_api.utils import cgitb_hook
 import pycassa
 import utils
 
@@ -837,7 +837,7 @@ class DatabaseChecker(DatabaseManager):
         for obj_type, _ in obj_fq_name_table.get_range(column_count=1):
             for fq_name_str_uuid, _ in obj_fq_name_table.xget(obj_type):
                 fq_name_str = ':'.join(fq_name_str_uuid.split(':')[:-1])
-                fq_name_str = cfgm_common.utils.decode_string(fq_name_str)
+                fq_name_str = vnc_api.utils.decode_string(fq_name_str)
                 obj_uuid = fq_name_str_uuid.split(':')[-1]
                 fq_name_table_all.append((obj_type, fq_name_str, obj_uuid))
                 try:

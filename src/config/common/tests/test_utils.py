@@ -38,7 +38,7 @@ from pycassa.util import *
 from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
 
-from cfgm_common.exceptions import ResourceExistsError, OverQuota
+from vnc_api.exceptions import ResourceExistsError, OverQuota
 
 def stub(*args, **kwargs):
     pass

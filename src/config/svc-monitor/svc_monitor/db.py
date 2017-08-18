@@ -8,7 +8,7 @@ Service monitor DB to store VM, SI information
 """
 import inspect
 
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from sandesh_common.vns.constants import SVC_MONITOR_KEYSPACE_NAME
 

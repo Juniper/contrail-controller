@@ -345,7 +345,7 @@ class UveStreamPart(gevent.Greenlet):
                         mask |= 0700
                     # grant access if shared with tenant or domain
                     for item in share:
-                        (share_type, share_uuid) = cfgm_common.utils.\
+                        (share_type, share_uuid) = vnc_api.utils.\
                                 shareinfo_from_perms2_tenant(item['tenant'])
                         share_uuid = share_uuid.replace('-','')
                         if ((share_type == 'tenant' and tenant == share_uuid)\

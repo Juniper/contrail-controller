@@ -8,7 +8,7 @@ import logging
 from six import add_metaclass
 import uuid
 
-from cfgm_common.exceptions import NoIdError
+from vnc_api.exceptions import NoIdError
 
 logger = logging.getLogger(__name__)
 

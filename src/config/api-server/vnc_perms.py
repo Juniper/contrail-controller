@@ -4,12 +4,12 @@
 import sys
 import cfgm_common
 from cfgm_common import has_role
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 from context import is_internal_request
 import string
 import uuid
 from provision_defaults import *
-from cfgm_common.exceptions import *
+from vnc_api.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 
@@ -151,7 +151,7 @@ class VncPermissions(object):
         for item in share:
             # item['tenant'] => [share-type, uuid]
             # allow access if domain or project from token matches configured sharing information
-            (share_type, share_uuid) = cfgm_common.utils.shareinfo_from_perms2_tenant(item['tenant'])
+            (share_type, share_uuid) = vnc_api.utils.shareinfo_from_perms2_tenant(item['tenant'])
             share_uuid = share_uuid.replace('-','')
             if ((share_type == 'tenant' and tenant == share_uuid) or (share_type == 'domain' and domain == share_uuid)):
                 perms = perms | item['tenant_access'] << 3

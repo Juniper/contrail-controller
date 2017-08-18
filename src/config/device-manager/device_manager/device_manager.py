@@ -33,8 +33,8 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from cfgm_common.exceptions import ResourceExhaustionError
-from cfgm_common.exceptions import NoIdError
+from vnc_api.exceptions import ResourceExhaustionError
+from vnc_api.exceptions import NoIdError
 from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
@@ -49,8 +49,8 @@ from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from device_conf import DeviceConf
 from cfgm_common.dependency_tracker import DependencyTracker
-from cfgm_common import vnc_cgitb
-from cfgm_common.utils import cgitb_hook
+from vnc_api import vnc_cgitb
+from vnc_api.utils import cgitb_hook
 from cfgm_common.vnc_logger import ConfigServiceLogger
 from logger import DeviceManagerLogger
 

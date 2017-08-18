@@ -25,7 +25,7 @@ import keystoneclient.v2_0.client as keystone
 from keystonemiddleware import auth_token
 from cfgm_common.rbaclib import *
 import cfgm_common
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')

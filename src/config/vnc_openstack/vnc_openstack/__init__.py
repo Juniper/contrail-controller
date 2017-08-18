@@ -21,10 +21,11 @@ from keystoneclient.auth.identity import generic as kauth
 from keystoneclient import client as kclient
 from keystoneclient import exceptions as kexceptions
 from netaddr import *
+from vnc_api import exceptions as vnc_exc
+from vnc_api import utils as vncutils
+from vnc_api.utils import cgitb_hook
+import cfgm_common
 from cfgm_common import vnc_plugin_base
-from cfgm_common import utils as cfgmutils
-from cfgm_common import exceptions as vnc_exc
-from cfgm_common.utils import cgitb_hook
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.connection_info import ConnectionState
@@ -86,7 +87,7 @@ def fill_keystone_opts(obj, conf_sections):
         certs = [obj._cafile]
         if obj._keyfile and obj._certfile:
             certs=[obj._certfile,obj._keyfile,obj._cafile]
-        obj._kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+        obj._kscertbundle=vncutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
         obj._use_certs=True
 
     try:
@@ -312,12 +313,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 'password': self._auth_passwd,
             }
             # Add user domain info
-            kwargs.update(**cfgmutils.get_user_domain_kwargs(self._config_sections))
+            kwargs.update(**cfgm_common.get_user_domain_kwargs(self._config_sections))
             # Get project scope auth params
-            scope_kwargs = cfgmutils.get_project_scope_kwargs(self._config_sections)
+            scope_kwargs = cfgm_common.get_project_scope_kwargs(self._config_sections)
             if not scope_kwargs:
                 # Default to domain scoped auth
-                scope_kwargs = cfgmutils.get_domain_scope_kwargs(self._config_sections)
+                scope_kwargs = cfgm_common.get_domain_scope_kwargs(self._config_sections)
             kwargs.update(**scope_kwargs)
             auth = kauth.password.Password(self._auth_url, **kwargs)
 

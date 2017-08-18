@@ -274,10 +274,10 @@ class VncService(VncCommon):
             try:
                 self._vnc_lib.floating_ip_create(fip_obj)
             except RefsExistError as e:
-                err_msg = cfgm_common.utils.detailed_traceback()
+                err_msg = vnc_api.utils.detailed_traceback()
                 self.logger.error(err_msg)
             except:
-                err_msg = cfgm_common.utils.detailed_traceback()
+                err_msg = vnc_api.utils.detailed_traceback()
                 self.logger.error(err_msg)
 
             fip = FloatingIpKM.locate(fip_obj.uuid)

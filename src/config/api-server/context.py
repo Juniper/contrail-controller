@@ -94,7 +94,7 @@ class ApiContext(object):
             try:
                 undo_callable(*args, **kwargs)
             except Exception as e:
-                err_msg = cfgm_common.utils.detailed_traceback()
+                err_msg = vnc_api.utils.detailed_traceback()
                 logger(err_msg, level=SandeshLevel.SYS_ERR)
     # end invoke_undo
 # end class ApiContext

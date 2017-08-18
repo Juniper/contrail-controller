@@ -3,14 +3,14 @@
 #
 
 import bottle
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 from pprint import pformat
 import ConfigParser
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from neutron_plugin_db import DBInterface
-from cfgm_common.utils import CacheContainer
+from vnc_api.utils import CacheContainer
 
 @bottle.error(400)
 def error_400(err):

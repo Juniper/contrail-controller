@@ -22,7 +22,7 @@ from vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
 
 from cStringIO import StringIO
-from cfgm_common.utils import cgitb_hook
+from vnc_api.utils import cgitb_hook
 
 class VncIngress(VncCommon):
     def __init__(self):

@@ -9,7 +9,7 @@ monkey.patch_all()
 from collections import namedtuple
 from netaddr import IPNetwork, IPAddress
 import uuid
-from cfgm_common.exceptions import NoIdError
+from vnc_api.exceptions import NoIdError
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
 from kube_manager.common.kube_config_db import NamespaceKM, ServiceKM
 from kube_manager.tests.vnc.test_case import KMTestCase

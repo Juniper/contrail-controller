@@ -1,7 +1,7 @@
 from gen.resource_xsd import *
 from gen.resource_common import *
 from pprint import pformat
-import cfgm_common.exceptions
+import vnc_api.exceptions
 
 QUOTA_OVER_ERROR_CODE = 412
 NON_OBJECT_TYPES = ['security_group_rule']
@@ -17,7 +17,7 @@ class QuotaHelper(object):
         try:
             (ok, proj_dict) = db_conn.dbe_read('project', proj_uuid,
                                                obj_fields=['quota'])
-        except cfgm_common.exceptions.NoIdError as e:
+        except vnc_api.exceptions.NoIdError as e:
             return (False, str(e))
 
         return (ok, proj_dict)

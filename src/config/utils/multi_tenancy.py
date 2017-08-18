@@ -96,7 +96,7 @@ if mt.args.on or mt.args.off:
     data = {'enabled': mt.args.on}
     try:
         rv = vnc._request_server(rest.OP_PUT, url, json.dumps(data))
-    except cfgm_common.exceptions.PermissionDenied:
+    except vnc_api.exceptions.PermissionDenied:
         print 'Permission denied'
         sys.exit(1)
 

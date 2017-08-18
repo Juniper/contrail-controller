@@ -8,15 +8,18 @@ class VncError(Exception):
     pass
 # end class VncError
 
+
 class ServiceUnavailableError(VncError):
     def __init__(self, code):
         self._reason_code = code
     # end __init__
 
     def __str__(self):
-        return 'Service unavailable time out due to: %s' % (str(self._reason_code))
+        return 'Service unavailable time out due to: %s' % (
+                str(self._reason_code))
     # end __str__
 # end class ServiceUnavailableError
+
 
 class DatabaseUnavailableError(ServiceUnavailableError):
     def __init__(self, db_type, code=None):
@@ -26,9 +29,10 @@ class DatabaseUnavailableError(ServiceUnavailableError):
 
     def __str__(self):
         return 'Error accessing %s database due to: %s' \
-               %(self._db_type, self._reason_code)
+               % (self._db_type, self._reason_code)
     # end __str__
 # end class DatabaseUnavailableError
+
 
 class TimeOutError(VncError):
     def __init__(self, code):
@@ -76,6 +80,7 @@ class MaxRabbitPendingError(VncError):
     # end __str__
 # end class MaxRabbitPendingError
 
+
 class ResourceExistsError(VncError):
     def __init__(self, eexists_fq_name, eexists_id, location=None):
         self._eexists_fq_name = eexists_fq_name
@@ -94,23 +99,27 @@ class ResourceExistsError(VncError):
     # end __str__
 # end class ResourceExistsError
 
+
 class ResourceTypeUnknownError(VncError):
     def __init__(self, obj_type):
         self._unknown_type = obj_type
     # end __init__
 
     def __str__(self):
-        return 'Unknown object type: %s' %(self._unknown_type)
+        return 'Unknown object type: %s' % (self._unknown_type)
     # end __str__
 # end class ResourceTypeUnknownError
+
 
 class PermissionDenied(VncError):
     pass
 # end class PermissionDenied
 
+
 class OverQuota(VncError):
     pass
 # end class OverQuota
+
 
 class RefsExistError(VncError):
     pass
@@ -161,4 +170,4 @@ class RequestSizeError(VncError):
 
 class AuthFailed(VncError):
     pass
-# end class AuthFailed
+    # end class AuthFailed

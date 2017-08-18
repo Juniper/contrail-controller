@@ -32,7 +32,7 @@ from vnc_api.gen.resource_test import *
 from netaddr import IPNetwork, IPAddress
 
 import cfgm_common
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 from cfgm_common import get_lr_internal_vn_name
 vnc_cgitb.enable(format='text')
 
@@ -368,7 +368,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         try:
             self._vnc_lib.route_table_create(rt)
             self.assertTrue(False, 'Create succeeded unexpectedly - duplicate prefixe routes')
-        except cfgm_common.exceptions.BadRequest as e:
+        except vnc_api.exceptions.BadRequest as e:
             pass
 
         routes.delete_route(route2)
@@ -387,7 +387,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         try:
             self._vnc_lib.route_table_update(rt)
             self.assertTrue(False, 'Update succeeded unexpectedly - duplicate prefixe routes')
-        except cfgm_common.exceptions.BadRequest as e:
+        except vnc_api.exceptions.BadRequest as e:
             pass
     #end test_route_table_prefixes
 
@@ -441,7 +441,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Add Router Interface
         lr.add_virtual_machine_interface(vm_port_obj)
         logger.debug("Trying to Link VM's VMI object and LR object")
-        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+        with ExpectedException(vnc_api.exceptions.RefsExistError) as e:
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Linking VM's VMI object and LR object failed as expected")
         lr.del_virtual_machine_interface(vm_port_obj)
@@ -452,7 +452,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         lr.add_virtual_machine_interface(port_obj)
         self._vnc_lib.logical_router_update(lr)
         logger.debug("Link VM to internal interface of a LR")
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(vnc_api.exceptions.BadRequest) as e:
             port_obj.add_virtual_machine(vm_inst_obj)
             self._vnc_lib.virtual_machine_interface_update(port_obj)
         logger.debug("Linking VM to internal interface of LR failed as expected")
@@ -523,7 +523,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_network_update(net_obj)
 
         logger.debug("Try adding gateway from same network as of interface to LR object")
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(vnc_api.exceptions.BadRequest) as e:
             lr.add_virtual_network(net_obj)
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Adding gateway from same network as of interface to LR object failed as expected")
@@ -539,7 +539,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Port
         port_obj = self.create_port(project, net_obj)
         logger.debug("Try adding interafce from same network as of gateway to LR object")
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(vnc_api.exceptions.BadRequest) as e:
             lr.add_virtual_machine_interface(port_obj)
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Adding interface from same network as of gateway to LR object failed as expected")
@@ -582,7 +582,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         lr.add_virtual_network(ext_vn)
         try:
             self._vnc_lib.logical_router_update(lr)
-        except cfgm_common.exceptions.BadRequest as e:
+        except vnc_api.exceptions.BadRequest as e:
             logger.debug('PASS - Not able to attach Ext GW when VxLAN Routing is enabled')
         else:
             logger.debug('FAIL - Able to attach Ext GW when VxLAN Routing is enabled')
@@ -593,7 +593,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         project.set_vxlan_routing(False)
         try:
             self._vnc_lib.project_update(project)
-        except cfgm_common.exceptions.BadRequest as e:
+        except vnc_api.exceptions.BadRequest as e:
             logger.debug('PASS - Checking not updating vxlan_routing in project')
         else:
             logger.debug('FAIL - VxLAN Routing cant be updated in Project when LR exists')
@@ -615,7 +615,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         project.set_vxlan_routing(False)
         try:
             self._vnc_lib.project_update(project)
-        except cfgm_common.exceptions.BadRequest as e:
+        except vnc_api.exceptions.BadRequest as e:
             logger.debug('FAIL - VxLAN Routing update not allowed when LR doesnt exist')
             assert(False)
         else:

@@ -6,7 +6,7 @@ import tempfile
 
 import gevent
 from greenlet import greenlet
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 sys.path.append("../../config/common/tests")
 import test_common
 sys.path.insert(0, '../../../../build/production/container/kube-manager')

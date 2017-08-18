@@ -23,7 +23,7 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType, VirtualNetworkType,
         RouteListType, RouteAggregate,RouteTargetList, ServiceInterfaceTag,
         PolicyBasedForwardingRuleType)
 
-from cfgm_common.exceptions import RefsExistError
+from vnc_api.exceptions import RefsExistError
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
 sys.path.append("../common/tests")

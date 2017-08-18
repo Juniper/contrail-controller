@@ -9,7 +9,7 @@ import copy
 import requests
 import re
 import uuid
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 import netaddr
 from netaddr import IPNetwork, IPSet, IPAddress
@@ -21,8 +21,8 @@ try:
 except ImportError:
     from neutron.common import constants
 
-from cfgm_common import exceptions as vnc_exc
-from cfgm_common.utils import cgitb_hook
+from vnc_api import exceptions as vnc_exc
+from vnc_api.utils import cgitb_hook
 from vnc_api.vnc_api import *
 from cfgm_common import SG_NO_RULE_FQ_NAME, SG_NO_RULE_NAME, UUID_PATTERN
 import vnc_openstack

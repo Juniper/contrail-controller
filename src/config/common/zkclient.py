@@ -13,7 +13,7 @@ from kazoo.retry import KazooRetry, ForceRetryError
 from kazoo.recipe.counter import Counter
 
 from bitarray import bitarray
-from cfgm_common.exceptions import ResourceExhaustionError,\
+from vnc_api.exceptions import ResourceExhaustionError,\
      ResourceExistsError, OverQuota
 from gevent.lock import BoundedSemaphore
 

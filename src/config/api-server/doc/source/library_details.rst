@@ -97,7 +97,7 @@ Exceptions
 ----------
 Errors from API server (http status codes and response content) are translated
 to exception objects and raised. The different types of exceptions are defined at
-cfgm_common.exceptions module
+vnc_api.exceptions module
 
 Tips
 ----

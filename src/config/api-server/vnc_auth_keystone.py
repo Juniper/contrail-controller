@@ -25,7 +25,8 @@ except ImportError:
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
-from cfgm_common import utils as cfgmutils
+from vnc_api import utils as vncutils
+import cfgm_common
 from cfgm_common import vnc_greenlets
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext, ApiInternalRequest
@@ -157,7 +158,7 @@ class AuthServiceKeystone(object):
             certs=[args.cafile]
             if args.keyfile and args.certfile:
                 certs=[args.certfile, args.keyfile, args.cafile]
-            _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+            _kscertbundle=vncutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
         self._conf_info = {
             'admin_port': args.admin_port,
             'max_requests': args.max_requests,
@@ -190,12 +191,12 @@ class AuthServiceKeystone(object):
                 'password': args.admin_password,
             })
             # Add user domain info
-            self._conf_info.update(**cfgmutils.get_user_domain_kwargs(args))
+            self._conf_info.update(**cfgm_common.get_user_domain_kwargs(args))
             # Get project scope auth params
-            scope_kwargs = cfgmutils.get_project_scope_kwargs(args)
+            scope_kwargs = cfgm_common.get_project_scope_kwargs(args)
             if not scope_kwargs:
                 # Default to domain scoped auth
-                scope_kwargs = cfgmutils.get_domain_scope_kwargs(args)
+                scope_kwargs = cfgm_common.get_domain_scope_kwargs(args)
             self._conf_info.update(**scope_kwargs)
 
         if _kscertbundle:

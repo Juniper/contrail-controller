@@ -6,7 +6,7 @@
 import argparse
 import uuid as __uuid
 import os
-import cfgm_common.exceptions
+import vnc_api.exceptions
 
 from vnc_api.vnc_api import *
 
@@ -72,7 +72,7 @@ def set_perms(obj, owner=None):
         rv = vnc.chmod(obj.get_uuid(), owner)
         if rv is None:
             print 'Error in setting perms'
-    except cfgm_common.exceptions.PermissionDenied:
+    except vnc_api.exceptions.PermissionDenied:
         print 'Permission denied!'
         sys.exit(1)
 # end set_perms

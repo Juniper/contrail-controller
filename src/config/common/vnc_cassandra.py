@@ -17,7 +17,7 @@ from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants as vns_constants
 import time
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 import utils
 import datetime
 from operator import itemgetter

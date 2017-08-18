@@ -12,7 +12,7 @@ from svc_monitor import sandesh
 from vnc_api.vnc_api import *
 from svc_monitor.module_logger import ServiceMonitorModuleLogger
 from svc_monitor.sandesh.port_tuple import ttypes
-from cfgm_common import exceptions as vnc_exc
+from vnc_api import exceptions as vnc_exc
 
 PROJECT_FQ_NAME = ['default-domain', 'demo']
 PROJECT_UUID = 'a8d55cfc-c66a-4eeb-82f8-d144fe74c46b'

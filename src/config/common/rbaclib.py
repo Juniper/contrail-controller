@@ -10,7 +10,7 @@ import re
 
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import *
-from cfgm_common.exceptions import *
+from vnc_api.exceptions import *
 
 # match two rules (type RbacRuleType)
 # r1 is operational, r2 is part of rbac group

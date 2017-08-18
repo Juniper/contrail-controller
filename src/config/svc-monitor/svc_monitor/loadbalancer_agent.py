@@ -1,7 +1,7 @@
 from vnc_api.vnc_api import *
 
 from cfgm_common import importutils
-from cfgm_common import exceptions as vnc_exc
+from vnc_api import exceptions as vnc_exc
 from cfgm_common import svc_info
 
 from agent import Agent

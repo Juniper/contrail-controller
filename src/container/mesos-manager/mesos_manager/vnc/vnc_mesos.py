@@ -13,7 +13,7 @@ import requests
 
 # Application library import
 from cfgm_common import importutils
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 from cfgm_common.vnc_amqp import VncAmqpHandle
 import mesos_manager.mesos_consts as mesos_consts
 from vnc_api.vnc_api import *
