@@ -19,6 +19,7 @@
 #include "net/bgp_af.h"
 #include "schema/xmpp_unicast_types.h"
 #include "schema/xmpp_multicast_types.h"
+#include "schema/xmpp_mvpn_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "schema/xmpp_enet_types.h"
 #include "xml/xml_pugi.h"
@@ -68,7 +69,7 @@ public:
             node = node.next_sibling()) {
 
             if (strcmp(node.name(), "update") == 0) {
-            } else if (strcmp(node.name(), "delete") == 0) { 
+            } else if (strcmp(node.name(), "delete") == 0) {
             } else {
                 continue;
             }
@@ -123,6 +124,7 @@ public:
         bool inet6_route = false;
         bool enet_route = false;
         bool mcast_route = false;
+        bool mvpn_route = false;
         const char *af = NULL, *safi = NULL, *network;
         char *str = const_cast<char *>(nodename.c_str());
         char *saveptr;
@@ -138,6 +140,8 @@ public:
             enet_route = true;
         } else if (atoi(af) == BgpAf::IPv4 && atoi(safi) == BgpAf::Mcast) {
             mcast_route = true;
+        } else if (atoi(af) == BgpAf::IPv4 && atoi(safi) == BgpAf::MVpn) {
+            mvpn_route = true;
         }
 
         xml_node retract_node = pugi->FindNode("retract");
@@ -171,6 +175,16 @@ public:
                         strtok_r(const_cast<char *>(msid.c_str()), ":", &mstr);
                         strtok_r(NULL, ":", &mstr);
                         parent_->mcast_route_mgr_->Remove(network, mstr);
+                    }
+                } else if (mvpn_route) {
+                    if (parent_->skip_updates_processing()) {
+                        parent_->mvpn_route_mgr_->Update(network, -1);
+                    } else {
+                        string msid = sid;
+                        char *mstr;
+                        strtok_r(const_cast<char *>(msid.c_str()), ":", &mstr);
+                        strtok_r(NULL, ":", &mstr);
+                        parent_->mvpn_route_mgr_->Remove(network, mstr);
                     }
                 }
                 retract_node = retract_node.next_sibling();
@@ -233,6 +247,22 @@ public:
                         parent_->mcast_route_mgr_->Update(
                                 network, mstr, rt_entry.release());
                     }
+                } else if (mvpn_route) {
+                    auto_ptr<autogen::MvpnItemType> rt_entry(
+                            new autogen::MvpnItemType());
+                    if (!rt_entry->XmlParse(item))
+                        continue;
+
+                    if (parent_->skip_updates_processing()) {
+                        parent_->mvpn_route_mgr_->Update(network, +1);
+                    } else {
+                        string msid = sid;
+                        char *mstr;
+                        strtok_r(const_cast<char *>(msid.c_str()), ":", &mstr);
+                        strtok_r(NULL, ":", &mstr);
+                        parent_->mvpn_route_mgr_->Update(
+                                network, mstr, rt_entry.release());
+                    }
                 }
             }
         }
@@ -252,10 +282,10 @@ private:
     NetworkAgentMock *parent_;
 };
 
-XmppDocumentMock::XmppDocumentMock(const std::string &hostname) 
+XmppDocumentMock::XmppDocumentMock(const std::string &hostname)
     : hostname_(hostname), label_alloc_(10000), xdoc_(new pugi::xml_document) {
         localaddr_ = "127.0.0.1";
-} 
+}
 
 pugi::xml_document *XmppDocumentMock::RouteAddXmlDoc(
         const std::string &network, const std::string &prefix,
@@ -296,6 +326,11 @@ pugi::xml_document *XmppDocumentMock::RouteEnetDeleteXmlDoc(
     return RouteEnetAddDeleteXmlDoc(network, prefix, false);
 }
 
+pugi::xml_document *XmppDocumentMock::RouteMvpnAddXmlDoc(
+        const std::string &network, const std::string &sg) {
+    return RouteMvpnAddDeleteXmlDoc(network, sg, true);
+}
+
 pugi::xml_document *XmppDocumentMock::RouteMcastAddXmlDoc(
         const std::string &network, const std::string &sg,
         const std::string &nexthop, const std::string &label_range,
@@ -307,6 +342,11 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddXmlDoc(
 pugi::xml_document *XmppDocumentMock::RouteMcastDeleteXmlDoc(
         const std::string &network, const std::string &sg) {
     return RouteMcastAddDeleteXmlDoc(network, sg, false);
+}
+
+pugi::xml_document *XmppDocumentMock::RouteMvpnDeleteXmlDoc(
+        const std::string &network, const std::string &sg) {
+    return RouteMvpnAddDeleteXmlDoc(network, sg, false);
 }
 
 
@@ -327,7 +367,7 @@ xml_node XmppDocumentMock::PubSubHeader(string type) {
     iq.append_attribute("to") = type.c_str();
     // TODO: iq.append_attribute("id") =
     xml_node pubsub = iq.append_child("pubsub");
-    pubsub.append_attribute("xmlns") = kPubSubNS; 
+    pubsub.append_attribute("xmlns") = kPubSubNS;
     return pubsub;
 }
 
@@ -687,7 +727,7 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
     stringstream node_str;
-    node_str << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" 
+    node_str << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/"
              << network << "/" << sg_save;
     pub.append_attribute("node") = node_str.str().c_str();
     autogen::McastItemType rt_entry;
@@ -732,6 +772,49 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
             }
         }
         rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
+    }
+
+    xml_node item = pub.append_child("item");
+    rt_entry.Encode(&item);
+    pubsub = PubSubHeader(kNetworkServiceJID);
+    xml_node collection = pubsub.append_child("collection");
+    collection.append_attribute("node") = network.c_str();
+    xml_node assoc = collection.append_child(
+            add ? "associate" : "dissociate");
+    assoc.append_attribute("node") = node_str.str().c_str();
+    return xdoc_.get();
+}
+
+pugi::xml_document *XmppDocumentMock::RouteMvpnAddDeleteXmlDoc(
+        const std::string &network, const std::string &sg, bool add) {
+    xdoc_->reset();
+    string sg_save(sg.c_str());
+    xml_node pubsub = PubSubHeader(kNetworkServiceJID);
+    xml_node pub = pubsub.append_child("publish");
+    stringstream node_str;
+    node_str << BgpAf::IPv4 << "/" << BgpAf::MVpn << "/"
+             << network << "/" << sg_save;
+    pub.append_attribute("node") = node_str.str().c_str();
+    autogen::MvpnItemType rt_entry;
+    rt_entry.Clear();
+
+    char *str = const_cast<char *>(sg.c_str());
+    char *saveptr;
+    char *group = strtok_r(str, ",", &saveptr);
+    char *source = NULL;
+    if (group == NULL) {
+        group = strtok_r(NULL, "", &saveptr);
+    } else {
+        source = strtok_r(NULL, "", &saveptr);
+    }
+
+    rt_entry.entry.nlri.af = BgpAf::IPv4;
+    rt_entry.entry.nlri.safi = BgpAf::MVpn;
+    rt_entry.entry.nlri.group = std::string(group) ;
+    if (source != NULL) {
+        rt_entry.entry.nlri.source = std::string(source);
+    } else {
+        rt_entry.entry.nlri.source = std::string("0.0.0.0");
     }
 
     xml_node item = pub.append_child("item");
@@ -805,6 +888,8 @@ NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
             XmppDocumentMock::kNetworkServiceJID));
     mcast_route_mgr_.reset(new InstanceMgr<McastRouteEntry>(this,
             XmppDocumentMock::kNetworkServiceJID));
+    mvpn_route_mgr_.reset(new InstanceMgr<MvpnRouteEntry>(this,
+            XmppDocumentMock::kNetworkServiceJID));
     vrouter_mgr_.reset(new InstanceMgr<VRouterEntry>(this,
             XmppDocumentMock::kConfigurationServiceJID));
     vm_mgr_.reset(new InstanceMgr<VMEntry>(this,
@@ -840,6 +925,7 @@ void NetworkAgentMock::ClearInstances() {
     inet6_route_mgr_->Clear();
     enet_route_mgr_->Clear();
     mcast_route_mgr_->Clear();
+    mvpn_route_mgr_->Clear();
     vrouter_mgr_->Clear();
     vm_mgr_->Clear();
 }
@@ -1174,6 +1260,23 @@ void NetworkAgentMock::AddMcastRoute(const string &network_name,
     mcast_route_mgr_->AddOriginated(network_name, sg);
 }
 
+void NetworkAgentMock::AddMvpnRoute(const string &network_name,
+                                     const string &sg) {
+    AgentPeer *peer = GetAgent();
+    xml_document *xdoc = impl_->RouteMvpnAddXmlDoc(
+            network_name, sg);
+    peer->SendDocument(xdoc);
+    mvpn_route_mgr_->AddOriginated(network_name, sg);
+}
+
+void NetworkAgentMock::DeleteMvpnRoute(const string &network_name,
+                                        const string &sg) {
+    AgentPeer *peer = GetAgent();
+    xml_document *xdoc = impl_->RouteMvpnDeleteXmlDoc(network_name, sg);
+    peer->SendDocument(xdoc);
+    mvpn_route_mgr_->DeleteOriginated(network_name, sg);
+}
+
 void NetworkAgentMock::DeleteMcastRoute(const string &network_name,
                                         const string &sg) {
     AgentPeer *peer = GetAgent();
@@ -1341,6 +1444,8 @@ void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network,
                 xdoc = parent_->impl_->RouteEnetDeleteXmlDoc(network, *iter);
             } else if (std::tr1::is_same<T, McastRouteEntry>::value) {
                 xdoc = parent_->impl_->RouteMcastDeleteXmlDoc(network, *iter);
+            } else if (std::tr1::is_same<T, MvpnRouteEntry>::value) {
+                xdoc = parent_->impl_->RouteMvpnDeleteXmlDoc(network, *iter);
             } else {
                 assert(false);
             }
@@ -1517,6 +1622,7 @@ template const T *NetworkAgentMock::InstanceMgr<T>::Lookup( \
 INSTANTIATE_INSTANCE_TEMPLATES(NetworkAgentMock::RouteEntry)
 INSTANTIATE_INSTANCE_TEMPLATES(NetworkAgentMock::EnetRouteEntry)
 INSTANTIATE_INSTANCE_TEMPLATES(NetworkAgentMock::McastRouteEntry)
+INSTANTIATE_INSTANCE_TEMPLATES(NetworkAgentMock::MvpnRouteEntry)
 INSTANTIATE_INSTANCE_TEMPLATES(NetworkAgentMock::VRouterEntry)
 INSTANTIATE_INSTANCE_TEMPLATES(NetworkAgentMock::VMEntry)
 
@@ -1566,6 +1672,14 @@ int NetworkAgentMock::McastRouteCount(const std::string &network) const {
 
 int NetworkAgentMock::McastRouteCount() const {
     return mcast_route_mgr_->Count();
+}
+
+int NetworkAgentMock::MvpnRouteCount(const std::string &network) const {
+    return mvpn_route_mgr_->Count(network);
+}
+
+int NetworkAgentMock::MvpnRouteCount() const {
+    return mvpn_route_mgr_->Count();
 }
 
 } // namespace test
