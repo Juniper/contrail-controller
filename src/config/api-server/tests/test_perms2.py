@@ -26,6 +26,7 @@ from keystonemiddleware import auth_token
 from cfgm_common.rbaclib import *
 import cfgm_common
 from cfgm_common import vnc_cgitb
+from cfgm_common import rest
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
