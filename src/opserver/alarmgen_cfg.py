@@ -60,26 +60,10 @@ class CfgParser(object):
             'worker_id'         : '0',
             'partitions'        : 15,
             'zk_list'           : None,
-            'rabbitmq_server_list' : None,
-            'rabbitmq_port'     : 5672,
-            'rabbitmq_user'     : 'guest',
-            'rabbitmq_password' : 'guest',
-            'rabbitmq_vhost'    : None,
-            'rabbitmq_ha_mode'  : False,
-            'rabbitmq_use_ssl'  : False,
-            'kombu_ssl_version': '',
-            'kombu_ssl_keyfile': '',
-            'kombu_ssl_certfile': '',
-            'kombu_ssl_ca_certs': '',
             'alarmgen_list'     : ['127.0.0.1:0'],
             'cluster_id'     :'',
         }
         defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
-
-        api_opts = {
-            'api_server_list' : ['127.0.0.1:8082'],
-            'api_server_use_ssl' : False
-        }
 
         redis_opts = {
             'redis_server_port'  : 6379,
@@ -87,13 +71,21 @@ class CfgParser(object):
             'redis_uve_list'    : ['127.0.0.1:6379'],
         }
 
-        keystone_opts = {
-            'auth_host': '127.0.0.1',
-            'auth_protocol': 'http',
-            'auth_port': 35357,
-            'admin_user': 'user1',
-            'admin_password': 'password1',
-            'admin_tenant_name': 'default-domain'
+        configdb_opts = {
+            'rabbitmq_server_list': None,
+            'rabbitmq_port': 5672,
+            'rabbitmq_user': 'guest',
+            'rabbitmq_password': 'guest',
+            'rabbitmq_vhost': None,
+            'rabbitmq_ha_mode': False,
+            'rabbitmq_use_ssl': False,
+            'kombu_ssl_version': '',
+            'kombu_ssl_keyfile': '',
+            'kombu_ssl_certfile': '',
+            'kombu_ssl_ca_certs': '',
+            'config_db_server_list': None,
+            'config_db_username': None,
+            'config_db_password': None
         }
 
         sandesh_opts = SandeshConfig.get_default_options()
@@ -105,12 +97,10 @@ class CfgParser(object):
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items('DEFAULTS')))
-            if 'API_SERVER' in config.sections():
-                api_opts.update(dict(config.items('API_SERVER')))
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
-            if 'KEYSTONE' in config.sections():
-                keystone_opts.update(dict(config.items('KEYSTONE')))
+            if 'CONFIGDB' in config.sections():
+                configdb_opts.update(dict(config.items('CONFIGDB')))
             SandeshConfig.update_options(sandesh_opts, config)
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -123,9 +113,8 @@ class CfgParser(object):
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
 
-        defaults.update(api_opts)
         defaults.update(redis_opts)
-        defaults.update(keystone_opts)
+        defaults.update(configdb_opts)
         defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--host_ip",
@@ -179,6 +168,13 @@ class CfgParser(object):
         parser.add_argument("--rabbitmq_ha_mode",
             action="store_true",
             help="True if the rabbitmq cluster is mirroring all queue")
+        parser.add_argument("--config_db_server_list",
+            help="List of cassandra servers in ip:port format",
+            nargs='+')
+        parser.add_argument("--config_db_username",
+            help="Cassandra user name")
+        parser.add_argument("--config_db_password",
+            help="Cassandra password")
         parser.add_argument("--redis_uve_list",
             help="List of redis-uve in ip:port format. For internal use only",
             nargs="+")
@@ -187,23 +183,6 @@ class CfgParser(object):
             nargs="+")
         parser.add_argument("--cluster_id",
             help="Analytics Cluster Id")
-        parser.add_argument("--auth_host",
-            help="ip of keystone server")
-        parser.add_argument("--auth_protocol",
-            help="keystone authentication protocol")
-        parser.add_argument("--auth_port", type=int,
-            help="ip of keystone server")
-        parser.add_argument("--admin_user",
-            help="Name of keystone admin user")
-        parser.add_argument("--admin_password",
-            help="Password of keystone admin user")
-        parser.add_argument("--admin_tenant_name",
-            help="Tenant name for keystone admin user")
-        parser.add_argument("--api_server_list",
-            help="List of api-servers in ip:port format separated by space",
-            nargs="+")
-        parser.add_argument("--api_server_use_ssl",
-            help="Use SSL to connect to api-server")
         SandeshConfig.add_parser_arguments(parser)
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
@@ -216,8 +195,9 @@ class CfgParser(object):
             self._args.redis_uve_list = self._args.redis_uve_list.split()
         if type(self._args.alarmgen_list) is str:
             self._args.alarmgen_list = self._args.alarmgen_list.split()
-        if type(self._args.api_server_list) is str:
-            self._args.api_server_list = self._args.api_server_list.split()
+        if type(self._args.config_db_server_list) is str:
+            self._args.config_db_server_list = \
+                self._args.config_db_server_list.split()
         self._args.conf_file = args.conf_file
 
     def _pat(self):
@@ -227,9 +207,6 @@ class CfgParser(object):
 
     def _mklist(self, s):
         return self._pat().split(s)
-
-    def set_api_server_list(self, api_servers):
-        self._args.api_server_list = api_servers
 
     def redis_uve_list(self):
         return self._args.redis_uve_list
@@ -245,12 +222,6 @@ class CfgParser(object):
 
     def zk_list(self):
         return self._args.zk_list;
-
-    def api_server_config(self):
-        return {
-            'api_server_list': self._args.api_server_list,
-            'api_server_use_ssl': self._args.api_server_use_ssl
-        }
 
     def log_local(self):
         return self._args.log_local
@@ -304,13 +275,12 @@ class CfgParser(object):
                 'ssl_certfile': self._args.kombu_ssl_certfile,
                 'ssl_ca_certs': self._args.kombu_ssl_ca_certs}
 
-    def keystone_params(self):
-        return {'auth_host': self._args.auth_host,
-                'auth_protocol': self._args.auth_protocol,
-                'auth_port': self._args.auth_port,
-                'admin_user': self._args.admin_user,
-                'admin_password': self._args.admin_password,
-                'admin_tenant_name': self._args.admin_tenant_name}
+    def cassandra_params(self):
+        return {'servers': self._args.config_db_server_list,
+                'user': self._args.config_db_username,
+                'password': self._args.config_db_password,
+                'cluster_id': self._args.cluster_id}
+    # end cassandra_params
 
     def sandesh_config(self):
         return SandeshConfig.from_parser_arguments(self._args)

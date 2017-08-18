@@ -881,14 +881,6 @@ class Controller(object):
             self._chksum = hashlib.md5("".join(self._conf.collectors())).hexdigest()
             self._conf.random_collectors = random.sample(self._conf.collectors(), \
                                                         len(self._conf.collectors()))
-        self._api_server_checksum = ""
-        api_server_list = self._conf.api_server_config()['api_server_list']
-        if api_server_list:
-            self._api_server_checksum = hashlib.md5("".join(
-                api_server_list)).hexdigest()
-            random_api_servers = random.sample(api_server_list,
-                len(api_server_list))
-            self._conf.set_api_server_list(random_api_servers)
         self._sandesh.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
                                       self._conf.random_collectors,
@@ -1015,15 +1007,10 @@ class Controller(object):
         self._alarm_config_change_map = {}
 
         # Create config handler to read/update alarm config
-        rabbitmq_params = self._conf.rabbitmq_params()
         self._config_handler = AlarmGenConfigHandler(self._sandesh,
-            self._moduleid, self._instance_id, self.config_log,
-            self._conf.api_server_config(), self._conf.keystone_params(),
-            rabbitmq_params, self.mgrs, self.alarm_config_change_callback)
-        if rabbitmq_params['servers']:
-            self._config_handler.start()
-        else:
-            self._logger.error('Rabbitmq server not configured ')
+            self._moduleid, self._instance_id, self._conf.rabbitmq_params(),
+            self._conf.cassandra_params(), self.mgrs,
+            self.alarm_config_change_callback)
 
         PartitionOwnershipReq.handle_request = self.handle_PartitionOwnershipReq
         PartitionStatusReq.handle_request = self.handle_PartitionStatusReq
@@ -1031,11 +1018,6 @@ class Controller(object):
         UVETableInfoReq.handle_request = self.handle_UVETableInfoReq
         UVETablePerfReq.handle_request = self.handle_UVETablePerfReq
         AlarmConfigRequest.handle_request = self.handle_AlarmConfigRequest
-
-    def config_log(self, msg, level):
-        self._sandesh.logger().log(
-            SandeshLogger.get_py_logger_level(level), msg)
-    # end config_log
 
     def libpart_cb(self, part_list):
 
@@ -2384,7 +2366,8 @@ class Controller(object):
         self._logger.error(trace_sandesh.log(trace=True))
 
     def run(self):
-        self.gevs = [ gevent.spawn(self.run_process_stats),
+        self.gevs = [ gevent.spawn(self._config_handler.start),
+                      gevent.spawn(self.run_process_stats),
                       gevent.spawn(self.run_uve_processing),
                       gevent.spawn(self._us.run)]
         if self._ad is not None:
@@ -2456,23 +2439,6 @@ class Controller(object):
                         redis_elem = (redis_ip_port[0], int(redis_ip_port[1]))
                         redis_uve_list.append(redis_elem)
                     self._us.update_redis_uve_list(redis_uve_list)
-            if 'API_SERVER' in config.sections():
-                try:
-                    api_servers = config.get('API_SERVER', 'api_server_list')
-                except ConfigParser.NoOptionError:
-                    pass
-                else:
-                    if isinstance(api_servers, basestring):
-                        api_servers = api_servers.split()
-                    new_api_server_checksum = hashlib.md5("".join(
-                        api_servers)).hexdigest()
-                    if new_api_server_checksum != self._api_server_checksum:
-                        self._api_server_checksum = new_api_server_checksum
-                        random_api_servers = random.sample(api_servers,
-                            len(api_servers))
-                        self._conf.set_api_server_list(random_api_servers)
-                        self._config_handler.update_api_server_list(
-                            random_api_servers)
       # end sighup_handler
 
 def setup_controller(argv):
