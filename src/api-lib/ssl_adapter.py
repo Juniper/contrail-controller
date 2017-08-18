@@ -13,6 +13,7 @@ except ImportError:
     # Fallback to standard installation methods
     from urllib3.poolmanager import PoolManager
 
+
 class SSLAdapter(HTTPAdapter):
     '''An HTTPS Transport Adapter that can be configured with SSL/TLS
        version.'''
