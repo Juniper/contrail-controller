@@ -166,6 +166,20 @@ class TestInfraDM(TestCommonDM):
         self.check_dm_plugin()
 
         FakeDeviceConnect.reset()
+        FakeNetconfManager.set_model('qfx5200')
+        pr.physical_router_vendor_name = "juniper"
+        pr.physical_router_product_name = "qfx5200"
+        self._vnc_lib.physical_router_update(pr)
+        self.check_dm_plugin()
+
+        FakeDeviceConnect.reset()
+        FakeNetconfManager.set_model('qfx5300')
+        pr.physical_router_vendor_name = "juniper"
+        pr.physical_router_product_name = "qfx5300"
+        self._vnc_lib.physical_router_update(pr)
+        self.check_dm_plugin(is_valid=False)
+
+        FakeDeviceConnect.reset()
         FakeNetconfManager.set_model('qfx10000')
         pr.physical_router_vendor_name = "juniper"
         pr.physical_router_product_name = "qfx10000"
