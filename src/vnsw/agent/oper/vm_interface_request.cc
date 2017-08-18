@@ -183,7 +183,7 @@ void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
         addr_ = agent->router_id();
         instance_ipv4_list_.list_.insert(
             VmInterface::InstanceIp(agent->router_id(), 32, false, true,
-                                    false, false, Ip4Address(0)));
+                                    false, false, false, Ip4Address(0)));
     }
 
     boost::system::error_code ec;
@@ -603,7 +603,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         data->vrf_name_ != Agent::NullString()) {
         new_ipv4_list.insert(
             VmInterface::InstanceIp(nova_ip_addr_, Address::kMaxV4PrefixLen,
-                                    data->ecmp_, true, false, false,
+                                    data->ecmp_, true, false, false, false,
                                     Ip4Address(0)));
     }
     if (AuditList<InstanceIpList, InstanceIpSet::iterator>
@@ -618,7 +618,7 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
             data->vrf_name_ != Agent::NullString()) {
         new_ipv6_list.insert(
             VmInterface::InstanceIp(nova_ip6_addr_, Address::kMaxV6PrefixLen,
-                                    data->ecmp6_, true, false, false,
+                                    data->ecmp6_, true, false, false, false,
                                     Ip4Address(0)));
     }
 

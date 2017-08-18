@@ -614,13 +614,13 @@ static void BuildInstanceIp(Agent *agent, VmInterfaceConfigData *data,
     if (addr.is_v4()) {
         data->instance_ipv4_list_.list_.insert(
                 VmInterface::InstanceIp(addr, Address::kMaxV4PrefixLen, ecmp,
-                                        is_primary,
+                                        is_primary, ip->service_instance_ip(),
                                         ip->service_health_check_ip(),
                                         ip->local_ip(), tracking_ip));
     } else {
         data->instance_ipv6_list_.list_.insert(
                 VmInterface::InstanceIp(addr, Address::kMaxV6PrefixLen, ecmp,
-                                        is_primary,
+                                        is_primary, ip->service_instance_ip(),
                                         ip->service_health_check_ip(),
                                         ip->local_ip(), tracking_ip));
     }

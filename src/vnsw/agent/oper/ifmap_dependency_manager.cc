@@ -666,7 +666,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     ////////////////////////////////////////////////////////////////////////
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-virtual-network",
-                               "virtual-network", true));
+                               "virtual-network", true,
+                               "virtual-network-network-ipam",
+                               "virtual-network-network-ipam", true));
     AddDependencyPath("virtual-machine-interface",
                       MakePath("virtual-machine-interface-virtual-machine",
                                "virtual-machine", true));
