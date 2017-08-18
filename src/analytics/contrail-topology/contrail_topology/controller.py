@@ -122,6 +122,10 @@ class Controller(object):
     def _add_link(self, prouter, remote_system_name, local_interface_name,
                   remote_interface_name, local_interface_index,
                   remote_interface_index, link_type):
+        # If the remote_system_name or remote_interface_name is None, do not
+        # add this link in the link_table.
+        if not all([remote_system_name, remote_interface_name]):
+            return False
         d = dict(remote_system_name=remote_system_name,
                  local_interface_name=local_interface_name,
                  remote_interface_name=remote_interface_name,
