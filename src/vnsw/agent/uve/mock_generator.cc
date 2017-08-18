@@ -347,10 +347,10 @@ private:
                     = end_point.get_sess_agg_info().begin();
                     it2 != end_point.get_sess_agg_info().end(); ++it2) {
                     SessionAggInfo sess_agg_info;
-                    sess_agg_info.set_sampled_tx_bytes(0);
-                    sess_agg_info.set_sampled_tx_pkts(0);
-                    sess_agg_info.set_sampled_rx_bytes(0);
-                    sess_agg_info.set_sampled_rx_pkts(0);
+                    sess_agg_info.set_sampled_forward_bytes(0);
+                    sess_agg_info.set_sampled_forward_pkts(0);
+                    sess_agg_info.set_sampled_reverse_bytes(0);
+                    sess_agg_info.set_sampled_reverse_pkts(0);
                     std::map<SessionIpPort, Sessioninfo> session_map;
                     int ncport = mgen_->dNPorts(mgen_->rgen_);
                     for (int i = 0; i < ncport; i++) {
@@ -372,26 +372,32 @@ private:
                                 continue;
                             }
                             Sessioninfo session_val;
-                            uint64_t tx_pkts(mgen_->dFlowPktsPerSec(
+                            Flowinfo forward_flow_info;
+                            Flowinfo reverse_flow_info;
+                            uint64_t forward_pkts(mgen_->dFlowPktsPerSec(
                                 mgen_->rgen_));
-                            uint64_t rx_pkts(mgen_->dFlowPktsPerSec(
+                            uint64_t reverse_pkts(mgen_->dFlowPktsPerSec(
                                 mgen_->rgen_));
-                            session_val.set_sampled_tx_pkts(tx_pkts);
-                            session_val.set_sampled_tx_bytes(tx_pkts *
+                            forward_flow_info.set_sampled_pkts(forward_pkts);
+                            forward_flow_info.set_sampled_bytes(forward_pkts *
                                 mgen_->dBytesPerPacket(mgen_->rgen_));
-                            session_val.set_sampled_rx_pkts(rx_pkts);
-                            session_val.set_sampled_rx_bytes(rx_pkts *
+                            reverse_flow_info.set_sampled_pkts(reverse_pkts);
+                            reverse_flow_info.set_sampled_bytes(reverse_pkts *
                                 mgen_->dBytesPerPacket(mgen_->rgen_));
-                            sess_agg_info.set_sampled_tx_pkts(
-                                sess_agg_info.get_sampled_tx_pkts() + tx_pkts);
-                            sess_agg_info.set_sampled_tx_bytes(
-                                sess_agg_info.get_sampled_tx_bytes() +
-                                    session_val.get_sampled_tx_bytes());
-                            sess_agg_info.set_sampled_rx_pkts(
-                                sess_agg_info.get_sampled_rx_pkts() + rx_pkts);
-                            sess_agg_info.set_sampled_rx_bytes(
-                                sess_agg_info.get_sampled_rx_bytes() +
-                                    session_val.get_sampled_rx_bytes());
+                            sess_agg_info.set_sampled_forward_pkts(
+                                sess_agg_info.get_sampled_forward_pkts() + 
+                                    forward_pkts);
+                            sess_agg_info.set_sampled_forward_bytes(
+                                sess_agg_info.get_sampled_forward_bytes() +
+                                    forward_flow_info.get_sampled_bytes());
+                            sess_agg_info.set_sampled_reverse_pkts(
+                                sess_agg_info.get_sampled_reverse_pkts() +
+                                    reverse_pkts);
+                            sess_agg_info.set_sampled_reverse_bytes(
+                                sess_agg_info.get_sampled_reverse_bytes() +
+                                    reverse_flow_info.get_sampled_bytes());
+                            session_val.set_forward_flow_info(forward_flow_info);
+                            session_val.set_reverse_flow_info(reverse_flow_info);
                             session_map[sess_ip_port] = session_val;
                         }
                     }
