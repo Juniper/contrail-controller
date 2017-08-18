@@ -287,7 +287,7 @@ public:
         const std::string &prefix,
         const NextHop &nh = NextHop(),
         const RouteAttributes &attributes = RouteAttributes());
-    pugi::xml_document *RouteDeleteXmlDoc(const std::string &network, 
+    pugi::xml_document *RouteDeleteXmlDoc(const std::string &network,
         const std::string &prefix);
 
     pugi::xml_document *Inet6RouteAddXmlDoc(const std::string &network,
@@ -307,12 +307,19 @@ public:
                                            const RouteAttributes &attributes);
     pugi::xml_document *RouteEnetDeleteXmlDoc(const std::string &network,
                                               const std::string &prefix);
-    pugi::xml_document *RouteMcastAddXmlDoc(const std::string &network, 
+    pugi::xml_document *RouteMcastAddXmlDoc(const std::string &network,
                                             const std::string &sg,
                                             const std::string &nexthop,
                                             const std::string &label_range,
                                             const std::string &encap);
-    pugi::xml_document *RouteMcastDeleteXmlDoc(const std::string &network, 
+    pugi::xml_document *RouteMcastDeleteXmlDoc(const std::string &network,
+                                               const std::string &sg);
+    pugi::xml_document *RouteMvpnAddXmlDoc(const std::string &network,
+                                            const std::string &sg,
+                                            const std::string &nexthop,
+                                            const std::string &label_range,
+                                            const std::string &encap);
+    pugi::xml_document *RouteMvpnDeleteXmlDoc(const std::string &network,
                                                const std::string &sg);
     pugi::xml_document *SubscribeXmlDoc(const std::string &network, int id,
                                         bool no_ribout = false,
@@ -346,6 +353,11 @@ private:
             const std::string &nexthop = std::string(),
             const std::string &label_range = std::string(),
             const std::string &encap = std::string());
+    pugi::xml_document *RouteMvpnAddDeleteXmlDoc(const std::string &network,
+            const std::string &sg, bool add,
+            const std::string &nexthop = std::string(),
+            const std::string &label_range = std::string(),
+            const std::string &encap = std::string());
 
     std::string hostname_;
     int label_alloc_;
@@ -369,6 +381,7 @@ public:
 
     typedef autogen::McastItemType McastRouteEntry;
     typedef std::map<std::string, McastRouteEntry *> McastRouteTable;
+    typedef std::map<std::string, McastRouteEntry *> MvpnRouteTable;
 
     typedef autogen::VirtualRouter VRouterEntry;
     typedef std::map<std::string, VRouterEntry *> VRouterTable;
@@ -468,6 +481,8 @@ public:
                                    wait_for_established, false);
         mcast_route_mgr_->Subscribe(network, id, no_ribout,
                                     wait_for_established, false);
+        mvpn_route_mgr_->Subscribe(network, id, no_ribout,
+                                    wait_for_established, false);
     }
     void UnsubscribeAll(const std::string &network, int id = -1,
                         bool wait_for_established = true,
@@ -478,6 +493,8 @@ public:
         enet_route_mgr_->Unsubscribe(network, id, wait_for_established,
                                      false, withdraw_routes);
         mcast_route_mgr_->Unsubscribe(network, id, wait_for_established,
+                                      false, withdraw_routes);
+        mvpn_route_mgr_->Unsubscribe(network, id, wait_for_established,
                                       false, withdraw_routes);
         route_mgr_->Unsubscribe(network, id, wait_for_established,
                                 send_unsubscribe, withdraw_routes);
@@ -598,6 +615,27 @@ public:
                        const std::string &encap = "");
     void DeleteMcastRoute(const std::string &network, const std::string &sg);
 
+    void MvpnSubscribe(const std::string &network, int id = -1,
+                        bool wait_for_established = true) {
+        mvpn_route_mgr_->Subscribe(network, id, false, wait_for_established);
+    }
+    void MvpnUnsubscribe(const std::string &network, int id = -1,
+                          bool wait_for_established = true) {
+        mvpn_route_mgr_->Unsubscribe(network, id, wait_for_established);
+    }
+    int MvpnRouteCount(const std::string &network) const;
+    int MvpnRouteCount() const;
+    const McastRouteEntry *MvpnRouteLookup(const std::string &network,
+                                            const std::string &prefix) const {
+        return mvpn_route_mgr_->Lookup(network, prefix);
+    }
+
+    void AddMvpnRoute(const std::string &network, const std::string &sg,
+                       const std::string &nexthop,
+                       const std::string &label_range,
+                       const std::string &encap = "");
+    void DeleteMvpnRoute(const std::string &network, const std::string &sg);
+
     bool IsEstablished();
     bool IsSessionEstablished();
     bool IsReady();
@@ -641,6 +679,7 @@ public:
     boost::scoped_ptr<InstanceMgr<Inet6RouteEntry> > inet6_route_mgr_;
     boost::scoped_ptr<InstanceMgr<EnetRouteEntry> > enet_route_mgr_;
     boost::scoped_ptr<InstanceMgr<McastRouteEntry> > mcast_route_mgr_;
+    boost::scoped_ptr<InstanceMgr<McastRouteEntry> > mvpn_route_mgr_;
     boost::scoped_ptr<InstanceMgr<VRouterEntry> > vrouter_mgr_;
     boost::scoped_ptr<InstanceMgr<VMEntry> > vm_mgr_;
 

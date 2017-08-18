@@ -23,9 +23,9 @@ public:
     enum Safi {
         UnknownSafi = 0,
         Unicast = 1,
+        MVpn = 5,
         EVpn = 70,
         Vpn = 128,
-        MVpn = 129,
         RTarget = 132,
         Mcast = 241,
         Enet = 242,
