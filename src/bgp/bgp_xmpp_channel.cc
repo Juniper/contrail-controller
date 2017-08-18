@@ -29,6 +29,7 @@
 #include "bgp/extended-community/tag.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
+#include "bgp/mvpn/mvpn_table.h"
 #include "bgp/peer_close_manager.h"
 #include "bgp/peer_stats.h"
 #include "bgp/security_group/security_group.h"
@@ -38,6 +39,7 @@
 #include "net/community_type.h"
 #include "schema/xmpp_multicast_types.h"
 #include "schema/xmpp_enet_types.h"
+#include "schema/xmpp_mvpn_types.h"
 #include "xml/xml_pugi.h"
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_init.h"
@@ -52,6 +54,9 @@ using autogen::EnetTunnelEncapsulationListType;
 using autogen::McastItemType;
 using autogen::McastNextHopsType;
 using autogen::McastTunnelEncapsulationListType;
+
+using autogen::MvpnItemType;
+using autogen::MvpnTunnelEncapsulationListType;
 
 using autogen::ItemType;
 using autogen::NextHopListType;
@@ -936,6 +941,164 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         "Multicast group " << item.entry.nlri.group <<
         " source " << item.entry.nlri.source <<
         " and label range " << label_range <<
+        " enqueued for " << (add_change ? "add/change" : "delete"));
+    table->Enqueue(&req);
+    return true;
+}
+
+void BgpXmppChannel::CreateType5MvpnRouteRequest(IpAddress grp_address,
+        IpAddress src_address, bool add_change, uint64_t subscription_gen_id,
+	int instance_id, DBRequest& req) {
+    RouteDistinguisher mc_rd(peer_->bgp_identifier(), instance_id);
+    MvpnPrefix mc_prefix(MvpnPrefix::SourceActiveADRoute, mc_rd,
+            grp_address.to_v4(), src_address.to_v4());
+    uint32_t flags = 0;
+
+    // Build and enqueue a DB request for route-addition
+    req.key.reset(new MvpnTable::RequestKey(mc_prefix, peer_.get()));
+
+    if (add_change) {
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+        BgpAttrSpec attrs;
+        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
+        req.data.reset(new MvpnTable::RequestData(
+            attr, flags, 0, 0, subscription_gen_id));
+        stats_[RX].reach++;
+    } else {
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+        stats_[RX].unreach++;
+    }
+}
+
+void BgpXmppChannel::CreateType7MvpnRouteRequest(IpAddress grp_address,
+        IpAddress src_address, bool add_change, uint64_t subscription_gen_id,
+	DBRequest& req) {
+    RouteDistinguisher mc_rd =  RouteDistinguisher::kZeroRd;
+    MvpnPrefix mc_prefix(MvpnPrefix::SourceTreeJoinRoute, mc_rd, 0,
+            grp_address.to_v4(), src_address.to_v4());
+    uint32_t flags = BgpPath::ResolveNexthop;
+
+    // Build and enqueue a DB request for route-addition
+    req.key.reset(new MvpnTable::RequestKey(mc_prefix, peer_.get()));
+
+    if (add_change) {
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+        BgpAttrSpec attrs;
+
+        // Next-hop ip address
+        BgpAttrNextHop nexthop(src_address);
+        attrs.push_back(&nexthop);
+
+        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
+        req.data.reset(new MvpnTable::RequestData(
+            attr, flags, 0, 0, subscription_gen_id));
+        stats_[RX].reach++;
+    } else {
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+        stats_[RX].unreach++;
+    }
+}
+
+bool BgpXmppChannel::ProcessMvpnItem(string vrf_name,
+    const pugi::xml_node &node, bool add_change) {
+    MvpnItemType item;
+    item.Clear();
+
+    if (!item.XmlParse(node)) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+            BGP_LOG_FLAG_ALL, "Invalid multicast route message received");
+        return false;
+    }
+
+    if (item.entry.nlri.af != BgpAf::IPv4) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+            "Unsupported address family " << item.entry.nlri.af <<
+            " for multicast route");
+        return false;
+    }
+
+    if (item.entry.nlri.safi != BgpAf::MVpn) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+            BGP_LOG_FLAG_ALL, "Unsupported subsequent address family " <<
+            item.entry.nlri.safi << " for multicast route");
+        return false;
+    }
+
+    if (item.entry.nlri.group.empty()) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+            "Mandatory group address not specified");
+        return false;
+    }
+
+    error_code error;
+    IpAddress grp_address = IpAddress::from_string("0.0.0.0", error);
+    if (!XmppDecodeAddress(item.entry.nlri.af,
+        item.entry.nlri.group, &grp_address, false)) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+            "Bad group address " << item.entry.nlri.group);
+        return false;
+    }
+
+    if (item.entry.nlri.source.empty()) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+            "Mandatory source address not specified");
+        return false;
+    }
+
+    IpAddress src_address = IpAddress::from_string("0.0.0.0", error);
+    if (!XmppDecodeAddress(item.entry.nlri.af,
+        item.entry.nlri.source, &src_address, true)) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+            "Bad source address " << item.entry.nlri.source);
+        return false;
+    }
+
+    bool subscribe_pending;
+    int instance_id;
+    uint64_t subscription_gen_id;
+    BgpTable *table;
+    if (!VerifyMembership(vrf_name, Address::MVPN, &table, &instance_id,
+        &subscription_gen_id, &subscribe_pending, add_change)) {
+        channel_->Close();
+        return false;
+    }
+
+    int rt_type = item.entry.nlri.route_type;
+    DBRequest req;
+    // Build the key to the Multicast DBTable
+    if (rt_type == MvpnPrefix::SourceTreeJoinRoute) {
+	CreateType7MvpnRouteRequest(grp_address, src_address, add_change,
+		subscription_gen_id, req);
+    } else if (rt_type == MvpnPrefix::SourceActiveADRoute) {
+	CreateType5MvpnRouteRequest(grp_address, src_address, add_change,
+		subscription_gen_id, instance_id, req);
+    } else {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+            "Unsupported route type " << item.entry.nlri.route_type);
+        return false;
+    }
+
+    // Need to locate path resolver if not done already
+    assert(table);
+    table->LocatePathResolver();
+
+    // Defer all requests till subscribe is processed.
+    if (subscribe_pending) {
+        DBRequest *request_entry = new DBRequest();
+        request_entry->Swap(&req);
+        string table_name =
+            RoutingInstance::GetTableName(vrf_name, Address::MVPN);
+        defer_q_.insert(make_pair(
+            make_pair(vrf_name, table_name), request_entry));
+        return true;
+    }
+
+    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Multicast group " << item.entry.nlri.group <<
+        " source " << item.entry.nlri.source <<
         " enqueued for " << (add_change ? "add/change" : "delete"));
     table->Enqueue(&req);
     return true;
@@ -2601,6 +2764,9 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                         } else if (atoi(af) == BgpAf::IPv4 &&
                             atoi(safi) == BgpAf::Mcast) {
                             ProcessMcastItem(iq->node, item, iq->is_as_node);
+                        } else if (atoi(af) == BgpAf::IPv4 &&
+                            atoi(safi) == BgpAf::MVpn) {
+                            ProcessMvpnItem(iq->node, item, iq->is_as_node);
                         } else if (atoi(af) == BgpAf::L2Vpn &&
                                    atoi(safi) == BgpAf::Enet) {
                             ProcessEnetItem(iq->node, item, iq->is_as_node);

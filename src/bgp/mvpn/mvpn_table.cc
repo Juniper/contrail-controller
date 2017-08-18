@@ -33,6 +33,12 @@ MvpnTable::MvpnTable(DB *db, const string &name)
     : BgpTable(db, name) {
 }
 
+PathResolver *MvpnTable::CreatePathResolver() {
+    if (routing_instance()->IsMasterRoutingInstance())
+        return NULL;
+    return (new PathResolver(this));
+}
+
 auto_ptr<DBEntry> MvpnTable::AllocEntry(
     const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
