@@ -95,7 +95,7 @@ class ConfigCassandraPartition {
         ConfigCassandraPartition *parent_;
     };
 
-    static const uint32_t kMaxUUIDRetryTimePowOfTwo = 16;
+    static const uint32_t kMaxUUIDRetryTimePowOfTwo = 20;
     typedef boost::ptr_map<std::string, ObjectCacheEntry> ObjectCacheMap;
 
     ObjProcessWorkQType obj_process_queue() {
