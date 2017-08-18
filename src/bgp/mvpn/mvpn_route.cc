@@ -534,8 +534,28 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
             return null_prefix;
         }
 
+        // Look for originator of rt_key and ignore it.
+        size_t pos5 = str.find(',', pos4 + 1);
+        if (pos5 == string::npos) {
+            if (errorp != NULL) {
+                *errorp = make_error_code(boost::system::errc::invalid_argument);
+            }
+            return null_prefix;
+        }
+
+	// rest is originator
+        temp_str = str.substr(pos5 + 1, string::npos);
+        boost::system::error_code originator_err;
+        prefix.originator_ = Ip4Address::from_string(temp_str, originator_err);
+        if (originator_err != 0) {
+            if (errorp != NULL) {
+                *errorp = originator_err;
+            }
+            return null_prefix;
+        }
+
         // everything will go in rt_key as well
-        temp_str = str.substr(pos1 + 1, string::npos);
+        temp_str = str.substr(pos1 + 1, pos5 - 1);
         prefix.rt_key_.resize(temp_str.size());
         copy(temp_str.begin(), temp_str.begin() + temp_str.size(),
                 prefix.rt_key_.begin());

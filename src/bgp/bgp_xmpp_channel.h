@@ -298,6 +298,14 @@ private:
                           bool add_change);
     bool ProcessMcastItem(std::string vrf_name,
                           const pugi::xml_node &item, bool add_change);
+    bool ProcessMvpnItem(std::string vrf_name,
+                         const pugi::xml_node &item, bool add_change);
+    void CreateType7MvpnRouteRequest(IpAddress grp_address,
+        IpAddress src_address, bool add_change, uint64_t subscription_gen_id,
+        DBRequest &req);
+    void CreateType5MvpnRouteRequest(IpAddress grp_address,
+        IpAddress src_address, bool add_change, uint64_t subscription_gen_id,
+        int instance_id, DBRequest &req);
     bool ProcessEnetItem(std::string vrf_name,
                          const pugi::xml_node &item, bool add_change);
     void ProcessSubscriptionRequest(std::string rt_instance,
