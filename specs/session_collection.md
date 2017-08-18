@@ -86,7 +86,7 @@ The FlowLogData that is being sent currently is going to be replaced by SessionE
 Next is the SessionEndpointData object reported by agent periodically:
 
     FlowLog SessionEndpoint {
-        1: uuid_t vmi;
+        1: string vmi;
         2: string vn;
         3: optional string deployment;
         4: optional string tier;
@@ -125,38 +125,34 @@ Next is the SessionEndpointData object reported by agent periodically:
         6: optional i64 logged_tx_pkts;
         7: optional i64 logged_rx_bytes;
         8: optional i64 logged_rx_pkts;
-        9: map<SessionIpPort, Sessioninfo> sessionMap;
+        9: map<SessionIpPort, SessionInfo> sessionMap;
     };
-    
-    struct Sessioninfo {
-        1: optional i64 sampled_tx_bytes;
-        2: optional i64 sampled_tx_pkts;
-        3: optional i64 sampled_rx_bytes;
-        4: optional i64 sampled_rx_pkts;
-        5: optional i64 logged_tx_bytes;
-        6: optional i64 logged_tx_pkts;
-        7: optional i64 logged_rx_bytes;
-        8: optional i64 logged_rx_pkts;
-        9: optional uuid_t forward_flow_uuid;
-       10: optional uuid_t reverse_flow_uuid;
-       11: optional i16 local_tcp_flags;
-       12: optional i16 reverse_tcp_flags;
-       13: optional string vm;
-       14: optional i64 setup_time;
-       15: optional i64 teardown_time;
-       16: optional string action;
-       17: optional string reverse_action;
-       18: optional uuid_t sg_rule_uuid;
-       19: optional uuid_t reverse_sg_rule_uuid;
-       20: optional ipaddr other_vrouter_ip;
-       21: optional uuid_t nw_ace_uuid;
-       22: optional uuid_t reverse_nw_ace_uuid;
-       23: optional u16 underlay_proto;
-       24: optional u16 underlay_source_port;
-       25: optional u16 reverse_underlay_source_port;
-       26: optional string drop_reason;
-       27: optional string reverse_drop_reason;
-    } 
+   
+    struct SessionFlowInfo {
+        1: optional i64 sampled_bytes;
+        2: optional i64 sampled_pkts;
+        3: optional i64 logged_bytes;
+        4: optional i64 logged_pkts;
+        5: optional uuid_t flow_uuid;
+        6: optional i16 tcp_flags;
+        7: optional i64 setup_time;
+        8: optional i64 teardown_time;
+        9: optional i64 teardown_bytes;
+       10: optional i64 teardown_pkts;
+       11: optional string action;
+       12: optional uuid_t sg_rule_uuid;
+       13: optional uuid_t nw_ace_uuid;
+       14: optional u16 underlay_source_port;
+       15: optional u16 drop_reason;
+    }
+
+    struct SessionInfo {
+        1: SessionFlowInfo forward_flow_info;
+        2: SessionFlowInfo reverse_flow_info;
+        3: optional string vm;
+        4: optional ipaddr other_vrouter_ip;
+        5: optional u16 underlay_proto;
+    }
 
 # 4. Implementation
 ## 4.1 Work items
