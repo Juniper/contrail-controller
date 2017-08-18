@@ -27,6 +27,7 @@
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
 #include "bgp/extended-community/tag.h"
+#include "bgp/mvpn/mvpn_table.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/peer_close_manager.h"
@@ -925,6 +926,190 @@ bool BgpXmppChannel::ProcessMcastItem(string vrf_name,
         request_entry->Swap(&req);
         string table_name =
             RoutingInstance::GetTableName(vrf_name, Address::ERMVPN);
+        defer_q_.insert(make_pair(
+            make_pair(vrf_name, table_name), request_entry));
+        return true;
+    }
+
+    assert(table);
+    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        "Multicast group " << item.entry.nlri.group <<
+        " source " << item.entry.nlri.source <<
+        " and label range " << label_range <<
+        " enqueued for " << (add_change ? "add/change" : "delete"));
+    table->Enqueue(&req);
+    return true;
+}
+
+bool BgpXmppChannel::ProcessMvpnItem(string vrf_name,
+    const pugi::xml_node &node, bool add_change) {
+    McastItemType item;
+    item.Clear();
+
+    if (!item.XmlParse(node)) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+            BGP_LOG_FLAG_ALL, "Invalid multicast route message received");
+        return false;
+    }
+
+    if (item.entry.nlri.af != BgpAf::IPv4) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+            "Unsupported address family " << item.entry.nlri.af <<
+            " for multicast route");
+        return false;
+    }
+
+    if (item.entry.nlri.safi != BgpAf::MVpn) {
+        BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+            BGP_LOG_FLAG_ALL, "Unsupported subsequent address family " <<
+            item.entry.nlri.safi << " for multicast route");
+        return false;
+    }
+
+    error_code error;
+    IpAddress grp_address = IpAddress::from_string("0.0.0.0", error);
+    if (!item.entry.nlri.group.empty()) {
+        if (!XmppDecodeAddress(item.entry.nlri.af,
+            item.entry.nlri.group, &grp_address, false)) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+                "Bad group address " << item.entry.nlri.group);
+            return false;
+        }
+    }
+
+    IpAddress src_address = IpAddress::from_string("0.0.0.0", error);
+    if (!item.entry.nlri.source.empty()) {
+        if (!XmppDecodeAddress(item.entry.nlri.af,
+            item.entry.nlri.source, &src_address, true)) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+                "Bad source address " << item.entry.nlri.source);
+            return false;
+        }
+    }
+
+    bool subscribe_pending;
+    int instance_id;
+    uint64_t subscription_gen_id;
+    BgpTable *table;
+    if (!VerifyMembership(vrf_name, Address::MVPN, &table, &instance_id,
+        &subscription_gen_id, &subscribe_pending, add_change)) {
+        channel_->Close();
+        return false;
+    }
+
+    // Build the key to the Multicast DBTable
+    MvpnPrefix::RouteType rt_type = src_address.is_unspecified() ?
+	MvpnPrefix::SharedTreeJoinRoute : MvpnPrefix::SourceTreeJoinRoute;
+    RouteDistinguisher mc_rd(peer_->bgp_identifier(), instance_id);
+    uint32_t asn = 0;
+    MvpnPrefix mc_prefix(rt_type, mc_rd, asn, grp_address.to_v4(),
+	    src_address.to_v4());
+
+    // Build and enqueue a DB request for route-addition
+    DBRequest req;
+    req.key.reset(new MvpnTable::RequestKey(mc_prefix, peer_.get()));
+
+    uint32_t flags = rt_type == MvpnPrefix::SourceTreeJoinRoute ?
+	BgpPath::ResolveNexthop : 0;
+    flags = 0;
+    ExtCommunitySpec ext;
+    string label_range("none");
+
+    if (add_change) {
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        vector<uint32_t> labels;
+        const McastNextHopsType &inh_list = item.entry.next_hops;
+
+        if (inh_list.next_hop.empty()) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL, "Missing next-hop for multicast route " <<
+                mc_prefix.ToString());
+            return false;
+        }
+
+        // Agents should send only one next-hop in the item
+        if (inh_list.next_hop.size() != 1) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+                "More than one nexthop received for multicast route " <<
+                mc_prefix.ToString());
+            return false;
+        }
+
+        McastNextHopsType::const_iterator nit = inh_list.begin();
+
+        // Label Allocation item.entry.label by parsing the range
+        label_range = nit->label;
+        if (!stringToIntegerList(label_range, "-", labels) ||
+            labels.size() != 2) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
+                "Bad label range " << label_range <<
+                " for multicast route " << mc_prefix.ToString());
+            return false;
+        }
+
+        if (!labels[0] || !labels[1] || labels[1] < labels[0]) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL, "Bad label range " << label_range <<
+                " for multicast route " << mc_prefix.ToString());
+            return false;
+        }
+
+        BgpAttrSpec attrs;
+        LabelBlockPtr lbptr = lb_mgr_->LocateBlock(labels[0], labels[1]);
+
+        BgpAttrLabelBlock attr_label(lbptr);
+        attrs.push_back(&attr_label);
+
+        // Next-hop ip address
+        IpAddress nh_address;
+        if (!XmppDecodeAddress(nit->af, nit->address, &nh_address)) {
+            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                BGP_LOG_FLAG_ALL, "Bad nexthop address " << nit->address <<
+                " for multicast route " << mc_prefix.ToString());
+            return false;
+        }
+        BgpAttrNextHop nexthop(nh_address);
+        attrs.push_back(&nexthop);
+
+        // Process tunnel encapsulation list.
+        bool no_tunnel_encap = true;
+        bool no_valid_tunnel_encap = true;
+        for (McastTunnelEncapsulationListType::const_iterator eit =
+             nit->tunnel_encapsulation_list.begin();
+             eit != nit->tunnel_encapsulation_list.end(); ++eit) {
+            no_tunnel_encap = false;
+            TunnelEncap tun_encap(*eit);
+            if (tun_encap.tunnel_encap() == TunnelEncapType::UNSPEC)
+                continue;
+            no_valid_tunnel_encap = false;
+            ext.communities.push_back(tun_encap.GetExtCommunityValue());
+        }
+
+        // Mark the path as infeasible if all tunnel encaps published
+        // by agent are invalid.
+        if (!no_tunnel_encap && no_valid_tunnel_encap) {
+            flags = BgpPath::NoTunnelEncap;
+        }
+
+        if (!ext.communities.empty())
+            attrs.push_back(&ext);
+
+        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
+        req.data.reset(new MvpnTable::RequestData(
+            attr, flags, 0, 0, subscription_gen_id));
+        stats_[RX].reach++;
+    } else {
+        req.oper = DBRequest::DB_ENTRY_DELETE;
+        stats_[RX].unreach++;
+    }
+
+    // Defer all requests till subscribe is processed.
+    if (subscribe_pending) {
+        DBRequest *request_entry = new DBRequest();
+        request_entry->Swap(&req);
+        string table_name =
+            RoutingInstance::GetTableName(vrf_name, Address::MVPN);
         defer_q_.insert(make_pair(
             make_pair(vrf_name, table_name), request_entry));
         return true;
@@ -2601,6 +2786,9 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                         } else if (atoi(af) == BgpAf::IPv4 &&
                             atoi(safi) == BgpAf::Mcast) {
                             ProcessMcastItem(iq->node, item, iq->is_as_node);
+                        } else if (atoi(af) == BgpAf::IPv4 &&
+                            atoi(safi) == BgpAf::MVpn) {
+                            ProcessMvpnItem(iq->node, item, iq->is_as_node);
                         } else if (atoi(af) == BgpAf::L2Vpn &&
                                    atoi(safi) == BgpAf::Enet) {
                             ProcessEnetItem(iq->node, item, iq->is_as_node);

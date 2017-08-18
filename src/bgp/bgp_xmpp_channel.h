@@ -298,6 +298,8 @@ private:
                           bool add_change);
     bool ProcessMcastItem(std::string vrf_name,
                           const pugi::xml_node &item, bool add_change);
+    bool ProcessMvpnItem(std::string vrf_name,
+                          const pugi::xml_node &item, bool add_change);
     bool ProcessEnetItem(std::string vrf_name,
                          const pugi::xml_node &item, bool add_change);
     void ProcessSubscriptionRequest(std::string rt_instance,
