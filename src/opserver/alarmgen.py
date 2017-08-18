@@ -21,10 +21,6 @@ import random
 import hashlib
 import ConfigParser
 import logging
-logging.getLogger('kafka').addHandler(logging.StreamHandler())
-logging.getLogger('kafka').setLevel(logging.WARNING)
-logging.getLogger('kazoo').addHandler(logging.StreamHandler())
-logging.getLogger('kazoo').setLevel(logging.WARNING)
 try:
     from collections import OrderedDict
 except ImportError:
@@ -906,13 +902,36 @@ class Controller(object):
         if test_logger is not None:
             self._logger = test_logger
         else:
+            enable_local_log = self._conf.log_local()
+            category = self._conf.log_category(),
+            level = self._conf.log_level()
+            file = self._conf.log_file()
+            enable_syslog = self._conf.use_syslog()
+            syslog_facility = self._conf.syslog_facility()
             self._sandesh.set_logging_params(
-                enable_local_log=self._conf.log_local(),
-                category=self._conf.log_category(),
-                level=self._conf.log_level(),
-                file=self._conf.log_file(),
-                enable_syslog=self._conf.use_syslog(),
-                syslog_facility=self._conf.syslog_facility())
+                enable_local_log=enable_local_log,
+                category=category,
+                level=level,
+                file=file,
+                enable_syslog=enable_syslog,
+                syslog_facility=syslog_facility)
+
+            # Configure kafka and kazoo loggers
+            kafka_logger = logging.getLogger('kafka')
+            SandeshLogger.set_logger_params(kafka_logger,
+                enable_local_log=enable_local_log,
+                level=level,
+                file=file,
+                enable_syslog=enable_syslog,
+                syslog_facility=syslog_facility)
+            kazoo_logger = logging.getLogger('kazoo')
+            SandeshLogger.set_logger_params(kazoo_logger,
+                enable_local_log=enable_local_log,
+                level=level,
+                file=file,
+                enable_syslog=enable_syslog,
+                syslog_facility=syslog_facility)
+
             self._logger = self._sandesh._logger
         # Trace buffer list
         self.trace_buf = [
