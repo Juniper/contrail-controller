@@ -11,7 +11,7 @@ import json
 import requests
 
 from cStringIO import StringIO
-from cfgm_common.utils import cgitb_hook
+from vnc_api.utils import cgitb_hook
 
 class KubeMonitor(object):
 

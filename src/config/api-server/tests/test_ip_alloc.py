@@ -32,7 +32,7 @@ from vnc_api.vnc_api import *
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
@@ -264,21 +264,21 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         #try adding subnets in ipam0, it should fail
         ipam0.set_ipam_subnets(IpamSubnets([ipam0_v4, ipam3_v4]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'ipam-subnets are allowed only with flat-subnet') as e:
             self._vnc_lib.network_ipam_update(ipam0)
         ipam0 = self._vnc_lib.network_ipam_read(id=ipam0_uuid)
 
         #try adding subnets in ipam1, it should fail
         ipam1.set_ipam_subnets(IpamSubnets([ipam1_v4, ipam2_v4]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'ipam-subnets are allowed only with flat-subnet') as e:
             self._vnc_lib.network_ipam_update(ipam1)
         ipam1 = self._vnc_lib.network_ipam_read(id=ipam1_uuid)
 
         #try adding overlap subnets in ipam2, it should fail
         ipam2.set_ipam_subnets(IpamSubnets([ipam2_v4, ipam2_v4_overlap]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Overlapping addresses: \[IPNetwork\(\'12.1.2.0/23\'\), IPNetwork\(\'12.1.3.248/28\'\)\]') as e:
             self._vnc_lib.network_ipam_update(ipam2)
         ipam2 = self._vnc_lib.network_ipam_read(id=ipam2_uuid)
@@ -292,7 +292,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #create should fail
         vn = VirtualNetwork('vn0', project)
         vn.add_network_ipam(ipam0, VnSubnetsType([ipam0_v4, ipam0_v4_overlap]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Overlapping addresses: \[IPNetwork\(\'10.1.2.0/23\'\), IPNetwork\(\'10.1.3.248/28\'\)\]') as e:
             self._vnc_lib.virtual_network_create(vn)
 
@@ -304,7 +304,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #add ipam1 with overlapping subnets on vn->ipam1 link
         #update network should fail
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam1_v4_overlap]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Overlapping addresses: \[IPNetwork\(\'11.1.2.0/23\'\), IPNetwork\(\'11.1.3.248/28\'\)\]') as e:
             self._vnc_lib.virtual_network_update(vn)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -313,7 +313,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #with ipam0
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_v4, ipam0_v4_overlap]))
 
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(vnc_api.exceptions.BadRequest) as e:
             self._vnc_lib.virtual_network_update(vn)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
@@ -325,7 +325,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         #add ipam2 in the network without any subnets on the link
         vn.add_network_ipam(ipam2, VnSubnetsType([]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'flat-subnet is allowed only with l3 network') as e:
             self._vnc_lib.virtual_network_update(vn)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -345,14 +345,14 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #Now update ipam2 with overlapping subnet with a subnet on vn->ipam0
         #link (overlapping with ipam0_v4)
         ipam2.set_ipam_subnets(IpamSubnets([ipam2_v4, ipam4_v4, ipam0_v4_overlap]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(vnc_api.exceptions.BadRequest) as e:
             self._vnc_lib.network_ipam_update(ipam2)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #Now update ipam3 with overlapping subnet with a subnet in ipam2
         # which is a flat subnet (overlapping with ipam2_v4)
         ipam3.set_ipam_subnets(IpamSubnets([ipam2_v4_overlap]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(vnc_api.exceptions.BadRequest) as e:
             self._vnc_lib.network_ipam_update(ipam3)
         vn = self._vnc_lib.virtual_network_read(id = vn.uuid)
 
@@ -428,7 +428,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('my-new-vn', project)
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4]))
         vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.OverQuota):
+        with ExpectedException(vnc_api.exceptions.OverQuota):
             self._vnc_lib.virtual_network_create(vn)
 	#increase subnet quota to 2, and network_create will go through..
         quota_type.set_subnet(2)
@@ -445,7 +445,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #test quota through network_update
         vn.add_network_ipam(ipam1, VnSubnetsType([ipam1_sn_v4, ipam3_sn_v4]))
         vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.OverQuota):
+        with ExpectedException(vnc_api.exceptions.OverQuota):
             self._vnc_lib.virtual_network_update(vn)
 
         self._vnc_lib.virtual_network_delete(id=vn.uuid)
@@ -487,12 +487,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         # try changing subnet-method from None to flat-subnet, vnc_lib should reject
         ipam.set_ipam_subnet_method('flat-subnet')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'ipam_subnet_method can not be changed') as e:
             self._vnc_lib.network_ipam_update(ipam)
 
         ipam.set_ipam_subnet_method('user-defined-subnet')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'ipam_subnet_method can not be changed') as e:
             self._vnc_lib.network_ipam_update(ipam)
 
@@ -542,7 +542,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # ipam_create should fail if any ipam_subnets attached to ipam
         ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"),
                            ipam_subnets=IpamSubnets([ipam1_sn_v4, ipam2_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'ipam-subnets are allowed only with flat-subnet') as e:
             self._vnc_lib.network_ipam_create(ipam)
 
@@ -558,13 +558,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         vn = VirtualNetwork('my-v4-v6-vn', project)
         vn.add_network_ipam(ipam, VnSubnetsType([ipam3_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'with flat-subnet, network can not have user-defined subnet') as e:
             self._vnc_lib.virtual_network_create(vn)
 
         #add another ipam in VnSubnetType, should fail again
         vn.set_network_ipam(ipam, VnSubnetsType([ipam3_sn_v4, ipam4_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'with flat-subnet, network can not have user-defined subnet') as e:
             self._vnc_lib.virtual_network_create(vn)
 
@@ -572,7 +572,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn = VirtualNetwork('my-v4-v6-vn', project,
                             virtual_network_properties=VirtualNetworkType(forwarding_mode='l2'))
         vn.add_network_ipam(ipam, VnSubnetsType([]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'flat-subnet is allowed only with l3 network') as e:
             self._vnc_lib.virtual_network_create(vn)
 
@@ -590,13 +590,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #update network by adding cidr in network_ipam_link, network update should fail
         # as flat-subnet ipam can not have cidrs in the network-ipam link
         vn.set_network_ipam(ipam, VnSubnetsType([ipam3_sn_v4, ipam4_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'with flat-subnet, network can not have user-defined subnet') as e:
             self._vnc_lib.virtual_network_update(vn)
 
         vn.set_network_ipam(ipam, VnSubnetsType([]))
         vn.set_virtual_network_properties(VirtualNetworkType(forwarding_mode='l2'))
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'flat-subnet is allowed only with l3 network') as e:
             self._vnc_lib.virtual_network_update(vn)
 
@@ -665,7 +665,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
 
         ipv4_obj1.set_instance_ip_address(None)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has no defined subnets' %(self.id())) as e:
             ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
 
@@ -693,7 +693,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # try updating ip address vnc_lib should reject ip address update
         ipv4_obj2.set_instance_ip_address('11.1.1.240')
 
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Instance IP Address can not be changed') as e:
             self._vnc_lib.instance_ip_update(ipv4_obj2)
 
@@ -704,13 +704,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #delete subnet from ipam from where ip addresses already allocated
         # we should get an exception as instance-ip is in use from the subnet
         ipam.set_ipam_subnets(IpamSubnets([ipam2_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+        with ExpectedException(vnc_api.exceptions.RefsExistError) as e:
             self._vnc_lib.network_ipam_update(ipam)
 
         #delete all subnets from ipam, ipam update should fail as instance-ip
         # is from one of the subnet
         ipam.set_ipam_subnets(IpamSubnets([]))
-        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+        with ExpectedException(vnc_api.exceptions.RefsExistError) as e:
             self._vnc_lib.network_ipam_update(ipam)
 
         #Delete ipam_subnet which is not used for any ip-allocation so far
@@ -737,7 +737,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             logger.debug('Allocation failed, expected v4 IP Address 12.1.1.4')
 
         logger.debug('Allocating an IPV4 address for Fifth VM')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(\[\'11.1.1.0/28\', \'12.1.1.0/28\'\]\)' %(self.id())) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
@@ -772,7 +772,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # try updating ipam_subnet_method from flat-subnet to
         # user-defined-subnet, vnc_lib should reject
         ipam.set_ipam_subnet_method('user-defined-subnet')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'ipam_subnet_method can not be changed') as e:
             self._vnc_lib.network_ipam_update(ipam)
 
@@ -839,13 +839,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #Remove ipam_subnets from ipam, update should fail with
         #RefsExistError
         ipam.set_ipam_subnets(IpamSubnets([]))
-        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+        with ExpectedException(vnc_api.exceptions.RefsExistError) as e:
             self._vnc_lib.network_ipam_update(ipam)
 
         #Change ipam by removing one and adding another, update should fail
         # with RefsExistError
         ipam.set_ipam_subnets(IpamSubnets([ipam2_sn_v4]))
-        with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
+        with ExpectedException(vnc_api.exceptions.RefsExistError) as e:
             self._vnc_lib.network_ipam_update(ipam)
 
         #Change ipam by adding another subnet, update should pass
@@ -859,7 +859,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #next instance_ip allocation should fail due to ip address exhaustion
         logger.debug('Allocating an IPV4 address for Third VM')
 
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
             'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has no defined subnets' %(self.id())) as e:
             ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
 
@@ -869,7 +869,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         #change allocation_mode to
         vn.set_address_allocation_mode('user-defined-subnet-only')
         self._vnc_lib.virtual_network_update(vn)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
             'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has no defined subnets' %(self.id())) as e:
             ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
 
@@ -912,7 +912,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_obj2.uuid = ipv4_obj2.name
         ipv4_obj2.set_virtual_network(net_obj)
         logger.debug('Created Instance IPv4 object 2 %s', ipv4_obj2.uuid)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
 
@@ -1043,13 +1043,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # we should get exception to ip_alloc_req
         logger.debug('Allocating an IP4 address for Next VM')
         ipv4_obj5.set_virtual_network(net_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
             'Virtual-Network\(\[\'default-domain\', \'flat-subnet-proj-%s\', \'my-v4-v6-vn\'\]\) has exhausted subnet\(\[\'11.1.1.0/28\', \'12.1.1.0/28\'\]\)' %(self.id())) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #try allocating specific ip, which has been assigned already
 	ipv4_obj5.set_instance_ip_address('12.1.1.4')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
@@ -1191,12 +1191,12 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # we should get exception to ip_alloc_req
         logger.debug('Allocating an IP4 address for Next VM')
         ipv4_obj5.set_virtual_network(net_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
+        with ExpectedException(vnc_api.exceptions.BadRequest) as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #try allocating specific ip, which has been assigned already
         ipv4_obj5.set_instance_ip_address('14.1.1.8')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
@@ -1311,7 +1311,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # of ip in use
         ipv4_obj2.set_virtual_network(net_obj)
         ipv4_obj2.set_instance_ip_address('13.1.1.8')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
 
@@ -1348,7 +1348,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # of ip in use.
         ipv4_obj4.set_virtual_network(net_obj)
         ipv4_obj4.set_instance_ip_address('11.1.1.8')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             ipv4_id4 = self._vnc_lib.instance_ip_create(ipv4_obj4)
 
@@ -1669,7 +1669,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # we should expect bad request exception.
         ipam3_sn_v4.set_default_gateway('13.1.1.50')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'default gateway change is not allowed orig:13.1.1.254, new: 13.1.1.50') as e:
             self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
@@ -1679,7 +1679,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam3_sn_v4.set_default_gateway('13.1.1.254')
         ipam2_sn_v4.set_default_gateway('12.1.1.50')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'default gateway change is not allowed orig:12.1.1.100, new: 12.1.1.50') as e:
             self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
@@ -1689,7 +1689,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam2_sn_v4.set_default_gateway('12.1.1.100')
         ipam1_sn_v4.set_default_gateway('11.1.1.50')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'default gateway change is not allowed orig:11.1.1.100, new: 11.1.1.50') as e:
             self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
@@ -1699,7 +1699,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam1_sn_v4.set_default_gateway('11.1.1.100')
         ipam3_sn_v4.set_dns_server_address('13.1.1.210')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'dns server change is not allowed orig:13.1.1.200, new: 13.1.1.210') as e:
             self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
@@ -1709,7 +1709,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam3_sn_v4.set_dns_server_address('13.1.1.200')
         ipam2_sn_v4.set_dns_server_address('12.1.1.200')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'dns server change is not allowed orig:12.1.1.253, new: 12.1.1.200') as e:
             self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
@@ -1719,7 +1719,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam2_sn_v4.set_dns_server_address('12.1.1.253')
         ipam1_sn_v4.set_dns_server_address('11.1.1.200')
         ipam._pending_field_updates.add('ipam_subnets')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'dns server change is not allowed orig:11.1.1.253, new: 11.1.1.200') as e:
             self._vnc_lib.network_ipam_update(ipam)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam.uuid)
@@ -1763,7 +1763,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # we should expect bad request exception.
         ipam3_sn_v4.set_default_gateway('13.1.1.50')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'default gateway change is not allowed orig:13.1.1.254, new: 13.1.1.50') as e:
             self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -1773,7 +1773,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam3_sn_v4.set_default_gateway('13.1.1.254')
         ipam2_sn_v4.set_default_gateway('12.1.1.50')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'default gateway change is not allowed orig:12.1.1.100, new: 12.1.1.50') as e:
             self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -1783,7 +1783,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam2_sn_v4.set_default_gateway('12.1.1.100')
         ipam1_sn_v4.set_default_gateway('11.1.1.50')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'default gateway change is not allowed orig:11.1.1.100, new: 11.1.1.50') as e:
             self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -1793,7 +1793,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam1_sn_v4.set_default_gateway('11.1.1.100')
         ipam3_sn_v4.set_dns_server_address('13.1.1.210')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'dns server change is not allowed orig:13.1.1.200, new: 13.1.1.210') as e:
             self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -1803,7 +1803,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam3_sn_v4.set_dns_server_address('13.1.1.200')
         ipam2_sn_v4.set_dns_server_address('12.1.1.200')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'dns server change is not allowed orig:12.1.1.253, new: 12.1.1.200') as e:
             self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -1813,7 +1813,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam2_sn_v4.set_dns_server_address('12.1.1.253')
         ipam1_sn_v4.set_dns_server_address('11.1.1.200')
         vn._pending_field_updates.add('network_ipam_refs')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'dns server change is not allowed orig:11.1.1.253, new: 11.1.1.200') as e:
             self._vnc_lib.virtual_network_update(vn)
         net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
@@ -2645,13 +2645,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         iip2_obj = InstanceIp('clashing-iip-%s' %(self.id()),
                               instance_ip_address=iip_obj.instance_ip_address)
         iip2_obj.add_virtual_network(vn_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
 
         # allocate instance-ip clashing with existing floating-ip
         iip2_obj.set_instance_ip_address(fip_obj.floating_ip_address)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
 
@@ -2659,7 +2659,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         fip2_obj = FloatingIp('clashing-fip-%s' %(self.id()), fip_pool_obj,
                               floating_ip_address=fip_obj.floating_ip_address)
         fip2_obj.add_project(proj_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
@@ -2667,37 +2667,37 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         aip2_obj = AliasIp('clashing-aip-%s' %(self.id()), aip_pool_obj,
                            alias_ip_address=aip_obj.alias_ip_address)
         aip2_obj.add_project(proj_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate floating-ip clashing with existing instance-ip
         fip2_obj.set_floating_ip_address(iip_obj.instance_ip_address)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip clashing with existing instance-ip
         aip2_obj.set_alias_ip_address(iip_obj.instance_ip_address)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate alias-ip clashing with existing floating-ip
         aip2_obj.set_alias_ip_address(fip_obj.floating_ip_address)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate floating-ip with gateway ip and verify failure
         fip2_obj.set_floating_ip_address('11.1.1.254')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip with gateway ip and verify failure
         aip2_obj.set_alias_ip_address('11.1.1.254')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
@@ -2715,7 +2715,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.instance_ip_create(iip2_gw_ip)
 
         iip_gw_ip.add_virtual_machine_interface(vm_vmi_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                  'Gateway IP cannot be used by VM port') as e:
             self._vnc_lib.instance_ip_update(iip_gw_ip)
 
@@ -2727,7 +2727,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.instance_ip_update(iip2_gw_ip)
 
         isolated_vmi_obj.add_virtual_machine(vm_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                  'Gateway IP cannot be used by VM port') as e:
             self._vnc_lib.virtual_machine_interface_update(
                 isolated_vmi_obj)
@@ -2783,7 +2783,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             floating_ip_pool_subnets = fip_subnets)
         err_msg = "Subnet %s was not found in virtual-network %s" %\
             (self.id(), vn_obj.get_uuid())
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                  err_msg) as e:
             self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
 
@@ -2834,7 +2834,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             floating_ip_pool_subnets = fip_subnets)
         err_msg = "Subnet %s was not found in virtual-network %s" %\
             (self.id(), vn_obj.get_uuid())
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(vnc_api.exceptions.BadRequest,
                  err_msg) as e:
             self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
 

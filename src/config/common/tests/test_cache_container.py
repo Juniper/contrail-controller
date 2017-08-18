@@ -1,5 +1,5 @@
 import unittest
-from cfgm_common.utils import CacheContainer
+from vnc_api.utils import CacheContainer
 
 class TestCachContainer(unittest.TestCase):
     def test_cache_container_trimming(self):

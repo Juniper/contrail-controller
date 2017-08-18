@@ -8,8 +8,8 @@ import netaddr
 import svc_monitor.services.loadbalancer.drivers.abstract_driver as abstract_driver
 
 from cfgm_common.zkclient import IndexAllocator
-from cfgm_common import exceptions as vnc_exc
-from cfgm_common.utils import cgitb_hook
+from vnc_api import exceptions as vnc_exc
+from vnc_api.utils import cgitb_hook
 from vnc_api.vnc_api import *
 from f5.bigip import bigip as f5_bigip
 from f5.bigip import bigip_interfaces

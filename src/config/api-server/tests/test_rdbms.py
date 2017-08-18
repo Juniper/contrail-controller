@@ -21,7 +21,7 @@ from vnc_api.vnc_api import *
 from test_utils import *
 from cfgm_common import vnc_rdbms
 from testtools.matchers import Equals, MismatchError, Not, Contains, LessThan
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from vnc_api.exceptions import ResourceExhaustionError, ResourceExistsError
 from testtools import content, content_type, ExpectedException
 
 import test_utils

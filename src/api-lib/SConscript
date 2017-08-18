@@ -58,10 +58,24 @@ setup_sources_rules = []
 for file in setup_sources:
     setup_sources_rules.append(env.Install("", "#/controller/src/api-lib/" + file))
 
+remote_setup_sources = [
+           '#/controller/src/base/version.info'
+          ]
+
+remote_setup_sources_rules = []
+for file in remote_setup_sources:
+    remote_setup_sources_rules.append(env.Install("vnc_api", file))
+
 local_sources = [
            '__init__.py',
            'vnc_api.py',
            'vnc_api_lib.ini',
+           'jsonutils.py',
+           'rest.py',
+           'ssl_adapter.py',
+           'vnc_cgitb.py',
+           'exceptions.py',
+           'utils.py',
           ]
 
 local_sources_rules = []
@@ -73,8 +87,11 @@ cfixture_rule = env.Install("vnc_api/gen", "#/controller/src/config/common/cfixt
 
 sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(remote_setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_gen = env.Command('dist/vnc_api-0.1dev.tar.gz',
+sdist_gen = env.Command('dist/vnc_api-{}.tar.gz'\
+                        .format(open(File('#/controller/src/base/version.info').abspath, 'r')\
+                        .read().strip('\n').strip('\t')),
                         'setup.py', cd_cmd + 'python setup.py sdist')
 
 env.Default(sdist_gen)
@@ -117,3 +134,5 @@ env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 env.Alias('test', test_cmd)
 env.Alias('controller/src/api-lib:test', test_cmd)
 env.Alias('controller/src/api-lib:coverage', cov_cmd)
+
+

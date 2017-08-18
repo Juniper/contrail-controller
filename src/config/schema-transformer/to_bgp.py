@@ -24,8 +24,8 @@ import time
 import hashlib
 import argparse
 
-from cfgm_common import vnc_cgitb
-from cfgm_common.exceptions import *
+from vnc_api import vnc_cgitb
+from vnc_api.exceptions import *
 from config_db import *
 
 from pysandesh.sandesh_base import *

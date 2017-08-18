@@ -12,7 +12,7 @@ from kazoo.client import KazooState
 from kazoo.retry import KazooRetry
 
 from bitarray import bitarray
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from vnc_api.exceptions import ResourceExhaustionError, ResourceExistsError
 from gevent.lock import BoundedSemaphore
 
 import datetime

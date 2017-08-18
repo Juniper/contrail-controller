@@ -23,12 +23,12 @@ import copy
 from lxml import etree
 
 from vnc_api.vnc_api import *
-from cfgm_common import exceptions as vnc_exceptions
+from vnc_api import exceptions as vnc_exceptions
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
 from cfgm_common import vnc_plugin_base
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 from cfgm_common import db_json_exim
 vnc_cgitb.enable(format='text')
 

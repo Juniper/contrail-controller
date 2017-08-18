@@ -7,8 +7,7 @@ from requests.exceptions import ConnectionError
 from testtools.matchers import Contains
 from testtools import ExpectedException
 
-from cfgm_common import rest
-from vnc_api import vnc_api
+from vnc_api import rest, vnc_api
 
 
 def _auth_request_status(request, url, status_code):

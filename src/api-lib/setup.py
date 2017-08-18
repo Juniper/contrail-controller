@@ -31,7 +31,8 @@ class RunTestsCommand(Command):
 
 setup(
     name='vnc_api',
-    version='0.1dev',
+    # version='0.1dev',
+    version=open('vnc_api/version.info', 'r+').read().strip('\n').strip('\t'),
     packages=['vnc_api',
               'vnc_api.gen',
               'vnc_api.gen.heat',
@@ -40,7 +41,7 @@ setup(
               'vnc_api.gen.heat.env',
              ],
     long_description="VNC API Library Package",
-    package_data={'': ['*.yaml', '*.env']},
+    package_data={'': ['*.yaml', '*.env', '*.info']},
     install_requires=[
         'requests>=1.1.0'
     ],
@@ -48,3 +49,4 @@ setup(
        'run_tests': RunTestsCommand,
     },
 )
+

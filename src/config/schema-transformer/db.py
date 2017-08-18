@@ -9,7 +9,7 @@ Schema transformer DB to store ids allocated by it
 from pycassa import NotFoundException
 
 import cfgm_common as common
-from cfgm_common.exceptions import VncError, NoIdError
+from vnc_api.exceptions import VncError, NoIdError
 from cfgm_common.zkclient import IndexAllocator
 from cfgm_common.vnc_object_db import VncObjectDBClient
 from sandesh_common.vns.constants import SCHEMA_KEYSPACE_NAME

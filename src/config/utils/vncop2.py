@@ -9,7 +9,7 @@ import os
 
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import *
-from cfgm_common.exceptions import *
+from vnc_api.exceptions import *
 
 
 def CamelCase(input):

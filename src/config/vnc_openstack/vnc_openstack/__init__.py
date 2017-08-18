@@ -23,11 +23,11 @@ from keystoneclient import exceptions as kexceptions
 from netaddr import *
 try:
     from cfgm_common import vnc_plugin_base
-    from cfgm_common import utils as cfgmutils
+    from vnc_api import utils as vncutils
 except ImportError:
     from common import vnc_plugin_base
-    from cfgm_common import utils as cfgmutils
-from cfgm_common.utils import cgitb_hook
+    from vnc_api import utils as vncutils
+from vnc_api.utils import cgitb_hook
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.connection_info import ConnectionState
@@ -88,7 +88,7 @@ def fill_keystone_opts(obj, conf_sections):
         certs = [obj._cafile]
         if obj._keyfile and obj._certfile:
             certs=[obj._certfile,obj._keyfile,obj._cafile]
-        obj._kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+        obj._kscertbundle=vncutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
         obj._use_certs=True
 
     try:

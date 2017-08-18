@@ -29,8 +29,8 @@ import logging.handlers
 
 from cfgm_common import importutils
 from cfgm_common import svc_info
-from cfgm_common import vnc_cgitb
-from cfgm_common.utils import cgitb_hook
+from vnc_api import vnc_cgitb
+from vnc_api.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
 
 from config_db import *

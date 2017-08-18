@@ -4,7 +4,7 @@ import uuid
 from vnc_api.vnc_api import *
 
 from agent import Agent
-from cfgm_common import exceptions as vnc_exc
+from vnc_api import exceptions as vnc_exc
 from cfgm_common import svc_info
 from config_db import VirtualNetworkSM, LogicalRouterSM, \
     VirtualMachineInterfaceSM, ServiceInstanceSM, ServiceTemplateSM, \

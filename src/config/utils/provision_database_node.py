@@ -9,7 +9,7 @@ import argparse
 import ConfigParser
 
 from vnc_api.vnc_api import *
-from cfgm_common.exceptions import *
+from vnc_api.exceptions import *
 from vnc_admin_api import VncApiAdmin
 
 

@@ -4,7 +4,7 @@ import uuid
 import tempfile
 
 import gevent
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 from kube_manager.common import args as kube_args
 sys.path.append("../../config/common/tests")
 import test_common

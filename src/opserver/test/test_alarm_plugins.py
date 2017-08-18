@@ -19,7 +19,7 @@ from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import \
 from opserver.alarmgen import AlarmProcessor
 from opserver.opserver_util import camel_case_to_hyphen
 
-from cfgm_common.exceptions import *
+from vnc_api.exceptions import *
 from contrail_alarm import alarm_list
 
 logging.basicConfig(level=logging.DEBUG,

@@ -13,7 +13,7 @@ from gevent.queue import Queue
 # Application library import
 import common.args as mesos_args
 import common.logger as logger
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 import vnc.vnc_mesos as vnc_mesos
 import mesos_server as mserver
 

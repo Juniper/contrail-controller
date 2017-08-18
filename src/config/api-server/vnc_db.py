@@ -20,17 +20,17 @@ from context import get_request
 
 from cfgm_common.uve.vnc_api.ttypes import *
 from cfgm_common import ignore_exceptions
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from vnc_api.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common.vnc_cassandra import VncCassandraClient
 from vnc_rdbms import VncServerRDBMSClient
 from cfgm_common.vnc_kombu import VncKombuClient
-from cfgm_common.utils import cgitb_hook
-from cfgm_common.utils import shareinfo_from_perms2
+from vnc_api.utils import cgitb_hook
+from vnc_api.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
 
 import copy
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 import uuid
 import datetime
 from pycassa.system_manager import *
@@ -39,7 +39,7 @@ from pycassa.util import *
 import os
 
 from provision_defaults import *
-from cfgm_common.exceptions import *
+from vnc_api.exceptions import *
 from vnc_quota import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import USERAGENT_KEYSPACE_NAME
@@ -881,7 +881,7 @@ class VncDbClient(object):
     # end iip_update_subnet_uuid
 
     def _dbe_resync(self, obj_type, obj_uuids):
-        obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
+        obj_class = vnc_api.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
         (ok, obj_dicts) = self._object_db.object_read(
                                obj_type, obj_uuids, field_names=obj_fields)
@@ -952,7 +952,7 @@ class VncDbClient(object):
                 if obj_type == 'instance_ip' and 'subnet_uuid' not in obj_dict:
                     self.iip_update_subnet_uuid(obj_dict)
             except Exception as e:
-                tb = cfgm_common.utils.detailed_traceback()
+                tb = vnc_api.utils.detailed_traceback()
                 self.config_log(tb, level=SandeshLevel.SYS_ERR)
                 continue
         # end for all objects
@@ -1334,7 +1334,7 @@ class VncDbClient(object):
                 ret_marker = 'shared:%s' %(marker)
 
         if is_detail:
-            cls = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
+            cls = vnc_api.utils.obj_type_to_vnc_class(obj_type, __name__)
             obj_fields = list(cls.prop_fields) + list(cls.ref_fields)
         else:
             obj_fields = []

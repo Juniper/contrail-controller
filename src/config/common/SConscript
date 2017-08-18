@@ -22,12 +22,8 @@ for file in setup_sources:
 local_sources = [
                   '__init__.py',
                   'zkclient.py',
-                  'exceptions.py',
-                  'utils.py',
                   'rbaclib.py',
-                  'jsonutils.py',
                   'svc_info.py',
-                  'rest.py',
                   'vnc_plugin_base.py',
                   'vnc_extensions.py',
                   'importutils.py',
@@ -39,11 +35,9 @@ local_sources = [
                   'vnc_object_db.py',
                   'dependency_tracker.py',
                   'vnc_api_stats.py',
-                  'ssl_adapter.py',
                   'vnc_greenlets.py',
                   'vnc_amqp.py',
                   'vnc_logger.py',
-                  'vnc_cgitb.py',
                   'db_json_exim.py',
                  ]
 local_sources_rules = []

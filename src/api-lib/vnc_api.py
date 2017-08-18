@@ -7,7 +7,7 @@ from requests.exceptions import ConnectionError
 
 import ConfigParser
 import pprint
-from cfgm_common import jsonutils as json
+import jsonutils as json
 import time
 import platform
 import functools
@@ -22,14 +22,23 @@ from gen.resource_xsd import *
 from gen.resource_client import *
 from gen.generatedssuper import GeneratedsSuper
 
-import cfgm_common
-from cfgm_common import rest, utils
-from cfgm_common import _obj_serializer_all
-from cfgm_common.exceptions import (
+import rest, utils
+# Replace this with "import exceptions as errors" when the other changes are committed!
+from exceptions import (
         ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
         RefsExistError, TimeOutError, BadRequest, HttpError,
         ResourceTypeUnknownError, RequestSizeError)
-from cfgm_common import ssl_adapter
+import ssl_adapter
+
+
+AAA_MODE_VALID_VALUES = ['no-auth', 'cloud-admin', 'rbac']
+
+def _obj_serializer_all(obj):
+    if hasattr(obj, 'serialize_to_json'):
+        return obj.serialize_to_json()
+    else:
+        return dict((k, v) for k, v in obj.__dict__.iteritems())
+# end _obj_serializer_all
 
 
 def check_homepage(func):
@@ -1409,7 +1418,7 @@ class VncApi(object):
         return content
 
     def set_aaa_mode(self, mode):
-        if mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+        if mode not in AAA_MODE_VALID_VALUES:
             raise HttpError(400, 'Invalid AAA mode')
         url = self._action_uri['aaa-mode']
         data = {'aaa-mode': mode}
@@ -1444,3 +1453,4 @@ class VncApi(object):
         return json.loads(content)
 
 # end class VncApi
+

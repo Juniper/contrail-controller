@@ -6,7 +6,7 @@
 import argparse
 import uuid as __uuid
 import os
-import cfgm_common.exceptions
+import vnc_api.exceptions
 
 from vnc_api.vnc_api import *
 
@@ -82,7 +82,7 @@ def set_perms(obj, owner=None, owner_access=None, share=None, global_access=None
         rv = vnc.chmod(obj.get_uuid(), owner, owner_access, share, global_access)
         if rv == None:
             print 'Error in setting perms'
-    except cfgm_common.exceptions.PermissionDenied:
+    except vnc_api.exceptions.PermissionDenied:
         print 'Permission denied!'
         sys.exit(1)
 # end set_perms
@@ -145,10 +145,10 @@ if chmod.args.uuid:
         chmod.args.uuid = str(__uuid.UUID(chmod.args.uuid))
     try:
         name, type = vnc.id_to_fq_name_type(chmod.args.uuid)
-    except cfgm_common.exceptions.NoIdError:
+    except vnc_api.exceptions.NoIdError:
         print 'Unknown UUID %s' % chmod.args.uuid
         sys.exit(1)
-    except cfgm_common.exceptions.PermissionDenied:
+    except vnc_api.exceptions.PermissionDenied:
         print 'Permission denied!'
         sys.exit(1)
     chmod.args.type = type
@@ -163,7 +163,7 @@ method = getattr(vnc, "%s_read" % (method_name))
 try:
     obj = method(fq_name_str=chmod.args.name)
     print 'Cur perms %s' % print_perms(obj.get_perms2())
-except cfgm_common.exceptions.PermissionDenied:
+except vnc_api.exceptions.PermissionDenied:
     print 'Permission denied!'
     sys.exit(1)
 

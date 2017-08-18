@@ -6,17 +6,17 @@
 # specific to type of resource. For eg. allocation of mac/ip-addr for a port
 # during its creation.
 import copy
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 from cfgm_common import get_lr_internal_vn_name
-from cfgm_common import _obj_serializer_all
+from vnc_api import _obj_serializer_all
 
 import re
 import itertools
 import socket
 
 import cfgm_common
-import cfgm_common.utils
-import cfgm_common.exceptions
+import vnc_api.utils
+import vnc_api.exceptions
 import netaddr
 import uuid
 import vnc_quota
@@ -144,7 +144,7 @@ class Resource(ResourceDbMixin):
     def dbe_read(cls, db_conn, res_type, obj_uuid, obj_fields=None):
         try:
             ok, result = db_conn.dbe_read(res_type, obj_uuid, obj_fields)
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return (False, (404, 'No %s: %s' %(res_type, obj_uuid)))
         if not ok:
             return (False, (500, 'Error in dbe_read of %s %s: %s' %(
@@ -926,7 +926,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         vrouter_fq_name = ['default-global-system-config', host_id]
         try:
             vrouter_id = db_conn.fq_name_to_uuid('virtual_router', vrouter_fq_name)
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return
 
         #if virtual_machine_refs is an empty list delete vrouter link
@@ -1408,7 +1408,7 @@ class TagServer(Resource, Tag):
             tag_uuid = db_conn.fq_name_to_uuid('tag', tag_fq_name)
             (ok, tag_dict) = db_conn.dbe_read(obj_type='tag', obj_id=tag_uuid)
             return (False, (400, 'Existing tag object found for name %s' % tag_name))
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             pass
 
         obj_dict['name'] = tag_name
@@ -1503,7 +1503,7 @@ class FirewallRuleServer(Resource, FirewallRule):
         try:
             ref_fq_name = ep['address_group'].split(":")
             ref_uuid = db_conn.fq_name_to_uuid('address_group', ref_fq_name)
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return(False, (404, 'No address group object found for %s' % ref_fq_name))
         if ref_uuid not in existing_refs:
             ref = {
@@ -1540,7 +1540,7 @@ class FirewallRuleServer(Resource, FirewallRule):
             try:
                 tag_uuid = db_conn.fq_name_to_uuid('tag', tag_fq_name)
                 (ok, tag_dict) = db_conn.dbe_read(obj_type='tag', obj_id=tag_uuid)
-            except cfgm_common.exceptions.NoIdError:
+            except vnc_api.exceptions.NoIdError:
                 return (False, (404, 'No tag object found for name %s' % tag_name))
 
             ep['tag_ids'].append(tag_dict['tag_id'])
@@ -2321,7 +2321,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
                 vn_id = ref.get('uuid')
                 try:
                     (ok, vn_dict) = db_conn.dbe_read('virtual_network', vn_id)
-                except cfgm_common.exceptions.NoIdError:
+                except vnc_api.exceptions.NoIdError:
                     continue
                 if not ok:
                     self.config_log("Error in reading vn: %s" %(vn_dict),
@@ -2894,7 +2894,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
                 except Exception as e:
                     ok = False
                     result = (500, 'Error in security group update: %s' %(
-                                    cfgm_common.utils.detailed_traceback()))
+                                    vnc_api.utils.detailed_traceback()))
                 if not ok:
                     code, msg = result
                     if code == 404:
@@ -3039,7 +3039,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
         router = obj_dict['fq_name'][:2]
         try:
             router_uuid = db_conn.fq_name_to_uuid('physical_router', router)
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return (False, (500, 'Internal error : Physical router ' +
                                  ":".join(router) + ' not found'))
         physical_interface_uuid = ""
@@ -3047,7 +3047,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
             try:
                 physical_interface_name = obj_dict['fq_name'][:3]
                 physical_interface_uuid = db_conn.fq_name_to_uuid('physical_interface', physical_interface_name)
-            except cfgm_common.exceptions.NoIdError:
+            except vnc_api.exceptions.NoIdError:
                 return (False, (500, 'Internal error : Physical interface ' +
                                      ":".join(physical_interface_name) + ' not found'))
 
@@ -3138,7 +3138,7 @@ class LoadbalancerMemberServer(Resource, LoadbalancerMember):
         try:
             fq_name = obj_dict['fq_name']
             proj_uuid = db_conn.fq_name_to_uuid('project', fq_name[0:2])
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return (False, (500, 'No Project ID error : ' + proj_uuid))
 
         ok, result = cls.dbe_read(db_conn, 'project', proj_uuid)

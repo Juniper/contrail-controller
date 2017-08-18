@@ -34,12 +34,12 @@ import stevedore
 import netaddr
 
 from vnc_api.vnc_api import *
-from cfgm_common import exceptions as vnc_exceptions
+from vnc_api import exceptions as vnc_exceptions
 import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
 from cfgm_common import vnc_plugin_base
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 from cfgm_common import db_json_exim
 vnc_cgitb.enable(format='text')
 
@@ -2224,7 +2224,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 f.write("CA")
             with open(bundle_dir+'key', 'w') as f:
                 f.write("KEY")
-            cfgm_common.utils.getCertKeyCaBundle(bundle_dir+'pem',
+            vnc_api.utils.getCertKeyCaBundle(bundle_dir+'pem',
                 [bundle_dir+x for x in ['cert', 'ca', 'key']])
             with open(bundle_dir+'pem', 'r') as f:
                 self.assertEqual(f.readlines()[0], 'CERTCAKEY')
@@ -2238,7 +2238,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 f.write("CANEW")
             with open(bundle_dir+'key', 'w') as f:
                 f.write("KEYNEW")
-            cfgm_common.utils.getCertKeyCaBundle(bundle_dir+'pem',
+            vnc_api.utils.getCertKeyCaBundle(bundle_dir+'pem',
                 [bundle_dir+x for x in ['cert', 'ca', 'key']])
             with open(bundle_dir+'pem', 'r') as f:
                 self.assertEqual(f.readlines()[0], 'CERTNEWCANEWKEYNEW')
@@ -4517,7 +4517,7 @@ class TestVncApiStats(test_case.ApiServerTestCase):
     _sandesh = None
     @log_api_stats
     def _sample_function(self, obj_type):
-        raise cfgm_common.exceptions.HttpError(409, '')
+        raise vnc_api.exceptions.HttpError(409, '')
 
     def _check_sendwith(self, sandesh, stats, *args):
         self.assertEqual(stats.response_code, 409)
@@ -4542,7 +4542,7 @@ class TestVncApiStats(test_case.ApiServerTestCase):
         try:
             with test_common.patch(VncApiStatistics, 'sendwith', self._check_sendwith):
                 self._sample_function('abc')
-        except cfgm_common.exceptions.HttpError:
+        except vnc_api.exceptions.HttpError:
             pass
         else:
             self.assertThat(0, 'Expecting HttpError to be raised, but was not raised')

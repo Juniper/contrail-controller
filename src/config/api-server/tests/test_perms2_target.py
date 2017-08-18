@@ -85,7 +85,7 @@ class User(object):
            self.vnc_lib = VncApi(username = self.name, password = self.password,
                tenant_name = self.project,
                api_server_host = apis_ip,api_server_port = apis_port)
-       except cfgm_common.exceptions.PermissionDenied:
+       except vnc_api.exceptions.PermissionDenied:
            logger.error('Error creating API server client handle (VncApi)')
            logger.error('RBAC disabled or missing user-token middleware in Neutron pipeline? Please verify')
            sys.exit(1)

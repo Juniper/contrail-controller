@@ -9,7 +9,7 @@ sys.path.insert(0, '../../../../build/production/container/mesos-manager')
 
 import tempfile
 from vnc_api.vnc_api import *
-from cfgm_common import vnc_cgitb
+from vnc_api import vnc_cgitb
 from mesos_manager.mesos_manager import *
 from mesos_manager.common import args as mesos_args
 

@@ -25,7 +25,7 @@ except ImportError:
 
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
-from cfgm_common import utils as cfgmutils
+from vnc_api import utils as vncutils
 from cfgm_common import vnc_greenlets
 from context import get_context, use_context
 
@@ -146,7 +146,7 @@ class AuthServiceKeystone(object):
             certs=[args.cafile]
             if args.keyfile and args.certfile:
                 certs=[args.certfile, args.keyfile, args.cafile]
-            _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
+            _kscertbundle=vncutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
         identity_uri = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
         self._conf_info = {
             'auth_host': args.auth_host,

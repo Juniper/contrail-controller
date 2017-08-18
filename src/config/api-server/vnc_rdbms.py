@@ -12,7 +12,7 @@ sys.setdefaultencoding('UTF8')
 import logging
 import logging.config
 import cfgm_common
-from cfgm_common import jsonutils as json
+from vnc_api import jsonutils as json
 
 logger = logging.getLogger(__name__)
 

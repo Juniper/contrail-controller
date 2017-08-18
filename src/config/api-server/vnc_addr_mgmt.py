@@ -8,8 +8,8 @@ import netaddr
 from netaddr import IPNetwork, IPAddress, IPRange, all_matching_cidrs
 from vnc_quota import QuotaHelper
 from pprint import pformat
-import cfgm_common.exceptions
-import cfgm_common.utils
+import vnc_api.exceptions
+import vnc_api.utils
 try:
     # python2.7
     from collections import OrderedDict
@@ -552,7 +552,7 @@ class AddrMgmt(object):
             (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                     vn_uuid, obj_fields)
             if not ok:
-                raise cfgm_common.exceptions.VncError(vn_dict)
+                raise vnc_api.exceptions.VncError(vn_dict)
 
         ipam_refs = vn_dict.get('network_ipam_refs') or []
         # gather all subnets, return dict keyed by name
@@ -596,7 +596,7 @@ class AddrMgmt(object):
             (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
                                                      ipam_uuid)
             if not ok:
-                raise cfgm_common.exceptions.VncError(ipam_dict)
+                raise vnc_api.exceptions.VncError(ipam_dict)
 
             ipam_subnets_dict = ipam_dict.get('ipam_subnets') or {}
             ipam_subnets = ipam_subnets_dict.get('subnets') or []
@@ -624,7 +624,7 @@ class AddrMgmt(object):
             (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
                                                      ipam_uuid)
             if not ok:
-                raise cfgm_common.exceptions.VncError(ipam_dict)
+                raise vnc_api.exceptions.VncError(ipam_dict)
 
         ipam_subnets_dict = ipam_dict.get('ipam_subnets') or {}
         ipam_subnets = ipam_subnets_dict.get('subnets') or []
@@ -702,7 +702,7 @@ class AddrMgmt(object):
                                'virtual_network',
                                obj_id=obj_id,
                                obj_fields=['fq_name', 'network_ipam_refs'])
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return
 
         if not ok:
@@ -765,7 +765,7 @@ class AddrMgmt(object):
                                 obj_type='virtual_network',
                                 obj_id=obj_id,
                                 obj_fields=['fq_name', 'network_ipam_refs'])
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return
 
         if not ok:
@@ -1013,7 +1013,7 @@ class AddrMgmt(object):
         for ref in instip_refs:
             try:
                 (ok, result) = db_conn.dbe_read('instance_ip', ref['uuid'])
-            except cfgm_common.exceptions.NoIdError:
+            except vnc_api.exceptions.NoIdError:
                 continue
             if not ok:
                 self.config_log(
@@ -1036,7 +1036,7 @@ class AddrMgmt(object):
         for ref in fip_pool_refs:
             try:
                 (ok, result) = db_conn.dbe_read('floating_ip_pool', ref['uuid'])
-            except cfgm_common.exceptions.NoIdError:
+            except vnc_api.exceptions.NoIdError:
                 continue
             if not ok:
                 self.config_log(
@@ -1050,7 +1050,7 @@ class AddrMgmt(object):
                 try:
                     (read_ok, read_result) = db_conn.dbe_read(
                         'floating_ip', floating_ip['uuid'])
-                except cfgm_common.exceptions.NoIdError:
+                except vnc_api.exceptions.NoIdError:
                     continue
                 if not read_ok:
                     self.config_log(
@@ -1075,7 +1075,7 @@ class AddrMgmt(object):
         for ref in aip_pool_refs:
             try:
                 (ok, result) = db_conn.dbe_read('alias_ip_pool', ref['uuid'])
-            except cfgm_common.exceptions.NoIdError:
+            except vnc_api.exceptions.NoIdError:
                 continue
             if not ok:
                 self.config_log(
@@ -1091,7 +1091,7 @@ class AddrMgmt(object):
                 try:
                     (read_ok, read_result) = db_conn.dbe_read(
                         'alias_ip', floating_ip['uuid'])
-                except cfgm_common.exceptions.NoIdError:
+                except vnc_api.exceptions.NoIdError:
                     continue
                 if not read_ok:
                     self.config_log(
@@ -1146,7 +1146,7 @@ class AddrMgmt(object):
             vn_id = ref.get('uuid')
             try:
                 (ok, read_result) = db_conn.dbe_read('virtual_network', vn_id)
-            except cfgm_common.exceptions.NoIdError:
+            except vnc_api.exceptions.NoIdError:
                 continue
             if not ok:
                 self.config_log(
@@ -1394,7 +1394,7 @@ class AddrMgmt(object):
             try:
                 ip_addr = subnet_obj.ip_alloc(ipaddr=None,
                             value=alloc_id, version=subnet_obj._network.version)
-            except cfgm_common.exceptions.ResourceExhaustionError as e:
+            except vnc_api.exceptions.ResourceExhaustionError as e:
                 continue
             if ip_addr is not None or sub:
                 return (ip_addr, subnets_tried)
@@ -1462,7 +1462,7 @@ class AddrMgmt(object):
             vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
             (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network', vn_uuid)
             if not ok:
-                raise cfgm_common.exceptions.VncError(vn_dict)
+                raise vnc_api.exceptions.VncError(vn_dict)
         else:
             vn_uuid = vn_dict['uuid']
 
@@ -1512,7 +1512,7 @@ class AddrMgmt(object):
             try:
                 ip_addr = subnet_obj.ip_alloc(ipaddr=None,
                                               value=alloc_id)
-            except cfgm_common.exceptions.ResourceExhaustionError as e:
+            except vnc_api.exceptions.ResourceExhaustionError as e:
                 continue
 
             if ip_addr is not None or subnet_uuid:
@@ -1544,7 +1544,7 @@ class AddrMgmt(object):
             (ok, vn_dict) = self._fq_name_to_obj_dict('virtual_network',
                                                       vn_fq_name, obj_fields)
             if not ok:
-                raise cfgm_common.exceptions.VncError(vn_dict)
+                raise vnc_api.exceptions.VncError(vn_dict)
 
         #if subnet_uuid or asked_ip given, first try in ipam_alloc followed
         #by net_alloc
@@ -1606,7 +1606,7 @@ class AddrMgmt(object):
             (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                 vn_uuid, obj_fields)
             if not ok:
-                raise cfgm_common.exceptions.VncError(vn_dict)
+                raise vnc_api.exceptions.VncError(vn_dict)
 
             ipam_refs = vn_dict['network_ipam_refs']
 
@@ -1634,7 +1634,7 @@ class AddrMgmt(object):
         vn_fq_name_str = ':'.join(vn_fq_name)
         try:
             subnet_dicts = self._get_net_subnet_dicts(vn_uuid)
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return False
 
         for subnet_name in subnet_dicts:
@@ -1671,7 +1671,7 @@ class AddrMgmt(object):
             (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                vn_uuid, obj_fields)
             if not ok:
-                raise cfgm_common.exceptions.VncError(vn_dict)
+                raise vnc_api.exceptions.VncError(vn_dict)
 
             ipam_refs = vn_dict['network_ipam_refs']
 
@@ -1736,7 +1736,7 @@ class AddrMgmt(object):
         (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network',
                                                vn_uuid, obj_fields)
         if not ok:
-            raise cfgm_common.exceptions.VncError(vn_dict)
+            raise vnc_api.exceptions.VncError(vn_dict)
 
         ipam_refs = vn_dict['network_ipam_refs']
         for ipam_ref in ipam_refs:
@@ -1752,7 +1752,7 @@ class AddrMgmt(object):
                 subnet_obj = subnet_objs[subnet_name]
                 if subnet_obj.ip_belongs(ip_addr):
                     return subnet_obj.is_ip_allocated(IPAddress(ip_addr))
-        raise cfgm_common.exceptions.VncError("")
+        raise vnc_api.exceptions.VncError("")
     #end _ipam_is_ip_allocated
 
     def _net_is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid, sub=None):
@@ -1767,7 +1767,7 @@ class AddrMgmt(object):
                                               subnet_name, subnet_dict)
             if subnet_obj.ip_belongs(ip_addr):
                 return subnet_obj.is_ip_allocated(IPAddress(ip_addr))
-        raise cfgm_common.exceptions.VncError("")
+        raise vnc_api.exceptions.VncError("")
     # end _net_is_ip_allocated
 
     def is_ip_allocated(self, ip_addr, vn_fq_name, vn_uuid=None, sub=None):
@@ -1777,10 +1777,10 @@ class AddrMgmt(object):
 
         try:
             return self._ipam_is_ip_allocated(ip_addr, vn_uuid, sub)
-        except cfgm_common.exceptions.VncError:
+        except vnc_api.exceptions.VncError:
             try:
                 return self._net_is_ip_allocated(ip_addr, vn_fq_name, vn_uuid, sub)
-            except cfgm_common.exceptions.VncError:
+            except vnc_api.exceptions.VncError:
                 return False
     # end is_ip_allocated
 
@@ -1792,7 +1792,7 @@ class AddrMgmt(object):
             (ok, vn_dict) = self._uuid_to_obj_dict('virtual_network', vn_uuid,
                                                obj_fields)
             if not ok:
-                raise cfgm_common.exceptions.VncError(vn_dict)
+                raise vnc_api.exceptions.VncError(vn_dict)
             ipam_refs = vn_dict['network_ipam_refs']
 
         for ipam_ref in ipam_refs:
@@ -1857,7 +1857,7 @@ class AddrMgmt(object):
         db_conn = self._get_db_conn()
         try:
             (ok, obj_dict) = db_conn.dbe_read('network_ipam', obj_id=obj_id)
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return
 
         if obj_dict.get('ipam_subnet_method') == 'flat-subnet':
@@ -1873,7 +1873,7 @@ class AddrMgmt(object):
         try:
             subnet_objs = self._get_ipam_subnet_objs_from_ipam_uuid(
                                 ipam_fq_name, ipam_uuid, False)
-        except cfgm_common.exceptions.VncError:
+        except vnc_api.exceptions.VncError:
             return
 
         if subnet_objs is None:
@@ -1942,7 +1942,7 @@ class AddrMgmt(object):
         db_conn = self._get_db_conn()
         try:
             (ok, result) = db_conn.dbe_read('network_ipam', obj_id=obj_id)
-        except cfgm_common.exceptions.NoIdError:
+        except vnc_api.exceptions.NoIdError:
             return
 
         if not ok:
@@ -1973,7 +1973,7 @@ class AddrMgmt(object):
             (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
                                                      ipam_uuid)
             if not ok:
-                raise cfgm_common.exceptions.VncError(ipam_dict)
+                raise vnc_api.exceptions.VncError(ipam_dict)
 
             ipam_subnets_dict = ipam_dict.get('ipam_subnets') or []
             if 'subnets' in ipam_subnets_dict:
