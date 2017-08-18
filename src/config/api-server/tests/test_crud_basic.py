@@ -42,6 +42,7 @@ from cfgm_common import vnc_plugin_base
 from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
 from cfgm_common import SGID_MIN_ALLOC
+from cfgm_common import rest
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
