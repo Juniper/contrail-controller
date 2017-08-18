@@ -17,6 +17,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from vnc_api import vnc_api
 from vnc_api.gen import vnc_api_client_gen
+from utils import obj_type_to_vnc_class
 import cfgm_common.utils
 from cfgm_common.exceptions import NoIdError, DatabaseUnavailableError, \
                                    NoUserAgentKey
@@ -436,7 +437,7 @@ class VncRDBMSClient(object):
         # Create tables per type in rdbms
         for res_type in vnc_api_client_gen.all_resource_types:
             obj_type = to_obj_type(res_type)
-            obj_class = vnc_api.get_object_class(res_type)
+            obj_class = obj_type_to_vnc_class(res_type)
             obj_class_name = cfgm_common.utils.CamelCase(res_type)
             # Table for OBJ with PROPs
             sqa_class = type('Sqa'+obj_class_name,
@@ -485,7 +486,7 @@ class VncRDBMSClient(object):
 
         for res_type in vnc_api_client_gen.all_resource_types:
             obj_type = to_obj_type(res_type)
-            obj_class = vnc_api.get_object_class(res_type)
+            obj_class = obj_type_to_vnc_class(res_type)
             obj_class_name = cfgm_common.utils.CamelCase(res_type)
             # Table for OBJ with REFs
             for ref_field in obj_class.ref_fields:
@@ -538,7 +539,7 @@ class VncRDBMSClient(object):
         session = self.session_ctx
         for res_type in vnc_api_client_gen.all_resource_types:
             obj_type = to_obj_type(res_type)
-            obj_class = vnc_api.get_object_class(res_type)
+            obj_class = obj_type_to_vnc_class(res_type)
             table = tables[obj_type]
             for prop_field in obj_class.prop_fields:
                 if not table.get(prop_field):
