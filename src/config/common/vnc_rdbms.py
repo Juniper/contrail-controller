@@ -1427,7 +1427,8 @@ class VncRDBMSClient(object):
         return {'uuid': sqa_obj.obj_uuid,
                 'perms2': json.loads(sqa_obj.perms2),
                 'fq_name':json.loads(sqa_obj.obj_fq_name),
-                'obj_type': obj_type}
+                'type': obj_type,
+                'parent_type': sqa_obj.obj_parent_type}
 
     @use_session
     def uuid_to_obj_perms(self, id):

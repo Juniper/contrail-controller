@@ -2565,7 +2565,6 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
 
     def api_requests(self, orig_vn_read, count, vn_name):
         api_server = self._server_info['api_server']
-        self.blocked = True
         def slow_response_on_vn_read(obj_type, *args, **kwargs):
             if obj_type == 'virtual_network':
                 while self.blocked:
@@ -2581,6 +2580,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
             self._vnc_lib.virtual_network_read(id=test_obj.uuid)
             gevent.sleep(0)
 
+        self.blocked = True
         for i in range(count):
             gevent.spawn(vn_read)
         gevent.sleep(1)
