@@ -555,21 +555,38 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
 bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
     const boost::asio::ip::address remote_address,
     StatWalker::StatTableInsertFn stat_db_callback, StructuredSyslogConfig *config_obj,
-    boost::shared_ptr<StructuredSyslogForwarder> forwarder) {
+    boost::shared_ptr<StructuredSyslogForwarder> forwarder, boost::shared_ptr<std::string> sess_buf) {
   boost::system::error_code ec;
   const std::string ip(remote_address.to_string(ec));
-  const uint8_t *p = data;
+  const uint8_t *p;
+  std::string full_log;
+
   size_t end, start = 0;
   bool r;
 
-  while (!*(p + len - 1))
+  while (!*(data + len - 1))
       --len;
-  LOG(DEBUG, "full structured_syslog: " << std::string(p + start, p + len) << " len: " << len);
+  LOG(DEBUG, "full structured_syslog: " << std::string(data + start, data + len) << " len: " << len);
+  if (sess_buf != NULL) {
+    full_log = *sess_buf + std::string(data + start, data + len);
+    p = reinterpret_cast<const uint8_t*>(full_log.data());
+    len += sess_buf->length();
+    LOG(DEBUG, "structured_syslog sess_buf + new buf: " << full_log);
+    sess_buf->clear();
+  } else {
+    p = data;
+  }
   do {
       SyslogParser::syslog_m_t v;
       end = start + 1;
       while ((*(p + end - 1) != ']') && (end < len))
         ++end;
+
+      if ((end == len) && (sess_buf != NULL)) {
+       sess_buf->append(std::string(p + start, p + end));
+       LOG(DEBUG, "structured_syslog next sess_buf: " << *sess_buf);
+       return true;
+      }
 
       r = SyslogParser::parse_syslog (p + start, p + end, v);
       LOG(DEBUG, "structured_syslog: " << std::string(p + start, p + end) <<
@@ -757,7 +774,8 @@ private:
             const boost::asio::ip::udp::endpoint &remote_endpoint) {
             size_t recv_buffer_size(boost::asio::buffer_size(recv_buffer));
             if (!structured_syslog::impl::ProcessStructuredSyslog(boost::asio::buffer_cast<const uint8_t *>(recv_buffer),
-                    recv_buffer_size, remote_endpoint.address(), stat_db_callback_, config_obj_, forwarder_)) {
+                    recv_buffer_size, remote_endpoint.address(), stat_db_callback_, config_obj_, forwarder_,
+                    boost::shared_ptr<std::string>())) {
                 LOG(ERROR, "ProcessStructuredSyslog UDP FAILED for : " << remote_endpoint);
             } else {
                 LOG(DEBUG, "ProcessStructuredSyslog UDP SUCCESS for : " << remote_endpoint);
@@ -784,6 +802,7 @@ private:
         typedef boost::intrusive_ptr<StructuredSyslogTcpSession> StructuredSyslogTcpSessionPtr;
         StructuredSyslogTcpSession (StructuredSyslogTcpServer *server, Socket *socket) :
             TcpSession(server, socket) {
+            sess_buf.reset(new std::string(""));
             //set_observer(boost::bind(&SyslogTcpSession::OnEvent, this, _1, _2));
         }
         virtual void OnRead (const boost::asio::const_buffer buf) {
@@ -792,6 +811,7 @@ private:
             //TODO: handle error
             sserver->ReadMsg(StructuredSyslogTcpSessionPtr(this), buf, socket ()->remote_endpoint(ec));
         }
+        boost::shared_ptr<std::string> sess_buf;
     };
 
     //
@@ -828,7 +848,8 @@ private:
 
             if (!structured_syslog::impl::ProcessStructuredSyslog(
                     boost::asio::buffer_cast<const uint8_t *>(recv_buffer),
-                    recv_buffer_size, remote_endpoint.address(), stat_db_callback_, config_obj_, forwarder_)) {
+                    recv_buffer_size, remote_endpoint.address(), stat_db_callback_, config_obj_,
+                    forwarder_, sess->sess_buf)) {
                 LOG(ERROR, "ProcessStructuredSyslog TCP FAILED for : " << remote_endpoint);
             } else {
                 LOG(DEBUG, "ProcessStructuredSyslog TCP SUCCESS for : " << remote_endpoint);
