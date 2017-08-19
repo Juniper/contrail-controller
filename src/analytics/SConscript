@@ -61,7 +61,8 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'ssl',
         'crypto',
         'boost_filesystem',
-        'boost_program_options'])
+        'boost_program_options',
+        'libdl'])
 
 (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 if PLATFORM.lower() != 'ubuntu':
