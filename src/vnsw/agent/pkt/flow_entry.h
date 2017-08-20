@@ -717,6 +717,8 @@ class FlowEntry {
     }
     void FillUveFwStatsInfo(FlowUveFwPolicyInfo *info) const;
     void FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const;
+    bool IsClientFlow();
+    bool IsServerFlow();
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;

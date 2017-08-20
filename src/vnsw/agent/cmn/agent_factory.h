@@ -18,6 +18,8 @@ class IFMapDependencyManager;
 class InstanceManager;
 class FlowStatsCollector;
 class FlowStatsCollectorObject;
+class SessionStatsCollector;
+class SessionStatsCollectorObject;
 class NexthopManager;
 class FlowStatsManager;
 class FlowAgingTableKey;
@@ -28,6 +30,10 @@ class AgentObjectFactory : public Factory<AgentObjectFactory> {
                     boost::asio::io_service &, int, uint32_t, AgentUveBase *,
                     uint32_t , FlowAgingTableKey *,
                     FlowStatsManager *, FlowStatsCollectorObject *);
+    FACTORY_TYPE_N5(AgentObjectFactory, SessionStatsCollector,
+                    boost::asio::io_service &, AgentUveBase *,
+                    uint32_t ,
+                    FlowStatsManager *, SessionStatsCollectorObject *);
     FACTORY_TYPE_N4(AgentObjectFactory, AgentUveBase, Agent *, uint64_t,
                     uint32_t, uint32_t);
     FACTORY_TYPE_N1(AgentObjectFactory, AgentSignal, EventManager *);

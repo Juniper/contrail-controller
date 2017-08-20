@@ -14,6 +14,7 @@
 #include <uve/agent_uve_stats.h>
 #include <vrouter/stats_collector/agent_stats_collector.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
+#include <vrouter/flow_stats/session_stats_collector.h>
 #include <port_ipc/rest_server.h>
 #include <port_ipc/port_ipc_handler.h>
 
@@ -51,6 +52,7 @@ void ContrailAgentInit::FactoryInit() {
         AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
     }
     AgentObjectFactory::Register<FlowStatsCollector>(boost::factory<FlowStatsCollector *>());
+    AgentObjectFactory::Register<SessionStatsCollector>(boost::factory<SessionStatsCollector *>());
 }
 
 void ContrailAgentInit::CreateModules() {

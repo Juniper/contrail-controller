@@ -1232,6 +1232,53 @@ void FlowEntry::RpfUpdate() {
     }
 }
 
+bool FlowEntry::IsClientFlow() {
+    /*
+     * If the flow is Local + Ingress + Forward
+     * then it will be considered as client session
+     */
+    if ((is_flags_set(FlowEntry::LocalFlow)) &&
+        (is_flags_set(FlowEntry::IngressDir)) &&
+        (!(is_flags_set(FlowEntry::ReverseFlow)))) {
+        return true;
+    }
+    /*
+     * If the flow is (Ingress + Forward) OR
+     *                (Egress + Reverse)
+     * then it will be consideres as client session
+     */
+    if (((is_flags_set(FlowEntry::IngressDir)) &&
+         (!(is_flags_set(FlowEntry::ReverseFlow)))) ||
+        ((!(is_flags_set(FlowEntry::IngressDir))) &&
+         (is_flags_set(FlowEntry::ReverseFlow)))) {
+        return true;
+    }
+     return false;
+}
+
+bool FlowEntry::IsServerFlow() {
+    /*
+     * If the flow is Local + Ingress + Reverse
+     * then it will be considered as server session
+     */
+    if ((is_flags_set(FlowEntry::LocalFlow)) &&
+        (is_flags_set(FlowEntry::IngressDir)) &&
+        (is_flags_set(FlowEntry::ReverseFlow))) {
+        return true;
+    }
+    /*
+     * If the flow is (Egress + Forward) OR
+     *                (Ingress + Reverse)
+     * then it will be consideres as server session
+     */
+    if (((!(is_flags_set(FlowEntry::IngressDir))) &&
+         (!(is_flags_set(FlowEntry::ReverseFlow)))) ||
+        ((is_flags_set(FlowEntry::IngressDir)) &&
+         (is_flags_set(FlowEntry::ReverseFlow)))) {
+        return true;
+    }
+    return false;
+}
 /////////////////////////////////////////////////////////////////////////////
 // Flow entry fileds updation routines
 /////////////////////////////////////////////////////////////////////////////
