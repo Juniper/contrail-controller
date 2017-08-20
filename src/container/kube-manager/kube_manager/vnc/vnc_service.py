@@ -339,11 +339,13 @@ class VncService(VncCommon):
                 #     update the allocated fip to kubernetes
                 if loadBalancerIp:
                     allocated_fip = self._allocate_floating_ips(service_id, set([loadBalancerIp]))
-                    self._update_service_external_ip(service_namespace, service_name, allocated_fip)
+                    if allocated_fip:
+                        self._update_service_external_ip(service_namespace, service_name, allocated_fip)
                 elif external_ips:
                     allocated_fips = self._allocate_floating_ips(service_id, external_ips)
                 else:
-                    allocated_fip = self._allocate_floating_ips(service_id)
+                    if allocated_fip:
+                        allocated_fip = self._allocate_floating_ips(service_id)
                     self._update_service_external_ip(service_namespace, service_name, allocated_fip)
 
                 return
