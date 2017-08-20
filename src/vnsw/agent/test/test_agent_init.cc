@@ -15,6 +15,7 @@
 #include <uve/agent_uve.h>
 #include <uve/test/agent_uve_test.h>
 #include <vrouter/flow_stats/test/flow_stats_collector_test.h>
+#include <vrouter/flow_stats/session_stats_collector.h>
 
 #include "test_agent_init.h"
 TestAgentInit::TestAgentInit() : ContrailInitCommon() {
@@ -60,6 +61,7 @@ void TestAgentInit::FactoryInit() {
     AgentObjectFactory::Register<AgentUveBase>(boost::factory<AgentUveBaseTest *>());
     AgentObjectFactory::Register<KSync>(boost::factory<KSyncTest *>());
     AgentObjectFactory::Register<FlowStatsCollector>(boost::factory<FlowStatsCollectorTest *>());
+    AgentObjectFactory::Register<SessionStatsCollector>(boost::factory<SessionStatsCollector *>());
 }
 
 // Create the basic modules for agent operation.

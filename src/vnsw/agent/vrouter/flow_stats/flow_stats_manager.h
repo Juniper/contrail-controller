@@ -22,6 +22,8 @@ do {\
 
 class FlowStatsCollector;
 class FlowStatsCollectorObject;
+class SessionStatsCollector;
+class SessionStatsCollectorObject;
 
 struct FlowAgingTableKey {
     FlowAgingTableKey(const uint8_t &protocol, const uint16_t &dst_port):
@@ -73,6 +75,7 @@ public:
     static const uint32_t kMinFlowSamplingThreshold = 20;
 
     typedef boost::shared_ptr<FlowStatsCollectorObject> FlowAgingTablePtr;
+    typedef boost::shared_ptr<SessionStatsCollectorObject> SessionStatsCollectorPtr;
 
     typedef std::map<const FlowAgingTableKey, FlowAgingTablePtr>
                      FlowAgingTableMap;
@@ -85,6 +88,9 @@ public:
     Agent* agent() { return agent_; }
     FlowStatsCollectorObject* default_flow_stats_collector_obj() {
         return default_flow_stats_collector_obj_.get();
+    }
+    SessionStatsCollectorObject* session_stats_collector_obj() {
+        return session_stats_collector_obj_.get();
     }
 
     //Add protocol + port based flow aging table
@@ -187,6 +193,8 @@ public:
                                bool sampled_flow);
     void UpdateFlowSampleExportStats(uint32_t count);
     void UpdateFlowMsgExportStats(uint32_t count);
+    void UpdateSessionSampleExportStats(uint32_t count);
+    void UpdateSessionMsgExportStats(uint32_t count);
 
     void SetProfileData(ProfileData *data);
     friend class AgentUtXmlFlowThreshold;
@@ -202,6 +210,7 @@ private:
     WorkQueue<boost::shared_ptr<FlowStatsCollectorReq> > request_queue_;
     FlowAgingTableMap flow_aging_table_map_;
     FlowAgingTablePtr default_flow_stats_collector_obj_;
+    SessionStatsCollectorPtr session_stats_collector_obj_;
     tbb::atomic<uint32_t> flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;
@@ -215,6 +224,8 @@ private:
     tbb::atomic<uint64_t> flow_msg_exports_;
     tbb::atomic<uint64_t> flow_exports_;
     tbb::atomic<bool> flows_sampled_atleast_once_;
+    tbb::atomic<uint64_t> session_sample_exports_;
+    tbb::atomic<uint64_t> session_msg_exports_;
     uint32_t prev_cfg_flow_export_rate_;
     Timer* timer_;
     bool delete_short_flow_;
