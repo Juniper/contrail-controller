@@ -288,8 +288,6 @@ void FlowData::Reset() {
     vm_cfg_name = "";
     bgp_as_a_service_port = 0;
     bgp_health_check_uuid = nil_uuid();
-    bgp_health_check_service = NULL;
-    bgp_health_check_instance = NULL;
     acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
     qos_config_idx = AgentQosConfigTable::kInvalidIndex;
     ttl = 0;

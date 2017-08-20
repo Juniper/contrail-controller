@@ -85,15 +85,18 @@ public:
     enum EventType {
         MESSAGE_READ = 0,
         TASK_EXIT,
+        SET_SERVICE,
         STOP_TASK,
         EVENT_MAX
     };
 
-    HealthCheckInstanceEvent(HealthCheckInstanceBase *inst, EventType type,
+    HealthCheckInstanceEvent(HealthCheckInstanceBase *inst,
+                             HealthCheckService *service, EventType type,
                              const std::string &message);
     virtual ~HealthCheckInstanceEvent();
 
     HealthCheckInstanceBase *instance_;
+    HealthCheckService *service_;
     EventType type_;
     std::string message_;
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceEvent);
@@ -122,8 +125,10 @@ public:
     void OnRead(const std::string &data);
     // OnExit Callback for Task
     void OnExit(const boost::system::error_code &ec);
+    // Callback to enqueue set service
+    void SetService(HealthCheckService *service);
     // Callback to enqueue stop task
-    void StopTask();
+    void StopTask(HealthCheckService *service);
 
     virtual void ResyncInterface(const HealthCheckService *service) const;
     void set_service(HealthCheckService *service);
@@ -135,6 +140,10 @@ public:
     MetaDataIp *ip() const { return ip_.get(); }
     const std::string &last_update_time() const { return last_update_time_; }
     bool IsStatusEventIgnored() const { return ignore_status_event_; }
+    void set_source_ip(const IpAddress &ip) { source_ip_ = ip; }
+    IpAddress source_ip() const;
+    void set_destination_ip(const IpAddress &ip) { destination_ip_ = ip; }
+    IpAddress destination_ip() const;
 
 protected:
     void EnqueueResync(const HealthCheckService *service, Interface *itf) const;
@@ -154,6 +163,11 @@ protected:
     bool deleted_;
     // true if the health check up or down status event has to be ignored
     bool ignore_status_event_;
+
+    // source IP to be used while doing the health check
+    IpAddress source_ip_;
+    // destination IP for the health check
+    IpAddress destination_ip_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceBase);
@@ -235,9 +249,12 @@ public:
     void PostAdd();
     bool Copy(HealthCheckTable *table, const HealthCheckServiceData *data);
 
-    HealthCheckInstanceBase *StartHealthCheckService(VmInterface *interface) {
+    HealthCheckInstanceBase *StartHealthCheckService(
+                             VmInterface *interface, const IpAddress &source_ip,
+                             const IpAddress &destination_ip) {
         // health check status event is ignored
-        return StartHealthCheckService(interface, NULL, IpAddress(), true);
+        return StartHealthCheckService(interface, NULL, source_ip,
+                                       destination_ip, true);
     }
     void StopHealthCheckService(HealthCheckInstanceBase *instance);
 
@@ -265,7 +282,8 @@ private:
     bool IsInstanceTaskBased() const;
     HealthCheckInstanceBase *StartHealthCheckService(VmInterface *interface,
                                                      VmInterface *paired_vmi,
-                                                     const IpAddress &paired_ip,
+                                                     const IpAddress &source_ip,
+                                                     const IpAddress &destination_ip,
                                                      bool ignore_status_event);
 
     const HealthCheckTable *table_;

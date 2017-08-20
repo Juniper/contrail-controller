@@ -76,7 +76,7 @@ public:
     bool BfdHealthCheckSessionControl(
                HealthCheckTable::HealthCheckServiceAction action,
                HealthCheckInstanceService *service);
-    bool GetServiceAddress(uint32_t interface, IpAddress &address);
+    bool GetSourceAddress(uint32_t interface, IpAddress &address);
     void NotifyHealthCheckInstanceService(uint32_t interface, std::string &data);
     BfdCommunicator &bfd_communicator() { return communicator_; }
 

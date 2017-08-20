@@ -41,18 +41,20 @@ bool BfdProto::BfdHealthCheckSessionControl(
                HealthCheckTable::HealthCheckServiceAction action,
                HealthCheckInstanceService *service) {
 
-    IpAddress service_ip = service->ip()->service_ip();
-    BFD::SessionKey key(service->ip()->destination_ip(),
+    IpAddress source_ip = service->source_ip();
+    IpAddress destination_ip = service->destination_ip();
+    BFD::SessionKey key(destination_ip,
                         BFD::SessionIndex(service->interface()->id()),
                         BFD::kSingleHop,
-                        service_ip);
+                        source_ip);
 
     tbb::mutex::scoped_lock lock(mutex_);
     switch (action) {
         case HealthCheckTable::CREATE_SERVICE:
         case HealthCheckTable::UPDATE_SERVICE:
             {
-                if (service_ip == Ip4Address(METADATA_IP_ADDR)) {
+                if (source_ip.is_v4() &&
+                    source_ip.to_v4() == Ip4Address(METADATA_IP_ADDR)) {
                     return false;
                 }
 
@@ -82,8 +84,8 @@ bool BfdProto::BfdHealthCheckSessionControl(
                 sessions_.insert(SessionsPair(
                           service->interface()->id(), service));
                 BFD_TRACE(Trace, "Add / Update",
-                          service->ip()->destination_ip().to_string(),
-                          service_ip.to_string(), service->interface()->id(),
+                          destination_ip.to_string(),
+                          source_ip.to_string(), service->interface()->id(),
                           tx_interval, rx_interval, multiplier);
                 break;
             }
@@ -92,8 +94,8 @@ bool BfdProto::BfdHealthCheckSessionControl(
             client_->DeleteSession(key);
             sessions_.erase(service->interface()->id());
             BFD_TRACE(Trace, "Delete",
-                      service->ip()->destination_ip().to_string(),
-                      service_ip.to_string(), service->interface()->id(),
+                      destination_ip.to_string(),
+                      source_ip.to_string(), service->interface()->id(),
                       0, 0, 0);
             break;
 
@@ -110,13 +112,13 @@ bool BfdProto::BfdHealthCheckSessionControl(
     return true;
 }
 
-bool BfdProto::GetServiceAddress(uint32_t interface, IpAddress &address) {
+bool BfdProto::GetSourceAddress(uint32_t interface, IpAddress &address) {
     tbb::mutex::scoped_lock lock(mutex_);
     Sessions::iterator it = sessions_.find(interface);
     if (it == sessions_.end()) {
         return false;
     }
-    address = it->second->ip()->service_ip();
+    address = it->second->source_ip();
     return true;
 }
 
