@@ -440,8 +440,6 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
 
     BgpAsAServiceEntryListConstIterator it = map_it->second->list_.begin();
     while (it != map_it->second->list_.end()) {
-        *health_check_configured = it->health_check_configured_;
-        *health_check_uuid = it->health_check_uuid_;
         if (dest == gw) {
             if (agent_->controller_ifmap_xmpp_server(0).empty())
                 return false;
@@ -456,6 +454,8 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 return false;
             }
             *sport = it->source_port_;
+            *health_check_configured = it->health_check_configured_;
+            *health_check_uuid = it->health_check_uuid_;
             return true;
         }
         if (dest == dns) {
@@ -472,6 +472,8 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 return false;
             }
             *sport = it->source_port_;
+            *health_check_configured = it->health_check_configured_;
+            *health_check_uuid = it->health_check_uuid_;
             return true;
         }
         it++;

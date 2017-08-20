@@ -31,7 +31,6 @@
 #include <oper/route_common.h>
 #include <oper/sg.h>
 #include <oper/vrf.h>
-#include <oper/health_check.h>
 #include <filter/acl.h>
 #include <sandesh/common/flow_types.h>
 
@@ -299,8 +298,6 @@ struct FlowData {
     uint32_t component_nh_idx;
     uint32_t bgp_as_a_service_port;
     boost::uuids::uuid bgp_health_check_uuid;
-    HealthCheckService *bgp_health_check_service;
-    HealthCheckInstanceBase *bgp_health_check_instance;
     uint32_t ttl;
     // In case of policy on fabric, the forwarding happens in
     // agent_->fabric_vrf(), but policy processing must happen in

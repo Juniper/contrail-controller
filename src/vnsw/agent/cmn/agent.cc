@@ -341,6 +341,13 @@ void Agent::SetAgentTaskPolicy() {
     SetTaskPolicyOne(kEventNotifierTask, event_notify_exclude_list,
                      sizeof(event_notify_exclude_list) / sizeof(char *));
 
+    // Health Check task
+    const char *health_check_exclude_list[] = {
+        kTaskFlowMgmt
+    };
+    SetTaskPolicyOne(kTaskHealthCheck, health_check_exclude_list,
+                     sizeof(health_check_exclude_list) / sizeof(char *));
+
 }
 
 void Agent::CreateLifetimeManager() {
