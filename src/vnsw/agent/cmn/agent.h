@@ -34,6 +34,7 @@ class TaskScheduler;
 class AgentInit;
 class AgentStatsCollector;
 class FlowStatsCollector;
+class SessionStatsCollector;
 class FlowStatsManager;
 class MetaDataIpAllocator;
 class ResourceManager;
@@ -295,6 +296,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define kTaskFlowAudit "KSync::FlowAudit"
 #define kTaskFlowLogging "Agent::FlowLogging"
 #define kTaskFlowStatsCollector "Flow::StatsCollector"
+#define kTaskSessionStatsCollector "Flow::SessionStatsCollector"
 #define kTaskFlowStatsUpdate "Agent::FlowStatsUpdate"
 
 #define kTaskHealthCheck "Agent::HealthCheck"

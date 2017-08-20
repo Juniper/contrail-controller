@@ -22,6 +22,8 @@ do {\
 
 class FlowStatsCollector;
 class FlowStatsCollectorObject;
+class SessionStatsCollector;
+class SessionStatsCollectorObject;
 
 struct FlowAgingTableKey {
     FlowAgingTableKey(const uint8_t &protocol, const uint16_t &dst_port):
@@ -73,6 +75,7 @@ public:
     static const uint32_t kMinFlowSamplingThreshold = 20;
 
     typedef boost::shared_ptr<FlowStatsCollectorObject> FlowAgingTablePtr;
+    typedef boost::shared_ptr<SessionStatsCollectorObject> SessionStatsCollectorPtr;
 
     typedef std::map<const FlowAgingTableKey, FlowAgingTablePtr>
                      FlowAgingTableMap;
@@ -85,6 +88,9 @@ public:
     Agent* agent() { return agent_; }
     FlowStatsCollectorObject* default_flow_stats_collector_obj() {
         return default_flow_stats_collector_obj_.get();
+    }
+    SessionStatsCollectorObject* session_stats_collector_obj() {
+        return session_stats_collector_obj_.get();
     }
 
     //Add protocol + port based flow aging table
@@ -202,6 +208,7 @@ private:
     WorkQueue<boost::shared_ptr<FlowStatsCollectorReq> > request_queue_;
     FlowAgingTableMap flow_aging_table_map_;
     FlowAgingTablePtr default_flow_stats_collector_obj_;
+    SessionStatsCollectorPtr session_stats_collector_obj_;
     tbb::atomic<uint32_t> flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
     uint32_t flow_export_rate_;

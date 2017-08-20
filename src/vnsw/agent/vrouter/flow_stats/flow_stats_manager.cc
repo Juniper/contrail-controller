@@ -20,6 +20,7 @@
 #include <ksync/ksync_sock.h>
 #include <uve/agent_uve.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
+#include <vrouter/flow_stats/session_stats_collector.h>
 #include <uve/vn_uve_table.h>
 #include <uve/vm_uve_table.h>
 #include <uve/interface_uve_stats_table.h>
@@ -293,6 +294,14 @@ void FlowStatsManager::AddEvent(FlowEntryPtr &flow) {
     }
 
     fsc->AddEvent(flow);
+
+    if (NULL != session_stats_collector_obj_) {
+        SessionStatsCollector *ssc = NULL;
+        ssc = session_stats_collector_obj_->FlowToCollector(flow.get());
+        if (ssc) {
+            ssc->AddEvent(flow);
+        }
+    }
 }
 
 void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
@@ -305,6 +314,14 @@ void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
     if (fsc != NULL) {
         fsc->DeleteEvent(flow, params);
         flow->set_fsc(NULL);
+    }
+
+    if (NULL != session_stats_collector_obj_) {
+        SessionStatsCollector *ssc = NULL;
+        ssc = session_stats_collector_obj_->FlowToCollector(flow.get());
+        if (ssc) {
+            ssc->DeleteEvent(flow);
+        }
     }
 }
 
@@ -358,6 +375,11 @@ void FlowStatsManager::Init(uint64_t flow_stats_interval,
         return;
     }
     agent_->set_flow_stats_req_handler(&(FlowStatsManager::FlowStatsReqHandler));
+
+    SessionStatsCollectorPtr session_obj(new SessionStatsCollectorObject(agent(),
+                                                                        this));
+    session_stats_collector_obj_ = session_obj;
+
     timer_->Start(FlowThresoldUpdateTime,
                   boost::bind(&FlowStatsManager::UpdateFlowThreshold, this));
 }
@@ -371,6 +393,8 @@ void FlowStatsManager::InitDone() {
 void FlowStatsManager::Shutdown() {
     default_flow_stats_collector_obj_->Shutdown();
     default_flow_stats_collector_obj_.reset();
+    session_stats_collector_obj_->Shutdown();
+    session_stats_collector_obj_.reset();
     flow_aging_table_map_.clear();
     protocol_list_[0] = NULL;
     timer_->Cancel();
