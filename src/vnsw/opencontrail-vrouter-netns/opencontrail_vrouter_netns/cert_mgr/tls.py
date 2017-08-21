@@ -42,4 +42,5 @@ class TLS:
         f = open(pem_file_name, 'w')
         f.write(pem)
         f.close()
+        os.chmod(pem_file_name, 0600)
         return pem_file_name
