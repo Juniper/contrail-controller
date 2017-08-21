@@ -486,7 +486,8 @@ class DBInterface(object):
                                               fields=fields,
                                               detail=detail,
                                               count=count,
-                                              filters=filters)
+                                              filters=filters,
+                                              shared=True)
     #end _virtual_network_list
 
     def _virtual_machine_interface_read(self, port_id=None, fq_name=None,
@@ -1402,7 +1403,7 @@ class DBInterface(object):
         net_q_dict['tenant_id'] = net_obj.parent_uuid.replace('-', '')
         net_q_dict['project_id'] = net_obj.parent_uuid.replace('-', '')
         net_q_dict['admin_state_up'] = id_perms.enable
-        if net_obj.is_shared:
+        if net_obj.is_shared or (net_obj.perms2 and len(net_obj.perms2.share)):
             net_q_dict['shared'] = True
         else:
             net_q_dict['shared'] = False
@@ -1616,7 +1617,7 @@ class DBInterface(object):
                 host_route_dict_list.append(host_route_entry)
         sn_q_dict['routes'] = host_route_dict_list
 
-        if net_obj.is_shared:
+        if net_obj.is_shared or (net_obj.perms2 and len(net_obj.perms2.share)):
             sn_q_dict['shared'] = True
         else:
             sn_q_dict['shared'] = False
@@ -2949,8 +2950,12 @@ class DBInterface(object):
                 continue
             if net_obj.is_shared is None:
                 is_shared = False
+            elif net_obj.is_shared or (
+                             net_obj.perms2 and len(net_obj.perms2.share)):
+                is_shared = True
             else:
-                is_shared = net_obj.is_shared
+                is_shared = False
+
             if not self._filters_is_present(filters, 'shared',
                                             is_shared):
                 continue
