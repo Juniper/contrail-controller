@@ -27,7 +27,7 @@ from sandesh_common.vns.ttypes import Module
 
 class KubeManagerLogger(object):
 
-    def __init__(self, args=None):
+    def __init__(self, args=None, http_server_port=None):
         self._args = args
 
         # Initialize module parameters.
@@ -45,7 +45,7 @@ class KubeManagerLogger(object):
             self._module["instance_id"] = INSTANCE_ID_DEFAULT
 
         # Init Sandesh.
-        self.sandesh_init()
+        self.sandesh_init(http_server_port)
 
     def syslog(self, log_msg, level):
         """ Log to syslog. """
@@ -167,19 +167,22 @@ class KubeManagerLogger(object):
         introspect.IngressDatabaseList.handle_request =\
             IngressKM.sandesh_handle_db_list_request
 
-    def sandesh_init(self):
+    def sandesh_init(self, http_server_port=None):
         """ Init Sandesh """
         self._sandesh = Sandesh()
 
         # Register custom sandesh request handlers.
         self._redefine_sandesh_handles()
 
+        if not http_server_port:
+            http_server_port = self._args.http_server_port
+
         # Initialize Sandesh generator.
         self._sandesh.init_generator(
             self._module["name"], self._module["hostname"],
             self._module["node_type_name"], self._module["instance_id"],
             self._args.random_collectors, 'kube_manager_context',
-            int(self._args.http_server_port),
+            int(http_server_port),
             ['cfgm_common', 'kube_manager'],
             logger_class=self._args.logger_class,
             logger_config_file=self._args.logging_conf,
@@ -199,3 +202,5 @@ class KubeManagerLogger(object):
             staticmethod(ConnectionState.get_process_state_cb),
             NodeStatusUVE, NodeStatus, self._module["table"])
 
+    def introspect_init(self):
+        self._sandesh.run_introspect_server(int(self._args.http_server_port))
