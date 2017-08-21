@@ -293,6 +293,10 @@ public:
 
         bool operator() (const AllowedAddressPair &lhs,
                          const AllowedAddressPair &rhs) const;
+        bool operator == (const  AllowedAddressPair &rhs) const {
+            return ((mac_ == rhs.mac_) && (addr_ == rhs.addr_) &&
+                    (plen_ == rhs.plen_));
+        }
         bool IsLess(const AllowedAddressPair *rhs) const;
         void Activate(VmInterface *interface, bool force_update,
                       bool policy_change) const;

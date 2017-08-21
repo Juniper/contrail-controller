@@ -94,6 +94,7 @@ struct KInterfaceInfo {
    48: i16          transport;
    49: string       src_mac;
    50: string       fat_flow_protocol_port;
+   51: string       bridge_idx;
 }
 
 /**
