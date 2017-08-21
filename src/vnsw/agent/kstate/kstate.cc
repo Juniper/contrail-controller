@@ -161,7 +161,7 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     data.set_vlan_id(r->get_vifr_vlan_id());
     data.set_nh_id(r->get_vifr_nh_id());
     data.set_cross_connect_id(r->get_vifr_cross_connect_idx());
-    data.set_bridge_id(r->get_vifr_bridge_idx());
+    data.set_bridge_id(ist->SetItfSandesh(r->get_vifr_bridge_idx()));
     data.set_ovlan_id(r->get_vifr_ovlan_id());
     data.set_transport(r->get_vifr_transport());
     data.set_src_mac(MacToString(r->get_vifr_src_mac()));

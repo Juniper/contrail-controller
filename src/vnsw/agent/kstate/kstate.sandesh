@@ -89,7 +89,7 @@ struct KInterfaceInfo {
    43: i16          vlan_id;
    44: i16          nh_id;
    45: i32          cross_connect_id;
-   46: i32          bridge_id;
+   46: string       bridge_id;
    47: i32          ovlan_id;
    48: i16          transport;
    49: string       src_mac;
