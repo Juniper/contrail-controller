@@ -51,3 +51,30 @@ struct PRouterLinkEntry {
 uve sandesh PRouterLinkUVE {
     1: PRouterLinkEntry data
 }
+
+/**
+ * Structure containing PRouter name and the corresponding interface name
+ * for a given vrouter interface
+ */
+struct RemoteIfInfo {
+    1: string remote_system_name
+    2: string remote_if_name
+}
+
+/**
+ * Structure containing map of vrouter L2 interfaces and its corresponding
+ * remote system/interface information
+ */
+struct VRouterL2IfInfo {
+    1: string name (key="ObjectVRouter")
+    2: optional bool deleted
+    3: optional map<string, RemoteIfInfo> if_info
+}
+
+/**
+ * @description: UVE provides L2 interface information of a VRouter
+ * @object: vrouter
+ */
+uve sandesh VRouterL2IfUVE {
+    1: VRouterL2IfInfo data
+}
