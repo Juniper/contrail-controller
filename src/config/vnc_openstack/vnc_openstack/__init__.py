@@ -305,7 +305,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if self._ks:
             return
 
-        verify = self._kscertbundle if self._use_certs else self._insecure
+        verify = self._kscertbundle if self._use_certs else not self._insecure
         if self._admin_token:
             auth = kauth.token.Token(self._auth_url, token=self._admin_token)
         else:
