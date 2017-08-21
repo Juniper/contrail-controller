@@ -601,7 +601,7 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
         encoder.set_rtr_nh_id(NH_DISCARD_ID);
     }
 
-    if (op == sandesh_op::DELETE) {
+    if (op == sandesh_op::DEL) {
         encoder.set_rtr_replace_plen(replace_plen);
     }
 
@@ -701,10 +701,10 @@ int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nexthop,
                                     char *buf, int buf_len) {
     uint8_t replace_plen = CopyReplacementData(nexthop, new_rt);
     KSyncRouteInfo info;
-    FillObjectLog(sandesh_op::DELETE, info);
+    FillObjectLog(sandesh_op::DEL, info);
     KSYNC_TRACE(Route, GetObject(), info);
 
-    return Encode(sandesh_op::DELETE, replace_plen, buf, buf_len);
+    return Encode(sandesh_op::DEL, replace_plen, buf, buf_len);
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
