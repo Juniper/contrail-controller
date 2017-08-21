@@ -81,7 +81,7 @@ int BridgeRouteAuditKSyncEntry::EncodeDelete(char *buf, int buf_len) {
     vr_route_req encoder;
     int encode_len;
 
-    encoder.set_h_op(sandesh_op::DELETE);
+    encoder.set_h_op(sandesh_op::DEL);
     encoder.set_rtr_rid(0);
     encoder.set_rtr_vrf_id(vrf_id_);
     encoder.set_rtr_family(AF_BRIDGE);
@@ -100,7 +100,7 @@ int BridgeRouteAuditKSyncEntry::EncodeDelete(char *buf, int buf_len) {
 
 int BridgeRouteAuditKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncRouteInfo info;
-    FillObjectLog(sandesh_op::DELETE, info);
+    FillObjectLog(sandesh_op::DEL, info);
     KSYNC_TRACE(Route, GetObject(), info);
 
     return EncodeDelete(buf, buf_len);
