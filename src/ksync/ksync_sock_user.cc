@@ -799,7 +799,7 @@ void KSyncUserSockIfContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     //delete from map if command is delete
-    if (req_->get_h_op() == sandesh_op::DELETE) {
+    if (req_->get_h_op() == sandesh_op::DEL) {
         sock->if_map.erase(req_->get_vifr_idx());
     } else if (req_->get_h_op() == sandesh_op::DUMP) {
         IfDumpHandler dump;
@@ -906,7 +906,7 @@ void KSyncUserSockNHContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     //delete from map if command is delete
-    if (req_->get_h_op() == sandesh_op::DELETE) {
+    if (req_->get_h_op() == sandesh_op::DEL) {
         sock->nh_map.erase(req_->get_nhr_id());
     } else if (req_->get_h_op() == sandesh_op::DUMP) {
         NHDumpHandler dump;
@@ -941,7 +941,7 @@ void KSyncUserSockMplsContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     //delete from map mpls command is delete
-    if (req_->get_h_op() == sandesh_op::DELETE) {
+    if (req_->get_h_op() == sandesh_op::DEL) {
         sock->mpls_map.erase(req_->get_mr_label());
     } else if (req_->get_h_op() == sandesh_op::DUMP) {
         MplsDumpHandler dump;
@@ -976,7 +976,7 @@ void KSyncUserSockRouteContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     //delete from the route tree, if the command is delete
-    if (req_->get_h_op() == sandesh_op::DELETE) {
+    if (req_->get_h_op() == sandesh_op::DEL) {
         if (req_->get_rtr_family() == AF_BRIDGE) {
             sock->UpdateBridgeEntryInactiveFlag(req_->get_rtr_index(), false);
         }
@@ -1017,7 +1017,7 @@ void KSyncUserSockContext::MirrorMsgHandler(vr_mirror_req *req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     //delete from map if command is delete
-    if (req->get_h_op() == sandesh_op::DELETE) {
+    if (req->get_h_op() == sandesh_op::DEL) {
         sock->mirror_map.erase(req->get_mirr_index());
         KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0);
         return;
@@ -1045,7 +1045,7 @@ void KSyncUserSockVxLanContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     //delete from map vxlan command is delete
-    if (req_->get_h_op() == sandesh_op::DELETE) {
+    if (req_->get_h_op() == sandesh_op::DEL) {
         sock->vxlan_map.erase(req_->get_vxlanr_vnid());
     } else if (req_->get_h_op() == sandesh_op::DUMP) {
         VxLanDumpHandler dump;
@@ -1105,7 +1105,7 @@ void KSyncUserSockVrfAssignContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
 
     //delete from the vrf assign tree, if the command is delete
-    if (req_->get_h_op() == sandesh_op::DELETE) {
+    if (req_->get_h_op() == sandesh_op::DEL) {
         sock->vrf_assign_tree.erase(*req_);
     } else if (req_->get_h_op() == sandesh_op::DUMP) {
         VrfAssignDumpHandler dump;
