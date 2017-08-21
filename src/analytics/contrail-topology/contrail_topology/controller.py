@@ -13,7 +13,9 @@ import signal
 import random
 import hashlib
 from sandesh.topology_info.ttypes import TopologyInfo, TopologyUVE
-from sandesh.link.ttypes import RemoteType
+from sandesh.link.ttypes import RemoteType, RemoteIfInfo, VRouterL2IfInfo,\
+    VRouterL2IfUVE
+
 
 class PRouter(object):
     def __init__(self, name, data):
@@ -47,6 +49,8 @@ class Controller(object):
         self._members = None
         self._partitions = None
         self._prouters = {}
+        self._vrouter_l2ifs = {}
+        self._old_vrouter_l2ifs = {}
 
     def stop(self):
         self._keep_running = False
@@ -64,30 +68,25 @@ class Controller(object):
         self.vrouter_ips = {}
         self.vrouter_macs = {}
         for vr in self.analytic_api.list_vrouters():
+            cfilt = ['VrouterAgent:phy_if', 'VrouterAgent:self_ip_list',
+                'VRouterL2IfInfo']
             try:
-                d = self.analytic_api.get_vrouter(vr, 'VrouterAgent:phy_if')
+                d = self.analytic_api.get_vrouter(vr, ','.join(cfilt))
             except Exception as e:
                 traceback.print_exc()
                 print str(e)
                 d = {}
-            if 'VrouterAgent' not in d:
-                d['VrouterAgent'] = {}
-            try:
-                _ipl = self.analytic_api.get_vrouter(vr,
-                        'VrouterAgent:self_ip_list')
-            except Exception as e:
-                traceback.print_exc()
-                print str(e)
-                _ipl = {}
-            if 'VrouterAgent' in _ipl:
-                d['VrouterAgent'].update(_ipl['VrouterAgent'])
             if 'VrouterAgent' not in d or\
                 'self_ip_list' not in d['VrouterAgent'] or\
                 'phy_if' not in d['VrouterAgent']:
                 continue
             self.vrouters[vr] = {'ips': d['VrouterAgent']['self_ip_list'],
-                'if': d['VrouterAgent']['phy_if'],
+                'if': d['VrouterAgent']['phy_if']
             }
+            try:
+                self.vrouters[vr]['l2_if'] = d['VRouterL2IfInfo']['if_info']
+            except KeyError:
+                pass
             for ip in d['VrouterAgent']['self_ip_list']:
                 self.vrouter_ips[ip] = vr # index
             for intf in d['VrouterAgent']['phy_if']:
@@ -132,6 +131,12 @@ class Controller(object):
                  local_interface_index=local_interface_index,
                  remote_interface_index=remote_interface_index,
                  type=link_type)
+        if link_type == RemoteType.VRouter:
+            l2_if = self.vrouters[remote_system_name].get('l2_if')
+            if l2_if and remote_interface_name in l2_if:
+                if l2_if[remote_interface_name]['remote_system_name'] != \
+                        prouter.name:
+                    return False
         if self._is_linkup(prouter, local_interface_index):
             if prouter.name in self.link:
                 self.link[prouter.name].append(d)
@@ -199,6 +204,8 @@ class Controller(object):
 
     def compute(self):
         self.link = {}
+        self._old_vrouter_l2ifs = self._vrouter_l2ifs
+        self._vrouter_l2ifs = {}
         for prouter in self.constnt_schdlr.work_items():
             pr, d = prouter.name, prouter.data
             if 'PRouterEntry' not in d or 'ifTable' not in d['PRouterEntry']:
@@ -275,7 +282,7 @@ class Controller(object):
                               link_type=RemoteType.PRouter):
                                   lldp_ints.append(ifm[pl['lldpRemLocalPortNum']])
 
-            vrouter_neighbors = []
+            vrouter_l2ifs = {}
             if 'fdbPortIfIndexTable' in d['PRouterEntry']:
                 dot1d2snmp = map (lambda x: (
                             x['dot1dBasePortIfIndex'],
@@ -286,6 +293,8 @@ class Controller(object):
                     for mac_entry in d['PRouterEntry']['fdbPortTable']:
                         if mac_entry['mac'] in self.vrouter_macs:
                             vrouter_mac_entry = self.vrouter_macs[mac_entry['mac']]
+                            vr_name = vrouter_mac_entry['vrname']
+                            vr_ifname = vrouter_mac_entry['ifname']
                             fdbport = mac_entry['dot1dBasePortIfIndex']
                             try:
                                 snmpport = dot1d2snmp_dict[fdbport]
@@ -297,23 +306,33 @@ class Controller(object):
                                 continue
                             if self._add_link(
                                     prouter=prouter,
-                                    remote_system_name=vrouter_mac_entry['vrname'],
+                                    remote_system_name=vr_name,
                                     local_interface_name=ifname,
-                                    remote_interface_name=vrouter_mac_entry[
-                                                'ifname'],
+                                    remote_interface_name=vr_ifname,
                                     local_interface_index=snmpport,
                                     remote_interface_index=1, #dont know TODO:FIX
                                     link_type=RemoteType.VRouter):
-                                vrouter_neighbors.append(
-                                        vrouter_mac_entry['vrname'])
+                                if vr_name not in vrouter_l2ifs:
+                                    vrouter_l2ifs[vr_name] = {}
+                                vrouter_l2ifs[vr_name][vr_ifname] = {
+                                    'remote_system_name': prouter.name,
+                                    'remote_if_name': ifname,
+                                }
             for arp in d['PRouterEntry']['arpTable']:
                 if arp['ip'] in self.vrouter_ips:
                     if arp['mac'] in map(lambda x: x['mac_address'],
                             self.vrouters[self.vrouter_ips[arp['ip']]]['if']):
-                        vr_name = arp['ip']
-                        vr = self.vrouters[self.vrouter_ips[vr_name]]
-                        if self.vrouter_ips[vr_name] in vrouter_neighbors:
-                            continue
+                        vr_name = self.vrouter_macs[arp['mac']]['vrname']
+                        vr_ifname = self.vrouter_macs[arp['mac']]['ifname']
+                        try:
+                            if vrouter_l2ifs[vr_name][vr_ifname]\
+                                ['remote_system_name'] == prouter.name:
+                                del vrouter_l2ifs[vr_name][vr_ifname]
+                                if not vrouter_l2ifs[vr_name]:
+                                    del vrouter_l2ifs[vr_name]
+                                continue
+                        except KeyError:
+                            pass
                         if ifm[arp['localIfIndex']].startswith('vlan'):
                             continue
                         if ifm[arp['localIfIndex']].startswith('irb'):
@@ -323,15 +342,44 @@ class Controller(object):
                             continue
                         if self._add_link(
                                 prouter=prouter,
-                                remote_system_name=self.vrouter_ips[vr_name],
+                                remote_system_name=vr_name,
                                 local_interface_name=ifm[arp['localIfIndex']],
-                                remote_interface_name=vr['if'][-1]['name'],#TODO
+                                remote_interface_name=vr_ifname,
                                 local_interface_index=arp['localIfIndex'],
                                 remote_interface_index=1, #dont know TODO:FIX
                                 link_type=RemoteType.VRouter):
                             pass
+            for vr, intf in vrouter_l2ifs.iteritems():
+                if vr in self._vrouter_l2ifs:
+                    self._vrouter_l2ifs[vr].update(vrouter_l2ifs[vr])
+                else:
+                    self._vrouter_l2ifs[vr] = intf
 
     def send_uve(self):
+        old_vrs = set(self._old_vrouter_l2ifs.keys())
+        new_vrs = set(self._vrouter_l2ifs.keys())
+        del_vrs = old_vrs - new_vrs
+        add_vrs = new_vrs - old_vrs
+        same_vrs = old_vrs.intersection(new_vrs)
+        for vr in del_vrs:
+            vr_l2info = VRouterL2IfInfo(name=vr, deleted=True)
+            VRouterL2IfUVE(data=vr_l2info).send()
+        for vr in add_vrs:
+            if_info = {}
+            for vrif, remif_info in self._vrouter_l2ifs[vr].iteritems():
+                if_info[vrif] = RemoteIfInfo(remif_info['remote_system_name'],
+                    remif_info['remote_if_name'])
+            vr_l2info = VRouterL2IfInfo(name=vr, if_info=if_info)
+            VRouterL2IfUVE(data=vr_l2info).send()
+        for vr in same_vrs:
+            if self._vrouter_l2ifs[vr] != self._old_vrouter_l2ifs[vr]:
+                if_info = {}
+                for vrif, remif_info in self._vrouter_l2ifs[vr].iteritems():
+                    if_info[vrif] = RemoteIfInfo(
+                        remif_info['remote_system_name'],
+                        remif_info['remote_if_name'])
+                vr_l2info = VRouterL2IfInfo(name=vr, if_info=if_info)
+                VRouterL2IfUVE(data=vr_l2info).send()
         self.uve.send(self.link)
 
     def switcher(self):
