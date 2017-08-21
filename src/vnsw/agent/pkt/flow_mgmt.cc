@@ -3,6 +3,7 @@
 #include "cmn/agent.h"
 #include "controller/controller_init.h"
 #include "oper/bgp_as_service.h"
+#include "oper/health_check.h"
 #include "pkt/flow_proto.h"
 #include "pkt/flow_mgmt.h"
 #include "pkt/flow_mgmt_request.h"
@@ -375,15 +376,22 @@ bool BgpAsAServiceFlowMgmtEntry::NonOperEntryDelete(FlowMgmtManager *mgr,
 
 // Update health check on all the BgpAsAService flows
 bool BgpAsAServiceFlowMgmtEntry::HealthCheckUpdate(
-        FlowMgmtManager *mgr, BgpAsAServiceFlowMgmtRequest *req) {
+        Agent *agent, FlowMgmtManager *mgr,
+        BgpAsAServiceFlowMgmtKey &key,
+        BgpAsAServiceFlowMgmtRequest *req) {
     for (FlowList::iterator it = flow_list_.begin();
          it != flow_list_.end(); ++it) {
         FlowMgmtKeyNode *node = &(*it);
-        tbb::mutex::scoped_lock mutex(node->flow_entry()->mutex());
+        BgpAsAServiceFlowMgmtKey *bkey =
+            mgr->FindBgpAsAServiceInfo(node->flow_entry(), key);
+        if (bkey == NULL)
+            continue;
+
         if (req->type() == BgpAsAServiceFlowMgmtRequest::HEALTH_CHECK_ADD)
-            mgr->StartHealthCheck(node->flow_entry(), req->health_check_uuid());
+            bkey->StartHealthCheck(agent, node->flow_entry(),
+                                   req->health_check_uuid());
         else
-            mgr->StopHealthCheck(node->flow_entry());
+            bkey->StopHealthCheck(node->flow_entry());
     }
     return true;
 }
@@ -404,7 +412,7 @@ void BgpAsAServiceFlowMgmtTree::ExtractKeys(FlowEntry *flow,
     BgpAsAServiceFlowMgmtKey *key =
         new BgpAsAServiceFlowMgmtKey(vm_intf->GetUuid(),
                                  flow->bgp_as_a_service_port(),
-                                 index_);
+                                 index_, NULL, NULL);
     AddFlowMgmtKey(tree, key);
 }
 
@@ -414,7 +422,8 @@ FlowMgmtEntry *BgpAsAServiceFlowMgmtTree::Allocate(const FlowMgmtKey *key) {
 
 // Update health check on the BgpAsAService entry
 bool BgpAsAServiceFlowMgmtTree::BgpAsAServiceHealthCheckUpdate
-    (BgpAsAServiceFlowMgmtKey &key, BgpAsAServiceFlowMgmtRequest *req) {
+    (Agent *agent, BgpAsAServiceFlowMgmtKey &key,
+     BgpAsAServiceFlowMgmtRequest *req) {
     FlowMgmtEntry *entry = Find(&key);
     if (entry == NULL) {
         return true;
@@ -422,7 +431,7 @@ bool BgpAsAServiceFlowMgmtTree::BgpAsAServiceHealthCheckUpdate
 
     BgpAsAServiceFlowMgmtEntry *bgpaas_entry =
         static_cast<BgpAsAServiceFlowMgmtEntry *>(entry);
-    return bgpaas_entry->HealthCheckUpdate(mgr_, req);
+    return bgpaas_entry->HealthCheckUpdate(agent, mgr_, key, req);
 }
 
 bool BgpAsAServiceFlowMgmtTree::BgpAsAServiceDelete
@@ -475,7 +484,7 @@ FlowMgmtManager::BgpAsAServiceRequestHandler(FlowMgmtRequest *req) {
         for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
             BgpAsAServiceFlowMgmtKey key(bgp_as_a_service_request->vm_uuid(),
                                          bgp_as_a_service_request->source_port(),
-                                         count);
+                                         count, NULL, NULL);
             bgp_as_a_service_flow_mgmt_tree_[count].get()->
                 BgpAsAServiceDelete(key, req);
         }
@@ -491,9 +500,9 @@ FlowMgmtManager::BgpAsAServiceRequestHandler(FlowMgmtRequest *req) {
         for (uint8_t count = 0; count < MAX_XMPP_SERVERS; count++) {
             BgpAsAServiceFlowMgmtKey key(bgp_as_a_service_request->vm_uuid(),
                                          bgp_as_a_service_request->source_port(),
-                                         count);
+                                         count, NULL, NULL);
             bgp_as_a_service_flow_mgmt_tree_[count].get()->
-                BgpAsAServiceHealthCheckUpdate(key, bgp_as_a_service_request);
+                BgpAsAServiceHealthCheckUpdate(agent(), key, bgp_as_a_service_request);
         }
     }
 
@@ -821,6 +830,22 @@ FlowMgmtManager::LocateFlowEntryInfo(FlowEntryPtr &flow) {
     return info;
 }
 
+BgpAsAServiceFlowMgmtKey *
+FlowMgmtManager::FindBgpAsAServiceInfo(FlowEntry *flow,
+                                       BgpAsAServiceFlowMgmtKey &key) {
+    FlowEntryInfo *flow_info = FindFlowEntryInfo(flow);
+    if (flow_info == NULL)
+        return NULL;
+
+    FlowMgmtKeyTree::iterator key_it = flow_info->tree_.find(&key);
+    if (key_it == flow_info->tree().end())
+        return NULL;
+
+    BgpAsAServiceFlowMgmtKey *bkey =
+        static_cast<BgpAsAServiceFlowMgmtKey *>(key_it->first);
+    return bkey;
+}
+
 void FlowMgmtManager::DeleteFlowEntryInfo(FlowEntryPtr &flow) {
     FlowEntryInfo *info = flow->flow_mgmt_info();
     if (info == NULL)
@@ -907,8 +932,11 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
             bgp_as_a_service_flow_mgmt_tree_[cn_index].get()->Add(key, flow,
                                                   (ret.second)? node : NULL);
             if (flow->IsBgpHealthCheckService()) {
-                // flow mutex is already taken, before calling AddFlow
-                StartHealthCheck(flow, flow->data().bgp_health_check_uuid);
+                FlowMgmtKey *inserted_key = ret.first->first;
+                BgpAsAServiceFlowMgmtKey *bkey =
+                    static_cast<BgpAsAServiceFlowMgmtKey *>(inserted_key);
+                bkey->StartHealthCheck(agent(), flow,
+                                       flow->data().bgp_health_check_uuid);
             }
         }
         break;
@@ -965,8 +993,9 @@ void FlowMgmtManager::DeleteFlowMgmtKey(
         break;
 
     case FlowMgmtKey::BGPASASERVICE: {
-        // flow mutex is already taken (before calling AddFlow / DeleteFlow)
-        StopHealthCheck(flow);
+        BgpAsAServiceFlowMgmtKey *bkey =
+            static_cast<BgpAsAServiceFlowMgmtKey *>(it->first);
+        bkey->StopHealthCheck(flow);
         BgpAsAServiceFlowMgmtKey *bgp_service_key =
             static_cast<BgpAsAServiceFlowMgmtKey *>(key);
         uint8_t count = bgp_service_key->cn_index();
@@ -979,28 +1008,27 @@ void FlowMgmtManager::DeleteFlowMgmtKey(
     }
 }
 
-void FlowMgmtManager::StartHealthCheck(FlowEntry *flow,
-                                       const boost::uuids::uuid &hc_uuid) {
-    if ((flow->data().bgp_health_check_service =
-             agent()->health_check_table()->Find(hc_uuid)) == NULL)
+void BgpAsAServiceFlowMgmtKey::StartHealthCheck(
+        Agent *agent, FlowEntry *flow, const boost::uuids::uuid &hc_uuid) {
+    if (bgp_health_check_instance_ != NULL)
+        return;
+    bgp_health_check_service_ = agent->health_check_table()->Find(hc_uuid);
+    if (bgp_health_check_service_ == NULL)
         return;
     const VmInterface *vm_interface =
         static_cast<const VmInterface *>(flow->intf_entry());
-    flow->data().bgp_health_check_instance =
-        flow->data().bgp_health_check_service->
-        StartHealthCheckService(
-                    const_cast<VmInterface *>(vm_interface));
-    flow->set_flags(FlowEntry::BgpHealthCheckService);
-    flow->data().bgp_health_check_uuid = hc_uuid;
+    bgp_health_check_instance_ =
+        bgp_health_check_service_->StartHealthCheckService(
+            const_cast<VmInterface *>(vm_interface),
+            flow->key().dst_addr, flow->key().src_addr);
+    bgp_health_check_instance_->SetService(bgp_health_check_service_);
 }
 
-void FlowMgmtManager::StopHealthCheck(FlowEntry *flow) {
-    if (flow->data().bgp_health_check_instance) {
-        flow->data().bgp_health_check_instance->StopTask();
-        flow->data().bgp_health_check_service = NULL;
-        flow->data().bgp_health_check_instance = NULL;
-        flow->reset_flags(FlowEntry::BgpHealthCheckService);
-        flow->data().bgp_health_check_uuid = nil_uuid();
+void BgpAsAServiceFlowMgmtKey::StopHealthCheck(FlowEntry *flow) {
+    if (bgp_health_check_instance_) {
+        bgp_health_check_instance_->StopTask(bgp_health_check_service_);
+        bgp_health_check_instance_ = NULL;
+        bgp_health_check_service_ = NULL;
     }
 }
 

@@ -17,7 +17,8 @@ DiagProto::DiagProto(Agent *agent, boost::asio::io_service &io)
     : Proto(agent, "Agent::Diag", PktHandler::DIAG, io),
       session_map_(), stats_mutex_(), stats_() {
     agent->health_check_table()->RegisterHealthCheckCallback(
-        boost::bind(&DiagProto::SegmentHealthCheckProcess, this, _1, _2));
+        boost::bind(&DiagProto::SegmentHealthCheckProcess, this, _1, _2),
+        HealthCheckService::SEGMENT);
 }
 
 ProtoHandler *DiagProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,

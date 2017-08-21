@@ -11,8 +11,8 @@
 
 SegmentHealthCheckPkt::SegmentHealthCheckPkt(HealthCheckInstanceService *svc,
                                              DiagTable *diag_table) :
-    DiagEntry(svc->ip()->service_ip().to_string(),
-              svc->ip()->destination_ip().to_string(), IPPROTO_ICMP, 0, 0, "",
+    DiagEntry(svc->source_ip().to_string(),
+              svc->destination_ip().to_string(), IPPROTO_ICMP, 0, 0, "",
               ((svc->service()->timeout() * 1000) +
                (svc->service()->timeout_usecs()/1000)),
               svc->service()->max_retries(),

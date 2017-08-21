@@ -757,16 +757,12 @@ const HealthCheckInstanceBase *VmInterface::GetHealthCheckFromVmiFlow
         if (hc_service->url_port() != sport)
             continue;
 
-        // The source-ip and destination-ip can be matched from MetaDataIp
+        // The source-ip and destination-ip can be matched with the address
         // allocated for HealthCheck
-        const MetaDataIp *mip = hc_instance->ip();
-        if (mip == NULL)
+        if (hc_instance->destination_ip() != sip)
             continue;
 
-        if (mip->destination_ip() != sip)
-            continue;
-
-        if (mip->service_ip() != dip)
+        if (hc_instance->source_ip() != dip)
             continue;
 
         return hc_instance;

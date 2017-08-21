@@ -85,15 +85,18 @@ public:
     enum EventType {
         MESSAGE_READ = 0,
         TASK_EXIT,
+        SET_SERVICE,
         STOP_TASK,
         EVENT_MAX
     };
 
-    HealthCheckInstanceEvent(HealthCheckInstanceBase *inst, EventType type,
+    HealthCheckInstanceEvent(HealthCheckInstanceBase *inst,
+                             HealthCheckService *service, EventType type,
                              const std::string &message);
     virtual ~HealthCheckInstanceEvent();
 
     HealthCheckInstanceBase *instance_;
+    HealthCheckService *service_;
     EventType type_;
     std::string message_;
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceEvent);
@@ -122,8 +125,10 @@ public:
     void OnRead(const std::string &data);
     // OnExit Callback for Task
     void OnExit(const boost::system::error_code &ec);
+    // Callback to enqueue set service
+    void SetService(HealthCheckService *service);
     // Callback to enqueue stop task
-    void StopTask();
+    void StopTask(HealthCheckService *service);
 
     virtual void ResyncInterface(const HealthCheckService *service) const;
     void set_service(HealthCheckService *service);
@@ -135,6 +140,10 @@ public:
     MetaDataIp *ip() const { return ip_.get(); }
     const std::string &last_update_time() const { return last_update_time_; }
     bool IsStatusEventIgnored() const { return ignore_status_event_; }
+    void set_source_ip(const IpAddress &ip) { source_ip_ = ip; }
+    IpAddress source_ip() const;
+    void set_destination_ip(const IpAddress &ip) { destination_ip_ = ip; }
+    IpAddress destination_ip() const;
 
 protected:
     void EnqueueResync(const HealthCheckService *service, Interface *itf) const;
@@ -154,6 +163,11 @@ protected:
     bool deleted_;
     // true if the health check up or down status event has to be ignored
     bool ignore_status_event_;
+
+    // source IP to be used while doing the health check
+    IpAddress source_ip_;
+    // destination IP for the health check
+    IpAddress destination_ip_;
 
 private:
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceBase);
@@ -193,7 +207,7 @@ public:
     HealthCheckInstanceService(HealthCheckService *service,
                                MetaDataIpAllocator *allocator,
                                VmInterface *intf, VmInterface *other_intf,
-                               bool ignore_status_event);
+                               bool ignore_status_event, bool multi_hop);
     virtual ~HealthCheckInstanceService();
 
     virtual bool CreateInstanceTask();
@@ -203,12 +217,18 @@ public:
     virtual bool UpdateInstanceTask();
     virtual void ResyncInterface(const HealthCheckService *service) const;
 
+    bool is_multi_hop() const { return multi_hop_; }
+
 private:
     friend class HealthCheckTable;
-    /* Other Interface associated to this HealthCheck Instance when
-     * HealthCheck service type is "segment"
-     */
+
+    // Other Interface associated to this HealthCheck Instance when
+    // HealthCheck service type is "segment"
     InterfaceRef other_intf_;
+
+    // BFD health check can be single hop or multi hop, when started for a
+    // BGP flow, make it multi hop
+    bool multi_hop_;
 
     DISALLOW_COPY_AND_ASSIGN(HealthCheckInstanceService);
 };
@@ -216,6 +236,13 @@ private:
 class HealthCheckService : AgentRefCount<HealthCheckService>,
                            public AgentOperDBEntry {
 public:
+    enum HealthCheckType {
+        PING,
+        HTTP,
+        BFD,
+        SEGMENT,
+        MAX_HEALTH_CHECK_SERVICES
+    };
     typedef std::map<boost::uuids::uuid, HealthCheckInstanceBase *> InstanceList;
 
     HealthCheckService(const HealthCheckTable *table,
@@ -235,9 +262,12 @@ public:
     void PostAdd();
     bool Copy(HealthCheckTable *table, const HealthCheckServiceData *data);
 
-    HealthCheckInstanceBase *StartHealthCheckService(VmInterface *interface) {
+    HealthCheckInstanceBase *StartHealthCheckService(
+                             VmInterface *interface, const IpAddress &source_ip,
+                             const IpAddress &destination_ip) {
         // health check status event is ignored
-        return StartHealthCheckService(interface, NULL, IpAddress(), true);
+        return StartHealthCheckService(interface, NULL, source_ip,
+                                       destination_ip, true, true);
     }
     void StopHealthCheckService(HealthCheckInstanceBase *instance);
 
@@ -258,6 +288,9 @@ public:
     const std::string &monitor_type() const { return monitor_type_; }
     const HealthCheckTable *table() const { return table_; }
     bool IsSegmentHealthCheckService() const;
+    HealthCheckType health_check_type() const {
+        return health_check_type_;
+    }
 
 private:
     friend class HealthCheckInstanceEvent;
@@ -265,8 +298,11 @@ private:
     bool IsInstanceTaskBased() const;
     HealthCheckInstanceBase *StartHealthCheckService(VmInterface *interface,
                                                      VmInterface *paired_vmi,
-                                                     const IpAddress &paired_ip,
-                                                     bool ignore_status_event);
+                                                     const IpAddress &source_ip,
+                                                     const IpAddress &destination_ip,
+                                                     bool ignore_status_event,
+                                                     bool multi_hop);
+    HealthCheckType GetHealthCheckType() const;
 
     const HealthCheckTable *table_;
     boost::uuids::uuid uuid_;
@@ -290,6 +326,7 @@ private:
     uint32_t max_retries_;
     // List of interfaces associated to this HealthCheck Service
     InstanceList intf_list_;
+    HealthCheckType health_check_type_;
     DISALLOW_COPY_AND_ASSIGN(HealthCheckService);
 };
 
@@ -334,17 +371,19 @@ public:
     void InstanceEventEnqueue(HealthCheckInstanceEvent *event) const;
     bool InstanceEventProcess(HealthCheckInstanceEvent *event);
 
-    void RegisterHealthCheckCallback(HealthCheckServiceCallback fn) {
-        health_check_service_cb_ = fn;
+    void RegisterHealthCheckCallback(HealthCheckServiceCallback fn,
+                                     HealthCheckService::HealthCheckType type) {
+        health_check_service_cb_[type] = fn;
     }
-    HealthCheckServiceCallback health_check_service_callback() const {
-        return health_check_service_cb_;
+    HealthCheckServiceCallback health_check_service_callback(
+                               HealthCheckService::HealthCheckType type) const {
+        return health_check_service_cb_[type];
     }
 
 private:
 
     WorkQueue<HealthCheckInstanceEvent *> *inst_event_queue_;
-    HealthCheckServiceCallback health_check_service_cb_;
+    HealthCheckServiceCallback health_check_service_cb_[HealthCheckService::MAX_HEALTH_CHECK_SERVICES];
 
     DISALLOW_COPY_AND_ASSIGN(HealthCheckTable);
 };
