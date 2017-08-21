@@ -177,6 +177,7 @@ const list<string> BackupImplementedServices = [
     SERVICE_SCHEMA_TRANSFORMER,
     SERVICE_SVC_MONITOR,
     SERVICE_DEVICE_MANAGER,
+    SERVICE_KUBE_MANAGER,
 ]
 
 const string ContrailKeystoneAuthConfigurationFile = '/etc/contrail/contrail-keystone-auth.conf'
