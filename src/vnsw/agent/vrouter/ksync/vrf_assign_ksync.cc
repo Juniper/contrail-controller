@@ -162,7 +162,7 @@ int VrfAssignKSyncEntry::ChangeMsg(char *buf, int buf_len){
 
 int VrfAssignKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     LOG(DEBUG, "VrfAssign: Delete");
-    return Encode(sandesh_op::DELETE, buf, buf_len);
+    return Encode(sandesh_op::DEL, buf, buf_len);
 }
 
 KSyncEntry *VrfAssignKSyncEntry::UnresolvedReference() {

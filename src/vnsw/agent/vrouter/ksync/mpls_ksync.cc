@@ -114,10 +114,10 @@ int MplsKSyncEntry::ChangeMsg(char *buf, int buf_len){
 
 int MplsKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncMplsInfo info;
-    FillObjectLog(sandesh_op::DELETE, info);
+    FillObjectLog(sandesh_op::DEL, info);
     KSYNC_TRACE(Mpls, GetObject(), info);
  
-    return Encode(sandesh_op::DELETE, buf, buf_len);
+    return Encode(sandesh_op::DEL, buf, buf_len);
 }
 
 KSyncEntry *MplsKSyncEntry::UnresolvedReference() {

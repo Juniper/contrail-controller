@@ -141,7 +141,7 @@ int ForwardingClassKSyncEntry::ChangeMsg(char *buf, int buf_len) {
 }
 
 int ForwardingClassKSyncEntry::DeleteMsg(char *buf, int buf_len) {
-    return Encode(sandesh_op::DELETE, buf, buf_len);
+    return Encode(sandesh_op::DEL, buf, buf_len);
 }
 
 KSyncEntry *ForwardingClassKSyncEntry::UnresolvedReference() {
