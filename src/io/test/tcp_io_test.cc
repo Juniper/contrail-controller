@@ -111,8 +111,13 @@ private:
     EchoSession *session_;
 };
 
+/*
+ * To simulate write blocked, we need to send more chunks of
+ * data to the kernel.
+ */
+static const int kSendBufferSize = (1 *1024);
 EchoSession::EchoSession(EchoServer *server, Socket *socket)
-    : TcpSession(server, socket), called(false), total_(0) {
+    : TcpSession(server, socket, true, kSendBufferSize), called(false), total_(0) {
     set_observer(boost::bind(&EchoSession::OnEvent, this, _1, _2));
 }
 
@@ -183,7 +188,6 @@ TEST_F(EchoServerTest, Basic) {
 
     char msg2[4096];
     int i = 0;
-    size_t sent = 0;
     int total;
 
     //
@@ -192,21 +196,14 @@ TEST_F(EchoServerTest, Basic) {
     {
     while (res) {
         i++;
-        res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), &sent);
+        res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), NULL);
     }
 
     total = sizeof(msg2) * i;
+    TCP_UT_LOG_DEBUG("Send:" << sizeof(msg2)* i << " bytes with send blocked");
     EXPECT_NE(total, server_->GetSession()->GetTotal());
     TCP_UT_LOG_DEBUG("Total bytes txed: " << total);
     TCP_UT_LOG_DEBUG("Total bytes rxed: " << server_->GetSession()->GetTotal());
-
-    // try sending more to build internal buffer_queue_
-    for (int i = 0 ; i < 5; i++) {
-        res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), &sent);
-        EXPECT_FALSE(res);
-        EXPECT_EQ(sent, 0);
-        total += sizeof(msg2);
-    }
 
     }
     TASK_UTIL_ASSERT_EQ(total, server_->GetSession()->GetTotal());
@@ -228,12 +225,11 @@ TEST_F(EchoServerTest, Basic) {
         i++;
         res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), NULL);
     }
+    TCP_UT_LOG_DEBUG("Send:" << sizeof(msg2)* i << " bytes with send blocked");
 
     total = sizeof(msg2) * i;
     for (i = 0 ; i < 5; i++) {
-        res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), &sent);
-        EXPECT_FALSE(res);
-        EXPECT_EQ(sent, 0);
+        res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), NULL);
         total += sizeof(msg2);
     }
     TCP_UT_LOG_DEBUG("2nd iteration. Total bytes sent: " << total);
@@ -270,9 +266,15 @@ TEST_F(EchoServerTest, ReadInterrupt) {
     TASK_UTIL_ASSERT_TRUE((server_->GetSession() != NULL));
     TASK_UTIL_ASSERT_TRUE(client_->GetSession()->IsEstablished());
     TASK_UTIL_ASSERT_TRUE(server_->GetSession()->IsEstablished());
-    const char msg[] = "Test Message";
 
-    (void) client_->Send((const u_int8_t *) msg, sizeof(msg), NULL);
+    char msg2[4096];
+    bool res = true;
+    int i = 0;
+    /* Simulate send blocked */
+    while (res) {
+        i++;
+        res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), NULL);
+    }
 
     client_->GetSession()->Close();
     client_->SessionReset();
@@ -286,7 +288,7 @@ TEST_F(EchoServerTest, ReadInterrupt) {
 
     // Reader task will read the buffer and close the session on subsequent read error
     TASK_UTIL_ASSERT_TRUE(!server_->GetSession()->IsEstablished());
-    EXPECT_EQ(server_->GetSession()->GetTotal(), 13);
+    EXPECT_NE(server_->GetSession()->GetTotal(), sizeof(msg2)*i);
 }
 
 TEST_F(EchoServerTest, SendAfterClose) {
@@ -308,12 +310,13 @@ TEST_F(EchoServerTest, SendAfterClose) {
     for (int i = 0; i < 16; i++) {
         client_->Send((const u_int8_t *) msg, sizeof(msg), NULL);
     }
+    TASK_UTIL_EXPECT_NE(0, server_->GetSession()->GetTotal());
+    task_util::WaitForIdle();
     client_->GetSession()->Close();
 
     bool res = client_->Send((const u_int8_t *) msg, sizeof(msg), NULL);
     EXPECT_FALSE(res);
     TASK_UTIL_ASSERT_TRUE((server_->GetSession() != NULL));
-    TASK_UTIL_ASSERT_NE(0, server_->GetSession()->GetTotal());
 }
 
 TEST_F(EchoServerTest, DeferRead) {
