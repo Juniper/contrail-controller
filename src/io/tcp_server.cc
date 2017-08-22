@@ -132,7 +132,6 @@ void TcpServer::Shutdown() {
 void TcpServer::ClearSessions() {
     tbb::mutex::scoped_lock lock(mutex_);
     SessionSet refs;
-    session_map_.clear();
     refs.swap(session_ref_);
     lock.release();
 
@@ -141,9 +140,12 @@ void TcpServer::ClearSessions() {
         ++next;
         TcpSession *session = iter->get();
         session->Close();
+        assert(!session->tcp_close_in_progress_);
     }
     refs.clear();
-    cond_var_.notify_all();
+    if (session_ref_.empty() && session_map_.empty()) {
+        cond_var_.notify_all();
+    }
 }
 
 TcpSession *TcpServer::CreateSession() {
@@ -163,7 +165,7 @@ void TcpServer::DeleteSession(TcpSession *session) {
         tbb::mutex::scoped_lock lock(mutex_);
         assert(session->refcount_);
         session_ref_.erase(TcpSessionPtr(session));
-        if (session_ref_.empty()) {
+        if (session_ref_.empty() && session_map_.empty()) {
             cond_var_.notify_all();
         }
     }
@@ -202,6 +204,9 @@ void TcpServer::OnSessionClose(TcpSession *session) {
     }
 
     bool found = RemoveSessionFromMap(session->remote_endpoint(), session);
+    if (session_map_.empty() && session_ref_.empty()) {
+        cond_var_.notify_all();
+    }
     assert(found);
 }
 
@@ -211,7 +216,7 @@ void TcpServer::OnSessionClose(TcpSession *session) {
 // progress.
 void TcpServer::WaitForEmpty() {
     tbb::interface5::unique_lock<tbb::mutex> lock(mutex_);
-    while (!session_ref_.empty()) {
+    while (!session_ref_.empty() || !session_map_.empty()) {
         cond_var_.wait(lock);
     }
 }
@@ -500,6 +505,8 @@ void TcpServerManager::AddServer(TcpServer *server) {
 }
 
 void TcpServerManager::DeleteServer(TcpServer *server) {
+    // Wait for pending writes to be complete
+    server->WaitForEmpty();
     impl_.DeleteServer(server);
 }
 
