@@ -434,6 +434,9 @@ class VncZkClient(object):
             func, *args)
     # end master_election
 
+    def zk_counter(self, path, max_retries=1, default=0):
+        return self._zk_client.zk_counter(path, max_retries, default)
+
     def _reconnect_zk(self):
         self._zk_client.connect()
         self._reconnect_zk_greenlet = None

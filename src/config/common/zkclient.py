@@ -9,12 +9,15 @@ import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
 from kazoo.client import KazooState
-from kazoo.retry import KazooRetry
+from kazoo.retry import KazooRetry, ForceRetryError
+from kazoo.recipe.counter import Counter
 
 from bitarray import bitarray
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from cfgm_common.exceptions import ResourceExhaustionError,\
+     ResourceExistsError, OverQuota
 from gevent.lock import BoundedSemaphore
 
+from functools import partial
 import datetime
 import uuid
 
@@ -218,6 +221,28 @@ class IndexAllocator(object):
 
 #end class IndexAllocator
 
+class ZookeeperCounter(Counter):
+
+    def __init__(self, client, path, max_retries, default=0):
+
+        super(ZookeeperCounter, self).__init__(client, path, default)
+
+        self.client = client
+        self.path = path
+        self.default = default
+        self.default_type = type(default)
+        self.max_retries = max_retries
+
+    def _inner_change(self, value):
+        data, version = self._value()
+        data = repr(data + value).encode('ascii')
+        if int(data) > self.max_retries:
+            raise OverQuota()
+        try:
+            self.client.set(self.path, data, version=version)
+        except kazoo.exceptions.BadVersionError:  # pragma: nocover
+            raise ForceRetryError()
+# end class ZookeeperCounter
 
 class ZookeeperClient(object):
 
@@ -253,6 +278,7 @@ class ZookeeperClient(object):
                 connection_retry=self._retry,
                 command_retry=self._retry)
 
+        self._zk_client.Counter = partial(ZookeeperCounter, self._zk_client)
         self._zk_client.add_listener(self._zk_listener)
         self._logger = logger
         self._election = None
@@ -367,6 +393,9 @@ class ZookeeperClient(object):
         self._election = self._zk_client.Election(path, identifier)
         self._election.run(func, *args, **kwargs)
     # end master_election
+
+    def zk_counter(self, path, max_retries=1, default=0):
+        return self._zk_client.Counter(path, max_retries, default=default)
 
     def create_node(self, path, value=None):
         try:

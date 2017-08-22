@@ -68,3 +68,23 @@ class QuotaHelper(object):
             return (False, (QUOTA_OVER_ERROR_CODE, pformat(obj_dict['fq_name']) + ' : ' + msg))
 
         return True, ""
+
+    @classmethod
+    def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
+
+        if obj_type+'s' in Project.children_fields:
+            # Number of resources created under this project.
+            # Resouce is a child ref under project object
+            (ok, quota_count) = db_conn.dbe_count_children(
+                'project', proj_uuid, obj_type+'s')
+            if not ok:
+                return (False, (500, 'Internal error : Failed to read current '
+                                'resource count'))
+        else:
+            (ok, res_list, _) = db_conn.dbe_list(obj_type,
+                                              back_ref_uuids=[proj_uuid])
+            if not ok:
+                return (False, (500, 'Internal error : Failed to read %s '
+                                'resource list' % obj_type))
+            quota_count = len(res_list)
+        return quota_count
