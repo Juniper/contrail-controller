@@ -49,11 +49,8 @@ def _parse_rt(rt):
 class ResourceDbMixin(object):
 
     @classmethod
-    def get_quota_for_resource(cls, obj_type, obj_dict, db_conn):
-        user_visible = obj_dict['id_perms'].get('user_visible', True)
-        if not user_visible or obj_type not in QuotaType.attr_fields:
-            return True, -1, None
-
+    def get_project_id_for_resource(cls, obj_dict, db_conn):
+        proj_uuid = None
         if 'project_refs' in obj_dict:
             proj_dict = obj_dict['project_refs'][0]
             proj_uuid = proj_dict.get('uuid')
@@ -61,7 +58,17 @@ class ResourceDbMixin(object):
                 proj_uuid = db_conn.fq_name_to_uuid('project', proj_dict['to'])
         elif 'parent_type' in obj_dict and obj_dict['parent_type'] == 'project':
             proj_uuid = obj_dict['parent_uuid']
-        else:
+
+        return proj_uuid
+
+    @classmethod
+    def get_quota_for_resource(cls, obj_type, obj_dict, db_conn):
+        user_visible = obj_dict['id_perms'].get('user_visible', True)
+        if not user_visible or obj_type not in QuotaType.attr_fields:
+            return True, -1, None
+
+        proj_uuid = cls.get_project_id_for_resource(obj_dict, db_conn)
+        if proj_uuid is None:
             return True, -1, None
 
         (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid, db_conn)
@@ -70,16 +77,6 @@ class ResourceDbMixin(object):
 
         quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
         return True, quota_limit, proj_uuid
-
-    @classmethod
-    def check_for_quota(cls, obj_type, obj_dict, quota_limit, proj_uuid, db_conn):
-        user_visible = obj_dict['id_perms'].get('user_visible', True)
-        if user_visible:
-            ok, result = QuotaHelper.verify_quota_for_resource(db_conn, obj_dict, obj_type,
-                                      quota_limit, proj_uuid)
-            return (ok, result)
-        else:
-            return True, ''
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
