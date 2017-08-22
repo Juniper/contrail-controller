@@ -434,6 +434,9 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         (disc_client.DiscoveryClient, 'syslog',stub),
 
         (kazoo.client.KazooClient, '__new__',FakeKazooClient),
+        (kazoo.recipe.counter.Counter, '__init__',fake_zk_counter_init),
+        (kazoo.recipe.counter.Counter, '_change',fake_zk_counter_change),
+        (kazoo.recipe.counter.Counter, 'value',fake_zk_counter_value),
         (kazoo.handlers.gevent.SequentialGeventHandler, '__init__',stub),
 
         (kombu.Connection, '__new__',FakeKombu.Connection),
