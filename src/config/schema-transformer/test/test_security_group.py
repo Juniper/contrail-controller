@@ -222,7 +222,7 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
 
     def test_sg_reference(self):
         #create sg and associate egress rules with sg names
-        sg1_obj = self.security_group_create('sg-1', ['default-domain',
+        sg1_obj = self.security_group_create('sg-1-%s' %(self.id()), ['default-domain',
                                                       'default-project'])
         self.wait_to_get_sg_id(sg1_obj.get_fq_name())
         sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
@@ -234,22 +234,22 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
         rule1['protocol'] = 'any'
         rule1['ether_type'] = 'IPv4'
         #create rule with forward sg-names
-        sg_rule1 = self._security_group_rule_build(rule1, "default-domain:default-project:sg-2")
+        sg_rule1 = self._security_group_rule_build(rule1, "default-domain:default-project:sg-2-%s" % self.id())
         self._security_group_rule_append(sg1_obj, sg_rule1)
-        sg_rule3 = self._security_group_rule_build(rule1, "default-domain:default-project:sg-3")
+        sg_rule3 = self._security_group_rule_build(rule1, "default-domain:default-project:sg-3-%s" % self.id())
         self._security_group_rule_append(sg1_obj, sg_rule3)
         self._vnc_lib.security_group_update(sg1_obj)
         self.check_security_group_id(sg1_obj.get_fq_name())
 
         #check ST SG refer dict for right association
         self.check_sg_refer_list(sg1_obj.get_fq_name_str(),
-                                 "default-domain:default-project:sg-2", True)
+                                 "default-domain:default-project:sg-2-%s" % self.id(), True)
         self.check_sg_refer_list(sg1_obj.get_fq_name_str(),
-                                 "default-domain:default-project:sg-3", True)
+                                 "default-domain:default-project:sg-3-%s" % self.id(), True)
         sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
 
         #create another sg and associate ingress rule and check acls
-        sg2_obj = self.security_group_create('sg-2', ['default-domain',
+        sg2_obj = self.security_group_create('sg-2-%s' % self.id(), ['default-domain',
                                                       'default-project'])
         self.wait_to_get_sg_id(sg2_obj.get_fq_name())
         sg2_obj = self._vnc_lib.security_group_read(sg2_obj.get_fq_name())
@@ -276,7 +276,7 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
                                 sg2_obj.get_security_group_id())
 
         #create sg3
-        sg3_obj = self.security_group_create('sg-3', ['default-domain',
+        sg3_obj = self.security_group_create('sg-3-%s' % self.id(), ['default-domain',
                                                       'default-project'])
         self.check_sg_refer_list(sg1_obj.get_fq_name_str(),
                                  sg3_obj.get_fq_name_str(), True)
@@ -313,7 +313,7 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
 
     def test_sg(self):
         #create sg and associate egress rule and check acls
-        sg1_obj = self.security_group_create('sg-1', ['default-domain',
+        sg1_obj = self.security_group_create('sg-1-%s' % self.id(), ['default-domain',
                                                       'default-project'])
         self.wait_to_get_sg_id(sg1_obj.get_fq_name())
         sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
@@ -343,7 +343,7 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
                                 sg1_obj.get_security_group_id())
 
         #create another sg and associate ingress rule and check acls
-        sg2_obj = self.security_group_create('sg-2', ['default-domain',
+        sg2_obj = self.security_group_create('sg-2-%s' % self.id(), ['default-domain',
                                                       'default-project'])
         self.wait_to_get_sg_id(sg2_obj.get_fq_name())
         sg2_obj = self._vnc_lib.security_group_read(sg2_obj.get_fq_name())
@@ -417,7 +417,7 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
 
     def test_delete_sg(self):
         #create sg and associate egress rule and check acls
-        sg1_obj = self.security_group_create('sg-1', ['default-domain',
+        sg1_obj = self.security_group_create('sg-1-%s' % self.id(), ['default-domain',
                                                       'default-project'])
         self.wait_to_get_sg_id(sg1_obj.get_fq_name())
         sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
