@@ -1182,10 +1182,6 @@ class AddrMgmt(object):
             if req_df_gw:
                 req_df_gw = req_df_gw.lower()
 
-            req_dns = req_subnet.get('dns_server_address')
-            if req_dns:
-                req_dns = req_dns.lower()
-
             for db_subnet in db_subnets:
                 db_cidr = db_subnet.get('subnet')
                 if req_cidr is None or db_cidr is None:
@@ -1204,10 +1200,8 @@ class AddrMgmt(object):
                 network = IPNetwork('%s/%s' % (db_prefix, db_prefix_len))
                 if db_subnet.get('addr_from_start'):
                     df_gw_ip = str(IPAddress(network.first + 1))
-                    df_dns = str(IPAddress(network.first + 2))
                 else:
                     df_gw_ip = str(IPAddress(network.last - 1))
-                    df_dns = str(IPAddress(network.last - 2))
 
                 if db_df_gw != req_df_gw:
                     invalid_update = False
@@ -1220,23 +1214,6 @@ class AddrMgmt(object):
                         err_msg = "default gateway change is not allowed" +\
                                   " orig:%s, new: %s" \
                                   %(db_df_gw, req_df_gw)
-                        return False, err_msg
-
-                # for a given subnet, dns server address should not be different
-                db_dns = db_subnet.get('dns_server_address')
-                if db_dns:
-                    db_dns = db_dns.lower()
-                if db_dns != req_dns:
-                    invalid_update = False
-                    if ((req_dns is None) and (db_dns != df_dns)):
-                        invalid_update = True
-
-                    if ((req_dns != None) and (req_dns != df_dns)):
-                        invalid_update = True
-                    if invalid_update is True:
-                        err_msg = "dns server change is not allowed" +\
-                                  " orig:%s, new: %s" \
-                                  %(db_dns, req_dns)
                         return False, err_msg
 
         return True, ""
