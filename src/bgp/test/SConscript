@@ -418,9 +418,6 @@ bgp_xmpp_rtarget_manager_test = env.UnitTest('bgp_xmpp_rtarget_manager_test',
 env.Alias('src/bgp:bgp_xmpp_rtarget_manager_test',
           bgp_xmpp_rtarget_manager_test)
 
-xmpp_ecmp_test = env.UnitTest('xmpp_ecmp_test', ['xmpp_ecmp_test.cc'])
-env.Alias('src/bgp:xmpp_ecmp_test', xmpp_ecmp_test)
-
 xmpp_message_builder_test = env.UnitTest('xmpp_message_builder_test', ['xmpp_message_builder_test.cc'])
 env.Alias('src/bgp:xmpp_message_builder_test', xmpp_message_builder_test)
 
@@ -660,7 +657,6 @@ test_suite = [
     svc_static_route_intergration_test3_4,
     svc_static_route_intergration_test4_1,
     svc_static_route_intergration_test4_2,
-    xmpp_ecmp_test,
     xmpp_message_builder_test,
     xmpp_sess_toggle_test,
 ]
