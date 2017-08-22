@@ -17,6 +17,7 @@ SocketStats::SocketStats() {
     write_calls = 0;
     write_bytes = 0;
     write_errors = 0;
+    write_block_start_time = 0;
     write_blocked = 0;
     write_blocked_duration_usecs = 0;
     read_block_start_time = 0;
