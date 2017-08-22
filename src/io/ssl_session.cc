@@ -19,6 +19,7 @@ using boost::asio::mutable_buffer;
 using boost::asio::mutable_buffers_1;
 using boost::asio::null_buffers;
 using boost::asio::placeholders::error;
+using boost::asio::placeholders::bytes_transferred;
 using boost::asio::ssl::stream_base;
 using boost::bind;
 using boost::function;
@@ -112,13 +113,28 @@ size_t SslSession::GetReadBufferSize() const {
     return kDefaultBufferSize;
 }
 
+//
+// Check if a socker error is hard and fatal. Only then should we close the
+// socket. Soft errors like EINTR and EAGAIN should be ignored or properly
+// handled with retries
+//
+bool SslSession::IsSocketErrorHard(const error_code &ec) {
+
+    bool error;
+    error = TcpSession::IsSocketErrorHard(ec);
+    if (ec.value() == ERR_PACK(ERR_LIB_SSL, 0, SSL_R_SHORT_READ)) {
+        error = false;
+    }
+
+    return error;
+}
+
 size_t SslSession::ReadSome(mutable_buffer buffer, error_code *error) {
     // Read data from the tcp socket or from the ssl socket, as appropriate.
     assert(!ssl_handshake_in_progress_);
     if (!IsSslHandShakeSuccessLocked())
         return TcpSession::ReadSome(buffer, error);
 
-    // do ssl read here in IO context, ignore errors
     return ssl_socket_->read_some(mutable_buffers_1(buffer), *error);
 }
 
@@ -134,8 +150,8 @@ size_t SslSession::WriteSome(const uint8_t *data, size_t len,
 void SslSession::AsyncWrite(const u_int8_t *data, size_t size) {
     if (IsSslHandShakeSuccessLocked()) {
         async_write(*ssl_socket_.get(), buffer(data, size),
-                bind(&TcpSession::AsyncWriteHandler,
-                TcpSessionPtr(this), error));
+                io_strand_->wrap(bind(&TcpSession::AsyncWriteHandler,
+                                 TcpSessionPtr(this), error, bytes_transferred)));
     } else {
         return (TcpSession::AsyncWrite(data, size));
     }

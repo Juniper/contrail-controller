@@ -89,6 +89,7 @@ private:
     }
     virtual size_t GetReadBufferSize() const;
     virtual void AsyncReadSome();
+    static bool IsSocketErrorHard(const boost::system::error_code &ec);
 
     boost::scoped_ptr<SslSocket> ssl_socket_;
 
