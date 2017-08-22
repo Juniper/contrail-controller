@@ -46,19 +46,20 @@ class TestQuota(test_case.ApiServerTestCase):
         logger.removeHandler(cls.console_handler)
         super(TestQuota, cls).tearDownClass(*args, **kwargs)
 
-    def test_create_vmi_with_quota_in_parallels(self):
-        proj_name = 'admin' + self.id()
-        vn_name = 'test-net'
-        kwargs = {'quota':{'virtual_machine_interface': self._port_quota}}
-        project = Project(proj_name, **kwargs)
-        self._vnc_lib.project_create(project)
+    def test_create_vmi_with_quota_in_parallels(self, project=None):
+        vn_name = 'test-net' + str(uuid.uuid4())
+        if project is None:
+            proj_name = 'admin' + self.id()
+            kwargs = {'quota':{'virtual_machine_interface': self._port_quota}}
+            project = Project(proj_name, **kwargs)
+            self._vnc_lib.project_create(project)
         vn = VirtualNetwork(vn_name, project)
         self._vnc_lib.virtual_network_create(vn)
-        vmi=[]
+        vmi_list=[]
         for i in xrange(self._port_quota+1):
-            vmi.insert(i,VirtualMachineInterface(str(uuid.uuid4()), project))
-            vmi[i].uuid = vmi[i].name
-            vmi[i].set_virtual_network(vn)
+            vmi_list.insert(i,VirtualMachineInterface(str(uuid.uuid4()), project))
+            vmi_list[i].uuid = vmi_list[i].name
+            vmi_list[i].set_virtual_network(vn)
         result = {'ok': 0, 'exception': 0}
         def create_port(vmi):
             try:
@@ -67,10 +68,17 @@ class TestQuota(test_case.ApiServerTestCase):
                 result['exception'] +=1
                 return
             result['ok'] +=1
-        threads_vmi = [gevent.spawn(create_port, vmi[i]) for i in xrange(self._port_quota+1)]
+        threads_vmi = [gevent.spawn(create_port, vmi_list[i]) for i in xrange(self._port_quota+1)]
         gevent.joinall(threads_vmi)
         self.assertEqual(result['ok'], self._port_quota)
         self.assertEqual(result['exception'], 1)
+        # Cleanup
+        # Also test for zk counter delete functionality
+        for vmi in vmi_list:
+            try:
+                self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
+            except NoIdError:
+                pass
 
     def test_create_fip_with_quota_in_parallels(self):
         proj_name = 'admin' + self.id()
@@ -104,5 +112,24 @@ class TestQuota(test_case.ApiServerTestCase):
         gevent.joinall(threads_fip)
         self.assertEqual(result['ok'], self._fip_quota)
         self.assertEqual(result['exception'], 1)
-    # end test_example
+    # end test_create_fip_with_quota_in_parallels
+
+    def test_update_quota_and_create_resource_negative(self):
+        proj_name = 'admin' + self.id()
+        kwargs = {'quota':{'virtual_machine_interface': self._port_quota}}
+        project = Project(proj_name, **kwargs)
+        self._vnc_lib.project_create(project)
+        # Creating 4 vmis should fail as the quota is set to 3
+        self.test_create_vmi_with_quota_in_parallels(project=project)
+
+        # Update quota of vmi from 3->4
+        kwargs = {'virtual_machine_interface': 4}
+        quota = QuotaType(**kwargs)
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+        with ExpectedException(MismatchError) as e:
+            # Creating 4 vmis should be a success now
+            # Expect MismatchError on asserEqual(result['exception'], 1)
+            self.test_create_vmi_with_quota_in_parallels(project=project)
+    # end test_update_quota_and_create_resource_negative
 # class TestPermissions
