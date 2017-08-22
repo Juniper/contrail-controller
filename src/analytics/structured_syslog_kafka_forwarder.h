@@ -16,7 +16,7 @@ class KafkaForwarder {
 
         const unsigned int partitions_;
 
-        void Send(const std::string& value, const string& skey);
+        void Send(const std::string& value, const std::string& skey);
 
         KafkaForwarder(EventManager *evm,
                      const std::string brokers,
