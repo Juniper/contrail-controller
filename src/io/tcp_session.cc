@@ -46,6 +46,7 @@ using boost::asio::error::network_reset;
 using boost::asio::error::network_unreachable;
 using boost::asio::error::no_buffer_space;
 using boost::asio::placeholders::error;
+using boost::asio::placeholders::bytes_transferred;
 
 int TcpSession::reader_task_id_ = -1;
 
@@ -80,14 +81,15 @@ private:
 };
 
 TcpSession::TcpSession(
-    TcpServer *server, Socket *socket, bool async_read_ready)
+    TcpServer *server, Socket *socket, bool async_read_ready,
+    size_t buffer_send_size)
     : server_(server),
       socket_(socket),
       read_on_connect_(async_read_ready),
       established_(false),
       closed_(false),
       direction_(ACTIVE),
-      writer_(new TcpMessageWriter(this)),
+      writer_(new TcpMessageWriter(this, buffer_send_size)),
       name_("-") {
     refcount_ = 0;
     if (reader_task_id_ == -1) {
@@ -98,6 +100,8 @@ TcpSession::TcpSession(
         io_strand_.reset(new Strand(*server->event_manager()->io_service()));
     }
     defer_reader_ = false;
+    write_blocked_ = false;
+    tcp_close_in_progress_ = false;
 }
 
 TcpSession::~TcpSession() {
@@ -186,9 +190,9 @@ void TcpSession::DeferWriter() {
     stats_.write_blocked++;
     server_->stats_.write_blocked++;
     socket()->async_write_some(null_buffers(),
-                               bind(&TcpSession::WriteReadyInternal,
-                                    TcpSessionPtr(this),
-                                    error, UTCTimestampUsec()));
+                io_strand_->wrap(bind(&TcpSession::WriteReadyInternal,
+                                 TcpSessionPtr(this),
+                                 error, UTCTimestampUsec())));
 }
 
 void TcpSession::AsyncReadSome() {
@@ -205,8 +209,8 @@ size_t TcpSession::WriteSome(const uint8_t *data, size_t len,
 
 void TcpSession::AsyncWrite(const u_int8_t *data, size_t size) {
     async_write(*socket(), buffer(data, size),
-        bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
-             error));
+        io_strand_->wrap(bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
+                         error, bytes_transferred)));
 }
 
 TcpSession::Endpoint TcpSession::local_endpoint() const {
@@ -341,6 +345,15 @@ void TcpSession::TriggerAsyncReadHandler() {
 }
 
 void TcpSession::Close() {
+
+    tbb::mutex::scoped_lock lock(mutex_);
+
+    if (session->tcp_close_in_progress_ || (session->writer_->IsPendingWrite())) {
+        tcp_close_in_progress_ = true;
+        return;
+    }
+    lock.release();
+
     error_code ec;
     CloseInternal(ec, false);
 }
@@ -388,13 +401,54 @@ session_error:
 }
 
 void TcpSession::AsyncWriteHandler(TcpSessionPtr session,
-                                   const error_code &error) {
+                                   const error_code &error,
+                                   std::size_t wrote) {
+                                   
+    tbb::mutex::scoped_lock lock(session->mutex_);
     if (session->IsSocketErrorHard(error)) {
+        lock.release();
         TCP_SESSION_LOG_ERROR(session, TCP_DIR_OUT,
                               "Write failed due to error: " << error.message());
         session->CloseInternal(error, true);
         return;
     }
+
+    //
+    // Ignore if connection is already closed.
+    //
+    if (session->IsClosedLocked()) return;
+
+    // Update socket write bytes statistics.
+    session->stats_.write_bytes += wrote;
+    session->server_->stats_.write_bytes += wrote;
+
+    bool send_ready = false;
+    bool more_write = session->writer_->FlushBuffer(wrote, &send_ready);
+
+    // Subsequent write
+    if (more_write) {
+        session->writer_->TriggerAsyncWrite();
+    } else if (session->tcp_close_in_progress_) {
+          lock.release();
+          session->CloseInternal(error, true);
+          return;
+    }
+
+    lock.release();
+    if (send_ready)
+        session->WriteReady(error);
+    return;
+}
+
+void TcpSession::AsyncWriteInternal(TcpSessionPtr session) {
+
+    tbb::mutex::scoped_lock lock(session->mutex_);
+
+    //
+    // Ignore if connection is already closed.
+    //
+    if (session->IsClosedLocked()) return;
+    session->writer_->TriggerAsyncWrite();
 }
 
 bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
@@ -408,10 +462,11 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
     // If the session closed in the mean while, bail out
     //
     if (!established_) return false;
+    if (tcp_close_in_progress_) return false;
 
     if (socket()->non_blocking()) {
         error_code error;
-        int len = writer_->Send(data, size, &error);
+        int len = writer_->AsyncSend(data, size, &error);
         lock.release();
         if (len < 0) {
             TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
@@ -465,12 +520,14 @@ void TcpSession::AsyncReadHandler(TcpSessionPtr session) {
 
     error_code error;
     size_t bytes_transferred = session->ReadSome(buffer, &error);
-    if (IsSocketErrorHard(error)) {
+    if (session->IsSocketErrorHard(error)) {
         session->ReleaseBufferLocked(buffer);
         // eof is returned when the peer closed the socket, no need to log error
         if (error != eof) {
             TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
-                    "Read failed due to error " << error.value()
+                    "Read failed due to error " 
+                    << error.category().name() << " "
+                    << error.value()
                     << " : " << error.message());
         }
 
