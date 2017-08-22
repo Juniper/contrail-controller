@@ -101,9 +101,11 @@ class VncKubernetesTest(unittest.TestCase):
     @patch("kube_manager.vnc.vnc_kubernetes.VncApi", new=VncApiMock)
     @patch("kube_manager.vnc.vnc_kubernetes.VncAmqpHandle", new=Mock())
     def test_nested_mode(self):
+        old_nested_mode = DBBaseKM.is_nested()
         self.args.nested_mode = "1"
         vnc_kubernetes.VncKubernetes(self.args, Mock())
         self.assertTrue(DBBaseKM.is_nested())
+        DBBaseKM.set_nested(old_nested_mode)
 
     @patch("kube_manager.vnc.db.KubeNetworkManagerDB", new=DBMock)
     @patch("kube_manager.vnc.vnc_kubernetes.VncApi", new=VncApiMock)
