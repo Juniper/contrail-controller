@@ -389,7 +389,7 @@ TEST_F(SslEchoServerTest, msg_send_recv) {
     client = NULL;
 }
 
-TEST_F(SslEchoServerTest, large_msg_send_recv) {
+TEST_F(SslEchoServerTest, DISABLED_large_msg_send_recv) {
 
     SetUpImmedidate();
     SslClient *client = new SslClient(evm_.get(), false, true);
