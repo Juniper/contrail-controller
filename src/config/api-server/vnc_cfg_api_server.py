@@ -498,9 +498,12 @@ class VncApiServer(object):
 
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
+        quota_counter = []
         obj_ids = {}
-        def undo_create(result):
+        def undo_create(result, counter=None, value=0):
             (code, msg) = result
+            if counter:
+                counter = counter + value
             get_context().invoke_undo(code, msg, self.config_log)
             failed_stage = get_context().get_state()
             fq_name_str = ':'.join(fq_name)
@@ -541,24 +544,15 @@ class VncApiServer(object):
             get_context().set_state('DBE_CREATE')
 
             if quota_limit >= 0:
-                #master_election
-                ret = {'ok': None, 'result': None}
-                def _create():
-                    (ok, result) = r_class.check_for_quota(obj_type, obj_dict,
-                                                           quota_limit, proj_uuid, db_conn)
-                    if not ok:
-                        ret['ok'] = ok
-                        ret['result'] = result
-                        return
-                    (_ok, _result) = db_conn.dbe_create(obj_type, obj_ids,
-                                                        obj_dict)
-                    ret['ok'] = _ok
-                    ret['result'] = _result
-
-                self._db_conn._zk_db.master_election("/vnc_api_server_obj_create/" + obj_type,
-                                                     _create)
-                if not ret['ok']:
-                    return ret['ok'], ret['result']
+                path = self._path_prefix + proj_uuid + "/" + obj_type
+                (ok, result) = QuotaHelper.verify_quota_and_create_resource(
+                                          db_conn, obj_dict, obj_type, obj_id,
+                                          quota_limit, self.quota_counter[path])
+                if not ok:
+                    return (ok, result)
+                else:
+                    # To be used for reverting back count when undo() is called
+                    quota_counter.append(self.quota_counter[path])
             else:
                 #normal execution
                 (ok, result) = db_conn.dbe_create(obj_type, obj_ids,
@@ -590,9 +584,17 @@ class VncApiServer(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             result = (500, err_msg)
         if not ok:
-            undo_create(result)
+            undo_create(result, counter=quota_counter, value=-1)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
+
+        # Initialize quota counter if resource is project
+        if resource_type == 'project' and 'quota' in obj_dict:
+            proj_id = obj_dict['uuid']
+            quota_dict = obj_dict.get('quota')
+            path_prefix = self._path_prefix + proj_id
+            QuotaHelper._zk_quota_counter_init(path_prefix, quota_dict, proj_id,
+                                               db_conn, self.quota_counter)
 
         rsp_body = {}
         rsp_body['name'] = name
@@ -785,6 +787,11 @@ class VncApiServer(object):
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
 
+        if resource_type == 'project' and 'quota' in read_result:
+            old_quota_dict = read_result['quota']
+        else:
+            old_quota_dict = None
+
         # check visibility
         if (not read_result['id_perms'].get('user_visible', True) and
             not self.is_admin_request()):
@@ -842,6 +849,14 @@ class VncApiServer(object):
             get_context().set_state('DBE_UPDATE')
             (ok, result) = db_conn.dbe_update(obj_type, obj_ids,
                                               obj_dict)
+            # Update quota counter
+            if resource_type == 'project' and 'quota' in obj_dict:
+                proj_id = obj_dict['uuid']
+                quota_dict = obj_dict['quota']
+                path_prefix = self._path_prefix + proj_id
+                QuotaHelper._zk_quota_counter_update(
+                           path_prefix, quota_dict, proj_id, self._db_conn,
+                           self.quota_counter)
             if not ok:
                 return (ok, result)
 
@@ -989,9 +1004,12 @@ class VncApiServer(object):
 
         # State modification starts from here. Ensure that cleanup is done for all state changes
         cleanup_on_failure = []
+        quota_counter = []
 
-        def undo_delete(result):
+        def undo_delete(result, counter=None, value=0):
             (code, msg) = result
+            if counter:
+                counter = counter + value
             get_context().invoke_undo(code, msg, self.config_log)
             failed_stage = get_context().get_state()
             self.config_object_error(
@@ -1000,6 +1018,9 @@ class VncApiServer(object):
 
         def stateful_delete():
             get_context().set_state('PRE_DBE_DELETE')
+
+            proj_id = r_class.get_project_id_for_resource(read_result, db_conn)
+
             (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
             if not ok:
                 return (ok, del_result)
@@ -1020,6 +1041,12 @@ class VncApiServer(object):
                 obj_type, obj_ids, read_result)
             if not ok:
                 return (ok, del_result)
+
+            if proj_id:
+                path = self._path_prefix + proj_id + "/" + obj_type
+                if path in self.quota_counter:
+                    self.quota_counter[path] -= 1
+                    quota_counter.append(self.quota_counter[path])
 
             # type-specific hook
             get_context().set_state('POST_DBE_DELETE')
@@ -1048,7 +1075,7 @@ class VncApiServer(object):
             err_msg = cfgm_common.utils.detailed_traceback()
             result = (500, err_msg)
         if not ok:
-            undo_delete(result)
+            undo_delete(result, counter=quota_counter, value=1)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
@@ -1346,6 +1373,8 @@ class VncApiServer(object):
         self._post_common = None
         self._resource_classes = {}
         self._args = None
+        self._path_prefix = "/vnc_api_server_obj_create/"
+        self.quota_counter = {}
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
@@ -1517,6 +1546,16 @@ class VncApiServer(object):
             # As DB are synced, we can serve the custom IF-MAP server
             self._vnc_ifmap_server = VncIfmapServer(self, self._args)
             gevent.spawn(self._vnc_ifmap_server.run_server)
+
+        # ZK quota counter initialization
+        (ok, project_list, _) = self._db_conn.dbe_list('project',
+                                                       field_names=['quota'])
+        for project in project_list or []:
+            if project['quota']:
+                path_prefix = self._path_prefix + project['uuid']
+                QuotaHelper._zk_quota_counter_init(
+                           path_prefix, project['quota'], project['uuid'],
+                           self._db_conn, self.quota_counter)
 
         # API/Permissions check
         # after db init (uses db_conn)
