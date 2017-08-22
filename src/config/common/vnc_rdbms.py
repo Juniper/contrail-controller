@@ -24,6 +24,8 @@ from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common import SGID_MIN_ALLOC
 from sandesh_common.vns import constants
 
+import sys
+
 Base = declarative_base()
 
 class SqaObjectBase(object):
@@ -116,6 +118,13 @@ class IDPool(Base):
        return "<IDPool(start='%s', end='%s', path='%s', value='%s', used='%s')>" % (
                             unpack(self.start), unpack(self.end), self.path, self.value, self.used)
 
+class QuotaCount(Base):
+    __tablename__ = 'quota_count'
+
+    path = Column(String(1024), primary_key=True)
+    value = Column(String(1024))
+    created = Column(Boolean, default=False)
+
 def use_session(func):
     def wrapper(self, *args, **kwargs):
         if self.session_ctx:
@@ -140,6 +149,56 @@ def pack(var):
 def unpack(b):
     num = struct.unpack("!QQ", b)
     return num[0] * 2**64 + num[1]
+
+class RDBMSQuotaCounter(object):
+    def __init__(self, db, path, max_count=sys.maxint, default=0):
+        self.path = path
+        self.db = db
+        self.max_count = max_count
+        self.default = default
+        self.session_ctx = None
+        self.Session = sessionmaker(bind=db)
+
+        self.quota_counter_init()
+
+    @use_session
+    def quota_counter_init(self):
+        session = self.session_ctx
+        query = session.query(QuotaCount).filter(
+            and_(
+                QuotaCount.path == self.path,
+                QuotaCount.created == True
+        )).first()
+        if not query:
+            quota_count = QuotaCount(path=self.path, value=self.default, created=True)
+            session.add(quota_count)
+            session.commit()
+    @use_session
+    def __add__(self, value):
+        session = self.session_ctx
+        query = session.query(QuotaCount).filter(
+            and_(
+                QuotaCount.path == self.path,
+                QuotaCount.created == True,
+                QuotaCount.value + value < self.max_count
+        )).first()
+        if query:
+            query.value = query.value + value
+            session.add(query)
+            session.commit()
+
+    @use_session
+    def __sub__(self, value):
+        session = self.session_ctx
+        query = session.query(QuotaCount).filter(
+            and_(
+                QuotaCount.path == self.path,
+                QuotaCount.created == True
+        )).first()
+        if query:
+            query.value = query.value - value
+            session.add(query)
+            session.commit()
 
 class RDBMSIndexAllocator(object):
     def __init__(self, db, path, size=0, start_idx=0,
@@ -322,9 +381,9 @@ class RDBMSIndexAllocator(object):
 
     @classmethod
     def delete_all(cls, db, path):
-       session = sessionmaker(bind=db)()
-       session.query(IDPool).filter(IDPool.path == path).delete()
-       session.commit()
+        session = sessionmaker(bind=db)()
+        session.query(IDPool).filter(IDPool.path == path).delete()
+        session.commit()
 
 init_done = False
 
@@ -553,6 +612,25 @@ class VncRDBMSClient(object):
                 self._TAG_VALUE_MAX_ID,
             ) for type_name in constants.TagTypeNameToId.keys()}
     # end __init__
+
+    def quota_counter(self, path, max_count=sys.maxint, default=0):
+        return RDBMSQuotaCounter(self.db, path, max_count=max_count, default=default)
+
+    @use_session
+    def quota_counter_exists(self, path):
+        session = self.session_ctx
+        query = session.query(QuotaCount).filter(
+                QuotaCount.path == path).first()
+        if query:
+            return True
+        else:
+            return False
+
+    @use_session
+    def delete_quota_counter(self, path):
+        session = self.session_ctx
+        session.query(QuotaCount).filter(QuotaCount.path == path).delete()
+        session.commit()
 
     def _get_resource_class(self, obj_type):
         cls_name = '%s' %(cfgm_common.utils.CamelCase(obj_type.replace('-', '_')))
