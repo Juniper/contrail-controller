@@ -40,11 +40,33 @@ class QuotaHelper(object):
         return (True, quota_limit)
 
     @classmethod
-    def verify_quota_for_resource(cls, db_conn, obj_dict, obj_type,
-                                  quota_limit, proj_uuid=None):
-        # Quota limit is not enabled for this resource
-        if quota_limit < 0:
-            return True, ""
+    def verify_quota_and_create_resource(cls, db_conn, obj_dict, obj_type, obj_id,
+                                         quota_limit, quota_counter):
+        quota_count = quota_counter.value
+
+        if quota_count < quota_limit:
+            try:
+                quota_counter += 1
+            except cfgm_common.exceptions.OverQuota:
+                msg = ('quota limit (%d) exceeded for resource %s'
+                       % (quota_limit, obj_type))
+                return False, (412, msg)
+
+            (ok, result) = db_conn.dbe_create(obj_type, obj_id,
+                                                    obj_dict)
+	    if not ok:
+                # revert back quota count
+                quota_counter -= 1
+	        return ok, result
+        else:
+            msg = ('quota limit (%d) exceeded for resource %s'
+                   % (quota_limit, obj_type))
+            return False, (412, msg)
+
+        return (True, result)
+
+    @classmethod
+    def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
 
         if obj_type+'s' in Project.children_fields:
             # Number of resources created under this project.
@@ -61,10 +83,48 @@ class QuotaHelper(object):
                 return (False, (500, 'Internal error : Failed to read %s '
                                 'resource list' % obj_type))
             quota_count = len(res_list)
+        return quota_count
 
-        if quota_count >= quota_limit:
-            msg = ('quota limit (%d) exceeded for resource %s'
-                   % (quota_limit, obj_type))
-            return (False, (QUOTA_OVER_ERROR_CODE, pformat(obj_dict['fq_name']) + ' : ' + msg))
+    @classmethod
+    def update_zk_counter_helper(cls, path_prefix, quota_dict, proj_id,
+                                 db_conn, quota_counter):
+        new_quota_dict = {}
+        for (obj_type, quota) in quota_dict.iteritems():
+            path = path_prefix + "/" + obj_type
+            if path in quota_counter:
+                if quota == -1 and db_conn._zk_db._zk_client.exists(path):
+                    db_conn._zk_db._zk_client.delete_node(path)
+                    del quota_counter[path]
+                else:
+                    quota_counter[path].max_count = quota
+            else:
+                new_quota_dict[obj_type] = quota
 
-        return True, ""
+        if new_quota_dict:
+            cls._zk_quota_counter_init(path_prefix, new_quota_dict, proj_id,
+                                       db_conn, quota_counter)
+
+    @classmethod
+    def _zk_quota_counter_update(cls, path_prefix, quota_dict, proj_id, db_conn,
+                                 quota_counter):
+        if quota_dict != None:
+            cls.update_zk_counter_helper(path_prefix, quota_dict, proj_id,
+                                         db_conn, quota_counter)
+
+        elif quota_dict == None and quota_counter:
+            for counter in quota_counter.values():
+                if db_conn._zk_db._zk_client.exists(counter.path):
+                    db_conn._zk_db._zk_client.delete_node(counter.path)
+            quota_counter = {}
+
+    @classmethod
+    def _zk_quota_counter_init(cls, path_prefix, quota_dict, proj_id, db_conn, quota_counter):
+
+        for (obj_type, quota) in quota_dict.iteritems():
+            path = path_prefix + "/" + obj_type
+            if  obj_type != 'defaults' and (quota != -1 and quota != None):
+                resource_count = cls.get_resource_count(db_conn,
+                                                        obj_type, proj_id)
+                quota_counter[path] = db_conn._zk_db.zk_counter(path,
+                                                         max_count=quota,
+                                                         default=resource_count)
