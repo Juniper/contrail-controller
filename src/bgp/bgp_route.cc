@@ -400,7 +400,7 @@ static void FillRoutePathExtCommunityInfo(const BgpTable *table,
         } else if (ExtCommunity::is_security_group(*it)) {
             SecurityGroup sg(*it);
             communities->push_back(sg.ToString());
-        } else if (ExtCommunity::is_route_target(*it)) {
+        } else if (ExtCommunity::is_site_of_origin(*it)) {
             SiteOfOrigin soo(*it);
             communities->push_back(soo.ToString());
         } else if (ExtCommunity::is_tunnel_encap(*it)) {
