@@ -20,6 +20,10 @@ class TcpSession;
 class TcpMessageWriter {
 public:
     static const int kDefaultBufferSize = 4 * 1024;
+    static const int kDefaultWriteBufferSize = 16 * 1024;
+    static const int kMaxPendingBufferSize = 256 *1024;
+    static const int kMinPendingBufferSize = 32 *1024;
+
     explicit TcpMessageWriter(TcpSession *session);
     ~TcpMessageWriter();
 
@@ -27,16 +31,22 @@ public:
     int Send(const uint8_t *msg, size_t len,
              boost::system::error_code *ec);
 
+    int AsyncSend(const uint8_t *msg, size_t len,
+                  boost::system::error_code *ec);
+
 private:
     friend class TcpSession;
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
     typedef std::list<boost::asio::mutable_buffer> BufferQueue;
     void BufferAppend(const uint8_t *data, int len);
     void DeleteBuffer(boost::asio::mutable_buffer buffer);
+    void FlushBuffer(size_t wrote, bool *send_ready);
     void HandleWriteReady(boost::system::error_code *ec);
+    void HandleAsyncWrite();
 
     BufferQueue buffer_queue_;
-    int offset_;
+    uint offset_;
+    uint last_write_;
     TcpSession *session_;
 };
 
