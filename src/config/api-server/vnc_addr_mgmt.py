@@ -360,6 +360,7 @@ class Subnet(object):
         self.alloc_unit = ip_alloc_unit
         self._prefix = prefix
         self._prefix_len = prefix_len
+        self._addr_from_start = addr_from_start
     # end __init__
 
     @classmethod
@@ -542,6 +543,22 @@ class AddrMgmt(object):
 
                     try:
                         subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
+                        addr_from_start = subnet_obj._addr_from_start
+                        if ('dns_server_address' not in ipam_subnet) or \
+                           (ipam_subnet['dns_server_address'] is None):
+                            #we need to make sure subnet_obj has a default dns
+                            network = subnet_obj._network
+                            if addr_from_start:
+                                subnet_obj.dns_server_address = \
+                                    IPAddress(network.first + 2)
+                            else:
+                                subnet_obj.dns_server_address = \
+                                    IPAddress(network.last - 2)
+                        else:
+                            if str(subnet_obj.dns_server_address) != \
+                                ipam_subnet['dns_server_address']:
+                                subnet_obj.dns_server_address = \
+                                    IPAddress(ipam_subnet['dns_server_address'])
                     except KeyError:
                         gateway_ip = ipam_subnet.get('default_gateway')
                         service_address = ipam_subnet.get('dns_server_address')
@@ -564,6 +581,7 @@ class AddrMgmt(object):
                              subnet_obj
 
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
+                    ipam_subnet['dns_server_address'] = str(subnet_obj.dns_server_address)
     # end _create_subnet_objs
 
     def config_log(self, msg, level):
