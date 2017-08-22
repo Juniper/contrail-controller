@@ -806,7 +806,8 @@ bool PktHandler::IsToRDevice(uint32_t vrf_id, const IpAddress &ip) {
             continue;
         }
 
-        if (tor_nh->composite_nh_type() != Composite::TOR) {
+        if (tor_nh->composite_nh_type() != Composite::TOR &&
+            tor_nh->composite_nh_type() != Composite::EVPN) {
             it++;
             continue;
         }
