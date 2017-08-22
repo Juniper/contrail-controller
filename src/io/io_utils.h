@@ -23,11 +23,13 @@ struct SocketStats {
     tbb::atomic<uint64_t> write_calls;
     tbb::atomic<uint64_t> write_bytes;
     tbb::atomic<uint64_t> write_errors;
+    tbb::atomic<uint64_t> write_block_start_time;
     tbb::atomic<uint64_t> write_blocked;
     tbb::atomic<uint64_t> write_blocked_duration_usecs;
     tbb::atomic<uint64_t> read_block_start_time;
     tbb::atomic<uint64_t> read_blocked;
     tbb::atomic<uint64_t> read_blocked_duration_usecs;
+    tbb::atomic<bool> current_write_blocked;
 };
 
 }  // namespace io
