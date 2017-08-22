@@ -2,34 +2,26 @@
  * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <tbb/mutex.h>
-#include <tbb/atomic.h>
-#include <boost/bind.hpp>
-#include <boost/assert.hpp>
-#include "base/util.h"
-#include "base/timer.h"
-#include "base/logging.h"
-#include "base/parse_object.h"
 #include <cstdlib>
 #include <utility>
-#include <pthread.h>
 #include <algorithm>
-#include <librdkafka/rdkafkacpp.h>
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_uve.h>
-#include <sandesh/common/vns_types.h>
-#include <sandesh/common/vns_constants.h>
 
+#include <tbb/mutex.h>
+#include <tbb/atomic.h>
+
+#include <boost/bind.hpp>
+#include <boost/assert.hpp>
+
+#include <base/time_util.h>
+#include <base/timer.h>
+#include <base/logging.h>
+
+#include <librdkafka/rdkafkacpp.h>
 #include "structured_syslog_kafka_forwarder.h"
-#include "kafka_types.h"
-#include <base/connection_info.h>
 
 using std::map;
 using std::string;
 using boost::system::error_code;
-using process::ConnectionState;
-using process::ConnectionType;
-using process::ConnectionStatus;
 
 class KafkaForwarderDeliveryReportCb : public RdKafka::DeliveryReportCb {
  public:
@@ -42,9 +34,14 @@ class KafkaForwarderDeliveryReportCb : public RdKafka::DeliveryReportCb {
 
   void dr_cb(RdKafka::Message &message) {
     if (message.err() != RdKafka::ERR_NO_ERROR) {
-        LOG(ERROR, "Message delivery for " << message.key() << " " <<
-            message.errstr() << " gen " <<
-            string((char *)(message.msg_opaque())));
+        if (message.msg_opaque() != NULL) {
+            LOG(ERROR, "KafkaForwarder: Message delivery for " << message.key()
+                << ": FAILED: " << message.errstr() << ": gen: " <<
+                string((char *)(message.msg_opaque())));
+        } else {
+            LOG(ERROR, "KafkaForwarder: Message delivery for " << message.key()
+                << ": FAILED: " << message.errstr());
+        }
     } else {
         count.fetch_and_increment();
     }
@@ -67,12 +64,12 @@ class KafkaForwarderEventCb : public RdKafka::EventCb {
         break;
 
       case RdKafka::Event::EVENT_LOG:
-        LOG(INFO, "LOG-" << event.severity() << "-" << event.fac().c_str() <<
-            ": " << event.str().c_str());
+        LOG(INFO, "KafkaForwarder: LOG-" << event.severity() << "-" <<
+            event.fac().c_str() << ": " << event.str().c_str());
         break;
 
       default:
-        LOG(INFO, "EVENT " << event.type() <<
+        LOG(INFO, "KafkaForwarder: EVENT " << event.type() <<
             " (" << RdKafka::err2str(event.err()) << "): " <<
             event.str());
         break;
@@ -98,8 +95,9 @@ class KafkaForwarderPartitionerCb : public RdKafka::PartitionerCb {
                                   int32_t partition_cnt,
                                   void *msg_opaque) {
         int32_t pt = djb_hash(key->c_str(), key->size()) % partition_cnt;
-        LOG(DEBUG,"PartitionerCb key " << key->c_str()  << " len " << key->size() <<
-                 key->size() << " count " << partition_cnt << " pt " << pt);
+        LOG(DEBUG,"KafkaForwarder PartitionerCb key " << key->c_str()  <<
+            " len " << key->size() << " count " << partition_cnt << " pt " <<
+            pt);
         count.fetch_and_increment();
         return pt;
     }
@@ -112,7 +110,7 @@ KafkaForwarderPartitionerCb k_forwarder_part_cb;
 void
 KafkaForwarder::Send(const string& value, const string& skey) {
     if (k_forwarder_event_cb.disableKafka) {
-        LOG(INFO, "Kafka ignoring Send");
+        LOG(INFO, "KafkaForwarder ignoring Send");
         return;
     }
 
@@ -149,18 +147,18 @@ KafkaForwarder::KafkaTimer() {
         kafka_elapsed_ms_ = 0;
 
         if ((k_forwarder_dr_cb.count==0) && (k_forwarder_part_cb.count!=0)) {
-            LOG(INFO, "No Kafka fowrarder Callbacks");
+            LOG(INFO, "No KafkaForwarder Callbacks");
         } else if (k_forwarder_dr_cb.count==k_forwarder_part_cb.count) {
-            LOG(INFO, "Got Kafka fowrarder Callbacks " << k_forwarder_dr_cb.count);
+            LOG(INFO, "Got KafkaForwarder Callbacks " << k_forwarder_dr_cb.count);
         } else {
-            LOG(INFO, "Some Kafka fowrarder Callbacks missed - got " << k_forwarder_dr_cb.count
+            LOG(INFO, "Some KafkaForwarder Callbacks missed - got " << k_forwarder_dr_cb.count
                        << "/" << k_forwarder_part_cb.count);
         }
         k_forwarder_dr_cb.count = 0;
         k_forwarder_part_cb.count = 0;
 
         if (k_forwarder_event_cb.disableKafka) {
-            LOG(ERROR, "Kafka Needs Restart");
+            LOG(ERROR, "KafkaForwarder Needs Restart");
             class RdKafka::Metadata *metadata;
             /* Fetch metadata */
             RdKafka::ErrorCode err = producer_->metadata(true, NULL,
@@ -168,9 +166,10 @@ KafkaForwarder::KafkaTimer() {
             if (err != RdKafka::ERR_NO_ERROR) {
                 LOG(ERROR, "Failed to acquire metadata: " << RdKafka::err2str(err));
             } else {
-                LOG(ERROR, "Kafka Metadata Detected");
-                LOG(ERROR, "Metadata for " << metadata->orig_broker_id() <<
-                    ":" << metadata->orig_broker_name());
+                LOG(ERROR, "KafkaForwarder Metadata Detected");
+                LOG(ERROR, "KafkaForwarder Metadata for " <<
+                    metadata->orig_broker_id() << ":" <<
+                    metadata->orig_broker_name());
             }
         }
     }
@@ -193,9 +192,9 @@ KafkaForwarder::KafkaForwarder(EventManager *evm,
     kafka_start_ms_(UTCTimestampUsec()/1000),
     kafka_tick_ms_(0),
     kafka_timer_(TimerManager::CreateTimer(*evm->io_service(),
-                 "Kafka Timer",
+                 "KafkaForwarder Timer",
                  TaskScheduler::GetInstance()->GetTaskId(
-                 "Kafka Timer"))) {
+                 "KafkaForwarder Timer"))) {
 
     kafka_timer_->Start(1000,
         boost::bind(&KafkaForwarder::KafkaTimer, this), NULL);
@@ -209,7 +208,7 @@ KafkaForwarder::Stop(void) {
         topic_.reset();
         producer_.reset();
         assert(RdKafka::wait_destroyed(8000) == 0);
-        LOG(ERROR, "Kafka Stopped");
+        LOG(ERROR, "KafkaForwarder Stopped");
     }
 }
 
@@ -221,7 +220,7 @@ KafkaForwarder::Init(void) {
     conf->set("event_cb", &k_forwarder_event_cb, errstr);
     conf->set("dr_cb", &k_forwarder_dr_cb, errstr);
     producer_.reset(RdKafka::Producer::create(conf, errstr));
-    LOG(ERROR, "Kafka new Prod " << errstr);
+    LOG(ERROR, "KafkaForwarder new Prod " << errstr);
     delete conf;
     if (!producer_) {
         return false;
