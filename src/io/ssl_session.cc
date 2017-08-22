@@ -19,6 +19,7 @@ using boost::asio::mutable_buffer;
 using boost::asio::mutable_buffers_1;
 using boost::asio::null_buffers;
 using boost::asio::placeholders::error;
+using boost::asio::placeholders::bytes_transferred;
 using boost::asio::ssl::stream_base;
 using boost::bind;
 using boost::function;
@@ -27,6 +28,16 @@ using std::size_t;
 using std::srand;
 using std::string;
 using std::time;
+
+using boost::asio::error::eof;
+using boost::asio::error::try_again;
+using boost::asio::error::would_block;
+using boost::asio::error::in_progress;
+using boost::asio::error::interrupted;
+using boost::asio::error::network_down;
+using boost::asio::error::network_reset;
+using boost::asio::error::network_unreachable;
+using boost::asio::error::no_buffer_space;
 
 class SslSession::SslReader : public Task {
 public:
@@ -112,13 +123,43 @@ size_t SslSession::GetReadBufferSize() const {
     return kDefaultBufferSize;
 }
 
+//
+// Check if a socker error is hard and fatal. Only then should we close the
+// socket. Soft errors like EINTR and EAGAIN should be ignored or properly
+// handled with retries
+//
+bool SslSession::IsSocketErrorHard(const error_code &ec) {
+    if (!ec)
+        return false;
+    if (ec == try_again)
+        return false;
+    if (ec == would_block)
+        return false;
+    if (ec == in_progress)
+        return false;
+    if (ec == interrupted)
+        return false;
+    if (ec == network_down)
+        return false;
+    if (ec == network_reset)
+        return false;
+    if (ec == network_unreachable)
+        return false;
+    if (ec == no_buffer_space)
+        return false;
+    if (ec.value() == ERR_PACK(ERR_LIB_SSL, 0, SSL_R_SHORT_READ)) {
+        return false;
+    }
+
+    return true;
+}
+
 size_t SslSession::ReadSome(mutable_buffer buffer, error_code *error) {
     // Read data from the tcp socket or from the ssl socket, as appropriate.
     assert(!ssl_handshake_in_progress_);
     if (!IsSslHandShakeSuccessLocked())
         return TcpSession::ReadSome(buffer, error);
 
-    // do ssl read here in IO context, ignore errors
     return ssl_socket_->read_some(mutable_buffers_1(buffer), *error);
 }
 
@@ -134,8 +175,8 @@ size_t SslSession::WriteSome(const uint8_t *data, size_t len,
 void SslSession::AsyncWrite(const u_int8_t *data, size_t size) {
     if (IsSslHandShakeSuccessLocked()) {
         async_write(*ssl_socket_.get(), buffer(data, size),
-                bind(&TcpSession::AsyncWriteHandler,
-                TcpSessionPtr(this), error));
+                io_strand_->wrap(bind(&TcpSession::AsyncWriteHandler,
+                                 TcpSessionPtr(this), error, bytes_transferred)));
     } else {
         return (TcpSession::AsyncWrite(data, size));
     }
