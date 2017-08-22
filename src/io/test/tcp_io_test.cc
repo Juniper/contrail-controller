@@ -111,8 +111,13 @@ private:
     EchoSession *session_;
 };
 
+/*
+ * To simulate write blocked, we need to send more chunks of
+ * data to the kernel.
+ */
+static const int kSendBufferSize = (1 *1024);
 EchoSession::EchoSession(EchoServer *server, Socket *socket)
-    : TcpSession(server, socket), called(false), total_(0) {
+    : TcpSession(server, socket, true, kSendBufferSize), called(false), total_(0) {
     set_observer(boost::bind(&EchoSession::OnEvent, this, _1, _2));
 }
 
@@ -203,8 +208,6 @@ TEST_F(EchoServerTest, Basic) {
     // try sending more to build internal buffer_queue_
     for (int i = 0 ; i < 5; i++) {
         res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), &sent);
-        EXPECT_FALSE(res);
-        EXPECT_EQ(sent, 0);
         total += sizeof(msg2);
     }
 
@@ -216,7 +219,7 @@ TEST_F(EchoServerTest, Basic) {
 
     TCP_UT_LOG_DEBUG("----  Second iteration ---- ");
     res = true;
-    i = 0; 
+    i = 0;
     client_->GetSession()->called = false;
 
     //
@@ -232,11 +235,12 @@ TEST_F(EchoServerTest, Basic) {
     total = sizeof(msg2) * i;
     for (i = 0 ; i < 5; i++) {
         res = client_->Send((const u_int8_t *) msg2, sizeof(msg2), &sent);
-        EXPECT_FALSE(res);
-        EXPECT_EQ(sent, 0);
         total += sizeof(msg2);
     }
+
+    TASK_UTIL_ASSERT_EQ(total, server_->GetSession()->GetTotal());
     TCP_UT_LOG_DEBUG("2nd iteration. Total bytes sent: " << total);
+    TCP_UT_LOG_DEBUG("2nd iteration, Total bytes rxed: " << server_->GetSession()->GetTotal());
     }
 
     // Wait for write ready
@@ -312,6 +316,13 @@ TEST_F(EchoServerTest, SendAfterClose) {
 
     bool res = client_->Send((const u_int8_t *) msg, sizeof(msg), NULL);
     EXPECT_FALSE(res);
+    // Wait for all pending writes to complete and socket close
+    // being called.
+    TASK_UTIL_ASSERT_EQ(server_->GetSessionMapCount(), 0);
+    // Ensure all data is received at other end before close was sent
+    // and no more data after.
+    TASK_UTIL_ASSERT_EQ(sizeof(msg) * 16,
+                        server_->GetSession()->GetTotal());
     TASK_UTIL_ASSERT_TRUE((server_->GetSession() != NULL));
     TASK_UTIL_ASSERT_NE(0, server_->GetSession()->GetTotal());
 }

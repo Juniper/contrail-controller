@@ -66,6 +66,13 @@ public:
         return session_ref_.size();
     }
 
+    //
+    // Return the number of tcp sessions in the map
+    //
+    size_t GetSessionMapCount() const {
+        return session_map_.size();
+    }
+
     EventManager *event_manager() { return evm_; }
 
     // Returns true if any of the sessions on this server has read available
