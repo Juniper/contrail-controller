@@ -73,7 +73,7 @@ public:
         }
 
         dest->obj_info.reserve(src_node->list_.size());
-        for (IFMapNode::ObjectList::const_iterator iter = 
+        for (IFMapNode::ObjectList::const_iterator iter =
              src_node->list_.begin(); iter != src_node->list_.end(); ++iter) {
             const IFMapObject *src_obj = iter.operator->();
 
@@ -121,13 +121,17 @@ class ShowIFMapTable {
 public:
     static const uint32_t kMaxElementsPerRound = 50;
 
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
+    }
+
     struct ShowData : public RequestPipeline::InstData {
         vector<IFMapNodeShowInfo> send_buffer;
         string next_table_name;
         string last_node_name;
     };
 
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
+    static RequestPipeline::InstData* AllocBuffer(int stage) {
         return static_cast<RequestPipeline::InstData *>(new ShowData);
     }
 
@@ -153,7 +157,7 @@ public:
     static bool TableToBuffer(const IFMapTableShowReq *request,
                               IFMapTable *table, IFMapServer *server,
                               const string &last_node_name,
-                              ShowData *show_data);
+                              ShowData *show_data, uint32_t page_limit);
     static bool BufferAllTables(const IFMapTableShowReq *req,
                                 RequestPipeline::InstData *data,
                                 const string &next_table_name,
@@ -169,8 +173,9 @@ public:
 
 // Return true if the buffer is full.
 bool ShowIFMapTable::TableToBuffer(const IFMapTableShowReq *request,
-        IFMapTable *table, IFMapServer *server, const string &last_node_name,
-        ShowData *show_data) {
+                                   IFMapTable *table, IFMapServer *server,
+                                   const string &last_node_name,
+                                   ShowData *show_data, uint32_t page_limit) {
     DBEntryBase *src = NULL;
     if (last_node_name.length()) {
         // If the last_node_name is set, it was the last node printed in the
@@ -201,7 +206,7 @@ bool ShowIFMapTable::TableToBuffer(const IFMapTableShowReq *request,
         show_data->send_buffer.push_back(dest);
 
         // If we have picked up enough nodes for this round...
-        if (show_data->send_buffer.size() == kMaxElementsPerRound) {
+        if (show_data->send_buffer.size() == page_limit) {
             // Save the values needed for the next round. When we come
             // back, we will use the 'names' to lookup the elements since
             // the 'names' are the keys in the respective tables.
@@ -216,17 +221,19 @@ bool ShowIFMapTable::TableToBuffer(const IFMapTableShowReq *request,
 }
 
 bool ShowIFMapTable::BufferOneTable(const IFMapTableShowReq *request,
-        RequestPipeline::InstData *data, const string &last_node_name) {
-    IFMapSandeshContext *sctx = 
+                                    RequestPipeline::InstData *data,
+                                    const string &last_node_name) {
+    IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     IFMapTable *table = IFMapTable::FindTable(sctx->ifmap_server()->database(),
                                               request->get_table_name());
     if (table) {
         ShowData *show_data = static_cast<ShowData *>(data);
-        show_data->send_buffer.reserve(kMaxElementsPerRound);
+        uint32_t page_limit = GetPageLimit(sctx);
+        show_data->send_buffer.reserve(page_limit);
         TableToBuffer(request, table, sctx->ifmap_server(), last_node_name,
-                      show_data);
+                      show_data, page_limit);
     } else {
         IFMAP_WARN(IFMapTblNotFound, "Cant show/find table ",
                    request->get_table_name());
@@ -236,9 +243,10 @@ bool ShowIFMapTable::BufferOneTable(const IFMapTableShowReq *request,
 }
 
 bool ShowIFMapTable::BufferAllTables(const IFMapTableShowReq *request,
-        RequestPipeline::InstData *data, const string &next_table_name,
-        const string &last_node_name) {
-    IFMapSandeshContext *sctx = 
+                                     RequestPipeline::InstData *data,
+                                     const string &next_table_name,
+                                     const string &last_node_name) {
+    IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     string last_name = last_node_name;
 
@@ -251,14 +259,15 @@ bool ShowIFMapTable::BufferAllTables(const IFMapTableShowReq *request,
     }
 
     ShowData *show_data = static_cast<ShowData *>(data);
-    show_data->send_buffer.reserve(kMaxElementsPerRound);
+    uint32_t page_limit = GetPageLimit(sctx);
+    show_data->send_buffer.reserve(page_limit);
     for (; iter != db->end(); ++iter) {
         if (iter->first.find("__ifmap__.") != 0) {
             break;
         }
         IFMapTable *table = static_cast<IFMapTable *>(iter->second);
         bool buffer_full = TableToBuffer(request, table, sctx->ifmap_server(),
-                                         last_name, show_data);
+                                         last_name, show_data, page_limit);
         if (buffer_full) {
             break;
         }
@@ -275,9 +284,9 @@ bool ShowIFMapTable::BufferAllTables(const IFMapTableShowReq *request,
 //      next_table_name: next table to lookup in
 //      last_node_name: name of last node that was printed in the previous round
 bool ShowIFMapTable::ConvertReqIterateToReq(
-        const IFMapTableShowReqIterate *req_iterate,
-        IFMapTableShowReq *req, string *next_table_name,
-        string *last_node_name) {
+    const IFMapTableShowReqIterate *req_iterate,
+    IFMapTableShowReq *req, string *next_table_name,
+    string *last_node_name) {
     // First, set the context from the original request since we might return
     // due to parsing errors.
     req->set_context(req_iterate->context());
@@ -318,8 +327,9 @@ bool ShowIFMapTable::ConvertReqIterateToReq(
 }
 
 bool ShowIFMapTable::BufferStageCommon(const IFMapTableShowReq *request,
-        RequestPipeline::InstData *data, const string &next_table_name,
-        const string &last_node_name) {
+                                       RequestPipeline::InstData *data,
+                                       const string &next_table_name,
+                                       const string &last_node_name) {
     // If table name has not been passed, print all tables
     if (request->get_table_name().length()) {
         return BufferOneTable(request, data, last_node_name);
@@ -332,7 +342,7 @@ bool ShowIFMapTable::BufferStage(const Sandesh *sr,
                                  const RequestPipeline::PipeSpec ps,
                                  int stage, int instNum,
                                  RequestPipeline::InstData *data) {
-    const IFMapTableShowReq *request = 
+    const IFMapTableShowReq *request =
         static_cast<const IFMapTableShowReq *>(ps.snhRequest_.get());
     string next_table_name;
     string last_node_name;
@@ -343,14 +353,14 @@ bool ShowIFMapTable::BufferStageIterate(const Sandesh *sr,
                                         const RequestPipeline::PipeSpec ps,
                                         int stage, int instNum,
                                         RequestPipeline::InstData *data) {
-    const IFMapTableShowReqIterate *request_iterate = 
+    const IFMapTableShowReqIterate *request_iterate =
         static_cast<const IFMapTableShowReqIterate *>(ps.snhRequest_.get());
 
     string next_table_name;
     string last_node_name;
     IFMapTableShowReq *request = new IFMapTableShowReq;
     bool success = ConvertReqIterateToReq(request_iterate, request,
-                        &next_table_name, &last_node_name);
+                                          &next_table_name, &last_node_name);
     if (success) {
         BufferStageCommon(request, data, next_table_name, last_node_name);
     }
@@ -363,7 +373,9 @@ void ShowIFMapTable::SendStageCommon(const IFMapTableShowReq *request,
                                      IFMapTableShowResp *response) {
     const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
     const ShowIFMapTable::ShowData &show_data =
-        static_cast<const ShowIFMapTable::ShowData &> (prev_stage_data->at(0));
+        static_cast<const ShowIFMapTable::ShowData&>(prev_stage_data->at(0));
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     vector<IFMapNodeShowInfo> dest_buffer;
     dest_buffer = show_data.send_buffer;
@@ -371,11 +383,12 @@ void ShowIFMapTable::SendStageCommon(const IFMapTableShowReq *request,
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (dest_buffer.size() == kMaxElementsPerRound) {
+    uint32_t page_limit = GetPageLimit(sctx);
+    if (dest_buffer.size() == page_limit) {
         next_batch = request->get_table_name() + kShowIterSeparator +
-                     request->get_search_string() + kShowIterSeparator +
-                     show_data.next_table_name + kShowIterSeparator +
-                     show_data.last_node_name;
+            request->get_search_string() + kShowIterSeparator +
+            show_data.next_table_name + kShowIterSeparator +
+            show_data.last_node_name;
     }
 
     response->set_ifmap_db(dest_buffer);
@@ -410,7 +423,7 @@ bool ShowIFMapTable::SendStageIterate(const Sandesh *sr,
     IFMapTableShowResp *response = new IFMapTableShowResp;
     IFMapTableShowReq *request = new IFMapTableShowReq;
     bool success = ConvertReqIterateToReq(request_iterate, request,
-                        &next_table_name, &last_node_name);
+                                          &next_table_name, &last_node_name);
     if (success) {
         SendStageCommon(request, ps, response);
     }
@@ -441,7 +454,7 @@ void IFMapTableShowReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
@@ -463,7 +476,7 @@ void IFMapTableShowReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
@@ -473,13 +486,17 @@ class ShowIFMapLinkTable {
 public:
     static const uint32_t kMaxElementsPerRound = 50;
 
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
+    }
+
     struct ShowData : public RequestPipeline::InstData {
         vector<IFMapLinkShowInfo> send_buffer;
         uint32_t table_size;
         string last_link_name;
     };
 
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
+    static RequestPipeline::InstData* AllocBuffer(int stage) {
         return static_cast<RequestPipeline::InstData *>(new ShowData);
     }
 
@@ -513,8 +530,10 @@ public:
 };
 
 bool ShowIFMapLinkTable::IncludeLink(DBEntryBase *src,
-        const string &search_string, const regex &search_expr,
-        const string &metadata, const regex &metadata_expr) {
+                                     const string &search_string,
+                                     const regex &search_expr,
+                                     const string &metadata,
+                                     const regex &metadata_expr) {
     IFMapLink *link = static_cast<IFMapLink *>(src);
     IFMapNode *left = link->left();
     IFMapNode *right = link->right();
@@ -567,7 +586,7 @@ void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
     }
     dest->last_modified = src_link->last_change_at_str();
 
-    for (std::vector<IFMapLink::LinkOriginInfo>::const_iterator iter = 
+    for (std::vector<IFMapLink::LinkOriginInfo>::const_iterator iter =
          src_link->origin_info_.begin(); iter != src_link->origin_info_.end();
          ++iter) {
         const IFMapLink::LinkOriginInfo *origin_info = iter.operator->();
@@ -584,8 +603,8 @@ void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
 //      metadata: original input. Could be empty.
 //      last_link_name: name of last link that was printed in the previous round
 bool ShowIFMapLinkTable::ConvertReqIterateToReq(
-        const IFMapLinkTableShowReqIterate *req_iterate,
-        IFMapLinkTableShowReq *req, string *last_link_name) {
+    const IFMapLinkTableShowReqIterate *req_iterate,
+    IFMapLinkTableShowReq *req, string *last_link_name) {
     // First, set the context from the original request since we might return
     // due to parsing errors.
     req->set_context(req_iterate->context());
@@ -630,7 +649,8 @@ bool ShowIFMapLinkTable::BufferStageCommon(const IFMapLinkTableShowReq *request,
         regex search_expr(request->get_search_string());
         regex metadata_expr(request->get_metadata());
         ShowData *show_data = static_cast<ShowData *>(data);
-        show_data->send_buffer.reserve(kMaxElementsPerRound);
+        uint32_t page_limit = GetPageLimit(sctx);
+        show_data->send_buffer.reserve(page_limit);
         show_data->table_size = table->Size();
 
         DBEntryBase *src = NULL;
@@ -647,7 +667,8 @@ bool ShowIFMapLinkTable::BufferStageCommon(const IFMapLinkTableShowReq *request,
                 CopyNode(&dest, src, sctx->ifmap_server());
                 show_data->send_buffer.push_back(dest);
                 // If we have picked up enough links for this round...
-                if (show_data->send_buffer.size() == kMaxElementsPerRound) {
+                uint32_t page_limit = GetPageLimit(sctx);
+                if (show_data->send_buffer.size() == page_limit) {
                     IFMapLink *src_link = static_cast<IFMapLink *>(src);
                     show_data->last_link_name = src_link->link_name();
                     buffer_full = true;
@@ -695,9 +716,9 @@ void ShowIFMapLinkTable::SendStageCommon(const IFMapLinkTableShowReq *request,
                                          const RequestPipeline::PipeSpec ps,
                                          IFMapLinkTableShowResp *response) {
     const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-    const ShowIFMapLinkTable::ShowData &show_data = 
-        static_cast<const ShowIFMapLinkTable::ShowData &>
-                                                       (prev_stage_data->at(0));
+    const ShowIFMapLinkTable::ShowData &show_data =
+        static_cast<const ShowIFMapLinkTable::ShowData&>
+        (prev_stage_data->at(0));
 
     vector<IFMapLinkShowInfo> dest_buffer;
     dest_buffer = show_data.send_buffer;
@@ -705,10 +726,13 @@ void ShowIFMapLinkTable::SendStageCommon(const IFMapLinkTableShowReq *request,
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (dest_buffer.size() == kMaxElementsPerRound) {
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = GetPageLimit(sctx);
+    if (dest_buffer.size() == page_limit) {
         next_batch = request->get_search_string() + kShowIterSeparator +
-                     request->get_metadata() + kShowIterSeparator +
-                     show_data.last_link_name;
+            request->get_metadata() + kShowIterSeparator +
+            show_data.last_link_name;
     }
 
     response->set_table_size(show_data.table_size);
@@ -720,7 +744,7 @@ bool ShowIFMapLinkTable::SendStage(const Sandesh *sr,
                                    const RequestPipeline::PipeSpec ps,
                                    int stage, int instNum,
                                    RequestPipeline::InstData *data) {
-    const IFMapLinkTableShowReq *request = 
+    const IFMapLinkTableShowReq *request =
         static_cast<const IFMapLinkTableShowReq *>(ps.snhRequest_.get());
     IFMapLinkTableShowResp *response = new IFMapLinkTableShowResp;
     SendStageCommon(request, ps, response);
@@ -773,7 +797,7 @@ void IFMapLinkTableShowReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
@@ -795,7 +819,7 @@ void IFMapLinkTableShowReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
@@ -805,7 +829,7 @@ static bool IFMapNodeShowReqHandleRequest(const Sandesh *sr,
                                           RequestPipeline::InstData *data) {
     const IFMapNodeShowReq *request =
         static_cast<const IFMapNodeShowReq *>(ps.snhRequest_.get());
-    IFMapSandeshContext *sctx = 
+    IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     IFMapNodeShowResp *response = new IFMapNodeShowResp();
@@ -854,7 +878,7 @@ void IFMapNodeShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0);
+    ps.stages_ = list_of(s0);
     RequestPipeline rp(ps);
 }
 
@@ -862,13 +886,17 @@ class ShowIFMapPerClientNodes {
 public:
     static const uint32_t kMaxElementsPerRound = 50;
 
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
+    }
+
     struct ShowData : public RequestPipeline::InstData {
         vector<IFMapPerClientNodesShowInfo> send_buffer;
         string next_table_name;
         string last_node_name;
     };
 
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
+    static RequestPipeline::InstData* AllocBuffer(int stage) {
         return static_cast<RequestPipeline::InstData *>(new ShowData);
     }
 
@@ -911,9 +939,9 @@ public:
 //      next_table_name: next table to lookup in
 //      last_node_name: name of last node that was printed in the previous round
 bool ShowIFMapPerClientNodes::ConvertReqIterateToReq(
-        const IFMapPerClientNodesShowReqIterate *req_iterate,
-        IFMapPerClientNodesShowReq *req, string *next_table_name,
-        string *last_node_name) {
+    const IFMapPerClientNodesShowReqIterate *req_iterate,
+    IFMapPerClientNodesShowReq *req, string *next_table_name,
+    string *last_node_name) {
     // First, set the context from the original request since we might return
     // due to parsing errors.
     req->set_context(req_iterate->context());
@@ -966,9 +994,9 @@ bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
             dest->sent = "No";
         }
         if (server->exporter()->ClientHasConfigTracker(
-                    IFMapExporter::INTEREST, client_index)) {
+                IFMapExporter::INTEREST, client_index)) {
             if (server->exporter()->ClientConfigTrackerHasState(
-                        IFMapExporter::INTEREST, client_index, state)) {
+                    IFMapExporter::INTEREST, client_index, state)) {
                 dest->interest_tracked = "Yes";
             } else {
                 dest->interest_tracked = "No";
@@ -977,9 +1005,9 @@ bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
             dest->interest_tracked = "No tracker";
         }
         if (server->exporter()->ClientHasConfigTracker(
-                    IFMapExporter::ADVERTISED, client_index)) {
+                IFMapExporter::ADVERTISED, client_index)) {
             if (server->exporter()->ClientConfigTrackerHasState(
-                        IFMapExporter::ADVERTISED, client_index, state)) {
+                    IFMapExporter::ADVERTISED, client_index, state)) {
                 dest->advertised_tracked = "Yes";
             } else {
                 dest->advertised_tracked = "No";
@@ -994,9 +1022,9 @@ bool ShowIFMapPerClientNodes::CopyNode(IFMapPerClientNodesShowInfo *dest,
 }
 
 bool ShowIFMapPerClientNodes::TableToBuffer(
-        const IFMapPerClientNodesShowReq *request, IFMapTable *table,
-        IFMapServer *ifmap_server, const string &last_node_name,
-        int client_index, ShowData *show_data) {
+    const IFMapPerClientNodesShowReq *request, IFMapTable *table,
+    IFMapServer *ifmap_server, const string &last_node_name,
+    int client_index, ShowData *show_data) {
 
     DBEntryBase *src = NULL;
     if (last_node_name.length()) {
@@ -1029,8 +1057,12 @@ bool ShowIFMapPerClientNodes::TableToBuffer(
         if (send) {
             show_data->send_buffer.push_back(dest);
 
+            IFMapSandeshContext *sctx =
+                static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+            uint32_t page_limit = sctx->page_limit() ?
+                sctx->page_limit() : kMaxElementsPerRound;
             // If we have picked up enough nodes for this round...
-            if (show_data->send_buffer.size() == kMaxElementsPerRound) {
+            if (show_data->send_buffer.size() == page_limit) {
                 // Save the values needed for the next round. When we come
                 // back, we will use the 'names' to lookup the elements since
                 // the 'names' are the keys in the respective tables.
@@ -1046,9 +1078,9 @@ bool ShowIFMapPerClientNodes::TableToBuffer(
 }
 
 bool ShowIFMapPerClientNodes::BufferStageCommon(
-        const IFMapPerClientNodesShowReq *request,
-        RequestPipeline::InstData *data, const string &next_table_name,
-        const string &last_node_name) {
+    const IFMapPerClientNodesShowReq *request,
+    RequestPipeline::InstData *data, const string &next_table_name,
+    const string &last_node_name) {
     IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     IFMapServer *ifmap_server = sctx->ifmap_server();
@@ -1076,8 +1108,9 @@ bool ShowIFMapPerClientNodes::BufferStageCommon(
         iter = db->FindTableIter(next_table_name);
     }
 
+    uint32_t page_limit = GetPageLimit(sctx);
     ShowData *show_data = static_cast<ShowData *>(data);
-    show_data->send_buffer.reserve(kMaxElementsPerRound);
+    show_data->send_buffer.reserve(page_limit);
     for (; iter != db->end(); ++iter) {
         if (iter->first.find("__ifmap__.") != 0) {
             break;
@@ -1096,8 +1129,9 @@ bool ShowIFMapPerClientNodes::BufferStageCommon(
 }
 
 bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage,
-        int instNum, RequestPipeline::InstData *data) {
+                                          const RequestPipeline::PipeSpec ps,
+                                          int stage, int instNum,
+                                          RequestPipeline::InstData *data) {
     const IFMapPerClientNodesShowReq *request =
         static_cast<const IFMapPerClientNodesShowReq *>(ps.snhRequest_.get());
 
@@ -1111,12 +1145,12 @@ bool ShowIFMapPerClientNodes::BufferStage(const Sandesh *sr,
     return BufferStageCommon(request, data, next_table_name, last_node_name);
 }
 
-bool ShowIFMapPerClientNodes::BufferStageIterate(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage,
-        int instNum, RequestPipeline::InstData *data) {
+bool ShowIFMapPerClientNodes::BufferStageIterate(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
     const IFMapPerClientNodesShowReqIterate *request_iterate =
         static_cast<const IFMapPerClientNodesShowReqIterate *>
-            (ps.snhRequest_.get());
+        (ps.snhRequest_.get());
 
     string next_table_name;
     string last_node_name;
@@ -1131,12 +1165,12 @@ bool ShowIFMapPerClientNodes::BufferStageIterate(const Sandesh *sr,
 }
 
 void ShowIFMapPerClientNodes::SendStageCommon(
-        const IFMapPerClientNodesShowReq *request,
-        const RequestPipeline::PipeSpec ps,
-        IFMapPerClientNodesShowResp *response) {
+    const IFMapPerClientNodesShowReq *request,
+    const RequestPipeline::PipeSpec ps,
+    IFMapPerClientNodesShowResp *response) {
     const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-    const ShowIFMapPerClientNodes::ShowData &show_data = 
-        static_cast<const ShowIFMapPerClientNodes::ShowData &> 
+    const ShowIFMapPerClientNodes::ShowData &show_data =
+        static_cast<const ShowIFMapPerClientNodes::ShowData&>
         (prev_stage_data->at(0));
 
     vector<IFMapPerClientNodesShowInfo> dest_buffer;
@@ -1145,11 +1179,14 @@ void ShowIFMapPerClientNodes::SendStageCommon(
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (dest_buffer.size() == kMaxElementsPerRound) {
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = GetPageLimit(sctx);
+    if (dest_buffer.size() == page_limit) {
         next_batch = request->get_client_index_or_name() + kShowIterSeparator +
-                     request->get_search_string() + kShowIterSeparator +
-                     show_data.next_table_name + kShowIterSeparator +
-                     show_data.last_node_name;
+            request->get_search_string() + kShowIterSeparator +
+            show_data.next_table_name + kShowIterSeparator +
+            show_data.last_node_name;
     }
 
     response->set_node_db(dest_buffer);
@@ -1171,12 +1208,12 @@ bool ShowIFMapPerClientNodes::SendStage(const Sandesh *sr,
     return true;
 }
 
-bool ShowIFMapPerClientNodes::SendStageIterate(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage, int instNum,
-        RequestPipeline::InstData *data) {
+bool ShowIFMapPerClientNodes::SendStageIterate(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
     const IFMapPerClientNodesShowReqIterate *request_iterate =
         static_cast<const IFMapPerClientNodesShowReqIterate *>
-            (ps.snhRequest_.get());
+        (ps.snhRequest_.get());
 
     string next_table_name;
     string last_node_name;
@@ -1184,7 +1221,7 @@ bool ShowIFMapPerClientNodes::SendStageIterate(const Sandesh *sr,
     IFMapPerClientNodesShowResp *response = new IFMapPerClientNodesShowResp;
     IFMapPerClientNodesShowReq *request = new IFMapPerClientNodesShowReq;
     bool success = ConvertReqIterateToReq(request_iterate, request,
-                        &next_table_name, &last_node_name);
+                                          &next_table_name, &last_node_name);
     if (success) {
         SendStageCommon(request, ps, response);
     }
@@ -1215,7 +1252,7 @@ void IFMapPerClientNodesShowReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
@@ -1237,7 +1274,7 @@ void IFMapPerClientNodesShowReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
@@ -1245,24 +1282,32 @@ class ShowIFMapPerClientLinkTable {
 public:
     static const uint32_t kMaxElementsPerRound = 50;
 
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
+    }
+
     static bool HandleRequest(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage, int instNum,
-        RequestPipeline::InstData *data);
+                              const RequestPipeline::PipeSpec ps,
+                              int stage, int instNum,
+                              RequestPipeline::InstData *data);
     static bool HandleRequestIterate(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage, int instNum,
-        RequestPipeline::InstData *data);
+                                     const RequestPipeline::PipeSpec ps,
+                                     int stage, int instNum,
+                                     RequestPipeline::InstData *data);
     static bool ConvertReqIterateToReq(
         const IFMapPerClientLinksShowReqIterate *req_iterate,
         IFMapPerClientLinksShowReq *req, string *last_node_name);
     static bool SkipLink(IFMapLink *src, const string &search_string);
     static bool CopyNode(IFMapPerClientLinksShowInfo *dest, IFMapLink *src,
-        IFMapServer *server, int client_index);
+                         IFMapServer *server, int client_index);
     static void BufferTable(const IFMapPerClientLinksShowReq *request,
-        const string &last_link_name, IFMapPerClientLinksShowResp *response);
+                            const string &last_link_name,
+                            IFMapPerClientLinksShowResp *response);
 };
 
 bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
-        IFMapLink *src, IFMapServer *server, int client_index) {
+                                           IFMapLink *src, IFMapServer *server,
+                                           int client_index) {
     IFMapLinkState *state = server->exporter()->LinkStateLookup(src);
 
     if (state && state->interest().test(client_index)) {
@@ -1275,9 +1320,9 @@ bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
             dest->sent = "No";
         }
         if (server->exporter()->ClientHasConfigTracker(
-                    IFMapExporter::INTEREST, client_index)) {
+                IFMapExporter::INTEREST, client_index)) {
             if (server->exporter()->ClientConfigTrackerHasState(
-                        IFMapExporter::INTEREST, client_index, state)) {
+                    IFMapExporter::INTEREST, client_index, state)) {
                 dest->interest_tracked = "Yes";
             } else {
                 dest->interest_tracked = "No";
@@ -1286,9 +1331,9 @@ bool ShowIFMapPerClientLinkTable::CopyNode(IFMapPerClientLinksShowInfo *dest,
             dest->interest_tracked = "No tracker";
         }
         if (server->exporter()->ClientHasConfigTracker(
-                    IFMapExporter::ADVERTISED, client_index)) {
+                IFMapExporter::ADVERTISED, client_index)) {
             if (server->exporter()->ClientConfigTrackerHasState(
-                        IFMapExporter::ADVERTISED, client_index, state)) {
+                    IFMapExporter::ADVERTISED, client_index, state)) {
                 dest->advertised_tracked = "Yes";
             } else {
                 dest->advertised_tracked = "No";
@@ -1325,8 +1370,8 @@ bool ShowIFMapPerClientLinkTable::SkipLink(IFMapLink *src_link,
 //      search_string: original input; can be empty
 //      last_node_name: name of last node that was printed in the previous round
 bool ShowIFMapPerClientLinkTable::ConvertReqIterateToReq(
-        const IFMapPerClientLinksShowReqIterate *req_iterate,
-        IFMapPerClientLinksShowReq *req, string *last_node_name) {
+    const IFMapPerClientLinksShowReqIterate *req_iterate,
+    IFMapPerClientLinksShowReq *req, string *last_node_name) {
     // First, set the context from the original request since we might return
     // due to parsing errors.
     req->set_context(req_iterate->context());
@@ -1359,16 +1404,15 @@ bool ShowIFMapPerClientLinkTable::ConvertReqIterateToReq(
 }
 
 void ShowIFMapPerClientLinkTable::BufferTable(
-        const IFMapPerClientLinksShowReq *request, const string &last_link_name,
-        IFMapPerClientLinksShowResp *response) {
-    IFMapSandeshContext *sctx = 
+    const IFMapPerClientLinksShowReq *request, const string &last_link_name,
+    IFMapPerClientLinksShowResp *response) {
+    IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
 
     string client_index_or_name = request->get_client_index_or_name();
     if (client_index_or_name.empty()) {
         return;
     }
-
     // The user gives us either a name or an index. If the input is not a
     // number, find the client's index using its name. If we cant find it,
     // we cant process this request. If we have the index, continue processing.
@@ -1383,9 +1427,10 @@ void ShowIFMapPerClientLinkTable::BufferTable(
     IFMapLinkTable *table =  static_cast<IFMapLinkTable *>(
         sctx->ifmap_server()->database()->FindTable("__ifmap_metadata__.0"));
 
+    uint32_t page_limit = GetPageLimit(sctx);
     if (table) {
         vector<IFMapPerClientLinksShowInfo> dest_buffer;
-        dest_buffer.reserve(kMaxElementsPerRound);
+        dest_buffer.reserve(page_limit);
 
         DBEntryBase *src = NULL;
         DBTablePartBase *partition = table->GetTablePartition(0);
@@ -1404,7 +1449,7 @@ void ShowIFMapPerClientLinkTable::BufferTable(
                                  client_index);
             if (send) {
                 dest_buffer.push_back(dest);
-                if (dest_buffer.size() == kMaxElementsPerRound) {
+                if (dest_buffer.size() == page_limit) {
                     string next_batch = request->get_client_index_or_name() +
                         kShowIterSeparator + request->get_search_string() +
                         kShowIterSeparator + src_link->link_name();
@@ -1419,10 +1464,10 @@ void ShowIFMapPerClientLinkTable::BufferTable(
     }
 }
 
-bool ShowIFMapPerClientLinkTable::HandleRequest(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage, int instNum,
-        RequestPipeline::InstData *data) {
-    const IFMapPerClientLinksShowReq *request = 
+bool ShowIFMapPerClientLinkTable::HandleRequest(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
+    const IFMapPerClientLinksShowReq *request =
         static_cast<const IFMapPerClientLinksShowReq *>(ps.snhRequest_.get());
 
     string last_link_name;
@@ -1437,12 +1482,12 @@ bool ShowIFMapPerClientLinkTable::HandleRequest(const Sandesh *sr,
     return true;
 }
 
-bool ShowIFMapPerClientLinkTable::HandleRequestIterate(const Sandesh *sr,
-        const RequestPipeline::PipeSpec ps, int stage, int instNum,
-        RequestPipeline::InstData *data) {
-    const IFMapPerClientLinksShowReqIterate *request_iterate = 
+bool ShowIFMapPerClientLinkTable::HandleRequestIterate(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
+    const IFMapPerClientLinksShowReqIterate *request_iterate =
         static_cast<const IFMapPerClientLinksShowReqIterate *>
-            (ps.snhRequest_.get());
+        (ps.snhRequest_.get());
 
     string last_link_name;
     IFMapPerClientLinksShowReq *request = new IFMapPerClientLinksShowReq();
@@ -1471,7 +1516,7 @@ void IFMapPerClientLinksShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0);
+    ps.stages_ = list_of(s0);
     RequestPipeline rp(ps);
 }
 
@@ -1484,7 +1529,7 @@ void IFMapPerClientLinksShowReqIterate::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0);
+    ps.stages_ = list_of(s0);
     RequestPipeline rp(ps);
 }
 
@@ -1492,128 +1537,108 @@ class ShowIFMapUuidToNodeMapping {
 public:
     static const int kMaxElementsPerRound = 50;
 
-    struct ShowData : public RequestPipeline::InstData {
-        vector<IFMapUuidToNodeMappingEntry> send_buffer;
-    };
-
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
-        return static_cast<RequestPipeline::InstData *>(new ShowData);
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
     }
 
-    struct TrackerData : public RequestPipeline::InstData {
-        // init as 1 indicates we need to init 'first' to begin() since there is
-        // no way to initialize an iterator here.
-        TrackerData() : init(1) { }
-        int init;
-        vector<IFMapUuidToNodeMappingEntry>::const_iterator first;
-    };
+    static bool ProcessRequestCommon(const IFMapUuidToNodeMappingReq *req,
+                                     const string &last_uuid);
 
-    static RequestPipeline::InstData *AllocTracker(int stage) {
-        return static_cast<RequestPipeline::InstData *>(new TrackerData);
-    }
+    static bool ProcessRequest(
+        const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+        int instNum, RequestPipeline::InstData *data);
 
-    static bool BufferStage(const Sandesh *sr,
-                            const RequestPipeline::PipeSpec ps, int stage,
-                            int instNum, RequestPipeline::InstData *data);
-    static bool SendStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
-                          int stage, int instNum,
-                          RequestPipeline::InstData *data);
+    static bool ProcessRequestIterate(
+        const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+        int instNum, RequestPipeline::InstData *data);
 };
 
-bool ShowIFMapUuidToNodeMapping::BufferStage(const Sandesh *sr,
-                                             const RequestPipeline::PipeSpec ps,
-                                             int stage, int instNum,
-                                             RequestPipeline::InstData *data) {
-    const IFMapUuidToNodeMappingReq *request = 
-        static_cast<const IFMapUuidToNodeMappingReq *>(ps.snhRequest_.get());
-    IFMapSandeshContext *sctx = 
-        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
-    ShowData *show_data = static_cast<ShowData *>(data);
-
+bool ShowIFMapUuidToNodeMapping::ProcessRequestCommon(
+    const IFMapUuidToNodeMappingReq *req, const string &last_uuid) {
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(req->module_context("IFMap"));
+    uint32_t page_limit = GetPageLimit(sctx);
     IFMapVmUuidMapper *mapper = sctx->ifmap_server()->vm_uuid_mapper();
     IFMapUuidMapper &uuid_mapper = mapper->uuid_mapper_;
 
-    show_data->send_buffer.reserve(uuid_mapper.Size());
-    for (IFMapUuidMapper::UuidNodeMap::const_iterator iter = 
-                                        uuid_mapper.uuid_node_map_.begin();
-         iter != uuid_mapper.uuid_node_map_.end(); ++iter) {
+    vector<IFMapUuidToNodeMappingEntry> dest_buffer;
+    IFMapUuidMapper::UuidNodeMap::const_iterator iter;
+    if (last_uuid.size()) {
+        iter =  uuid_mapper.uuid_node_map_.upper_bound(last_uuid);
+    } else {
+        iter = uuid_mapper.uuid_node_map_.begin();
+    }
+    for (uint32_t iter_count = 0; (iter_count != page_limit) &&
+         (iter != uuid_mapper.uuid_node_map_.end()); iter++, iter_count++) {
         IFMapUuidToNodeMappingEntry dest;
         dest.set_uuid(iter->first);
         IFMapNode *node = static_cast<IFMapNode *>(iter->second);
         dest.set_node_name(node->ToString());
-        show_data->send_buffer.push_back(dest);
+        dest_buffer.push_back(dest);
     }
 
-    return true;
-}
-
-// Can be called multiple times i.e. approx total/kMaxElementsPerRound
-bool ShowIFMapUuidToNodeMapping::SendStage(const Sandesh *sr,
-                                           const RequestPipeline::PipeSpec ps,
-                                           int stage, int instNum,
-                                           RequestPipeline::InstData *data) {
-    const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-    const ShowIFMapUuidToNodeMapping::ShowData &show_data = 
-        static_cast<const ShowIFMapUuidToNodeMapping::ShowData &> 
-        (prev_stage_data->at(0));
-    // Data for this stage
-    TrackerData *tracker_data = static_cast<TrackerData *>(data);
-
-    vector<IFMapUuidToNodeMappingEntry> dest_buffer;
-    vector<IFMapUuidToNodeMappingEntry>::const_iterator first, last;
-    bool more = false;
-
-    if (tracker_data->init) {
-        first = show_data.send_buffer.begin();
-        tracker_data->init = 0;
-    } else {
-        first = tracker_data->first;
-    }
-    int rem_num = show_data.send_buffer.end() - first;
-    int send_num = (rem_num < kMaxElementsPerRound) ? rem_num :
-                                                      kMaxElementsPerRound;
-    last = first + send_num;
-    copy(first, last, back_inserter(dest_buffer));
-    // Decide if we want to be called again.
-    if ((rem_num - send_num) > 0) {
-        more = true;
-    } else {
-        more = false;
-    }
-    const IFMapUuidToNodeMappingReq *request = 
-        static_cast<const IFMapUuidToNodeMappingReq *>(ps.snhRequest_.get());
     IFMapUuidToNodeMappingResp *response = new IFMapUuidToNodeMappingResp();
     response->set_map_count(dest_buffer.size());
     response->set_uuid_to_node_map(dest_buffer);
-    response->set_context(request->context());
-    response->set_more(more);
+    if (iter++ != uuid_mapper.uuid_node_map_.end()) {
+        response->set_next_batch(dest_buffer.back().get_uuid());
+    }
+    response->set_context(req->context());
+    response->set_more(false);
     response->Response();
-    tracker_data->first = first + send_num;
-
-    // Return 'false' to be called again
-    return (!more);
+    return true;
 }
+
+bool ShowIFMapUuidToNodeMapping::ProcessRequestIterate(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
+    const IFMapUuidToNodeMappingReqIterate *request_iterate =
+        static_cast<const IFMapUuidToNodeMappingReqIterate *>
+            (ps.snhRequest_.get());
+    IFMapUuidToNodeMappingReq *request = new IFMapUuidToNodeMappingReq;
+    request->set_context(request_iterate->context());
+    string last_uuid = request_iterate->get_uuid_info();
+    ProcessRequestCommon(request, last_uuid);
+    request->Release();
+    return true;
+}
+
+bool ShowIFMapUuidToNodeMapping::ProcessRequest(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
+    const IFMapUuidToNodeMappingReq *request =
+        static_cast<const IFMapUuidToNodeMappingReq *>(ps.snhRequest_.get());
+    string last_uuid;
+    ProcessRequestCommon(request, last_uuid);
+    return true;
+}
+
 
 void IFMapUuidToNodeMappingReq::HandleRequest() const {
 
-    RequestPipeline::StageSpec s0, s1;
+    RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    // 2 stages - first: gather/read, second: send
-
     s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
-    s0.allocFn_ = ShowIFMapUuidToNodeMapping::AllocBuffer;
-    s0.cbFn_ = ShowIFMapUuidToNodeMapping::BufferStage;
+    s0.cbFn_ = ShowIFMapUuidToNodeMapping::ProcessRequest;
     s0.instances_.push_back(0);
 
-    // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
-    s1.allocFn_ = ShowIFMapUuidToNodeMapping::AllocTracker;
-    s1.cbFn_ = ShowIFMapUuidToNodeMapping::SendStage;
-    s1.instances_.push_back(0);
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_ = boost::assign::list_of(s0);
+    RequestPipeline rp(ps);
+}
+
+void IFMapUuidToNodeMappingReqIterate::HandleRequest() const {
+
+    RequestPipeline::StageSpec s0;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.cbFn_ = ShowIFMapUuidToNodeMapping::ProcessRequestIterate;
+    s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = boost::assign::list_of(s0);
     RequestPipeline rp(ps);
 }
 
@@ -1621,127 +1646,109 @@ class ShowIFMapNodeToUuidMapping {
 public:
     static const int kMaxElementsPerRound = 50;
 
-    struct ShowData : public RequestPipeline::InstData {
-        vector<IFMapNodeToUuidMappingEntry> send_buffer;
-    };
-
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
-        return static_cast<RequestPipeline::InstData *>(new ShowData);
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
     }
 
-    struct TrackerData : public RequestPipeline::InstData {
-        // init as 1 indicates we need to init 'first' to begin() since there is
-        // no way to initialize an iterator here.
-        TrackerData() : init(1) { }
-        int init;
-        vector<IFMapNodeToUuidMappingEntry>::const_iterator first;
-    };
+    static bool ProcessRequestCommon(const IFMapNodeToUuidMappingReq *req,
+                                     const string &last_uuid);
 
-    static RequestPipeline::InstData *AllocTracker(int stage) {
-        return static_cast<RequestPipeline::InstData *>(new TrackerData);
-    }
+    static bool ProcessRequest(
+        const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+        int instNum, RequestPipeline::InstData *data);
 
-    static bool BufferStage(const Sandesh *sr,
-                            const RequestPipeline::PipeSpec ps, int stage,
-                            int instNum, RequestPipeline::InstData *data);
-    static bool SendStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
-                          int stage, int instNum,
-                          RequestPipeline::InstData *data);
+    static bool ProcessRequestIterate(
+        const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+        int instNum, RequestPipeline::InstData *data);
 };
 
-bool ShowIFMapNodeToUuidMapping::BufferStage(const Sandesh *sr,
-                                             const RequestPipeline::PipeSpec ps,
-                                             int stage, int instNum,
-                                             RequestPipeline::InstData *data) {
-    const IFMapNodeToUuidMappingReq *request = 
-        static_cast<const IFMapNodeToUuidMappingReq *>(ps.snhRequest_.get());
-    IFMapSandeshContext *sctx = 
-        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
-    ShowData *show_data = static_cast<ShowData *>(data);
+bool ShowIFMapNodeToUuidMapping::ProcessRequestCommon(
+    const IFMapNodeToUuidMappingReq *req, const string &last_uuid) {
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(req->module_context("IFMap"));
+    uint32_t page_limit = GetPageLimit(sctx);
 
     IFMapVmUuidMapper *mapper = sctx->ifmap_server()->vm_uuid_mapper();
 
-    show_data->send_buffer.reserve(mapper->NodeUuidMapCount());
-    for (IFMapVmUuidMapper::NodeUuidMap::const_iterator iter = 
-                                        mapper->node_uuid_map_.begin();
-         iter != mapper->node_uuid_map_.end(); ++iter) {
+    vector<IFMapNodeToUuidMappingEntry> dest_buffer;
+    IFMapVmUuidMapper::NodeUuidMap::const_iterator iter;
+    if (last_uuid.size()) {
+        IFMapNode *vm = mapper->GetVmNodeByUuid(last_uuid);
+        iter = mapper->node_uuid_map_.upper_bound(vm);
+    } else {
+        iter = mapper->node_uuid_map_.begin();
+    }
+    IFMapNode *node;
+    for (uint32_t iter_count = 0; (iter_count != page_limit) &&
+         (iter != mapper->node_uuid_map_.end()); iter++, iter_count++) {
         IFMapNodeToUuidMappingEntry dest;
-        IFMapNode *node = static_cast<IFMapNode *>(iter->first);
+        node = static_cast<IFMapNode *>(iter->first);
         dest.set_node_name(node->ToString());
         dest.set_uuid(iter->second);
-        show_data->send_buffer.push_back(dest);
+        dest_buffer.push_back(dest);
     }
-
-    return true;
-}
-
-// Can be called multiple times i.e. approx total/kMaxElementsPerRound
-bool ShowIFMapNodeToUuidMapping::SendStage(const Sandesh *sr,
-                                           const RequestPipeline::PipeSpec ps,
-                                           int stage, int instNum,
-                                           RequestPipeline::InstData *data) {
-    const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-    const ShowIFMapNodeToUuidMapping::ShowData &show_data = 
-        static_cast<const ShowIFMapNodeToUuidMapping::ShowData &> 
-        (prev_stage_data->at(0));
-    // Data for this stage
-    TrackerData *tracker_data = static_cast<TrackerData *>(data);
-
-    vector<IFMapNodeToUuidMappingEntry> dest_buffer;
-    vector<IFMapNodeToUuidMappingEntry>::const_iterator first, last;
-    bool more = false;
-
-    if (tracker_data->init) {
-        first = show_data.send_buffer.begin();
-        tracker_data->init = 0;
-    } else {
-        first = tracker_data->first;
-    }
-    int rem_num = show_data.send_buffer.end() - first;
-    int send_num = (rem_num < kMaxElementsPerRound) ? rem_num :
-                                                      kMaxElementsPerRound;
-    last = first + send_num;
-    copy(first, last, back_inserter(dest_buffer));
-    // Decide if we want to be called again.
-    if ((rem_num - send_num) > 0) {
-        more = true;
-    } else {
-        more = false;
-    }
-    const IFMapNodeToUuidMappingReq *request = 
-        static_cast<const IFMapNodeToUuidMappingReq *>(ps.snhRequest_.get());
     IFMapNodeToUuidMappingResp *response = new IFMapNodeToUuidMappingResp();
     response->set_map_count(dest_buffer.size());
     response->set_node_to_uuid_map(dest_buffer);
-    response->set_context(request->context());
-    response->set_more(more);
+    if (iter != mapper->node_uuid_map_.end())  {
+        string next_batch = iter->second;
+        response->set_next_batch(next_batch);
+    }
+    response->set_context(req->context());
+    response->set_more(false);
     response->Response();
-    tracker_data->first = first + send_num;
+    return true;
+}
 
-    // Return 'false' to be called again
-    return (!more);
+bool ShowIFMapNodeToUuidMapping::ProcessRequestIterate(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
+    const IFMapNodeToUuidMappingReqIterate *request_iterate =
+        static_cast<const IFMapNodeToUuidMappingReqIterate
+                        *>(ps.snhRequest_.get());
+    IFMapNodeToUuidMappingReq *request = new IFMapNodeToUuidMappingReq;
+    request->set_context(request_iterate->context());
+    string last_uuid = request_iterate->get_uuid_info();
+    ProcessRequestCommon(request, last_uuid);
+    request->Release();
+    return true;
+}
+
+bool ShowIFMapNodeToUuidMapping::ProcessRequest(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
+    const IFMapNodeToUuidMappingReq *request =
+        static_cast<const IFMapNodeToUuidMappingReq *>(ps.snhRequest_.get());
+    string last_uuid;
+    ProcessRequestCommon(request, last_uuid);
+    return true;
 }
 
 void IFMapNodeToUuidMappingReq::HandleRequest() const {
 
-    RequestPipeline::StageSpec s0, s1;
+    RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    // 2 stages - first: gather/read, second: send
-
     s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
-    s0.allocFn_ = ShowIFMapNodeToUuidMapping::AllocBuffer;
-    s0.cbFn_ = ShowIFMapNodeToUuidMapping::BufferStage;
+    s0.cbFn_ = ShowIFMapNodeToUuidMapping::ProcessRequest;
     s0.instances_.push_back(0);
 
-    // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
-    s1.allocFn_ = ShowIFMapNodeToUuidMapping::AllocTracker;
-    s1.cbFn_ = ShowIFMapNodeToUuidMapping::SendStage;
-    s1.instances_.push_back(0);
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_ = boost::assign::list_of(s0);
+    RequestPipeline rp(ps);
+}
+
+void IFMapNodeToUuidMappingReqIterate::HandleRequest() const {
+
+    RequestPipeline::StageSpec s0;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.cbFn_ = ShowIFMapNodeToUuidMapping::ProcessRequestIterate;
+    s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = boost::assign::list_of(s0);
     RequestPipeline rp(ps);
 }
 
@@ -1749,11 +1756,15 @@ class ShowIFMapPendingVmReg {
 public:
     static const int kMaxElementsPerRound = 50;
 
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
+    }
+
     struct ShowData : public RequestPipeline::InstData {
         vector<IFMapPendingVmRegEntry> send_buffer;
     };
 
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
+    static RequestPipeline::InstData* AllocBuffer(int stage) {
         return static_cast<RequestPipeline::InstData *>(new ShowData);
     }
 
@@ -1765,7 +1776,7 @@ public:
         vector<IFMapPendingVmRegEntry>::const_iterator first;
     };
 
-    static RequestPipeline::InstData *AllocTracker(int stage) {
+    static RequestPipeline::InstData* AllocTracker(int stage) {
         return static_cast<RequestPipeline::InstData *>(new TrackerData);
     }
 
@@ -1781,17 +1792,17 @@ bool ShowIFMapPendingVmReg::BufferStage(const Sandesh *sr,
                                         const RequestPipeline::PipeSpec ps,
                                         int stage, int instNum,
                                         RequestPipeline::InstData *data) {
-    const IFMapPendingVmRegReq *request = 
+    const IFMapPendingVmRegReq *request =
         static_cast<const IFMapPendingVmRegReq *>(ps.snhRequest_.get());
-    IFMapSandeshContext *sctx = 
+    IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
     ShowData *show_data = static_cast<ShowData *>(data);
 
     IFMapVmUuidMapper *mapper = sctx->ifmap_server()->vm_uuid_mapper();
 
     show_data->send_buffer.reserve(mapper->PendingVmRegCount());
-    for (IFMapVmUuidMapper::PendingVmRegMap::const_iterator iter = 
-                                        mapper->pending_vmreg_map_.begin();
+    for (IFMapVmUuidMapper::PendingVmRegMap::const_iterator iter =
+         mapper->pending_vmreg_map_.begin();
          iter != mapper->pending_vmreg_map_.end(); ++iter) {
         IFMapPendingVmRegEntry dest;
         dest.set_vm_uuid(iter->first);
@@ -1808,8 +1819,8 @@ bool ShowIFMapPendingVmReg::SendStage(const Sandesh *sr,
                                       int stage, int instNum,
                                       RequestPipeline::InstData *data) {
     const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-    const ShowIFMapPendingVmReg::ShowData &show_data = 
-        static_cast<const ShowIFMapPendingVmReg::ShowData &> 
+    const ShowIFMapPendingVmReg::ShowData &show_data =
+        static_cast<const ShowIFMapPendingVmReg::ShowData&>
         (prev_stage_data->at(0));
     // Data for this stage
     TrackerData *tracker_data = static_cast<TrackerData *>(data);
@@ -1825,8 +1836,12 @@ bool ShowIFMapPendingVmReg::SendStage(const Sandesh *sr,
         first = tracker_data->first;
     }
     int rem_num = show_data.send_buffer.end() - first;
-    int send_num = (rem_num < kMaxElementsPerRound) ? rem_num :
-                                                      kMaxElementsPerRound;
+    const IFMapPendingVmRegReq *request =
+        static_cast<const IFMapPendingVmRegReq *>(ps.snhRequest_.get());
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = GetPageLimit(sctx);
+    int send_num = (rem_num < (int)page_limit) ? rem_num : (int)page_limit;
     last = first + send_num;
     copy(first, last, back_inserter(dest_buffer));
     // Decide if we want to be called again.
@@ -1835,8 +1850,6 @@ bool ShowIFMapPendingVmReg::SendStage(const Sandesh *sr,
     } else {
         more = false;
     }
-    const IFMapPendingVmRegReq *request = 
-        static_cast<const IFMapPendingVmRegReq *>(ps.snhRequest_.get());
     IFMapPendingVmRegResp *response = new IFMapPendingVmRegResp();
     response->set_map_count(dest_buffer.size());
     response->set_vm_reg_map(dest_buffer);
@@ -1868,13 +1881,13 @@ void IFMapPendingVmRegReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
-static bool IFMapServerClientShowReqHandleRequest(const Sandesh *sr,
-                const RequestPipeline::PipeSpec ps, int stage, int instNum,
-                RequestPipeline::InstData *data) {
+static bool IFMapServerClientShowReqHandleRequest(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
     const IFMapServerClientShowReq *request =
         static_cast<const IFMapServerClientShowReq *>(ps.snhRequest_.get());
     IFMapSandeshContext *sctx =
@@ -1911,13 +1924,13 @@ void IFMapServerClientShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0);
     RequestPipeline rp(ps);
 }
 
-static bool IFMapNodeTableListShowReqHandleRequest(const Sandesh *sr,
-                const RequestPipeline::PipeSpec ps, int stage, int instNum,
-                RequestPipeline::InstData *data) {
+static bool IFMapNodeTableListShowReqHandleRequest(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
     const IFMapNodeTableListShowReq *request =
         static_cast<const IFMapNodeTableListShowReq *>(ps.snhRequest_.get());
     IFMapSandeshContext *sctx =
@@ -1947,7 +1960,7 @@ void IFMapNodeTableListShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= boost::assign::list_of(s0);
+    ps.stages_ = boost::assign::list_of(s0);
     RequestPipeline rp(ps);
 }
 
@@ -1955,11 +1968,15 @@ class ShowConfigDBUUIDCache {
 public:
     static const uint32_t kMaxElementsPerRound = 50;
 
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
+    }
+
     struct ShowData : public RequestPipeline::InstData {
         vector<ConfigDBUUIDCacheEntry> send_buffer;
     };
 
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
+    static RequestPipeline::InstData* AllocBuffer(int stage) {
         return static_cast<RequestPipeline::InstData *>(new ShowData);
     }
 
@@ -1970,8 +1987,8 @@ public:
                             const RequestPipeline::PipeSpec ps, int stage,
                             int instNum, RequestPipeline::InstData *data);
     static bool BufferStageIterate(const Sandesh *sr,
-                               const RequestPipeline::PipeSpec ps, int stage,
-                               int instNum, RequestPipeline::InstData *data);
+                                   const RequestPipeline::PipeSpec ps, int stage,
+                                   int instNum, RequestPipeline::InstData *data);
     static void SendStageCommon(const ConfigDBUUIDCacheReq *request,
                                 const RequestPipeline::PipeSpec ps,
                                 ConfigDBUUIDCacheResp *response);
@@ -1981,53 +1998,55 @@ public:
     static bool SendStageIterate(const Sandesh *sr,
                                  const RequestPipeline::PipeSpec ps, int stage,
                                  int instNum, RequestPipeline::InstData *data);
-    static bool SortList(const ConfigDBUUIDCacheEntry& lhs,
-                         const ConfigDBUUIDCacheEntry& rhs);
+    static bool SortList(const ConfigDBUUIDCacheEntry &lhs,
+                         const ConfigDBUUIDCacheEntry &rhs);
 };
 
 bool ShowConfigDBUUIDCache::SortList(
-        const ConfigDBUUIDCacheEntry& lhs,
-        const ConfigDBUUIDCacheEntry& rhs) {
+    const ConfigDBUUIDCacheEntry &lhs,
+    const ConfigDBUUIDCacheEntry &rhs) {
     BOOL_KEY_COMPARE(lhs.uuid, rhs.uuid);
     return false;
 }
 
-bool ShowConfigDBUUIDCache::BufferStageCommon(const ConfigDBUUIDCacheReq *req,
-        int instNum, RequestPipeline::InstData *data, const string &last_uuid) {
+bool ShowConfigDBUUIDCache::BufferStageCommon(
+    const ConfigDBUUIDCacheReq *req, int instNum,
+    RequestPipeline::InstData *data, const string &last_uuid) {
     IFMapSandeshContext *sctx =
         static_cast<IFMapSandeshContext *>(req->module_context("IFMap"));
     ConfigClientManager *ccmgr = sctx->ifmap_server()->get_config_manager();
     ShowData *show_data = static_cast<ShowData *>(data);
-    show_data->send_buffer.reserve(kMaxElementsPerRound);
+    uint32_t page_limit = GetPageLimit(sctx);
+    show_data->send_buffer.reserve(page_limit);
     if (req->get_uuid().length()) {
         ConfigDBUUIDCacheEntry entry;
-        if (!ccmgr->config_db_client()->UUIDToObjCacheShow(instNum,
-                                                   req->get_uuid(), entry)) {
+        if (!ccmgr->config_db_client()->UUIDToObjCacheShow(
+                instNum, req->get_uuid(), entry)) {
             return true;
         }
         show_data->send_buffer.push_back(entry);
         return true;
     } else {
         ccmgr->config_db_client()->UUIDToObjCacheShow(instNum, last_uuid,
-                                  kMaxElementsPerRound, show_data->send_buffer);
+                                                      page_limit,
+                                                      show_data->send_buffer);
         return true;
     }
 }
 
 bool ShowConfigDBUUIDCache::BufferStage(const Sandesh *sr,
-                                 const RequestPipeline::PipeSpec ps,
-                                 int stage, int instNum,
-                                 RequestPipeline::InstData *data) {
+                                        const RequestPipeline::PipeSpec ps,
+                                        int stage, int instNum,
+                                        RequestPipeline::InstData *data) {
     const ConfigDBUUIDCacheReq *request =
         static_cast<const ConfigDBUUIDCacheReq *>(ps.snhRequest_.get());
     string last_uuid;
     return BufferStageCommon(request, instNum, data, last_uuid);
 }
 
-bool ShowConfigDBUUIDCache::BufferStageIterate(const Sandesh *sr,
-                                        const RequestPipeline::PipeSpec ps,
-                                        int stage, int instNum,
-                                        RequestPipeline::InstData *data) {
+bool ShowConfigDBUUIDCache::BufferStageIterate(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
     const ConfigDBUUIDCacheReqIterate *request_iterate =
         static_cast<const ConfigDBUUIDCacheReqIterate *>(ps.snhRequest_.get());
 
@@ -2040,14 +2059,14 @@ bool ShowConfigDBUUIDCache::BufferStageIterate(const Sandesh *sr,
 }
 
 void ShowConfigDBUUIDCache::SendStageCommon(const ConfigDBUUIDCacheReq *request,
-                                     const RequestPipeline::PipeSpec ps,
-                                     ConfigDBUUIDCacheResp *response) {
+                                            const RequestPipeline::PipeSpec ps,
+                                            ConfigDBUUIDCacheResp *response) {
     const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
 
     vector<ConfigDBUUIDCacheEntry> uuid_cache_list;
     for (size_t i = 0; i < prev_stage_data->size(); ++i) {
         const ShowConfigDBUUIDCache::ShowData &show_data = static_cast
-            <const ShowConfigDBUUIDCache::ShowData &>(prev_stage_data->at(i));
+            <const ShowConfigDBUUIDCache::ShowData&>(prev_stage_data->at(i));
         if (show_data.send_buffer.size()) {
             size_t list_size = uuid_cache_list.size();
             uuid_cache_list.reserve(list_size + show_data.send_buffer.size());
@@ -2056,9 +2075,9 @@ void ShowConfigDBUUIDCache::SendStageCommon(const ConfigDBUUIDCacheReq *request,
                  std::back_inserter(uuid_cache_list));
             if (list_size) {
                 std::inplace_merge(uuid_cache_list.begin(),
-                       uuid_cache_list.begin() + list_size,
-                       uuid_cache_list.end(),
-                       ShowConfigDBUUIDCache::SortList);
+                                   uuid_cache_list.begin() + list_size,
+                                   uuid_cache_list.end(),
+                                   ShowConfigDBUUIDCache::SortList);
             }
         }
     }
@@ -2066,9 +2085,13 @@ void ShowConfigDBUUIDCache::SendStageCommon(const ConfigDBUUIDCacheReq *request,
     // If we have filled the buffer, set next_batch with all the values we will
     // need in the next round.
     string next_batch;
-    if (uuid_cache_list.size() > kMaxElementsPerRound) {
+    IFMapSandeshContext *sctx =
+        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+    uint32_t page_limit = GetPageLimit(sctx);
+    if (uuid_cache_list.size() > page_limit) {
         vector<ConfigDBUUIDCacheEntry> ouput_list(uuid_cache_list.begin(),
-                              uuid_cache_list.begin() + kMaxElementsPerRound);
+                                                  uuid_cache_list.begin()
+                                                  + page_limit);
         response->set_uuid_cache(ouput_list);
         next_batch = ouput_list.back().uuid;
     } else {
@@ -2079,9 +2102,9 @@ void ShowConfigDBUUIDCache::SendStageCommon(const ConfigDBUUIDCacheReq *request,
 }
 
 bool ShowConfigDBUUIDCache::SendStage(const Sandesh *sr,
-                               const RequestPipeline::PipeSpec ps,
-                               int stage, int instNum,
-                               RequestPipeline::InstData *data) {
+                                      const RequestPipeline::PipeSpec ps,
+                                      int stage, int instNum,
+                                      RequestPipeline::InstData *data) {
     const ConfigDBUUIDCacheReq *request =
         static_cast<const ConfigDBUUIDCacheReq *>(ps.snhRequest_.get());
     ConfigDBUUIDCacheResp *response = new ConfigDBUUIDCacheResp;
@@ -2093,9 +2116,9 @@ bool ShowConfigDBUUIDCache::SendStage(const Sandesh *sr,
 }
 
 bool ShowConfigDBUUIDCache::SendStageIterate(const Sandesh *sr,
-                                      const RequestPipeline::PipeSpec ps,
-                                      int stage, int instNum,
-                                      RequestPipeline::InstData *data) {
+                                             const RequestPipeline::PipeSpec ps,
+                                             int stage, int instNum,
+                                             RequestPipeline::InstData *data) {
     const ConfigDBUUIDCacheReqIterate *request_iterate =
         static_cast<const ConfigDBUUIDCacheReqIterate *>(ps.snhRequest_.get());
 
@@ -2132,7 +2155,7 @@ void ConfigDBUUIDCacheReq::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
@@ -2156,206 +2179,112 @@ void ConfigDBUUIDCacheReqIterate::HandleRequest() const {
     s1.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = list_of(s0)(s1);
     RequestPipeline rp(ps);
 }
 
 class ShowConfigDBUUIDToFQName {
 public:
-    static const uint32_t kMaxElementsPerRound = 50;
+    static const int kMaxElementsPerRound = 50;
 
-    struct ShowData : public RequestPipeline::InstData {
-        vector<ConfigDBFQNameCacheEntry> send_buffer;
-    };
-
-    static RequestPipeline::InstData *AllocBuffer(int stage) {
-        return static_cast<RequestPipeline::InstData *>(new ShowData);
+    static int GetPageLimit(IFMapSandeshContext *sctx) {
+        return (sctx->page_limit() ? sctx->page_limit() : kMaxElementsPerRound);
     }
 
-    static bool BufferStageCommon(const ConfigDBUUIDToFQNameReq *request,
-                                  RequestPipeline::InstData *data,
-                                  const string &last_uuid);
-    static bool BufferStage(const Sandesh *sr,
-                            const RequestPipeline::PipeSpec ps, int stage,
-                            int instNum, RequestPipeline::InstData *data);
-    static bool BufferStageIterate(const Sandesh *sr,
-                                   const RequestPipeline::PipeSpec ps, int stage,
-                                   int instNum, RequestPipeline::InstData *data);
-    static void SendStageCommon(const ConfigDBUUIDToFQNameReq *request,
-                                const RequestPipeline::PipeSpec ps,
-                                ConfigDBUUIDToFQNameResp *response);
-    static bool SendStage(const Sandesh *sr, const RequestPipeline::PipeSpec ps,
-                          int stage, int instNum,
-                          RequestPipeline::InstData *data);
-    static bool SendStageIterate(const Sandesh *sr,
-                                 const RequestPipeline::PipeSpec ps, int stage,
-                                 int instNum, RequestPipeline::InstData *data);
-    static bool SortList(const ConfigDBFQNameCacheEntry& lhs,
-                         const ConfigDBFQNameCacheEntry& rhs);
+    static bool ProcessRequestCommon(const ConfigDBUUIDToFQNameReq *req,
+                                     const string &last_uuid);
+
+    static bool ProcessRequest(
+        const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+        int instNum, RequestPipeline::InstData *data);
+
+    static bool ProcessRequestIterate(
+        const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+        int instNum, RequestPipeline::InstData *data);
 };
 
-bool ShowConfigDBUUIDToFQName::BufferStageCommon(
-                     const ConfigDBUUIDToFQNameReq *request,
-                     RequestPipeline::InstData *data, const string &last_uuid) {
+bool ShowConfigDBUUIDToFQName::ProcessRequestCommon(
+    const ConfigDBUUIDToFQNameReq *req, const string &last_uuid) {
     IFMapSandeshContext *sctx =
-        static_cast<IFMapSandeshContext *>(request->module_context("IFMap"));
+        static_cast<IFMapSandeshContext *>(req->module_context("IFMap"));
+    uint32_t page_limit = GetPageLimit(sctx);
     ConfigClientManager *ccmgr = sctx->ifmap_server()->get_config_manager();
-    ShowData *show_data = static_cast<ShowData *>(data);
-    show_data->send_buffer.reserve(kMaxElementsPerRound);
-    if (request->get_uuid().length()) {
+
+    vector<ConfigDBFQNameCacheEntry> dest_buffer;
+    ConfigDBFQNameCacheEntry entry;
+    if (req->get_uuid().length()) {
         ConfigDBFQNameCacheEntry entry;
-        if (!ccmgr->config_db_client()->UUIDToFQNameShow(request->get_uuid(),
-                                                         entry)) {
-            return true;
+        if (ccmgr->config_db_client()->UUIDToFQNameShow(req->get_uuid(),
+                                                        entry)) {
+            dest_buffer.push_back(entry);
         }
-        show_data->send_buffer.push_back(entry);
-        return true;
     } else {
         ccmgr->config_db_client()->UUIDToFQNameShow(last_uuid,
-                                kMaxElementsPerRound, show_data->send_buffer);
-        return true;
+                                                    page_limit+1,
+                                                    dest_buffer);
     }
+    string next_batch;
+    ConfigDBUUIDToFQNameResp *response = new ConfigDBUUIDToFQNameResp();
+    if (dest_buffer.size() > page_limit) {
+        dest_buffer.pop_back();
+        next_batch = dest_buffer.back().get_uuid();
+    }
+    response->set_fqname_cache(dest_buffer);
+    response->set_next_batch(next_batch);
+    response->set_context(req->context());
+    response->set_more(false);
+    response->Response();
+    return true;
 }
 
-bool ShowConfigDBUUIDToFQName::BufferStage(const Sandesh *sr,
-                                 const RequestPipeline::PipeSpec ps,
-                                 int stage, int instNum,
-                                 RequestPipeline::InstData *data) {
-    const ConfigDBUUIDToFQNameReq *request =
-        static_cast<const ConfigDBUUIDToFQNameReq *>(ps.snhRequest_.get());
-    string last_uuid;
-    return BufferStageCommon(request, data, last_uuid);
-}
-
-bool ShowConfigDBUUIDToFQName::BufferStageIterate(const Sandesh *sr,
-                                        const RequestPipeline::PipeSpec ps,
-                                        int stage, int instNum,
-                                        RequestPipeline::InstData *data) {
+bool ShowConfigDBUUIDToFQName::ProcessRequestIterate(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
     const ConfigDBUUIDToFQNameReqIterate *request_iterate =
-      static_cast<const ConfigDBUUIDToFQNameReqIterate *>(ps.snhRequest_.get());
-
+        static_cast<const ConfigDBUUIDToFQNameReqIterate
+                        *>(ps.snhRequest_.get());
     ConfigDBUUIDToFQNameReq *request = new ConfigDBUUIDToFQNameReq;
     request->set_context(request_iterate->context());
     string last_uuid = request_iterate->get_uuid_info();
-    BufferStageCommon(request, data, last_uuid);
+    ProcessRequestCommon(request, last_uuid);
     request->Release();
     return true;
 }
 
-bool ShowConfigDBUUIDToFQName::SortList(
-        const ConfigDBFQNameCacheEntry& lhs,
-        const ConfigDBFQNameCacheEntry& rhs) {
-    BOOL_KEY_COMPARE(lhs.uuid, rhs.uuid);
-    return false;
-}
-
-void ShowConfigDBUUIDToFQName::SendStageCommon(
-                           const ConfigDBUUIDToFQNameReq *request,
-                           const RequestPipeline::PipeSpec ps,
-                           ConfigDBUUIDToFQNameResp *response) {
-    const RequestPipeline::StageData *prev_stage_data = ps.GetStageData(0);
-
-    vector<ConfigDBFQNameCacheEntry> fq_name_cache_list;
-    const ShowConfigDBUUIDToFQName::ShowData &show_data = static_cast
-        <const ShowConfigDBUUIDToFQName::ShowData &>(prev_stage_data->at(0));
-    if (show_data.send_buffer.size()) {
-        size_t list_size = fq_name_cache_list.size();
-        fq_name_cache_list.reserve(list_size + show_data.send_buffer.size());
-        copy(show_data.send_buffer.begin(), show_data.send_buffer.end(),
-             std::back_inserter(fq_name_cache_list));
-        if (list_size) {
-            std::inplace_merge(fq_name_cache_list.begin(),
-               fq_name_cache_list.begin() + list_size,
-               fq_name_cache_list.end(),
-               ShowConfigDBUUIDToFQName::SortList);
-        }
-    }
-
-    // If we have filled the buffer, set next_batch with all the values we will
-    // need in the next round.
-    string next_batch;
-    if (fq_name_cache_list.size() == kMaxElementsPerRound) {
-        next_batch = fq_name_cache_list.back().uuid;
-    }
-
-    response->set_fqname_cache(fq_name_cache_list);
-    response->set_next_batch(next_batch);
-}
-
-bool ShowConfigDBUUIDToFQName::SendStage(const Sandesh *sr,
-                               const RequestPipeline::PipeSpec ps,
-                               int stage, int instNum,
-                               RequestPipeline::InstData *data) {
+bool ShowConfigDBUUIDToFQName::ProcessRequest(
+    const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
+    int instNum, RequestPipeline::InstData *data) {
     const ConfigDBUUIDToFQNameReq *request =
-        static_cast<const ConfigDBUUIDToFQNameReq *>(ps.snhRequest_.get());
-    ConfigDBUUIDToFQNameResp *response = new ConfigDBUUIDToFQNameResp;
-    SendStageCommon(request, ps, response);
-    response->set_context(request->context());
-    response->set_more(false);
-    response->Response();
-    return true;
-}
-
-bool ShowConfigDBUUIDToFQName::SendStageIterate(const Sandesh *sr,
-                                      const RequestPipeline::PipeSpec ps,
-                                      int stage, int instNum,
-                                      RequestPipeline::InstData *data) {
-    const ConfigDBUUIDToFQNameReqIterate *request_iterate =
-        static_cast<const ConfigDBUUIDToFQNameReqIterate *>(ps.snhRequest_.get());
-
-    ConfigDBUUIDToFQNameResp *response = new ConfigDBUUIDToFQNameResp;
-    ConfigDBUUIDToFQNameReq *request = new ConfigDBUUIDToFQNameReq;
-    request->set_context(request_iterate->context());
-    request->set_uuid(request_iterate->get_uuid_info());
-    SendStageCommon(request, ps, response);
-    response->set_context(request->context());
-    response->set_more(false);
-    response->Response();
-
-    request->Release();
+        static_cast<const ConfigDBUUIDToFQNameReq*>(ps.snhRequest_.get());
+    string last_uuid;
+    ProcessRequestCommon(request, last_uuid);
     return true;
 }
 
 void ConfigDBUUIDToFQNameReq::HandleRequest() const {
 
-    RequestPipeline::StageSpec s0, s1;
+    RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    // 2 stages - first: gather/read, second: send
-
-    s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
-    s0.allocFn_ = ShowConfigDBUUIDToFQName::AllocBuffer;
-    s0.cbFn_ = ShowConfigDBUUIDToFQName::BufferStage;
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.cbFn_ = ShowConfigDBUUIDToFQName::ProcessRequest;
     s0.instances_.push_back(0);
 
-    // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
-    s1.cbFn_ = ShowConfigDBUUIDToFQName::SendStage;
-    s1.instances_.push_back(0);
-
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = boost::assign::list_of(s0);
     RequestPipeline rp(ps);
 }
 
 void ConfigDBUUIDToFQNameReqIterate::HandleRequest() const {
 
-    RequestPipeline::StageSpec s0, s1;
+    RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    // 2 stages - first: gather/read, second: send
-
-    s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
-    s0.allocFn_ = ShowConfigDBUUIDToFQName::AllocBuffer;
-    s0.cbFn_ = ShowConfigDBUUIDToFQName::BufferStageIterate;
+    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.cbFn_ = ShowConfigDBUUIDToFQName::ProcessRequestIterate;
     s0.instances_.push_back(0);
 
-    // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
-    s1.cbFn_ = ShowConfigDBUUIDToFQName::SendStageIterate;
-    s1.instances_.push_back(0);
-
     RequestPipeline::PipeSpec ps(this);
-    ps.stages_= list_of(s0)(s1);
+    ps.stages_ = boost::assign::list_of(s0);
     RequestPipeline rp(ps);
 }

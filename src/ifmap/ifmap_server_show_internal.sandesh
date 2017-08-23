@@ -25,3 +25,11 @@ request sandesh ConfigDBUUIDToFQNameReqIterate {
 request sandesh ConfigDBUUIDCacheReqIterate {
     1: string uuid_info;
 }
+
+request sandesh IFMapNodeToUuidMappingReqIterate {
+    1: string uuid_info;
+}
+
+request sandesh IFMapUuidToNodeMappingReqIterate {
+    1: string uuid_info;
+}

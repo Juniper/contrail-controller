@@ -88,7 +88,7 @@ BuildTest(env, 'ifmap_server_table_test', ['ifmap_server_table_test.cc'],
 
 BuildTest(env, 'ifmap_uuid_mapper_test', ['ifmap_uuid_mapper_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'schema/ifmapio'],
-          [], flaky_test_suite)
+          [])
 
 BuildTest(env, 'ifmap_update_queue_test', ['ifmap_update_queue_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema', 'schema/ifmapio',
