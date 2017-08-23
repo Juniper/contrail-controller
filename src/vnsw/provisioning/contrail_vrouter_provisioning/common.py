@@ -431,7 +431,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             self.mac = self.get_config(cfg_file, section, key).strip()
             section = "VIRTUAL-HOST-INTERFACE"
             key = "ip"
-            self.cidr = self.get_config(cfg_file, section, key).strip()
+            self.cidr = netaddr.IPNetwork(self.get_config(cfg_file, section, key).strip())
             section = "VIRTUAL-HOST-INTERFACE"
             key = "gateway"
             self.gateway = self.get_config(cfg_file, section, key).strip()
