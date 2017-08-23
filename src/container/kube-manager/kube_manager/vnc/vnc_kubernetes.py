@@ -54,6 +54,10 @@ class VncKubernetes(VncCommon):
         # init vnc connection
         self.vnc_lib = self._vnc_connect()
 
+        # Cache common config.
+        self.vnc_kube_config = vnc_kube_config(logger=self.logger,
+            vnc_lib=self.vnc_lib, args=self.args, queue=self.q, kube=self.kube)
+
         # HACK ALERT.
         # Till we have an alternate means to get config objects,  we will
         # direcly connect to cassandra. Such a persistant connection is
@@ -75,18 +79,14 @@ class VncKubernetes(VncCommon):
         if self.args.nested_mode is '1':
             DBBaseKM.set_nested(True)
 
+        # sync api server db in local cache
+        self._sync_km()
+
         # init rabbit connection
         rabbitmq_cfg = kube_args.rabbitmq_args(self.args)
         self.rabbit = VncAmqpHandle(self.logger._sandesh, self.logger, DBBaseKM,
             REACTION_MAP, 'kube_manager', rabbitmq_cfg)
         self.rabbit.establish()
-
-        # Cache common config.
-        self.vnc_kube_config = vnc_kube_config(logger=self.logger,
-            vnc_lib=self.vnc_lib, args=self.args, queue=self.q, kube=self.kube)
-
-        # sync api server db in local cache
-        self._sync_km()
         self.rabbit._db_resync_done.set()
 
         # provision cluster
