@@ -6,12 +6,13 @@
 
 #include <sandesh/request_pipeline.h>
 
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/foreach.hpp>
 #include <boost/functional/hash.hpp>
 #include <boost/uuid/uuid.hpp>
-#include <boost/algorithm/string/join.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
+#include <boost/regex.hpp>
 #include <map>
 #include <set>
 #include <string>
@@ -543,41 +544,37 @@ void ConfigCassandraClient::FillFQNameCacheInfo(const string &uuid,
     entry.set_deleted(it->second.deleted);
 }
 
-bool ConfigCassandraClient::UUIDToFQNameShow(const string &uuid,
-                                     ConfigDBFQNameCacheEntry &entry) const {
-    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
-    FQNameCacheMap::const_iterator it = fq_name_cache_.find(uuid);
-    if (it == fq_name_cache_.end()) {
-        return false;
-    }
-    FillFQNameCacheInfo(uuid, it, entry);
-    return true;
-}
-
-bool ConfigCassandraClient::UUIDToFQNameShow(const string &start_uuid,
-     uint32_t num_entries, vector<ConfigDBFQNameCacheEntry> &entries) const {
+bool ConfigCassandraClient::UUIDToFQNameShow(
+    const std::string &search_string, const string &last_uuid,
+    uint32_t num_entries,
+    vector<ConfigDBFQNameCacheEntry> *entries) const {
     uint32_t count = 0;
+    bool more = false;
+    boost::regex search_expr(search_string);
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
     for (FQNameCacheMap::const_iterator it =
-        fq_name_cache_.upper_bound(start_uuid);
-        count < num_entries && it != fq_name_cache_.end(); it++, count++) {
-        ConfigDBFQNameCacheEntry entry;
-        FillFQNameCacheInfo(it->first, it, entry);
-        entries.push_back(entry);
+        fq_name_cache_.upper_bound(last_uuid);
+        it != fq_name_cache_.end(); it++) {
+        if (boost::regex_search(it->first, search_expr) ||
+            boost::regex_search(it->second.obj_type, search_expr) ||
+            boost::regex_search(it->second.obj_name, search_expr)) {
+            if (++count > num_entries) {
+                more = true;
+                break;
+            }
+            ConfigDBFQNameCacheEntry entry;
+            FillFQNameCacheInfo(it->first, it, entry);
+            entries->push_back(entry);
+        }
     }
-    return true;
+    return more;
 }
 
-bool ConfigCassandraClient::UUIDToObjCacheShow(int inst_num, const string &uuid,
-                                       ConfigDBUUIDCacheEntry &entry) const {
-    return GetPartition(inst_num)->UUIDToObjCacheShow(uuid, entry);
-}
-
-bool ConfigCassandraClient::UUIDToObjCacheShow(int inst_num,
-                               const string &start_uuid, uint32_t num_entries,
-                               vector<ConfigDBUUIDCacheEntry> &entries) const {
-    return GetPartition(inst_num)->UUIDToObjCacheShow(start_uuid,
-                                                   num_entries, entries);
+bool ConfigCassandraClient::UUIDToObjCacheShow(
+    const std::string &search_string, int inst_num, const string &last_uuid,
+    uint32_t num_entries, vector<ConfigDBUUIDCacheEntry> *entries) const {
+    return GetPartition(inst_num)->UUIDToObjCacheShow(search_string, last_uuid,
+                                                      num_entries, entries);
 }
 
 void ConfigCassandraClient::EnqueueUUIDRequest(string oper, string obj_type,
@@ -836,6 +833,12 @@ void ConfigCassandraPartition::ObjectCacheEntry::DisableCassandraReadRetry(
                 "UUID Read retry timer - deleted timer due to configuration",
                 uuid);
     }
+}
+
+bool ConfigCassandraPartition::ObjectCacheEntry::IsRetryTimerRunning() const {
+    if (retry_timer_)
+        return (retry_timer_->running());
+    return false;
 }
 
 bool ConfigCassandraPartition::ObjectCacheEntry::CassReadRetryTimerExpired(
@@ -1101,8 +1104,13 @@ ConfigCassandraPartition::MarkCacheDirty(const string &uuid,
 
 void ConfigCassandraPartition::FillUUIDToObjCacheInfo(const string &uuid,
                                       ObjectCacheMap::const_iterator uuid_iter,
-                                      ConfigDBUUIDCacheEntry &entry) const {
-    entry.set_uuid(uuid);
+                                      ConfigDBUUIDCacheEntry *entry) const {
+    entry->set_uuid(uuid);
+    entry->set_timestamp(
+            UTCUsecToString(uuid_iter->second->GetLastReadTimeStamp()));
+    entry->set_retry_count(uuid_iter->second->GetRetryCount());
+    entry->set_timer_running(uuid_iter->second->IsRetryTimerRunning());
+    entry->set_timer_created(uuid_iter->second->IsRetryTimerCreated());
     vector<ConfigDBUUIDCacheData> fields;
     for (FieldDetailMap::const_iterator it =
          uuid_iter->second->GetFieldDetailMap().begin();
@@ -1113,28 +1121,23 @@ void ConfigCassandraPartition::FillUUIDToObjCacheInfo(const string &uuid,
         each_field.set_timestamp(UTCUsecToString(it->second.time_stamp));
         fields.push_back(each_field);
     }
-    entry.set_field_list(fields);
+    entry->set_field_list(fields);
 }
 
-bool ConfigCassandraPartition::UUIDToObjCacheShow(const string &uuid,
-                                       ConfigDBUUIDCacheEntry &entry) const {
-    ObjectCacheMap::const_iterator uuid_iter = object_cache_map_.find(uuid);
-    if (uuid_iter == object_cache_map_.end()) {
-        return false;
-    }
-    FillUUIDToObjCacheInfo(uuid, uuid_iter, entry);
-    return true;
-}
-
-bool ConfigCassandraPartition::UUIDToObjCacheShow(const string &start_uuid,
-     uint32_t num_entries, vector<ConfigDBUUIDCacheEntry> &entries) const {
+bool ConfigCassandraPartition::UUIDToObjCacheShow(
+    const string &search_string, const string &last_uuid, uint32_t num_entries,
+    vector<ConfigDBUUIDCacheEntry> *entries) const {
     uint32_t count = 0;
+    boost::regex search_expr(search_string);
     for (ObjectCacheMap::const_iterator it =
-        object_cache_map_.upper_bound(start_uuid);
-        count < num_entries && it != object_cache_map_.end(); it++, count++) {
-        ConfigDBUUIDCacheEntry entry;
-        FillUUIDToObjCacheInfo(it->first, it, entry);
-        entries.push_back(entry);
+        object_cache_map_.upper_bound(last_uuid);
+        count < num_entries && it != object_cache_map_.end(); it++) {
+        if (boost::regex_search(it->first, search_expr)) {
+            count++;
+            ConfigDBUUIDCacheEntry entry;
+            FillUUIDToObjCacheInfo(it->first, it, &entry);
+            entries->push_back(entry);
+        }
     }
     return true;
 }
