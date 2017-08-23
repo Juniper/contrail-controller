@@ -79,7 +79,9 @@ class ConfigCassandraPartition {
         }
         uint32_t GetRetryCount() const { return retry_count_; }
         void SetLastReadTimeStamp(uint64_t ts) { last_read_tstamp_ = ts; }
+        uint64_t GetLastReadTimeStamp() const { return last_read_tstamp_; }
         bool IsRetryTimerCreated() const { return (retry_timer_ != NULL); }
+        bool IsRetryTimerRunning() const;
         Timer *GetRetryTimer() { return retry_timer_; }
 
      private:
@@ -116,11 +118,11 @@ class ConfigCassandraPartition {
     ObjectCacheEntry *MarkCacheDirty(const std::string &uuid,
             ConfigCassandraParseContext &context);
     void Enqueue(ObjectProcessReq *req);
-    bool UUIDToObjCacheShow(const std::string &uuid,
-                            ConfigDBUUIDCacheEntry &entry) const;
-    bool UUIDToObjCacheShow(const std::string &start_uuid,
-                            uint32_t num_entries,
-                            std::vector<ConfigDBUUIDCacheEntry> &entries) const;
+
+    bool UUIDToObjCacheShow(
+        regex search_expr, const std::string &start_uuid,
+        uint32_t num_entries,
+        std::vector<ConfigDBUUIDCacheEntry> &entries) const;
     int GetInstanceId() const { return worker_id_; }
 
     boost::asio::io_service *ioservice();
@@ -227,19 +229,15 @@ class ConfigCassandraClient : public ConfigDbClient {
     virtual void InvalidateFQNameCache(const std::string &uuid);
     void PurgeFQNameCache(const std::string &uuid);
 
-    virtual bool UUIDToFQNameShow(const std::string &uuid,
-                                  ConfigDBFQNameCacheEntry &entry) const;
+    virtual bool UUIDToFQNameShow(
+        regex &search_expr, const std::string &last_uuid,
+        uint32_t num_entries,
+        std::vector<ConfigDBFQNameCacheEntry> &entries) const;
 
-    virtual bool UUIDToFQNameShow(const std::string &start_uuid,
-                      uint32_t num_entries,
-                      std::vector<ConfigDBFQNameCacheEntry> &entries) const;
-
-    virtual bool UUIDToObjCacheShow(int inst_num, const std::string &uuid,
-                                  ConfigDBUUIDCacheEntry &entry) const;
-
-    virtual bool UUIDToObjCacheShow(int inst_num, const std::string &start_uuid,
-                      uint32_t num_entries,
-                      std::vector<ConfigDBUUIDCacheEntry> &entries) const;
+    virtual bool UUIDToObjCacheShow(
+        regex &search_expr, int inst_num, const std::string &start_uuid,
+        uint32_t num_entries,
+        std::vector<ConfigDBUUIDCacheEntry> &entries) const;
     virtual std::string uuid_str(const std::string &uuid);
 
  protected:

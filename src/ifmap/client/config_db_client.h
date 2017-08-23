@@ -5,11 +5,14 @@
 #ifndef ctrlplane_config_db_client_h
 #define ctrlplane_config_db_client_h
 
+#include <boost/regex.hpp>
 #include <string>
 #include <vector>
 
 #include "config_client_manager.h"
 #include "ifmap/ifmap_table.h"
+
+using boost::regex;
 
 struct IFMapConfigOptions;
 struct ConfigDBConnInfo;
@@ -38,19 +41,18 @@ public:
     virtual void AddFQNameCache(const std::string &uuid,
                    const std::string &obj_type, const std::string &fq_name) = 0;
     virtual void InvalidateFQNameCache(const std::string &uuid) = 0;
-    virtual bool UUIDToFQNameShow(const std::string &uuid,
-                                  ConfigDBFQNameCacheEntry &entry) const = 0;
-    virtual bool UUIDToFQNameShow(const std::string &start_uuid,
-                      uint32_t num_entries,
-                      std::vector<ConfigDBFQNameCacheEntry> &entries) const = 0;
+
+    virtual bool UUIDToFQNameShow(
+        regex &search_expr, const std::string &last_uuid,
+        uint32_t num_entries,
+        std::vector<ConfigDBFQNameCacheEntry> &entries) const = 0;
 
     virtual void GetConnectionInfo(ConfigDBConnInfo &status) const = 0;
 
-    virtual bool UUIDToObjCacheShow(int inst_num, const std::string &uuid,
-                                  ConfigDBUUIDCacheEntry &entry) const = 0;
-    virtual bool UUIDToObjCacheShow(int inst_num, const std::string &start_uuid,
-                      uint32_t num_entries,
-                      std::vector<ConfigDBUUIDCacheEntry> &entries) const = 0;
+    virtual bool UUIDToObjCacheShow(
+        regex &search_expr, int inst_num, const std::string &last_uuid,
+        uint32_t num_entries,
+        std::vector<ConfigDBUUIDCacheEntry> &entries) const = 0;
 
 private:
     std::string config_db_user_;
