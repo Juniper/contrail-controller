@@ -119,7 +119,6 @@ class VerifyBgp(VerifyRouteTarget):
                 bgpaas_client_obj.get_bgp_router_parameters().ipv6_gateway_address,
                 gateway)
 
-
 class TestBgp(STTestCase, VerifyBgp):
     # test logical router functionality
     def test_logical_router(self):
@@ -257,6 +256,68 @@ class TestBgp(STTestCase, VerifyBgp):
         self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])
         self._vnc_lib.bgp_router_delete(id=router1.uuid)
     #end test_asn
+
+    def test_bgpaas_shared(self):
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name,
+                                              ['10.0.0.0/24', '1000::/16'])
+
+        project_name = ['default-domain', 'default-project']
+        project_obj = self._vnc_lib.project_read(fq_name=project_name)
+        port_name1 = self.id() + 'p1'
+        port_obj1 = VirtualMachineInterface(port_name1, parent_obj=project_obj)
+        port_obj1.add_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(port_obj1)
+        port_name2 = self.id() + 'p2'
+        port_obj2 = VirtualMachineInterface(port_name2, parent_obj=project_obj)
+        port_obj2.add_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(port_obj2)
+
+        # Create a shared BGPaaS server. It means BGP Router object
+        # does not get created for VMI on the network.
+        bgpaas_name = self.id() + 'bgp1'
+        bgpaas = BgpAsAService(bgpaas_name, parent_obj=project_obj,
+                               autonomous_system=64512, bgpaas_shared=True,
+                               bgpaas_ip_address = '1.1.1.1')
+
+        bgpaas.add_virtual_machine_interface(port_obj1)
+        self._vnc_lib.bgp_as_a_service_create(bgpaas)
+        self.wait_to_get_object(config_db.BgpAsAServiceST,
+                                bgpaas.get_fq_name_str())
+
+        router1_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + bgpaas_name
+        router2_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + 'bgpaas-server'
+        
+        # Check for two BGP routers - one with the BGPaaS name and not with Port name
+        self.wait_to_get_object(config_db.BgpRouterST, router1_name)
+        self.wait_to_get_object(config_db.BgpRouterST, router2_name)
+
+        # check whether shared IP address is assigned to the BGP rotuer 
+        self.check_bgp_router_ip(router1_name, '1.1.1.1')
+
+        # Add a new VMI to the BGPaaS. This should not create a new BGP router
+        bgpaas = self._vnc_lib.bgp_as_a_service_read(fq_name_str=bgpaas.get_fq_name_str())
+        bgpaas.add_virtual_machine_interface(port_obj2)
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+
+        # Check for the absence of BGP router along with the new VMI.
+        router3_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port_name2
+        try:
+            bgp_router = self._vnc_lib.bgp_router_read(fq_name_str=router3_name)
+        except NoIdError:
+            print 'Second BGP Router not created for second port - PASS'
+        else:
+            assert(True)
+
+        bgpaas.del_virtual_machine_interface(port_obj1)
+        bgpaas.del_virtual_machine_interface(port_obj2)
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        self._vnc_lib.bgp_as_a_service_delete(id=bgpaas.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
+        self._vnc_lib.virtual_machine_interface_delete(id=port_obj2.uuid)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self.check_ri_is_deleted(vn1_obj.fq_name+[vn1_obj.name])
+    # end test_bgpaas_shared
 
     def test_bgpaas(self):
         # create  vn1
