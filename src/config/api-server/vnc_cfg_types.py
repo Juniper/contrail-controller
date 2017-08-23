@@ -157,6 +157,36 @@ class Resource(ResourceDbMixin):
 
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     @classmethod
+    def _check_valid_port_range(cls, port_start, port_end):
+        if port_start > port_end:
+            return (False, (400, 'Invalid Port range specified'))
+        return True, ''
+
+    @classmethod
+    def _check_bgpaas_ports(cls, obj_dict, db_conn):
+        bgpaas_ports = obj_dict.get('bgpaas_parameters')
+        if not bgpaas_ports:
+            return (True, '')
+
+        ok, msg = cls._check_valid_port_range(bgpaas_ports['port_start'],
+                                              bgpaas_ports['port_end'])
+        if not ok:
+            return ok, msg
+
+        ok, global_sys_cfg = cls.dbe_read(db_conn, 'global_system_config',
+                                          obj_dict.get('uuid'))
+        if not ok:
+            return (ok, global_sys_cfg)
+        cur_bgpaas_ports = global_sys_cfg.get('bgpaas_parameters') or\
+                            {'port_start': 50000, 'port_end': 50512}
+        if (bgpaas_ports['port_start'] > cur_bgpaas_ports['port_start'] or
+           bgpaas_ports['port_end'] < cur_bgpaas_ports['port_end']):
+            return (False, (400, 'BGP Port range cannot be shrunk'))
+
+        return (True, '')
+    # end _check_bgpaas_ports
+
+    @classmethod
     def _check_asn(cls, obj_dict, db_conn):
         global_asn = obj_dict.get('autonomous_system')
         if not global_asn:
@@ -208,6 +238,13 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        bgpaas_ports = obj_dict.get('bgpaas_parameters')
+        if bgpaas_ports:
+            ok, msg = cls._check_valid_port_range(bgpaas_ports['port_start'],
+                                                  bgpaas_ports['port_end'])
+            if not ok:
+                return ok, msg
+
         ok, result = cls._check_udc(obj_dict, [])
         if not ok:
             return ok, result
@@ -228,6 +265,11 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
         ok, result = cls._check_asn(obj_dict, db_conn)
         if not ok:
             return ok, result
+
+        ok, result = cls._check_bgpaas_ports(obj_dict, db_conn)
+        if not ok:
+            return ok, result
+
         return True, ''
     # end pre_dbe_update
 
@@ -2584,6 +2626,30 @@ class QosConfigServer(Resource, QosConfig):
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         return cls._check_qos_values(obj_dict, db_conn)
 # end class QosConfigServer
+
+class BgpAsAServiceServer(Resource, BgpAsAService):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if (not obj_dict.get('bgpaas_shared') == True or
+           obj_dict.get('bgpaas_ip_address') != None):
+            return True, ''
+        return (False, (400, 'BGPaaS IP Address needs to be ' +
+                             'configured if BGPaaS is shared'))
+    # end pre_dbe_create
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        if 'bgpaas_shared' in obj_dict:
+            ok, result = cls.dbe_read(db_conn, 'bgp_as_a_service', id)
+
+            if not ok:
+                return ok, result
+            if result.get('bgpaas_shared') != obj_dict['bgpaas_shared']:
+                return (False, (400, 'BGPaaS sharing cannot be modified'))
+        return True, ""
+    # end pre_dbe_update
+# end BgpAsAServiceServer
+
 
 class PhysicalRouterServer(Resource, PhysicalRouter):
     @classmethod
