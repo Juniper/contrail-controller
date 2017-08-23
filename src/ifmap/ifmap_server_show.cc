@@ -447,7 +447,7 @@ void IFMapTableShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.cbFn_ = ShowIFMapTable::SendStage;
     s1.instances_.push_back(0);
 
@@ -469,7 +469,7 @@ void IFMapTableShowReqIterate::HandleRequest() const {
     s0.instances_.push_back(0);
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.cbFn_ = ShowIFMapTable::SendStageIterate;
     s1.instances_.push_back(0);
 
@@ -790,7 +790,7 @@ void IFMapLinkTableShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.cbFn_ = ShowIFMapLinkTable::SendStage;
     s1.instances_.push_back(0);
 
@@ -812,7 +812,7 @@ void IFMapLinkTableShowReqIterate::HandleRequest() const {
     s0.instances_.push_back(0);
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.cbFn_ = ShowIFMapLinkTable::SendStageIterate;
     s1.instances_.push_back(0);
 
@@ -1245,7 +1245,7 @@ void IFMapPerClientNodesShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.cbFn_ = ShowIFMapPerClientNodes::SendStage;
     s1.instances_.push_back(0);
 
@@ -1267,7 +1267,7 @@ void IFMapPerClientNodesShowReqIterate::HandleRequest() const {
     s0.instances_.push_back(0);
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.cbFn_ = ShowIFMapPerClientNodes::SendStageIterate;
     s1.instances_.push_back(0);
 
@@ -1873,7 +1873,7 @@ void IFMapPendingVmRegReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.allocFn_ = ShowIFMapPendingVmReg::AllocTracker;
     s1.cbFn_ = ShowIFMapPendingVmReg::SendStage;
     s1.instances_.push_back(0);
@@ -1998,6 +1998,9 @@ public:
                                  int instNum, RequestPipeline::InstData *data);
     static bool SortList(const ConfigDBUUIDCacheEntry &lhs,
                          const ConfigDBUUIDCacheEntry &rhs);
+    static bool ConvertReqIterateToReq(
+        const ConfigDBUUIDCacheReqIterate *req_iterate,
+        ConfigDBUUIDCacheReq *req, string *last_uuid);
 };
 
 bool ShowConfigDBUUIDCache::SortList(
@@ -2006,6 +2009,37 @@ bool ShowConfigDBUUIDCache::SortList(
     BOOL_KEY_COMPARE(lhs.uuid, rhs.uuid);
     return false;
 }
+
+// Format of uuid_info string:
+// search_string||last_uuid
+//      search_string: original input. Could be empty.
+//      last_uuid : uuid of last UUIDToFQName entry that was printed in the
+//                  previous round
+bool ShowConfigDBUUIDCache::ConvertReqIterateToReq(
+    const ConfigDBUUIDCacheReqIterate *req_iterate,
+    ConfigDBUUIDCacheReq *req, string *last_uuid) {
+    // First, set the context from the original request since we might return
+    // due to parsing errors.
+    req->set_context(req_iterate->context());
+
+    string uuid_info = req_iterate->get_uuid_info();
+    size_t sep_size = kShowIterSeparator.size();
+
+    // search_string
+    size_t pos1 = uuid_info.find(kShowIterSeparator);
+    if (pos1 == string::npos) {
+        return false;
+    }
+    string search_string = uuid_info.substr(0, pos1);
+
+    // last_uuid
+    *last_uuid = uuid_info.substr((pos1 + sep_size));
+
+    // Fill up the fields of ConfigDBUUIDCacheReq appropriately.
+    req->set_search_string(search_string);
+    return true;
+}
+
 
 bool ShowConfigDBUUIDCache::BufferStageCommon(
     const ConfigDBUUIDCacheReq *req, int instNum,
@@ -2016,20 +2050,11 @@ bool ShowConfigDBUUIDCache::BufferStageCommon(
     ShowData *show_data = static_cast<ShowData *>(data);
     uint32_t page_limit = GetPageLimit(sctx);
     show_data->send_buffer.reserve(page_limit);
-    if (req->get_uuid().length()) {
-        ConfigDBUUIDCacheEntry entry;
-        if (!ccmgr->config_db_client()->UUIDToObjCacheShow(
-                instNum, req->get_uuid(), entry)) {
-            return true;
-        }
-        show_data->send_buffer.push_back(entry);
-        return true;
-    } else {
-        ccmgr->config_db_client()->UUIDToObjCacheShow(instNum, last_uuid,
-                                                      page_limit,
-                                                      show_data->send_buffer);
-        return true;
-    }
+    ccmgr->config_db_client()->UUIDToObjCacheShow(req->get_search_string(),
+                                                  instNum,
+                                                  last_uuid, page_limit,
+                                                  &show_data->send_buffer);
+    return true;
 }
 
 bool ShowConfigDBUUIDCache::BufferStage(const Sandesh *sr,
@@ -2049,9 +2074,12 @@ bool ShowConfigDBUUIDCache::BufferStageIterate(
         static_cast<const ConfigDBUUIDCacheReqIterate *>(ps.snhRequest_.get());
 
     ConfigDBUUIDCacheReq *request = new ConfigDBUUIDCacheReq;
-    request->set_context(request_iterate->context());
-    string last_uuid = request_iterate->get_uuid_info();
-    BufferStageCommon(request, instNum, data, last_uuid);
+    string last_uuid;
+    bool success = ConvertReqIterateToReq(request_iterate, request,
+                                          &last_uuid);
+    if (success) {
+        BufferStageCommon(request, instNum, data, last_uuid);
+    }
     request->Release();
     return true;
 }
@@ -2091,7 +2119,8 @@ void ShowConfigDBUUIDCache::SendStageCommon(const ConfigDBUUIDCacheReq *request,
                                                   uuid_cache_list.begin()
                                                   + page_limit);
         response->set_uuid_cache(ouput_list);
-        next_batch = ouput_list.back().uuid;
+        next_batch = request->get_search_string() + kShowIterSeparator
+            + ouput_list.back().uuid;
     } else {
         response->set_uuid_cache(uuid_cache_list);
     }
@@ -2122,9 +2151,13 @@ bool ShowConfigDBUUIDCache::SendStageIterate(const Sandesh *sr,
 
     ConfigDBUUIDCacheResp *response = new ConfigDBUUIDCacheResp;
     ConfigDBUUIDCacheReq *request = new ConfigDBUUIDCacheReq;
-    request->set_context(request_iterate->context());
-    request->set_uuid(request_iterate->get_uuid_info());
-    SendStageCommon(request, ps, response);
+    string last_uuid;
+    bool success = ConvertReqIterateToReq(request_iterate, request,
+                                          &last_uuid);
+    if (success) {
+        SendStageCommon(request, ps, response);
+    }
+
     response->set_context(request->context());
     response->set_more(false);
     response->Response();
@@ -2148,7 +2181,7 @@ void ConfigDBUUIDCacheReq::HandleRequest() const {
     }
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.cbFn_ = ShowConfigDBUUIDCache::SendStage;
     s1.instances_.push_back(0);
 
@@ -2172,7 +2205,7 @@ void ConfigDBUUIDCacheReqIterate::HandleRequest() const {
     }
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.cbFn_ = ShowConfigDBUUIDCache::SendStageIterate;
     s1.instances_.push_back(0);
 
@@ -2199,7 +2232,41 @@ public:
     static bool ProcessRequestIterate(
         const Sandesh *sr, const RequestPipeline::PipeSpec ps, int stage,
         int instNum, RequestPipeline::InstData *data);
+
+    static bool ConvertReqIterateToReq(
+        const ConfigDBUUIDToFQNameReqIterate *req_iterate,
+        ConfigDBUUIDToFQNameReq *req, string *last_uuid);
 };
+
+// Format of uuid_info string:
+// search_string||last_uuid
+//      search_string: original input. Could be empty.
+//      last_uuid : uuid of last UUIDToFQName entry that was printed in the
+//                  previous round
+bool ShowConfigDBUUIDToFQName::ConvertReqIterateToReq(
+    const ConfigDBUUIDToFQNameReqIterate *req_iterate,
+    ConfigDBUUIDToFQNameReq *req, string *last_uuid) {
+    // First, set the context from the original request since we might return
+    // due to parsing errors.
+    req->set_context(req_iterate->context());
+
+    string uuid_info = req_iterate->get_uuid_info();
+    size_t sep_size = kShowIterSeparator.size();
+
+    // search_string
+    size_t pos1 = uuid_info.find(kShowIterSeparator);
+    if (pos1 == string::npos) {
+        return false;
+    }
+    string search_string = uuid_info.substr(0, pos1);
+
+    // last_uuid
+    *last_uuid = uuid_info.substr((pos1 + sep_size));
+
+    // Fill up the fields of ConfigDBUUIDToFQNameReq appropriately.
+    req->set_search_string(search_string);
+    return true;
+}
 
 bool ShowConfigDBUUIDToFQName::ProcessRequestCommon(
     const ConfigDBUUIDToFQNameReq *req, const string &last_uuid) {
@@ -2207,25 +2274,14 @@ bool ShowConfigDBUUIDToFQName::ProcessRequestCommon(
         static_cast<IFMapSandeshContext *>(req->module_context("IFMap"));
     uint32_t page_limit = GetPageLimit(sctx);
     ConfigClientManager *ccmgr = sctx->ifmap_server()->get_config_manager();
-
     vector<ConfigDBFQNameCacheEntry> dest_buffer;
-    ConfigDBFQNameCacheEntry entry;
-    if (req->get_uuid().length()) {
-        ConfigDBFQNameCacheEntry entry;
-        if (ccmgr->config_db_client()->UUIDToFQNameShow(req->get_uuid(),
-                                                        entry)) {
-            dest_buffer.push_back(entry);
-        }
-    } else {
-        ccmgr->config_db_client()->UUIDToFQNameShow(last_uuid,
-                                                    page_limit+1,
-                                                    dest_buffer);
-    }
+    bool more = ccmgr->config_db_client()->UUIDToFQNameShow(
+            req->get_search_string(), last_uuid, page_limit, &dest_buffer);
     string next_batch;
     ConfigDBUUIDToFQNameResp *response = new ConfigDBUUIDToFQNameResp();
-    if (dest_buffer.size() > page_limit) {
-        dest_buffer.pop_back();
-        next_batch = dest_buffer.back().get_uuid();
+    if (more) {
+        next_batch = req->get_search_string()
+        + kShowIterSeparator + dest_buffer.back().get_uuid();
     }
     response->set_fqname_cache(dest_buffer);
     response->set_next_batch(next_batch);
@@ -2242,9 +2298,12 @@ bool ShowConfigDBUUIDToFQName::ProcessRequestIterate(
         static_cast<const ConfigDBUUIDToFQNameReqIterate
                         *>(ps.snhRequest_.get());
     ConfigDBUUIDToFQNameReq *request = new ConfigDBUUIDToFQNameReq;
-    request->set_context(request_iterate->context());
-    string last_uuid = request_iterate->get_uuid_info();
-    ProcessRequestCommon(request, last_uuid);
+    string last_uuid;
+    bool success = ConvertReqIterateToReq(request_iterate, request,
+                                          &last_uuid);
+    if (success) {
+        ProcessRequestCommon(request, last_uuid);
+    }
     request->Release();
     return true;
 }
@@ -2264,7 +2323,7 @@ void ConfigDBUUIDToFQNameReq::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
     s0.cbFn_ = ShowConfigDBUUIDToFQName::ProcessRequest;
     s0.instances_.push_back(0);
 
@@ -2278,7 +2337,7 @@ void ConfigDBUUIDToFQNameReqIterate::HandleRequest() const {
     RequestPipeline::StageSpec s0;
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-    s0.taskId_ = scheduler->GetTaskId("db::IFMapTable");
+    s0.taskId_ = scheduler->GetTaskId("cassandra::Reader");
     s0.cbFn_ = ShowConfigDBUUIDToFQName::ProcessRequestIterate;
     s0.instances_.push_back(0);
 
