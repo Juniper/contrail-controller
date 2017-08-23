@@ -27,6 +27,16 @@ public:
         return (channel_ = AmqpClient::Channel::CreateFromUri(uri));
     }
 
+    virtual AmqpClient::Channel::ptr_t CreateSecure(
+            std::string ca_cert, std::string host, std::string client_key,
+            std::string client_cert, int port, std::string username,
+            std::string password, std::string vhost, int frame_max = 131072,
+            bool verify_hostname = false) {
+        return (channel_ = AmqpClient::Channel::CreateSecure( ca_cert, host,
+                    client_key, client_cert, port, username, password, vhost,
+                    frame_max , verify_hostname));
+    }
+
     virtual void DeclareExchange(const std::string &exchange_name,
          const std::string &exchange_type, bool passive, bool durable,
          bool auto_delete) {
