@@ -124,7 +124,11 @@ class ServiceLbManager(VncCommon):
                 # Delete vmi-->floating-ip
                 fip_ids = vmi.floating_ips.copy()
                 for fip_id in fip_ids:
-                    self._vnc_lib.floating_ip_delete(id=fip_id)
+                    try:
+                        self._vnc_lib.floating_ip_delete(id=fip_id)
+                    except NoIdError:
+                        #  already deleted and not updated in the local-cache
+                        continue
 
                 ip_ids = vmi.instance_ips.copy()
                 for ip_id in ip_ids:
