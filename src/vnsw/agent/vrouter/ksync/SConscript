@@ -27,6 +27,7 @@ libksync = env.Library('vnswksync',
                        sandesh_objs +
                        except_objs +
                        [
+                        'ksync_agent_sandesh.cc',
                         'bridge_route_audit_ksync.cc',
                         'ksync_bridge_table.cc',
                         'flowtable_ksync.cc',
