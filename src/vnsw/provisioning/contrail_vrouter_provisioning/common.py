@@ -47,7 +47,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             # so vhost0 should be treated as dev,
             # which is used to get netmask/gateway
             if 'vhost0' in netifaces.interfaces():
-                self.dev = vhost0
+                self.dev = 'vhost0'
             # During intial provision actual interface should be treated as dev
             # which is used to get netmask/gateway
             elif self._args.physical_interface in netifaces.interfaces():
@@ -431,7 +431,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             self.mac = self.get_config(cfg_file, section, key).strip()
             section = "VIRTUAL-HOST-INTERFACE"
             key = "ip"
-            self.cidr = self.get_config(cfg_file, section, key).strip()
+            self.cidr = netaddr.IPNetwork(self.get_config(cfg_file, section, key).strip())
             section = "VIRTUAL-HOST-INTERFACE"
             key = "gateway"
             self.gateway = self.get_config(cfg_file, section, key).strip()
