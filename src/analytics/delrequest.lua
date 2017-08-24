@@ -11,6 +11,7 @@ local typ = redis.call('smembers',"TYPES:"..sm)
 
 local ism = redis.call('sismember', 'NGENERATORS', ngen_sm)
 if ism == 0 then
+    redis.log(redis.LOG_NOTICE,"NGENERATORS has no member"..ngen_sm)
     return false
 end
 redis.call('expire', "NGENERATORS", 40)
