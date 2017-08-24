@@ -726,7 +726,12 @@ bool InetUnicastRouteEntry::EcmpAddPath(AgentPath *path) {
         return false;
     }
 
-    path->set_tunnel_bmap(TunnelType::MplsType());
+    if (path->tunnel_bmap() & TunnelType::NativeType()) {
+        path->set_tunnel_bmap(TunnelType::MplsType() |
+                              TunnelType::NativeType());
+    } else {
+        path->set_tunnel_bmap(TunnelType::MplsType());
+    }
     Agent *agent = 
         (static_cast<InetUnicastAgentRouteTable *> (get_table()))->agent();
 
