@@ -112,7 +112,8 @@ public:
         if (state == false)
             msg = "failure";
         HealthCheckInstanceEvent *event = new HealthCheckInstanceEvent
-            (hc_instance_[id], HealthCheckInstanceEvent::MESSAGE_READ, msg);
+            (hc_instance_[id], hc_instance_[id]->service(),
+             HealthCheckInstanceEvent::MESSAGE_READ, msg);
         agent_->health_check_table()->InstanceEventEnqueue(event);
         client->WaitForIdle();
 
