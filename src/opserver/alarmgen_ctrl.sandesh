@@ -239,7 +239,7 @@ struct AlarmgenPartition {
  * @description: uve to send alarmgen partition data
  * @object: analytics-node
  */
-uve sandesh AlarmgenPartitionTrace {
+uve sandesh AlarmgenPartitionUVE {
     1: AlarmgenPartition data
 }
 
@@ -260,6 +260,18 @@ trace sandesh UVEQTrace {
     1: string oper
     2: u16 part
     3: list<string> uves
+}
+
+trace sandesh AlarmgenPartitionTrace {
+    1: string msg
+}
+
+trace sandesh AlarmExceptionTrace {
+    1: string message
+    2: string key
+    3: string uve_data
+    4: string alarm_config
+    5: string traceback
 }
 
 /**
