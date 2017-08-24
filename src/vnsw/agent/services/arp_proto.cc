@@ -79,6 +79,21 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
                 } else
                     it++;
             }
+            for (GratuitousArpIterator it = gratuitous_arp_cache_.begin();
+                 it != gratuitous_arp_cache_.end(); ) {
+                 ArpKey key = it->first;
+                 if (key.vrf == vrf) {
+                     for (ArpEntrySet::iterator sit = it->second.begin();
+                          sit != it->second.end();) {
+                         ArpEntry *entry = *sit;
+                         it->second.erase(sit++);
+                         delete entry;
+                     }
+                    gratuitous_arp_cache_.erase(it++);
+                 }else {
+                    it++;
+                 }
+            }
             state->Delete();
         }
         return;
@@ -425,7 +440,8 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
                               arp_proto->ip_fabric_interface());
     } else {
         if (intf_nh) {
-            if (!intf->IsDeleted() && intf->type() == Interface::VM_INTERFACE) {
+            if (!intf->IsDeleted() && intf->type() == Interface::VM_INTERFACE
+                && static_cast<const VmInterface*>(intf)->ipv4_active()) {
                 ArpKey intf_key(route->addr().to_v4().to_ulong(), route->vrf());
                 arp_proto->AddGratuitousArpEntry(intf_key);
                 arp_proto->SendArpIpc(ArpProto::ARP_SEND_GRATUITOUS,
@@ -562,6 +578,16 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
             intf_entry.arp_key_list.clear();
             interface_arp_map_.erase(it);
         }
+
+        if (itf->type() == Interface::VM_INTERFACE) {
+            ArpKey key(static_cast<VmInterface *>
+                       (itf)->primary_ip_addr().to_ulong(), itf->vrf());
+            ArpEntry *arpentry = GratuitousArpEntry(key, itf);
+            if (arpentry) {
+                DeleteGratuitousArpEntry(arpentry);
+            }
+        }
+
         if (itf->type() == Interface::PHYSICAL &&
             itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(NULL);
@@ -651,7 +677,8 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
 
 bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type,
                            const Interface* itf) {
-    if (arp_cache_.find(key) != arp_cache_.end()) {
+    if (arp_cache_.find(key) != arp_cache_.end() ||
+        gratuitous_arp_cache_.find(key) != gratuitous_arp_cache_.end()) {
         SendArpIpc((ArpProto::ArpMsgType)timer_type, key, itf);
     }
     return false;
