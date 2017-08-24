@@ -317,19 +317,18 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             auth = kauth.token.Token(self._auth_url, token=self._admin_token)
         else:
             kwargs = {
-                'project_name': self._admin_tenant,
                 'username': self._auth_user,
                 'password': self._auth_passwd,
                 'user_domain_name': self._user_domain_name,
             }
-            if self._user_domain_name:
+            if self._domain_id:
                 kwargs.update({
-                    'project_domain_name': self._project_domain_name,
-                    'project_name': self._project_name,
+                    'domain_id': self._domain_id,
                 })
             else:
                 kwargs.update({
-                    'domain_id': self._domain_id,
+                    'project_domain_name': self._project_domain_name,
+                    'project_name': self._project_name,
                 })
             auth = kauth.password.Password(self._auth_url, **kwargs)
 
