@@ -24,6 +24,7 @@ redis.log(redis.LOG_DEBUG,"UVEUpdate for "..sm.." key "..key.." type:attr "..typ
 redis.call('select',db)
 local ism = redis.call('sismember', 'NGENERATORS', ngen_sm)
 if ism == 0 then
+    redis.log(redis.LOG_NOTICE,"Update: NGENERATORS has no member "..ngen_sm)
     return false
 end
 
