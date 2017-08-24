@@ -150,7 +150,35 @@ bool GrokParser::match(std::string strin, std::map<std::string, std::string>* m)
     return false;
 }
 
+void GrokParser::send_generic_stat(std::map<std::string, std::string> &m_in) {
+    std::map<std::string, uint64_t> m_out;
+    for (std::vector<std::string>::iterator ait = attribs_.begin(); ait != attribs_.end(); ait++) {
+        std::string cur_attrib = (*ait);
+        for (std::vector<std::string>::iterator kit = keys_.begin(); kit != keys_.end(); kit++) {
+            std::string a_key = cur_attrib;
+            std::string cur_keyval = (*kit);
+            std::string raw_key = a_key + "." + cur_keyval;
+            m_out[raw_key] = boost::lexical_cast<uint64_t>(m_in[cur_attrib].c_str());
+            cur_keyval += "." + m_in[(*kit)];
+            a_key += "." + cur_keyval;
+            m_out[a_key] = boost::lexical_cast<uint64_t>(m_in[cur_attrib].c_str());
+        }
+    }
+    GenericStats * snh(GENERIC_STATS_CREATE());
+    snh->set_name(attribs_[0]);
+    snh->set_msg_type(m_in["Message Type"]);
+    snh->set_attrib(m_out);
+    GENERIC_STATS_SEND_SANDESH(snh);
+}
+
 void GrokParser::set_named_capture_only(bool b) {
     named_capture_only_ = b;
 }
 
+void GrokParser::set_key_list(const std::vector<std::string>& key) {
+    keys_ = key;
+}
+
+void GrokParser::set_attrib_list(const std::vector<std::string>& attrib) {
+    attribs_ = attrib;
+}
