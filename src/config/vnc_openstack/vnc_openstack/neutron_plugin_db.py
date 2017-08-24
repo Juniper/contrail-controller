@@ -3060,7 +3060,11 @@ class DBInterface(object):
             vnsn_data.ipam_subnets.append(subnet_vnc)
             # TODO: Add 'ref_update' API that will set this field
             net_obj._pending_field_updates.add('network_ipam_refs')
-        self._virtual_network_update(net_obj)
+        try:
+            self._virtual_network_update(net_obj)
+        except OverQuota as e:
+            self._raise_contrail_exception('OverQuota',
+                overs=['subnet'], msg=str(e))
 
         # Read in subnet from server to get updated values for gw etc.
         subnet_vnc = self._subnet_read(net_id, subnet_prefix)
