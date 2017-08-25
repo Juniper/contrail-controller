@@ -76,9 +76,9 @@ buildinfo_dep_libs += MapBuildAgentLib([
 
 env.GenerateBuildInfoCode(
     target = ['buildinfo.h', 'buildinfo.cc'],
-    source = buildinfo_dep_libs + ['main.cc'],
+    source = [],
     path=str(Dir('.').abspath))
-env.Depends('main.o', 'buildinfo.cc')
+build_obj = map(lambda x : env.Object(x), ['buildinfo.cc'])
 
 # Add contrail-vrouter-agent specific libraries
 env.Prepend(LIBS = AgentEnv['CONTRAIL_LIBS'])
@@ -99,10 +99,11 @@ elif sys.platform.startswith('linux'):
 
 
 contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
-                     source = ['buildinfo.cc',
-                               'contrail_agent_init.cc',
+                     source = ['contrail_agent_init.cc',
                                'main.cc',
                                'pkt0_interface_base.cc',
+                                buildinfo_dep_libs,
+                                build_obj,
                                 platform_dependent])
 
 env.Alias('contrail-vrouter-agent', contrail_vrouter_agent)
