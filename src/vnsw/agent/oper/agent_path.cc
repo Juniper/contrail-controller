@@ -678,7 +678,6 @@ bool LocalVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         ret = true;
     }
 
-    path->set_tunnel_bmap(tunnel_bmap_);
     TunnelType::Type new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
     if (new_tunnel_type == TunnelType::VXLAN &&
         vxlan_id_ == VxLanTable::kInvalidvxlan_id) {
