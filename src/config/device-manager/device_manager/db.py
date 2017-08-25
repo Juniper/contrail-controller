@@ -682,6 +682,10 @@ class LogicalInterfaceDM(DBBaseDM):
         self.li_type = obj.get("logical_interface_type", 0)
         self.update_single_ref('virtual_machine_interface', obj)
         self.name = obj['fq_name'][-1]
+        # JUNOS channelized interface will have format xe-0/0/0:1
+        # api-server replaces char ':' with __, hence replace back to ':'
+        if '__' in self.name:
+            self.name = self.name.replace('__', ':')
         return obj
     # end update
 
