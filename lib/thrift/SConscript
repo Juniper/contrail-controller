@@ -23,13 +23,14 @@ shlibs = [ str(File('#build/lib/libthrift-' + version + '.so')),
            str(File('#build/lib/libthriftasio.so.0.0.0')) ]
 
 
-products = [ str(File('#build/bin/thrift')),
-             str(File('#build/include/thrift/Thrift.h')) ]
+products = [ '#build/bin/thrift',
+             '#build/include/thrift/Thrift.h',
+             '#build/include/thrift/TLogging.h',
+             '#build/include/thrift/config.h' ]
 products += libs + shlibs
 
-thrift_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
+thrift_cfg = env.Command(products, str(Dir(vpath)), cmd)
 
-env.SideEffect(products, thrift_cfg)
 env.Requires(thrift_cfg, '#/build/include/boost')
 
 env.Alias('install', env.Install(env['INSTALL_LIB'], shlibs))
