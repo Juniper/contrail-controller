@@ -47,7 +47,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             # so vhost0 should be treated as dev,
             # which is used to get netmask/gateway
             if 'vhost0' in netifaces.interfaces():
-                self.dev = vhost0
+                self.dev = 'vhost0'
             # During intial provision actual interface should be treated as dev
             # which is used to get netmask/gateway
             elif self._args.physical_interface in netifaces.interfaces():
@@ -431,7 +431,7 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             self.mac = self.get_config(cfg_file, section, key).strip()
             section = "VIRTUAL-HOST-INTERFACE"
             key = "ip"
-            self.cidr = self.get_config(cfg_file, section, key).strip()
+            self.cidr = netaddr.IPNetwork(self.get_config(cfg_file, section, key).strip())
             section = "VIRTUAL-HOST-INTERFACE"
             key = "gateway"
             self.gateway = self.get_config(cfg_file, section, key).strip()
@@ -625,6 +625,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 self.fixup_vhost0_interface_configs()
 
     def config_vhost0_interface_in_container(self):
+        if self.reprov:
+            log.info("vhost0 configuration already present")
+            return
         # Insert vrouter and setup vrouter vifs
         insert_cmd = "source /opt/contrail/bin/vrouter-functions.sh && "
         insert_cmd += "insert_vrouter"
