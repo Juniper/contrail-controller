@@ -445,6 +445,7 @@ class VirtualMachineKM(DBBaseKM):
         self.virtual_machine_interfaces = set()
         self.pod_labels = None
         self.pod_namespace = None
+        self.pod_node = None
         super(VirtualMachineKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
