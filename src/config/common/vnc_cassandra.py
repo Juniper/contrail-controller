@@ -253,6 +253,11 @@ class VncCassandraClient(object):
                     results.setdefault(key, {}).update(cols)
 
         for key in results:
+            # https://bugs.launchpad.net/juniperopenstack/+bug/1712905
+            # Probably due to concurrency access to the DB when a resource is
+            # deleting, pycassa could return key without value, ignore it
+            if results[key] is None:
+                continue
             for col, val in results[key].items():
                 try:
                     if timestamp:
