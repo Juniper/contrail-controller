@@ -42,6 +42,9 @@ def parse_args(args_str=None):
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
     vnc_opts = {
+        'admin_user': 'admin',
+        'admin_password': 'admin',
+        'admin_tenant': 'admin',
         'rabbit_server': 'localhost',
         'rabbit_port': '5672',
         'rabbit_user': 'guest',
