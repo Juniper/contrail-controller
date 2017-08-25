@@ -320,6 +320,8 @@ class VncPod(VncCommon):
         vm = VirtualMachineKM.get(pod_id)
         if vm:
             vm.pod_namespace = pod_namespace
+            if not vm.virtual_router:
+                self._link_vm_to_node(vm, pod_node)
             self._set_label_to_pod_cache(labels, vm)
             return vm
         else:
@@ -365,6 +367,7 @@ class VncPod(VncCommon):
         vm = VirtualMachineKM.locate(pod_id)
         if vm:
             vm.pod_namespace = pod_namespace
+            vm.pod_node = pod_node
             self._set_label_to_pod_cache(labels, vm)
             return vm
 
@@ -450,6 +453,12 @@ class VncPod(VncCommon):
             if not vm or vm.owner != 'k8s':
                 continue
             self._create_pod_event('delete', uuid, vm)
+        for uuid in pod_uuid_set:
+            vm = VirtualMachineKM.get(uuid)
+            if not vm or vm.owner != 'k8s':
+                continue
+            if not vm.virtual_router and vm.pod_node:
+                self._link_vm_to_node(vm, vm.pod_node)
         return
 
     def pod_timer(self):
