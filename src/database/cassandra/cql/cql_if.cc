@@ -39,36 +39,36 @@ SandeshTraceBufferPtr CqlTraceErrBuf(SandeshTraceBufferCreate(
 
 #define CQLIF_DEBUG_TRACE(_Msg)                                           \
     do {                                                                  \
-         std::stringstream ss;                                            \
-         ss << __func__ << ":" << __FILE__ << ":" <<                      \
-             __LINE__ << ": " << _Msg;                                    \
-         CQL_TRACE_TRACE(CqlTraceDebugBuf,ss.str());                      \
+        std::stringstream _ss;                                            \
+        _ss << __func__ << ":" << __FILE__ << ":" <<                      \
+            __LINE__ << ": " << _Msg;                                     \
+        CQL_TRACE_TRACE(CqlTraceDebugBuf, _ss.str());                     \
        } while (false)                                                    \
 
 #define CQLIF_INFO_TRACE(_Msg)                                            \
     do {                                                                  \
-         std::stringstream ss;                                            \
-         ss << __func__ << ":" << __FILE__ << ":" <<                      \
-             __LINE__ << ": " << _Msg;                                    \
-         CQL_TRACE_TRACE(CqlTraceInfoBuf,ss.str());                        \
+        std::stringstream _ss;                                            \
+        _ss << __func__ << ":" << __FILE__ << ":" <<                      \
+            __LINE__ << ": " << _Msg;                                     \
+        CQL_TRACE_TRACE(CqlTraceInfoBuf, _ss.str());                      \
        } while (false)                                                    \
 
 #define CQLIF_ERR_TRACE(_Msg)                                             \
     do {                                                                  \
-         std::stringstream ss;                                            \
-         ss << __func__ << ":" << __FILE__ << ":" <<                      \
-             __LINE__ << ": " << _Msg;                                    \
-         CQL_TRACE_TRACE(CqlTraceErrBuf,ss.str());                          \
+        std::stringstream _ss;                                            \
+        _ss << __func__ << ":" << __FILE__ << ":" <<                      \
+            __LINE__ << ": " << _Msg;                                     \
+        CQL_TRACE_TRACE(CqlTraceErrBuf, _ss.str());                       \
        } while (false)                                                    \
 
 #define CASS_LIB_TRACE(_Level, _Msg)                                      \
     do {                                                                  \
         if (_Level == log4cplus::ERROR_LOG_LEVEL) {                       \
-            CQL_TRACE_TRACE(CqlTraceErrBuf, _Msg);                          \
-        }else if (_Level == log4cplus::DEBUG_LOG_LEVEL) {                 \
+            CQL_TRACE_TRACE(CqlTraceErrBuf, _Msg);                        \
+        } else if (_Level == log4cplus::DEBUG_LOG_LEVEL) {                \
             CQL_TRACE_TRACE(CqlTraceDebugBuf, _Msg);                      \
-        }else {                                                           \
-            CQL_TRACE_TRACE(CqlTraceInfoBuf, _Msg);                        \
+        } else {                                                          \
+            CQL_TRACE_TRACE(CqlTraceInfoBuf, _Msg);                       \
         }                                                                 \
     } while (false)                                                       \
 
@@ -1122,7 +1122,8 @@ static bool PrepareSync(interface::CassLibrary *cci,
     if (rc != CASS_OK) {
         CassString err;
         cci->CassFutureErrorMessage(future.get(), &err.data, &err.length);
-        CQLIF_ERR_TRACE("PrepareSync: " << query << " FAILED: " << err.data);
+        CQLIF_ERR_TRACE("PrepareSync: " << query << " FAILED: " <<
+            std::string(err.data, err.length));
     } else {
         *prepared = CassPreparedPtr(cci->CassFutureGetPrepared(future.get()),
             cci);
@@ -1142,7 +1143,8 @@ static bool ExecuteQuerySyncInternal(interface::CassLibrary *cci,
     if (rc != CASS_OK) {
         CassString err;
         cci->CassFutureErrorMessage(future.get(), &err.data, &err.length);
-        CQLIF_ERR_TRACE("SyncQuery: FAILED: " << err.data);
+        CQLIF_ERR_TRACE("SyncQuery: FAILED: " <<
+            std::string(err.data, err.length));
     } else {
         if (result) {
             *result = CassResultPtr(cci->CassFutureGetResult(future.get()),
@@ -1463,7 +1465,7 @@ static void OnExecuteQueryAsync(CassFuture *future, void *data) {
         CassString err;
         cci->CassFutureErrorMessage(future, &err.data, &err.length);
         CQLIF_ERR_TRACE("AsyncQuery: " << ctx->query_id_ << " FAILED: "
-            << err.data);
+            << std::string(err.data, err.length));
         ctx->cb_(db_rc, std::auto_ptr<GenDb::ColList>());
         return;
     }
@@ -1636,7 +1638,8 @@ static bool SyncFutureWait(interface::CassLibrary *cci,
     if (rc != CASS_OK) {
         CassString err;
         cci->CassFutureErrorMessage(future, &err.data, &err.length);
-        CQLIF_ERR_TRACE("SyncWait: FAILED: " << err.data);
+        CQLIF_ERR_TRACE("SyncWait: FAILED: " <<
+            std::string(err.data, err.length));
     }
     return rc == CASS_OK;
 }
@@ -2281,7 +2284,8 @@ bool CqlIfImpl::ReconnectTimerExpired() {
 
 void CqlIfImpl::ReconnectTimerErrorHandler(std::string error_name,
     std::string error_message) {
-    CQLIF_ERR_TRACE(error_name << " " << error_message);
+    CQLIF_ERR_TRACE("ReconnectTimerError: " << error_name << " " <<
+        error_message);
 }
 
 void CqlIfImpl::ConnectCallbackProcess(CassFuture *future) {
@@ -2289,7 +2293,8 @@ void CqlIfImpl::ConnectCallbackProcess(CassFuture *future) {
     if (code != CASS_OK) {
         impl::CassString err;
         cci_->CassFutureErrorMessage(future, &err.data, &err.length);
-        CQLIF_INFO_TRACE( err.data);
+        CQLIF_INFO_TRACE("ConnectCallback Error: " <<
+            std::string(err.data, err.length));
         // Start a timer to reconnect
         reconnect_timer_->Start(kReconnectInterval,
             boost::bind(&CqlIfImpl::ReconnectTimerExpired, this),
@@ -2305,7 +2310,8 @@ void CqlIfImpl::DisconnectCallbackProcess(CassFuture *future) {
     if (code != CASS_OK) {
         impl::CassString err;
         cci_->CassFutureErrorMessage(future, &err.data, &err.length);
-        CQLIF_ERR_TRACE(err.data);
+        CQLIF_ERR_TRACE("DisconnectCallback Error: " <<
+            std::string(err.data, err.length));
     }
     session_state_ = SessionState::DISCONNECTED;
 }
