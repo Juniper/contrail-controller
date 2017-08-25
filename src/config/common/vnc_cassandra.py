@@ -253,6 +253,16 @@ class VncCassandraClient(object):
                     results.setdefault(key, {}).update(cols)
 
         for key in results:
+            # https://bugs.launchpad.net/juniperopenstack/+bug/1712905
+            # Probably due to concurrency access to the DB when a resource is
+            # deleting, pycassa could return key without value, ignore it
+            if results[key] is None:
+                msg = ("Multiget result contains a key (%s) with an empty "
+                       "value. %s: keys (%s), columns (%s), start (%s), "
+                       "finish (%s)" % (key, cf_name, keys, columns, start,
+                                        finish))
+                self._logger(msg, level=SandeshLevel.SYS_WARN)
+                continue
             for col, val in results[key].items():
                 try:
                     if timestamp:
