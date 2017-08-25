@@ -1809,10 +1809,12 @@ class DBInterface(object):
         if port_id:
             try:
                 port_obj = self._virtual_machine_interface_read(port_id=port_id)
-                if context and not context['is_admin']:
-                    port_tenant_id = self._get_obj_tenant_id('port', port_id)
-                    if port_tenant_id != context['tenant'].replace('-', ''):
-                        raise NoIdError(port_id)
+                port_tenant_id = self._get_obj_tenant_id('port', port_id)
+                if port_tenant_id != context['tenant'].replace('-', ''):
+                    msg = "port can't be associated with this fip as they "\
+                           "both belong to different tenants"
+                    self._raise_contrail_exception('BadRequest',
+                                         resource="floatingip", msg=msg)
             except NoIdError:
                 self._raise_contrail_exception('PortNotFound',
                                                resource='floatingip',
