@@ -24,7 +24,8 @@ shlibs = [ str(File('#build/lib/libthrift-' + version + '.so')),
 
 
 products = [ str(File('#build/bin/thrift')),
-             str(File('#build/include/thrift/Thrift.h')) ]
+             str(File('#build/include/thrift/Thrift.h')),
+             str(File('#build/include/thrift/config.h')) ]
 products += libs + shlibs
 
 thrift_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
