@@ -3118,6 +3118,15 @@ class DBInterface(object):
                 net_ids.add(subnet_key.split()[0])
             all_net_objs.extend(self._virtual_network_list(obj_uuids=list(net_ids),
                                                            detail=True))
+        elif filters and 'shared' in filters or 'router:external' in filters:
+            shared = None
+            router_external = None
+            if 'router:external' in filters:
+                router_external = filters['router:external'][0]
+            if 'shared' in filters:
+                shared = filters['shared'][0]
+            net_objs = self._network_list_filter(shared, router_external)
+            all_net_objs.extend(net_objs)
         else:
             if not context['is_admin']:
                 proj_id = context['tenant']
