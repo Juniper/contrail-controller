@@ -40,7 +40,7 @@ class DatabaseEventManager(EventManager):
         self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_repair_logdir = config.cassandra_repair_logdir
         self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
-                                              'analyticsDB', self.contrail_databases,
+                                              'analyticsDb', self.contrail_databases,
                                               self.hostip, self.minimum_diskgb)
     # end __init__
 
