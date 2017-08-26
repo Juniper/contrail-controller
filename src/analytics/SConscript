@@ -59,11 +59,12 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'crypto',
         'boost_filesystem',
         'boost_program_options',
-        'libdl'])
+        'libdl',
+        'sasl2'])
 
 (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
-if PLATFORM.lower() != 'ubuntu':
-    AnalyticsEnv.Prepend(LIBS=['sasl2'])
+if PLATFORM.lower() != 'ubuntu' or (PLATFORM.lower() == 'ubuntu' and VERSION.find('16.') == 0):
+    AnalyticsEnv.Prepend(LIBS=['lz4'])
 
 if sys.platform != 'darwin':
     AnalyticsEnv.Append(LIBS=['rt'])
