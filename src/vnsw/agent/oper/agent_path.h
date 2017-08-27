@@ -19,6 +19,7 @@ class PhysicalInterface;
 class Peer;
 class EvpnPeer;
 class EcmpLoadBalance;
+class TsnElector;
 
 class PathPreference {
 public:
@@ -329,6 +330,10 @@ public:
         peer_sequence_number_ = sequence_number;
     }
     bool ResyncControlWord(const AgentRoute *rt);
+    bool inactive() const {return inactive_;}
+    void set_inactive(bool inactive) {
+        inactive_ = inactive;
+    }
 
     void ResetEcmpHashFields();
 private:
@@ -413,6 +418,7 @@ private:
     //packet, which could be used by receiving router to determine
     //if its a l2 packet or l3 packet.
     bool layer2_control_word_;
+    bool inactive_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -708,6 +714,25 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VlanNhRoute);
 };
 
+class MulticastRoutePath : public AgentPath {
+public:
+    MulticastRoutePath(const Peer *peer);
+    virtual ~MulticastRoutePath() { }
+
+    void set_original_nh(NextHopRef nh) {
+        original_nh_ = nh;
+    }
+    NextHopRef original_nh() const {
+        return original_nh_;
+    }
+    NextHop *UpdateNH(Agent *agent, CompositeNH *cnh,
+                      const TsnElector *te);
+
+private:
+    NextHopRef original_nh_;
+    DISALLOW_COPY_AND_ASSIGN(MulticastRoutePath);
+};
+
 class MulticastRoute : public AgentRouteData {
 public:
     MulticastRoute(const string &vn_name, uint32_t label, int vxlan_id,
@@ -721,6 +746,7 @@ public:
         composite_nh_req_.Swap(&nh_req);
     }
     virtual ~MulticastRoute() { }
+    virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
     virtual std::string ToString() const {return "multicast";}

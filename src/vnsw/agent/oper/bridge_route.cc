@@ -589,6 +589,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
         }
 
         //Handle Add/Changes
+        if (it_path->inactive())
+            continue;
         if (it_path->peer() == agent->local_vm_peer()) {
             local_vm_peer_path = it_path;
         } else if (it_path->peer()->GetType() == Peer::BGP_PEER) {

@@ -10,6 +10,7 @@
 #include <vnc_cfg_types.h>
 #include <agent_types.h>
 
+#include <init/agent_param.h>
 #include <oper/peer.h>
 #include <oper/vrf.h>
 #include <oper/interface_common.h>
@@ -636,6 +637,21 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
     }
 }
 
+AgentPath *AgentRoute::FindLocalPath() const {
+    for(Route::PathList::const_iterator it = GetPathList().begin(); 
+        it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() == NULL) {
+            continue;
+        }
+        if (path->peer()->GetType() == Peer::LOCAL_PEER ||
+            path->peer()->GetType() == Peer::LINKLOCAL_PEER) {
+            return const_cast<AgentPath *>(path);
+        }
+    }
+    return NULL;
+}
+
 AgentPath *AgentRoute::FindLocalVmPortPath() const {
     for(Route::PathList::const_iterator it = GetPathList().begin();
         it != GetPathList().end(); it++) {
@@ -791,6 +807,27 @@ AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,
 bool AgentRouteData::AddChangePath(Agent *agent, AgentPath *path,
                                    const AgentRoute *rt) {
     path->set_peer_sequence_number(sequence_number_);
+
+    if (agent->tsn_enabled() && !agent->forwarding_enabled()) {
+        bool is_inet_rt = false;
+        bool service_address = false;
+        if ((rt->GetTableType() == Agent::INET4_UNICAST) ||
+            (rt->GetTableType() == Agent::INET6_UNICAST)) {
+            is_inet_rt = true;
+            service_address = agent->params()->
+                IsConfiguredTsnHostRoute(rt->GetAddressString());
+        }
+        Peer::Type type = path->peer()->GetType();
+        bool local_route = false;
+        if ((type == Peer::LINKLOCAL_PEER) ||
+            (type == Peer::LOCAL_PEER))
+            local_route = true;
+        if (rt->FindLocalPath())
+            local_route = true;
+        if (is_inet_rt && (!service_address && !local_route))
+            path->set_inactive(true);
+    }
+
     return AddChangePathExtended(agent, path, rt);
 }
 const string &AgentRoute::dest_vn_name() const {

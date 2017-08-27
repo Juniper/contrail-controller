@@ -698,6 +698,8 @@ struct PathSandeshData {
    24: bool layer2_control_word;
    /** Tags associated with route */
    25: optional list<i32> tag_list;
+   /** path marked as inactive */
+   26: bool inactive;
 }
 
 /**

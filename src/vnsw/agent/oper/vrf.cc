@@ -864,7 +864,6 @@ void VrfTable::CreateStaticVrf(const string &name) {
     static_vrf_set_.insert(name);
     CreateVrf(name, nil_uuid(), VrfData::ConfigVrf);
 }
-
 void VrfTable::CreateFabricPolicyVrf(const string &name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VrfKey(name));

@@ -272,6 +272,7 @@ public:
     VrfEntry *vrf() const {return vrf_;}
     uint32_t vrf_id() const;
 
+    AgentPath *FindLocalPath() const;
     AgentPath *FindLocalVmPortPath() const;
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
