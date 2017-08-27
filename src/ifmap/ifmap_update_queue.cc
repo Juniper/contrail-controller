@@ -452,7 +452,7 @@ void IFMapUpdateQueueShowReq::HandleRequest() const {
     s0.instances_.push_back(0);
 
     // control-node ifmap show command task
-    s1.taskId_ = scheduler->GetTaskId("cn_ifmap::ShowCommand");
+    s1.taskId_ = scheduler->GetTaskId("ifmap::ShowCommandSendStage");
     s1.allocFn_ = ShowIFMapUpdateQueue::AllocTracker;
     s1.cbFn_ = ShowIFMapUpdateQueue::SendStage;
     s1.instances_.push_back(0);
