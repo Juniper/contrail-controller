@@ -28,7 +28,7 @@ from cfgm_common import _obj_serializer_all
 from cfgm_common.exceptions import (
         ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
         RefsExistError, TimeOutError, BadRequest, HttpError,
-        ResourceTypeUnknownError, RequestSizeError)
+        ResourceTypeUnknownError, RequestSizeError, AuthFailed)
 from cfgm_common import ssl_adapter
 
 
@@ -954,6 +954,8 @@ class VncApi(object):
                 continue
             elif status == 400:
                 raise BadRequest(status, content)
+            elif status == 401:
+                raise AuthFailed(status, content)
             else:  # Unknown Error
                 raise HttpError(status, content)
         # end while True
