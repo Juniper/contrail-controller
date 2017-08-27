@@ -273,10 +273,15 @@ void AgentInit::CreateVrfBase() {
     VrfTable *vrf_table = agent_->vrf_table();
 
     vrf_table->CreateStaticVrf(agent_->fabric_vrf_name());
+    vrf_table->CreateFabricPolicyVrf(agent_->fabric_policy_vrf_name());
     VrfEntry *vrf = vrf_table->FindVrfFromName(agent_->fabric_vrf_name());
     assert(vrf);
+    VrfEntry *policy_vrf = vrf_table->FindVrfFromName(agent_->
+                                                      fabric_policy_vrf_name());
+    assert(policy_vrf);
 
     agent_->set_fabric_vrf(vrf);
+    agent_->set_fabric_policy_vrf(policy_vrf);
     agent_->set_fabric_inet4_unicast_table(vrf->GetInet4UnicastRouteTable());
     agent_->set_fabric_inet4_multicast_table
         (vrf->GetInet4MulticastRouteTable());
@@ -401,6 +406,7 @@ void AgentInit::DeleteDBEntriesBase() {
     int task_id = agent_->task_scheduler()->GetTaskId(AGENT_SHUTDOWN_TASKNAME);
 
     RunInTaskContext(this, task_id, boost::bind(&DeleteRoutesInternal, this));
+    agent_->vrf_table()->DeleteStaticVrf(agent_->fabric_policy_vrf_name());
 
     RunInTaskContext(this, task_id,
                      boost::bind(&FlushTable, agent_->interface_table(),

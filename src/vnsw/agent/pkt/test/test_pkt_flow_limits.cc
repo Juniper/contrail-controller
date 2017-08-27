@@ -189,7 +189,7 @@ protected:
         EXPECT_EQ(0U, agent()->vm_table()->Size());
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());
-        EXPECT_EQ(1U, agent()->vrf_table()->Size());
+        EXPECT_EQ(2U, agent()->vrf_table()->Size());
 
         EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);
         EXPECT_EQ(flow_proto_->linklocal_flow_count(), 0);

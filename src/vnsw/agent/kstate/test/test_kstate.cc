@@ -429,13 +429,13 @@ TEST_F(KStateTest, RouteDumpTest) {
         // Each new VRF will have 3 AF_INET6 routes
         // Each VMI in the new VRF will have 1 AF_INET route if v6 IP is configured
 
-        TestRouteKState::Init(true, 1, AF_INET, (MAX_TEST_FD) + 6);
+        TestRouteKState::Init(true, 2, AF_INET, (MAX_TEST_FD) + 6);
         client->WaitForIdle();
         client->KStateResponseWait(1);
-        TestRouteKState::Init(true, 1, AF_INET6, 3);
+        TestRouteKState::Init(true, 2, AF_INET6, 3);
         client->WaitForIdle();
         client->KStateResponseWait(1);
-        TestRouteKState::Init(true, 1, AF_BRIDGE, (MAX_TEST_FD) + 3);
+        TestRouteKState::Init(true, 2, AF_BRIDGE, (MAX_TEST_FD) + 3);
         client->WaitForIdle();
         client->KStateResponseWait(1);
         DeletePorts();

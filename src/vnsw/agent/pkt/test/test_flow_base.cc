@@ -731,7 +731,7 @@ protected:
         EXPECT_EQ(0U, agent()->vm_table()->Size());
         EXPECT_EQ(0U, agent()->vn_table()->Size());
         EXPECT_EQ(0U, agent()->acl_table()->Size());
-        EXPECT_EQ(1U, agent()->vrf_table()->Size());
+        EXPECT_EQ(2U, agent()->vrf_table()->Size());
         DeleteBgpPeer(peer_);
         FlowStatsTimerStartStop(agent_, false);
         client->WaitForIdle(3);
