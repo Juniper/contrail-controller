@@ -462,6 +462,9 @@ class DBInterface(object):
         except OverQuota as e:
             self._raise_contrail_exception('OverQuota',
                 overs=[resource_type], msg=str(e))
+        except HttpError as e:
+            if e.status_code == 401:
+                self._raise_contrail_exception('NotAuthorized', msg=e.content)
         return obj_uuid
     #end _resource_create
 
