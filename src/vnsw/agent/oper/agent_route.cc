@@ -10,6 +10,7 @@
 #include <vnc_cfg_types.h>
 #include <agent_types.h>
 
+#include <init/agent_param.h>
 #include <oper/peer.h>
 #include <oper/vrf.h>
 #include <oper/interface_common.h>
@@ -773,5 +774,17 @@ AgentPath *AgentRouteData::CreateAgentPath(const Peer *peer,
 bool AgentRouteData::AddChangePath(Agent *agent, AgentPath *path,
                                    const AgentRoute *rt) {
     path->set_peer_sequence_number(sequence_number_);
+    if (agent->tsn_enabled() && !agent->forwarding_enabled()) {
+        bool is_inet_rt = false;
+        bool service_address = false;
+        if ((rt->GetTableType() == Agent::INET4_UNICAST) ||
+            (rt->GetTableType() == Agent::INET6_UNICAST)) {
+            is_inet_rt = true;
+            service_address = agent->params()->
+                IsConfiguredTsnHostRoute(rt->GetAddressString());
+        }
+        if (is_inet_rt && !service_address)
+            path->set_inactive(true);
+    }
     return AddChangePathExtended(agent, path, rt);
 }

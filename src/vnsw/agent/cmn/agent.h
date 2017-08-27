@@ -740,6 +740,13 @@ public:
         fabric_vrf_name_ = name;
     }
 
+    const std::string &fabric_policy_vrf_name() const {
+        return fabric_policy_vrf_name_;
+    }
+    void set_fabric_policy_vrf_name(const std::string &name) {
+        fabric_policy_vrf_name_ = name;
+    }
+
     VrfEntry *fabric_vrf() const { return fabric_vrf_; }
     void set_fabric_vrf(VrfEntry *vrf) { fabric_vrf_ = vrf; }
 
@@ -814,6 +821,10 @@ public:
 
     MacLearningProto* mac_learning_proto() const {
         return mac_learning_proto_;
+    }
+
+    const Peer *fabric_rt_export_peer() const {
+        return fabric_rt_export_peer_.get();
     }
 
     void set_mac_learning_proto(MacLearningProto *mac_learning_proto) {
@@ -943,6 +954,8 @@ public:
     void set_tsn_enabled(bool val) {tsn_enabled_ = val;}
     bool tor_agent_enabled() const {return tor_agent_enabled_;}
     void set_tor_agent_enabled(bool val) {tor_agent_enabled_ = val;}
+    bool forwarding_enabled() const {return forwarding_enabled_;}
+    void set_forwarding_enabled(bool val) {forwarding_enabled_ = val;}
     bool server_gateway_mode() const {return server_gateway_mode_;}
     bool vcpe_gateway_mode() const {return vcpe_gateway_mode_;}
 
@@ -1258,6 +1271,7 @@ private:
     std::auto_ptr<Peer> mac_vm_binding_peer_;
     std::auto_ptr<Peer> inet_evpn_peer_;
     std::auto_ptr<Peer> mac_learning_peer_;
+    std::auto_ptr<Peer> fabric_rt_export_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
 
@@ -1279,6 +1293,7 @@ private:
     bool simulate_evpn_tor_;
     bool tsn_enabled_;
     bool tor_agent_enabled_;
+    bool forwarding_enabled_;
     bool server_gateway_mode_;
     bool vcpe_gateway_mode_;
 
@@ -1324,6 +1339,8 @@ private:
     uint32_t tbb_keepawake_timeout_;
     // Monitor task library and assert if inactivity detected
     uint32_t task_monitor_timeout_msec_;
+    // List of TSN who are alive(Relevant for TSN mode only).
+    std::vector<std::string> active_tsn_servers_;
     // Constants
 public:
     static const std::string config_file_;
@@ -1332,6 +1349,7 @@ public:
     static const std::set<std::string> null_string_list_;
     static std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;
+    static std::string fabric_policy_vrf_name_;
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;
     static const MacAddress vrrp_mac_;

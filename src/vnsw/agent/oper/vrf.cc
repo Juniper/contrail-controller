@@ -205,6 +205,20 @@ void VrfEntry::PostAdd() {
         }
     }
 
+    if ((agent->tsn_enabled() == true) &&
+        (agent->forwarding_enabled() == false)) {
+        InetUnicastAgentRouteTable *inet_table =
+            static_cast<InetUnicastAgentRouteTable *>
+            (rt_table_db_[Agent::INET4_UNICAST]);
+        inet_table->AddVHostRecvRouteReq(agent->local_peer(),
+                                         name_,
+                                         agent->params()->vhost_name(),
+                                         agent->params()->vhost_addr(),
+                                         32,
+                                         agent->fabric_vn_name(),
+                                         false);
+    }
+
     SendObjectLog(AgentLogEvent::ADD);
 }
 
@@ -760,6 +774,14 @@ void VrfTable::DeleteVrf(const string &name, uint32_t flags) {
 void VrfTable::CreateStaticVrf(const string &name) {
     static_vrf_set_.insert(name);
     CreateVrf(name, nil_uuid(), VrfData::ConfigVrf);
+}
+void VrfTable::CreateFabricPolicyVrf(const string &name) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VrfKey(name));
+    VrfData *data = new VrfData(agent(), NULL, VrfData::ConfigVrf,
+                                nil_uuid(), 0, "", 0, false);
+    req.data.reset(data);
+    Process(req);
 }
 
 void VrfTable::DeleteStaticVrf(const string &name) {

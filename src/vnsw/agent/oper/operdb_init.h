@@ -27,6 +27,7 @@ class GlobalSystemConfig;
 class OperNetworkIpam;
 class OperVirtualDns;
 class AgentRouteWalkerCleaner;
+class TsnElector;
 
 class OperDB {
 public:
@@ -82,6 +83,8 @@ public:
 
     OperNetworkIpam *network_ipam() const { return network_ipam_.get(); }
     OperVirtualDns *virtual_dns() const { return virtual_dns_.get(); }
+    TsnElector *tsn_elector() const { return tsn_elector_.get(); }
+
 private:
     OperDB();
 
@@ -103,6 +106,7 @@ private:
     std::auto_ptr<GlobalQosConfig> global_qos_config_;
     std::auto_ptr<GlobalSystemConfig> global_system_config_;
     std::auto_ptr<AgentRouteWalkerCleaner> agent_route_walker_cleaner_;
+    std::auto_ptr<TsnElector> tsn_elector_;
 
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };

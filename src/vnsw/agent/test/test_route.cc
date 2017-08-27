@@ -131,7 +131,7 @@ protected:
         EXPECT_EQ(table3.Size(), 0U);
 
         WAIT_FOR(100, 1000, (VrfFind(vrf_name_.c_str()) != true));
-        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 1);
+        WAIT_FOR(1000, 1000, agent_->vrf_table()->Size() == 2);
         DeleteBgpPeer(bgp_peer_);
     }
 

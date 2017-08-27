@@ -278,6 +278,7 @@ public:
     //Add and delete routine for VRF not deleted on VRF config delete
     void CreateStaticVrf(const string &name);
     void DeleteStaticVrf(const string &name);
+    void CreateFabricPolicyVrf(const string &name);
  
     // Create VRF Table with given name
     static DBTableBase *CreateTable(DB *db, const std::string &name);

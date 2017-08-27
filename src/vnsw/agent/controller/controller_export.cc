@@ -105,6 +105,9 @@ void RouteExport::Notify(const Agent *agent,
         if (!AgentXmppChannel::IsBgpPeerActive(agent, bgp_xmpp_peer))
             return;
 
+        if (route->GetActivePath()->inactive())
+            return;
+
         // Extract the listener ID of active BGP peer for route table to which
         // this route entry belongs to. Listeners of route table can be active
         // bgp peers as well as decommisioned BGP peers(if they exist). Active

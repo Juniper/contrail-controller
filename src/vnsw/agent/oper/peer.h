@@ -25,6 +25,7 @@
 #define MULTICAST_FABRIC_TREE_BUILDER_NAME "MulticastTreeBuilder"
 #define MAC_VM_BINDING_PEER_NAME "MacVmBindingPeer"
 #define MAC_LEARNING_PEER_NAME "DynamicMacLearningPeer"
+#define FABRIC_RT_EXPORT "FabricRouteExport"
 
 class AgentXmppChannel;
 class ControllerRouteWalker;

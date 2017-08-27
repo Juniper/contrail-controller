@@ -343,6 +343,10 @@ public:
         peer_sequence_number_ = sequence_number;
     }
     bool ResyncControlWord(const AgentRoute *rt);
+    bool inactive() const {return inactive_;}
+    void set_inactive(bool inactive) {
+        inactive_ = inactive;
+    }
 
 private:
     PeerConstPtr peer_;
@@ -425,6 +429,7 @@ private:
     //packet, which could be used by receiving router to determine
     //if its a l2 packet or l3 packet.
     bool layer2_control_word_;
+    bool inactive_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
