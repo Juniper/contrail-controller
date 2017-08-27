@@ -331,7 +331,8 @@ class DBInterface(object):
     def _raise_contrail_exception(self, exc, **kwargs):
         exc_info = {'exception': exc}
         exc_info.update(kwargs)
-        bottle.abort(400, json.dumps(exc_info))
+        status_code = exc_info.get('status_code', 400)
+        bottle.abort(status_code, json.dumps(exc_info))
     #end _raise_contrail_exception
 
     def _security_group_rule_create(self, sg_id, sg_rule):
@@ -437,6 +438,11 @@ class DBInterface(object):
                 resource_type = _RESOURCE_VNC_TO_NEUTRON[resource_type]
             self._raise_contrail_exception('OverQuota',
                 overs=[resource_type], msg=str(e))
+        except HttpError as e:
+            if e.status_code == 401:
+                self._raise_contrail_exception(
+                        'NotAuthorized', status_code=e.status_code,
+                        msg=e.content)
         return obj_uuid
     #end _resource_create
 
