@@ -56,6 +56,8 @@ test_control_word = AgentEnv.MakeTestCmd(env, 'test_control_word',
                                          oper_test_suite)
 test_instance_task = AgentEnv.MakeTestCmd(env, 'test_instance_task', oper_test_suite)
 test_fabric_vmi = AgentEnv.MakeTestCmd(env, 'test_fabric_vmi', oper_flaky_test_suite)
+test_tsn_elector = AgentEnv.MakeTestCmd(env, 'test_tsn_elector', oper_test_suite)
+
 env.Alias('agent:test_ipv6', test_ipv6)
 test_tag = AgentEnv.MakeTestCmd(env, 'test_tag', oper_test_suite)
 test_vhost_vmi = AgentEnv.MakeTestCmd(env, 'test_vhost_vmi', oper_test_suite)

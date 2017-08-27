@@ -503,8 +503,11 @@ void Agent::CopyConfig(AgentParam *params) {
 
     simulate_evpn_tor_ = params->simulate_evpn_tor();
     test_mode_ = params_->test_mode();
+    tsn_no_forwarding_enabled_ = (params_->isTsnAgent() &&
+                                  !params_->IsForwardingEnabled());
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
+    forwarding_enabled_ = params_->IsForwardingEnabled();
     server_gateway_mode_ = params_->isServerGatewayMode();
     vcpe_gateway_mode_ = params_->isVcpeGatewayMode();
     flow_thread_count_ = params_->flow_thread_count();
@@ -679,6 +682,7 @@ Agent::Agent() :
     instance_id_(g_vns_constants.INSTANCE_ID_DEFAULT),
     module_type_(Module::VROUTER_AGENT), module_name_(),
     db_(NULL), task_scheduler_(NULL), agent_init_(NULL), fabric_vrf_(NULL),
+    fabric_policy_vrf_(NULL),
     intf_table_(NULL), health_check_table_(NULL), metadata_ip_allocator_(NULL),
     nh_table_(NULL), uc_rt_table_(NULL), mc_rt_table_(NULL),
     evpn_rt_table_(NULL), l2_rt_table_(NULL), vrf_table_(NULL),
@@ -708,8 +712,10 @@ Agent::Agent() :
     connection_state_(NULL), test_mode_(false),
     xmpp_dns_test_mode_(false),
     init_done_(false), resource_manager_ready_(false),
-    simulate_evpn_tor_(false), tsn_enabled_(false),
-    tor_agent_enabled_(false), server_gateway_mode_(false),
+    simulate_evpn_tor_(false), tsn_no_forwarding_enabled_(false),
+    tsn_enabled_(false),
+    tor_agent_enabled_(false), forwarding_enabled_(true),
+    server_gateway_mode_(false),
     flow_table_size_(0), flow_thread_count_(0), flow_trace_enable_(true),
     max_vm_flows_(0), ovsdb_client_(NULL), vrouter_server_ip_(0),
     vrouter_server_port_(0), vrouter_max_labels_(0), vrouter_max_nexthops_(0),

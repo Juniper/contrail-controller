@@ -30,6 +30,7 @@
 #include <oper/multicast.h>
 #include <oper/global_vrouter.h>
 #include <oper/path_preference.h>
+#include <oper/tsn_elector.h>
 #include <filter/acl.h>
 #include <filter/policy_set.h>
 #include <oper/ifmap_dependency_manager.h>
@@ -274,6 +275,7 @@ void OperDB::CreateDBTables(DB *db) {
         (new OperNetworkIpam(agent_, domain_config_.get()));
     virtual_dns_ = std::auto_ptr<OperVirtualDns>
         (new OperVirtualDns(agent_, domain_config_.get()));
+    tsn_elector_ = std::auto_ptr<TsnElector>(new TsnElector(agent_));
 }
 
 void OperDB::Init() {
@@ -316,6 +318,7 @@ void OperDB::RegisterDBClients() {
     multicast_.get()->Register();
     global_vrouter_.get()->CreateDBClients();
     route_leak_manager_.reset(new RouteLeakManager(agent_));
+    tsn_elector_.get()->Register();
 }
 
 OperDB::OperDB(Agent *agent)
@@ -353,6 +356,7 @@ void OperDB::Shutdown() {
     multicast_->Shutdown();
     multicast_->Terminate();
     route_walk_manager_->Shutdown();
+    tsn_elector_->Shutdown();
 
     if (agent_sandesh_manager_.get()) {
         agent_sandesh_manager_->Shutdown();

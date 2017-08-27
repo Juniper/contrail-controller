@@ -707,4 +707,8 @@ void AddServiceGroup(const std::string &name, uint32_t id,
 void CreateTags(TestTag *tag, uint32_t count);
 void DeleteTags(TestTag *tag, uint32_t count);
 void AddGlobalPolicySet(const std::string &name, uint32_t id);
+void AddPhysicalDeviceWithIp(int id, std::string name, std::string vendor,
+                             std::string ip, std::string mgmt_ip,
+                             std::string protocol, Agent *agent);
+void DelPhysicalDeviceWithIp(Agent *agent, int id);
 #endif // vnsw_agent_test_cmn_util_h
