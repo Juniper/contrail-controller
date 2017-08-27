@@ -153,6 +153,12 @@ class InvalidSessionID(VncError):
     pass
 # end InvalidSessionID
 
+
 class RequestSizeError(VncError):
     pass
 # end class RequestSizeError
+
+
+class AuthFailed(VncError):
+    pass
+# end class AuthFailed
