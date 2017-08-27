@@ -152,3 +152,8 @@ class AmbiguousParentError(VncError):
 class InvalidSessionID(VncError):
     pass
 # end InvalidSessionID
+
+
+class AuthFailed(VncError):
+    pass
+# end class AuthFailed
