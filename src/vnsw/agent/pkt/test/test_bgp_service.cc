@@ -144,7 +144,7 @@ TEST_F(BgpServiceTest, Test_ttl_1) {
     client->WaitForIdle();
 
     TxTcpPacket(VmInterfaceGet(1)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
-                false, 1, 1, 1);
+                false, 1, 2, 1);
     client->WaitForIdle();
     FlowEntry *fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
                             "10.10.10.10", "1.1.1.1", 6, 10000, 179);
@@ -165,7 +165,7 @@ TEST_F(BgpServiceTest, Test_ttl_2) {
     client->WaitForIdle();
 
     TxTcpPacket(VmInterfaceGet(1)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
-                false, 1, 1, 64);
+                false, 1, 2, 64);
     client->WaitForIdle();
     FlowEntry *fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
                             "10.10.10.10", "1.1.1.1", 6, 10000, 179);

@@ -64,7 +64,7 @@ public:
     virtual void TearDown() {
         client->WaitForIdle();
         WAIT_FOR(100, 1000, (agent_->interface_table()->Size() == intf_count_));
-        WAIT_FOR(100, 1000, (agent_->vrf_table()->Size() == 1U));
+        WAIT_FOR(100, 1000, (agent_->vrf_table()->Size() == 2U));
         WAIT_FOR(100, 1000, (agent_->vm_table()->Size() == 0U));
         WAIT_FOR(100, 1000, (agent_->vn_table()->Size() == 0U));
     }

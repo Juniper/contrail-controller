@@ -105,6 +105,9 @@ void RouteExport::Notify(const Agent *agent,
         if (!AgentXmppChannel::IsBgpPeerActive(agent, bgp_xmpp_peer))
             return;
 
+        if (route->GetActivePath()->inactive())
+            return;
+
         // Extract the listener ID of active BGP peer for route table to which
         // this route entry belongs to. Listeners of route table can be active
         // bgp peers as well as decommisioned BGP peers(if they exist). Active
@@ -169,7 +172,13 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
         (partition->parent());
     State *state = static_cast<State *>(route->GetState(partition->parent(),
                                                         id_));
-    AgentPath *path = route->FindLocalVmPortPath();
+    AgentPath *path = NULL;
+    if (route->vrf()->GetName().compare(table->agent()->
+                                        fabric_policy_vrf_name()) == 0) {
+        path = route->FindLocalPath();
+    } else {
+        path = route->FindLocalVmPortPath();
+    }
 
     std::stringstream path_str;
     if (path && path->peer())

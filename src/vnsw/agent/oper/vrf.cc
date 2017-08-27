@@ -761,6 +761,14 @@ void VrfTable::CreateStaticVrf(const string &name) {
     static_vrf_set_.insert(name);
     CreateVrf(name, nil_uuid(), VrfData::ConfigVrf);
 }
+void VrfTable::CreateFabricPolicyVrf(const string &name) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VrfKey(name));
+    VrfData *data = new VrfData(agent(), NULL, VrfData::ConfigVrf,
+                                nil_uuid(), 0, "", 0, false);
+    req.data.reset(data);
+    Process(req);
+}
 
 void VrfTable::DeleteStaticVrf(const string &name) {
     static_vrf_set_.erase(name);
