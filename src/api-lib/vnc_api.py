@@ -777,7 +777,9 @@ class VncApi(object):
     #End _log_curl
 
     def _request(self, op, url, data=None, retry_on_error=True,
-                 retry_after_authn=False, retry_count=30):
+                 retry_after_authn=False, retry_count=30, auth_token=None):
+        if auth_token:
+            self.set_auth_token()
         retried = 0
         if self._curl_logging:
             self._log_curl(op=op,url=url,data=data)
@@ -812,9 +814,10 @@ class VncApi(object):
 
             # Exception Response, see if it can be resolved
             if ((status == 401) and (not self._auth_token_input) and (not retry_after_authn)):
-                self._headers = self._authenticate(content, self._headers)
                 # Recursive call after authentication (max 1 level)
-                content = self._request(op, url, data=data, retry_after_authn=True)
+                content = self._request(
+                        op, url, data=data, retry_after_authn=True,
+                        auth_token=self.get_auth_token())
 
                 return content
             elif status == 404:
