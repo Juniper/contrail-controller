@@ -73,8 +73,8 @@ class ConfigCassandraPartition {
     class ObjectCacheEntry {
      public:
         ObjectCacheEntry(ConfigCassandraPartition *parent,
-                const std::string &obj_type, uint64_t last_read_tstamp)
-            : obj_type_(obj_type), retry_count_(0), retry_timer_(NULL),
+                uint64_t last_read_tstamp)
+            : retry_count_(0), retry_timer_(NULL),
               last_read_tstamp_(last_read_tstamp), parent_(parent) {
         }
 
@@ -88,7 +88,13 @@ class ConfigCassandraPartition {
         }
         uint32_t GetRetryCount() const { return retry_count_; }
         void SetLastReadTimeStamp(uint64_t ts) { last_read_tstamp_ = ts; }
+        void SetFQName(std::string fq_name) { fq_name_ = fq_name; }
+        const std::string GetFQName() const { return fq_name_; }
+        void SetObjType(std::string obj_type) { obj_type_ = obj_type; }
+        const std::string GetObjType() const { return obj_type_; }
+        uint64_t GetLastReadTimeStamp() const { return last_read_tstamp_; }
         bool IsRetryTimerCreated() const { return (retry_timer_ != NULL); }
+        bool IsRetryTimerRunning() const;
         Timer *GetRetryTimer() { return retry_timer_; }
 
      private:
@@ -97,6 +103,7 @@ class ConfigCassandraPartition {
         bool CassReadRetryTimerExpired(const std::string uuid);
         void CassReadRetryTimerErrorHandler();
         std::string obj_type_;
+        std::string fq_name_;
         uint32_t retry_count_;
         Timer *retry_timer_;
         uint64_t last_read_tstamp_;
@@ -119,17 +126,15 @@ class ConfigCassandraPartition {
                            ConfigCassandraParseContext &context);
     void ListMapPropReviseUpdateList(const std::string &uuid,
                                      ConfigCassandraParseContext &context);
-    ObjectCacheEntry *MarkCacheDirty(const std::string &uuid,
-            ConfigCassandraParseContext &context);
+    ObjectCacheEntry *MarkCacheDirty(const std::string &uuid);
     void Enqueue(ObjectProcessReq *req);
 
     void HandleObjectDelete(const string &uuid, bool add_change);
 
-    bool UUIDToObjCacheShow(const std::string &uuid,
-                            ConfigDBUUIDCacheEntry &entry) const;
-    bool UUIDToObjCacheShow(const std::string &start_uuid,
-                            uint32_t num_entries,
-                            std::vector<ConfigDBUUIDCacheEntry> &entries) const;
+    bool UUIDToObjCacheShow(
+        const std::string &search_string, const std::string &last_uuid,
+        uint32_t num_entries,
+        std::vector<ConfigDBUUIDCacheEntry> *entries) const;
     int GetInstanceId() const { return worker_id_; }
 
     boost::asio::io_service *ioservice();
@@ -163,7 +168,7 @@ private:
 
     void FillUUIDToObjCacheInfo(const std::string &uuid,
                                 ObjectCacheMap::const_iterator uuid_iter,
-                                ConfigDBUUIDCacheEntry &entry) const;
+                                ConfigDBUUIDCacheEntry *entry) const;
 
     ObjProcessWorkQType obj_process_queue_;
     UUIDProcessSet uuid_read_set_;
@@ -225,24 +230,20 @@ class ConfigCassandraClient : public ConfigDbClient {
     ObjTypeFQNPair UUIDToFQName(const std::string &uuid_str,
                              bool deleted_ok = true) const;
     virtual void AddFQNameCache(const std::string &uuid,
-                                const std::string &obj_name,
+                                const std::string &fq_name,
                                 const std::string &obj_type);
     virtual void InvalidateFQNameCache(const std::string &uuid);
     void PurgeFQNameCache(const std::string &uuid);
 
-    virtual bool UUIDToFQNameShow(const std::string &uuid,
-                                  ConfigDBFQNameCacheEntry &entry) const;
+    virtual bool UUIDToFQNameShow(
+        const std::string &search_string, const std::string &last_uuid,
+        uint32_t num_entries,
+        std::vector<ConfigDBFQNameCacheEntry> *entries) const;
 
-    virtual bool UUIDToFQNameShow(const std::string &start_uuid,
-                      uint32_t num_entries,
-                      std::vector<ConfigDBFQNameCacheEntry> &entries) const;
-
-    virtual bool UUIDToObjCacheShow(int inst_num, const std::string &uuid,
-                                  ConfigDBUUIDCacheEntry &entry) const;
-
-    virtual bool UUIDToObjCacheShow(int inst_num, const std::string &start_uuid,
-                      uint32_t num_entries,
-                      std::vector<ConfigDBUUIDCacheEntry> &entries) const;
+    virtual bool UUIDToObjCacheShow(
+        const std::string &search_string, int inst_num,
+        const std::string &last_uuid, uint32_t num_entries,
+        std::vector<ConfigDBUUIDCacheEntry> *entries) const;
     virtual std::string uuid_str(const std::string &uuid);
 
     virtual bool IsListOrMapPropEmpty(const string &uuid_key,
@@ -293,11 +294,11 @@ protected:
 
     // UUID to FQName mapping
     struct FQNameCacheType {
-        FQNameCacheType(std::string in_obj_type, std::string in_obj_name)
-            : obj_type(in_obj_type), obj_name(in_obj_name), deleted(false) {
+        FQNameCacheType(std::string in_obj_type, std::string in_fq_name)
+            : obj_type(in_obj_type), fq_name(in_fq_name), deleted(false) {
         }
         std::string obj_type;
-        std::string obj_name;
+        std::string fq_name;
         bool deleted;
     };
     typedef std::map<std::string, FQNameCacheType> FQNameCacheMap;
@@ -315,7 +316,7 @@ protected:
 
     void HandleCassandraConnectionStatus(bool success);
     void FillFQNameCacheInfo(const std::string &uuid,
-      FQNameCacheMap::const_iterator it, ConfigDBFQNameCacheEntry &entry) const;
+      FQNameCacheMap::const_iterator it, ConfigDBFQNameCacheEntry *entry) const;
 
     ConfigClientManager *mgr_;
     EventManager *evm_;
