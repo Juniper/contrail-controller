@@ -89,15 +89,19 @@ class VncPermissions(object):
 
     def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None, perms2=None):
         err_msg = (403, 'Permission Denied')
+        parent_type = None
 
         # retrieve object and permissions
+        config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
         if not perms2:
             try:
-                config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
                 perms2 = config.get('prop:perms2', config.get("perms2"))
             except NoIdError:
                 return (True, '')
 
+        if 'parent_type' in config:
+            parent_type = config['parent_type']
+        obj_type = config['type']
         user, roles = self.get_user_roles(request)
         is_admin = has_role(self.cloud_admin_role, roles)
         if is_admin:
@@ -132,7 +136,8 @@ class VncPermissions(object):
 
         # build perms
         mask = 07
-        if tenant == owner:
+        #For non project paren type being domain objects, don't check for tenant==owner
+        if ((obj_type != 'project' and parent_type == 'domain') or (tenant == owner)):
             mask |= 0700
 
         share = perms2['share']
@@ -149,9 +154,11 @@ class VncPermissions(object):
 
         mode_mask = mode | mode << 3 | mode << 6
         ok = (mask & perms & mode_mask)
-        if ok and obj_owner_for_delete:
+        if (ok and obj_owner_for_delete and ((parent_type != 'domain')
+            or (parent_type == 'domain' and obj_type == 'project'))):
             obj_owner_for_delete = obj_owner_for_delete.replace('-','')
             ok = (tenant == obj_owner_for_delete)
+
         granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
         msg = 'rbac: %s (%s:%s) admin=%s, mode=%03o mask=%03o perms=%03o, \
@@ -241,9 +248,10 @@ class VncPermissions(object):
             (ok, obj_dict) = self._server_mgr._db_conn.dbe_read(obj_type,
                              obj_uuid, obj_fields=['perms2'])
             obj_owner=obj_dict['perms2']['owner']
-            return self.validate_perms_rbac(request, parent_uuid, PERMS_W, obj_owner_for_delete = obj_owner)
+            return self.validate_perms_rbac(request, obj_uuid, PERMS_W,
+                                            obj_owner_for_delete = obj_owner)
         elif self._auth_needed:
-            return self.validate_perms(request, parent_uuid, PERMS_W)
+            return self.validate_perms(request, obj_uuid, PERMS_W)
         else:
             return (True, '')
     # end check_perms_write

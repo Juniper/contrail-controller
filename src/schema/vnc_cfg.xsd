@@ -691,9 +691,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="owner"           type="xsd:string" required='true'
              description='Owner tenant of the object'/>
-        <xsd:element name="owner-access"    type="AccessType" required='true'
+        <xsd:element name="owner-access"    type="AccessType" required='true' default='7'
              description='Owner permissions of the object'/>
-        <xsd:element name="global-access"   type="AccessType" required='optional'
+        <xsd:element name="global-access"   type="AccessType" required='optional' default='0'
              description='Globally(others) shared object and permissions for others of the object'/>
         <xsd:element name="share"           type="ShareType" maxOccurs="unbounded" required='optional'
              description='Selectively shared object, List of (tenant, permissions)'/>
