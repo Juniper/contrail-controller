@@ -305,31 +305,23 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         if self._ks:
             return
 
-        if self._use_certs:
-            verify=self._kscertbundle
-        else:
-            if self._insecure:
-                verify=False
-            else:
-                verify=True
-
+        verify = self._kscertbundle if self._use_certs else not self._insecure
         if self._admin_token:
             auth = kauth.token.Token(self._auth_url, token=self._admin_token)
         else:
             kwargs = {
-                'project_name': self._admin_tenant,
                 'username': self._auth_user,
                 'password': self._auth_passwd,
                 'user_domain_name': self._user_domain_name,
             }
-            if self._user_domain_name:
+            if self._domain_id:
                 kwargs.update({
-                    'project_domain_name': self._project_domain_name,
-                    'project_name': self._project_name,
+                    'domain_id': self._domain_id,
                 })
             else:
                 kwargs.update({
-                    'domain_id': self._domain_id,
+                    'project_domain_name': self._project_domain_name,
+                    'project_name': self._project_name,
                 })
             auth = kauth.password.Password(self._auth_url, **kwargs)
 
@@ -342,6 +334,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             v3_args = ['user_domain_name', 'project_domain_name', 'domain_id']
             for arg in v3_args:
                 kwargs.pop(arg, None)
+            kwargs['project_name'] = self._admin_tenant
             auth = kauth.password.Password(self._auth_url, **kwargs)
             sess = ksession.Session(auth=auth, verify=verify)
             self._ks = kclient.Client(session=sess, auth_url=self._auth_url)
