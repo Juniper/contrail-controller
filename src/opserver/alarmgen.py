@@ -50,13 +50,14 @@ from sandesh.alarmgen_ctrl.ttypes import PartitionOwnershipReq, \
     PartitionOwnershipResp, PartitionStatusReq, UVECollInfo, UVEGenInfo, \
     PartitionStatusResp, UVETableAlarmReq, UVETableAlarmResp, \
     AlarmgenTrace, UVEKeyInfo, UVETypeCount, UVETypeInfo, AlarmgenStatusTrace, \
-    AlarmgenStatus, AlarmgenStats, AlarmgenPartitionTrace, \
+    AlarmgenStatus, AlarmgenStats, AlarmgenPartitionUVE, \
     AlarmgenPartition, AlarmgenPartionInfo, AlarmgenUpdate, \
     UVETableInfoReq, UVETableInfoResp, UVEObjectInfo, UVEStructInfo, \
     UVETablePerfReq, UVETablePerfResp, UVETableInfo, \
     UVEAlarmStateMachineInfo, UVEAlarmState, UVEAlarmOperState,\
     AlarmStateChangeTrace, UVEQTrace, AlarmConfig, AlarmConfigRequest, \
-    AlarmConfigResponse, AlarmgenUVEStats, AlarmgenAlarmStats
+    AlarmConfigResponse, AlarmgenUVEStats, AlarmgenAlarmStats, \
+    AlarmgenPartitionTrace, AlarmExceptionTrace
 
 from opserver_util import AnalyticsDiscovery
 from stevedore import hook, extension
@@ -233,9 +234,10 @@ class AlarmProcessor(object):
 	except Exception as ex:
 	    template = "Exception {0} in Alarm Processing. Arguments:\n{1!r}"
 	    messag = template.format(type(ex).__name__, ex.args)
-            self._logger.error("%s\n UVE:[%s]:%s\n Alarm config: %s\n traceback %s" % \
-                (messag, uv, str(local_uve), alarm.config().alarm_rules,
-                traceback.format_exc()))
+            ae_trace = AlarmExceptionTrace(messag, uv, str(local_uve),
+                str(alarm.config().alarm_rules), traceback.format_exc())
+            ae_trace.trace_msg(name='AlarmExceptionTrace',
+                sandesh=self._sandesh)
             self.uve_alarms[alarm_fqname] = UVEAlarmInfo(type=alarm_fqname,
                     severity=sev, timestamp=0, token="",
                     alarm_rules=AlarmRules(None),
@@ -929,7 +931,9 @@ class Controller(object):
         self.trace_buf = [
             {'name':'DiscoveryMsg', 'size':1000},
             {'name':'AlarmStateChangeTrace', 'size':1000},
-            {'name':'UVEQTrace', 'size':20000}
+            {'name':'UVEQTrace', 'size':20000},
+            {'name':'AlarmgenPartitionTrace', 'size':10000},
+            {'name':'AlarmExceptionTrace', 'size':1000}
         ]
         # Create trace buffers 
         for buf in self.trace_buf:
@@ -1019,6 +1023,12 @@ class Controller(object):
         UVETablePerfReq.handle_request = self.handle_UVETablePerfReq
         AlarmConfigRequest.handle_request = self.handle_AlarmConfigRequest
 
+    def partition_log(self, msg):
+        self._logger.error(msg)
+        AlarmgenPartitionTrace(msg).trace_msg(name='AlarmgenPartitionTrace',
+            sandesh=self._sandesh)
+    # end partition_log
+
     def libpart_cb(self, part_list):
 
         agpi = AlarmgenPartionInfo()
@@ -1029,33 +1039,33 @@ class Controller(object):
         agp.name = self._hostname
         agp.inst_parts = [agpi]
        
-        agp_trace = AlarmgenPartitionTrace(data=agp, sandesh=self._sandesh)
-        agp_trace.send(sandesh=self._sandesh) 
+        agp_uve = AlarmgenPartitionUVE(data=agp, sandesh=self._sandesh)
+        agp_uve.send(sandesh=self._sandesh)
 
         newset = set(part_list)
         oldset = self._partset
         self._partset = newset
 
         try:
-            self._logger.error('Partition List : new %s old %s' % \
+            self.partition_log('Partition List : new %s old %s' % \
                 (str(newset),str(oldset)))
 
-            self._logger.error('Partition Add : %s' % str(newset-oldset))
+            self.partition_log('Partition Add : %s' % str(newset-oldset))
             self.partition_change(newset-oldset, True)
 
-            self._logger.error('Partition Del : %s' % str(oldset-newset))
+            self.partition_log('Partition Del : %s' % str(oldset-newset))
             if not self.partition_change(oldset-newset, False):
                 self._logger.error('Partition Del : %s failed!' % str(oldset-newset))
                 raise SystemExit(1)
 
-	    self._logger.error('Partition Del done: %s' % str(oldset-newset))
+	    self.partition_log('Partition Del done: %s' % str(oldset-newset))
 
         except Exception as ex:
             template = "Exception {0} in Partition List. Arguments:\n{1!r}"
             messag = template.format(type(ex).__name__, ex.args)
-            self._logger.error("%s : traceback %s" % \
+            self.partition_log("%s : traceback %s" % \
                                     (messag, traceback.format_exc()))
-            self._logger.error('Partition List failed %s %s' % \
+            self.partition_log('Partition List failed %s %s' % \
                 (str(newset),str(oldset)))
         except SystemExit:
             raise SystemExit(1)
@@ -1071,7 +1081,7 @@ class Controller(object):
             self._logger.error('Could not import libpartition: No alarmgen list')
             return None
         try:
-            self._logger.error('Starting PC')
+            self.partition_log('Starting Partition Client')
             agpi = AlarmgenPartionInfo()
             agpi.instance = self._instance_id
             agpi.partitions = []
@@ -1080,14 +1090,15 @@ class Controller(object):
             agp.name = self._hostname
             agp.inst_parts = [agpi]
            
-            agp_trace = AlarmgenPartitionTrace(data=agp, sandesh=self._sandesh)
-            agp_trace.send(sandesh=self._sandesh) 
+            agp_uve = AlarmgenPartitionUVE(data=agp, sandesh=self._sandesh)
+            agp_uve.send(sandesh=self._sandesh)
 
-            pc = PartitionClient(self._conf.kafka_prefix() + "-alarmgen",
+            app_name = self._conf.kafka_prefix() + "-alarmgen"
+            pc = PartitionClient(app_name,
                     self._libpart_name, ag_list,
                     self._conf.partitions(), self.libpart_cb,
                     ','.join(self._conf.zk_list()), self._logger)
-            self._logger.error('Started PC %s' % self._conf.kafka_prefix() + "-alarmgen")
+            self.partition_log('Started Partition Client %s' % (app_name))
             return pc
         except Exception as e:
             self._logger.error('Could not import libpartition: %s' % str(e))
@@ -1182,9 +1193,12 @@ class Controller(object):
 		    sandesh=self._sandesh)
             del self._uveq[part]
 
-    def clear_agg_uve(self, redish, inst, part, acq_time):
-	self._logger.error("Agg %s reset part %d, acq %d" % \
+    def clear_agg_uve(self, redish, inst, part, acq_time=None):
+        if acq_time:
+            self.partition_log("Agg %s reset part %d, acq %d" % \
 		(inst, part, acq_time))
+        else:
+            self.partition_log('Agg %s clear part %d' % (inst, part))
 	ppe2 = redish.pipeline()
 	ppe2.hdel("AGPARTS:%s" % inst, part)
 	ppe2.smembers("AGPARTKEYS:%s:%d" % (inst, part))
@@ -1194,8 +1208,11 @@ class Controller(object):
 	for elem in pperes2[-1]:
 	    ppe3.delete("AGPARTVALUES:%s:%d:%s" % (inst, part, elem))
 	ppe3.delete("AGPARTKEYS:%s:%d" % (inst, part))
-	ppe3.hset("AGPARTS:%s" % inst, part, acq_time)
+        if acq_time:
+            ppe3.hset("AGPARTS:%s" % inst, part, acq_time)
 	pperes3 = ppe3.execute()
+        self.partition_log('Agg %s clear/reset partition %d done' % \
+            (inst, part))
 
     def send_agg_uve(self, redish, inst, part, acq_time, rows):
         """ 
@@ -1356,6 +1373,8 @@ class Controller(object):
                         (part, self._uveqf[part]))
                 self.stop_uve_partition(part)
                 del self._uveqf[part]
+                if lredis:
+                    self.clear_agg_uve(lredis, self._instance_id, part)
                 if part in self._uveq:
 		    uveq_trace = UVEQTrace()
 		    uveq_trace.uves = self._uveq[part].keys()
@@ -2000,10 +2019,14 @@ class Controller(object):
         status = False
         if enl:
             if len(parts - set(self._workers.keys())) != len(parts):
-                self._logger.info("Dup partitions %s" % \
+                self.partition_log("Dup partitions %s" % \
                     str(parts.intersection(set(self._workers.keys()))))
             else:
+                lredis = StrictRedisWrapper(host="127.0.0.1",
+                            port=self._conf.redis_server_port(),
+                            password=self._conf.redis_password(), db=7)
                 for partno in parts:
+                    self.clear_agg_uve(lredis, self._instance_id, partno)
                     ph = UveStreamProc(','.join(self._conf.kafka_broker_list()),
                             partno, self._conf.kafka_prefix()+"-uve-" + str(partno),
                             self._logger,
@@ -2034,21 +2057,22 @@ class Controller(object):
                     #       but it still might start later.
                     #       We possibly need to exit
                     status = False
-                    self._logger.error("Unable to start partitions %s" % \
+                    self.partition_log("Unable to start partitions %s" % \
                             str(parts - set(self._uveq.keys())))
         else:
             if len(parts - set(self._workers.keys())) == 0:
                 for partno in parts:
                     ph = self._workers[partno]
-                    self._logger.error("Kill part %s" % str(partno))
+                    self.partition_log("Kill partition %s" % str(partno))
                     ph.kill(timeout=60)
                     try:
                         res,db = ph.get(False)
                     except gevent.Timeout:
-                        self._logger.error("Unable to kill partition %d" % partno)
+                        self.partition_log("Unable to kill partition %d" % partno)
                         return False
 
-                    self._logger.error("Returned " + str(res))
+                    self.partition_log("Partition %d kill returned %s" % \
+                        (partno, str(res)))
                     self._uveqf[partno] = self._workers[partno].acq_time()
                     del self._workers[partno]
                     del self._uvestats[partno]
@@ -2056,7 +2080,7 @@ class Controller(object):
 
                 tout = 1200
                 idx = 0
-                self._logger.error("Wait for parts %s to exit" % str(parts))
+                self.partition_log("Wait for partitions %s to exit" % str(parts))
                 while idx < tout:
                     # When this partitions stop.s
                     # uveq will get destroyed
@@ -2067,16 +2091,16 @@ class Controller(object):
                     idx += 1
                 if len(parts - set(self._uveq.keys())) == len(parts):
                     status = True 
-                    self._logger.error("Wait done for parts %s to exit" % str(parts))
+                    self.partition_log("Wait done for partitions %s to exit" % str(parts))
                 else:
                     # TODO: The partition has not stopped yet
                     #       but it still might stop later.
                     #       We possibly need to exit
                     status = False
-                    self._logger.error("Unable to stop partitions %s" % \
+                    self.partition_log("Unable to stop partitions %s" % \
                             str(parts.intersection(set(self._uveq.keys()))))
             else:
-                self._logger.error("Partitions absent in %s" % str(parts))
+                self.partition_log("Partitions absent in %s" % str(parts))
 
         return status
     
