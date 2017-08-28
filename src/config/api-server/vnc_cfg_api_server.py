@@ -2796,6 +2796,28 @@ class VncApiServer(object):
         # set ownership of object to creator tenant
         if obj_type == 'project' and 'uuid' in obj_dict:
             perms2['owner'] = str(obj_dict['uuid']).replace('-','')
+
+        elif obj_dict.get('perms2') and obj_dict['perms2'].get('owner'):
+            perms2['owner'] = obj_dict['perms2']['owner']
+
+        elif 'fq_name' in obj_dict and obj_dict['fq_name'][:-1]:
+            if 'parent_type' in obj_dict:
+                parent_type = obj_dict['parent_type'].replace('-', '_')
+            else:
+                r_class = self.get_resource_class(obj_type)
+                if (len(r_class.parent_types) != 1):
+                    raise cfgm_common.exceptions.HttpError(404,
+                              '' + 'parent_type needed')
+                parent_type = r_class.parent_types[0]
+                parent_type = parent_type.replace('-', '_')
+            parent_fq_name = obj_dict['fq_name'][:-1]
+            parent_uuid = self._db_conn.fq_name_to_uuid(parent_type,
+                                                        parent_fq_name)
+            (ok, parent_obj_dict) = self._db_conn.dbe_read(parent_type,
+                                                       {'uuid':parent_uuid},
+                                                       obj_fields=['perms2'])
+            perms2['owner'] = parent_obj_dict['perms2']['owner']
+
         elif project_id:
             perms2['owner'] = project_id
 
