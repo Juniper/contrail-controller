@@ -583,19 +583,13 @@ void SendBgpServiceConfig(const std::string &ip,
                           const std::string &vmi_name,
                           const std::string &vrf_name,
                           const std::string &bgp_router_type,
-                          bool deleted);
+                          bool deleted,
+                          bool is_shared);
 void AddAddressVrfAssignAcl(const char *intf_name, int intf_id,
                             const char *sip, const char *dip, int proto,
                             int sport_start, int sport_end, int dport_start,
                             int dport_end, const char *vrf, const char *ignore_acl,
                             const char *svc_intf_type = NULL);
-void SendBgpServiceConfig(const std::string &ip,
-                          uint32_t source_port,
-                          uint32_t id,
-                          const std::string &vmi_name,
-                          const std::string &vrf_name,
-                          const std::string &bgp_router_type,
-                          bool deleted);
 bool QosConfigFind(uint32_t id);
 const AgentQosConfig* QosConfigGetByIndex(uint32_t id);
 const AgentQosConfig* QosConfigGet(uint32_t id);

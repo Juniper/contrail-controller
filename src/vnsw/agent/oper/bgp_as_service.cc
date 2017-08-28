@@ -169,7 +169,8 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                 BgpAsAServiceEntryList temp_bgp_as_a_service_entry_list;
                 temp_bgp_as_a_service_entry_list.insert(
                                     BgpAsAServiceEntry(peer_ip,
-                                        bgp_router->parameters().source_port));
+                                        bgp_router->parameters().source_port,
+                                        bgp_as_a_service->bgpaas_shared()));
                 /*
                  * if it is same session then retain original source port
                  */
@@ -179,13 +180,18 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                 }
             }
             if (!source_port) {
-                source_port = AddBgpVmiServicePortIndex(
-                                    bgp_router->parameters().source_port,
-                                    vm_uuid);
+                if (bgp_as_a_service->bgpaas_shared()) {
+                    source_port = AddBgpVmiServicePortIndex(
+                                        bgp_router->parameters().source_port,
+                                        vm_uuid);
+                } else {
+                    source_port = bgp_router->parameters().source_port;
+                }
             }
             if (source_port) {
                 new_list.insert(BgpAsAServiceEntry(peer_ip,
-                                               source_port));
+                                               source_port,
+                                               bgp_as_a_service->bgpaas_shared()));
             }
         }
     }
@@ -231,7 +237,9 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
             BgpAsAServiceEntryListIterator prev = deleted_list_iter++;
             if (prev->del_pending_) {
                 service_delete_cb_(vm_uuid, prev->source_port_);
-                FreeBgpVmiServicePortIndex(prev->source_port_);
+                if (prev->is_shared_) {
+                    FreeBgpVmiServicePortIndex(prev->source_port_);
+                }
                 old_bgp_as_a_service_entry_list_iter->second->list_.erase(prev);
             }
         }
@@ -251,7 +259,9 @@ void BgpAsAService::DeleteVmInterface(const boost::uuids::uuid &vm_uuid) {
     BgpAsAServiceEntryListIterator list_iter = list.begin();
     while (list_iter != list.end()) {
         service_delete_cb_(vm_uuid, (*list_iter).source_port_);
-        FreeBgpVmiServicePortIndex((*list_iter).source_port_);
+        if ((*list_iter).is_shared_) {
+            FreeBgpVmiServicePortIndex((*list_iter).source_port_);
+        }
         list_iter++;
     }
     delete iter->second;
@@ -405,21 +415,23 @@ bool BgpAsAService::GetBgpRouterServiceDestination(const VmInterface *vm_intf,
 ////////////////////////////////////////////////////////////////////////////
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry() :
     VmInterface::ListEntry(),
-    local_peer_ip_(), source_port_(0) {
+    local_peer_ip_(), source_port_(0), is_shared_(false) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
 (const BgpAsAService::BgpAsAServiceEntry &rhs) :
     VmInterface::ListEntry(rhs.installed_, rhs.del_pending_),
-    local_peer_ip_(rhs.local_peer_ip_), 
-    source_port_(rhs.source_port_) {
+    local_peer_ip_(rhs.local_peer_ip_),
+    source_port_(rhs.source_port_), is_shared_(rhs.is_shared_) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry(const IpAddress &local_peer_ip,
-                                                      uint32_t source_port) :
+                                                      uint32_t source_port,
+                                                      bool is_shared) :
     VmInterface::ListEntry(),
     local_peer_ip_(local_peer_ip),
-    source_port_(source_port) {
+    source_port_(source_port),
+    is_shared_(is_shared) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::~BgpAsAServiceEntry() {
@@ -428,7 +440,8 @@ BgpAsAService::BgpAsAServiceEntry::~BgpAsAServiceEntry() {
 bool BgpAsAService::BgpAsAServiceEntry::operator ==
     (const BgpAsAServiceEntry &rhs) const {
     return ((source_port_ == rhs.source_port_) &&
-            (local_peer_ip_ == rhs.local_peer_ip_));
+            (local_peer_ip_ == rhs.local_peer_ip_) &&
+            (is_shared_ == rhs.is_shared_));
 }
 
 bool BgpAsAService::BgpAsAServiceEntry::operator()
@@ -440,7 +453,9 @@ bool BgpAsAService::BgpAsAServiceEntry::IsLess
     (const BgpAsAServiceEntry *rhs) const {
     if (source_port_ != rhs->source_port_)
         return source_port_ < rhs->source_port_;
+    if (local_peer_ip_ != rhs->local_peer_ip_)
         return local_peer_ip_ < rhs->local_peer_ip_;
+    return is_shared_ < rhs->is_shared_;
 }
 
 void BgpAsAServiceSandeshReq::HandleRequest() const {
