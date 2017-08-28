@@ -22,10 +22,11 @@ class ProtobufReader {
         const std::string &message_name)> ParseFailureCallback;
     ProtobufReader();
     virtual ~ProtobufReader();
-    virtual bool ParseSelfDescribingMessage(const uint8_t *data, size_t size,
-        uint64_t *timestamp, ::google::protobuf::Message **msg,
-        ParseFailureCallback cb);
-
+    virtual bool ParseTelemetryStreamMessage(TelemetryStream *stream,
+					     const uint8_t *data, size_t size,
+					     uint64_t *timestamp, std::string *message_name,
+					     ::google::protobuf::Message **msg,
+					     ParseFailureCallback cb);
  protected:
     virtual const ::google::protobuf::Message* GetPrototype(
         const ::google::protobuf::Descriptor *mdesc);
@@ -34,14 +35,15 @@ class ProtobufReader {
     friend class ProtobufReaderTest;
 
     tbb::mutex mutex_;
-    ::google::protobuf::DescriptorPool dpool_;
+    ::google::protobuf::DescriptorPool *dpool_;
     ::google::protobuf::DynamicMessageFactory dmf_;
 };
 
-void ProcessProtobufMessage(const ::google::protobuf::Message& message,
-    const uint64_t &timestamp,
-    const boost::asio::ip::udp::endpoint &remote_endpoint,
-    StatWalker::StatTableInsertFn stat_db_callback);
+void ProcessProtobufMessage(const TelemetryStream& tstream, std::string message_name,
+			    const ::google::protobuf::Message& message,
+			    const uint64_t &timestamp,
+			    const boost::asio::ip::udp::endpoint &remote_endpoint,
+			    StatWalker::StatTableInsertFn stat_db_callback);
 
 void ProtobufLibraryLog(::google::protobuf::LogLevel level,
     const char* filename, int line, const std::string& message);
