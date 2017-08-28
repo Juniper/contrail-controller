@@ -4329,7 +4329,8 @@ void SendBgpServiceConfig(const std::string &ip,
                           const std::string &vmi_name,
                           const std::string &vrf_name,
                           const std::string &bgp_router_type,
-                          bool deleted) {
+                          bool deleted,
+                          bool is_shared) {
     std::stringstream bgp_router_name;
     bgp_router_name << "bgp-router-" << source_port << "-" << ip;
 
@@ -4342,7 +4343,8 @@ void SendBgpServiceConfig(const std::string &ip,
 
     std::stringstream str1;
     //Agent does not pick IP from bgpaas-ip-address. So dont populate.
-    str1 << "<bgpaas-ip-address></bgpaas-ip-address>" << endl;
+    str1 << "<bgpaas-ip-address></bgpaas-ip-address>"
+           "<bgpaas-shared>" << is_shared << "</bgpaas-shared>" << endl;
 
     if (deleted) {
         DelLink("bgp-router", bgp_router_name.str().c_str(),
