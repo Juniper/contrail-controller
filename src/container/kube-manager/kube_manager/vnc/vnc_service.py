@@ -172,7 +172,7 @@ class VncService(VncCommon):
                         k8s_ns=svc_ns,
                         service_ip=svc_ip, service_port=port['port'],
                         fabric_ip=self._kubernetes_api_server,
-                        fabric_port=self._kubernetes_api_secure_port)
+                        fabric_port=port['targetPort'])
                 except:
                     self.logger.error("Create link-local service failed for"
                         " service " + svc_name + " port " +
