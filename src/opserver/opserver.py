@@ -1582,7 +1582,8 @@ class OpServer(object):
 
             if prg < 0:
                 cod = -prg
-                self._logger.error("Found Error %s" % errno.errorcode[cod])
+                self._logger.error("Query %s - Found Error %s" % \
+                    (qid, errno.errorcode[cod]))
                 reply = bottle.HTTPError(_ERRORS[cod], errno.errorcode[cod])
                 yield reply
                 return
