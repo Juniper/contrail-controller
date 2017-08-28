@@ -134,6 +134,8 @@ class KubeNetworkManager(object):
         KubeNetworkManager._kube_network_manager = None
 
 def run_kube_manager(km_logger, args, kube_api_skip, event_queue):
+    km_logger.notice("Elected master kube-manager node. Initializing...")
+    km_logger.introspect_init()
     kube_nw_mgr = KubeNetworkManager(args, km_logger, kube_api_connected=kube_api_skip, queue=event_queue)
     KubeNetworkManager._kube_network_manager = kube_nw_mgr
     kube_nw_mgr.start_tasks()
@@ -158,7 +160,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None):
         args.random_collectors = random.sample(args.collectors,
                                            len(args.collectors))
 
-    km_logger = logger.KubeManagerLogger(args)
+    km_logger = logger.KubeManagerLogger(args, http_server_port=-1)
 
     if args.nested_mode == '0':
         # Initialize AMQP handler then close it to be sure remain queue of a
@@ -184,7 +186,6 @@ def main(args_str=None, kube_api_skip=False, event_queue=None):
                                           os.getpid(), run_kube_manager,
                                           km_logger, args, kube_api_skip, 
                                           event_queue)
-        km_logger.notice("Elected master kube-manager node. Initializing...")
 
     else: #nested mode, skip zookeeper mastership check
         run_kube_manager(km_logger, args, kube_api_skip, event_queue)
