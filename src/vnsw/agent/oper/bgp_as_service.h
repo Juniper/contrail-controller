@@ -73,7 +73,8 @@ public:
         BgpAsAServiceEntry();
         BgpAsAServiceEntry(const BgpAsAServiceEntry &rhs);
         BgpAsAServiceEntry(const IpAddress &local_peer_ip,
-                           uint32_t source_port);
+                           uint32_t source_port,
+                           bool is_shared);
         ~BgpAsAServiceEntry();
         bool operator == (const BgpAsAServiceEntry &rhs) const;
         bool operator() (const BgpAsAServiceEntry &lhs,
@@ -82,6 +83,7 @@ public:
 
         IpAddress local_peer_ip_;
         uint32_t source_port_;
+        bool is_shared_;
     };
     typedef std::set<BgpAsAServiceEntry, BgpAsAServiceEntry> BgpAsAServiceEntryList;
     typedef BgpAsAServiceEntryList::iterator BgpAsAServiceEntryListIterator;
