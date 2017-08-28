@@ -96,7 +96,6 @@ env.Append(LIBPATH = MapBuildDir([
     'vrouter/utils',
     'xml',
     'xmpp',
-    'third_party/bind-9.10.4-P2/lib/isc',
     'vnsw/agent/nexthop_server',
 ]))
 
