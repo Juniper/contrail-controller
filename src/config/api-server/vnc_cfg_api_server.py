@@ -2591,8 +2591,7 @@ class VncApiServer(object):
         if obj_type == 'project' and 'uuid' in obj_dict:
             perms2['owner'] = str(obj_dict['uuid']).replace('-','')
 
-        elif ('perms2' in obj_dict and obj_dict['perms2'] and
-              obj_dict['perms2']['owner']):
+        elif obj_dict.get('perms2') and obj_dict['perms2'].get('owner'):
             perms2['owner'] = obj_dict['perms2']['owner']
 
         elif 'fq_name' in obj_dict and obj_dict['fq_name'][:-1]:
