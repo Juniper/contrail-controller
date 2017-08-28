@@ -80,22 +80,22 @@ public:
         client->WaitForIdle();
         SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1",
                              "vrf1", "bgpaas-client",
-                             false);
+                             false, true);
         SendBgpServiceConfig("2.2.2.20", 50000, 2, "vnet2",
                              "vrf2", "bgpaas-client",
-                             false);
+                             false, true);
         SendBgpServiceConfig("3.3.3.30", 50000, 3, "vnet3",
                              "vrf3", "bgpaas-client",
-                             false);
+                             false, true);
         SendBgpServiceConfig("4.4.4.40", 50001, 4, "vnet4",
                              "vrf4", "bgpaas-client",
-                             false);
+                             false, true);
         SendBgpServiceConfig("5.5.5.50", 50001, 5, "vnet5",
                              "vrf5", "bgpaas-client",
-                             false);
+                             false, true);
         SendBgpServiceConfig("6.6.6.60", 50001, 6, "vnet6",
                              "vrf6", "bgpaas-client",
-                             false);
+                             false, true);
         client->WaitForIdle();
     }
 
@@ -106,22 +106,22 @@ public:
         client->WaitForIdle();
         SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1",
                              "vrf1", "bgpaas-server",
-                             true);
+                             true, true);
         SendBgpServiceConfig("2.2.2.20", 50000, 2, "vnet2",
                              "vrf2", "bgpaas-server",
-                             true);
+                             true, true);
         SendBgpServiceConfig("3.3.3.30", 50000, 3, "vnet3",
                              "vrf3", "bgpaas-client",
-                             true);
+                             true, true);
         SendBgpServiceConfig("4.4.4.40", 50001, 4, "vnet4",
                              "vrf4", "bgpaas-server",
-                             true);
+                             true, true);
         SendBgpServiceConfig("5.5.5.50", 50001, 5, "vnet5",
                              "vrf5", "bgpaas-server",
-                             true);
+                             true, true);
         SendBgpServiceConfig("6.6.6.60", 50001, 6, "vnet6",
                              "vrf6", "bgpaas-client",
-                             true);
+                             true, true);
         DelIPAM("vn1");
         DelIPAM("vn2");
         DelIPAM("vn3");

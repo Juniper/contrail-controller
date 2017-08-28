@@ -61,14 +61,14 @@ TEST_F(BgpCfgTest, Test_1) {
         agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
     EXPECT_TRUE(bgp_service_count == 0);
     SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1", "vrf1", "bgpaas-client",
-                         false);
+                         false, false);
     bgp_service_count =
         agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
     EXPECT_TRUE(bgp_service_count == 1);
 
     //Delete
     SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1", "vrf1", "bgpaas-client",
-                         true);
+                         true, false);
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     bgp_service_count =
@@ -93,14 +93,14 @@ TEST_F(BgpCfgTest, Test_2) {
         agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
     EXPECT_TRUE(bgp_service_count == 0);
     SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1", "vrf1", "bgpaas-server",
-                         false);
+                         false, false);
     bgp_service_count =
         agent_->oper_db()->bgp_as_a_service()->bgp_as_a_service_map().size();
     EXPECT_TRUE(bgp_service_count == 0);
 
     //Delete
     SendBgpServiceConfig("1.1.1.10", 50000, 1, "vnet1", "vrf1", "bgpaas-server",
-                         true);
+                         true, false);
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     bgp_service_count =
