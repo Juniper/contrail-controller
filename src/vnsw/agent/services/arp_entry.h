@@ -30,13 +30,13 @@ public:
 
     ArpEntry(boost::asio::io_service &io, ArpHandler *handler,
              ArpKey &key, const VrfEntry *vrf, State state,
-             const Interface *itf);
+              const Interface *itf);
     virtual ~ArpEntry();
 
     const ArpKey &key() const { return key_; }
     State state() const { return state_; }
     const MacAddress &mac_address() const { return mac_address_; }
-    const Interface *interface() const { return interface_; }
+    const Interface *interface() const { return interface_.get(); }
 
     bool HandleArpRequest();
     void HandleArpReply(const MacAddress &);
@@ -64,7 +64,7 @@ private:
     int retry_count_;
     boost::intrusive_ptr<ArpHandler> handler_;
     Timer *arp_timer_;
-    const Interface *interface_;
+    InterfaceConstRef interface_;
     DISALLOW_COPY_AND_ASSIGN(ArpEntry);
 };
 
