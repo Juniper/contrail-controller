@@ -2050,7 +2050,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                source_routing_instance = ':'.join(self.get_ri_name(vn2_obj)))
         self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci.prefix = ['1000::/16']
-        sci.service_chain_address = '::ffff:255.255.255.251'
+        sci.service_chain_address = '::ffff:0.255.255.251'
         self.check_v6_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
 
         sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
@@ -2060,7 +2060,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                source_routing_instance = ':'.join(self.get_ri_name(vn1_obj)))
         self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
         sci.prefix = ['2000::/16']
-        sci.service_chain_address = '::ffff:255.255.255.252'
+        sci.service_chain_address = '::ffff:0.255.255.252'
         self.check_v6_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
 
         left_ri_fq_name = ['default-domain', 'default-project', vn1_name, sc_ri_name]

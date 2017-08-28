@@ -46,7 +46,7 @@ class PortTupleAgent(Agent):
     def _get_service_chain_ipam(self):
         try:
             sc_ipam_subnet_v4 = IpamSubnetType(subnet=SubnetType('0.0.0.0', 8))
-            sc_ipam_subnet_v6 = IpamSubnetType(subnet=SubnetType('::ffff:0', 104))
+            sc_ipam_subnet_v6 = IpamSubnetType(subnet=SubnetType('::ffff', 104))
             sc_ipam_subnets = IpamSubnets([sc_ipam_subnet_v4, sc_ipam_subnet_v6])
             sc_ipam_obj = NetworkIpam('service-chain-flat-ipam',
                     ipam_subnet_method="flat-subnet", ipam_subnets=sc_ipam_subnets)
