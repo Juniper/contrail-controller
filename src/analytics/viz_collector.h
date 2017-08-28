@@ -34,6 +34,7 @@ public:
     VizCollector(EventManager *evm, unsigned short listen_port,
             bool protobuf_collector_enabled,
             unsigned short protobuf_listen_port,
+            const std::string protobuf_schema_file_dir,
             bool structured_syslog_collector_enabled,
             unsigned short structured_syslog_listen_port,
             const vector<string> &structured_syslog_tcp_forward_dst,

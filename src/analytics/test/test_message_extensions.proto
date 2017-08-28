@@ -2,7 +2,7 @@
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
 
-import "analytics/protobuf_schema.proto";
+import "analytics/jti-protos/telemetry_top.proto";
 import "analytics/test/test_message.proto";
 
 message TestMessageExtension1Inner {

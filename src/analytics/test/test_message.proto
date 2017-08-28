@@ -2,7 +2,27 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-import "analytics/protobuf_schema.proto";
+import "analytics/jti-protos/telemetry_top.proto";
+
+extend JuniperNetworksSensors {
+    optional TestMessage tm_simple = 1;
+}
+
+extend JuniperNetworksSensors {
+    optional TestMessageBase tm_base = 2;
+}
+
+extend JuniperNetworksSensors {
+    optional TestMessageBaseStream tm_base_stream = 3;
+}
+
+extend JuniperNetworksSensors {
+    optional TestMessageAllTypes tm_all_types = 4;
+}
+
+extend JuniperNetworksSensors {
+    optional TestMessageSize tm_size = 5;
+}
 
 message TestMessageInner {
     required string tm_inner_name = 1 [(telemetry_options).is_key = true];
