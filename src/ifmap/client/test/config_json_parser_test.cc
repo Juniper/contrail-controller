@@ -382,9 +382,12 @@ TEST_F(ConfigJsonParserTest, ServerParserAddInOneShot) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 }
 
 // Verify introspect for FQName cache
@@ -395,13 +398,17 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
-    vector<string> fq_name_expected_entries = list_of("virtual_network:vn1")
-                                                     ("virtual_network:vn2")
-                                                     ("virtual_network:vn3");
+    vector<string> fq_name_expected_entries =
+        list_of("virtual_network:default-domain:demo:vn1")
+        ("virtual_network:default-domain:demo:vn2")
+        ("virtual_network:default-domain:demo:vn3");
     ifmap_sandesh_context_->set_page_limit(3);
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
@@ -422,11 +429,15 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_SpecificUUID) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
-    vector<string> fq_name_expected_entries = list_of("virtual_network:vn1");
+    vector<string> fq_name_expected_entries =
+        list_of("virtual_network:default-domain:demo:vn1");
     ifmap_sandesh_context_->set_page_limit(2);
     string next_batch;
     validate_done_ = false;
@@ -434,7 +445,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_SpecificUUID) {
         &ConfigJsonParserTest::ValidateFQNameCacheResponse, this,
         _1, fq_name_expected_entries, next_batch));
     ConfigDBUUIDToFQNameReq *req = new ConfigDBUUIDToFQNameReq;
-    req->set_uuid("634ae160-d3ef-4e81-b58d-d196211eb4d9");
+    req->set_search_string("634ae160-d3ef-4e81-b58d-d196211eb4d9");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
@@ -448,9 +459,12 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_InvalidUUID) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
     vector<string> fq_name_expected_entries;
     ifmap_sandesh_context_->set_page_limit(2);
@@ -460,26 +474,31 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_InvalidUUID) {
         &ConfigJsonParserTest::ValidateFQNameCacheResponse, this,
         _1, fq_name_expected_entries, next_batch));
     ConfigDBUUIDToFQNameReq *req = new ConfigDBUUIDToFQNameReq;
-    req->set_uuid("deadbeef-dead-beef-dead-beefdeaddead");
+    req->set_search_string("deadbeef-dead-beef-dead");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 }
 
 // Verify introspect for FQName cache - Request iterate
-TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_ReqIterate) {
+TEST_F(ConfigJsonParserTest,
+        IntrospectVerify_FQNameCache_ReqIterate_uuid_srch) {
     ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.json");
     FeedEventsJson();
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
-    vector<string> fq_name_expected_entries = list_of("virtual_network:vn2")
-                                                     ("virtual_network:vn3");
+    vector<string> fq_name_expected_entries =
+        list_of("virtual_network:default-domain:demo:vn2")
+        ("virtual_network:default-domain:demo:vn3");
     ifmap_sandesh_context_->set_page_limit(2);
     string next_batch;
     validate_done_ = false;
@@ -487,7 +506,69 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_ReqIterate) {
         &ConfigJsonParserTest::ValidateFQNameCacheResponse, this,
         _1, fq_name_expected_entries, next_batch));
     ConfigDBUUIDToFQNameReqIterate *req = new ConfigDBUUIDToFQNameReqIterate;
-    req->set_uuid_info("634ae160-d3ef-4e81-b58d-d196211eb4d9");
+    req->set_uuid_info("d196211||634ae160-d3ef-4e81-b58d-d196211eb4d9");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+}
+
+TEST_F(ConfigJsonParserTest,
+        IntrospectVerify_FQNameCache_ReqIterate_obj_type_srch) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.json");
+    FeedEventsJson();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
+
+    vector<string> fq_name_expected_entries =
+        list_of("virtual_network:default-domain:demo:vn2")
+        ("virtual_network:default-domain:demo:vn3");
+    ifmap_sandesh_context_->set_page_limit(2);
+    string next_batch;
+    validate_done_ = false;
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateFQNameCacheResponse, this,
+        _1, fq_name_expected_entries, next_batch));
+    ConfigDBUUIDToFQNameReqIterate *req = new ConfigDBUUIDToFQNameReqIterate;
+    req->set_uuid_info("virtual_network||634ae160-d3ef-4e81-b58d-d196211eb4d9");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+}
+
+TEST_F(ConfigJsonParserTest,
+        IntrospectVerify_FQNameCache_ReqIterate_fq_name_srch) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.json");
+    FeedEventsJson();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
+
+    vector<string> fq_name_expected_entries =
+        list_of("virtual_network:default-domain:demo:vn2")
+        ("virtual_network:default-domain:demo:vn3");
+    ifmap_sandesh_context_->set_page_limit(2);
+    string next_batch;
+    validate_done_ = false;
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateFQNameCacheResponse, this,
+        _1, fq_name_expected_entries, next_batch));
+    ConfigDBUUIDToFQNameReqIterate *req = new ConfigDBUUIDToFQNameReqIterate;
+    req->set_uuid_info("vn||634ae160-d3ef-4e81-b58d-d196211eb4d9");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
@@ -502,20 +583,24 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_FQNameCache_ReqIterate_Deleted) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
-    vector<string> fq_name_expected_entries = list_of("virtual_network:vn1")
-                                                     ("virtual_network:vn2");
+    vector<string> fq_name_expected_entries =
+        list_of("virtual_network:default-domain:demo:vn1")
+        ("virtual_network:default-domain:demo:vn2");
     ifmap_sandesh_context_->set_page_limit(2);
-    string next_batch = "634ae160-d3ef-4e82-b58d-d196211eb4da";
+    string next_batch = "160-d3ef-||634ae160-d3ef-4e82-b58d-d196211eb4da";
     validate_done_ = false;
     Sandesh::set_response_callback(boost::bind(
         &ConfigJsonParserTest::ValidateFQNameCacheResponse, this,
     _1, fq_name_expected_entries, next_batch));
     ConfigDBUUIDToFQNameReqIterate *req = new ConfigDBUUIDToFQNameReqIterate;
-    req->set_uuid_info("00000000-0000-0000-0000-000000000001");
+    req->set_uuid_info("160-d3ef-||00000000-0000-0000-0000-000000000001");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
@@ -529,9 +614,12 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
     vector<string> obj_cache_expected_entries =
         list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9")
@@ -557,9 +645,12 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_SpecificUUID) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
     vector<string> obj_cache_expected_entries =
         list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9");
@@ -570,7 +661,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_SpecificUUID) {
         &ConfigJsonParserTest::ValidateObjCacheResponse, this,
         _1, obj_cache_expected_entries, next_batch));
     ConfigDBUUIDCacheReq *req = new ConfigDBUUIDCacheReq;
-    req->set_uuid("634ae160-d3ef-4e81-b58d-d196211eb4d9");
+    req->set_search_string("3ef-4e81");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
@@ -584,9 +675,12 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_InvalidUUID) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
     ifmap_sandesh_context_->set_page_limit(2);
     validate_done_ = false;
@@ -596,23 +690,27 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_InvalidUUID) {
         &ConfigJsonParserTest::ValidateObjCacheResponse, this,
         _1, obj_cache_expected_entries, next_batch));
     ConfigDBUUIDCacheReq *req = new ConfigDBUUIDCacheReq;
-    req->set_uuid("deadbeef-dead-beef-dead-beefdeaddead");
+    req->set_search_string("deadbeef-dead-beef");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 }
 
 // Verify introspect for Object cache - Request iterate
-TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_ReqIterate) {
+TEST_F(ConfigJsonParserTest,
+        IntrospectVerify_ObjectCache_ReqIterate_uuid_srch) {
     ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.json");
     FeedEventsJson();
 
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
     vector<string> obj_cache_expected_entries =
         list_of("634ae160-d3ef-4e82-b58d-d196211eb4da")
@@ -625,7 +723,71 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_ReqIterate) {
         &ConfigJsonParserTest::ValidateObjCacheResponse, this,
         _1, obj_cache_expected_entries, next_batch));
     ConfigDBUUIDCacheReqIterate *req = new ConfigDBUUIDCacheReqIterate;
-    req->set_uuid_info("634ae160-d3ef-4e81-b58d-d196211eb4d9");
+    req->set_uuid_info("ae160-d3||634ae160-d3ef-4e81-b58d-d196211eb4d9");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+}
+
+TEST_F(ConfigJsonParserTest,
+        IntrospectVerify_ObjectCache_ReqIterate_obj_type_srch) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.json");
+    FeedEventsJson();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
+
+    vector<string> obj_cache_expected_entries =
+        list_of("634ae160-d3ef-4e82-b58d-d196211eb4da")
+               ("634ae160-d3ef-4e83-b58d-d196211eb4db");
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    string next_batch;
+
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponse, this,
+        _1, obj_cache_expected_entries, next_batch));
+    ConfigDBUUIDCacheReqIterate *req = new ConfigDBUUIDCacheReqIterate;
+    req->set_uuid_info("virtual_network||634ae160-d3ef-4e81-b58d-d196211eb4d9");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+}
+
+TEST_F(ConfigJsonParserTest,
+        IntrospectVerify_ObjectCache_ReqIterate_fq_name_srch) {
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test01.json");
+    FeedEventsJson();
+
+    IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
+    TASK_UTIL_EXPECT_EQ(3, table->Size());
+
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
+
+    vector<string> obj_cache_expected_entries =
+        list_of("634ae160-d3ef-4e82-b58d-d196211eb4da")
+               ("634ae160-d3ef-4e83-b58d-d196211eb4db");
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    string next_batch;
+
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponse, this,
+        _1, obj_cache_expected_entries, next_batch));
+    ConfigDBUUIDCacheReqIterate *req = new ConfigDBUUIDCacheReqIterate;
+    req->set_uuid_info("vn||634ae160-d3ef-4e81-b58d-d196211eb4d9");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
@@ -640,22 +802,25 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_ReqIterate_Deleted) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     TASK_UTIL_EXPECT_EQ(3, table->Size());
 
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn1") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn2") != NULL);
-    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network", "vn3") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn2") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-network",
+                "default-domain:demo:vn3") != NULL);
 
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
     vector<string> obj_cache_expected_entries =
         list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9")
                ("634ae160-d3ef-4e82-b58d-d196211eb4da");
-    string next_batch = "634ae160-d3ef-4e82-b58d-d196211eb4da";
+    string next_batch = "634ae160||634ae160-d3ef-4e82-b58d-d196211eb4da";
 
     Sandesh::set_response_callback(boost::bind(
         &ConfigJsonParserTest::ValidateObjCacheResponse, this,
         _1, obj_cache_expected_entries, next_batch));
     ConfigDBUUIDCacheReqIterate *req = new ConfigDBUUIDCacheReqIterate;
-    req->set_uuid_info("000000-0000-0000-0000-000000000001");
+    req->set_uuid_info("634ae160||000000-0000-0000-0000-000000000001");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
