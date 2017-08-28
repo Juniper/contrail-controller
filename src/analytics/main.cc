@@ -263,10 +263,12 @@ int main(int argc, char *argv[])
     LOG(INFO, "COLLECTOR SFLOW LISTEN PORT: " << options.sflow_port());
     LOG(INFO, "COLLECTOR IPFIX LISTEN PORT: " << options.ipfix_port());
     uint16_t protobuf_port(0);
+    std::string schema_file_directory = "";
     bool protobuf_server_enabled =
         options.collector_protobuf_port(&protobuf_port);
     if (protobuf_server_enabled) {
         LOG(INFO, "COLLECTOR PROTOBUF LISTEN PORT: " << protobuf_port);
+	LOG(INFO, "COLLECTOR SCHEMA FILE DIRECTORY: " <<schema_file_directory);
     }
     uint16_t structured_syslog_port(0);
     bool structured_syslog_server_enabled =
@@ -383,6 +385,7 @@ int main(int argc, char *argv[])
             options.collector_port(),
             protobuf_server_enabled,
             protobuf_port,
+	    schema_file_directory,
             structured_syslog_server_enabled,
             structured_syslog_port,
             structured_syslog_fwd,

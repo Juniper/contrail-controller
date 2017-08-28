@@ -16,6 +16,7 @@ class DbHandlerInitializer;
 class ProtobufCollector {
  public:
     ProtobufCollector(EventManager *evm, uint16_t udp_server_port,
+	const std::string schema_file_directory,
         DbHandlerPtr db_handler);
     virtual ~ProtobufCollector();
     bool Initialize();
