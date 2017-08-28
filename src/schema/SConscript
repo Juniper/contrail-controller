@@ -20,6 +20,7 @@ if env['CC'] == 'gcc':
 
 env['CCFLAGS'].append('-DRAPIDJSON_NAMESPACE=contrail_rapidjson')
 
+
 targets = env.IFMapAutogen('vnc_cfg.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
 lib = env.Library('ifmap_vnc', lib_srcs)
