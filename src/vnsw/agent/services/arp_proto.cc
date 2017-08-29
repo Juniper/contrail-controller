@@ -440,7 +440,7 @@ void ArpVrfState::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
                               arp_proto->ip_fabric_interface());
     } else {
         if (intf_nh) {
-            if (!intf->IsDeleted() && intf->type() == Interface::VM_INTERFACE
+            if (intf->type() == Interface::VM_INTERFACE
                 && static_cast<const VmInterface*>(intf)->IsActive()) {
                 ArpKey intf_key(route->addr().to_v4().to_ulong(), route->vrf());
                 arp_proto->AddGratuitousArpEntry(intf_key);
@@ -679,7 +679,9 @@ bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type,
                            const Interface* itf) {
     if (arp_cache_.find(key) != arp_cache_.end() ||
         gratuitous_arp_cache_.find(key) != gratuitous_arp_cache_.end()) {
-        SendArpIpc((ArpProto::ArpMsgType)timer_type, key, itf);
+        if(itf) {
+            SendArpIpc((ArpProto::ArpMsgType)timer_type, key, itf);
+        }
     }
     return false;
 }
