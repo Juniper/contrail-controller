@@ -677,8 +677,7 @@ void ArpProto::NextHopNotify(DBEntryBase *entry) {
 
 bool ArpProto::TimerExpiry(ArpKey &key, uint32_t timer_type,
                            const Interface* itf) {
-    if (arp_cache_.find(key) != arp_cache_.end() ||
-        gratuitous_arp_cache_.find(key) != gratuitous_arp_cache_.end()) {
+    if (arp_cache_.find(key) != arp_cache_.end()) {
         SendArpIpc((ArpProto::ArpMsgType)timer_type, key, itf);
     }
     return false;
