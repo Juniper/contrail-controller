@@ -1285,6 +1285,10 @@ def get_keystone_auth_protocol(*args, **kwargs):
 #end get_keystone_auth_protocol
 
 class FakeKeystoneClient(object):
+    @property
+    def version(self):
+        return 'v2'
+
     class Domains(object):
         _domains = {}
         def add_domain(self, id, name):
