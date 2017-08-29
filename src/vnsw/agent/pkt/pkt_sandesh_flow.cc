@@ -120,6 +120,7 @@ static string InetRouteFlowMgmtKeyToString(uint16_t id,
     SandeshFlowIndexInfo flow_index_info;\
     fe->SetEventSandeshData(&flow_index_info);\
     data.set_flow_index_info(flow_index_info); \
+    data.set_policy_match(fe->policy_name_uuid()); \
     FlowEntryInfo *mgmt_info = fe->flow_mgmt_info(); \
     const FlowMgmtKeyTree &key_tree = mgmt_info->tree(); \
     FlowMgmtKeyTree::const_iterator kt_it = key_tree.begin(); \

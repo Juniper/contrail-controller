@@ -83,6 +83,10 @@ int CfgFilter::GetIdPermsPropertyId(DBTable *table) const {
         return autogen::SecurityLoggingObject::ID_PERMS;
     if (table == agent_cfg_->cfg_port_tuple_table())
         return autogen::PortTuple::ID_PERMS;
+    if (table == agent_cfg_->cfg_firewall_policy_table())
+        return autogen::PortTuple::ID_PERMS;
+    if (table == agent_cfg_->cfg_firewall_rule_table())
+        return autogen::PortTuple::ID_PERMS;
     return -1;
 }
 

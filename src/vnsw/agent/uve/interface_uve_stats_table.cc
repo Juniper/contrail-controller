@@ -250,18 +250,19 @@ void InterfaceUveStatsTable::IncrInterfaceAceStats
     }
 }
 
-void InterfaceUveStatsTable::IncrInterfaceEndpointHits
-    (const FlowUveStatsRequest *req) {
-    if (!req->fw_policy_valid()) {
+void InterfaceUveStatsTable::IncrInterfaceEndpointHits(const string &itf,
+    const FlowUveFwPolicyInfo &info) {
+    if (!info.is_valid_) {
         return;
     }
-    InterfaceMap::iterator intf_it = interface_tree_.find(req->interface());
+    InterfaceMap::iterator intf_it = interface_tree_.find(itf);
 
     if (intf_it != interface_tree_.end()) {
         UveInterfaceEntry *entry = intf_it->second.get();
-        entry->UpdateInterfaceFwPolicyStats(req->fw_policy_info());
+        entry->UpdateInterfaceFwPolicyStats(info);
     }
 }
+
 void InterfaceUveStatsTable::SendInterfaceAceStats(const string &name,
                                                    UveInterfaceEntry *entry) {
     UveVMInterfaceAgent uve;
@@ -290,11 +291,6 @@ void InterfaceUveStatsTable::BuildInterfaceUveInfo(InterfaceUveInfoResp *r) {
         InterfaceUveInfo item;
         UveInterfaceEntry *entry = intf_it->second.get();
         ++intf_it;
-        /* Skip entries for which endpoint records have not been added by
-         * flow module */
-        if ((entry->local_tagset_.size() == 0) && entry->local_vn_.empty()) {
-            continue;
-        }
         entry->BuildInterfaceUveInfo(&item);
         list.push_back(item);
     }

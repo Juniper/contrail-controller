@@ -32,28 +32,36 @@ struct SandeshUveTagInfo {
 struct SandeshUveRemoteEndpoint {
     /** Remote virtual network name */
     1: string remote_vn;
+    /** Local Virtual Network name */
+    2: optional string local_vn;
     /** Remote prefix */
-    2: string remote_prefix;
+    3: string remote_prefix;
     /** Remote tags list*/
-    3: optional list<SandeshUveTagInfo> remote_tagset;
-    /** Number of sessions matching this endpoint */
-    4: u64 hits;
+    4: optional list<SandeshUveTagInfo> remote_tagset;
+    /** Number of sessions added since previous send in Endpoint objectlog*/
+    5: u64 added;
+    /** Number of sessions deleted since previous send in Endpoint objectlog*/
+    6: u64 deleted;
+    /** Number of active sessions */
+    7: u64 active;
+    /** Number of sessions marked as short */
+    8: u64 dropped_short;
     /** Input bytes */
-    6: u64 in_bytes;
+    9: u64 in_bytes;
     /** Input packets */
-    7: u64 in_pkts;
+    10: u64 in_pkts;
     /** Output bytes */
-    8: u64 out_bytes;
+    11: u64 out_bytes;
     /** Output packets */
-    9: u64 out_pkts;
+    12: u64 out_pkts;
     /** Previous Input bytes */
-   10: u64 prev_in_bytes;
+    13: u64 prev_in_bytes;
     /** Previous Input packets */
-   11: u64 prev_in_pkts;
+    14: u64 prev_in_pkts;
     /** Previous Output bytes */
-   12: u64 prev_out_bytes;
+    15: u64 prev_out_bytes;
     /** Previous Output packets */
-   13: u64 prev_out_pkts;
+    16: u64 prev_out_pkts;
 }
 
 /**
@@ -76,12 +84,10 @@ struct SandeshUvePolicyInfo {
 struct InterfaceUveInfo {
     /** FQ-name of Virtual Machine Interface */
     1: string name;
-    /** Local Virtual Network name */
-    2: optional string local_vn;
     /** List of tags associated with VMI */
-    3: optional list<SandeshUveTagInfo> local_tagset;
+    2: optional list<SandeshUveTagInfo> local_tagset;
     /** List of firewall policies along with their remote endpoints */
-    4: optional list<SandeshUvePolicyInfo> policy_list;
+    3: optional list<SandeshUvePolicyInfo> policy_list;
 }
 
 /**
