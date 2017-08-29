@@ -115,6 +115,7 @@ class JuniperConf(DeviceConf):
         self.proto_config = None
         self.route_targets = set()
         self.bgp_peers = {}
+        self.chassis_config = None
         self.external_peers = {}
     # ene initialize
 
