@@ -4,6 +4,7 @@
 #
 
 import os
+import re
 import socket
 import netaddr
 import logging
@@ -348,6 +349,38 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
             raise RuntimeError("Error: setting QEMU core mask %s for "
                                "host %s failed." % (vr_coremask, dpdk_args))
 
+    def setup_vfio_grub(self):
+
+        if self.pdist != 'Ubuntu':
+            log.info("Not configuring VFIO Grub changes for %s distribution",
+                     self.pdist)
+            return
+
+        with open('/etc/default/grub', 'r') as f:
+            gcnf = f.read()
+            p = re.compile('\s*GRUB_CMDLINE_LINUX_DEFAULT')
+            el = gcnf.split('\n')
+            for i, x in enumerate(el):
+                if not p.match(x):
+                    continue
+                exec(el[i])
+                el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s intel_iommu=on"' % (
+                        ' '.join(filter(lambda x: not x.startswith(
+                            'intel_iommu='),
+                            GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                exec(el[i])
+                el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s iommu=pt"' % (
+                        ' '.join(filter(lambda x: not x.startswith(
+                            'iommu='), GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                exec(el[i])
+                with open('%s/grub' % self._temp_dir_name, 'w') as f:
+                    f.write('\n'.join(el))
+                    f.flush()
+                local('sudo mv %s/grub /etc/default/grub' %
+                      self._temp_dir_name)
+                local('sudo /usr/sbin/update-grub')
+                break
+
     def setup_uio_driver(self, dpdk_args):
         """Setup UIO driver to use for DPDK
         (igb_uio, uio_pci_generic or vfio-pci)
@@ -356,6 +389,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
 
         if 'uio_driver' in dpdk_args:
             uio_driver = dpdk_args['uio_driver']
+            if uio_driver == "vfio-pci":
+                self.setup_vfio_grub()
         else:
             print "No UIO driver defined for host, skipping..."
             return
