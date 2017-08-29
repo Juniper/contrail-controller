@@ -126,9 +126,10 @@ class ContrailSetup(object):
         # cleanup in case move had error
         local("sudo rm config.new", warn_only=True)
 
-    def setup_sriov_grub(self):
+    def setup_sriov_grub(self, uio_driver="None"):
         if not self._args.sriov:
-            return
+            if uio_driver != "vfio-pci":
+                return
 
         if self.pdist != 'Ubuntu':
             log.info("Not configuring SRIOV Grub changes for %s distribution",

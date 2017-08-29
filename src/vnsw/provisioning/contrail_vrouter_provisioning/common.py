@@ -356,6 +356,8 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
 
         if 'uio_driver' in dpdk_args:
             uio_driver = dpdk_args['uio_driver']
+            if uio_driver == "vfio-pci":
+                self.setup_sriov_grub(uio_driver)
         else:
             print "No UIO driver defined for host, skipping..."
             return
