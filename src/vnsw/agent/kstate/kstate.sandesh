@@ -96,6 +96,7 @@ struct KInterfaceInfo {
    50: string       fat_flow_protocol_port;
    51: i32          isid;
    52: string       pbb_bmac;
+   53: string       bridge_idx;
 }
 
 /**
