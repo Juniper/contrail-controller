@@ -952,6 +952,10 @@ public:
     bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     void set_simulate_evpn_tor(bool mode) {simulate_evpn_tor_ = mode;}
 
+    bool tsn_no_forwarding_enabled() const {return tsn_no_forwarding_enabled_;}
+    void set_tsn_no_forwarding_enabled(bool val) {
+        tsn_no_forwarding_enabled_ = val;
+    }
     bool tsn_enabled() const {return tsn_enabled_;}
     void set_tsn_enabled(bool val) {tsn_enabled_ = val;}
     bool tor_agent_enabled() const {return tor_agent_enabled_;}
@@ -1294,6 +1298,7 @@ private:
     bool init_done_;
     bool resource_manager_ready_;
     bool simulate_evpn_tor_;
+    bool tsn_no_forwarding_enabled_;
     bool tsn_enabled_;
     bool tor_agent_enabled_;
     bool forwarding_enabled_;
