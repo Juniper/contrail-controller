@@ -8,8 +8,7 @@
 
 #include "base/task.h"
 #include "db/db.h"
-#include "ifmap/client/config_client_manager.h"
-
+#include "config_client_manager.h"
 //
 // Default scheduler policy for control-node daemon and test processes.
 //
@@ -217,47 +216,4 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")));
     scheduler->SetPolicy(scheduler->GetTaskId("db::Walker"), walker_policy);
-
-    // Policy for cassandra::Reader Task.
-    TaskPolicy cassadra_reader_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("cassandra::Init")))
-        (TaskExclusion(scheduler->GetTaskId("cassandra::FQNameReader")));
-    for (int idx = 0; idx < ConfigClientManager::GetNumConfigReader(); ++idx) {
-        cassadra_reader_policy.push_back(
-        TaskExclusion(scheduler->GetTaskId("cassandra::ObjectProcessor"), idx));
-    }
-    scheduler->SetPolicy(scheduler->GetTaskId("cassandra::Reader"),
-        cassadra_reader_policy);
-
-    // Policy for cassandra::ObjectProcessor Task.
-    TaskPolicy cassadra_obj_process_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("cassandra::Init")));
-    for (int idx = 0; idx < ConfigClientManager::GetNumConfigReader(); ++idx) {
-        cassadra_obj_process_policy.push_back(
-                 TaskExclusion(scheduler->GetTaskId("cassandra::Reader"), idx));
-    }
-    scheduler->SetPolicy(scheduler->GetTaskId("cassandra::ObjectProcessor"),
-        cassadra_obj_process_policy);
-
-    // Policy for cassandra::FQNameReader Task.
-    TaskPolicy fq_name_reader_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("cassandra::Init")))
-        (TaskExclusion(scheduler->GetTaskId("cassandra::Reader")));
-    scheduler->SetPolicy(scheduler->GetTaskId("cassandra::FQNameReader"),
-        fq_name_reader_policy);
-
-    // Policy for cassandra::Init process
-    TaskPolicy cassandra_init_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("amqp::RabbitMQReader")))
-        (TaskExclusion(scheduler->GetTaskId("cassandra::ObjectProcessor")))
-        (TaskExclusion(scheduler->GetTaskId("cassandra::FQNameReader")))
-        (TaskExclusion(scheduler->GetTaskId("cassandra::Reader")));
-    scheduler->SetPolicy(scheduler->GetTaskId("cassandra::Init"),
-        cassandra_init_policy);
-
-    // Policy for amqp::RabbitMQReader process
-    TaskPolicy rabbitmq_reader_policy = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("cassandra::Init")));
-    scheduler->SetPolicy(scheduler->GetTaskId("amqp::RabbitMQReader"),
-        rabbitmq_reader_policy);
 }
