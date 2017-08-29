@@ -129,7 +129,11 @@ public:
         TagList remote_tagset;
         std::string remote_prefix;
         std::string remote_vn;
-        uint64_t hits;
+        std::string local_vn;
+        uint64_t added;
+        uint64_t deleted;
+        uint64_t active;
+        uint64_t dropped_short;
         uint64_t in_bytes;
         uint64_t in_pkts;
         uint64_t out_bytes;
@@ -138,13 +142,15 @@ public:
         uint64_t prev_in_pkts;
         uint64_t prev_out_bytes;
         uint64_t prev_out_pkts;
-        uint64_t prev_hits;
+        uint64_t prev_added;
+        uint64_t prev_deleted;
         UveSecurityPolicyStats(const TagList &tset, const std::string &rprefix,
-                               const std::string &rvn) :
+                               const std::string &rvn, const std::string &lvn) :
             remote_tagset(tset), remote_prefix(rprefix), remote_vn(rvn),
-            hits(0), in_bytes(0), in_pkts(0), out_bytes(0), out_pkts(0),
+            local_vn(lvn), added(0), deleted(0), active(0), dropped_short(0),
+            in_bytes(0), in_pkts(0), out_bytes(0), out_pkts(0),
             prev_in_bytes(0) , prev_in_pkts(0), prev_out_bytes(0),
-            prev_out_pkts(0), prev_hits(0) {
+            prev_out_pkts(0), prev_added(0), prev_deleted(0) {
         }
         std::string GetTagStr(const InterfaceUveTable::UveInterfaceEntry *entry,
                               uint32_t type) const;
@@ -153,10 +159,16 @@ public:
     struct PolicyCmp {
         bool operator() (const UveSecurityPolicyStatsPtr &lhs,
                          const UveSecurityPolicyStatsPtr &rhs) {
-            if (lhs->remote_prefix.compare(rhs->remote_prefix) != 0) {
-                return lhs->remote_prefix < rhs->remote_prefix;
+            if (lhs->local_vn.compare(rhs->local_vn) != 0) {
+                return lhs->local_vn < rhs->local_vn;
             }
-            return lhs->remote_tagset < rhs->remote_tagset;
+            if (lhs->remote_vn.compare(rhs->remote_vn) != 0) {
+                return lhs->remote_vn < rhs->remote_vn;
+            }
+            if (lhs->remote_tagset < rhs->remote_tagset) {
+                return lhs->remote_tagset < rhs->remote_tagset;
+            }
+            return lhs->remote_prefix < rhs->remote_prefix;
         }
     };
     typedef std::set<UveSecurityPolicyStatsPtr, PolicyCmp>
@@ -190,7 +202,6 @@ public:
         UveVMInterfaceAgent uve_info_;
         AceStatsSet ace_set_;
         TagList local_tagset_;
-        std::string local_vn_;
         SecurityPolicyStatsMap security_policy_stats_map_;
         /* For exclusion between kTaskFlowStatsCollector and Agent::Uve
          * (1) port_bitmap_ and fip_tree_ are updated by kTaskFlowStatsCollector
@@ -239,6 +250,8 @@ public:
         void Reset();
         void UpdatePortBitmap(uint8_t proto, uint16_t sport, uint16_t dport);
         void UpdateInterfaceFwPolicyStats(const FlowUveFwPolicyInfo &info);
+        void UpdateCounters(const FlowUveFwPolicyInfo &info,
+                            UveSecurityPolicyStats *obj);
         void UpdateSecurityPolicyStats(const EndpointStatsInfo &info);
         void UpdateSecurityPolicyStatsInternal(const EndpointStatsInfo &info,
                                                UveSecurityPolicyStats *stats);
