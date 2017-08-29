@@ -541,6 +541,10 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                                    for server in self._args.control_nodes)
             collector_servers = ' '.join('%s:%s' % (server, '8086')
                                          for server in self._args.collectors)
+            if self._args.agent_mode == 'tsn-no-forwarding':
+                tsn_servers = ' '.join(self._args.tsn_servers)
+            else:
+                tsn_servers = ''
             configs = {
                 'DEFAULT': {
                     'platform': platform_mode,
@@ -549,7 +553,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                     'physical_interface_mac': self.mac,
                     'collectors': collector_servers,
                     'xmpp_auth_enable': self._args.xmpp_auth_enable,
-                    'xmpp_dns_auth_enable': self._args.xmpp_dns_auth_enable},
+                    'xmpp_dns_auth_enable': self._args.xmpp_dns_auth_enable,
+                    'agent_mode': self._args.agent_mode,
+                    'tsn_servers': tsn_servers,},
                 'NETWORKS': {
                     'control_network_ip': compute_ip},
                 'VIRTUAL-HOST-INTERFACE': {
