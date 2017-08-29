@@ -259,17 +259,22 @@ void StatsManager::AddFlow(const FlowUveStatsRequest *req) {
     InterfaceUveStatsTable *itable = static_cast<InterfaceUveStatsTable *>
         (uve->interface_uve_table());
     VnUveTable *vtable = static_cast<VnUveTable *>(uve->vn_uve_table());
+    const FlowUveFwPolicyInfo &fw_info = req->fw_policy_info();
+    if (fw_info.is_valid_) {
+        assert(fw_info.added_);
+    }
     if (it == flow_ace_tree_.end()) {
         InterfaceStats stats;
         FlowRuleMatchInfo info(req->interface(), req->sg_rule_uuid(),
                                req->fw_policy_info(), req->vn_ace_info());
         flow_ace_tree_.insert(FlowAcePair(req->uuid(), info));
         itable->IncrInterfaceAceStats(req);
-        itable->IncrInterfaceEndpointHits(req);
+        itable->IncrInterfaceEndpointHits(req->interface(), fw_info);
         vtable->IncrVnAceStats(req->vn_ace_info());
     } else {
         FlowRuleMatchInfo &info = it->second;
         bool intf_changed = false;
+        const string &old_itf = info.interface;
         if (req->interface() != info.interface) {
             info.interface = req->interface();
             intf_changed = true;
@@ -278,8 +283,16 @@ void StatsManager::AddFlow(const FlowUveStatsRequest *req) {
             itable->IncrInterfaceAceStats(req);
             info.sg_rule_uuid = req->sg_rule_uuid();
         }
-        if (intf_changed || !info.IsFwPolicyInfoEqual(req->fw_policy_info())) {
-            itable->IncrInterfaceEndpointHits(req);
+        if (intf_changed || !info.IsFwPolicyInfoEqual(fw_info)) {
+            /* When there is change either in interface-name or key of
+             * Endpoint record, treat it as flow-delete.
+             * (a) Increment deleted counter for old interface and old key
+             * (b) Increment added counter for new interface and new key
+             */
+            FlowUveFwPolicyInfo old_info = info.fw_policy_info;
+            old_info.added_ = false;
+            itable->IncrInterfaceEndpointHits(old_itf, old_info);
+            itable->IncrInterfaceEndpointHits(req->interface(), fw_info);
             info.fw_policy_info = req->fw_policy_info();
         }
         if (!info.IsVnAceInfoEqual(req->vn_ace_info())) {
@@ -293,6 +306,14 @@ void StatsManager::DeleteFlow(const FlowUveStatsRequest *req) {
     FlowAceTree::iterator it = flow_ace_tree_.find(req->uuid());
     if (it == flow_ace_tree_.end()) {
         return;
+    }
+    AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
+    InterfaceUveStatsTable *itable = static_cast<InterfaceUveStatsTable *>
+        (uve->interface_uve_table());
+    const FlowUveFwPolicyInfo &fw_info = req->fw_policy_info();
+    if (fw_info.is_valid_) {
+        assert(!fw_info.added_);
+        itable->IncrInterfaceEndpointHits(req->interface(), fw_info);
     }
     flow_ace_tree_.erase(it);
 }

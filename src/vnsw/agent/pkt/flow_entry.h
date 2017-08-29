@@ -336,6 +336,9 @@ struct FlowData {
     std::string vm_cfg_name;
     uint32_t acl_assigned_vrf_index_;
     uint32_t qos_config_idx;
+    std::string match_policy;
+    std::string match_policy_uuid;
+
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
     // FlowEntry::Copy() on this structure
 };
@@ -593,7 +596,7 @@ class FlowEntry {
         return data_.match_p.sg_policy.rule_uuid_;
     }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
-    const std::string fw_policy_name_uuid() const;
+    const std::string policy_name_uuid() const;
     const std::string &policy_set_ace_uuid() const {
         return data_.match_p.aps_policy.rule_uuid_;
     }
@@ -718,7 +721,7 @@ class FlowEntry {
     void set_flow_mgmt_info(FlowEntryInfo *info) {
         flow_mgmt_info_.reset(info);
     }
-    void FillUveFwStatsInfo(FlowUveFwPolicyInfo *info) const;
+    void FillUveFwStatsInfo(FlowUveFwPolicyInfo *info, bool added) const;
     void FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const;
 private:
     friend class FlowTable;
@@ -729,6 +732,10 @@ private:
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
 
+    void UpdateMatchPolicy(const FlowPolicyInfo &nw_acl_info);
+    void FillUveLocalRevFlowStatsInfo(FlowUveFwPolicyInfo *info, bool added)
+        const;
+    void FillUveFwdFlowStatsInfo(FlowUveFwPolicyInfo *info, bool added) const;
     void RpfInit(const AgentRoute *rt);
     void RpfSetRpfNhFields(const NextHop *rpf_nh);
     void RpfSetRpfNhFields(const AgentRoute *rt, const NextHop *rpf_nh);

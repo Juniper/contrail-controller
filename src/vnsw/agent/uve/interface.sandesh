@@ -259,28 +259,42 @@ uve sandesh UveVMInterfaceAgentTrace {
  * statistics
  */
 struct SecurityPolicyFlowStats {
+    /** Name of application */
+    1: string app;
+    /** Name of Tier */
+    2: string tier;
+    /** Name of site */
+    3: string site;
+    /** Name of deployment */
+    4: string deployment;
     /** Remote Application ID */
-    1:  string remote_app_id;
+    5:  string remote_app_id;
     /** Remote Tier ID */
-    2:  string remote_tier_id;
+    6:  string remote_tier_id;
     /** Remote Site ID */
-    3:  string remote_site_id;
+    7:  string remote_site_id;
     /** Remote deployment ID */
-    4:  string remote_deployment_id;
+    8:  string remote_deployment_id;
     /** Remote prefix when app/tier/site/deployment is missing */
-    5:  string remote_prefix;
+    9:  string remote_prefix;
     /** Remote Virtual network name*/
-    6:  string remote_vn;
-    /** Number of sessions the statistics correspond to*/
-    7:  u64    hits;
+    10:  string remote_vn;
+    /** Local Virtual network name*/
+    11:  string local_vn;
+    /** Number of sessions added since previous send*/
+    12:  u64    added;
+    /** Number of sessions deleted since previous send*/
+    13:  u64    deleted;
+    /** Number of sessions currently active*/
+    14: u64    active;
     /** Incoming statistics in bytes */
-    9:  u64    in_bytes;
+    16: u64    in_bytes;
     /** Outgoing statistics in bytes */
-    10:  u64    out_bytes;
+    17: u64    out_bytes;
     /** Incoming statistics in packets */
-    11: u64    in_pkts;
+    18: u64    in_pkts;
     /** Outgoing statistics in packets */
-    12: u64    out_pkts;
+    19: u64    out_pkts;
 }
 
 /**
@@ -301,18 +315,8 @@ struct EndpointStats {
 objectlog sandesh EndpointSecurityStats {
     /** Name of Virtual Machine Interface */
     1: string name (key="ObjectVMITable");
-    /** Name of application */
-    2: string app;
-    /** Name of Tier */
-    3: string tier;
-    /** Name of site */
-    4: string site;
-    /** Name of deployment */
-    5: string deployment;
-    /** Name of Virtual network */
-    6: string vn;
 
     /** The key of this map is Security Policy name and rule-uuid */
     /** @display_name:Security Policy Endpoint Statistics*/
-    7: map<string, EndpointStats> eps (tags="app,tier,site,deployment,vn,.__key")
+    2: map<string, EndpointStats> eps (tags=".__key")
 }

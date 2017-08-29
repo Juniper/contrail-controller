@@ -282,16 +282,6 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
                                                 uint64_t bytes, uint64_t pkts) {
     FlowEntry *flow = info->flow();
 
-    /* Ignore link local flows as they don't have remote-tagset/prefix */
-    if (flow->is_flags_set(FlowEntry::LinkLocalFlow)) {
-        return;
-    }
-    /* Ignore flows for which we don't have policy name as it is required to
-     * reach remote endpoint. One example of Flow not having policy name is when
-     * the rule it matches is IMPLICIT_ALLOW */
-    if (flow->policy_set_acl_name().empty()) {
-        return;
-    }
     const Interface *itf = flow->intf_entry();
     if (!itf) {
         return;
@@ -315,23 +305,51 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
     ep.local_tagset = flow->local_tagset();
     ep.remote_tagset = flow->remote_tagset();
     ep.remote_prefix = flow->RemotePrefix();
-    ep.policy = flow->fw_policy_name_uuid();
+    ep.policy = flow->policy_name_uuid();
     ep.diff_bytes = bytes;
     ep.diff_pkts = pkts;
     if (flow->is_flags_set(FlowEntry::LocalFlow)) {
+        /* When VM A talks to VM B which is in different compute nodes, the
+         * following flows are created
+         * (1) A-B, Ingress, Forward, pol1
+         * (2) B-A, Egress, Reverse, pol1
+         * (3) A-B, Egress, Forward, pol2
+         * (4) B-A, Inress, Reverse, pol2
+         * When both A and B are in single compute, we have only the following
+         * flows (Flows marked as LocalFlow)
+         * (1) A-B, Ingress, Forward, pol1
+         * (2) B-A, Inress, Reverse, pol2
+         * To simulate session stats similar to case where VMs are in different
+         * computes, for local flows, we do the following.
+         * (a) when "A-B, Ingress, Forward, pol1" flow is seen, we also
+         *     update stats for "A-B, Egress, Forward, pol2". This is because
+         *     diff stats for "A-B, Ingress, Forward, pol1" and
+         *     "A-B, Egress, Forward, pol2" are same. Policy for implicit flow
+         *     is picked from reverse flow
+         * (b) when "B-A, Ingress, Reverse, pol2" flow is seen, we also
+         *     update stats for "B-A, Egress, Reverse, pol1". This is because diff
+         *     stats for "B-A, Ingress, Reverse, pol2" and
+         *     "B-A, Egress, Reverse, pol1" is same. Policy for implicit flow is
+         *     picked from reverse flow
+         */
         ep.local_vn = src_vn;
         ep.remote_vn = dst_vn;
         ep.in_stats = true;
+        bool egress_flow_is_client;
         if (flow->is_flags_set(FlowEntry::ReverseFlow)) {
             ep.client = false;
+            egress_flow_is_client = true;
         } else {
             ep.client = true;
+            egress_flow_is_client = false;
         }
         itf_table->UpdateVmiTagBasedStats(ep);
 
         /* Local flows will not have egress flows in the system. So we need to
          * explicitly build stats for egress flow using the data available from
-         * ingress flow */
+         * ingress flow. Egress flow stats has to be updated on destination
+         * VMI. We skip updation if we are unable to pick destination VMI from
+         * reverse flow. */
 
         FlowEntry* rflow = info->reverse_flow();
         if (rflow) {
@@ -341,6 +359,8 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
                 ep.remote_tagset = flow->local_tagset();
                 ep.local_vn = dst_vn;
                 ep.remote_vn = src_vn;
+                ep.policy = rflow->policy_name_uuid();
+                ep.client = egress_flow_is_client;
                 ep.vmi = static_cast<const VmInterface *>(ritf);
                 ep.in_stats = false;
                 itf_table->UpdateVmiTagBasedStats(ep);
