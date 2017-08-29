@@ -1022,6 +1022,22 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, in_addr_t siaddr) {
             option_->SetNextOptionPtr(opt_len);
             opt_len = AddDomainNameOption(opt_len);
         }
+
+        if (is_flag_set(DHCP_OPTION_TFTP_SERVER_NAME)) {
+            std::vector<autogen::DhcpOptionType> options;
+            vm_itf_->GetInterfaceDhcpOptions(&options);
+            for (unsigned int i = 0; i < options.size(); ++i) {
+                uint32_t option = OptionCode(options[i].dhcp_option_name);
+                if (option != DHCP_OPTION_TFTP_SERVER_NAME)
+                    continue;
+                // handle DHCP_OPTION_TFTP_SERVER_NAME
+                boost::system::error_code ec;
+                Ip4Address siaddr =
+                    Ip4Address::from_string(options[i].dhcp_option_value, ec);
+                if (ec.value() == 0)
+                    dhcp_->siaddr = htonl(siaddr.to_ulong());
+            }
+        }
     }
 
     option_->SetNextOptionPtr(opt_len);
