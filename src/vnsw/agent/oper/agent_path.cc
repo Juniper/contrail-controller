@@ -26,6 +26,8 @@
 #include <oper/route_common.h>
 #include <oper/ecmp_load_balance.h>
 #include <oper/agent_sandesh.h>
+#include <oper/tsn_elector.h>
+
 using namespace std;
 using namespace boost::asio;
 
@@ -960,6 +962,13 @@ bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     nh = static_cast<NextHop *>(agent->nexthop_table()->
             FindActiveEntry(composite_nh_req_.key.get()));
     assert(nh);
+    if (agent->params()->agent_mode() == AgentParam::TSN_NO_FORWARDING_AGENT) {
+        const TsnElector *te = agent->oper_db()->tsn_elector();
+        const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(nh);
+        if (cnh && (cnh->composite_nh_type() == Composite::EVPN) &&
+            (te->IsMaster() == false))
+            path->set_inactive(true);
+    }
     ret = MulticastRoute::CopyPathParameters(agent,
                    path,
                    vn_name_,

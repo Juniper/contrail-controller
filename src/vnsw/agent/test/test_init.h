@@ -80,6 +80,8 @@ using namespace std;
 #define DEFAULT_VNSW_TSN_CONFIG_FILE "controller/src/vnsw/agent/test/vnswa_tsn_cfg.ini"
 #define DEFAULT_VNSW_DPDK_CONFIG_FILE \
            "controller/src/vnsw/agent/test/vnswa_dpdk_cfg.ini"
+#define DEFAULT_VNSW_TSN_NO_FORWARDING_CONFIG_FILE \
+    "controller/src/vnsw/agent/test/vnswa_tsn_no_forwarding_cfg.ini"
 #define GETUSERARGS()                           \
     bool ksync_init = false;                    \
     char init_file[1024];                       \
