@@ -1554,8 +1554,9 @@ class DBInterface(object):
 
         if subnet_vnc.subnet:
             if allocation_pools is None or not allocation_pools:
-                if (int(IPNetwork(sn_q_dict['gateway_ip']).network) ==
-                    int(IPNetwork(cidr).network+1)):
+                if (sn_q_dict['gateway_ip'] is not None and
+                   (int(IPNetwork(sn_q_dict['gateway_ip']).network) ==
+                    int(IPNetwork(cidr).network+1))):
                     first_ip = str(IPNetwork(cidr).network + 2)
                 else:
                     first_ip = str(IPNetwork(cidr).network + 1)
