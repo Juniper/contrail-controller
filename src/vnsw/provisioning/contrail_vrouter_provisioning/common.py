@@ -541,6 +541,10 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                                    for server in self._args.control_nodes)
             collector_servers = ' '.join('%s:%s' % (server, '8086')
                                          for server in self._args.collectors)
+            if self._args.tsn_evpn_mode and self._args.tsn_servers:
+                tsn_servers = ' '.join(self._args.tsn_servers)
+            else:
+                tsn_servers = ''
             configs = {
                     'DEFAULT': {
                         'platform': platform_mode,
@@ -875,7 +879,11 @@ SUBCHANNELS=1,2,3
 
     def start_tsn_service(self):
         nova_conf_file = '/etc/contrail/contrail-vrouter-agent.conf'
-        local("openstack-config --set %s DEFAULT agent_mode tsn" % nova_conf_file)
+        mode = 'tsn'
+        if self._args.tsn_evpn_mode:
+            mode = 'tsn-no-forwarding'
+        local("openstack-config --set %s DEFAULT agent_mode %s" %
+              (nova_conf_file, mode))
 
     def setup_tsn_node(self):
         self.disable_nova_compute()
@@ -927,7 +935,7 @@ SUBCHANNELS=1,2,3
         self.fixup_config_files()
         self.increase_vrouter_limit()
         self.setup_sriov_grub()
-        if self._args.tsn_mode:
+        if self._args.tsn_mode or self._args.tsn_evpn_mode:
             self.setup_tsn_node()
             self.run_services()
         else:
