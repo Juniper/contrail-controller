@@ -28,3 +28,4 @@ discoveryclient
 sandesh
 sandesh-common
 pyOpenSSL
+mock
