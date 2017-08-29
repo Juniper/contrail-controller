@@ -664,7 +664,7 @@ void FlowMgmtManager::EnqueueUveAddEvent(const FlowEntry *flow) const {
 
         flow->FillUveVnAceInfo(&vn_ace_info);
         if (!itf_name.empty()) {
-            flow->FillUveFwStatsInfo(&fw_policy_info);
+            flow->FillUveFwStatsInfo(&fw_policy_info, true);
         }
         boost::shared_ptr<FlowUveStatsRequest> req(new FlowUveStatsRequest
             (FlowUveStatsRequest::ADD_FLOW, flow->uuid(), itf_name,
@@ -682,8 +682,16 @@ void FlowMgmtManager::EnqueueUveAddEvent(const FlowEntry *flow) const {
 void FlowMgmtManager::EnqueueUveDeleteEvent(const FlowEntry *flow) const {
     AgentUveStats *uve = dynamic_cast<AgentUveStats *>(agent_->uve());
     if (uve) {
+        const Interface *itf = flow->intf_entry();
+        const VmInterface *vmi = dynamic_cast<const VmInterface *>(itf);
+        string itf_name = vmi? vmi->cfg_name() : "";
+        FlowUveFwPolicyInfo fw_policy_info;
+        if (!itf_name.empty()) {
+            flow->FillUveFwStatsInfo(&fw_policy_info, false);
+        }
         boost::shared_ptr<FlowUveStatsRequest> req(new FlowUveStatsRequest
-            (FlowUveStatsRequest::DELETE_FLOW, flow->uuid()));
+            (FlowUveStatsRequest::DELETE_FLOW, flow->uuid(), itf_name,
+             fw_policy_info));
         uve->stats_manager()->EnqueueEvent(req);
     }
 }
