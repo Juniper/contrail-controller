@@ -70,7 +70,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     #@unittest.skip('Skipping VM UVE test')
     def test_01_vm_uve(self):
-        '''
+        ''' 
         This test starts redis, vizd, opserver, qed, and a python generator
         that simulates vrouter and sends UveVirtualMachineAgentTrace messages.
         Then it checks that the VM UVE (via redis) can be accessed from
@@ -1951,6 +1951,48 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         return True
     # end test_09_verify_db_info
+
+    #@unittest.skip('Skipping AnalyticsApiInfo UVE test')
+    def test_10_analytics_api_info_uve(self):
+        '''
+        This test starts redis, vizd, opserver, qed, and a python generator
+        that simulates analytics API 
+        
+        Reads rest_api_ip and host_ip of OpServer as AnalyticsApiInfoUVE 
+        Test case doesn't invoke AnalyticsAPiInfo UVE add 
+        and UVE delete. 
+
+        '''
+        logging.info("%%% test_10_analytics_api_info_uve %%%")
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir, 0))
+        assert vizd_obj.verify_on_setup()
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture("contrail-analytics-api", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        '''
+        AnalyticsAPiInfo UVE add is not invoked as part of test
+
+        for i in range(0, 5):
+            time.sleep(1)
+            generator_obj.add_analytics_api_info_uve_test(
+                    hostname = socket.gethostname(),
+                    rest_api_ip = '1.2.3.4',
+                    host_ip = '9.1.1.1')
+
+        '''
+
+        assert generator_obj.verify_analytics_api_info_uve_test(
+                     hostname = socket.gethostname(),
+                     rest_api_ip = '0.0.0.0',
+                     host_ip = '127.0.0.1')
+       
+        return True
+    # end test_10_analytics_api_info_uve
 
     @staticmethod
     def get_free_port():

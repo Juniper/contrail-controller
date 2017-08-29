@@ -30,6 +30,7 @@ from sandesh.object_table_test.ttypes import *
 from analytics_fixture import AnalyticsFixture
 from generator_introspect_utils import VerificationGenerator
 from opserver_introspect_utils import VerificationOpsSrv
+from opserver.sandesh.analytics_api_info.ttypes import *
 
 class GeneratorFixture(fixtures.Fixture):
     _BYTES_PER_PACKET = 1024
@@ -356,6 +357,7 @@ class GeneratorFixture(fixtures.Fixture):
         else:
             vns = VerificationOpsSrv('127.0.0.1', self._opserver_port)
         res = vns.get_ops_vm(vm_id)
+        self._logger.info('Jack1234vm'+str(res))
         if res == {}:
             return False
         else:
@@ -528,5 +530,71 @@ class GeneratorFixture(fixtures.Fixture):
                 alarm.send(sandesh=self._sandesh_instance)
         return msg_types
     # end send_sandesh_types_object_logs
+    
+    def add_analytics_api_info_uve_test(self, hostname, rest_api_ip, host_ip):
 
+        '''
+        Test case scope is limited to reading the host_ip and rest_api_ip
+        set in OpServer. 
+        Hence this code not invoked (however code is validate).
+        '''
+
+        analytics_api_info = AnalyticsApiInfo()
+        analytics_api_info.name = hostname
+        analytics_api_info.analytics_node_ip = dict()
+        analytics_api_info.analytics_node_ip[                
+                                'rest_api_ip'] = rest_api_ip
+        analytics_api_info.analytics_node_ip[                
+                                'host_ip'] = host_ip
+        uve_analytics_api = AnalyticsApiInfoUVE(
+                data = analytics_api_info,
+                sandesh=self._sandesh_instance)
+        uve_analytics_api.send(sandesh=self._sandesh_instance)
+        self._logger.info(str(analytics_api_info))
+        self._logger.info(
+                'Sent AnalyticsApiInfo UVE:%s .. ' % (hostname))
+    # end send_send_analytics_api_info_uve
+
+    def delete_analytics_api_info_uve_test(self, hostname):
+
+        '''
+        Delete is not invoked as part of test. 
+        Look at comments in send_analytics_api_info_uve_test
+        '''
+
+        analytics_api_info = AnalyticsApiInfo(name=hostname, deleted=True)
+        uve_analytics_api = AnalyticsApiInfoUVE(data = analytics_api_info,
+                            sandesh=self._sandesh_instance)
+        uve_analytics_api.send(sandesh=self._sandesh_instance)
+        self._logger.info('Delete AnalyticsApiInfo: %s' % (hostname))
+    # end delete_analytics_api_info_uve
+
+    def verify_analytics_api_info_uve_test(self, hostname, rest_api_ip, \
+            host_ip, opserver_port=None):
+
+        '''
+        Read the rest_api_ip and host_ip configured in OpServer.
+        Upon starting OpServer these two values are set and the 
+        the corresponding UVE is written
+        '''
+
+        if opserver_port is not None:
+            verify_ops = VerificationOpsSrv('127.0.0.1', opserver_port)
+        else:
+            verify_ops = VerificationOpsSrv('127.0.0.1', self._opserver_port) 
+        #cfilt: Filter by content for AnalyticsApiInfo
+        res = verify_ops.get_ops_collector(hostname+'?cfilt=AnalyticsApiInfo')
+        self._logger.info(str(res))
+        if res == {}:
+            return False
+        else:
+            assert(len(res) > 0)
+            analytics_node_ip = dict(res.get_attr('AnalyticsApiInfoUVE', 
+                    'analytics_node_ip'))
+            self._logger.info(str(analytics_node_ip))
+            assert len(analytics_node_ip) == 2
+            assert rest_api_ip == analytics_node_ip['rest_api_ip']
+            assert host_ip == analytics_node_ip['host_ip']
+            return True
+    # end verify_analytics_api_info_uve
 # end class GeneratorFixture

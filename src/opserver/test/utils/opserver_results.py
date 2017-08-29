@@ -192,7 +192,9 @@ class OpCollectorResult (Result):
         #import pdb; pdb.set_trace ()
         if tier == "Analytics":
             typ = 'CollectorState'
+        elif tier == "AnalyticsApiInfoUVE":
+            typ = 'AnalyticsApiInfo' 
         else:
-            raise Exception("Invalid Arguments - bad tier")
+            raise Exception("Invalid Arguments# - bad tier")
 
         return _OpResultGet(self, typ, attr, match)
