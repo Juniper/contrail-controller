@@ -112,10 +112,14 @@ class TestQfxBasicDM(TestCommonDM):
             interfaces = self.get_interfaces(config, pi_name)
             if not interfaces:
                 raise Exception("No Interface Config generated")
-            intf = interfaces[0]
-            self.assertIsNotNone(intf.get_esi())
-            self.assertIsNotNone(intf.get_esi().get_all_active())
-            self.assertEqual(intf.get_esi().get_identifier(), esi_value)
+            found = False
+            for intf in interfaces:
+                if intf.get_esi() and intf.get_esi().get_all_active() is not None and \
+                    intf.get_esi().get_identifier() == esi_value:
+                    found = True
+                    break
+            if not found:
+                raise Exception("no interface has esi config: " + pi_name)
         else:
             interfaces = self.get_interfaces(config, pi_name)
             if not interfaces:
@@ -125,20 +129,168 @@ class TestQfxBasicDM(TestCommonDM):
                 raise Exception("ESI Config still exist")
     # end check_esi_config
 
+    @retries(5, hook=retry_exc_handler)
+    def check_chassis_config(self):
+        config = FakeDeviceConnect.get_xml_config()
+        chassis = config.get_chassis()
+        if not chassis:
+            raise Exception("No Chassis Config generated")
+        aggr_dv = chassis.get_aggregated_devices()
+        eth = aggr_dv.get_ethernet()
+        dv_count = eth.get_device_count()
+        device_count =  DMUtils.get_max_ae_device_count()
+        self.assertEqual(device_count, dv_count)
+    # end check_chassis_config
+
+    @retries(5, hook=retry_exc_handler)
+    def check_lacp_config(self, ae_name, esi, pi_list):
+        config = FakeDeviceConnect.get_xml_config()
+        interfaces = self.get_interfaces(config, ae_name)
+        if not interfaces:
+            raise Exception("No AE Config generated")
+        found = False
+        for intf in interfaces:
+            if not intf.get_aggregated_ether_options() or not \
+                intf.get_aggregated_ether_options().get_lacp():
+                continue
+            lacp = intf.get_aggregated_ether_options().get_lacp()
+            if lacp.get_active() is not None and lacp.get_admin_key() and \
+                lacp.get_system_id() and lacp.get_system_priority():
+                if esi[-17:] == lacp.get_system_id():
+                    found = True
+                    break
+        if not found:
+            raise Exception("AE interface config is not correct: " + esi)
+        for pi in pi_list or []:
+            interfaces = self.get_interfaces(config, pi)
+            found = False
+            for intf in interfaces or []:
+                if intf.get_gigether_options() and \
+                    intf.get_gigether_options().get_ieee_802_3ad():
+                    found = True
+                    break
+            if not found:
+                raise Exception("AE membership config not generated: " + pi)
+    # end check_lacp_config
+
+    @retries(5, hook=retry_exc_handler)
+    def check_l2_evpn_config(self, ae_name):
+        config = FakeDeviceConnect.get_xml_config()
+        interfaces = self.get_interfaces(config, ae_name)
+        if not interfaces:
+            raise Exception("No AE Config generated")
+        found = False
+        for intf in interfaces:
+            if intf.get_encapsulation() != "extended-vlan-bridge" or \
+                                        not intf.get_unit():
+                continue
+            unit = intf.get_unit()[0]
+            if not unit.get_family() or unit.get_family().get_bridge() is None:
+                continue
+            found = True
+            break
+        if not found:
+            raise Exception("l2 evpn config for ae intf not correct: " + ae_name)
+    # end check_l2_evpn_config
+
     def test_esi_config(self):
-        FakeNetconfManager.set_model('qfx5110')
-        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product="qfx5110")
+        self.product = 'qfx5110'
+        FakeNetconfManager.set_model(self.product)
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product=self.product)
         pr.set_physical_router_role("leaf")
         self._vnc_lib.physical_router_update(pr)
-        pi = PhysicalInterface('pi1', parent_obj = pr)
+        pi = PhysicalInterface('pi1-esi', parent_obj = pr)
         esi_value = "33:33:33:33:33:33:33:33:33:33"
         pi.set_ethernet_segment_identifier(esi_value)
         pi_id = self._vnc_lib.physical_interface_create(pi)
-        self.check_esi_config('pi1', esi_value)
+
+        # associate li, vmi
+        vn1_name = 'vn-esi-' + self.id() + "-" + self.product
+        vn1_obj = VirtualNetwork(vn1_name)
+        ipam_obj = NetworkIpam('ipam-esi' + self.id() + "-" + self.product)
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+
+        vn1_obj_properties = VirtualNetworkType()
+        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_forwarding_mode('l2_l3')
+        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
+
+        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+        vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_uuid)
+
+        fq_name = ['default-domain', 'default-project', 'vmi1-esi' + self.id()]
+        vmi1 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
+        vmi1.set_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi1)
+
+        li1 = LogicalInterface('li1.0', parent_obj = pi)
+        li1.set_virtual_machine_interface(vmi1)
+        li1_id = self._vnc_lib.logical_interface_create(li1)
+
+        self.check_esi_config('ae127', esi_value)
+        self.check_esi_config('pi1-esi', esi_value, False)
+
+        pi = PhysicalInterface('pi2-esi', parent_obj = pr)
+        esi_value = "33:33:33:33:33:33:33:33:33:33"
+        pi.set_ethernet_segment_identifier(esi_value)
+        pi_id = self._vnc_lib.physical_interface_create(pi)
+
+        fq_name = ['default-domain', 'default-project', 'vmi2-esi' + self.id()]
+        vmi2 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
+        vmi2.set_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi2)
+
+        li2 = LogicalInterface('li2.0', parent_obj = pi)
+        li2.set_virtual_machine_interface(vmi2)
+        li2_id = self._vnc_lib.logical_interface_create(li2)
+
+        self.check_esi_config('ae127', esi_value)
+        self.check_esi_config('pi2-esi', esi_value, False)
+
+        self.check_chassis_config()
+        self.check_lacp_config("ae127", esi_value, ["pi1-esi", "pi2-esi"])
+        self.check_l2_evpn_config("ae127")
+
         pi.set_ethernet_segment_identifier(None)
         self._vnc_lib.physical_interface_update(pi)
-        self.check_esi_config('pi1', esi_value, False)
+        self.check_esi_config('ae127', esi_value, False)
     # end test_esi_config
+
+    @retries(5, hook=retry_exc_handler)
+    def check_dm_state(self):
+        self.assertIsNotNone(DMCassandraDB.get_instance())
+
+    # test dm private cassandra data
+    def test_ae_id_alloc_cassandra(self):
+        #wait for dm
+        self.check_dm_state()
+        dm_cs = DMCassandraDB.get_instance()
+        esi = '10:10:10:10:10:10:10:10:10'
+        pr_uuid = 'pr_uuid'
+        key = pr_uuid + ':' + esi
+        ae_id = 127
+        dm_cs.add_ae_id(pr_uuid, esi, ae_id)
+        dm_cs.init_pr_ae_map()
+        self.assertEqual(dm_cs.get_ae_id(pr_uuid + ':' + esi), ae_id)
+        check_db_ae_id = dm_cs.pr_ae_id_map[pr_uuid][esi]
+        self.assertEqual(check_db_ae_id, ae_id)
+
+        key_value = dm_cs.get_one_col(dm_cs._PR_AE_ID_CF, key, "index")
+        if key_value != ae_id:
+            self.assertTrue(False)
+
+        # delete one column
+        dm_cs.delete(dm_cs._PR_AE_ID_CF, key, ["index"])
+        try:
+            key_value = dm_cs.get_one_col(dm_cs._PR_AE_ID_CF, key, "index")
+            if key_value is not None:
+                self.assertTrue(False)
+        except NoIdError:
+            pass
+        return
+    # end
 
     # check qfx switch options
     def verify_dm_qfx_switch_options(self, product):

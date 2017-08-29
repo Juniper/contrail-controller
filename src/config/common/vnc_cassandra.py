@@ -258,8 +258,11 @@ class VncCassandraClient(object):
                     if timestamp:
                         results[key][col] = (json.loads(val[0]), val[1])
                     else:
-                        results[key][col] = json.loads(val)
-                except ValueError as e:
+                        if isinstance(val, (int, float, bool)):
+                            results[key][col] = val
+                        else:
+                            results[key][col] = json.loads(val)
+                except (ValueError, TypeError) as e:
                     msg = ("Cannot json load the value of cf: %s, key:%s "
                            "(error: %s). Use it as is: %s" %
                            (cf_name, key, str(e),

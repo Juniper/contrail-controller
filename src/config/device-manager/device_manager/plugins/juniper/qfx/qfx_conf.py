@@ -47,6 +47,7 @@ class QfxConf(JuniperConf):
     def initialize(self):
         self.evpn = None
         self.global_switch_options_config = None
+        self.chassis_config = None
         self.vlans_config = None
         super(QfxConf, self).initialize()
     # end initialize
@@ -373,6 +374,8 @@ class QfxConf(JuniperConf):
         groups.set_switch_options(self.global_switch_options_config)
         if self.vlans_config:
             groups.set_vlans(self.vlans_config)
+        if self.chassis_config:
+            groups.set_chassis(self.chassis_config)
     # end add_product_specific_config
 
     def build_esi_config(self):
@@ -383,10 +386,16 @@ class QfxConf(JuniperConf):
             self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
         for pi_uuid in pr.physical_interfaces:
             pi = PhysicalInterfaceDM.get(pi_uuid)
-            if not pi or not pi.esi or pi.esi == "0":
+            if not pi or not pi.esi or pi.esi == "0" or pi.get_parent_ae_id():
                 continue
             esi_conf = Esi(identifier=pi.esi, all_active='')
             intf = Interface(name=pi.name, esi=esi_conf)
+            self.interfaces_config.add_interface(intf)
+        # add ae interfaces
+        # self.ae_id_map should have all esi => ae_id mapping
+        for esi, ae_id in self.physical_router.ae_id_map.items():
+            esi_conf = Esi(identifier=esi, all_active='')
+            intf = Interface(name="ae" + str(ae_id), esi=esi_conf)
             self.interfaces_config.add_interface(intf)
     # end build_esi_config
 
@@ -419,10 +428,53 @@ class QfxConf(JuniperConf):
             if vmi is None:
                 continue
             vn_id = vmi.virtual_network
+            if li.physical_interface:
+                pi = PhysicalInterfaceDM.get(li.physical_interface)
+                ae_id = pi.get_parent_ae_id()
+                if ae_id and li.physical_interface:
+                    _, unit= li.name.split('.')
+                    ae_name = "ae" + str(ae_id) + "." + unit
+                    vn_dict.setdefault(vn_id, []).append(
+                           JunosInterface(ae_name, li.li_type, li.vlan_tag))
+                    continue
             vn_dict.setdefault(vn_id, []).append(
                 JunosInterface(li.name, li.li_type, li.vlan_tag))
         return vn_dict
     # end
+
+    def get_vn_associated_physical_interfaces(self):
+        pr = self.physical_router
+        li_set = set()
+        pi_list = []
+        for pi_uuid in pr.physical_interfaces:
+            pi = PhysicalInterfaceDM.get(pi_uuid)
+            if pi is None or not pi.esi or pi.esi == "0":
+                continue
+            if self.has_vmi(pi.logical_interfaces):
+                pi_list.append(pi)
+        return pi_list
+    # end get_vn_associated_physical_interfaces
+
+    def has_vmi(self, li_set):
+        if not li_set:
+            return False
+        for li_uuid in li_set:
+            li = LogicalInterfaceDM.get(li_uuid)
+            if not li or not li.virtual_machine_interface \
+                or not VirtualMachineInterfaceDM.get(li.virtual_machine_interface):
+                continue
+            return True
+        return False
+    # end has_vmi
+
+    def get_ae_alloc_esi_map(self):
+        pi_list = self.get_vn_associated_physical_interfaces()
+        esi_map = {}
+        for pi in pi_list:
+            if not pi.name.startswith("ae"):
+                esi_map.setdefault(pi.esi, []).append(pi)
+        return esi_map
+    # end get_ae_alloc_esi_map
 
     def is_l2_supported(self, vn):
         """ Check l2 capability """
@@ -439,7 +491,46 @@ class QfxConf(JuniperConf):
         """ configure resolution config in global routing options if needed """
     # end set_resolve_bgp_route_target_family_config
 
+    def set_chassis_config(self):
+        device_count =  DMUtils.get_max_ae_device_count()
+        aggr_devices = AggregatedDevices(Ethernet(device_count=device_count))
+        if not self.chassis_config:
+            self.chassis_config = Chassis()
+        self.chassis_config.set_aggregated_devices(aggr_devices)
+    # end set_chassis_config
+
+    def build_ae_config(self, esi_map):
+        if esi_map:
+            self.set_chassis_config()
+        interfaces_config = self.interfaces_config or \
+                    Interfaces(comment=DMUtils.interfaces_comment())
+        # self.ae_id_map should have all esi => ae_id mapping
+        # esi_map should have esi => interface memberships
+        for esi, ae_id in self.physical_router.ae_id_map.items():
+            # config ae interface
+            ae_name = "ae" + str(ae_id)
+            intf = Interface(name=ae_name)
+            interfaces_config.add_interface(intf)
+            priority = DMUtils.lacp_system_priority()
+            system_id = esi[-17:] #last 17 charcaters from esi for ex: 00:00:00:00:00:05
+            lacp = Lacp(active='', system_priority=priority, \
+                          system_id=system_id, admin_key=1)
+            intf.set_aggregated_ether_options(AggregatedEtherOptions(lacp=lacp))
+            # associate 'ae' membership
+            pi_list = esi_map.get(esi)
+            for pi in pi_list or []:
+                intf = Interface(name=pi.name)
+                interfaces_config.add_interface(intf)
+                etherOptions = EtherOptions(ieee_802_3ad=Ieee802(bundle=ae_name))
+                intf.set_gigether_options(etherOptions)
+        self.interfaces_config = interfaces_config
+    # end build_ae_config
+
     def build_ri_config(self):
+        if not self.is_spine():
+            esi_map = self.get_ae_alloc_esi_map()
+            self.physical_router.evaluate_ae_id_map(esi_map)
+            self.build_ae_config(esi_map)
         vn_dict = self.get_vn_li_map()
         vn_irb_ip_map = None
         if self.is_spine():
