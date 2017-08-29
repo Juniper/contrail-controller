@@ -7,6 +7,7 @@ This file contains  utility methods used by device manager module
 """
 
 from netaddr import IPNetwork
+from bitarray import bitarray
 
 class PushConfigState(object):
     PUSH_STATE_INIT = 0
@@ -495,4 +496,45 @@ class DMUtils(object):
         return "target:" + str(asn) + ":1"
     # end get_switch_vrf_import
 
+    @classmethod
+    def get_max_ae_device_count(cls):
+        return 128
+    # end get_max_ae_device_count
+
+    @classmethod
+    def lacp_system_priority(cls):
+        return 100
+    # end lacp_system_priority
+
 # end DMUtils
+
+
+class DMIndexer(object):
+    ALLOC_INCREMENT = 1
+    ALLOC_DECREMENT = -1
+
+    def __init__(self, max_count, order=0):
+        self.max_count = max_count
+        self.allocation_order = order
+        self.index_allocator = bitarray([0]*max_count)
+    # end __init__
+
+    def reserve_index(self, index):
+        self.index_allocator[index] = 1
+    # end reserve_index
+
+    def free_index(self, index):
+        self.index_allocator[index] = 0
+    # end free_index
+
+    def find_next_available_index(self):
+        if self.allocation_order == self.ALLOC_INCREMENT:
+            for index in range(0, self.max_count - 1):
+                if self.index_allocator[index] == 0:
+                    return index
+        elif self.allocation_order == self.ALLOC_DECREMENT:
+            for index in range(self.max_count - 1, -1, -1):
+                if self.index_allocator[index] == 0:
+                    return index
+        return -1
+    # end find_next_available_index
