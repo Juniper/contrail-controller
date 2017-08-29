@@ -567,8 +567,12 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
                                (nexthop->type() == NextHop::TUNNEL))) {
             flags |= VR_BE_LABEL_VALID_FLAG;
         }
-        if (flood_dhcp_)
+        if (flood_dhcp_) {
             flags |= VR_BE_FLOOD_DHCP_FLAG;
+        }
+        if (ksync_obj_->ksync()->agent()->tsn_no_forwarding_enabled()) {
+            flags |= VR_BE_EVPN_CONTROL_PROCESSING_FLAG;
+        }
     } else {
 
         if (proxy_arp_) {

@@ -490,6 +490,8 @@ void Agent::CopyConfig(AgentParam *params) {
 
     simulate_evpn_tor_ = params->simulate_evpn_tor();
     test_mode_ = params_->test_mode();
+    tsn_no_forwarding_enabled_ = (params_->isTsnAgent() &&
+                                  !params_->IsForwardingEnabled());
     tsn_enabled_ = params_->isTsnAgent();
     tor_agent_enabled_ = params_->isTorAgent();
     forwarding_enabled_ = params_->IsForwardingEnabled();
@@ -697,7 +699,8 @@ Agent::Agent() :
     connection_state_(NULL), test_mode_(false),
     xmpp_dns_test_mode_(false),
     init_done_(false), resource_manager_ready_(false),
-    simulate_evpn_tor_(false), tsn_enabled_(false),
+    simulate_evpn_tor_(false), tsn_no_forwarding_enabled_(false),
+    tsn_enabled_(false),
     tor_agent_enabled_(false), forwarding_enabled_(true),
     server_gateway_mode_(false),
     flow_table_size_(0), flow_thread_count_(0), flow_trace_enable_(true),
