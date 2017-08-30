@@ -83,7 +83,9 @@ class ComputeArgsParser(object):
                 'GLOBAL', 'introspect_ssl_enable', False),
             'register': False,
             'flow_thread_count': '2',
-            'metadata_secret': ''
+            'metadata_secret': '',
+            'tsn_evpn_mode': False,
+            'tsn_servers': None,
         }
 
         self.parse_args(args_str)
@@ -317,5 +319,15 @@ class ComputeArgsParser(object):
                 "--metadata_use_ssl",
                 help="Enable (true) ssl support for metadata proxy service",
                 action="store_true")
+        parser.add_argument(
+                "--tsn_evpn_mode",
+                help="Enable (true) to enable tor-service-node HA",
+                action="store_true")
+        parser.add_argument(
+                "--tsn_servers",
+                help="List of tsn nodes working in active/backup mode \
+                      when agent runs in tsn-no-forwarding mode.",
+                nargs='+', type=str)
+
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)
