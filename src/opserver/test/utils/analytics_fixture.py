@@ -2887,3 +2887,32 @@ class AnalyticsFixture(fixtures.Fixture):
 	    resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))
         except:
             pass
+
+    @retry(delay=1, tries=5)
+    def verify_analytics_api_info_uve(self, hostname, rest_api_ip, \
+            host_ip):
+
+        '''
+        Read the rest_api_ip and host_ip configured in OpServer.
+        Upon starting OpServer these two values are set and the
+        the corresponding UVE is written 
+        '''
+
+        self.logger.info('verify_analytics_api_info_uve: %s:%s:%s' \
+                % (hostname, rest_api_ip, host_ip))
+        verify_ops = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        res = verify_ops.get_ops_collector(hostname+'?cfilt=AnalyticsApiInfo')
+        self.logger.info(str(res))
+        if res == {}:
+            return False
+        else:
+            assert(len(res) > 0)
+            analytics_node_ip = dict(res['AnalyticsApiInfo']['analytics_node_ip'])
+            self.logger.info('[AnalyticsApiInfo][analytics_node_ip]:')
+            self.logger.info(str(analytics_node_ip))
+            assert len(analytics_node_ip) == 2
+            assert rest_api_ip == analytics_node_ip['rest_api_ip']
+            assert host_ip == analytics_node_ip['host_ip']
+            return True
+    # end verify_analytics_api_info_uve
+
