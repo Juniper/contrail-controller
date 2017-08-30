@@ -359,6 +359,7 @@ class Subnet(object):
         self.alloc_unit = ip_alloc_unit
         self._prefix = prefix
         self._prefix_len = prefix_len
+        self._addr_from_start = addr_from_start
     # end __init__
 
     @classmethod
@@ -617,6 +618,22 @@ class AddrMgmt(object):
             subnet['ip_prefix_len'])
             try:
                 subnet_obj = self._subnet_objs[obj_uuid][subnet_name]
+                addr_from_start = subnet_obj._addr_from_start
+                if ('dns_server_address' not in ipam_subnet) or \
+                    (ipam_subnet['dns_server_address'] is None):
+                    #we need to make sure subnet_obj has a default dns
+                    network = subnet_obj._network
+                    if addr_from_start:
+                        subnet_obj.dns_server_address = \
+                            IPAddress(network.first + 2)
+                    else:
+                        subnet_obj.dns_server_address = \
+                            IPAddress(network.last - 2)
+                else:
+                    if str(subnet_obj.dns_server_address) != \
+                        ipam_subnet['dns_server_address']:
+                        subnet_obj.dns_server_address = \
+                            IPAddress(ipam_subnet['dns_server_address'])
             except KeyError:
                 subnet_obj = self._create_subnet_obj_for_ipam_subnet(
                                  ipam_subnet, fq_name_str, should_persist)
