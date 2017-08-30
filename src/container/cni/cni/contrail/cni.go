@@ -162,11 +162,15 @@ func (cni *ContrailCni) CmdAdd() error {
 		return err
 	}
 
-	// Inform vrouter about interface-add. The interface inside container
-	// must be created by this time
+	// Inform vrouter about interface-add
+	// The interface inside container must be created by this time.
+	updateAgent := true
+	if cni.VifType == VIF_TYPE_MACVLAN {
+		updateAgent = false
+	}
 	result, err = cni.VRouter.Add(cni.ContainerName, cni.ContainerUuid,
 		cni.ContainerVn, cni.cniArgs.ContainerID, cni.cniArgs.Netns,
-		cni.cniArgs.IfName, intf.GetHostIfName())
+		cni.cniArgs.IfName, intf.GetHostIfName(), updateAgent)
 	if err != nil {
 		log.Infof("Error in Add to VRouter")
 		return err
@@ -216,8 +220,12 @@ func (cni *ContrailCni) CmdDel() error {
 	}
 
 	// Inform vrouter about interface-delete.
+	updateAgent := true
+	if cni.VifType == VIF_TYPE_MACVLAN {
+		updateAgent = false
+	}
 	err = cni.VRouter.Del(cni.cniArgs.ContainerID, cni.ContainerUuid,
-		cni.ContainerVn)
+		cni.ContainerVn, updateAgent)
 	if err != nil {
 		log.Errorf("Error deleting interface from agent")
 	}

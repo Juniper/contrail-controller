@@ -316,7 +316,10 @@ class VncService(VncCommon):
 
         fip_ids = vmi.floating_ips.copy()
         for fip_id in fip_ids:
-            self._vnc_lib.floating_ip_delete(id=fip_id)
+            try:
+                self._vnc_lib.floating_ip_delete(id=fip_id)
+            except NoIdError:
+                pass
 
     def _update_service_external_ip(self, service_namespace, service_name, external_ips):
         merge_patch = {'spec': {'externalIPs': [', '.join(external_ips)]}}
