@@ -12,7 +12,7 @@ import signal
 from gevent.queue import Queue
 try:
     from gevent.lock import Semaphore
-except ImportError: 
+except ImportError:
     # older versions of gevent
     from gevent.coros import Semaphore
 
@@ -77,7 +77,7 @@ class VncKombuClientBase(object):
         if self._conn_lock.locked():
             # either connection-monitor or publisher should have taken
             # the lock. The one who acquired the lock would re-establish
-            # the connection and releases the lock, so the other one can 
+            # the connection and releases the lock, so the other one can
             # just wait on the lock, till it gets released
             self._conn_lock.wait()
             if self._conn_state == ConnectionStatus.UP:
@@ -229,9 +229,7 @@ class VncKombuClientBase(object):
         self._connection_monitor_greenlet.kill()
         if self._connection_heartbeat_greenlet:
             self._connection_heartbeat_greenlet.kill()
-        self._producer.close()
         if self._consumer:
-            self._consumer.close()
             self._delete_queue()
         self._conn.close()
 
