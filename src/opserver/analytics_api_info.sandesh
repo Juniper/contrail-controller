@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ */
+
+/**
+ *  Definitions of structures used by contrail-analytics-api
+ *  API information that is sent to contrail-collector
+ */
+
+
+/**
+ * stores Rest API IP and Host IP sourced from
+ * contrail-analytics-api
+ */
+struct AnalyticsApiInfo {
+    1: string name (key="ObjectCollectorInfo")
+    2: optional bool deleted
+
+    //A map of rest_api_ip and host_ip
+    //Map of: <config-string>, <ip-address>
+    3: optional map<string, string> analytics_node_ip
+}
+
+/**
+ * @description: uve to send contrail-api information
+ * @object: analytics-node
+ */
+uve sandesh AnalyticsApiInfoUVE {
+    1: AnalyticsApiInfo data
+}
+
