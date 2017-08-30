@@ -62,7 +62,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info("%%% test_00_nocassandra %%%")
 
         vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir, 0)) 
+            AnalyticsFixture(logging, builddir, 0))
         assert vizd_obj.verify_on_setup()
 
         return True
@@ -163,7 +163,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             "default-global-system-config:partial-sysinfo-compute"))
 
         self.verify_uve_resync(vizd_obj)
- 
+
         # Alarm should return after redis restart
         assert(vizd_obj.verify_uvetable_alarm("ObjectVRouter",
             "ObjectVRouter:myvrouter1",
@@ -214,12 +214,12 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
     @unittest.skip('Skipping contrail-collector HA test')
     def test_05_collector_ha(self):
         logging.info('%%% test_05_collector_ha %%%')
-        
+
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir, 0,
                              collector_ha_test=True))
         assert vizd_obj.verify_on_setup()
-        collectors = [vizd_obj.collectors[1].get_addr(), 
+        collectors = [vizd_obj.collectors[1].get_addr(),
                       vizd_obj.collectors[0].get_addr()]
         vr_agent = self.useFixture(
             GeneratorFixture("contrail-vrouter-agent", collectors,
@@ -277,7 +277,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                 vizd_obj.collectors[0].get_redis_uve(),
                                 exp_genlist)
 
-        # stop QE 
+        # stop QE
         vizd_obj.query_engine.stop()
         exp_genlist = [
             source+':Analytics:contrail-collector:0',
@@ -297,7 +297,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         # start a python generator and QE and verify that they are connected
         # to collectors[0]
-        vr2_collectors = [vizd_obj.collectors[1].get_addr(), 
+        vr2_collectors = [vizd_obj.collectors[1].get_addr(),
                           vizd_obj.collectors[0].get_addr()]
         vr2_agent = self.useFixture(
             GeneratorFixture("contrail-snmp-collector", collectors,
@@ -317,13 +317,13 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         # send the VM UVE and verify that the VM UVE is synced after connection
         # to the collector
         vizd_obj.collectors[0].stop()
-        # Make sure the connection to the collector is teared down before 
+        # Make sure the connection to the collector is teared down before
         # sending the VM UVE
         while True:
             if vr_agent.verify_on_setup() is False:
                 break
         vr_agent.send_vm_uve(vm_id='abcd-1234-efgh-5678',
-                             num_vm_ifs=5, msg_count=5) 
+                             num_vm_ifs=5, msg_count=5)
         vizd_obj.collectors[1].start()
         exp_genlist = [
             source+'dup:Analytics:contrail-collector:0',
@@ -424,7 +424,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             "ObjectVRouter:myvrouter2",
             "default-global-system-config:partial-sysinfo-compute",
             is_set=False))
-         
+
         # send vrouter UVE of myvrouter without build_info again !!!
         # check for PartialSysinfo alarm
         alarm_gen1.send_vrouterinfo("myvrouter1")
@@ -432,7 +432,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             "ObjectVRouter:myvrouter1",
             "default-global-system-config:partial-sysinfo-compute"))
 
-        # Verify that we can give up partition ownership 
+        # Verify that we can give up partition ownership
         assert(vizd_obj.set_alarmgen_partition(0,0) == 'true')
         assert(vizd_obj.verify_alarmgen_partition(0,'false'))
 
@@ -482,7 +482,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_on_setup()
 
         # create alarm-generator and attach it to the first collector.
-        collectors = [vizd_obj.collectors[0].get_addr(), 
+        collectors = [vizd_obj.collectors[0].get_addr(),
                       vizd_obj.collectors[1].get_addr()]
         alarm_gen1 = self.useFixture(
             GeneratorFixture('contrail-alarm-gen', [collectors[0]], logging,
@@ -507,7 +507,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             GeneratorFixture('contrail-alarm-gen', [collectors[1]], logging,
                              None, hostname=socket.gethostname()+'_2'))
         alarm_gen2.verify_on_setup()
-        
+
         # send process state alarm for analytics-node
         alarms = alarm_gen2.create_process_state_alarm(
                     'contrail-topology')
@@ -541,9 +541,9 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert(vizd_obj.verify_alarm(analytics_tbl, keys[0], obj_to_dict(
             alarm_gen1.alarms[COLLECTOR_INFO_TABLE][keys[0]].data)))
         assert(vizd_obj.verify_alarm(analytics_tbl, ukeys[0], {}))
-       
+
         # Disconnect alarm_gen1 from Collector and verify that all
-        # alarms generated by alarm_gen1 is removed by the Collector. 
+        # alarms generated by alarm_gen1 is removed by the Collector.
         alarm_gen1.disconnect_from_collector()
         ukeys = [socket.gethostname()+'_1']
         assert(vizd_obj.verify_alarm_list_exclude(analytics_tbl,
@@ -560,16 +560,16 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                     'contrail-snmp-collector')
         alarm_gen1.send_alarm(socket.gethostname()+'_1', alarms,
                               COLLECTOR_INFO_TABLE)
-        
+
         # Connect alarm_gen1 to Collector and verify that all
         # alarms generated by alarm_gen1 is synced with Collector.
         alarm_gen1.connect_to_collector()
         keys = [socket.gethostname()+'_1']
-        assert(vizd_obj.verify_alarm_list_include(analytics_tbl, 
+        assert(vizd_obj.verify_alarm_list_include(analytics_tbl,
             expected_alarms=keys))
         assert(vizd_obj.verify_alarm(analytics_tbl, keys[0], obj_to_dict(
             alarm_gen1.alarms[COLLECTOR_INFO_TABLE][keys[0]].data)))
-        
+
         keys = ['<&'+socket.gethostname()+'_1>']
         assert(vizd_obj.verify_alarm_list_include(control_tbl,
             expected_alarms=keys))
@@ -655,7 +655,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 'get_alarms': {
                     'virtual-network': [
                          {  'name' : 'default-domain:project1:vn2',
-                            'value' : { 'UVEAlarms': { 
+                            'value' : { 'UVEAlarms': {
                                 'alarms': [
                                     {
                                         'type': 'InPktsThreshold',
@@ -678,7 +678,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                             } }
                          },
                          {  'name' : 'default-domain:project2:vn1&',
-                            'value' : { 'UVEAlarms': { 
+                            'value' : { 'UVEAlarms': {
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
@@ -996,7 +996,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 'get_alarms': {
                     'virtual-network': [
                          {  'name' : 'default-domain:project2:vn1',
-                            'value' : { 'UVEAlarms': { 
+                            'value' : { 'UVEAlarms': {
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
@@ -1523,7 +1523,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                 'get_alarms': {
                     'virtual-network': [
                          {  'name' : 'default-domain:project1:vn2',
-                            'value' : { 'UVEAlarms': { 
+                            'value' : { 'UVEAlarms': {
                                 'alarms': [
                                     {
                                         'type': 'InPktsThreshold',
@@ -1532,7 +1532,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                             } }
                          },
                          {  'name' : 'default-domain:project2:vn1',
-                            'value' : { 'UVEAlarms': { 
+                            'value' : { 'UVEAlarms': {
                                 'alarms': [
                                     {
                                         'type': 'ConfigNotPresent',
@@ -1952,6 +1952,48 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_09_verify_db_info
 
+    #@unittest.skip('Skipping AnalyticsApiInfo UVE test')
+    def test_10_analytics_api_info_uve(self):
+        '''
+        This test starts redis, vizd, opserver, qed, and a python generator
+        that simulates analytics API
+
+        Reads rest_api_ip and host_ip of OpServer as AnalyticsApiInfoUVE
+        Test case doesn't invoke AnalyticsAPiInfo UVE add
+        and UVE delete.
+
+        '''
+        logging.info("%%% test_10_analytics_api_info_uve %%%")
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir, 0))
+        assert vizd_obj.verify_on_setup()
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture("contrail-analytics-api", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        '''
+        AnalyticsAPiInfo UVE add is not invoked as part of test
+
+        for i in range(0, 5):
+            time.sleep(1)
+            generator_obj.add_analytics_api_info_uve_test(
+                    hostname = socket.gethostname(),
+                    rest_api_ip = '1.2.3.4',
+                    host_ip = '9.1.1.1')
+
+        '''
+
+        assert generator_obj.verify_analytics_api_info_uve_test(
+                     hostname = socket.gethostname(),
+                     rest_api_ip = '0.0.0.0',
+                     host_ip = '127.0.0.1')
+
+        return True
+    # end test_10_analytics_api_info_uve
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1962,7 +2004,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     @staticmethod
     def _check_skip_kafka():
-      
+
         (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
         if PLATFORM.lower() == 'ubuntu':
             if VERSION.find('12.') == 0:
