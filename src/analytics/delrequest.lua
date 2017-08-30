@@ -69,5 +69,6 @@ end
 
 redis.call('del', "TYPES:"..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4])
 redis.call('srem', "NGENERATORS", ngen_sm)
+redis.log(redis.LOG_NOTICE, "Remove "..ngen_sm.." from NGENERATORS")
 redis.log(redis.LOG_NOTICE,"Delete Request for "..sm.." successful")
 return res
