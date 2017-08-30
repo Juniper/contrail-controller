@@ -272,6 +272,8 @@ void AgentParam::set_agent_mode(const std::string &mode) {
     std::string agent_mode = boost::to_lower_copy(mode);
     if (agent_mode == "tsn")
         agent_mode_ = TSN_AGENT;
+    else if (agent_mode == "tsn-no-forwarding")
+        agent_mode_ = TSN_NO_FORWARDING_AGENT;
     else if (agent_mode == "tor")
         agent_mode_ = TOR_AGENT;
     else
@@ -376,6 +378,18 @@ void AgentParam::ParseDnsServersArguments
         boost::split(dns_server_list_, dns_server_list_[0],
                      boost::is_any_of(" "));
     }
+}
+
+void AgentParam::ParseTsnServersArguments
+    (const boost::program_options::variables_map &var_map) {
+    tsn_server_list_.clear();
+    GetOptValueIfNotDefaulted< vector<string> >(var_map, tsn_server_list_,
+                                  "DEFAULT.tsn_servers");
+    if (tsn_server_list_.size() == 1) {
+        boost::split(tsn_server_list_, tsn_server_list_[0],
+                     boost::is_any_of(" "));
+    }
+    std::sort(tsn_server_list_.begin(), tsn_server_list_.end());
 }
 
 void AgentParam::ParseCollectorDSArguments
@@ -753,6 +767,7 @@ void AgentParam::ProcessArguments() {
     ParseQueue();
     ParseRestartArguments(var_map_);
     ParseMacLearning(var_map_);
+    ParseTsnServersArguments(var_map_);
     return;
 }
 
@@ -770,6 +785,7 @@ void AgentParam::ReInitFromConfig() {
         ParseControllerServersArguments(var_map);
         ParseDnsServersArguments(var_map);
         ParseCollectorArguments(var_map);
+        ParseTsnServersArguments(var_map);
 
         LogFilteredConfig();
     }
@@ -981,6 +997,11 @@ void AgentParam::InitVhostAndXenLLPrefix() {
     xen_ll_.prefix_ = Ip4Address(xen_ll_.addr_.to_ulong() & mask);
 }
 
+bool AgentParam::IsConfiguredTsnHostRoute(std::string addr) const {
+    return (std::find(tsn_server_list_.begin(), tsn_server_list_.end(), addr) !=
+            tsn_server_list_.end());
+}
+
 void AgentParam::Init(const string &config_file, const string &program_name) {
 
     config_file_ = config_file;
@@ -1016,6 +1037,14 @@ void AgentParam::LogFilteredConfig() const {
          concat_servers += *iter + " ";
     }
     LOG(DEBUG, "DNS Servers                 : " << concat_servers);
+
+    list = tsn_server_list();
+    concat_servers.clear();
+    for (iter = list.begin();
+         iter != list.end(); iter++) {
+         concat_servers += *iter + " ";
+    }
+    LOG(DEBUG, "TSN Servers                 : " << concat_servers);
 
     concat_servers.clear();
     list = collector_server_list();
@@ -1066,6 +1095,14 @@ void AgentParam::LogConfig() const {
     }
 
     concat_servers.clear();
+    list = tsn_server_list();
+    for (iter = list.begin();
+         iter != list.end(); iter++) { 
+         concat_servers += *iter + " ";
+    }
+    LOG(DEBUG, "TSN Servers                 : " << concat_servers);
+    concat_servers.clear();
+
     list = collector_server_list();
     for (iter = list.begin();
          iter != list.end(); iter++) { 
@@ -1342,6 +1379,9 @@ AgentParam::AgentParam(bool enable_flow_options,
          "List of IPAddress:Port of DNS node Servers")
         ("DEFAULT.xmpp_auth_enable", opt::bool_switch(&xmpp_auth_enable_),
          "Enable Xmpp over TLS")
+        ("DEFAULT.tsn_servers",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "List of IPAddress of TSN Servers")
         ("DNS.dns_timeout", opt::value<uint32_t>()->default_value(3000),
          "DNS Timeout")
         ("DNS.dns_max_retries", opt::value<uint32_t>()->default_value(2),

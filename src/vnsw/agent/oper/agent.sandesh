@@ -671,6 +671,8 @@ struct PathSandeshData {
    23: bool etree_leaf;
    /** Layer 2 control word */
    24: bool layer2_control_word;
+   /** path marked as inactive */
+   25: bool inactive;
 }
 
 /**

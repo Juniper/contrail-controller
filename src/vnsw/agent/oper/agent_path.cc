@@ -40,7 +40,8 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
     ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
-    peer_sequence_number_(0), etree_leaf_(false), layer2_control_word_(false) {
+    peer_sequence_number_(0), etree_leaf_(false), layer2_control_word_(false),
+    inactive_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -1324,6 +1325,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     pdata.set_stale(is_stale);
     pdata.set_etree_leaf(etree_leaf());
     pdata.set_layer2_control_word(layer2_control_word());
+    pdata.set_inactive(inactive());
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {

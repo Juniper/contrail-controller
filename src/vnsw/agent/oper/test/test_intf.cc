@@ -91,7 +91,7 @@ public:
         DoInterfaceSandesh("");
         client->WaitForIdle();
         WAIT_FOR(100, 1000, (agent->interface_table()->Size() == intf_count));
-        WAIT_FOR(100, 1000, (agent->vrf_table()->Size() == 1U));
+        WAIT_FOR(100, 1000, (agent->vrf_table()->Size() == 2U));
         WAIT_FOR(100, 1000, (agent->vm_table()->Size() == 0U));
         WAIT_FOR(100, 1000, (agent->vn_table()->Size() == 0U));
     }
@@ -981,7 +981,7 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     EXPECT_TRUE(client->VmNotifyWait(1));
     EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(3U, Agent::GetInstance()->vrf_table()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->vrf_table()->Size());
 
     // Nova add followed by config interface
     client->Reset();
@@ -1052,7 +1052,7 @@ TEST_F(IntfTest, VmPortFloatingIpPolicy_1) {
     EXPECT_TRUE(client->VmNotifyWait(1));
     EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(3U, Agent::GetInstance()->vrf_table()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->vrf_table()->Size());
 
     // Nova add followed by config interface
     client->Reset();
@@ -1133,7 +1133,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_TRUE(client->VmNotifyWait(1));
     EXPECT_EQ(1U, Agent::GetInstance()->vm_table()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->vn_table()->Size());
-    EXPECT_EQ(5U, Agent::GetInstance()->vrf_table()->Size());
+    EXPECT_EQ(6U, Agent::GetInstance()->vrf_table()->Size());
 
     // Nova add followed by config interface
     client->Reset();

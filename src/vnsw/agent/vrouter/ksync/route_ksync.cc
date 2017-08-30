@@ -762,6 +762,8 @@ RouteKSyncObject::DBEntryFilter(const DBEntry *entry,
         return DBFilterIgnore;
     }
 
+    if (route->GetActivePath()->inactive())
+        return DBFilterIgnore;
     return DBFilterAccept;
 }
 

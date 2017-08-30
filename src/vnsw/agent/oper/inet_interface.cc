@@ -204,6 +204,20 @@ static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
                 intf_key, MplsTable::kInvalidLabel, false, vn_name,
                 SecurityGroupList());
     }
+
+    if ((agent->tsn_enabled() == true) &&
+        (agent->forwarding_enabled() == false)) {
+        InetUnicastAgentRouteTable *inet_table =
+            static_cast<InetUnicastAgentRouteTable *>
+            (agent->fabric_policy_vrf()->GetInet4UnicastRouteTable());
+        inet_table->AddVHostRecvRouteReq(agent->local_peer(),
+                                         agent->fabric_policy_vrf_name(),
+                                         agent->params()->vhost_name(),
+                                         agent->params()->vhost_addr(),
+                                         32,
+                                         agent->fabric_vn_name(),
+                                         false);
+    }
 }
 
 static void DeleteHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
