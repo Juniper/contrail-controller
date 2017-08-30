@@ -133,7 +133,7 @@ class VncPermissions(object):
 
         # build perms
         mask = 07
-        if tenant == owner:
+        if (tenant == owner):
             mask |= 0700
 
         share = perms2['share']
@@ -150,9 +150,10 @@ class VncPermissions(object):
 
         mode_mask = mode | mode << 3 | mode << 6
         ok = (mask & perms & mode_mask)
-        if ok and obj_owner_for_delete:
+        if (ok and obj_owner_for_delete):
             obj_owner_for_delete = obj_owner_for_delete.replace('-','')
             ok = (tenant == obj_owner_for_delete)
+
         granted = ok & 07 | (ok >> 3) & 07 | (ok >> 6) & 07
 
         msg = 'rbac: %s (%s:%s) %s %s admin=%s, mode=%03o mask=%03o perms=%03o, \
@@ -240,7 +241,8 @@ class VncPermissions(object):
             (ok, obj_dict) = self._server_mgr._db_conn.dbe_read(obj_type,
                              {'uuid':obj_uuid}, obj_fields=['perms2'])
             obj_owner=obj_dict['perms2']['owner']
-            return self.validate_perms_rbac(request, parent_uuid, PERMS_W, obj_owner_for_delete = obj_owner)
+            return self.validate_perms_rbac(request, parent_uuid, PERMS_W,
+                                            obj_owner_for_delete = obj_owner)
         elif self._auth_needed:
             return self.validate_perms(request, parent_uuid, PERMS_W)
         else:
