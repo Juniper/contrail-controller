@@ -30,6 +30,7 @@ from sandesh.object_table_test.ttypes import *
 from analytics_fixture import AnalyticsFixture
 from generator_introspect_utils import VerificationGenerator
 from opserver_introspect_utils import VerificationOpsSrv
+from opserver.sandesh.analytics_api_info.ttypes import *
 
 class GeneratorFixture(fixtures.Fixture):
     _BYTES_PER_PACKET = 1024
@@ -186,7 +187,7 @@ class GeneratorFixture(fixtures.Fixture):
                 vmi_uuid=self.flow_vmi_uuid))
             self.flows[i].samples = []
             self._logger.info(str(self.flows[i]))
-        
+
         for i in range(self.flow_cnt):
             self.egress_flows.append(FlowLogData(flowuuid=str(uuid.uuid1()),
                 direction_ing=0,
@@ -248,9 +249,9 @@ class GeneratorFixture(fixtures.Fixture):
                 self.send_flow_stat(self.flows[cnt], bytes, pkts, ts)
             cnt += 1
 
-        # set the egress_flow_start_time to flow_end_time + (max duration 
-        # in flow template) 
-        # set the egress_flow_end_time to egress_flow_start_time + (max 
+        # set the egress_flow_start_time to flow_end_time + (max duration
+        # in flow template)
+        # set the egress_flow_end_time to egress_flow_start_time + (max
         # duration in flow_template)
         self.egress_flow_start_time = self.flow_end_time + \
                 (max_duration * self._KSECINMSEC)
@@ -308,7 +309,7 @@ class GeneratorFixture(fixtures.Fixture):
 
         self.vn_sum_rows = {}
         self.vn_sum_rows['select'] = ['name','COUNT(vn_stats)','SUM(vn_stats.in_tpkts)']
-        self.vn_sum_rows['whereclause'] = 'vn_stats.other_vn=' + self._VN_PREFIX + str(1) 
+        self.vn_sum_rows['whereclause'] = 'vn_stats.other_vn=' + self._VN_PREFIX + str(1)
         self.vn_sum_rows['rows'] = 2
 
     def send_vm_uve(self, vm_id, num_vm_ifs, msg_count):
@@ -332,7 +333,7 @@ class GeneratorFixture(fixtures.Fixture):
 
     def delete_vm_uve(self, vm_id):
         vm_agent = UveVirtualMachineAgent(name=vm_id, deleted=True)
-        uve_agent_vm = UveVirtualMachineAgentTrace(data=vm_agent, 
+        uve_agent_vm = UveVirtualMachineAgentTrace(data=vm_agent,
                             sandesh=self._sandesh_instance)
         uve_agent_vm.send(sandesh=self._sandesh_instance)
         self._logger.info('Delete VM UVE: %s' % (vm_id))
@@ -528,5 +529,72 @@ class GeneratorFixture(fixtures.Fixture):
                 alarm.send(sandesh=self._sandesh_instance)
         return msg_types
     # end send_sandesh_types_object_logs
+
+    def add_analytics_api_info_uve_test(self, hostname, rest_api_ip, host_ip):
+
+        '''
+        Test case scope is limited to reading the host_ip and rest_api_ip
+        set in OpServer.
+        Hence this code not invoked (however code is validate).
+        '''
+
+        analytics_api_info = AnalyticsApiInfo()
+        analytics_api_info.name = hostname
+        analytics_api_info.analytics_node_ip = dict()
+        analytics_api_info.analytics_node_ip[
+                                'rest_api_ip'] = rest_api_ip
+        analytics_api_info.analytics_node_ip[
+                                'host_ip'] = host_ip
+        uve_analytics_api = AnalyticsApiInfoUVE(
+                data = analytics_api_info,
+                sandesh=self._sandesh_instance)
+        uve_analytics_api.send(sandesh=self._sandesh_instance)
+        self._logger.info(str(analytics_api_info))
+        self._logger.info(
+                'Sent AnalyticsApiInfo UVE:%s .. ' % (hostname))
+    # end send_send_analytics_api_info_uve
+
+    def delete_analytics_api_info_uve_test(self, hostname):
+
+        '''
+        Delete is not invoked as part of test.
+        Look at comments in send_analytics_api_info_uve_test
+        '''
+
+        analytics_api_info = AnalyticsApiInfo(name=hostname, deleted=True)
+        uve_analytics_api = AnalyticsApiInfoUVE(data = analytics_api_info,
+                            sandesh=self._sandesh_instance)
+        uve_analytics_api.send(sandesh=self._sandesh_instance)
+        self._logger.info('Delete AnalyticsApiInfo: %s' % (hostname))
+    # end delete_analytics_api_info_uve
+
+    def verify_analytics_api_info_uve_test(self, hostname, rest_api_ip, \
+            host_ip, opserver_port=None):
+
+        '''
+        Read the rest_api_ip and host_ip configured in OpServer.
+        Upon starting OpServer these two values are set and the
+        the corresponding UVE is written
+        '''
+
+        if opserver_port is not None:
+            verify_ops = VerificationOpsSrv('127.0.0.1', opserver_port)
+        else:
+            verify_ops = VerificationOpsSrv('127.0.0.1', self._opserver_port)
+        #cfilt: Filter by content for AnalyticsApiInfo
+        res = verify_ops.get_ops_collector(hostname+'?cfilt=AnalyticsApiInfo')
+        self._logger.info(str(res))
+        if res == {}:
+            return False
+        else:
+            assert(len(res) > 0)
+            analytics_node_ip = dict(res.get_attr('AnalyticsApiInfoUVE',
+                    'analytics_node_ip'))
+            self._logger.info(str(analytics_node_ip))
+            assert len(analytics_node_ip) == 2
+            assert rest_api_ip == analytics_node_ip['rest_api_ip']
+            assert host_ip == analytics_node_ip['host_ip']
+            return True
+    # end verify_analytics_api_info_uve
 
 # end class GeneratorFixture
