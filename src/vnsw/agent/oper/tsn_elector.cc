@@ -62,7 +62,7 @@ bool TsnElectorWalker::RouteWalkNotify(DBTablePartBase *partition,
         path->set_inactive(!master_);
     }
 
-    if (bridge_entry->ReComputePathAdd(evpn_path))
+    if (evpn_path && bridge_entry->ReComputePathAdd(evpn_path))
         partition->Notify(bridge_entry);
     return true;
 }
@@ -164,4 +164,11 @@ void TsnElector::Shutdown() {
     if (!IsTsnNoForwardingEnabled())
         return;
     agent_->vrf_table()->Unregister(vrf_listener_id_);
+}
+
+bool TsnElector::IsMaster() const {
+    if (active_tsn_servers_.empty())
+        return false;
+    return (active_tsn_servers_.front().compare(
+        agent_->params()->vhost_addr().to_string()) == 0);
 }

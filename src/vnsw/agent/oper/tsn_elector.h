@@ -40,6 +40,7 @@ public:
     void Shutdown();
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
     void RouteNotify(DBTablePartBase *partition, DBEntryBase *e);
+    bool IsMaster() const;
     const Agent *agent() const {return agent_;}
 
 private:
