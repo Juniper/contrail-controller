@@ -912,7 +912,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_obj2.uuid = ipv4_obj2.name
         ipv4_obj2.set_virtual_network(net_obj)
         logger.debug('Created Instance IPv4 object 2 %s', ipv4_obj2.uuid)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
 
@@ -1049,7 +1049,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         #try allocating specific ip, which has been assigned already
 	ipv4_obj5.set_instance_ip_address('12.1.1.4')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
@@ -1196,7 +1196,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         #try allocating specific ip, which has been assigned already
         ipv4_obj5.set_instance_ip_address('14.1.1.8')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
@@ -1311,7 +1311,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # of ip in use
         ipv4_obj2.set_virtual_network(net_obj)
         ipv4_obj2.set_instance_ip_address('13.1.1.8')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
 
@@ -1348,7 +1348,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         # of ip in use.
         ipv4_obj4.set_virtual_network(net_obj)
         ipv4_obj4.set_instance_ip_address('11.1.1.8')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             ipv4_id4 = self._vnc_lib.instance_ip_create(ipv4_obj4)
 
@@ -2559,13 +2559,13 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         iip2_obj = InstanceIp('clashing-iip-%s' %(self.id()),
                               instance_ip_address=iip_obj.instance_ip_address)
         iip2_obj.add_virtual_network(vn_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
 
         # allocate instance-ip clashing with existing floating-ip
         iip2_obj.set_instance_ip_address(fip_obj.floating_ip_address)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.instance_ip_create(iip2_obj)
 
@@ -2573,7 +2573,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         fip2_obj = FloatingIp('clashing-fip-%s' %(self.id()), fip_pool_obj,
                               floating_ip_address=fip_obj.floating_ip_address)
         fip2_obj.add_project(proj_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
@@ -2581,37 +2581,37 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         aip2_obj = AliasIp('clashing-aip-%s' %(self.id()), aip_pool_obj,
                            alias_ip_address=aip_obj.alias_ip_address)
         aip2_obj.add_project(proj_obj)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate floating-ip clashing with existing instance-ip
         fip2_obj.set_floating_ip_address(iip_obj.instance_ip_address)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip clashing with existing instance-ip
         aip2_obj.set_alias_ip_address(iip_obj.instance_ip_address)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate alias-ip clashing with existing floating-ip
         aip2_obj.set_alias_ip_address(fip_obj.floating_ip_address)
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
         # allocate floating-ip with gateway ip and verify failure
         fip2_obj.set_floating_ip_address('11.1.1.254')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.floating_ip_create(fip2_obj)
 
         # allocate alias-ip with gateway ip and verify failure
         aip2_obj.set_alias_ip_address('11.1.1.254')
-        with ExpectedException(cfgm_common.exceptions.BadRequest,
+        with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             self._vnc_lib.alias_ip_create(aip2_obj)
 
