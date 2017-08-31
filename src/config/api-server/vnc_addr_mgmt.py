@@ -441,11 +441,7 @@ class Subnet(object):
 
         addr = self._db_conn.subnet_alloc_req(self._name, value)
         if addr:
-            ip_addr = IPAddress(addr * self.alloc_unit)
-            if version == 4:
-                ip_addr = ip_addr.ipv4()
-            elif version == 6:
-                ip_addr = ip_addr.ipv6()
+            ip_addr = IPAddress(addr * self.alloc_unit, version)
             return str(ip_addr)
         return None
     # end ip_alloc
