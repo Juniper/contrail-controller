@@ -154,11 +154,11 @@ void AgentInit::SetResourceManagerReady() {
     CreateVrfBase();
     CreateNextHopsBase();
     CreateInterfacesBase();
+    ConnectToControllerBase();
     InitDoneBase();
 
     Init();
     agent_->set_init_done(true);
-    ConnectToControllerBase();
 }
 
 void AgentInit::InitLoggingBase() {
