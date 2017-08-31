@@ -137,6 +137,8 @@ const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
+const string SESSION_TABLE          = "SessionTable"
+
 const string OVERLAY_TO_UNDERLAY_FLOW_MAP = "OverlayToUnderlayFlowMap"
 
 const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTagV3"
@@ -201,6 +203,85 @@ const list<string> _NO_AUTO_PURGE_TABLES  = [
     COLLECTOR_GLOBAL_TABLE2,
     FLOW_TABLE,
     SYSTEM_OBJECT_TABLE
+]
+
+// SessionRecordFields and SessionRecordNames
+enum SessionRecordFields {
+   SESSION_T2,
+   SESSION_PARTITION_NO,
+   SESSION_IS_SI,
+   SESSION_IS_CLIENT_SESSION,
+   SESSION_PROTOCOL,
+   SESSION_SPORT,
+   SESSION_T1,
+   SESSION_UUID,
+   SESSION_DEPLOYMENT,
+   SESSION_TIER,
+   SESSION_APPLICATION,
+   SESSION_SITE,
+   SESSION_LABELS,
+   SESSION_REMOTE_DEPLOYMENT,
+   SESSION_REMOTE_TIER,
+   SESSION_REMOTE_APPLICATION,
+   SESSION_REMOTE_SITE,
+   SESSION_REMOTE_LABELS,
+   SESSION_REMOTE_PREFIX,
+   SESSION_SECURITY_POLICY_RULE,
+   SESSION_VMI,
+   SESSION_IP,
+   SESSION_VN,
+   SESSION_REMOTE_VN,
+   SESSION_VROUTER,
+   SESSION_VROUTER_IP,
+   SESSION_SAMPLED_FORWARD_BYTES,
+   SESSION_SAMPLED_FORWARD_PKTS,
+   SESSION_SAMPLED_REVERSE_BYTES,
+   SESSION_SAMPLED_REVERSE_PKTS,
+   SESSION_LOGGED_FORWARD_BYTES,
+   SESSION_LOGGED_FORWARD_PKTS,
+   SESSION_LOGGED_REVERSE_BYTES,
+   SESSION_LOGGED_REVERSE_PKTS,
+   SESSION_MAP,
+   SESSION_MAX,
+}
+
+const list<string> SessionRecordNames = [
+   "t2",
+   "partition_number",
+   "is_si",
+   "is_client_session",
+   "protocol",
+   "sport",
+   "t1",
+   "uuid",
+   "deployment",
+   "tier",
+   "application",
+   "site",
+   "labels",
+   "remote_deployment",
+   "remote_tier",
+   "remote_application",
+   "remote_site",
+   "remote_labels",
+   "remote_prefix",
+   "security_policy_rule"
+   "vmi",
+   "ip",
+   "vn",
+   "remote_vn",
+   "vrouter",
+   "vrouter_ip",
+   "sampled_forward_bytes",
+   "sampled_forward_pkts",
+   "sampled_reverse_bytes",
+   "sampled_reverse_pkts",
+   "logged_forward_bytes",
+   "logged_forward_pkts",
+   "logged_reverse_bytes",
+   "logged_reverse_pkts",
+   "sessionMap",
+   "session_max",
 ]
 
 // Please keep FlowRecordFields and FlowRecordNames in sync
@@ -693,6 +774,7 @@ struct table_schema
     4: list<schema_column> columns;
     5: map<string, string> column_to_query_column;
     6: map<string, string> query_column_to_column;
+    7: map<string, string> index_column_to_column;
 }
 
 struct stat_table
@@ -1101,6 +1183,96 @@ const map<string, table_schema> _VIZD_FLOW_TABLE_SCHEMA = {
               'clustering' : true },
             { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
         ]
+    }
+}
+
+const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
+    SESSION_TABLE : {
+        'columns' : [
+            {'name' : 'key', 'datatype': Gendb.DbDataType.Unsigned32Type },
+            {'name' : 'key2', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'key3', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'key4', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'column1',
+             'datatype': Gendb.DbDataType.Unsigned16Type, 'clustering': true },
+            {'name' : 'column2',
+             'datatype': Gendb.DbDataType.Unsigned16Type, 'clustering': true },
+            {'name' : 'column3',
+             'datatype': Gendb.DbDataType.Unsigned32Type, 'clustering': true },
+            {'name' : 'column4',
+             'datatype': Gendb.DbDataType.LexicalUUIDType, 'clustering': true},
+            {'name' : 'column5', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column6', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column7', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column8', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column9', 'datatype': Gendb.DbDataType.UTF8Type},
+            {'name' : 'column10', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column11', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column12', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column13', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column14', 'datatype': Gendb.DbDataType.UTF8Type },
+            {'name' : 'column15', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column16', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column17', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column18', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column19', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column20', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column21', 'datatype': Gendb.DbDataType.AsciiType },
+            {'name' : 'column22', 'datatype': Gendb.DbDataType.InetType },
+            {'name' : 'column23', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column24', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column25', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column26', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column27', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column28', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column29', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column30', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'value', 'datatype': Gendb.DbDataType.UTF8Type },
+        ],
+        'index_column_to_column' : {
+            'deployment'           : 'column5',
+            'tier'                 : 'column6',
+            'application'          : 'column7',
+            'site'                 : 'column8',
+            'remote_deployment'    : 'column10',
+            'remote_tier'          : 'column11',
+            'remote_application'   : 'column12',
+            'remote_site'          : 'column13',
+            'remote_prefix'        : 'column15',
+            'security_policy_rule' : 'column16',
+            'vmi'                  : 'column17',
+            'ip'                   : 'column18',
+            'vn'                   : 'column19',
+            'remote_vn'            : 'column20',
+        }
     }
 }
 

@@ -11,7 +11,9 @@
 std::vector<GenDb::NewCf> vizd_tables;
 std::vector<GenDb::NewCf> vizd_flow_tables;
 std::vector<GenDb::NewCf> vizd_stat_tables;
+std::vector<GenDb::NewCf> vizd_session_tables;
 FlowTypeMap flow_msg2type_map;
+SessionTypeMap session_msg2type_map;
 
 void init_tables(std::vector<GenDb::NewCf>& table,
                 std::map<std::string, table_schema> schema) {
@@ -87,6 +89,125 @@ void init_vizd_tables() {
     init_tables(vizd_flow_tables, g_viz_constants._VIZD_FLOW_TABLE_SCHEMA);
 
     init_tables(vizd_stat_tables, g_viz_constants._VIZD_STAT_TABLE_SCHEMA);
+
+    init_tables(vizd_session_tables, g_viz_constants._VIZD_SESSION_TABLE_SCHEMA);
+
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_IS_CLIENT_SESSION]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_IS_CLIENT_SESSION,
+            GenDb::DbDataType::Unsigned8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_IS_SI]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_IS_SI,
+            GenDb::DbDataType::Unsigned8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_PROTOCOL]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_PROTOCOL,
+            GenDb::DbDataType::Unsigned16Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_SPORT]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_SPORT,
+            GenDb::DbDataType::Unsigned16Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_DEPLOYMENT]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_DEPLOYMENT,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_TIER]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_TIER,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_APPLICATION]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_APPLICATION,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_SITE]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_SITE,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_LABELS]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_LABELS,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_REMOTE_DEPLOYMENT]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_DEPLOYMENT,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_REMOTE_TIER]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_TIER,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_REMOTE_APPLICATION]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_APPLICATION,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_REMOTE_SITE]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_SITE,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_REMOTE_LABELS]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_LABELS,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_SECURITY_POLICY_RULE]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_SECURITY_POLICY_RULE,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_REMOTE_PREFIX]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_PREFIX,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_VMI]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_VMI,
+            GenDb::DbDataType::AsciiType);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_IP]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_IP,
+            GenDb::DbDataType::AsciiType);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_VROUTER_IP]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_VROUTER_IP,
+            GenDb::DbDataType::InetType);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_VN]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_VN,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_REMOTE_VN]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_VN,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_SAMPLED_FORWARD_BYTES]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_SAMPLED_FORWARD_BYTES,
+            GenDb::DbDataType::Unsigned64Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_SAMPLED_FORWARD_PKTS]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_SAMPLED_FORWARD_PKTS,
+            GenDb::DbDataType::Unsigned64Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_SAMPLED_REVERSE_BYTES]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_SAMPLED_REVERSE_BYTES,
+            GenDb::DbDataType::Unsigned64Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_SAMPLED_REVERSE_PKTS]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_SAMPLED_REVERSE_PKTS,
+            GenDb::DbDataType::Unsigned64Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_LOGGED_FORWARD_BYTES]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_LOGGED_FORWARD_BYTES,
+            GenDb::DbDataType::Unsigned64Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_LOGGED_FORWARD_PKTS]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_LOGGED_REVERSE_PKTS,
+            GenDb::DbDataType::Unsigned64Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_LOGGED_REVERSE_BYTES]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_LOGGED_REVERSE_BYTES,
+            GenDb::DbDataType::Unsigned64Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_LOGGED_REVERSE_PKTS]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_LOGGED_REVERSE_PKTS,
+            GenDb::DbDataType::Unsigned64Type);
 
     flow_msg2type_map[g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_FLOWUUID]] =
          FlowTypeInfo(FlowRecordFields::FLOWREC_FLOWUUID, GenDb::DbDataType::LexicalUUIDType);
