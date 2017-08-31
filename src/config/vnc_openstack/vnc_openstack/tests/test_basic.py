@@ -565,7 +565,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             self.assertTrue(False,
                 'Create with fixed-ip conflicting with floating-ip passed')
         except webtest.app.AppError as e:
-            self.assertIsNot(re.search('BadRequest', str(e)), None)
+            self.assertIsNot(re.search('Conflict', str(e)), None)
             self.assertIsNot(re.search('Ip address already in use', str(e)),
                              None)
 
