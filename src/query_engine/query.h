@@ -289,6 +289,7 @@ struct query_result_unit_t {
     // stats+UUID after database queries for flow-records WHERE queries
     // stats+UUID+8-tuple afer flow-series WHERE query
     // AttribJSON+UUID for StatsTable queries
+    // key,key2,column1-column19,DATA for messagetablev2
     GenDb::DbDataValueVec info;
 
     // Following APIs will be invoked based on the table being queried
@@ -379,6 +380,7 @@ struct GetRowInput {
     GenDb::DbDataValueVec rowkey;
     std::string cfname;
     GenDb::ColumnNameRange crange;
+    GenDb::WhereIndexInfoVec where_vec;
     int chunk_no;
     std::string qid;
     int sub_qid;
@@ -407,6 +409,7 @@ public:
     // getrangeslice operations on Cassandra DB. For e.g. 
     // NOT_EQUAL operation will be two getrangeslice operation
     GenDb::ColumnNameRange cr;
+    GenDb::WhereIndexInfoVec where_vec;
     // row key suffix will be used to append DIR to flow 
     // series/records query
     GenDb::DbDataValueVec row_key_suffix;
@@ -419,6 +422,7 @@ public:
         tbb::atomic<uint32_t> total_rows;
         std::string cf_name;
         GenDb::ColumnNameRange cr;
+        GenDb::WhereIndexInfoVec where_vec;
         std::vector<GenDb::DbDataValueVec> keys;
     };
 
@@ -440,7 +444,8 @@ public:
     void WPCompleteCb(QEPipeT *wp, bool ret_code);
     std::vector<GenDb::DbDataValueVec> populate_row_keys();
     bool PipelineCb(std::string &, GenDb::DbDataValueVec &,
-        GenDb::ColumnNameRange &, GetRowInput *, void *);
+        GenDb::ColumnNameRange &, GenDb::WhereIndexInfoVec &,
+        GetRowInput *, void *);
     bool query_fetch_error;
 };
 
@@ -478,6 +483,11 @@ public:
     WhereQuery(QueryUnit *mq);
     virtual query_status_t process_query();
     virtual void subquery_processed(QueryUnit *subquery);
+    void populate_where_vec(DbQueryUnit *msg_table_db_query,
+                            const std::string query_col, 
+                            match_op op,
+                            const std::string value_prefix,
+                            const std::string value);
 
     // 0 is for egress and 1 for ingress
     int32_t direction_ing;
@@ -895,7 +905,10 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     }
     
     // validation functions
-    static bool is_object_table_query(const std::string& tname);
+    virtual bool is_object_table_query(const std::string tname);
+    bool is_message_table_query(const std::string& tname);
+    bool is_message_table_query();
+
     static bool is_stat_table_query(const std::string& tname);
     static bool is_stat_fieldnames_table_query(const std::string& tname);
     static bool is_flow_query(const std::string& tname); // either flow-series or flow-records query
@@ -1047,4 +1060,8 @@ private:
 void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
     boost::uuids::uuid *u, flow_stats *stats, flow_tuple *tuple);
 
+std::string MsgTableQueryColumnToColumn(const std::string cfname,
+                                        const std::string query_column);
+std::string MsgTableColumnToQueryColumn(const std::string cfname,
+                                        const std::string columnN);
 #endif

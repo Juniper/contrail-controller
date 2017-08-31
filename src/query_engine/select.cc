@@ -5,6 +5,7 @@
 #include "query.h"
 
 #include "boost/uuid/uuid_io.hpp"
+#include <boost/regex.hpp>
 #include "base/util.h"
 #include "rapidjson/document.h"
 
@@ -260,8 +261,7 @@ query_status_t SelectQuery::process_query() {
      *    a series of rows of
      *     T, <x-tuple>, pkts...
      *    it's expected that aggregation and binning will be done by
-     *bn
-    the next level
+     *    the next level
      *
      *  message related queries
      */
@@ -551,66 +551,38 @@ query_status_t SelectQuery::process_query() {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
 
-         /*
-          * In case of objecttable queries, if object_id is also part of
-          * select field, then construct a map between the object_id and
-          * uuid and populate the select field based on this map
-          */
         std::map<boost::uuids::uuid, std::string> uuid_to_object_id;
+        std::map<std::string, GenDb::DbDataValue> col_res_map;
         for (std::vector<query_result_unit_t>::const_iterator it = query_result.begin();
                 it != query_result.end(); it++) {
-            boost::uuids::uuid u;
+            for (unsigned int i = 0; i < it->info.size(); i++) {
+                std::string columnN =
+                    g_viz_constants._VIZD_TABLE_SCHEMA.find(cfname)\
+                        ->second.columns[i].name;
+                std::string query_column =
+                    MsgTableColumnToQueryColumn(cfname, columnN);
+                GenDb::DbDataValue  value = it->info.at(i);
 
-            it->get_uuid(u);
-            if (m_query->is_object_table_query(m_query->table())) {
-                std::string object_id;
-                it->get_objectid(object_id);
-                uuid_to_object_id.insert(std::make_pair(u, object_id));
+                // if T2: was prepended then remove it now
+                ColIndexType::type index_type =
+                    g_viz_constants._VIZD_TABLE_SCHEMA.find(cfname)\
+                        ->second.columns[i].index_type;
+                if (index_type) {
+                    std::string value_str(GenDb::DbDataValueToString(value));
+                    static boost::regex expr("[0-9]+:");
+                    std::string value_str2 = boost::regex_replace(value_str, expr, "",
+                                                    boost::match_default | boost::format_all);
+                    value = value_str2;
+                }
+
+                col_res_map.insert(std::make_pair(query_column, value));
             }
-            GenDb::DbDataValueVec a_key;
-            a_key.push_back(u);
-            keys.push_back(a_key);
         }
 
-        GenDb::ColListVec mget_res;
-        if (!m_query->dbif_->Db_GetMultiRow(&mget_res,
-                    g_viz_constants.COLLECTOR_GLOBAL_TABLE, keys)) {
-            QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-        }
-        for (GenDb::ColListVec::iterator it = mget_res.begin();
-                it != mget_res.end(); it++) {
-            std::map<std::string, GenDb::DbDataValue> col_res_map;
-            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
-                    jt != it->columns_.end(); jt++) {
-                std::string col_name;
-                try {
-                    col_name = boost::get<std::string>(jt->name->at(0));
-                } catch (boost::bad_get& ex) {
-                    QE_ASSERT(0);
-                }
-
-                col_res_map.insert(std::make_pair(col_name, jt->value->at(0)));
-            }
-            boost::uuids::uuid uuid_rkey;
-            if (!col_res_map.size()) {
-                assert(it->rowkey_.size() > 0);
-                try {
-                    uuid_rkey = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
-                } catch (boost::bad_get& ex) {
-                    QE_LOG(ERROR, "Invalid rowkey/uuid");
-                    QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-                }
-                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(uuid_rkey) <<
-                       " in Analytics db");
-                continue;
-            } else {
-                try {
-                    uuid_rkey = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
-                } catch (boost::bad_get& ex) {
-                    QE_LOG(ERROR, "Invalid rowkey/uuid");
-                    QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-                }
-            }
+        if (col_res_map.size() > 0) {
+            std::map<std::string, GenDb::DbDataValue>::iterator kt =
+                                        col_res_map.find(g_viz_constants.UUID_KEY);
+            boost::uuids::uuid uuid_rkey = boost::get<boost::uuids::uuid>(kt->second);
 
             std::map<std::string, std::string> cmap;
             std::vector<std::string>::iterator jt;
@@ -633,9 +605,8 @@ query_status_t SelectQuery::process_query() {
                 } else if (*jt == g_viz_constants.UUID_KEY) {
 
                     boost::uuids::uuid u;
-                    assert(it->rowkey_.size() > 0);
                     try {
-                        u = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
+                        u = boost::get<boost::uuids::uuid>(kt->second);
                     } catch (boost::bad_get& ex) {
                         QE_ASSERT(0);
                     }

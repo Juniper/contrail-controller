@@ -30,21 +30,25 @@ class DbQueryUnitTest: public ::testing::Test {
     bool GetRowAsyncSuccess(const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey,
         const GenDb::ColumnNameRange &crange,
+        const GenDb::WhereIndexInfoVec &where_vec,
         GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbGetRowCb cb);
     bool GetRowAsyncFailure(const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey,
         const GenDb::ColumnNameRange &crange,
+        const GenDb::WhereIndexInfoVec &where_vec,
         GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbGetRowCb cb);
     bool StatTableGetRowAsyncSuccess(const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey,
         const GenDb::ColumnNameRange &crange,
+        const GenDb::WhereIndexInfoVec &where_vec,
         GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbGetRowCb cb);
     bool TestFailureHandling(const std::string& cfname,
              const GenDb::DbDataValueVec& rowkey,
              const GenDb::ColumnNameRange &crange,
+             const GenDb::WhereIndexInfoVec &where_vec,
              GenDb::DbConsistency::type dconsistency,
              GenDb::GenDbIf::DbGetRowCb cb);
     void subquery_processed(QueryUnit *subquery);
@@ -57,6 +61,7 @@ class DbQueryUnitTest: public ::testing::Test {
 bool DbQueryUnitTest::TestFailureHandling(const std::string& cfname,
              const GenDb::DbDataValueVec& rowkey,
              const GenDb::ColumnNameRange &crange,
+             const GenDb::WhereIndexInfoVec &where_vec,
              GenDb::DbConsistency::type dconsistency,
              GenDb::GenDbIf::DbGetRowCb cb) {
     std::auto_ptr<GetRowInput> rip(new GetRowInput());
@@ -68,6 +73,7 @@ bool DbQueryUnitTest::TestFailureHandling(const std::string& cfname,
 
 bool DbQueryUnitTest::GetRowAsyncSuccess(const std::string& cfname,
     const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+    const GenDb::WhereIndexInfoVec &where_vec,
     GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
     // Return the following for every row
     boost::uuids::random_generator rgen_;
@@ -89,6 +95,7 @@ bool DbQueryUnitTest::GetRowAsyncSuccess(const std::string& cfname,
 
 bool DbQueryUnitTest::StatTableGetRowAsyncSuccess(const std::string& cfname,
     const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+    const GenDb::WhereIndexInfoVec &where_vec,
     GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
     // Return the following for every row
     boost::uuids::random_generator rgen_;
@@ -111,6 +118,7 @@ bool DbQueryUnitTest::StatTableGetRowAsyncSuccess(const std::string& cfname,
 
 bool DbQueryUnitTest::GetRowAsyncFailure(const std::string& cfname,
     const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+    const GenDb::WhereIndexInfoVec &where_vec,
     GenDb::DbConsistency::type dconsistency, GenDb::GenDbIf::DbGetRowCb cb) {
     std::auto_ptr<GenDb::ColList> columns(new GenDb::ColList());
     cb(GenDb::DbOpResult::ERROR, columns);
@@ -139,7 +147,7 @@ TEST_F(DbQueryUnitTest, ProcessQuery) {
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
     EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
-        Db_GetRowAsync(_,_,_,_,_))
+        Db_GetRowAsync(_,_,_,_,_,_))
             .Times(AnyNumber())
             .WillRepeatedly(Invoke(this,
                 &DbQueryUnitTest::GetRowAsyncSuccess));
@@ -165,7 +173,7 @@ TEST_F(DbQueryUnitTest, ProcessQueryFailure) {
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
     EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
-        Db_GetRowAsync(_,_,_,_,_))
+        Db_GetRowAsync(_,_,_,_,_,_))
             .Times(AnyNumber())
             .WillRepeatedly(Invoke(this,
                 &DbQueryUnitTest::GetRowAsyncFailure));
@@ -195,7 +203,7 @@ TEST_F(DbQueryUnitTest, QueryFailureCallback) {
     rowkey.push_back(t2);
     std::vector<GenDb::DbDataValueVec> keys;
     EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
-        Db_GetRowAsync(_,_,_,_,_)).Times(AnyNumber()).WillRepeatedly(
+        Db_GetRowAsync(_,_,_,_,_,_)).Times(AnyNumber()).WillRepeatedly(
         Invoke(this, &DbQueryUnitTest::TestFailureHandling));
     EXPECT_CALL(analytics_query_mock, table()).Times(AnyNumber()).
         WillRepeatedly(Return("table1"));
@@ -220,6 +228,7 @@ TEST_F(DbQueryUnitTest, WhereQueryProcessing) {
 
     DbQueryUnit *mdbq = new DbQueryUnit(&mq,&mq);
     EXPECT_CALL(mq, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
+    EXPECT_CALL(mq, is_object_table_query(_)).Times(AnyNumber()).WillRepeatedly(Return(false));
     WhereQuery *wq= new WhereQuery(mdbq);
     wq->main_query = &mq;
     wq->where_result_.reset(new std::vector<query_result_unit_t>);
@@ -230,6 +239,8 @@ TEST_F(DbQueryUnitTest, WhereQueryProcessing) {
     DbQueryUnit *dbq2 = new DbQueryUnit(wq, q2);
     EXPECT_CALL(*q1, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
     EXPECT_CALL(*q2, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
+    EXPECT_CALL(*q1, is_object_table_query(_)).Times(AnyNumber()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*q2, is_object_table_query(_)).Times(AnyNumber()).WillRepeatedly(Return(false));
     dbq1->sub_query_id = 0;
     dbq2->sub_query_id = 1;
     wq->query_status = QUERY_SUCCESS;
@@ -295,7 +306,7 @@ TEST_F(DbQueryUnitTest, TestStatsUpdate) {
 
     DbQueryUnit *dbq = new DbQueryUnit(&analytics_query_mock, &analytics_query_mock);
     EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
-        Db_GetRowAsync(_,_,_,_,_))
+        Db_GetRowAsync(_,_,_,_,_,_))
             .Times(AnyNumber())
             .WillRepeatedly(Invoke(this,
                 &DbQueryUnitTest::StatTableGetRowAsyncSuccess));
@@ -319,7 +330,7 @@ TEST_F(DbQueryUnitTest, TestStatsUpdate) {
     TASK_UTIL_EXPECT_EQ(vstats_dbti[0].table_name, "Statattr" );
     TASK_UTIL_EXPECT_EQ(vstats_dbti[0].reads, 120);
     EXPECT_CALL(*(CqlIfMock *)(analytics_query_mock.dbif_.get()),
-        Db_GetRowAsync(_,_,_,_,_))
+        Db_GetRowAsync(_,_,_,_,_,_))
             .Times(AnyNumber())
             .WillRepeatedly(Invoke(this,
                 &DbQueryUnitTest::GetRowAsyncFailure));

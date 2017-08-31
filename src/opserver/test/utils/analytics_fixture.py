@@ -24,7 +24,7 @@ from opserver_introspect_utils import VerificationOpsSrv, \
 from collector_introspect_utils import VerificationCollector
 from alarmgen_introspect_utils import VerificationAlarmGen
 from generator_introspect_utils import VerificationGenerator
-from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
+from opserver.sandesh.viz.constants import MESSAGE_TABLE, SOURCE, MODULE
 from opserver.opserver_util import OpServerUtils
 from opserver.sandesh.alarmgen_ctrl.ttypes import UVEAlarmState
 from sandesh_common.vns.constants import NodeTypeNames, ModuleNames
@@ -2321,13 +2321,13 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         try:
-            src_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE, 
+            src_list = vns.get_table_column_values(MESSAGE_TABLE, 
                                                    SOURCE)
             self.logger.info('src_list: %s' % str(src_list))
             if len(set(src_list).intersection(exp_src_list)) != \
                     len(exp_src_list):
                 return False
-            mod_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE,
+            mod_list = vns.get_table_column_values(MESSAGE_TABLE,
                                                    MODULE)
             self.logger.info('mod_list: %s' % str(mod_list))
             if len(set(mod_list).intersection(exp_mod_list)) != \

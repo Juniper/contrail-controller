@@ -33,7 +33,7 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
     Arguments:
         cport : An unused TCP port for Cassandra to use as the client port
     '''
-    cassandra_version = '2.1.9'
+    cassandra_version = '3.10'
     cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
     if not os.path.exists(cassandra_bdir):
