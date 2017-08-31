@@ -7,6 +7,9 @@
 #include <base/time_util.h>
 #include <base/string_util.h>
 
+#include "json_parse.h"
+#include <database/gendb_constants.h>
+#include <database/gendb_if.h>
 #include "utils.h"
 
 /*
@@ -69,3 +72,19 @@ bool parse_time(const std::string& relative_time, uint64_t *usec_time)
     }
 }
 
+GenDb::Op::type get_gendb_op_from_op(int op)
+{
+    switch(op)
+    {
+        case EQUAL:
+            return GenDb::Op::EQ;
+        case LEQ:
+            return GenDb::Op::LE;
+        case GEQ:
+            return GenDb::Op::GE;
+        case PREFIX:
+            return GenDb::Op::LIKE;
+        default:
+            return GenDb::Op::INVALID;
+    }
+}

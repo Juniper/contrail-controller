@@ -59,7 +59,7 @@ class Ruleeng {
 
         void handle_object_log(const pugi::xml_node& parent,
             const VizMsg *rmsg, DbHandler *db, const SandeshHeader &header,
-            GenDb::GenDbIf::DbAddColumnCb db_cb);
+            ObjectNamesVec &object_names, GenDb::GenDbIf::DbAddColumnCb db_cb);
 
         void remove_identifier(const pugi::xml_node& parent);
 };

@@ -631,7 +631,8 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         EXPECT_CALL(*dbif_mock(),
                 Db_AddColumnProxy(
                     Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.OBJECT_TABLE), 
+                        AllOf(Field(&GenDb::ColList::cfname_,
+                                    g_viz_constants.COLLECTOR_GLOBAL_TABLE),
                             Field(&GenDb::ColList::rowkey_, rowkey),
                             Field(&GenDb::ColList::columns_,
                                 expected_vector)))))

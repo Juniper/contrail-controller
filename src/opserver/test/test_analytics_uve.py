@@ -193,6 +193,8 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         gen_list = [host+':Analytics:contrail-collector:0',
                     host+':Analytics:contrail-query-engine:0',
                     host+':Analytics:contrail-analytics-api:0']
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors,
+                                              gen_list)
         assert vizd_obj.verify_generator_uve_list(gen_list)
 
         # stop redis-uve

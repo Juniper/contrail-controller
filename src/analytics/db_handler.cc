@@ -3,6 +3,7 @@
  */
 
 #include <exception>
+#include <string>
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 #include <boost/assign/list_of.hpp>
@@ -331,11 +332,34 @@ void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level,
 }
 
 bool DbHandler::CreateTables() {
+    table_schema cfschema;
+    string       mode;
+
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
         if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
+        }
+
+        // find schema for it->cfname_
+        // find all columns with index_type field set
+        cfschema = g_viz_constants._VIZD_TABLE_SCHEMA.find(it->cfname_)->second;
+        for(size_t j = 0; j < cfschema.columns.size(); j++) {
+            if (cfschema.columns[j].index_type) {
+                mode.erase();
+                if (cfschema.columns[j].index_type == ColIndexType::CUSTOM_INDEX) {
+                    mode.assign("PREFIX");
+                }
+                if (!dbif_->Db_CreateIndex(it->cfname_,
+                                           cfschema.columns[j].name,
+                                           cfschema.columns[j].name+"_index",
+                                           mode)) {
+                    DB_LOG(ERROR, it->cfname_ << ": CreateIndex FAILED for "
+                           << cfschema.columns[j].name);
+                    return false;
+                }
+            }
         }
     }
 
@@ -667,145 +691,67 @@ bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
         (header.get_Type() != SandeshType::FLOW);
 }
 
-bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
-        const SandeshHeader& header,
-        const std::string& message_type,
-        const boost::uuids::uuid& unm,
-        const std::string keyword,
-        GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
-    col_list->cfname_ = cfname;
-    // Rowkey
-    GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-    rowkey.reserve(2);
-    uint32_t T2(header.get_Timestamp() >> g_viz_constants.RowTimeInBits);
-    rowkey.push_back(T2);
-    //Push partition into row key
-    rowkey.push_back(gen_partition_no_());
-    // Columns
-    GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
-    col_name->reserve(3);
+void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
+    const ObjectNamesVec &object_names,
+    GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    const SandeshHeader &header(vmsgp->msg->GetHeader());
+    const std::string &message_type(vmsgp->msg->GetMessageType());
+    uint64_t timestamp;
     int ttl;
     if (message_type == "VncApiConfigLog") {
         ttl = GetTtl(TtlType::CONFIGAUDIT_TTL);
     } else {
         ttl = GetTtl(TtlType::GLOBAL_TTL);
     }
-    if (cfname == g_viz_constants.MESSAGE_TABLE_SOURCE) {
-        col_name->push_back(header.get_Source());
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_MODULE_ID) {
-        col_name->push_back(header.get_Module());
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_CATEGORY) {
-        col_name->push_back(header.get_Category());
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE) {
-        col_name->push_back(message_type);
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
-    } else if (cfname == g_viz_constants.MESSAGE_TABLE_KEYWORD) {
-        if (keyword.length()) {
-            col_name->push_back(keyword);
-        } else {
-            return false;
-        }
-    } else {
-        DB_LOG(ERROR, "Unknown table: " << cfname << ", message: "
-                << message_type << ", message UUID: " << unm);
-        return false;
-    }
-    uint32_t T1(header.get_Timestamp() & g_viz_constants.RowTimeInMask);
+    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+    col_list->cfname_ = g_viz_constants.COLLECTOR_GLOBAL_TABLE2;
+    timestamp = header.get_Timestamp();
+    uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
+    uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
+
+    // Rowkey
+    uint8_t     num_keys = 2;
+    uint8_t     num_cols;
+    GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
+    rowkey.reserve(2);
+    rowkey.push_back(T2);
+    rowkey.push_back(gen_partition_no_());
+
+    // Columns
+    GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
+    num_cols = g_viz_constants._VIZD_TABLE_SCHEMA.find(col_list->cfname_)
+               ->second.columns.size() - num_keys;
+    col_name->reserve(num_cols);
     col_name->push_back(T1);
-    col_name->push_back(unm);
-    //No value to be stored against the columns
-    GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(0));
+    col_name->push_back(vmsgp->unm);
+
+    // Prepend T2: to secondary index columns
+    col_name->push_back(PrependT2(T2, header.get_Source()));
+    col_name->push_back(PrependT2(T2, message_type));
+    col_name->push_back(PrependT2(T2, header.get_Module()));
+    BOOST_FOREACH(const std::string &object_name, object_names) {
+        col_name->push_back(PrependT2(T2, object_name));
+    }
+    // Set empty object-name string if
+    // object_names.size() < MSG_TABLE_MAX_OBJECTS_PER_MSG
+    for (int i = object_names.size();
+         i < g_viz_constants.MSG_TABLE_MAX_OBJECTS_PER_MSG; i++) {
+        col_name->push_back("");
+    }
+    col_name->push_back(header.get_IPAddress());
+    col_name->push_back((uint32_t)header.get_Pid());
+    col_name->push_back(header.get_Category());
+    col_name->push_back((uint32_t)header.get_Level());
+    col_name->push_back(header.get_NodeType());
+    col_name->push_back(header.get_InstanceId());
+    col_name->push_back((uint32_t)header.get_SequenceNum());
+    col_name->push_back((uint8_t)header.get_Type());
+    GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1,
+        vmsgp->msg->ExtractMessage()));
     GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
     GenDb::NewColVec& columns = col_list->columns_;
     columns.reserve(1);
     columns.push_back(col);
-    if (!InsertIntoDb(col_list, GenDb::DbConsistency::LOCAL_ONE, db_cb)) {
-        DB_LOG(ERROR, "Addition of message: " << message_type <<
-                ", message UUID: " << unm << " to table: " << cfname <<
-                " FAILED");
-        return false;
-    }
-    return true;
-}
-
-void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
-    GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    const SandeshHeader &header(vmsgp->msg->GetHeader());
-    const std::string &message_type(vmsgp->msg->GetMessageType());
-    uint64_t temp_u64;
-    uint32_t temp_u32;
-    std::string temp_str;
-
-    int ttl;
-    if (message_type == "VncApiConfigLog") {
-        ttl = GetTtl(TtlType::CONFIGAUDIT_TTL);
-    } else {
-        ttl = GetTtl(TtlType::GLOBAL_TTL);
-    }
-    std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
-    col_list->cfname_ = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
-    // Rowkey
-    GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-    rowkey.reserve(1);
-    rowkey.push_back(vmsgp->unm);
-    // Columns
-    GenDb::NewColVec& columns = col_list->columns_;
-    columns.reserve(16);
-    columns.push_back(new GenDb::NewCol(g_viz_constants.SOURCE,
-        header.get_Source(), ttl));
-    columns.push_back(new GenDb::NewCol(g_viz_constants.NAMESPACE,
-        header.get_Namespace(), ttl));
-    columns.push_back(new GenDb::NewCol(g_viz_constants.MODULE,
-        header.get_Module(), ttl));
-    if (!header.get_Context().empty()) {
-        columns.push_back(new GenDb::NewCol(g_viz_constants.CONTEXT,
-            header.get_Context(), ttl));
-    }
-    if (!header.get_InstanceId().empty()) {
-        columns.push_back(new GenDb::NewCol(g_viz_constants.INSTANCE_ID, 
-                                            header.get_InstanceId(), ttl));
-    }
-    if (!header.get_NodeType().empty()) {
-        columns.push_back(new GenDb::NewCol(g_viz_constants.NODE_TYPE,
-                                            header.get_NodeType(), ttl));
-    }
-    if (header.__isset.IPAddress) {
-        columns.push_back(new GenDb::NewCol(g_viz_constants.IPADDRESS,
-                                            header.get_IPAddress(), ttl));
-    }
-    // Convert to network byte order
-    temp_u64 = header.get_Timestamp();
-    columns.push_back(new GenDb::NewCol(g_viz_constants.TIMESTAMP, temp_u64, ttl));
-
-    columns.push_back(new GenDb::NewCol(g_viz_constants.CATEGORY,
-        header.get_Category(), ttl));
-
-    temp_u32 = header.get_Level();
-    columns.push_back(new GenDb::NewCol(g_viz_constants.LEVEL, temp_u32, ttl));
-
-    columns.push_back(new GenDb::NewCol(g_viz_constants.MESSAGE_TYPE,
-        message_type, ttl));
-
-    temp_u32 = header.get_SequenceNum();
-    columns.push_back(new GenDb::NewCol(g_viz_constants.SEQUENCE_NUM,
-        temp_u32, ttl));
-
-    temp_u32 = header.get_VersionSig();
-    columns.push_back(new GenDb::NewCol(g_viz_constants.VERSION, temp_u32, ttl));
-
-    uint8_t temp_u8 = header.get_Type();
-    columns.push_back(new GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
-        temp_u8, ttl));
-    if (header.__isset.Pid) {
-        temp_u32 = header.get_Pid();
-        columns.push_back(new GenDb::NewCol(g_viz_constants.PID,
-                                        temp_u32, ttl));
-    }
-
-    columns.push_back(new GenDb::NewCol(g_viz_constants.DATA,
-        vmsgp->msg->ExtractMessage(), ttl));
-
     if (!InsertIntoDb(col_list, GenDb::DbConsistency::LOCAL_ONE, db_cb)) {
         DB_LOG(ERROR, "Addition of message: " << message_type <<
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
@@ -813,47 +759,8 @@ void DbHandler::MessageTableOnlyInsert(const VizMsg *vmsgp,
     }
 }
 
-void DbHandler::MessageTableKeywordInsert(const VizMsg *vmsgp,
-    GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    if (IsAllWritesDisabled()) {
-        return;
-    }
-    LineParser::WordListType words;
-    const SandeshHeader &header(vmsgp->msg->GetHeader());
-    const std::string &message_type(vmsgp->msg->GetMessageType());
-    const SandeshType::type &stype(header.get_Type());
-    if (stype == SandeshType::SYSTEM || stype == SandeshType::UVE ||
-            stype == SandeshType::OBJECT) {
-        const SandeshXMLMessage *sxmsg =
-            static_cast<const SandeshXMLMessage *>(vmsgp->msg);
-        if (!LineParser::ParseXML(sxmsg->GetMessageNode(), &words, false))
-            DB_LOG(ERROR, "Failed to parse xml");
-        udc_->MatchFilter(LineParser::GetXmlString(sxmsg->GetMessageNode()),
-                &words);
-    } else if (!vmsgp->keyword_doc_.empty()) {
-        std::string s;
-        s = std::string(vmsgp->keyword_doc_);
-        if (!s.empty()) {
-            if (!LineParser::Parse(s, &words))
-                DB_LOG(ERROR, "Failed to parse text");
-            udc_->MatchFilter(s, &words);
-        }
-    }
-    if (IsMessagesKeywordWritesDisabled()) {
-        return;
-    }
-    for (LineParser::WordListType::iterator i = words.begin();
-            i != words.end(); i++) {
-        // tableinsert@{(t2,*i), (t1,header.get_Source())} -> vmsgp->unm
-        bool r = MessageIndexTableInsert(
-                g_viz_constants.MESSAGE_TABLE_KEYWORD, header,
-                message_type, vmsgp->unm, *i, db_cb);
-        if (!r)
-            DB_LOG(ERROR, "Failed to insert keyword: " << *i);
-    }
-}
-
 void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
+    const ObjectNamesVec &object_names,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
     const SandeshHeader &header(vmsgp->msg->GetHeader());
     const std::string &message_type(vmsgp->msg->GetMessageType());
@@ -861,20 +768,8 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
     if (!AllowMessageTableInsert(header))
         return;
 
-    MessageTableOnlyInsert(vmsgp, db_cb);
+    MessageTableOnlyInsert(vmsgp, object_names, db_cb);
 
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header,
-            message_type, vmsgp->unm, "", db_cb);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header,
-            message_type, vmsgp->unm, "", db_cb);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header,
-            message_type, vmsgp->unm, "", db_cb);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header,
-            message_type, vmsgp->unm, "", db_cb);
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header,
-            message_type, vmsgp->unm, "", db_cb);
-
-    MessageTableKeywordInsert(vmsgp, db_cb);
 
     const SandeshType::type &stype(header.get_Type());
 
@@ -1008,33 +903,6 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         ttl = GetTtl(TtlType::GLOBAL_TTL);
     }
 
-      {
-        uint8_t partition_no = 0;
-        std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
-        col_list->cfname_ = g_viz_constants.OBJECT_TABLE;
-        GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-        rowkey.reserve(3);
-        rowkey.push_back(T2);
-        rowkey.push_back(partition_no);
-        rowkey.push_back(table);
-        
-        GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
-        col_name->reserve(2);
-        col_name->push_back(objectkey_str);
-        col_name->push_back(T1);
-
-        GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1, unm));
-        GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
-        GenDb::NewColVec& columns = col_list->columns_;
-        columns.reserve(1);
-        columns.push_back(col);
-        if (!InsertIntoDb(col_list, GenDb::DbConsistency::LOCAL_ONE, db_cb)) {
-            DB_LOG(ERROR, "Addition of " << objectkey_str <<
-                    ", message UUID " << unm << " into table " << table <<
-                    " FAILED");
-            return;
-        }
-      }
 
       {
         std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
@@ -1989,4 +1857,12 @@ void DbHandlerInitializer::StartInitTimer() {
 void DbHandlerInitializer::ScheduleInit() {
     db_handler_->UnInitUnlocked();
     StartInitTimer();
+}
+
+// Prepend T2 in decimal since T2 timestamp column is in decimal
+std::string PrependT2(uint32_t T2, std::string str) {
+    std::string tempstr(boost::lexical_cast<std::string>(T2));
+    tempstr.append(":");
+    tempstr.append(str);
+    return tempstr;
 }

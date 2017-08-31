@@ -38,6 +38,7 @@
 #include "usrdef_counters.h"
 #include "options.h"
 
+typedef std::vector<std::string> ObjectNamesVec;
 class Options;
 class DbHandler {
 public:
@@ -110,6 +111,7 @@ public:
     void GetRuleMap(RuleMap& rulemap);
 
     virtual void MessageTableInsert(const VizMsg *vmsgp,
+        const ObjectNamesVec &object_names,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
         uint64_t &timestamp, const boost::uuids::uuid& unm,
@@ -202,10 +204,7 @@ private:
         const std::string& field_val, int ttl,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     void MessageTableOnlyInsert(const VizMsg *vmsgp,
-        GenDb::GenDbIf::DbAddColumnCb db_cb);
-    bool MessageIndexTableInsert(const std::string& cfname,
-        const SandeshHeader& header, const std::string& message_type,
-        const boost::uuids::uuid& unm, const std::string keyword,
+        const ObjectNamesVec &object_names,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool AllowMessageTableInsert(const SandeshHeader &header);
     bool CreateTables();
@@ -363,5 +362,7 @@ public:
 private:
     T &values_;
 };
+
+std::string PrependT2(uint32_t T2, std::string str);
 
 #endif /* DB_HANDLER_H_ */

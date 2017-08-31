@@ -970,6 +970,9 @@ static std::string CassSelectFromTableInternal(const std::string &table,
         if (ck_range.count_) {
             query << " LIMIT " << ck_range.count_;
         }
+        if (!where_vec.empty()) {
+            query << " ALLOW FILTERING";
+        }
     }
 
     return query.str();
