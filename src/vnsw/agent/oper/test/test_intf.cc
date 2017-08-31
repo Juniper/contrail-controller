@@ -1256,6 +1256,11 @@ TEST_F(IntfTest, VmPortFloatingIpEvpn_1) {
     //Change Encap
     AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
     client->WaitForIdle();
+    Ip4Address fip = Ip4Address::from_string("2.1.1.100");
+    MacAddress smac(0, 0, 0, 0x1, 0x1, 0x1);
+    //Check if EVPN route is populated with vxlan ID
+    WAIT_FOR(1000, 1000, (EvpnRouteGet("default-project:vn2:vn2", smac, fip, 0) == NULL));
+    WAIT_FOR(1000, 1000, (EvpnRouteGet("default-project:vn2:vn2", smac, fip, 1) != NULL));
 
     //Delete config for vnet1, forcing interface to deactivate
     //verify that route and floating ip map gets cleaned up
