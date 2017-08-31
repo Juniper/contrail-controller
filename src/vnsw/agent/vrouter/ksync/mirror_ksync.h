@@ -37,6 +37,7 @@ public:
     virtual int AddMsg(char *buf, int buf_len);
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
+    uint32_t mirror_index() {return mirror_index_;}
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     MirrorKSyncObject *ksync_obj_;
