@@ -181,8 +181,9 @@ class VncNamespace(VncCommon):
         # Instance-Ip for pods on this VN, should be allocated from
         # cluster pod ipam. Attach the cluster pod-ipam object
         # to this virtual network.
+        ipam_fq_name = vnc_kube_config.pod_ipam_fq_name()
         ipam_obj = self._vnc_lib.network_ipam_read(
-            fq_name=vnc_kube_config.pod_ipam_fq_name())
+            fq_name=ipam_fq_name)
         vn.add_network_ipam(ipam_obj, VnSubnetsType([]))
 
         # Update VN.

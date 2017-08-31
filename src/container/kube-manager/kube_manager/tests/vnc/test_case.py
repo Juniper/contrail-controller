@@ -5,7 +5,6 @@ import tempfile
 
 import gevent
 from cfgm_common import vnc_cgitb
-from kube_manager.common import args as kube_args
 sys.path.append("../../config/common/tests")
 import test_common
 sys.path.insert(0, '../../../../build/production/container/kube-manager')
@@ -13,7 +12,10 @@ from vnc_api.vnc_api import (
     Project, AddressType, SubnetType, PolicyRuleType, RefsExistError, PortType,
     PolicyEntriesType, IdPermsType, SecurityGroup, VirtualNetwork,
     VirtualNetworkType, NoIdError, VirtualMachine, VirtualMachineInterface,
-    InstanceIp)
+    InstanceIp, NetworkIpam, IpamSubnets, IpamSubnetType, VnSubnetsType)
+from kube_manager.common import args as kube_args
+from kube_manager.vnc import vnc_kubernetes
+from kube_manager.vnc import vnc_kubernetes_config as vnc_kube_config
 
 
 class KMTestCase(test_common.TestCase):
@@ -50,6 +52,7 @@ class KMTestCase(test_common.TestCase):
                 test_common.ErrorInterceptingLogger.get_qualified_name()))
         test_common.wait_for_schema_transformer_up()
 
+        cls.vnc_kubernetes_config_dict = None
         cls.event_queue = gevent.queue.Queue()
         cls.spawn_kube_manager()
 
@@ -73,7 +76,8 @@ class KMTestCase(test_common.TestCase):
             cls.__name__,
             kube_config,
             True,
-            cls.event_queue)
+            cls.event_queue,
+            cls.vnc_kubernetes_config_dict)
         test_common.wait_for_kube_manager_up()
 
     @classmethod
@@ -91,6 +95,8 @@ class KMTestCase(test_common.TestCase):
 
     @classmethod
     def kill_kube_manager(cls):
+        cls.vnc_kubernetes_config_dict = \
+            vnc_kube_config.VncKubernetesConfig.vnc_kubernetes_config
         test_common.kill_kube_manager(cls._km_greenlet)
 
     def _class_str(self):
@@ -112,7 +118,12 @@ class KMTestCase(test_common.TestCase):
 
     def enqueue_idle_event(self):
         idle_event = {'type': None,
-                      'object': {'kind': 'Idle', 'metadata': {'name': None, 'uid': None}}}
+                      'object': {
+                          'kind': 'Idle', 'metadata': {
+                              'name': None, 'uid': None
+                              }
+                          }
+                     }
         self.event_queue.put(idle_event)
 
     def generate_kube_args(self):
@@ -126,7 +137,8 @@ class KMTestCase(test_common.TestCase):
         ]
         vnc_cgitb.enable(format='text')
 
-        with tempfile.NamedTemporaryFile() as conf, tempfile.NamedTemporaryFile() as logconf:
+        with tempfile.NamedTemporaryFile() as conf,\
+            tempfile.NamedTemporaryFile() as logconf:
             cfg_parser = test_common.generate_conf_file_contents(kube_config)
             cfg_parser.write(conf)
             conf.flush()
@@ -140,26 +152,26 @@ class KMTestCase(test_common.TestCase):
 
     @staticmethod
     def create_add_namespace_event(name, uid):
-        return KMTestCase.create_namespace_event(name, uid, type='ADDED')
+        return KMTestCase.create_namespace_event(name, uid, 'ADDED')
 
     @staticmethod
     def create_delete_namespace_event(name, uid):
-        return KMTestCase.create_namespace_event(name, uid, type='DELETED')
+        return KMTestCase.create_namespace_event(name, uid, 'DELETED')
 
     @staticmethod
-    def create_namespace_event(name, uid, type):
+    def create_namespace_event(name, uid, event_type):
         return KMTestCase.create_event(
             kind='Namespace',
             spec={},
             meta={
                 'name': name,
                 'uid': uid},
-            type=type)
+            event_type=event_type)
 
     @staticmethod
-    def create_event(kind, spec, meta, type):
+    def create_event(kind, spec, meta, event_type):
         return {
-            'type': type,
+            'type': event_type,
             'object': {
                 'kind': kind,
                 'spec': spec,
@@ -220,27 +232,64 @@ class KMTestCase(test_common.TestCase):
         self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
         return sg_obj
 
-    def create_network(self, name, proj_obj):
+    def _create_network_ipam(self, name, network_type, subnet, proj_obj,
+                             vn_obj=None):
+        ipam_obj = NetworkIpam(name=name, parent_obj=proj_obj)
+        pfx, pfx_len = subnet.split('/')
+        ipam_subnet = IpamSubnetType(subnet=SubnetType(pfx, int(pfx_len)))
+        if network_type == 'flat-subnet':
+            ipam_obj.set_ipam_subnet_method('flat-subnet')
+            ipam_obj.set_ipam_subnets(IpamSubnets([ipam_subnet]))
+        try:
+            self._vnc_lib.network_ipam_create(ipam_obj)
+        except RefsExistError:
+            ipam_obj = self._vnc_lib.network_ipam_read(
+                fq_name=ipam_obj.get_fq_name())
+        if vn_obj:
+            if network_type == 'flat-subnet':
+                vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([]))
+            else:
+                vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([ipam_subnet]))
+        return ipam_obj
+
+    def create_network(self, name, proj_obj, pod_subnet, service_subnet):
         vn = VirtualNetwork(
-            name=name,
-            parent_obj=proj_obj,
+            name=name, parent_obj=proj_obj,
             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
-            address_allocation_mode='flat-subnet-only')
+            address_allocation_mode='user-defined-subnet-only')
+
         try:
             vn_obj = self._vnc_lib.virtual_network_read(
                 fq_name=vn.get_fq_name())
-
         except NoIdError:
             # Virtual network does not exist. Create one.
-            uid = self._vnc_lib.virtual_network_create(vn)
-            vn_obj = self._vnc_lib.virtual_network_read(id=uid)
+            vn_uuid = self._vnc_lib.virtual_network_create(vn)
+            vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
+
+        pod_ipam_obj = self._create_network_ipam('pod-ipam', 'flat-subnet',
+                                                 pod_subnet, proj_obj, vn_obj)
+        self._create_network_ipam('service-ipam', '', service_subnet, proj_obj,
+                                  vn_obj)
+        try:
+            self._vnc_lib.virtual_network_update(vn_obj)
+        except Exception as e:
+            self.logger.error("%s - failed to update virtual network %s %s. %s"
+                              % (self._name, vn_obj.uuid, str(vn_obj.fq_name),
+                                 str(e)))
+
+        vn_obj = self._vnc_lib.virtual_network_read(
+            fq_name=vn_obj.get_fq_name())
+        kube = vnc_kubernetes.VncKubernetes.get_instance()
+        kube._create_cluster_service_fip_pool(vn_obj, pod_ipam_obj)
+
         return vn_obj
 
     def create_virtual_machine(self, name, vn, ipaddress):
         vm_instance = VirtualMachine(name)
         self._vnc_lib.virtual_machine_create(vm_instance)
         fq_name = [name, '0']
-        vmi = VirtualMachineInterface(parent_type='virtual-machine', fq_name=fq_name)
+        vmi = VirtualMachineInterface(parent_type='virtual-machine',
+                                      fq_name=fq_name)
         vmi.set_virtual_network(vn)
         self._vnc_lib.virtual_machine_interface_create(vmi)
         ip = InstanceIp(vm_instance.name + '.0')
