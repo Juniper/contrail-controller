@@ -5,6 +5,7 @@
 #include "config_amqp_client.h"
 
 #include <boost/algorithm/string/find.hpp>
+#include <boost/lexical_cast.hpp>
 #include <stdio.h>
 
 #include <SimpleAmqpClient/SimpleAmqpClient.h>
@@ -149,7 +150,22 @@ void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
             return;
         string uri = amqpclient_->FormAmqpUri();
         try {
-            channel_->CreateFromUri(uri);
+            if (amqpclient_->rabbitmq_use_ssl()) {
+                int port = boost::lexical_cast<int>(
+                        amqpclient_->rabbitmq_port());
+
+                channel_->CreateSecure(
+                    amqpclient_->rabbitmq_ssl_ca_certs(),
+                    amqpclient_->rabbitmq_ip(),
+                    amqpclient_->rabbitmq_ssl_keyfile(),
+                    amqpclient_->rabbitmq_ssl_certfile(),
+                    port,
+                    amqpclient_->rabbitmq_user(),
+                    amqpclient_->rabbitmq_password(),
+                    amqpclient_->rabbitmq_vhost());
+            } else {
+                channel_->CreateFromUri(uri);
+            }
             // passive = false, durable = false, auto_delete = false
             channel_->DeclareExchange("vnc_config.object-update",
               AmqpClient::Channel::EXCHANGE_TYPE_FANOUT, false, false, false);
