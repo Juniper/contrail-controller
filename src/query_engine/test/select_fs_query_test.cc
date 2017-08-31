@@ -16,6 +16,7 @@
 using boost::get;
 using boost::make_tuple;
 
+using ::testing::_;
 using ::testing::Return;
 using ::testing::AnyNumber;
 
@@ -191,7 +192,7 @@ public:
         EXPECT_CALL(aqmock, table())
             .Times(AnyNumber())
             .WillRepeatedly(Return(g_viz_constants.FLOW_SERIES_TABLE));
-        EXPECT_CALL(aqmock, is_object_table_query())
+        EXPECT_CALL(aqmock, is_object_table_query(_))
             .Times(AnyNumber())
             .WillRepeatedly(Return(false));
         EXPECT_CALL(aqmock, is_stat_table_query())

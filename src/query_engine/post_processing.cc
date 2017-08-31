@@ -15,9 +15,9 @@ bool PostProcessingQuery::flow_record_comparator(
                             const QEOpServerProxy::ResultRowT& lhs,
                             const QEOpServerProxy::ResultRowT& rhs) {
     std::map<std::string, std::string>::const_iterator lhs_it, rhs_it;
-    lhs_it = lhs.first.find(g_viz_constants.UUID_KEY);
+    lhs_it = lhs.first.find(g_viz_constants.UUID);
     QE_ASSERT(lhs_it != lhs.first.end());
-    rhs_it = rhs.first.find(g_viz_constants.UUID_KEY);
+    rhs_it = rhs.first.find(g_viz_constants.UUID);
     QE_ASSERT(rhs_it != rhs.first.end());
     if (lhs_it->second < rhs_it->second) return true;
     if (lhs_it->second > rhs_it->second) return false;
