@@ -944,6 +944,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
+    portbindings['VNIC_TYPE_BAREMETAL'] = 'baremetal'
     portbindings['PORT_FILTER'] = True
 
     @staticmethod
@@ -1299,7 +1300,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
-            if (old_vnic_type  != new_vnic_type):
+            if (old_vnic_type != new_vnic_type) and (new_vnic_type != cls.portbindings['VNIC_TYPE_BAREMETAL']):
                 return (False, (409, "Vnic_type can not be modified"))
 
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
