@@ -201,8 +201,8 @@ void ArpEntry::SendArpRequest() {
         vrf_id = nh_vrf_->vrf_id();
         if (vmi->parent()) {
             intf_id = vmi->parent()->id();
-            smac = vmi->parent()->mac();
         }
+        smac = vmi->GetVifMac();
     } else {
         ip = agent->router_id();
         VrfEntry *vrf =
