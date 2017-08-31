@@ -285,7 +285,7 @@ class FloatingIpServer(Resource, FloatingIp):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address")
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
-            return (False, (400, 'Ip address already in use'))
+            return (False, (409, 'Ip address already in use'))
         try:
             fip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
                                                   asked_ip_addr=req_ip,
@@ -357,7 +357,7 @@ class AliasIpServer(Resource, AliasIp):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("alias_ip_address")
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name):
-            return (False, (400, 'Ip address already in use'))
+            return (False, (409, 'Ip address already in use'))
         try:
             aip_addr = cls.addr_mgmt.ip_alloc_req(vn_fq_name,
                                                   asked_ip_addr=req_ip,
@@ -490,7 +490,7 @@ class InstanceIpServer(Resource, InstanceIp):
         if req_ip and cls.addr_mgmt.is_ip_allocated(req_ip, vn_fq_name,
                                                     vn_uuid=vn_id):
             if not cls.addr_mgmt.is_gateway_ip(vn_dict, req_ip):
-                return (False, (400, 'Ip address already in use'))
+                return (False, (409, 'Ip address already in use'))
             elif cls._vmi_has_vm_ref(db_conn, obj_dict):
                 return (False,
                     (400, 'Gateway IP cannot be used by VM port'))
