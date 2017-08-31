@@ -290,6 +290,7 @@ struct query_result_unit_t {
     // stats+UUID after database queries for flow-records WHERE queries
     // stats+UUID+8-tuple afer flow-series WHERE query
     // AttribJSON+UUID for StatsTable queries
+    // key,key2,column1-column19,DATA for messagetablev2
     GenDb::DbDataValueVec info;
 
     // Following APIs will be invoked based on the table being queried
@@ -493,6 +494,11 @@ public:
     WhereQuery(QueryUnit *mq);
     virtual query_status_t process_query();
     virtual void subquery_processed(QueryUnit *subquery);
+    void populate_where_vec(DbQueryUnit *msg_table_db_query,
+                            const std::string query_col,
+                            match_op op,
+                            const std::string value_prefix,
+                            const std::string value);
 
     // filter list to store filters converted from where cluase
     std::vector<std::vector<filter_match_t> > filter_list_;
@@ -906,7 +912,10 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     }
     
     // validation functions
-    static bool is_object_table_query(const std::string& tname);
+    virtual bool is_object_table_query(const std::string tname);
+    bool is_message_table_query(const std::string& tname);
+    bool is_message_table_query();
+
     static bool is_stat_table_query(const std::string& tname);
     static bool is_stat_fieldnames_table_query(const std::string& tname);
     static bool is_session_query(const std::string& tname); // either flow-series or flow-records query
@@ -1059,4 +1068,8 @@ private:
 void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
     boost::uuids::uuid *u, flow_stats *stats, flow_tuple *tuple);
 
+std::string MsgTableQueryColumnToColumn(const std::string cfname,
+                                        const std::string query_column);
+std::string MsgTableColumnToQueryColumn(const std::string cfname,
+                                        const std::string columnN);
 #endif
