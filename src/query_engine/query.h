@@ -8,18 +8,34 @@
  * 
  * Overall the data structure heirarchy is as following:
  *
+ *                          |-- QueryUnit
+ *                                  |-- process_query()
+ *                                  |-- subquery_processed()
+ *                                  |-- sub_queries
+ *                                  |-- query_result
+ *                                  |-- parent_query
+ *                                  |-- main_query
  * AnalyticsQuery--
  *                |
  *                |--SelectQuery
+ *                |         |-- QueryUnit
+ *                |         |-- process_query()
+ *                |         |-- fs_query_type_
+ *                |         |-- process_fs_query_callback
+ *                |         |-- populate_fs_result_callback
+ *                |         |-- process_fs_query_cb_map_t
+ *                |         |-- populate_fs_result_cb_map_t 
  *                |
  *                |--PostProcessingQuery
  *                |
  *                |--WhereQuery (multiple ANDs)
  *                       |
- *                       |-DbQueryUnit
- *                       |
- *                       |-DbQueryUnit
- *                       ...
+ *                       |-QueryUnit
+ *                       |-QueryUnit
+ *                       |-- process_query()
+ *                       |-- subquery_processed()
+ *                       |-- where_result_
+ *                       |-- where_query_cb_
  *
  */
 #ifndef QUERY_H_
@@ -289,6 +305,7 @@ struct query_result_unit_t {
     // stats+UUID after database queries for flow-records WHERE queries
     // stats+UUID+8-tuple afer flow-series WHERE query
     // AttribJSON+UUID for StatsTable queries
+    // key,key2,column1-column19,DATA for messagetablev2
     GenDb::DbDataValueVec info;
 
     // Following APIs will be invoked based on the table being queried
@@ -379,6 +396,7 @@ struct GetRowInput {
     GenDb::DbDataValueVec rowkey;
     std::string cfname;
     GenDb::ColumnNameRange crange;
+    GenDb::WhereIndexInfoVec where_vec;
     int chunk_no;
     std::string qid;
     int sub_qid;
@@ -407,6 +425,7 @@ public:
     // getrangeslice operations on Cassandra DB. For e.g. 
     // NOT_EQUAL operation will be two getrangeslice operation
     GenDb::ColumnNameRange cr;
+    GenDb::WhereIndexInfoVec where_vec;
     // row key suffix will be used to append DIR to flow 
     // series/records query
     GenDb::DbDataValueVec row_key_suffix;
@@ -419,6 +438,7 @@ public:
         tbb::atomic<uint32_t> total_rows;
         std::string cf_name;
         GenDb::ColumnNameRange cr;
+        GenDb::WhereIndexInfoVec where_vec;
         std::vector<GenDb::DbDataValueVec> keys;
     };
 
@@ -440,7 +460,8 @@ public:
     void WPCompleteCb(QEPipeT *wp, bool ret_code);
     std::vector<GenDb::DbDataValueVec> populate_row_keys();
     bool PipelineCb(std::string &, GenDb::DbDataValueVec &,
-        GenDb::ColumnNameRange &, GetRowInput *, void *);
+        GenDb::ColumnNameRange &, GenDb::WhereIndexInfoVec &,
+        GetRowInput *, void *);
     bool query_fetch_error;
 };
 

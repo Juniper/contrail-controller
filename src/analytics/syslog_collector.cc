@@ -502,6 +502,7 @@ int SyslogParser::GetPID(syslog_m_t v) {
 void SyslogParser::MakeSandesh (syslog_m_t v) {
     SandeshHeader hdr;
     std::string   ip(GetMapVals(v, "ip", ""));
+    boost::asio::ip::address ip_address;
 
     hdr.set_Timestamp(GetMapVal(v, "timestamp", 0));
     hdr.set_Module(GetModule(v));
@@ -509,7 +510,8 @@ void SyslogParser::MakeSandesh (syslog_m_t v) {
     hdr.set_Type(SandeshType::SYSLOG);
     hdr.set_Level(GetMapVal(v, "severity", 0));
     hdr.set_Category(GetFacility(v));
-    hdr.set_IPAddress(ip);
+    ip_address = boost::asio::ip::address_v4::from_string(ip);
+    hdr.set_IPAddress(ip_address);
 
     int pid = GetPID(v);
     if (pid >= 0)

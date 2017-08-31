@@ -5,6 +5,8 @@
 #include <testing/gunit.h>
 #include <base/time_util.h>
 #include <base/string_util.h>
+#include <database/gendb_constants.h>
+#include <database/gendb_if.h>
 #include "../utils.h"
 
 class UtilsTest : public ::testing::Test {

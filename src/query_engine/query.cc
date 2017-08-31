@@ -294,7 +294,7 @@ PostProcessingQuery::PostProcessingQuery(
     // add filter to filter query engine logs if requested
     if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
             (((AnalyticsQuery *)main_query)->table() == 
-             g_viz_constants.COLLECTOR_GLOBAL_TABLE)) {
+             g_viz_constants.COLLECTOR_GLOBAL_TABLE2)) {
         QE_TRACE(DEBUG,  " Adding filter for QE logs");
         filter_match_t filter;
         filter.name = g_viz_constants.MODULE;
@@ -451,6 +451,9 @@ void AnalyticsQuery::Init(std::string qid,
 
         //strip " from the passed string
         table_ = iter->second.substr(1, iter->second.size()-2);
+        if (!table_.compare("MessageTable")) {
+            table_.assign(g_viz_constants.COLLECTOR_GLOBAL_TABLE2);
+        }
 
         // boost::to_upper(table);
         QE_TRACE(DEBUG,  " table is " << table_);
@@ -507,7 +510,8 @@ void AnalyticsQuery::Init(std::string qid,
 
     if (is_stat_fieldnames_table_query(table_)) {
         uint64_t time_period = (end_time_ - from_time_); /* in usec */
-        uint64_t cache_time = (1 << (g_viz_constants.RowTimeInBits + g_viz_constants.CacheTimeInAdditionalBits));
+        uint64_t cache_time = (1 << (g_viz_constants.RowTimeInBits +
+                                     g_viz_constants.CacheTimeInAdditionalBits));
         if (time_period < cache_time) {
             uint64_t diff_time_usec = (cache_time - time_period);
             from_time_ = from_time_ - diff_time_usec;
@@ -1461,7 +1465,7 @@ bool AnalyticsQuery::is_flow_query(const std::string & tname)
 bool AnalyticsQuery::is_object_table_query(const std::string & tname)
 {
     return (
-        (tname != g_viz_constants.COLLECTOR_GLOBAL_TABLE) &&
+        (tname != g_viz_constants.COLLECTOR_GLOBAL_TABLE2) &&
         (tname != g_viz_constants.FLOW_TABLE) &&
         (tname != g_viz_constants.FLOW_SERIES_TABLE) &&
         (tname != g_viz_constants.OBJECT_VALUE_TABLE) &&

@@ -385,7 +385,7 @@ class LogQuerier(object):
         # Object logs :
         # --object-type <> : All logs for the particular object type
         # --object-type <> --object-values : Object-id values for the particular
-        #     object tye
+        #     object type
         # --object-type <> --object-id <> : All logs matching object-id for
         #     particular object type
         if (self._args.object_type is not None or

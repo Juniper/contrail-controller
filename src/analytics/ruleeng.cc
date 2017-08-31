@@ -548,7 +548,7 @@ static bool DomTopStatWalker(const pugi::xml_node& object,
  * Write to the objectlog accordingly
  */
 static size_t DomObjectWalk(const pugi::xml_node& parent, const VizMsg *rmsg,
-        DbHandler *db, uint64_t timestamp,
+        DbHandler *db, uint64_t timestamp, ObjectNamesVec &object_names,
         GenDb::GenDbIf::DbAddColumnCb db_cb) {
     std::map<std::string, std::string> keymap;
     std::map<std::string, std::string>::iterator it;
@@ -560,7 +560,10 @@ static size_t DomObjectWalk(const pugi::xml_node& parent, const VizMsg *rmsg,
          node = node.next_sibling()) {
         table = node.attribute("key").value();
         nodetype = node.attribute("type").value();
-        if (strcmp(table, "") && strcmp(nodetype, "")) { //check if Sandesh node has a map attribute; key type of map should not be extracted, only key value of attribute should be extracted 
+        if (strcmp(table, "") && strcmp(nodetype, "")) {
+            // check if Sandesh node has a map attribute;
+            // key type of map should not be extracted,
+            // only key value of attribute should be extracted 
             rowkey = std::string(node.child_value());
             TXMLProtocol::unescapeXMLControlChars(rowkey);
             it = keymap.find(table);
@@ -578,10 +581,14 @@ static size_t DomObjectWalk(const pugi::xml_node& parent, const VizMsg *rmsg,
     for (it = keymap.begin(); it != keymap.end(); it++) {
         db->ObjectTableInsert(it->first, it->second, 
             timestamp, rmsg->unm, rmsg, db_cb);
+        std::string tempstr(it->first);
+        tempstr.append(":");
+        tempstr.append(it->second);
+        object_names.push_back(tempstr);
     }
     for (pugi::xml_node node = parent.first_child(); node;
          node = node.next_sibling()) {
-        DomObjectWalk(node, rmsg, db, timestamp, db_cb);
+        DomObjectWalk(node, rmsg, db, timestamp, object_names, db_cb);
     }
     return keymap.size();
 }
@@ -593,7 +600,7 @@ static size_t DomObjectWalk(const pugi::xml_node& parent, const VizMsg *rmsg,
  * field
  */
 void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg,
-        DbHandler *db, const SandeshHeader &header,
+        DbHandler *db, const SandeshHeader &header, ObjectNamesVec &object_names,
         GenDb::GenDbIf::DbAddColumnCb db_cb) {
     if (!(header.get_Hints() & g_sandesh_constants.SANDESH_KEY_HINT)) {
         return;
@@ -606,7 +613,7 @@ void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg
     std::string node_type(header.get_NodeType());
     SandeshType::type sandesh_type(header.get_Type());
 
-    DomObjectWalk(parent, rmsg, db, timestamp, db_cb);
+    DomObjectWalk(parent, rmsg, db, timestamp, object_names, db_cb);
 
     // UVE related stats are not processed here. See handle_uve_publish.
     if (sandesh_type == SandeshType::UVE) {
@@ -854,6 +861,7 @@ bool Ruleeng::handle_flow_object(const pugi::xml_node &parent,
 
 bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
+    ObjectNamesVec object_names;
     const SandeshXMLMessage *sxmsg =
         static_cast<const SandeshXMLMessage *>(vmsgp->msg);
     const SandeshHeader &header(sxmsg->GetHeader());
@@ -865,10 +873,13 @@ bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
     if (db->DropMessage(header, vmsgp)) {
         return true;
     }
-    // Insert into the message and message index tables
-    db->MessageTableInsert(vmsgp, db_cb);
 
-    handle_object_log(parent, vmsgp, db, header, db_cb);
+    // 1. make entry in OBJECT_VALUE_TABLE if needed
+    // 2. get object-type:name{1-6}
+    handle_object_log(parent, vmsgp, db, header, object_names, db_cb);
+
+    // Insert into the message table
+    db->MessageTableInsert(vmsgp, object_names, db_cb);
 
     if (uveproc) handle_uve_statistics(parent, vmsgp, db, header, db_cb);
 

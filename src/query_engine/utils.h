@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 bool parse_time(const std::string& relative_time, uint64_t *usec_time);
+GenDb::Op::type get_gendb_op_from_op(int op);
 
 
 #endif //SRC_QUERY_ENGINE_UTILS_H_
