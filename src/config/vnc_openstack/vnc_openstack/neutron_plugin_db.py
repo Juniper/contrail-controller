@@ -1891,7 +1891,7 @@ class DBInterface(object):
                                                    subnet_id=pvt_subnet_id,
                                                    external_network_id=ext_vn_obj.uuid,
                                                    port_id=port_id)
-        else:
+        elif 'port_id' in fip_q:
             fip_obj.set_virtual_machine_interface_list([])
 
         if fixed_ip_address and port_id:
