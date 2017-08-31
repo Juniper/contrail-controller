@@ -353,7 +353,7 @@ def check_svc(svc, initd_svc=False, check_return_code=False,
         if options:
             status = get_svc_uve_info(svc, status, options.debug,
                 options.detail, options.timeout, options.keyfile,
-                options.cacert, options.certfile)
+                options.certfile, options.cafile)
         print '{0:<30}{1:<20}{2}'.format(psvc, status, bootstatus)
     else:
         if svc in SHOW_IF_DISABLED and SHOW_IF_DISABLED[svc] == False:
