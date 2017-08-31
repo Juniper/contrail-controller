@@ -69,6 +69,7 @@ class VrouterPortControl(object):
                 r = requests.post(url, data=json_dump, headers=headers)
                 '''Overwrite the ret_code based on agent response '''
                 if r.status_code != 200:
+                    print "Request failed: %s" % r.text
                     ret_code = 4
                 else:
                     ret_code = 0
@@ -92,6 +93,7 @@ class VrouterPortControl(object):
             try:
                 r = requests.delete(url, data=None, headers=headers)
                 if r.status_code != 200:
+                    print "Request failed: %s" % r.text
                     ret_code = 1
             except ConnectionError:
                 pass
