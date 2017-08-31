@@ -86,6 +86,7 @@ public:
 
     typedef std::map<std::string, Var > AttribMap;
     typedef std::multimap<std::string, std::pair<Var, AttribMap> > TagMap;
+    typedef std::vector<std::string> ObjectNamesVec;
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
         std::string name,
@@ -110,6 +111,7 @@ public:
     void GetRuleMap(RuleMap& rulemap);
 
     virtual void MessageTableInsert(const VizMsg *vmsgp,
+        const ObjectNamesVec &object_names,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
         uint64_t &timestamp, const boost::uuids::uuid& unm,
@@ -204,10 +206,7 @@ private:
         const std::string& field_val, int ttl,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     void MessageTableOnlyInsert(const VizMsg *vmsgp,
-        GenDb::GenDbIf::DbAddColumnCb db_cb);
-    bool MessageIndexTableInsert(const std::string& cfname,
-        const SandeshHeader& header, const std::string& message_type,
-        const boost::uuids::uuid& unm, const std::string keyword,
+        const ObjectNamesVec &object_names,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool AllowMessageTableInsert(const SandeshHeader &header);
     bool CreateTables();
@@ -368,5 +367,9 @@ public:
 private:
     T &values_;
 };
+
+std::string PrependT2(uint32_t T2, const std::string &str);
+boost::system::error_code ColIndexModeToString(ColIndexMode::type index_mode,
+                                               std::string &mode);
 
 #endif /* DB_HANDLER_H_ */

@@ -304,7 +304,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
                 Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.COLLECTOR_GLOBAL_TABLE),
+                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE),
                         Field(&GenDb::ColList::rowkey_, rowkey),
                         Field(&GenDb::ColList::columns_, msg_table_expected_vector)))))
         .Times(1)
@@ -362,7 +362,7 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertConfigAuditTest) {
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
                 Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.COLLECTOR_GLOBAL_TABLE),
+                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE),
                         Field(&GenDb::ColList::rowkey_, rowkey),
                         Field(&GenDb::ColList::columns_, msg_table_expected_vector)))))
         .Times(1)
@@ -459,7 +459,7 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
             Db_AddColumnProxy(
                 Pointee(
                     AllOf(Field(&GenDb::ColList::cfname_,
-                        g_viz_constants.COLLECTOR_GLOBAL_TABLE),
+                        g_viz_constants.MESSAGE_TABLE),
                         Field(&GenDb::ColList::rowkey_, rowkey),
                         Field(&GenDb::ColList::columns_,
                             msg_table_expected_vector)))))
@@ -638,7 +638,8 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
         EXPECT_CALL(*dbif_mock(),
                 Db_AddColumnProxy(
                     Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.OBJECT_TABLE), 
+                        AllOf(Field(&GenDb::ColList::cfname_,
+                                    g_viz_constants.MESSAGE_TABLE),
                             Field(&GenDb::ColList::rowkey_, rowkey),
                             Field(&GenDb::ColList::columns_,
                                 expected_vector)))))

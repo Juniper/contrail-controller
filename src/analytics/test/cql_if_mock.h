@@ -41,6 +41,10 @@ class CqlIfMock : public cass::cql::CqlIf {
     MOCK_METHOD5(Db_GetRowAsync, bool(const std::string& cfname,
         const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
         GenDb::DbConsistency::type dconsistency, DbGetRowCb cb));
+   MOCK_METHOD6(Db_GetRowAsync, bool(const std::string& cfname,
+        const GenDb::DbDataValueVec& rowkey, const GenDb::ColumnNameRange &crange,
+        const GenDb::WhereIndexInfoVec& where_vec,
+        GenDb::DbConsistency::type dconsistency, DbGetRowCb cb));
 };
 
 #endif // ANALYTICS_TEST_CQL_IF_MOCK_H_
