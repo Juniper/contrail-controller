@@ -27,7 +27,7 @@ public:
     MOCK_CONST_METHOD0(direction_ing, uint32_t());
     MOCK_METHOD0(where_query_result, 
                  std::vector<query_result_unit_t>&());
-    MOCK_METHOD0(is_object_table_query, bool());
+    MOCK_METHOD1(is_object_table_query, bool(std::string));
     MOCK_METHOD0(is_stat_table_query, bool());
     MOCK_METHOD0(is_flow_query, bool());
     MOCK_METHOD0(is_session_query, bool());

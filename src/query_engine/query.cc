@@ -307,9 +307,8 @@ PostProcessingQuery::PostProcessingQuery(
     }
 
     // add filter to filter query engine logs if requested
-    if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
-            (((AnalyticsQuery *)main_query)->table() == 
-             g_viz_constants.COLLECTOR_GLOBAL_TABLE)) {
+    if (((AnalyticsQuery *)main_query)->filter_qe_logs &&
+        ((AnalyticsQuery *)main_query)->is_message_table_query()) {
         QE_TRACE(DEBUG,  " Adding filter for QE logs");
         filter_match_t filter;
         filter.name = g_viz_constants.MODULE;
@@ -478,6 +477,9 @@ void AnalyticsQuery::Init(const std::string& qid,
 
         //strip " from the passed string
         table_ = iter->second.substr(1, iter->second.size()-2);
+        if (!table_.compare(g_viz_constants.MESSAGE_TABLE)) {
+            table_ = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
+        }
 
         // boost::to_upper(table);
         QE_TRACE(DEBUG,  " table is " << table_);
@@ -534,7 +536,8 @@ void AnalyticsQuery::Init(const std::string& qid,
 
     if (is_stat_fieldnames_table_query(table_)) {
         uint64_t time_period = (end_time_ - from_time_); /* in usec */
-        uint64_t cache_time = (1 << (g_viz_constants.RowTimeInBits + g_viz_constants.CacheTimeInAdditionalBits));
+        uint64_t cache_time = (1 << (g_viz_constants.RowTimeInBits +
+                                     g_viz_constants.CacheTimeInAdditionalBits));
         if (time_period < cache_time) {
             uint64_t diff_time_usec = (cache_time - time_period);
             from_time_ = from_time_ - diff_time_usec;
@@ -1538,7 +1541,17 @@ bool AnalyticsQuery::is_flow_query(const std::string & tname)
 }
 
 // validation functions
-bool AnalyticsQuery::is_object_table_query(const std::string & tname)
+bool AnalyticsQuery::is_message_table_query(const std::string & tname)
+{
+    return (tname == g_viz_constants.COLLECTOR_GLOBAL_TABLE);
+}
+
+bool AnalyticsQuery::is_message_table_query()
+{
+    return (table_ == g_viz_constants.COLLECTOR_GLOBAL_TABLE);
+}
+
+bool AnalyticsQuery::is_object_table_query(const std::string tname)
 {
     return (
         (tname != g_viz_constants.COLLECTOR_GLOBAL_TABLE) &&
@@ -1710,3 +1723,18 @@ void ShowQEDbStatsReq::HandleRequest() const {
     resp->Response();
 }
 
+// Input params are valid.
+// No need to add extra validity check.
+std::string MsgTableQueryColumnToColumn(const std::string cfname,
+                                        const std::string query_column) {
+    return (g_viz_constants._VIZD_TABLE_SCHEMA.find(cfname))\
+            ->second.query_column_to_column.find(query_column)->second;
+}
+
+// Input params are valid.
+// No need to add extra validity check.
+std::string MsgTableColumnToQueryColumn(const std::string cfname,
+                                        const std::string columnN) {
+    return (g_viz_constants._VIZD_TABLE_SCHEMA.find(cfname))\
+            ->second.column_to_query_column.find(columnN)->second;
+}

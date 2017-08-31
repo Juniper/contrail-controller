@@ -628,7 +628,6 @@ public:
                                          inp.inp.table,     // table
                                          qs);
 
-                    //g_viz_constants.COLLECTOR_GLOBAL_TABLE 
                     QE_LOG_NOQID(INFO, "Finished: QID " << ret.inp.qp.qid <<
                         " Table " << inp.inp.table <<
                         " Time(ms) " << qtime <<
