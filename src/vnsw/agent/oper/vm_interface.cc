@@ -1575,6 +1575,7 @@ void VmInterface::FloatingIp::Copy(const Agent *agent,
 
     if (vrf_.get() == NULL)
         vrf_ = table->FindVrfRef(vrf_name_);
+    ethernet_tag_ = vmi->ethernet_tag();
 
     return;
 }
