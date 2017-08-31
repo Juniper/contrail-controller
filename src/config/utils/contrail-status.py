@@ -634,7 +634,8 @@ def contrail_service_status(nodetype, options):
             check_status(svc_name, options)
     elif (nodetype == 'kubemanager'):
         print "== Contrail Kube Manager =="
-        for svc_name in CONTRAIL_SERVICES[nodetype][init_sys_used]:
+        local_init_sys_used = 'systemd' if distribution == 'redhat' else init_sys_used
+        for svc_name in CONTRAIL_SERVICES[nodetype][local_init_sys_used]:
             check_status(svc_name, options)
     elif (nodetype == 'support-service' and (distribution == 'debian' or \
             distribution == 'ubuntu')):
