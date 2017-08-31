@@ -1050,6 +1050,71 @@ class TestBasic(test_case.NeutronBackendTestCase):
                     is_admin=True,
                 )
                 self.assertEqual(len(router_interfaces2), 2)
+
+    def test_update_any_other_fields_in_fip_doesnt_disassociate(self):
+        proj_obj = vnc_api.Project('proj-%s' %(self.id()), vnc_api.Domain())
+        self._vnc_lib.project_create(proj_obj)
+        proj_id = proj_obj.uuid
+        # external network
+        net_q = self.create_resource('network', proj_id,
+                                      extra_res_fields={'router:external':True})
+        subnet_q = self.create_resource('subnet', proj_id,
+                                         extra_res_fields=
+                                         {'network_id': net_q['id'],
+                                          'cidr': '10.2.0.0/24',
+                                          'ip_version': 4})
+
+        # private network
+        pvt_net_q = self.create_resource(
+            'network', proj_id,
+            extra_res_fields={'port_security_enabled': True},
+        )
+        pvt_subnet_q = self.create_resource('subnet', proj_id,
+                                             extra_res_fields=
+                                             {'network_id': pvt_net_q['id'],
+                                              'cidr': '20.1.0.0/24',
+                                              'ip_version': 4})
+
+        sg_q = self.create_resource('security_group', proj_id)
+        port_q = self.create_resource('port', proj_id,
+                                       extra_res_fields=
+                                       {'network_id':
+                                        pvt_subnet_q['network_id'],
+                                        'security_groups': [sg_q['id']]})
+
+        fip_q = self.create_resource('floatingip', proj_id,
+                                      extra_res_fields=
+                                      {'floating_network_id': net_q['id'],
+                                       'port_id': port_q['id']})
+
+        # Updating description
+        self.update_resource('floatingip', fip_q['id'], proj_id,
+                             extra_res_fields={'description':'test-fip'})
+        fip_dict = self.read_resource('floatingip', fip_q['id'])
+        self.assertEqual(fip_dict['port_id'], port_q['id'])
+
+        # Disassociate fip from port
+        self.update_resource('floatingip', fip_q['id'], proj_id,
+                             extra_res_fields={'port_id': []})
+        fip_dict = self.read_resource('floatingip', fip_q['id'])
+        self.assertEqual(fip_dict['port_id'], None)
+
+        # Associate fip to port
+        self.update_resource('floatingip', fip_q['id'], proj_id,
+                             extra_res_fields={'port_id': port_q['id']})
+        fip_dict = self.read_resource('floatingip', fip_q['id'])
+        self.assertEqual(fip_dict['port_id'], port_q['id'])
+
+        # cleanup
+        self.delete_resource('floatingip', proj_id, fip_q['id'])
+        self.delete_resource('port', proj_id, port_q['id'])
+        self.delete_resource('subnet', proj_id, subnet_q['id'])
+        self.delete_resource('subnet', proj_id, pvt_subnet_q['id'])
+        self.delete_resource('security_group', proj_id, sg_q['id'])
+        self.delete_resource('network', proj_id, net_q['id'])
+        self.delete_resource('network', proj_id, pvt_net_q['id'])
+    # end test_update_any_other_fields_in_fip_doesnt_disassociate
+
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
