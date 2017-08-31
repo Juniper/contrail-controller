@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/tuple/tuple.hpp>
+#include <boost/foreach.hpp>
 #include "query.h"
 #include "base/work_pipeline.h"
 
@@ -41,13 +43,14 @@ ExternalBase::Efn DbQueryUnit::QueryExec(uint32_t inst,
         ip_ctx->rowkey = cinp.keys[current_row];
         ip_ctx->cfname = cinp.cf_name;
         ip_ctx->crange = cinp.cr;
+        ip_ctx->where_vec = cinp.where_vec;
         ip_ctx->chunk_no = m_query->parallel_batch_num;
         ip_ctx->qid = m_query->query_id;
         ip_ctx->sub_qid = sub_query_id;
         ip_ctx->row_no = current_row;
         ip_ctx->inst = inst;
         return boost::bind(&DbQueryUnit::PipelineCb, this, cinp.cf_name,
-            cinp.keys[current_row], cinp.cr, ip_ctx, _1);
+            cinp.keys[current_row], cinp.cr, cinp.where_vec, ip_ctx, _1);
     } else {
         // done processing fetching all rows
         return NULL;
@@ -55,12 +58,24 @@ ExternalBase::Efn DbQueryUnit::QueryExec(uint32_t inst,
 }
 
 bool DbQueryUnit::PipelineCb(std::string &cfname, GenDb::DbDataValueVec &rowkey,
-                           GenDb::ColumnNameRange &cr, GetRowInput * ip_ctx, void *privdata) {
+                           GenDb::ColumnNameRange &cr,
+                           GenDb::WhereIndexInfoVec &where_vec,
+                           GetRowInput * ip_ctx, void *privdata) {
+
+    // prepend T2: to value in each tuple in where_vec
+    std::string T2_string = GenDb::DbDataValueToString(rowkey.at(0));
+    BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, where_vec) {
+        std::string tempstr(T2_string);
+        tempstr.append(":");
+        tempstr.append(GenDb::DbDataValueToString(where_info.get<2>()));
+        where_info.get<2>() = tempstr;
+    }
+
     /*
      *  Call GetRowAsync, with args prepopulated
      */
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    return m_query->dbif_->Db_GetRowAsync(cfname, rowkey, cr,
+    return m_query->dbif_->Db_GetRowAsync(cfname, rowkey, cr, where_vec,
         GenDb::DbConsistency::LOCAL_ONE,
         boost::bind(&DbQueryUnit::cb, this, _1, _2, ip_ctx, privdata));
 }
@@ -113,9 +128,7 @@ std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
         GenDb::DbDataValueVec rowkey;
 
         rowkey.push_back(t2);
-        if (m_query->is_stat_table_query(m_query->table()) ||
-                (m_query->is_object_table_query(m_query->table()) && 
-                 cfname == g_viz_constants.OBJECT_TABLE)) {
+        if (m_query->is_stat_table_query(m_query->table())) {
             uint8_t partition_no = 0;
             rowkey.push_back(partition_no);
         }
@@ -143,7 +156,7 @@ std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
                 }
             }
 
-            // If querying message_index_tables, partion_no is an additional row_key
+            // If querying message_index_tables, partition_no is an additional row_key
             // It spans values 0..15
             if (t_only_col) {
                 for (uint8_t part_no = (uint8_t)g_viz_constants.PARTITION_MIN;
@@ -180,6 +193,7 @@ query_status_t DbQueryUnit::process_query()
             << t2_start
             << " T2_end:" << t2_end
             << " cf:" << cfname
+            << " where_vec size:" << where_vec.size()
             << " column_start size:" << cr.start_.size()
             << " column_end size:" << cr.finish_.size());
     std::vector<GenDb::DbDataValueVec> keys = populate_row_keys();
@@ -203,6 +217,7 @@ query_status_t DbQueryUnit::process_query()
     inp.get()->total_rows = keys.size();
     inp.get()->cf_name = cfname;
     inp.get()->cr = cr;
+    inp.get()->where_vec = where_vec;
     inp.get()->keys = keys;
     // Start the pipeline with callback and input
     wp->Start(boost::bind(&DbQueryUnit::WPCompleteCb, this, wp, _1), inp);
@@ -219,7 +234,7 @@ void DbQueryUnit::WPCompleteCb(QEPipeT *wp, bool ret_code) {
     //copy pipeline output to DbQueryUnit query_output
     query_result = (res->query_result);
     int size = res->query_result->size();
-    QE_TRACE(DEBUG,  " Database query completed with Async"
+    QE_TRACE(DEBUG,  " Database query completed with Async "
             << size << " rows");
     // Have the result ready and processing is done
     // sort the result before returning
@@ -361,26 +376,55 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
                 // If message index table uuid is not the value, but
                 // column name
                 if (t_only_col) {
-                    GenDb::DbDataValueVec uuid_val;
-                    uuid_val.push_back(i->name->at(i->name->size() - 1)                             );
-                    result_unit.info = uuid_val;
+                    // cassandra returns fields in the ascending order by column-name.
+                    // pushing fields in order as per schema.
+                    // rowkey[0] = key
+                    // rowkey[1] = key2
+                    // name[0] = column1
+                    // name[1] = column2
+                    // value[0] = column10
+                    // value[1] = column11
+                    // value[2] = column12
+                    // value[3] = column13
+                    // value[4] = column14
+                    // value[5] = column15
+                    // value[6] = column16
+                    // value[7] = column17
+                    // value[8] = column18
+                    // value[9] = column19
+                    // value[10] = column3
+                    // value[11] = column4
+                    // value[12] = column5
+                    // value[13] = column6
+                    // value[14] = column7
+                    // value[15] = column8
+                    // value[16] = column9
+                    // value[17] = DATA
+                    GenDb::DbDataValueVec val = gri.get()->rowkey;
+                    result_unit.info.push_back(val.at(0));
+                    result_unit.info.push_back(val.at(1));
+                    result_unit.info.push_back(i->name->at(0));
+                    result_unit.info.push_back(i->name->at(1));
+                    result_unit.info.push_back(i->value->at(10));
+                    result_unit.info.push_back(i->value->at(11));
+                    result_unit.info.push_back(i->value->at(12));
+                    result_unit.info.push_back(i->value->at(13));
+                    result_unit.info.push_back(i->value->at(14));
+                    result_unit.info.push_back(i->value->at(15));
+                    result_unit.info.push_back(i->value->at(16));
+                    result_unit.info.push_back(i->value->at(0));
+                    result_unit.info.push_back(i->value->at(1));
+                    result_unit.info.push_back(i->value->at(2));
+                    result_unit.info.push_back(i->value->at(3));
+                    result_unit.info.push_back(i->value->at(4));
+                    result_unit.info.push_back(i->value->at(5));
+                    result_unit.info.push_back(i->value->at(6));
+                    result_unit.info.push_back(i->value->at(7));
+                    result_unit.info.push_back(i->value->at(8));
+                    result_unit.info.push_back(i->value->at(9));
+                    result_unit.info.push_back(i->value->at(17));
                 } else {
-                    if (m_query->is_object_table_query(m_query->table())) {
-                        boost::uuids::uuid uuid;
-                        try {
-                            uuid = boost::get<boost::uuids::uuid>
-                                   (i->value->at(0));
-                        } catch (boost::bad_get& ex) {
-                            QE_ASSERT(0);
-                        }
-                        GenDb::DbDataValueVec uuid_obj_id_val;
-                        uuid_obj_id_val.push_back(uuid);
-                        // should correspond to object_id
-                        uuid_obj_id_val.push_back(i->name->at(0));
-                        result_unit.info = uuid_obj_id_val;
-                    } else {
-                        result_unit.info = *i->value;
-                    }
+                    result_unit.info = *i->value;
                 }
             }
             q_result_ptr->push_back(result_unit);

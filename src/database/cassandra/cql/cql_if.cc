@@ -11,6 +11,11 @@
 #include <boost/unordered_map.hpp>
 #include <boost/system/error_code.hpp>
 
+#include <boost/bind.hpp>
+#include <boost/foreach.hpp>
+#include <boost/assign/list_of.hpp>
+#include <boost/asio/ip/host_name.hpp>
+#include <boost/uuid/name_generator.hpp>
 #include <cassandra.h>
 
 #include <base/logging.h>
@@ -18,6 +23,7 @@
 #include <base/timer.h>
 #include <base/string_util.h>
 #include <io/event_manager.h>
+#include <analytics/viz_constants.h>
 #include <database/gendb_if.h>
 #include <database/gendb_constants.h>
 #include <database/cassandra/cql/cql_if.h>
@@ -350,6 +356,7 @@ class CassStatementNameBinder : public boost::static_visitor<> {
         statement_(statement) {
     }
     void operator()(const boost::blank &tblank, const char *name) const {
+        // should this be removed, not hitting
         assert(false && "CassStatement bind to boost::blank not supported");
     }
     void operator()(const std::string &tstring, const char *name) const {
@@ -669,10 +676,12 @@ std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
     int cn_size(cnames.size());
     for (int i = 0; i < cn_size; i++) {
         int cnum(i + 1);
-        query << ", column" << cnum;
-        boost::apply_visitor(values_printer, cnames[i]);
-        if (i != cn_size - 1) {
-            values_ss << ", ";
+        if (cnames.at(i).which() != GenDb::DB_VALUE_BLANK) {
+            query << ", column" << cnum;
+            boost::apply_visitor(values_printer, cnames[i]);
+            if (i != cn_size - 1) {
+                values_ss << ", ";
+            }
         }
     }
     // Column Values
@@ -969,6 +978,9 @@ static std::string CassSelectFromTableInternal(const std::string &table,
         }
         if (ck_range.count_) {
             query << " LIMIT " << ck_range.count_;
+        }
+        if (where_vec.size() > 1) {
+            query << " ALLOW FILTERING";
         }
     }
 
@@ -2072,8 +2084,12 @@ bool CqlIfImpl::InsertIntoTablePrepareAsync(std::auto_ptr<GenDb::ColList> v_colu
         cb);
 }
 
+// COLLECTOR_GLOBAL_TABLE is dynamic table with 6 indexed columns
+// for object-id. Some of these might be blank. This creates tombstones
+// so we dont want to prepare for inserts.
 bool CqlIfImpl::IsInsertIntoTablePrepareSupported(const std::string &table) {
-    return IsTableDynamic(table);
+    return IsTableDynamic(table) &&
+           table.compare("MessageTablev2"); // todo
 }
 
 bool CqlIfImpl::SelectFromTableSync(const std::string &cfname,

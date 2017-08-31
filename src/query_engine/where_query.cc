@@ -4,11 +4,21 @@
 
 #include <cstdlib>
 #include <limits> 
-#include "rapidjson/document.h"
-#include "query.h"
-#include "json_parse.h"
-#include "stats_query.h"
+#include <string> 
+#include <sstream> 
+#include <bits/stdc++.h>
+#include <boost/foreach.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
+#include "rapidjson/document.h"
+#include "json_parse.h"
+#include <base/string_util.h>
+#include <database/gendb_constants.h>
+#include <database/gendb_if.h>
+#include "utils.h"
+#include "query.h"
+#include "stats_query.h"
+
+using std::string;
 
 static std::string ToString(const contrail_rapidjson::Value& value_value) {
     std::string svalue;
@@ -425,8 +435,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
 
         //TBD not sure if this will work for Message table or Object Log
-        if (m_query->table() == g_viz_constants.COLLECTOR_GLOBAL_TABLE) {
-            db_query->cfname = g_viz_constants.MESSAGE_TABLE_TIMESTAMP;
+        if (m_query->is_message_table_query()) {
+            db_query->cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
             db_query->t_only_col = true;
             db_query->t_only_row = true;
         } else if 
@@ -445,14 +455,10 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
         } else if (m_query->is_object_table_query(m_query->table())) {
             // These values will encompass all possible ascii strings in their range
-            GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
 
-            db_query->cfname = g_viz_constants.OBJECT_TABLE;
-            db_query->row_key_suffix.push_back(m_query->table());
-
-            // Added object id to column
-            db_query->cr.start_.push_back(value);
-            db_query->cr.finish_.push_back(value2);
+            db_query->cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
+            db_query->t_only_col = true;
+            db_query->t_only_row = true;
 
             QE_TRACE(DEBUG, "where * for object table" << m_query->table());
         }
@@ -504,366 +510,366 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         bool dport_match = false; GenDb::DbDataValue dport, dport2; int dport_op = 0;
         bool object_id_specified = false;
 
-        for (contrail_rapidjson::SizeType j = 0; j < json_or_node.Size(); j++)
-        {
-            QE_PARSE_ERROR((json_or_node[j].HasMember(WHERE_MATCH_NAME) &&
-                json_or_node[j].HasMember(WHERE_MATCH_VALUE) &&
-                json_or_node[j].HasMember(WHERE_MATCH_OP)));
-            const contrail_rapidjson::Value& name_value = 
-                json_or_node[j][WHERE_MATCH_NAME];
-            const contrail_rapidjson::Value&  value_value = 
-                json_or_node[j][WHERE_MATCH_VALUE];
-            const contrail_rapidjson::Value& op_value = 
-                json_or_node[j][WHERE_MATCH_OP];
+        // All where parameter entries are treated as AND.
+        // So they are in the same msg_table_db_query object.
+        if (m_query->is_message_table_query() ||
+            m_query->is_object_table_query(m_query->table())) {
 
-            // do some validation checks
-            QE_INVALIDARG_ERROR(name_value.IsString());
-            QE_INVALIDARG_ERROR
-                ((value_value.IsString() || value_value.IsNumber()));
-            QE_INVALIDARG_ERROR(op_value.IsNumber());
+            DbQueryUnit *msg_table_db_query = new DbQueryUnit(this, main_query);
+            msg_table_db_query->cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
+            msg_table_db_query->t_only_row = true;
+            msg_table_db_query->t_only_col = true;
 
-            std::string name = name_value.GetString();
-            QE_INVALIDARG_ERROR(m_query->is_valid_where_field(name));
-
-            // extract value after type conversion
-            std::string value;
+            for (contrail_rapidjson::SizeType j = 0; j < json_or_node.Size(); j++)
             {
-                if (value_value.IsString())
+                QE_PARSE_ERROR((json_or_node[j].HasMember(WHERE_MATCH_NAME) &&
+                    json_or_node[j].HasMember(WHERE_MATCH_VALUE) &&
+                    json_or_node[j].HasMember(WHERE_MATCH_OP)));
+                const contrail_rapidjson::Value& name_value =
+                    json_or_node[j][WHERE_MATCH_NAME];
+                const contrail_rapidjson::Value&  value_value =
+                    json_or_node[j][WHERE_MATCH_VALUE];
+                const contrail_rapidjson::Value& op_value =
+                    json_or_node[j][WHERE_MATCH_OP];
+
+                // do some validation checks
+                QE_INVALIDARG_ERROR(name_value.IsString());
+                QE_INVALIDARG_ERROR
+                    ((value_value.IsString() || value_value.IsNumber()));
+                QE_INVALIDARG_ERROR(op_value.IsNumber());
+
+                std::string name = name_value.GetString();
+                QE_INVALIDARG_ERROR(m_query->is_valid_where_field(name));
+
+                // extract value after type conversion
+                std::string value;
                 {
-                    value = value_value.GetString();
-                } else if (value_value.IsInt()){
-                    int int_value;
-                    std::ostringstream convert;
-                    int_value = value_value.GetInt();
-                    convert << int_value;
-                    value = convert.str();
-                } else if (value_value.IsUint()) {
-                    uint32_t uint_value;
-                    std::ostringstream convert;
-                    uint_value = value_value.GetUint();
-                    convert << uint_value;
-                    value = convert.str();
-                } else if (value_value.IsDouble()) {
-                    double dbl_value;
-                    std::ostringstream convert;
-                    dbl_value = value_value.GetDouble();
-                    convert << dbl_value;
-                    value = convert.str();
+                    if (value_value.IsString())
+                    {
+                        value = value_value.GetString();
+                    } else if (value_value.IsInt()){
+                        int int_value;
+                        std::ostringstream convert;
+                        int_value = value_value.GetInt();
+                        convert << int_value;
+                        value = convert.str();
+                    } else if (value_value.IsUint()) {
+                        uint32_t uint_value;
+                        std::ostringstream convert;
+                        uint_value = value_value.GetUint();
+                        convert << uint_value;
+                        value = convert.str();
+                    } else if (value_value.IsDouble()) {
+                        double dbl_value;
+                        std::ostringstream convert;
+                        dbl_value = value_value.GetDouble();
+                        convert << dbl_value;
+                        value = convert.str();
+                    }
                 }
-            }
 
-            match_op op = (match_op)op_value.GetInt();
+                match_op op = (match_op)op_value.GetInt();
 
-            name = get_column_name(name); // Get actual Cassandra name
-           
-            // this is for range queries
-            std::string value2;
-            if (op == IN_RANGE)
-            {
-                QE_PARSE_ERROR(json_or_node[j].HasMember(WHERE_MATCH_VALUE2));
-                const contrail_rapidjson::Value&  value_value2 = 
-                json_or_node[j][WHERE_MATCH_VALUE2];
+                name = get_column_name(name); // Get actual Cassandra name
 
-                // extract value2 after type conversion
-                if (value_value2.IsString())
+                // this is for range queries
+                std::string value2;
+                if (op == IN_RANGE)
                 {
-                    value2 = value_value2.GetString();
-                } else if (value_value2.IsInt()){
-                    int int_value;
-                    std::ostringstream convert;
-                    int_value = value_value2.GetInt();
-                    convert << int_value;
-                    value2 = convert.str();
-                } else if (value_value2.IsUint()) {
-                    uint32_t uint_value;
-                    std::ostringstream convert;
-                    uint_value = value_value2.GetUint();
-                    convert << uint_value;
-                    value2 = convert.str();
-                } else if (value_value2.IsDouble()) {
-                    double dbl_value;
-                    std::ostringstream convert;
-                    dbl_value = value_value2.GetDouble();
-                    convert << dbl_value;
-                    value2 = convert.str();
-                }
-            }
+                    QE_PARSE_ERROR(json_or_node[j].HasMember(WHERE_MATCH_VALUE2));
+                    const contrail_rapidjson::Value&  value_value2 =
+                    json_or_node[j][WHERE_MATCH_VALUE2];
 
-            bool isStat = m_query->is_stat_table_query(m_query->table());
-            if ((name == g_viz_constants.SOURCE) && (!isStat))
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-
-                db_query->cfname = g_viz_constants.MESSAGE_TABLE_SOURCE;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
-                QE_TRACE(DEBUG, "where match term for source " << value);
-            }
-
-            if ((name == g_viz_constants.KEYWORD) && (!isStat))
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-
-                db_query->cfname = g_viz_constants.MESSAGE_TABLE_KEYWORD;
-                db_query->t_only_col = true;
-
-                boost::algorithm::to_lower(value);
-
-                // only EQUAL & Prefix op supported currently
-                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
-                QE_TRACE(DEBUG, "where match term for source " << value);
-            }
-
-            if ((name == g_viz_constants.MODULE) && (!isStat))
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-                db_query->cfname = g_viz_constants.MESSAGE_TABLE_MODULE_ID;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
+                    // extract value2 after type conversion
+                    if (value_value2.IsString())
+                    {
+                        value2 = value_value2.GetString();
+                    } else if (value_value2.IsInt()){
+                        int int_value;
+                        std::ostringstream convert;
+                        int_value = value_value2.GetInt();
+                        convert << int_value;
+                        value2 = convert.str();
+                    } else if (value_value2.IsUint()) {
+                        uint32_t uint_value;
+                        std::ostringstream convert;
+                        uint_value = value_value2.GetUint();
+                        convert << uint_value;
+                        value2 = convert.str();
+                    } else if (value_value2.IsDouble()) {
+                        double dbl_value;
+                        std::ostringstream convert;
+                        dbl_value = value_value2.GetDouble();
+                        convert << dbl_value;
+                        value2 = convert.str();
+                    }
                 }
 
-                // dont filter query engine logs if the query is about query
-                // engine
-                if (value == m_query->sandesh_moduleid)
-                    m_query->filter_qe_logs = false;
-
-                QE_TRACE(DEBUG, "where match term for module " << value);
-            }
- 
-            if ((name == g_viz_constants.MESSAGE_TYPE) && (!isStat))
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-                db_query->cfname = 
-                    g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
-
-                QE_TRACE(DEBUG, "where match term for msg-type " << value);
-            }
-  
-            if ((name == g_viz_constants.CATEGORY) && (!isStat))
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-                db_query->cfname = 
-                    g_viz_constants.MESSAGE_TABLE_CATEGORY;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
-
-                QE_TRACE(DEBUG, "where match term for msg-type " << value);
-            }
-
-            if (name == OBJECTID)
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-                GenDb::DbDataValue value2 = value;
-
-                db_query->cfname = g_viz_constants.OBJECT_TABLE;
-                db_query->row_key_suffix.push_back(m_query->table());
-
-                // only EQUAL or PREFIX op supported currently 
-                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-                if (op == PREFIX)
+                bool isStat = m_query->is_stat_table_query(m_query->table());
+                if ((name == g_viz_constants.SOURCE) && (!isStat))
                 {
-                    value2 = value + "\x7f";
+                    // only EQUAL op supported currently
+                    QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
+                    populate_where_vec(msg_table_db_query, name, op,
+                                       std::string(""), value);
+
+                    QE_TRACE(DEBUG, "where match term for source " << value);
                 }
 
-                // Added object id to column
-                db_query->cr.start_.push_back(value);
-                db_query->cr.finish_.push_back(value2);
 
-                QE_TRACE(DEBUG, "where match term for objectid " << value);
-                object_id_specified = true;
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
-            {
-                vr_match = true; vr_op = op; 
-                vr = value;
-                if (vr_op == PREFIX)
+                if ((name == g_viz_constants.MODULE) && (!isStat))
                 {
-                    vr2 = value + "\x7f";
+                    // only EQUAL op supported currently
+                    QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
+                    populate_where_vec(msg_table_db_query, name, op,
+                                       std::string(""), value);
+
+                    // dont filter query engine logs if the query is about query
+                    // engine
+                    if (value == m_query->sandesh_moduleid)
+                        m_query->filter_qe_logs = false;
+
+                    QE_TRACE(DEBUG, "where match term for module " << value);
                 }
-                QE_INVALIDARG_ERROR((vr_op == EQUAL)||(vr_op == PREFIX));
 
-                QE_TRACE(DEBUG, "where match term for vrouter " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN])
-            {
-                svn_match = true; svn_op = op; 
-                svn = value;
-                if (svn_op == PREFIX)
+                if ((name == g_viz_constants.MESSAGE_TYPE) && (!isStat))
                 {
-                    svn2 = value + "\x7f";
+                    // only EQUAL op supported currently
+                    QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
+                    populate_where_vec(msg_table_db_query, name, op,
+                                       std::string(""), value);
+
+                    QE_TRACE(DEBUG, "where match term for msg-type " << value);
                 }
-                QE_INVALIDARG_ERROR((svn_op == EQUAL)||(svn_op == PREFIX));
 
-                QE_TRACE(DEBUG, "where match term for sourcevn " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP])
-            {
-                sip_match = true; sip_op = op;
-                boost::system::error_code ec;
-                sip = IpAddress::from_string(value, ec);
-                QE_INVALIDARG_ERROR(ec == 0);
-                QE_TRACE(DEBUG, "where match term for sourceip " << value);
-                if (sip_op == IN_RANGE)
+                if (name == OBJECTID)
                 {
+                    // only EQUAL or PREFIX op supported currently
+                    QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
+
+                    // Object-id is saved in column6-11 in MessageTablev2 in the format
+                    // T2:ObjectType:ObjectId
+                    // T2: is prefixed later, we need to prefix ObjectType: here.
+                    std::string value_prefix = m_query->table();
+                    value_prefix.append(":");
+
+                    std::string col_name = g_viz_constants.OBJECT_TYPE_NAME1;
+                    populate_where_vec(msg_table_db_query, col_name, op,
+                                       value_prefix, value);
+
+                    QE_TRACE(DEBUG, "where match term for objectid " << value);
+                    object_id_specified = true;
+                }
+
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
+                {
+                    vr_match = true; vr_op = op;
+                    vr = value;
+                    if (vr_op == PREFIX)
+                    {
+                        vr2 = value + "\x7f";
+                    }
+                    QE_INVALIDARG_ERROR((vr_op == EQUAL)||(vr_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for vrouter " << value);
+                }
+
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN])
+                {
+                    svn_match = true; svn_op = op;
+                    svn = value;
+                    if (svn_op == PREFIX)
+                    {
+                        svn2 = value + "\x7f";
+                    }
+                    QE_INVALIDARG_ERROR((svn_op == EQUAL)||(svn_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for sourcevn " << value);
+                }
+
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP])
+                {
+                    sip_match = true; sip_op = op;
                     boost::system::error_code ec;
-                    sip2 = IpAddress::from_string(value2, ec);
+                    sip = IpAddress::from_string(value, ec);
                     QE_INVALIDARG_ERROR(ec == 0);
-                } else {
-                    QE_INVALIDARG_ERROR(sip_op == EQUAL);
-                }
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN])
-            {
-                dvn_match = true; dvn_op = op; 
-                dvn = value;
-                if (dvn_op == PREFIX)
-                {
-                    dvn2 = value + "\x7f";
+                    QE_TRACE(DEBUG, "where match term for sourceip " << value);
+                    if (sip_op == IN_RANGE)
+                    {
+                        boost::system::error_code ec;
+                        sip2 = IpAddress::from_string(value2, ec);
+                        QE_INVALIDARG_ERROR(ec == 0);
+                    } else {
+                        QE_INVALIDARG_ERROR(sip_op == EQUAL);
+                    }
                 }
 
-                QE_INVALIDARG_ERROR((dvn_op == EQUAL)||(dvn_op == PREFIX));
-
-                QE_TRACE(DEBUG, "where match term for destvn " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP])
-            {
-                dip_match = true; dip_op = op; dip = value;
-                boost::system::error_code ec;
-                dip = IpAddress::from_string(value, ec);
-                QE_INVALIDARG_ERROR(ec == 0);
-                QE_TRACE(DEBUG, "where match term for destip " << value);
-                if (dip_op == IN_RANGE)
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN])
                 {
+                    dvn_match = true; dvn_op = op;
+                    dvn = value;
+                    if (dvn_op == PREFIX)
+                    {
+                        dvn2 = value + "\x7f";
+                    }
+
+                    QE_INVALIDARG_ERROR((dvn_op == EQUAL)||(dvn_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for destvn " << value);
+                }
+
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP])
+                {
+                    dip_match = true; dip_op = op; dip = value;
                     boost::system::error_code ec;
-                    dip2 = IpAddress::from_string(value2, ec);
+                    dip = IpAddress::from_string(value, ec);
                     QE_INVALIDARG_ERROR(ec == 0);
-                } else {
-                    QE_INVALIDARG_ERROR(dip_op == EQUAL);
+                    QE_TRACE(DEBUG, "where match term for destip " << value);
+                    if (dip_op == IN_RANGE)
+                    {
+                        boost::system::error_code ec;
+                        dip2 = IpAddress::from_string(value2, ec);
+                        QE_INVALIDARG_ERROR(ec == 0);
+                    } else {
+                        QE_INVALIDARG_ERROR(dip_op == EQUAL);
+                    }
+
                 }
 
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL])
-            {
-                proto_match = true; proto_op = op;
-
-                uint16_t proto_value;
-                std::istringstream(value) >> proto_value;
-                proto = (uint8_t)proto_value;
-                if (proto_op == IN_RANGE)
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL])
                 {
-                    uint16_t proto_value2;
-                    std::istringstream(value2) >> proto_value2;
-                    proto2 = (uint8_t)proto_value2;
-                } else {
-                    QE_INVALIDARG_ERROR(proto_op == EQUAL);
+                    proto_match = true; proto_op = op;
+
+                    uint16_t proto_value;
+                    std::istringstream(value) >> proto_value;
+                    proto = (uint8_t)proto_value;
+                    if (proto_op == IN_RANGE)
+                    {
+                        uint16_t proto_value2;
+                        std::istringstream(value2) >> proto_value2;
+                        proto2 = (uint8_t)proto_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(proto_op == EQUAL);
+                    }
+
+                    QE_TRACE(DEBUG, "where match term for proto_value " << value);
                 }
 
-                QE_TRACE(DEBUG, "where match term for proto_value " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT])
-            {
-                sport_match = true; sport_op = op;
-
-                uint16_t sport_value;
-                std::istringstream(value) >> sport_value;
-
-                sport = sport_value;
-                if (sport_op == IN_RANGE)
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT])
                 {
-                    uint16_t sport_value2;
-                    std::istringstream(value2) >> sport_value2;
-                    sport2 = sport_value2;
-                } else {
-                    QE_INVALIDARG_ERROR(sport_op == EQUAL);
+                    sport_match = true; sport_op = op;
+
+                    uint16_t sport_value;
+                    std::istringstream(value) >> sport_value;
+
+                    sport = sport_value;
+                    if (sport_op == IN_RANGE)
+                    {
+                        uint16_t sport_value2;
+                        std::istringstream(value2) >> sport_value2;
+                        sport2 = sport_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(sport_op == EQUAL);
+                    }
+
+                    QE_TRACE(DEBUG, "where match term for sport " << value);
                 }
 
-                QE_TRACE(DEBUG, "where match term for sport " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT])
-            {
-                dport_match = true; dport_op = op; 
-
-                uint16_t dport_value;
-                std::istringstream(value) >> dport_value;
-                dport = dport_value;
-                if (dport_op == IN_RANGE)
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT])
                 {
-                    uint16_t dport_value2;
-                    std::istringstream(value2) >> dport_value2;
-                    dport2 = dport_value2;
-                } else {
-                    QE_INVALIDARG_ERROR(dport_op == EQUAL);
+                    dport_match = true; dport_op = op;
+
+                    uint16_t dport_value;
+                    std::istringstream(value) >> dport_value;
+                    dport = dport_value;
+                    if (dport_op == IN_RANGE)
+                    {
+                        uint16_t dport_value2;
+                        std::istringstream(value2) >> dport_value2;
+                        dport2 = dport_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(dport_op == EQUAL);
+                    }
+
+                    QE_TRACE(DEBUG, "where match term for dport " << value);
                 }
 
-                QE_TRACE(DEBUG, "where match term for dport " << value);
+                if (isStat)
+                {
+                    StatTermProcess(json_or_node[j], this, main_query);
+                    object_id_specified = true;
+                }
             }
 
-            if (isStat)
-            {
-                StatTermProcess(json_or_node[j], this, main_query);
-                object_id_specified = true;
+            // We need to cover 2 cases here in MessageTablev2
+            // (a) --object-type is specified without any --object-id
+            // (b) --object-type and --object-id are specified
+
+            // (a) ObjectTypeValue fields are stored in following format
+            //  T2:ObjectType:ObjectId
+            //  We need to query for T2:ObjectType*
+            // (b) We have 6 columns to save OBJECTID.
+            // Any OBJECTID could be in any of the 6 columns.
+            // For OBJECTID query, we need to check each of the 6 columns.
+            // Since its an OR operation, we need to create 6 queries, one
+            // for each column.
+            // Combining (a) & (b) we end up creating 6 queries with different column names.
+            if (m_query->is_object_table_query(m_query->table())) {
+                std::string column1 =
+                    (g_viz_constants._VIZD_TABLE_SCHEMA.find(msg_table_db_query->cfname))\
+                        ->second.query_column_to_column.find(g_viz_constants.OBJECT_TYPE_NAME1)->second;
+                if (object_id_specified == false) {
+                    // create msg_table_db_query entry for OBJECT_TYPE_NAME1
+                    // as done for OBJECTID case above.
+                    // rest falls in place with --object-id case.
+                    match_op op = PREFIX;
+                    std::string value2 = m_query->table();
+                    value2.append(":");
+                    if (op == PREFIX)
+                    {
+                        value2.append("%");
+                    }
+                    GenDb::WhereIndexInfo where_info =
+                            boost::make_tuple(column1, get_gendb_op_from_op(op), value2);
+                    msg_table_db_query->where_vec.push_back(where_info);
+                }
+
+                // regular --object-id processing from here
+                int index = 0;
+                BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, msg_table_db_query->where_vec) {
+                    if (!column1.compare(where_info.get<0>())) {
+                        break;
+                    }
+                    index++;
+                }
+
+                // OBJECT_TYPE_NAME1 is already done above
+                for (int i = 2;
+                     i <= g_viz_constants.MSG_TABLE_MAX_OBJECTS_PER_MSG;
+                     i++) {
+                    DbQueryUnit *msg_table_db_query2 = new DbQueryUnit(this, main_query);
+                    msg_table_db_query2->cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
+                    msg_table_db_query2->t_only_row = true;
+                    msg_table_db_query2->t_only_col = true;
+
+                    // msg_table_db_query2->where_vec = msg_table_db_query->where_vec;
+                    BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, msg_table_db_query->where_vec) {
+                        GenDb::WhereIndexInfo where_info2 =
+                                boost::make_tuple(where_info.get<0>(),
+                                                  where_info.get<1>(),
+                                                  where_info.get<2>());
+                        msg_table_db_query2->where_vec.push_back(where_info2);
+                    }
+
+                    GenDb::WhereIndexInfo *where_info2 = &msg_table_db_query2->where_vec[index];
+                    std::string col_name = "ObjectTypeName";
+                    col_name.append(integerToString(i));
+
+                    std::string columnN =
+                        (g_viz_constants._VIZD_TABLE_SCHEMA.find(msg_table_db_query2->cfname))\
+                            ->second.query_column_to_column.find(col_name)->second;
+                    where_info2->get<0>() = columnN;
+                }
             }
         }
 
@@ -1109,8 +1115,12 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
             where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
             return;
         }
-        SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
-            *where_result_, inp);
+        if (m_query->is_object_table_query(m_query->table())) {
+            SetOperationUnit::op_or(((AnalyticsQuery *)(this->main_query))->query_id, *where_result_, inp);
+        } else {
+            SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id, *where_result_, inp);
+        }
+        
         m_query->query_status = query_status;
 
         QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
@@ -1183,4 +1193,22 @@ query_status_t WhereQuery::process_query()
         }
     }
     return query_status;
+}
+
+void WhereQuery::populate_where_vec(DbQueryUnit *msg_table_db_query,
+                                    const std::string query_col, 
+                                    match_op op,
+                                    const std::string value_prefix,
+                                    const std::string value)
+{
+    std::string value2 = value_prefix;
+    value2.append(value);
+    if (op == PREFIX) {
+        value2.append("%");
+    }
+    std::string columnN = MsgTableQueryColumnToColumn(
+                                    msg_table_db_query->cfname, query_col);
+    GenDb::WhereIndexInfo where_info =
+            boost::make_tuple(columnN, get_gendb_op_from_op(op), value2);
+    msg_table_db_query->where_vec.push_back(where_info);
 }

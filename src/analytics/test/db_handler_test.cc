@@ -8,6 +8,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/ptr_list_of.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <boost/foreach.hpp>
 
 #include <testing/gunit.h>
 #include <base/logging.h>
@@ -123,26 +124,19 @@ public:
 protected:
     SandeshMessageBuilder *builder_;
     boost::uuids::random_generator rgen_;
+    DbHandler::ObjectNamesVec object_names;
 
     void DbAddColumnCbFn(bool success) {
         assert(success);
     }
 
     void MessageTableOnlyInsert(const VizMsg *vmsgp) {
-        db_handler()->MessageTableOnlyInsert(vmsgp,
+        db_handler()->MessageTableOnlyInsert(vmsgp, object_names,
             boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
     }
 
     void MessageTableInsert(const VizMsg *vmsgp) {
-        db_handler()->MessageTableInsert(vmsgp,
-            boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
-    }
-
-    void MessageIndexTableInsert(const std::string& cfname,
-        const SandeshHeader& header, const std::string& message_type,
-        const boost::uuids::uuid& unm, const std::string keyword) {
-        db_handler()->MessageIndexTableInsert(cfname, header, message_type,
-            unm, keyword,
+        db_handler()->MessageTableInsert(vmsgp, object_names,
             boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
     }
 
@@ -166,6 +160,11 @@ protected:
             boost::bind(&DbHandlerTest::DbAddColumnCbFn, this, _1));
     }
 
+    boost::shared_ptr<GenDb::ColList> MessageTablePrepareMsg(
+                                            SandeshXMLMessageTest *msg,
+                                            SandeshHeader &hdr,
+                                            boost::uuids::uuid &unm,
+                                            std::string messagetype);
 
 private:
     CqlIfMock *dbif_mock_;
@@ -173,88 +172,133 @@ private:
     DbHandlerCacheParam db_handler_cache_param_;
 };
 
+boost::shared_ptr<GenDb::ColList> DbHandlerTest::MessageTablePrepareMsg(
+                                                        SandeshXMLMessageTest *msg,
+                                                        SandeshHeader &hdr,
+                                                        boost::uuids::uuid &unm,
+                                                        std::string messagetype) {
 
+    boost::shared_ptr<GenDb::ColList> col_list(new GenDb::ColList);
+    col_list->cfname_ = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
+    uint64_t timestamp = hdr.get_Timestamp();
+    uint32_t T2(timestamp >> g_viz_constants.RowTimeInBits);
+    uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
+    boost::system::error_code ec;
 
-class DbHandlerMsgKeywordInsertTest : public ::testing::Test {
-public:
-    DbHandlerMsgKeywordInsertTest() :
-        builder_(SandeshXMLMessageTestBuilder::GetInstance()) {
+    // Rowkey
+    GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
+    rowkey.reserve(2);
+    rowkey.push_back(T2);
+    rowkey.push_back(static_cast<uint32_t>(0));
+
+    // Columns
+    GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
+    col_name->reserve(20);
+    col_name->push_back(T1);
+    col_name->push_back(unm);
+
+    // Prepend T2: to secondary index columns
+    col_name->push_back(PrependT2(T2, hdr.get_Source()));
+    col_name->push_back(PrependT2(T2, messagetype));
+    col_name->push_back(PrependT2(T2, hdr.get_Module()));
+    object_names.clear();
+    object_names.push_back("ObjectCollectorInfo:host01");
+    object_names.push_back("ObjectCollectorInfo:host02");
+    BOOST_FOREACH(const std::string &object_name, object_names) {
+        col_name->push_back(PrependT2(T2, object_name));
     }
-
-    ~DbHandlerMsgKeywordInsertTest() {
+    // Set the value as BLANK for remaining entries if
+    // object_names.size() < MSG_TABLE_MAX_OBJECTS_PER_MSG
+    for (int i = object_names.size();
+         i < g_viz_constants.MSG_TABLE_MAX_OBJECTS_PER_MSG; i++) {
+        col_name->push_back(GenDb::DbDataValue());
     }
-
-    virtual void SetUp() {
-        evm_.reset(new EventManager());
-        cassandra_options_.cassandra_ips_.push_back("127.0.0.1");
-        cassandra_options_.cassandra_ports_.push_back(9160);
-        cassandra_options_.ttlmap_ = ttl_map;
-        cassandra_options_.disable_all_db_writes_ = false;
-        cassandra_options_.disable_db_messages_keyword_writes_ = true;
-
-        db_handler_.reset(new DbHandler(evm_.get(), boost::bind(&DbHandler::UnInit, db_handler_.get()),
-                                     "localhost",
-                                     cassandra_options_,
-                                     "",
-                                     false,
-                                     false,
-                                     DbWriteOptions(),
-                                     std::vector<std::string>(),
-                                     VncApiConfig()));
-        udc_mock_ = new UserDefinedCountersMock(db_handler_->cfgdb_connection_);
-        db_handler_->udc_.reset(udc_mock_);
-
+    if (hdr.__isset.IPAddress) {
+        boost::system::error_code ec;
+        IpAddress ipaddr(IpAddress::from_string(hdr.get_IPAddress(), ec));
+        col_name->push_back(ipaddr);
+    } else {
+        col_name->push_back(GenDb::DbDataValue());
     }
-
-    virtual void TearDown() {
-        evm_.reset();
+    if (hdr.__isset.Pid) {
+        col_name->push_back((uint32_t)hdr.get_Pid());
+    } else {
+        col_name->push_back(GenDb::DbDataValue());
     }
+    col_name->push_back(hdr.get_Category());
+    col_name->push_back((uint32_t)hdr.get_Level());
+    col_name->push_back(hdr.get_NodeType());
+    col_name->push_back(hdr.get_InstanceId());
+    col_name->push_back((uint32_t)hdr.get_SequenceNum());
+    col_name->push_back((uint8_t)hdr.get_Type());
+    GenDb::DbDataValueVec *col_value(new GenDb::DbDataValueVec(1,
+        msg->ExtractMessage()));
+    int ttl = ttl_map.find(TtlType::GLOBAL_TTL)->second*3600;
+    GenDb::NewCol *col(new GenDb::NewCol(col_name, col_value, ttl));
+    GenDb::NewColVec& columns = col_list->columns_;
+    columns.reserve(1);
+    columns.push_back(col);
 
-    UserDefinedCountersMock* udc_mock() {
-        return udc_mock_;
-    }
-
-protected:
-    void MessageTableKeywordInsert(const VizMsg *vmsgp) {
-        return db_handler_->MessageTableKeywordInsert(vmsgp, NULL);
-    }
-
-    SandeshMessageBuilder *builder_;
-    boost::uuids::random_generator rgen_;
-
-private:
-    Options::Cassandra cassandra_options_;
-    boost::scoped_ptr<DbHandler> db_handler_;
-    UserDefinedCountersMock* udc_mock_;
-    boost::scoped_ptr<EventManager> evm_; 
-};
+    return col_list;
+}
 
 SandeshXMLMessageTestBuilder
     SandeshXMLMessageTestBuilder::instance_;
 
-TEST_F(DbHandlerMsgKeywordInsertTest, MessageKeywordInsertTest) {
-    SandeshHeader hdr;
-    hdr.set_Source("127.0.0.1");
-    hdr.set_Module("VizdTest");
-    hdr.set_InstanceId("Test");
-    hdr.set_NodeType("Test");
-    hdr.set_Timestamp(UTCTimestampUsec());
-    std::string xmlmessage = "<SandeshAsyncTest2 type=\"sandesh\"><file type=\"string\" identifier=\"-32768\">src/analytics/test/viz_collector_test.cc</file><line type=\"i32\" identifier=\"-32767\">80</line><f1 type=\"struct\" identifier=\"1\"><SAT2_struct><f1 type=\"string\" identifier=\"1\">sat2string101</f1><f2 type=\"i32\" identifier=\"2\">101</f2></SAT2_struct></f1><f2 type=\"i32\" identifier=\"2\">101</f2></SandeshAsyncTest2>";
 
-    SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
-        builder_->Create(
-            reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
-            xmlmessage.size()));
-    msg->SetHeader(hdr);
-    boost::uuids::uuid unm(rgen_());
-    VizMsg vmsgp(msg, unm);
-    vmsgp.keyword_doc_ = "test regex pattern";
+MATCHER_P(RowKeyEq, rowkey, "") {
+    bool match(arg.size() == rowkey.size());
+    if (!match) {
+        *result_listener << "Row key size: actual: " << arg.size() <<
+            ", expected: " << rowkey.size();
+        return match;
+    }
+    for (size_t i = 0; i < arg.size(); i++) {
+       // Don't compare the partition
+       if (i == 1) {
+           continue;
+       }
+       // boost::variant does not provide operator!=
+       if (!(arg[i] == rowkey[i])) {
+           *result_listener << "Row key element [" << i << "] actual:"
+               << arg[i] << ", expected: " << rowkey[i];
+           match = false;
+       }
+    }
+    return match;
+}
 
-    EXPECT_CALL(*udc_mock(), MatchFilter(_,_)).Times(1);
-    MessageTableKeywordInsert(&vmsgp);
- 
-    vmsgp.msg = NULL;
-    delete msg;
+MATCHER_P(ColumnMatcherEqMessageTable, ecolumns, "") {
+    bool match(arg.size() == ecolumns.size());
+    if (!match) {
+        *result_listener << "Column size: actual: " << arg.size() <<
+            ", expected: " << ecolumns.size();
+        return match;
+    }
+
+    GenDb::DbDataValueVec* acol = arg[0].name.get();
+    GenDb::DbDataValueVec* ecol = ecolumns[0].name.get();
+
+    match = acol->size() == ecol->size();
+
+    if (!match) {
+        *result_listener << "colname size: actual: " << acol->size() <<
+            ", expected: " << ecol->size();
+        return match;
+    }
+    for (size_t i = 0; i < acol->size(); i++) {
+        if (!(acol->at(i) == ecol->at(i))) {
+            *result_listener << "colname element [" << i << "] actual:"
+                << acol->at(i) << ", expected: " << ecol->at(i);
+            return false;
+        }
+    }
+
+    GenDb::DbDataValueVec* aval = arg[0].value.get();
+    GenDb::DbDataValueVec* eval = ecolumns[0].value.get();
+
+    match = aval->size() == eval->size();
+    return match;
 }
 
 TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
@@ -276,37 +320,14 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
     boost::uuids::uuid unm(rgen_());
     VizMsg vmsgp(msg, unm);
 
-    GenDb::DbDataValueVec rowkey;
-    rowkey.push_back(unm);
-
-    int ttl = ttl_map.find(TtlType::GLOBAL_TTL)->second*3600;
-    boost::ptr_vector<GenDb::NewCol> msg_table_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(g_viz_constants.SOURCE, hdr.get_Source(), ttl))
-        (GenDb::NewCol(g_viz_constants.NAMESPACE, std::string(), ttl))
-        (GenDb::NewCol(g_viz_constants.MODULE, hdr.get_Module(), ttl))
-        (GenDb::NewCol(g_viz_constants.INSTANCE_ID, hdr.get_InstanceId(), ttl))
-        (GenDb::NewCol(g_viz_constants.NODE_TYPE, hdr.get_NodeType(), ttl))
-        (GenDb::NewCol(g_viz_constants.TIMESTAMP,
-            static_cast<uint64_t>(hdr.get_Timestamp()), ttl))
-        (GenDb::NewCol(g_viz_constants.CATEGORY, std::string(), ttl))
-        (GenDb::NewCol(g_viz_constants.LEVEL,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.MESSAGE_TYPE, messagetype, ttl))
-        (GenDb::NewCol(g_viz_constants.SEQUENCE_NUM,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.VERSION,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
-            static_cast<uint8_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.DATA, xmlmessage, ttl));
-
+    boost::shared_ptr<GenDb::ColList> col_list = MessageTablePrepareMsg(msg, hdr, unm, messagetype);
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
                 Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.COLLECTOR_GLOBAL_TABLE),
-                        Field(&GenDb::ColList::rowkey_, rowkey),
-                        Field(&GenDb::ColList::columns_, msg_table_expected_vector)))))
+                    AllOf(Field(&GenDb::ColList::cfname_, col_list->cfname_),
+                        Field(&GenDb::ColList::rowkey_, RowKeyEq(col_list->rowkey_)),
+                        Field(&GenDb::ColList::columns_,
+                              ColumnMatcherEqMessageTable(col_list->columns_))))))
         .Times(1)
         .WillOnce(Return(true));
 
@@ -334,37 +355,14 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertConfigAuditTest) {
     boost::uuids::uuid unm(rgen_());
     VizMsg vmsgp(msg, unm);
 
-    GenDb::DbDataValueVec rowkey;
-    rowkey.push_back(unm);
-
-    int ttl = ttl_map.find(TtlType::CONFIGAUDIT_TTL)->second*3600;
-    boost::ptr_vector<GenDb::NewCol> msg_table_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(g_viz_constants.SOURCE, hdr.get_Source(), ttl))
-        (GenDb::NewCol(g_viz_constants.NAMESPACE, std::string(), ttl))
-        (GenDb::NewCol(g_viz_constants.MODULE, hdr.get_Module(), ttl))
-        (GenDb::NewCol(g_viz_constants.INSTANCE_ID, hdr.get_InstanceId(), ttl))
-        (GenDb::NewCol(g_viz_constants.NODE_TYPE, hdr.get_NodeType(), ttl))
-        (GenDb::NewCol(g_viz_constants.TIMESTAMP,
-            static_cast<uint64_t>(hdr.get_Timestamp()), ttl))
-        (GenDb::NewCol(g_viz_constants.CATEGORY, std::string(), ttl))
-        (GenDb::NewCol(g_viz_constants.LEVEL,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.MESSAGE_TYPE, messagetype, ttl))
-        (GenDb::NewCol(g_viz_constants.SEQUENCE_NUM,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.VERSION,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
-            static_cast<uint8_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.DATA, xmlmessage, ttl));
-
+    boost::shared_ptr<GenDb::ColList> col_list = MessageTablePrepareMsg(msg, hdr, unm, messagetype);
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
                 Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.COLLECTOR_GLOBAL_TABLE),
-                        Field(&GenDb::ColList::rowkey_, rowkey),
-                        Field(&GenDb::ColList::columns_, msg_table_expected_vector)))))
+                    AllOf(Field(&GenDb::ColList::cfname_, col_list->cfname_),
+                        Field(&GenDb::ColList::rowkey_, RowKeyEq(col_list->rowkey_)),
+                        Field(&GenDb::ColList::columns_,
+                              ColumnMatcherEqMessageTable(col_list->columns_))))))
         .Times(1)
         .WillOnce(Return(true));
 
@@ -373,52 +371,15 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertConfigAuditTest) {
     delete msg;
 }
 
-TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
-    SandeshHeader hdr;
-
-    hdr.set_Source("127.0.0.1");
-    hdr.set_Timestamp(UTCTimestampUsec());
-    boost::uuids::uuid unm(rgen_());
-
-    int ttl = ttl_map.find(TtlType::GLOBAL_TTL)->second*3600;
-
-    DbDataValueVec *colname(new DbDataValueVec());
-    colname->reserve(3);
-    colname->push_back(hdr.get_Source());
-    colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-    colname->push_back(unm);
-
-    DbDataValueVec *colvalue(new DbDataValueVec());
-    boost::ptr_vector<GenDb::NewCol> idx_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(colname, colvalue, ttl));
-    GenDb::DbDataValueVec src_idx_rowkey;
-    src_idx_rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
-    uint8_t partition_no = 1;
-    src_idx_rowkey.push_back(partition_no);
-    EXPECT_CALL(*dbif_mock(),
-            Db_AddColumnProxy(
-                Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.MESSAGE_TABLE_SOURCE),
-                        _,
-                        Field(&GenDb::ColList::columns_,
-                            idx_expected_vector)))))
-        .Times(1)
-        .WillOnce(Return(true));
-
-    MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE,
-            hdr, "", unm, "");
-}
-
 TEST_F(DbHandlerTest, MessageTableInsertTest) {
     SandeshHeader hdr;
 
     hdr.set_Source("127.0.0.1");
     hdr.set_Module("VizdTest");
-    std::string messagetype("SandeshAsyncTest2");
     hdr.set_InstanceId("Test");
     hdr.set_NodeType("Test");
     hdr.set_Timestamp(UTCTimestampUsec());
+    std::string messagetype("SandeshAsyncTest2");
     hdr.set_Type(SandeshType::SYSTEM);
     std::string xmlmessage = "<SandeshAsyncTest2 type=\"sandesh\"><file type=\"string\" identifier=\"-32768\">src/analytics/test/viz_collector_test.cc</file><line type=\"i32\" identifier=\"-32767\">80</line><f1 type=\"struct\" identifier=\"1\"><SAT2_struct><f1 type=\"string\" identifier=\"1\">sat2string101</f1><f2 type=\"i32\" identifier=\"2\">101</f2></SAT2_struct></f1><f2 type=\"i32\" identifier=\"2\">101</f2></SandeshAsyncTest2>";
 
@@ -430,162 +391,16 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     boost::uuids::uuid unm(rgen_());
     VizMsg vmsgp(msg, unm);
 
-    GenDb::DbDataValueVec rowkey;
-    rowkey.push_back(unm);
-
-    int ttl = ttl_map.find(TtlType::GLOBAL_TTL)->second*3600;
-    boost::ptr_vector<GenDb::NewCol> msg_table_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(g_viz_constants.SOURCE, hdr.get_Source(), ttl))
-        (GenDb::NewCol(g_viz_constants.NAMESPACE, std::string(), ttl))
-        (GenDb::NewCol(g_viz_constants.MODULE, hdr.get_Module(), ttl))
-        (GenDb::NewCol(g_viz_constants.INSTANCE_ID, hdr.get_InstanceId(), ttl))
-        (GenDb::NewCol(g_viz_constants.NODE_TYPE, hdr.get_NodeType(), ttl))
-        (GenDb::NewCol(g_viz_constants.TIMESTAMP,
-            static_cast<uint64_t>(hdr.get_Timestamp()), ttl))
-        (GenDb::NewCol(g_viz_constants.CATEGORY, std::string(), ttl))
-        (GenDb::NewCol(g_viz_constants.LEVEL,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.MESSAGE_TYPE, messagetype, ttl))
-        (GenDb::NewCol(g_viz_constants.SEQUENCE_NUM,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.VERSION,
-            static_cast<uint32_t>(0), ttl))
-        (GenDb::NewCol(g_viz_constants.SANDESH_TYPE,
-            static_cast<uint8_t>(SandeshType::SYSTEM), ttl))
-        (GenDb::NewCol(g_viz_constants.DATA, xmlmessage, ttl));
-
+    boost::shared_ptr<GenDb::ColList> col_list = MessageTablePrepareMsg(msg, hdr, unm, messagetype);
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
                 Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_,
-                        g_viz_constants.COLLECTOR_GLOBAL_TABLE),
-                        Field(&GenDb::ColList::rowkey_, rowkey),
+                    AllOf(Field(&GenDb::ColList::cfname_, col_list->cfname_),
+                        Field(&GenDb::ColList::rowkey_, RowKeyEq(col_list->rowkey_)),
                         Field(&GenDb::ColList::columns_,
-                            msg_table_expected_vector)))))
+                              ColumnMatcherEqMessageTable(col_list->columns_))))))
         .Times(1)
         .WillOnce(Return(true));
-
-    DbDataValueVec *colname(new DbDataValueVec());
-    colname->reserve(3);
-    colname->push_back(hdr.get_Source());
-    colname->push_back((uint32_t)
-        (hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-    colname->push_back(unm);
-
-    DbDataValueVec *colvalue(new DbDataValueVec());
-    boost::ptr_vector<GenDb::NewCol> idx_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(colname, colvalue, ttl));
-
-    EXPECT_CALL(*dbif_mock(),
-            Db_AddColumnProxy(
-                Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_,
-                              g_viz_constants.MESSAGE_TABLE_SOURCE),
-                        _,
-                        Field(&GenDb::ColList::columns_,
-                            idx_expected_vector)))))
-        .Times(1)
-        .WillOnce(Return(true));
-
-
-    DbDataValueVec *modcolname(new DbDataValueVec());
-    modcolname->reserve(3);
-    modcolname->push_back(hdr.get_Module());
-    modcolname->push_back((uint32_t)
-        (hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-    modcolname->push_back(unm);
-    colvalue =new DbDataValueVec();
-    boost::ptr_vector<GenDb::NewCol> mod_idx_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(modcolname, colvalue, ttl));
-
-    EXPECT_CALL(*dbif_mock(),
-            Db_AddColumnProxy(
-                Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_,
-                              g_viz_constants.MESSAGE_TABLE_MODULE_ID),
-                        _,
-                        Field(&GenDb::ColList::columns_,
-                            mod_idx_expected_vector)))))
-        .Times(1)
-        .WillOnce(Return(true));
-
-    DbDataValueVec *catcolname(new DbDataValueVec());
-    catcolname->reserve(3);
-    catcolname->push_back(hdr.get_Category());
-    catcolname->push_back((uint32_t)
-        (hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-    catcolname->push_back(unm);
-    colvalue =new DbDataValueVec();
-    boost::ptr_vector<GenDb::NewCol> cat_idx_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(catcolname, colvalue, ttl));
-
-    EXPECT_CALL(*dbif_mock(),
-            Db_AddColumnProxy(
-                Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_,
-                              g_viz_constants.MESSAGE_TABLE_CATEGORY),
-                        _,
-                        Field(&GenDb::ColList::columns_,
-                            cat_idx_expected_vector)))))
-        .Times(1)
-        .WillOnce(Return(true));
-
-    DbDataValueVec *msgtypecolname(new DbDataValueVec());
-    msgtypecolname->reserve(3);
-    msgtypecolname->push_back(messagetype);
-    msgtypecolname->push_back((uint32_t)
-        (hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-    msgtypecolname->push_back(unm);
-    colvalue =new DbDataValueVec();
-    boost::ptr_vector<GenDb::NewCol> msg_type_idx_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(msgtypecolname, colvalue, ttl));
-
-    EXPECT_CALL(*dbif_mock(),
-            Db_AddColumnProxy(
-                Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_,
-                              g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE),
-                        _,
-                        Field(&GenDb::ColList::columns_,
-                            msg_type_idx_expected_vector)))))
-        .Times(1)
-        .WillOnce(Return(true));
-
-    DbDataValueVec *ts_colname(new DbDataValueVec());
-    ts_colname->reserve(2);
-    ts_colname->push_back((uint32_t)
-        (hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-    ts_colname->push_back(unm);
-    colvalue =new DbDataValueVec();
-    boost::ptr_vector<GenDb::NewCol> ts_idx_expected_vector =
-        boost::assign::ptr_list_of<GenDb::NewCol>
-        (GenDb::NewCol(ts_colname, colvalue, ttl));
-
-    EXPECT_CALL(*dbif_mock(),
-            Db_AddColumnProxy(
-                Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_,
-                              g_viz_constants.MESSAGE_TABLE_TIMESTAMP),
-                        _,
-                        Field(&GenDb::ColList::columns_,
-                            ts_idx_expected_vector)))))
-        .Times(1)
-        .WillOnce(Return(true));
-
-    EXPECT_CALL(*dbif_mock(),
-            Db_AddColumnProxy(
-                Pointee(
-                    AllOf(Field(&GenDb::ColList::cfname_,
-                              g_viz_constants.MESSAGE_TABLE_KEYWORD),
-                        _,
-                        _))))
-        .Times(3)
-        .WillRepeatedly(Return(true));
 
     EXPECT_CALL(*dbif_mock(),
             Db_AddColumnProxy(
@@ -601,7 +416,6 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
     vmsgp.msg = NULL;
     delete msg;
 }
-//#endif
 
 TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     SandeshHeader hdr;
@@ -620,33 +434,7 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     VizMsg vmsgp(msg, unm);
 
     int ttl = ttl_map.find(TtlType::GLOBAL_TTL)->second*3600;
-      {
-        DbDataValueVec *colname(new DbDataValueVec());
-        colname->reserve(2);
-        colname->push_back("ObjectTableInsertTestRowkey");
-        colname->push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
-
-        DbDataValueVec *colvalue(new DbDataValueVec(1, unm));
-        boost::ptr_vector<GenDb::NewCol> expected_vector = 
-            boost::assign::ptr_list_of<GenDb::NewCol>
-            (GenDb::NewCol(colname, colvalue, ttl));
-
-        GenDb::DbDataValueVec rowkey;
-        rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
-        rowkey.push_back((uint8_t)0);
-        rowkey.push_back("ObjectTableInsertTest");
-        EXPECT_CALL(*dbif_mock(),
-                Db_AddColumnProxy(
-                    Pointee(
-                        AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.OBJECT_TABLE), 
-                            Field(&GenDb::ColList::rowkey_, rowkey),
-                            Field(&GenDb::ColList::columns_,
-                                expected_vector)))))
-            .Times(1)
-            .WillOnce(Return(true));
-      }
-
-      {
+    {
         DbDataValueVec *colname(new DbDataValueVec(1,
             (uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask)));
         DbDataValueVec *colvalue(new DbDataValueVec(1,
@@ -667,9 +455,9 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                                 expected_vector)))))
             .Times(1)
             .WillOnce(Return(true));
-      }
+    }
 
-      {
+    {
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
         rowkey.push_back((uint8_t)0);
@@ -683,9 +471,9 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
             .Times(5)
             .WillRepeatedly(Return(true));
-      }
+    }
 
-      {
+    {
         GenDb::DbDataValueVec rowkey;
         rowkey.push_back((uint32_t)(hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits));
         rowkey.push_back((uint8_t)0);
@@ -699,36 +487,14 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
                             Field(&GenDb::ColList::rowkey_, rowkey),_))))
             .Times(5)
             .WillRepeatedly(Return(true));
-      }
+    }
 
     ObjectTableInsert(table, rowkey_str, timestamp, unm, &vmsgp);
     vmsgp.msg = NULL;
     delete msg;
 }
 
-MATCHER_P(RowKeyEqSession, rowkey, "") {
-    bool match(arg.size() == rowkey.size());
-    if (!match) {
-        *result_listener << "Row key size: actual: " << arg.size() <<
-            ", expected: " << rowkey.size();
-        return match;
-    }
-    for (size_t i = 0; i < arg.size(); i++) {
-       // Don't compare the partition
-       if (i == 1) {
-           continue;
-       }
-       // boost::variant does not provide operator!=
-       if (!(arg[i] == rowkey[i])) {
-           *result_listener << "Row key element [" << i << "] actual:"
-               << arg[i] << ", expected: " << rowkey[i];
-           match = false;
-       }
-    }
-    return match;
-}
-
-MATCHER_P(ColumnMatcherEq, ecolumns, "") {
+MATCHER_P(ColumnMatcherEqSession, ecolumns, "") {
     bool match(arg.size() == ecolumns.size());
     if (!match) {
         *result_listener << "Column size: actual: " << arg.size() <<
@@ -747,13 +513,11 @@ MATCHER_P(ColumnMatcherEq, ecolumns, "") {
         return match;
     }
     for (size_t i = 0; i < acol->size(); i++) {
+        // skip uuid
         if (i == 3) {
             continue;
         }
         if (!(acol->at(i) == ecol->at(i))) {
-            std::ostringstream oss;
-            oss << acol->at(i) << ":" << ecol->at(i);
-            std::string err = oss.str();
             *result_listener << "colname element [" << i << "] actual:"
                 << acol->at(i) << ", expected: " << ecol->at(i);
             return false;
@@ -898,7 +662,7 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
         Db_AddColumnProxy(
             Pointee(
             AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
-                Field(&GenDb::ColList::rowkey_, RowKeyEqSession(rowkey)),_))))
+                Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),_))))
         .Times(3)
         .WillRepeatedly(Return(true));
     }
@@ -913,7 +677,7 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
         Db_AddColumnProxy(
             Pointee(
             AllOf(Field(&GenDb::ColList::cfname_, g_viz_constants.STATS_TABLE_BY_STR_TAG),
-                Field(&GenDb::ColList::rowkey_, RowKeyEqSession(rowkey)),_))))
+                Field(&GenDb::ColList::rowkey_, RowKeyEq(rowkey)),_))))
         .Times(3)
         .WillRepeatedly(Return(true));
     }
@@ -991,9 +755,9 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
                                 AllOf(Field(&GenDb::ColList::cfname_,
                                             cfname),
                                     Field(&GenDb::ColList::rowkey_,
-                                        RowKeyEqSession(rowkey)),
+                                        RowKeyEq(rowkey)),
                                     Field(&GenDb::ColList::columns_,
-                                        ColumnMatcherEq(ecolumns))))))
+                                        ColumnMatcherEqSession(ecolumns))))))
                         .Times(1)
                         .WillOnce(Return(true));
             }
@@ -1058,9 +822,9 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
                                 AllOf(Field(&GenDb::ColList::cfname_,
                                             cfname),
                                     Field(&GenDb::ColList::rowkey_,
-                                        RowKeyEqSession(rowkey)),
+                                        RowKeyEq(rowkey)),
                                     Field(&GenDb::ColList::columns_,
-                                        ColumnMatcherEq(expected_columns))))))
+                                        ColumnMatcherEqSession(expected_columns))))))
                         .Times(1)
                         .WillOnce(Return(true));
             }
@@ -1068,28 +832,6 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
         }
         SessionTableInsert(msg->GetMessageNode(),msg->GetHeader());
     }
-}
-
-MATCHER_P(RowKeyEq, rowkey, "") {
-    bool match(arg.size() == rowkey.size());
-    if (!match) {
-        *result_listener << "Row key size: actual: " << arg.size() <<
-            ", expected: " << rowkey.size();
-        return match;
-    }
-    for (size_t i = 0; i < arg.size(); i++) {
-       // Don't compare the partition
-       if (i == 1) {
-           continue;
-       }
-       // boost::variant does not provide operator!=
-       if (!(arg[i] == rowkey[i])) {
-           *result_listener << "Row key element [" << i << "] actual:"
-               << arg[i] << ", expected: " << rowkey[i];
-           match = false;
-       }
-    }
-    return match;
 }
 
 TEST_F(DbHandlerTest, FlowTableInsertTest) {
