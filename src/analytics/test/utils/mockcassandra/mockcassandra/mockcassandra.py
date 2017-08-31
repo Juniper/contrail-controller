@@ -153,7 +153,7 @@ def replace_string_(filePath, findreplace):
 
 def verify_cassandra(thriftport, cqlport, cassandra_user, cassandra_password):
     retry_threshold = 10
-    retry = 1
+    retry = 3
     while retry < retry_threshold:
          try:
              creds = None
