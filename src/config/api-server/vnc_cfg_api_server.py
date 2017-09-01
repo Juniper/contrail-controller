@@ -38,6 +38,7 @@ from cStringIO import StringIO
 
 from cfgm_common import vnc_cgitb
 from cfgm_common import has_role
+from cfgm_common import _obj_serializer_all
 
 from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStats, VncApiLatencyStatsLog
 logger = logging.getLogger(__name__)
@@ -2733,6 +2734,13 @@ class VncApiServer(object):
         self._create_singleton_entry(DiscoveryServiceAssignment())
         self._create_singleton_entry(GlobalQosConfig())
 
+        sc_ipam_subnet_v4 = IpamSubnetType(subnet=SubnetType('0.0.0.0', 8))
+        sc_ipam_subnet_v6 = IpamSubnetType(subnet=SubnetType('::ffff', 104))
+        sc_ipam_subnets = IpamSubnets([sc_ipam_subnet_v4, sc_ipam_subnet_v6])
+        sc_ipam_obj = NetworkIpam('service-chain-flat-ipam',
+                ipam_subnet_method="flat-subnet", ipam_subnets=sc_ipam_subnets)
+        self._create_singleton_entry(sc_ipam_obj)
+
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
 
@@ -2850,7 +2858,8 @@ class VncApiServer(object):
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
-            obj_dict = s_obj.serialize_to_json()
+            obj_json = json.dumps(s_obj, default=_obj_serializer_all)
+            obj_dict = json.loads(obj_json)
             obj_dict['id_perms'] = self._get_default_id_perms()
             obj_dict['perms2'] = self._get_default_perms2()
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)

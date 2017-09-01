@@ -44,17 +44,8 @@ class PortTupleAgent(Agent):
         return 'port-tuple'
 
     def _get_service_chain_ipam(self):
-        try:
-            sc_ipam_subnet_v4 = IpamSubnetType(subnet=SubnetType('0.0.0.0', 8))
-            sc_ipam_subnet_v6 = IpamSubnetType(subnet=SubnetType('::ffff:0', 104))
-            sc_ipam_subnets = IpamSubnets([sc_ipam_subnet_v4, sc_ipam_subnet_v6])
-            sc_ipam_obj = NetworkIpam('service-chain-flat-ipam',
-                    ipam_subnet_method="flat-subnet", ipam_subnets=sc_ipam_subnets)
-            self._vnc_lib.network_ipam_create(sc_ipam_obj)
-        except RefsExistError:
-            fq_name = ['default-domain', 'default-project', 'service-chain-flat-ipam']
-            sc_ipam_obj = self._vnc_lib.network_ipam_read(fq_name=fq_name)
-        self.sc_ipam_obj = sc_ipam_obj
+        fq_name = ['default-domain', 'default-project', 'service-chain-flat-ipam']
+        self.sc_ipam_obj = self._vnc_lib.network_ipam_read(fq_name=fq_name)
 
     def _allocate_iip_for_family(self, iip_family, si, port, vmi):
         create_iip = True
