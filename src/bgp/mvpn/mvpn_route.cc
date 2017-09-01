@@ -471,8 +471,31 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
         break;
     }
     case LeafADRoute: {
-        // Look for RD.
-        size_t pos2 = str.find(',', pos1 + 1);
+        // First get the originator from the end
+        size_t pos_last = str.find_last_of(',');
+        if (pos_last == string::npos) {
+            if (errorp != NULL) {
+                *errorp = make_error_code(boost::system::errc::invalid_argument);
+            }
+            return null_prefix;
+        }
+        temp_str = str.substr(pos_last + 1, string::npos);
+        boost::system::error_code originator_err;
+        prefix.originator_ = Ip4Address::from_string(temp_str, originator_err);
+        if (originator_err != 0) {
+            if (errorp != NULL) {
+                *errorp = originator_err;
+            }
+            return null_prefix;
+        }
+        // everything till originator will go in rt_key
+        temp_str = str.substr(pos1 + 1, pos_last - 1);
+        prefix.rt_key_.resize(temp_str.size());
+        copy(temp_str.begin(), temp_str.begin() + temp_str.size(),
+                prefix.rt_key_.begin());
+        // Rest is the prefix of type2 or type3
+        // Look for type.
+        size_t pos2 = str.find('-', pos1 + 1);
         if (pos2 == string::npos) {
             if (errorp != NULL) {
                 *errorp = make_error_code(boost::system::errc::invalid_argument);
@@ -480,6 +503,17 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
             return null_prefix;
         }
         temp_str = str.substr(pos1 + 1, pos2 - pos1 - 1);
+        uint8_t src_rt_type;
+        stringToInteger(temp_str, src_rt_type);
+        // Look for RD.
+        size_t pos3 = str.find(',', pos2 + 1);
+        if (pos3 == string::npos) {
+            if (errorp != NULL) {
+                *errorp = make_error_code(boost::system::errc::invalid_argument);
+            }
+            return null_prefix;
+        }
+        temp_str = str.substr(pos2 + 1, pos3 - pos2 - 1);
         boost::system::error_code rd_err;
         prefix.rd_ = RouteDistinguisher::FromString(temp_str, &rd_err);
         if (rd_err != 0) {
@@ -489,24 +523,27 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
             return null_prefix;
         }
         // check if source ip or asn
-        size_t pos3 = str.find(',', pos2 + 1);
-        if (pos3 == string::npos) {
-            // check for asn
-            temp_str = str.substr(pos2 + 1, string::npos);
-            if (!stringToInteger(temp_str, prefix.asn_)) {
+        size_t pos4 = str.find(',', pos3 + 1);
+        if (pos4 == string::npos) {
+            if(src_rt_type == MvpnPrefix::InterASPMSIADRoute) {
+                // check for asn
+                temp_str = str.substr(pos3 + 1, string::npos);
+                if (!stringToInteger(temp_str, prefix.asn_)) {
+                    if (errorp != NULL) {
+                        *errorp = make_error_code(
+                                boost::system::errc::invalid_argument);
+                    }
+                    return null_prefix;
+                }
+                break;
+            } else {
                 if (errorp != NULL) {
                     *errorp = make_error_code(boost::system::errc::invalid_argument);
                 }
                 return null_prefix;
             }
-            // everything will go in rt_key as well
-            temp_str = str.substr(pos1 + 1, string::npos);
-            prefix.rt_key_.resize(temp_str.size());
-            copy(temp_str.begin(), temp_str.begin() + temp_str.size(),
-                    prefix.rt_key_.begin());
-            break;
         }
-        temp_str = str.substr(pos2 + 1, pos3 - pos2 - 1);
+        temp_str = str.substr(pos3 + 1, pos4 - pos3 - 1);
         boost::system::error_code source_err;
         prefix.source_ = Ip4Address::from_string(temp_str, source_err);
         if (source_err != 0) {
@@ -517,14 +554,14 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
         }
 
         // Look for group.
-        size_t pos4 = str.find(',', pos3 + 1);
-        if (pos4 == string::npos) {
+        size_t pos5 = str.find(',', pos4 + 1);
+        if (pos5 == string::npos) {
             if (errorp != NULL) {
                 *errorp = make_error_code(boost::system::errc::invalid_argument);
             }
             return null_prefix;
         }
-        temp_str = str.substr(pos3 + 1, pos4 - pos3 - 1);
+        temp_str = str.substr(pos4 + 1, pos5 - pos4 - 1);
         boost::system::error_code group_err;
         prefix.group_ = Ip4Address::from_string(temp_str, group_err);
         if (group_err != 0) {
@@ -535,31 +572,24 @@ MvpnPrefix MvpnPrefix::FromString(const string &str,
         }
 
         // Look for originator of rt_key and ignore it.
-        size_t pos5 = str.find(',', pos4 + 1);
-        if (pos5 == string::npos) {
+        size_t pos6 = str.find(',', pos5 + 1);
+        if (pos6 == string::npos) {
             if (errorp != NULL) {
                 *errorp = make_error_code(boost::system::errc::invalid_argument);
             }
             return null_prefix;
         }
 
-	// rest is originator
-        temp_str = str.substr(pos5 + 1, string::npos);
-        boost::system::error_code originator_err;
-        prefix.originator_ = Ip4Address::from_string(temp_str, originator_err);
+        // rest is originator
+        temp_str = str.substr(pos5 + 1, pos6 - pos5 - 1);
+        Ip4Address::from_string(temp_str, originator_err);
         if (originator_err != 0) {
             if (errorp != NULL) {
                 *errorp = originator_err;
             }
             return null_prefix;
         }
-
-        // everything will go in rt_key as well
-        temp_str = str.substr(pos1 + 1, pos5 - 1);
-        prefix.rt_key_.resize(temp_str.size());
-        copy(temp_str.begin(), temp_str.begin() + temp_str.size(),
-                prefix.rt_key_.begin());
-        break;
+	break;
     }
     case SourceActiveADRoute: {
         // Look for RD.
@@ -694,11 +724,12 @@ string MvpnPrefix::ToString() const {
             break;
         case LeafADRoute: {
             size_t expected_type3_based_key_size = RouteDistinguisher::kSize +
-		(1 + Address::kMaxV4Bytes) * 2 + Address::kMaxV4Bytes;
+                (1 + Address::kMaxV4Bytes) * 2 + Address::kMaxV4Bytes;
             RouteDistinguisher rd((const uint8_t *)(&rt_key_[0]));
-            repr += "-" + rd.ToString();
-	    // Check if it is type3 based or type2 based
+            // Check if it is type3 based or type2 based
             if (expected_type3_based_key_size == rt_key_.size()) {
+                repr += "-3";
+                repr += "-" + rd.ToString();
                 size_t key_size = RouteDistinguisher::kSize + 1;
                 Ip4Address ip = Ip4Address(get_value
                     (&rt_key_[key_size], Address::kMaxV4Bytes));
@@ -712,6 +743,8 @@ string MvpnPrefix::ToString() const {
                     (&rt_key_[key_size], Address::kMaxV4Bytes));
                 repr += "," + ip.to_string();
             } else {
+                repr += "-2";
+                repr += "-" + rd.ToString();
                 size_t key_size = RouteDistinguisher::kSize;
                 uint32_t asn;
                 asn = get_value(&rt_key_[key_size], sizeof(asn));
