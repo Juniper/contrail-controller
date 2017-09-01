@@ -64,7 +64,11 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'boost_program_options',
         'libdl',
         'grok',
-        'sasl2'])
+        'sasl2',
+        'config_client_mgr',
+        'SimpleAmqpClient',
+        'boost_chrono',
+        'rabbitmq'])
 
 (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 if PLATFORM.lower() != 'ubuntu' or (PLATFORM.lower() == 'ubuntu' and VERSION.find('16.') == 0):
