@@ -116,3 +116,15 @@ objectlog sandesh GenericStats {
     2: string msg_type
     3: map<string, u64> attrib (tags=".__key");
 }
+
+struct LogStatisticConfigInfo {
+    1: string name;
+    2: string pattern;
+}
+
+request sandesh LogStatisticConfigInfoGetRequest {
+}
+
+response sandesh LogStatisticConfigInfoResponse {
+    1: list<LogStatisticConfigInfo> config_info;
+}
