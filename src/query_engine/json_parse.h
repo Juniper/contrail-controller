@@ -56,6 +56,8 @@ enum flow_dir_t {
 #define QUERY_AGG_STATS_OP          "agg_op"
 #define QUERY_AGG_STATS_TYPE        "stat_type"
 #define QUERY_FLOW_DIR          "dir"
+#define QUERY_SESSION_IS_SI         "is_si"
+#define QUERY_SESSION_TYPE          "session_type"
 #define QUERY_FILTER            "filter"
 #define QUERY_TABLE_SCHEMA                "table_schema"
 #define QUERY_TABLE_SCHEMA_DATATYPE        "datatype"
@@ -70,11 +72,21 @@ enum flow_dir_t {
 #define TIMESTAMP_GRANULARITY "T="
 #define SELECT_PACKETS "packets"
 #define SELECT_BYTES "bytes"
+#ifdef USE_SESSION
+#define SELECT_SUM_PACKETS "SUM(packets)"
+#define SELECT_SUM_BYTES "SUM(bytes)"
+#else
 #define SELECT_SUM_PACKETS "sum(packets)"
 #define SELECT_SUM_BYTES "sum(bytes)"
+#endif
 #define SELECT_FLOW_CLASS_ID "flow_class_id"
 #define SELECT_FLOW_COUNT "flow_count"
-
+#define SELECT_SESSION_CLASS_ID "session_class_id"
+#define SELECT_SESSION_CLASS_T "CLASS(T)"
+#define SELECT_SESSION_CLASS_TS "CLASS(T=)"
+#define SELECT_SAMPLE_COUNT "sample_count"
+#define SELECT_SESSION_SAMPLE_COUNT_T "COUNT(T)"
+#define SELECT_SESSION_SAMPLE_COUNT_TS "COUNT(T=)"
 /*** Query String to Cassandra column name mappings
  */
 std::string get_column_name(std::string query_string);
