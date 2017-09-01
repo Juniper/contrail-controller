@@ -32,3 +32,6 @@ SandeshTraceBufferPtr IFMapXmppTraceBuf(
 SandeshTraceBufferPtr ConfigCassClientTraceBuf(
     SandeshTraceBufferCreate("ConfigCassClientTraceBuf", 50000));
 
+// Trace buffer for config-client-manager messages
+SandeshTraceBufferPtr ConfigClientTraceBuf(
+    SandeshTraceBufferCreate("ConfigClientTraceBuf", 50000));

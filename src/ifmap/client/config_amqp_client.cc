@@ -2,6 +2,7 @@
  * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "client/config_log_types.h"
 #include "config_amqp_client.h"
 
 #include <boost/algorithm/string/find.hpp>
@@ -19,6 +20,8 @@
 #include "base/string_util.h"
 #include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_factory.h"
+#include "ifmap/ifmap_log.h"
+#include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_server_show_types.h"
 #include "config_cassandra_client.h"
 #include "config_client_manager.h"
@@ -271,10 +274,21 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
             assert(obj_name != "");
             config_manager()->config_db_client()->AddFQNameCache(uuid_str,
                                                             obj_type, obj_name);
+        } else if (oper == "UPDATE") {
+            string stored_fq_name =
+                config_manager()->config_db_client()->FindFQName(uuid_str);
+            if (stored_fq_name == "ERROR") {
+                CONFIG_CLIENT_TRACE(ConfigClientFQNameCacheTrace,
+                        "FQ Name Cache entry not found  on UPDATE for:",
+                        obj_type, obj_name, uuid_str);
+            }
         } else if (oper == "DELETE") {
             config_manager()->config_db_client()->
                 InvalidateFQNameCache(uuid_str);
         }
+
+        CONFIG_CLIENT_TRACE(ConfigClientRabbitMQMsgTrace, oper, obj_type,
+                obj_name, uuid_str);
         EnqueueUUIDRequest(oper, obj_type, uuid_str);
     }
     return true;
