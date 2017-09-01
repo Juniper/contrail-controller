@@ -51,7 +51,7 @@ As had been discussed, Session data can belong to either Sampled or Logged Flows
 ## 3.5 Notification impact
 
 The FlowLogData that is being sent currently is going to be replaced by SessionEndpointData. Also an additional structure provide statistics about the security tags is also going to be provided. Here is a description of each of the structures.
-
+```
     objectlog sandesh EndpointSecurityStats {
       1: string       name (key="ObjectVMITable")
      50: string       app
@@ -82,9 +82,9 @@ The FlowLogData that is being sent currently is going to be replaced by SessionE
      10: u64 tx_pkts;
      11: u64 rx_pkts;
     }
-
+```
 Next is the SessionEndpointData object reported by agent periodically:
-
+```
     FlowLog SessionEndpoint {
         1: string vmi;
         2: string vn;
@@ -153,15 +153,356 @@ Next is the SessionEndpointData object reported by agent periodically:
         4: optional ipaddr other_vrouter_ip;
         5: optional u16 underlay_proto;
     }
-
+```
 # 4. Implementation
 ## 4.1 Work items
 
 ### 4.1.1 Agent:
-     The sampling algorithm used should not sample the session instead of the individual flow. The agent should also aggregate the sessions that belong to the same server port before sending it. The sandesh library in the agent should do a syslog of each of the sessions inside the aggregate message that are marked for security logging.
+The sampling algorithm used should not sample the session instead of the individual flow. The agent should also aggregate the sessions that belong to the same server port before sending it. The sandesh library in the agent should do a syslog of each of the sessions inside the aggregate message that are marked for security logging.
 ### 4.1.2 Analytics:
-     New cassandra tables have to be created that can index the interesting fields in theSessionEndpointData message that it receives. Queryengine should also be modified so that data can be fetched with this new database schema.
+New cassandra tables have to be created that can index the interesting fields in theSessionEndpointData message that it receives. Queryengine should also be modified so that data can be fetched with this new database schema.
 
+New Database Schema will be as below:
+```
+const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
+    SESSION_TABLE : {
+        'columns' : [
+            {'name' : 'key', 'datatype': Gendb.DbDataType.Unsigned32Type },
+            {'name' : 'key2', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'key3', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'key4', 'datatype': Gendb.DbDataType.Unsigned8Type },
+            {'name' : 'column1',
+             'datatype': Gendb.DbDataType.Unsigned16Type, 'clustering': true },
+            {'name' : 'column2',
+             'datatype': Gendb.DbDataType.Unsigned16Type, 'clustering': true },
+            {'name' : 'column3',
+             'datatype': Gendb.DbDataType.Unsigned32Type, 'clustering': true },
+            {'name' : 'column4',
+             'datatype': Gendb.DbDataType.LexicalUUIDType, 'clustering': true},
+            {'name' : 'column5', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column6', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column7', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column8', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column9', 'datatype': Gendb.DbDataType.UTF8Type},
+            {'name' : 'column10', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column11', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column12', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column13', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column14', 'datatype': Gendb.DbDataType.UTF8Type },
+            {'name' : 'column15', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column16', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX, 
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column17', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column18', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column19', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column20', 'datatype': Gendb.DbDataType.UTF8Type,
+             'index_type' : ColIndexType.CUSTOM_INDEX,
+             'index_mode' : ColIndexMode.PREFIX },
+            {'name' : 'column21', 'datatype': Gendb.DbDataType.AsciiType },
+            {'name' : 'column22', 'datatype': Gendb.DbDataType.InetType },
+            {'name' : 'column23', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column24', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column25', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column26', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column27', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column28', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column29', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'column30', 'datatype': Gendb.DbDataType.Unsigned64Type },
+            {'name' : 'value', 'datatype': Gendb.DbDataType.UTF8Type },
+        ],
+        'column_to_query_column' : {
+            'column0'  : 'T2',
+            'column1'  : 'partition_number',
+            'column2'  : 'is_service_instance',
+            'column3'  : 'session_type',
+            'column4'  : 'protocol',
+            'column5'  : 'server_port',
+            'column6'  : 'T1',
+            'column7'  : 'uuid',
+            'column8'  : 'deployment',
+            'column9'  : 'tier',
+            'column10' : 'application',
+            'column11' : 'site',
+            'column12' : 'labels',
+            'column13' : 'remote_deployment',
+            'column14' : 'remote_tier',
+            'column15' : 'remote_application',
+            'column16' : 'remote_site',
+            'column17' : 'remote_labels',
+            'column18' : 'remote_prefix',
+            'column19' : 'security_policy_rule',
+            'column20' : 'vmi',
+            'column21' : 'local_ip',
+            'column22' : 'vn',
+            'column23' : 'remote_vn',
+            'column24' : 'vrouter',
+            'column25' : 'vrouter_ip',
+            'column26' : 'forward_sampled_bytes',
+            'column27' : 'forward_sampled_pkts',
+            'column28' : 'forward_logged_bytes',
+            'column29' : 'forward_logged_pkts',
+            'column30' : 'reverse_sampled_bytes',
+            'column31' : 'reverse_sampled_pkts',
+            'column32' : 'reverse_logged_bytes',
+            'column33' : 'reverse_logged_pkts',
+        },
+        'index_column_to_column' : {
+            'deployment'           : 'column5',
+            'tier'                 : 'column6',
+            'application'          : 'column7',
+            'site'                 : 'column8',
+            'remote_deployment'    : 'column10',
+            'remote_tier'          : 'column11',
+            'remote_application'   : 'column12',
+            'remote_site'          : 'column13',
+            'remote_prefix'        : 'column15',
+            'security_policy_rule' : 'column16',
+            'vmi'                  : 'column17',
+            'ip'                   : 'column18',
+            'vn'                   : 'column19',
+            'remote_vn'            : 'column20',
+        }
+    }
+}
+```
+We will have two Virtual Tables for Querying:
+    *    SessionRecordTable: To get information about all the unique Sessions in given time period
+    *    SessionSeriesTable: To get timeseries data for session
+The Virtual Table Schemas will be as below:
+```
+1. SessionRecordTable
+   {
+         'name' : 'SessionRecordTable,
+         'schema' : {
+             'type' : 'SESSION',
+             'columns' :  [
+               { 'name' : 'session_type', 'datatype' : 'string', 'index' : true, 'requiredness' : 'mandatory', 'choices' : ['server','client'] },
+               { 'name' : 'is_service_instance', 'datatype' : 'int', 'index' : true, 'default' : false },
+               { 'name' : 'vmi', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'vn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'deployment', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'application', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'tier', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'site', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'labels', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'remote_deployment', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_application', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_tier', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_site', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_labels', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'remote_vn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_prefix', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'security_policy_rule', 'datatype' : 'string', 'index' : true },
+
+               // IP, Protocol, Port indexes for session
+               { 'name' : 'local_ip', 'datatype' : 'ipaddr', 'index' : true },
+               { 'name' : 'protocol', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'server_port', 'datatype' : 'int', 'index' : true },
+
+               { 'name' : 'remote_ip', 'datatype' : 'ipaddr', 'index' : false },
+               { 'name' : 'client_port', 'datatype' : 'int', 'index' : false },
+
+               { 'name' : 'vm', 'datatype' : 'string', 'index' : false },                
+               { 'name' : 'vrouter', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'vrouter_ip', 'datatype' : 'ipaddr', 'index' : false },
+               { 'name' : 'other_vrouter_ip', 'datatype' : 'ipaddr', 'index' : false },
+               { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
+ 
+               // Flow based fields
+               { 'name' : 'forward_flow_uuid', 'datatype' : 'uuid_t', 'index' : false },
+               { 'name' : 'forward_setup_time', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'forward_teardown_time', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'forward_action', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'forward_sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'forward_nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },              
+               { 'name' : 'forward_underlay_source_port', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'forward_drop_reason', 'datatype' : 'string', 'index' : false },
+
+               { 'name' : 'reverse_flow_uuid', 'datatype' : 'uuid_t', 'index' : false, 'requiredness' : 'mandatory' },
+               { 'name' : 'reverse_setup_time', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'reverse_teardown_time', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'reverse_action', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'reverse_sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'reverse_nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },              
+               { 'name' : 'reverse_underlay_source_port', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'reverse_drop_reason', 'datatype' : 'string', 'index' : false },
+
+               { 'name' : 'forward_teardown_bytes', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'forward_teardown_packets', 'datatype' : 'long', 'index' : false },
+
+               { 'name' : 'reverse_teardown_bytes', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'reverse_teardown_packets', 'datatype' : 'long', 'index' : false },
+               ]
+         },
+         'columnvalues' : [ ],
+    }
+
+2. SessionSeriesTable
+   {
+         'name' : 'SessionSeriesTable,
+         'schema' : {
+             'type' : 'SESSION',
+             'columns' :  [
+               { 'name' : 'session_type', 'datatype' : 'string', 'index' : true, 'requiredness' : 'mandatory', 'choices' : ['server','client'] },
+               { 'name' : 'is_service_instance', 'datatype' : 'int', 'index' : true, 'default' : false },
+               { 'name' : 'vmi', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'vn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'deployment', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'application', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'tier', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'site', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'labels', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'remote_deployment', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_application', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_tier', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_site', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_labels', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'remote_vn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_prefix', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'security_policy_rule', 'datatype' : 'string', 'index' : true },
+
+               // IP, Protocol, Port indexes for session
+               { 'name' : 'local_ip', 'datatype' : 'ipaddr', 'index' : true },
+               { 'name' : 'protocol', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'server_port', 'datatype' : 'int', 'index' : true },
+
+               { 'name' : 'remote_ip', 'datatype' : 'ipaddr', 'index' : false },
+               { 'name' : 'client_port', 'datatype' : 'int', 'index' : false },
+   
+               { 'name' : 'vm', 'datatype' : 'string', 'index' : false },                             
+               { 'name' : 'vrouter', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'vrouter_ip', 'datatype' : 'ipaddr', 'index' : false },
+               { 'name' : 'other_vrouter_ip', 'datatype' : 'ipaddr', 'index' : false },
+               { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
+ 
+               // Flow based fields
+               { 'name' : 'forward_flow_uuid', 'datatype' : 'uuid_t', 'index' : false },
+               { 'name' : 'forward_action', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'forward_sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'forward_nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },              
+               { 'name' : 'forward_underlay_source_port', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'forward_drop_reason', 'datatype' : 'string', 'index' : false },
+
+               { 'name' : 'reverse_flow_uuid', 'datatype' : 'uuid_t', 'index' : false },
+               { 'name' : 'reverse_action', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'reverse_sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'reverse_nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },              
+               { 'name' : 'reverse_underlay_source_port', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'reverse_drop_reason', 'datatype' : 'string', 'index' : false },
+
+               // Time-series fields
+               { 'name' : 'session_class_id', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'T', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'T=', 'datatype' : 'int', 'index' : false },
+
+               { 'name' : 'sum(forward_sampled_packets)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sum(forward_sampled_bytes)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sum(forward_logged_packets)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sum(forward_logged_bytes)', 'datatype' : 'int', 'index' : false },
+
+               { 'name' : 'sum(reverse_sampled_packets)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sum(reverse_sampled_bytes)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sum(reverse_logged_packets)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sum(reverse_logged_bytes)', 'datatype' : 'int', 'index' : false },
+            
+               { 'name' : 'sample_count', 'datatype' : 'int', 'index' : false },
+
+               ]
+         },
+         'columnvalues' : [ ],
+    }
+```
+'is_service_instance' indicates whether the session belongs to a service instance that is used in the service chaining feature. For application level traffic analysis users will generally not be interested in analysis of sessions that belong to a service instance and hence if 'is_service_instance' is not specified in the query, the value of 'is_service_instance' will be considered as false.
+
+For sessions where 'session_type' is 'server', the columns 'local_ip' and 'remote_ip' map to the IP address of the server and client respectively.
+For sessions where 'session_type' is 'client', the columns 'local_ip' and 'remote_ip' map to the IP address of the client and server respectively.
+
+We will continue support the existing flow query APIs by mapping it to session APIs with few changes
+Currently for flows, contrail-analytics-api exposes 2 APIs - FlowRecordTable and FlowSeriesTable. we will support both the APIs where FlowRecordTable will be mapped to SessionRecordTable and FlowSeriesTable will be SessionSeriesTable. The translation part will be taken care in QueryEngine. The new Flow APIs will be as below:
+```
+{
+     'name' : 'FlowRecordTable',
+     'schema' : {
+         'type' : 'FLOW',
+         'columns' :  [
+           { 'name' : 'vrouter', 'datatype' : 'string', 'index' : true, 'session_index' : false },
+           { 'name' : 'sourcevn', 'datatype' : 'string', 'index' : true },
+           { 'name' : 'sourceip', 'datatype' : 'ipaddr', 'index' : true },
+           { 'name' : 'destvn', 'datatype' : 'string', 'index' : true },
+           { 'name' : 'destip', 'datatype' : 'ipaddr', 'index' : true },
+           { 'name' : 'protocol', 'datatype' : 'int', 'index' : true },
+           { 'name' : 'sport', 'datatype' : 'int', 'index' : true },
+           { 'name' : 'dport', 'datatype' : 'int', 'index' : true },
+           { 'name' : 'direction_ing', 'datatype' : 'int', 'index' : true },
+           { 'name' : 'UuidKey', 'datatype' : 'uuid', 'index' : false },
+           { 'name' : 'setup_time', 'datatype' : 'long', 'index' : false },
+           { 'name' : 'teardown_time', 'datatype' : 'long', 'index' : false },
+           { 'name' : 'agg-packets', 'datatype' : 'long', 'index' : false },
+           { 'name' : 'agg-bytes', 'datatype' : 'long', 'index' : false },
+           { 'name' : 'action', 'datatype' : 'string', 'index' : false },
+           { 'name' : 'sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
+           { 'name' : 'nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },
+           { 'name' : 'vrouter_ip', 'datatype' : 'string', 'index' : false },
+           { 'name' : 'other_vrouter_ip', 'datatype' : 'string', 'index' : false },
+           { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
+           { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
+           { 'name' : 'vmi_uuid', 'datatype' : 'uuid', 'index' : false },
+           { 'name' : 'drop_reason', 'datatype' : 'string', 'index' : false },
+           ]
+     },
+     'columnvalues' : [ ],
+},
+{
+     'name' : 'FlowSeriesTable',
+     'schema' : {
+         'type' : 'FLOW',
+         'columns' :  [
+           { 'name' : 'vrouter', 'datatype' : 'string', 'index' : true , 'session_index' : false},
+           { 'name' : 'sourcevn', 'datatype' : 'string', 'index' : true },
+           { 'name' : 'sourceip', 'datatype' : 'ipaddr', 'index' : true },
+           { 'name' : 'destvn', 'datatype' : 'string', 'index' : true },
+           { 'name' : 'destip', 'datatype' : 'ipaddr', 'index' : true },
+           { 'name' : 'protocol', 'datatype' : 'int', 'index' : true },
+           { 'name' : 'sport', 'datatype' : 'int', 'index' : true },
+           { 'name' : 'dport', 'datatype' : 'int', 'index' : true },
+           { 'name' : 'direction_ing', 'datatype' : 'int', 'index' : true },
+           { 'name' : 'flow_class_id', 'datatype' : 'int', 'index' : false },
+           { 'name' : 'T', 'datatype' : 'int', 'index' : false },
+           { 'name' : 'T=', 'datatype' : 'int', 'index' : false },
+           { 'name' : 'packets', 'datatype' : 'int', 'index' : false },
+           { 'name' : 'bytes', 'datatype' : 'int', 'index' : false },
+           { 'name' : 'SUM(packets)', 'datatype' : 'int', 'index' : false },
+           { 'name' : 'SUM(bytes)', 'datatype' : 'int', 'index' : false },
+           ]
+     },
+     'columnvalues' : [ ],
+}
+```
 # 5. Performance and scaling impact
 ## 5.1 API and control plane
 

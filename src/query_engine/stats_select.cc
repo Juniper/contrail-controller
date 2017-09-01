@@ -38,7 +38,8 @@ StatsSelect::DeleteTDigest(TDigest *t) {
 }
 
 bool
-StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks, 
+StatsSelect::Jsonify(const std::string& table,
+        const std::map<std::string, StatVal>&  uniks,
         const QEOpServerProxy::AggRowT& aggs, std::string& jstr) {
 
     contrail_rapidjson::Document dd;
@@ -100,9 +101,19 @@ StatsSelect::Jsonify(const std::map<std::string, StatVal>&  uniks,
             if (it->first.first == QEOpServerProxy::SUM) {
                 sname = string("SUM(") + it->first.second + string(")");
             } else if (it->first.first == QEOpServerProxy::COUNT) {
-                sname = string("COUNT(") + it->first.second + string(")");
+                if (table == g_viz_constants.SESSION_SERIES_TABLE) {
+                    sname = "sample_count";
+                } else {
+                    sname = string("CLASS(") + it->first.second + string(")");
+                }
             } else if (it->first.first == QEOpServerProxy::CLASS) {
-                sname = string("CLASS(") + it->first.second + string(")");
+                if (table == g_viz_constants.SESSION_SERIES_TABLE) {
+                    sname = "session_class_id";
+                } else if (table == g_viz_constants.FLOW_SERIES_TABLE){
+                    sname = "flow_class_id";
+                } else {
+                    sname = string("CLASS(") + it->first.second + string(")");
+                }
             } else if (it->first.first == QEOpServerProxy::MAX) {
                 sname = string("MAX(") + it->first.second + string(")");
             } else if (it->first.first == QEOpServerProxy::MIN) {
@@ -243,7 +254,6 @@ StatsSelect::StatsSelect(AnalyticsQuery * m_query,
 			main_query(m_query), select_fields_(select_fields),
 			ts_period_(0), isT_(false), count_field_() {
 
-    QE_ASSERT(main_query->is_stat_table_query(main_query->table()));
     status_ = false;
 
     for (size_t j=0; j<select_fields_.size(); j++) {
