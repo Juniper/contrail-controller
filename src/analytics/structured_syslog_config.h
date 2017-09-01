@@ -10,9 +10,8 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
-#include "http/client/vncapi.h"
+#include "config_client_collector.h"
 #include "parser_util.h"
-#include "configdb_connection.h"
 
 class Options;
 
@@ -235,7 +234,7 @@ typedef std::map<std::string, boost::shared_ptr<MessageConfig> > Cmc_t;
 
 class StructuredSyslogConfig {
     public:
-        StructuredSyslogConfig(boost::shared_ptr<ConfigDBConnection> cfgdb_connection);
+        StructuredSyslogConfig(ConfigClientCollector *config_client);
         ~StructuredSyslogConfig();
         void AddHostnameRecord(const std::string &name, const std::string &hostaddr,
                                   const std::string &tenant, const std::string &location,
@@ -249,33 +248,20 @@ class StructuredSyslogConfig {
         void AddMessageConfig(const std::string &name, const std::vector< std::string > &tags,
                                   const std::vector< std::string > &ints, bool process_and_store,
                                   const std::string &forward, bool process_and_summarize, bool process_and_summarize_user);
-        void PollHostnameRecords();
-        void PollApplicationRecords();
-        void PollMessageConfigs();
         boost::shared_ptr<HostnameRecord> GetHostnameRecord(const std::string &name);
         boost::shared_ptr<ApplicationRecord> GetApplicationRecord(const std::string &name);
         boost::shared_ptr<TenantApplicationRecord> GetTenantApplicationRecord(const std::string &name);
         boost::shared_ptr<MessageConfig> GetMessageConfig(const std::string &name);
-
+        void ReceiveConfig(const contrail_rapidjson::Document &jdoc, bool add_change);
     private:
-        void HostnameRecordsHandler(contrail_rapidjson::Document &jdoc,
-                    boost::system::error_code &ec,
-                    const std::string &version, int status, const std::string &reason,
-                    std::map<std::string, std::string> *headers);
-        void ApplicationRecordsHandler(contrail_rapidjson::Document &jdoc,
-                    boost::system::error_code &ec,
-                    const std::string &version, int status, const std::string &reason,
-                    std::map<std::string, std::string> *headers);
-        void MessageConfigsHandler(contrail_rapidjson::Document &jdoc,
-                    boost::system::error_code &ec,
-                    const std::string &version, int status, const std::string &reason,
-                    std::map<std::string, std::string> *headers);
+        void HostnameRecordsHandler(const contrail_rapidjson::Document &jdoc);
+        void ApplicationRecordsHandler(const contrail_rapidjson::Document &jdoc);
+        void MessageConfigsHandler(const contrail_rapidjson::Document &jdoc);
 
         Chr_t hostname_records_;
         Car_t application_records_;
         Ctar_t tenant_application_records_;
         Cmc_t message_configs_;
-        boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
 };
 
 
