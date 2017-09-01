@@ -33,12 +33,15 @@
 #include <analytics/buildinfo.h>
 #include "boost/python.hpp"
 #include <io/process_signal.h>
+#include "config/config-client-mgr/config_client_manager.h"
 
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
+using process::ConnectionInfo;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
+using process::ProcessState;
 using process::ConnectionType;
 using process::ConnectionTypeName;
 using process::g_process_info_constants;
@@ -319,6 +322,12 @@ int main(int argc, char *argv[])
     } else {
         hostname = boost::asio::ip::host_name(error);
     }
+
+    ConfigFactory::Register<ConfigJsonParserBase>(
+                          boost::factory<UserDefinedCounters *>());
+    ConfigClientManager *config_client_manager =
+        new ConfigClientManager(a_evm, hostname,
+                            module_id, options.configdb_options());
     // Determine if the number of connections is expected:
     // 1. Collector client
     // 2. Redis From
@@ -326,6 +335,8 @@ int main(int argc, char *argv[])
     // 4. Database global
     // 5. Kafka Pub
     // 6. Database protobuf if enabled
+    // 7. Cassandra Server
+    // 8. AMQP Server
 
     std::vector<ConnectionTypeName> expected_connections; 
     expected_connections = boost::assign::list_of
@@ -339,7 +350,11 @@ int main(int argc, char *argv[])
                              ConnectionType::DATABASE)->second,
                              hostname+":Global"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::KAFKA_PUB)->second, kstr));
+                             ConnectionType::KAFKA_PUB)->second, kstr))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second, "Cassandra"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second, "RabbitMQ"));
 
     ConnectionStateManager::
         GetInstance()->Init(*a_evm->io_service(),
@@ -411,6 +426,12 @@ int main(int argc, char *argv[])
             options.grok_key_list(),
             options.grok_attrib_list());
 
+    UserDefinedCounters *json_parser =
+      static_cast<UserDefinedCounters *>(config_client_manager->config_json_parser());
+    analytics->GetDbHandler()->SetUDCHandler(json_parser);
+    options.set_config_client_manager(config_client_manager);
+    config_client_manager->Initialize();
+
     analytics->Init();
 
     unsigned short coll_port = analytics->GetCollector()->GetPort();
@@ -462,6 +483,7 @@ int main(int argc, char *argv[])
     signal.Terminate();
     ShutdownServers(analytics);
 
+    delete config_client_manager;
     delete analytics;
     delete a_evm;
 

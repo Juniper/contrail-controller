@@ -9,8 +9,7 @@
 
 class UserDefinedCountersMock : public UserDefinedCounters {
   public:
-    UserDefinedCountersMock(boost::shared_ptr<ConfigDBConnection> cfgdb_connection) :
-      UserDefinedCounters(cfgdb_connection) {
+    UserDefinedCountersMock() : UserDefinedCounters() {
     }
 
     MOCK_METHOD2(MatchFilter, void(std::string text, LineParser::WordListType *w));

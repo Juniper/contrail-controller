@@ -46,12 +46,12 @@ config_amqp_client_test = env.UnitTest('config_amqp_client_test',
                                        ['config_amqp_client_test.cc'])
 env.Alias('src/config/config-client-mgr/client:config_amqp_client_test', config_amqp_client_test)
 
-client_unit_tests = [ config_amqp_client_test,
+config_client_unit_tests = [ config_amqp_client_test,
                       config_cassandra_client_test, 
                       config_cassandra_client_reader_test]
 
-client_test = env.TestSuite('ifmap-test', client_unit_tests)
+config_client_test = env.TestSuite('ifmap-test', config_client_unit_tests)
 
-env.Alias('src/config/config-client-mgr/client:test', client_test)
-env.Alias('src/config/config-client-mgr/client:flaky-test', [ ])
-Return('client_unit_tests')
+env.Alias('controller/src/config/config-client-mgr:test', config_client_test)
+env.Alias('controller/src/config/config-client-mgr:flaky-test', [ ])
+Return('config_client_unit_tests')

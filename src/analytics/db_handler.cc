@@ -84,18 +84,11 @@ DbHandler::DbHandler(EventManager *evm,
     disable_statistics_writes_(cassandra_options.disable_db_stats_writes_),
     disable_messages_writes_(cassandra_options.disable_db_messages_writes_),
     disable_messages_keyword_writes_(cassandra_options.disable_db_messages_keyword_writes_),
-    udc_cfg_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
-        "udc config poll timer",
-        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))),
     use_db_write_options_(use_db_write_options) {
     cfgdb_connection_.reset(new ConfigDBConnection(evm, api_server_list,
                                                    api_config));
-    udc_.reset(new UserDefinedCounters(cfgdb_connection_));
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);
-    udc_cfg_poll_timer_->Start(kUDCPollInterval,
-        boost::bind(&DbHandler::PollUDCCfg, this),
-        boost::bind(&DbHandler::PollUDCCfgErrorHandler, this, _1, _2));
 
     if (cassandra_options.cluster_id_.empty()) {
         tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
@@ -152,10 +145,6 @@ DbHandler::DbHandler(EventManager *evm,
     }
 }
 
-void DbHandler::PollUDCCfgErrorHandler(string error_name,
-    string error_message) {
-    LOG(ERROR, "UDC poll Timer Err: " << error_name << " " << error_message);
-}
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     dbif_(dbif),
@@ -166,18 +155,12 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     disable_statistics_writes_(false),
     disable_messages_writes_(false),
     disable_messages_keyword_writes_(false),
-    udc_cfg_poll_timer_(NULL),
     use_db_write_options_(false) {
     cfgdb_connection_.reset(new ConfigDBConnection(NULL,
         std::vector<std::string>(), VncApiConfig()));
-    udc_.reset(new UserDefinedCounters(cfgdb_connection_));
 }
 
 DbHandler::~DbHandler() {
-    if (udc_cfg_poll_timer_) {
-        TimerManager::DeleteTimer(udc_cfg_poll_timer_);
-        udc_cfg_poll_timer_ = NULL;
-    }
 }
 
 uint64_t DbHandler::GetTtlInHourFromMap(const TtlMap& ttl_map,
@@ -317,13 +300,13 @@ bool DbHandler::DropMessage(const SandeshHeader &header,
     }
     return drop;
 }
- 
+
 void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level,
     boost::function<void (void)> cb) {
     if (drop_level_ != level) {
-        DB_LOG(INFO, "DB DROP LEVEL: [" << 
+        DB_LOG(INFO, "DB DROP LEVEL: [" <<
             Sandesh::LevelToString(drop_level_) << "] -> [" <<
-            Sandesh::LevelToString(level) << "], DB QUEUE COUNT: " << 
+            Sandesh::LevelToString(level) << "], DB QUEUE COUNT: " <<
             queue_count);
         drop_level_ = level;
     }
@@ -543,11 +526,11 @@ bool DbHandler::Setup() {
     if (!dbif_->Db_SetTablespace(tablespace_)) {
         DB_LOG(ERROR, "Set KEYSPACE: " << tablespace_ << " FAILED");
         return false;
-    }   
+    }
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
         if (!dbif_->Db_UseColumnfamily(*it)) {
-            DB_LOG(ERROR, it->cfname_ << 
+            DB_LOG(ERROR, it->cfname_ <<
                    ": Db_UseColumnfamily FAILED");
             return false;
         }
@@ -920,7 +903,7 @@ void DbHandler::MessageTableInsert(const VizMsg *vmsgp,
  * into the FieldNames stats table
  */
 void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
-    const std::string& table_prefix, 
+    const std::string& table_prefix,
     const std::string& field_name, const std::string& field_val, int ttl,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
     /*
@@ -961,7 +944,7 @@ void DbHandler::FieldNamesTableInsert(uint64_t timestamp,
     // Put the name of the collector, not the message source.
     // Using the message source will make queries slower
     pv = string(col_name_);
-    tmap.insert(make_pair("Source",make_pair(pv,amap))); 
+    tmap.insert(make_pair("Source",make_pair(pv,amap)));
     attribs.insert(make_pair(string("Source"),pv));
 
     StatTableInsertTtl(timestamp, "FieldNames","fields", tmap, attribs, ttl,
@@ -1028,7 +1011,7 @@ void DbHandler::ObjectTableInsert(const std::string &table, const std::string &o
         rowkey.push_back(T2);
         rowkey.push_back(partition_no);
         rowkey.push_back(table);
-        
+
         GenDb::DbDataValueVec *col_name(new GenDb::DbDataValueVec());
         col_name->reserve(2);
         col_name->push_back(objectkey_str);
@@ -1161,7 +1144,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
     }
     std::auto_ptr<GenDb::ColList> col_list(new GenDb::ColList);
     col_list->cfname_ = cfname;
-    
+
     GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
     if (sv.type==DbHandler::INVALID) {
         rowkey.reserve(5);
@@ -1216,7 +1199,7 @@ bool DbHandler::StatTableWrite(uint32_t t2,
 }
 
 void
-DbHandler::StatTableInsert(uint64_t ts, 
+DbHandler::StatTableInsert(uint64_t ts,
         const std::string& statName,
         const std::string& statAttr,
         const TagMap & attribs_tag,
@@ -1232,7 +1215,7 @@ DbHandler::StatTableInsert(uint64_t ts,
 
 // This function writes Stats samples to the DB.
 void
-DbHandler::StatTableInsertTtl(uint64_t ts, 
+DbHandler::StatTableInsertTtl(uint64_t ts,
         const std::string& statName,
         const std::string& statAttr,
         const TagMap & attribs_tag,
@@ -1261,7 +1244,7 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
             case STRING: {
                     contrail_rapidjson::Value val(contrail_rapidjson::kStringType);
                     std::string nm = it->first + std::string("|s");
-                    pair<AttribMap::iterator,bool> rt = 
+                    pair<AttribMap::iterator,bool> rt =
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetString(it->second.str.c_str(), dd.GetAllocator());
                     contrail_rapidjson::Value vk;
@@ -1280,7 +1263,7 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
             case UINT64: {
                     contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
                     std::string nm = it->first + std::string("|n");
-                    pair<AttribMap::iterator,bool> rt = 
+                    pair<AttribMap::iterator,bool> rt =
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetUint64(it->second.num);
                     contrail_rapidjson::Value vk;
@@ -1291,14 +1274,14 @@ DbHandler::StatTableInsertTtl(uint64_t ts,
             case DOUBLE: {
                     contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
                     std::string nm = it->first + std::string("|d");
-                    pair<AttribMap::iterator,bool> rt = 
+                    pair<AttribMap::iterator,bool> rt =
                         attribs_buf.insert(make_pair(nm, it->second));
                     val.SetDouble(it->second.dbl);
                     contrail_rapidjson::Value vk;
                     dd.AddMember(vk.SetString(rt.first->first.c_str(),
                                  dd.GetAllocator()), val, dd.GetAllocator());
                 }
-                break;                
+                break;
             default:
                 continue;
         }
@@ -1403,7 +1386,7 @@ static void PopulateFlowFieldValues(FlowRecordFields::type ftype,
         }
     }
 }
- 
+
 static void PopulateFlowRecordTableColumns(
     const std::vector<FlowRecordFields::type> &frvt,
     FlowValueArray &fvalues, GenDb::NewColVec& columns, const TtlMap& ttl_map,
@@ -1730,7 +1713,7 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
                         LOG(ERROR, "FlowRecordTable: " << col_name << ": (" <<
                             node.child_value() << ") INVALID");
                     }
-                }     
+                }
                 values_[ftinfo.get<0>()] = u;
                 break;
             }
@@ -2261,7 +2244,7 @@ bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
         amap.insert(std::make_pair("flow.protocol", protocol));
         DbHandler::Var ft = it->get_flowtype();
         amap.insert(std::make_pair("flow.flowtype", ft));
-        
+
         DbHandler::TagMap tmap;
         // Add tag -> name:.pifindex
         DbHandler::AttribMap amap_name_pifindex;
