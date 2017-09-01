@@ -13,6 +13,7 @@
 #include "base/logging.h"
 #include "query.h"
 #include <boost/assign/list_of.hpp>
+#include <boost/foreach.hpp>
 #include <cerrno>
 #include "analytics/vizd_table_desc.h"
 #include "stats_select.h"
@@ -72,11 +73,11 @@ QueryResultMetaData::~QueryResultMetaData() {
 }
 
 PostProcessingQuery::PostProcessingQuery(
-    std::map<std::string, std::string>& json_api_data,
+    const std::map<std::string, std::string>& json_api_data,
     QueryUnit *main_query) :  QueryUnit(main_query, main_query), 
         sorted(false), limit(0) {
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    std::map<std::string, std::string>::iterator iter;
+    std::map<std::string, std::string>::const_iterator iter;
 
     QE_TRACE(DEBUG, __func__ );
 
@@ -291,6 +292,20 @@ PostProcessingQuery::PostProcessingQuery(
         }
     }
 
+    if (!m_query->wherequery_->filter_list_.empty()) {
+        if (filter_list.empty()) {
+            filter_list = m_query->wherequery_->filter_list_;
+        } else {
+            BOOST_FOREACH(std::vector<filter_match_t> &filter_and, filter_list) {
+                BOOST_FOREACH(const std::vector<filter_match_t> &where_filter_and,
+                        m_query->wherequery_->filter_list_) {
+                    filter_and.insert(filter_and.end(), where_filter_and.begin(),
+                        where_filter_and.end());
+                }
+            }
+        }
+    }
+
     // add filter to filter query engine logs if requested
     if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
             (((AnalyticsQuery *)main_query)->table() == 
@@ -383,7 +398,13 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     parse_status = status_details;
     if (parse_status != 0) return;
     
-    if (is_stat_table_query(table_)) {
+    if (is_stat_table_query(table_)
+#ifndef USE_SESSION
+        || is_session_query(table_)) {
+#else
+        || is_session_query(table_)
+        || is_flow_query(table_)) {
+#endif
         is_merge_needed = selectquery_->stats_->IsMergeNeeded();
     } else {
         is_merge_needed = merge_needed;
@@ -393,7 +414,13 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     wterms = wherequery_->wterms_;
     select = selectquery_->json_string_;
     post = postprocess_->json_string_;
-    is_map_output = is_stat_table_query(table_);
+    is_map_output = is_stat_table_query(table_)
+#ifndef USE_SESSION
+                        || is_session_query(table_);
+#else
+                        || is_session_query(table_)
+                        || is_flow_query(table_);
+#endif
 }
 
 bool AnalyticsQuery::can_parallelize_query() {
@@ -416,11 +443,11 @@ void AnalyticsQuery::ParseStatName(std::string& stat_table_name) {
      std::replace(stat_name_attr.begin(), stat_name_attr.end(), '.', ':');
 }
 
-void AnalyticsQuery::Init(std::string qid,
-    std::map<std::string, std::string>& json_api_data,
+void AnalyticsQuery::Init(const std::string& qid,
+    const std::map<std::string, std::string>& json_api_data,
     int32_t or_number)
 {
-    std::map<std::string, std::string>::iterator iter;
+    std::map<std::string, std::string>::const_iterator iter;
 
     QE_TRACE(DEBUG, __func__);
     
@@ -466,7 +493,7 @@ void AnalyticsQuery::Init(std::string qid,
 
     if (is_stat_table_query(table_)) {
         ttl = ttlmap_.find(TtlType::STATSDATA_TTL)->second;
-    } else if (is_flow_query(table_)) {
+    } else if (is_flow_query(table_) || is_session_query(table_)) {
         ttl = ttlmap_.find(TtlType::FLOWDATA_TTL)->second;
     } else if (is_object_table_query(table_)) {
         ttl = ttlmap_.find(TtlType::CONFIGAUDIT_TTL)->second;
@@ -529,6 +556,32 @@ void AnalyticsQuery::Init(std::string qid,
             std::istringstream(iter->second) >> direction;
             QE_TRACE(DEBUG,  "set flow direction to:" << direction);
         }
+
+        int is_si = 0;
+        iter = json_api_data.find(QUERY_SESSION_IS_SI);
+        if (iter != json_api_data.end()) {
+            std::istringstream(iter->second) >> is_si;
+            QE_TRACE(DEBUG,  "set session is_si to:" << is_si);
+        }
+
+        int session_type;
+        iter = json_api_data.find(QUERY_SESSION_TYPE);
+        if (iter != json_api_data.end()) {
+            if (iter->second == "\"client\"") {
+                session_type = 1;
+            }
+            else if (iter->second == "\"session\"") {
+                session_type = 0;
+            } else {
+                QE_INVALIDARG_ERROR(false && "session_type_invalid");
+            }
+            QE_TRACE(DEBUG,  "set session is_si to:" << session_type);
+        }
+        else if (is_session_query(table_)) {
+            QE_LOG_GLOBAL(ERROR, "session_type is required for session queries");
+            this->status_details = -1;
+            return;
+        }
         
         iter = json_api_data.find(QUERY_WHERE);
         if (iter == json_api_data.end())
@@ -540,8 +593,8 @@ void AnalyticsQuery::Init(std::string qid,
         }
 
         QE_TRACE(DEBUG,  " Initializing Where Query");
-        wherequery_ = new WhereQuery(where_json_string, direction,
-                or_number, this);
+        wherequery_ = new WhereQuery(where_json_string, session_type,
+                is_si, direction, or_number, this);
         this->status_details = wherequery_->status_details;
         if (this->status_details != 0 )
         {
@@ -582,7 +635,13 @@ void AnalyticsQuery::Init(std::string qid,
         return;
     }
 
-    if (is_stat_table_query(table_)) {
+    if (is_stat_table_query(table_)
+#ifndef USE_SESSION
+        || is_session_query(table_)) {
+#else
+        || is_session_query(table_)
+        || is_flow_query(table_)) {
+#endif
         selectquery_->stats_->SetSortOrder(postprocess_->sort_fields);
     }
 
@@ -900,7 +959,7 @@ query_status_t AnalyticsQuery::process_query()
     return QUERY_SUCCESS;
 }
 
-AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string, 
+AnalyticsQuery::AnalyticsQuery(const std::string& qid, std::map<std::string,
         std::string>& json_api_data,
         int or_number,
         const std::vector<query_result_unit_t> * where_info,
@@ -968,6 +1027,13 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_session_tables.begin();
+            it != vizd_session_tables.end(); it++) {
+        if (!dbif_->Db_UseColumnfamily(*it)) {
+            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
+            this->status_details = EIO;
+        }
+    }
     if (this->status_details != 0) {
         // Update connection info
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
@@ -983,7 +1049,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     Init(qid, json_api_data, or_number);
 }
 
-AnalyticsQuery::AnalyticsQuery(std::string qid, 
+AnalyticsQuery::AnalyticsQuery(const std::string& qid,
     GenDbIfPtr dbif_ptr,
     std::map<std::string, std::string> json_api_data,
     int or_number,
@@ -1283,7 +1349,13 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
     q = new AnalyticsQuery(qp.qid, dbif_, qp.terms, -1, NULL, ttlmap_, 1,
                 qp.maxChunks, this);
 
-    if (!q->is_stat_table_query(q->table())) {
+    if (!q->is_stat_table_query(q->table())
+#ifndef USE_SESSION
+        && !q->is_session_query(q->table())) {
+#else
+        && !q->is_session_query(q->table())
+        && !q->is_flow_query(q->table())) {
+#endif
         QE_TRACE_NOQID(DEBUG, "MultiMap merge_final is for Stats only");
         delete q;
         return false;
@@ -1443,6 +1515,12 @@ AnalyticsQuery::is_stat_table_query(const std::string & tname) {
 }
 
 bool
+AnalyticsQuery::is_session_query(const std::string & tname) {
+    return (tname == g_viz_constants.SESSION_SERIES_TABLE ||
+            tname == g_viz_constants.SESSION_RECORD_TABLE);
+}
+
+bool
 AnalyticsQuery::is_stat_fieldnames_table_query(const std::string & tname) {
     if (tname.compare(0, g_viz_constants.STAT_VT_FIELDNAMES_PREFIX.length(),
             g_viz_constants.STAT_VT_FIELDNAMES_PREFIX)) {
@@ -1465,7 +1543,8 @@ bool AnalyticsQuery::is_object_table_query(const std::string & tname)
         (tname != g_viz_constants.FLOW_TABLE) &&
         (tname != g_viz_constants.FLOW_SERIES_TABLE) &&
         (tname != g_viz_constants.OBJECT_VALUE_TABLE) &&
-        !is_stat_table_query(tname));
+        !is_stat_table_query(tname) &&
+        !is_session_query(tname));
 }
 
 bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)

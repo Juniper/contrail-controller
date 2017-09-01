@@ -4,7 +4,8 @@
 
 #include "query.h"
 #include "base/work_pipeline.h"
-
+#include <boost/tuple/tuple.hpp>
+#include <boost/foreach.hpp>
 
 /*
  * This function performs GetRowAsync for each row key
@@ -41,13 +42,14 @@ ExternalBase::Efn DbQueryUnit::QueryExec(uint32_t inst,
         ip_ctx->rowkey = cinp.keys[current_row];
         ip_ctx->cfname = cinp.cf_name;
         ip_ctx->crange = cinp.cr;
+        ip_ctx->where_vec = cinp.where_vec;
         ip_ctx->chunk_no = m_query->parallel_batch_num;
         ip_ctx->qid = m_query->query_id;
         ip_ctx->sub_qid = sub_query_id;
         ip_ctx->row_no = current_row;
         ip_ctx->inst = inst;
         return boost::bind(&DbQueryUnit::PipelineCb, this, cinp.cf_name,
-            cinp.keys[current_row], cinp.cr, ip_ctx, _1);
+            cinp.keys[current_row], cinp.cr, &cinp.where_vec, ip_ctx, _1);
     } else {
         // done processing fetching all rows
         return NULL;
@@ -55,12 +57,23 @@ ExternalBase::Efn DbQueryUnit::QueryExec(uint32_t inst,
 }
 
 bool DbQueryUnit::PipelineCb(std::string &cfname, GenDb::DbDataValueVec &rowkey,
-                           GenDb::ColumnNameRange &cr, GetRowInput * ip_ctx, void *privdata) {
+                           GenDb::ColumnNameRange &cr,
+                           GenDb::WhereIndexInfoVec *where_vec,
+                           GetRowInput * ip_ctx, void *privdata) {
+
+    BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, *where_vec) {
+        std::string columnN = where_info.get<0>();
+        std::ostringstream where_oss;
+        where_oss << GenDb::DbDataValueToString(rowkey.at(0))
+                  << ":"
+                  << GenDb::DbDataValueToString(where_info.get<2>());
+        where_info.get<2>() = where_oss.str();
+    }
     /*
      *  Call GetRowAsync, with args prepopulated
      */
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    return m_query->dbif_->Db_GetRowAsync(cfname, rowkey, cr,
+    return m_query->dbif_->Db_GetRowAsync(cfname, rowkey, cr, *where_vec,
         GenDb::DbConsistency::LOCAL_ONE,
         boost::bind(&DbQueryUnit::cb, this, _1, _2, ip_ctx, privdata));
 }
@@ -119,19 +132,26 @@ std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
             uint8_t partition_no = 0;
             rowkey.push_back(partition_no);
         }
-
-        if (m_query->is_flow_query(m_query->table())) {
+        if (m_query->is_flow_query(m_query->table()) ||
+                m_query->is_session_query(m_query->table())) {
             for (uint8_t part_no = (uint8_t)g_viz_constants.PARTITION_MIN;
                      part_no < (uint8_t)g_viz_constants.PARTITION_MAX + 1;
                      part_no++) {
                 GenDb::DbDataValueVec tmp_rowkey(rowkey);
                 tmp_rowkey.push_back(part_no);
-                for (GenDb::DbDataValueVec::iterator it =
-                        row_key_suffix.begin(); it!=row_key_suffix.end();
-                        it++) {
-                    tmp_rowkey.push_back(*it);
+#ifdef USE_SESSION
+                for (uint8_t is_si = 0; is_si < 2; is_si++) {
+                    tmp_rowkey.push_back(is_si);
+#endif
+                    for (GenDb::DbDataValueVec::iterator it =
+                            row_key_suffix.begin(); it!=row_key_suffix.end();
+                            it++) {
+                        tmp_rowkey.push_back(*it);
+                    }
+                    keys.push_back(tmp_rowkey);
+#ifdef USE_SESSION
                 }
-                keys.push_back(tmp_rowkey);
+#endif
             }
         } else {
             if (!t_only_row)
@@ -181,7 +201,8 @@ query_status_t DbQueryUnit::process_query()
             << " T2_end:" << t2_end
             << " cf:" << cfname
             << " column_start size:" << cr.start_.size()
-            << " column_end size:" << cr.finish_.size());
+            << " column_end size:" << cr.finish_.size()
+            << " where_vec size:" << where_vec.size());
     std::vector<GenDb::DbDataValueVec> keys = populate_row_keys();
 
     /* Create a pipeline to fetch all rows corresponding to keys */
@@ -203,6 +224,7 @@ query_status_t DbQueryUnit::process_query()
     inp.get()->total_rows = keys.size();
     inp.get()->cf_name = cfname;
     inp.get()->cr = cr;
+    inp.get()->where_vec = where_vec;
     inp.get()->keys = keys;
     // Start the pipeline with callback and input
     wp->Start(boost::bind(&DbQueryUnit::WPCompleteCb, this, wp, _1), inp);
@@ -255,11 +277,22 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
     std::auto_ptr<q_result> q_result_ptr(new q_result);
     std::auto_ptr<GetRowInput>  gri(get_row_ctx);
     uint32_t t2;
+    uint8_t session_type = 0;
+    uint8_t is_si = 0;
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     QueryEngine *qe = m_query->qe_;
     try {
         GenDb::DbDataValueVec val = gri.get()->rowkey;
         t2 = boost::get<uint32_t>(val.at(0));
+#ifndef USE_SESSION
+        if (m_query->is_session_query(m_query->table())) {
+#else
+        if (m_query->is_session_query(m_query->table())
+            || m_query->is_flow_query(m_query->table())) {
+#endif
+            session_type = boost::get<uint8_t>(val.at(3));
+            is_si = boost::get<uint8_t>(val.at(2));
+        }
     } catch (boost::bad_get& ex) {
         assert(0);
     }
@@ -297,9 +330,21 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
                 } catch (boost::bad_get& ex) {
                     assert(0);
                 }
+#ifndef USE_SESSION
             } else if (m_query->is_flow_query(m_query->table())) {
                 int ts_at = i->name->size() - 2;
                 assert(ts_at >= 0);
+                try {
+                    t1 = boost::get<uint32_t>(i->name->at(ts_at));
+                } catch (boost::bad_get& ex) {
+                    assert(0);
+                }
+            } else if (m_query->is_session_query(m_query->table())) {
+#else
+            } else if (m_query->is_session_query(m_query->table())
+                      || m_query->is_flow_query(m_query->table())) {
+#endif
+                int ts_at = 2;
                 try {
                     t1 = boost::get<uint32_t>(i->name->at(ts_at));
                 } catch (boost::bad_get& ex) {
@@ -357,12 +402,33 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
                 result_unit.set_stattable_info(
                     attribstr,
                     uuid);
+#ifndef USE_SESSION
+            } else if (m_query->is_session_query(m_query->table())) {
+#else
+            } else if (m_query->is_session_query(m_query->table())
+                      || m_query->is_flow_query(m_query->table())) {
+#endif
+                result_unit.info.clear();
+                result_unit.info.push_back(is_si);
+                result_unit.info.push_back(session_type);
+                result_unit.info.push_back(i->name->at(0));
+                result_unit.info.push_back(i->name->at(1));
+                result_unit.info.push_back(i->name->at(2));
+                result_unit.info.push_back(i->name->at(3));
+                GenDb::DbDataValueVec::const_iterator itr;
+                GenDb::DbDataValueVec::const_iterator end =
+                    (m_query->selectquery_->unroll_needed?
+                        (i->value->end()):(i->value->end() - 1));
+                for (itr = i->value->begin(); itr != end;
+                    itr++) {
+                    result_unit.info.push_back(*itr);
+                }
             } else {
                 // If message index table uuid is not the value, but
                 // column name
                 if (t_only_col) {
                     GenDb::DbDataValueVec uuid_val;
-                    uuid_val.push_back(i->name->at(i->name->size() - 1)                             );
+                    uuid_val.push_back(i->name->at(i->name->size() - 1));
                     result_unit.info = uuid_val;
                 } else {
                     if (m_query->is_object_table_query(m_query->table())) {
