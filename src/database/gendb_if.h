@@ -270,6 +270,10 @@ public:
         const std::string &compaction_strategy) = 0;
     virtual bool Db_UseColumnfamily(const NewCf& cf) = 0;
     virtual bool Db_UseColumnfamily(const std::string& cfname) = 0;
+    // Index
+    virtual bool Db_CreateIndex(const std::string &cfname,
+        const std::string &column, const std::string &indexname,
+        const std::string &mode = "") = 0;
     // Column
     virtual bool Db_AddColumn(std::auto_ptr<ColList> cl,
         DbConsistency::type dconsistency, DbAddColumnCb cb) = 0;

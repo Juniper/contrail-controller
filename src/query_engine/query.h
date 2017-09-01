@@ -52,6 +52,7 @@
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <boost/foreach.hpp>
 #include "base/util.h"
 #include "base/logging.h"
 #include <cstdlib>
@@ -379,6 +380,7 @@ struct GetRowInput {
     GenDb::DbDataValueVec rowkey;
     std::string cfname;
     GenDb::ColumnNameRange crange;
+    GenDb::WhereIndexInfoVec where_vec;
     int chunk_no;
     std::string qid;
     int sub_qid;
@@ -407,6 +409,7 @@ public:
     // getrangeslice operations on Cassandra DB. For e.g. 
     // NOT_EQUAL operation will be two getrangeslice operation
     GenDb::ColumnNameRange cr;
+    GenDb::WhereIndexInfoVec where_vec;
     // row key suffix will be used to append DIR to flow 
     // series/records query
     GenDb::DbDataValueVec row_key_suffix;
@@ -419,6 +422,7 @@ public:
         tbb::atomic<uint32_t> total_rows;
         std::string cf_name;
         GenDb::ColumnNameRange cr;
+        GenDb::WhereIndexInfoVec where_vec;
         std::vector<GenDb::DbDataValueVec> keys;
     };
 
@@ -440,7 +444,8 @@ public:
     void WPCompleteCb(QEPipeT *wp, bool ret_code);
     std::vector<GenDb::DbDataValueVec> populate_row_keys();
     bool PipelineCb(std::string &, GenDb::DbDataValueVec &,
-        GenDb::ColumnNameRange &, GetRowInput *, void *);
+        GenDb::ColumnNameRange &, GenDb::WhereIndexInfoVec *,
+        GetRowInput *, void *);
     bool query_fetch_error;
 };
 
@@ -460,6 +465,16 @@ typedef boost::function<void (void *, QEOpServerProxy::QPerfInfo,
     // stats+UUID after database queries for flow-records WHERE queries
     // stats+UUID+8-tuple for flow-series WHERE query
 
+struct filter_match_t {
+    std::string name;   // column name of match and filter
+    std::string value;  // column value to compare with
+    match_op op;        // matching op
+    bool ignore_col_absence; // ignore (i.e. do not delete) if col is absent
+    boost::regex match_e;   // matching regex expression
+
+    filter_match_t():ignore_col_absence(false) {};
+};
+
 class WhereQuery : public QueryUnit {
 public:
 
@@ -472,12 +487,16 @@ public:
     bool StatTermProcess(const contrail_rapidjson::Value& where_term,
         QueryUnit* pnode, QueryUnit *main_query);
  
-    WhereQuery(const std::string& where_json_string, int direction,
-            int32_t or_number, QueryUnit *main_query);
+    WhereQuery(const std::string& where_json_string, int session_type,
+            int is_si,int direction, int32_t or_number, QueryUnit *main_query);
     // construtor for UT
     WhereQuery(QueryUnit *mq);
     virtual query_status_t process_query();
     virtual void subquery_processed(QueryUnit *subquery);
+
+    // filter list to store filters converted from where cluase
+    std::vector<std::vector<filter_match_t> > filter_list_;
+    std::vector<std::string> additional_select_;
 
     // 0 is for egress and 1 for ingress
     int32_t direction_ing;
@@ -526,7 +545,7 @@ class StatsSelect;
 class SelectQuery : public QueryUnit {
 public:
     SelectQuery(QueryUnit *main_query,
-            std::map<std::string, std::string> json_api_data);
+            const std::map<std::string, std::string>& json_api_data);
 
     virtual query_status_t process_query();
 
@@ -542,6 +561,7 @@ public:
     // column family name (column family to query to get column 
     // fields/NULL for flow series)
     std::string cfname; 
+    bool unroll_needed;
 
     std::auto_ptr<BufT> result_;
     std::auto_ptr<MapBufT> mresult_;
@@ -699,15 +719,6 @@ private:
     void populate_fs_query_result_with_time_tuple_stats_fields();
 };
 
-struct filter_match_t {
-    std::string name;   // column name of match and filter
-    std::string value;  // column value to compare with
-    match_op op;        // matching op
-    bool ignore_col_absence; // ignore (i.e. do not delete) if col is absent
-    boost::regex match_e;   // matching regex expression
-
-    filter_match_t():ignore_col_absence(false) {};
-};
 
 struct sort_field_t {
     sort_field_t(const std::string& sort_name, const std::string& datatype) :
@@ -721,7 +732,7 @@ struct sort_field_t {
 class PostProcessingQuery: public QueryUnit {
 public:
     // Initialize with the JSON string hashset received from REDIS
-    PostProcessingQuery(std::map<std::string, std::string>& json_api_data,
+    PostProcessingQuery(const std::map<std::string, std::string>& json_api_data,
             QueryUnit *main_query);
 
     virtual query_status_t process_query();
@@ -782,7 +793,7 @@ class StatsQuery;
 
 class AnalyticsQuery: public QueryUnit {
 public:
-    AnalyticsQuery(std::string qid, std::map<std::string, 
+    AnalyticsQuery(const std::string& qid, std::map<std::string,
             std::string>& json_api_data,
             int or_number,
             const std::vector<query_result_unit_t> * where_info,
@@ -792,7 +803,7 @@ public:
             int total_batches, const std::string& cassandra_user,
             const std::string &cassandra_password,
             QueryEngine *qe, void * pipeline_handle = NULL);
-    AnalyticsQuery(std::string qid, GenDbIfPtr dbif, 
+    AnalyticsQuery(const std::string& qid, GenDbIfPtr dbif,
             std::map<std::string, std::string> json_api_data,
             int or_number,
             const std::vector<query_result_unit_t> * where_info,
@@ -898,6 +909,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     static bool is_object_table_query(const std::string& tname);
     static bool is_stat_table_query(const std::string& tname);
     static bool is_stat_fieldnames_table_query(const std::string& tname);
+    static bool is_session_query(const std::string& tname); // either flow-series or flow-records query
     static bool is_flow_query(const std::string& tname); // either flow-series or flow-records query
     bool is_valid_where_field(const std::string& where_field);
     bool is_valid_sort_field(const std::string& sort_field);
@@ -926,8 +938,8 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     uint64_t end_time_; 
     bool parallelize_query_;
     // Init function
-    void Init(std::string qid,
-        std::map<std::string, std::string>& json_api_data,
+    void Init(const std::string& qid,
+        const std::map<std::string, std::string>& json_api_data,
         int32_t or_number);
     bool can_parallelize_query();
     void ParseStatName(std::string &stat_table_name);
