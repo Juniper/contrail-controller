@@ -1973,6 +1973,59 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=project.uuid)
     #end
 
+    def test_flat_ipam_ip_alloction_pools(self):
+        # Create Project
+        project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+
+        alloc_pool_list = []
+        alloc_pool_list.append(AllocationPoolType(start='11.1.1.21', end='11.1.1.22'))
+        ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
+                                     allocation_pools=alloc_pool_list, 
+                                     alloc_unit=1)
+
+        # Create NetworkIpams specifying subnet_method as flat-subnet
+        # and user-defined-subnet
+        ipam1 = NetworkIpam('flat-ipam', project, IpamType("dhcp"),
+                           ipam_subnet_method="flat-subnet",
+                           ipam_subnets=IpamSubnets([ipam1_sn_v4]))
+        self._vnc_lib.network_ipam_create(ipam1)
+        logger.debug('Created network ipam')
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam1.uuid)
+        vn = VirtualNetwork('my-v4-v6-vn', project,
+                            virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
+                            address_allocation_mode='flat-subnet-only')
+
+        vn.add_network_ipam(ipam1, VnSubnetsType([]))
+        self._vnc_lib.virtual_network_create(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+        new_alloc_pool1 = AllocationPoolType(start='11.1.1.101', end='11.1.1.103')
+        new_alloc_pool2 = AllocationPoolType(start='11.1.1.102', end='11.1.1.104')
+        alloc_pool_list.append(new_alloc_pool1)
+        ipam1_sn_v4.set_allocation_pools(alloc_pool_list)
+        ipam1.set_ipam_subnets(IpamSubnets([ipam1_sn_v4]))
+        self._vnc_lib.network_ipam_update(ipam1)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam1.uuid)
+
+        alloc_pool_list.append(new_alloc_pool2)
+        ipam1_sn_v4.set_allocation_pools(alloc_pool_list)
+        ipam1.set_ipam_subnets(IpamSubnets([ipam1_sn_v4]))
+        try:
+            self._vnc_lib.network_ipam_update(ipam1)
+        except HttpError:
+            logger.debug('Overlapping alloc-pools in subnet')
+            pass
+
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam1.uuid)
+
+        #cleanup
+        logger.debug('Cleaning up')
+        #cleanup subnet and allocation pools
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+    #end
+
     def test_ip_alloction_pools(self):
         # Create Project
         project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
@@ -2053,6 +2106,34 @@ class TestIpAlloc(test_case.ApiServerTestCase):
                         subnet.subnet.get_ip_prefix_len(),
                         subnet.get_default_gateway()))
 
+
+        new_alloc_pool1 = AllocationPoolType(start='11.1.1.100', end='11.1.1.110')
+        new_alloc_pool2 = AllocationPoolType(start='11.1.1.90', end='11.1.1.104')
+        new_alloc_pool3 = AllocationPoolType(start='11.1.1.80', end='11.1.1.87')
+        alloc_pool_list.append(new_alloc_pool1)
+        ipam_sn_v4.set_allocation_pools(alloc_pool_list)
+        vn._pending_field_updates.add('network_ipam_refs')
+        self._vnc_lib.virtual_network_update(vn)
+        net_obj1=self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        alloc_pool_list.append(new_alloc_pool2)
+        ipam_sn_v4.set_allocation_pools(alloc_pool_list)
+        vn._pending_field_updates.add('network_ipam_refs')
+        try:
+            self._vnc_lib.virtual_network_update(vn)
+        except HttpError:
+            logger.debug('Overlapping alloc-pools in subnet')
+            pass
+
+        net_obj1=self._vnc_lib.virtual_network_read(id = vn.uuid)
+        alloc_pool_list.pop(2)
+        alloc_pool_list.pop(1)
+        alloc_pool_list.append(new_alloc_pool3)
+        alloc_pool_list.append(new_alloc_pool1)
+        ipam_sn_v4.set_allocation_pools(alloc_pool_list)
+        vn._pending_field_updates.add('network_ipam_refs')
+        self._vnc_lib.virtual_network_update(vn)
+        net_obj1=self._vnc_lib.virtual_network_read(id = vn.uuid)
 
         #cleanup
         logger.debug('Cleaning up')
