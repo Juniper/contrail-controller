@@ -633,14 +633,128 @@ class AddrMgmt(object):
         return subnet_dicts
     # end _get_ipam_subnet_dicts
 
+    def _validate_allocation_pool_change(self, req_alloc_list,
+                                         db_alloc_list):
+        first_new_idx = len(db_alloc_list)
+        for index in range(first_new_idx, len(req_alloc_list)):
+            alloc_pool = req_alloc_list[index]
+            start_ip = IPAddress(alloc_pool['start'])
+            end_ip = IPAddress(alloc_pool['end'])
+            # make sure new alloc pool is not overlapping with any of the
+            # db_alloc_pool
+            for index in range(len(db_alloc_list)):
+                db_alloc_pool = db_alloc_list[index]
+                db_start_ip = IPAddress(db_alloc_pool['start'])
+                db_end_ip = IPAddress(db_alloc_pool['end'])
+                if (start_ip >= db_start_ip) and (start_ip <= db_end_ip):
+                    return False
+                if (end_ip >= db_start_ip) and (end_ip <= db_end_ip):
+                    return False
+
+        return True
+    # end _validate_allocation_pool_change
+
+    def _validate_subnet_alloc_pools(self, req_subnet, alloc_pool_list=[]):
+        if not alloc_pool_list:
+            return True
+
+        prefix = req_subnet['ip_prefix']
+        prefix_len = req_subnet['ip_prefix_len']
+        network = IPNetwork('%s/%s' % (prefix, prefix_len))
+
+        for index in range(len(alloc_pool_list)):
+            alloc_pool = alloc_pool_list[index]
+            start_ip = IPAddress(alloc_pool['start'])
+            end_ip = IPAddress(alloc_pool['end'])
+            if end_ip < start_ip:
+                return False
+            if (start_ip not in network or end_ip not in network):
+                return False
+            # check of this alloc_pool is not overalapping
+            # with other alloc_pools
+            for idx in range(index+1, len(alloc_pool_list)):
+                next_alloc_pool = alloc_pool_list[idx]
+                next_start_ip = IPAddress(next_alloc_pool['start'])
+                next_end_ip = IPAddress(next_alloc_pool['end'])
+                if (start_ip >= next_start_ip) and (start_ip <= next_end_ip):
+                    return False
+                if (end_ip >= next_start_ip) and (end_ip <= next_end_ip):
+                    return False
+
+        return True
+    # end _validate_subnet_alloc_pools
+
+    def _check_subnet_alloc_pools(self, req_subnet, db_subnet={}):
+        if not req_subnet and not db_subnet:
+            return (True, None)
+
+        if req_subnet:
+            req_alloc_list = req_subnet['allocation_pools'] or []
+            req_alloc_list = sorted(req_alloc_list, key=lambda k: k['start'],
+                                    reverse=True)
+        else:
+            req_alloc_list = []
+
+        if db_subnet:
+            db_alloc_list = db_subnet['allocation_pools'] or []
+            db_alloc_list = sorted(db_alloc_list, key=lambda k: k['start'],
+                                   reverse=True)
+        else:
+            db_alloc_list = []
+
+        if not req_alloc_list and not db_alloc_list:
+            return (True, None)
+
+        if not (self._validate_subnet_alloc_pools(req_subnet,
+                                                  req_alloc_list)):
+                return (False, None)
+
+        if not db_alloc_list:
+            return (True, None)
+
+        # when both db_alloc_list and req_alloc_list is not None
+        # network/ipam update request
+        # req alloc list can not have less allocation_pool
+        # current support is to add allocation pool only
+        if (len(req_alloc_list) < len(db_alloc_list)):
+            return (False, None)
+
+        for index in range(len(db_alloc_list)):
+            if cmp(req_alloc_list[index], db_alloc_list[index]):
+                return (False, None)
+
+        subnet_with_pool = None
+        if (len(req_alloc_list) > len(db_alloc_list)):
+            if not (self._validate_allocation_pool_change(req_alloc_list,
+                                                          db_alloc_list)):
+                return (False, None)
+            subnet_name = req_subnet['ip_prefix'] + '/' + str(
+                              req_subnet['ip_prefix_len'])
+            subnet_with_pool = {'subnet_name': subnet_name,
+                                'alloc_pool': req_alloc_list}
+
+        return (True, subnet_with_pool)
+    # end _check_subnet_alloc_pools
+
     def _create_subnet_objs(self, fq_name_str, obj_uuid, ipam_subnets,
-                            should_persist):
+                            should_persist, alloc_pool_change):
         for ipam_subnet in ipam_subnets:
             subnet = ipam_subnet['subnet']
             subnet_name = subnet['ip_prefix'] + '/' + str(
             subnet['ip_prefix_len'])
             try:
                 subnet_obj = self._subnet_objs[obj_uuid][subnet_name]
+                for subnet_alloc_pool in alloc_pool_change:
+                    if subnet_alloc_pool['subnet_name'] == subnet_name:
+                        allocator_name = '%s:%s' % (fq_name_str, subnet_name)
+                        new_alloc_list = subnet_alloc_pool['alloc_pool']
+                        for alloc_pool in new_alloc_list:
+                            alloc_pool.pop('vrouter_specific_pool', None)
+                            alloc_pool['start'] = int(IPAddress(alloc_pool['start']))
+                            alloc_pool['end'] = int(IPAddress(alloc_pool['end']))
+                        self._db_conn.subnet_change_allocator(
+                            allocator_name, new_alloc_list,
+                            subnet_obj.alloc_unit)
             except KeyError:
                 subnet_obj = self._create_subnet_obj_for_ipam_subnet(
                                  ipam_subnet, fq_name_str, should_persist)
@@ -651,18 +765,18 @@ class AddrMgmt(object):
     # end _create_subnet_objs
 
     def _create_ipam_subnet_objs(self, ipam_uuid, ipam_dict,
-                                 should_persist):
+                                 should_persist, alloc_pool_change=[]):
         self._subnet_objs.setdefault(ipam_uuid, {})
         ipam_fq_name_str = ':'.join(ipam_dict['fq_name'])
         ipam_subnets_dict = ipam_dict.get('ipam_subnets')
         if ipam_subnets_dict:
             ipam_subnets = ipam_subnets_dict['subnets']
             self._create_subnet_objs(ipam_fq_name_str, ipam_uuid, ipam_subnets,
-                                     should_persist)
+                                     should_persist, alloc_pool_change)
     # end _create_ipam_subnet_objs
 
     def _create_net_subnet_objs(self, vn_fq_name_str, vn_uuid, vn_dict,
-                                should_persist):
+                                should_persist, alloc_pool_change=[]):
         self._subnet_objs.setdefault(vn_uuid, {})
         # create subnet for each new subnet
         refs = vn_dict.get('network_ipam_refs')
@@ -681,7 +795,8 @@ class AddrMgmt(object):
                         continue
                 if ipam_subnets:
                     self._create_subnet_objs(vn_fq_name_str, vn_uuid,
-                                             ipam_subnets, should_persist)
+                                             ipam_subnets, should_persist,
+                                             alloc_pool_change)
     # end _create_net_subnet_objs
 
     def config_log(self, msg, level):
@@ -691,8 +806,18 @@ class AddrMgmt(object):
     def net_create_req(self, obj_dict):
         vn_fq_name_str = ':'.join(obj_dict['fq_name'])
         vn_uuid = obj_dict['uuid']
+        req_subnet_dicts = self._get_net_subnet_dicts(vn_uuid, obj_dict)
+
+        if req_subnet_dicts:
+            for key in req_subnet_dicts.keys():
+                req_subnet = req_subnet_dicts[key]
+                (ok, result) = self._check_subnet_alloc_pools(req_subnet)
+                if not ok:
+                    raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
+
         self._create_net_subnet_objs(vn_fq_name_str, vn_uuid,
-                                     obj_dict, should_persist=True)
+                                     obj_dict, should_persist=True,
+                                     alloc_pool_change=[])
     # end net_create_req
 
     def net_create_notify(self, obj_id):
@@ -713,7 +838,8 @@ class AddrMgmt(object):
         vn_dict = result
         vn_fq_name_str = ':'.join(vn_dict['fq_name'])
         self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
-                                     should_persist=False)
+                                     should_persist=False,
+                                     alloc_pool_change=[])
     # end net_create_notify
 
     def net_update_req(self, vn_fq_name, db_vn_dict, req_vn_dict, obj_uuid=None):
@@ -736,6 +862,8 @@ class AddrMgmt(object):
         # following parameters are same for subnets present in both dicts
         # default_gateway, dns_server_address
         # allocation_pool,dns_nameservers
+
+        subnets_pool_change = []
         for key in req_subnet_dicts.keys():
             req_subnet = req_subnet_dicts[key]
             if key in db_subnet_dicts.keys():
@@ -745,17 +873,17 @@ class AddrMgmt(object):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
                 req_subnet['dns_server_address'] = db_subnet['dns_server_address']
 
-                req_alloc_list = req_subnet['allocation_pools'] or []
-                db_alloc_list = db_subnet['allocation_pools'] or []
-                if (len(req_alloc_list) != len(db_alloc_list)):
-                    raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
+                (ok, result) = self._check_subnet_alloc_pools(req_subnet,
+                                                              db_subnet)
 
-                for index in range(len(req_alloc_list)):
-                    if cmp(req_alloc_list[index], db_alloc_list[index]):
-                        raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
+                if not ok:
+                    raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
+                if result is not None:
+                    subnets_pool_change.append(result)
 
         self._create_net_subnet_objs(vn_fq_name_str, vn_uuid, req_vn_dict,
-                                     should_persist=True)
+                                     should_persist=True,
+                                     alloc_pool_change=subnets_pool_change)
     # end net_update_req
 
     def net_update_notify(self, obj_id):
@@ -788,7 +916,8 @@ class AddrMgmt(object):
                     pass
 
         self._create_net_subnet_objs(vn_fq_name_str, obj_id, vn_dict,
-                                     should_persist=False)
+                                     should_persist=False,
+                                     alloc_pool_change=[])
     # end net_update_notify
 
     # purge all subnets associated with a virtual network
@@ -1822,12 +1951,24 @@ class AddrMgmt(object):
 
     def ipam_create_req(self, obj_dict):
         ipam_uuid = obj_dict['uuid']
+        ipam_fq_name_str = ':'.join(obj_dict['fq_name'])
 
         #create subnet object if subnet_method is flat-subnet
         subnet_method = obj_dict.get('ipam_subnet_method')
         if subnet_method == 'flat-subnet':
+
+            req_subnet_dicts = self._get_ipam_subnet_dicts(ipam_uuid,
+                                                           obj_dict)
+            if req_subnet_dicts:
+                for key in req_subnet_dicts.keys():
+                    req_subnet = req_subnet_dicts[key]
+                    (ok, result) = self._check_subnet_alloc_pools(req_subnet)
+                    if not ok:
+                        raise AddrMgmtSubnetInvalid(ipam_fq_name_str, key)
+
             self._create_ipam_subnet_objs(ipam_uuid, obj_dict,
-                                          should_persist=True)
+                                          should_persist=True,
+                                          alloc_pool_change=[])
     # end ipam_create_req
 
     def ipam_create_notify(self, obj_id):
@@ -1891,6 +2032,7 @@ class AddrMgmt(object):
         # following parameters are same for subnets present in both dicts
         # default_gateway,dns_server_address
         # allocation_pool,dns_nameservers
+        subnets_pool_change = []
         for key in req_subnet_dicts.keys():
             req_subnet = req_subnet_dicts[key]
             if key in db_subnet_dicts.keys():
@@ -1900,19 +2042,17 @@ class AddrMgmt(object):
                     raise AddrMgmtSubnetInvalid(ipam_fq_name_str, key)
                 req_subnet['dns_server_address'] = db_subnet['dns_server_address']
 
-                req_alloc_list = req_subnet['allocation_pools'] or []
-                db_alloc_list = db_subnet['allocation_pools'] or []
-                if ((len(req_alloc_list)) and
-                    (len(req_alloc_list) != len(db_alloc_list))):
-                    raise AddrMgmtSubnetInvalid(ipam_fq_name_str, key)
-
-                for index in range(len(req_alloc_list)):
-                    if cmp(req_alloc_list[index], db_alloc_list[index]):
+                (ok, result) = self._check_subnet_alloc_pools(req_subnet,
+                                                              db_subnet)
+                if not ok:
                         raise AddrMgmtSubnetInvalid(ipam_fq_name_str, key)
+                if result is not None:
+                    subnets_pool_change.append(result)
 
         req_ipam_dict['fq_name'] = ipam_fq_name
         self._create_ipam_subnet_objs(obj_uuid, req_ipam_dict,
-                                      should_persist=True)
+                                      should_persist=True,
+                                      alloc_pool_change=subnets_pool_change)
     # end ipam_update_req
 
     def ipam_update_notify(self, obj_id):
