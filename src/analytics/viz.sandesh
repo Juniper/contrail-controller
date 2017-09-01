@@ -13,6 +13,8 @@ const string COLLECTOR_KEYSPACE_CQL = "ContrailAnalyticsCql"
 const string COLLECTOR_GLOBAL_TABLE = "MessageTable"
 const string COLLECTOR_GLOBAL_TABLE2= "MessageTablev2"
 const string UUID_KEY               = "UuidKey"
+const string FORWARD_FLOW_UUID      = "forward_flow_uuid"
+const string REVERSE_FLOW_UUID      = "reverse_flow_uuid"
 const string SOURCE                 = "Source"
 const string KEYWORD                = "Keyword"
 const string NAMESPACE              = "Namespace"
@@ -138,6 +140,9 @@ const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
 const string SESSION_TABLE          = "SessionTable"
+const string SESSION_SERIES_TABLE   = "SessionSeriesTable"
+const string SESSION_RECORD_TABLE   = "SessionRecordTable"
+const u16 NUM_SESSION_STATS_FIELDS  = 8
 
 const string OVERLAY_TO_UNDERLAY_FLOW_MAP = "OverlayToUnderlayFlowMap"
 
@@ -152,6 +157,11 @@ const string STATS_TABLE_BY_U64_TAG         = "StatsTableByU64TagV3"
 
 const u16 PARTITION_MIN = 0
 const u16 PARTITION_MAX = 16
+
+enum SessionType {
+    SERVER_SESSION = 0,
+    CLIENT_SESSION,
+}
 
 enum TtlType {
     FLOWDATA_TTL,
@@ -245,13 +255,51 @@ enum SessionRecordFields {
    SESSION_MAX,
 }
 
+const list<SessionRecordFields> SessionCassTableColumns = [
+   SessionRecordFields.SESSION_T2,
+   SessionRecordFields.SESSION_PARTITION_NO,
+   SessionRecordFields.SESSION_IS_SI,
+   SessionRecordFields.SESSION_IS_CLIENT_SESSION,
+   SessionRecordFields.SESSION_PROTOCOL,
+   SessionRecordFields.SESSION_SPORT,
+   SessionRecordFields.SESSION_T1,
+   SessionRecordFields.SESSION_UUID,
+   SessionRecordFields.SESSION_REMOTE_DEPLOYMENT,
+   SessionRecordFields.SESSION_REMOTE_TIER,
+   SessionRecordFields.SESSION_REMOTE_APPLICATION,
+   SessionRecordFields.SESSION_REMOTE_SITE,
+   SessionRecordFields.SESSION_REMOTE_LABELS,
+   SessionRecordFields.SESSION_REMOTE_PREFIX,
+   SessionRecordFields.SESSION_SECURITY_POLICY_RULE,
+   SessionRecordFields.SESSION_VMI,
+   SessionRecordFields.SESSION_IP,
+   SessionRecordFields.SESSION_VN,
+   SessionRecordFields.SESSION_REMOTE_VN,
+   SessionRecordFields.SESSION_VROUTER,
+   SessionRecordFields.SESSION_VROUTER_IP,
+   SessionRecordFields.SESSION_SAMPLED_FORWARD_BYTES,
+   SessionRecordFields.SESSION_SAMPLED_FORWARD_PKTS,
+   SessionRecordFields.SESSION_SAMPLED_REVERSE_BYTES,
+   SessionRecordFields.SESSION_SAMPLED_REVERSE_PKTS,
+   SessionRecordFields.SESSION_LOGGED_FORWARD_BYTES,
+   SessionRecordFields.SESSION_LOGGED_FORWARD_PKTS,
+   SessionRecordFields.SESSION_LOGGED_REVERSE_BYTES,
+   SessionRecordFields.SESSION_LOGGED_REVERSE_PKTS,
+   SessionRecordFields.SESSION_DEPLOYMENT,
+   SessionRecordFields.SESSION_TIER,
+   SessionRecordFields.SESSION_APPLICATION,
+   SessionRecordFields.SESSION_SITE,
+   SessionRecordFields.SESSION_LABELS,
+   SessionRecordFields.SESSION_MAP
+]
+
 const list<string> SessionRecordNames = [
    "t2",
    "partition_number",
    "is_si",
    "is_client_session",
    "protocol",
-   "sport",
+   "server_port",
    "t1",
    "uuid",
    "deployment",
@@ -267,7 +315,7 @@ const list<string> SessionRecordNames = [
    "remote_prefix",
    "security_policy_rule"
    "vmi",
-   "ip",
+   "local_ip",
    "vn",
    "remote_vn",
    "vrouter",
@@ -281,7 +329,7 @@ const list<string> SessionRecordNames = [
    "logged_reverse_bytes",
    "logged_reverse_pkts",
    "sessionMap",
-   "session_max",
+   "session_max"
 ]
 
 // Please keep FlowRecordFields and FlowRecordNames in sync
@@ -740,7 +788,9 @@ struct query_column
     2: string datatype;
     3: bool index;
     4: bool select;
-    5: list<string> suffixes;
+    5: string requiredness;
+    6: list<string> suffixes;
+    7: list<string> choices;
 }
 
 struct query_schema_type
@@ -1257,6 +1307,42 @@ const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
             {'name' : 'column30', 'datatype': Gendb.DbDataType.Unsigned64Type },
             {'name' : 'value', 'datatype': Gendb.DbDataType.UTF8Type },
         ],
+        'column_to_query_column' : {
+            'column0'  : 'T2',
+            'column1'  : 'partition_number',
+            'column2'  : 'is_service_instance',
+            'column3'  : 'session_type',
+            'column4'  : 'protocol',
+            'column5'  : 'server_port',
+            'column6'  : 'T1',
+            'column7'  : 'uuid',
+            'column8'  : 'deployment',
+            'column9'  : 'tier',
+            'column10' : 'application',
+            'column11' : 'site',
+            'column12' : 'labels',
+            'column13' : 'remote_deployment',
+            'column14' : 'remote_tier',
+            'column15' : 'remote_application',
+            'column16' : 'remote_site',
+            'column17' : 'remote_labels',
+            'column18' : 'remote_prefix',
+            'column19' : 'security_policy_rule',
+            'column20' : 'vmi',
+            'column21' : 'local_ip',
+            'column22' : 'vn',
+            'column23' : 'remote_vn',
+            'column24' : 'vrouter',
+            'column25' : 'vrouter_ip',
+            'column26' : 'forward_sampled_bytes',
+            'column27' : 'forward_sampled_pkts',
+            'column28' : 'reverse_sampled_bytes',
+            'column29' : 'reverse_sampled_pkts',
+            'column30' : 'forward_logged_bytes',
+            'column31' : 'forward_logged_pkts',
+            'column32' : 'reverse_logged_bytes',
+            'column33' : 'reverse_logged_pkts',
+        },
         'index_column_to_column' : {
             'deployment'           : 'column5',
             'tier'                 : 'column6',
@@ -1269,7 +1355,7 @@ const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
             'remote_prefix'        : 'column15',
             'security_policy_rule' : 'column16',
             'vmi'                  : 'column17',
-            'ip'                   : 'column18',
+            'local_ip'                   : 'column18',
             'vn'                   : 'column19',
             'remote_vn'            : 'column20',
         }
@@ -1866,6 +1952,93 @@ const list<stat_table> _STAT_TABLES  = [
     },
 ]
 
+const list<map<string, string> > session2flow_maps = [
+    {   // CLIENT-INGRESS
+        'local_ip'    : 'sourceip',
+        'remote_ip'   : 'destip',
+        'server_port' : 'dport',
+        'client_port' : 'sport',
+        'vn'          : 'sourcevn',
+        'remote_vn'   : 'destvn',
+        'vmi'         : 'vmi_uuid',
+        'forward_flow_uuid'     : FLOW_TABLE_UUID,
+        'forward_setup_time'    : 'setup_time',
+        'forward_teardown_time' : 'teardown_time',
+        'forward_teardown_bytes': FLOW_TABLE_AGG_BYTES,
+        'forward_teardown_pkts' : FLOW_TABLE_AGG_PKTS,
+        'forward_action'        : 'action',
+        'forward_sg_rule_uuid'  : 'sg_rule_uuid',
+        'forward_nw_ace_uuid'   : 'nw_ace_uuid',
+        'forward_underlay_port' : 'underlay_source_port',
+        'forward_drop_reason'   : 'drop_reason',
+        'forward_sampled_bytes' : 'bytes',
+        'forward_sampled_pkts'  : 'packets',
+    },
+    {   // CLIENT-EGRESS
+        'local_ip'    : 'destip',
+        'remote_ip'   : 'soureceip',
+        'server_port' : 'sport',
+        'client_port' : 'dport',
+        'vn'          : 'destvn',
+        'remote_vn'   : 'sourcevn',
+        'vmi'         : 'vmi_uuid',
+        'reverse_flow_uuid'     : FLOW_TABLE_UUID,
+        'reverse_setup_time'    : 'setup_time',
+        'reverse_teardown_time' : 'teardown_time',
+        'reverse_teardown_bytes': FLOW_TABLE_AGG_BYTES,
+        'reverse_teardown_pkts' : FLOW_TABLE_AGG_PKTS,
+        'reverse_action'        : 'action',
+        'reverse_sg_rule_uuid'  : 'sg_rule_uuid',
+        'reverse_nw_ace_uuid'   : 'nw_ace_uuid',
+        'reverse_underlay_port' : 'underlay_source_port',
+        'reverse_drop_reason'   : 'drop_reason',
+        'reverse_sampled_bytes' : 'bytes',
+        'reverse_sampled_pkts'  : 'packets',
+    },
+    {   // SERVER-INGRESS
+        'local_ip'    : 'sourceip',
+        'remote_ip'   : 'destip',
+        'server_port' : 'sport',
+        'client_port' : 'dport',
+        'vn'          : 'destvn',
+        'remote_vn'   : 'sourcevn',
+        'vmi'         : 'vmi_uuid',
+        'reverse_flow_uuid'     : FLOW_TABLE_UUID,
+        'reverse_setup_time'    : 'setup_time',
+        'reverse_teardown_time' : 'teardown_time',
+        'reverse_teardown_bytes': FLOW_TABLE_AGG_BYTES,
+        'reverse_teardown_pkts' : FLOW_TABLE_AGG_PKTS,
+        'reverse_action'        : 'action',
+        'reverse_sg_rule_uuid'  : 'sg_rule_uuid',
+        'reverse_nw_ace_uuid'   : 'nw_ace_uuid',
+        'reverse_underlay_port' : 'underlay_source_port',
+        'reverse_drop_reason'   : 'drop_reason',
+        'reverse_sampled_bytes' : 'bytes',
+        'reverse_sampled_pkts'  : 'packets',
+    },
+    {   // SERVER-EGRESS
+        'local_ip'    : 'destip',
+        'remote_ip'   : 'sourceip',
+        'server_port' : 'dport',
+        'client_port' : 'sport',
+        'vn'          : 'destvn',
+        'remote_vn'   : 'sourcevn',
+        'vmi'         : 'vmi_uuid',
+        'forward_flow_uuid'     : FLOW_TABLE_UUID,
+        'forward_setup_time'    : 'setup_time',
+        'forward_teardown_time' : 'teardown_time',
+        'forward_teardown_bytes': FLOW_TABLE_AGG_BYTES, 
+        'forward_teardown_pkts' : FLOW_TABLE_AGG_PKTS,
+        'forward_action'        : 'action',
+        'forward_sg_rule_uuid'  : 'sg_rule_uuid',
+        'forward_nw_ace_uuid'   : 'nw_ace_uuid',
+        'forward_underlay_port' : 'underlay_source_port',
+        'forward_drop_reason'   : 'drop_reason',
+        'forward_sampled_bytes' : 'bytes',
+        'forward_sampled_pkts'  : 'packets',
+    },
+]
+
 const list<query_table> _TABLES = [
     {
          'name' : COLLECTOR_GLOBAL_TABLE,
@@ -1974,6 +2147,161 @@ const list<query_table> _TABLES = [
         },
         'columnvalues' : [ ],
     },
+    {
+        'name': 'SessionSeriesTable',
+        'schema' : {
+            'type' : 'SESSION',
+            'columns' : [
+               { 'name' : 'session_type', 'datatype' : 'string', 'index' : true,
+                 'requiredness' : 'mandatory', 'choices' : ['server', 'client'] },
+               { 'name' : 'is_service_instance', 'datatype' : 'int' ,
+                 'index' : true },
+               { 'name' : 'vmi', 'datatype': 'string', 'index': true },
+               { 'name' : 'vn', 'datatype': 'string', 'index': true },
+               { 'name' : 'deployment', 'datatype': 'string', 'index': true },
+               { 'name' : 'tier', 'datatype': 'string', 'index': true },
+               { 'name' : 'application', 'datatype': 'string', 'index': true },
+               { 'name' : 'site', 'datatype': 'string', 'index': true },
+               { 'name' : 'labels', 'datatype': 'string', 'index': false },
+               { 'name' : 'remote_deployment', 'datatype': 'string', 'index': true },
+               { 'name' : 'remote_tier', 'datatype': 'string', 'index': true },
+               { 'name' : 'remote_application', 'datatype': 'string', 'index': true },
+               { 'name' : 'remote_site', 'datatype': 'string', 'index': true },
+               { 'name' : 'remote_labels', 'datatype': 'string', 'index': false },
+               { 'name' : 'remote_vn', 'datatype': 'string', 'index': true },
+               { 'name' : 'remote_prefix', 'datatype': 'string', 'index': true },
+               { 'name' : 'security_policy_rule', 'datatype': 'string', 'index': true },
+
+               { 'name' : 'local_ip', 'datatype': 'ipaddr', 'index' : true },
+               { 'name' : 'protocol', 'datatype': 'int', 'index' : true },
+               { 'name' : 'server_port', 'datatype': 'int', 'index' : true },
+
+               { 'name' : 'remote_ip', 'datatype': 'ipaddr', 'index' : false },
+               { 'name' : 'client_port', 'datatype': 'int', 'index' : false },
+
+               { 'name' : 'forward_flow_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'forward_action', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'forward_sg_rule_uuid', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'forward_nw_ace_uuid', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'forward_underlay_source_port', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'forward_drop_reason', 'datatype' : 'string',
+                 'index' : false },
+
+               { 'name' : 'reverse_flow_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'reverse_action', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'reverse_sg_rule_uuid', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'reverse_nw_ace_uuid', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'reverse_underlay_source_port', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'reverse_drop_reason', 'datatype' : 'string',
+                 'index' : false },
+
+
+               { 'name' : 'session_class_id', 'datatype': 'int', 'index': false },
+               { 'name' : 'T', 'datatype': 'int', 'index' : false },
+               { 'name' : 'T=', 'datatype': 'int', 'index' : false },
+
+               { 'name' : 'SUM(forward_sampled_bytes)', 'datatype': 'int',
+                 'index': false },
+               { 'name' : 'SUM(forward_sampled_pkts)', 'datatype': 'int',
+                 'index': false },
+               { 'name' : 'SUM(forward_logged_bytes)', 'datatype': 'int',
+                 'index': false },
+               { 'name' : 'SUM(forward_logged_pkts)', 'datatype': 'int',
+                 'index': false },
+
+               { 'name' : 'SUM(reverse_sampled_bytes)', 'datatype': 'int',
+                 'index': false },
+               { 'name' : 'SUM(reverse_sampled_pkts)', 'datatype': 'int',
+                 'index': false },
+               { 'name' : 'SUM(reverse_logged_bytes)', 'datatype': 'int',
+                 'index': false },
+               { 'name' : 'SUM(reverse_logged_pkts)', 'datatype': 'int',
+                 'index': false },
+
+               { 'name' : 'sample_count', 'datatype': 'int', 'index': false}
+               ]
+        },
+        'columnvalues' : [ ],
+    },
+    {
+        'name': 'SessionRecordTable',
+        'schema' : {
+            'type' : 'SESSION',
+            'columns' : [
+               { 'name' : 'session_type', 'datatype' : 'string', 'index' : true,
+                 'requiredness' : 'mandatory', 'choices' : ['server', 'client'] },
+               { 'name' : 'is_service_instance', 'datatype' : 'int' ,
+                 'index' : true },
+               { 'name' : 'vmi', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'vn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'deployment', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'tier', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'application', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'site', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'labels', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'remote_deployment', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_tier', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_application', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_site', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_labels', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'remote_vn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'remote_prefix', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'security_policy_rule', 'datatype' : 'string', 'index' : true },
+
+               { 'name' : 'local_ip', 'datatype' : 'ipaddr', 'index' : true },
+               { 'name' : 'protocol', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'server_port', 'datatype' : 'int', 'index' : true },
+
+               { 'name' : 'remote_ip', 'datatype' : 'ipaddr', 'index' : false },
+               { 'name' : 'client_port', 'datatype' : 'int', 'index' : false },
+
+               { 'name' : 'forward_flow_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'forward_action', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'forward_sg_rule_uuid', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'forward_nw_ace_uuid', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'forward_underlay_source_port', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'forward_drop_reason', 'datatype' : 'string',
+                 'index' : false },
+
+               { 'name' : 'reverse_flow_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'reverse_action', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'reverse_sg_rule_uuid', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'reverse_nw_ace_uuid', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'reverse_underlay_source_port', 'datatype' : 'string',
+                 'index' : false },
+               { 'name' : 'reverse_drop_reason', 'datatype' : 'string',
+                 'index' : false },
+
+               { 'name' : 'forward_teardown_bytes', 'datatype' : 'long',
+                 'index' : false },
+               { 'name' : 'forward_teardown_pkts', 'datatype' : 'long',
+                 'index' : false },
+
+               { 'name' : 'reverse_teardown_bytes', 'datatype' : 'long',
+                 'index' : false },
+               { 'name' : 'reverse_teardown_pkts', 'datatype' : 'long',
+                 'index' : false },
+               ]
+        },
+        'columnvalues' : [ ],
+    },
+
+
 ]
 
 // all object tables have the same schema and same query-able columns
