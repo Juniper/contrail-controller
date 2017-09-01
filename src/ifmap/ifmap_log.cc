@@ -27,4 +27,3 @@ SandeshTraceBufferPtr IFMapUpdateSenderBuf(
 // Trace buffer for xmpp messages
 SandeshTraceBufferPtr IFMapXmppTraceBuf(
     SandeshTraceBufferCreate("IFMapXmppTraceBuf", 50000));
-

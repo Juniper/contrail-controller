@@ -32,7 +32,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"vr1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"2:8c5eeb87-0b08-4724-b53f-0a0368055374\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":[\"vr1\"],\"type\":\"virtual_router\",\"uuid\":\"2:8c5eeb87-0b08-4724-b53f-0a0368055374\"}",
     "db": {
       "8c5eeb87-0b08-4724-b53f-0a0368055374": {
         "fq_name": "[\"vr1\"]",
@@ -52,7 +52,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"vr1\\\"]\",\"type\":\"virtual_router\",\"uuid\":\"4:8c5eeb87-0b08-4724-b53f-0a0368055374\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":[\"vr1\"]\",\"type\":\"virtual_router\",\"uuid\":\"4:8c5eeb87-0b08-4724-b53f-0a0368055374\"}",
     "db": {
       "8c5eeb87-0b08-4724-b53f-0a0368055374": {
         "fq_name": "[\"vr1\"]",
