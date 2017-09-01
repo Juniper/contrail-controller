@@ -923,16 +923,12 @@ def main(args_str=None):
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
     rabbitmq_cfg = get_rabbitmq_cfg(args)
-    try:
-        vnc_amqp = VncAmqpHandle(sm_logger._sandesh, sm_logger, DBBaseSM,
-                                 REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
-                                 args.trace_file)
-        vnc_amqp.establish()
-        vnc_amqp.close()
-    except Exception:
-        pass
-    finally:
-        sm_logger.debug("Removed remained AMQP queue")
+    vnc_amqp = VncAmqpHandle(sm_logger._sandesh, sm_logger, DBBaseSM,
+                             REACTION_MAP, 'svc_monitor', rabbitmq_cfg,
+                             args.trace_file)
+    vnc_amqp.establish()
+    vnc_amqp.close()
+    sm_logger.debug("Removed remained AMQP queue")
 
     # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(

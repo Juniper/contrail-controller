@@ -602,14 +602,10 @@ def main(args_str=None):
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    try:
-        vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
-        vnc_amqp.establish()
-        vnc_amqp.close()
-    except Exception:
-        pass
-    finally:
-        dm_logger.debug("Removed remained AMQP queue")
+    vnc_amqp = DMAmqpHandle(dm_logger, DeviceManager.REACTION_MAP, args)
+    vnc_amqp.establish()
+    vnc_amqp.close()
+    dm_logger.debug("Removed remained AMQP queue")
 
     _zookeeper_client = ZookeeperClient(client_pfx+"device-manager",
                                         args.zk_server_ip)
