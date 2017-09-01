@@ -160,9 +160,13 @@ class InstanceManager(object):
             return
         if fip_id in vmi.floating_ips:
             return
-        self._vnc_lib.ref_update('floating-ip', fip_id,
-            'virtual-machine-interface', vmi_id, None, 'ADD')
-        vmi.floating_ips.add(fip_id)
+        try:
+            self._vnc_lib.ref_update('floating-ip', fip_id,
+                'virtual-machine-interface', vmi_id, None, 'ADD')
+            vmi.floating_ips.add(fip_id)
+        except NoIdError:
+            # vmi would have been deleted(if this call is due to lb->vmi delete operation)
+            pass
 
     def _link_sgs_to_vmi(self, vmi_id, sg_list):
         vmi = VirtualMachineInterfaceSM.get(vmi_id)
@@ -604,7 +608,7 @@ class InstanceManager(object):
             self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
         # VMI should be owned by tenant
-        self._vnc_lib.chown(vmi_obj.uuid, si.parent_key)
+        self._vnc_lib.chown(vmi_obj.uuid, proj_obj.uuid)
 
         VirtualMachineInterfaceSM.locate(vmi_obj.uuid)
 
@@ -630,9 +634,9 @@ class InstanceManager(object):
 
         # instance-ip should be owned by tenant
         if iip_obj:
-            self._vnc_lib.chown(iip_obj.uuid, si.parent_key)
+            self._vnc_lib.chown(iip_obj.uuid, proj_obj.uuid)
         if iipv6_obj:
-            self._vnc_lib.chown(iipv6_obj.uuid, si.parent_key)
+            self._vnc_lib.chown(iipv6_obj.uuid, proj_obj.uuid)
 
         # set mac address
         if vmi_create:
