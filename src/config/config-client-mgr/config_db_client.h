@@ -33,6 +33,7 @@ public:
 
     virtual void AddFQNameCache(const std::string &uuid,
                    const std::string &obj_type, const std::string &fq_name) = 0;
+    virtual std::string FindFQName(const std::string &uuid) const = 0;
     virtual void InvalidateFQNameCache(const std::string &uuid) = 0;
 
     virtual bool UUIDToFQNameShow(

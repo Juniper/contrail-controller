@@ -526,6 +526,11 @@ void ConfigCassandraClient::PurgeFQNameCache(const string &uuid) {
     fq_name_cache_.erase(uuid);
 }
 
+string ConfigCassandraClient::FindFQName(const string &uuid) const {
+    ObjTypeFQNPair obj_type_fq_name_pair = UUIDToFQName(uuid);
+    return obj_type_fq_name_pair.second;
+}
+
 ConfigCassandraClient::ObjTypeFQNPair ConfigCassandraClient::UUIDToFQName(
                                   const string &uuid, bool deleted_ok) const {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
@@ -1087,6 +1092,8 @@ void ConfigCassandraPartition::FillUUIDToObjCacheInfo(const string &uuid,
     entry->set_timestamp(
             UTCUsecToString(uuid_iter->second->GetLastReadTimeStamp()));
     entry->set_retry_count(uuid_iter->second->GetRetryCount());
+    entry->set_fq_name(uuid_iter->second->GetFQName());
+    entry->set_obj_type(uuid_iter->second->GetObjType());
     entry->set_timer_running(uuid_iter->second->IsRetryTimerRunning());
     entry->set_timer_created(uuid_iter->second->IsRetryTimerCreated());
     vector<ConfigDBUUIDCacheData> fields;
