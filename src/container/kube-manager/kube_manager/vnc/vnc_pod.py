@@ -116,6 +116,7 @@ class VncPod(VncCommon):
         vn_fq_name = pod.get_vn_fq_name()
         ns = self._get_namespace(pod_namespace)
 
+        # FIXME: Check if ns is not None
         # Check of virtual network configured on the namespace.
         if not vn_fq_name:
             vn_fq_name = ns.get_annotated_network_fq_name()
@@ -536,3 +537,6 @@ class VncPod(VncCommon):
                                                            pod_id, labels)
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
+        else:
+            self._logger.warning(
+                'Unknown event type: "{}" Ignoring'.format(event['type']))
