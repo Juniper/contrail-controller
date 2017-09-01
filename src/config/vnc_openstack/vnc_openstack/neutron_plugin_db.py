@@ -306,6 +306,8 @@ class DBInterface(object):
             self._vnc_lib.virtual_machine_create(instance_obj)
         except RefsExistError as e:
             instance_obj = self._vnc_lib.virtual_machine_read(id=instance_obj.uuid)
+        except AuthFailed as e:
+            self._raise_contrail_exception('NotAuthorized', msg=str(e))
 
         return instance_obj
     #end _ensure_instance_exists
@@ -375,7 +377,7 @@ class DBInterface(object):
         sg_vnc.set_security_group_entries(rules)
 
         try:
-            self._vnc_lib.security_group_update(sg_vnc)
+            self._resource_update('security_group', sg_vnc)
         except (BadRequest, PermissionDenied) as e:
             self._raise_contrail_exception('BadRequest',
                 resource='security_group_rule', msg=str(e))
@@ -412,38 +414,38 @@ class DBInterface(object):
         rules = sg_obj.get_security_group_entries()
         rules.get_policy_rule().remove(sg_rule)
         sg_obj.set_security_group_entries(rules)
-        self._vnc_lib.security_group_update(sg_obj)
+        self._resource_update('security_group', sg_obj)
     #end _security_group_rule_delete
 
     def _security_group_delete(self, sg_id):
-        self._vnc_lib.security_group_delete(id=sg_id)
+        self._resource_delete('security_group', sg_id)
     #end _security_group_delete
 
     def _svc_instance_create(self, si_obj):
         try:
-            si_uuid = self._vnc_lib.service_instance_create(si_obj)
+            si_uuid = self._resource_create('service_instance', si_obj)
         except RefsExistError as e:
             self._raise_contrail_exception('BadRequest',
                 resource='svc_instance', msg=str(e))
         st_fq_name = ['default-domain', 'nat-template']
         st_obj = self._vnc_lib.service_template_read(fq_name=st_fq_name)
         si_obj.set_service_template(st_obj)
-        self._vnc_lib.service_instance_update(si_obj)
+        self._resource_update('service_instance', si_obj)
 
         return si_uuid
     #end _svc_instance_create
 
     def _svc_instance_delete(self, si_id):
-        self._vnc_lib.service_instance_delete(id=si_id)
+        self._resource_delete('service_instance', si_id)
     #end _svc_instance_delete
 
     def _route_table_create(self, rt_obj):
-        rt_uuid = self._vnc_lib.route_table_create(rt_obj)
+        rt_uuid = self._resource_create('route_table', rt_obj)
         return rt_uuid
     #end _route_table_create
 
     def _route_table_delete(self, rt_id):
-        self._vnc_lib.route_table_delete(id=rt_id)
+        self._resource_delete('route_table', rt_id)
     #end _route_table_delete
 
     def _resource_create(self, resource_type, obj):
@@ -462,8 +464,26 @@ class DBInterface(object):
         except OverQuota as e:
             self._raise_contrail_exception('OverQuota',
                 overs=[resource_type], msg=str(e))
+        except AuthFailed as e:
+            self._raise_contrail_exception('NotAuthorized', msg=str(e))
         return obj_uuid
     #end _resource_create
+
+    def _resource_update(self, resource_type, obj):
+        update_method = getattr(self._vnc_lib, resource_type + '_update')
+        try:
+            update_method(obj)
+        except AuthFailed as e:
+            self._raise_contrail_exception('NotAuthorized', msg=str(e))
+    #end _resource_update
+
+    def _resource_delete(self, resource_type, obj_id):
+        delete_method = getattr(self._vnc_lib, resource_type + '_delete')
+        try:
+            delete_method(id=obj_id)
+        except AuthFailed as e:
+            self._raise_contrail_exception('NotAuthorized', msg=str(e))
+    #end _resource_delete
 
     def _virtual_network_read(self, net_id=None, fq_name=None, fields=None):
         net_obj = self._vnc_lib.virtual_network_read(id=net_id,
@@ -474,7 +494,7 @@ class DBInterface(object):
 
     def _virtual_network_update(self, net_obj):
         try:
-            self._vnc_lib.virtual_network_update(net_obj)
+            self._resource_update('virtual_network', net_obj)
         except (PermissionDenied, RefsExistError) as e:
             self._raise_contrail_exception('BadRequest',
                 resource='network', msg=str(e))
@@ -505,11 +525,11 @@ class DBInterface(object):
     #end _virtual_machine_interface_read
 
     def _virtual_machine_interface_update(self, port_obj):
-        self._vnc_lib.virtual_machine_interface_update(port_obj)
+        self._resource_update('virtual_machine_interface', port_obj)
     #end _virtual_machine_interface_update
 
     def _virtual_machine_interface_delete(self, port_id):
-        self._vnc_lib.virtual_machine_interface_delete(id=port_id)
+        self._resource_delete('virtual_machine_interface', port_id)
     #end _virtual_machine_interface_delete
 
     def _virtual_machine_interface_list(self, parent_id=None, back_ref_id=None,
@@ -532,7 +552,10 @@ class DBInterface(object):
     #end _virtual_machine_interface_list
 
     def _instance_ip_create(self, iip_obj):
-        iip_uuid = self._vnc_lib.instance_ip_create(iip_obj)
+        try:
+            iip_uuid = self._vnc_lib.instance_ip_create(iip_obj)
+        except AuthFailed as e:
+            self._raise_contrail_exception('NotAuthorized', msg=str(e))
 
         return iip_uuid
     #end _instance_ip_create
@@ -544,11 +567,11 @@ class DBInterface(object):
     #end _instance_ip_read
 
     def _instance_ip_update(self, iip_obj):
-        self._vnc_lib.instance_ip_update(iip_obj)
+        self._resource_update('instance_ip', iip_obj)
     #end _instance_ip_update
 
     def _instance_ip_delete(self, instance_ip_id):
-        self._vnc_lib.instance_ip_delete(id=instance_ip_id)
+        self._resource_delete('instance_ip', instance_ip_id)
     #end _instance_ip_delete
 
     def _virtual_machine_list(self, back_ref_id=None, obj_uuids=None, fields=None):
@@ -574,7 +597,7 @@ class DBInterface(object):
             net_obj.parent_uuid, PERMS_RWX,    # tenant, tenant-access
             PERMS_RWX,                   # global-access
             [])                          # share list
-        fip_pool_uuid = self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
+        fip_pool_uuid = self._resource_create('floating_ip_pool', fip_pool_obj)
 
         return fip_pool_uuid
     # end _floating_ip_pool_create
@@ -596,7 +619,7 @@ class DBInterface(object):
                 self.floatingip_delete(fip_id=fip['uuid'])
 
         fip_pool_id = fip_pool['uuid']
-        fip_pool_uuid = self._vnc_lib.floating_ip_pool_delete(id=fip_pool_id)
+        fip_pool_uuid = self._resource_delete('floating_ip_pool', fip_pool_id)
     # end _floating_ip_pool_delete
 
     # find projects on a given domain
@@ -735,12 +758,12 @@ class DBInterface(object):
     #end _logical_router_read
 
     def _logical_router_update(self, rtr_obj):
-        self._vnc_lib.logical_router_update(rtr_obj)
+        self._resource_update('logical_router', rtr_obj)
     # end _logical_router_update
 
     def _logical_router_delete(self, rtr_id):
         try:
-            self._vnc_lib.logical_router_delete(id=rtr_id)
+            self._resource_delete('logical_router', rtr_id)
         except RefsExistError:
             self._raise_contrail_exception('RouterInUse', router_id=rtr_id)
     #end _logical_router_delete
@@ -2054,7 +2077,7 @@ class DBInterface(object):
             self._virtual_machine_interface_update(port_obj)
             for vm_ref in delete_vm_list:
                 try:
-                    self._vnc_lib.virtual_machine_delete(id=vm_ref['uuid'])
+                    self._resource_delete('virtual_machine', vm_ref['uuid'])
                 except RefsExistError:
                     pass
 
@@ -2069,7 +2092,7 @@ class DBInterface(object):
                                parent_obj=proj_obj,
                                security_group_entries=sg_rules,
                                id_perms=id_perms)
-        sg_uuid = self._vnc_lib.security_group_create(sg_obj)
+        sg_uuid = self._resource_create('security_group', sg_obj)
         return sg_obj
     # end _create_no_rule_sg
 
@@ -2687,7 +2710,7 @@ class DBInterface(object):
                                 parent_obj=project_obj,
                                 name=intf_rt_name)
 
-            intf_route_table_id = self._vnc_lib.interface_route_table_create(
+            intf_route_table_id = self._resource_create('interface_route_table',
                                     intf_route_table)
             intf_route_table_obj = self._vnc_lib.interface_route_table_read(
                                     id=intf_route_table_id)
@@ -2700,9 +2723,9 @@ class DBInterface(object):
             routes.append(RouteType(prefix=prefix))
         rt_routes.set_route(routes)
         intf_route_table_obj.set_interface_route_table_routes(rt_routes)
-        self._vnc_lib.interface_route_table_update(intf_route_table_obj)
+        self._resource_update('interface_route_table', intf_route_table_obj)
         port_obj.add_interface_route_table(intf_route_table_obj)
-        self._vnc_lib.virtual_machine_interface_update(port_obj)
+        self._resource_update('virtual_machine_interface', port_obj)
 
     def _port_update_iface_route_table(self, net_obj, subnet_cidr, subnet_id,
                                        new_host_routes, old_host_routes=None):
@@ -2765,8 +2788,8 @@ class DBInterface(object):
                     intf_route_table_obj = self._vnc_lib.interface_route_table_read(
                                                                id=rt_ref['uuid'])
                     port_obj.del_interface_route_table(intf_route_table_obj)
-                    self._vnc_lib.virtual_machine_interface_update(port_obj)
-                    self._vnc_lib.interface_route_table_delete(id=rt_ref['uuid'])
+                    self._resource_update('virtual_machine_interface', port_obj)
+                    self._resource_delete('interface_route_table', rt_ref['uuid'])
                 except (NoIdError, RefsExistError) as e:
                     pass
 
@@ -2865,7 +2888,7 @@ class DBInterface(object):
             fip_pools = self._fip_pool_list_network(net_id, fields=['floating_ips'])
             for fip_pool in fip_pools or []:
                 self._floating_ip_pool_delete(fip_pool=fip_pool)
-            self._vnc_lib.virtual_network_delete(id=net_id)
+            self._resource_delete('virtual_network', net_id)
         except RefsExistError:
             self._raise_contrail_exception('NetworkInUse', net_id=net_id)
     # end network_delete
@@ -3315,7 +3338,7 @@ class DBInterface(object):
 
         ipam_obj = self._ipam_neutron_to_vnc(ipam_q, CREATE)
         try:
-            ipam_uuid = self._vnc_lib.network_ipam_create(ipam_obj)
+            ipam_uuid = self._resource_create('network_ipam', ipam_obj)
         except RefsExistError as e:
             self._raise_contrail_exception('BadRequest',
                 resource='ipam', msg=str(e))
@@ -3338,14 +3361,14 @@ class DBInterface(object):
     def ipam_update(self, ipam_id, ipam_q):
         ipam_q['id'] = ipam_id
         ipam_obj = self._ipam_neutron_to_vnc(ipam_q, UPDATE)
-        self._vnc_lib.network_ipam_update(ipam_obj)
+        self._resource_update('network_ipam', ipam_obj)
 
         return self._ipam_vnc_to_neutron(ipam_obj)
     #end ipam_update
 
     @wait_for_api_server_connection
     def ipam_delete(self, ipam_id):
-        self._vnc_lib.network_ipam_delete(id=ipam_id)
+        self._resource_delete('network_ipam', ipam_id)
     #end ipam_delete
 
     # TODO request based on filter contents
@@ -3400,7 +3423,7 @@ class DBInterface(object):
 
         policy_obj = self._policy_neutron_to_vnc(policy_q, CREATE)
         try:
-            policy_uuid = self._vnc_lib.network_policy_create(policy_obj)
+            policy_uuid = self._resource_create('network_policy', policy_obj)
         except (RefsExistError, BadRequest) as e:
             self._raise_contrail_exception('BadRequest',
                 resource='policy', msg=str(e))
@@ -3422,14 +3445,14 @@ class DBInterface(object):
         policy_q = policy
         policy_q['id'] = policy_id
         policy_obj = self._policy_neutron_to_vnc(policy_q, UPDATE)
-        self._vnc_lib.network_policy_update(policy_obj)
+        self._resource_update('network_policy', policy_obj)
 
         return self._policy_vnc_to_neutron(policy_obj)
     #end policy_update
 
     @wait_for_api_server_connection
     def policy_delete(self, policy_id):
-        self._vnc_lib.network_policy_delete(id=policy_id)
+        self._resource_delete('network_policy', policy_id)
     #end policy_delete
 
     # TODO request based on filter contents
@@ -3502,12 +3525,12 @@ class DBInterface(object):
     def _router_set_external_gateway(self, router_obj, ext_net_obj):
         # Set logical gateway virtual network
         router_obj.set_virtual_network(ext_net_obj)
-        self._vnc_lib.logical_router_update(router_obj)
+        self._resource_update('logical_router', router_obj)
 
     def _router_clear_external_gateway(self, router_obj):
         # Clear logical gateway virtual network
         router_obj.set_virtual_network_list([])
-        self._vnc_lib.logical_router_update(router_obj)
+        self._resource_update('logical_router', router_obj)
 
     # router api handlers
     @wait_for_api_server_connection
@@ -3758,7 +3781,7 @@ class DBInterface(object):
         vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=port_id)
         vmi_obj.set_virtual_machine_interface_device_owner(
             constants.DEVICE_OWNER_ROUTER_INTF)
-        self._vnc_lib.virtual_machine_interface_update(vmi_obj)
+        self._resource_update('virtual_machine_interface', vmi_obj)
         router_obj.add_virtual_machine_interface(vmi_obj)
         self._logical_router_update(router_obj)
         info = {'id': router_id,
@@ -3804,7 +3827,7 @@ class DBInterface(object):
 
         port_obj = self._virtual_machine_interface_read(port_id)
         router_obj.del_virtual_machine_interface(port_obj)
-        self._vnc_lib.logical_router_update(router_obj)
+        self._resource_update('logical_router', router_obj)
         self.port_delete(port_id)
         info = {'id': router_id,
             'tenant_id': subnet['tenant_id'],
@@ -3818,7 +3841,7 @@ class DBInterface(object):
     def floatingip_create(self, context, fip_q):
         fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, CREATE)
         try:
-            fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
+            fip_uuid = self._resource_create('floating_ip', fip_obj)
         except OverQuota as e:
             self._raise_contrail_exception('OverQuota',
                 overs=['floatingip'], msg=str(e))
@@ -3845,7 +3868,7 @@ class DBInterface(object):
     def floatingip_update(self, context, fip_id, fip_q):
         fip_q['id'] = fip_id
         fip_obj = self._floatingip_neutron_to_vnc(context, fip_q, UPDATE)
-        self._vnc_lib.floating_ip_update(fip_obj)
+        self._resource_update('floating_ip', fip_obj)
 
         return self._floatingip_vnc_to_neutron(fip_obj)
     #end floatingip_update
@@ -3853,7 +3876,7 @@ class DBInterface(object):
     @wait_for_api_server_connection
     def floatingip_delete(self, fip_id):
         try:
-            self._vnc_lib.floating_ip_delete(id=fip_id)
+            self._resource_delete('floating_ip', fip_id)
         except NoIdError:
             self._raise_contrail_exception('FloatingIPNotFound',
                                            floatingip_id=fip_id)
@@ -4177,7 +4200,7 @@ class DBInterface(object):
         net_id = port_obj.get_virtual_network_refs()[0]['uuid']
         net_obj = self._network_read(net_id)
         try:
-            self._virtual_machine_interface_update(port_obj)
+            self._resource_update('virtual_machine_interface', port_obj)
         except BadRequest as e:
             msg = "Allowed address pairs are not allowed when port "\
                   "security is disabled"
@@ -4252,15 +4275,15 @@ class DBInterface(object):
         for rt_ref in port_obj.get_interface_route_table_refs() or []:
             if _IFACE_ROUTE_TABLE_NAME_PREFIX_REGEX.match(rt_ref['to'][-1]):
                 try:
-                    self._vnc_lib.interface_route_table_delete(
-                        id=rt_ref['uuid'])
+                    self._resource_delete('interface_route_table',
+                        rt_ref['uuid'])
                 except (NoIdError, RefsExistError) as e:
                     pass
 
         # delete instance if this was the last port
         try:
             if instance_id:
-                self._vnc_lib.virtual_machine_delete(id=instance_id)
+                self._resource_delete('virtual_machine', instance_id)
         except (NoIdError, RefsExistError):
             pass
 
@@ -4451,7 +4474,7 @@ class DBInterface(object):
     def security_group_update(self, sg_id, sg_q):
         sg_q['id'] = sg_id
         sg_obj = self._security_group_neutron_to_vnc(sg_q, UPDATE)
-        self._vnc_lib.security_group_update(sg_obj)
+        self._resource_update('security_group', sg_obj)
 
         ret_sg_q = self._security_group_vnc_to_neutron(sg_obj)
 
@@ -4482,7 +4505,7 @@ class DBInterface(object):
             return
 
         try:
-            self._security_group_delete(sg_id)
+            self._resource_delete('security_group', sg_id)
         except RefsExistError:
             self._raise_contrail_exception('SecurityGroupInUse', id=sg_id)
 
@@ -4677,7 +4700,7 @@ class DBInterface(object):
     def route_table_update(self, rt_id, rt_q):
         rt_q['id'] = rt_id
         rt_obj = self._route_table_neutron_to_vnc(rt_q, UPDATE)
-        self._vnc_lib.route_table_update(rt_obj)
+        self._resource_update('route_table', rt_obj)
         return self._route_table_vnc_to_neutron(rt_obj)
     #end policy_update
 
