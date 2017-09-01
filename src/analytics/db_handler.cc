@@ -82,18 +82,11 @@ DbHandler::DbHandler(EventManager *evm,
     disable_statistics_writes_(cassandra_options.disable_db_stats_writes_),
     disable_messages_writes_(cassandra_options.disable_db_messages_writes_),
     disable_messages_keyword_writes_(cassandra_options.disable_db_messages_keyword_writes_),
-    udc_cfg_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
-        "udc config poll timer",
-        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))),
     use_db_write_options_(use_db_write_options) {
     cfgdb_connection_.reset(new ConfigDBConnection(evm, api_server_list,
                                                    api_config));
-    udc_.reset(new UserDefinedCounters(cfgdb_connection_));
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);
-    udc_cfg_poll_timer_->Start(kUDCPollInterval,
-        boost::bind(&DbHandler::PollUDCCfg, this),
-        boost::bind(&DbHandler::PollUDCCfgErrorHandler, this, _1, _2));
 
     if (cassandra_options.cluster_id_.empty()) {
         tablespace_ = g_viz_constants.COLLECTOR_KEYSPACE_CQL;
@@ -150,10 +143,6 @@ DbHandler::DbHandler(EventManager *evm,
     }
 }
 
-void DbHandler::PollUDCCfgErrorHandler(string error_name,
-    string error_message) {
-    LOG(ERROR, "UDC poll Timer Err: " << error_name << " " << error_message);
-}
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     dbif_(dbif),
@@ -164,18 +153,12 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map) :
     disable_statistics_writes_(false),
     disable_messages_writes_(false),
     disable_messages_keyword_writes_(false),
-    udc_cfg_poll_timer_(NULL),
     use_db_write_options_(false) {
     cfgdb_connection_.reset(new ConfigDBConnection(NULL,
         std::vector<std::string>(), VncApiConfig()));
-    udc_.reset(new UserDefinedCounters(cfgdb_connection_));
 }
 
 DbHandler::~DbHandler() {
-    if (udc_cfg_poll_timer_) {
-        TimerManager::DeleteTimer(udc_cfg_poll_timer_);
-        udc_cfg_poll_timer_ = NULL;
-    }
 }
 
 uint64_t DbHandler::GetTtlInHourFromMap(const TtlMap& ttl_map,

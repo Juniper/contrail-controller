@@ -7,6 +7,7 @@
 
 #include <list>
 #include <map>
+#include <set>
 #include <string>
 
 #include "config_client_manager.h"
@@ -29,9 +30,16 @@ public:
 
     ConfigJsonParserBase();
     virtual ~ConfigJsonParserBase();
-    virtual void setup_schema_graph_filter() = 0;
-    virtual void setup_schema_wrapper_property_info() = 0;
-    virtual void setup_objector_filter() = 0;
+    // This fucntion is used to setup object graphy concerned
+    // by user, please follow the step:
+    // 1. add concerned object with AddObjectType API one by one
+    // 2. add relationship of object with AddParentName or 
+    //    AddLinkName, if do not set this, ref/parent info will be 
+    //    filtered out
+    // 3. AddWrapperField for property map/list, if do no set this
+    //    this property map/list will be filtered out.
+    // please see ifmap/client/config_json_parser.cc as example.
+    virtual void setup_graph_filter() = 0;
     virtual bool Receive(const ConfigCass2JsonAdapter &adapter, 
                          bool add_change) = 0;
     virtual void EndOfConfig();
@@ -39,9 +47,6 @@ public:
         return obj_type_to_read_;
     }
 
-    ObjectTypeList *GetObjectList() {
-        return &obj_type_to_read_;
-    }
     std::string GetParentName(const std::string &left,
                               const std::string &right) const;
     std::string GetLinkName(const std::string &left,
@@ -53,9 +58,7 @@ public:
                         const std::string &right) const;
 
     void Init(ConfigClientManager *mgr) {
-        setup_schema_graph_filter();
-        setup_schema_wrapper_property_info();
-        setup_objector_filter();
+        setup_graph_filter();
         mgr_ = mgr;
     }
 
@@ -77,6 +80,13 @@ public:
 
     void AddObjectType(std::string object) {
         obj_type_to_read_.insert(object);
+    }
+
+    bool IsValidObjectType(std::string objectType) {
+        if(obj_type_to_read_.count(objectType) == 0) {
+            return false;
+        }
+        return true;
     }
 
     bool IsListOrMapPropEmpty(const std::string &uuid_key,

@@ -35,9 +35,7 @@ static tbb::atomic<int> consume_count_;
 static tbb::atomic<int> bind_queue_count_;
 
 class ConfigJsonParserTest : public ConfigJsonParserBase {
-    virtual void setup_schema_graph_filter() { }
-    virtual void setup_schema_wrapper_property_info() { }
-    virtual void setup_objector_filter() { }
+    virtual void setup_graph_filter() { }
     virtual bool Receive(const ConfigCass2JsonAdapter &adapter,
                          bool add_change) {
         return true;

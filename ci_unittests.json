@@ -49,7 +49,8 @@
             "controller/src/control-node:test",
             "controller/src/dns:test",
             "controller/src/ifmap:test",
-            "controller/src/xmpp:test"
+            "controller/src/xmpp:test",
+            "controller/src/config/config-client-mgr/client:test"
         ],
         "misc_test_targets" : [ ],
         "environment" : [

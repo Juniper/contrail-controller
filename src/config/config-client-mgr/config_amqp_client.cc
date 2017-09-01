@@ -109,7 +109,9 @@ void ConfigAmqpClient::StartRabbitMQReader() {
 
 void ConfigAmqpClient::EnqueueUUIDRequest(string oper, string obj_type,
                                      string uuid_str) {
-    mgr_->EnqueueUUIDRequest(oper, obj_type, uuid_str);
+    if(mgr_->config_json_parser()->IsValidObjectType(obj_type)) {
+        mgr_->EnqueueUUIDRequest(oper, obj_type, uuid_str);
+    }
 }
 
 string ConfigAmqpClient::FormAmqpUri() const {

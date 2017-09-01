@@ -90,7 +90,9 @@ public:
     DbHandlerTest() :
         builder_(SandeshXMLMessageTestBuilder::GetInstance()),
         dbif_mock_(new CqlIfMock()),
-        db_handler_(new DbHandler(dbif_mock_, ttl_map)) {
+        db_handler_(new DbHandler(dbif_mock_, ttl_map)),
+        config_json_parser_(new UserDefinedCounters()) {
+        db_handler_->SetUDCHandler(config_json_parser_.get());
     }
 
     ~DbHandlerTest() {
@@ -163,6 +165,7 @@ protected:
 private:
     CqlIfMock *dbif_mock_;
     DbHandlerPtr db_handler_;
+    boost::scoped_ptr<UserDefinedCounters> config_json_parser_;
     DbHandlerCacheParam db_handler_cache_param_;
 };
 
@@ -194,12 +197,13 @@ public:
                                      DbWriteOptions(),
                                      std::vector<std::string>(),
                                      VncApiConfig()));
-        udc_mock_ = new UserDefinedCountersMock(db_handler_->cfgdb_connection_);
-        db_handler_->udc_.reset(udc_mock_);
+        udc_mock_ = new UserDefinedCountersMock();
+        db_handler_->udc_ = udc_mock_;
 
     }
 
     virtual void TearDown() {
+        delete udc_mock_;
         evm_.reset();
     }
 

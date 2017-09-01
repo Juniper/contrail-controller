@@ -12,6 +12,8 @@
 #include "http/client/vncapi.h"
 #include "parser_util.h"
 #include "configdb_connection.h"
+#include "config/config-client-mgr/config_cass2json_adapter.h"
+#include "config/config-client-mgr/config_json_parser_base.h"
 
 class Options;
 
@@ -44,22 +46,21 @@ class UserDefinedCounterData {
 
 typedef std::map<std::string, boost::shared_ptr<UserDefinedCounterData> > Cfg_t;
 
-class UserDefinedCounters {
+class UserDefinedCounters : public ConfigJsonParserBase {
     public:
-        UserDefinedCounters(boost::shared_ptr<ConfigDBConnection> cfgdb_connection);
+        UserDefinedCounters();
         virtual ~UserDefinedCounters();
         virtual void MatchFilter(std::string text, LineParser::WordListType *words);
         void SendUVEs();
         void AddConfig(std::string name, std::string pattern);
         bool FindByName(std::string name);
-        void PollCfg();
+        virtual void setup_graph_filter();
+        virtual bool Receive(const ConfigCass2JsonAdapter &adapter, bool add_change);
 
     private:
-        void ReadConfig();
-        void UDCHandler(contrail_rapidjson::Document &jdoc,
-                    boost::system::error_code &ec,
-                    std::string version, int status, std::string reason,
-                    std::map<std::string, std::string> *headers);
+        void setup_objector_filter();
+        void setup_schema_graph_filter();
+        void setup_schema_wrapper_property_info();
         Cfg_t config_;
         boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
 

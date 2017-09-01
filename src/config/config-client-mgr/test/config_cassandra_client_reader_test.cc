@@ -197,11 +197,9 @@ private:
 };
 
 class ConfigJsonParserTest : public ConfigJsonParserBase {
-    void setup_objector_filter() {
+    void setup_graph_filter() {
         AddObjectType("virtual_network");
     }
-    virtual void setup_schema_graph_filter() { }
-    virtual void setup_schema_wrapper_property_info() { }
     virtual bool Receive(const ConfigCass2JsonAdapter &adapter,
                          bool add_change) {
         return true;
