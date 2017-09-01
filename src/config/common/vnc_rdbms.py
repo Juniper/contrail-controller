@@ -162,15 +162,15 @@ class RDBMSIndexAllocator(object):
                 raise Exception(
                     'Allocation Lists Overlapping: %s' %(alloc_list))
 
-        self._init_alloc_list()
+        self._init_alloc_list(self._alloc_list)
 
     def _new_allocation(self, allocation):
         return IDPool(
                 start=pack(allocation['start']), end=pack(allocation['end']), path=self.path)
 
     @use_session
-    def _init_alloc_list(self):
-        for allocation in self._alloc_list:
+    def _init_alloc_list(self, alloc_list):
+        for allocation in alloc_list:
             if self.check_overlap(allocation):
                 id_pool = self._new_allocation(allocation)
                 self.session_ctx.add(id_pool)
@@ -295,6 +295,11 @@ class RDBMSIndexAllocator(object):
                             IDPool.used == True)).first()
         if allocation:
             return allocation.value
+
+    # This needs to be supported to work in RDBMS env 
+    def reallocate (self, new_alloc_list):
+        self._init_alloc_list(new_alloc_list)
+        return
 
     def empty(self):
        return self.get_alloc_count() == 0
@@ -1515,6 +1520,15 @@ class VncRDBMSClient(object):
         except NoResultFound:
             pass
     # end useragent_kv_delete
+
+    def change_subnet_allocator(self, subnet,
+                                subnet_alloc_list, alloc_unit):
+        allocator = self._subnet_allocators[subnet]
+        allocator.reallocate(
+            new_alloc_list=[{'start': x['start']/alloc_unit,
+                         'end':x['end']/alloc_unit}
+                        for x in subnet_alloc_list])
+    # end
 
     def create_subnet_allocator(self, subnet, subnet_alloc_list,
                                 addr_from_start, should_persist,
