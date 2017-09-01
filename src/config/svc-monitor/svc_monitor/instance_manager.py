@@ -477,7 +477,7 @@ class InstanceManager(object):
             except RefsExistError:
                 vm_obj = self._vnc_lib.virtual_machine_read(fq_name=vm_obj.fq_name)
                 self._vnc_lib.ref_update('service-instance', si.uuid,
-                    'virtual-machine', vm_obj.uuid)
+                    'virtual-machine', vm_obj.uuid, vm_obj.fq_name, 'ADD')
             vm = VirtualMachineSM.locate(vm_obj.uuid)
             self.logger.info("Info: VM %s created for SI %s" %
                                  (instance_name, si_obj.get_fq_name_str()))
