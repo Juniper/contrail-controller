@@ -10,10 +10,8 @@
 #include "http/client/vncapi.h"
 #include "options.h"
 
-UserDefinedCounters::UserDefinedCounters(boost::shared_ptr<ConfigDBConnection> cfgdb_connection)
-                    : cfgdb_connection_(cfgdb_connection)
+UserDefinedCounters::UserDefinedCounters()
 {
-
 }
 
 UserDefinedCounters::~UserDefinedCounters()
@@ -21,73 +19,35 @@ UserDefinedCounters::~UserDefinedCounters()
     config_.erase(config_.begin(), config_.end());
 }
 
-void
-UserDefinedCounters::PollCfg()
-{
-    ReadConfig();
+void UserDefinedCounters::SetupObjectFilter() {
+    // we only care global-system-config row change.
+    AddObjectType("global_system_config");
+}
+void UserDefinedCounters::SetupSchemaGraphFilter() {
+    // we do not care ref/parent info
+}
+void UserDefinedCounters::SetupSchemaWrapperPropertyInfo() {
+    // we only care user_defined_log_statistics
+    AddWrapperField("global_system_config:user_defined_log_statistics", "statlist");
 }
 
-void
-UserDefinedCounters::ReadConfig()
+void UserDefinedCounters::SetupGraphFilter() {
+    SetupObjectFilter();
+    SetupSchemaGraphFilter();
+    SetupSchemaWrapperPropertyInfo();
+}
+
+bool
+UserDefinedCounters::Receive(const ConfigCass2JsonAdapter &adapter, bool add_change)
 {
-    if (cfgdb_connection_->GetVnc()) {
-        std::vector<std::string> ids;
-        std::vector<std::string> filters;
-        std::vector<std::string> parents;
-        std::vector<std::string> refs;
-        std::vector<std::string> fields;
-
-        fields.push_back("user_defined_log_statistics");
-
-        cfgdb_connection_->GetVnc()->GetConfig("global-system-config", ids, filters, parents, refs,
-                fields, boost::bind(&UserDefinedCounters::UDCHandler, this,
-                    _1, _2, _3, _4, _5, _6));
+    if (!add_change) {
+        return true;
     }
-}
 
-void
-UserDefinedCounters::UDCHandler(contrail_rapidjson::Document &jdoc,
-            boost::system::error_code &ec,
-            std::string version, int status, std::string reason,
-            std::map<std::string, std::string> *headers)
-{
-    if (jdoc.IsObject() && jdoc.HasMember("global-system-configs")) {
-        for (contrail_rapidjson::SizeType j=0;
-                    j < jdoc["global-system-configs"].Size(); j++) {
-
-            if (!jdoc["global-system-configs"][j].HasMember(
-                      "user_defined_log_statistics")) {
-                    continue;
-            }
-
-            if (!jdoc["global-system-configs"][j]
-                     ["user_defined_log_statistics"].IsObject()) {
-                continue;
-            }
-
-            if (!jdoc["global-system-configs"][j]
-                     ["user_defined_log_statistics"].HasMember("statlist")) {
-                continue;
-            }
-
-            const contrail_rapidjson::Value& gsc = jdoc["global-system-configs"][j]
-                    ["user_defined_log_statistics"]["statlist"];
-            if (!gsc.IsArray()) {
-                continue;
-            }
-
-            for (contrail_rapidjson::SizeType i = 0; i < gsc.Size(); i++) {
-                if (!gsc[i].IsObject() || !gsc[i].HasMember("name") ||
-                        !gsc[i].HasMember("pattern")) {
-                    continue;
-                }
-                std::string name = gsc[i]["name"].GetString(),
-                            patrn = gsc[i]["pattern"].GetString();
-                AddConfig(name, patrn);
-                std::cout << "\nname: " << name << "\npattern: "
-                    << patrn << "\n";
-            }
-
+    if (adapter.document().IsObject() 
+                 && adapter.document().HasMember("global_system_config")) {
+        if (!adapter.document()["global_system_config"].HasMember(
+                  "user_defined_log_statistics")) {
             Cfg_t::iterator cit=config_.begin();
             while (cit != config_.end()) {
                 Cfg_t::iterator dit = cit++;
@@ -98,13 +58,54 @@ UserDefinedCounters::UDCHandler(contrail_rapidjson::Document &jdoc,
                     UserDefinedLogStatisticUVE::Send(udc);
                     config_.erase(dit);
                 }
+            }    
+            return true;
+        }
+
+        if (!adapter.document()["global_system_config"]
+                 ["user_defined_log_statistics"].IsObject()) {
+            return false;
+        }
+
+        if (!adapter.document()["global_system_config"]
+                 ["user_defined_log_statistics"].HasMember("statlist")) {
+            return false;
+        }
+
+        const contrail_rapidjson::Value& gsc = adapter.document()
+                ["global_system_config"]["user_defined_log_statistics"]["statlist"];
+        if (!gsc.IsArray()) {
+            return false;
+        }
+
+        for (contrail_rapidjson::SizeType i = 0; i < gsc.Size(); i++) {
+            if (!gsc[i].IsObject() || !gsc[i].HasMember("name") ||
+                    !gsc[i].HasMember("pattern")) {
+                continue;
+            }
+            std::string name = gsc[i]["name"].GetString(),
+                        patrn = gsc[i]["pattern"].GetString();
+            AddConfig(name, patrn);
+            std::cout << "\nname: " << name << "\npattern: "
+                << patrn << "\n";
+        }
+
+        Cfg_t::iterator cit=config_.begin();
+        while (cit != config_.end()) {
+            Cfg_t::iterator dit = cit++;
+            if (!dit->second->IsRefreshed()) {
+                UserDefinedLogStatistic udc;
+                udc.set_name(dit->first);
+                udc.set_deleted(true);
+                UserDefinedLogStatisticUVE::Send(udc);
+                config_.erase(dit);
             }
         }
-        return;
     } else {
-                //Print Errors
+        return false;
     }
-    cfgdb_connection_->RetryNextApi();
+
+    return true;
 }
 
 void
@@ -146,3 +147,14 @@ UserDefinedCounters::FindByName(std::string name) {
     return it  != config_.end();
 }
 
+void 
+UserDefinedCounters::GetUDCConfig(std::vector<LogStatisticConfigInfo> 
+                                              *config_info) {
+    for (Cfg_t::iterator it = config_.begin(); 
+                 it != config_.end(); it++) {
+        LogStatisticConfigInfo config;
+        config.set_name(it->second->name());
+        config.set_pattern(it->second->pattern());
+        config_info->push_back(config);
+    }
+}
