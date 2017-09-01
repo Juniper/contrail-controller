@@ -19,6 +19,8 @@
 #include "base/string_util.h"
 #include "ifmap/ifmap_config_options.h"
 #include "ifmap/ifmap_factory.h"
+#include "ifmap/ifmap_log.h"
+#include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_server_show_types.h"
 #include "config_cassandra_client.h"
 #include "config_client_manager.h"
@@ -275,6 +277,9 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
             config_manager()->config_db_client()->
                 InvalidateFQNameCache(uuid_str);
         }
+
+        CONFIG_CLIENT_TRACE(IFMapRabbitMQMsgTrace, oper, obj_type, ,obj_name,
+                uuid_str);
         EnqueueUUIDRequest(oper, obj_type, uuid_str);
     }
     return true;
