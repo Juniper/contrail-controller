@@ -15,7 +15,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"vm1\\\"]\",\"type\":\"virtual_machine\",\"uuid\":\"2:8c5eeb87-0b08-4725-b53f-0a0368055375\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":[\"vm1\"],\"type\":\"virtual_machine\",\"uuid\":\"2:8c5eeb87-0b08-4725-b53f-0a0368055375\"}",
     "db": {
       "8c5eeb87-0b08-4725-b53f-0a0368055375": {
         "type": "\"virtual_machine\"",

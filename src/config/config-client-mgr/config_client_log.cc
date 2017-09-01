@@ -6,7 +6,7 @@
 
 // Trace buffer for small messages
 SandeshTraceBufferPtr ConfigClientTraceBuf(
-          SandeshTraceBufferCreate("ConfigClientTraceBuf", 1000));
+          SandeshTraceBufferCreate("ConfigClientTraceBuf", 50000));
 
 // Trace buffer for large messages like poll responses
 SandeshTraceBufferPtr ConfigClientBigMsgTraceBuf(
