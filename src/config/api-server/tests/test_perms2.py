@@ -846,6 +846,9 @@ class TestPermissions(test_case.ApiServerTestCase):
 
         # validate non-admin can create service template
         st = ServiceTemplate(name = "my-st")
+        perms = PermType2(self.alice.project_uuid, PERMS_RWX, PERMS_RWX, [])
+        st.set_perms2(perms)
+
         try:
             self.alice.vnc_lib.service_template_create(st)
         except PermissionDenied as e:
@@ -853,17 +856,8 @@ class TestPermissions(test_case.ApiServerTestCase):
         st = vnc_read_obj(self.alice.vnc_lib, 'service-template', name = st.get_fq_name())
 
         # validate anonther-user can't delete other's object due to domain sharing
-        # another user can delete service template as there is no role based deletes
-        try:
+        with ExpectedException(PermissionDenied) as e:
             self.bob.vnc_lib.service_template_delete(fq_name = st.get_fq_name())
-        except PermissionDenied as e:
-            self.assertTrue(False, 'Failed to delete service-template ... Test failed!')
-        # service template is child of domain
-        st = ServiceTemplate(name = "my-st")
-        try:
-            self.alice.vnc_lib.service_template_create(st)
-        except PermissionDenied as e:
-            self.assertTrue(False, 'Failed to create service-template ... Test failed!')
         st = vnc_read_obj(self.alice.vnc_lib, 'service-template', name = st.get_fq_name())
         # validate owner can delete service template
         try:
