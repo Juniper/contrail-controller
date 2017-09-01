@@ -160,9 +160,13 @@ class InstanceManager(object):
             return
         if fip_id in vmi.floating_ips:
             return
-        self._vnc_lib.ref_update('floating-ip', fip_id,
-            'virtual-machine-interface', vmi_id, None, 'ADD')
-        vmi.floating_ips.add(fip_id)
+        try:
+            self._vnc_lib.ref_update('floating-ip', fip_id,
+                'virtual-machine-interface', vmi_id, None, 'ADD')
+            vmi.floating_ips.add(fip_id)
+        except NoIdError:
+            # vmi would have been deleted(if this call is due to lb->vmi delete operation)
+            pass
 
     def _link_sgs_to_vmi(self, vmi_id, sg_list):
         vmi = VirtualMachineInterfaceSM.get(vmi_id)
