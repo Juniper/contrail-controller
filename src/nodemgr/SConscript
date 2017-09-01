@@ -66,8 +66,7 @@ for file in vrouter_sources:
 
 database_sources = [
            '__init__.py',
-           'database_nodemgr/database_event_manager.py',
-           'database_nodemgr/common.py'
+           'database_nodemgr/database_event_manager.py'
           ]
 database_sources_rules = []
 for file in database_sources:
@@ -78,6 +77,7 @@ common_sources = [
            'common/event_manager.py',
            'common/process_stat.py',
            'common/cpuinfo.py',
+           'common/cassandra_manager.py',
           ]
 common_sources_rules = []
 for file in common_sources:
