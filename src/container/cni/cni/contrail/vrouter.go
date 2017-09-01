@@ -257,7 +257,7 @@ func (vrouter *VRouter) addVmToAgent(addMsg []byte) error {
 /* Process add of a VM. Writes config file and send message to agent */
 func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
 	containerId, containerNamespace, containerIfName,
-	hostIfName string) (*Result, error) {
+	hostIfName string, updateAgent bool) (*Result, error) {
 	vrouter.containerUuid = containerUuid
 	vrouter.containerId = containerId
 	vrouter.containerVn = containerVn
@@ -273,11 +273,13 @@ func (vrouter *VRouter) Add(containerName, containerUuid, containerVn,
 		return nil, err
 	}
 
-	// Make the agent call
-	err := vrouter.addVmToAgent(addMsg)
-	if err != nil {
-		log.Errorf("Error in Add to VRouter")
-		return nil, err
+	// Make the agent call for non-nested mode
+	if updateAgent == true {
+		err := vrouter.addVmToAgent(addMsg)
+		if err != nil {
+			log.Errorf("Error in Add to VRouter")
+			return nil, err
+		}
 	}
 
 	result, poll_err := vrouter.PollUrl("/vm")
@@ -338,7 +340,7 @@ func (vrouter *VRouter) delVmToAgent() error {
  * effort cleanup
  */
 func (vrouter *VRouter) Del(containerId, containerUuid,
-	containerVn string) error {
+	containerVn string, updateAgent bool) error {
 	log.Infof("Deleting container with id : %s uuid : %s Vn : %s",
 		containerId, containerUuid, containerVn)
 	vrouter.containerUuid = containerUuid
@@ -358,10 +360,12 @@ func (vrouter *VRouter) Del(containerId, containerUuid,
 		return ret
 	}
 
-	// Make the del message call to agent
-	if err := vrouter.delVmToAgent(); err != nil {
-		log.Errorf("Error in Delete to VRouter")
-		ret = err
+	// Make the del message call to agent for non-nested mode
+	if updateAgent == true {
+		if err := vrouter.delVmToAgent(); err != nil {
+			log.Errorf("Error in Delete to VRouter")
+			ret = err
+		}
 	}
 
 	log.Infof("Delete return code %+v", ret)
