@@ -106,6 +106,51 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="Ieee802">
+    <xsd:all>
+        <xsd:element name="bundle" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="EtherOptions">
+    <xsd:all>
+        <xsd:element name="ieee-802-3ad" type="Ieee802"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Lacp">
+    <xsd:all>
+        <xsd:element name="active" />
+        <xsd:element name="system-priority" type="xsd:integer"/>
+        <xsd:element name="system-id" type="xsd:string"/>
+        <xsd:element name="admin-key" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AggregatedEtherOptions">
+    <xsd:all>
+        <xsd:element name="lacp" type="Lacp"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Ethernet">
+    <xsd:all>
+        <xsd:element name="device-count" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AggregatedDevices">
+    <xsd:all>
+        <xsd:element name="ethernet" type="Ethernet"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="Chassis">
+    <xsd:all>
+        <xsd:element name="aggregated-devices" type="AggregatedDevices"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="Interface">
     <xsd:all>
         <xsd:element name="comment" type="xsd:string"/>
@@ -115,6 +160,8 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="encapsulation" type="xsd:string"/>
         <xsd:element name="unit" type="Unit" maxOccurs="unbounded"/>
         <xsd:element name="esi" type="Esi"/>
+        <xsd:element name="gigether-options" type="EtherOptions"/>
+        <xsd:element name="aggregated-ether-options" type="AggregatedEtherOptions"/>
     </xsd:all>
 </xsd:complexType>
 
@@ -546,6 +593,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="services" type="Services"/>
         <xsd:element name="vlans" type="Vlans"/>
         <xsd:element name="switch-options" type="SwitchOptions"/>
+        <xsd:element name="chassis" type="Chassis"/>
     </xsd:all>
 </xsd:complexType>
 
