@@ -1127,6 +1127,8 @@ void ConfigCassandraPartition::FillUUIDToObjCacheInfo(const string &uuid,
     entry->set_timestamp(
             UTCUsecToString(uuid_iter->second->GetLastReadTimeStamp()));
     entry->set_retry_count(uuid_iter->second->GetRetryCount());
+    entry->set_fq_name(uuid_iter->second->GetFQName());
+    entry->set_obj_type(uuid_iter->second->GetObjType());
     entry->set_timer_running(uuid_iter->second->IsRetryTimerRunning());
     entry->set_timer_created(uuid_iter->second->IsRetryTimerCreated());
     vector<ConfigDBUUIDCacheData> fields;
