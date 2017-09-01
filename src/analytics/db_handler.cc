@@ -363,6 +363,41 @@ bool DbHandler::CreateTables() {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
+
+        // will be un-commented once we start using cassandra-2.10 for systemless tests
+        /*table_schema cfschema = g_viz_constants._VIZD_SESSION_TABLE_SCHEMA
+                                                    .find(it->cfname_)->second;
+        BOOST_FOREACH(schema_column column, cfschema.columns) {
+            if (column.index_type) {
+                std::string mode;
+                switch (column.index_mode) {
+                case ColIndexMode::NONE:
+                    {
+                        mode = "";
+                        break;
+                    }
+                case ColIndexMode::PREFIX:
+                    {
+                        mode = "PREFIX";
+                        break;
+                    }
+                case ColIndexMode::CONTAINS:
+                    {
+                        mode = "CONTAINS";
+                        break;
+                    }
+                default:
+                    {
+                        DB_LOG(ERROR, "Invalid Custom Index Mode");
+                        return false;
+                    }
+                }
+                if (!dbif_->Db_CreateIndex(it->cfname_, column.name, "", mode)) {
+                    DB_LOG(ERROR, it->cfname_ << " FAILED");
+                    return false;
+                }
+            }
+        }*/
     }
 
     GenDb::ColList col_list;

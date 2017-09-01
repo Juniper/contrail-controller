@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <limits> 
 #include "rapidjson/document.h"
+#include <boost/foreach.hpp>
 #include "query.h"
 #include "json_parse.h"
 #include "stats_query.h"
@@ -413,8 +414,22 @@ bool WhereQuery::StatTermProcess(const contrail_rapidjson::Value& where_term,
     return true;
 }
 
-WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
-        int32_t or_number, QueryUnit *main_query):
+bool SessionTableQueryColumn2CassColumn(const std::string& name, std::string *cass_name) {
+    std::map<string, table_schema>::const_iterator it =
+        (g_viz_constants._VIZD_SESSION_TABLE_SCHEMA.find(
+            g_viz_constants.SESSION_TABLE));
+    QE_ASSERT(it != g_viz_constants._VIZD_SESSION_TABLE_SCHEMA.end());
+    std::map<string, string>::const_iterator itr =
+        it->second.index_column_to_column.find(name);
+    if (itr == (it->second.index_column_to_column.end())) {
+        return false;
+    }
+    *cass_name = itr->second;
+    return true; 
+}
+
+WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
+        int is_si, int direction, int32_t or_number, QueryUnit *main_query):
     QueryUnit(main_query, main_query), direction_ing(direction),
     json_string_(where_json_string), wterms_(0) {
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
@@ -432,7 +447,34 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         } else if 
         ((m_query->table() == g_viz_constants.FLOW_TABLE)
         || (m_query->table() == g_viz_constants.FLOW_SERIES_TABLE)) {
+#ifdef USE_SESSION
+            DbQueryUnit *db_query_client = new DbQueryUnit(this, main_query);
+            {
+                db_query->cfname = g_viz_constants.SESSION_TABLE;
+                db_query->row_key_suffix.push_back((uint8_t)is_si);
+                db_query->row_key_suffix.push_back(
+                                (uint8_t)SessionType::SERVER_SESSION);
+                // starting value for clustering key range
+                db_query->cr.start_.push_back((uint16_t)0);
 
+                // ending value for clustering key range
+                db_query->cr.finish_.push_back((uint16_t)0xffff);
+                db_query->cr.finish_.push_back((uint16_t)0xffff);
+            }
+            {
+                db_query_client->cfname = g_viz_constants.SESSION_TABLE;
+                db_query_client->row_key_suffix.push_back((uint8_t)is_si);
+                db_query_client->row_key_suffix.push_back(
+                                (uint8_t)SessionType::CLIENT_SESSION);
+                // starting value for clustering key range
+                db_query_client->cr.start_.push_back((uint16_t)0);
+
+                // ending value for clustering key range
+                db_query_client->cr.finish_.push_back((uint16_t)0xffff);
+                db_query_client->cr.finish_.push_back((uint16_t)0xffff);
+
+            }
+#else
             db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_SP;
 
@@ -441,6 +483,19 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
             // ending value for protocol/port field;
             db_query->cr.finish_.push_back((uint8_t)0xff);
+            db_query->cr.finish_.push_back((uint16_t)0xffff);
+#endif
+        } else if (m_query->is_session_query(m_query->table())) {
+
+            db_query->row_key_suffix.push_back((uint8_t)is_si);
+            db_query->row_key_suffix.push_back((uint8_t)session_type);
+            db_query->cfname = g_viz_constants.SESSION_TABLE;
+
+            // starting value for clustering key range
+            db_query->cr.start_.push_back((uint16_t)0);
+
+            // ending value for clustering key range
+            db_query->cr.finish_.push_back((uint16_t)0xffff);
             db_query->cr.finish_.push_back((uint16_t)0xffff);
 
         } else if (m_query->is_object_table_query(m_query->table())) {
@@ -455,8 +510,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             db_query->cr.finish_.push_back(value2);
 
             QE_TRACE(DEBUG, "where * for object table" << m_query->table());
-        }
 
+        }
         // This is "where *" query, no need to do JSON parsing
         return;
     }
@@ -503,6 +558,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         bool sport_match = false; GenDb::DbDataValue sport, sport2; int sport_op = 0;
         bool dport_match = false; GenDb::DbDataValue dport, dport2; int dport_op = 0;
         bool object_id_specified = false;
+        bool isSession = m_query->is_session_query(m_query->table());
+        GenDb::WhereIndexInfoVec where_vec;
+        std::vector<filter_match_t> filter_and;
 
         for (contrail_rapidjson::SizeType j = 0; j < json_or_node.Size(); j++)
         {
@@ -727,139 +785,347 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 object_id_specified = true;
             }
 
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
-            {
-                vr_match = true; vr_op = op; 
-                vr = value;
-                if (vr_op == PREFIX)
+            if (m_query->is_session_query(m_query->table())) {
+                if (name == g_viz_constants.SessionRecordNames[
+                                SessionRecordFields::SESSION_PROTOCOL])
                 {
-                    vr2 = value + "\x7f";
+                    proto_match = true; proto_op = op;
+                    uint16_t proto_value, proto_value2;
+                    std::istringstream(value) >> proto_value;
+                    proto = proto_value;
+                    if (proto_op == IN_RANGE)
+                    {
+                        std::istringstream(value2) >> proto_value2;
+                        proto2 = proto_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(proto_op == EQUAL);
+                    }
+                    QE_TRACE(DEBUG, "where match term for proto_value " << value);
                 }
-                QE_INVALIDARG_ERROR((vr_op == EQUAL)||(vr_op == PREFIX));
-
-                QE_TRACE(DEBUG, "where match term for vrouter " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN])
-            {
-                svn_match = true; svn_op = op; 
-                svn = value;
-                if (svn_op == PREFIX)
+                else if (name == g_viz_constants.SessionRecordNames[
+                                SessionRecordFields::SESSION_SPORT])
                 {
-                    svn2 = value + "\x7f";
+                    sport_match = true; sport_op = op;
+                    uint16_t sport_value, sport_value2;
+                    std::istringstream(value) >> sport_value;
+                    sport = sport_value;
+                    if (sport_op == IN_RANGE)
+                    {
+                        std::istringstream(value2) >> sport_value2;
+                        sport2 = sport_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(sport_op == EQUAL);
+                    }
+                    QE_TRACE(DEBUG, "where match term for sport_value " << value);
                 }
-                QE_INVALIDARG_ERROR((svn_op == EQUAL)||(svn_op == PREFIX));
-
-                QE_TRACE(DEBUG, "where match term for sourcevn " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP])
-            {
-                sip_match = true; sip_op = op;
-                boost::system::error_code ec;
-                sip = IpAddress::from_string(value, ec);
-                QE_INVALIDARG_ERROR(ec == 0);
-                QE_TRACE(DEBUG, "where match term for sourceip " << value);
-                if (sip_op == IN_RANGE)
+                else {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn(name, &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+                    GenDb::Op::type comparator;
+                    if (op == PREFIX) {
+                        value += "%";
+                        comparator = GenDb::Op::LIKE;
+                    } else {
+                        comparator = GenDb::Op::EQ;
+                    }
+                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            comparator, value);
+                    where_vec.push_back(where_info);
+                }
+#ifdef USE_SESSION
+            } else if (m_query->is_flow_query(m_query->table())){
+                if (name == g_viz_constants.FlowRecordNames[
+                                FlowRecordFields::FLOWREC_PROTOCOL])
                 {
+                    proto_match = true; proto_op = op;
+                    uint16_t proto_value, proto_value2;
+                    std::istringstream(value) >> proto_value;
+                    proto = proto_value;
+                    if (proto_op == IN_RANGE)
+                    {
+                        std::istringstream(value2) >> proto_value2;
+                        proto2 = proto_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(proto_op == EQUAL);
+                    }
+                    QE_TRACE(DEBUG, "where match term for proto_value " << value);
+                }
+                if (name == g_viz_constants.FlowRecordNames[
+                                FlowRecordFields::FLOWREC_SOURCEVN])
+                {
+                    svn_match = true; svn_op = op;
+                    svn = value;
+                    QE_INVALIDARG_ERROR((svn_op == EQUAL)||(svn_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for sourcevn " << value);
+                }
+                if (name == g_viz_constants.FlowRecordNames[
+                                FlowRecordFields::FLOWREC_DESTVN])
+                {
+                    dvn_match = true; dvn_op = op;
+                    dvn = value;
+                    QE_INVALIDARG_ERROR((dvn_op == EQUAL)||(dvn_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for sourcevn " << value);
+                }
+                if (name == g_viz_constants.FlowRecordNames[
+                                FlowRecordFields::FLOWREC_SOURCEIP])
+                {
+                    sip_match = true; sip_op = op;
+                    sip = value;
+                    QE_TRACE(DEBUG, "where match term for sourceip " << value);
+                    if (sip_op == IN_RANGE)
+                    {
+                        sip2 = value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(sip_op == EQUAL);
+                    }
+                    if (direction_ing == 0) {
+                        filter_match_t filter;
+                        filter.name = "sourceip";
+                        filter.op = (match_op)sip_op;
+                        filter.value = boost::get<std::string>(sip);
+                        filter_and.push_back(filter);
+                        additional_select_.push_back(filter.name);
+                    }
+                }
+                if (name == g_viz_constants.FlowRecordNames[
+                                FlowRecordFields::FLOWREC_DESTIP])
+                {
+                    dip_match = true; dip_op = op;
+                    dip = value;
+                    QE_TRACE(DEBUG, "where match term for destip " << value);
+                    if (dip_op == IN_RANGE)
+                    {
+                        dip2 = value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(dip_op == EQUAL);
+                    }
+                    if (direction_ing == 1) {
+                        filter_match_t filter;
+                        filter.name = "destip";
+                        filter.op = (match_op)dip_op;
+                        filter.value = boost::get<std::string>(dip);
+                        filter_and.push_back(filter);
+                        additional_select_.push_back(filter.name);
+                    }
+                }
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT])
+                {
+                    sport_match = true; sport_op = op;
+
+                    uint16_t sport_value;
+                    std::istringstream(value) >> sport_value;
+
+                    sport = sport_value;
+                    if (sport_op == IN_RANGE)
+                    {
+                        uint16_t sport_value2;
+                        std::istringstream(value2) >> sport_value2;
+                        sport2 = sport_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(sport_op == EQUAL);
+                    }
+
+                    filter_match_t filter;
+                    filter.name = "sport";
+                    filter.op = (match_op)sport_op;
+                    std::ostringstream convert;
+                    convert << boost::get<uint16_t>(sport);
+                    filter.value = convert.str();
+                    filter_and.push_back(filter);
+                    additional_select_.push_back(filter.name);
+
+                    QE_TRACE(DEBUG, "where match term for sport " << value);
+                }
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT])
+                {
+                    dport_match = true; dport_op = op;
+
+                    uint16_t dport_value;
+                    std::istringstream(value) >> dport_value;
+                    dport = dport_value;
+                    if (dport_op == IN_RANGE)
+                    {
+                        uint16_t dport_value2;
+                        std::istringstream(value2) >> dport_value2;
+                        dport2 = dport_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(dport_op == EQUAL);
+                    }
+
+                    filter_match_t filter;
+                    filter.name = "dport";
+                    filter.op = (match_op)dport_op;
+                    std::ostringstream convert;
+                    convert << boost::get<uint16_t>(dport);
+                    filter.value = convert.str();
+                    filter_and.push_back(filter);
+                    additional_select_.push_back(filter.name);
+
+                    QE_TRACE(DEBUG, "where match term for dport " << value);
+                }
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
+                {
+                    vr_match = true;
+                    vr_op = op;
+                    vr = value;
+                    QE_INVALIDARG_ERROR((vr_op == EQUAL)||(vr_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for vrouter " << value);
+                    filter_match_t filter;
+                    filter.name = "vrouter";
+                    if (vr_op != PREFIX) {
+                        filter.op = (match_op)vr_op;
+                    } else {
+                        filter.op = REGEX_MATCH;
+                    }
+                    filter.value = boost::get<std::string>(vr);
+                    if (filter.op == REGEX_MATCH) {
+                        filter.match_e = boost::regex(filter.value);
+                    }
+                    if (vr_match) {
+                    }
+                    filter_and.push_back(filter);
+                    additional_select_.push_back(filter.name);
+                }
+#else
+            } else if (m_query->is_flow_query(m_query->table())) {
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
+                {
+                    vr_match = true; vr_op = op;
+                    vr = value;
+                    if (vr_op == PREFIX)
+                    {
+                        vr2 = value + "\x7f";
+                    }
+                    QE_INVALIDARG_ERROR((vr_op == EQUAL)||(vr_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for vrouter " << value);
+                }
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN])
+                {
+                    svn_match = true; svn_op = op;
+                    svn = value;
+                    if (svn_op == PREFIX)
+                    {
+                        svn2 = value + "\x7f";
+                    }
+                    QE_INVALIDARG_ERROR((svn_op == EQUAL)||(svn_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for sourcevn " << value);
+                }
+
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP])
+                {
+                    sip_match = true; sip_op = op;
                     boost::system::error_code ec;
-                    sip2 = IpAddress::from_string(value2, ec);
+                    sip = IpAddress::from_string(value, ec);
                     QE_INVALIDARG_ERROR(ec == 0);
-                } else {
-                    QE_INVALIDARG_ERROR(sip_op == EQUAL);
-                }
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN])
-            {
-                dvn_match = true; dvn_op = op; 
-                dvn = value;
-                if (dvn_op == PREFIX)
-                {
-                    dvn2 = value + "\x7f";
+                    QE_TRACE(DEBUG, "where match term for sourceip " << value);
+                    if (sip_op == IN_RANGE)
+                    {
+                        boost::system::error_code ec;
+                        sip2 = IpAddress::from_string(value2, ec);
+                        QE_INVALIDARG_ERROR(ec == 0);
+                    } else {
+                        QE_INVALIDARG_ERROR(sip_op == EQUAL);
+                    }
                 }
 
-                QE_INVALIDARG_ERROR((dvn_op == EQUAL)||(dvn_op == PREFIX));
-
-                QE_TRACE(DEBUG, "where match term for destvn " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP])
-            {
-                dip_match = true; dip_op = op; dip = value;
-                boost::system::error_code ec;
-                dip = IpAddress::from_string(value, ec);
-                QE_INVALIDARG_ERROR(ec == 0);
-                QE_TRACE(DEBUG, "where match term for destip " << value);
-                if (dip_op == IN_RANGE)
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN])
                 {
+                    dvn_match = true; dvn_op = op;
+                    dvn = value;
+                    if (dvn_op == PREFIX)
+                    {
+                        dvn2 = value + "\x7f";
+                    }
+
+                    QE_INVALIDARG_ERROR((dvn_op == EQUAL)||(dvn_op == PREFIX));
+
+                    QE_TRACE(DEBUG, "where match term for destvn " << value);
+                }
+
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP])
+                {
+                    dip_match = true; dip_op = op; dip = value;
                     boost::system::error_code ec;
-                    dip2 = IpAddress::from_string(value2, ec);
+                    dip = IpAddress::from_string(value, ec);
                     QE_INVALIDARG_ERROR(ec == 0);
-                } else {
-                    QE_INVALIDARG_ERROR(dip_op == EQUAL);
+                    QE_TRACE(DEBUG, "where match term for destip " << value);
+                    if (dip_op == IN_RANGE)
+                    {
+                        boost::system::error_code ec;
+                        dip2 = IpAddress::from_string(value2, ec);
+                        QE_INVALIDARG_ERROR(ec == 0);
+                    } else {
+                        QE_INVALIDARG_ERROR(dip_op == EQUAL);
+                    }
+
                 }
 
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL])
-            {
-                proto_match = true; proto_op = op;
-
-                uint16_t proto_value;
-                std::istringstream(value) >> proto_value;
-                proto = (uint8_t)proto_value;
-                if (proto_op == IN_RANGE)
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL])
                 {
-                    uint16_t proto_value2;
-                    std::istringstream(value2) >> proto_value2;
-                    proto2 = (uint8_t)proto_value2;
-                } else {
-                    QE_INVALIDARG_ERROR(proto_op == EQUAL);
+                    proto_match = true; proto_op = op;
+
+                    uint16_t proto_value;
+                    std::istringstream(value) >> proto_value;
+                    proto = (uint8_t)proto_value;
+                    if (proto_op == IN_RANGE)
+                    {
+                        uint16_t proto_value2;
+                        std::istringstream(value2) >> proto_value2;
+                        proto2 = (uint8_t)proto_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(proto_op == EQUAL);
+                    }
+
+                    QE_TRACE(DEBUG, "where match term for proto_value " << value);
                 }
 
-                QE_TRACE(DEBUG, "where match term for proto_value " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT])
-            {
-                sport_match = true; sport_op = op;
-
-                uint16_t sport_value;
-                std::istringstream(value) >> sport_value;
-
-                sport = sport_value;
-                if (sport_op == IN_RANGE)
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT])
                 {
-                    uint16_t sport_value2;
-                    std::istringstream(value2) >> sport_value2;
-                    sport2 = sport_value2;
-                } else {
-                    QE_INVALIDARG_ERROR(sport_op == EQUAL);
+                    sport_match = true; sport_op = op;
+
+                    uint16_t sport_value;
+                    std::istringstream(value) >> sport_value;
+
+                    sport = sport_value;
+                    if (sport_op == IN_RANGE)
+                    {
+                        uint16_t sport_value2;
+                        std::istringstream(value2) >> sport_value2;
+                        sport2 = sport_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(sport_op == EQUAL);
+                    }
+
+                    QE_TRACE(DEBUG, "where match term for sport " << value);
                 }
 
-                QE_TRACE(DEBUG, "where match term for sport " << value);
-            }
-
-            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT])
-            {
-                dport_match = true; dport_op = op; 
-
-                uint16_t dport_value;
-                std::istringstream(value) >> dport_value;
-                dport = dport_value;
-                if (dport_op == IN_RANGE)
+                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT])
                 {
-                    uint16_t dport_value2;
-                    std::istringstream(value2) >> dport_value2;
-                    dport2 = dport_value2;
-                } else {
-                    QE_INVALIDARG_ERROR(dport_op == EQUAL);
+                    dport_match = true; dport_op = op;
+
+                    uint16_t dport_value;
+                    std::istringstream(value) >> dport_value;
+                    dport = dport_value;
+                    if (dport_op == IN_RANGE)
+                    {
+                        uint16_t dport_value2;
+                        std::istringstream(value2) >> dport_value2;
+                        dport2 = dport_value2;
+                    } else {
+                        QE_INVALIDARG_ERROR(dport_op == EQUAL);
+                    }
+
+                    QE_TRACE(DEBUG, "where match term for dport " << value);
                 }
-
-                QE_TRACE(DEBUG, "where match term for dport " << value);
             }
-
+#endif
             if (isStat)
             {
                 StatTermProcess(json_or_node[j], this, main_query);
@@ -867,44 +1133,281 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             }
         }
 
-        // do some validation checks
-        if (sip_match && !(svn_match))
-        {
-            // SIP specified without SVN
-            QE_INVALIDARG_ERROR(0);
-        }
+#ifndef USE_SESSION
+        if (!isSession) {
+#else
+        if (!isSession && !m_query->is_flow_query(m_query->table())) {
+#endif
+            // do some validation checks
+            if (sip_match && !(svn_match))
+            {
+                // SIP specified without SVN
+                QE_INVALIDARG_ERROR(0);
+            }
 
-        if (dip_match && !(dvn_match))
-        {
-            // DIP specified without DVN
-            QE_INVALIDARG_ERROR(0);
-        }
+            if (dip_match && !(dvn_match))
+            {
+                // DIP specified without DVN
+                QE_INVALIDARG_ERROR(0);
+            }
 
-        if ((sport_match || dport_match) && !(proto_match))
-        {
-            // ports specified without protocol
-            QE_INVALIDARG_ERROR(0);
-        }
+            if ((sport_match || dport_match) && !(proto_match))
+            {
+                // ports specified without protocol
+                QE_INVALIDARG_ERROR(0);
+            }
 
-        if ((svn_op != EQUAL) && (sip_match))
-        {
-            // can not do range query on svn when sip is specified
-            QE_INVALIDARG_ERROR(0);
-        }
+            if ((svn_op != EQUAL) && (sip_match))
+            {
+                // can not do range query on svn when sip is specified
+                QE_INVALIDARG_ERROR(0);
+            }
 
-        if ((dvn_op != EQUAL) && (dip_match))
-        {
-            // can not do range query on dvn when dip is specified
-            QE_INVALIDARG_ERROR(0);
-        }
+            if ((dvn_op != EQUAL) && (dip_match))
+            {
+                // can not do range query on dvn when dip is specified
+                QE_INVALIDARG_ERROR(0);
+            }
 
-        if ((proto_op != EQUAL) && ((sport_match) || (dport_match)))
-        {
-            // can not do range query on protocol with dport or sport
-            QE_INVALIDARG_ERROR(0);
+            if ((proto_op != EQUAL) && ((sport_match) || (dport_match)))
+            {
+                // can not do range query on protocol with dport or sport
+                QE_INVALIDARG_ERROR(0);
+            }
         }
+        if (isSession) {
 
-        if (vr_match) 
+            DbQueryUnit *session_db_query = new DbQueryUnit(this, main_query);
+            session_db_query->cfname = g_viz_constants.SESSION_TABLE;
+            session_db_query->row_key_suffix.push_back((uint8_t)is_si);
+            session_db_query->row_key_suffix.push_back((uint8_t)session_type);
+            session_db_query->where_vec = where_vec;
+
+            if (proto_match) {
+                session_db_query->cr.start_.push_back(proto);
+                if (proto_op == EQUAL) {
+                    session_db_query->cr.finish_.push_back(proto);
+                }
+                else if (proto_op == IN_RANGE) {
+                    session_db_query->cr.finish_.push_back(proto2);
+                }
+            }
+            else {
+                session_db_query->cr.start_.push_back((uint16_t)0);
+                session_db_query->cr.finish_.push_back((uint16_t)0xffff);
+            }
+            if (sport_match) {
+                QE_INVALIDARG_ERROR(proto_match);
+                session_db_query->cr.start_.push_back(sport);
+                if(sport_op == EQUAL) {
+                    session_db_query->cr.finish_.push_back(sport);
+                }
+                else if (sport_op == IN_RANGE) {
+                    session_db_query->cr.finish_.push_back(sport2);
+                }
+            } else {
+                session_db_query->cr.finish_.push_back((uint16_t)0xffff);
+            }
+        }
+#ifdef USE_SESSION
+        else if (m_query->is_flow_query(m_query->table())) {
+            if (!filter_and.empty()) {
+                filter_list_.push_back(filter_and);
+            }
+            {
+                DbQueryUnit *client_session_query = new DbQueryUnit(this, main_query);
+                client_session_query->cfname = g_viz_constants.SESSION_TABLE;
+                client_session_query->row_key_suffix.push_back(
+                                        (uint8_t)SessionType::CLIENT_SESSION);
+                if (proto_match) {
+                    client_session_query->cr.start_.push_back(proto);
+                    if (proto_op == EQUAL) {
+                        client_session_query->cr.finish_.push_back(proto);
+                    } else if (proto_op == IN_RANGE) {
+                        client_session_query->cr.finish_.push_back(proto2);
+                    }
+                } else {
+                    client_session_query->cr.start_.push_back(((uint16_t)0));
+                    client_session_query->cr.finish_.push_back(((uint16_t)0xffff));
+                }
+                if ((direction_ing == 0 && sport_match) ||
+                    (direction_ing == 1 && dport_match)) {
+                    QE_INVALIDARG_ERROR(proto_match);
+                    client_session_query->cr.start_.push_back(sport);
+                    int op = direction_ing?dport_op:sport_op;
+                    if (op == EQUAL) {
+                        client_session_query->cr.finish_.push_back(direction_ing?
+                            dport:sport);
+                    } else if (op == IN_RANGE) {
+                        client_session_query->cr.finish_.push_back(direction_ing?
+                            dport2:sport2);
+                    }
+                } else {
+                    client_session_query->cr.finish_.push_back((uint16_t)0xffff);
+                }
+                if ((direction_ing == 0 && dip_match) ||
+                    (direction_ing == 1 && sip_match)) {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn("local_ip", &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+
+                    int op = direction_ing?sip_op:dip_op;
+                    std::string val = direction_ing?
+                        (boost::get<std::string>(sip)):(boost::get<std::string>(dip));
+                    GenDb::Op::type comparator;
+                    if (op == PREFIX) {
+                        val += "%";
+                        comparator = GenDb::Op::LIKE;
+                    } else {
+                        comparator = GenDb::Op::EQ;
+                    }
+                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                        comparator, val);
+                    client_session_query->where_vec.push_back(where_info);
+                }
+                if ((direction_ing == 0 && dvn_match) ||
+                    (direction_ing == 1 && svn_match)) {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn("vn", &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+                    int op = (direction_ing?svn_op:dvn_op);
+                    std::string val = direction_ing?
+                        (boost::get<std::string>(svn)):(boost::get<std::string>(dvn));
+                    GenDb::Op::type comparator;
+                    if (op == PREFIX) {
+                        val += "%";
+                        comparator = GenDb::Op::LIKE;
+                    } else {
+                        comparator = GenDb::Op::EQ;
+                    }
+                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                        comparator, val);
+                    client_session_query->where_vec.push_back(where_info);
+                }
+                if ((direction_ing == 0 && svn_match) ||
+                    (direction_ing == 1 && dvn_match)) {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn("remote_vn", &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+                    int op = (direction_ing?dvn_op:svn_op);
+                    GenDb::Op::type comparator;
+                    std::string val = direction_ing?
+                        (boost::get<std::string>(dvn)):(boost::get<std::string>(svn));
+                    if (op == PREFIX) {
+                        val += "%";
+                        comparator = GenDb::Op::LIKE;
+                    } else {
+                        comparator = GenDb::Op::EQ;
+                    }
+                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                        comparator, val);
+                    client_session_query->where_vec.push_back(where_info);
+                }
+            }
+            {
+                DbQueryUnit *server_session_query = new DbQueryUnit(this, main_query);
+                server_session_query->cfname = g_viz_constants.SESSION_TABLE;
+                server_session_query->row_key_suffix.push_back(
+                                        (uint8_t)SessionType::SERVER_SESSION);
+                if (proto_match) {
+                    server_session_query->cr.start_.push_back(proto);
+                    if(proto_op == EQUAL) {
+                        server_session_query->cr.finish_.push_back(proto);
+                    }
+                    else if (proto_op == IN_RANGE) {
+                        server_session_query->cr.finish_.push_back(proto2);
+                    }
+                }
+                else {
+                    server_session_query->cr.start_.push_back(((uint16_t)0));
+                    server_session_query->cr.finish_.push_back(((uint16_t)0xffff));
+                }
+                if ((direction_ing == 0 && dport_match) ||
+                    (direction_ing == 1 && sport_match)) {
+                    QE_INVALIDARG_ERROR(proto_match);
+                    server_session_query->cr.start_.push_back(sport);
+                    int op = direction_ing?sport_op:dport_op;
+                    if(op == EQUAL) {
+                        server_session_query->cr.finish_.push_back(direction_ing?
+                            sport:dport);
+                    }
+                    else if (op == IN_RANGE) {
+                        server_session_query->cr.finish_.push_back(direction_ing?
+                            sport2:dport2);
+                    }
+                }
+                else {
+                    server_session_query->cr.finish_.push_back((uint16_t)0xffff);
+                }
+                if ((direction_ing == 0 && dip_match) ||
+                    (direction_ing == 1 && sip_match)) {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn("local_ip", &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+                    int op = direction_ing?sip_op:dip_op;
+                    std::string val = direction_ing?
+                        (boost::get<std::string>(sip)):(boost::get<std::string>(dip));
+                    GenDb::Op::type comparator;
+                    if (op == PREFIX) {
+                        val += "%";
+                        comparator = GenDb::Op::LIKE;
+                    }
+                    else {
+                        comparator = GenDb::Op::EQ;
+                    }
+                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                        comparator, val);
+                    server_session_query->where_vec.push_back(where_info);
+                }
+                if ((direction_ing == 0 && dvn_match) ||
+                    (direction_ing == 1 && svn_match)) {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn("vn", &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+                    int op = (direction_ing?svn_op:dvn_op);
+                    std::string val = direction_ing?
+                        (boost::get<std::string>(svn)):(boost::get<std::string>(dvn));
+                    GenDb::Op::type comparator;
+                    if (op == PREFIX) {
+                        val += "%";
+                        comparator = GenDb::Op::LIKE;
+                    } else {
+                        comparator = GenDb::Op::EQ;
+                    }
+                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                        comparator, val);
+                    server_session_query->where_vec.push_back(where_info);
+                }
+                if ((direction_ing == 0 && svn_match) ||
+                    (direction_ing == 1 && dvn_match)) {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn("remote_vn", &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+                    int op = (direction_ing?dvn_op:svn_op);
+                    GenDb::Op::type comparator;
+                    std::string val = direction_ing?
+                        (boost::get<std::string>(dvn)):(boost::get<std::string>(svn));
+                    if (op == PREFIX) {
+                        val += "%";
+                        comparator = GenDb::Op::LIKE;
+                    } else {
+                        comparator = GenDb::Op::EQ;
+                    }
+                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                        comparator, val);
+                    server_session_query->where_vec.push_back(where_info);
+                }
+            }
+        }
+#endif
+#ifndef USE_SESSION
+        if (!isSession && vr_match)
         {
             DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
             db_query->row_key_suffix.push_back((uint8_t)direction_ing);
@@ -926,7 +1429,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         }
 
         // now create flow related db queries
-        if (svn_match) 
+        if (!isSession && svn_match)
         {
             DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
             db_query->row_key_suffix.push_back((uint8_t)direction_ing);
@@ -961,7 +1464,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     " string:" << "TBD");
         }
 
-        if (dvn_match) 
+        if (!isSession && dvn_match)
         {
             DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
             db_query->row_key_suffix.push_back((uint8_t)direction_ing);
@@ -992,7 +1495,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     " string:" << "TBD");
         }
 
-        if (proto_match)
+        if (!isSession && proto_match)
         {
             if (sport_match)
             {
@@ -1065,7 +1568,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
             }
         }
-
+#endif
         if (m_query->is_object_table_query(m_query->table()))
         {
             // object id table query
@@ -1109,12 +1612,22 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
             where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
             return;
         }
-        SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
-            *where_result_, inp);
+#ifdef USE_SESSION
+        if (m_query->is_flow_query(m_query->table())) {
+            SetOperationUnit::op_or(((AnalyticsQuery *)(this->main_query))->query_id,
+                *where_result_, inp);
+        } else {
+#endif
+            SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
+                *where_result_, inp);
+#ifdef USE_SESSION
+        }
+#endif
         m_query->query_status = query_status;
 
         QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
 
+#ifndef USE_SESSION
         if (m_query->table() == g_viz_constants.FLOW_TABLE) {
             // weed out duplicates
             QE_TRACE(DEBUG,
@@ -1136,6 +1649,7 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
             }
             *where_result_ = uniqued_result;
         }
+#endif
         // Have the result ready and processing is done
         QE_TRACE(DEBUG, "WHERE processing done row #s:" <<
              where_result_->size());

@@ -41,6 +41,10 @@ public:
         EXPECT_CALL(aqmock, direction_ing())
             .Times(AnyNumber())
             .WillRepeatedly(Return(1));
+        EXPECT_CALL(aqmock, is_session_query())
+            .Times(AnyNumber())
+            .WillRepeatedly(Return(false));
+
     }
 
     bool test_process_object_query_specific_select_params(
