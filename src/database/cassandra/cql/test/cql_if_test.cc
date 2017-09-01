@@ -963,7 +963,7 @@ TEST_F(CqlIfTest, SelectFromTableIndexColumnRead) {
         "column2 <= 123456789 AND "
         "column3 >= 123456789 AND "
         "column4 CONTAINS " + tuuid_s_ + " AND "
-        "column5 = 128");
+        "column5 = 128 ALLOW FILTERING");
     EXPECT_EQ(expected_qstring2, actual_qstring2);
 }
 

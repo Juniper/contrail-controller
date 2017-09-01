@@ -55,7 +55,8 @@ public:
     void MergeFinal(const std::vector<boost::shared_ptr<MapBufT> >& inputs,
         MapBufT& output);
 
-    static bool Jsonify(const std::map<std::string, StatVal>&, 
+    static bool Jsonify(const std::string &table,
+            const std::map<std::string, StatVal>&,
             const QEOpServerProxy::AggRowT&, std::string& jstr);
 
 private:

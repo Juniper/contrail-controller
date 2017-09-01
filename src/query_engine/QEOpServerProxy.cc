@@ -175,7 +175,7 @@ public:
             OutRowMultimapT::const_iterator mres_it;
             for (mres_it = raw_mres->begin(); mres_it != raw_mres->end(); ++mres_it) {
                 string jstr;
-                StatsSelect::Jsonify(mres_it->second.first, mres_it->second.second, jstr);
+                StatsSelect::Jsonify(table, mres_it->second.first, mres_it->second.second, jstr);
                 raw_json->push_back(jstr);
             }
         } else {
