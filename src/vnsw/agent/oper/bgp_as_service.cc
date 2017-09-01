@@ -220,24 +220,30 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                     BgpAsAServiceEntry(peer_ip,
                                         bgp_router->parameters().source_port,
                                         health_check_configured,
-                                        health_check_uuid));
+                                        health_check_uuid,
+                                        bgp_as_a_service->bgpaas_shared()));
                 /*
                  * if it is same session then retain original source port
                  */
-                if (temp_bgp_as_a_service_entry_list == 
+                if (temp_bgp_as_a_service_entry_list ==
                      old_bgp_as_a_service_entry_list_iter->second->list_) {
                     source_port = bgp_router->parameters().source_port;
                 }
             }
             if (!source_port) {
-                source_port = AddBgpVmiServicePortIndex(
-                                    bgp_router->parameters().source_port,
-                                    vm_uuid);
+                if (bgp_as_a_service->bgpaas_shared()) {
+                    source_port = AddBgpVmiServicePortIndex(
+                                        bgp_router->parameters().source_port,
+                                        vm_uuid);
+                } else {
+                    source_port = bgp_router->parameters().source_port;
+                }
             }
             if (source_port) {
                 new_list.insert(BgpAsAServiceEntry(peer_ip, source_port,
                                                    health_check_configured,
-                                                   health_check_uuid));
+                                                   health_check_uuid,
+                                                   bgp_as_a_service->bgpaas_shared()));
             }
         }
     }
@@ -284,7 +290,9 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
             BgpAsAServiceEntryListIterator prev = iter++;
             if (prev->del_pending_) {
                 service_delete_cb_(vm_uuid, prev->source_port_);
-                FreeBgpVmiServicePortIndex(prev->source_port_);
+                if (prev->is_shared_) {
+                    FreeBgpVmiServicePortIndex(prev->source_port_);
+                }
                 old_bgp_as_a_service_entry_list_iter->second->list_.erase(prev);
                 continue;
             }
@@ -322,7 +330,9 @@ void BgpAsAService::DeleteVmInterface(const boost::uuids::uuid &vm_uuid) {
     BgpAsAServiceEntryListIterator list_iter = list.begin();
     while (list_iter != list.end()) {
         service_delete_cb_(vm_uuid, (*list_iter).source_port_);
-        FreeBgpVmiServicePortIndex((*list_iter).source_port_);
+        if ((*list_iter).is_shared_) {
+            FreeBgpVmiServicePortIndex((*list_iter).source_port_);
+        }
         list_iter++;
     }
     delete iter->second;
@@ -488,7 +498,8 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry() :
     VmInterface::ListEntry(), installed_(false),
     local_peer_ip_(), source_port_(0), health_check_configured_(false),
     health_check_uuid_(), new_health_check_add_(false),
-    old_health_check_delete_(false), old_health_check_uuid_() {
+    old_health_check_delete_(false), old_health_check_uuid_(),
+    is_shared_(false) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
@@ -501,19 +512,22 @@ BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
     health_check_uuid_(rhs.health_check_uuid_),
     new_health_check_add_(rhs.new_health_check_add_),
     old_health_check_delete_(rhs.old_health_check_delete_),
-    old_health_check_uuid_(rhs.old_health_check_uuid_) {
+    old_health_check_uuid_(rhs.old_health_check_uuid_),
+    is_shared_(rhs.is_shared_) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::BgpAsAServiceEntry
 (const IpAddress &local_peer_ip, uint32_t source_port,
- bool health_check_configured, const boost::uuids::uuid &health_check_uuid) :
+ bool health_check_configured, const boost::uuids::uuid &health_check_uuid,
+ bool is_shared) :
     VmInterface::ListEntry(),
     installed_(false),
     local_peer_ip_(local_peer_ip),
     source_port_(source_port),
     health_check_configured_(health_check_configured),
     health_check_uuid_(health_check_uuid), new_health_check_add_(false),
-    old_health_check_delete_(false), old_health_check_uuid_() {
+    old_health_check_delete_(false), old_health_check_uuid_(),
+    is_shared_(is_shared) {
 }
 
 BgpAsAService::BgpAsAServiceEntry::~BgpAsAServiceEntry() {
@@ -522,7 +536,8 @@ BgpAsAService::BgpAsAServiceEntry::~BgpAsAServiceEntry() {
 bool BgpAsAService::BgpAsAServiceEntry::operator ==
     (const BgpAsAServiceEntry &rhs) const {
     return ((source_port_ == rhs.source_port_) &&
-            (local_peer_ip_ == rhs.local_peer_ip_));
+            (local_peer_ip_ == rhs.local_peer_ip_) &&
+            (is_shared_ == rhs.is_shared_));
 }
 
 bool BgpAsAService::BgpAsAServiceEntry::operator()
@@ -534,7 +549,9 @@ bool BgpAsAService::BgpAsAServiceEntry::IsLess
     (const BgpAsAServiceEntry *rhs) const {
     if (source_port_ != rhs->source_port_)
         return source_port_ < rhs->source_port_;
-    return local_peer_ip_ < rhs->local_peer_ip_;
+    if (local_peer_ip_ != rhs->local_peer_ip_)
+         return local_peer_ip_ < rhs->local_peer_ip_;
+    return is_shared_ < rhs->is_shared_;
 }
 
 void BgpAsAServiceSandeshReq::HandleRequest() const {
@@ -558,6 +575,7 @@ void BgpAsAServiceSandeshReq::HandleRequest() const {
            entry.set_vmi_uuid(UuidToString(map_it->first));
            entry.set_health_check_configured((*it).health_check_configured_);
            entry.set_health_check_uuid(UuidToString((*it).health_check_uuid_));
+           entry.set_is_shared((*it).is_shared_);
            bgpaas_map.push_back(entry);
            it++;
        }

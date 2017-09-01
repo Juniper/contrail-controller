@@ -77,7 +77,8 @@ public:
         BgpAsAServiceEntry(const IpAddress &local_peer_ip,
                            uint32_t source_port,
                            bool health_check_configured,
-                           const boost::uuids::uuid &health_check_uuid);
+                           const boost::uuids::uuid &health_check_uuid,
+                           bool is_shared);
         ~BgpAsAServiceEntry();
         bool operator == (const BgpAsAServiceEntry &rhs) const;
         bool operator() (const BgpAsAServiceEntry &lhs,
@@ -94,6 +95,7 @@ public:
         mutable bool new_health_check_add_;
         mutable bool old_health_check_delete_;
         mutable boost::uuids::uuid old_health_check_uuid_;
+        bool is_shared_;
     };
     typedef std::set<BgpAsAServiceEntry, BgpAsAServiceEntry> BgpAsAServiceEntryList;
     typedef BgpAsAServiceEntryList::iterator BgpAsAServiceEntryListIterator;
