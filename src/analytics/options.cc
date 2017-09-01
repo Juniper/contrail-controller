@@ -21,6 +21,8 @@
 #include "viz_constants.h"
 #include <database/gendb_constants.h>
 
+#include "config/config-client-mgr/config_client_manager.h"
+
 using namespace std;
 using namespace boost::asio::ip;
 using namespace boost::assign;
@@ -429,6 +431,56 @@ void Options::Initialize(EventManager &evm,
                     "/etc/contrail/ks-ca"), "Keystone CA chain")
         ;
 
+    vector<string> default_config_db_server_list;
+    string default_config_db_server(host_ip + ":9042");
+    default_config_db_server_list.push_back(default_config_db_server);
+
+    vector<string> default_rabbitmq_server_list;
+    string default_rabbitmq_server(host_ip + ":5672");
+    default_rabbitmq_server_list.push_back(default_rabbitmq_server);
+    // configdb_config options.
+    opt::options_description configdb_config("Config database Configuration options");
+    configdb_config.add_options()
+        ("CONFIGDB.config_db_server_list",
+             opt::value<vector<string> >()->default_value(
+             default_config_db_server_list, default_config_db_server),
+             "Config database server list")
+        ("CONFIGDB.config_db_username",
+             opt::value<string>()->default_value(""),
+             "ConfigDB user")
+        ("CONFIGDB.config_db_password",
+             opt::value<string>()->default_value(""),
+             "ConfigDB password")
+        ("CONFIGDB.rabbitmq_server_list",
+             opt::value<vector<string> >()->default_value(
+             default_rabbitmq_server_list, default_rabbitmq_server),
+             "RabbitMQ server list")
+        ("CONFIGDB.rabbitmq_user",
+             opt::value<string>()->default_value("guest"),
+             "RabbitMQ user")
+        ("CONFIGDB.rabbitmq_password",
+             opt::value<string>()->default_value("guest"),
+             "RabbitMQ password")
+        ("CONFIGDB.rabbitmq_vhost",
+             opt::value<string>()->default_value(""),
+             "RabbitMQ vhost")
+        ("CONFIGDB.rabbitmq_use_ssl",
+             opt::value<bool>()->default_value(false),
+             "Use SSL for RabbitMQ connection")
+        ("CONFIGDB.rabbitmq_ssl_version",
+             opt::value<string>()->default_value(""),
+             "SSL version for RabbitMQ connection")
+        ("CONFIGDB.rabbitmq_ssl_keyfile",
+             opt::value<string>()->default_value(""),
+             "Keyfile for SSL RabbitMQ connection")
+        ("CONFIGDB.rabbitmq_ssl_certfile",
+             opt::value<string>()->default_value(""),
+             "Certificate file for SSL RabbitMQ connection")
+        ("CONFIGDB.rabbitmq_ssl_ca_certs",
+             opt::value<string>()->default_value(""),
+             "CA Certificate file for SSL RabbitMQ connection")
+        ;
+
     // Command line and config file options.
     opt::options_description sandesh_config("Sandesh Configuration options");
     sandesh::options::AddOptions(&sandesh_config, &sandesh_config_);
@@ -447,10 +499,10 @@ void Options::Initialize(EventManager &evm,
 
     config_file_options_.add(config).add(cassandra_config)
         .add(database_config).add(sandesh_config).add(keystone_config)
-        .add(collector_config).add(redis_config).add(api_server_config);
+        .add(collector_config).add(redis_config).add(api_server_config).add(configdb_config);
     cmdline_options.add(generic).add(config).add(cassandra_config)
         .add(database_config).add(sandesh_config).add(keystone_config)
-        .add(collector_config).add(redis_config).add(api_server_config);
+        .add(collector_config).add(redis_config).add(api_server_config).add(configdb_config);
 }
 
 static bool ValidateCompactionStrategyOption(
@@ -472,14 +524,25 @@ static bool ValidateCompactionStrategyOption(
     return true;
 }
 
-uint32_t Options::GenerateHash(std::vector<std::string> &list) {
+uint32_t Options::GenerateHash(const std::vector<std::string> &list) {
     std::string concat_servers;
-    std::vector<std::string>::iterator iter;
+    std::vector<std::string>::const_iterator iter;
     for (iter = list.begin(); iter != list.end(); iter++) {
         concat_servers += *iter;
     }
     boost::hash<std::string> string_hash;
     return(string_hash(concat_servers));
+}
+
+uint32_t Options::GenerateHash(const ConfigClientOptions &config) {
+    uint32_t chk_sum = GenerateHash(config.config_db_server_list);
+    chk_sum += GenerateHash(config.rabbitmq_server_list);
+    boost::hash<std::string> string_hash;
+    chk_sum += string_hash(config.rabbitmq_user);
+    chk_sum += string_hash(config.rabbitmq_password);
+    chk_sum += string_hash(config.config_db_username);
+    chk_sum += string_hash(config.config_db_password);
+    return chk_sum;
 }
 
 // Process command line options. They can come from a conf file as well. Options
@@ -695,6 +758,7 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<bool>(var_map, api_server_use_ssl_,
                       "API_SERVER.api_server_use_ssl");
+    ParseConfigOptions(var_map);
 }
 
 void Options::ParseReConfig() {
@@ -718,4 +782,53 @@ void Options::ParseReConfig() {
         std::random_shuffle(api_server_list_.begin(),
                             api_server_list_.end());
     }
+
+    uint32_t old_config_chksum = configdb_chksum_;
+    ParseConfigOptions(var_map);
+    if ((old_config_chksum != configdb_chksum_) && config_client_manager_) {
+        config_client_manager_->ReinitConfigClient(configdb_options());
+    }
+}
+
+void Options::ParseConfigOptions(const boost::program_options::variables_map
+                                 &var_map) {
+    configdb_options_.config_db_server_list.clear();
+    GetOptValue< vector<string> >(var_map,
+                                  configdb_options_.config_db_server_list,
+                                  "CONFIGDB.config_db_server_list");
+    GetOptValue<string>(var_map,
+                     configdb_options_.config_db_username,
+                     "CONFIGDB.config_db_username");
+    GetOptValue<string>(var_map,
+                     configdb_options_.config_db_password,
+                     "CONFIGDB.config_db_password");
+    configdb_options_.rabbitmq_server_list.clear();
+    GetOptValue< vector<string> >(var_map,
+                     configdb_options_.rabbitmq_server_list,
+                     "CONFIGDB.rabbitmq_server_list");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_user,
+                     "CONFIGDB.rabbitmq_user");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_password,
+                     "CONFIGDB.rabbitmq_password");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_vhost,
+                     "CONFIGDB.rabbitmq_vhost");
+    GetOptValue<bool>(var_map,
+                     configdb_options_.rabbitmq_use_ssl,
+                     "CONFIGDB.rabbitmq_use_ssl");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_ssl_version,
+                     "CONFIGDB.rabbitmq_ssl_version");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_ssl_keyfile,
+                     "CONFIGDB.rabbitmq_ssl_keyfile");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_ssl_certfile,
+                     "CONFIGDB.rabbitmq_ssl_certfile");
+    GetOptValue<string>(var_map,
+                     configdb_options_.rabbitmq_ssl_ca_certs,
+                     "CONFIGDB.rabbitmq_ssl_ca_certs");
+    configdb_chksum_ = GenerateHash(configdb_options_);
 }
