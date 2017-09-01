@@ -139,7 +139,7 @@ class CassandraManager(object):
                         #for now we assume the partition for all analytics clusters is same
                         analytics_dir = all_analytics_dirs[0]
 
-                if os.path.exists(analytics_dir) and self._db_name == 'analyticsDb':
+                if self._db_name == 'analyticsDb' and os.path.exists(analytics_dir):
                     cassandra_data_dir_exists = True
                     msg = "analytics_dir is " + analytics_dir
                     event_mgr.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
@@ -194,7 +194,7 @@ class CassandraManager(object):
                         #for now we assume the partition for all analytics clusters is same
                         analytics_dir = all_analytics_dirs[0]
 
-                if os.path.exists(analytics_dir) and self._db_name == 'analyticsDb':
+                if self._db_name == 'analyticsDb' and os.path.exists(analytics_dir):
                     cassandra_data_dir_exists = True
                     msg = "analytics_dir is " + analytics_dir
                     event_mgr.msg_log(msg, level=SandeshLevel.SYS_DEBUG)
