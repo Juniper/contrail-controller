@@ -333,6 +333,7 @@ void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level,
 }
 
 bool DbHandler::CreateTables() {
+
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
         if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
@@ -362,6 +363,39 @@ bool DbHandler::CreateTables() {
         if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
+        }
+
+        table_schema cfschema = g_viz_constants._VIZD_SESSION_TABLE_SCHEMA.find(it->cfname_)->second;
+        BOOST_FOREACH (schema_column column, cfschema.columns) {
+            if (column.index_type) {
+                std::string mode;
+                switch(column.index_mode) {
+                case ColIndexMode::NONE:
+                    {
+                        mode = "";
+                        break;
+                    }
+                case ColIndexMode::PREFIX:
+                    {
+                        mode = "PREFIX";
+                        break;
+                    }
+                case ColIndexMode::CONTAINS:
+                    {
+                        mode = "CONTAINS";
+                        break;
+                    }
+                default:
+                    {
+                        DB_LOG(ERROR, "Invalid Custom Index Mode");
+                        return false;
+                    }
+                }
+                if (!dbif_->Db_CreateIndex(it->cfname_, column.name, "", mode)) {
+                    DB_LOG(ERROR, it->cfname_ << " FAILED");
+                    return false;
+                }
+            }
         }
     }
 

@@ -4,20 +4,69 @@
 
 #include "query.h"
 
+#include <algorithm>
 #include "boost/uuid/uuid_io.hpp"
+#include "boost/regex.hpp"
+#include "boost/algorithm/string.hpp"
+#include "boost/foreach.hpp"
 #include "base/util.h"
 #include "rapidjson/document.h"
-
+#include "analytics/viz_types.h"
+#include "analytics/viz_constants.h"
+#include "database/gendb_if.h"
 #include "analytics/vizd_table_desc.h"
 #include "stats_select.h"
 
 using std::string;
 
+std::vector<std::string> session_json_fields = boost::assign::list_of
+    ("remote_ip")
+    ("client_port")
+    ("other_vrouter_ip")
+    ("underlay_proto")
+    ("forward_flow_uuid")
+    ("forward_flow_setup_time")
+    ("forward_flow_teardown_time")
+    ("forward_flow_action")
+    ("forward_flow_sg_rule_uuid")
+    ("forward_flow_nw_ave_uuid")
+    ("forward_flow_underlay_source_port")
+    ("forward_flow_drop_reason")
+    ("forward_flow_teardown_bytes")
+    ("forward_flow_teardown_pkts")
+    ("reverse_flow_uuid")
+    ("reverse_flow_setup_time")
+    ("reverse_flow_teardown_time")
+    ("reverse_flow_action")
+    ("reverse_flow_sg_rule_uuid")
+    ("reverse_flow_nw_ave_uuid")
+    ("reverse_flow_underlay_source_port")
+    ("reverse_flow_drop_reason")
+    ("reverse_flow_teardown_bytes")
+    ("reverse_flow_teardown_pkts")
+    ("sourceip")
+    ("destip")
+    ("dport")
+    ("sport")
+    ("UuidKey")
+    ("setup_time")
+    ("teardown_time")
+    ("agg-bytes")
+    ("agg-pkts")
+    ("action")
+    ("sg_rule_uuid")
+    ("nw_ace_uuid")
+    ("underlay_source_port")
+    ("drop_reason")
+    ("SUM(bytes)")
+    ("SUM(packets)");
+
 SelectQuery::SelectQuery(QueryUnit *main_query,
-        std::map<std::string, std::string> json_api_data):
+        const std::map<std::string, std::string>& json_api_data):
     QueryUnit(main_query, main_query),
     provide_timeseries(false),
     granularity(0),
+    unroll_needed(false),
     fs_query_type_(SelectQuery::FS_SELECT_INVALID) {
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
@@ -41,7 +90,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     QE_TRACE(DEBUG,  "cfname :" << cfname);
 
     // Do JSON parsing of main SELECT fields
-    std::map<std::string, std::string>::iterator iter;
+    std::map<std::string, std::string>::const_iterator iter;
     iter = json_api_data.find(QUERY_SELECT);
     QE_PARSE_ERROR(iter != json_api_data.end());
 
@@ -55,16 +104,49 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     QE_PARSE_ERROR(json_select_fields.IsArray());
     QE_TRACE(DEBUG, "# of select fields is " << json_select_fields.Size());
 
-    if (m_query->is_stat_table_query(m_query->table())) {
+    // whether uuid key was provided in select field
+    bool uuid_key_selected = false;
+    bool reverse_uuid_key_selected = false;
+
+    if (m_query->is_stat_table_query(m_query->table())
+           || m_query->is_session_query(m_query->table())) {
+        std::vector<std::string> select_column_fields;
         for (contrail_rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
-            select_column_fields.push_back(json_select_fields[i].GetString());
+            std::string field(json_select_fields[i].GetString());
+            if (field == SELECT_SESSION_CLASS_ID) {
+                select_column_fields.push_back("CLASS(" +
+                                                select_column_fields[0] + ")");
+            } else if (field == SELECT_SAMPLE_COUNT) {
+                select_column_fields.push_back("COUNT(" +
+                                                select_column_fields[0] + ")");
+            } else {
+                if (field == "forward_flow_uuid") {
+                    uuid_key_selected = true;
+                }
+                if (field == "reverse_flow_uuid") {
+                    reverse_uuid_key_selected = true;
+                }
+                select_column_fields.push_back(field);
+            }
+            std::vector<std::string>::iterator it =
+                std::find(session_json_fields.begin(),
+                            session_json_fields.end(),
+                            field);
+                unroll_needed |= (it != session_json_fields.end());
+        }
+        if (m_query->table() == g_viz_constants.SESSION_RECORD_TABLE) {
+            if (!uuid_key_selected) {
+                select_column_fields.push_back(g_viz_constants.FORWARD_FLOW_UUID);
+            }
+            if (!reverse_uuid_key_selected) {
+                select_column_fields.push_back(g_viz_constants.REVERSE_FLOW_UUID);
+            }
+            unroll_needed = true;
         }
         stats_.reset(new StatsSelect(m_query, select_column_fields));
         QE_INVALIDARG_ERROR(stats_->Status());
         return;
     }     
-    // whether uuid key was provided in select field
-    bool uuid_key_selected = false;
 
     for (contrail_rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) 
     {
@@ -88,7 +170,11 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             granularity = atoi(timestamp_str.c_str() + 
                 + sizeof(TIMESTAMP_GRANULARITY)-1);
             granularity = granularity * kMicrosecInSec;
+#ifndef USE_SESSION
             select_column_fields.push_back(TIMESTAMP_GRANULARITY);
+#else
+            select_column_fields.push_back(json_select_fields[i].GetString());
+#endif
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE ||
                 m_query->is_stat_table_query(m_query->table()));
@@ -97,18 +183,28 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 std::string(SELECT_PACKETS)) {
             agg_stats_t agg_stats_entry = {RAW, PKT_STATS};
             agg_stats.push_back(agg_stats_entry);
+#ifdef USE_SESSION
+            select_column_fields.push_back(SELECT_PACKETS);
+#endif
             QE_INVALIDARG_ERROR(m_query->is_flow_query(m_query->table()));
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_BYTES)) {
             agg_stats_t agg_stats_entry = {RAW, BYTE_STATS};
             agg_stats.push_back(agg_stats_entry);
+#ifdef USE_SESSION
+            select_column_fields.push_back(SELECT_BYTES);
+#endif
             QE_INVALIDARG_ERROR(m_query->is_flow_query(m_query->table()));
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_SUM_PACKETS)) {
             agg_stats_t agg_stats_entry = {SUM, PKT_STATS};
             agg_stats.push_back(agg_stats_entry);
+#ifdef USE_SESSION
+            select_column_fields.push_back(SELECT_SUM_PACKETS);
+#endif
+
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }
@@ -116,18 +212,30 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 std::string(SELECT_SUM_BYTES)) {
             agg_stats_t agg_stats_entry = {SUM, BYTE_STATS};
             agg_stats.push_back(agg_stats_entry);
+#ifdef USE_SESSION
+            select_column_fields.push_back(SELECT_SUM_BYTES);
+#endif
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_FLOW_CLASS_ID)) {
+#ifndef USE_SESSION
             select_column_fields.push_back(SELECT_FLOW_CLASS_ID);
+#else
+            select_column_fields.push_back("CLASS(" +
+                                            select_column_fields[0] + ")");
+#endif
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_FLOW_COUNT)) {
+#ifndef USE_SESSION
             select_column_fields.push_back(SELECT_FLOW_COUNT);
+#else
+            QE_INVALIDARG_ERROR(0);
+#endif
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }
@@ -139,6 +247,13 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 get_column_name(json_select_fields[i].GetString()));
             if (json_select_fields[i].GetString() == g_viz_constants.UUID_KEY)
                 uuid_key_selected = true;
+#ifdef USE_SESSION
+            std::vector<std::string>::iterator it =
+                std::find(session_json_fields.begin(),
+                            session_json_fields.end(),
+                            json_select_fields[i].GetString());
+                unroll_needed |= (it != session_json_fields.end());
+#endif
         }
     }
 
@@ -151,6 +266,21 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     if ((m_query->table() == g_viz_constants.FLOW_TABLE) && !uuid_key_selected) {
         select_column_fields.push_back(g_viz_constants.UUID_KEY);
     }
+
+#ifdef USE_SESSION
+    if (m_query->is_flow_query(m_query->table())) {
+        stats_.reset(new StatsSelect(m_query, select_column_fields));
+        QE_INVALIDARG_ERROR(stats_->Status());
+        if (m_query->is_flow_query(m_query->table()) &&
+            !m_query->wherequery_->additional_select.empty()) {
+            // add additional select fields based on filters
+            select_column_fields.insert(select_column_fields.end(),
+                m_query->wherequery_->additional_select.begin(),
+                m_query->wherequery_->additional_select.end());
+        }
+    }
+#endif
+
 }
 
 bool SelectQuery::is_valid_select_field(const std::string& select_field) const {
@@ -236,6 +366,216 @@ void SelectQuery::evaluate_fs_query_type() {
     }
 }
 
+static const std::vector<std::string> tag_annotations =
+    boost::assign::list_of
+    ("application")
+    ("deployment")
+    ("site")
+    ("tier");
+
+static const std::vector<SessionRecordFields::type> SessionRecordTableColumns = 
+    boost::assign::list_of
+    (SessionRecordFields::SESSION_T2)
+    (SessionRecordFields::SESSION_PARTITION_NO)
+    (SessionRecordFields::SESSION_IS_SI)
+    (SessionRecordFields::SESSION_IS_CLIENT_SESSION)
+    (SessionRecordFields::SESSION_PROTOCOL)
+    (SessionRecordFields::SESSION_SPORT)
+    (SessionRecordFields::SESSION_T1)
+    (SessionRecordFields::SESSION_UUID)
+    (SessionRecordFields::SESSION_REMOTE_DEPLOYMENT)
+    (SessionRecordFields::SESSION_REMOTE_TIER)
+    (SessionRecordFields::SESSION_REMOTE_APPLICATION)
+    (SessionRecordFields::SESSION_REMOTE_SITE)
+    (SessionRecordFields::SESSION_REMOTE_LABELS)
+    (SessionRecordFields::SESSION_REMOTE_PREFIX)
+    (SessionRecordFields::SESSION_SECURITY_POLICY_RULE)
+    (SessionRecordFields::SESSION_VMI)
+    (SessionRecordFields::SESSION_IP)
+    (SessionRecordFields::SESSION_VN)
+    (SessionRecordFields::SESSION_REMOTE_VN)
+    (SessionRecordFields::SESSION_VROUTER)
+    (SessionRecordFields::SESSION_VROUTER_IP)
+    (SessionRecordFields::SESSION_SAMPLED_FORWARD_BYTES)
+    (SessionRecordFields::SESSION_SAMPLED_FORWARD_PKTS)
+    (SessionRecordFields::SESSION_LOGGED_FORWARD_BYTES)
+    (SessionRecordFields::SESSION_LOGGED_FORWARD_PKTS)
+    (SessionRecordFields::SESSION_SAMPLED_REVERSE_BYTES)
+    (SessionRecordFields::SESSION_SAMPLED_REVERSE_PKTS)
+    (SessionRecordFields::SESSION_LOGGED_REVERSE_BYTES)
+    (SessionRecordFields::SESSION_LOGGED_REVERSE_PKTS)
+    (SessionRecordFields::SESSION_DEPLOYMENT)
+    (SessionRecordFields::SESSION_TIER)
+    (SessionRecordFields::SESSION_APPLICATION)
+    (SessionRecordFields::SESSION_SITE)
+    (SessionRecordFields::SESSION_LABELS)
+    (SessionRecordFields::SESSION_MAP);
+
+class DbDataVal2AttributeConverter : public boost::static_visitor<> {
+  public:
+    DbDataVal2AttributeConverter(std::vector<StatsSelect::StatEntry> *attribs):
+       attribs_(attribs),
+       cass_column2column_name_map((g_viz_constants._VIZD_SESSION_TABLE_SCHEMA
+                                .find(g_viz_constants.SESSION_TABLE))->second
+                                .column_to_query_column) {
+    }
+    void operator()(const boost::blank &tblank, const int idx) const {
+        QE_ASSERT(false && "Null Value in Query Result");
+    }
+    void operator()(const std::string &tstring, const int idx) const {
+        if (tstring.empty()) {
+            return;
+        }
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        se.name = (cass_column2column_name_map.find(cname))->second;
+        ColIndexType::type index_type =
+            g_viz_constants._VIZD_SESSION_TABLE_SCHEMA.find(
+            g_viz_constants.SESSION_TABLE)->second.columns[idx].index_type;
+        if (index_type) {
+            boost::regex expr("^[\\d]+:");
+            std::string value(boost::regex_replace(tstring,
+                expr, "", boost::match_default | boost::format_all));
+            se.value = value;
+        }
+        else {
+            se.value = tstring;
+        }
+        attribs_->push_back(se);
+    }
+    void operator()(const boost::uuids::uuid &tuuid, const int idx) const {
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        se.name = (cass_column2column_name_map.find(cname))->second;
+        se.value = to_string(tuuid);
+        attribs_->push_back(se);
+    }
+    void operator()(const uint8_t &tu8, const int idx) const {
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        se.name = (cass_column2column_name_map.find(cname))->second;
+        se.value = (uint64_t)tu8;
+        attribs_->push_back(se);
+    }
+    void operator()(const uint16_t &tu16, const int idx) const {
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        se.name = (cass_column2column_name_map.find(cname))->second;
+        se.value = (uint64_t)tu16;
+        attribs_->push_back(se);
+    }
+    void operator()(const uint32_t &tu32, const int idx) const {
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        se.name = (cass_column2column_name_map.find(cname))->second;
+        se.value = (uint64_t)tu32;
+        attribs_->push_back(se);
+    }
+    void operator()(const uint64_t &tu64, const int idx) const {
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        se.name = (cass_column2column_name_map.find(cname))->second;
+        se.value = tu64;
+        attribs_->push_back(se);
+    }
+    void operator()(const double &tdouble, const int idx) const {
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        se.name = (cass_column2column_name_map.find(cname))->second;
+        se.value = tdouble;
+        attribs_->push_back(se);
+    }
+    void operator()(const IpAddress &tipaddr, const int idx) const {
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        se.name = (cass_column2column_name_map.find(cname))->second;
+        se.value = tipaddr.to_string();
+        attribs_->push_back(se);
+    }
+    void operator()(const GenDb::Blob &tblob, const int idx) const {
+        return;
+    }
+private:
+    std::vector<StatsSelect::StatEntry> *attribs_;
+    std::map<std::string, std::string> cass_column2column_name_map;
+};
+
+
+void populate_attribs_from_json_member(
+    const contrail_rapidjson::Value::ConstMemberIterator itr,
+    std::vector<StatsSelect::StatEntry> *attribs_, const std::string& prefix) {
+    QE_ASSERT(itr->name.IsString());
+
+    //uint64_t thenp = UTCTimestampUsec();
+    std::string fvname(itr->name.GetString());
+
+    StatsSelect::StatEntry se;
+    se.name = prefix + fvname;
+    if (itr->value.IsString()) {
+        se.value = itr->value.GetString();
+    } else if (itr->value.IsUint()) {
+            se.value = (uint64_t)itr->value.GetUint();
+    } else if (itr->value.IsUint64()){
+            se.value = (uint64_t)itr->value.GetUint64();
+    } else if (itr->value.IsDouble()) {
+        se.value = (double) itr->value.GetDouble();
+    } else {
+        QE_ASSERT(0);
+    }
+    attribs_->push_back(se);
+    //parset += UTCTimestampUsec() - thenp;
+}
+
+void parse_json(const contrail_rapidjson::Value &json_object,
+    std::vector<StatsSelect::StatEntry> *attribs_) {
+    for (contrail_rapidjson::Value::ConstMemberIterator itr =
+        json_object.MemberBegin(); itr != json_object.MemberEnd(); ++itr) {
+        QE_ASSERT(itr->name.IsString());
+        if (itr->value.IsObject()) {
+            std::string prefix;
+            if (itr->name == "forward_flow_info") {
+                prefix = "forward_";
+            } else {
+                prefix = "reverse_";
+            }
+            for (contrail_rapidjson::Value::ConstMemberIterator itr2 =
+                itr->value.MemberBegin(); itr2 != itr->value.MemberEnd(); ++itr2) {
+                populate_attribs_from_json_member(itr2, attribs_, prefix);
+            }
+        }
+        else {
+            populate_attribs_from_json_member(itr, attribs_, "");
+        }
+    }
+}
+
+void map_session_to_flow(std::vector<StatsSelect::StatEntry> *attribs_,
+    uint8_t is_client_session, uint8_t direction) {
+    std::map<std::string, std::string> session2flow_map;
+    if (direction) {
+        if (is_client_session) {
+            session2flow_map = g_viz_constants.session2flow_maps[0];
+        } else {
+            session2flow_map = g_viz_constants.session2flow_maps[2];
+        }
+    } else {
+        if (is_client_session) {
+            session2flow_map = g_viz_constants.session2flow_maps[1];
+        } else {
+            session2flow_map = g_viz_constants.session2flow_maps[3];
+        }
+    }
+
+    std::vector<StatsSelect::StatEntry>::iterator it;
+    for (it = attribs_->begin(); it != attribs_->end(); it++) {
+        std::map<std::string, std::string>::iterator itr =
+                session2flow_map.find(it->name);
+        if (itr != session2flow_map.end()) {
+            it->name = itr->second;
+        }
+    }
+}
+
 query_status_t SelectQuery::process_query() {
 
     if (status_details != 0)
@@ -270,6 +610,7 @@ query_status_t SelectQuery::process_query() {
         *m_query->where_info_;
     boost::shared_ptr<QueryResultMetaData> nullmetadata;
 
+#ifndef USE_SESSION
     if (m_query->table() == g_viz_constants.FLOW_SERIES_TABLE) {
         QE_TRACE(DEBUG, "Flow Series query type: " << fs_query_type_);
         process_fs_query_cb_map_t::const_iterator query_cb_it = 
@@ -405,6 +746,129 @@ query_status_t SelectQuery::process_query() {
                 cmap.insert(std::make_pair(kt->first, elem_value));
             }
             result_->push_back(std::make_pair(cmap, nullmetadata));
+        }
+    }
+    else if (m_query->is_session_query(m_query->table())) {
+#else
+    if (m_query->is_session_query(m_query->table())
+              || m_query->is_flow_query(m_query->table())) {
+#endif
+        QE_ASSERT(stats_.get());
+        // can not handle query result of huge size
+        if (query_result.size() > (size_t)query_result_size_limit)
+        {
+            QE_LOG(DEBUG,
+            "Can not handle query result of size:" << query_result.size());
+            QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
+        }
+
+        if (!unroll_needed) {
+            for (std::vector<query_result_unit_t>::const_iterator it = query_result.begin();
+                    it != query_result.end(); it++) {
+                boost::uuids::uuid u;
+                GenDb::DbDataValueVec::const_iterator itr;
+                int idx = 2;
+                uint8_t session_type = boost::get<uint8_t>(it->info.at(1));
+                std::vector<StatsSelect::StatEntry> attribs;
+                DbDataVal2AttributeConverter session_attribs_builder(&attribs);
+                for (itr = it->info.begin(); itr != it->info.end(); ++itr) {
+                    if (idx == SessionRecordFields::SESSION_T1) {
+                        idx++;
+                        continue;
+                    }
+                    if (idx == SessionRecordFields::SESSION_UUID) {
+                        u = boost::get<boost::uuids::uuid>(*itr);
+                        idx++;
+                        continue;
+                    }
+                    const GenDb::DbDataValue &db_value(*itr);
+                    boost::apply_visitor(boost::bind(session_attribs_builder, _1,
+                        SessionRecordTableColumns[idx]), db_value);
+                    ++idx;
+                }
+                if (m_query->is_flow_query(m_query->table())) {
+                    map_session_to_flow(&attribs, session_type,
+                                    m_query->wherequery_->direction_ing);
+                }
+                stats_->LoadRow(u, it->timestamp, attribs, *mresult_);
+            }
+        } else {
+            uint64_t parset=0;
+            uint64_t loadt=0;
+            uint64_t jsont=0;
+            for (std::vector<query_result_unit_t>::const_iterator it =
+                    query_result.begin(); it != query_result.end(); it++) {
+                boost::uuids::uuid u;
+                GenDb::DbDataValueVec::const_iterator itr;
+                int idx = 2;
+                uint8_t session_type = boost::get<uint8_t>(it->info.at(1));
+                std::vector<StatsSelect::StatEntry> attribs;
+                DbDataVal2AttributeConverter session_attribs_builder(&attribs);
+                for (itr = it->info.begin(); itr != (it->info.end() - 1); ++itr) {
+                    if (SessionRecordTableColumns[idx] ==
+                        SessionRecordFields::SESSION_T1) {
+                        idx++;
+                        continue;
+                    }
+                    if (SessionRecordTableColumns[idx] ==
+                        SessionRecordFields::SESSION_SAMPLED_FORWARD_BYTES) {
+                        idx += 8;
+                        itr += 7;
+                        continue;
+                    }
+                    if (SessionRecordTableColumns[idx] ==
+                        SessionRecordFields::SESSION_UUID) {
+                        u = boost::get<boost::uuids::uuid>(*itr);
+                        idx++;
+                        continue;
+                    }
+                    const GenDb::DbDataValue &db_value(*itr);
+                    boost::apply_visitor(boost::bind(session_attribs_builder, _1,
+                        SessionRecordTableColumns[idx]), db_value);
+                    ++idx;
+                }
+                std::string session_map(boost::get<std::string>(*itr));
+                contrail_rapidjson::Document d;
+                uint64_t thenj = UTCTimestampUsec();
+                if (d.Parse<0>(const_cast<char *>(
+                        session_map.c_str())).HasParseError()) {
+                    QE_LOG(ERROR, "Error parsing json document: " <<
+                           d.GetParseError() << " - " << session_map);
+                    continue;
+                }
+                jsont += UTCTimestampUsec() - thenj;
+                for (contrail_rapidjson::Value::ConstMemberIterator itr2 =
+                    d.MemberBegin(); itr2 != d.MemberEnd(); ++itr2) {
+                    QE_ASSERT(itr2->name.IsString());
+                    uint64_t thenp = UTCTimestampUsec();
+                    std::string ip_port(itr2->name.GetString());
+                    size_t delim_idx = ip_port.find(":");
+                    {
+                        StatsSelect::StatEntry se_client_port;
+                        se_client_port.name = "client_port";
+                        se_client_port.value = ip_port.substr(0, delim_idx);
+                        attribs.push_back(se_client_port);
+                    }
+                    {
+                        StatsSelect::StatEntry se_remote_ip;
+                        se_remote_ip.name = "remote_ip";
+                        se_remote_ip.value = ip_port.substr(delim_idx + 1);
+                        attribs.push_back(se_remote_ip);
+                    }
+                    parse_json(itr2->value, &attribs);
+                    parset += UTCTimestampUsec() - thenp;
+                    uint64_t thenl = UTCTimestampUsec();
+                    if (m_query->is_flow_query(m_query->table())) {
+                        map_session_to_flow(&attribs, session_type,
+                            m_query->wherequery_->direction_ing);
+                    }
+                    stats_->LoadRow(u, it->timestamp, attribs, *mresult_);
+                    loadt += UTCTimestampUsec() - thenl;
+                }
+            }
+            QE_TRACE(DEBUG, "Select ProcTime - Entries : " << query_result.size() <<
+                " json : " << jsont << " parse : " << parset << " load : " << loadt);
+
         }
     } else if (m_query->is_stat_table_query(m_query->table())) {
         QE_ASSERT(stats_.get());
