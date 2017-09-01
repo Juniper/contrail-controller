@@ -104,6 +104,9 @@ void ConfigCass2JsonAdapter::AddOneEntry(Value *jsonObject,
         string wrapper = cassandra_client_->mgr()-> \
                  config_json_parser()->GetWrapperFieldName(type_,
                                                        prop_map);
+        if (wrapper == "") {
+            return;
+        }
         if (!jsonObject->HasMember(prop_map.c_str())) {
             Value v;
             Value vk;

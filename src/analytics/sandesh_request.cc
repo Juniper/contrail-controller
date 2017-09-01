@@ -295,3 +295,24 @@ void ShowCollectorServerReq::HandleRequest() const {
     ps.stages_ = boost::assign::list_of(s1);
     RequestPipeline rp(ps);
 }
+
+static void SendLogStatisticConfigInfoResponse(Collector *collector, std::string context) {
+    LogStatisticConfigInfoResponse *fcsr(new LogStatisticConfigInfoResponse);
+    std::vector<LogStatisticConfigInfo> config_info;
+    DbHandlerPtr db_handler = collector->GetDbHandlerPtr();
+
+    fcsr->set_config_info(config_info);
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void LogStatisticConfigInfoGetRequest::HandleRequest() const {
+    Collector *collector = ExtractCollectorFromRequest(client_context(),
+                                                       context());
+    if (collector == NULL) {
+        return;
+    }
+
+    // Send response
+    SendLogStatisticConfigInfoResponse(collector, context());
+}
