@@ -222,7 +222,7 @@ class UVEServer(object):
 		r_ip + ":" + str(r_port), ConnectionStatus.UP)
 
     def _redis_inst_down(self, r_inst):
-	if self._redis_uve_map[r_inst]:
+	if r_inst in self._redis_uve_map and self._redis_uve_map[r_inst]:
             r_ip = r_inst[0]
             r_port = r_inst[1]
 	    self._redis_uve_map[r_inst] = None
