@@ -446,6 +446,15 @@ class VncZkClient(object):
                                              self._reconnect_zk)
     # end
 
+    def change_subnet_allocator(self, subnet,
+                                subnet_alloc_list, alloc_unit):
+        allocator = self._subnet_allocators[subnet]
+        allocator.reallocate(
+            new_alloc_list=[{'start': x['start']/alloc_unit,
+                         'end':x['end']/alloc_unit}
+                        for x in subnet_alloc_list])
+    # end
+
     def create_subnet_allocator(self, subnet, subnet_alloc_list,
                                 addr_from_start, should_persist,
                                 start_subnet, size, alloc_unit):
@@ -1429,6 +1438,13 @@ class VncDbClient(object):
     def subnet_free_req(self, subnet, addr):
         return self._zk_db.subnet_free_req(subnet, addr)
     # end subnet_free_req
+
+    def subnet_change_allocator(self, subnet,
+                                subnet_alloc_list, alloc_unit):
+        return self._zk_db.change_subnet_allocator(subnet,
+                                                   subnet_alloc_list,
+                                                   alloc_unit)
+    # end subnet_change_allocator
 
     def subnet_create_allocator(self, subnet, subnet_alloc_list,
                                 addr_from_start, should_persist,
