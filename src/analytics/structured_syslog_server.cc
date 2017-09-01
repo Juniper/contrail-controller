@@ -341,7 +341,12 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
     AppTrackRecord apprecord;
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
-    const std::string link(SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+    std::string link;
+    if (boost::equals(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"), "RT_FLOW_NEXTHOP_CHANGE")) {
+        link = (SyslogParser::GetMapVals(v, "last-interface-name", "UNKNOWN"));
+    } else {
+        link = (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+    }
     const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
     const std::string app_category(SyslogParser::GetMapVals(v, "app-category", "UNKNOWN"));
 
@@ -350,7 +355,7 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
     if (boost::iequals(username, "unknown")) {
         username = SyslogParser::GetMapVals(v, "source-address", "UNKNOWN");
     }
-    const std::string department(SyslogParser::GetMapVals(v, "department", "UNKNOWN"));
+    const std::string department(SyslogParser::GetMapVals(v, "source-zone-name", "UNKNOWN"));
     const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
 
     const std::string uvename= tenant + "::" + location + "::" + device_id;
@@ -358,9 +363,10 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
 
     AppMetrics appmetric;
     appmetric.set_total_bytes(SyslogParser::GetMapVal(v, "total-bytes", 0));
-    appmetric.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
-    appmetric.set_session_count(1);
-
+    if (boost::equals(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"), "APPTRACK_SESSION_CLOSE")) {
+        appmetric.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
+        appmetric.set_session_count(1);
+    }
     std::string appgroup = SyslogParser::GetMapVals(v, "app-groups", "UNKNOWN");
     std::string nested_appname = SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN");
     std::string appname = SyslogParser::GetMapVals(v, "application", "UNKNOWN");
@@ -399,8 +405,8 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
 void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
                                boost::shared_ptr<std::string> msg) {
 
-    int64_t from_client = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
-    int64_t from_server = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
+    int64_t from_client = SyslogParser::GetMapVal(v, "last-interface-bytes-from-client", 0);
+    int64_t from_server = SyslogParser::GetMapVal(v, "last-interface-bytes-from-server", 0);
     size_t prev_pos = 0;
     v.insert(std::pair<std::string, SyslogParser::Holder>("total-bytes",
     SyslogParser::Holder("total-bytes", (from_client + from_server))));
