@@ -257,6 +257,21 @@ class OpencontrailLoadbalancerDriver(
         si_refs = lb.service_instance
         si_obj = ServiceInstanceSM.get(si_refs)
         if si_obj is None:
+            # We need to infer SI if service_instance is None
+            # to avoid stalled SI after LB delete
+            fq_name = lb.fq_name[:-1]
+            fq_name.append(lb_id)
+            try:
+                try:
+                    si_inferred = self._api.service_instance_read(
+                        fq_name=fq_name)
+                    si_refs = si_inferred.uuid
+                    self._api.service_instance_delete(id=si_refs)
+                    ServiceInstanceSM.delete(si_refs)
+                except NoIdError:
+                    pass
+            except RefsExistError as ex:
+                self._svc_manager.logger.error(str(ex))
             return
 
         if si_refs:
