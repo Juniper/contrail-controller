@@ -2904,6 +2904,8 @@ struct BgpAsAServiceSandeshList {
    4: bool health_check_configured;
    /** Uuid of health check for bgp as a service */
    5: string health_check_uuid (link="HealthCheckSandeshReq");
+   /** Sharing flag to indicate the session is shared or not */
+   6: bool is_shared;
 }
 
 /**
