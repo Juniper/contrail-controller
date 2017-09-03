@@ -437,8 +437,7 @@ bool BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
         if (new_path->NeedsResolution()) {
             Address::Family family = new_path->GetAttr()->nexthop_family();
             BgpTable *table = rtinstance_->GetTable(family);
-            path_resolver_->StartPathResolution(root->index(), new_path, rt,
-                table);
+            path_resolver_->StartPathResolution(rt, new_path, table);
         }
         rt->InsertPath(new_path);
         notify_rt = true;

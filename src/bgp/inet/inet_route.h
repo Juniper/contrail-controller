@@ -19,6 +19,10 @@ public:
     Ip4Prefix(Ip4Address addr, int prefixlen)
         : ip4_addr_(addr), prefixlen_(prefixlen) {
     }
+    Ip4Prefix(const std::string &prefix_str) {
+         boost::system::error_code error;
+        *this = FromString(prefix_str, &error);
+    }
     int CompareTo(const Ip4Prefix &rhs) const;
 
     Ip4Address addr() const { return ip4_addr_; }

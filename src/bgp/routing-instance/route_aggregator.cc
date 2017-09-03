@@ -427,8 +427,8 @@ void AggregateRoute<T>::AddAggregateRoute() {
     BgpAttrPtr attr = routing_instance()->server()->attr_db()->Locate(attrs);
     BgpPath *new_path = new BgpPath(BgpPath::Aggregate,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
-    bgp_table()->path_resolver()->StartPathResolution(partition->index(),
-                                                     new_path, aggregate_route);
+    bgp_table()->path_resolver()->StartPathResolution(aggregate_route,
+                                                      new_path);
     aggregate_route->InsertPath(new_path);
     partition->Notify(aggregate_route);
     set_aggregate_route(aggregate_route);
@@ -467,8 +467,8 @@ void AggregateRoute<T>::UpdateAggregateRoute() {
     BgpAttrPtr attr = routing_instance()->server()->attr_db()->Locate(attrs);
     BgpPath *new_path = new BgpPath(BgpPath::Aggregate,
                                     attr.get(), BgpPath::ResolveNexthop, 0);
-    bgp_table()->path_resolver()->StartPathResolution(partition->index(),
-                                                    new_path, aggregate_route_);
+    bgp_table()->path_resolver()->StartPathResolution(aggregate_route_,
+                                                      new_path);
     aggregate_route_->InsertPath(new_path);
 
     partition->Notify(aggregate_route_);

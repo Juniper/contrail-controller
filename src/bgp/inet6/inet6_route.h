@@ -21,6 +21,10 @@ public:
     Inet6Prefix(Ip6Address addr, int prefixlen)
         : ip6_addr_(addr), prefixlen_(prefixlen) {
     }
+    Inet6Prefix(const std::string &prefix_str) {
+         boost::system::error_code error;
+        *this = FromString(prefix_str, &error);
+    }
     int CompareTo(const Inet6Prefix &rhs) const;
 
     Ip6Address addr() const { return ip6_addr_; }

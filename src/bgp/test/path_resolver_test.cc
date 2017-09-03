@@ -2630,6 +2630,253 @@ TYPED_TEST(PathResolverTest, Shutdown5) {
     TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
 }
 
+// Verify that nexthop is resolved over a route that is more specific match.
+TYPED_TEST(PathResolverTest, MoreSpecificMatch1) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 24),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    // Add more specific match and verify that nexthop resolves to the newer
+    // more specific route.
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 28),
+        this->BuildNextHopAddress("172.16.1.1"), 20000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildNextHopAddress("172.16.1.1"), 20000);
+
+    // Delete more specific route and verify that nexthop resolves older
+    // less specific route.
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 28));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 24));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildNextHopAddress("172.16.1.1"));
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+}
+
+// Verify that nexthop can be resolved over a default route (0.0.0.0/0) as well.
+TYPED_TEST(PathResolverTest, MoreSpecificMatch2) {
+    PeerMock *bgp_peer1 = this->bgp_peer1_;
+    PeerMock *xmpp_peer1 = this->xmpp_peer1_;
+
+    this->AddBgpPath(bgp_peer1, "blue", this->BuildPrefix(1),
+        this->BuildHostAddress(bgp_peer1->ToString()));
+
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix("0.0.0.0", 0),
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    // Add more specific match and verify that nexthop resolves to the newer
+    // more specific route.
+    this->AddXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 28),
+        this->BuildNextHopAddress("172.16.1.1"), 20000);
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildNextHopAddress("172.16.1.1"), 20000);
+
+    // Delete more specific route and verify that nexthop resolves older
+    // less specific route.
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix(bgp_peer1->ToString(), 28));
+    this->VerifyPathAttributes("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildNextHopAddress("172.16.1.1"), 10000);
+
+    this->DeleteXmppPath(xmpp_peer1, "blue",
+        this->BuildPrefix("0.0.0.0", 0));
+    this->VerifyPathNoExists("blue", this->BuildPrefix(1), bgp_peer1,
+        this->BuildNextHopAddress("172.16.1.1"));
+
+    this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
+}
+
+class ResolverNexthopMock : public ResolverNexthop {
+public:
+    ResolverNexthopMock() :
+            ResolverNexthop(NULL, IpAddress::from_string("0.0.0.0"), NULL) {
+    }
+
+    const ResolverRouteSet &routes() const { return routes_; }
+    ResolverRouteSet &routes() { return routes_; }
+
+private:
+};
+
+TYPED_TEST(PathResolverTest, ResolverInetRouteCompare) {
+    if (!nexthop_family_is_inet)
+        return;
+    ResolverNexthopMock rnexthop;
+    EXPECT_EQ(0, rnexthop.routes().size());
+
+    InetRoute route1(Ip4Prefix("1.2.3.0/24"));
+    EXPECT_EQ(false, PathResolver::RoutePrefixMatch(&route1,
+              IpAddress::from_string("2.2.3.4")));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route1,
+              IpAddress::from_string("1.2.3.4")));
+    rnexthop.routes().insert(&route1);
+    EXPECT_EQ(1, rnexthop.routes().size());
+    EXPECT_EQ(&route1, *(rnexthop.routes().begin()));
+
+    // Add more speific
+    InetRoute route2(Ip4Prefix("1.2.3.0/28"));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route2,
+              IpAddress::from_string("1.2.3.4")));
+    rnexthop.routes().insert(&route2);
+    EXPECT_EQ(2, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
+
+    // Add less specific
+    InetRoute route3(Ip4Prefix("1.2.3.0/20"));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route3,
+              IpAddress::from_string("1.2.3.4")));
+    rnexthop.routes().insert(&route3);
+    EXPECT_EQ(3, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
+
+    // Add less specific default
+    InetRoute route4(Ip4Prefix("0.0.0.0/0"));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route4,
+              IpAddress::from_string("1.2.3.4")));
+    rnexthop.routes().insert(&route4);
+    EXPECT_EQ(4, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
+
+    // Remove a less specific entry.
+    rnexthop.routes().erase(&route3);
+    EXPECT_EQ(3, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
+
+    // Remove more specific entry.
+    rnexthop.routes().erase(&route2);
+    EXPECT_EQ(2, rnexthop.routes().size());
+    // Ensure that new one now becomes the most specific.
+    EXPECT_EQ(&route1, *(rnexthop.routes().begin()));
+
+    // Remove the most specific again and ensure that default now becomes
+    // the only entry as the most specific entry.
+    rnexthop.routes().erase(&route1);
+    EXPECT_EQ(1, rnexthop.routes().size());
+    // Ensure that new one now becomes the most specific.
+    EXPECT_EQ(&route4, *(rnexthop.routes().begin()));
+
+    // Add another match which should be the more specific one now.
+    InetRoute route5(Ip4Prefix("1.0.0.0/8"));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route5,
+              IpAddress::from_string("1.2.3.4")));
+    rnexthop.routes().insert(&route5);
+    EXPECT_EQ(2, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route5, *(rnexthop.routes().begin()));
+
+    // Remove the default entry.
+    rnexthop.routes().erase(&route4);
+    EXPECT_EQ(1, rnexthop.routes().size());
+    // Ensure that new one now becomes the most specific.
+    EXPECT_EQ(&route5, *(rnexthop.routes().begin()));
+
+    // Delete the only entry present.
+    rnexthop.routes().erase(&route5);
+    EXPECT_EQ(0, rnexthop.routes().size());
+}
+
+TYPED_TEST(PathResolverTest, ResolverInet6RouteCompare) {
+    ResolverNexthopMock rnexthop;
+    EXPECT_EQ(0, rnexthop.routes().size());
+
+    Inet6Route route1(Inet6Prefix("dead::1:2:3:0/120"));
+    EXPECT_EQ(false, PathResolver::RoutePrefixMatch(&route1,
+              IpAddress::from_string("beef::1")));
+
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route1,
+              IpAddress::from_string("dead::1:2:3:4")));
+    rnexthop.routes().insert(&route1);
+    EXPECT_EQ(1, rnexthop.routes().size());
+    EXPECT_EQ(&route1, *(rnexthop.routes().begin()));
+
+    // Add more speific
+    Inet6Route route2(Inet6Prefix("dead::1:2:3:0/124"));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route2,
+              IpAddress::from_string("dead::1:2:3:4")));
+    rnexthop.routes().insert(&route2);
+    EXPECT_EQ(2, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
+
+    // Add less specific
+    Inet6Route route3(Inet6Prefix("dead::1:2:3:0/116"));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route3,
+              IpAddress::from_string("dead::1:2:3:4")));
+    rnexthop.routes().insert(&route3);
+    EXPECT_EQ(3, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
+
+    // Add less specific default
+    Inet6Route route4(Inet6Prefix("0::0/0"));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route4,
+              IpAddress::from_string("dead::1:2:3:4")));
+    rnexthop.routes().insert(&route4);
+    EXPECT_EQ(4, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
+
+    // Remove a less specific entry.
+    rnexthop.routes().erase(&route3);
+    EXPECT_EQ(3, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route2, *(rnexthop.routes().begin()));
+
+    // Remove more specific entry.
+    rnexthop.routes().erase(&route2);
+    EXPECT_EQ(2, rnexthop.routes().size());
+    // Ensure that new one now becomes the most specific.
+    EXPECT_EQ(&route1, *(rnexthop.routes().begin()));
+
+    // Remove the most specific again and ensure that default now becomes
+    // the only entry as the most specific entry.
+    rnexthop.routes().erase(&route1);
+    EXPECT_EQ(1, rnexthop.routes().size());
+    // Ensure that new one now becomes the most specific.
+    EXPECT_EQ(&route4, *(rnexthop.routes().begin()));
+
+    // Add another match which should be the more specific one now.
+    Inet6Route route5(Inet6Prefix("dead::1:0:0:0/32"));
+    EXPECT_EQ(true, PathResolver::RoutePrefixMatch(&route5,
+              IpAddress::from_string("dead::1:2:3:4")));
+    rnexthop.routes().insert(&route5);
+    EXPECT_EQ(2, rnexthop.routes().size());
+    // Ensure that most specific one is always at the front.
+    EXPECT_EQ(&route5, *(rnexthop.routes().begin()));
+
+    // Remove the default entry.
+    rnexthop.routes().erase(&route4);
+    EXPECT_EQ(1, rnexthop.routes().size());
+    // Ensure that new one now becomes the most specific.
+    EXPECT_EQ(&route5, *(rnexthop.routes().begin()));
+
+    // Delete the only entry present.
+    rnexthop.routes().erase(&route5);
+    EXPECT_EQ(0, rnexthop.routes().size());
+}
+
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
 };

@@ -43,6 +43,21 @@ static bool RoutePrefixIsAddress(Address::Family family, const BgpRoute *route,
     return false;
 }
 
+// Return true if prefix matches the address.
+bool PathResolver::RoutePrefixMatch(const BgpRoute *route,
+                                    const IpAddress &address) {
+    const InetRoute *inet_route = dynamic_cast<const InetRoute *>(route);
+    if (inet_route) {
+        Ip4Prefix prefix(address.to_v4(), Address::kMaxV4PrefixLen);
+        return prefix.IsMoreSpecific(inet_route->GetPrefix());
+    }
+
+    const Inet6Route *inet6_route = dynamic_cast<const Inet6Route *>(route);
+    assert(inet6_route);
+    Inet6Prefix prefix(address.to_v6(), Address::kMaxV6PrefixLen);
+    return prefix.IsMoreSpecific(inet6_route->GetPrefix());
+}
+
 class PathResolver::DeleteActor : public LifetimeActor {
 public:
     explicit DeleteActor(PathResolver *resolver)
@@ -123,33 +138,17 @@ Address::Family PathResolver::family() const {
 // This is typically when the BgpPath is added, but may also be needed when
 // the BgpPath changes nexthop.
 //
-void PathResolver::StartPathResolution(int part_id, const BgpPath *path,
-    BgpRoute *route, BgpTable *nh_table) {
+void PathResolver::StartPathResolution(BgpRoute *route, const BgpPath *path,
+        BgpTable *nh_table) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation",
         "bgp::Config", "bgp::ConfigHelper");
 
     if (!nh_table)
         nh_table = table_;
     assert(nh_table->family() == Address::INET ||
-        nh_table->family() == Address::INET6);
-    partitions_[part_id]->StartPathResolution(path, route, nh_table);
-}
-
-//
-// Request PathResolver to update resolution for the given BgpPath.
-// This API needs to be called explicitly when a BgpPath needing resolution
-// gets updated with new attributes. Note that nexthop change could require
-// the caller to call StartPathResolution instead.
-//
-void PathResolver::UpdatePathResolution(int part_id, const BgpPath *path,
-    BgpRoute *route, BgpTable *nh_table) {
-    CHECK_CONCURRENCY("db::DBTable");
-
-    if (!nh_table)
-        nh_table = table_;
-    assert(nh_table->family() == Address::INET ||
-        nh_table->family() == Address::INET6);
-    partitions_[part_id]->UpdatePathResolution(path, route, nh_table);
+           nh_table->family() == Address::INET6);
+    int part_id = route->get_table_partition()->index();
+    partitions_[part_id]->StartPathResolution(route, path, nh_table);
 }
 
 //
@@ -205,6 +204,10 @@ PathResolverPartition *PathResolver::GetPartition(int part_id) {
     return partitions_[part_id];
 }
 
+PathResolverPartition *PathResolver::GetPartition(int part_id) const {
+    return partitions_[part_id];
+}
+
 //
 // Find ResolverRouteState for the given BgpRoute.
 //
@@ -212,6 +215,14 @@ ResolverRouteState *PathResolver::FindResolverRouteState(BgpRoute *route) {
     ResolverRouteState *state = static_cast<ResolverRouteState *>(
         route->GetState(table_, listener_id_));
     return state;
+}
+
+const BgpPath *PathResolver::FindResolvedPath(const BgpRoute *route,
+                                              const BgpPath *path) const {
+    int part_id = route->get_table_partition()->index();
+    const ResolverPath *resolver_path =
+        GetPartition(part_id)->FindResolverPath(path);
+    return resolver_path ? resolver_path->FindResolvedPath() : NULL;
 }
 
 //
@@ -239,7 +250,7 @@ ResolverRouteState *PathResolver::LocateResolverRouteState(BgpRoute *route) {
 ResolverNexthop *PathResolver::LocateResolverNexthop(IpAddress address,
     BgpTable *table) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation",
-        "bgp::Config", "bgp::ConfigHelper");
+                      "bgp::Config", "bgp::ConfigHelper");
 
     tbb::mutex::scoped_lock lock(mutex_);
     ResolverNexthopKey key(address, table);
@@ -250,6 +261,15 @@ ResolverNexthop *PathResolver::LocateResolverNexthop(IpAddress address,
         ResolverNexthop *rnexthop = new ResolverNexthop(this, address, table);
         nexthop_map_.insert(make_pair(key, rnexthop));
         return rnexthop;
+    }
+}
+
+void PathResolver::UpdateAllResolverNexthops() {
+    CHECK_CONCURRENCY("db::DBTable", "bgp::RouteAggregation",
+        "bgp::Config", "bgp::ConfigHelper");
+    for (ResolverNexthopMap::iterator it = nexthop_map_.begin();
+         it != nexthop_map_.end(); ++it) {
+        UpdateResolverNexthop(it->second);
     }
 }
 
@@ -647,8 +667,8 @@ PathResolverPartition::~PathResolverPartition() {
 // Note that the ResolverPath gets linked to the ResolverNexthop via the
 // ResolverPath constructor.
 //
-void PathResolverPartition::StartPathResolution(const BgpPath *path,
-    BgpRoute *route, BgpTable *nh_table) {
+void PathResolverPartition::StartPathResolution(BgpRoute *route,
+        const BgpPath *path, BgpTable *nh_table) {
     if (!path->IsResolutionFeasible())
         return;
     if (table()->IsDeleted() || nh_table->IsDeleted())
@@ -664,28 +684,6 @@ void PathResolverPartition::StartPathResolution(const BgpPath *path,
     assert(!FindResolverPath(path));
     ResolverPath *rpath = CreateResolverPath(path, route, rnexthop);
     TriggerPathResolution(rpath);
-}
-
-//
-// Update resolution for the given BgpPath.
-// A change in the ResolverNexthop is handled by triggering deletion of the
-// old ResolverPath and creating a new one.
-//
-void PathResolverPartition::UpdatePathResolution(const BgpPath *path,
-    BgpRoute *route, BgpTable *nh_table) {
-    ResolverPath *rpath = FindResolverPath(path);
-    if (!rpath) {
-        StartPathResolution(path, route, nh_table);
-        return;
-    }
-    const ResolverNexthop *rnexthop = rpath->rnexthop();
-    if (rnexthop->address() != path->GetAttr()->nexthop() ||
-        rnexthop->table() != nh_table) {
-        StopPathResolution(path);
-        StartPathResolution(path, route, nh_table);
-    } else {
-        TriggerPathResolution(rpath);
-    }
 }
 
 //
@@ -746,6 +744,12 @@ ResolverPath *PathResolverPartition::CreateResolverPath(const BgpPath *path,
 //
 ResolverPath *PathResolverPartition::FindResolverPath(const BgpPath *path) {
     PathToResolverPathMap::iterator loc = rpath_map_.find(path);
+    return (loc != rpath_map_.end() ? loc->second : NULL);
+}
+
+ResolverPath *PathResolverPartition::FindResolverPath(const BgpPath *path)
+        const {
+    PathToResolverPathMap::const_iterator loc = rpath_map_.find(path);
     return (loc != rpath_map_.end() ? loc->second : NULL);
 }
 
@@ -1006,7 +1010,8 @@ bool ResolverPath::UpdateResolvedPaths() {
     // exist only if the BgpRoute in question itself has resolved paths.
     tbb::spin_rw_mutex::scoped_lock nh_read_lock;
     ResolverRouteState *nh_state = rnexthop_->GetResolverRouteState();
-    if (nh_state && !nh_read_lock.try_acquire(nh_state->rw_mutex(), false)) {
+    if (state_ != nh_state &&
+        nh_state && !nh_read_lock.try_acquire(nh_state->rw_mutex(), false)) {
         partition_->DeferPathResolution(this);
         return false;
     }
@@ -1070,11 +1075,14 @@ bool ResolverPath::UpdateResolvedPaths() {
 
     // Reconcile the current and future resolved paths and notify/delete the
     // route as appropriate.
-    set_synchronize(&resolved_path_list_, &future_resolved_path_list,
+    bool modified = set_synchronize(&resolved_path_list_,
+        &future_resolved_path_list,
         boost::bind(&ResolverPath::AddResolvedPath, this, _1),
         boost::bind(&ResolverPath::DeleteResolvedPath, this, _1));
     if (route_->BestPath()) {
-        partition_->table_partition()->Notify(route_);
+        if (modified) {
+            partition_->table_partition()->Notify(route_);
+        }
     } else {
         partition_->table_partition()->Delete(route_);
     }
@@ -1092,9 +1100,8 @@ ResolverNexthop::ResolverNexthop(PathResolver *resolver, IpAddress address,
       address_(address),
       table_(table),
       registered_(false),
-      route_(NULL),
       rpath_lists_(DB::PartitionCount()),
-      table_delete_ref_(this, table->deleter()) {
+      table_delete_ref_(this, table ? table->deleter() : NULL) {
 }
 
 //
@@ -1121,8 +1128,14 @@ bool ResolverNexthop::Match(BgpServer *server, BgpTable *table,
     // Ignore if the route doesn't match the address.
     Address::Family family = table->family();
     assert(family == Address::INET || family == Address::INET6);
-    if (!RoutePrefixIsAddress(family, route, address_))
+    if (!resolver_->RoutePrefixMatch(route, address_))
         return false;
+
+    // Do not resolve over self.
+    if (route->table() == table && route->IsUsable() &&
+            route->BestPath()->GetAttr()->nexthop() == address_) {
+        return false;
+    }
 
     // Set or remove MatchState as appropriate.
     BgpConditionListener *condition_listener =
@@ -1130,14 +1143,14 @@ bool ResolverNexthop::Match(BgpServer *server, BgpTable *table,
     bool state_added = condition_listener->CheckMatchState(table, route, this);
     if (deleted) {
         if (state_added) {
-            route_ = NULL;
+            erase(route);
             condition_listener->RemoveMatchState(table, route, this);
         } else {
             return false;
         }
     } else {
         if (!state_added) {
-            route_ = route;
+            insert(route);
             condition_listener->SetMatchState(table, route, this);
         }
     }
@@ -1191,12 +1204,12 @@ void ResolverNexthop::RemoveResolverPath(int part_id, ResolverPath *rpath) {
 }
 
 ResolverRouteState *ResolverNexthop::GetResolverRouteState() {
-    if (!route_)
+    if (!route())
         return NULL;
     PathResolver *nh_resolver = table_->path_resolver();
     if (!nh_resolver)
         return NULL;
-    return nh_resolver->FindResolverRouteState(route_);
+    return nh_resolver->FindResolverRouteState(route());
 }
 
 //
@@ -1227,4 +1240,34 @@ bool ResolverNexthop::empty() const {
             return false;
     }
     return true;
+}
+
+bool ResolverNexthop::ResolverRouteCompare::operator()(
+        const BgpRoute *l, const BgpRoute *r) const {
+    const InetRoute *lhs4 = dynamic_cast<const InetRoute *>(l);
+    const InetRoute *rhs4 = dynamic_cast<const InetRoute *>(r);
+    if (lhs4) {
+        return lhs4->GetPrefix().prefixlen() > rhs4->GetPrefix().prefixlen();
+    }
+
+    const Inet6Route *lhs6 = dynamic_cast<const Inet6Route *>(l);
+    const Inet6Route *rhs6 = dynamic_cast<const Inet6Route *>(r);
+    return lhs6->GetPrefix().prefixlen() > rhs6->GetPrefix().prefixlen();
+}
+
+void ResolverNexthop::insert(BgpRoute *route) {
+    tbb::mutex::scoped_lock lock(routes_mutex_);
+    routes_.insert(route);
+}
+void ResolverNexthop::erase(BgpRoute *route) {
+    tbb::mutex::scoped_lock lock(routes_mutex_);
+    routes_.erase(route);
+}
+const BgpRoute *ResolverNexthop::route() const {
+    tbb::mutex::scoped_lock lock(routes_mutex_);
+    return !routes_.empty() ? *(routes_.begin()) : NULL;
+}
+BgpRoute *ResolverNexthop::route() {
+    tbb::mutex::scoped_lock lock(routes_mutex_);
+    return !routes_.empty() ? *(routes_.begin()) : NULL;
 }

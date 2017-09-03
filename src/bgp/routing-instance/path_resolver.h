@@ -94,11 +94,10 @@ public:
     explicit PathResolver(BgpTable *table);
     ~PathResolver();
 
-    void StartPathResolution(int part_id, const BgpPath *path, BgpRoute *route,
-        BgpTable *nh_table = NULL);
-    void UpdatePathResolution(int part_id, const BgpPath *path, BgpRoute *route,
+    void StartPathResolution(BgpRoute *route, const BgpPath *path,
         BgpTable *nh_table = NULL);
     void StopPathResolution(int part_id, const BgpPath *path);
+    void UpdateAllResolverNexthops();
 
     ResolverRouteState *FindResolverRouteState(BgpRoute *route);
     ResolverRouteState *LocateResolverRouteState(BgpRoute *route);
@@ -107,6 +106,8 @@ public:
     Address::Family family() const;
     DBTableBase::ListenerId listener_id() const { return listener_id_; }
     BgpConditionListener *get_condition_listener(Address::Family family);
+    const BgpPath *FindResolvedPath(const BgpRoute *route, const BgpPath *path)
+        const;
 
     bool IsDeleted() const;
     void ManagedDelete();
@@ -114,6 +115,8 @@ public:
     void RetryDelete();
 
     void FillShowInfo(ShowPathResolver *spr, bool summary) const;
+    static bool RoutePrefixMatch(const BgpRoute *route,
+                                 const IpAddress &address);
 
 private:
     friend class PathResolverPartition;
@@ -126,6 +129,7 @@ private:
     typedef std::set<ResolverNexthop *> ResolverNexthopList;
 
     PathResolverPartition *GetPartition(int part_id);
+    PathResolverPartition *GetPartition(int part_id) const;
 
     ResolverNexthop *LocateResolverNexthop(IpAddress address, BgpTable *table);
     void RemoveResolverNexthop(ResolverNexthop *rnexthop);
@@ -196,9 +200,7 @@ public:
     PathResolverPartition(int part_id, PathResolver *resolver);
     ~PathResolverPartition();
 
-    void StartPathResolution(const BgpPath *path, BgpRoute *route,
-        BgpTable *nh_table);
-    void UpdatePathResolution(const BgpPath *path, BgpRoute *route,
+    void StartPathResolution(BgpRoute *route, const BgpPath *path,
         BgpTable *nh_table);
     void StopPathResolution(const BgpPath *path);
 
@@ -222,6 +224,7 @@ private:
     ResolverPath *CreateResolverPath(const BgpPath *path, BgpRoute *route,
         ResolverNexthop *rnexthop);
     ResolverPath *FindResolverPath(const BgpPath *path);
+    ResolverPath *FindResolverPath(const BgpPath *path) const;
     ResolverPath *RemoveResolverPath(const BgpPath *path);
     bool ProcessResolverPathUpdateList();
 
@@ -321,6 +324,9 @@ public:
     BgpRoute *route() const { return route_; }
     const ResolverNexthop *rnexthop() const { return rnexthop_; }
     void clear_path() { path_ = NULL; }
+    const BgpPath *FindResolvedPath() const {
+        return resolved_path_count() ?  *(resolved_path_list_.begin()) : NULL;
+    }
     size_t resolved_path_count() const { return resolved_path_list_.size(); }
 
 private:
@@ -402,11 +408,21 @@ public:
 
     IpAddress address() const { return address_; }
     BgpTable *table() const { return table_; }
-    const BgpRoute *route() const { return route_; }
-    BgpRoute *route() { return route_; }
+    void insert(BgpRoute *route);
+    void erase(BgpRoute *route);
+    const BgpRoute *route() const;
+    BgpRoute *route();
     bool empty() const;
     bool registered() const { return registered_; }
     void set_registered() { registered_ = true; }
+
+protected:
+    struct ResolverRouteCompare {
+        bool operator()(const BgpRoute *l, const BgpRoute *r) const;
+    };
+    typedef std::set<BgpRoute *, ResolverRouteCompare> ResolverRouteSet;
+
+    ResolverRouteSet routes_;
 
 private:
     typedef std::set<ResolverPath *> ResolverPathList;
@@ -415,7 +431,7 @@ private:
     IpAddress address_;
     BgpTable *table_;
     bool registered_;
-    BgpRoute *route_;
+    mutable tbb::mutex routes_mutex_;
     std::vector<ResolverPathList> rpath_lists_;
     LifetimeRef<ResolverNexthop> table_delete_ref_;
 
