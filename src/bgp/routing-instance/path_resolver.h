@@ -94,9 +94,7 @@ public:
     explicit PathResolver(BgpTable *table);
     ~PathResolver();
 
-    void StartPathResolution(int part_id, const BgpPath *path, BgpRoute *route,
-        BgpTable *nh_table = NULL);
-    void UpdatePathResolution(int part_id, const BgpPath *path, BgpRoute *route,
+    void StartPathResolution(BgpRoute *route, const BgpPath *path,
         BgpTable *nh_table = NULL);
     void StopPathResolution(int part_id, const BgpPath *path);
 
@@ -107,13 +105,14 @@ public:
     Address::Family family() const;
     DBTableBase::ListenerId listener_id() const { return listener_id_; }
     BgpConditionListener *get_condition_listener(Address::Family family);
-
     bool IsDeleted() const;
     void ManagedDelete();
     bool MayDelete() const;
     void RetryDelete();
 
     void FillShowInfo(ShowPathResolver *spr, bool summary) const;
+    static bool RoutePrefixMatch(const BgpRoute *route,
+                                 const IpAddress &address);
 
 private:
     friend class PathResolverPartition;
@@ -126,6 +125,7 @@ private:
     typedef std::set<ResolverNexthop *> ResolverNexthopList;
 
     PathResolverPartition *GetPartition(int part_id);
+    PathResolverPartition *GetPartition(int part_id) const;
 
     ResolverNexthop *LocateResolverNexthop(IpAddress address, BgpTable *table);
     void RemoveResolverNexthop(ResolverNexthop *rnexthop);
@@ -196,9 +196,7 @@ public:
     PathResolverPartition(int part_id, PathResolver *resolver);
     ~PathResolverPartition();
 
-    void StartPathResolution(const BgpPath *path, BgpRoute *route,
-        BgpTable *nh_table);
-    void UpdatePathResolution(const BgpPath *path, BgpRoute *route,
+    void StartPathResolution(BgpRoute *route, const BgpPath *path,
         BgpTable *nh_table);
     void StopPathResolution(const BgpPath *path);
 
@@ -377,9 +375,12 @@ private:
 // list but all ResolverPaths using it get removed before the ResolverNexthop
 // has been registered.
 //
-// A pointer to the BgpRoute for the matching IpAddress is maintained so
-// that the PathResolverPartition can access it's BgpPaths. A reference
-// to the BgpRoute is kept by setting ConditionMatchState for the route.
+// A set of pointers to all BgpRoutes that match IpAddress is maintained in a
+// set so that the PathResolverPartition can access their BgpPaths. A reference
+// to each BgpRoute in the set is kept by setting ConditionMatchState for the
+// route. This set is sorted in descending order based on the prefix length so
+// that longest matching route is always positioned at the beginning of the set.
+// All operations to the set are protected by a mutex.
 //
 // A delete reference to BgpTable is maintained to ensure that the BgpTable
 // does not get destroyed while there are ResolverNexthops tracking it.
@@ -402,11 +403,21 @@ public:
 
     IpAddress address() const { return address_; }
     BgpTable *table() const { return table_; }
-    const BgpRoute *route() const { return route_; }
-    BgpRoute *route() { return route_; }
+    bool InsertRoute(BgpRoute *route);
+    bool RemoveRoute(BgpRoute *route);
+    const BgpRoute *GetRoute() const;
+    BgpRoute *GetRoute();
     bool empty() const;
     bool registered() const { return registered_; }
     void set_registered() { registered_ = true; }
+
+protected:
+    struct ResolverRouteCompare {
+        bool operator()(const BgpRoute *lhs, const BgpRoute *rhs) const;
+    };
+    typedef std::set<BgpRoute *, ResolverRouteCompare> ResolverRouteSet;
+
+    ResolverRouteSet routes_;
 
 private:
     typedef std::set<ResolverPath *> ResolverPathList;
@@ -415,7 +426,7 @@ private:
     IpAddress address_;
     BgpTable *table_;
     bool registered_;
-    BgpRoute *route_;
+    mutable tbb::mutex routes_mutex_;
     std::vector<ResolverPathList> rpath_lists_;
     LifetimeRef<ResolverNexthop> table_delete_ref_;
 
