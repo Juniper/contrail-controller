@@ -53,6 +53,10 @@ public:
         return RouteDistinguisher::kZeroRd;
     }
 
+    void NotifyOrDelete();
+    BgpTable *table();
+    const BgpTable *table() const;
+
     // Get AFI and SAFI.
     virtual u_int16_t Afi() const = 0;
     virtual u_int8_t Safi() const = 0;
