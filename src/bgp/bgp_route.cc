@@ -318,6 +318,14 @@ size_t BgpRoute::count() const {
     return GetPathList().size();
 }
 
+BgpTable *BgpRoute::table() {
+    return dynamic_cast<BgpTable *>(get_table_partition()->parent());
+}
+
+const BgpTable *BgpRoute::table() const {
+    return dynamic_cast<BgpTable *>(get_table_partition()->parent());
+}
+
 void BgpRoute::FillRouteInfo(const BgpTable *table,
     ShowRouteBrief *show_route) const {
     show_route->set_prefix(ToString());
