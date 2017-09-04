@@ -376,6 +376,7 @@ class Subnet(object):
         self.alloc_unit = ip_alloc_unit
         self._prefix = prefix
         self._prefix_len = prefix_len
+        self._addr_from_start = addr_from_start
     # end __init__
 
     @classmethod
@@ -450,9 +451,10 @@ class Subnet(object):
     @classmethod
     def ip_free_cls(cls, subnet_fq_name, ip_network, exclude_addrs, ip_addr,
                     alloc_unit=1):
-        if ((ip_addr in ip_network) and (ip_addr not in exclude_addrs)):
+        ip = IPAddress(ip_addr)
+        if ((ip in ip_network) and (ip not in exclude_addrs)):
             if cls._db_conn:
-                cls._db_conn.subnet_free_req(subnet_fq_name, int(ip_addr)/alloc_unit)
+                cls._db_conn.subnet_free_req(subnet_fq_name, int(ip)/alloc_unit)
                 return True
 
         return False
@@ -637,13 +639,46 @@ class AddrMgmt(object):
             subnet['ip_prefix_len'])
             try:
                 subnet_obj = self._subnet_objs[obj_uuid][subnet_name]
+                addr_from_start = subnet_obj._addr_from_start
+                old_dns_addr = str(subnet_obj.dns_server_address)
+                if ('dns_server_address' not in ipam_subnet) or \
+                    (ipam_subnet['dns_server_address'] is None):
+                    #we need to make sure subnet_obj has a default dns
+                    network = subnet_obj._network
+                    if addr_from_start:
+                        new_dns_addr = str(IPAddress(network.first + 2))
+                    else:
+                        new_dns_addr = str(IPAddress(network.last - 2))
+                else:
+                    new_dns_addr = ipam_subnet['dns_server_address']
+                    if old_dns_addr != new_dns_addr:
+                        if subnet_obj.ip_belongs(new_dns_addr):
+                            read_ip_addr = subnet_obj.is_ip_allocated(
+                                               new_dns_addr)
+                            if read_ip_addr is not None:
+                                raise AddrMgmtSubnetInvalid(fq_name_str,
+                                                            subnet_name)
+
+                # assign new dns_server_address
+                # reset old dns_server_address and set
+                # new dns_server_address in bitmap
+                if old_dns_addr != new_dns_addr:
+                    if subnet_obj.ip_belongs(old_dns_addr):
+                        if IPAddress(old_dns_addr) in subnet_obj._exclude:
+                            subnet_obj._exclude.remove(IPAddress(old_dns_addr))
+                        subnet_obj.ip_free(old_dns_addr)
+                    if subnet_obj.ip_belongs(new_dns_addr):
+                        subnet_obj._exclude.append(IPAddress(new_dns_addr))
+                        subnet_obj.ip_reserve(new_dns_addr, 'dns_server')
+                    subnet_obj.dns_server_address = IPAddress(new_dns_addr)
             except KeyError:
                 subnet_obj = self._create_subnet_obj_for_ipam_subnet(
                                  ipam_subnet, fq_name_str, should_persist)
                 self._subnet_objs[obj_uuid][subnet_name] = subnet_obj
-                ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
-                ipam_subnet['dns_server_address'] = \
-                    str(subnet_obj.dns_server_address)
+
+            ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
+            ipam_subnet['dns_server_address'] = \
+                str(subnet_obj.dns_server_address)
     # end _create_subnet_objs
 
     def _create_ipam_subnet_objs(self, ipam_uuid, ipam_dict,
@@ -739,7 +774,6 @@ class AddrMgmt(object):
                 if (req_subnet['gw'] and
                     req_subnet['gw'].lower() != db_subnet['gw'].lower()):
                     raise AddrMgmtSubnetInvalid(vn_fq_name_str, key)
-                req_subnet['dns_server_address'] = db_subnet['dns_server_address']
 
                 req_alloc_list = req_subnet['allocation_pools'] or []
                 db_alloc_list = db_subnet['allocation_pools'] or []
