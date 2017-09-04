@@ -46,9 +46,28 @@ struct SessionKeyCmp {
     }
 };
 
+struct SessionFlowStatsInfo {
+public:
+    FlowEntryPtr flow;
+    uint64_t setup_time;
+    uint64_t teardown_time;
+    uint8_t gen_id;
+    uint32_t flow_handle;
+    boost::uuids::uuid uuid;
+    uint64_t total_bytes;
+    uint64_t total_packets;
+};
+
+struct SessionStatsInfo {
+public:
+    uint64_t setup_time;
+    uint64_t teardown_time;
+    SessionFlowStatsInfo fwd_flow;
+    SessionFlowStatsInfo rev_flow;
+};
 struct SessionPreAggInfo {
 public:
-    typedef std::map<const SessionKey, FlowEntry*, SessionKeyCmp> SessionMap;
+    typedef std::map<const SessionKey, SessionStatsInfo, SessionKeyCmp> SessionMap;
     SessionMap session_map_;
 };
 
@@ -74,11 +93,46 @@ struct SessionEndpointKeyCmp {
 
 class SessionStatsCollector : public StatsCollector {
 public:
+    typedef std::map<const SessionEndpointKey, SessionEndpointInfo, SessionEndpointKeyCmp> SessionEndpointMap;
+    typedef WorkQueue<boost::shared_ptr<SessionStatsReq> > Queue;
+
     static const uint32_t kSessionStatsTimerInterval = 100;
     static const uint8_t  kMaxSessionMsgsPerSend = 16;
 
-    typedef std::map<const SessionEndpointKey, SessionEndpointInfo, SessionEndpointKeyCmp> SessionEndpointMap;
-    typedef WorkQueue<boost::shared_ptr<SessionStatsReq> > Queue;
+    uint32_t RunSessionStatsCollect();
+    uint32_t ProcessSessionEndpoint(SessionEndpointMap::iterator &it,
+                                     KSyncFlowMemory *ksync_obj,
+                                     uint64_t curr_time,
+                                     bool from_config);
+    uint64_t GetUpdatedSessionFlowBytes(uint64_t info_bytes,
+                                        uint64_t k_flow_bytes);
+    uint64_t GetUpdatedSessionFlowPackets(uint64_t info_packets,
+                                          uint64_t k_flow_pkts);
+    void FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
+                              KSyncFlowMemory *ksync_obj,
+                              SessionFlowInfo &flow_info);
+    void FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
+                             uint64_t setup_time,
+                             uint64_t teardown_time,
+                             KSyncFlowMemory *ksync_obj,
+                             SessionFlowInfo &flow_info);
+    void FillSessionInfo(SessionPreAggInfo::SessionMap::iterator session_map_iter,
+                         KSyncFlowMemory *ksync_obj,
+                         SessionInfo &session_info, SessionIpPort &session_key,
+                         bool from_config);
+    void FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter,
+                            SessionAggInfo &session_agg_info,
+                            SessionIpPortProtocol &session_agg_key,
+                                               uint64_t total_fwd_bytes,
+                                               uint64_t total_fwd_packets,
+                                               uint64_t total_rev_bytes,
+                                               uint64_t total_rev_packets);
+    void FillSessionEndpoint(SessionEndpointMap::iterator it,
+                             SessionEndpoint &session_ep);
+    void FillSessionTagInfo(const TagList &list,
+                            SessionEndpoint &session_ep,
+                            bool is_remote);
+
     class SessionTask : public Task {
     public:
         SessionTask(SessionStatsCollector *ssc);
@@ -107,9 +161,14 @@ protected:
     virtual void DispatchSessionMsg(const std::vector<SessionEndpoint> &lst);
 private:
     static uint64_t GetCurrentTime();
-    void AddSession(FlowEntry* fe);
-    void DeleteSession(FlowEntry* fe);
-    void GetSessionKey(FlowEntry* fe, SessionAggKey &session_agg_key,
+    void UpdateSessionFlowStatsInfo(FlowEntry* fe,
+                                    SessionFlowStatsInfo &session_flow);
+    void UpdateSessionStatsInfo(FlowEntry* fe,
+                                uint64_t setup_time,
+                                SessionStatsInfo &session);
+    void AddSession(FlowEntry* fe, uint64_t setup_time);
+    void DeleteSession(FlowEntry* fe, uint64_t teardown_time);
+    bool GetSessionKey(FlowEntry* fe, SessionAggKey &session_agg_key,
                        SessionKey    &session_key,
                        SessionEndpointKey &session_endpoint_key);
     void Shutdown();
@@ -168,16 +227,19 @@ public:
         DELETE_SESSION,
     };
 
-    SessionStatsReq(Event ev, const FlowEntryPtr &flow) :
-        event_(ev), flow_(flow) {
+    SessionStatsReq(Event ev, const FlowEntryPtr &flow, uint64_t time) :
+        event_(ev), flow_(flow), time_(time){
     }
     ~SessionStatsReq() { }
     Event event() const { return event_; }
-    FlowEntryPtr flow() const { return flow_; }
+    FlowEntry* flow() const { return flow_.get(); }
+    FlowEntry* reverse_flow() const;
+    uint64_t time() const { return time_; }
 
 private:
     Event event_;
     FlowEntryPtr flow_;
+    uint64_t time_;
     DISALLOW_COPY_AND_ASSIGN(SessionStatsReq);
 };
 

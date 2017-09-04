@@ -159,6 +159,9 @@ public:
     void UpdateStatsEvent(const FlowEntryPtr &flow, uint32_t bytes,
                           uint32_t packets, uint32_t oflow_bytes,
                           const boost::uuids::uuid &u);
+    static void GetFlowSandeshActionParams(const FlowAction &action_info,
+                                    std::string &action_str);
+    static uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     size_t Size() const { return flow_tree_.size(); }
     size_t AgeTreeSize() const { return flow_export_info_list_.size(); }
     void NewFlow(FlowEntry *flow);
@@ -226,8 +229,6 @@ private:
                           uint32_t flow_handle, uint16_t gen_id);
     void EnqueueFlowMsg();
     void DispatchPendingFlowMsg();
-    void GetFlowSandeshActionParams(const FlowAction &action_info,
-                                    std::string &action_str);
     void SetUnderlayInfo(FlowExportInfo *info, FlowLogData &s_flow);
     void UpdateThreshold(uint32_t new_value);
 
@@ -235,7 +236,6 @@ private:
                             uint64_t bytes, uint64_t pkts);
     void UpdateVmiTagBasedStats(FlowExportInfo *info,
                                 uint64_t bytes, uint64_t pkts);
-    uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowExportInfo *info, const vr_flow_entry *k_flow,
                       const vr_flow_stats &k_stats, uint64_t curr_time);
     uint64_t GetUpdatedFlowPackets(const FlowExportInfo *stats,
