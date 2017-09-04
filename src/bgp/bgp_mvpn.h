@@ -54,21 +54,19 @@ typedef boost::intrusive_ptr<MvpnState> MvpnStatePtr;
 struct MvpnNeighbor {
 public:
     MvpnNeighbor();
-    MvpnNeighbor(const RouteDistinguisher &rd, const IpAddress originator);
+    MvpnNeighbor(const RouteDistinguisher &rd, const IpAddress &originator);
     MvpnNeighbor(const RouteDistinguisher &rd, uint32_t asn);
     std::string ToString() const;
-    RouteDistinguisher &rd() const;
-    uint32_t source_as() const;
+    const RouteDistinguisher &rd() const;
     const IpAddress &originator() const;
-    bool operator==(const MvpnNeighbor &rhs) const;
+    uint32_t source_as() const;
 
 private:
     friend class MvpnManagerPartition;
 
     RouteDistinguisher rd_;
-    uint32_t source_as_;
     IpAddress originator_;
-    std::string name_;
+    uint32_t source_as_;
 };
 
 // This class manages Mvpn routes with in a partition of an MvpnTable.
@@ -127,10 +125,6 @@ private:
     MvpnStatePtr GetState(ErmVpnRoute *route);
     MvpnStatePtr LocateState(MvpnRoute *route);
     void DeleteState(MvpnStatePtr state);
-    void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
-    bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
-                           Ip4Address *address,
-                           std::vector<std::string> *encap) const;
 
     MvpnManager *manager_;
     int part_id_;
@@ -171,8 +165,7 @@ public:
 
     explicit MvpnManager(MvpnTable *table);
     virtual ~MvpnManager();
-    bool FindNeighbor(MvpnNeighbor *nbr, const IpAddress &address,
-                      uint16_t vrf_id, bool exact) const;
+    bool FindNeighbor(const RouteDistinguisher &rd, MvpnNeighbor *nbr) const;
     MvpnProjectManager *GetProjectManager();
     const MvpnProjectManager *GetProjectManager() const;
     void ManagedDelete();
@@ -190,11 +183,8 @@ public:
     const LifetimeActor *deleter() const;
     bool deleted() const;
     virtual void Terminate();
-    RouteDistinguisher GetSourceRouteDistinguisher(const BgpPath *path) const;
     virtual void Initialize();
     const NeighborMap &neighbors() const { return neighbors_; }
-    virtual void UpdateSecondaryTablesForReplication(MvpnRoute *rt,
-            BgpTable::TableSet *secondary_tables) const;
     static bool IsEnabled() { return enable_; }
     static void set_enable(bool enable) { enable_ = enable; }
 
@@ -409,13 +399,9 @@ private:
     ErmVpnRoute *GetGlobalTreeRootRoute(ErmVpnRoute *rt) const;
     ErmVpnTable *table();
     const ErmVpnTable *table() const;
-    bool IsUsableGlobalTreeRootRoute(ErmVpnRoute *ermvpn_route) const;
     void RouteListener(DBEntryBase *db_entry);
     int listener_id() const;
     void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
-    bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
-                           Ip4Address *address,
-                           std::vector<std::string> *encap) const;
 
     // Back pointer to the parent MvpnProjectManager
     MvpnProjectManager *manager_;
@@ -456,7 +442,6 @@ public:
     virtual void Initialize();
     MvpnStatePtr GetState(MvpnRoute *route) const;
     MvpnStatePtr GetState(MvpnRoute *route);
-    UpdateInfo *GetUpdateInfo(MvpnRoute *route);
 
 private:
     class DeleteActor;

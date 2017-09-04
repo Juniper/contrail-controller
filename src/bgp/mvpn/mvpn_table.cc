@@ -4,13 +4,20 @@
 
 #include "bgp/mvpn/mvpn_table.h"
 
+#include <boost/foreach.hpp>
+
+#include "base/task_annotations.h"
+#include "bgp/ermvpn/ermvpn_table.h"
+#include "bgp/extended-community/source_as.h"
 #include "bgp/ipeer.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_multicast.h"
+#include "bgp/bgp_mvpn.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 using std::auto_ptr;
@@ -30,7 +37,7 @@ size_t MvpnTable::HashFunction(const MvpnPrefix &prefix) const {
 }
 
 MvpnTable::MvpnTable(DB *db, const string &name)
-    : BgpTable(db, name) {
+    : BgpTable(db, name), manager_(NULL) {
 }
 
 PathResolver *MvpnTable::CreatePathResolver() {
@@ -44,7 +51,6 @@ auto_ptr<DBEntry> MvpnTable::AllocEntry(
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
     return auto_ptr<DBEntry> (new MvpnRoute(pfxkey->prefix));
 }
-
 
 auto_ptr<DBEntry> MvpnTable::AllocEntryStr(
     const string &key_str) const {
@@ -79,12 +85,84 @@ DBTableBase *MvpnTable::CreateTable(DB *db, const string &name) {
     return table;
 }
 
+void MvpnTable::CreateManager() {
+    // Don't create the MvpnManager for the VPN table.
+    if (IsMaster())
+        return;
+    assert(!manager_);
+    manager_ = BgpObjectFactory::Create<MvpnManager>(this);
+    manager_->Initialize();
+}
+
+void MvpnTable::DestroyManager() {
+    assert(manager_);
+    manager_->Terminate();
+    delete manager_;
+    manager_ = NULL;
+}
+
+// Call the const version to avoid code duplication.
+MvpnProjectManager *MvpnTable::GetProjectManager() {
+    return const_cast<MvpnProjectManager *>(
+        static_cast<const MvpnTable *>(this)->GetProjectManager());
+}
+
+// Call the const version to avoid code duplication.
+MvpnProjectManagerPartition *MvpnTable::GetProjectManagerPartition(
+        BgpRoute *rt) {
+    return const_cast<MvpnProjectManagerPartition *>(
+        static_cast<const MvpnTable *>(this)->GetProjectManagerPartition(rt));
+}
+
+// Get MvpnProjectManager object for this Mvpn. Each MVPN network is associated
+// with a parent project maanger network via configuration. MvpnProjectManager
+// is retrieved from this parent network RoutingInstance's ErmVpnTable.
+const MvpnProjectManager *MvpnTable::GetProjectManager() const {
+    std::string pm_network =
+        routing_instance()->mvpn_project_manager_network();
+    if (pm_network.empty())
+        return NULL;
+    const RoutingInstance *rtinstance =
+        routing_instance()->manager()->GetRoutingInstance(pm_network);
+    if (!rtinstance || rtinstance->deleted())
+        return NULL;
+    const ErmVpnTable *table = dynamic_cast<const ErmVpnTable *>(
+        rtinstance->GetTable(Address::ERMVPN));
+    if (!table || table->IsDeleted())
+        return NULL;
+    return table->mvpn_project_manager();
+}
+
+// Return the MvpnProjectManagerPartition for this route using the same DB
+// partition index as of the route.
+const MvpnProjectManagerPartition *MvpnTable::GetProjectManagerPartition(
+        BgpRoute *route) const {
+    const MvpnProjectManager *manager = GetProjectManager();
+    if (!manager)
+        return NULL;
+    int part_id = route->get_table_partition()->index();
+    return manager->GetPartition(part_id);
+}
+
 // Find or create the route.
-BgpRoute *MvpnTable::LocateRoute(MvpnPrefix &prefix) {
+MvpnRoute *MvpnTable::FindRoute(MvpnPrefix &prefix) {
     MvpnRoute rt_key(prefix);
     DBTablePartition *rtp = static_cast<DBTablePartition *>(
         GetTablePartition(&rt_key));
-    BgpRoute *dest_route = static_cast<BgpRoute *>(rtp->Find(&rt_key));
+    return static_cast<MvpnRoute *>(rtp->Find(&rt_key));
+}
+
+const MvpnRoute *MvpnTable::FindRoute(MvpnPrefix &prefix) const {
+    return const_cast<MvpnRoute *>(
+        static_cast<const MvpnTable *>(this)->FindRoute(prefix));
+}
+
+// Find or create the route.
+MvpnRoute *MvpnTable::LocateRoute(MvpnPrefix &prefix) {
+    MvpnRoute rt_key(prefix);
+    DBTablePartition *rtp = static_cast<DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    MvpnRoute *dest_route = static_cast<MvpnRoute *>(rtp->Find(&rt_key));
     if (dest_route == NULL) {
         dest_route = new MvpnRoute(prefix);
         rtp->Add(dest_route);
@@ -102,7 +180,7 @@ MvpnPrefix MvpnTable::CreateType4LeafADRoutePrefix(const MvpnRoute *type3_rt) {
     return prefix;
 }
 
-BgpRoute *MvpnTable::LocateType4LeafADRoute(const MvpnRoute *type3_spmsi_rt) {
+MvpnRoute *MvpnTable::LocateType4LeafADRoute(const MvpnRoute *type3_spmsi_rt) {
     MvpnPrefix prefix = CreateType4LeafADRoutePrefix(type3_spmsi_rt);
     return LocateRoute(prefix);
 }
@@ -118,7 +196,16 @@ MvpnPrefix MvpnTable::CreateType3SPMSIRoutePrefix(MvpnRoute *type7_rt) {
     return prefix;
 }
 
-BgpRoute *MvpnTable::LocateType3SPMSIRoute(MvpnRoute *type7_rt) {
+MvpnPrefix MvpnTable::CreateType5SourceActiveRoutePrefix(MvpnRoute *rt) const {
+    const RouteDistinguisher *rd = routing_instance()->GetRD();
+    Ip4Address source = rt->GetPrefix().source();
+    Ip4Address group = rt->GetPrefix().group();
+    const Ip4Address originator_ip(server()->bgp_identifier());
+    MvpnPrefix prefix(MvpnPrefix::SourceActiveADRoute, *rd, group, source);
+    return prefix;
+}
+
+MvpnRoute *MvpnTable::LocateType3SPMSIRoute(MvpnRoute *type7_rt) {
     MvpnPrefix prefix = CreateType3SPMSIRoutePrefix(type7_rt);
     return LocateRoute(prefix);
 }
@@ -130,7 +217,7 @@ MvpnPrefix MvpnTable::CreateType2ADRoutePrefix() {
     return prefix;
 }
 
-BgpRoute *MvpnTable::LocateType2ADRoute() {
+MvpnRoute *MvpnTable::LocateType2ADRoute() {
     MvpnPrefix prefix = CreateType2ADRoutePrefix();
     return LocateRoute(prefix);
 }
@@ -142,9 +229,29 @@ MvpnPrefix MvpnTable::CreateType1ADRoutePrefix() {
     return prefix;
 }
 
-BgpRoute *MvpnTable::LocateType1ADRoute() {
+MvpnRoute *MvpnTable::LocateType1ADRoute() {
     MvpnPrefix prefix = CreateType1ADRoutePrefix();
     return LocateRoute(prefix);
+}
+
+MvpnRoute *MvpnTable::FindType1ADRoute() {
+    MvpnPrefix prefix = CreateType1ADRoutePrefix();
+    return FindRoute(prefix);
+}
+
+MvpnRoute *MvpnTable::FindType2ADRoute() {
+    MvpnPrefix prefix = CreateType2ADRoutePrefix();
+    return FindRoute(prefix);
+}
+
+MvpnRoute *MvpnTable::FindType5SourceActiveADRoute(MvpnRoute *rt) {
+    MvpnPrefix prefix = CreateType5SourceActiveRoutePrefix(rt);
+    return FindRoute(prefix);
+}
+
+const MvpnRoute *MvpnTable::FindType5SourceActiveADRoute(MvpnRoute *rt) const {
+    MvpnPrefix prefix = CreateType5SourceActiveRoutePrefix(rt);
+    return FindRoute(prefix);
 }
 
 BgpRoute *MvpnTable::RouteReplicate(BgpServer *server,
@@ -248,10 +355,6 @@ bool MvpnTable::Export(RibOut *ribout, Route *route,
         return false;
     uinfo_slist->push_front(*uinfo);
     return true;
-}
-
-void MvpnTable::set_routing_instance(RoutingInstance *rtinstance) {
-    BgpTable::set_routing_instance(rtinstance);
 }
 
 bool MvpnTable::IsMaster() const {

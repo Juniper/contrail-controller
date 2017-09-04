@@ -34,6 +34,7 @@ struct UpdateInfo;
 class BgpTable : public RouteTable {
 public:
     typedef std::map<RibExportPolicy, RibOut *> RibOutMap;
+    typedef std::set<BgpTable *> TableSet;
 
     struct RequestKey : DBRequestKey {
         virtual const IPeer *GetPeer() const = 0;
