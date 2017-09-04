@@ -199,8 +199,6 @@ public:
     RouteDistinguisher GetSourceRouteDistinguisher(const BgpPath *path) const;
     virtual void Initialize();
     const NeighborsSet &neighbors() const { return neighbors_; }
-    virtual void UpdateSecondaryTablesForReplication(MvpnRoute *rt,
-            BgpTable::TableSet *secondary_tables) const;
     static bool IsEnabled() { return enable_; }
     static void set_enable(bool enable) { enable_ = enable; }
 

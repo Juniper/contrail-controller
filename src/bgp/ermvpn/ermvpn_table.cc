@@ -7,6 +7,7 @@
 #include "bgp/ipeer.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_multicast.h"
+#include "bgp/bgp_mvpn.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/inet/inet_table.h"
@@ -21,7 +22,7 @@ size_t ErmVpnTable::HashFunction(const ErmVpnPrefix &prefix) const {
 }
 
 ErmVpnTable::ErmVpnTable(DB *db, const string &name)
-    : BgpTable(db, name), tree_manager_(NULL) {
+    : BgpTable(db, name), tree_manager_(NULL), mvpn_project_manager_(NULL) {
 }
 
 auto_ptr<DBEntry> ErmVpnTable::AllocEntry(
@@ -180,7 +181,7 @@ bool ErmVpnTable::Export(RibOut *ribout, Route *route,
 
 void ErmVpnTable::CreateTreeManager() {
     // Don't create the McastTreeManager for the VPN table.
-    if (IsMaster())
+    if (IsMaster() && !MvpnManager::IsEnabled())
         return;
     assert(!tree_manager_);
     tree_manager_ = BgpObjectFactory::Create<McastTreeManager>(this);
@@ -205,6 +206,23 @@ const McastTreeManager *ErmVpnTable::GetTreeManager() const {
 void ErmVpnTable::set_routing_instance(RoutingInstance *rtinstance) {
     BgpTable::set_routing_instance(rtinstance);
     CreateTreeManager();
+
+    // TODO(Ananth) Only the project manager table needs this.
+    if (IsMaster())
+        CreateMvpnProjectManager();
+}
+
+void ErmVpnTable::CreateMvpnProjectManager() {
+    assert(!mvpn_project_manager_);
+    mvpn_project_manager_ = BgpObjectFactory::Create<MvpnProjectManager>(this);
+    mvpn_project_manager_->Initialize();
+}
+
+void ErmVpnTable::DestroyMvpnProjectManager() {
+    assert(mvpn_project_manager_);
+    mvpn_project_manager_->Terminate();
+    delete mvpn_project_manager_;
+    mvpn_project_manager_ = NULL;
 }
 
 bool ErmVpnTable::IsMaster() const {
