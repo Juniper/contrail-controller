@@ -40,6 +40,7 @@ class TcpMessageWriter;
 class TcpSession {
 public:
     static const int kDefaultBufferSize = 16 * 1024;
+    static const int kDefaultWriteBufferSize = 32 * 1024;
 
     enum Event {
         EVENT_NONE,
@@ -59,7 +60,8 @@ public:
 
     // TcpSession constructor takes ownership of socket.
     TcpSession(TcpServer *server, Socket *socket,
-               bool async_read_ready = true);
+               bool async_read_ready = true, 
+               size_t buffer_send_size = TcpSession::kDefaultWriteBufferSize);
     // Performs a non-blocking send operation.
     virtual bool Send(const u_int8_t *data, size_t size, size_t *sent);
 
@@ -174,7 +176,8 @@ protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
     static void AsyncReadHandler(TcpSessionPtr session);
     static void AsyncWriteHandler(TcpSessionPtr session,
-                                  const boost::system::error_code &error);
+                                  const boost::system::error_code &error,
+                                  std::size_t bytes_transferred);
 
     void AsyncReadStartInternal(TcpSessionPtr session);
     virtual Task* CreateReaderTask(boost::asio::mutable_buffer, size_t);
@@ -185,6 +188,8 @@ protected:
     virtual void OnRead(Buffer buffer) = 0;
     // Callback after socket is ready for write.
     virtual void WriteReady(const boost::system::error_code &error);
+
+    void AsyncWriteInternal(TcpSessionPtr session);
 
     virtual void AsyncReadSome();
     virtual size_t GetReadBufferSize() const;
@@ -214,6 +219,10 @@ protected:
     mutable tbb::mutex mutex_;
     io::SocketStats stats_;
 
+protected:
+    typedef boost::asio::strand Strand;
+    boost::scoped_ptr<Strand> io_strand_;
+
 private:
     class Reader;
     friend class TcpServer;
@@ -221,12 +230,10 @@ private:
     friend void intrusive_ptr_add_ref(TcpSession *session);
     friend void intrusive_ptr_release(TcpSession *session);
     typedef std::list<boost::asio::mutable_buffer> BufferQueue;
-    typedef boost::asio::strand Strand;
 
     static void WriteReadyInternal(TcpSessionPtr session,
                                    const boost::system::error_code &error,
                                    uint64_t block_start_time);
-
     void DeferWriter();
     void ReleaseBufferLocked(Buffer buffer);
     void SetEstablished(Endpoint remote, Direction dir);
@@ -244,7 +251,6 @@ private:
 
     TcpServerPtr server_;
     boost::scoped_ptr<Socket> socket_;
-    boost::scoped_ptr<Strand> io_strand_;
     bool read_on_connect_;
 
     /**************** protected by mutex_ ****************/
@@ -268,6 +274,8 @@ private:
     std::string name_;
     tbb::atomic<bool> defer_reader_;
     std::string uve_key_str_;
+    tbb::atomic<bool> write_blocked_;
+    tbb::atomic<bool> tcp_close_in_progress_;
 
     DISALLOW_COPY_AND_ASSIGN(TcpSession);
 };
