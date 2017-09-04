@@ -46,9 +46,15 @@ struct SessionKeyCmp {
     }
 };
 
+struct SessionFlowStatsInfo {
+public:
+    FlowEntryPtr flow;
+    uint64_t setup_time;
+    uint64_t teardown_time;
+};
 struct SessionPreAggInfo {
 public:
-    typedef std::map<const SessionKey, FlowEntry*, SessionKeyCmp> SessionMap;
+    typedef std::map<const SessionKey, SessionFlowStatsInfo, SessionKeyCmp> SessionMap;
     SessionMap session_map_;
 };
 
@@ -74,11 +80,33 @@ struct SessionEndpointKeyCmp {
 
 class SessionStatsCollector : public StatsCollector {
 public:
+    typedef std::map<const SessionEndpointKey, SessionEndpointInfo, SessionEndpointKeyCmp> SessionEndpointMap;
+    typedef WorkQueue<boost::shared_ptr<SessionStatsReq> > Queue;
+
     static const uint32_t kSessionStatsTimerInterval = 100;
     static const uint8_t  kMaxSessionMsgsPerSend = 16;
 
-    typedef std::map<const SessionEndpointKey, SessionEndpointInfo, SessionEndpointKeyCmp> SessionEndpointMap;
-    typedef WorkQueue<boost::shared_ptr<SessionStatsReq> > Queue;
+    uint32_t RunSessionStatsCollect();
+    uint32_t ProcessSessionEndpoint(SessionEndpointMap::iterator &it,
+                                     KSyncFlowMemory *ksync_obj,
+                                     uint64_t curr_time);
+    void FillSessionFlowInfo(FlowEntry *fe,
+                             uint64_t setup_time,
+                             uint64_t teardown_time,
+                             KSyncFlowMemory *ksync_obj,
+                             SessionFlowInfo &flow_info);
+    void FillSessionInfo(SessionPreAggInfo::SessionMap::iterator session_map_iter,
+                         KSyncFlowMemory *ksync_obj,
+                         SessionInfo &session_info, SessionIpPort &session_key);
+    void FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter,
+                            SessionAggInfo &session_agg_info,
+                            SessionIpPortProtocol &session_agg_key);
+    void FillSessionEndpoint(SessionEndpointMap::iterator it,
+                             SessionEndpoint &session_ep);
+    void FillSessionTagInfo(const TagList &list,
+                            SessionEndpoint &session_ep,
+                            bool is_remote);
+
     class SessionTask : public Task {
     public:
         SessionTask(SessionStatsCollector *ssc);
@@ -107,9 +135,9 @@ protected:
     virtual void DispatchSessionMsg(const std::vector<SessionEndpoint> &lst);
 private:
     static uint64_t GetCurrentTime();
-    void AddSession(FlowEntry* fe);
-    void DeleteSession(FlowEntry* fe);
-    void GetSessionKey(FlowEntry* fe, SessionAggKey &session_agg_key,
+    void AddSession(FlowEntry* fe, uint64_t setup_time);
+    void DeleteSession(FlowEntry* fe, uint64_t teardown_time);
+    bool GetSessionKey(FlowEntry* fe, SessionAggKey &session_agg_key,
                        SessionKey    &session_key,
                        SessionEndpointKey &session_endpoint_key);
     void Shutdown();
@@ -168,16 +196,18 @@ public:
         DELETE_SESSION,
     };
 
-    SessionStatsReq(Event ev, const FlowEntryPtr &flow) :
-        event_(ev), flow_(flow) {
+    SessionStatsReq(Event ev, const FlowEntryPtr &flow, uint64_t time) :
+        event_(ev), flow_(flow), time_(time){
     }
     ~SessionStatsReq() { }
     Event event() const { return event_; }
     FlowEntryPtr flow() const { return flow_; }
+    uint64_t time() const { return time_; }
 
 private:
     Event event_;
     FlowEntryPtr flow_;
+    uint64_t time_;
     DISALLOW_COPY_AND_ASSIGN(SessionStatsReq);
 };
 

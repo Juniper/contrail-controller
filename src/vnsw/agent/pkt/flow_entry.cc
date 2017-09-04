@@ -1256,13 +1256,16 @@ bool FlowEntry::IsClientFlow() {
      *                (Egress + Reverse)
      * then it will be consideres as client session
      */
-    if (((is_flags_set(FlowEntry::IngressDir)) &&
-         (!(is_flags_set(FlowEntry::ReverseFlow)))) ||
-        ((!(is_flags_set(FlowEntry::IngressDir))) &&
-         (is_flags_set(FlowEntry::ReverseFlow)))) {
-        return true;
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        if (!(is_flags_set(FlowEntry::ReverseFlow))) {
+            return true;
+        }
+    } else {
+        if (is_flags_set(FlowEntry::ReverseFlow)) {
+            return true;
+        }
     }
-     return false;
+    return false;
 }
 
 bool FlowEntry::IsServerFlow() {
@@ -1280,11 +1283,14 @@ bool FlowEntry::IsServerFlow() {
      *                (Ingress + Reverse)
      * then it will be consideres as server session
      */
-    if (((!(is_flags_set(FlowEntry::IngressDir))) &&
-         (!(is_flags_set(FlowEntry::ReverseFlow)))) ||
-        ((is_flags_set(FlowEntry::IngressDir)) &&
-         (is_flags_set(FlowEntry::ReverseFlow)))) {
-        return true;
+    if (!(is_flags_set(FlowEntry::IngressDir))) {
+        if (!(is_flags_set(FlowEntry::ReverseFlow))) {
+            return true;
+        }
+    } else {
+        if (is_flags_set(FlowEntry::ReverseFlow)) {
+            return true;
+        }
     }
     return false;
 }
