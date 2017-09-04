@@ -252,12 +252,12 @@ ErmVpnRoute::ErmVpnRoute(const ErmVpnPrefix &prefix) : prefix_(prefix) {
 
 int ErmVpnRoute::CompareTo(const Route &rhs) const {
     const ErmVpnRoute &other = static_cast<const ErmVpnRoute &>(rhs);
+    KEY_COMPARE(prefix_.source(), other.prefix_.source());
+    KEY_COMPARE(prefix_.group(), other.prefix_.group());
     KEY_COMPARE(prefix_.type(), other.prefix_.type());
     KEY_COMPARE(
         prefix_.route_distinguisher(), other.prefix_.route_distinguisher());
     KEY_COMPARE(prefix_.router_id(), other.prefix_.router_id());
-    KEY_COMPARE(prefix_.source(), other.prefix_.source());
-    KEY_COMPARE(prefix_.group(), other.prefix_.group());
     return 0;
 }
 

@@ -68,11 +68,13 @@ public:
     Ip4Address group() const { return group_; }
     Ip4Address source() const { return source_; }
     Ip4Address originator() const { return originator_; }
+    IpAddress groupIpAddress() const { return IpAddress(group_); }
+    IpAddress sourceIpAddress() const { return IpAddress(source_); }
+    IpAddress originatorIpAddress() const { return IpAddress(originator_); }
     void set_originator(const Ip4Address &originator);
     uint32_t asn() const { return asn_; }
     void set_route_distinguisher(const RouteDistinguisher &rd) { rd_ = rd; }
     uint8_t ip_prefix_length() const { return ip_prefixlen_; }
-
     void BuildProtoPrefix(BgpProtoPrefix *prefix) const;
 
 private:
