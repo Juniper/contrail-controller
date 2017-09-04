@@ -124,6 +124,7 @@ public:
     int vxlan_id() const;
 
     const RoutingInstanceMgr *manager() const { return mgr_; }
+    RoutingInstanceMgr *manager() { return mgr_; }
     RoutingInstanceInfo GetDataCollection(const char *operation);
 
     BgpServer *server() { return server_; }
@@ -180,6 +181,12 @@ public:
                              const BgpRoute *route) const;
 
     int GetOriginVnForAggregateRoute(Address::Family family) const;
+    const std::string &mvpn_project_manager_network() const {
+        return mvpn_project_manager_network_;
+    }
+    std::string &mvpn_project_manager_network() {
+        return mvpn_project_manager_network_;
+    }
 
 private:
     friend class RoutingInstanceMgr;
@@ -229,6 +236,7 @@ private:
     boost::scoped_ptr<IRouteAggregator> inet_route_aggregator_;
     boost::scoped_ptr<IRouteAggregator> inet6_route_aggregator_;
     boost::scoped_ptr<PeerManager> peer_manager_;
+    std::string mvpn_project_manager_network_;
     RoutingPolicyAttachList routing_policies_;
 };
 
