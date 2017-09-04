@@ -12,7 +12,11 @@ struct FlowUveFwPolicyInfo {
     std::string fw_policy_;
     TagList remote_tagset_;
     std::string remote_prefix_;
+    std::string remote_vn_;
+    std::string local_vn_;
     bool initiator_;
+    bool added_;
+    bool short_flow_;
     bool is_valid_;
     FlowUveFwPolicyInfo() : is_valid_(false) {}
 };
@@ -47,8 +51,11 @@ public:
         }
     }
 
-    FlowUveStatsRequest(Event event, const boost::uuids::uuid &u) :
-        event_(event), uuid_(u), sg_info_valid_(false) {
+    FlowUveStatsRequest(Event event, const boost::uuids::uuid &u,
+                        const std::string &intf,
+                        const FlowUveFwPolicyInfo &fw_policy_info) :
+        event_(event), uuid_(u), interface_(intf), sg_info_valid_(false),
+        fw_policy_info_(fw_policy_info) {
     }
 
     ~FlowUveStatsRequest() { }

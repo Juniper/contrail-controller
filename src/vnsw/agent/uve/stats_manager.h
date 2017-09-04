@@ -168,6 +168,15 @@ class StatsManager {
             if (fw_policy_info.remote_prefix_ != info.remote_prefix_) {
                 return false;
             }
+            if (fw_policy_info.local_vn_ != info.local_vn_) {
+                return false;
+            }
+            if (fw_policy_info.remote_vn_ != info.remote_vn_) {
+                return false;
+            }
+            if (fw_policy_info.initiator_ != info.initiator_) {
+                return false;
+            }
             return true;
         }
         bool IsVnAceInfoEqual(const FlowUveVnAcePolicyInfo &info) const {
