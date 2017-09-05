@@ -193,6 +193,15 @@ class TestQfxBasicDM(TestCommonDM):
             raise Exception("l2 evpn config for ae intf not correct: " + ae_name)
     # end check_l2_evpn_config
 
+    def check_l2_evpn_vrf_targets(self, target_id):
+        config = FakeDeviceConnect.get_xml_config()
+        protocols = config.get_protocols()
+        evpn = protocols.get_evpn()
+        options = evpn.get_vni_options()
+        vni = options.get_vni()[0]
+        self.assertEqual(vni.get_vrf_target().get_community(), target_id)
+    # end check_l2_evpn_vrf_targets
+
     def test_esi_config(self):
         self.product = 'qfx5110'
         FakeNetconfManager.set_model(self.product)
@@ -338,6 +347,8 @@ class TestQfxBasicDM(TestCommonDM):
 
         # verify generated switch options config
         self.check_switch_options_config(vn1_obj, "l2")
+        ri = self._vnc_lib.routing_instance_read(fq_name=vn1_obj.get_fq_name() + [vn1_obj.name])
+        self.check_l2_evpn_vrf_targets(ri.get_route_target_refs()[0]['to'][0])
         # verify internal vn's config
         if 'qfx5' not in self.product:
             self.check_switch_options_config(int_vn, "l3")
