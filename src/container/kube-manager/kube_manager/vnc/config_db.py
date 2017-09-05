@@ -452,6 +452,8 @@ class VirtualMachineKM(DBBaseKM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+            if not obj:
+                return
         self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
         self.annotations = obj.get('annotations', None)
