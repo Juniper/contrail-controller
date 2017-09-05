@@ -670,6 +670,216 @@ class TestPermissions(test_case.ApiServerTestCase):
         received = set([item['fq_name'][-1] for item in y['virtual-networks']])
         self.assertEquals(expected, received)
 
+    def test_sub_field_access(self):
+        logger.info('')
+        logger.info( '########### API ACCESS (CREATE) ##################')
+
+        alice = self.alice
+        bob   = self.bob
+        admin = self.admin
+        self.vn_name = "alice-vn-%s" % self.id()
+
+        rv = admin.vnc_lib._request(rest.OP_GET, '/aaa-mode')
+        self.assertEquals(rv["aaa-mode"], "rbac")
+
+        vn = VirtualNetwork(self.vn_name, self.alice.project_obj)
+
+        # delete CRUD rule created in setUp
+        alice.proj_rg = vnc_aal_create(self.admin.vnc_lib, alice.project_obj)
+        vnc_aal_del_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = '* %s:CRUD' % alice.role)
+        logger.info( '')
+        # create a rule for VN create and read
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network %s:CRUD' % alice.role)
+        logger.info( 'alice: trying to create VN in her project')
+        # create a VN
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn)
+            logger.info( 'Created virtual network %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test failed!')
+            testfail = True
+        finally:
+            self.assertThat(testfail, Equals(False))
+        vn = vnc_read_obj(self.alice.vnc_lib, 'virtual-network', name = vn.get_fq_name())
+        set_perms(vn, global_access = 7)
+        # Try updaing VN perms2 owner without perms.
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.perms2.global_access %s:R' % alice.role)
+        try:
+            alice.vnc_lib.virtual_network_update(vn)
+            logger.info( 'Updated virtual network %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        except PermissionDenied as e:
+            logger.info( 'Update of virtual network failed %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        finally:
+            self.assertThat(testfail, Equals(False))
+
+        # give update permissions for inner field owner, but not for other fields.
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.perms2.global_access %s:U' % alice.role)
+        vn = vnc_read_obj(self.alice.vnc_lib, 'virtual-network', name = vn.get_fq_name())
+        set_perms(vn, global_access = 7)
+        try:
+            alice.vnc_lib.virtual_network_update(vn)
+            logger.info( 'Updated virtual network %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info( 'Update of virtual network failed %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        finally:
+            self.assertThat(testfail, Equals(False))
+
+        # try updating share field in perms2 without update permissions.
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.perms2.share %s:R' % alice.role)
+        set_perms(vn, share = [(bob.project_uuid, PERMS_R)])
+        try:
+            alice.vnc_lib.virtual_network_update(vn)
+            logger.info( 'Updated virtual network %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        except PermissionDenied as e:
+            logger.info( 'Update of virtual network failed %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        finally:
+            self.assertThat(testfail, Equals(False))
+
+        # try update after providing permissions
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.perms2.share %s:U' % alice.role)
+        set_perms(vn, share = [(bob.project_uuid, PERMS_R)])
+        try:
+            alice.vnc_lib.virtual_network_update(vn)
+            logger.info( 'Updated virtual network %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info( 'Update of virtual network failed %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        finally:
+            self.assertThat(testfail, Equals(False))
+
+        # for sub fields with no rules, parent rule field rules apply
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.perms2 %s:R' % alice.role)
+        set_perms(vn, owner = 'mynetwork')
+        try:
+            alice.vnc_lib.virtual_network_update(vn)
+            logger.info( 'Updated virtual network %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        except PermissionDenied as e:
+            logger.info( 'Update of virtual network failed %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        finally:
+            self.assertThat(testfail, Equals(False))
+
+        # for sub fields with no rules, parent rule field rules apply
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.perms2 %s:R' % alice.role)
+        set_perms(vn, owner = 'mynetwork')
+        try:
+            alice.vnc_lib.virtual_network_update(vn)
+            logger.info( 'Updated virtual network %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        except PermissionDenied as e:
+            logger.info( 'Update of virtual network failed %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        finally:
+            self.assertThat(testfail, Equals(False))
+        # delete the above rule as we don't want to change the owner
+        vnc_aal_del_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.perms2 %s:R' % alice.role)
+
+        # try creating networking with a sub field of perms2 permissions as U
+        kwargs = {'perms2':{'owner':'myworld', 'global_access':7}}
+        vn1 = VirtualNetwork('test-vn', self.alice.project_obj, **kwargs)
+
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn1)
+            logger.info( 'Created virtual network %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test passed!')
+            testfail = False
+        finally:
+            self.assertThat(testfail, Equals(False))
+
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.id_perms.creator %s:C' % alice.role)
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.id_perms.permissions.owner %s:C' % alice.role)
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.id_perms %s:R' % alice.role)
+        # create network with id_perms fields set, where rules are allow
+        kwargs = {'id_perms':{'creator':'myworld', 'permissions':{'owner':'test'}}}
+        vn2 = VirtualNetwork('test-vn', self.alice.project_obj, **kwargs)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn2)
+            logger.info( 'Created virtual network %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test failed!')
+            testfail = True
+        finally:
+            self.assertThat(testfail, Equals(False))
+        # create a network with id_perms sub fields set where a rule is missing
+        # this will hit the parent rule, which doesn't have permissions
+        kwargs = {'id_perms':{'creator':'myworld', 'permissions':{'owner':'test', 'group_access':0}}}
+        vn3 = VirtualNetwork('test-vn', self.alice.project_obj, **kwargs)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn3)
+            logger.info( 'Created virtual network %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test passed!')
+            testfail = False
+        finally:
+            self.assertThat(testfail, Equals(False))
+        # now delete id perms rule so it will be subjected to virtual-network rule
+        # for the group access
+        vnc_aal_del_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.id_perms %s:R' % alice.role)
+        kwargs = {'id_perms':{'creator':'myworld', 'permissions':{'owner':'test', 'group_access':0}}}
+        vn3 = VirtualNetwork('test-vn2', self.alice.project_obj, **kwargs)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn3)
+            logger.info( 'Created virtual network %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test failed!')
+            testfail = True
+        finally:
+            self.assertThat(testfail, Equals(False))
+        # perms2 global access is RU only
+        kwargs = {'id_perms':{'creator':'myworld', 'permissions':{'owner':'test', 'group_access':0}}, 'perms2':{'global_access':7}}
+        vn4 = VirtualNetwork('test-vn3', self.alice.project_obj, **kwargs)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn4)
+            logger.info( 'Created virtual network %s ... test failed!' % vn.get_fq_name())
+            testfail = True
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test passed!')
+            testfail = False
+        finally:
+            self.assertThat(testfail, Equals(False))
+
+        # add create rule to perms2 global access
+        vnc_aal_add_rule(self.admin.vnc_lib, alice.proj_rg,
+                 rule_str = 'virtual-network.perms2.global_access %s:C' % alice.role)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn4)
+            logger.info( 'Created virtual network %s ... test passed!' % vn.get_fq_name())
+            testfail = False
+        except PermissionDenied as e:
+            logger.info( 'Failed to create VN ... Test failed!')
+            testfail = True
+        finally:
+            self.assertThat(testfail, Equals(False))
+
+
+
     def test_shared_access(self):
         logger.info('')
         logger.info( '########### API ACCESS (CREATE) ##################')
