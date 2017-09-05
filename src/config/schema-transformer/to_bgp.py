@@ -453,7 +453,6 @@ def parse_args(args_str):
         if 'CASSANDRA' in config.sections():
                 cassandraopts.update(dict(config.items('CASSANDRA')))
 
-
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
     parser = argparse.ArgumentParser(
@@ -632,14 +631,10 @@ def main(args_str=None):
 
     # Initialize AMQP handler then close it to be sure remain queue of a
     # precedent run is cleaned
-    try:
-        vnc_amqp = STAmqpHandle(st_logger, SchemaTransformer.REACTION_MAP, args)
-        vnc_amqp.establish()
-        vnc_amqp.close()
-    except Exception:
-        pass
-    finally:
-        st_logger.debug("Removed remained AMQP queue")
+    vnc_amqp = STAmqpHandle(st_logger, SchemaTransformer.REACTION_MAP, args)
+    vnc_amqp.establish()
+    vnc_amqp.close()
+    st_logger.debug("Removed remained AMQP queue")
 
     # Waiting to be elected as master node
     _zookeeper_client = ZookeeperClient(client_pfx+"schema", args.zk_server_ip,
