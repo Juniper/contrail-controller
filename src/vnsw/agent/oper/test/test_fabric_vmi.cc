@@ -256,6 +256,62 @@ TEST_F(FabricVmiTest, GatewayRoute) {
     client->WaitForIdle();
 }
 
+//Verify FIP route gets exported with Native encap, if FIP VN
+//is using fabric for forwarding
+TEST_F(FabricVmiTest, FIP_Native_Encap) {
+    struct PortInfo input1[] = {
+        {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+
+    AddVn("default-project:vn2", 10);
+    AddVrf("default-project:vn2:vn2");
+    AddLink("virtual-network", "default-project:vn2",
+            "routing-instance", "default-project:vn2:vn2");
+    client->WaitForIdle();
+
+    AddFloatingIpPool("fip-pool1", 1);
+    AddFloatingIp("fip1", 1, "2.1.1.100");
+    AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+    AddLink("floating-ip-pool", "fip-pool1", "virtual-network",
+            "default-project:vn2");
+    AddLink("virtual-machine-interface", "intf2", "floating-ip", "fip1");
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "default-project:vn2", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VrfGet("default-project:vn2:vn2")->forwarding_vrf()->GetName() ==
+                agent->fabric_vrf_name().c_str());
+
+    Ip4Address ip = Ip4Address::from_string("2.1.1.100");
+    //Route should be leaked to fabric VRF
+    WAIT_FOR(1000, 1000, RouteFind(agent->fabric_vrf_name(), ip, 32));
+
+    //Verify that nexthop is ARP nexthop fpr server_ip
+    InetUnicastRouteEntry *rt = RouteGet("default-project:vn2:vn2", ip, 32);
+    EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
+                 TunnelType::NativeType()) != 0);
+
+    DelLink("virtual-network", "default-project:vn2", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, RouteFind(agent->fabric_vrf_name(), ip, 32) == false);
+
+    DelFloatingIpPool("fip-pool1");
+    DelFloatingIp("fip1");
+    DelLink("virtual-network", "default-project:vn2",
+            "routing-instance", "default-project:vn2:vn2");
+    DelLink("virtual-machine-interface", "intf2", "floating-ip", "fip1");
+    DelVn("default-project:vn2");
+    DelVrf("default-project:vn2:vn2");
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, false, false, false);

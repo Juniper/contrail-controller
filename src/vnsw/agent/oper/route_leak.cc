@@ -143,6 +143,10 @@ void RouteLeakState::AddRoute(const AgentRoute *route) {
 }
 
 void RouteLeakState::DeleteRoute(const AgentRoute *route) {
+    if (dest_vrf_ == NULL) {
+        return;
+    }
+
     const Peer *peer = agent_->fabric_rt_export_peer();
     if (local_peer_) {
         peer = agent_->local_peer();
@@ -170,6 +174,7 @@ RouteLeakVrfState::RouteLeakVrfState(VrfEntry *source_vrf,
     walk_ref_ = table->AllocWalker(
                     boost::bind(&RouteLeakVrfState::WalkCallBack, this, _1, _2),
                     boost::bind(&RouteLeakVrfState::WalkDoneInternal, this, _2));
+    table->WalkTable(walk_ref_);
 }
 
 RouteLeakVrfState::~RouteLeakVrfState() {
@@ -219,15 +224,18 @@ void RouteLeakVrfState::Notify(DBTablePartBase *partition, DBEntryBase *entry) {
         return;
     }
 
-    if (state->dest_vrf() && state->dest_vrf() != dest_vrf_) {
+    if (state->dest_vrf() != dest_vrf_) {
         state->DeleteRoute(route);
     }
 
-    if (dest_vrf_ && state->dest_vrf() != dest_vrf_) {
+    if (state->dest_vrf() != dest_vrf_) {
         //Add the route in new VRF
         state->set_dest_vrf(dest_vrf_.get());
     }
-    state->AddRoute(route);
+
+    if (state->dest_vrf()) {
+        state->AddRoute(route);
+    }
 }
 
 void RouteLeakVrfState::SetDestVrf(VrfEntry *vrf) {
