@@ -35,5 +35,11 @@ struct ConfigDBUUIDCacheData {
 
 struct ConfigDBUUIDCacheEntry {
     1: string uuid;
-    2: list<ConfigDBUUIDCacheData> field_list
+    2: string obj_type;
+    3: string fq_name;
+    4: string timestamp;
+    5: bool timer_created;
+    6: bool timer_running;
+    7: i32 retry_count;
+    8: list<ConfigDBUUIDCacheData> field_list
 }

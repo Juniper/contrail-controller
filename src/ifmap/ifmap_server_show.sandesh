@@ -456,8 +456,8 @@ response sandesh IFMapPendingVmRegResp {
  * @cli_name: read uuid-fqname mapping
  */
 request sandesh ConfigDBUUIDToFQNameReq {
-    /** uuid for which fq-name is needed */
-    1: string uuid;
+    /** Search string for uuid, Fq name or object type **/
+    1: string search_string;
 }
 
 response sandesh ConfigDBUUIDToFQNameResp {
@@ -471,8 +471,8 @@ response sandesh ConfigDBUUIDToFQNameResp {
  * @cli_name: read uuid cache
  */
 request sandesh ConfigDBUUIDCacheReq {
-    /** uuid whose cache information is required */
-    1: string uuid;
+    /** Search string for uuid, Fq name or object type **/
+    1: string search_string;
 }
 
 response sandesh ConfigDBUUIDCacheResp {
