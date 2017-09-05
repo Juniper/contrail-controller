@@ -10,6 +10,7 @@
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_table.h"
 #include "bgp/mvpn/mvpn_route.h"
+#include "bgp/routing-instance/path_resolver.h"
 
 class BgpServer;
 class BgpRoute;
@@ -59,6 +60,7 @@ public:
     MvpnPrefix CreateType3SPMSIRoutePrefix(MvpnRoute *type7_rt);
     MvpnPrefix CreateType2ADRoutePrefix();
     MvpnPrefix CreateType1ADRoutePrefix();
+    PathResolver *CreatePathResolver();
 
 private:
     BgpRoute *LocateRoute(MvpnPrefix &prefix);

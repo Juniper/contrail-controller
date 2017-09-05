@@ -133,7 +133,7 @@ env.Append(LIBS = [
 env.Append(LIBS = ['route', 'routing_instance', 'routing_policy', 'net'])
 
 env.Append(LIBS = ['extended_community', 'origin_vn', 'security_group', 'tunnel_encap'])
-env.Append(LIBS = ['xmpp_unicast', 'xmpp_multicast', 'xmpp_enet',
+env.Append(LIBS = ['xmpp_unicast', 'xmpp_multicast', 'xmpp_mvpn', 'xmpp_enet',
                    'boost_regex', 'boost_program_options', 'boost_chrono'])
 
 if sys.platform != 'darwin':
@@ -347,6 +347,10 @@ env.Alias('src/bgp:bgp_xmpp_evpn_test', bgp_xmpp_evpn_test)
 bgp_xmpp_mcast_test = env.UnitTest('bgp_xmpp_mcast_test',
                                    ['bgp_xmpp_mcast_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_mcast_test', bgp_xmpp_mcast_test)
+
+bgp_xmpp_mvpn_test = env.UnitTest('bgp_xmpp_mvpn_test',
+                                   ['bgp_xmpp_mvpn_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_mvpn_test', bgp_xmpp_mvpn_test)
 
 bgp_xmpp_parse_test = env.UnitTest('bgp_xmpp_parse_test',
                                    ['bgp_xmpp_parse_test.cc'])
@@ -627,6 +631,7 @@ test_suite = [
     bgp_xmpp_inet6vpn_test,
     bgp_xmpp_ip_test,
     bgp_xmpp_mcast_test,
+    bgp_xmpp_mvpn_test,
     bgp_xmpp_parse_test,
     bgp_xmpp_rtarget_test,
     bgp_xmpp_rtarget_manager_test,

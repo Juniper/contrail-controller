@@ -36,6 +36,10 @@ targets = env.TypeAutogen('xmpp_multicast.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
 lib = env.Library('xmpp_multicast', lib_srcs)
 
+targets = env.TypeAutogen('xmpp_mvpn.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('xmpp_mvpn', lib_srcs)
+
 targets = env.TypeAutogen('xmpp_enet.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
 lib = env.Library('xmpp_enet', lib_srcs)
