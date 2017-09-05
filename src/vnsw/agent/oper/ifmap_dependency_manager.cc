@@ -705,6 +705,8 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "floating-ip-pool-floating-ip",
                                "floating-ip-pool", false,
                                "virtual-network-floating-ip-pool",
+                               "virtual-network", true,
+                               "virtual-network-provider-network",
                                "virtual-network", true));
      AddDependencyPath("virtual-machine-interface",
                        MakePath("floating-ip-virtual-machine-interface",
