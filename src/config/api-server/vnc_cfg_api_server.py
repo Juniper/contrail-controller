@@ -575,8 +575,8 @@ class VncApiServer(object):
                     ret['ok'] = _ok
                     ret['result'] = _result
 
-                self._db_conn._zk_db.master_election("/vnc_api_server_obj_create/" + obj_type,
-                                                     _create)
+                self._db_conn._zk_db.master_election("/vnc_api_server_obj_create/"
+                                                     + proj_uuid + "/" + obj_type, _create)
                 if not ret['ok']:
                     return ret['ok'], ret['result']
             else:
