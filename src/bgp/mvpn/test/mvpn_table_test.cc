@@ -439,63 +439,6 @@ TEST_F(MvpnTableTest, Hashing) {
     task_util::WaitForIdle();
 }
 
-class MvpnNoLeakTest : public MvpnTableTest {
-protected:
-    MvpnNoLeakTest() : MvpnTableTest(), pink_(NULL) {
-    }
-
-    virtual void SetUp() {
-        MvpnTableTest::SetUp();
-
-        ConcurrencyScope scope("bgp::Config");
-        pink_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("pink",
-            "target:65412:2 target:65412:1", "target:65412:2", "pink", 2));
-
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Stop();
-        server_.routing_instance_mgr()->CreateRoutingInstance(pink_cfg_.get());
-        scheduler->Start();
-        task_util::WaitForIdle();
-
-        pink_ = static_cast<MvpnTable *>(
-            server_.database()->FindTable("pink.mvpn.0"));
-        TASK_UTIL_EXPECT_EQ(Address::MVPN, pink_->family());
-    }
-
-    virtual void TearDown() {
-        MvpnTableTest::TearDown();
-    }
-
-    MvpnTable *pink_;
-    scoped_ptr<BgpInstanceConfig> pink_cfg_;
-};
-
-//
-// Blue VRF route doesn't get leaked to pink VRF even though pink has an
-// an import RT which is the same as the blue export RT.
-//
-TEST_F(MvpnNoLeakTest, AddDeleteSingleRoute) {
-    ostringstream repr;
-    repr << "3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1";
-    AddRoute(blue_, repr.str());
-    task_util::WaitForIdle();
-    VerifyRouteExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
-    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(1, master_->Size());
-    VerifyRouteNoExists(pink_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, pink_->Size());
-
-    DelRoute(blue_, repr.str());
-    task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(del_notification_, 1);
-    VerifyRouteNoExists(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
-    TASK_UTIL_EXPECT_EQ(0, master_->Size());
-    VerifyRouteNoExists(pink_, repr.str());
-    TASK_UTIL_EXPECT_EQ(0, pink_->Size());
-}
-
 int main(int argc, char **argv) {
     bgp_log_test::init();
     ::testing::InitGoogleTest(&argc, argv);

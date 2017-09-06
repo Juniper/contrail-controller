@@ -206,9 +206,7 @@ public:
                             server_->bgp_identifier_.to_string() << " to " <<
                             identifier.to_string());
             }
-            Ip4Address old_identifier = server_->bgp_identifier_;
-            server_->bgp_identifier_ = identifier;
-            server_->NotifyIdentifierUpdate(old_identifier);
+            server_->UpdateBgpIdentifier(identifier);
         }
 
         bool notify_asn_update = false;
@@ -1086,4 +1084,10 @@ time_t BgpServer::GetRTargetTableLastUpdatedTimeStamp() const {
     const RTargetTable *rtarget_table = dynamic_cast<const RTargetTable *>(
             ri_mgr->GetDefaultRoutingInstance()->GetTable(Address::RTARGET));
     return rtarget_table->last_updated();
+}
+
+void BgpServer::UpdateBgpIdentifier(const Ip4Address &identifier) {
+    Ip4Address old_identifier = bgp_identifier_;
+    bgp_identifier_ = identifier;
+    NotifyIdentifierUpdate(old_identifier);
 }
