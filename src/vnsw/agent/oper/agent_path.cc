@@ -953,6 +953,47 @@ bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
     return uc_rt->UpdateRouteFlags(false, proxy_arp_, proxy_arp_);
 }
 
+MulticastRoutePath::MulticastRoutePath(const Peer *peer) :
+    AgentPath(peer, NULL), original_nh_() {
+}
+
+NextHop *MulticastRoutePath::UpdateNH(Agent *agent,
+                                      CompositeNH *cnh,
+                                      const TsnElector *te) {
+    ComponentNHKeyList new_component_nh_key_list;
+    for (ComponentNHKeyList::const_iterator it =
+         cnh->component_nh_key_list().begin();
+         it != cnh->component_nh_key_list().end(); it++) {
+        if ((*it) == NULL)
+            continue;
+        const TunnelNHKey *tunnel_nh_key =
+            static_cast<const TunnelNHKey *>((*it)->nh_key());
+        if (std::find(te->ManagedPhysicalDevices().begin(),
+                      te->ManagedPhysicalDevices().end(),
+                      tunnel_nh_key->dip().to_string()) !=
+            te->ManagedPhysicalDevices().end()) {
+            new_component_nh_key_list.push_back(*it);
+        }
+    }
+    set_original_nh(cnh);
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(Composite::EVPN, false,
+                                        new_component_nh_key_list,
+                                        cnh->vrf()->GetName()));
+    nh_req.data.reset(new CompositeNHData(cnh->pbb_nh(),
+                                          cnh->learning_enabled(), false));
+    agent->nexthop_table()->Process(nh_req);
+    NextHop *new_nh = static_cast<NextHop *>(agent->nexthop_table()->
+                      FindActiveEntry(nh_req.key.get()));
+    assert(new_nh);
+    return new_nh;
+}
+
+AgentPath *MulticastRoute::CreateAgentPath(const Peer *peer,
+                                           AgentRoute *rt) const {
+    return (new MulticastRoutePath(peer));
+}
+
 bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                            const AgentRoute *rt) {
     bool ret = false;
@@ -962,12 +1003,18 @@ bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     nh = static_cast<NextHop *>(agent->nexthop_table()->
             FindActiveEntry(composite_nh_req_.key.get()));
     assert(nh);
+
     if (agent->params()->agent_mode() == AgentParam::TSN_NO_FORWARDING_AGENT) {
+        MulticastRoutePath *multicast_path =
+            dynamic_cast<MulticastRoutePath *>(path);
+        multicast_path->set_original_nh(nh);
         const TsnElector *te = agent->oper_db()->tsn_elector();
-        const CompositeNH *cnh = dynamic_cast<const CompositeNH *>(nh);
-        if (cnh && (cnh->composite_nh_type() == Composite::EVPN) &&
-            (te->IsMaster() == false))
-            path->set_inactive(true);
+        CompositeNH *cnh = dynamic_cast<CompositeNH *>(nh);
+        if (cnh && (cnh->composite_nh_type() == Composite::EVPN)) {
+            if (te->IsMaster() == false)
+                path->set_inactive(true);
+            nh = multicast_path->UpdateNH(agent, cnh, te);
+        }
     }
     ret = MulticastRoute::CopyPathParameters(agent,
                    path,

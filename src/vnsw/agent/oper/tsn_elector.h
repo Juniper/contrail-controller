@@ -33,6 +33,7 @@ private:
 
 class TsnElector {
 public:
+    typedef std::vector<std::string> ManagedPhysicalDevicesList;
     TsnElector(Agent *agent);
     virtual ~TsnElector();
 
@@ -42,6 +43,10 @@ public:
     void RouteNotify(DBTablePartBase *partition, DBEntryBase *e);
     bool IsMaster() const;
     const Agent *agent() const {return agent_;}
+    const std::vector<string> &active_tsn_servers() const {
+        return active_tsn_servers_;
+    }
+    const ManagedPhysicalDevicesList &ManagedPhysicalDevices() const;
 
 private:
     bool IsTsnNoForwardingEnabled() const;

@@ -653,4 +653,8 @@ void AddBridgeDomain(const char *name, uint32_t id, uint32_t isid,
 void AddVmportBridgeDomain(const char *name, uint32_t vlan_tag);
 bool BridgeDomainFind(int id);
 BridgeDomainEntry* BridgeDomainGet(int id);
+void AddPhysicalDeviceWithIp(int id, std::string name, std::string vendor,
+                             std::string ip, std::string mgmt_ip,
+                             std::string protocol, Agent *agent);
+void DelPhysicalDeviceWithIp(Agent *agent, int id);
 #endif // vnsw_agent_test_cmn_util_h
