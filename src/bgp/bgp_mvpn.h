@@ -60,6 +60,7 @@ public:
     const RouteDistinguisher &rd() const;
     const IpAddress &originator() const;
     uint32_t source_as() const;
+    bool operator==(const MvpnNeighbor &rhs) const;
 
 private:
     friend class MvpnManagerPartition;
@@ -185,6 +186,8 @@ public:
     virtual void Terminate();
     virtual void Initialize();
     const NeighborMap &neighbors() const { return neighbors_; }
+    void ReOriginateType1Route(const Ip4Address &old_identifier);
+    void OriginateType1Route();
     static bool IsEnabled() { return enable_; }
     static void set_enable(bool enable) { enable_ = enable; }
 
@@ -202,6 +205,7 @@ private:
 
     MvpnTable *table_;
     int listener_id_;
+    int identifier_listener_id_;
     PartitionList partitions_;
 
     NeighborMap neighbors_;

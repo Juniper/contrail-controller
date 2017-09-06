@@ -71,8 +71,10 @@ public:
     MvpnPrefix CreateType4LeafADRoutePrefix(const MvpnRoute *type3_rt);
     MvpnPrefix CreateType3SPMSIRoutePrefix(MvpnRoute *type7_rt);
     MvpnPrefix CreateType2ADRoutePrefix();
+    MvpnPrefix CreateType1ADRoutePrefix(const Ip4Address &originator_ip);
     MvpnPrefix CreateType1ADRoutePrefix();
     MvpnPrefix CreateType5SourceActiveRoutePrefix(MvpnRoute *rt) const;
+    MvpnRoute *FindType1ADRoute(const Ip4Address &originator_ip);
     MvpnRoute *FindType1ADRoute();
     MvpnRoute *FindType2ADRoute();
     MvpnRoute *FindType5SourceActiveADRoute(MvpnRoute *rt);

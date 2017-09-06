@@ -222,21 +222,31 @@ MvpnRoute *MvpnTable::LocateType2ADRoute() {
     return LocateRoute(prefix);
 }
 
-MvpnPrefix MvpnTable::CreateType1ADRoutePrefix() {
+MvpnPrefix MvpnTable::CreateType1ADRoutePrefix(
+        const Ip4Address &originator_ip) {
     const RouteDistinguisher *rd = routing_instance()->GetRD();
-    const Ip4Address originator_ip(server()->bgp_identifier());
     MvpnPrefix prefix(MvpnPrefix::IntraASPMSIADRoute, *rd, originator_ip);
     return prefix;
 }
 
+MvpnPrefix MvpnTable::CreateType1ADRoutePrefix() {
+    return CreateType1ADRoutePrefix(Ip4Address(server()->bgp_identifier()));
+}
+
 MvpnRoute *MvpnTable::LocateType1ADRoute() {
-    MvpnPrefix prefix = CreateType1ADRoutePrefix();
+    MvpnPrefix prefix = CreateType1ADRoutePrefix(
+            Ip4Address(server()->bgp_identifier()));
     return LocateRoute(prefix);
 }
 
-MvpnRoute *MvpnTable::FindType1ADRoute() {
-    MvpnPrefix prefix = CreateType1ADRoutePrefix();
+MvpnRoute *MvpnTable::FindType1ADRoute(const Ip4Address &originator_ip) {
+    MvpnPrefix prefix = CreateType1ADRoutePrefix(originator_ip);
     return FindRoute(prefix);
+}
+
+MvpnRoute *MvpnTable::FindType1ADRoute() {
+    Ip4Address originator_ip(server()->bgp_identifier());
+    return FindType1ADRoute(Ip4Address(server()->bgp_identifier()));
 }
 
 MvpnRoute *MvpnTable::FindType2ADRoute() {
@@ -262,28 +272,7 @@ BgpRoute *MvpnTable::RouteReplicate(BgpServer *server,
     MvpnRoute *mroute = dynamic_cast<MvpnRoute *>(src_rt);
     assert(mroute);
 
-    if (!IsMaster()) {
-        // Don't replicate to a VRF from other VRF tables.
-        MvpnTable *src_mvpn_table = dynamic_cast<MvpnTable *>(src_table);
-        if (!src_mvpn_table->IsMaster())
-            return NULL;
-
-        // Don't replicate to VRF from the VPN table if OriginVn doesn't match.
-        OriginVn origin_vn(server->autonomous_system(),
-            routing_instance()->virtual_network_index());
-        if (!community->ContainsOriginVn(origin_vn.GetExtCommunity()))
-            return NULL;
-    }
-
-    // RD is always zero in the VRF.  When replicating to the VPN table, we
-    // pick up the RD from the SourceRD attribute. The SourceRD is always set
-    // for Local and Global routes that the multicast code adds to a VRF.
     MvpnPrefix mprefix(mroute->GetPrefix());
-    if (IsMaster()) {
-        mprefix.set_route_distinguisher(src_path->GetAttr()->source_rd());
-    } else {
-        mprefix.set_route_distinguisher(RouteDistinguisher::kZeroRd);
-    }
     MvpnRoute rt_key(mprefix);
 
     // Find or create the route.
