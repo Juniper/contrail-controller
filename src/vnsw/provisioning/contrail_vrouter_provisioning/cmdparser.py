@@ -38,6 +38,8 @@ class ComputeArgsParser(object):
             'keystone_auth_port': self.get_config(
                 'KEYSTONE', 'admin_port', '5000'),
             'neutron_password': self.get_config('NEUTRON', 'password', None),
+            'apiserver_auth_protocol': self.get_config(
+                'APISERVER', 'auth_protocol', 'http'),
             'self_ip': self.get_config('AGENT', 'ip', '127.0.0.1'),
             'non_mgmt_ip': self.get_config('AGENT', 'ctrl_ip', None),
             'non_mgmt_gw': self.get_config('AGENT', 'ctrl_gateway', None),
@@ -196,6 +198,9 @@ class ComputeArgsParser(object):
         parser.add_argument(
                 "--keystone_auth_protocol",
                 help="Auth protocol used to talk to keystone")
+        parser.add_argument(
+                "--apiserver_auth_protocol",
+                help="Auth protocol used to talk to api-server")
         parser.add_argument(
                 "--keystone_auth_port", help="Port of Keystone to talk to")
         parser.add_argument(

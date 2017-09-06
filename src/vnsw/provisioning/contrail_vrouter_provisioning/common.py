@@ -757,7 +757,7 @@ SUBCHANNELS=1,2,3
         compute_ip = self._args.self_ip
         compute_hostname = socket.gethostname()
         use_ssl = False
-        if self._args.keystone_auth_protocol == 'https':
+        if self._args.apiserver_auth_protocol == 'https':
             use_ssl = True
         prov_args = "--host_name %s --host_ip %s --api_server_ip %s "\
                     "--oper add --admin_user %s --admin_password %s "\
@@ -871,13 +871,15 @@ SUBCHANNELS=1,2,3
         prov_args = "--host_name %s --host_ip %s --api_server_ip %s --oper add "\
                     "--admin_user %s --admin_password %s --admin_tenant_name %s "\
                     "--openstack_ip %s --router_type tor-service-node"\
-                    %(self.tsn_hostname, tsn_ip, self._args.cfgm_ip,
-                      self._args.keystone_admin_user,
-                      self._args.keystone_admin_password,
-                      self._args.keystone_admin_tenant_name, self._args.keystone_ip)
-        if self._args.keystone_auth_protocol == 'https':
-           prov_args += " --api_server_use_ssl True"
-        local("python /opt/contrail/utils/provision_vrouter.py %s" %(prov_args))
+                    % (self.tsn_hostname, tsn_ip, self._args.cfgm_ip,
+                       self._args.keystone_admin_user,
+                       self._args.keystone_admin_password,
+                       self._args.keystone_admin_tenant_name, self._args.keystone_ip)
+        if self._args.apiserver_auth_protocol == 'https':
+            prov_args += " --api_server_use_ssl True"
+        local(
+            "python /opt/contrail/utils/provision_vrouter.py %s" %
+            (prov_args))
 
     def start_tsn_service(self):
         nova_conf_file = '/etc/contrail/contrail-vrouter-agent.conf'
