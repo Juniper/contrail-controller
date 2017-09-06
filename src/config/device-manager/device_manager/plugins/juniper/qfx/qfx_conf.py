@@ -139,7 +139,6 @@ class QfxConf(JuniperConf):
                              community_name=DMUtils.make_community_name(route_target))
                 then.add_community(comm)
                 then.set_accept('')
-                self.add_vni_option(network_id, route_target)
             policy_config.add_policy_statement(ps)
             self.add_to_global_switch_opts(DMUtils.make_export_name(ri_name), False)
 
@@ -159,7 +158,8 @@ class QfxConf(JuniperConf):
         ps.add_term(term)
         for route_target in import_targets:
             from_.add_community(DMUtils.make_community_name(route_target))
-            self.add_vni_option(network_id, route_target)
+            if not self.is_spine():
+                self.add_vni_option(network_id, route_target)
         term.set_then(Then(accept=''))
         ps.set_then(Then(reject=''))
         policy_config.add_policy_statement(ps)
@@ -561,11 +561,12 @@ class QfxConf(JuniperConf):
                                                    vn_obj.vn_network_id, 'l3')
                     export_set = copy.copy(ri_obj.export_targets)
                     import_set = copy.copy(ri_obj.import_targets)
-                    for ri2_id in ri_obj.routing_instances:
-                        ri2 = RoutingInstanceDM.get(ri2_id)
-                        if ri2 is None:
-                            continue
-                        import_set |= ri2.export_targets
+                    if not self.is_spine():
+                        for ri2_id in ri_obj.routing_instances:
+                            ri2 = RoutingInstanceDM.get(ri2_id)
+                            if ri2 is None:
+                                continue
+                            import_set |= ri2.export_targets
 
                     if vn_obj.get_forwarding_mode() in ['l2', 'l2_l3'] and self.is_l2_supported(vn_obj):
                         irb_ips = None
