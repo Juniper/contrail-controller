@@ -11,6 +11,7 @@
 #include <list>
 #include <net/address.h>
 #include <vrouter/ksync/ksync_memory.h>
+#include <cmn/agent_cmn.h>
 
 class Timer;
 class KSync;
@@ -52,6 +53,7 @@ public:
     virtual void InitTest();
     virtual void Shutdown();
 private:
+    Agent *agent_;
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
     void ReadFlowInfo(const vr_flow_entry *k_flow, vr_flow_stats *stats,
                       KFlowData *info) const;

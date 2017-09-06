@@ -33,7 +33,7 @@ public:
         sandesh_http_sessions_(0U), nh_count_(0U), pkt_exceptions_(0U),
         pkt_invalid_agent_hdr_(0U), pkt_invalid_interface_(0U), 
         pkt_no_handler_(0U), pkt_fragments_dropped_(0U), pkt_dropped_(0U),
-        max_flow_count_(0),
+        max_flow_count_(0), hold_flow_count_(0),
         flow_drop_due_to_max_limit_(0), flow_drop_due_to_linklocal_limit_(0),
         flow_stats_update_timeout_(kFlowStatsUpdateInterval),
         ipc_in_msgs_(0U), ipc_out_msgs_(0U), in_tpkts_(0U), in_bytes_(0U),
@@ -89,9 +89,18 @@ public:
         flow_count_--;
     }
 
+    void incr_hold_flow_count() {
+        hold_flow_count_++;
+    }
+    void decr_hold_flow_count() {
+        hold_flow_count_--;
+    }
+
     uint64_t flow_created() const {return flow_created_;}
 
     uint64_t max_flow_count() const {return max_flow_count_;}
+
+    uint64_t hold_flow_count() const {return hold_flow_count_;}
 
     void incr_flow_aged() { flow_aged_.fetch_and_increment(); }
     uint64_t flow_aged() const {return flow_aged_;}
@@ -218,6 +227,7 @@ private:
     // Flow stats
     tbb::atomic<uint32_t> flow_count_;
     uint32_t max_flow_count_;
+    uint32_t hold_flow_count_;
     uint64_t flow_drop_due_to_max_limit_;
     uint64_t flow_drop_due_to_linklocal_limit_;
     tbb::atomic<uint64_t> flow_created_;

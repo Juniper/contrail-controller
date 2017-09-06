@@ -374,6 +374,8 @@ struct VrouterFlowRate {
     6: optional u32 min_flow_deletes_per_second;
     /** Count of active flows */
     7: optional u32 active_flows; //'dial' type. So no diff. Always aggregate
+    /** Count of hold flows */
+    8: optional u32 hold_flows;
 }
 
 /**
