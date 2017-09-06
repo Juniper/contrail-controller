@@ -17,6 +17,9 @@
 #include <oper/mirror_table.h>
 #include <oper/mpls.h>
 #include <oper/bridge_domain.h>
+#include <oper/physical_device.h>
+#include <oper/agent_route_walker.h>
+#include <oper/tsn_elector.h>
 #include <controller/controller_init.h>
 #include <controller/controller_route_path.h>
 
@@ -47,6 +50,11 @@ void MulticastHandler::Register() {
         boost::bind(&MulticastHandler::ModifyVmInterface, this, _1, _2));
     bridge_domain_id_ = agent_->bridge_domain_table()->Register(
             boost::bind(&MulticastHandler::AddBridgeDomain, this, _1, _2));
+    if (agent_->tsn_no_forwarding_enabled()) {
+        physical_device_listener_id_ = agent_->physical_device_table()->
+            Register(boost::bind(&MulticastHandler::NotifyPhysicalDevice,
+                                 this, _1, _2));
+    }
 
     GetMulticastObjList().clear();
 }
@@ -54,6 +62,10 @@ void MulticastHandler::Register() {
 void MulticastHandler::Terminate() {
     agent_->vn_table()->Unregister(vn_listener_id_);
     agent_->interface_table()->Unregister(interface_listener_id_);
+    if (physical_device_listener_id_ != DBTable::kInvalidId) {
+        agent_->physical_device_table()->
+            Unregister(physical_device_listener_id_);
+    }
 }
 
 void MulticastHandler::AddL2BroadcastRoute(MulticastGroupObject *obj,
@@ -392,6 +404,28 @@ void MulticastHandler::HandleIpam(const VnEntry *vn) {
                                                                      ipam));
 }
 
+void MulticastHandler::NotifyPhysicalDevice(DBTablePartBase *partition,
+                                            DBEntryBase *e)
+{
+    PhysicalDevice *dev = static_cast<PhysicalDevice *>(e);
+    IpAddress dev_ip = dev->ip();
+    ManagedPhysicalDevicesList::iterator pd_it =
+        std::find(physical_devices_.begin(), physical_devices_.end(),
+                  dev_ip.to_string());
+    if (dev->IsDeleted()) {
+        if (pd_it == physical_devices_.end())
+            return;
+        physical_devices_.erase(pd_it);
+    } else {
+        if (pd_it != physical_devices_.end())
+            return;
+        physical_devices_.push_back(dev_ip.to_string());
+    }
+    std::sort(physical_devices_.begin(), physical_devices_.end());
+    //Start walk to update evpn nh
+    te_walker_.StartVrfWalk();
+}
+
 /* Registered call for VM */
 void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition, 
                                          DBEntryBase *e)
@@ -483,9 +517,9 @@ void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
 void MulticastHandler::DeleteVmInterface(const VmInterface *intf,
                                          const std::string &vrf_name) {
     const VmInterface *vm_itf = static_cast<const VmInterface *>(intf);
-    std::list<MulticastGroupObject *> &obj_list = this->GetVmToMulticastObjMap(
+    std::set<MulticastGroupObject *> &obj_list = this->GetVmToMulticastObjMap(
                                                           vm_itf->GetUuid());
-    for (std::list<MulticastGroupObject *>::iterator it = obj_list.begin(); 
+    for (std::set<MulticastGroupObject *>::iterator it = obj_list.begin(); 
          it != obj_list.end(); it++) {
         if ((*it)->vrf_name() != vrf_name) {
             continue;
@@ -920,6 +954,8 @@ void MulticastHandler::ModifyEvpnMembers(const Peer *peer,
         return;
     }
 
+    obj->set_evpn_olist(olist);
+    obj->set_ethernet_tag(ethernet_tag);
     TriggerRemoteRouteChange(obj, peer, derived_vrf_name, olist,
                              peer_identifier, delete_op, Composite::EVPN,
                              MplsTable::kInvalidLabel, false, ethernet_tag);
@@ -966,11 +1002,13 @@ void MulticastGroupObject::FlushAllPeerInfo(const Agent *agent,
     }
 }
 
-MulticastHandler::MulticastHandler(Agent *agent)
-        : agent_(agent),
-          vn_listener_id_(DBTable::kInvalidId),
-          interface_listener_id_(DBTable::kInvalidId) { 
-    obj_ = this; 
+MulticastHandler::MulticastHandler(Agent *agent) :
+    agent_(agent),
+    vn_listener_id_(DBTable::kInvalidId),
+    interface_listener_id_(DBTable::kInvalidId),
+    physical_device_listener_id_(DBTable::kInvalidId),
+    physical_devices_(), te_walker_(agent) {
+    obj_ = this;
 }
 
 bool MulticastHandler::FlushPeerInfo(uint64_t peer_sequence) {
@@ -1095,4 +1133,50 @@ void MulticastHandler::DeleteEvpnPath(MulticastGroupObject *obj) {
                             Composite::EVPN);
         }
     }
+}
+
+MulticastTEWalker::MulticastTEWalker(Agent *agent) :
+    AgentRouteWalker(agent, AgentRouteWalker::ALL) {
+    set_walkable_route_tables(1 << Agent::BRIDGE);
+}
+
+MulticastTEWalker::~MulticastTEWalker() {
+}
+
+bool MulticastTEWalker::RouteWalkNotify(DBTablePartBase *partition,
+                                        DBEntryBase *e) {
+    Agent *agent = (static_cast<AgentRouteTable *>
+                    (partition->parent()))->agent();
+    BridgeRouteEntry *bridge_route = static_cast<BridgeRouteEntry *>(e);
+    bool notify = false;
+    for(Route::PathList::iterator it = bridge_route->GetPathList().begin();
+        it != bridge_route->GetPathList().end();it++) {
+        MulticastRoutePath *path = dynamic_cast<MulticastRoutePath *>
+            (it.operator->());
+        if (!path)
+            continue;
+
+        const Peer *peer = path->peer();
+        if (!peer)
+            continue;
+
+        if (peer->GetType() != Peer::BGP_PEER)
+            continue;
+
+        const CompositeNH *cnh = dynamic_cast<const CompositeNH *>
+            (path->nexthop());
+        if (!cnh)
+            continue;
+
+        if (cnh->composite_nh_type() != Composite::EVPN)
+            continue;
+        NextHop *nh = path->UpdateNH(agent,
+                                     static_cast<CompositeNH *>(path->original_nh().get()),
+                                     agent->oper_db()->tsn_elector());
+        if (path->ChangeNH(agent, nh) && bridge_route->ReComputePathAdd(path))
+            notify = true;
+    }
+    if (notify)
+        partition->Notify(bridge_route);
+    return true;
 }

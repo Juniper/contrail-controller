@@ -2316,6 +2316,30 @@ void AddSubnetType(const char *name, int id, const char *addr, uint8_t plen) {
     AddNode("subnet", name, id, buf);
 }
 
+void AddPhysicalDeviceWithIp(int id, std::string name, std::string vendor,
+                             std::string ip, std::string mgmt_ip,
+                             std::string protocol, Agent *agent) {
+
+    DBRequest device_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    device_req.key.reset(new PhysicalDeviceKey(MakeUuid(id)));
+    device_req.data.reset(new PhysicalDeviceData(agent, name, name, vendor,
+                                      Ip4Address::from_string(ip),
+                                      Ip4Address::from_string(mgmt_ip),
+                                      protocol, NULL));
+    agent->physical_device_table()->Enqueue(&device_req);
+    WAIT_FOR(100, 10000,
+             (agent->physical_device_table()->Find(MakeUuid(id)) != NULL));
+}
+
+void DelPhysicalDeviceWithIp(Agent *agent, int id) {
+    DBRequest device_req(DBRequest::DB_ENTRY_DELETE);
+    device_req.key.reset(new PhysicalDeviceKey(MakeUuid(id)));
+    device_req.data.reset();
+    agent->physical_device_table()->Enqueue(&device_req);
+    WAIT_FOR(100, 10000,
+             (agent->physical_device_table()->Find(MakeUuid(id)) == NULL));
+}
+
 void AddPhysicalDevice(const char *name, int id) {
     char buf[1024];
     sprintf(buf, "<physical-router-vendor-name>Juniper</physical-router-vendor-name>"

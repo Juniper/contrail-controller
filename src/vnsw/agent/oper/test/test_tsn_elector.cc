@@ -20,7 +20,7 @@
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
-#include <oper/bgp_as_service.h>
+#include <oper/tunnel_nh.h>
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
@@ -74,6 +74,42 @@ bool IsEvpnCompositePresent(const std::string vrf_name, const Agent *agent) {
             return true;
         }
     }
+    return false;
+}
+
+bool AreEvpnComponentPresent(const std::string vrf_name,
+                             std::vector<std::string> vtep,
+                             const Agent *agent) {
+    BridgeRouteEntry *mc_route =
+        L2RouteGet(vrf_name, MacAddress::FromString("ff:ff:ff:ff:ff:ff"));
+    const NextHop *nh = mc_route->GetActiveNextHop();
+    const CompositeNH *cnh1 = static_cast<const CompositeNH *>(nh);
+    EXPECT_TRUE(cnh1->composite_nh_type() == Composite::L2COMP);
+    for (ComponentNHList::const_iterator it = cnh1->component_nh_list().begin();
+         it != cnh1->component_nh_list().end(); it++) {
+        const CompositeNH *cnh2 = static_cast<const CompositeNH *>((*it)->nh());
+        if (cnh2->composite_nh_type() != Composite::EVPN) {
+            continue;
+        }
+        ComponentNHList::const_iterator it2 = cnh2->begin();
+        while (it2 != cnh2->end()) {
+            const ComponentNH *comp_nh = (*it2).get();
+            const TunnelNH *tunnel = dynamic_cast<const TunnelNH *>
+                (comp_nh->nh());
+            if (!tunnel)
+                return false;
+            std::vector<std::string>::iterator vtep_it =
+                std::find(vtep.begin(), vtep.end(),
+                          tunnel->GetDip()->to_string());
+            if (vtep_it == vtep.end())
+                return false;
+            vtep.erase(vtep_it);
+            it2++;
+        }
+    }
+    if (vtep.empty())
+        return true;
+    return false;
 }
 
 void FillOlist(Agent *agent, std::string ip, TunnelOlist &olist) {
@@ -133,23 +169,23 @@ TEST_F(TsnElectorTest, Test_1) {
     EXPECT_FALSE(IsEvpnCompositePresent("vrf1", agent_));
     //Add evpn
     TunnelOlist olist;
-    FillOlist(agent_, "10.1.2.1", olist);
-    FillOlist(agent_, "10.1.1.1", olist);
-    FillOlist(agent_, "10.1.0.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
+    FillOlist(agent_, "11.1.1.1", olist);
+    FillOlist(agent_, "11.1.0.1", olist);
     AddEvpnList(agent_, olist, bgp_peer_);
     client->WaitForIdle();
     EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
 
     olist.clear();
-    FillOlist(agent_, "10.1.1.1", olist);
-    FillOlist(agent_, "10.1.2.1", olist);
+    FillOlist(agent_, "11.1.1.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
     AddEvpnList(agent_, olist, bgp_peer_);
     client->WaitForIdle();
     EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
 
     olist.clear();
-    FillOlist(agent_, "10.1.0.1", olist);
-    FillOlist(agent_, "10.1.2.1", olist);
+    FillOlist(agent_, "11.1.0.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
     AddEvpnList(agent_, olist, bgp_peer_);
     client->WaitForIdle();
     EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
@@ -183,9 +219,9 @@ TEST_F(TsnElectorTest, Test_2) {
 
     //Add evpn
     TunnelOlist olist;
-    FillOlist(agent_, "10.1.2.1", olist);
-    FillOlist(agent_, "10.1.1.1", olist);
-    FillOlist(agent_, "10.1.0.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
+    FillOlist(agent_, "11.1.1.1", olist);
+    FillOlist(agent_, "11.1.0.1", olist);
     AddEvpnList(agent_, olist, bgp_peer_);
     client->WaitForIdle();
     EXPECT_FALSE(IsEvpnCompositePresent("vrf1", agent_));
@@ -216,9 +252,9 @@ TEST_F(TsnElectorTest, Test_3) {
 
     //Add evpn
     TunnelOlist olist;
-    FillOlist(agent_, "10.1.2.1", olist);
-    FillOlist(agent_, "10.1.1.1", olist);
-    FillOlist(agent_, "10.1.0.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
+    FillOlist(agent_, "11.1.1.1", olist);
+    FillOlist(agent_, "11.1.0.1", olist);
     AddEvpnList(agent_, olist, bgp_peer_);
     client->WaitForIdle();
     EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
@@ -266,9 +302,9 @@ TEST_F(TsnElectorTest, Test_4) {
 
     //Add evpn
     TunnelOlist olist;
-    FillOlist(agent_, "10.1.2.1", olist);
-    FillOlist(agent_, "10.1.1.1", olist);
-    FillOlist(agent_, "10.1.0.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
+    FillOlist(agent_, "11.1.1.1", olist);
+    FillOlist(agent_, "11.1.0.1", olist);
     AddEvpnList(agent_, olist, bgp_peer_);
     client->WaitForIdle();
     EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
@@ -299,9 +335,9 @@ TEST_F(TsnElectorTest, Test_5) {
 
     //Add evpn
     TunnelOlist olist;
-    FillOlist(agent_, "10.1.2.1", olist);
-    FillOlist(agent_, "10.1.1.1", olist);
-    FillOlist(agent_, "10.1.0.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
+    FillOlist(agent_, "11.1.1.1", olist);
+    FillOlist(agent_, "11.1.0.1", olist);
     AddEvpnList(agent_, olist, bgp_peer_);
     client->WaitForIdle();
     EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
@@ -320,6 +356,86 @@ TEST_F(TsnElectorTest, Test_5) {
     client->WaitForIdle();
     EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
 
+    DelEvpnList(agent_, bgp_peer_);
+    client->WaitForIdle();
+    //Delete
+    DeleteVmportEnv(input, 1, true);
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortActive(input, 0));
+}
+
+TEST_F(TsnElectorTest, Test_6) {
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    VrfEntry *fabric_vrf = agent_->fabric_policy_vrf();
+    InetUnicastAgentRouteTable *inet4_table = fabric_vrf->
+        GetInet4UnicastRouteTable();
+    InetUnicastRouteEntry *vhost_rt = inet4_table->FindRoute(agent_->
+                                      params()->vhost_addr());
+    EXPECT_TRUE(vhost_rt != NULL);
+    EXPECT_TRUE(vhost_rt->GetActivePath()->inactive() == false);
+
+    InetUnicastRouteEntry *vm_rt = RouteGet("vrf1",
+        Ip4Address::from_string("1.1.1.10"), 32);
+    EXPECT_TRUE(vm_rt != NULL);
+    EXPECT_TRUE(vm_rt->GetActivePath()->inactive());
+    InetUnicastRouteEntry *subnet_rt = RouteGet("vrf1",
+        Ip4Address::from_string("1.1.1.200"), 32);
+    EXPECT_TRUE(subnet_rt != NULL);
+    EXPECT_TRUE(subnet_rt->GetActivePath()->inactive() == false);
+
+    EXPECT_FALSE(IsEvpnCompositePresent("vrf1", agent_));
+    //Add physical locator
+    AddPhysicalDeviceWithIp(1, "tor-1", "", "11.1.0.1", "11.1.0.100", "",
+                            agent_);
+    client->WaitForIdle();
+    //Add evpn
+    TunnelOlist olist;
+    FillOlist(agent_, "11.1.2.1", olist);
+    FillOlist(agent_, "11.1.1.1", olist);
+    FillOlist(agent_, "11.1.0.1", olist);
+    AddEvpnList(agent_, olist, bgp_peer_);
+    client->WaitForIdle();
+    EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
+    std::vector<std::string> vtep_list;
+    vtep_list.push_back("11.1.0.1");
+    EXPECT_TRUE(AreEvpnComponentPresent("vrf1", vtep_list, agent_));
+
+    //add another physical locator
+    AddPhysicalDeviceWithIp(2, "tor-2", "", "11.1.1.1", "11.1.1.100", "",
+                            agent_);
+    client->WaitForIdle();
+    vtep_list.push_back("11.1.1.1");
+    EXPECT_TRUE(AreEvpnComponentPresent("vrf1", vtep_list, agent_));
+
+    olist.clear();
+    FillOlist(agent_, "11.1.1.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
+    AddEvpnList(agent_, olist, bgp_peer_);
+    client->WaitForIdle();
+    EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
+    vtep_list.clear();
+    vtep_list.push_back("11.1.1.1");
+    EXPECT_TRUE(AreEvpnComponentPresent("vrf1", vtep_list, agent_));
+
+    DelPhysicalDeviceWithIp(agent_, 1);
+    olist.clear();
+    FillOlist(agent_, "11.1.0.1", olist);
+    FillOlist(agent_, "11.1.2.1", olist);
+    AddEvpnList(agent_, olist, bgp_peer_);
+    client->WaitForIdle();
+    EXPECT_TRUE(IsEvpnCompositePresent("vrf1", agent_));
+    vtep_list.clear();
+    EXPECT_TRUE(AreEvpnComponentPresent("vrf1", vtep_list, agent_));
+
+    DelPhysicalDeviceWithIp(agent_, 2);
+    client->WaitForIdle();
     DelEvpnList(agent_, bgp_peer_);
     client->WaitForIdle();
     //Delete

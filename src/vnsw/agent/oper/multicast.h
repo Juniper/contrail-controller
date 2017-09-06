@@ -11,6 +11,7 @@
 #include <cmn/agent.h>
 #include <oper/nexthop.h>
 #include <oper/vn.h>
+#include <oper/agent_route_walker.h>
 
 extern SandeshTraceBufferPtr MulticastTraceBuf;
 
@@ -69,7 +70,8 @@ public:
         vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL),
         dependent_mg_(this, NULL) , pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
-        pbb_etree_enabled_(false), bridge_domain_(NULL) {
+        pbb_etree_enabled_(false), bridge_domain_(NULL),
+        ethernet_tag_(0) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         local_olist_.clear();
@@ -81,7 +83,8 @@ public:
         vxlan_id_(0), peer_identifier_(0), deleted_(false), vn_(NULL),
         dependent_mg_(this, NULL), pbb_vrf_(false), pbb_vrf_name_(""),
         peer_(NULL), fabric_label_(0), learning_enabled_(false),
-        pbb_etree_enabled_(false), bridge_domain_(NULL) {
+        pbb_etree_enabled_(false), bridge_domain_(NULL),
+        ethernet_tag_(0) {
         local_olist_.clear();
     };
     virtual ~MulticastGroupObject() { };
@@ -172,6 +175,14 @@ public:
         return fabric_olist_;
     }
 
+    void set_evpn_olist(const TunnelOlist &olist) {
+        evpn_olist_ = olist;
+    }
+
+    const TunnelOlist& evpn_olist() const {
+        return evpn_olist_;
+    }
+
     void set_pbb_vrf_name(std::string name) {
         pbb_vrf_name_ = name;
     }
@@ -212,6 +223,13 @@ public:
         pbb_etree_enabled_ = pbb_etree_enabled;
     }
 
+    void set_ethernet_tag(uint32_t tag) {
+        ethernet_tag_ = tag;
+    }
+
+    uint32_t ethernet_tag() const {
+        return ethernet_tag_;
+    }
     MulticastGroupObject* GetDependentMG(uint32_t isid);
 private:
     friend class MulticastHandler;
@@ -231,13 +249,27 @@ private:
     bool pbb_vrf_;
     std::string pbb_vrf_name_;
     TunnelOlist fabric_olist_;
+    TunnelOlist evpn_olist_;
     const Peer *peer_;
     uint32_t fabric_label_;
     bool learning_enabled_;
     bool pbb_etree_enabled_;
     bool layer2_control_word_;
     BridgeDomainConstRef bridge_domain_;
+    uint32_t ethernet_tag_;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
+};
+
+class MulticastTEWalker : public AgentRouteWalker {
+public:
+    typedef DBTableWalker::WalkId RouteWalkerIdList[Agent::ROUTE_TABLE_MAX];
+    MulticastTEWalker(Agent *agent);
+    virtual ~MulticastTEWalker();
+
+    virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
+
+private:
+    DISALLOW_COPY_AND_ASSIGN(MulticastTEWalker);
 };
 
 /* Static class for handling multicast objects common functionalities */
@@ -245,8 +277,9 @@ class MulticastHandler {
 public:
     static const uint32_t kMulticastTimeout = 5 * 60 * 1000;
     static const Ip4Address kBroadcast;
-    typedef std::list<MulticastGroupObject *> MulticastGroupObjectList;
+    typedef std::set<MulticastGroupObject *> MulticastGroupObjectList;
     typedef std::map<uuid, MulticastGroupObjectList> VmMulticastGroupObjectList;
+    typedef std::vector<std::string> ManagedPhysicalDevicesList;
 
     MulticastHandler(Agent *agent);
     virtual ~MulticastHandler() { }
@@ -282,6 +315,7 @@ public:
     void ModifyVN(DBTablePartBase *partition, DBEntryBase *e);
     //Registered for VM notification
     void ModifyVmInterface(DBTablePartBase *partition, DBEntryBase *e); 
+    void NotifyPhysicalDevice(DBTablePartBase *partition, DBEntryBase *e); 
     //Register VM and VN notification
     void Register();
 
@@ -329,6 +363,9 @@ public:
     void Terminate();
     void AddBridgeDomain(DBTablePartBase *paritition,
                          DBEntryBase *e);
+    const ManagedPhysicalDevicesList &physical_devices() const {
+        return physical_devices_;
+    }
 
 private:
     //operations on list of all objectas per group/source/vrf
@@ -363,7 +400,7 @@ private:
     //VM itf to multicast ob
     void AddVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid, 
                                 MulticastGroupObject *obj) {
-        this->vm_to_mcobj_list_[vm_itf_uuid].push_back(obj);
+        this->vm_to_mcobj_list_[vm_itf_uuid].insert(obj);
     };
 
     void DeleteVmToMulticastObjMap(const boost::uuids::uuid &vm_itf_uuid,
@@ -387,7 +424,7 @@ private:
         }
     };
 
-    std::list<MulticastGroupObject *> &
+    std::set<MulticastGroupObject *> &
         GetVmToMulticastObjMap(const boost::uuids::uuid &uuid)
     {
         return this->vm_to_mcobj_list_[uuid];
@@ -412,6 +449,9 @@ private:
     DBTable::ListenerId vn_listener_id_;
     DBTable::ListenerId interface_listener_id_;
     DBTable::ListenerId bridge_domain_id_;
+    DBTable::ListenerId physical_device_listener_id_;
+    ManagedPhysicalDevicesList physical_devices_;
+    MulticastTEWalker te_walker_;
     DISALLOW_COPY_AND_ASSIGN(MulticastHandler);
 };
 
