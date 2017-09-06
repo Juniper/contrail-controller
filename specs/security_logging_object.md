@@ -215,29 +215,29 @@ FlowSeriesTables have to change; necessary logic to be added to fetch values
 # 9. Testing
 ## 9.1 Unit tests
 Following test cases need to be verified
-* Config flow test cases
-    i.   SLO config creation without any network policy and security group.
-    ii.  SLO config creation with all rules from the given network policy.
-    iii. SLO config creation with specific rules from the given network policy.
-    iv.  SLO config creation with all rules from the given security group.
-    v.   SLO config creation with specific rules from the given security group.
-    vi.  SLO attachment at the global level.
-    vii. SLO attachment at the VMI level.
-    viii.SLO attachment at the VN level.
-* Construction of session end point message test cases
-    i.   Session detection for the given flow (client/server).
-    ii.  Creation of session aggregate map for the given session flow.
-    iii. Association of session maps to session aggregate map.
-* Aggregation for multiple sessions
-    i.   Aggregation of multiple sessions based on the client session.
-    ii.  Aggregation of multiple sessions based on the server session.
+* Config flow test cases  
+    i.   SLO config creation without any network policy and security group.  
+    ii.  SLO config creation with all rules from the given network policy.  
+    iii. SLO config creation with specific rules from the given network policy.  
+    iv.  SLO config creation with all rules from the given security group.  
+    v.   SLO config creation with specific rules from the given security group.  
+    vi.  SLO attachment at the global level.  
+    vii. SLO attachment at the VMI level.  
+    viii.SLO attachment at the VN level.  
+* Construction of session end point message test cases   
+    i.   Session detection for the given flow (client/server)  
+    ii.  Creation of session aggregate map for the given session flow    
+    iii. Association of session maps to session aggregate map    
+* Aggregation for multiple sessions  
+    i.   Aggregation of multiple sessions based on the client session.  
+    ii.  Aggregation of multiple sessions based on the server session.  
 ## 9.2 Dev tests
-* Complete config flow from UI to agent for SLO objects
-    i.   SLO config creation at different attachment levels.
-    ii.  SLO config change at different attachment levels.
-* Verification of aggregated flow in collector
-    i.   Decoding session end point messages from client.
-    ii.  Decoding session end point messages from server.
+* Complete config flow from UI to agent for SLO objects  
+    i.  SLO config creation at different attachment levels.  
+    ii. SLO config change at different attachment levels.  
+* Verification of aggregated flow in collector  
+    i.   Decoding session end point messages from client.    
+    ii.  Decoding session end point messages from server.  
 ## 9.3 System tests
 * Complete functionality testing for SLO.
 * Performance testing
