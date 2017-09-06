@@ -368,6 +368,7 @@ bool StatsManager::BuildFlowRate(AgentStats::FlowCounters &created,
             flow_info.prev_time_ = cur_time;
             flow_info.prev_flow_created_ = created.prev_flow_count;
             flow_info.prev_flow_aged_ = aged.prev_flow_count;
+            flow_rate.set_hold_flows(agent_->stats()->hold_flow_count());
             return true;
         }
     } else {
