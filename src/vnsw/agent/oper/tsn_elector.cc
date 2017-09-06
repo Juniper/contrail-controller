@@ -15,6 +15,7 @@
 #include <oper/inet_unicast_route.h>
 #include <oper/agent_route_walker.h>
 #include <oper/nexthop.h>
+#include <oper/multicast.h>
 
 using namespace std;
 
@@ -171,4 +172,9 @@ bool TsnElector::IsMaster() const {
         return false;
     return (active_tsn_servers_.front().compare(
         agent_->params()->vhost_addr().to_string()) == 0);
+}
+
+const TsnElector::ManagedPhysicalDevicesList &TsnElector::ManagedPhysicalDevices()
+const {
+    return agent_->oper_db()->multicast()->physical_devices();
 }
