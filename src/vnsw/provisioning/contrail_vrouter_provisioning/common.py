@@ -759,7 +759,7 @@ SUBCHANNELS=1,2,3
         compute_ip = self._args.self_ip
         compute_hostname = socket.gethostname()
         use_ssl = False
-        if self._args.keystone_auth_protocol == 'https':
+        if self._args.apiserver_auth_protocol == 'https':
             use_ssl = True
         prov_args = "--host_name %s --host_ip %s --api_server_ip %s "\
                     "--oper add --admin_user %s --admin_password %s "\
@@ -898,7 +898,7 @@ SUBCHANNELS=1,2,3
                        self._args.keystone_admin_user,
                        self._args.keystone_admin_password,
                        self._args.keystone_admin_tenant_name, self._args.keystone_ip)
-        if self._args.keystone_auth_protocol == 'https':
+        if self._args.apiserver_auth_protocol == 'https':
             prov_args += " --api_server_use_ssl True"
         local(
             "python /opt/contrail/utils/provision_vrouter.py %s" %
