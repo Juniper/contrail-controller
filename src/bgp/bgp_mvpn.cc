@@ -82,6 +82,7 @@ void MvpnProjectManager::Initialize() {
 
 void MvpnProjectManager::Terminate() {
     table_->Unregister(listener_id_);
+    listener_id_ = DBTable::kInvalidId;
     FreePartitions();
 }
 
@@ -175,8 +176,19 @@ const IpAddress &MvpnNeighbor::originator() const {
     return originator_;
 }
 
+bool MvpnNeighbor::operator==(const MvpnNeighbor &rhs) const {
+    return rd_ == rhs.rd_ && originator_ == rhs.originator_ &&
+           source_as_ == rhs.source_as_;
+}
+
 bool MvpnManager::FindNeighbor(const RouteDistinguisher &rd,
                                MvpnNeighbor *nbr) const {
+    tbb::reader_writer_lock::scoped_lock_read lock(neighbors_mutex_);
+    NeighborMap::const_iterator iter = neighbors_.find(rd);
+    if (iter != neighbors_.end()) {
+        *nbr = iter->second;
+        return true;
+    }
     return false;
 }
 
@@ -314,6 +326,7 @@ private:
 MvpnManager::MvpnManager(MvpnTable *table)
         : table_(table),
           listener_id_(DBTable::kInvalidId),
+          identifier_listener_id_(-1),
           table_delete_ref_(this, table->deleter()) {
     deleter_.reset(new DeleteActor(this));
 }
@@ -342,7 +355,29 @@ PathResolver *MvpnManager::path_resolver() const {
 }
 
 void MvpnManager::Terminate() {
+    MvpnRoute *type1_route = table_->FindType1ADRoute();
+    if (type1_route) {
+        BgpPath *path = type1_route->FindPath(BgpPath::Local, 0);
+        if (path)
+            type1_route->DeletePath(path);
+        type1_route->NotifyOrDelete();
+    }
+
+    MvpnRoute *type2_route = table_->FindType2ADRoute();
+    if (type2_route) {
+        BgpPath *path = type2_route->FindPath(BgpPath::Local, 0);
+        if (path)
+            type2_route->DeletePath(path);
+        type2_route->NotifyOrDelete();
+    }
+
+    if (identifier_listener_id_ != -1) {
+        table_->server()->UnregisterIdentifierUpdateCallback(
+            identifier_listener_id_);
+        identifier_listener_id_ = -1;
+    }
     table_->Unregister(listener_id_);
+    listener_id_ = DBTable::kInvalidId;
     FreePartitions();
 }
 
@@ -506,6 +541,46 @@ void MvpnManager::Initialize() {
     listener_id_ = table_->Register(
         boost::bind(&MvpnManager::RouteListener, this, _1, _2),
         "MvpnManager");
+
+    if (!IsEnabled())
+        return;
+
+    identifier_listener_id_ =
+        table_->server()->RegisterIdentifierUpdateCallback(boost::bind(
+            &MvpnManager::ReOriginateType1Route, this, _1));
+    OriginateType1Route();
+}
+
+void MvpnManager::ReOriginateType1Route(const Ip4Address &old_identifier) {
+    // Check if a path is already origianted. If so, delete it.
+    MvpnRoute *route = table_->FindType1ADRoute(old_identifier);
+    if (route) {
+        BgpPath *path = route->FindPath(BgpPath::Local, 0);
+        if (path) {
+            route->DeletePath(path);
+            route->NotifyOrDelete();
+        }
+    }
+    OriginateType1Route();
+}
+
+void MvpnManager::OriginateType1Route() {
+    // Originate Type1 Intra AS Auto-Discovery path.
+    BgpServer *server = table()->server();
+
+    // Check for the presence of valid identifier.
+    if (!table()->server()->bgp_identifier())
+        return;
+    MvpnRoute *route = table_->LocateType1ADRoute();
+    BgpAttrSpec attr_spec;
+    BgpAttrNextHop nexthop(server->bgp_identifier());
+    attr_spec.push_back(&nexthop);
+    BgpAttrPtr attr = server->attr_db()->Locate(attr_spec);
+    BgpPath *path = new BgpPath(NULL, 0, BgpPath::Local, attr, 0, 0, 0);
+    route->InsertPath(path);
+    route->Notify();
+
+    // TODO(Ananth) Originate Type2 Inter AS Auto-Discovery Route.
 }
 
 // MvpnTable route listener callback function.
@@ -551,6 +626,35 @@ void MvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
 // Protect access to neighbors_ map with a mutex as the same be 'read' off other
 // DB tasks in parallel. (Type-1 and Type-2 do not carrry any <S,G> information.
 void MvpnManager::UpdateNeighbor(MvpnRoute *route) {
+    RouteDistinguisher rd = route->GetPrefix().route_distinguisher();
+
+    // Check if an entry is already present.
+    MvpnNeighbor old_neighbor;
+    bool found = FindNeighbor(rd, &old_neighbor);
+
+    if (!route->IsUsable()) {
+        if (!found)
+            return;
+        tbb::reader_writer_lock::scoped_lock lock(neighbors_mutex_);
+        neighbors_.erase(rd);
+        return;
+    }
+
+    // Ignore primary paths.
+    if (!route->BestPath()->IsSecondary())
+        return;
+
+    MvpnNeighbor neighbor(route->GetPrefix().route_distinguisher(),
+                          route->GetPrefix().originator());
+
+    // Ignore if there is no change.
+    if (found && old_neighbor == neighbor)
+        return;
+
+    tbb::reader_writer_lock::scoped_lock lock(neighbors_mutex_);
+    if (found)
+        neighbors_.erase(rd);
+    neighbors_.insert(make_pair(rd, neighbor));
 }
 
 // ErmVpnTable route listener callback function.
