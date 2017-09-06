@@ -290,7 +290,8 @@ public:
     virtual bool Db_GetMultiRow(ColListVec *ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& key,
         const ColumnNameRange& crange,
-        const FieldNamesToReadVec &read_vec) = 0;
+        const FieldNamesToReadVec &read_vec,
+        DbConsistency::type dconsistency = DbConsistency::ONE) = 0;
     virtual bool Db_GetRowAsync(const std::string& cfname,
         const DbDataValueVec& rowkey, DbConsistency::type dconsistency,
         int task_id, int task_instance, DbGetRowCb cb) = 0;
