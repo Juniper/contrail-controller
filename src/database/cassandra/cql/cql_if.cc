@@ -2623,9 +2623,11 @@ bool CqlIf::Db_GetMultiRow(GenDb::ColListVec *out, const std::string &cfname,
 bool CqlIf::Db_GetMultiRow(GenDb::ColListVec *out, const std::string &cfname,
     const std::vector<GenDb::DbDataValueVec> &v_rowkey,
     const GenDb::ColumnNameRange &crange,
-    const GenDb::FieldNamesToReadVec &read_vec) {
+    const GenDb::FieldNamesToReadVec &read_vec,
+    GenDb::DbConsistency::type dconsistency) {
+    CassConsistency consistency(impl::Db2CassConsistency(dconsistency));
     bool success(impl_->SelectFromTableClusteringKeyRangeFieldNamesSync(cfname,
-        v_rowkey, crange, CASS_CONSISTENCY_ONE, read_vec, out));
+        v_rowkey, crange, consistency, read_vec, out));
     if (!success) {
         IncrementTableReadFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_READ_COLUMN);
