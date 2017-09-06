@@ -281,7 +281,8 @@ bool DbHandler::DropMessage(const SandeshHeader &header,
     const VizMsg *vmsg) {
     SandeshType::type stype(header.get_Type());
     if (!(stype == SandeshType::SYSTEM || stype == SandeshType::OBJECT ||
-          stype == SandeshType::FLOW || stype == SandeshType::UVE)) {
+          stype == SandeshType::FLOW || stype == SandeshType::UVE ||
+          stype == SandeshType::SESSION)) {
         return false;
     }
     // First check again the queue watermark drop level

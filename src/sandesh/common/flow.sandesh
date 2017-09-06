@@ -116,7 +116,7 @@ struct SessionEndpoint {
     19: map<SessionIpPortProtocol, SessionAggInfo> sess_agg_info;
 }
 
-flowlog sandesh SessionEndpointObject {
+sessionlog sandesh SessionEndpointObject {
     1: list<SessionEndpoint> session_data;
 }
 

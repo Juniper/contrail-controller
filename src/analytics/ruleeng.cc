@@ -855,7 +855,7 @@ bool Ruleeng::handle_flow_object(const pugi::xml_node &parent,
 bool Ruleeng::handle_session_object(const pugi::xml_node &parent,
     DbHandler *db, const SandeshHeader &header,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    if (header.get_Type() != SandeshType::FLOW) {
+    if (header.get_Type() != SandeshType::SESSION) {
         return true;
     }
     if(!(db->SessionTableInsert(parent, header, db_cb))) {
