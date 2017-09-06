@@ -42,6 +42,8 @@ public:
     virtual void SetTableSize() {};
     virtual bool IsInactiveEntry(uint32_t idx, uint8_t &gen_id) = 0;
     virtual void CreateProtoAuditEntry(uint32_t index, uint8_t gen_id) = 0;
+    virtual void IncrementHoldFlowCounter() {};
+    virtual void UpdateAgentHoldFlowCounter() {};
     KSync* ksync() const { return ksync_;}
     void set_major_devid(int id) { major_devid_ = id;}
     void set_table_size(int count) { table_size_ = count; }

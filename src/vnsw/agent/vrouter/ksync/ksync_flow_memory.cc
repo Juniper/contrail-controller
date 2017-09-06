@@ -47,6 +47,7 @@ static const int kTestFlowTableSize = 131072 * sizeof(vr_flow_entry);
 KSyncFlowMemory::KSyncFlowMemory(KSync *ksync, uint32_t minor_id) :
     KSyncMemory(ksync, minor_id) {
     table_path_ = "/dev/flow";
+    hold_flow_counter_=0;
 }
 
 void KSyncFlowMemory::Init() {
@@ -99,6 +100,17 @@ void KSyncFlowMemory::CreateProtoAuditEntry(uint32_t idx, uint8_t gen_id) {
         FlowProto *proto = ksync_->agent()->pkt()->get_flow_proto();
         proto->CreateAuditEntry(key, idx, gen_id);
     }
+}
+
+void KSyncFlowMemory::IncrementHoldFlowCounter() {
+    hold_flow_counter_++;
+    return;
+}
+
+void KSyncFlowMemory::UpdateAgentHoldFlowCounter() {
+    ksync_->agent()->stats()->update_hold_flow_count(hold_flow_counter_);
+    hold_flow_counter_ = 0;
+    return;
 }
 
 bool KSyncFlowMemory::IsInactiveEntry(uint32_t audit_idx, uint8_t &gen_id) {

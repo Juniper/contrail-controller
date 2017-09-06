@@ -192,8 +192,12 @@ bool KSyncMemory::AuditProcess() {
         uint32_t idx = list_entry.audit_idx;
         uint32_t gen_id = list_entry.audit_gen_id;
         audit_list_.pop_front();
-
+        IncrementHoldFlowCounter();
         CreateProtoAuditEntry(idx, gen_id);
+    }
+
+    if (audit_list_.empty()) {
+        UpdateAgentHoldFlowCounter();
     }
 
     uint32_t count = 0;

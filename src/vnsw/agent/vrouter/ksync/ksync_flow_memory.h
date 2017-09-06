@@ -51,7 +51,11 @@ public:
     virtual void CreateProtoAuditEntry(uint32_t index, uint8_t gen_id);
     virtual void InitTest();
     virtual void Shutdown();
+    void IncrementHoldFlowCounter();
+    void UpdateAgentHoldFlowCounter();
+
 private:
+    uint32_t hold_flow_counter_;
     void KFlow2FlowKey(const vr_flow_entry *entry, FlowKey *key) const;
     void ReadFlowInfo(const vr_flow_entry *k_flow, vr_flow_stats *stats,
                       KFlowData *info) const;
