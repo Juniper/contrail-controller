@@ -59,18 +59,27 @@ struct RevFlowDepParams {
     std::string vmi_uuid_;
     std::string sg_uuid_;
     std::string vm_cfg_name_;
+    uint16_t drop_reason_;
+    std::string nw_ace_uuid_;
+    FlowAction action_info_;
 
     RevFlowDepParams() : rev_uuid_(), rev_egress_uuid_(), sip_(), vmi_uuid_(),
-                         sg_uuid_(), vm_cfg_name_() {
+                         sg_uuid_(), vm_cfg_name_(), drop_reason_(),
+                         nw_ace_uuid_(), action_info_() {
     }
 
     RevFlowDepParams(const uuid &rev_uuid, const uuid &rev_egress_uuid,
                      IpAddress sip,
                      const std::string &vmi_uuid,
                      const std::string &sg_uuid,
-                     const std::string &vm_cfg_name) : rev_uuid_(rev_uuid),
+                     const std::string &vm_cfg_name,
+                     uint16_t &drop_reason,
+                     std::string &nw_ace_uuid,
+                     FlowAction &action_info) : rev_uuid_(rev_uuid),
         rev_egress_uuid_(rev_egress_uuid), sip_(sip), vmi_uuid_(vmi_uuid),
-        sg_uuid_(sg_uuid), vm_cfg_name_(vm_cfg_name) {
+        sg_uuid_(sg_uuid), vm_cfg_name_(vm_cfg_name),
+        drop_reason_(drop_reason), nw_ace_uuid_(nw_ace_uuid),
+        action_info_(action_info) {
     }
 };
 
