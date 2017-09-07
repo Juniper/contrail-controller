@@ -8,6 +8,7 @@ This file contains generic plugin implementation for juniper devices
 
 from ncclient import manager
 from ncclient.xml_ import new_ele
+from ncclient.operations.errors import TimeoutExpiredError
 import time
 import datetime
 from cStringIO import StringIO
@@ -42,7 +43,7 @@ class JuniperConf(DeviceConf):
         self._nc_manager = None
         self.user_creds = self.physical_router.user_credentials
         self.management_ip = self.physical_router.management_ip
-        self.timeout = 10
+        self.timeout = 120
         self.push_config_state = PushConfigState.PUSH_STATE_INIT
         super(JuniperConf, self).__init__()
     # end __init__
@@ -81,7 +82,7 @@ class JuniperConf(DeviceConf):
                 self._nc_manager = manager.connect(host=self.management_ip, port=22,
                              username=self.user_creds['username'],
                              password=self.user_creds['password'],
-                             timeout=10,
+                             timeout=self.timeout,
                              device_params = {'name':'junos'},
                              unknown_host_cb=lambda x, y: True)
             except Exception as e:
@@ -92,6 +93,12 @@ class JuniperConf(DeviceConf):
 
     def device_disconnect(self):
         if self._nc_manager and self._nc_manager.connected:
+            try:
+                self._nc_manager.close_session()
+            except Exception as e:
+               if self._logger:
+                   self._logger.error("could not close the netconf session: "
+                           " router %s: %s" % (self.management_ip, e.message))
             self._nc_manager = None
     # end device_disconnect
 
@@ -144,6 +151,12 @@ class JuniperConf(DeviceConf):
             self.commit_stats['last_commit_duration'] = str(
                     end_time - start_time)
             self.push_config_state = PushConfigState.PUSH_STATE_SUCCESS
+        except TimeoutExpiredError as e:
+            self._logger.error("Could not commit(timeout error): "
+                          "(%s, %ss)" % (self.management_ip, self.timeout))
+            self.device_disconnect()
+            self.timeout = 300
+            self.push_config_state = PushConfigState.PUSH_STATE_RETRY
         except Exception as e:
             self._logger.error("Router %s: %s" % (self.management_ip,
                                                       e.message))
