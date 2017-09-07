@@ -1289,6 +1289,7 @@ public:
     const boost::uuids::uuid &si_other_end_vmi() const {
         return si_other_end_vmi_;
     }
+    const std::string &service_intf_type() const { return service_intf_type_; }
     VmInterface * PortTuplePairedInterface() const;
 
     // Static methods
@@ -1498,6 +1499,7 @@ private:
     boost::uuids::uuid si_other_end_vmi_;
     //In case Vhost interface, uuid_ is stored here
     boost::uuids::uuid vmi_cfg_uuid_;
+    std::string service_intf_type_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -1675,6 +1677,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     uint8_t vhostuser_mode_;
     boost::uuids::uuid si_other_end_vmi;
     boost::uuids::uuid vmi_cfg_uuid_;
+    std::string service_intf_type_;
 };
 
 // Definition for structures when request queued from Nova

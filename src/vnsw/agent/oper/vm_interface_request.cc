@@ -89,7 +89,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false), 
     qos_config_uuid_(), learning_enabled_(false),
     vhostuser_mode_(VmInterface::vHostUserClient),
-    si_other_end_vmi(nil_uuid()), vmi_cfg_uuid_(nil_uuid()) {
+    si_other_end_vmi(nil_uuid()), vmi_cfg_uuid_(nil_uuid()),
+    service_intf_type_("") {
 }
 
 VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
@@ -510,6 +511,10 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
+    if (service_intf_type_ != data->service_intf_type_) {
+        service_intf_type_ = data->service_intf_type_;
+        ret = true;
+    }
     // Copy DHCP options; ret is not modified as there is no dependent action
     oper_dhcp_options_ = data->oper_dhcp_options_;
 

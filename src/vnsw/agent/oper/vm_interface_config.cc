@@ -1355,6 +1355,8 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         /* Overwrite service_intf_type if it is not left or right interface */
         if (service_intf_type != "left" && service_intf_type != "right") {
             service_intf_type = "";
+        } else {
+            data->service_intf_type_ = service_intf_type;
         }
     }
 

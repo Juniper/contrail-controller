@@ -918,6 +918,9 @@ void FlowEntry::RevFlowDepInfo(RevFlowDepParams *params) {
         params->vm_cfg_name_ = rev_flow->data().vm_cfg_name;
         params->sg_uuid_ = rev_flow->sg_rule_uuid();
         params->rev_egress_uuid_ = rev_flow->egress_uuid();
+        params->nw_ace_uuid_ = rev_flow->nw_ace_uuid();
+        params->drop_reason_ = rev_flow->data().drop_reason;
+        params->action_info_ = rev_flow->data().match_p.action_info;
         if (rev_flow->intf_entry()) {
             const VmInterface *vmi =
                 dynamic_cast<const VmInterface *>(rev_flow->intf_entry());
@@ -1256,13 +1259,16 @@ bool FlowEntry::IsClientFlow() {
      *                (Egress + Reverse)
      * then it will be consideres as client session
      */
-    if (((is_flags_set(FlowEntry::IngressDir)) &&
-         (!(is_flags_set(FlowEntry::ReverseFlow)))) ||
-        ((!(is_flags_set(FlowEntry::IngressDir))) &&
-         (is_flags_set(FlowEntry::ReverseFlow)))) {
-        return true;
+    if (is_flags_set(FlowEntry::IngressDir)) {
+        if (!(is_flags_set(FlowEntry::ReverseFlow))) {
+            return true;
+        }
+    } else {
+        if (is_flags_set(FlowEntry::ReverseFlow)) {
+            return true;
+        }
     }
-     return false;
+    return false;
 }
 
 bool FlowEntry::IsServerFlow() {
@@ -1280,11 +1286,14 @@ bool FlowEntry::IsServerFlow() {
      *                (Ingress + Reverse)
      * then it will be consideres as server session
      */
-    if (((!(is_flags_set(FlowEntry::IngressDir))) &&
-         (!(is_flags_set(FlowEntry::ReverseFlow)))) ||
-        ((is_flags_set(FlowEntry::IngressDir)) &&
-         (is_flags_set(FlowEntry::ReverseFlow)))) {
-        return true;
+    if (!(is_flags_set(FlowEntry::IngressDir))) {
+        if (!(is_flags_set(FlowEntry::ReverseFlow))) {
+            return true;
+        }
+    } else {
+        if (is_flags_set(FlowEntry::ReverseFlow)) {
+            return true;
+        }
     }
     return false;
 }
