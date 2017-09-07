@@ -321,3 +321,32 @@ trace sandesh ConfigurationMissingTypeWarningTrace {
     1: string uuid
     2: string type
 }
+
+/**
+ * @description: Trace message for Config Client Manager
+ * @severity: DEBUG
+ */
+trace sandesh ConfigClientRabbitMQMsgTrace {
+    1: "Received "
+    2: string oper
+    3: " for object type:"
+    4: string obj_type
+    5: " with FQ name:"
+    6: string fqname
+    7: " and uuid:"
+    8: string uuid
+}
+
+/**
+ * @description: Trace message for Config Client Manager
+ * @severity: DEBUG
+ */
+trace sandesh ConfigClientFQNameCacheTrace {
+    1: string message
+    2: " for object type:"
+    3: string obj_type
+    4: " with FQ name:"
+    5: string fqname
+    6: " and uuid:"
+    7: string uuid
+}
