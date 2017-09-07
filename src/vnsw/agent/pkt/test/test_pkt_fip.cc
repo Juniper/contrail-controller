@@ -651,7 +651,7 @@ TEST_F(FlowTest, ServerToVm_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(forwarding_vrf->GetName(), vhost_addr, "80.80.80.80", 
                         1, 0, 0, false, agent_->fabric_vn_name().c_str(),
-                        agent_->fabric_vn_name().c_str(), 1,
+                        "__UNKNOWN__", 1,
                         true, false, vhost->flow_key_nh()->id()));
 
     EXPECT_TRUE(FlowDelete(forwarding_vrf->GetName(), vhost_addr, "80.80.80.80",
@@ -713,8 +713,8 @@ TEST_F(FlowTest, ServerToVm_2) {
     TxIpPacketUtil(vhost->id(), src_ip, "80.80.80.80", 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(forwarding_vrf->GetName(), src_ip, "80.80.80.80",
-                        1, 0, 0, false, agent_->fabric_vn_name().c_str(),
-                        agent_->fabric_vn_name().c_str(), 1,
+                        1, 0, 0, false, "__UNKNOWN__",
+                        "__UNKNOWN__", 1,
                         true, false, vhost->flow_key_nh()->id()));
 
     EXPECT_TRUE(FlowDelete(forwarding_vrf->GetName(), src_ip, "80.80.80.80",

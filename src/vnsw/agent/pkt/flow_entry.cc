@@ -1325,6 +1325,14 @@ void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
                     data_.src_policy_plen = inet_rt->plen();
                     data_.src_policy_vrf = inet_rt->vrf()->vrf_id();
                 } else {
+                    if (is_flags_set(FlowEntry::LinkLocalFlow) == false) {
+                        //Check of linklocal flow is done, since link local
+                        //routes wouldnt be found in policy VRF
+                        //Removing this check should be fine as link local
+                        //flow don go thru policy, retaining it to reflect
+                        //old flow behaviour
+                        rt = NULL;
+                    }
                     data_.src_policy_plen = 0;
                     data_.src_policy_vrf  = data_.intf_entry->vrf()->vrf_id();
                 }
@@ -1383,6 +1391,14 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
                     data_.dst_policy_plen = 0;
                     data_.dst_policy_vrf  = data_.intf_entry->vrf()->vrf_id();
                     path = NULL;
+                    if (is_flags_set(FlowEntry::LinkLocalFlow) == false) {
+                        //Check of linklocal flow is done, since link local
+                        //routes wouldnt be found in policy VRF
+                        //Removing this check should be fine as link local
+                        //flow don go thru policy, retaining it to reflect
+                        //old flow behaviour
+                        rt = NULL;
+                    }
                 }
             }
         }
