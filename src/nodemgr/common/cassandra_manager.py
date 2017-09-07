@@ -22,12 +22,13 @@ from database.sandesh.database.ttypes import CassandraThreadPoolStats,\
 
 class CassandraManager(object):
     def __init__(self, cassandra_repair_logdir, db_name, contrail_databases,
-                 hostip, minimum_diskgb):
+                 hostip, minimum_diskgb, db_port):
         self.cassandra_repair_logdir = cassandra_repair_logdir
         self._db_name = db_name
         self.contrail_databases = contrail_databases
         self.hostip = hostip
         self.minimum_diskgb = minimum_diskgb
+        self.db_port = db_port
         # Initialize tpstat structures
         self.cassandra_status_old = CassandraStatusData()
         self.cassandra_status_old.cassandra_compaction_task = CassandraCompactionTask()
@@ -247,7 +248,7 @@ class CassandraManager(object):
             event_mgr.msg_log(msg, level=SandeshLevel.SYS_ERR)
             event_mgr.fail_status_bits |= event_mgr.FAIL_STATUS_DISK_SPACE_NA
 
-        cqlsh_cmd = "cqlsh " + self.hostip + " -e quit"
+        cqlsh_cmd = "cqlsh " + self.hostip + " " + self.db_port + " -e quit"
         proc = subprocess.Popen(cqlsh_cmd, shell=True, stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE, close_fds=True)
         (output, errout) = proc.communicate()
