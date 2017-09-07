@@ -167,7 +167,8 @@ bool ConfigCassandraClient::ReadObjUUIDTable(set<string> *uuid_list) {
     field_vec.push_back(boost::make_tuple("value", false, false, true));
 
     if (dbif_->Db_GetMultiRow(&col_list_vec, kUuidTableName, keys,
-                              crange, field_vec)) {
+                              crange, field_vec,
+                              GenDb::DbConsistency::QUORUM)) {
         // Failure is returned due to connectivity issue or consistency
         // issues in reading from cassandra
         HandleCassandraConnectionStatus(true);
