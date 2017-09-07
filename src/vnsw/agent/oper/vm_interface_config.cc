@@ -1352,6 +1352,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     if (cfg->IsPropertySet(VirtualMachineInterface::PROPERTIES)) {
         service_intf_type = cfg->properties().service_interface_type;
+        data->service_intf_type_ = cfg->properties().service_interface_type;
         /* Overwrite service_intf_type if it is not left or right interface */
         if (service_intf_type != "left" && service_intf_type != "right") {
             service_intf_type = "";

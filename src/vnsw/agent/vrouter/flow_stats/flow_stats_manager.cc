@@ -317,7 +317,7 @@ void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
     SessionStatsCollector *ssc = NULL;
     ssc = session_stats_collector_obj_->FlowToCollector(flow.get());
     if (ssc) {
-        ssc->DeleteEvent(flow);
+        ssc->DeleteEvent(flow, params);
     }
 }
 
@@ -337,6 +337,12 @@ void FlowStatsManager::UpdateStatsEvent(const FlowEntryPtr &flow,
     }
 
     fsc->UpdateStatsEvent(flow, bytes, packets, oflow_bytes, u);
+
+    SessionStatsCollector *ssc = NULL;
+    ssc = session_stats_collector_obj_->FlowToCollector(flow.get());
+    if (ssc) {
+        ssc->UpdateSessionStatsEvent(flow, bytes, packets, oflow_bytes, u);
+    }
 }
 
 uint32_t FlowStatsManager::AllocateIndex() {
