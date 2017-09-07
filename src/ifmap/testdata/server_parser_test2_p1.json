@@ -58,7 +58,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"vn1\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"6:634ae160-d3ef-4e81-b58d-d196211eb4d9\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":[\"vn1\"],\"type\":\"virtual_network\",\"uuid\":\"6:634ae160-d3ef-4e81-b58d-d196211eb4d9\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -79,7 +79,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"vn2\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"7:634ae160-d3ef-4e82-b58d-d196211eb4da\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":[\"vn2\"],\"type\":\"virtual_network\",\"uuid\":\"7:634ae160-d3ef-4e82-b58d-d196211eb4da\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",
@@ -100,7 +100,7 @@
   },
   {
     "operation": "rabbit_enqueue",
-    "message": "{\"oper\":\"UPDATE\",\"fq_name\":\"[\\\"vn3\\\"]\",\"type\":\"virtual_network\",\"uuid\":\"8:634ae160-d3ef-4e83-b58d-d196211eb4db\"}",
+    "message": "{\"oper\":\"UPDATE\",\"fq_name\":[\"vn3\"],\"type\":\"virtual_network\",\"uuid\":\"8:634ae160-d3ef-4e83-b58d-d196211eb4db\"}",
     "db": {
       "634ae160-d3ef-4e81-b58d-d196211eb4d9": {
         "fq_name": "[\"vn1\"]",

@@ -233,6 +233,7 @@ class ConfigCassandraClient : public ConfigDbClient {
     virtual void AddFQNameCache(const std::string &uuid,
                                 const std::string &fq_name,
                                 const std::string &obj_type);
+    virtual std::string FindFQName(const std::string &uuid) const;
     virtual void InvalidateFQNameCache(const std::string &uuid);
     void PurgeFQNameCache(const std::string &uuid);
 
