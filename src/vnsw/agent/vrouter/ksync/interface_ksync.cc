@@ -447,11 +447,15 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             fat_flow_list_ = vm_intf->fat_flow_list();
             ret = true;
         }
-        if ((allowed_address_pair_list_.list_.size() !=
-             vm_intf->allowed_address_pair_list().list_.size()) ||
-            (allowed_address_pair_list_.list_ !=
-             vm_intf->allowed_address_pair_list().list_)) {
-            allowed_address_pair_list_ = vm_intf->allowed_address_pair_list();
+        std::set<MacAddress> aap_mac_list;
+        for (VmInterface::AllowedAddressPairSet::iterator aap_it =
+             vm_intf->allowed_address_pair_list().list_.begin();
+             aap_it != vm_intf->allowed_address_pair_list().list_.end();
+             ++aap_it) {
+            aap_mac_list.insert(aap_it->mac_);
+        }
+        if (aap_mac_list_ != aap_mac_list) {
+            aap_mac_list_.swap(aap_mac_list);
             ret = true;
         }
         pbb_mac_ = vm_intf->vm_mac();
@@ -693,13 +697,10 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             std::vector<int8_t> mac;
             mac.insert(mac.begin(), (const int8_t *)smac(),
                        (const int8_t *)smac() + smac().size());
-            VmInterface::AllowedAddressPairSet::iterator it =
-                allowed_address_pair_list_.list_.begin();
-            while (it != allowed_address_pair_list_.list_.end()) {
-                const VmInterface::AllowedAddressPair &aap_entry = *it;
-                mac.insert(mac.end(), (const int8_t *)aap_entry.mac_,
-                          (const int8_t *)aap_entry.mac_ + aap_entry.mac_.size());
-                it++;
+            for (std::set<MacAddress>::iterator it = aap_mac_list_.begin();
+                 it != aap_mac_list_.end(); ++it) {
+                mac.insert(mac.end(), (const int8_t *)(*it),
+                           (const int8_t *)(*it) + (*it).size());
             }
             encoder.set_vifr_src_mac(mac);
         }
