@@ -140,24 +140,39 @@ class ICCassandraClient():
     def issu_sync_row(self, msg, cf):
         if msg['oper'] == "CREATE":
             self._logger(msg, level=SandeshLevel.SYS_INFO)
-            self._newversion_handle.object_create(
-                msg['type'], msg['uuid'], msg['obj_dict'])
+            try:
+                self._newversion_handle.object_create(
+                    msg['type'], msg['uuid'], msg['obj_dict'])
+            except Exception as e:
+                self._logger(str(e), level=SandeshLevel.SYS_ERR)
+
         elif msg['oper'] == "UPDATE":
             self._logger(msg, level=SandeshLevel.SYS_INFO)
             uuid_list = []
             uuid_list.append(msg['uuid'])
-            bool1, current = self._newversion_handle.object_read(
-                msg['type'], uuid_list)
-            bool2, new = self._oldversion_handle.object_read(
-                msg['type'], uuid_list)
+            try:
+                bool1, current = self._newversion_handle.object_read(
+                    msg['type'], uuid_list)
+                bool2, new = self._oldversion_handle.object_read(
+                    msg['type'], uuid_list)
+            except Exception as e:
+                self._logger(str(e), level=SandeshLevel.SYS_ERR)
+                return
             updated = self._merge_overwrite(
                 dict(new.pop()), dict(current.pop()))
             #  New object dictionary should be created, for now passing as is
-            self._newversion_handle.object_update(
-                msg['type'], msg['uuid'], updated)
+            try:
+                self._newversion_handle.object_update(
+                    msg['type'], msg['uuid'], updated)
+            except Exception as e:
+                self._logger(str(e), level=SandeshLevel.SYS_ERR)
+
         elif msg['oper'] == "DELETE":
             self._logger(msg, level=SandeshLevel.SYS_INFO)
-            self._newversion_handle.object_delete(
-                msg['type'], msg['uuid'])
+            try:
+                self._newversion_handle.object_delete(
+                    msg['type'], msg['uuid'])
+            except Exception as e:
+                self._logger(str(e), level=SandeshLevel.SYS_ERR)
         return
     # end
