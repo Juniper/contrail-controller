@@ -317,7 +317,7 @@ void FlowStatsManager::DeleteEvent(const FlowEntryPtr &flow,
     SessionStatsCollector *ssc = NULL;
     ssc = session_stats_collector_obj_->FlowToCollector(flow.get());
     if (ssc) {
-        ssc->DeleteEvent(flow);
+        ssc->DeleteEvent(flow, params);
     }
 }
 
