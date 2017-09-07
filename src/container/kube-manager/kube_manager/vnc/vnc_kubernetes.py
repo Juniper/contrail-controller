@@ -181,29 +181,39 @@ class VncKubernetes(VncCommon):
             pfx, pfx_len = subnet.split('/')
             ipam_subnet = IpamSubnetType(subnet=SubnetType(pfx, int(pfx_len)))
             ipam_subnets.append(ipam_subnet)
+        if not len(ipam_subnets):
+            self.logger.error("%s - %s subnet is empty for %s" \
+                 %(self._name, ipam_name, subnets))
 
         if type == 'flat-subnet':
             ipam_obj.set_ipam_subnet_method('flat-subnet')
             ipam_obj.set_ipam_subnets(IpamSubnets(ipam_subnets))
 
+        ipam_update = False
         try:
             ipam_uuid = self.vnc_lib.network_ipam_create(ipam_obj)
+            ipam_update = True
         except RefsExistError:
             ipam_obj = self.vnc_lib.network_ipam_read(
                 fq_name=ipam_obj.get_fq_name())
             ipam_uuid = ipam_obj.get_uuid()
+            if type == 'flat-subnet' and not ipam_vnc_obj.get_ipam_subnets():
+                self.vnc_lib.network_ipam_update(ipam_obj)
+                ipam_update = True
 
         # Cache ipam info.
         NetworkIpamKM.locate(ipam_uuid)
 
-        return ipam_obj, ipam_subnets
+        return ipam_update, ipam_obj, ipam_subnets
 
-    def _is_ipam_exists(self, vn_obj, ipam_fq_name):
+    def _is_ipam_exists(self, vn_obj, ipam_fq_name, subnet=None):
         curr_ipam_refs = vn_obj.get_network_ipam_refs()
         if curr_ipam_refs:
             for ipam_ref in curr_ipam_refs:
                 if ipam_fq_name == ipam_ref['to']:
-                    return True
+                    if subnet and len(ipam_ref['attr'].ipam_subnets) and \
+                       subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
+                        return True
         return False
 
     def _create_cluster_network(self, vn_name, proj_obj):
@@ -221,8 +231,9 @@ class VncKubernetes(VncCommon):
             vn_obj = vn
 
         # Create Pod IPAM.
-        pod_ipam_obj, pod_ipam_subnets= self._create_ipam('pod-ipam',
-            self.args.pod_subnets, proj_obj, type='flat-subnet')
+        pod_ipam_update, pod_ipam_obj, pod_ipam_subnets = \
+            self._create_ipam('pod-ipam',
+                self.args.pod_subnets, proj_obj, type='flat-subnet')
 
         # Cache cluster pod ipam name.
         # This will be referenced by ALL pods that are spawned in the cluster.
@@ -233,19 +244,23 @@ class VncKubernetes(VncCommon):
         # For flat-subnets, the subnets are specified on the IPAM and
         # not on the virtual-network to IPAM link. So pass an empty
         # list of VnSubnetsType.
-        if not self._is_ipam_exists(vn_obj, pod_ipam_obj.get_fq_name()):
+        if pod_ipam_update or \
+           not self._is_ipam_exists(vn_obj, pod_ipam_obj.get_fq_name()):
             vn_obj.add_network_ipam(pod_ipam_obj, VnSubnetsType([]))
 
         #
         # Create Service IPAM.
         #
-        svc_ipam_obj, svc_ipam_subnets = self._create_ipam('service-ipam',
-            self.args.service_subnets, proj_obj)
+        svc_ipam_update, svc_ipam_obj, svc_ipam_subnets = \
+            self._create_ipam('service-ipam', self.args.service_subnets, proj_obj)
 
         # Attach Service IPAM to virtual-network.
-        if not self._is_ipam_exists(vn_obj, svc_ipam_obj.get_fq_name()):
-            vn_obj.add_network_ipam(svc_ipam_obj,
-                VnSubnetsType(svc_ipam_subnets))
+        svc_subnet = None
+        if len(svc_ipam_subnets):
+            svc_subnet = svc_ipam_subnets[0].subnet
+        if svc_ipam_update or \
+           not self._is_ipam_exists(vn_obj, svc_ipam_obj.get_fq_name(), svc_subnet):
+            vn_obj.add_network_ipam(svc_ipam_obj, VnSubnetsType(svc_ipam_subnets))
 
         vn_obj.set_virtual_network_properties(
              VirtualNetworkType(forwarding_mode='l3'))
