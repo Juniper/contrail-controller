@@ -41,13 +41,15 @@ class ConfigEventManager(EventManager):
         super(ConfigEventManager, self).__init__(config, type_info, rule_file,
                 sandesh_global)
         self.hostip = config.hostip
+        self.db_port = config.db_port
         self.minimum_diskgb = config.minimum_diskgb
         self.contrail_databases = config.contrail_databases
         self.cassandra_repair_interval = config.cassandra_repair_interval
         self.cassandra_repair_logdir = config.cassandra_repair_logdir
         self.cassandra_mgr = CassandraManager(self.cassandra_repair_logdir,
                                               'configDb', self.contrail_databases,
-                                              self.hostip, self.minimum_diskgb)
+                                              self.hostip, self.minimum_diskgb,
+                                              self.db_port)
     # end __init__
 
     def get_failbits_nodespecific_desc(self, fail_status_bits):
