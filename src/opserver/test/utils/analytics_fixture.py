@@ -2241,8 +2241,7 @@ class AnalyticsFixture(fixtures.Fixture):
     @retry(delay=2, tries=5)
     def verify_opserver_redis_uve_connection(self, opserver, connected=True):
         self.logger.info('verify_opserver_redis_uve_connection')
-        vops = VerificationOpsSrv('127.0.0.1', opserver.http_port,
-            self.admin_user, self.admin_password)
+        vops = VerificationOpsSrvIntrospect('127.0.0.1', opserver.http_port)
         try:
             redis_uve = vops.get_redis_uve_info()['RedisUveInfo']
             if redis_uve['status'] == 'Connected':
@@ -2252,17 +2251,28 @@ class AnalyticsFixture(fixtures.Fixture):
         return not connected
     # end verify_opserver_redis_uve_connection
 
-    def get_ops_vns(self, opserver, token):
-        self.logger.info('get_ops_vns')
+    def get_opserver_vns(self, token):
+        self.logger.info('get_opserver_vns')
         headers = {'X-Auth-Token' : token}
-        vops = VerificationOpsSrvIntrospect('127.0.0.1', self.opserver.rest_api_port,
-            self.admin_user, self.admin_password, headers=headers)
+        vops = VerificationOpsSrv('127.0.0.1', self.opserver.rest_api_port,
+            headers=headers)
         try:
             return vops.get_ops_vns()
         except Exception as err:
             self.logger.error('Exception: %s' % err)
         return []
     #end get_uves
+
+    def get_opserver_alarms(self, token=None):
+        self.logger.info('get_opserver_alarms')
+        if token:
+            headers = {'X-Auth-Token' : token}
+        else:
+            headers = None
+        vops = VerificationOpsSrv('127.0.0.1', self.opserver.rest_api_port,
+            headers=headers)
+        return vops.get_alarms(filters=None)
+    #end get_opserver_alarms
 
     @retry(delay=2, tries=5)
     def set_opserver_db_info(self, opserver,
@@ -2271,8 +2281,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              disk_usage_percentage_out = None,
                              pending_compaction_tasks_out = None):
         self.logger.info('set_opserver_db_info')
-        vops = VerificationOpsSrvIntrospect('127.0.0.1', opserver.http_port,
-            self.admin_user, self.admin_password)
+        vops = VerificationOpsSrvIntrospect('127.0.0.1', opserver.http_port)
         try:
             vops.db_info_set_request(disk_usage_percentage_in,
                                      pending_compaction_tasks_in)

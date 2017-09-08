@@ -16,12 +16,8 @@ from opserver_results import *
 from opserver.opserver_util import OpServerUtils
 
 class VerificationOpsSrvIntrospect (IntrospectUtilBase):
-    def __init__(self, ip, port, user='test', password='password', \
-            headers=None):
+    def __init__(self, ip, port):
         super(VerificationOpsSrvIntrospect, self).__init__(ip, port, drv=XmlDrv)
-        self._user = user
-        self._password = password
-        self._headers = headers
 
     def db_info_set_request(self, disk_usage_percentage,
                             pending_compaction_tasks):
@@ -43,35 +39,43 @@ class VerificationOpsSrvIntrospect (IntrospectUtilBase):
         p = self.dict_get(path)
         return EtreeToDict(xpath).get_all_entry(p)
 
-    def get_ops_vns(self):
-        res = dict()
-        try:
-            res = self.dict_get('analytics/uves/virtual-networks',
-                user=self._user, password=self._password,
-                headers=self._headers, drv=JsonDrv)
-        except Exception as e:
-            print e
-        finally:
-            return res
+    def get_redis_uve_info(self):
+        path = 'Snh_RedisUVERequest'
+        xpath = '/RedisUVEResponse/redis_uve_info'
+        p = self.dict_get(path)
+        return EtreeToDict(xpath).get_all_entry(p)
 
 class VerificationOpsSrv (IntrospectUtilBase):
     def __init__(self, ip, port=8181, user='test',
-                 password='password'):
-        super(VerificationOpsSrv, self).__init__(ip, port)
+                 password='password', headers=None):
+        super(VerificationOpsSrv, self).__init__(ip, port, drv=JsonDrv)
         self._user = user
         self._password = password
+        self._headers = headers
 
     def get_ops_vm(self, vm='default-virtual-machine'):
         vm_dict = self.dict_get('analytics/uves/virtual-machine/' + vm,
-            user=self._user, password=self._password)
+            user=self._user, password=self._password, headers=self._headers)
         return OpVMResult(vm_dict)
 
     def get_ops_vn(self, vn='default-virtual-network'):
         res = None
         try:
             vn_dict = self.dict_get('analytics/uves/virtual-network/' + vn,
-                user=self._user, password=self._password)
+                user=self._user, password=self._password,
+                headers=self._headers)
             res = OpVNResult(vn_dict)
+        except Exception as e:
+            print e
+        finally:
+            return res
+
+    def get_ops_vns(self):
+        res = dict()
+        try:
+            res = self.dict_get('analytics/uves/virtual-networks',
+                user=self._user, password=self._password,
+                headers=self._headers)
         except Exception as e:
             print e
         finally:
@@ -83,7 +87,8 @@ class VerificationOpsSrv (IntrospectUtilBase):
         res = None
         try:
             col_dict = self.dict_get('analytics/uves/analytics-node/' + col,
-                user=self._user, password=self._password)
+                user=self._user, password=self._password,
+                headers=self._headers)
             res = OpCollectorResult(col_dict)
         except Exception as e:
             print e
@@ -93,20 +98,20 @@ class VerificationOpsSrv (IntrospectUtilBase):
     def send_tracebuffer_req(self, src, mod, instance, buf_name):
         return self.dict_get('analytics/send-tracebuffer/%s/%s/%s/%s' \
                              % (src, mod, instance, buf_name), user=self._user,
-                             password=self._password)
+                             password=self._password, headers=self._headers)
 
     def get_table_column_values(self, table, col_name):
         return self.dict_get('analytics/table/%s/column-values/%s' \
                              % (table, col_name), user=self._user,
-                             password=self._password)
+                             password=self._password, headers=self._headers)
 
     def uve_query(self, table, query):
         return self.dict_get('analytics/uves/%s' % (table), query,
-            user=self._user, password=self._password)
+            user=self._user, password=self._password, headers=self._headers)
 
     def get_alarms(self, filters):
         return self.dict_get('analytics/alarms', filters, user=self._user,
-            password=self._password)
+            password=self._password, headers=self._headers)
 
     def post_uve_request(self, table, json_body):
         url = 'http://%s:%s/analytics/uves/%s' % (self._ip, str(self._port), table)
@@ -120,12 +125,6 @@ class VerificationOpsSrv (IntrospectUtilBase):
         else:
             return res
     # end post_uve_request
-
-    def get_redis_uve_info(self):
-        path = 'Snh_RedisUVERequest'
-        xpath = '/RedisUVEResponse/redis_uve_info'
-        p = self.dict_get(path, None, XmlDrv)
-        return EtreeToDict(xpath).get_all_entry(p)
 
     def post_query_json(self, json_str, sync=True):
         '''

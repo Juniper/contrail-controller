@@ -654,16 +654,38 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         mock_is_role_cloud_admin.return_value=True
         mock_get_resource_list_from_uve_type.return_value=None
         # for admin role, there should be 2 vn uves
-        uves = vizd_obj.get_ops_vns(vizd_obj.opserver, token)
+        uves = vizd_obj.get_opserver_vns(token)
         assert (len(uves) == 2)
         mock_is_role_cloud_admin.return_value=False
         mock_get_resource_list_from_uve_type.return_value=set(["default-domain:vn0"])
         token = 'user:default-domain:vn0'
         # for non-admin role, there should be 1 vn uve
-        uves = vizd_obj.get_ops_vns(vizd_obj.opserver, token)
+        uves = vizd_obj.get_opserver_vns(token)
         assert (len(uves) == 1)
         return True
     # end test_16_rbac
+
+    #@unittest.skip('check for rbac permissions for alarms')
+    @mock.patch.object(OpServer, 'is_role_cloud_admin')
+    def test_17_rbac_alarms(self, mock_is_role_cloud_admin):
+        logging.info("%%% test_17_rbac_alarms %%%")
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        # Check that the analytics/alarms API cannot be accessed
+        # without tokens
+        mock_is_role_cloud_admin.return_value=True
+        try:
+            vizd_obj.get_opserver_alarms()
+        except Exception as err:
+            logging.error('Exception: %s' % err)
+            return True
+        return False
+    # end test_17_rbac_alarms
 
     @staticmethod
     def get_free_port():
