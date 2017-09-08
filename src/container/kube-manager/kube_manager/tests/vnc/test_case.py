@@ -94,7 +94,7 @@ class KMTestCase(test_common.TestCase):
         exceptions = test_common.ErrorInterceptingLogger.get_exceptions()
         if exceptions:
             raise AssertionError(
-                "Tracebacks found in logs:\n\n{}".format(
+                "Tracebacks found in logs (count={}):\n\n{}".format(len(exceptions),
                     "\n\n".join(msg for msg, _, __ in exceptions)))
 
     @classmethod
