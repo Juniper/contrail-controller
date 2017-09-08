@@ -62,6 +62,7 @@ local_sources = [
     'kube_manager/tests/vnc/test_case.py',
     'kube_manager/tests/vnc/test_config_db.py',
     'kube_manager/tests/vnc/test_vnc_endpoints.py',
+    'kube_manager/tests/vnc/test_vnc_ingress.py',
     'kube_manager/tests/vnc/test_vnc_kubernetes.py',
     'kube_manager/tests/vnc/test_vnc_namespace.py',
     'kube_manager/tests/vnc/test_vnc_pod.py',
