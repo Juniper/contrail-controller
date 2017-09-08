@@ -121,25 +121,27 @@ static string InetRouteFlowMgmtKeyToString(uint16_t id,
     fe->SetEventSandeshData(&flow_index_info);\
     data.set_flow_index_info(flow_index_info); \
     FlowEntryInfo *mgmt_info = fe->flow_mgmt_info(); \
-    const FlowMgmtKeyTree &key_tree = mgmt_info->tree(); \
-    FlowMgmtKeyTree::const_iterator kt_it = key_tree.begin(); \
-    std::vector<SandeshInetRouteFlowMgmtEntryLink> key_list;\
-    while (kt_it != key_tree.end()) { \
-        InetRouteFlowMgmtKey *key = dynamic_cast<InetRouteFlowMgmtKey *> \
+    if (mgmt_info) {\
+        const FlowMgmtKeyTree &key_tree = mgmt_info->tree(); \
+        FlowMgmtKeyTree::const_iterator kt_it = key_tree.begin(); \
+        std::vector<SandeshInetRouteFlowMgmtEntryLink> key_list;\
+        while (kt_it != key_tree.end()) { \
+            InetRouteFlowMgmtKey *key = dynamic_cast<InetRouteFlowMgmtKey *> \
             (kt_it->first);\
-        ++kt_it;\
-        if (!key) {\
-            continue;\
+            ++kt_it;\
+            if (!key) {\
+                continue;\
+            }\
+            if (id == 0xFFFF) {\
+                continue;\
+            }\
+            string key_str = InetRouteFlowMgmtKeyToString(id, key);\
+            SandeshInetRouteFlowMgmtEntryLink entry;\
+            entry.set_inet_route_flow_mgmt_key(key_str);\
+            key_list.push_back(entry);\
         }\
-        if (id == 0xFFFF) {\
-            continue;\
-        }\
-        string key_str = InetRouteFlowMgmtKeyToString(id, key);\
-        SandeshInetRouteFlowMgmtEntryLink entry;\
-        entry.set_inet_route_flow_mgmt_key(key_str);\
-        key_list.push_back(entry);\
+        data.set_inet_rt_keys(key_list);\
     }\
-    data.set_inet_rt_keys(key_list);
 
 const std::string PktSandeshFlow::start_key = "0-0-0-0-0-0.0.0.0-0.0.0.0";
 
