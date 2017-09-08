@@ -161,7 +161,6 @@ class QfxConf(JuniperConf):
             if not self.is_spine():
                 self.add_vni_option(network_id, route_target)
         term.set_then(Then(accept=''))
-        ps.set_then(Then(reject=''))
         policy_config.add_policy_statement(ps)
         self.add_to_global_switch_opts(DMUtils.make_import_name(ri_name), True)
 
