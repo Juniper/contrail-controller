@@ -120,7 +120,7 @@ private:
     Interface::Transport transport_;
     bool flood_unknown_unicast_;
     VmInterface::FatFlowList fat_flow_list_;
-    VmInterface::AllowedAddressPairList allowed_address_pair_list_;
+    std::set<MacAddress> aap_mac_list_;
     KSyncEntryPtr qos_config_;
     bool learning_enabled_;
     uint32_t isid_;
