@@ -15,6 +15,13 @@ from vnc_api.vnc_api import (AddressType, SubnetType, PolicyRuleType,
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
 
+_PROTO_STR_TO_NUM = {
+    'icmp6': '58',
+    'icmp': '1',
+    'tcp': '6',
+    'udp': '17',
+    'any': 'any',
+}
 
 class VerifySecurityGroup(VerifyPolicy):
     def __init__(self, vnc_lib):
@@ -68,6 +75,21 @@ class VerifySecurityGroup(VerifyPolicy):
             raise Exception('sg %s/%s not found in %s' %
                         (str(fq_name), str(sg_id), acl_name))
         return
+
+    @retries(5)
+    def check_acl_match_protocol(self, fq_name, acl_name,protocol): #,acl_name, sg_id, is_all_rules = False):
+        sg_obj = self._vnc_lib.security_group_read(fq_name)
+        acls = sg_obj.get_access_control_lists()
+        acl = None
+        for acl_to in acls or []:
+            if (acl_to['to'][-1] == acl_name):
+                acl = self._vnc_lib.access_control_list_read(id=acl_to['uuid'])
+                break
+        self.assertTrue(acl != None)
+        match = False
+        for rule in acl.access_control_list_entries.acl_rule:
+             self.assertEqual(rule.match_condition.protocol,
+                              _PROTO_STR_TO_NUM.get(protocol.lower()))
 
     @retries(5)
     def check_no_policies_for_sg(self, fq_name):
@@ -144,7 +166,7 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
             if protocol < 0 or protocol > 255:
                 raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
         else:
-            if protocol not in ['any', 'tcp', 'udp', 'icmp']:
+            if protocol not in ['any', 'tcp', 'udp', 'icmp', 'icmp6']:
                 raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
 
         if not ip_prefix and not sg_fq_name_str:
@@ -455,3 +477,41 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
                                     'egress-access-control-list',
                                     sg1_obj.get_security_group_id())
     #end test_delete_sg
+
+    def test_create_sg_check_acl_protocol(self):
+        #create sg and associate egress rule and check acls
+        sg1_obj = self.security_group_create('sg-%s' %(self.id()), ['default-domain',
+                                                      'default-project'])
+        self.wait_to_get_sg_id(sg1_obj.get_fq_name())
+        sg1_obj = self._vnc_lib.security_group_read(sg1_obj.get_fq_name())
+        rule1 = {}
+        rule1['ip_prefix'] = None
+        rule1['protocol'] = 'icmp6'
+        rule1['ether_type'] = 'IPv6'
+        rule1['sg_id'] = sg1_obj.get_security_group_id()
+
+        rule1['direction'] = 'ingress'
+        rule1['port_min'] = 1
+        rule1['port_max'] = 100
+        rule_in_obj = self._security_group_rule_build(rule1,
+                                                      sg1_obj.get_fq_name_str())
+        self._security_group_rule_append(sg1_obj, rule_in_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+
+        self.check_acl_match_protocol(sg1_obj.get_fq_name(),
+                                      'ingress-access-control-list',
+                                      rule1['protocol'])
+
+        rule1['direction'] = 'egress'
+        rule1['port_min'] = 101
+        rule1['port_max'] = 200
+        rule1['protocol'] = 'icmp'
+        rule1['ether_type'] = 'IPv4'
+        rule_eg_obj = self._security_group_rule_build(rule1,
+                                                      sg1_obj.get_fq_name_str())
+        self._security_group_rule_append(sg1_obj, rule_eg_obj)
+        self._vnc_lib.security_group_update(sg1_obj)
+        self.check_acl_match_protocol(sg1_obj.get_fq_name(),
+                                      'egress-access-control-list',
+                                      rule1['protocol'])
+    # end test_create_sg_check_acl_protocol
