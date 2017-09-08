@@ -36,9 +36,16 @@ except:
     from ordereddict import OrderedDict
 import jsonpickle
 
-_PROTO_STR_TO_NUM = {
+_PROTO_STR_TO_NUM_IPV4 = {
     'icmp6': '58',
     'icmp': '1',
+    'tcp': '6',
+    'udp': '17',
+    'any': 'any',
+}
+_PROTO_STR_TO_NUM_IPV6 = {
+    'icmp6': '58',
+    'icmp': '58',
     'tcp': '6',
     'udp': '17',
     'any': 'any',
@@ -979,13 +986,16 @@ class VirtualNetworkST(DBBaseST):
     # end process_analyzer
 
     @staticmethod
-    def protocol_policy_to_acl(pproto):
+    def protocol_policy_to_acl(pproto, ethertype):
         # convert policy proto input(in str) to acl proto (num)
         if pproto is None:
             return 'any'
         if pproto.isdigit():
             return pproto
-        return _PROTO_STR_TO_NUM.get(pproto.lower())
+        if ethertype == 'IPv6':
+            return _PROTO_STR_TO_NUM_IPV6.get(pproto.lower())
+        else: # IPv4
+            return _PROTO_STR_TO_NUM_IPV4.get(pproto.lower())
     # end protocol_policy_to_acl
 
     def address_list_policy_to_acl(self, addr):
@@ -1010,7 +1020,7 @@ class VirtualNetworkST(DBBaseST):
         dp_list = prule.dst_ports
         rule_uuid = prule.get_rule_uuid()
 
-        arule_proto = self.protocol_policy_to_acl(prule.protocol)
+        arule_proto = self.protocol_policy_to_acl(prule.protocol, prule.ethertype)
         if arule_proto is None:
             self._logger.error("Unknown protocol %s" % prule.protocol)
             return result_acl_rule_list
@@ -1890,21 +1900,28 @@ class SecurityGroupST(DBBaseST):
         return True
     # end _convert_security_group_name_to_id
 
+    @staticmethod
+    def protocol_policy_to_acl(pproto, ethertype):
+        # convert policy proto input(in str) to acl proto (num)
+        if pproto is None:
+            return None
+        if pproto.isdigit():
+            return pproto
+        if ethertype == 'IPv6':
+            return _PROTO_STR_TO_NUM_IPV6.get(pproto.lower())
+        else: # IPv4
+            return _PROTO_STR_TO_NUM_IPV4.get(pproto.lower())
+
     def policy_to_acl_rule(self, prule):
         ingress_acl_rule_list = []
         egress_acl_rule_list = []
         rule_uuid = prule.get_rule_uuid()
 
-        # convert policy proto input(in str) to acl proto (num)
-        if prule.protocol.isdigit():
-            arule_proto = prule.protocol
-        elif prule.protocol in _PROTO_STR_TO_NUM:
-            arule_proto = _PROTO_STR_TO_NUM[prule.protocol.lower()]
-        else:
+        ethertype = prule.ethertype
+        arule_proto = self.protocol_policy_to_acl(prule.protocol, ethertype)
+        if arule_proto is None:
             # TODO log unknown protocol
             return (ingress_acl_rule_list, egress_acl_rule_list)
-
-        ethertype = prule.ethertype
 
         acl_rule_list = None
         for saddr in prule.src_addresses:
