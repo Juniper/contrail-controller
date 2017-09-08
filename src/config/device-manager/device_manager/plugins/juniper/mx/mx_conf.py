@@ -43,9 +43,10 @@ class MxConf(JuniperConf):
     def add_pnf_logical_interface(self, junos_interface):
         if not self.interfaces_config:
             self.interfaces_config = Interfaces(comment=DMUtils.interfaces_comment())
-        family = Family(inet=FamilyInet([Address(name=junos_interface.ip)]))
+        family = Family(inet=FamilyInet(address=[Address(name=junos_interface.ip)]))
         unit = Unit(name=junos_interface.unit, vlan_id=junos_interface.vlan_tag, family=family)
-        interface = Interface(name=junos_interface.ifd_name, unit=unit)
+        interface = Interface(name=junos_interface.ifd_name)
+        interface.add_unit(unit)
         self.interfaces_config.add_interface(interface)
     # end add_pnf_logical_interface
 

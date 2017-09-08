@@ -1275,14 +1275,25 @@ class DMCassandraDB(VncObjectDBClient):
 
         network_id = self.pnf_network_allocator.alloc(si_id)
         vlan_alloc = self.get_pnf_vlan_allocator(pr_id)
-        vlan_alloc.reserve(0)
+        try:
+            vlan_alloc.reserve(0)
+        except ResourceExistsError:
+            # must have been reserved already, restart case
+            pass
         vlan_id = vlan_alloc.alloc(si_id)
         pr_set = self.get_si_pr_set(si_id)
         for other_pr_uuid in pr_set:
             if other_pr_uuid != pr_id:
-                self.get_pnf_vlan_allocator(other_pr_uuid).reserve(vlan_id)
+                try:
+                    self.get_pnf_vlan_allocator(other_pr_uuid).reserve(vlan_id)
+                except ResourceExistsError:
+                    pass
         unit_alloc = self.get_pnf_unit_allocator(pi_id)
-        unit_alloc.reserve(0)
+        try:
+            unit_alloc.reserve(0)
+        except ResourceExistsError:
+            # must have been reserved already, restart case
+            pass
         unit_id = unit_alloc.alloc(si_id)
         pnf_resources = {
             "network_id": str(network_id),
