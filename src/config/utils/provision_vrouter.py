@@ -40,7 +40,6 @@ class VrouterProvisioner(object):
                     time.sleep(3)
                 else:
                     raise
-
         gsc_obj = self._vnc_lib.global_system_config_read(
             fq_name=['default-global-system-config'])
         self._global_system_config_obj = gsc_obj
@@ -52,7 +51,9 @@ class VrouterProvisioner(object):
 
         if self._args.oper == 'add':
             self.add_vrouter()
+            self.add_vhost0_vmi()
         elif self._args.oper == 'del':
+            self.del_vhost0_vmi()
             self.del_vrouter()
         else:
             print "Unknown operation %s. Only 'add' and 'del' supported"\
@@ -158,6 +159,7 @@ class VrouterProvisioner(object):
             self._args.host_name, gsc_obj,
             virtual_router_ip_address=self._args.host_ip)
         vrouter_exists = True
+
         try:
             vrouter_obj = self._vnc_lib.virtual_router_read(
                 fq_name=vrouter_obj.get_fq_name())
@@ -172,14 +174,51 @@ class VrouterProvisioner(object):
         else:
             vrouter_obj.set_virtual_router_dpdk_enabled(False)
         if vrouter_exists:
+            self.vrouter_fq_name = vrouter_obj.get_fq_name()
             self._vnc_lib.virtual_router_update(vrouter_obj)
         else:
             try:
+                self.vrouter_fq_name = vrouter_obj.get_fq_name()
                 self._vnc_lib.virtual_router_create(vrouter_obj)
             except RefsExistError:
                 print "Already created!"
 
     # end add_vrouter
+
+    def add_vhost0_vmi(self):
+        vrouter_exists = True
+        try:
+            vrouter_obj = self._vnc_lib.virtual_router_read(
+                fq_name=self.vrouter_fq_name)
+        except NoIdError:
+            vrouter_exists = False
+
+        if not vrouter_exists:
+            print "No vrouter object found cannot add vhost0 vmi !"
+            return
+
+        vhost0_vmi_fq_name = self.vrouter_fq_name
+        vhost0_vmi_fq_name.append('vhost0')
+        vhost0_vmi_exists = True
+        vhost0_vmi =  VirtualMachineInterface(name="vhost0", parent_obj = vrouter_obj)
+        ip_fab_vn = self._vnc_lib.virtual_network_read(fq_name = [u'default-domain', u'default-project', u'ip-fabric'])
+        vhost0_vmi.set_virtual_network(ip_fab_vn)
+
+        try:
+            vhost0_vmi = self._vnc_lib.virtual_machine_interface_read(
+                fq_name = vhost0_vmi_fq_name)
+        except NoIdError:
+            vhost0_vmi_exists = False
+
+        if vhost0_vmi_exists:
+           self._vnc_lib.virtual_machine_interface_update(vhost0_vmi)
+        else:
+            try:
+                self._vnc_lib.virtual_machine_interface_create(vhost0_vmi)
+            except RefsExistError:
+                print "vhost0 vmi already created!"
+
+    # end add_vhost0_vmi
 
     def del_vrouter(self):
         gsc_obj = self._global_system_config_obj
@@ -187,6 +226,16 @@ class VrouterProvisioner(object):
         self._vnc_lib.virtual_router_delete(
             fq_name=vrouter_obj.get_fq_name())
     # end del_vrouter
+
+    def del_vhost0_vmi(self):
+        gsc_obj = self._global_system_config_obj
+        vrouter_obj = VirtualRouter(self._args.host_name, gsc_obj)
+        vhost0_vmi_fq_name = vrouter_obj.get_fq_name()
+        vhost0_vmi_fq_name.append('vhost0')
+        self._vnc_lib.virtual_machine_interface_delete(fq_name=vhost0_vmi_fq_name)
+        print "Deleted vhost0 vmi %s " % vhost0_vmi_fq_name
+
+    # end del_vhost0_vmi
 
 # end class VrouterProvisioner
 
