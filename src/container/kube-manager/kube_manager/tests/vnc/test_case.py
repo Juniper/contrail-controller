@@ -1,9 +1,11 @@
+import gc
 import sys
 import time
 import uuid
 import tempfile
 
 import gevent
+from greenlet import greenlet
 from cfgm_common import vnc_cgitb
 sys.path.append("../../config/common/tests")
 import test_common
@@ -91,10 +93,16 @@ class KMTestCase(test_common.TestCase):
         cls.kill_kube_manager()
         super(KMTestCase, cls).tearDownClass()
 
+        # Kill all remaining greenlets except for the main one
+        gevent.killall(
+            x for x in gc.get_objects()
+            if isinstance(x, gevent.Greenlet) and x != greenlet.getcurrent())
+
         exceptions = test_common.ErrorInterceptingLogger.get_exceptions()
         if exceptions:
             raise AssertionError(
-                "Tracebacks found in logs:\n\n{}".format(
+                "Tracebacks found in logs (count={}):\n\n{}".format(
+                    len(exceptions),
                     "\n\n".join(msg for msg, _, __ in exceptions)))
 
     @classmethod
