@@ -142,7 +142,8 @@ class AuthServiceKeystone(object):
             if args.keyfile and args.certfile:
                 certs=[args.certfile, args.keyfile, args.cafile]
             _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
-        identity_uri = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
+        identity_uri = args.identity_uri or \
+                       '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
         self._conf_info = {
             'auth_host': args.auth_host,
             'auth_port': args.auth_port,
