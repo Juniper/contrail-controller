@@ -193,6 +193,22 @@ class TestQfxBasicDM(TestCommonDM):
             raise Exception("l2 evpn config for ae intf not correct: " + ae_name)
     # end check_l2_evpn_config
 
+    @retries(5, hook=retry_exc_handler)
+    def check_l2_evpn_proto_config(self, vn_obj, vni):
+        ri = self._vnc_lib.routing_instance_read(fq_name=vn_obj.get_fq_name() + [vn_obj.name])
+        vrf_target = ri.get_route_target_refs()[0]['to'][0]
+        config = FakeDeviceConnect.get_xml_config()
+        protocols = config.get_protocols()
+        evpn_config = protocols.get_evpn()
+        if not evpn_config or not evpn_config.get_vni_options():
+            raise Exception("No Correct EVPN Config generated")
+        vni_options = evpn_config.get_vni_options()
+        for vni in vni_options.get_vni() or []:
+            if vni.name != str(vni) or vni.vrf_target != vrf_target:
+                return
+        raise Exception("No Correct EVPN Config generated")
+    # end check_l2_evpn_proto_config
+
     def check_l2_evpn_vrf_targets(self, target_id):
         config = FakeDeviceConnect.get_xml_config()
         protocols = config.get_protocols()
@@ -307,7 +323,7 @@ class TestQfxBasicDM(TestCommonDM):
         FakeNetconfManager.set_model(product)
 
         # create global vrouter config object
-        self.create_global_vrouter_config()
+        gv = self.create_global_vrouter_config()
         bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product=product)
 
         # enable vxlan routing on project
@@ -359,6 +375,10 @@ class TestQfxBasicDM(TestCommonDM):
         if 'qfx10' in self.product:
             self.check_ri_vlans_config(vn1_obj,
                  vn1_obj_properties.get_vxlan_network_identifier(), 'l3')
+
+        gv.set_vxlan_network_identifier_mode('configured')
+        self._vnc_lib.global_vrouter_config_update(gv)
+        self.check_l2_evpn_proto_config(vn1_obj, vn1_obj_properties.get_vxlan_network_identifier())
 
         # cleanup
         pr = self._vnc_lib.physical_router_read(fq_name=pr.get_fq_name())
