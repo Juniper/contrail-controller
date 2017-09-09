@@ -262,6 +262,8 @@ class VncCassandraClient(object):
                        "finish (%s)" % (key, cf_name, keys, columns, start,
                                         finish))
                 self._logger(msg, level=SandeshLevel.SYS_WARN)
+                # Remove the keys in rows with empty value
+                del results[key]
                 continue
             for col, val in results[key].items():
                 try:
