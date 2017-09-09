@@ -100,6 +100,7 @@ def parse_args(args_str):
         'admin_password': '',
         'admin_tenant_name': '',
         'admin_user_domain_name': None,
+        'identity_uri': None,
         'project_domain_name': None,
         'insecure': True,
         'cafile': '',
