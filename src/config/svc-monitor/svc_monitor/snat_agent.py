@@ -114,7 +114,8 @@ class SNATAgent(Agent):
         rt_obj = self._get_route_table(router_obj)
         if rt_obj and not rt_obj.get_logical_router_back_refs():
             # remove route table links from all networks connected to logical router
-            for vn_ref in rt_obj.virtual_network_back_refs or []:
+            vn_refs = rt_obj.get_virtual_network_back_refs()
+            for vn_ref in vn_refs or []:
                 net_uuid = vn_ref.get('uuid')
                 self._del_route_table(net_uuid, rt_obj)
             # Associate route table to logical router
