@@ -132,7 +132,8 @@ public:
         const string &cfname,
         const vector<GenDb::DbDataValueVec> &v_rowkey,
         const GenDb::ColumnNameRange &crange,
-        const GenDb::FieldNamesToReadVec &read_vec) {
+        const GenDb::FieldNamesToReadVec &read_vec,
+        GenDb::DbConsistency::type dconsistency = GenDb::DbConsistency::ONE) {
 
         BOOST_FOREACH(const GenDb::DbDataValueVec &key, v_rowkey) {
             GenDb::ColList *val = new GenDb::ColList();

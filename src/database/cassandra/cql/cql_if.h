@@ -73,7 +73,9 @@ class CqlIf : public GenDb::GenDbIf {
         const std::string &cfname,
         const std::vector<GenDb::DbDataValueVec> &v_rowkey,
         const GenDb::ColumnNameRange &crange,
-        const GenDb::FieldNamesToReadVec &read_vec);
+        const GenDb::FieldNamesToReadVec &read_vec,
+        GenDb::DbConsistency::type dconsistency =
+            GenDb::DbConsistency::ONE);
     virtual bool Db_GetRowAsync(const std::string &cfname,
         const GenDb::DbDataValueVec &rowkey,
         GenDb::DbConsistency::type dconsistency,
