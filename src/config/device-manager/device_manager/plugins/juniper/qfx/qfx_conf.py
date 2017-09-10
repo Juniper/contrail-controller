@@ -159,7 +159,7 @@ class QfxConf(JuniperConf):
         for route_target in import_targets:
             from_.add_community(DMUtils.make_community_name(route_target))
             if not self.is_spine():
-                self.add_vni_option(network_id, route_target)
+                self.add_vni_option(vni or network_id, route_target)
         term.set_then(Then(accept=''))
         policy_config.add_policy_statement(ps)
         self.add_to_global_switch_opts(DMUtils.make_import_name(ri_name), True)
@@ -303,14 +303,14 @@ class QfxConf(JuniperConf):
         self.proto_config.set_evpn(self.evpn)
     # end init_evpn_config
 
-    def add_vni_option(self, vn_id, vrf_target):
+    def add_vni_option(self, vni, vrf_target):
         if not self.evpn:
             self.init_evpn_config()
         vni_options = self.evpn.get_vni_options()
         if not vni_options:
             vni_options = VniOptions()
             self.evpn.set_extended_vni_list("all")
-        vni_options.add_vni(Vni(name=str(vn_id), vrf_target=VniTarget(community=vrf_target)))
+        vni_options.add_vni(Vni(name=str(vni), vrf_target=VniTarget(community=vrf_target)))
         self.evpn.set_vni_options(vni_options)
 
     def init_global_switch_opts(self):
