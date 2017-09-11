@@ -47,7 +47,7 @@ size_t ShowNeighborStatisticsHandler::FillBgpNeighborStatistics(
         } else {
             RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
             for (; it != rim->end(); it++) {
-                PeerManager *pmgr = it->peer_manager();
+                PeerManager *pmgr = it->second->peer_manager();
                 if (pmgr) {
                     count += pmgr->GetNeighborCount(req->get_up_or_down());
                 }

@@ -486,6 +486,8 @@ public:
     void swap_aggregate_routes(Address::Family family,
                                AggregateRouteList *list);
     void Clear();
+    void set_index(int index) { index_ = index; }
+    int index() const { return index_; }
 
 private:
     friend class BgpInstanceConfigTest;
@@ -499,6 +501,7 @@ private:
     int virtual_network_index_;
     bool virtual_network_allow_transit_;
     bool virtual_network_pbb_evpn_enable_;
+    int index_;
     int vxlan_id_;
     mutable uint64_t last_change_at_;
     StaticRouteList inet_static_routes_;
@@ -706,6 +709,7 @@ public:
 
     virtual int NeighborCount(const std::string &instance_name) const = 0;
 
+    virtual void ResetIndexBit(int index) = 0;
     virtual const BgpInstanceConfig *FindInstance(
         const std::string &name) const = 0;
     virtual const BgpRoutingPolicyConfig *FindRoutingPolicy(

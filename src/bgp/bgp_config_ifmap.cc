@@ -673,6 +673,7 @@ const string &BgpIfmapProtocolConfig::InstanceName() const {
 BgpIfmapInstanceConfig::BgpIfmapInstanceConfig(const string &name)
     : name_(name),
       data_(name),
+      index_(-1),
       protocol_(NULL) {
 }
 
@@ -1062,6 +1063,45 @@ static bool CompareRoutingPolicyOrder(const RoutingPolicyAttachInfo &lhs,
     return (lhs.sequence_ < rhs.sequence_);
 }
 
+void BgpIfmapInstanceConfig::ProcessIdentifierUpdate(uint32_t new_id,
+                                                     uint32_t old_id) {
+    BgpInstanceConfig::RouteTargetList import_list = data_.import_list();
+    if (old_id > 0) {
+        string old_vit = "target:" + GetVitFromId(ntohl(old_id));
+        import_list.erase(old_vit);
+    }
+    if (new_id > 0) {
+        string new_vit = "target:" + GetVitFromId(ntohl(new_id));
+        import_list.insert(new_vit);
+    }
+    data_.set_import_list(import_list);
+}
+
+string BgpIfmapInstanceConfig::GetVitFromId(uint32_t identifier) {
+    if (identifier == 0)
+	return "";
+    return Ip4Address(identifier).to_string() + ":" + integerToString(index());
+}
+
+// Populate Vit in import list
+void BgpIfmapInstanceConfig::InsertVitInImportList(
+	                 BgpIfmapConfigManager *mgr,
+	                 BgpInstanceConfig::RouteTargetList& import_list) {
+    const BgpIfmapInstanceConfig *master_instance =
+        mgr->config()->FindInstance(BgpConfigManager::kMasterInstance);
+    uint32_t bgp_identifier = 0;
+    if (master_instance) {
+        const BgpIfmapProtocolConfig *master_protocol =
+            master_instance->protocol_config();
+	if (master_protocol)
+	    bgp_identifier = master_protocol->protocol_config()->identifier();
+    }
+    if (bgp_identifier > 0) {
+        import_list.insert("target:" +
+		 GetVitFromId(ntohl(bgp_identifier)));
+    }
+}
+
 //
 // Update BgpIfmapInstanceConfig based on a new autogen::RoutingInstance object.
 //
@@ -1131,6 +1171,7 @@ void BgpIfmapInstanceConfig::Update(BgpIfmapConfigManager *manager,
         }
     }
 
+    InsertVitInImportList(manager, import_list);
     data_.set_import_list(import_list);
     data_.set_export_list(export_list);
 
@@ -1283,17 +1324,33 @@ void BgpIfmapInstanceConfig::DeleteRoutingPolicy(
     routing_policies_.erase(rtp->name());
 }
 
+void BgpIfmapConfigData::ProcessIdentifierUpdate(
+                            BgpIfmapConfigManager* manager,
+                            uint32_t new_id, uint32_t old_id) {
+    assert(new_id != old_id);
+    for (unsigned int i = 0; i < instances_.size(); i++) {
+        BgpIfmapInstanceConfig * ifmap_config = instances_.At(i);
+        if (!ifmap_config)
+            continue;
+        ifmap_config->ProcessIdentifierUpdate(new_id, old_id);
+        manager->UpdateInstanceConfig(ifmap_config,
+                BgpConfigManager::CFG_CHANGE);
+    }
+}
+
 //
 // Constructor for BgpIfmapConfigData.
 //
 BgpIfmapConfigData::BgpIfmapConfigData() {
+    // Reserve bit 0 for master instance
+    instances_.ReserveBit(0);
 }
 
 //
 // Destructor for BgpConfigData.
 //
 BgpIfmapConfigData::~BgpIfmapConfigData() {
-    STLDeleteElements(&instances_);
+    instances_.clear();
     STLDeleteElements(&peerings_);
     STLDeleteElements(&routing_policies_);
     STLDeleteElements(&ri_rp_links_);
@@ -1312,9 +1369,12 @@ BgpIfmapInstanceConfig *BgpIfmapConfigData::LocateInstance(const string &name) {
         return rti;
     }
     rti = new BgpIfmapInstanceConfig(name);
-    pair<IfmapInstanceMap::iterator, bool> result =
-            instances_.insert(make_pair(name, rti));
-    assert(result.second);
+    int index = -1;
+    if (name == BgpConfigManager::kMasterInstance) {
+        index = 0;
+    }
+    index = instances_.Insert(name, rti, index);
+    rti->set_index(index);
     pair<BgpInstanceMap::iterator, bool> result2 =
             instance_config_map_.insert(
                 make_pair(name, rti->instance_config()));
@@ -1327,24 +1387,18 @@ BgpIfmapInstanceConfig *BgpIfmapConfigData::LocateInstance(const string &name) {
 // and delete it.
 //
 void BgpIfmapConfigData::DeleteInstance(BgpIfmapInstanceConfig *rti) {
-    IfmapInstanceMap::iterator loc = instances_.find(rti->name());
-    assert(loc != instances_.end());
-    instances_.erase(loc);
     BgpInstanceMap::iterator loc2 = instance_config_map_.find(rti->name());
     assert(loc2 != instance_config_map_.end());
     instance_config_map_.erase(loc2);
-    delete rti;
+    bool clear_index_bit = false;
+    instances_.Remove(rti->name(), rti->index(), clear_index_bit);
 }
 
 //
 // Find the BgpIfmapInstanceConfig by name.
 //
 BgpIfmapInstanceConfig *BgpIfmapConfigData::FindInstance(const string &name) {
-    IfmapInstanceMap::iterator loc = instances_.find(name);
-    if (loc != instances_.end()) {
-        return loc->second;
-    }
-    return NULL;
+    return instances_.Find(name);
 }
 
 //
@@ -1353,11 +1407,7 @@ BgpIfmapInstanceConfig *BgpIfmapConfigData::FindInstance(const string &name) {
 //
 const BgpIfmapInstanceConfig *BgpIfmapConfigData::FindInstance(
     const string &name) const {
-    IfmapInstanceMap::const_iterator loc = instances_.find(name);
-    if (loc != instances_.end()) {
-        return loc->second;
-    }
-    return NULL;
+    return instances_.Find(name);
 }
 
 BgpConfigManager::NeighborMapRange
@@ -1609,6 +1659,10 @@ BgpIfmapConfigManager::NeighborMapItems(
         return make_pair(nilMap.begin(), nilMap.end());
     }
     return rti->NeighborMapItems();
+}
+
+void BgpIfmapConfigManager::ResetIndexBit(int index) {
+    config()->instances().ResetBit(index);
 }
 
 int BgpIfmapConfigManager::NeighborCount(
@@ -1936,6 +1990,33 @@ void BgpIfmapConfigManager::IdentifierMapInit() {
                     _1)));
 }
 
+void BgpIfmapConfigManager::UpdateInstanceConfig(BgpIfmapInstanceConfig *rti,
+        BgpConfigManager::EventType event) {
+    if (!rti) {
+        return;
+    }
+
+    // in case of id update import list and call subsequent code
+    Notify(rti->instance_config(), event);
+
+    vector<string> import_rt(rti->import_list().begin(),
+                             rti->import_list().end());
+    vector<string> export_rt(rti->export_list().begin(),
+                             rti->export_list().end());
+    if (event == BgpConfigManager::CFG_ADD) {
+        BGP_CONFIG_LOG_INSTANCE(Create, server(), rti,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            import_rt, export_rt,
+            rti->virtual_network(), rti->virtual_network_index());
+    } else {
+        BGP_CONFIG_LOG_INSTANCE(Update, server(), rti,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            import_rt, export_rt,
+            rti->virtual_network(), rti->virtual_network_index());
+    }
+
+}
+
 //
 // Handler for routing-instance objects.
 //
@@ -2001,24 +2082,10 @@ void BgpIfmapConfigManager::ProcessRoutingInstance(
 
     autogen::RoutingInstance *rti_config =
         static_cast<autogen::RoutingInstance *>(delta.obj.get());
+    if (rti->index() != -1)
+        rti->instance_config()->set_index(rti->index());
     rti->Update(this, rti_config);
-    Notify(rti->instance_config(), event);
-
-    vector<string> import_rt(rti->import_list().begin(),
-                             rti->import_list().end());
-    vector<string> export_rt(rti->export_list().begin(),
-                             rti->export_list().end());
-    if (event == BgpConfigManager::CFG_ADD) {
-        BGP_CONFIG_LOG_INSTANCE(Create, server(), rti,
-            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-            import_rt, export_rt,
-            rti->virtual_network(), rti->virtual_network_index());
-    } else {
-        BGP_CONFIG_LOG_INSTANCE(Update, server(), rti,
-            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-            import_rt, export_rt,
-            rti->virtual_network(), rti->virtual_network_index());
-    }
+    UpdateInstanceConfig(rti, event);
 }
 
 //
@@ -2093,7 +2160,12 @@ void BgpIfmapConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
 
     autogen::BgpRouter *rt_config =
         static_cast<autogen::BgpRouter *>(delta.obj.get());
+    uint32_t old_id = protocol->protocol_config()->identifier();
     protocol->Update(this, rt_config);
+    uint32_t new_id = protocol->protocol_config()->identifier();
+    if (new_id != old_id) {
+        config_->ProcessIdentifierUpdate(this, new_id, old_id);
+    }
     Notify(protocol->protocol_config(), event);
 
     if (!rt_config) {

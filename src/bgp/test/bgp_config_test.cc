@@ -3048,7 +3048,7 @@ TEST_F(BgpConfigTest, InstanceCreateUpdate13) {
         RoutingInstance *rtinstance = mgr->GetRoutingInstance(name);
         TASK_UTIL_EXPECT_TRUE(rtinstance->always_subscribe());
         TASK_UTIL_EXPECT_EQ(idx, rtinstance->virtual_network_index());
-        TASK_UTIL_EXPECT_EQ(1, rtinstance->GetImportList().size());
+        TASK_UTIL_EXPECT_EQ(2, rtinstance->GetImportList().size());
         TASK_UTIL_EXPECT_EQ(1, rtinstance->GetExportList().size());
     }
 
@@ -3084,7 +3084,7 @@ TEST_F(BgpConfigTest, InstanceCreateUpdate13) {
         RoutingInstance *rtinstance = mgr->GetRoutingInstance(name);
         TASK_UTIL_EXPECT_TRUE(rtinstance->always_subscribe());
         TASK_UTIL_EXPECT_EQ(idx, rtinstance->virtual_network_index());
-        TASK_UTIL_EXPECT_EQ(2, rtinstance->GetImportList().size());
+        TASK_UTIL_EXPECT_EQ(3, rtinstance->GetImportList().size());
         TASK_UTIL_EXPECT_EQ(2, rtinstance->GetExportList().size());
     }
 
