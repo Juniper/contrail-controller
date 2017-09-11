@@ -116,6 +116,11 @@ bool MirrorKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
+    if (mirror_index_ != mirror->mirror_index()) {
+        mirror_index_ = mirror->mirror_index();
+        ret = true;
+    }
+
     return ret;
 }
 
