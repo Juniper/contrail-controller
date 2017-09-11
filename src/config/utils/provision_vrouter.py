@@ -223,8 +223,19 @@ class VrouterProvisioner(object):
     def del_vrouter(self):
         gsc_obj = self._global_system_config_obj
         vrouter_obj = VirtualRouter(self._args.host_name, gsc_obj)
-        self._vnc_lib.virtual_router_delete(
-            fq_name=vrouter_obj.get_fq_name())
+        vrouter_exists = True
+        try:
+            vrouter = self._vnc_lib.virtual_router_read(
+                fq_name=vrouter_obj.get_fq_name())
+        except NoIdError:
+            vrouter_exists = False
+
+        if vrouter_exists:
+            self._vnc_lib.virtual_router_delete(
+                fq_name=vrouter_obj.get_fq_name())
+        else:
+            print " vrouter object not found "
+
     # end del_vrouter
 
     def del_vhost0_vmi(self):
@@ -232,8 +243,18 @@ class VrouterProvisioner(object):
         vrouter_obj = VirtualRouter(self._args.host_name, gsc_obj)
         vhost0_vmi_fq_name = vrouter_obj.get_fq_name()
         vhost0_vmi_fq_name.append('vhost0')
-        self._vnc_lib.virtual_machine_interface_delete(fq_name=vhost0_vmi_fq_name)
-        print "Deleted vhost0 vmi %s " % vhost0_vmi_fq_name
+        vhost0_vmi_exists = True
+        try:
+            vhost0_vmi = self._vnc_lib.virtual_machine_interface_read(
+                fq_name = vhost0_vmi_fq_name)
+        except NoIdError:
+            vhost0_vmi_exists = False
+
+        if vhost0_vmi_exists:
+            self._vnc_lib.virtual_machine_interface_delete(fq_name=vhost0_vmi_fq_name)
+            print " Deleted vhost0 vmi %s " % vhost0_vmi_fq_name
+        else:
+            print " No vhost0 vmi found "
 
     # end del_vhost0_vmi
 
