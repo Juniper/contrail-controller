@@ -27,6 +27,9 @@ class EndPointMonitor(KubeMonitor):
         if endpoint_name == "kube-controller-manager" or endpoint_name == "kube-scheduler":
             return
 
+        if endpoint_name == "openshift-master-controllers":
+            return
+
         print("%s - Got %s %s %s:%s:%s"
               %(self.name, event_type, kind, namespace, endpoint_name, uid))
         self.logger.debug("%s - Got %s %s %s:%s:%s"
