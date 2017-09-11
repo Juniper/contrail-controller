@@ -1344,11 +1344,11 @@ TEST_F(BgpXmppEvpnTest1, 1AgentConnectedInstances) {
     RoutingInstance *blue = mgr->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue->GetImportList().size());
     RoutingInstance *pink = mgr->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server X.
     agent_a_.reset(
@@ -3830,22 +3830,22 @@ TEST_F(BgpXmppEvpnTest2, ConnectedInstances) {
     RoutingInstance *blue_x = mgr_x->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_x != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_x->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_x->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_x->GetImportList().size());
     RoutingInstance *pink_x = mgr_x->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_x != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_x->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_x->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_x->GetImportList().size());
 
     // Make sure that the config got applied properly on Y.
     RoutingInstanceMgr *mgr_y = bs_y_->routing_instance_mgr();
     RoutingInstance *blue_y = mgr_y->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_y != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_y->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_y->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_y->GetImportList().size());
     RoutingInstance *pink_y = mgr_y->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_y != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_y->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_y->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_y->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server X.
     agent_a_.reset(

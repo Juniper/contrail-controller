@@ -44,13 +44,14 @@ static std::string BgpIdentifierToString(uint32_t identifier) {
     return addr.to_string();
 }
 
-static int ConfigInstanceCount(BgpConfigManager *manager) {
-    int count = 0;
+static int ConfigInstanceCount(BgpConfigManager *manager,
+                           unsigned int import_count = 1) {
     typedef std::pair<std::string, const BgpInstanceConfig *> iter_t;
+    int count = 0;
     BOOST_FOREACH(iter_t iter, manager->InstanceMapItems()) {
         const BgpInstanceConfig *rti = iter.second;
         if (rti->name() != BgpConfigManager::kMasterInstance) {
-            TASK_UTIL_EXPECT_EQ(1, rti->import_list().size());
+            TASK_UTIL_EXPECT_EQ(import_count, rti->import_list().size());
         }
         count++;
     }
@@ -64,8 +65,9 @@ class BgpIfmapConfigManagerTest : public ::testing::Test {
 protected:
     BgpIfmapConfigManagerTest()
             : db_(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable")),
-              config_manager_(new BgpIfmapConfigManager(NULL)),
-              parser_(&db_) {
+              server_(&evm_), parser_(&db_) {
+        config_manager_ =
+                static_cast<BgpIfmapConfigManager *>(server_.config_manager());
     }
 
     virtual void SetUp() {
@@ -76,13 +78,13 @@ protected:
     }
 
     virtual void TearDown() {
-        config_manager_->Terminate();
+        server_.Shutdown();
         task_util::WaitForIdle();
         db_util::Clear(&db_);
     }
 
     int GetInstanceCount() {
-        return ConfigInstanceCount(config_manager_.get());
+        return ConfigInstanceCount(config_manager_);
     }
 
     const BgpInstanceConfig *FindInstanceConfig(const string instance_name) {
@@ -107,9 +109,11 @@ protected:
         return config_manager_->FindRoutingPolicy(policy_name);
     }
 
+    EventManager evm_;
     DB db_;
     DBGraph db_graph_;
-    std::auto_ptr<BgpIfmapConfigManager> config_manager_;
+    BgpServer server_;
+    BgpIfmapConfigManager *config_manager_;
     BgpConfigParser parser_;
 };
 
@@ -1640,7 +1644,7 @@ TEST_F(BgpIfmapConfigManagerShowTest, ShowNeighbors) {
     string content = FileRead("controller/src/bgp/testdata/config_test_27.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(4, ConfigInstanceCount(config_manager_));
+    TASK_UTIL_EXPECT_EQ(4, ConfigInstanceCount(config_manager_, 2));
 
     BgpSandeshContext sandesh_context;
     sandesh_context.bgp_server = &server_;
