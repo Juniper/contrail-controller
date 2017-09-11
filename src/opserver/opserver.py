@@ -400,19 +400,27 @@ class OpServer(object):
         * ``/analytics/query``:
         * ``/analytics/operation/database-purge``:
     """
-    def validate_user_token(func):
-        @wraps(func)
-        def _impl(self, *f_args, **f_kwargs):
-            if self._args.auth_conf_info.get('aaa_auth_enabled') and \
-                    bottle.request.app == bottle.app():
-                user_token = bottle.request.headers.get('X-Auth-Token')
-                if not user_token or not \
-                        self._vnc_api_client.is_role_cloud_admin(user_token):
-                    raise bottle.HTTPResponse(status = 401,
-                        body = 'Authentication required',
-                        headers = self._reject_auth_headers())
-            return func(self, *f_args, **f_kwargs)
-        return _impl
+
+    def validate_user_token(func=None, only_cloud_admin=True):
+        def _validate_user_token_impl(func):
+            def _impl(self, *f_args, **f_kwargs):
+                if self._args.auth_conf_info.get('aaa_auth_enabled') and \
+                        bottle.request.app == bottle.app():
+                    user_token = bottle.request.headers.get('X-Auth-Token')
+                    if not user_token or (only_cloud_admin and not \
+                            self._vnc_api_client.is_role_cloud_admin(
+                                user_token)):
+                        raise bottle.HTTPResponse(status = 401,
+                            body = 'Authentication required',
+                            headers = self._reject_auth_headers())
+                return func(self, *f_args, **f_kwargs)
+            return _impl
+        if not func:
+            def _impl_func(func):
+                return _validate_user_token_impl(func)
+            return _impl_func
+        else:
+            return _validate_user_token_impl(func)
     # end validate_user_token
 
     def is_role_cloud_admin(self, token_info=None):
@@ -1912,6 +1920,7 @@ class OpServer(object):
                         headers = self._reject_auth_headers())
     # end dyn_http_get
 
+    @validate_user_token(only_cloud_admin=False)
     def alarms_http_get(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
