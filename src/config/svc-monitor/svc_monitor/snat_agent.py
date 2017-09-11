@@ -71,8 +71,9 @@ class SNATAgent(Agent):
         return ':'.join(vn_fq_name)
 
     def update_snat_instance(self, router_obj):
-        if (router_obj.virtual_network and
-            router_obj.virtual_machine_interfaces):
+        # Even if the router does not have internal interface
+        # we instantiate the SNAT gateway stuff
+        if router_obj.virtual_network:
             if router_obj.service_instance is None:
                 self._add_snat_instance(router_obj)
         else:
