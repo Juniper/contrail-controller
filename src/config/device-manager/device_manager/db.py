@@ -168,6 +168,7 @@ class PhysicalRouterDM(DBBaseDM):
         obj = cls._dict[uuid]
         if obj.is_vnc_managed() and obj.is_conf_sent():
             obj.config_manager.push_conf(is_delete=True)
+            obj.config_manager.clear()
         obj._object_db.delete_pr(uuid)
         obj.uve_send(True)
         obj.update_single_ref('bgp_router', {})
@@ -176,6 +177,13 @@ class PhysicalRouterDM(DBBaseDM):
         obj.update_multiple_refs('service_endpoint', {})
         del cls._dict[uuid]
     # end delete
+
+    @classmethod
+    def reset(cls):
+        for obj in cls._dict.values():
+            obj.config_manager.clear()
+        cls._dict = {}
+    # end reset
 
     def is_junos_service_ports_enabled(self):
         if (self.junos_service_ports is not None
