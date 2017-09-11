@@ -548,11 +548,6 @@ bool InterfaceNH::ChangeEntry(const DBRequest *req) {
         ret = true;
     }
 
-    if (relaxed_policy_ != data->relaxed_policy_) {
-        relaxed_policy_ = data->relaxed_policy_;
-        ret = true;
-    }
-
     if (learning_enabled_ != data->learning_enabled_) {
         learning_enabled_ = data->learning_enabled_;
         ret = true;
@@ -713,7 +708,7 @@ void InterfaceNH::CreatePacketInterfaceNh(Agent *agent, const string &ifname) {
     req.key.reset(new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                      true, InterfaceNHFlags::INET4,
                                      agent->pkt_interface_mac()));
-    req.data.reset(new InterfaceNHData("", true));
+    req.data.reset(new InterfaceNHData(""));
     agent->nexthop_table()->Process(req);
 }
 
