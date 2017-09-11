@@ -1315,7 +1315,7 @@ InetUnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
                                          const IpAddress &addr,
                                          uint8_t plen,
                                          const std::string &dest_vn_name,
-                                         bool relaxed_policy) {
+                                         bool policy) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(agent->local_peer(), vrf_name,
@@ -1323,7 +1323,7 @@ InetUnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
 
     PacketInterfaceKey intf_key(nil_uuid(), agent->GetHostInterfaceName());
     HostRoute *data = new HostRoute(intf_key, dest_vn_name);
-    data->set_relaxed_policy(relaxed_policy);
+    data->set_policy(policy);
     req.data.reset(data);
 
     InetUnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
