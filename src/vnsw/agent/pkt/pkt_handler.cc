@@ -370,6 +370,12 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
 
         uint8_t proto = ip->ip6_ctlun.ip6_un1.ip6_un1_nxt;
         len += sizeof(ip6_hdr);
+        if (proto == IPPROTO_FRAGMENT) {
+            ip6_frag *nxt = (ip6_frag *)(pkt + len);
+            proto = nxt->ip6f_nxt;
+            len += sizeof(ip6_frag);
+        }
+
         pkt_info->ip_proto = proto;
     } else {
         assert(0);
@@ -683,13 +689,17 @@ void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
 }
 
 bool PktHandler::IgnoreFragmentedPacket(PktInfo *pkt_info) {
-    if (!pkt_info->ip)
-        return false;
+    if (pkt_info->ip) {
+        uint16_t offset = htons(pkt_info->ip->ip_off);
+        if (((offset & IP_MF) || (offset & IP_OFFMASK)) &&
+            !IsFlowPacket(pkt_info))
+            return true;
+    } else if (pkt_info->ip6) {
+        uint8_t proto = pkt_info->ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+        if (proto == IPPROTO_FRAGMENT && !IsFlowPacket(pkt_info))
+            return true;
+    }
 
-    uint16_t offset = htons(pkt_info->ip->ip_off);
-    if (((offset & IP_MF) || (offset & IP_OFFMASK)) &&
-        !IsFlowPacket(pkt_info))
-        return true;
     return false;
 }
 
