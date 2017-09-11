@@ -485,6 +485,7 @@ class VirtualRouterKM(DBBaseKM):
     obj_type = 'virtual_router'
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
+    _ip_addr_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -500,6 +501,9 @@ class VirtualRouterKM(DBBaseKM):
         self.build_fq_name_to_uuid(self.uuid, obj)
         self.update_multiple_refs('virtual_machine', obj)
 
+        self.virtual_router_ip_address = obj['virtual_router_ip_address']
+        self.build_ip_addr_to_uuid(self.uuid, obj)
+
     @classmethod
     def delete(cls, uuid):
         if uuid not in cls._dict:
@@ -507,6 +511,14 @@ class VirtualRouterKM(DBBaseKM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine', {})
         del cls._dict[uuid]
+
+    @classmethod
+    def build_ip_addr_to_uuid(cls, uuid, obj_dict):
+        cls._ip_addr_to_uuid[tuple(obj_dict['virtual_router_ip_address'])] = uuid
+
+    @classmethod
+    def get_ip_addr_to_uuid(cls, ip_addr):
+        return cls._ip_addr_to_uuid.get(tuple(ip_addr))
 
 
 class VirtualMachineInterfaceKM(DBBaseKM):

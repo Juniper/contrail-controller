@@ -293,10 +293,18 @@ class VncPod(VncCommon):
         vm = VirtualMachineKM.locate(vm_obj.uuid)
         return vm_obj
 
-    def _link_vm_to_node(self, vm_obj, pod_node):
-        vrouter_fq_name = ['default-global-system-config', pod_node]
+    def _link_vm_to_node(self, vm_obj, pod_node, node_ip):
+        if node_ip is None:
+            return
+
+        vr_uuid = VirtualRouterKM.get_ip_addr_to_uuid(node_ip)
+        if vr_uuid is None:
+            self._logger.debug("%s - Vrouter %s Not Found for Pod %s"
+                %(self._name, vrouter_fq_name, vm_obj.uuid))
+            return
+
         try:
-            vrouter_obj = self._vnc_lib.virtual_router_read(fq_name=vrouter_fq_name)
+            vrouter_obj = self._vnc_lib.virtual_router_read(id=vr_uuid)
         except Exception as e:
             self._logger.debug("%s - Vrouter %s Not Found for Pod %s"
                 %(self._name, vrouter_fq_name, vm_obj.uuid))
@@ -318,13 +326,13 @@ class VncPod(VncCommon):
         if vm_uuid != pod_uuid:
             self.vnc_pod_delete(vm_uuid)
 
-    def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, labels,
-            vm_vmi):
+    def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, node_ip, 
+            labels, vm_vmi):
         vm = VirtualMachineKM.get(pod_id)
         if vm:
             vm.pod_namespace = pod_namespace
             if not vm.virtual_router:
-                self._link_vm_to_node(vm, pod_node)
+                self._link_vm_to_node(vm, pod_node, node_ip)
             self._set_label_to_pod_cache(labels, vm)
             return vm
         else:
@@ -366,7 +374,7 @@ class VncPod(VncCommon):
         if self._is_pod_network_isolated(pod_namespace):
             self._create_cluster_service_fip(pod_name, pod_namespace, vmi_uuid)
 
-        self._link_vm_to_node(vm_obj, pod_node)
+        self._link_vm_to_node(vm_obj, pod_node, node_ip)
         vm = VirtualMachineKM.locate(pod_id)
         if vm:
             vm.pod_namespace = pod_namespace
@@ -374,16 +382,18 @@ class VncPod(VncCommon):
             self._set_label_to_pod_cache(labels, vm)
             return vm
 
-    def vnc_pod_update(self, pod_id, pod_name, pod_namespace, pod_node, labels,
+    def vnc_pod_update(self, pod_id, pod_name, pod_namespace, pod_node, node_ip, labels,
             vm_vmi):
         vm = VirtualMachineKM.get(pod_id)
         if not vm:
             # If the vm is not created yet, do so now.
             vm = self.vnc_pod_add(pod_id, pod_name, pod_namespace,
-                pod_node, labels, vm_vmi)
+                pod_node, node_ip, labels, vm_vmi)
             if not vm:
                 return
         vm.pod_namespace = pod_namespace
+        if not vm.virtual_router:
+            self._link_vm_to_node(vm, pod_node, node_ip)
         self._update_label_to_pod_cache(labels, vm)
         return vm
 
@@ -485,6 +495,7 @@ class VncPod(VncCommon):
 
             # Proceed ONLY if host network is specified.
             pod_node = event['object']['spec'].get('nodeName')
+            node_ip = event['object']['status'].get('hostIP')
             host_network = event['object']['spec'].get('hostNetwork')
             if host_network:
                 return
@@ -504,12 +515,12 @@ class VncPod(VncCommon):
 
             if event['type'] == 'ADDED':
                 vm = self.vnc_pod_add(pod_id, pod_name, pod_namespace,
-                    pod_node, labels, vm_vmi)
+                    pod_node, node_ip, labels, vm_vmi)
                 if vm:
                     self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
             else:
                 vm = self.vnc_pod_update(pod_id, pod_name,
-                    pod_namespace, pod_node, labels, vm_vmi)
+                    pod_namespace, pod_node, node_ip, labels, vm_vmi)
                 if vm:
                     self._network_policy_mgr.update_pod_np(pod_namespace, pod_id, labels)
         elif event['type'] == 'DELETED':
