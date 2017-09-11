@@ -227,10 +227,10 @@ private:
     bool UpdateIpam(Agent *agent, std::vector<VnIpam> &new_ipam);
     bool HandleIpamChange(Agent *agent, VnIpam *old_ipam, VnIpam *new_ipam);
     void UpdateHostRoute(Agent *agent, const IpAddress &old_address,
-                         const IpAddress &new_address, bool relaxed_policy);
+                         const IpAddress &new_address, bool policy);
     bool AddIpamRoutes(Agent *agent, VnIpam *ipam);
     void DelIpamRoutes(Agent *agent, VnIpam *ipam, VrfEntry *vrf);
-    void AddHostRoute(const IpAddress &address, bool relaxed_policy);
+    void AddHostRoute(const IpAddress &address, bool policy);
     void DelHostRoute(const IpAddress &address);
     void AddSubnetRoute(VnIpam *ipam);
     void DelSubnetRoute(VnIpam *ipam);

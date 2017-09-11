@@ -434,17 +434,18 @@ bool VnEntry::HandleIpamChange(Agent *agent, VnIpam *old_ipam,
 
     new_ipam->installed = install;
     bool changed = false;
+    bool policy = (agent->tsn_enabled()) ? false : true;
     if (old_ipam->default_gw != new_ipam->default_gw) {
         changed = true;
         if (IsGwHostRouteRequired(agent)) {
             UpdateHostRoute(agent, old_ipam->default_gw, new_ipam->default_gw,
-                            true);
+                            policy);
         }
     }
 
     if (old_ipam->dns_server != new_ipam->dns_server) {
         UpdateHostRoute(agent, old_ipam->dns_server, new_ipam->dns_server,
-                        true);
+                        policy);
         changed = true;
     }
 
@@ -460,9 +461,9 @@ bool VnEntry::HandleIpamChange(Agent *agent, VnIpam *old_ipam,
 
 void VnEntry::UpdateHostRoute(Agent *agent, const IpAddress &old_address, 
                               const IpAddress &new_address,
-                              bool relaxed_policy) {
+                              bool policy) {
     if (vrf_.get() && (vrf_->GetName() != agent->linklocal_vrf_name())) {
-        AddHostRoute(new_address, relaxed_policy);
+        AddHostRoute(new_address, policy);
         DelHostRoute(old_address);
     }
 }
@@ -483,9 +484,10 @@ bool VnEntry::AddIpamRoutes(Agent *agent, VnIpam *ipam) {
     // Allways policy will be enabled for default Gateway and
     // Dns server to create flows for BGP as service even
     // though explicit disable policy config form user.
+    bool policy = (agent->tsn_enabled()) ? false : true;
     if (IsGwHostRouteRequired(agent))
-        AddHostRoute(ipam->default_gw, true);
-    AddHostRoute(ipam->dns_server, true);
+        AddHostRoute(ipam->default_gw, policy);
+    AddHostRoute(ipam->dns_server, policy);
     AddSubnetRoute(ipam);
     return true;
 }
@@ -503,15 +505,15 @@ void VnEntry::DelIpamRoutes(Agent *agent, VnIpam *ipam, VrfEntry *vrf) {
 }
 
 // Add host route for gateway-ip or service-ip
-void VnEntry::AddHostRoute(const IpAddress &address, bool relaxed_policy) {
+void VnEntry::AddHostRoute(const IpAddress &address, bool policy) {
     if (address.is_v4()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf_->
             GetInet4UnicastRouteTable())->AddHostRoute(vrf_->GetName(),
-                address.to_v4(), 32, GetName(), relaxed_policy);
+                address.to_v4(), 32, GetName(), policy);
     } else if (address.is_v6()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf_->
             GetInet6UnicastRouteTable())->AddHostRoute(vrf_->GetName(),
-                address.to_v6(), 128, GetName(), relaxed_policy);
+                address.to_v6(), 128, GetName(), policy);
     }
 }
 
