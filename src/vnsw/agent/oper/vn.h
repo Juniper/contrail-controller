@@ -289,7 +289,7 @@ private:
                           std::vector<VnIpam> &new_ipam, VnEntry *vn);
     void UpdateHostRoute(const IpAddress &old_address,
                          const IpAddress &new_address, VnEntry *vn,
-                         bool relaxed_policy);
+                         bool policy);
     void AddIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void DelIPAMRoutes(VnEntry *vn, VnIpam &ipam);
     void AddAllIpamRoutes(VnEntry *vn);
@@ -298,7 +298,7 @@ private:
     void DelSubnetRoute(VnEntry *vn, VnIpam &ipam);
     bool IsGwHostRouteRequired();
     void AddHostRoute(VnEntry *vn, const IpAddress &address,
-                      bool relaxed_policy);
+                      bool policy);
     void DelHostRoute(VnEntry *vn, const IpAddress &address);
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
     bool IsGatewayL2(const string &gateway) const;
