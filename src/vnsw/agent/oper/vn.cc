@@ -946,11 +946,11 @@ void VnTable::DelVn(const uuid &vn_uuid) {
 
 void VnTable::UpdateHostRoute(const IpAddress &old_address, 
                               const IpAddress &new_address,
-                              VnEntry *vn, bool relaxed_policy) {
+                              VnEntry *vn, bool policy) {
     VrfEntry *vrf = vn->GetVrf();
 
     if (vrf && (vrf->GetName() != agent()->linklocal_vrf_name())) {
-        AddHostRoute(vn, new_address, relaxed_policy);
+        AddHostRoute(vn, new_address, policy);
         DelHostRoute(vn, old_address);
     }
 }
@@ -987,15 +987,16 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
                 // VNIPAM comparator does not check for gateway.
                 // If gateway is changed then take appropriate actions.
                 IpAddress unspecified;
+                bool policy = (agent()->tsn_enabled()) ? false : true;
                 if (gateway_changed) {
                     if (IsGwHostRouteRequired()) {
                         UpdateHostRoute((*it_old).default_gw,
-                                        (*it_new).default_gw, vn, true);
+                                        (*it_new).default_gw, vn, policy);
                     }
                 }
                 if (service_address_changed) {
                     UpdateHostRoute((*it_old).dns_server,
-                                    (*it_new).dns_server, vn, true);
+                                    (*it_new).dns_server, vn, policy);
                 }
             } else {
                 AddIPAMRoutes(vn, *it_new);
@@ -1067,9 +1068,10 @@ void VnTable::AddIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
         // Allways policy will be enabled for default Gateway and
         // Dns server to create flows for BGP as service even
         // though explicit disable policy config form user.
+        bool policy = (agent()->tsn_enabled()) ? false : true;
         if (IsGwHostRouteRequired())
-            AddHostRoute(vn, ipam.default_gw, true);
-        AddHostRoute(vn, ipam.dns_server, true);
+            AddHostRoute(vn, ipam.default_gw, policy);
+        AddHostRoute(vn, ipam.dns_server, policy);
         AddSubnetRoute(vn, ipam);
         ipam.installed = true;
     }
@@ -1092,16 +1094,16 @@ bool VnTable::IsGwHostRouteRequired() {
 
 // Add receive route for default gw
 void VnTable::AddHostRoute(VnEntry *vn, const IpAddress &address,
-                           bool relaxed_policy) {
+                           bool policy) {
     VrfEntry *vrf = vn->GetVrf();
     if (address.is_v4()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
-                address.to_v4(), 32, vn->GetName(), relaxed_policy);
+                address.to_v4(), 32, vn->GetName(), policy);
     } else if (address.is_v6()) {
         static_cast<InetUnicastAgentRouteTable *>(vrf->
             GetInet6UnicastRouteTable())->AddHostRoute(vrf->GetName(),
-                address.to_v6(), 128, vn->GetName(), relaxed_policy);
+                address.to_v6(), 128, vn->GetName(), policy);
     }
 }
 
