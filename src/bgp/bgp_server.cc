@@ -647,7 +647,8 @@ uint32_t BgpServer::get_output_queue_depth() const {
     uint32_t out_q_depth = 0;
     for (RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
          rit != inst_mgr_->end(); ++rit) {
-        RoutingInstance::RouteTableList const rt_list = rit->GetTables();
+        RoutingInstance::RouteTableList const rt_list =
+                     rit->second->GetTables();
         for (RoutingInstance::RouteTableList::const_iterator it =
              rt_list.begin(); it != rt_list.end(); ++it) {
             BgpTable *table = it->second;
