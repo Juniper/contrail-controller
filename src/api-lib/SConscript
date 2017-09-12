@@ -36,6 +36,8 @@ generated_files = [
                   'vnc_api/gen/resource_common.py',
                   'vnc_api/gen/resource_client.py',
                   'vnc_api/gen/vnc_api_client_gen.py',
+                  'vnc_api/gen/contrail_openapi.rst',
+                  'vnc_api/gen/contrail_openapi.json',
                 ]
 env.Append(ENV = {'HEAT_BUILDTOP' : Dir(env['TOP']).abspath})
 
