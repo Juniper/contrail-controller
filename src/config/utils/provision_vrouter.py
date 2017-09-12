@@ -51,7 +51,8 @@ class VrouterProvisioner(object):
 
         if self._args.oper == 'add':
             self.add_vrouter()
-            self.add_vhost0_vmi()
+            if not self._args.disable_vhost_vmi:
+                self.add_vhost0_vmi()
         elif self._args.oper == 'del':
             self.del_vhost0_vmi()
             self.del_vrouter()
@@ -88,6 +89,7 @@ class VrouterProvisioner(object):
             'control_names': [],
             'router_type': None,
             'dpdk_enabled': False,
+            'disable_vhost_vmi': False,
         }
         ksopts = {
             'admin_user': 'user1',
@@ -139,6 +141,8 @@ class VrouterProvisioner(object):
             "--router_type", help="Type of the virtual router (tor-service-node,embedded or none)")
         parser.add_argument(
             "--dpdk_enabled", action="store_true", help="Whether forwarding mode on vrouter is DPDK based")
+        parser.add_argument(
+            "--disable_vhost_vmi", action="store_true", help="Do not create vhost0 vmi if flag is set")
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
             "--api_server_ip", help="IP address of api server",
@@ -223,8 +227,19 @@ class VrouterProvisioner(object):
     def del_vrouter(self):
         gsc_obj = self._global_system_config_obj
         vrouter_obj = VirtualRouter(self._args.host_name, gsc_obj)
-        self._vnc_lib.virtual_router_delete(
-            fq_name=vrouter_obj.get_fq_name())
+        vrouter_exists = True
+        try:
+            vrouter = self._vnc_lib.virtual_router_read(
+                fq_name=vrouter_obj.get_fq_name())
+        except NoIdError:
+            vrouter_exists = False
+
+        if vrouter_exists:
+            self._vnc_lib.virtual_router_delete(
+                fq_name=vrouter_obj.get_fq_name())
+        else:
+            print " vrouter object not found "
+
     # end del_vrouter
 
     def del_vhost0_vmi(self):
@@ -232,8 +247,18 @@ class VrouterProvisioner(object):
         vrouter_obj = VirtualRouter(self._args.host_name, gsc_obj)
         vhost0_vmi_fq_name = vrouter_obj.get_fq_name()
         vhost0_vmi_fq_name.append('vhost0')
-        self._vnc_lib.virtual_machine_interface_delete(fq_name=vhost0_vmi_fq_name)
-        print "Deleted vhost0 vmi %s " % vhost0_vmi_fq_name
+        vhost0_vmi_exists = True
+        try:
+            vhost0_vmi = self._vnc_lib.virtual_machine_interface_read(
+                fq_name = vhost0_vmi_fq_name)
+        except NoIdError:
+            vhost0_vmi_exists = False
+
+        if vhost0_vmi_exists:
+            self._vnc_lib.virtual_machine_interface_delete(fq_name=vhost0_vmi_fq_name)
+            print " Deleted vhost0 vmi %s " % vhost0_vmi_fq_name
+        else:
+            print " No vhost0 vmi found "
 
     # end del_vhost0_vmi
 
