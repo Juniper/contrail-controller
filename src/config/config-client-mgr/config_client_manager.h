@@ -66,6 +66,7 @@ public:
 
     void EndOfConfig();
     void WaitForEndOfConfig();
+    void GetClientManagerInfo(ConfigClientManagerInfo &info) const;
 
     // Generation number identifies the current version of the config
     // available with ifmap server. While enqueuing the DB request to create

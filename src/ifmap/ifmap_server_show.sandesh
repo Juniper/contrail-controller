@@ -27,7 +27,7 @@ request sandesh ConfigClientReinitReq {
 struct IFMapPeerServerInfoUI {
     1: string url;
     2: string connection_status;
-    3: u64 connection_status_change_at;
+    3: string connection_status_change_at;
 }
 
 struct IFMapServerInfoUI {

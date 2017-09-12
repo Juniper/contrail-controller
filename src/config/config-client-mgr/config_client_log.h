@@ -10,8 +10,7 @@
 #include "sandesh/common/vns_constants.h"
 
 extern SandeshTraceBufferPtr ConfigClientTraceBuf;
-extern SandeshTraceBufferPtr ConfigClientBigMsgTraceBuf;
-extern SandeshTraceBufferPtr ConfigCassClientTraceBuf;
+extern SandeshTraceBufferPtr ConfigClientRabbitMsgTraceBuf;
 
 // Log and trace regular messages
 
@@ -23,6 +22,13 @@ do { \
     } \
 } while(0)
 
+#define CONFIG_CLIENT_DEBUG(obj, ...) \
+do { \
+    CONFIG_CLIENT_DEBUG_LOG(obj, Category::CONFIG_CLIENT, __VA_ARGS__); \
+    CONFIG_CLIENT_TRACE(obj##Trace, __VA_ARGS__); \
+} while(0)
+
+
 #define CONFIG_CLIENT_TRACE(obj, ...) \
 do { \
     if (!LoggingDisabled()) { \
@@ -30,44 +36,16 @@ do { \
     } \
 } while(0)
 
-#define CONFIG_CLIENT_DEBUG(obj, ...) \
-do { \
-    CONFIG_CLIENT_DEBUG_LOG(obj, Category::CONFIG_CLIENT, __VA_ARGS__); \
-    CONFIG_CLIENT_TRACE(obj##Trace, __VA_ARGS__); \
-} while(0)
-
 #define CONFIG_CLIENT_DEBUG_ONLY(obj, ...) \
 do { \
     CONFIG_CLIENT_DEBUG_LOG(obj, Category::CONFIG_CLIENT, __VA_ARGS__); \
 } while(0)
 
-#define CONFIG_CASS_CLIENT_TRACE(obj, ...) \
+#define CONFIG_CLIENT_RABBIT_MSG_TRACE(obj, ...) \
 do { \
     if (!LoggingDisabled()) { \
-        obj::TraceMsg(ConfigCassClientTraceBuf, __FILE__, __LINE__, \
-                      __VA_ARGS__); \
-    } \
-} while(0)
-
-#define CONFIG_CASS_CLIENT_DEBUG(obj, ...) \
-do { \
-    CONFIG_CLIENT_DEBUG_LOG(obj, Category::CONFIG_CASS_CLIENT, __VA_ARGS__); \
-    CONFIG_CASS_CLIENT_TRACE(obj##Trace, __VA_ARGS__); \
-} while(0)
-// Log and trace big-sized messages
-
-#define CONFIG_CLIENT_DEBUG_LOG_BIG_MSG(obj, category, ...) \
-do { \
-    if (!LoggingDisabled()) { \
-        obj::Send(g_vns_constants.CategoryNames.find(category)->second, \
-                  SandeshLevel::SYS_DEBUG, __FILE__, __LINE__, ##__VA_ARGS__); \
-    } \
-} while(0)
-
-#define CONFIG_CLIENT_TRACE_BIG_MSG(obj, ...) \
-do { \
-    if (!LoggingDisabled()) { \
-        obj::TraceMsg(ConfigClientMapBigMsgTraceBuf, __FILE__, __LINE__, __VA_ARGS__); \
+        obj::TraceMsg(ConfigClientRabbitMsgTraceBuf, __FILE__, __LINE__, \
+        __VA_ARGS__); \
     } \
 } while(0)
 

@@ -392,8 +392,25 @@ trace sandesh ConfigClientRabbitMQMsgTrace {
 }
 
 /**
- * @description: Trace message for config client module
- * @severity: DEBUG
+ * @description: System log for  FQNameCache
+ * @severity: WARNING
+ * @cause: Missing  entry on rabbit update msg
+ * @action: none
+ */
+systemlog sandesh ConfigClientFQNameCache {
+    1: string message
+    2: " for object type:"
+    3: string obj_type
+    4: " with FQ name:"
+    5: string fqname
+    6: " and uuid:"
+    7: string uuid
+}
+
+/**
+/**
+ * @description: Trace message for Config Client Manager
+ * @severity: WARNING
  */
 trace sandesh ConfigClientFQNameCacheTrace {
     1: string message
@@ -403,4 +420,36 @@ trace sandesh ConfigClientFQNameCacheTrace {
     5: string fqname
     6: " and uuid:"
     7: string uuid
+}
+
+/**
+ * @description: Trace message for Config Client Manager
+ * @severity: DEBUG
+ */
+systemlog sandesh ConfigClientMgrDebug {
+    1: string message
+}
+
+/**
+ * @description: Trace message for Config Client Manager
+ * @severity: WARNING
+ */
+systemlog sandesh ConfigClientMgrWarning {
+    1: string message
+}
+
+/**
+ * @description: Trace message for Config Client Manager
+ * @severity: DEBUG
+ */
+trace sandesh ConfigClientMgrDebugTrace {
+    1: string message
+}
+
+/**
+ * @description: Trace message for Config Client Manager
+ * @severity: WARNING
+ */
+trace sandesh ConfigClientMgrWarningTrace {
+    1: string message
 }

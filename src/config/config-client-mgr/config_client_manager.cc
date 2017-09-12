@@ -5,6 +5,8 @@
 
 #include <boost/assign/list_of.hpp>
 #include <sandesh/request_pipeline.h>
+#include <sstream>
+#include <string>
 
 #include "base/connection_info.h"
 #include "base/task.h"
@@ -12,6 +14,9 @@
 #include "config_amqp_client.h"
 #include "config_db_client.h"
 #include "config_cassandra_client.h"
+#include "config_client_log.h"
+#include "config_client_log_types.h"
+#include "config_client_show_types.h"
 #include "config_factory.h"
 #include "io/event_manager.h"
 #include "schema/bgp_schema_types.h"
@@ -158,6 +163,8 @@ void ConfigClientManager::EndOfConfig() {
         end_of_rib_computed_ = true;
         cond_var_.notify_all();
         end_of_rib_computed_at_ = UTCTimestampUsec();
+        CONFIG_CLIENT_DEBUG(ConfigClientMgrDebug,
+            "Config Client Mgr SM: End of RIB computed and notification sent");
     }
 
     // Once we have finished reading the complete cassandra DB, we should verify
@@ -180,8 +187,21 @@ void ConfigClientManager::WaitForEndOfConfig() {
     // Wait for End of config
     while (!end_of_rib_computed_) {
         cond_var_.wait(lock);
-        if (is_reinit_triggered()) return;
+        if (is_reinit_triggered()) break;
     }
+    string message;
+    message = "Config Client Mgr SM: End of RIB notification received, "
+              "re init triggered" + is_reinit_triggered()?"TRUE":"FALSE";
+    CONFIG_CLIENT_DEBUG(ConfigClientMgrDebug, message);
+    return;
+}
+
+void ConfigClientManager::GetClientManagerInfo(
+                                   ConfigClientManagerInfo &info) const {
+    tbb::mutex::scoped_lock lock(end_of_rib_sync_mutex_);
+    info.end_of_rib_computed = end_of_rib_computed_;
+    info.end_of_rib_computed_at = end_of_rib_computed_at_;
+    info.end_of_rib_computed_at = UTCUsecToString(end_of_rib_computed_at_);
 }
 
 void ConfigClientManager::PostShutdown() {
@@ -201,6 +221,11 @@ void ConfigClientManager::PostShutdown() {
                              thread_count_));
     config_amqp_client_.reset(new ConfigAmqpClient(this, hostname_,
                                                module_name_, config_options_));
+    stringstream ss;
+    ss << GetGenerationNumber();
+    CONFIG_CLIENT_DEBUG(ConfigClientMgrDebug,
+            "Config Client Mgr SM: Post shutdown, next version of config: "
+            + ss.str());
 }
 
 bool ConfigClientManager::InitConfigClient() {
@@ -215,7 +240,8 @@ bool ConfigClientManager::InitConfigClient() {
         // Perform PostShutdown to prepare for new connection
         PostShutdown();
     }
-
+    CONFIG_CLIENT_DEBUG(ConfigClientMgrDebug,
+            "Config Client Mgr SM: Start RabbitMqReader and init Database");
     // Common code path for both init/reinit
     config_amqp_client_->StartRabbitMQReader();
     config_db_client_->InitDatabase();
@@ -237,4 +263,6 @@ void ConfigClientManager::ReinitConfigClient() {
     }
     reinit_triggered_ = true;
     init_trigger_->Set();
+    CONFIG_CLIENT_DEBUG(ConfigClientMgrDebug,
+            "Config Client Mgr SM: Re init triggered!");
 }

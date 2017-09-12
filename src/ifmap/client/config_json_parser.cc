@@ -6,6 +6,7 @@
 
 #include <boost/lexical_cast.hpp>
 #include <sandesh/request_pipeline.h>
+#include <string>
 
 #include "config_client_manager.h"
 #include "ifmap/ifmap_log.h"
@@ -389,8 +390,7 @@ static bool ConfigClientInfoHandleRequest(const Sandesh *sr,
     config_mgr->config_db_client()->GetConnectionInfo(db_conn_info);
 
     ConfigClientManagerInfo client_mgr_info;
-    client_mgr_info.end_of_rib_computed = config_mgr->GetEndOfRibComputed();
-    client_mgr_info.end_of_rib_computed_at = config_mgr->GetEndOfRibComputedAt();
+    config_mgr->GetClientManagerInfo(client_mgr_info);
 
     response->set_client_manager_info(client_mgr_info);
     response->set_db_conn_info(db_conn_info);
