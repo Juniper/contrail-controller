@@ -208,6 +208,11 @@ class VncRbac(object):
         err_msg = (403, 'Permission Denied')
 
         user, roles = self.get_user_roles(request)
+
+        if len(roles) == 0:
+            err_msg = (403, 'roles empty!!')
+            return (False, err_msg)
+
         is_admin = self.cloud_admin_role in roles
         # other checks redundant if admin
         if is_admin:
@@ -296,7 +301,7 @@ class VncRbac(object):
         env = request.headers.environ
         if 'HTTP_X_USER' in env:
             user = env['HTTP_X_USER']
-        roles = None
+        roles = []
         if 'HTTP_X_ROLE' in env:
             roles = env['HTTP_X_ROLE'].split(',')
         return (user, roles)
