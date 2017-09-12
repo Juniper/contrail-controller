@@ -4,7 +4,7 @@
 #include "config_json_parser.h"
 
 #include <boost/lexical_cast.hpp>
-
+#include <string>
 #include "config_cassandra_client.h"
 
 #include "ifmap_log.h"
