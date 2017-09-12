@@ -38,32 +38,6 @@ class VncPod(VncCommon):
         self._args = vnc_kube_config.args()
         self._logger = vnc_kube_config.logger()
 
-    @staticmethod
-    def _get_label_diff(new_labels, vm):
-        old_labels = vm.pod_labels
-        if old_labels == new_labels:
-            return None
-
-        diff = dict()
-        added = {}
-        removed = {}
-        changed = {}
-        keys = set(old_labels.keys()) | set(new_labels.keys())
-        for k in keys:
-            if k not in old_labels.keys():
-                added[k] = new_labels[k]
-                continue
-            if k not in new_labels.keys():
-                removed[k] = old_labels[k]
-                continue
-            if old_labels[k] == new_labels[k]:
-                continue
-            changed[k] = old_labels[k]
-
-        diff['added'] = added
-        diff['removed'] = removed
-        diff['changed'] = changed
-        return diff
 
     def _set_label_to_pod_cache(self, new_labels, vm):
         namespace_label = self._label_cache. \
@@ -475,7 +449,7 @@ class VncPod(VncCommon):
             vm = VirtualMachineKM.get(pod_uuid)
             if not vm or vm.owner != 'k8s':
                 continue
-            self._create_pod_event('delete', uuid, vm)
+            self._create_pod_event('delete', pod_uuid, vm)
         for uuid in pod_uuid_set:
             vm = VirtualMachineKM.get(uuid)
             if not vm or vm.owner != 'k8s':

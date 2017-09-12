@@ -66,6 +66,7 @@ class KMTestCase(test_common.TestCase):
             ('VNC', 'vnc_endpoint_port', cls._api_server_port),
             ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
             ('VNC', 'cluster_id', cls._cluster_id),
+            ('VNC', 'kube_timer_interval', '5'),
             ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
             ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
             ('KUBERNETES', 'cluster_name', "test-cluster"),
@@ -131,9 +132,9 @@ class KMTestCase(test_common.TestCase):
             ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
             ('VNC', 'vnc_endpoint_ip', self._api_server_ip),
             ('VNC', 'vnc_endpoint_port', self._api_server_port),
-            ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
-            ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
-            ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
+            ('VNC', 'cassandra_server_list', '10.0.0.0:9160'),
+            ('KUBERNETES', 'service_subnets', '10.96.0.0/12'),
+            ('KUBERNETES', 'pod_subnets', '10.32.0.0/12'),
         ]
         vnc_cgitb.enable(format='text')
 
