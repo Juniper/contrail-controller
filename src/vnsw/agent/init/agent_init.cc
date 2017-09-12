@@ -310,6 +310,9 @@ void AgentInit::ConnectToControllerBase() {
     }
 
     ConnectToController();
+    if (agent_->controller()) {
+        agent_->controller()->EnableWorkQueue();
+    }
 }
 
 void AgentInit::InitDoneBase() {
