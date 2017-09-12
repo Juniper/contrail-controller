@@ -19,8 +19,10 @@ if os.path.exists('/usr/bin/sphinx-apidoc'):
 
     userdoc_rule = env.Install(Dir('.'), Glob('#controller/src/config/api-server/doc/source/*'))
     schema_rule = env.Install(Dir('.'), Glob('#controller/src/schema/*.xsd'))
-    gendoc_rule = env.Install(Dir('.'), env['TOP'] + '/config/api-server/vnc_cfg_api_server/gen/contrail_openapi.rst')
-    openapi_rule = env.Install(Dir('.'), env['TOP'] + '/config/api-server/vnc_cfg_api_server/gen/contrail_openapi.json')
+    gendoc_rule = env.Install(Dir('.'), env['TOP'] + '/api-lib/vnc_api/gen/contrail_openapi.rst')
+    openapi_rule = env.Install(Dir('.'), env['TOP'] + '/api-lib/vnc_api/gen/contrail_openapi.json')
+    env.Depends(gendoc_rule, [env['TOP'] + '/api-lib/vnc_api/gen/contrail_openapi.rst'])
+    env.Depends(openapi_rule, [env['TOP'] + '/api-lib/vnc_api/gen/contrail_openapi.json'])
 
     html_gen_rule = env.Command('contrail-config', ['Makefile', 'conf.py'],
                                 'make -C ' + Dir('.').path + ' html') 
