@@ -8,18 +8,6 @@
 SandeshTraceBufferPtr IFMapTraceBuf(SandeshTraceBufferCreate("IFMapTraceBuf",
                                     1000));
 
-// Trace buffer for large messages like poll responses
-SandeshTraceBufferPtr IFMapBigMsgTraceBuf(
-    SandeshTraceBufferCreate("IFMapBigMsgTraceBuf", 25));
-
-// Trace buffer for peer messages
-SandeshTraceBufferPtr IFMapPeerTraceBuf(
-    SandeshTraceBufferCreate("IFMapPeerTraceBuf", 50000));
-
-// Trace buffer for state-machine messages
-SandeshTraceBufferPtr IFMapSmTraceBuf(
-    SandeshTraceBufferCreate("IFMapSmTraceBuf", 50000));
-
 // Trace buffer for update-sender messages
 SandeshTraceBufferPtr IFMapUpdateSenderBuf(
     SandeshTraceBufferCreate("IFMapUpdateSenderBuf", 50000));
@@ -28,10 +16,10 @@ SandeshTraceBufferPtr IFMapUpdateSenderBuf(
 SandeshTraceBufferPtr IFMapXmppTraceBuf(
     SandeshTraceBufferCreate("IFMapXmppTraceBuf", 50000));
 
-// Trace buffer for config-cassandra-client messages
-SandeshTraceBufferPtr ConfigCassClientTraceBuf(
-    SandeshTraceBufferCreate("ConfigCassClientTraceBuf", 50000));
-
 // Trace buffer for config-client-manager messages
 SandeshTraceBufferPtr ConfigClientTraceBuf(
     SandeshTraceBufferCreate("ConfigClientTraceBuf", 50000));
+
+// Trace buffer for rabbit messages
+SandeshTraceBufferPtr ConfigClientRabbitMsgTraceBuf(
+    SandeshTraceBufferCreate("ConfigClientRabbitMsgTraceBuf", 50000));
