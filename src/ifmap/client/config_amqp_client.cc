@@ -13,7 +13,7 @@
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
-
+#include <string>
 #include "base/connection_info.h"
 #include "base/task.h"
 #include "base/string_util.h"
@@ -103,12 +103,21 @@ ConfigAmqpClient::ConfigAmqpClient(ConfigClientManager *mgr, string hostname,
 }
 
 void ConfigAmqpClient::StartRabbitMQReader() {
-    if (disable_)
+    if (disable_)  {
+        CONFIG_CLIENT_DEBUG(
+            ConfigClientGenDebug,
+            "RabbitMQ SM: StartRabbitMQReader: RabbitMQ disabled");
         return;
+    }
 
     // If reinit is triggerred, Don't start the rabbitmq reader
-    if (config_manager()->is_reinit_triggered())
+    if (config_manager()->is_reinit_triggered()) {
+        CONFIG_CLIENT_DEBUG(
+            ConfigClientGenDebug,
+            "RabbitMQ SM: StartRabbitMQReader: re init trigged,"
+            " dont start RabbitMQ");
         return;
+    }
 
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     Task *task = new RabbitMQReader(this);
@@ -139,22 +148,32 @@ void ConfigAmqpClient::ReportRabbitMQConnectionStatus(bool connected) const {
             process::ConnectionType::DATABASE, "RabbitMQ",
             process::ConnectionStatus::UP,
             endpoints(), "RabbitMQ connection established");
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "RabbitMQ SM: RabbitMQ connection established");
     } else {
         process::ConnectionState::GetInstance()->Update(
             process::ConnectionType::DATABASE, "RabbitMQ",
             process::ConnectionStatus::DOWN,
             endpoints(), "RabbitMQ connection down");
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "RabbitMQ SM: RabbitMQ connection down");
     }
 }
 
 void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
     amqpclient_->ReportRabbitMQConnectionStatus(false);
     amqpclient_->set_connected(false);
+    string message = "RabbitMQ SM: Connect to Rabbit MQ with queue_delete ";
+    message += queue_delete ? "TRUE" : "FALSE";
+    CONFIG_CLIENT_DEBUG(ConfigClientGenDebug, message);
     size_t count = 0;
     while (true) {
         // If we are signalled to stop, break now.
-        if (amqpclient_->config_manager()->is_reinit_triggered())
+        if (amqpclient_->config_manager()->is_reinit_triggered()) {
+            CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                                "RabbitMQ SM: Skipped connect due to reinit");
             return;
+        }
         string uri = amqpclient_->FormAmqpUri();
         try {
             if (amqpclient_->rabbitmq_use_ssl()) {
@@ -194,9 +213,12 @@ void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
                                                    true, false, true, 0);
         } catch (std::exception &e) {
             static string what = e.what();
-            cout << "Caught fatal exception while connecting to RabbitMQ: "
-                 << amqpclient_->rabbitmq_ip() << ":"
-                 << amqpclient_->rabbitmq_port() << " : " << what << endl;
+            string message =
+                "RabbitMQ SM: Caught exception while connecting to RabbitMQ: "
+                + amqpclient_->rabbitmq_ip() + ":"
+                + amqpclient_->rabbitmq_port() + " : " + what;
+            cout << message << endl;
+            CONFIG_CLIENT_WARN(ConfigClientGenWarning, message);
             if (++count == amqpclient_->rabbitmq_server_list_len()) {
                 count = 0;
                 // Tried connecting to all given servers.. Now wait to reconnect
@@ -205,9 +227,13 @@ void ConfigAmqpClient::RabbitMQReader::ConnectToRabbitMQ(bool queue_delete) {
             amqpclient_->increment_rabbitmq_server_index();
             continue;
         } catch (...) {
-            cout << "Caught fatal unknown exception while connecting to " 
-                 << "RabbitMQ: " << amqpclient_->rabbitmq_ip() << ":"
-                 << amqpclient_->rabbitmq_port() << endl;
+            string message =
+                "RabbitMQ SM: Caught fatal exception while "
+                "connecting to RabbitMQ: "
+                + amqpclient_->rabbitmq_ip() + ":"
+                + amqpclient_->rabbitmq_port();
+            cout << message << endl;
+            CONFIG_CLIENT_WARN(ConfigClientGenWarning, message);
             assert(0);
         }
 
@@ -224,7 +250,8 @@ void ConfigAmqpClient::set_connected(bool connected) {
 
 void ConfigAmqpClient::GetConnectionInfo(ConfigAmqpConnInfo &conn_info) const {
     conn_info.connection_status = connection_status_;
-    conn_info.connection_status_change_at = connection_status_change_at_;
+    conn_info.connection_status_change_at =
+        UTCUsecToString(connection_status_change_at_);
     conn_info.url = FormAmqpUri();
 }
 
@@ -278,7 +305,7 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
             string stored_fq_name =
                 config_manager()->config_db_client()->FindFQName(uuid_str);
             if (stored_fq_name == "ERROR") {
-                CONFIG_CLIENT_TRACE(ConfigClientFQNameCacheTrace,
+                CONFIG_CLIENT_WARN(ConfigClientFQNameCache,
                         "FQ Name Cache entry not found on UPDATE for:",
                         obj_type, obj_name, uuid_str);
             }
@@ -287,8 +314,8 @@ bool ConfigAmqpClient::ProcessMessage(const string &json_message) {
                 InvalidateFQNameCache(uuid_str);
         }
 
-        CONFIG_CLIENT_TRACE(ConfigClientRabbitMQMsgTrace, oper, obj_type,
-                obj_name, uuid_str);
+        CONFIG_CLIENT_RABBIT_MSG_TRACE(ConfigClientRabbitMQMsgTrace, oper,
+                                       obj_type, obj_name, uuid_str);
         EnqueueUUIDRequest(oper, obj_type, uuid_str);
     }
     return true;
@@ -304,14 +331,22 @@ bool ConfigAmqpClient::RabbitMQReader::ReceiveRabbitMessages(
         return true;
     } catch (std::exception &e) {
         static string what = e.what();
-        cout << "Caught fatal exception while receiving messages from RabbitMQ:"
-             << " " << amqpclient_->rabbitmq_ip() << ":"
-             << amqpclient_->rabbitmq_port() << " : " << what << endl;
+        string message =
+            "RabbitMQ SM: Caught exception while receiving "
+            "messages from RabbitMQ: "
+            + amqpclient_->rabbitmq_ip() + ":"
+            + amqpclient_->rabbitmq_port() + " : " + what;
+        cout << message << endl;
+        CONFIG_CLIENT_WARN(ConfigClientGenWarning, message);
         return false;
     } catch (...) {
-        cout << "Caught fatal unknown exception while receiving "
-             << "messages from RabbitMQ: " << amqpclient_->rabbitmq_ip() << ":"
-             << amqpclient_->rabbitmq_port() << endl;
+        string message =
+            "RabbitMQ SM: Caught fatal unknown exception while receiving "
+            "messages from RabbitMQ "
+            + amqpclient_->rabbitmq_ip() + ':'
+            + amqpclient_->rabbitmq_port();
+        cout << message << endl;
+        CONFIG_CLIENT_WARN(ConfigClientGenWarning, message);
         assert(0);
     }
     return true;
@@ -323,14 +358,21 @@ bool ConfigAmqpClient::RabbitMQReader::AckRabbitMessages(
         channel_->BasicAck(envelope);
     } catch (std::exception &e) {
         static string what = e.what();
-        cout << "Caught fatal exception while Acking message to RabbitMQ: "
-             << amqpclient_->rabbitmq_ip() << ":"
-             << amqpclient_->rabbitmq_port() << " : " << what << endl;
+        string message =
+            "RabbitMQ SM: Caught exception while acking "
+            "messages from RabbitMQ: "
+            + amqpclient_->rabbitmq_ip() + ':'
+            + amqpclient_->rabbitmq_port() + ':' + what;
+        cout << message << endl;
+        CONFIG_CLIENT_WARN(ConfigClientGenWarning, message);
         return false;
     } catch (...) {
-        cout << "Caught fatal unknown exception while acking messages from "
-             << "RabbitMQ: " << amqpclient_->rabbitmq_ip() << ":"
-             << amqpclient_->rabbitmq_port() << endl;
+        string message =
+            "RabbitMQ SM: Caught fatal unknown exception while acking messages "
+            "from RabbitMQ " + amqpclient_->rabbitmq_ip() + ':'
+            + amqpclient_->rabbitmq_port();
+        cout << message << endl;
+        CONFIG_CLIENT_WARN(ConfigClientGenWarning, message);
         assert(0);
     }
     return true;
@@ -340,8 +382,12 @@ bool ConfigAmqpClient::RabbitMQReader::AckRabbitMessages(
 bool ConfigAmqpClient::RabbitMQReader::Run() {
     // If reinit is triggerred, don't wait for end of config trigger
     // return from here to process reinit
-    if (amqpclient_->config_manager()->is_reinit_triggered())
+    if (amqpclient_->config_manager()->is_reinit_triggered()) {
+        CONFIG_CLIENT_DEBUG(
+            ConfigClientGenDebug,
+            "RabbitMQ SM: Reinit triggered, don't wait for end of config");
         return true;
+    }
 
     // To start consuming the message, we should have finised bulk sync
     amqpclient_->config_manager()->WaitForEndOfConfig();

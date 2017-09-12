@@ -28,6 +28,7 @@
 #include "base/task.h"
 #include "base/task_annotations.h"
 #include "base/task_trigger.h"
+#include "client/config_log_types.h"
 #include "ifmap/client/config_cass2json_adapter.h"
 #include "ifmap/client/config_json_parser.h"
 #include "io/event_manager.h"
@@ -88,22 +89,29 @@ ConfigCassandraClient::~ConfigCassandraClient() {
 void ConfigCassandraClient::InitDatabase() {
     HandleCassandraConnectionStatus(false);
     while (true) {
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug, "Cassandra SM: Db Init");
         if (!dbif_->Db_Init()) {
-            CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
+            CONFIG_CLIENT_DEBUG(ConfigCassInitErrorMessage,
                                      "Database initialization failed");
             if (!InitRetry()) return;
             continue;
         }
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "Cassandra SM: Db SetTableSpace");
         if (!dbif_->Db_SetTablespace(g_vns_constants.API_SERVER_KEYSPACE_NAME)) {
-            CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
+            CONFIG_CLIENT_DEBUG(ConfigCassInitErrorMessage,
                                      "Setting database keyspace failed");
             if (!InitRetry()) return;
             continue;
         }
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "Cassandra SM: Db UseColumnFamily uuidTableName");
         if (!dbif_->Db_UseColumnfamily(kUuidTableName)) {
             if (!InitRetry()) return;
             continue;
         }
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "Cassandra SM: Db UseColumnFamily fqnTableName");
         if (!dbif_->Db_UseColumnfamily(kFqnTableName)) {
             if (!InitRetry()) return;
             continue;
@@ -115,6 +123,7 @@ void ConfigCassandraClient::InitDatabase() {
 }
 
 bool ConfigCassandraClient::InitRetry() {
+    CONFIG_CLIENT_DEBUG(ConfigClientGenDebug, "Cassandra SM: DB uninit");
     dbif_->Db_Uninit();
     // If reinit is triggered, return false to abort connection attempt
     if (mgr()->is_reinit_triggered()) return false;
@@ -169,8 +178,6 @@ bool ConfigCassandraClient::ReadObjUUIDTable(set<string> *uuid_list) {
     if (dbif_->Db_GetMultiRow(&col_list_vec, kUuidTableName, keys,
                               crange, field_vec,
                               GenDb::DbConsistency::QUORUM)) {
-        // Failure is returned due to connectivity issue or consistency
-        // issues in reading from cassandra
         HandleCassandraConnectionStatus(true);
         BOOST_FOREACH(const GenDb::ColList &col_list, col_list_vec) {
             assert(col_list.rowkey_.size() == 1);
@@ -184,6 +191,8 @@ bool ConfigCassandraClient::ReadObjUUIDTable(set<string> *uuid_list) {
             }
         }
     } else {
+        // Failure is returned due to connectivity issue or consistency
+        // issues in reading from cassandra
         HandleCassandraConnectionStatus(false);
         IFMAP_WARN(IFMapGetRowError, "GetMultiRow failed for table",
                    kUuidTableName, "");
@@ -381,6 +390,9 @@ void ConfigCassandraClient::HandleObjectDelete(const string &uuid) {
 // 3. Delete partitions which inturn will clear up the object cache and
 // previously enqueued uuid read requests
 void ConfigCassandraClient::PostShutdown() {
+    CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                        "Cassandra SM: Post shutdown during re init");
+    CONFIG_CLIENT_DEBUG(ConfigClientGenDebug, "Cassandra SM: Db Uninit");
     dbif_->Db_Uninit();
     STLDeleteValues(&partitions_);
     fq_name_cache_.clear();
@@ -399,6 +411,8 @@ void ConfigCassandraClient::EnqueueDelete(const string &uuid,
 
 
 bool ConfigCassandraClient::BulkDataSync() {
+    CONFIG_CLIENT_DEBUG(
+        ConfigClientGenDebug, "Cassandra SM: BulkDataSync Started");
     bulk_sync_status_ = num_workers_;
     fq_name_reader_->Set();
     return true;
@@ -606,14 +620,20 @@ void ConfigCassandraClient::BulkSyncDone() {
     long num_config_readers_still_processing =
         bulk_sync_status_.fetch_and_decrement();
     if (num_config_readers_still_processing == 1) {
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "Cassandra SM: BulkSyncDone by all readers");
         mgr()->EndOfConfig();
+    } else {
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "Cassandra SM: One reader finished BulkSync");
     }
 }
 
 void ConfigCassandraClient::GetConnectionInfo(ConfigDBConnInfo &status) const {
     status.cluster = boost::algorithm::join(config_db_ips(), ", ");
     status.connection_status = cassandra_connection_up_;
-    status.connection_status_change_at = connection_status_change_at_;
+    status.connection_status_change_at =
+    UTCUsecToString(connection_status_change_at_);
     return;
 }
 
@@ -630,11 +650,15 @@ void ConfigCassandraClient::HandleCassandraConnectionStatus(bool success) {
             process::ConnectionType::DATABASE, "Cassandra",
             process::ConnectionStatus::UP,
             dbif_->Db_GetEndpoints(), "Established Cassandra connection");
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "Cassandra SM :Established Cassandra connection");
     } else {
         process::ConnectionState::GetInstance()->Update(
             process::ConnectionType::DATABASE, "Cassandra",
             process::ConnectionStatus::DOWN,
             dbif_->Db_GetEndpoints(), "Lost Cassandra connection");
+        CONFIG_CLIENT_DEBUG(ConfigClientGenDebug,
+                            "Cassandra SM: Lost Cassandra connection");
     }
 }
 
@@ -955,9 +979,11 @@ bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
     } else if (key == "fq_name") {
         context.fq_name_present = true;
         if (context.fq_name.empty()) {
-            context.fq_name = value.substr(1, value.size()-1);
+            context.fq_name = value.substr(1, value.size()-2);
             context.fq_name.erase(remove(context.fq_name.begin(),
                         context.fq_name.end(), '\"'), context.fq_name.end());
+            context.fq_name.erase(remove(context.fq_name.begin(),
+                        context.fq_name.end(), ' '), context.fq_name.end());
             replace(context.fq_name.begin(), context.fq_name.end(), ',', ':');
         }
     }
