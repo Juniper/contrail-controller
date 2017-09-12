@@ -193,6 +193,7 @@ public:
     virtual const AgentPath *UsablePath() const;
     //Syncs path parameters. Parent route is also used to pick params.
     virtual bool Sync(AgentRoute *sync_route);
+    virtual bool PostChangeNH(Agent *agent, NextHop *nh);
 
     const SecurityGroupList &sg_list() const {return sg_list_;}
     const CommunityList &communities() const {return communities_;}
@@ -717,6 +718,7 @@ public:
     MulticastRoutePath(const Peer *peer);
     virtual ~MulticastRoutePath() { }
 
+    virtual bool PostChangeNH(Agent *agent, NextHop *nh);
     void set_original_nh(NextHopRef nh) {
         original_nh_ = nh;
     }
