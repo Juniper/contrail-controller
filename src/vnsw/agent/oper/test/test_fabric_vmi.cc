@@ -312,6 +312,13 @@ TEST_F(FabricVmiTest, FIP_Native_Encap) {
     client->WaitForIdle();
 }
 
+TEST_F(FabricVmiTest, PolicyVrfDelete) {
+    DelVrf(agent->fabric_policy_vrf_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfGet(agent->fabric_policy_vrf_name().c_str())->
+                forwarding_vrf()->GetName() == agent->fabric_vrf_name().c_str());
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, false, false, false);

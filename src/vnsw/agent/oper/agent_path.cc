@@ -82,7 +82,9 @@ const NextHop* AgentPath::ComputeNextHop(Agent *agent) const {
     //Indirect route's path, get direct route's NH
     const NextHop *nh = dependant_rt_.get()->GetActiveNextHop();
     if (nh == NULL) {
-        assert(0);
+        DiscardNH key;
+        return static_cast<NextHop *>
+            (agent->nexthop_table()->FindActiveEntry(&key));
     }
     return nh;
 }
