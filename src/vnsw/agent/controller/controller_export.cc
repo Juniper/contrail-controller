@@ -335,6 +335,12 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
     State *state = static_cast<State *>(route->GetState(partition->parent(), id_));
     bool route_can_be_dissociated = MulticastRouteCanDissociate(route);
 
+    if (marked_delete_ && state) {
+        route->ClearState(partition->parent(), id_);
+        delete state;
+        state = NULL;
+        return;
+    }
     //Handle withdraw for following cases:
     //- Route is not having any active multicast exportable path or is deleted.
     //- associate(false): Bgp Peer has gone down and state needs to be removed. 
