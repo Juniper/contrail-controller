@@ -32,7 +32,7 @@ void MirrorIndexResourceKey::Backup(ResourceData *data, uint16_t op){
             sandesh_maps().AddMirrorResourceEntry(index_data->index(),
                                                          backup_data);
     }
-    rm()->backup_mgr()->sandesh_maps().vrf_index_table().TriggerBackup();
+    rm()->backup_mgr()->sandesh_maps().mirror_index_table().TriggerBackup();
 
 }
 
