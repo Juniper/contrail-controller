@@ -985,7 +985,12 @@ class VirtualNetworkST(DBBaseST):
             vmi = VirtualMachineInterfaceST.get(vmi_name)
             if vmi and vmi.is_left():
                 vn_analyzer = vmi.virtual_network
-                ip_analyzer = vmi.get_any_instance_ip_address()
+                ip_version = None
+                if vmi.get_primary_instance_ip_address(ip_version=4):
+                    ip_version = 4
+                elif vmi.get_primary_instance_ip_address(ip_version=6):
+                    ip_version = 6
+                ip_analyzer = vmi.get_any_instance_ip_address(ip_version)
                 break
         # end for vmi_ref
         return (vn_analyzer, ip_analyzer)
