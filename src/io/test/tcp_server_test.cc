@@ -256,7 +256,7 @@ TEST_F(EchoServerTest, Connect) {
     TASK_UTIL_EXPECT_TRUE(session->IsClosed());
     TASK_UTIL_EXPECT_FALSE(session->IsEstablished());
     TASK_UTIL_EXPECT_EQ(0, connect_success_);
-    TASK_UTIL_EXPECT_EQ(1, connect_fail_);
+    TASK_UTIL_EXPECT_GE(connect_fail_, 1);
     TASK_UTIL_EXPECT_EQ(0, connect_abort_);
     session->Close();
     client->DeleteSession(session);
