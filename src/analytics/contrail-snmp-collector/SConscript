@@ -24,9 +24,16 @@ sources = [
     'contrail_snmp_collector/snmpctrlr.py',
     'contrail_snmp_collector/snmp.py',
     'contrail_snmp_collector/snmpuve.py',
+    'contrail_snmp_collector/snmp_config_db.py',
+    'contrail_snmp_collector/snmp_config_handler.py',
     'contrail_snmp_collector/device_config.py',
     'contrail_snmp_collector/scanner.py',
     ]
+
+common_sources = [
+    '#controller/src/opserver/analytics_logger.py',
+    '#controller/src/opserver/config_handler.py'
+]
 
 mibs = Glob('mibs/*')
 
@@ -36,8 +43,10 @@ nodeinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh',
 cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'contrail_snmp_collector/sandesh/nodeinfo/', False)
 process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'contrail_snmp_collector/sandesh/nodeinfo/', False)
 
+common_sources_rules = [env.Install('contrail_snmp_collector', f) for f in common_sources]
+
 sdist_depends = [ prouter_pkg, snmp_collector_info_pkg, nodeinfo_pkg,
-                  cpuinfo_pkg, process_info_pkg ]
+                  cpuinfo_pkg, process_info_pkg, common_sources_rules ]
 
 version = '0.0.1'
 #with open("CHANGES.txt") as f:
@@ -52,6 +61,7 @@ env.Alias('controller/src/analytics/contrail-snmp-collector/' + \
 
 src_rules = [env.Install(Dir("."),
     '#controller/src/analytics/contrail-snmp-collector/' + f) for f in sources]
+src_rules += [env.Install(Dir("."), f) for f in common_sources]
 src_rules.append(env.Install(Dir("."),
         '#controller/src/opserver/run_tests.sh'))
 
@@ -92,7 +102,6 @@ test_depends = [
         '/config/common/dist/cfgm_common-0.1dev.tar.gz',
         '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
         '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
-        '/api-lib/dist/vnc_api-0.1dev.tar.gz',
         '/opserver/dist/opserver-0.1dev.tar.gz',
 ]
 

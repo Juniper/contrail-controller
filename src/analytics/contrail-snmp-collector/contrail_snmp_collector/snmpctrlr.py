@@ -9,6 +9,7 @@ import cPickle as pickle
 from snmpuve import SnmpUve
 from opserver.consistent_schdlr import ConsistentScheduler
 from device_config import DeviceConfig, DeviceDict
+from snmp_config_handler import SnmpConfigHandler
 import ConfigParser
 import signal
 import random
@@ -55,21 +56,13 @@ class Controller(object):
              self._chksum = hashlib.md5("".join(self._config.collectors())).hexdigest()
              self._config.random_collectors = random.sample(self._config.collectors(), \
                                                             len(self._config.collectors()))
-        self._api_server_checksum = ""
-        if self._config.api_server_list():
-            self._api_server_checksum = hashlib.md5("".join(
-                self._config.api_server_list())).hexdigest()
-            random_api_servers = random.sample(
-                self._config.api_server_list(),
-                len(self._config.api_server_list()))
-            self._config.set_api_server_list(random_api_servers)
         self.uve = SnmpUve(self._config)
+        self._sandesh = self.uve.sandesh_instance()
         self._hostname = socket.gethostname()
         self._logger = self.uve.logger()
         self.sleep_time()
-        self._keep_running = True
         self.last = set()
-        self._sem = None
+        self._sem = Semaphore()
         self._config.set_cb(self.notify)
         self._mnt = MaxNinTtime(3, self._sleep_time)
         self._state = 'full_scan' # replace it w/ fsm
@@ -78,6 +71,12 @@ class Controller(object):
         self._members = None
         self._partitions = None
         self._prouters = {}
+        self._config_handler = SnmpConfigHandler(self._sandesh,
+            self._config.rabbitmq_params(), self._config.cassandra_params())
+        self._consistent_scheduler = ConsistentScheduler(self._config._name,
+            zookeeper=self._config.zookeeper_server(),
+            delete_hndlr=self._del_uves, logger=self._logger,
+            cluster_id=self._config.cluster_id())
 
     def _make_if_cdata(self, data):
         if_cdata = {}
@@ -185,9 +184,6 @@ class Controller(object):
 
     def notify(self, svc, msg='', up=True, servers=''):
         self.uve.conn_state_notify(svc, msg, up, servers)
-
-    def stop(self):
-        self._keep_running = False
 
     def sleep_time(self, newtime=None):
         if newtime:
@@ -320,51 +316,60 @@ class Controller(object):
                                 self._config.random_collectors)
                 except ConfigParser.NoOptionError as e: 
                     pass
-            if 'API_SERVER' in config.sections():
-                try:
-                    api_servers = config.get('API_SERVER', 'api_server_list')
-                except ConfigParser.NoOptionError:
-                    pass
-                else:
-                    if isinstance(api_servers, basestring):
-                        api_servers = api_servers.split()
-                    new_api_server_checksum = hashlib.md5("".join(
-                        api_servers)).hexdigest()
-                    if new_api_server_checksum != self._api_server_checksum:
-                        self._api_server_checksum = new_api_server_checksum
-                        random_api_servers = random.sample(api_servers,
-                            len(api_servers))
-                        self._config.set_api_server_list(random_api_servers)
     # end sighup_handler  
 
-    def run(self):
-       
-        """ @sighup
-        SIGHUP handler to indicate configuration changes
-        """
-        gevent.signal(signal.SIGHUP, self.sighup_handler) 
-
+    def _snmp_walker(self):
         i = 0
-        self._sem = Semaphore()
-        self._logger.debug('Starting.. %s' % str(
-                    self._config.zookeeper_server()))
-        constnt_schdlr = ConsistentScheduler(
-                            self._config._name,
-                            zookeeper=self._config.zookeeper_server(),
-                            delete_hndlr=self._del_uves,
-                            logger=self._logger, 
-                            cluster_id=self._config.cluster_id())
-        while self._keep_running:
+        while True:
             self._logger.debug('@run: ittr(%d)' % i)
-            if constnt_schdlr.schedule(self._config.devices()):
-                members = constnt_schdlr.members()
-                partitions = constnt_schdlr.partitions()
-                self._send_snmp_collector_uve(members, partitions,
-                    constnt_schdlr.work_items())
-                sleep_time = self.do_work(i, constnt_schdlr.work_items())
+            devices = map(lambda e: DeviceDict(e[0].split(':')[-1], e[1].obj),
+                self._config_handler.get_physical_routers())
+            if self._consistent_scheduler.schedule(devices):
+                members = self._consistent_scheduler.members()
+                partitions = self._consistent_scheduler.partitions()
+                work_items = self._consistent_scheduler.work_items()
+                self._send_snmp_collector_uve(members, partitions, work_items)
+                sleep_time = self.do_work(i, work_items)
                 self._logger.debug('done work %s' % str(self._prouters.keys()))
                 i += 1
                 gevent.sleep(sleep_time)
             else:
                 gevent.sleep(1)
-        constnt_schdlr.finish()
+    # end _snmp_walker
+
+    def run(self):
+        """ @sighup
+        SIGHUP handler to indicate configuration changes
+        """
+        gevent.signal(signal.SIGHUP, self.sighup_handler)
+
+        self.gevs = [
+            gevent.spawn(self._config_handler.start),
+            gevent.spawn(self._snmp_walker)
+        ]
+
+        try:
+            gevent.joinall(self.gevs)
+        except KeyboardInterrupt:
+            self._logger.error('Exiting on ^C')
+        except gevent.GreenletExit:
+            self._logger.error('Exiting on gevent-kill')
+        except:
+            raise
+        finally:
+            self._logger.error('stopping everything!')
+            self.stop()
+    # end run
+
+    def stop(self):
+        self.uve.killall()
+        l = len(self.gevs)
+        for i in range(0, l):
+            self._logger.error('killing %d of %d' % (i+1, l))
+            self.gevs[0].kill()
+            self._logger.error('joining %d of %d' % (i+1, l))
+            self.gevs[0].join()
+            self._logger.error('stopped %d of %d' % (i+1, l))
+            self.gevs.pop(0)
+        self._consistent_scheduler.finish()
+    # end stop

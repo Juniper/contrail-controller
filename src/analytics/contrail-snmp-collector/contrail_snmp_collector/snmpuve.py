@@ -59,6 +59,10 @@ class SnmpUve(object):
         self.if_stat = {}
         self._logger = sandesh_global.logger()
 
+    def sandesh_instance(self):
+        return sandesh_global
+    # end sandesh_instance
+
     def map_svc(self, svc):
         return {
                 'api'         : ConnectionType.APISERVER,
@@ -84,9 +88,9 @@ class SnmpUve(object):
 
     def delete(self, dev):
         PRouterUVE(data=PRouterEntry(**dict(
-                    name=dev['fq_name'][-1], deleted=True))).send()
+                    name=dev.name, deleted=True))).send()
         PRouterFlowUVE(data=PRouterFlowEntry(**dict(
-                    name=dev['fq_name'][-1], deleted=True))).send()
+                    name=dev.name, deleted=True))).send()
 
     def logger(self):
         return self._logger
