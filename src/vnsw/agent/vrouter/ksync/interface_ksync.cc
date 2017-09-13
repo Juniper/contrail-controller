@@ -572,7 +572,8 @@ KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
         MirrorKSyncEntry mksync1(mirror_object, analyzer_name_);
         MirrorKSyncEntry *mirror =
             static_cast<MirrorKSyncEntry *>(mirror_object->GetReference(&mksync1));
-        if (mirror && !mirror->IsResolved()) {
+        if (mirror && !mirror->IsResolved() &&
+            mirror->mirror_index() != MirrorTable::kInvalidIndex) {
             return mirror;
         }
     }
