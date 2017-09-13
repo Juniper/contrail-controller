@@ -20,12 +20,34 @@ class TcpSession;
 class TcpMessageWriter {
 public:
     static const int kDefaultBufferSize = 4 * 1024;
-    explicit TcpMessageWriter(TcpSession *session);
+    static const int kDefaultWriteBufferSize = 32 * 1024;
+    static const int kMaxPendingBufferSize = 256 * 1024;
+    static const int kMinPendingBufferSize = 64 * 1024;
+
+    TcpMessageWriter(TcpSession *session, size_t buffer_send_size);
     ~TcpMessageWriter();
 
     // return false for send
     int Send(const uint8_t *msg, size_t len,
              boost::system::error_code *ec);
+
+    int AsyncSend(const uint8_t *msg, size_t len,
+                  boost::system::error_code *ec);
+
+    // caller needs to take a lock.
+    bool IsWritePending() const {
+        return (buffer_queue_.size() != 0);
+    }
+
+    size_t GetBufferQueueSize() const {
+        size_t total = 0;
+        BufferQueue::const_iterator it = buffer_queue_.begin();
+        for (; it != buffer_queue_.end(); ++it) {
+            boost::asio::mutable_buffer buffer = *it;
+            total += buffer_size(buffer);
+        }
+        return total;
+    }
 
 private:
     friend class TcpSession;
@@ -33,10 +55,15 @@ private:
     typedef std::list<boost::asio::mutable_buffer> BufferQueue;
     void BufferAppend(const uint8_t *data, int len);
     void DeleteBuffer(boost::asio::mutable_buffer buffer);
+    /* DeleteBuffer and Update Buffer Queue */
+    bool UpdateBufferQueue(size_t wrote, bool *send_ready);
     void HandleWriteReady(boost::system::error_code *ec);
+    void TriggerAsyncWrite();
 
     BufferQueue buffer_queue_;
-    int offset_;
+    size_t offset_;
+    size_t last_write_;
+    size_t buffer_send_size_;
     TcpSession *session_;
 };
 
