@@ -252,6 +252,7 @@ class VncCassandraClient(object):
                         continue
                     results.setdefault(key, {}).update(cols)
 
+        empty_row_keys = []
         for key in results:
             # https://bugs.launchpad.net/juniperopenstack/+bug/1712905
             # Probably due to concurrency access to the DB when a resource is
@@ -262,6 +263,7 @@ class VncCassandraClient(object):
                        "finish (%s)" % (key, cf_name, keys, columns, start,
                                         finish))
                 self._logger(msg, level=SandeshLevel.SYS_WARN)
+                empty_row_keys.append(key)
                 continue
             for col, val in results[key].items():
                 try:
@@ -277,6 +279,8 @@ class VncCassandraClient(object):
                     self._logger(msg, level=SandeshLevel.SYS_INFO)
                     results[key][col] = val
 
+        for row_key in empty_row_keys:
+            del results[row_key]
         return results
 
     def delete(self, cf_name, key, columns=None):
