@@ -43,7 +43,8 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
                                    std::string &analyzer_name) :
-    ksync_obj_(obj), analyzer_name_(analyzer_name) { 
+    ksync_obj_(obj), analyzer_name_(analyzer_name),
+    mirror_index_(MirrorTable::kInvalidIndex) {
 }
 
 MirrorKSyncEntry::~MirrorKSyncEntry() {
