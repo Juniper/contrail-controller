@@ -85,6 +85,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType> 
 
+<xsd:complexType name="VirtualRouterNetworkIpamType">
+    <xsd:all>
+        <xsd:element name="allocation-pools" type="AllocationPoolType" maxOccurs="unbounded" required='optional'
+             description='List of ranges of ip address for vrouter specific allocation'/>
+        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded" required='optional'
+             description='List of ip prefix and length for vrouter specific subnets'/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="AllowedAddressPair">
     <xsd:all>
         <xsd:element name="ip" type="SubnetType"/>
@@ -1540,11 +1549,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('virtual-network-network-ipam',
           'virtual-network', 'network-ipam', ['ref'], 'required', 'CRUD',
           'Reference to network-ipam this network is using. It has list of subnets that are being used as property of the reference.') -->
-<xsd:element name="virtual-router-network-ipam" type="AllocationPoolType"/>
+<xsd:element name="virtual-router-network-ipam" type="VirtualRouterNetworkIpamType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('virtual-router-network-ipam',
           'virtual-router', 'network-ipam', ['ref'], 'optional', 'CRUD',
-          'Reference to network-ipam this virtual-router is using. It has list of virtual-router specific allocation-pools that are being used as property of the reference.') -->
+          'Reference to network-ipam this virtual-router is using. It has list of virtual-router specific allocation-pools and cidrs that are being used as property of the reference.') -->
 
 <xsd:element name="network-policy" type="ifmap:IdentityType"/>
 <xsd:element name="project-network-policy"/>
