@@ -31,6 +31,23 @@
 using namespace std;
 using namespace boost::asio;
 
+//Helpers
+bool RebakeLabel(MplsTable *table, uint32_t label, NextHop *nh) {
+    bool ret = false;
+    if (label != MplsTable::kInvalidLabel) {
+        MplsLabelKey key(label);
+        MplsLabel *mpls = static_cast<MplsLabel *>(table->
+                                                   FindActiveEntry(&key));
+        if (mpls && mpls->ChangeNH(nh)) {
+            ret = true;
+            //Send notify of change
+            mpls->get_table_partition()->Notify(mpls);
+        }
+    }
+    return ret;
+}
+
+//AgentPath
 AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
     vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_list_(),
@@ -106,18 +123,20 @@ bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
         ret = true;
     }
 
-    if (peer_ && (peer_->GetType() == Peer::MULTICAST_PEER) &&
+    if (peer_ && (peer_->GetType() == Peer::ECMP_PEER) &&
         (label_ != MplsTable::kInvalidLabel)) {
-        MplsLabelKey key(label_);
-        MplsLabel *mpls = static_cast<MplsLabel *>(agent->mpls_table()->
-                                                   FindActiveEntry(&key));
-        if (mpls->ChangeNH(nh))
+        if (RebakeLabel(agent->mpls_table(), label_, nh))
             ret = true;
-        //Send notify of change
-        mpls->get_table_partition()->Notify(mpls);
     }
 
+    if (PostChangeNH(agent, nh)) {
+        ret = true;
+    }
     return ret;
+}
+
+bool AgentPath::PostChangeNH(Agent *agent, NextHop *nh) {
+    return false;
 }
 
 bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route) {
@@ -955,6 +974,13 @@ bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
 
 MulticastRoutePath::MulticastRoutePath(const Peer *peer) :
     AgentPath(peer, NULL), original_nh_() {
+}
+
+bool MulticastRoutePath::PostChangeNH(Agent *agent, NextHop *nh) {
+    bool ret = false;
+    if (RebakeLabel(agent->mpls_table(), label(), nh))
+        ret = true;
+    return ret;
 }
 
 NextHop *MulticastRoutePath::UpdateNH(Agent *agent,
