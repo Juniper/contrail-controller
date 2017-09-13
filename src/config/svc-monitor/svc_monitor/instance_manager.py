@@ -633,10 +633,13 @@ class InstanceManager(object):
             return
 
         # instance-ip should be owned by tenant
-        if iip_obj:
-            self._vnc_lib.chown(iip_obj.uuid, proj_obj.uuid)
-        if iipv6_obj:
-            self._vnc_lib.chown(iipv6_obj.uuid, proj_obj.uuid)
+        try:
+            if iip_obj:
+                self._vnc_lib.chown(iip_obj.uuid, proj_obj.uuid)
+            if iipv6_obj:
+                self._vnc_lib.chown(iipv6_obj.uuid, proj_obj.uuid)
+        except BadRequest:
+            pass
 
         # set mac address
         if vmi_create:
