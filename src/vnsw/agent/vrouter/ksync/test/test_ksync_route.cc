@@ -90,7 +90,7 @@ public:
         VnListType vn_list;
         vn_list.insert(vn);
         data = ControllerVmRoute::MakeControllerVmRoute
-            (NULL, agent_->fabric_vrf_name(), agent_->router_id(),
+            (bgp_peer_, agent_->fabric_vrf_name(), agent_->router_id(),
              "vrf1", Ip4Address::from_string("10.10.10.2"), TunnelType::GREType(),
              100, vn_list, sg_list, TagList(),
              path_pref, false, EcmpLoadBalance(), false);
@@ -108,7 +108,7 @@ public:
         VnListType vn_list;
         vn_list.insert(vn);
         data = ControllerVmRoute::MakeControllerVmRoute
-            (NULL, agent_->fabric_vrf_name(), agent_->router_id(),
+            (bgp_peer_, agent_->fabric_vrf_name(), agent_->router_id(),
              "vrf1", Ip4Address::from_string("10.10.10.2"), TunnelType::GREType(),
              100, vn_list, sg_list, TagList(), path_pref, false,
              EcmpLoadBalance(), false);
