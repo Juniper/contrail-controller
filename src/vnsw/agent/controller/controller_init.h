@@ -178,6 +178,8 @@ public:
     //Unit test helpers
     bool IsWorkQueueEmpty() const;
     void EnableWorkQueue() { work_queue_.set_disable(false); }
+    void GracefulRestartConfigListener();
+
 private:
     void SetDscpConfig(XmppChannelConfig *xmpp_cfg) const;
     AgentXmppChannel *FindAgentXmppChannel(const std::string &server_ip);
