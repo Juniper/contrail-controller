@@ -20,7 +20,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-mvpn.xsd">
     <xsd:element name="af" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
     <!-- destination label for messages from control-node to agent-->
-    <xsd:element name="label" type="xsd:string"/>
+    <xsd:element name="label" type="xsd:integer"/>
     <xsd:element name="tunnel-encapsulation-list" type="MvpnTunnelEncapsulationListType"/>
 </xsd:complexType>
 
