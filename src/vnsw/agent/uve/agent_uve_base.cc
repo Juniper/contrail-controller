@@ -17,6 +17,7 @@
 #include <init/agent_param.h>
 #include <oper/mirror_table.h>
 #include <oper/global_vrouter.h>
+#include <oper/tag.h>
 #include <uve/vrouter_stats_collector.h>
 #include <cmn/agent_stats.h>
 
@@ -45,6 +46,24 @@ AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl,
 }
 
 AgentUveBase::~AgentUveBase() {
+}
+
+uint32_t AgentUveBase::GetTagOfType(uint32_t tag_type_value,
+                                    const TagList &list) const {
+    TagList::const_iterator it = list.begin();
+    while (it != list.end()) {
+        if (((uint32_t)*it >> TagEntry::kTagTypeBitShift) == tag_type_value) {
+            return *it;
+        }
+        ++it;
+    }
+    return 0;
+}
+
+string AgentUveBase::GetTagNameStr(const TagList &tl, uint32_t type) const {
+    uint32_t tag = GetTagOfType(type, tl);
+    TagTable *table = agent_->tag_table();
+    return table->TagName(tag);
 }
 
 void AgentUveBase::Shutdown() {

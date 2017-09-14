@@ -160,9 +160,7 @@ public:
             , prev_in_bytes(0) , prev_in_pkts(0), prev_out_bytes(0),
             prev_out_pkts(0), prev_added(0), prev_deleted(0) {
         }
-        std::string GetTagIdStr
-            (const InterfaceUveTable::UveInterfaceEntry *entry,
-             uint32_t type) const;
+        std::string GetTagIdStr(const Agent *agent, uint32_t type) const;
     };
     typedef boost::shared_ptr<UveSecurityPolicyStats> UveSecurityPolicyStatsPtr;
     struct PolicyCmp {
@@ -268,10 +266,6 @@ public:
         void UpdateSecurityPolicyStatsInternal(const EndpointStatsInfo &info,
                                                UveSecurityPolicyStats *stats);
         void FillEndpointStats(Agent *agent, EndpointSecurityStats *obj);
-        uint32_t GetTagOfType(uint32_t tag_type_value, const TagList &list)
-            const;
-        std::string GetTagNameStr(Agent *agent, const TagList &tl,
-                                  uint32_t type) const;
         void BuildInterfaceUveInfo(InterfaceUveInfo *r) const;
         void FillTagSetAndPolicyList(Agent *agent, UveVMInterfaceAgent *obj);
         void BuildSandeshUveTagList(const TagList &list,
@@ -283,6 +277,7 @@ public:
         void BuildInterfaceUveSecurityPolicyList
             (const SecurityPolicyStatsSet &ilist,
              std::vector<SandeshUveRemoteEndpoint> *olist) const;
+        std::string GetVmName() const;
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;
 
