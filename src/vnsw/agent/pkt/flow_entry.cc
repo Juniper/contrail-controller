@@ -781,6 +781,18 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
 bool FlowEntry::IsFabricControlFlow() const {
     Agent *agent = flow_table()->agent();
     if (key_.protocol == IPPROTO_TCP) {
+        if (key_.src_addr == agent->router_id()) {
+            for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
+                if (key_.dst_addr.to_string() !=
+                        agent->controller_ifmap_xmpp_server(i))
+                    continue;
+                if (key_.dst_port == agent->controller_ifmap_xmpp_port(i)) {
+                    return true;
+                }
+            }
+        }
+
+
         if (key_.dst_addr == agent->router_id()) {
             return (key_.dst_port == 22 || key_.dst_port == 8085 ||
                     key_.dst_port == 9091 || key_.dst_port == 8097);
@@ -790,18 +802,6 @@ bool FlowEntry::IsFabricControlFlow() const {
             return (key_.src_port == 22 || key_.src_port == 8085 ||
                     key_.src_port == 9091 || key_.src_port == 8097);
         }
-
-
-        if (key_.src_addr == agent->router_id()) {
-            for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-                if (key_.dst_addr.to_string() !=
-                        agent->controller_ifmap_xmpp_server(i))
-                    continue;
-
-                return (key_.dst_port == agent->controller_ifmap_xmpp_port(i));
-            }
-        }
-
         return false;
     }
 

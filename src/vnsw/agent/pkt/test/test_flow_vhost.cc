@@ -260,6 +260,30 @@ TEST_F(VhostVmi, VmiToLocalVhost) {
 	client->WaitForIdle();
 }
 #endif
+
+TEST_F(VhostVmi, FabricFlow) {
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "10.1.1.10",
+                22, 8085, false, 1, 0);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "10.1.1.10", 6, 22, 8085);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    agent_->set_controller_ifmap_xmpp_server("127.0.0.1", 0);
+    agent_->set_controller_ifmap_xmpp_port(5269, 0);
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "127.0.0.1",
+               1000, 5269, false, 1, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "127.0.0.1", 6, 1000, 5269);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;
     GETUSERARGS();
