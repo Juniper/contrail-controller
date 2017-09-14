@@ -88,6 +88,10 @@ private:
     void AddMcastUnreach(const BgpRoute *route);
     bool AddMcastRoute(const BgpRoute *route, const RibOutAttr *roattr);
 
+    void AddMvpnReach(const BgpRoute *route, const RibOutAttr *roattr);
+    void AddMvpnUnreach(const BgpRoute *route);
+    bool AddMvpnRoute(const BgpRoute *route, const RibOutAttr *roattr);
+
     void ProcessCommunity(const Community *community);
     void ProcessExtCommunity(const ExtCommunity *ext_community);
     std::string GetVirtualNetwork(const RibOutAttr::NextHop &nexthop) const;
