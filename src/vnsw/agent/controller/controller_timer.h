@@ -90,12 +90,15 @@ struct EndOfConfigTimer : public ControllerTimer {
     uint32_t GetFallbackInterval() const;
     uint32_t GetInactivityInterval() const;
     void Reset();
+    void GresEnabled(bool enable);
 
     AgentIfMapXmppChannel *config_channel_;
     uint64_t last_config_receive_time_;
     uint64_t inactivity_detected_time_;
     uint64_t end_of_config_processed_time_;
     bool fallback_;
+    uint64_t config_inactivity_time_;
+    uint64_t fallback_interval_;
 };
 
 /*
@@ -120,11 +123,13 @@ struct EndOfRibTxTimer : public ControllerTimer {
     uint32_t GetFallbackInterval() const;
     uint32_t GetInactivityInterval() const;
     void Reset();
+    void GresEnabled(bool enable);
 
     AgentXmppChannel *agent_xmpp_channel_;
     uint64_t end_of_rib_tx_time_;
     uint64_t last_route_published_time_;
     bool fallback_;
+    uint64_t fallback_interval_;
 };
 
 /*
@@ -144,9 +149,11 @@ struct EndOfRibRxTimer : public ControllerTimer {
     virtual uint32_t GetTimerInterval() const;
     virtual bool TimerExpirationDone();
     void Reset();
+    void GresEnabled(bool enable);
 
     AgentXmppChannel *agent_xmpp_channel_;
     uint64_t end_of_rib_rx_time_;
+    uint64_t end_of_rib_rx_fallback_time_;
     bool fallback_;
 };
 #endif

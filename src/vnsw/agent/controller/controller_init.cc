@@ -12,6 +12,7 @@
 #include "xmpp/xmpp_init.h"
 #include "pugixml/pugixml.hpp"
 #include "oper/global_qos_config.h"
+#include "oper/global_system_config.h"
 #include "oper/vrf.h"
 #include "oper/peer.h"
 #include "oper/mirror_table.h"
@@ -311,6 +312,9 @@ void VNController::Connect() {
     agent_->controller()->increment_multicast_sequence_number();
     agent_->set_cn_mcast_builder(NULL);
     agent_ifmap_vm_export_.reset(new AgentIfMapVmExport(agent_));
+    agent_->oper_db()->global_system_config()->gres_parameters().
+        Register(boost::bind(&VNController::GracefulRestartConfigListener,
+                             this));
 }
 
 // Disconnect on agent shutdown.
@@ -929,4 +933,22 @@ bool VNController::TxXmppMessageTrace(uint8_t peer_index,
 
 bool VNController::IsWorkQueueEmpty() const {
     return (work_queue_.IsQueueEmpty() == 0);
+}
+
+void VNController::GracefulRestartConfigListener() {
+    bool enable = agent_->oper_db()->global_system_config()->
+        gres_parameters().IsEnabled();
+
+    for (uint8_t i = 0; i < MAX_XMPP_SERVERS; i++) {
+        if (agent_->ifmap_xmpp_channel(i)) {
+            agent_->ifmap_xmpp_channel(i)->end_of_config_timer()->
+                GresEnabled(enable);
+        }
+        if (agent_->controller_xmpp_channel(i)) {
+            agent_->controller_xmpp_channel(i)->end_of_rib_tx_timer()->
+                GresEnabled(enable);
+            agent_->controller_xmpp_channel(i)->end_of_rib_rx_timer()->
+                GresEnabled(enable);
+        }
+    }
 }
