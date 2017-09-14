@@ -9,6 +9,7 @@
 #include "init/agent_param.h"
 #include "xmpp/xmpp_init.h"
 #include "pugixml/pugixml.hpp"
+#include "oper/global_system_config.h"
 #include "oper/vrf.h"
 #include "oper/peer.h"
 #include "oper/mirror_table.h"
@@ -132,13 +133,15 @@ EndOfConfigTimer::EndOfConfigTimer(Agent *agent,
                                   llgr_params().config_poll_time())),
     config_channel_(config_channel), last_config_receive_time_(0),
     inactivity_detected_time_(0), end_of_config_processed_time_(0),
-    fallback_(false) {
+    fallback_(false), config_inactivity_time_(0), fallback_interval_(0) {
 }
 
 void EndOfConfigTimer::Reset() {
     last_config_receive_time_ = 0;
     inactivity_detected_time_ = 0;
     end_of_config_processed_time_ = 0;
+    config_inactivity_time_ = 0;
+    fallback_interval_ = 0;
     fallback_ = false;
 }
 
@@ -181,13 +184,23 @@ uint32_t EndOfConfigTimer::GetTimerInterval() const {
 }
 
 uint32_t EndOfConfigTimer::GetFallbackInterval() const {
-    return SECS_TO_USECS(agent_->params()->
-                         llgr_params().config_fallback_time());
+    return fallback_interval_;
 }
 
 uint32_t EndOfConfigTimer::GetInactivityInterval() const {
-    return SECS_TO_USECS(agent_->params()->
-                         llgr_params().config_inactivity_time());
+    return config_inactivity_time_;
+}
+
+void EndOfConfigTimer::GresEnabled(bool enable) {
+    if (enable) {
+        config_inactivity_time_ = SECS_TO_USECS(agent_->params()->
+                                  llgr_params().config_inactivity_time());
+        fallback_interval_ = SECS_TO_USECS(agent_->params()->
+                                           llgr_params().config_fallback_time());
+    } else {
+        config_inactivity_time_ = 0;
+        fallback_interval_ = 0;
+    }
 }
 
 EndOfRibTxTimer::EndOfRibTxTimer(Agent *agent) :
@@ -195,13 +208,14 @@ EndOfRibTxTimer::EndOfRibTxTimer(Agent *agent) :
                     SECS_TO_MSECS(agent->params()->
                                   llgr_params().end_of_rib_tx_poll_time())),
     agent_xmpp_channel_(NULL), end_of_rib_tx_time_(0),
-    last_route_published_time_(0), fallback_(false) {
+    last_route_published_time_(0), fallback_(false), fallback_interval_(0) {
 }
 
 void EndOfRibTxTimer::Reset() {
     end_of_rib_tx_time_ = 0;
     last_route_published_time_ = 0;
     fallback_ = false;
+    fallback_interval_ = 0;
 }
 
 void EndOfRibTxTimer::Start(AgentXmppChannel *agent_xmpp_channel) {
@@ -248,13 +262,23 @@ uint32_t EndOfRibTxTimer::GetTimerInterval() const {
 }
 
 uint32_t EndOfRibTxTimer::GetFallbackInterval() const {
-    return SECS_TO_USECS(agent_->params()->
-                         llgr_params().end_of_rib_tx_fallback_time());
+    return fallback_interval_;
 }
 
 uint32_t EndOfRibTxTimer::GetInactivityInterval() const {
-    return SECS_TO_USECS(agent_->params()->
-                         llgr_params().end_of_rib_tx_inactivity_time());
+    return end_of_rib_tx_time_;
+}
+
+void EndOfRibTxTimer::GresEnabled(bool enable) {
+    if (enable) {
+        end_of_rib_tx_time_ = SECS_TO_USECS(agent_->params()->
+                              llgr_params().end_of_rib_tx_inactivity_time());
+        fallback_interval_ = SECS_TO_USECS(agent_->params()->
+                             llgr_params().end_of_rib_tx_fallback_time());
+    } else {
+        end_of_rib_tx_time_ = 0;
+        fallback_interval_ = 0;
+    }
 }
 
 EndOfRibRxTimer::EndOfRibRxTimer(Agent *agent) :
@@ -270,11 +294,6 @@ void EndOfRibRxTimer::Start(AgentXmppChannel *agent_xmpp_channel) {
     ControllerTimer::Start(agent_xmpp_channel);
 }
 
-uint32_t EndOfRibRxTimer::GetTimerInterval() const {
-    return SECS_TO_MSECS(agent_->params()->
-                         llgr_params().end_of_rib_rx_fallback_time());
-}
-
 bool EndOfRibRxTimer::TimerExpirationDone() {
     end_of_rib_rx_time_ = UTCTimestampUsec();
     fallback_ = true;
@@ -284,5 +303,23 @@ bool EndOfRibRxTimer::TimerExpirationDone() {
 
 void EndOfRibRxTimer::Reset() {
     end_of_rib_rx_time_ = 0;
+    end_of_rib_rx_fallback_time_ = 0;
     fallback_ = false;
+}
+
+uint32_t EndOfRibRxTimer::GetTimerInterval() const {
+    return end_of_rib_rx_fallback_time_;
+}
+
+void EndOfRibRxTimer::GresEnabled(bool enable) {
+    if (enable) {
+        end_of_rib_rx_fallback_time_ = agent_->oper_db()->
+            global_system_config()->gres_parameters().end_of_rib_time();
+        if (end_of_rib_rx_fallback_time_ == 0) {
+            end_of_rib_rx_fallback_time_ = SECS_TO_USECS(agent_->params()->
+                                   llgr_params().end_of_rib_rx_fallback_time());
+        }
+    } else {
+        end_of_rib_rx_fallback_time_ = 0;
+    }
 }
