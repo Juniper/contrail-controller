@@ -203,7 +203,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         description='ip address of destination vtep'/>
     <xsd:element name="vtep-dst-mac-address" type="xsd:string" required='optional'
         description='mac address of destination vtep'/>
-    <xsd:element name="vni" type="xsd:integer" required='true'
+    <xsd:element name="vni" type="VxlanNetworkIdentifierType" required='true'
         description='Vni of vtep'/>
     </xsd:all>
 </xsd:complexType>
