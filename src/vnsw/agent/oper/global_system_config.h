@@ -9,11 +9,43 @@
 #include <oper/oper_db.h>
 
 class IFMapNode;
+namespace autogen {
+    class GlobalSystemConfig;
+}
+
 struct BGPaaServiceParameters {
 typedef std::pair<uint16_t, uint16_t> BGPaaServicePortRangePair;
+    void Reset();
+
     int port_start;
     int port_end;
 };
+
+struct GracefulRestartParameters {
+public:
+    typedef boost::function<void()> Callback;
+    typedef std::vector<Callback> CallbackList;
+    void Reset();
+    void Update(autogen::GlobalSystemConfig *cfg);
+    void Register(GracefulRestartParameters::Callback cb);
+    bool enable() const { return enable_; }
+    bool xmpp_helper_enable() const { return xmpp_helper_enable_; }
+    bool config_seen() const { return config_seen_; }
+    uint32_t end_of_rib_time() { return end_of_rib_time_; }
+    bool IsEnabled() const {
+        return (config_seen_ && enable_ && xmpp_helper_enable_);
+    }
+
+private:
+    void Notify();
+
+    bool enable_;
+    uint64_t end_of_rib_time_;
+    bool xmpp_helper_enable_;
+    CallbackList callbacks_;
+    bool config_seen_;
+};
+
 class GlobalSystemConfig : public OperIFMapTable {
 public:
     GlobalSystemConfig(Agent *agent);
@@ -26,8 +58,12 @@ public:
          return std::make_pair(bgpaas_parameters_.port_start,
                                bgpaas_parameters_.port_end);
     }
+    void Reset();
+    GracefulRestartParameters &gres_parameters();
+
 private:
     BGPaaServiceParameters bgpaas_parameters_;
+    GracefulRestartParameters gres_parameters_;
     DISALLOW_COPY_AND_ASSIGN(GlobalSystemConfig);
 };
 #endif
