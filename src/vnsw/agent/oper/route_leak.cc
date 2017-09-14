@@ -66,11 +66,11 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
     }
 
     if (intf_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
-        local_peer_ = false;
         const VmInterface *vm_intf =
             static_cast<const VmInterface *>(intf_nh->GetInterface());
         if (vm_intf->vmi_type() == VmInterface::VHOST) {
             if (uc_rt->addr() == agent_->router_id()) {
+                local_peer_ = false;
                 AddReceiveRoute(route);
                 return;
             }
@@ -84,11 +84,12 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
         local_peer = true;
     }
 
-    if (local_peer_ != local_peer) {
+    if (installed_ && local_peer_ != local_peer) {
         DeleteRoute(route);
-        local_peer_ = true;
     }
 
+    local_peer_ = local_peer;
+    installed_ = true;
     SecurityGroupList sg_list;
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer,
                                                 dest_vrf_->GetName(),

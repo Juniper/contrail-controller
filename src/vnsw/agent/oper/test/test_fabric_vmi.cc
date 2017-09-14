@@ -312,6 +312,49 @@ TEST_F(FabricVmiTest, FIP_Native_Encap) {
     client->WaitForIdle();
 }
 
+//Add a route in default vrf via fabric peer
+//and another path via local peer(route leaking scenario)
+//Verify that both path are added and deleted appropriatly
+TEST_F(FabricVmiTest, FabricAndLocalPeerRoute) {
+    struct PortInfo input1[] = {
+        {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+
+    AddLocalVmRoute(agent, agent->fabric_policy_vrf_name(), "1.1.1.1",
+                    32, "vn1", 2, peer_);
+    client->WaitForIdle();
+
+    //Route should be leaked to fabric VRF
+    EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+
+    //Verify that nexthop is ARP nexthop fpr server_ip
+    InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
+    EXPECT_TRUE(rt->FindPath(agent->local_peer()) != NULL);
+    EXPECT_TRUE(rt->FindPath(agent->fabric_rt_export_peer()) != NULL);
+
+    DeleteRoute(agent->fabric_policy_vrf_name().c_str(), "1.1.1.1", 32,
+                peer_);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->FindPath(agent->local_peer()) == NULL);
+    EXPECT_TRUE(rt->FindPath(agent->fabric_rt_export_peer()) != NULL);
+
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, false, false, false);

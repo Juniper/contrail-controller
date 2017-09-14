@@ -707,4 +707,8 @@ void AddServiceGroup(const std::string &name, uint32_t id,
 void CreateTags(TestTag *tag, uint32_t count);
 void DeleteTags(TestTag *tag, uint32_t count);
 void AddGlobalPolicySet(const std::string &name, uint32_t id);
+void AddLocalVmRoute(Agent *agent, const std::string &vrf_name,
+                     const std::string &ip, uint32_t plen,
+                     const std::string &vn, uint32_t intf_uuid,
+                     const Peer *peer);
 #endif // vnsw_agent_test_cmn_util_h
