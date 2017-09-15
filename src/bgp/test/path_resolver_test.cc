@@ -2133,7 +2133,7 @@ TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath1) {
     this->AddXmppPath(xmpp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
-    TASK_UTIL_EXPECT_EQ(DB::PartitionCount() * 2,
+    TASK_UTIL_EXPECT_EQ((size_t)DB::PartitionCount() * 2,
         this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
         this->VerifyPathAttributes("blue", this->BuildPrefix(idx), bgp_peer1,
@@ -2143,7 +2143,7 @@ TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath1) {
     this->AddXmppPath(xmpp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10002);
-    TASK_UTIL_EXPECT_EQ(DB::PartitionCount() * 2,
+    TASK_UTIL_EXPECT_EQ((size_t)DB::PartitionCount() * 2,
         this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
         this->VerifyPathAttributes("blue", this->BuildPrefix(idx), bgp_peer1,
@@ -2197,7 +2197,7 @@ TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath2) {
         this->BuildPrefix(bgp_peer1->ToString(), 32),
         this->BuildNextHopAddress("172.16.1.1"), 10001);
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(DB::PartitionCount() * 2,
+    TASK_UTIL_EXPECT_EQ((size_t)DB::PartitionCount() * 2,
         this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
         this->VerifyPathAttributes("blue", this->BuildPrefix(idx), bgp_peer1,
@@ -2207,7 +2207,7 @@ TYPED_TEST(PathResolverTest, MultiplePrefixChangeXmppPath2) {
     this->DeleteXmppPath(xmpp_peer1, "blue",
         this->BuildPrefix(bgp_peer1->ToString(), 32));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(DB::PartitionCount() * 2,
+    TASK_UTIL_EXPECT_EQ((size_t)DB::PartitionCount() * 2,
         this->ResolverPathUpdateListSize("blue"));
     for (int idx = 1; idx <= DB::PartitionCount() * 2; ++idx) {
         this->VerifyPathAttributes("blue", this->BuildPrefix(idx), bgp_peer1,
