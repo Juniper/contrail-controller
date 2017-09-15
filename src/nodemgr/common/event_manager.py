@@ -561,12 +561,12 @@ class EventManager(object):
         return self.curr_build_info
 
     def get_corefile_path(self):
-        self.core_file_path = "/var/crashes"
+        self.core_file_path = self.config.corefile_path
         cat_command = "cat /proc/sys/kernel/core_pattern"
         (core_pattern, stderr) = Popen(
                 cat_command.split(),
                 stdout=PIPE, close_fds=True).communicate()
-        if core_pattern is not None:
+        if core_pattern is not None and not core_pattern.startswith('|'):
             dirname_cmd = "dirname " + core_pattern
             (self.core_file_path, stderr) = Popen(
                 dirname_cmd.split(),
