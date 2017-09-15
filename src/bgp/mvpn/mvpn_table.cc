@@ -144,6 +144,27 @@ const MvpnProjectManagerPartition *MvpnTable::GetProjectManagerPartition(
     return manager->GetPartition(part_id);
 }
 
+// Override virtual method to retrive target table for MVPN routes. For now,
+// only Type-4 LeafAD routes require special treatment, as they always come
+// with the same route target <router-id>:0. Hence, if normal rtf selection
+// mode is used, every table with MVPN enalbled would have to be notified for
+// replication. Instead, find the table based on the correspondong S-PMSI route.
+// This route can be retrieved from the MVPN state of the <S-G> maintained in
+// the MvpnProjectManagerPartition object.
+void MvpnTable::UpdateSecondaryTablesForReplication(BgpRoute *rt,
+        TableSet *secondary_tables) {
+    if (IsMaster())
+        return;
+    MvpnRoute *mvpn_rt = dynamic_cast<MvpnRoute *>(rt);
+    assert(mvpn_rt);
+
+    // Special table lookup is required only for the Type4 LeafAD routes.
+    if (mvpn_rt->GetPrefix().type() != MvpnPrefix::LeafADRoute)
+        return;
+
+    manager()->UpdateSecondaryTablesForReplication(mvpn_rt, secondary_tables);
+}
+
 // Find or create the route.
 MvpnRoute *MvpnTable::FindRoute(MvpnPrefix &prefix) {
     MvpnRoute rt_key(prefix);
@@ -265,14 +286,34 @@ const MvpnRoute *MvpnTable::FindType5SourceActiveADRoute(MvpnRoute *rt) const {
 }
 
 BgpRoute *MvpnTable::RouteReplicate(BgpServer *server,
-        BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
+        BgpTable *stable, BgpRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr community) {
+    MvpnTable *src_table = dynamic_cast<MvpnTable *>(stable);
+    assert(src_table);
     assert(src_table->family() == Address::MVPN);
 
-    MvpnRoute *mroute = dynamic_cast<MvpnRoute *>(src_rt);
-    assert(mroute);
+    MvpnRoute *mvpn_route = dynamic_cast<MvpnRoute *>(src_rt);
+    assert(mvpn_route);
 
-    MvpnPrefix mprefix(mroute->GetPrefix());
+    if (!IsMaster()) {
+        // For type-4 paths, only replicate if there is a type-3 primary path
+        // present in the table.
+        if (mvpn_route->GetPrefix().type() == MvpnPrefix::LeafADRoute) {
+            MvpnProjectManager *pm = GetProjectManager();
+            if (!pm)
+                return NULL;
+            MvpnStatePtr mvpn_state = pm->GetState(mvpn_route);
+            if (!mvpn_state || !mvpn_state->spmsi_rt() ||
+                    !mvpn_state->spmsi_rt()->IsUsable()) {
+                return NULL;
+            }
+        }
+
+        // For type-7 paths, only replicate if route has a target that matches
+        // this table's auto created route target (vit).
+    }
+
+    MvpnPrefix mprefix(mvpn_route->GetPrefix());
     MvpnRoute rt_key(mprefix);
 
     // Find or create the route.

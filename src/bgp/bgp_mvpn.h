@@ -125,7 +125,9 @@ private:
     MvpnStatePtr GetState(ErmVpnRoute *route) const;
     MvpnStatePtr GetState(ErmVpnRoute *route);
     MvpnStatePtr LocateState(MvpnRoute *route);
-    void DeleteState(MvpnStatePtr state);
+    void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
+    bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
+            Ip4Address *address, std::vector<std::string> *encap) const;
 
     MvpnManager *manager_;
     int part_id_;
@@ -188,6 +190,8 @@ public:
     const NeighborMap &neighbors() const { return neighbors_; }
     void ReOriginateType1Route(const Ip4Address &old_identifier);
     void OriginateType1Route();
+    virtual void UpdateSecondaryTablesForReplication(MvpnRoute *rt,
+            BgpTable::TableSet *secondary_tables) const;
     static bool IsEnabled() { return enable_; }
     static void set_enable(bool enable) { enable_ = enable; }
 
@@ -229,11 +233,6 @@ private:
 // routes. When the refcount reaches 0, (last referring db state is deleted),
 // this object is deleted from the container map and then destroyed.
 //
-// global_ermvpn_tree_rt_
-//     This is a reference to GlobalErmVpnRoute associated with the ErmVpnTree
-//     used in the data plane for this <S,G>. This route is created/updated
-//     when ErmVpn notifies changes to ermvpn routes.
-//
 // spmsi_rt_
 //     This is the 'only' Type3 SPMSI sender route originated for this S,G.
 //     When an agent indicates that it has an active sender for a particular
@@ -244,7 +243,7 @@ private:
 //     This is a set of all Type3 spmsi routes received for this <S-G>. It is
 //     possible that when these routes are received, then there is no ermvpn
 //     tree route to use for forwarding in the data plane. In such a case, later
-//     when global_ermvpn_tree_rt_ does get updated, all leaf ad routes in this
+//     when GlobalErmVpnRoute does get updated, all leaf ad routes in this
 //     set are notified and re-evaluated.
 //
 // leafad_routes_received_
@@ -305,7 +304,6 @@ private:
     friend void intrusive_ptr_release(MvpnState *mvpn_state);
 
     SG sg_;
-    ErmVpnRoute *global_ermvpn_tree_rt_;
     MvpnRoute *spmsi_rt_;
     RoutesSet spmsi_routes_received_;
     RoutesMap leafad_routes_received_;
@@ -333,7 +331,7 @@ inline void intrusive_ptr_release(MvpnState *mvpn_state) {
             mvpn_state->states()->find(mvpn_state->sg());
         if (iter != mvpn_state->states()->end()) {
             assert(iter->second == mvpn_state);
-            mvpn_state->states()->erase(mvpn_state->sg());
+            mvpn_state->states()->erase(iter);
         }
     }
     delete mvpn_state;
@@ -394,7 +392,6 @@ public:
     MvpnStatePtr GetState(const SG &sg) const;
     MvpnStatePtr LocateState(const SG &sg);
     MvpnStatePtr CreateState(const SG &sg);
-    void DeleteState(MvpnStatePtr mvpn_state);
 
 private:
     friend class MvpnProjectManager;
@@ -406,6 +403,9 @@ private:
     void RouteListener(DBEntryBase *db_entry);
     int listener_id() const;
     void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
+    bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
+            Ip4Address *address, std::vector<std::string> *encap) const;
+    bool IsUsableGlobalTreeRootRoute(ErmVpnRoute *ermvpn_route) const;
 
     // Back pointer to the parent MvpnProjectManager
     MvpnProjectManager *manager_;
