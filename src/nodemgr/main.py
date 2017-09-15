@@ -73,6 +73,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                'hostip': '127.0.0.1',
                'db_port': '9042',
                'minimum_diskgb': 256,
+               'corefile_path': '/var/crashes',
                'contrail_databases': 'config analytics',
                'cassandra_repair_interval': 24,
                'cassandra_repair_logdir': '/var/log/contrail/',
@@ -135,6 +136,8 @@ def main(args_str=' '.join(sys.argv[1:])):
         help="Use syslog for logging")
     parser.add_argument("--syslog_facility",
         help="Syslog facility to receive log lines")
+    parser.add_argument("--corefile_path",
+        help="Location where coredump files are stored")
     SandeshConfig.add_parser_arguments(parser, add_dscp=True)
     if (node_type == 'contrail-database' or node_type == 'contrail-config'):
         parser.add_argument("--minimum_diskGB",
