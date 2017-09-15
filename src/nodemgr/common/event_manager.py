@@ -477,7 +477,7 @@ class EventManager(object):
         # list of all processes on the node is made here
         for proc_info in self.process_info_manager.GetAllProcessInfo():
             proc_name = self.get_process_name(proc_info)
-            proc_pid = proc_info['pid']
+            proc_pid = int(proc_info['pid'])
 
             process_stat_ent = self.get_process_stat_object(proc_name)
             process_stat_ent.process_state = proc_info['statename']
