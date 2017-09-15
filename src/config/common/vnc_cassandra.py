@@ -381,7 +381,7 @@ class VncCassandraClient(object):
         if obj_type == ref_obj_type:
             bch.insert(ref_uuid, {'ref:%s:%s' %
                                   (obj_type, obj_uuid): json.dumps(ref_data)})
-            self.update_latest_col_ts(bch, ref_uuid)
+            self.update_last_modified(bch, obj_type, ref_uuid)
             symmetric_ref_updates = [ref_uuid]
         else:
             bch.insert(ref_uuid, {'backref:%s:%s' %
@@ -412,7 +412,7 @@ class VncCassandraClient(object):
             if obj_type == ref_obj_type:
                 bch.remove(old_ref_uuid, columns=[
                            'ref:%s:%s' % (obj_type, obj_uuid)])
-                self.update_latest_col_ts(bch, old_ref_uuid)
+                self.update_last_modified(bch, obj_type, old_ref_uuid)
                 symmetric_ref_updates = [old_ref_uuid]
             else:
                 bch.remove(old_ref_uuid, columns=[
@@ -425,7 +425,7 @@ class VncCassandraClient(object):
             if obj_type == ref_obj_type:
                 bch.insert(old_ref_uuid, {'ref:%s:%s' % (obj_type, obj_uuid):
                                           json.dumps(new_ref_data)})
-                self.update_latest_col_ts(bch, old_ref_uuid)
+                self.update_last_modified(bch, obj_type, old_ref_uuid)
                 symmetric_ref_updates = [old_ref_uuid]
             else:
                 bch.insert(old_ref_uuid, {'backref:%s:%s' %
@@ -454,7 +454,7 @@ class VncCassandraClient(object):
         if obj_type == ref_obj_type:
             bch.remove(ref_uuid, columns=[
                        'ref:%s:%s' % (obj_type, obj_uuid)])
-            self.update_latest_col_ts(bch, ref_uuid)
+            self.update_last_modified(bch, obj_type, ref_uuid)
             symmetric_ref_updates = [ref_uuid]
         else:
             bch.remove(ref_uuid, columns=[
