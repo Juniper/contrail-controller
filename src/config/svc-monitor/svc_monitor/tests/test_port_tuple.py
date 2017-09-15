@@ -199,6 +199,7 @@ class PortTupleTest(unittest.TestCase):
                                      'instance-ip', 'fake-iip-uuid',
                                      None, 'ADD',
                                      ServiceInterfaceTag('right'))
+        test_utils.delete_test_port_tuple(pt)
 
     def test_two_vm_port_tuple_create(self):
         """
@@ -210,25 +211,25 @@ class PortTupleTest(unittest.TestCase):
         si = self.__create_test_si()
 
         #Create first Port Tuple.
-        pt = test_utils.create_test_port_tuple(
+        pt1 = test_utils.create_test_port_tuple(
                       'fake-domain:fake-project:fake-si-uuid:fake-port-tuple1',
                       si.uuid)
 
         # Create the two virtual machines intefaces for the Port Tuple.
-        lvmi1 = self.__create_test_vmi(pt, 'left', 'left1')
-        rvmi1 = self.__create_test_vmi(pt, 'right', 'right1')
+        lvmi1 = self.__create_test_vmi(pt1, 'left', 'left1')
+        rvmi1 = self.__create_test_vmi(pt1, 'right', 'right1')
 
         # Update frist Port Tuple.
         self.pt_agent.update_port_tuple(pt_id='fake-port-tuple1')
 
         # Create second Port Tuple.
-        pt = test_utils.create_test_port_tuple(
+        pt2 = test_utils.create_test_port_tuple(
                       'fake-domain:fake-project:fake-si-uuid:fake-port-tuple2',
                       si.uuid)
 
         # Create the two virtual machines intefaces for the Port Tuple.
-        lvmi2 = self.__create_test_vmi(pt, 'left', 'left2')
-        rvmi2 = self.__create_test_vmi(pt, 'right', 'right2')
+        lvmi2 = self.__create_test_vmi(pt2, 'left', 'left2')
+        rvmi2 = self.__create_test_vmi(pt2, 'right', 'right2')
 
         # Update second Port Tuple.
         self.pt_agent.update_port_tuple(pt_id='fake-port-tuple2')
@@ -265,6 +266,8 @@ class PortTupleTest(unittest.TestCase):
                                     'instance-ip', 'fake-iip-uuid',
                                     None, 'ADD',
                                     ServiceInterfaceTag('right'))
+        test_utils.delete_test_port_tuple(pt1)
+        test_utils.delete_test_port_tuple(pt2)
 
     def test_port_tuple_update_invalid_si(self):
         """
@@ -389,25 +392,25 @@ class PortTupleTest(unittest.TestCase):
         si = self.__create_test_si()
 
         #Create first Port Tuple.
-        pt = test_utils.create_test_port_tuple(
+        pt1 = test_utils.create_test_port_tuple(
                       'fake-domain:fake-project:fake-si-uuid:fake-port-tuple1',
                       si.uuid)
 
         # Create the two virtual machines intefaces for the Port Tuple.
-        lvmi1 = self.__create_test_vmi(pt, 'left', 'left1')
-        rvmi1 = self.__create_test_vmi(pt, 'right', 'right1')
+        lvmi1 = self.__create_test_vmi(pt1, 'left', 'left1')
+        rvmi1 = self.__create_test_vmi(pt1, 'right', 'right1')
 
         # Update frist Port Tuple.
         self.pt_agent.update_port_tuple(pt_id='fake-port-tuple1')
 
         # Create second Port Tuple.
-        pt = test_utils.create_test_port_tuple(
+        pt2 = test_utils.create_test_port_tuple(
                       'fake-domain:fake-project:fake-si-uuid:fake-port-tuple2',
                       si.uuid)
 
         # Create the two virtual machines intefaces for the Port Tuple.
-        lvmi2 = self.__create_test_vmi(pt, 'left', 'left2')
-        rvmi2 = self.__create_test_vmi(pt, 'right', 'right2')
+        lvmi2 = self.__create_test_vmi(pt2, 'left', 'left2')
+        rvmi2 = self.__create_test_vmi(pt2, 'right', 'right2')
 
         # Update second Port Tuple.
         self.pt_agent.update_port_tuple(pt_id='fake-port-tuple2')
@@ -444,6 +447,8 @@ class PortTupleTest(unittest.TestCase):
                                     'instance-ip', 'fake-iip-uuid',
                                     None, 'ADD',
                                     ServiceInterfaceTag('right'))
+        test_utils.delete_test_port_tuple(pt1)
+        test_utils.delete_test_port_tuple(pt2)
 
     def test_service_type_val_verify(self):
         """
@@ -497,6 +502,7 @@ class PortTupleTest(unittest.TestCase):
                                     'instance-ip', 'fake-iip-uuid',
                                     None, 'ADD',
                                     ServiceInterfaceTag('right'))
+        test_utils.delete_test_port_tuple(pt)
 
     def test_get_port_config(self):
         """
@@ -578,6 +584,7 @@ class PortTupleTest(unittest.TestCase):
                             'virtual-machine-interface', lvmi.uuid,
                             'interface-route-table', irt_obj.uuid,
                             None, 'DELETE')
+        test_utils.delete_test_port_tuple(pt)
 
     def test_vmi_add_service_health_check(self):
         """
@@ -620,6 +627,7 @@ class PortTupleTest(unittest.TestCase):
                             'instance-ip', 'fake-iip-uuid',
                             'virtual-machine-interface', lvmi.uuid,
                             None, 'ADD')
+        test_utils.delete_test_port_tuple(pt)
 
     def test_multiple_si_service_health_check_common_vmi(self):
         """
@@ -699,6 +707,9 @@ class PortTupleTest(unittest.TestCase):
                             'instance-ip', 'fake-iip-uuid',
                             'virtual-machine-interface', rvmi.uuid,
                             None, 'ADD')
+        test_utils.delete_test_port_tuple(pt1)
+        test_utils.delete_test_port_tuple(pt2)
+        test_utils.delete_test_port_tuple(pt3)
 
     def test_vmi_delete_service_health_check(self):
         """
@@ -749,6 +760,7 @@ class PortTupleTest(unittest.TestCase):
                                 'instance-ip', 'fake-iip-uuid',
                                 'virtual-machine-interface', lvmi.uuid,
                                 None, 'DELETE')
+        test_utils.delete_test_port_tuple(pt)
 
     def test_port_tuple_logging(self):
         # Test various logging invocations.
