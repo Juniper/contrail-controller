@@ -125,7 +125,9 @@ private:
     MvpnStatePtr GetState(ErmVpnRoute *route) const;
     MvpnStatePtr GetState(ErmVpnRoute *route);
     MvpnStatePtr LocateState(MvpnRoute *route);
-    void DeleteState(MvpnStatePtr state);
+    void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
+    bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
+            Ip4Address *address, std::vector<std::string> *encap) const;
 
     MvpnManager *manager_;
     int part_id_;
@@ -188,6 +190,8 @@ public:
     const NeighborMap &neighbors() const { return neighbors_; }
     void ReOriginateType1Route(const Ip4Address &old_identifier);
     void OriginateType1Route();
+    virtual void UpdateSecondaryTablesForReplication(MvpnRoute *rt,
+            BgpTable::TableSet *secondary_tables) const;
     static bool IsEnabled() { return enable_; }
     static void set_enable(bool enable) { enable_ = enable; }
 
@@ -333,7 +337,7 @@ inline void intrusive_ptr_release(MvpnState *mvpn_state) {
             mvpn_state->states()->find(mvpn_state->sg());
         if (iter != mvpn_state->states()->end()) {
             assert(iter->second == mvpn_state);
-            mvpn_state->states()->erase(mvpn_state->sg());
+            mvpn_state->states()->erase(iter);
         }
     }
     delete mvpn_state;
@@ -394,7 +398,6 @@ public:
     MvpnStatePtr GetState(const SG &sg) const;
     MvpnStatePtr LocateState(const SG &sg);
     MvpnStatePtr CreateState(const SG &sg);
-    void DeleteState(MvpnStatePtr mvpn_state);
 
 private:
     friend class MvpnProjectManager;
@@ -406,6 +409,9 @@ private:
     void RouteListener(DBEntryBase *db_entry);
     int listener_id() const;
     void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
+    bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
+            Ip4Address *address, std::vector<std::string> *encap) const;
+    bool IsUsableGlobalTreeRootRoute(ErmVpnRoute *ermvpn_route) const;
 
     // Back pointer to the parent MvpnProjectManager
     MvpnProjectManager *manager_;

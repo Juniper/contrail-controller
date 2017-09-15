@@ -45,6 +45,10 @@ size_t ErmVpnTable::Hash(const DBEntry *entry) const {
     return value % kPartitionCount;
 }
 
+size_t ErmVpnTable::Hash(const Ip4Address &group) const {
+    return boost::hash_value(group.to_ulong()) % kPartitionCount;
+}
+
 size_t ErmVpnTable::Hash(const DBRequestKey *key) const {
     const RequestKey *rkey = static_cast<const RequestKey *>(key);
     Ip4Prefix prefix(rkey->prefix.group(), 32);
@@ -227,6 +231,19 @@ void ErmVpnTable::DestroyMvpnProjectManager() {
 
 bool ErmVpnTable::IsMaster() const {
     return routing_instance()->IsMasterRoutingInstance();
+}
+
+// Find or create the route.
+ErmVpnRoute *ErmVpnTable::FindRoute(const ErmVpnPrefix &prefix) {
+    ErmVpnRoute rt_key(prefix);
+    DBTablePartition *rtp = static_cast<DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    return static_cast<ErmVpnRoute *>(rtp->Find(&rt_key));
+}
+
+const ErmVpnRoute *ErmVpnTable::FindRoute(const ErmVpnPrefix &prefix) const {
+    return const_cast<ErmVpnRoute *>(
+        static_cast<const ErmVpnTable *>(this)->FindRoute(prefix));
 }
 
 static void RegisterFactory() {
