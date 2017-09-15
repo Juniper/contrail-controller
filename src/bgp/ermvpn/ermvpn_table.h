@@ -40,6 +40,7 @@ public:
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
+    size_t Hash(const Ip4Address &group) const;
     virtual int PartitionCount() const { return kPartitionCount; }
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
@@ -53,6 +54,8 @@ public:
     size_t HashFunction(const ErmVpnPrefix &prefix) const;
     bool IsGlobalTreeRootRoute(ErmVpnRoute *rt) const;
 
+    const ErmVpnRoute *FindRoute(const ErmVpnPrefix &prefix) const;
+    ErmVpnRoute *FindRoute(const ErmVpnPrefix &prefix);
     void CreateTreeManager();
     void DestroyTreeManager();
     McastTreeManager *GetTreeManager();

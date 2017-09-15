@@ -119,6 +119,9 @@ public:
     static bool PathSelection(const Path &path1, const Path &path2);
     UpdateInfo *GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                               const RibPeerSet &peerset);
+    virtual void UpdateSecondaryTablesForReplication(BgpRoute *rt,
+                     TableSet *secondary_tables) {
+    }
 
     void ManagedDelete();
     virtual void RetryDelete();

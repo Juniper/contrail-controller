@@ -68,6 +68,8 @@ public:
     const MvpnProjectManagerPartition *GetProjectManagerPartition(
             BgpRoute *route) const;
     MvpnProjectManagerPartition *GetProjectManagerPartition(BgpRoute *rt);
+    void UpdateSecondaryTablesForReplication(BgpRoute *rt,
+        TableSet *secondary_tables);
     MvpnPrefix CreateType4LeafADRoutePrefix(const MvpnRoute *type3_rt);
     MvpnPrefix CreateType3SPMSIRoutePrefix(MvpnRoute *type7_rt);
     MvpnPrefix CreateType2ADRoutePrefix();
@@ -83,6 +85,8 @@ public:
     MvpnRoute *LocateType2ADRoute();
     MvpnRoute *LocateType3SPMSIRoute(MvpnRoute *type7_join_rt);
     MvpnRoute *LocateType4LeafADRoute(const MvpnRoute *type3_spmsi_rt);
+    MvpnRoute *FindRoute(MvpnPrefix &prefix);
+    const MvpnRoute *FindRoute(MvpnPrefix &prefix) const;
 
 private:
     friend class BgpMulticastTest;
@@ -90,8 +94,6 @@ private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
     MvpnRoute *LocateRoute(MvpnPrefix &prefix);
-    MvpnRoute *FindRoute(MvpnPrefix &prefix);
-    const MvpnRoute *FindRoute(MvpnPrefix &prefix) const;
 
     MvpnManager *manager_;
 
