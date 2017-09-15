@@ -893,7 +893,7 @@ SUBCHANNELS=1,2,3
         self.tsn_hostname = socket.gethostname()
         prov_args = "--host_name %s --host_ip %s --api_server_ip %s --oper add "\
                     "--admin_user %s --admin_password %s --admin_tenant_name %s "\
-                    "--openstack_ip %s --router_type tor-service-node"\
+                    "--openstack_ip %s --router_type tor-service-node --disable_vhost_vmi "\
                     % (self.tsn_hostname, tsn_ip, self._args.cfgm_ip,
                        self._args.keystone_admin_user,
                        self._args.keystone_admin_password,
