@@ -143,7 +143,10 @@ class InstanceManager(object):
                 iip_obj.set_instance_ip_mode(u'active-standby')
 
             iip_obj.add_virtual_machine_interface(vmi_obj)
-            self._vnc_lib.instance_ip_update(iip_obj)
+            try:
+                self._vnc_lib.instance_ip_update(iip_obj)
+            except NoIdError:
+                pass
 
     def _link_and_update_iip(self, si, vmi_obj, iip_obj, iipv6_obj):
         if iip_obj:
