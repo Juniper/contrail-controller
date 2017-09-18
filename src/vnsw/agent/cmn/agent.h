@@ -712,6 +712,8 @@ public:
         return dns_auth_enable_;
     }
 
+    bool check_bgp_aas_enabled();
+
     XmppInit *dns_xmpp_init(uint8_t idx) const {
         return dns_xmpp_init_[idx];
     }
