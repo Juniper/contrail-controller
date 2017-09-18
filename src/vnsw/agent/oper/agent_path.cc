@@ -26,6 +26,8 @@
 #include <oper/route_common.h>
 #include <oper/ecmp_load_balance.h>
 #include <oper/agent_sandesh.h>
+#include <oper/tsn_elector.h>
+
 using namespace std;
 using namespace boost::asio;
 
@@ -40,7 +42,8 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     local_ecmp_mpls_label_(rt), composite_nh_key_(NULL), subnet_service_ip_(),
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
     ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
-    peer_sequence_number_(0), etree_leaf_(false), layer2_control_word_(false) {
+    peer_sequence_number_(0), etree_leaf_(false), layer2_control_word_(false),
+    inactive_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -1021,6 +1024,47 @@ bool ReceiveRoute::UpdateRoute(AgentRoute *rt) {
     return uc_rt->UpdateRouteFlags(false, proxy_arp_, proxy_arp_);
 }
 
+MulticastRoutePath::MulticastRoutePath(const Peer *peer) :
+    AgentPath(peer, NULL), original_nh_() {
+}
+
+NextHop *MulticastRoutePath::UpdateNH(Agent *agent,
+                                      CompositeNH *cnh,
+                                      const TsnElector *te) {
+    ComponentNHKeyList new_component_nh_key_list;
+    for (ComponentNHKeyList::const_iterator it =
+         cnh->component_nh_key_list().begin();
+         it != cnh->component_nh_key_list().end(); it++) {
+        if ((*it) == NULL)
+            continue;
+        const TunnelNHKey *tunnel_nh_key =
+            static_cast<const TunnelNHKey *>((*it)->nh_key());
+        if (std::find(te->ManagedPhysicalDevices().begin(),
+                      te->ManagedPhysicalDevices().end(),
+                      tunnel_nh_key->dip().to_string()) !=
+            te->ManagedPhysicalDevices().end()) {
+            new_component_nh_key_list.push_back(*it);
+        }
+    }
+    set_original_nh(cnh);
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(Composite::EVPN, false,
+                                        new_component_nh_key_list,
+                                        cnh->vrf()->GetName()));
+    nh_req.data.reset(new CompositeNHData(cnh->pbb_nh(),
+                                          cnh->learning_enabled(), false));
+    agent->nexthop_table()->Process(nh_req);
+    NextHop *new_nh = static_cast<NextHop *>(agent->nexthop_table()->
+                      FindActiveEntry(nh_req.key.get()));
+    assert(new_nh);
+    return new_nh;
+}
+
+AgentPath *MulticastRoute::CreateAgentPath(const Peer *peer,
+                                           AgentRoute *rt) const {
+    return (new MulticastRoutePath(peer));
+}
+
 bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                            const AgentRoute *rt) {
     bool ret = false;
@@ -1030,6 +1074,19 @@ bool MulticastRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     nh = static_cast<NextHop *>(agent->nexthop_table()->
             FindActiveEntry(composite_nh_req_.key.get()));
     assert(nh);
+
+    if (agent->params()->agent_mode() == AgentParam::TSN_NO_FORWARDING_AGENT) {
+        MulticastRoutePath *multicast_path =
+            dynamic_cast<MulticastRoutePath *>(path);
+        multicast_path->set_original_nh(nh);
+        const TsnElector *te = agent->oper_db()->tsn_elector();
+        CompositeNH *cnh = dynamic_cast<CompositeNH *>(nh);
+        if (cnh && (cnh->composite_nh_type() == Composite::EVPN)) {
+            if (te->IsMaster() == false)
+                path->set_inactive(true);
+            nh = multicast_path->UpdateNH(agent, cnh, te);
+        }
+    }
     ret = MulticastRoute::CopyPathParameters(agent,
                    path,
                    vn_name_,
@@ -1413,6 +1470,7 @@ void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
     pdata.set_stale(is_stale);
     pdata.set_etree_leaf(etree_leaf());
     pdata.set_layer2_control_word(layer2_control_word());
+    pdata.set_inactive(inactive());
 }
 
 void AgentPath::set_local_ecmp_mpls_label(MplsLabel *mpls) {

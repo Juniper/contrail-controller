@@ -327,6 +327,7 @@ TEST_F(Test, walk_all_routes_wih_1_vrf) {
     VerifyNotifications(25, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
+    DeleteEnvironment(1);
 }
 
 TEST_F(Test, walk_all_routes_with_2_vrf) {

@@ -793,6 +793,8 @@ public:
 
     VrfEntry *fabric_vrf() const { return fabric_vrf_; }
     void set_fabric_vrf(VrfEntry *vrf) { fabric_vrf_ = vrf; }
+    VrfEntry *fabric_policy_vrf() const { return fabric_policy_vrf_; }
+    void set_fabric_policy_vrf(VrfEntry *vrf) { fabric_policy_vrf_ = vrf; }
 
     const std::string &linklocal_vn_name() {return link_local_vn_name_;}
     const std::string &linklocal_vrf_name() {return link_local_vrf_name_;}
@@ -996,10 +998,16 @@ public:
     bool simulate_evpn_tor() const {return simulate_evpn_tor_;}
     void set_simulate_evpn_tor(bool mode) {simulate_evpn_tor_ = mode;}
 
+    bool tsn_no_forwarding_enabled() const {return tsn_no_forwarding_enabled_;}
+    void set_tsn_no_forwarding_enabled(bool val) {
+        tsn_no_forwarding_enabled_ = val;
+    }
     bool tsn_enabled() const {return tsn_enabled_;}
     void set_tsn_enabled(bool val) {tsn_enabled_ = val;}
     bool tor_agent_enabled() const {return tor_agent_enabled_;}
     void set_tor_agent_enabled(bool val) {tor_agent_enabled_ = val;}
+    bool forwarding_enabled() const {return forwarding_enabled_;}
+    void set_forwarding_enabled(bool val) {forwarding_enabled_ = val;}
     bool server_gateway_mode() const {return server_gateway_mode_;}
     bool vcpe_gateway_mode() const {return vcpe_gateway_mode_;}
 
@@ -1229,6 +1237,7 @@ private:
     TaskScheduler *task_scheduler_;
     AgentInit *agent_init_;
     VrfEntry *fabric_vrf_;
+    VrfEntry *fabric_policy_vrf_;
     InterfaceTable *intf_table_;
     HealthCheckTable *health_check_table_;
     BridgeDomainTable *bridge_domain_table_;
@@ -1339,8 +1348,10 @@ private:
     bool init_done_;
     bool resource_manager_ready_;
     bool simulate_evpn_tor_;
+    bool tsn_no_forwarding_enabled_;
     bool tsn_enabled_;
     bool tor_agent_enabled_;
+    bool forwarding_enabled_;
     bool server_gateway_mode_;
     bool vcpe_gateway_mode_;
 
@@ -1386,6 +1397,8 @@ private:
     uint32_t tbb_keepawake_timeout_;
     // Monitor task library and assert if inactivity detected
     uint32_t task_monitor_timeout_msec_;
+    // List of TSN who are alive(Relevant for TSN mode only).
+    std::vector<std::string> active_tsn_servers_;
     // Constants
 public:
     static const std::string config_file_;

@@ -28,6 +28,7 @@ class OperNetworkIpam;
 class OperVirtualDns;
 class AgentRouteWalkerManager;
 class RouteLeakManager;
+class TsnElector;
 
 class OperDB {
 public:
@@ -83,6 +84,7 @@ public:
     AgentRouteWalkerManager* agent_route_walk_manager() const {
         return route_walk_manager_.get();
     }
+    TsnElector *tsn_elector() const { return tsn_elector_.get(); }
 
 private:
     OperDB();
@@ -106,6 +108,8 @@ private:
     std::auto_ptr<GlobalSystemConfig> global_system_config_;
     std::auto_ptr<AgentRouteWalkerManager> route_walk_manager_;
     std::auto_ptr<RouteLeakManager> route_leak_manager_;
+    std::auto_ptr<TsnElector> tsn_elector_;
+
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

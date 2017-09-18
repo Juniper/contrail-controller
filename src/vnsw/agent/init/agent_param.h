@@ -110,6 +110,7 @@ public:
     enum AgentMode {
         VROUTER_AGENT,
         TSN_AGENT,
+        TSN_NO_FORWARDING_AGENT,
         TOR_AGENT,
     };
 
@@ -192,6 +193,9 @@ public:
     }
     const std::vector<std::string> dns_server_list() const {
         return dns_server_list_;
+    }
+    const std::vector<std::string> tsn_server_list() const {
+        return tsn_server_list_;
     }
     const uint16_t dns_client_port() const {
         if (test_mode_)
@@ -334,8 +338,14 @@ public:
         return options_;
     }
     AgentMode agent_mode() const { return agent_mode_; }
-    bool isTsnAgent() const { return agent_mode_ == TSN_AGENT; }
+    bool isTsnAgent() const {
+        return ((agent_mode_ == TSN_AGENT) |
+                (agent_mode_ == TSN_NO_FORWARDING_AGENT));
+    }
     bool isTorAgent() const { return agent_mode_ == TOR_AGENT; }
+    bool IsForwardingEnabled() const {
+        return agent_mode_ != TSN_NO_FORWARDING_AGENT;
+    }
     bool isServerGatewayMode() const { return gateway_mode_ == SERVER; }
     bool isVcpeGatewayMode() const { return gateway_mode_ == VCPE; }
     GatewayMode gateway_mode() const { return gateway_mode_; }
@@ -469,6 +479,8 @@ public:
     }
 
     bool qos_priority_tagging() const { return qos_priority_tagging_; }
+    bool IsConfiguredTsnHostRoute(std::string addr) const;
+
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
     virtual void InitFromSystem();
@@ -521,6 +533,8 @@ private:
     void ParseControllerServersArguments
         (const boost::program_options::variables_map &var_map);
     void ParseDnsServersArguments
+        (const boost::program_options::variables_map &var_map);
+    void ParseTsnServersArguments
         (const boost::program_options::variables_map &var_map);
     void ParseVirtualHostArguments
         (const boost::program_options::variables_map &v);
@@ -583,6 +597,7 @@ private:
     std::string eth_port_encap_type_;
     std::vector<std::string> controller_server_list_;
     std::vector<std::string> dns_server_list_;
+    std::vector<std::string> tsn_server_list_;
     uint16_t dns_client_port_;
     uint32_t dns_timeout_;
     uint32_t dns_max_retries_;
