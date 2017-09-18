@@ -143,7 +143,10 @@ class InstanceManager(object):
                 iip_obj.set_instance_ip_mode(u'active-standby')
 
             iip_obj.add_virtual_machine_interface(vmi_obj)
-            self._vnc_lib.instance_ip_update(iip_obj)
+            try:
+                self._vnc_lib.instance_ip_update(iip_obj)
+            except NoIdError:
+                pass
 
     def _link_and_update_iip(self, si, vmi_obj, iip_obj, iipv6_obj):
         if iip_obj:
@@ -633,10 +636,13 @@ class InstanceManager(object):
             return
 
         # instance-ip should be owned by tenant
-        if iip_obj:
-            self._vnc_lib.chown(iip_obj.uuid, proj_obj.uuid)
-        if iipv6_obj:
-            self._vnc_lib.chown(iipv6_obj.uuid, proj_obj.uuid)
+        try:
+            if iip_obj:
+                self._vnc_lib.chown(iip_obj.uuid, proj_obj.uuid)
+            if iipv6_obj:
+                self._vnc_lib.chown(iipv6_obj.uuid, proj_obj.uuid)
+        except NoIdError:
+            pass
 
         # set mac address
         if vmi_create:
