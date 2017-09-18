@@ -166,16 +166,18 @@ void MvpnTable::UpdateSecondaryTablesForReplication(BgpRoute *rt,
 }
 
 // Find or create the route.
-MvpnRoute *MvpnTable::FindRoute(MvpnPrefix &prefix) {
+MvpnRoute *MvpnTable::FindRoute(const MvpnPrefix &prefix) {
     MvpnRoute rt_key(prefix);
     DBTablePartition *rtp = static_cast<DBTablePartition *>(
         GetTablePartition(&rt_key));
     return static_cast<MvpnRoute *>(rtp->Find(&rt_key));
 }
 
-const MvpnRoute *MvpnTable::FindRoute(MvpnPrefix &prefix) const {
-    return const_cast<MvpnRoute *>(
-        static_cast<const MvpnTable *>(this)->FindRoute(prefix));
+const MvpnRoute *MvpnTable::FindRoute(const MvpnPrefix &prefix) const {
+    MvpnRoute rt_key(prefix);
+    const DBTablePartition *rtp = static_cast<const DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    return static_cast<const MvpnRoute *>(rtp->Find(&rt_key));
 }
 
 // Find or create the route.
@@ -206,7 +208,7 @@ MvpnRoute *MvpnTable::LocateType4LeafADRoute(const MvpnRoute *type3_spmsi_rt) {
     return LocateRoute(prefix);
 }
 
-MvpnPrefix MvpnTable::CreateType3SPMSIRoutePrefix(MvpnRoute *type7_rt) {
+MvpnPrefix MvpnTable::CreateType3SPMSIRoutePrefix(const MvpnRoute *type7_rt) {
     assert(type7_rt->GetPrefix().type() == MvpnPrefix::SourceTreeJoinRoute);
     const RouteDistinguisher *rd = routing_instance()->GetRD();
     Ip4Address source = type7_rt->GetPrefix().source();
@@ -218,15 +220,25 @@ MvpnPrefix MvpnTable::CreateType3SPMSIRoutePrefix(MvpnRoute *type7_rt) {
 }
 
 MvpnPrefix MvpnTable::CreateType5SourceActiveRoutePrefix(MvpnRoute *rt) const {
-    const RouteDistinguisher *rd = routing_instance()->GetRD();
+    const RouteDistinguisher rd = rt->GetPrefix().route_distinguisher();
     Ip4Address source = rt->GetPrefix().source();
     Ip4Address group = rt->GetPrefix().group();
     const Ip4Address originator_ip(server()->bgp_identifier());
-    MvpnPrefix prefix(MvpnPrefix::SourceActiveADRoute, *rd, group, source);
+    MvpnPrefix prefix(MvpnPrefix::SourceActiveADRoute, rd, group, source);
     return prefix;
 }
 
-MvpnRoute *MvpnTable::LocateType3SPMSIRoute(MvpnRoute *type7_rt) {
+MvpnPrefix MvpnTable::CreateType7SourceTreeJoinRoutePrefix(
+        MvpnRoute *rt) const {
+    const RouteDistinguisher rd = rt->GetPrefix().route_distinguisher();
+    Ip4Address source = rt->GetPrefix().source();
+    Ip4Address group = rt->GetPrefix().group();
+    MvpnPrefix prefix(MvpnPrefix::SourceTreeJoinRoute, rd,
+                      server()->autonomous_system(), group, source);
+    return prefix;
+}
+
+MvpnRoute *MvpnTable::LocateType3SPMSIRoute(const MvpnRoute *type7_rt) {
     MvpnPrefix prefix = CreateType3SPMSIRoutePrefix(type7_rt);
     return LocateRoute(prefix);
 }
@@ -282,6 +294,11 @@ MvpnRoute *MvpnTable::FindType5SourceActiveADRoute(MvpnRoute *rt) {
 
 const MvpnRoute *MvpnTable::FindType5SourceActiveADRoute(MvpnRoute *rt) const {
     MvpnPrefix prefix = CreateType5SourceActiveRoutePrefix(rt);
+    return FindRoute(prefix);
+}
+
+const MvpnRoute *MvpnTable::FindType7SourceTreeJoinRoute(MvpnRoute *rt) const {
+    MvpnPrefix prefix = CreateType7SourceTreeJoinRoutePrefix(rt);
     return FindRoute(prefix);
 }
 
@@ -361,13 +378,15 @@ BgpRoute *MvpnTable::RouteReplicate(BgpServer *server,
 
 bool MvpnTable::Export(RibOut *ribout, Route *route,
     const RibPeerSet &peerset, UpdateInfoSList &uinfo_slist) {
-
-    // in phase 1 source is outside so no need to send anything
-    // to agent
-    if (!ribout->IsEncodingBgp())
-        return false;
-
     MvpnRoute *mvpn_route = dynamic_cast<MvpnRoute *>(route);
+
+    if (ribout->IsEncodingXmpp()) {
+        UpdateInfo *uinfo = GetMvpnUpdateInfo(ribout, mvpn_route, peerset);
+        if (!uinfo)
+            return false;
+        uinfo_slist->push_front(*uinfo);
+        return true;
+    }
     uint8_t rt_type = mvpn_route->GetPrefix().type();
 
     if (ribout->peer_type() == BgpProto::EBGP &&
@@ -385,6 +404,42 @@ bool MvpnTable::Export(RibOut *ribout, Route *route,
         return false;
     uinfo_slist->push_front(*uinfo);
     return true;
+}
+
+UpdateInfo *MvpnTable::GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
+    const RibPeerSet &peerset) {
+    if (route->GetPrefix().type() != MvpnPrefix::SourceActiveADRoute)
+        return NULL;
+    if (!route->IsUsable())
+        return NULL;
+
+    // Reflect Type-5 primary path back only to the sender agent.
+    if (route->BestPath()->IsSecondary())
+        return NULL;
+
+    MvpnProjectManager *pm = GetProjectManager();
+    if (!pm)
+        return NULL;
+
+    RibPeerSet new_peerset;
+    RibOut::PeerIterator iter(ribout, peerset);
+    while (iter.HasNext()) {
+        int current_index = iter.index();
+        IPeer *peer = dynamic_cast<IPeer *>(iter.Next());
+        assert(peer);
+        if (peer == route->BestPath()->GetPeer()) {
+            new_peerset.set(current_index);
+            break;
+        }
+    }
+
+    if (new_peerset.empty())
+        return NULL;
+
+    UpdateInfo *uinfo = pm->GetUpdateInfo(route);
+    if (uinfo)
+        uinfo->target = new_peerset;
+    return uinfo;
 }
 
 bool MvpnTable::IsMaster() const {
