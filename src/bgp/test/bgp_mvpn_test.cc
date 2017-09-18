@@ -6,6 +6,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/ipeer.h"
@@ -17,6 +18,7 @@
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
+#include "io/test/event_manager_test.h"
 
 using boost::scoped_ptr;
 using boost::system::error_code;
@@ -82,58 +84,85 @@ private:
 
 class BgpMvpnTest : public ::testing::Test {
 protected:
-    BgpMvpnTest() : server_(&evm_) {
+    BgpMvpnTest() {
+    }
+
+    const string GetConfig() const {
+        return ""
+"<?xml version='1.0' encoding='utf-8'?>"
+"<config>"
+"   <bgp-router name=\"local\">"
+"       <address>127.0.0.1</address>"
+"       <autonomous-system>1</autonomous-system>"
+"   </bgp-router>"
+"   <routing-instance name='red'>"
+"       <vrf-target>target:127.0.0.1:1001</vrf-target>"
+"   </routing-instance>"
+"   <routing-instance name='blue'>"
+"       <vrf-target>target:127.0.0.1:1002</vrf-target>"
+"   </routing-instance>"
+"   <routing-instance name='green'>"
+"       <vrf-target>target:127.0.0.1:1003</vrf-target>"
+"       <vrf-target>"
+"           target:127.0.0.1:1001"
+"           <import-export>import</import-export>"
+"       </vrf-target>"
+"       <vrf-target>"
+"           target:127.0.0.1:1002"
+"           <import-export>import</import-export>"
+"       </vrf-target>"
+"   </routing-instance>"
+"</config>"
+        ;
     }
 
     virtual void SetUp() {
-        ConcurrencyScope scope("bgp::Config");
-        error_code err;
-        UpdateBgpIdentifier("127.0.0.1");
-        master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
-            BgpConfigManager::kMasterInstance));
-        red_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("red",
-                "target:127.0.0.1:1", "target:127.0.0.1:1"));
-        blue_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("blue",
-                "target:127.0.0.1:2", "target:127.0.0.1:2"));
+        evm_.reset(new EventManager());
+        server_.reset(new BgpServerTest(evm_.get(), "local"));
+        thread_.reset(new ServerThread(evm_.get()));
+        thread_->Start();
+        server_->Configure(GetConfig());
+        task_util::WaitForIdle();
 
-        // Green imports routes from both red and blue RIs.
-        green_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("green",
-                "target:127.0.0.1:3,target:127.0.0.1:1,target:127.0.0.1:2",
-                "target:127.0.0.1:3"));
-
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        scheduler->Stop();
-        server_.routing_instance_mgr()->CreateRoutingInstance(
-                master_cfg_.get());
-        server_.rtarget_group_mgr()->Initialize();
-        server_.routing_instance_mgr()->CreateRoutingInstance(red_cfg_.get());
-        server_.routing_instance_mgr()->CreateRoutingInstance(blue_cfg_.get());
-        server_.routing_instance_mgr()->CreateRoutingInstance(green_cfg_.get());
-        scheduler->Start();
+        TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
+                            server_->database()->FindTable("bgp.mvpn.0"));
+        TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
+                            server_->database()->FindTable("bgp.ermvpn.0"));
+        TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
+                            server_->database()->FindTable("red.mvpn.0"));
+        TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
+                            server_->database()->FindTable("blue.mvpn.0"));
+        TASK_UTIL_EXPECT_NE(static_cast<BgpTable *>(NULL),
+                            server_->database()->FindTable("green.mvpn.0"));
 
         master_ = static_cast<BgpTable *>(
-            server_.database()->FindTable("bgp.mvpn.0"));
+            server_->database()->FindTable("bgp.mvpn.0"));
         red_ = static_cast<MvpnTable *>(
-            server_.database()->FindTable("red.mvpn.0"));
+            server_->database()->FindTable("red.mvpn.0"));
         blue_ = static_cast<MvpnTable *>(
-            server_.database()->FindTable("blue.mvpn.0"));
+            server_->database()->FindTable("blue.mvpn.0"));
         green_ = static_cast<MvpnTable *>(
-            server_.database()->FindTable("green.mvpn.0"));
+            server_->database()->FindTable("green.mvpn.0"));
         fabric_ermvpn_ = static_cast<ErmVpnTable *>(
-            server_.database()->FindTable("bgp.ermvpn.0"));
+            server_->database()->FindTable("bgp.ermvpn.0"));
     }
 
     void UpdateBgpIdentifier(const string &address) {
         error_code err;
         task_util::TaskFire(boost::bind(&BgpServer::UpdateBgpIdentifier,
-            &server_, Ip4Address::from_string(address, err)), "bgp::Config");
+            server_.get(), Ip4Address::from_string(address, err)),
+            "bgp::Config");
     }
 
     void TearDown() {
-        server_.Shutdown();
+        server_->Shutdown();
         task_util::WaitForIdle();
-        evm_.Shutdown();
+        TASK_UTIL_EXPECT_EQ(0, TcpServerManager::GetServerCount());
+        evm_->Shutdown();
         task_util::WaitForIdle();
+        if (thread_.get() != NULL) {
+            thread_->Join();
+        }
     }
 
     ErmVpnRoute *AddErmVpnRoute(ErmVpnTable *table, const string &prefix_str,
@@ -147,7 +176,7 @@ protected:
         commspec->communities.push_back(tgt.GetExtCommunityValue());
         attr_spec.push_back(commspec);
 
-        BgpAttrPtr attr = server_.attr_db()->Locate(attr_spec);
+        BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
         STLDeleteValues(&attr_spec);
         add_req.data.reset(new MvpnTable::RequestData(attr, 0, 20));
         add_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -181,7 +210,7 @@ protected:
         commspec->communities.push_back(tgt.GetExtCommunityValue());
         attr_spec.push_back(commspec);
 
-        BgpAttrPtr attr = server_.attr_db()->Locate(attr_spec);
+        BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
         STLDeleteValues(&attr_spec);
         add_req.data.reset(new MvpnTable::RequestData(attr, 0, 20));
         add_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -251,23 +280,19 @@ protected:
         return leaf_ad_rt;
     }
 
-    EventManager evm_;
-    BgpServer server_;
+    scoped_ptr<EventManager> evm_;
+    scoped_ptr<ServerThread> thread_;
+    scoped_ptr<BgpServerTest> server_;
     DB db_;
     BgpTable *master_;
     ErmVpnTable *fabric_ermvpn_;
     MvpnTable *red_;
     MvpnTable *blue_;
     MvpnTable *green_;
-    scoped_ptr<BgpInstanceConfig> red_cfg_;
-    scoped_ptr<BgpInstanceConfig> blue_cfg_;
-    scoped_ptr<BgpInstanceConfig> green_cfg_;
-    scoped_ptr<BgpInstanceConfig> master_cfg_;
 };
 
 // Ensure that Type1 AD routes are created inside the mvpn table.
 TEST_F(BgpMvpnTest, Type1ADLocal) {
-    TASK_UTIL_EXPECT_EQ(3, master_->Size());
     TASK_UTIL_EXPECT_EQ(1, red_->Size());
     TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                         red_->FindType1ADRoute());
@@ -279,6 +304,7 @@ TEST_F(BgpMvpnTest, Type1ADLocal) {
     TASK_UTIL_EXPECT_EQ(3, green_->Size()); // 1 green + 1 red + 1 blue
     TASK_UTIL_EXPECT_NE(static_cast<MvpnRoute *>(NULL),
                         green_->FindType1ADRoute());
+    TASK_UTIL_EXPECT_EQ(3, master_->Size());
 
     // Verify that only green has discovered a neighbor from red.
     TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors().size());
@@ -369,7 +395,7 @@ TEST_F(BgpMvpnTest, Type1AD_Remote) {
     // Inject a Type1 route from a mock peer into bgp.mvpn.0 table with red
     // route-target.
     string prefix = "1-10.1.1.1:65535,9.8.7.6";
-    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1");
+    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1001");
 
     TASK_UTIL_EXPECT_EQ(4, master_->Size()); // 3 local + 1 remote
     TASK_UTIL_EXPECT_EQ(2, red_->Size()); // 1 local + 1 remote(red)
@@ -414,7 +440,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_Without_ErmVpnRoute) {
     // Inject Type3 route from a mock peer into bgp.mvpn.0 table with red route
     // target. This route should go into red and green table.
     string prefix = "3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1";
-    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1");
+    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1001");
     TASK_UTIL_EXPECT_EQ(4, master_->Size()); // 3 local + 1 remote
     TASK_UTIL_EXPECT_EQ(2, red_->Size()); // 1 local + 1 remote(red)
     TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
@@ -448,10 +474,10 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute) {
                      IpAddress::from_string("224.1.2.3", e));
     PMSIParams pmsi(PMSIParams(true, 10, "1.2.3.4", "gre", &ermvpn_rt));
     pmsi_params.insert(make_pair(sg, pmsi));
-    ermvpn_rt =
-        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:100");
+    ermvpn_rt = AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix,
+                               "target:127.0.0.1:1100");
 
-    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1");
+    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1001");
     TASK_UTIL_EXPECT_EQ(5, master_->Size()); // 3 local + 1 remote + 1 leaf-ad
     TASK_UTIL_EXPECT_EQ(3, red_->Size()); // 1 local + 1 remote(red) + 1 leaf-ad
     TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
@@ -481,7 +507,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_2) {
     // Inject Type3 route from a mock peer into bgp.mvpn.0 table with red route
     // target. This route should go into red and green table.
     string prefix = "3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1";
-    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1");
+    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1001");
     TASK_UTIL_EXPECT_EQ(4, master_->Size()); // 3 local + 1 remote
     TASK_UTIL_EXPECT_EQ(2, red_->Size()); // 1 local + 1 remote(red)
     TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
@@ -499,7 +525,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_2) {
     pmsi_params.insert(make_pair(sg, pmsi));
     string ermvpn_prefix = "2-10.1.1.1:65535-192.168.1.1,224.1.2.3,9.8.7.6";
     ermvpn_rt =
-        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:100");
+        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:1100");
 
     TASK_UTIL_EXPECT_EQ(5, master_->Size()); // 3 local + 1 remote + 1 leaf-ad
     TASK_UTIL_EXPECT_EQ(3, red_->Size()); // 1 local + 1 remote(red) + 1 leaf-ad
@@ -530,7 +556,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_3) {
     // Inject Type3 route from a mock peer into bgp.mvpn.0 table with red route
     // target. This route should go into red and green table.
     string prefix = "3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1";
-    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1");
+    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1001");
     TASK_UTIL_EXPECT_EQ(4, master_->Size()); // 3 local + 1 remote
     TASK_UTIL_EXPECT_EQ(2, red_->Size()); // 1 local + 1 remote(red)
     TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
@@ -548,7 +574,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_3) {
     pmsi_params.insert(make_pair(sg, pmsi));
     string ermvpn_prefix = "2-10.1.1.1:65535-192.168.1.1,224.1.2.3,9.8.7.6";
     ermvpn_rt =
-        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:100");
+        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:1100");
 
     TASK_UTIL_EXPECT_EQ(5, master_->Size()); // 3 local + 1 remote + 1 leaf-ad
     TASK_UTIL_EXPECT_EQ(3, red_->Size()); // 1 local + 1 remote(red) + 1 leaf-ad
@@ -588,7 +614,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_4) {
     // Inject Type3 route from a mock peer into bgp.mvpn.0 table with red route
     // target. This route should go into red and green table.
     string prefix = "3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1";
-    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1");
+    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1001");
     TASK_UTIL_EXPECT_EQ(4, master_->Size()); // 3 local + 1 remote
     TASK_UTIL_EXPECT_EQ(2, red_->Size()); // 1 local + 1 remote(red)
     TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
@@ -606,7 +632,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_4) {
     pmsi_params.insert(make_pair(sg, pmsi));
     string ermvpn_prefix = "2-10.1.1.1:65535-192.168.1.1,224.1.2.3,9.8.7.6";
     ermvpn_rt =
-        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:100");
+        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:1100");
 
     TASK_UTIL_EXPECT_EQ(5, master_->Size()); // 3 local + 1 remote + 1 leaf-ad
     TASK_UTIL_EXPECT_EQ(3, red_->Size()); // 1 local + 1 remote(red) + 1 leaf-ad
@@ -654,12 +680,12 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_5) {
     // Inject Type3 route from a mock peer into bgp.mvpn.0 table with red route
     // target. This route should go into red and green table.
     string prefix = "3-10.1.1.1:65535,9.8.7.6,224.1.2.3,192.168.1.1";
-    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1");
+    AddMvpnRoute(master_, prefix, "target:127.0.0.1:1001");
     TASK_UTIL_EXPECT_EQ(4, master_->Size()); // 3 local + 1 remote
     TASK_UTIL_EXPECT_EQ(2, red_->Size()); // 1 local + 1 remote(red)
     TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
 
-    // 1 local + 2 remote(red) + 1 remote(green)
+    // 1 local + 2 remote(red) + 1 remote(blue)
     TASK_UTIL_EXPECT_EQ(4, green_->Size());
 
     // Make ermvpn route available now and verifiy that leaf-ad is originated.
@@ -672,7 +698,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_5) {
     pmsi_params.insert(make_pair(sg, pmsi));
     string ermvpn_prefix = "2-10.1.1.1:65535-192.168.1.1,224.1.2.3,9.8.7.6";
     ermvpn_rt =
-        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:100");
+        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:1100");
 
     TASK_UTIL_EXPECT_EQ(5, master_->Size()); // 3 local + 1 remote + 1 leaf-ad
     TASK_UTIL_EXPECT_EQ(3, red_->Size()); // 1 local + 1 remote(red) + 1 leaf-ad
@@ -695,7 +721,7 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_5) {
     pmsi_params.insert(make_pair(sg, pmsi2));
 
     TASK_UTIL_EXPECT_EQ(ermvpn_rt,
-        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:101"));
+        AddErmVpnRoute(fabric_ermvpn_, ermvpn_prefix, "target:127.0.0.1:1101"));
 
     // Verify that leafad path and its attributes did change.
     TASK_UTIL_EXPECT_NE(red_attr, leafad_red_rt->BestPath()->GetAttr());
@@ -719,10 +745,59 @@ TEST_F(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_5) {
     TASK_UTIL_EXPECT_EQ(3, green_->Size());
 }
 
+// Receive Type-4 leaf ad route and ensure that Type-5 source-active route is
+// updated with olist correctly.
+TEST_F(BgpMvpnTest, Type4_LeafAD_Receive_1) {
+    const string t5_prefix = "5-10.1.1.1:65535,224.1.2.3,9.8.7.6";
+    AddMvpnRoute(red_, t5_prefix, "target:127.0.0.1:1001");
+    TASK_UTIL_EXPECT_EQ(4, master_->Size()); // 3 local + 1 remote
+    TASK_UTIL_EXPECT_EQ(2, red_->Size()); // 1 local + 1 remote(red)
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
+
+    // 1 local + 2 remote(red) + 1 remote(blue)
+    TASK_UTIL_EXPECT_EQ(4, green_->Size());
+
+    // Inject type-7 receiver route with red RI vit.
+    const string t7_prefix = "7-10.1.1.1:65535,1,224.1.2.3,9.8.7.6";
+    AddMvpnRoute(master_, t7_prefix, "target:127.0.0.1:" +
+        integerToString(red_->routing_instance()->index()));
+
+    // Route should go only into red_ which has the source-active route. This
+    // should cause a Type3 S-PMSI route to be originated. This route will get
+    // imported into green but no type-4 will get generated as there is no
+    // active receiver joined yet.
+    TASK_UTIL_EXPECT_EQ(6, master_->Size()); // 3 local + 1 remote + 1 join +
+                                             // 1 spmsi
+    TASK_UTIL_EXPECT_EQ(4, red_->Size()); // 1 local + 1 remote(red) + 1 join +
+                                          // 1 spmsi
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
+
+    // 1 local + 2 remote(red) + 1 remote(blue) + 1 spmsi(red)
+    TASK_UTIL_EXPECT_EQ(5, green_->Size());
+
+    DeleteMvpnRoute(red_, t5_prefix);
+    TASK_UTIL_EXPECT_EQ(4, master_->Size()); // 3 local + 1 join
+    TASK_UTIL_EXPECT_EQ(2, red_->Size()); // 1 local+ 1 join
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
+
+    // 1 local + 1 remote(red) + 1 remote(blue)
+    TASK_UTIL_EXPECT_EQ(3, green_->Size());
+
+    // Remove join route.
+    DeleteMvpnRoute(master_, t7_prefix);
+    TASK_UTIL_EXPECT_EQ(3, master_->Size()); // 3 local + 1 join
+    TASK_UTIL_EXPECT_EQ(1, red_->Size()); // 1 local+ 1 join
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
+
+    // 1 local + 1 remote(red) + 1 remote(blue)
+    TASK_UTIL_EXPECT_EQ(3, green_->Size());
+}
+
 static void SetUp() {
     bgp_log_test::init();
     MvpnManager::set_enable(true);
     ControlNode::SetDefaultSchedulingPolicy();
+    BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<McastTreeManager>(
         boost::factory<McastTreeManagerMock *>());
 }

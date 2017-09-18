@@ -28,7 +28,8 @@ using std::string;
 using std::vector;
 
 MvpnState::MvpnState(const SG &sg, StatesMap *states) : sg_(sg),
-        global_ermvpn_tree_rt_(NULL), spmsi_rt_(NULL), states_(states) {
+        global_ermvpn_tree_rt_(NULL), spmsi_rt_(NULL), source_active_rt_(NULL),
+        states_(states) {
     refcount_ = 0;
 }
 
@@ -208,7 +209,7 @@ MvpnState::SG::SG(const IpAddress &source, const IpAddress &group) :
 }
 
 bool MvpnState::SG::operator<(const SG &other)  const {
-    return (source < other.source) ?  true : (group < other.source);
+    return (source < other.source) ?  true : (group < other.group);
 }
 
 const MvpnState::SG &MvpnState::sg() const {
@@ -253,6 +254,18 @@ void MvpnState::set_global_ermvpn_tree_rt(ErmVpnRoute *global_ermvpn_tree_rt) {
 
 void MvpnState::set_spmsi_rt(MvpnRoute *spmsi_rt) {
     spmsi_rt_ = spmsi_rt;
+}
+
+const MvpnRoute *MvpnState::source_active_rt() const {
+    return source_active_rt_;
+}
+
+MvpnRoute *MvpnState::source_active_rt() {
+    return source_active_rt_;
+}
+
+void MvpnState::set_source_active_rt(MvpnRoute *source_active_rt) {
+    source_active_rt_ = source_active_rt;
 }
 
 MvpnDBState::MvpnDBState() : state_(NULL), route_(NULL) {
@@ -630,6 +643,12 @@ void MvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
         return;
     }
 
+    // Process Type5 Source Active route.
+    if (route->GetPrefix().type() == MvpnPrefix::SourceActiveADRoute) {
+        partition->ProcessType5SourceActiveRoute(route);
+        return;
+    }
+
     // Process Type4 LeafAD route.
     if (route->GetPrefix().type() == MvpnPrefix::LeafADRoute) {
         partition->ProcessType4LeafADRoute(route);
@@ -739,11 +758,134 @@ void MvpnProjectManagerPartition::RouteListener(DBEntryBase *db_entry) {
     }
 }
 
-bool MvpnManagerPartition::ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt) {
-    return false;
+void MvpnManagerPartition::ProcessType5SourceActiveRoute(
+        MvpnRoute *source_active_rt) {
+    MvpnDBState *mvpn_dbstate = dynamic_cast<MvpnDBState *>(
+        source_active_rt->GetState(table(), listener_id()));
+
+    if (!source_active_rt->IsUsable()) {
+        if (!mvpn_dbstate)
+            return;
+
+        // Delete any associated type-3 spmsi route as there is no source active
+        // route any more.
+        MvpnRoute *spmsi_rt = mvpn_dbstate->route();
+        if (spmsi_rt) {
+            BgpPath *path = spmsi_rt->FindPath(BgpPath::Local, 0);
+            assert(path);
+            spmsi_rt->DeletePath(path);
+        }
+        assert(mvpn_dbstate->state()->spmsi_rt() == spmsi_rt);
+        mvpn_dbstate->set_route(NULL);
+        mvpn_dbstate->state()->set_source_active_rt(NULL);
+        mvpn_dbstate->state()->set_spmsi_rt(NULL);
+        if (spmsi_rt)
+            spmsi_rt->NotifyOrDelete();
+        source_active_rt->ClearState(table(), listener_id());
+        delete mvpn_dbstate;
+        return;
+    }
+
+    const BgpPath *path = source_active_rt->BestPath();
+    if (path->IsSecondary())
+        return;
+
+    MvpnStatePtr state = LocateState(source_active_rt);
+    state->set_source_active_rt(source_active_rt);
+
+    if (!mvpn_dbstate) {
+        mvpn_dbstate = new MvpnDBState(state);
+        source_active_rt->SetState(table(), listener_id(), mvpn_dbstate);
+    }
+
+    // Check if there is any receiver interested. If not, do not originate
+    // type-3 spmsi route.
+    const MvpnRoute *join_rt =
+        table()->FindType7SourceTreeJoinRoute(source_active_rt);
+    if (!join_rt || !join_rt->IsUsable())
+        return;
+
+    if (!join_rt->BestPath()->IsSecondary())
+        return;
+
+    MvpnRoute *spmsi_rt = mvpn_dbstate->route();
+    if (!spmsi_rt) {
+        spmsi_rt = table()->LocateType3SPMSIRoute(join_rt);
+        mvpn_dbstate->set_route(spmsi_rt);
+        state->set_spmsi_rt(spmsi_rt);
+        BgpPath *new_path = new BgpPath(NULL, 0, BgpPath::Local,
+                source_active_rt->BestPath()->GetAttr(), 0, 0, 0);
+        spmsi_rt->InsertPath(new_path);
+    }
+}
+
+void MvpnManagerPartition::ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt) {
+    MvpnDBState *mvpn_dbstate = dynamic_cast<MvpnDBState *>(
+        join_rt->GetState(table(), listener_id()));
+
+    if (!join_rt->IsUsable()) {
+        if (!mvpn_dbstate)
+            return;
+        if (mvpn_dbstate->state()->source_active_rt())
+            mvpn_dbstate->state()->source_active_rt()->Notify();
+        join_rt->ClearState(table(), listener_id());
+        delete mvpn_dbstate;
+        return;
+    }
+
+    if (!join_rt->BestPath()->IsSecondary())
+        return;
+
+    MvpnStatePtr state = LocateState(join_rt);
+    if (!mvpn_dbstate) {
+        mvpn_dbstate = new MvpnDBState(state);
+        join_rt->SetState(table(), listener_id(), mvpn_dbstate);
+    }
+
+    if (state->source_active_rt())
+        state->source_active_rt()->Notify();
 }
 
 void MvpnManagerPartition::ProcessType4LeafADRoute(MvpnRoute *leaf_ad) {
+    MvpnDBState *mvpn_dbstate = dynamic_cast<MvpnDBState *>(
+        leaf_ad->GetState(table(), listener_id()));
+    if (!leaf_ad->IsUsable()) {
+        if (!mvpn_dbstate)
+            return;
+        assert(mvpn_dbstate->state()->leafad_routes_received().erase(leaf_ad));
+        MvpnRoute *sa_active_rt = mvpn_dbstate->state()->source_active_rt();
+        if (sa_active_rt && sa_active_rt->IsUsable())
+            sa_active_rt->Notify();
+        leaf_ad->ClearState(table(), listener_id());
+        delete mvpn_dbstate;
+        return;
+    }
+
+    const BgpPath *path = leaf_ad->BestPath();
+    if (!path->IsSecondary())
+        return;
+
+    MvpnStatePtr state = LocateState(leaf_ad);
+    if (!mvpn_dbstate) {
+        mvpn_dbstate = new MvpnDBState(state);
+        leaf_ad->SetState(table(), listener_id(), mvpn_dbstate);
+    }
+
+    pair<MvpnState::RoutesMap::iterator, bool> result =
+        state->leafad_routes_received().insert(make_pair(leaf_ad,
+                    leaf_ad->BestPath()->GetAttr()));
+
+    // Overwrite the entry with new best path attributes if one already exists.
+    if (!result.second) {
+        // Ignore if there is no change in the best path's attributes.
+        if (result.first->second.get() == leaf_ad->BestPath()->GetAttr())
+            return;
+        result.first->second = leaf_ad->BestPath()->GetAttr();
+    }
+
+    MvpnRoute *sa_active_rt = mvpn_dbstate->state()->source_active_rt();
+    if (sa_active_rt && sa_active_rt->IsUsable())
+        sa_active_rt->Notify();
 }
 
 // Process changes to Type3 S-PMSI routes by originating or deleting Type4 Leaf
@@ -904,4 +1046,38 @@ void MvpnManager::UpdateSecondaryTablesForReplication(MvpnRoute *mvpn_rt,
     // route. This was originated as the 'Sender' since receiver joined to
     // the <C-S,G> group.
     secondary_tables->insert(table);
+}
+
+UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
+    MvpnStatePtr state = GetState(route);
+    if (!state || state->leafad_routes_received().empty())
+        return NULL;
+
+    BgpOListSpec olist_spec(BgpAttribute::OList);
+    BOOST_FOREACH(MvpnState::RoutesMap::value_type &iter,
+                  state->leafad_routes_received()) {
+        BgpAttrPtr attr = iter.second;
+        const PmsiTunnel *pmsi = attr->pmsi_tunnel();
+        if (!pmsi)
+            continue;
+        if (pmsi->tunnel_type() != PmsiTunnelSpec::IngressReplication)
+            continue;
+        uint32_t label = attr->pmsi_tunnel()->GetLabel();
+        if (!label)
+            continue;
+        const ExtCommunity *extcomm = attr->ext_community();
+        BgpOListElem elem(pmsi->identifier(), label,
+            extcomm ? extcomm->GetTunnelEncap() : vector<string>());
+        olist_spec.elements.push_back(elem);
+    }
+
+    if (olist_spec.elements.empty())
+        return NULL;
+
+    BgpAttrDB *attr_db = table()->server()->attr_db();
+    BgpAttrPtr attr = attr_db->ReplaceLeafOListAndLocate(
+        route->BestPath()->GetAttr(), &olist_spec);
+    UpdateInfo *uinfo = new UpdateInfo;
+    uinfo->roattr = RibOutAttr(table(), route, attr.get(), 0, false, true);
+    return uinfo;
 }

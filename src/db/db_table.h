@@ -236,10 +236,15 @@ public:
 
     // Return the table partition for a specific request.
     virtual DBTablePartBase *GetTablePartition(const DBRequestKey *key);
+    virtual const DBTablePartBase *GetTablePartition(
+        const DBRequestKey *key) const;
     // Return the table partition for a DBEntryBase
     virtual DBTablePartBase *GetTablePartition(const DBEntryBase *entry);
+    virtual const DBTablePartBase *GetTablePartition(
+        const DBEntryBase *entry) const;
     // Return the table partition for a index
     virtual DBTablePartBase *GetTablePartition(const int index);
+    virtual const DBTablePartBase *GetTablePartition(const int index) const;
 
     // Change notification handler.
     virtual void Change(DBEntryBase *entry);
