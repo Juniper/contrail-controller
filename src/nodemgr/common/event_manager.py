@@ -312,6 +312,130 @@ class SystemdProcessInfoManager(object):
 
 #end class SystemdProcessInfoManager
 
+
+class DevstackProcessInfoManager(SystemdProcessInfoManager):
+    STATUS_DIR_BASE = "/opt/stack/status/contrail/"
+    SYSTEMD_TO_DEVSTACK_NAMES = {
+        # Analytics
+        'contrail-alarm-gen.service': 'alarm-gen',
+        'contrail-analytics-api.service': 'analytic-api',
+        'contrail-analytics-nodemgr.service': 'analytics-nodemgr',
+        'contrail-collector.service': 'collector',
+        'contrail-query-engine.service': 'query-engine',
+        'contrail-service-monitor.service': 'svc-mon',
+        'contrail-snmp-collector.service': 'snmp-collector',
+        'contrail-topology.service': 'topology',
+        # Config
+        'contrail-api.service': 'api-srv',
+        'contrail-schema.service': 'schema',
+        'contrail-svc-monitor.service': 'svc-mon',
+        'contrail-device-manager.service': 'dev-mgr',
+        'contrail-config-nodemgr.service': 'config-nodemgr',
+        # Control
+        'contrail-control.service': 'control',
+        'contrail-dns.service': 'dns',
+        'contrail-named.service': 'named',
+        'contrail-control-nodemgr.service': 'control-nodemgr',
+        # vRouter
+        'contrail-vrouter-agent.service': 'vrouter',
+        'contrail-vrouter-nodemgr.service': 'vrouter-nodemgr',
+    }
+
+    def __systemd_based_devstack(self):
+        """Returns whether we are running under >=ocata devstack."""
+
+        return False
+
+    def __map_systemd_to_devstack(self, unit_names):
+        process_table = {}
+        for name in unit_names:
+            devstack_name = self.SYSTEMD_TO_DEVSTACK_NAMES[name]
+            pid_path = "%s/%s.pid" % (self.STATUS_DIR_BASE, name)
+            process_table[devstack_name] = pid_path
+        return process_table
+
+    def __map_devstack_to_contrail_service(self, unit_name):
+        for service, devstack in self.SYSTEMD_TO_DEVSTACK_NAMES.items():
+            if unit_name == devstack:
+                return service.split('.')[0]
+
+    def _systemd_contrail_services(self, unit_names):
+        return map(lambda name: "devstack@%s" % (name,), unit_names)
+
+    def __init__(self, unit_names, event_handlers, update_process_list):
+        if self.__systemd_based_devstack():
+            unit_names = self._systemd_contrail_services(unit_names)
+            return super(DevstackProcessInfoManager, self).__init__(
+                unit_names, event_handlers, update_process_list, poll=False
+            )
+        self._process_table = self.__map_systemd_to_devstack(unit_names)
+        self._event_handlers = event_handlers
+        self._update_process_list = update_process_list
+
+    def _get_process_state_name(self, unit, pid):
+        try:
+            os.kill(pid, 0)
+        except (OSError, TypeError):
+            state = "PROCESS_STATE_STOPPED"
+        else:
+            state = "PROCESS_STATE_RUNNING"
+        if state == "PROCESS_STATE_STOPPED" and \
+           os.path.exists("%s/%s.failure" % (self.STATUS_DIR_BASE, unit)):
+            state = "PROCESS_STATE_EXITED"
+
+        return state
+
+    def _read_pid(self, unit):
+        try:
+            with open("%s/%s.pid" % (self.STATUS_DIR_BASE, unit)) as fh:
+                pid = fh.read()
+        except IOError:
+            pid = 1
+        else:
+            try:
+                pid = int(pid)
+            except:
+                pid = 1
+        return pid
+
+    def _get_process_start_time(self, pid):
+        process = psutil.Process(pid)
+        return int(process.create_time) * 1000000
+
+    def _get_process_info(self, unit, pid):
+        process_info = {}
+        contrail_name = self.__map_devstack_to_contrail_service(unit)
+        process_info['name'] = contrail_name
+        process_info['group'] = contrail_name
+        process_info['pid'] = pid = self._read_pid(unit)
+        process_info['start'] = self._get_process_start_time(pid)
+        process_info['statename'] = self._get_process_state_name(unit, pid)
+        process_info['state'] = self._get_process_state_name(unit, pid)
+        if process_info['state'] == 'PROCESS_STATE_EXITED':
+            process_info['expected'] = -1
+
+        return process_info
+	
+    def GetAllProcessInfo(self):
+        process_infos = []
+        for unit_name, pid_path in self._process_table.items():
+            process_infos.append(self._get_process_info(unit_name, pid_path))
+        return process_infos
+    # end GetAllProcessInfo
+
+    def _PollProcessInfos(self):
+        for unit, pid_path in self._process_table.items():
+            process_info = self._get_process_info(unit, pid_path)
+            self._event_handlers['PROCESS_STATE'](process_info)
+            if self._update_process_list:
+                self._event_handlers['PROCESS_LIST_UPDATE']()
+
+    def Run(self, test):
+        while True:
+            self._PollProcessInfos()
+            gevent.sleep(seconds=5)
+    # end Run
+
 def package_installed(pkg):
     (pdist, _, _) = platform.dist()
     if pdist == 'Ubuntu':
@@ -352,6 +476,9 @@ class EventManagerTypeInfo(object):
     # end __init__
 
 # end class EventManagerTypeInfo
+
+def is_devstack_install():
+    return True
 
 class EventManager(object):
     group_names = []
@@ -413,7 +540,11 @@ class EventManager(object):
             enable_syslog=self.config.use_syslog,
             syslog_facility=self.config.syslog_facility)
         self.logger = self.sandesh_instance.logger()
-        if is_systemd_based():
+        if is_devstack_install():
+            self.process_info_manager = DevstackProcessInfoManager(
+                self.type_info._unit_names,
+                event_handlers, update_process_list)
+        elif is_systemd_based():
             if not pydbus_present:
                 self.msg_log('Node manager cannot run without pydbus', SandeshLevel.SYS_ERR)
                 exit(-1)
