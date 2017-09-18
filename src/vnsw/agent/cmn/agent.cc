@@ -36,6 +36,7 @@
 #include <oper/mpls.h>
 #include <oper/peer.h>
 #include <xmpp/xmpp_client.h>
+#include <oper/bgp_as_service.h>
 
 #include <filter/acl.h>
 
@@ -1065,4 +1066,8 @@ VrouterObjectLimits Agent::GetVrouterObjectLimits() {
 void Agent::SetResourceManagerReady() {
     resource_manager_ready_ = true;
     config_manager_->Start();
+}
+
+bool Agent::check_bgp_aas_enabled() {
+        return oper_db()->bgp_as_a_service()->IsConfigured();
 }
