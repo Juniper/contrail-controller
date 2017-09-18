@@ -312,6 +312,115 @@ class SystemdProcessInfoManager(object):
 
 #end class SystemdProcessInfoManager
 
+
+class DevstackProcessInfoManager(SystemdProcessInfoManager):
+    STATUS_DIR_BASE = "/opt/stack/status/contrail/"
+    SYSTEMD_TO_DEVSTACK_NAMES = {
+        # Analytics
+        'contrail-alarm-gen': 'alarm-gen',
+        'contrail-analytics-api': 'analytics-api',
+        'contrail-analytics-nodemgr': 'analytics-nodemgr',
+        'contrail-collector.service': 'collector',
+        'contrail-query-engine': 'query-engine',
+        'contrail-service-monitor': 'svc-mon',
+        'contrail-snmp-collector': 'snmp-collector',
+        'contrail-topology': 'topology',
+        # Config
+        'contrail-api.service': 'api-srv',
+        'contrail-schema': 'schema',
+        'contrail-svc-monitor': 'svc-mon',
+        'contrail-device-managr': 'dev-mgr',
+        'contrail-config-nodemgr': 'config-nodemgr',
+        # Control
+        'contrail-control': 'control',
+        'contrail-dns': 'dns',
+        'contrail-named': 'named',
+        'contrail-control-nodemgr': 'control-nodemgr',
+        # vRouter
+        'contrail-vrouter-agent': 'vrouter',
+        'contrail-vrouter-nodemgr': 'vrouter-nodemgr',
+    }
+
+    def __systemd_based_devstack(self):
+        """Returns whether we are running under >=ocata devstack."""
+
+        return False
+
+    def __map_systemd_to_devstack(unit_names):
+        self.process_table = {}
+        for name in unit_names:
+            devstack_name = self.SYSTEMD_TO_DEVSTACK_NAMES[name]
+            pid_path = "%s/%s.pid" % (self._STATUS_DIR_BASE, unit_name)
+            self.process_table[devstack_name] = pid_path
+
+    def _systemd_contrail_services(self, unit_names):
+        return map(lambda name: "devstack@%s" % (name,), unit_names)
+
+    def __init__(self, unit_names, *args, **kwargs):
+        unit_names = self._systemd_contrail_services(unit_names)
+        if self.__systemd_based_devstack(self):
+            return super(DevstackProcessInfoManager, self).__init__(
+                unit_names, *args, **kwargs
+            )
+        self._process_table = self.__map_systemd_to_devstack(unit_names)
+        self._event_handlers = kwargs['event_handlers']
+        self._update_process_list = kwargs['update_process_list']
+
+    def _get_process_state_name(unit, pid):
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            state = "PROCESS_STATE_STOPPED"
+        else:
+            running = "PROCESS_STATE_RUNNING"
+        if state == "PROCESS_STATE_STOPPED" and \
+           os.path.exists("%s/%s.failure" % (self._STATUS_DIR_BASE, unit)):
+            state = "PROCESS_STATE_EXITED"
+
+        return state
+
+    def _read_pid(self, pid_path):
+        try:
+            with open("%s/%s.pid" % (self._STATUS_DIR_BASE, unit)) as fh:
+                pid = fh.read()
+        except IOError:
+            pid = None
+        else:
+            try:
+                pid = int(pid)
+            except:
+                pid = None
+        return pid
+
+    def _get_process_start_time(self, pid):
+        return 1505748743
+
+    def _get_process_info(self, unit, pid):
+        process_info = {}
+        process_info['name'] = unit
+        process_info['pid'] = pid = self._read_pid(pid)
+        process_info['start'] = self._get_process_start_time(pid)
+        process_info['statename'] = self._get_process_state_name(unit_name, pid)
+
+    def GetAllProcessInfo(self):
+        process_infos = []
+        for unit_name, pid_path in self._process_table.enumerate():
+            process_infos.append(self._get_process_info(unit_name, pid_path))
+    # end GetAllProcessInfo
+
+    def _PollProcessInfos(self):
+        for unit_name, pid_path in self._units.items():
+            process_info = self._get_process_info(unit_name, unit)
+            self._event_handlers['PROCESS_STATE'](process_info)
+            if self._update_process_list:
+                self._event_handlers['PROCESS_LIST_UPDATE']()
+
+    def Run(self, test):
+        while True:
+            self._PollProcessInfos()
+            gevent.sleep(seconds=5)
+    # end Run
+
 def package_installed(pkg):
     (pdist, _, _) = platform.dist()
     if pdist == 'Ubuntu':
@@ -328,6 +437,10 @@ def is_systemd_based():
         return True
     return False
 # end is_systemd_based
+
+def is_devstack_install():
+    return True
+# end is_devstack_install
 
 def is_running_in_docker():
     with open('/proc/1/cgroup', 'rt') as ifh:
@@ -422,6 +535,10 @@ class EventManager(object):
             self.process_info_manager = SystemdProcessInfoManager(
                 self.type_info._unit_names, event_handlers,
                 update_process_list, is_running_in_docker())
+        elif is_devstack_install():
+            self.process_info_manager = DevstackProcessInfoManager(
+                self.type_info._unit_names,
+                event_handlers, update_process_list)
         else:
             if not 'SUPERVISOR_SERVER_URL' in os.environ:
                 self.msg_log('Node manager must be run as a supervisor event listener',
