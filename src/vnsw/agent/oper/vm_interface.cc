@@ -69,7 +69,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     dhcp_addr_(0), metadata_ip_map_(), hc_instance_set_(),
     ecmp_load_balance_(), service_health_check_ip_(), is_vn_qos_config_(false),
     learning_enabled_(false), etree_leaf_(false), layer2_control_word_(false),
-    slo_list_(), forwarding_vrf_(NULL), vhostuser_mode_(vHostUserClient) {
+    slo_list_(), forwarding_vrf_(NULL), vhostuser_mode_(vHostUserClient),
+    service_intf_type_("") {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
@@ -114,7 +115,8 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     nova_ip_addr_(0), nova_ip6_addr_(), dhcp_addr_(0), metadata_ip_map_(),
     hc_instance_set_(), service_health_check_ip_(), is_vn_qos_config_(false),
     learning_enabled_(false), etree_leaf_(false), layer2_control_word_(false),
-    slo_list_(), forwarding_vrf_(NULL), vhostuser_mode_(vhostuser_mode) {
+    slo_list_(), forwarding_vrf_(NULL), vhostuser_mode_(vhostuser_mode),
+    service_intf_type_("") {
     metadata_ip_active_ = false;
     metadata_l2_active_ = false;
     ipv4_active_ = false;
