@@ -60,6 +60,8 @@ public:
     uint8_t ExpectedConnections(uint8_t &num_c_nodes, uint8_t &num_d_servers);
     uint32_t default_interval() const { return default_interval_; }
     uint32_t incremental_interval() const { return incremental_interval_; }
+    uint32_t GetTagOfType(uint32_t tag_type_value, const TagList &list) const;
+    std::string GetTagNameStr(const TagList &tl, uint32_t type) const;
 protected:
     boost::scoped_ptr<VnUveTableBase> vn_uve_table_;
     boost::scoped_ptr<VmUveTableBase> vm_uve_table_;

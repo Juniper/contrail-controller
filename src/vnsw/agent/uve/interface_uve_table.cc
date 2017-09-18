@@ -84,17 +84,26 @@ void InterfaceUveTable::set_expiry_time(int time) {
     }
 }
 
-void InterfaceUveTable::UveInterfaceEntry::SetVnVmInfo(UveVMInterfaceAgent *uve)
-                                                       const {
-    /* VM interfaces which are not created by Nova will not have VM name set.
-     * In that case pick VM name from VM object instead of VMI object */
+/* VM interfaces which are not created by Nova will not have VM name set.
+ * In that case pick VM name from VM object instead of VMI object */
+string InterfaceUveTable::UveInterfaceEntry::GetVmName() const {
     const VmEntry *vm = intf_->vm();
     if (!intf_->vm_name().empty()) {
-        uve->set_vm_name(intf_->vm_name());
+        return intf_->vm_name();
     } else {
         if (vm) {
-            uve->set_vm_name(vm->GetCfgName());
+            return vm->GetCfgName();
         }
+    }
+    return "";
+}
+
+void InterfaceUveTable::UveInterfaceEntry::SetVnVmInfo(UveVMInterfaceAgent *uve)
+                                                       const {
+    const VmEntry *vm = intf_->vm();
+    const string &vm_name = GetVmName();
+    if (!vm_name.empty()) {
+        uve->set_vm_name(vm_name);
     }
     if (intf_->vn() != NULL) {
         uve->set_virtual_network(intf_->vn()->GetName());
@@ -766,8 +775,8 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
 }
 
 string InterfaceUveTable::UveSecurityPolicyStats::GetTagIdStr
-(const InterfaceUveTable::UveInterfaceEntry *entry, uint32_t type) const {
-    uint32_t tag = entry->GetTagOfType(type, remote_tagset);
+    (const Agent *agent, uint32_t type) const {
+    uint32_t tag = agent->uve()->GetTagOfType(type, remote_tagset);
     return integerToString(tag);
 }
 
@@ -782,30 +791,6 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStatsInternal
     }
 }
 
-uint32_t InterfaceUveTable::UveInterfaceEntry::GetTagOfType
-    (uint32_t tag_type_value, const TagList &list) const {
-
-    TagList::const_iterator it = list.begin();
-    while (it != list.end()) {
-        if (((uint32_t)*it >> TagEntry::kTagTypeBitShift) == tag_type_value) {
-            return *it;
-        }
-        ++it;
-    }
-    return 0;
-}
-
-string InterfaceUveTable::UveInterfaceEntry::GetTagNameStr(Agent *agent,
-                                                           const TagList &tl,
-                                                           uint32_t type)
-                                                           const {
-    TagList new_tag_list;
-    intf_->CopyTagIdList(&new_tag_list);
-    uint32_t tag = GetTagOfType(type, tl);
-    TagTable *table = agent->tag_table();
-    return table->TagName(tag);
-}
-
 void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
     (Agent *agent, EndpointSecurityStats *obj) {
     tbb::mutex::scoped_lock lock(mutex_);
@@ -818,6 +803,7 @@ void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
         std::vector<SecurityPolicyFlowStats> traffic_list;
         const EndpointStatsContainer &cont = it->second;
         EndpointStats value;
+        value.set_workload(GetVmName());
         FillSecurityPolicyList(agent, cont.client_list, &value.client);
         FillSecurityPolicyList(agent, cont.server_list, &value.server);
         eps.insert(make_pair(it->first, value));
@@ -829,25 +815,26 @@ void InterfaceUveTable::UveInterfaceEntry::FillEndpointStats
 void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
     (Agent *agent, const SecurityPolicyStatsSet &ilist,
      std::vector<SecurityPolicyFlowStats> *olist) {
+    const AgentUveBase *uve = agent->uve();
     SecurityPolicyStatsSet::const_iterator sit = ilist.begin();
     while (sit != ilist.end()) {
         SecurityPolicyFlowStats item;
         UveSecurityPolicyStatsPtr entry(*sit);
-        item.set_app(GetTagNameStr(agent, entry->local_tagset,
+        item.set_app(uve->GetTagNameStr(entry->local_tagset,
                                    TagTable::APPLICATION));
-        item.set_tier(GetTagNameStr(agent, entry->local_tagset,
+        item.set_tier(uve->GetTagNameStr(entry->local_tagset,
                                     TagTable::TIER));
-        item.set_site(GetTagNameStr(agent, entry->local_tagset,
+        item.set_site(uve->GetTagNameStr(entry->local_tagset,
                                     TagTable::SITE));
-        item.set_deployment(GetTagNameStr(agent, entry->local_tagset,
+        item.set_deployment(uve->GetTagNameStr(entry->local_tagset,
                                       TagTable::DEPLOYMENT));
-        item.set_remote_app_id(entry->GetTagIdStr(this,
+        item.set_remote_app_id(entry->GetTagIdStr(agent,
                                                 TagTable::APPLICATION));
-        item.set_remote_tier_id(entry->GetTagIdStr(this,
+        item.set_remote_tier_id(entry->GetTagIdStr(agent,
                                                  TagTable::TIER));
-        item.set_remote_site_id(entry->GetTagIdStr(this,
+        item.set_remote_site_id(entry->GetTagIdStr(agent,
                                                  TagTable::SITE));
-        item.set_remote_deployment_id(entry->GetTagIdStr(this,
+        item.set_remote_deployment_id(entry->GetTagIdStr(agent,
                                                        TagTable::DEPLOYMENT));
         item.set_remote_vn(entry->remote_vn);
         item.set_added(entry->added - entry->prev_added);
@@ -872,13 +859,15 @@ void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
 
 void InterfaceUveTable::UveInterfaceEntry::FillTagSetAndPolicyList
     (Agent *agent, UveVMInterfaceAgent *obj) {
+
+    AgentUveBase *uve = agent->uve();
     tbb::mutex::scoped_lock lock(mutex_);
     TagList new_tag_list;
     intf_->CopyTagIdList(&new_tag_list);
-    obj->set_app(GetTagNameStr(agent, new_tag_list, TagTable::APPLICATION));
-    obj->set_tier(GetTagNameStr(agent, new_tag_list, TagTable::TIER));
-    obj->set_site(GetTagNameStr(agent, new_tag_list, TagTable::SITE));
-    obj->set_deployment(GetTagNameStr(agent, new_tag_list,
+    obj->set_app(uve->GetTagNameStr(new_tag_list, TagTable::APPLICATION));
+    obj->set_tier(uve->GetTagNameStr(new_tag_list, TagTable::TIER));
+    obj->set_site(uve->GetTagNameStr(new_tag_list, TagTable::SITE));
+    obj->set_deployment(uve->GetTagNameStr(new_tag_list,
                                       TagTable::DEPLOYMENT));
     vector<string> rule_list;
     SecurityPolicyStatsMap::const_iterator it =
