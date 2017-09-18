@@ -566,6 +566,7 @@ void VrouterUveEntryBase::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     vrouter_agent.set_gateway_cfg_list(gw_cfg_list);
     vrouter_agent.set_headless_mode_cfg(true);
     vrouter_agent.set_collector_server_list_cfg(param->collector_server_list());
+    vrouter_agent.set_bgp_aas(agent_->check_bgp_aas_enabled());
 }
 
 
@@ -641,6 +642,12 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
             changed = true;
         }
 
+    }
+
+    if (prev_vrouter_.get_bgp_aas() != agent_->check_bgp_aas_enabled()) {
+        vrouter_agent.set_bgp_aas(agent_->check_bgp_aas_enabled());
+        prev_vrouter_.set_bgp_aas(agent_->check_bgp_aas_enabled());
+        changed = true;
     }
 
     vector<AgentInterface> phy_if_list;
