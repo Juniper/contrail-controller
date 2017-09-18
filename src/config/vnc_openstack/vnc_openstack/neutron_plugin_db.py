@@ -2167,7 +2167,7 @@ class DBInterface(object):
                     self._raise_contrail_exception('PortSecurityAndIPRequiredForSecurityGroups', port_id=port_obj.uuid)
                 port_sg_refs = port_obj.get_security_group_refs()
                 if port_sg_refs:
-                    if 'security_groups' in port_q and not port_q['security_groups']:
+                    if not port_q.get('security_groups'):
                         # reset all SG on the port
                         port_obj.set_security_group_list([])
                     elif len(port_sg_refs) == 1 and port_sg_refs[0]['to'] == SG_NO_RULE_FQ_NAME:
