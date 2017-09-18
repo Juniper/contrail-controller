@@ -8,6 +8,7 @@ import signal
 import unittest
 import logging
 import json
+import mock
 from collections import namedtuple
 
 from vnc_api.gen.resource_client import Alarm
@@ -34,6 +35,8 @@ class TestAlarmPlugins(unittest.TestCase):
 
     def setUp(self):
         self.maxDiff = None
+        self.sandesh = mock.MagicMock()
+        self.sandesh._logger = logging
     # end setUp
 
     def tearDown(self):
@@ -2417,7 +2420,7 @@ class TestAlarmPlugins(unittest.TestCase):
                     alarm_cfg = self.get_alarm_config(plugin)
                 else:
                     alarm_cfg = self.get_alarm_config_by_name(alarm_name)
-                alarm_processor = AlarmProcessor(logging)
+                alarm_processor = AlarmProcessor(self.sandesh)
                 or_list = alarm_processor._evaluate_uve_for_alarms(
                     alarm_cfg, test.input.uve_key, test.input.uve_data)
             logging.info('exp_or_list: %s' % (str(exp_or_list)))
