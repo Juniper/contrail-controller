@@ -19,6 +19,8 @@
 #include <base/cpuinfo.h>
 #include <base/util.h>
 #include <cmn/agent_cmn.h>
+#include <oper/operdb_init.h>
+#include <oper/bgp_as_service.h>
 
 using namespace std;
 
@@ -566,6 +568,8 @@ void VrouterUveEntryBase::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     vrouter_agent.set_gateway_cfg_list(gw_cfg_list);
     vrouter_agent.set_headless_mode_cfg(true);
     vrouter_agent.set_collector_server_list_cfg(param->collector_server_list());
+    vrouter_agent.set_bgpaas_enabled(
+            agent_->oper_db()->bgp_as_a_service()->IsConfigured());
 }
 
 
@@ -641,6 +645,15 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
             changed = true;
         }
 
+    }
+
+    if (prev_vrouter_.get_bgpaas_enabled() != 
+        agent_->oper_db()->bgp_as_a_service()->IsConfigured()) {
+        vrouter_agent.set_bgpaas_enabled(
+            agent_->oper_db()->bgp_as_a_service()->IsConfigured());
+        prev_vrouter_.set_bgpaas_enabled(
+            vrouter_agent.get_bgpaas_enabled());
+        changed = true;
     }
 
     vector<AgentInterface> phy_if_list;
