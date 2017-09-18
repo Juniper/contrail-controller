@@ -40,6 +40,8 @@ bool VrouterUveEntry::SendVrouterMsg() {
 
     stats.set_name(agent_->agent_name());
 
+    stats.set_BGPaaS(agent_->check_bgp_aas_enabled());
+
     if (prev_stats_.get_in_tpkts() !=
         agent_->stats()->in_pkts() || first) {
         stats.set_in_tpkts(agent_->stats()->in_pkts());
