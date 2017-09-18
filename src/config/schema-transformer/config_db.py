@@ -54,7 +54,8 @@ _PROTO_STR_TO_NUM_IPV6 = {
 }
 
 SGID_MIN_ALLOC = common.SGID_MIN_ALLOC
-
+RULE_IMPLICIT_ALLOW_UUID = common.RULE_IMPLICIT_ALLOW_UUID
+RULE_IMPLICIT_DENY_UUID = common.RULE_IMPLICIT_DENY_UUID
 
 def _raise_and_send_uve_to_sandesh(obj_type, err_info, sandesh):
     config_req_err = SystemConfigReq(obj_type=obj_type,
@@ -1293,7 +1294,7 @@ class VirtualNetworkST(DBBaseST):
                 "any", AddressType(virtual_network=self.name), PortType(),
                 AddressType(virtual_network=self.name), PortType())
             action = ActionListType("pass")
-            acl = AclRuleType(match, action)
+            acl = AclRuleType(match, action, RULE_IMPLICIT_ALLOW_UUID)
             acl_list.append(acl)
 
             if self._manager._args.logical_routers_enabled:
@@ -1330,7 +1331,7 @@ class VirtualNetworkST(DBBaseST):
                     "any", AddressType(virtual_network="any"), PortType(),
                     AddressType(virtual_network="any"), PortType())
                 action = ActionListType("pass")
-                acl = AclRuleType(match, action)
+                acl = AclRuleType(match, action, RULE_IMPLICIT_ALLOW_UUID)
                 acl_list.append(acl)
                 acl_list.update_acl_entries(static_acl_entries)
             else:
@@ -1339,7 +1340,7 @@ class VirtualNetworkST(DBBaseST):
                     "any", AddressType(virtual_network="any"), PortType(),
                     AddressType(virtual_network="any"), PortType())
                 action = ActionListType("deny")
-                acl = AclRuleType(match, action)
+                acl = AclRuleType(match, action, RULE_IMPLICIT_DENY_UUID)
                 acl_list.append(acl)
                 acl_list.update_acl_entries(static_acl_entries)
             self.acl_rule_count = len(static_acl_entries.get_acl_rule())
