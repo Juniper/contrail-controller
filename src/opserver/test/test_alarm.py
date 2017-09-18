@@ -2645,7 +2645,7 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
                                 json_variables=m.get('json_variables') or {}) \
                                     for m in match]))
                     exp_or_list.append(SandeshAlarmAndList(and_list))
-            alarm_processor = AlarmProcessor(logging)
+            alarm_processor = AlarmProcessor(self._ag._sandesh)
             or_list = alarm_processor._evaluate_uve_for_alarms(
                 test.input.alarm_cfg, test.input.uve_key, test.input.uve)
             logging.info('exp_or_list: %s' % (str(exp_or_list)))

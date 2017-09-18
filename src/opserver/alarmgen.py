@@ -188,9 +188,10 @@ class AGKeyInfo(object):
 
 class AlarmProcessor(object):
 
-    def __init__(self, logger):
+    def __init__(self, sandesh):
+        self._sandesh = sandesh
+        self._logger = sandesh._logger
         self.uve_alarms = {}
-        self._logger = logger
         self.ActiveTimer = {}
         self.IdleTimer = {}
         self.FreqExceededCheck = {}
@@ -1557,7 +1558,7 @@ class Controller(object):
             table_str = table
         alarm_cfg = self._config_handler.alarm_config_db()
         prevt = UTCTimestampUsec()
-        aproc = AlarmProcessor(self._logger)
+        aproc = AlarmProcessor(self._sandesh)
         # Process all alarms configured for this uve-type
         for alarm_fqname, alarm_obj in \
             alarm_cfg.get(table, {}).iteritems():
