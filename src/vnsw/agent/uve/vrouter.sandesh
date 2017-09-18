@@ -228,6 +228,8 @@ struct VrouterAgent {
    52: optional agent.VrouterObjectLimits vr_limits;
    /** @display_name:Vrouter Agent VM count */
    53: optional VrouterAgentObjectCount vm_count (tags="")
+   /** shows whether currently BGPaaS is enabled or not */
+   54: optional bool bgpaas_enabled;
 }
 
 /**
