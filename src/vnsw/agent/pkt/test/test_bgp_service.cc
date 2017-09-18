@@ -10,6 +10,7 @@
 #include "pkt/pkt_handler.h"
 #include <base/task.h>
 #include <base/test/task_test_util.h>
+#include <oper/bgp_as_service.h>
 
 VmInterface *vnet[16];
 Interface *vhost;
@@ -307,6 +308,36 @@ TEST_F(BgpServiceTest, Test_4) {
     EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
     EXPECT_TRUE(fe->bgp_as_a_service_port() == 50000);
+    client->WaitForIdle();
+}
+
+// Test for checking BGPaaS is enabled to display in vrouter UVE
+TEST_F(BgpServiceTest, Test_5) {
+    IFMapTable *table = IFMapTable::FindTable(agent_->db(),
+                                              "virtual-machine-interface");
+    IFMapNode *node = table->FindNode("vnet1");
+    if (node == NULL) {
+        assert(0);
+    }
+
+    InterfaceTable *intf_table = agent_->interface_table();
+
+    //simulate the same session add for the same vmi
+    DBRequest request1;
+    boost::uuids::uuid u;
+    intf_table->IFNodeToUuid(node, u);
+    intf_table->VmiProcessConfig(node, request1, u);
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Stop();
+    intf_table->Enqueue(&request1);
+
+    scheduler->Start();
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.10", "1.1.1.1", 10000, 179,
+                false);
+    client->WaitForIdle();
+    EXPECT_TRUE(agent_->check_bgp_aas_enabled());
     client->WaitForIdle();
 }
 
