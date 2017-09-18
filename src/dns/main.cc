@@ -81,24 +81,6 @@ static void DnsServerGetProcessStateCb(
     }
 }
 
-
-bool DnsServerReEvaluatePublishCb(IFMapServer *ifmap_server,
-      const ConfigClientManager *config_client_manager, std::string &message) {
-    if (!config_client_manager->GetEndOfRibComputed()) {
-        message = "IFMap Server End-Of-RIB not computed";
-        return false;
-    }
-
-    DnsManager *dns_manager = Dns::GetDnsManager();
-    if (dns_manager && !dns_manager->IsBindStatusUp()) {
-        message = "Connection to named DOWN";
-        return false;
-    }
-
-    message = "OK";
-    return true;
-}
-
 static string FileRead(const string &filename) {
     ifstream file(filename.c_str());
     string content((istreambuf_iterator<char>(file)),
@@ -184,25 +166,25 @@ int main(int argc, char *argv[]) {
     boost::system::error_code ec;
     string hostname = host_name(ec);
     Dns::SetHostName(hostname);
-    {
-        NodeType::type node_type =
-            g_vns_constants.Module2NodeType.find(module)->second;
-        bool success(Sandesh::InitGenerator(
-                    module_name,
-                    options.hostname(),
-                    g_vns_constants.NodeTypeNames.find(node_type)->second,
-                    g_vns_constants.INSTANCE_ID_DEFAULT,
-                    Dns::GetEventManager(),
-                    options.http_server_port(),
-                    options.randomized_collector_server_list(),
-                    NULL,
-                    Sandesh::DerivedStats(),
-                    options.sandesh_config()));
-        if (!success) {
-            LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
-            Sandesh::Uninit();
-            exit(1);
-        }
+
+    ConnectionStateManager::GetInstance();
+    NodeType::type node_type =
+        g_vns_constants.Module2NodeType.find(module)->second;
+    bool success(Sandesh::InitGenerator(
+                 module_name,
+                 options.hostname(),
+                 g_vns_constants.NodeTypeNames.find(node_type)->second,
+                 g_vns_constants.INSTANCE_ID_DEFAULT,
+                 Dns::GetEventManager(),
+                 options.http_server_port(),
+                 options.randomized_collector_server_list(),
+                 NULL,
+                 Sandesh::DerivedStats(),
+                 options.sandesh_config()));
+    if (!success) {
+        LOG(ERROR, "SANDESH: Initialization FAILED ... exiting");
+        Sandesh::Uninit();
+        exit(1);
     }
     Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
                               options.log_level());
@@ -213,7 +195,6 @@ int main(int argc, char *argv[]) {
     }
 
     // DNS::SetTestMode(options.test_mode());
-    ConnectionStateManager::GetInstance();
 
     DB config_db(TaskScheduler::GetInstance()->GetTaskId("db::IFMapTable"));
     DBGraph config_graph;
