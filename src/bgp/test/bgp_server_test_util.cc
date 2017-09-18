@@ -67,7 +67,7 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
     vnc_cfg_Server_ModuleInit(config_db_.get(), config_graph_.get());
     bgp_schema_Server_ModuleInit(config_db_.get(), config_graph_.get());
     BgpIfmapConfigManager *config_manager =
-            static_cast<BgpIfmapConfigManager *>(config_mgr_.get());
+            dynamic_cast<BgpIfmapConfigManager *>(config_mgr_.get());
     config_manager->Initialize(config_db_.get(), config_graph_.get(),
                                localname);
     rtarget_group_mgr_->Initialize();

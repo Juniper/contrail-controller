@@ -116,9 +116,10 @@ private:
     const MvpnTable *table() const;
     int listener_id() const;
 
-    bool ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt);
     void ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt);
     void ProcessType4LeafADRoute(MvpnRoute *leaf_ad);
+    void ProcessType5SourceActiveRoute(MvpnRoute *join_rt);
+    void ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt);
 
     MvpnStatePtr GetState(MvpnRoute *route);
     MvpnStatePtr GetState(MvpnRoute *route) const;
@@ -300,6 +301,9 @@ public:
     RoutesMap &leafad_routes_received();
     const StatesMap *states() const { return states_; }
     StatesMap *states() { return states_; }
+    const MvpnRoute *source_active_rt() const;
+    MvpnRoute *source_active_rt();
+    void set_source_active_rt(MvpnRoute *source_active_rt);
 
 private:
     friend class MvpnDBState;
@@ -311,6 +315,7 @@ private:
     SG sg_;
     ErmVpnRoute *global_ermvpn_tree_rt_;
     MvpnRoute *spmsi_rt_;
+    MvpnRoute *source_active_rt_;
     RoutesSet spmsi_routes_received_;
     RoutesMap leafad_routes_received_;
     StatesMap *states_;
@@ -452,6 +457,7 @@ public:
     virtual void Initialize();
     MvpnStatePtr GetState(MvpnRoute *route) const;
     MvpnStatePtr GetState(MvpnRoute *route);
+    UpdateInfo *GetUpdateInfo(MvpnRoute *route);
 
 private:
     class DeleteActor;

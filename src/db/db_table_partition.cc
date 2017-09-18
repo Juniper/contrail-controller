@@ -133,6 +133,15 @@ DBEntry *DBTablePartition::FindInternal(const DBEntry *entry) {
     }
     return NULL;
 }
+
+const DBEntry *DBTablePartition::FindInternal(const DBEntry *entry) const {
+    Tree::const_iterator loc = tree_.find(*entry);
+    if (loc != tree_.end()) {
+        return loc.operator->();
+    }
+    return NULL;
+}
+
 DBEntry *DBTablePartition::FindNoLock(const DBEntry *entry) {
     CHECK_CONCURRENCY("db::DBTable", "db::IFMapTable",
         "Agent::FlowEvent", "Agent::FlowUpdate");
@@ -140,6 +149,11 @@ DBEntry *DBTablePartition::FindNoLock(const DBEntry *entry) {
 }
 
 DBEntry *DBTablePartition::Find(const DBEntry *entry) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return FindInternal(entry);
+}
+
+const DBEntry *DBTablePartition::Find(const DBEntry *entry) const {
     tbb::mutex::scoped_lock lock(mutex_);
     return FindInternal(entry);
 }
