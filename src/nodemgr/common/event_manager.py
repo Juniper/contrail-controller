@@ -604,7 +604,12 @@ class EventManager(object):
         process_state_db_tmp = copy.deepcopy(self.process_state_db)
 
         for corename in corenames:
-            exec_name = corename.split('.')[1]
+            try:
+                exec_name = corename.split('.')[1]
+            except IndexError:
+                # Ignore the directories and the files that do not comply
+                # with the core pattern
+                continue
             for group in self.process_state_db:
                 for key in self.process_state_db[group]:
                     if key.startswith(exec_name):
