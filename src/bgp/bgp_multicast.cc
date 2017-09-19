@@ -199,8 +199,8 @@ void McastForwarder::AddGlobalTreeRoute() {
     assert(level_ == McastTreeManager::LevelLocal);
     assert(!global_tree_route_);
 
-    // Bail if there's no distribution tree.
-    if (label_ == 0 || tree_links_.empty())
+    // Bail if there's no label allocated.
+    if (label_ == 0)
         return;
 
     // Bail if we can't build a source RD.
@@ -340,8 +340,8 @@ UpdateInfo *McastForwarder::GetUpdateInfo(ErmVpnTable *table) {
     AddLocalOListElems(&olist_spec);
     AddGlobalOListElems(&olist_spec);
 
-    // Bail if we've never built the tree or if the BgpOList is empty.
-    if (label_ == 0 || olist_spec.elements.empty())
+    // Bail if there is no label allocated.
+    if (label_ == 0)
         return NULL;
 
     BgpAttrSpec attr_spec;
