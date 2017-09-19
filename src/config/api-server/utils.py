@@ -114,7 +114,9 @@ def parse_args(args_str):
         'admin_password': '',
         'admin_tenant_name': '',
         'insecure': True,
-        'cafile': ''
+        'cafile': '',
+        'auth_type': 'password',
+        'auth_url': '',
     }
     # cassandra options
     cassandraopts = {
