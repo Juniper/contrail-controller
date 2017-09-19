@@ -106,6 +106,8 @@ def parse_args(args_str):
         'cafile': '',
         'certfile': '',
         'keyfile': ''
+        'auth_type': 'password',
+        'auth_url': '',
     }
     # cassandra options
     cassandraopts = {
