@@ -163,7 +163,7 @@ void init_vizd_tables() {
     session_msg2type_map[g_viz_constants.SessionRecordNames[
             SessionRecordFields::SESSION_IP]] =
         SessionTypeInfo(SessionRecordFields::SESSION_IP,
-            GenDb::DbDataType::AsciiType);
+            GenDb::DbDataType::BlobType);
     session_msg2type_map[g_viz_constants.SessionRecordNames[
             SessionRecordFields::SESSION_VROUTER_IP]] =
         SessionTypeInfo(SessionRecordFields::SESSION_VROUTER_IP,

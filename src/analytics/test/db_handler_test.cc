@@ -961,7 +961,14 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
                 colname->push_back("");
                 colname->push_back("");
                 colname->push_back(t2 + ":" + dit->get_vmi());
-                colname->push_back(t2 + ":1.0.0.1"); //local-ip
+                uint32_t T2 = hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits;
+                T2IpIndex t2_ip_index;
+                memset(&t2_ip_index, 0, sizeof(t2_ip_index));
+                t2_ip_index.t2_ = T2;
+                t2_ip_index.ip_ = IpAddress::from_string("1.0.0.1");
+                GenDb::Blob t2_ip(reinterpret_cast<const uint8_t *>(&t2_ip_index),
+                                    sizeof(t2_ip_index));
+                colname->push_back(t2_ip);
                 colname->push_back(t2 + ":" + dit->get_vn());
                 colname->push_back(t2 + ":" + dit->get_remote_vn());
                 colname->push_back("127.0.0.1");
@@ -1028,7 +1035,14 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
                 colname->push_back("");
                 colname->push_back("");
                 colname->push_back(t2 + ":" + dit->get_vmi());
-                colname->push_back(t2 + ":1.0.0.1"); //local-ip
+                uint32_t T2 = hdr.get_Timestamp() >> g_viz_constants.RowTimeInBits;
+                T2IpIndex t2_ip_index;
+                memset(&t2_ip_index, 0, sizeof(t2_ip_index));
+                t2_ip_index.t2_ = T2;
+                t2_ip_index.ip_ = IpAddress::from_string("1.0.0.1");
+                GenDb::Blob t2_ip(reinterpret_cast<const uint8_t *>(&t2_ip_index),
+                                    sizeof(t2_ip_index));
+                colname->push_back(t2_ip);
                 colname->push_back(t2 + ":" + dit->get_vn());
                 colname->push_back(t2 + ":" + dit->get_remote_vn());
                 colname->push_back("127.0.0.1");
