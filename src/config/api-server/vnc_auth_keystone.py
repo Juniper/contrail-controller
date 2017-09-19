@@ -63,8 +63,11 @@ class LocalAuth(object):
             enc_user_passwd = auth_hdr_val.split()[1]
             user_passwd = base64.b64decode(enc_user_passwd)
             user, passwd = user_passwd.split(':')
-            if (not self._conf_info.get('admin_user') == user or
-                not self._conf_info.get('admin_password') == passwd):
+            admin_user = self._conf_info.get('admin_user',
+                    self._conf_info.get('username'))
+            admin_password = self._conf_info.get('admin_password',
+                    self._conf_info.get('password'))
+            if (not admin_user == user or not admin_password == passwd):
                 bottle.abort(401, 'Authentication check failed')
 
             # Add admin role to the request
@@ -141,40 +144,49 @@ class AuthPostKeystone(object):
 class AuthServiceKeystone(object):
 
     def __init__(self, server_mgr, args):
+        self.args = args
         _kscertbundle=''
         if args.auth_protocol == 'https' and args.cafile:
             certs=[args.cafile]
             if args.keyfile and args.certfile:
                 certs=[args.certfile, args.keyfile, args.cafile]
             _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
-        identity_uri = args.identity_uri or \
-                       '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
         self._conf_info = {
-            'auth_host': args.auth_host,
-            'auth_port': args.auth_port,
-            'auth_protocol': args.auth_protocol,
-            'admin_user': args.admin_user,
-            'admin_password': args.admin_password,
-            'admin_tenant_name': args.admin_tenant_name,
             'admin_port': args.admin_port,
             'max_requests': args.max_requests,
             'region_name': args.region_name,
             'insecure': args.insecure,
-            'identity_uri': identity_uri,
         }
-        try:
-            if 'v3' in args.auth_url:
-                self._conf_info['auth_version'] = 'v3.0'
-                self._conf_info['auth_type'] = 'password'
-                self._conf_info['auth_url'] = args.auth_url
-                self._conf_info['user_domain_name'] = args.admin_user_domain_name
-                self._conf_info['project_domain_name'] = args.project_domain_name
-                self._conf_info['project_name'] = args.admin_tenant_name
-                self._conf_info['username'] = args.admin_user
-                self._conf_info['password'] = args.admin_password
-            self._conf_info['auth_uri'] = args.auth_url
-        except AttributeError:
-            pass
+        if args.auth_url:
+            auth_url = args.auth_url
+        else:
+            auth_url = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
+        if 'v2.0' in auth_url.split('/'):
+            identity_uri = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
+            self._conf_info.update({
+                'auth_host': args.auth_host,
+                'auth_port': args.auth_port,
+                'auth_protocol': args.auth_protocol,
+                'admin_user': args.admin_user,
+                'admin_password': args.admin_password,
+                'admin_tenant_name': args.admin_tenant_name,
+                'identity_uri': identity_uri})
+        else:
+            self._conf_info.update({
+                'auth_type': args.auth_type,
+                'auth_url': auth_url,
+                'username': args.admin_user,
+                'password': args.admin_password,
+            })
+            # Add user domain info
+            self._conf_info.update(**cfgmutils.get_user_domain_kwargs(args))
+            # Get project scope auth params
+            scope_kwargs = cfgmutils.get_project_scope_kwargs(args)
+            if not scope_kwargs:
+                # Default to domain scoped auth
+                scope_kwargs = cfgmutils.get_domain_scope_kwargs(args)
+            self._conf_info.update(**scope_kwargs)
+
         if _kscertbundle:
             self._conf_info['cafile'] = _kscertbundle
         self._server_mgr = server_mgr
