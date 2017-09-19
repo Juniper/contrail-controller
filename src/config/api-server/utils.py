@@ -105,7 +105,9 @@ def parse_args(args_str):
         'insecure': True,
         'cafile': '',
         'certfile': '',
-        'keyfile': ''
+        'keyfile': '',
+        'auth_type': 'password',
+        'auth_url': '',
     }
     # cassandra options
     cassandraopts = {
