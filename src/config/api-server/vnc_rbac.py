@@ -210,7 +210,7 @@ class VncRbac(object):
         user, roles = self.get_user_roles(request)
 
         if len(roles) == 0:
-            err_msg = (403, 'roles empty!!')
+            err_msg = (401, 'roles empty!!')
             return (False, err_msg)
 
         is_admin = self.cloud_admin_role in roles
