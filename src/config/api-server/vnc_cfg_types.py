@@ -1514,7 +1514,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
-        cls.addr_mgmt.net_delete_notify(obj_ids, obj_dict)
+        cls.addr_mgmt.net_delete_notify(obj_ids['uuid'], obj_dict)
     # end dbe_delete_notification
 
 # end class VirtualNetworkServer
