@@ -818,7 +818,35 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     }
                     QE_TRACE(DEBUG, "where match term for sport_value " << value);
                 }
-                else {
+                else if (name == g_viz_constants.SessionRecordNames[
+                                SessionRecordFields::SESSION_IP]) {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn(name, &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+                    IpAddress ipaddr = IpAddress::from_string(value);
+                    if (op == IN_RANGE) {
+                        {
+                            GenDb::Op::type comparator = GenDb::Op::GE;
+                            GenDb::WhereIndexInfo where_info = boost::make_tuple(
+                                            columnN, comparator, ipaddr);
+                            where_vec.push_back(where_info);
+                        }
+                        {
+                            IpAddress ipaddr2 = IpAddress::from_string(value2);
+                            GenDb::Op::type comparator = GenDb::Op::LE;
+                            GenDb::WhereIndexInfo where_info = boost::make_tuple(
+                                            columnN, comparator, ipaddr2);
+                            where_vec.push_back(where_info);
+                        }
+                    } else {
+                        QE_INVALIDARG_ERROR(op == EQUAL);
+                        GenDb::Op::type comparator = GenDb::Op::EQ;
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                                comparator, ipaddr);
+                        where_vec.push_back(where_info);
+                    }
+                } else {
                     std::string columnN;
                     if (!SessionTableQueryColumn2CassColumn(name, &columnN)) {
                         QE_INVALIDARG_ERROR(0);
@@ -1197,7 +1225,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
             if (sport_match) {
                 QE_INVALIDARG_ERROR(proto_match);
                 session_db_query->cr.start_.push_back(sport);
-                if(sport_op == EQUAL) {
+                if (sport_op == EQUAL) {
                     session_db_query->cr.finish_.push_back(sport);
                 } else if (sport_op == IN_RANGE) {
                     session_db_query->cr.finish_.push_back(sport2);
@@ -1311,10 +1339,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                                         (uint8_t)SessionType::SERVER_SESSION);
                 if (proto_match) {
                     server_session_query->cr.start_.push_back(proto);
-                    if(proto_op == EQUAL) {
+                    if (proto_op == EQUAL) {
                         server_session_query->cr.finish_.push_back(proto);
-                    }
-                    else if (proto_op == IN_RANGE) {
+                    } else if (proto_op == IN_RANGE) {
                         server_session_query->cr.finish_.push_back(proto2);
                     }
                 } else {
@@ -1326,7 +1353,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     QE_INVALIDARG_ERROR(proto_match);
                     server_session_query->cr.start_.push_back(sport);
                     int op = direction_ing?sport_op:dport_op;
-                    if(op == EQUAL) {
+                    if (op == EQUAL) {
                         server_session_query->cr.finish_.push_back(direction_ing?
                             sport:dport);
                     } else if (op == IN_RANGE) {

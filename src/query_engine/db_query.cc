@@ -4,7 +4,7 @@
 
 #include "query.h"
 #include "base/work_pipeline.h"
-
+#include "analytics/db_handler_impl.h"
 /*
  * This function performs GetRowAsync for each row key
  * Input: It takes rowkeys for which we have to get col
@@ -59,8 +59,25 @@ bool DbQueryUnit::PipelineCb(std::string &cfname, GenDb::DbDataValueVec &rowkey,
                            GenDb::WhereIndexInfoVec &where_vec,
                            GetRowInput * ip_ctx, void *privdata) {
 
+    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, where_vec) {
         std::string columnN = where_info.get<0>();
+        if (m_query->is_session_query(m_query->table()) &&
+            columnN == "column18") { //local_ip
+            IpAddress ipaddr;
+            uint32_t t2;
+            try {
+                ipaddr = boost::get<IpAddress>(where_info.get<2>());
+                t2 = boost::get<uint32_t>(rowkey.at(0));
+            } catch (boost::bad_get& ex) {
+                QE_ASSERT(0);
+            }
+            T2IpIndex t2_ip_index(t2, ipaddr);
+            GenDb::Blob t2_ip(reinterpret_cast<const uint8_t *>(&t2_ip_index),
+                                            sizeof(t2_ip_index));
+            where_info.get<2>() = t2_ip;
+            continue;
+        }
         std::ostringstream where_oss;
         where_oss << GenDb::DbDataValueToString(rowkey.at(0))
                   << ":"
@@ -70,7 +87,6 @@ bool DbQueryUnit::PipelineCb(std::string &cfname, GenDb::DbDataValueVec &rowkey,
     /*
      *  Call GetRowAsync, with args prepopulated
      */
-    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     return m_query->dbif_->Db_GetRowAsync(cfname, rowkey, cr, where_vec,
         GenDb::DbConsistency::LOCAL_ONE,
         boost::bind(&DbQueryUnit::cb, this, _1, _2, ip_ctx, privdata));

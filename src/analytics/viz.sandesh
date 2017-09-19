@@ -1286,7 +1286,7 @@ const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
             {'name' : 'column17', 'datatype': Gendb.DbDataType.UTF8Type,
              'index_type' : ColIndexType.CUSTOM_INDEX,
              'index_mode' : ColIndexMode.PREFIX },
-            {'name' : 'column18', 'datatype': Gendb.DbDataType.UTF8Type,
+            {'name' : 'column18', 'datatype': Gendb.DbDataType.BlobType,
              'index_type' : ColIndexType.CUSTOM_INDEX,
              'index_mode' : ColIndexMode.PREFIX },
             {'name' : 'column19', 'datatype': Gendb.DbDataType.UTF8Type,
@@ -1355,7 +1355,7 @@ const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
             'remote_prefix'        : 'column15',
             'security_policy_rule' : 'column16',
             'vmi'                  : 'column17',
-            'local_ip'                   : 'column18',
+            'local_ip'             : 'column18',
             'vn'                   : 'column19',
             'remote_vn'            : 'column20',
         }

@@ -2110,9 +2110,12 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         stringToInteger(ip_port_proto.child(g_flow_constants.PROTOCOL.c_str()).child_value(), val);
         session_entry_values[SessionRecordFields::SESSION_PROTOCOL] = val;
         session_entry_values[SessionRecordFields::SESSION_UUID] = umn_gen_();
-        std::ostringstream oss;
-        oss << T2 << ":" << ip_port_proto.child(g_flow_constants.IP.c_str()).child_value();
-        session_entry_values[SessionRecordFields::SESSION_IP] = oss.str();
+        std::string ip_str(ip_port_proto.child(g_flow_constants.IP.c_str()).child_value());
+        IpAddress ipaddr(IpAddress::from_string(ip_str));
+        T2IpIndex t2_ip_index(T2, ipaddr);
+        GenDb::Blob t2_ip(reinterpret_cast<const uint8_t *>(&t2_ip_index),
+                                        sizeof(t2_ip_index));
+        session_entry_values[SessionRecordFields::SESSION_IP] = t2_ip;
         pugi::xml_node sess_agg_info = ip_port_proto.next_sibling();
         for (pugi::xml_node agg_info = sess_agg_info.first_child();
             agg_info; agg_info = agg_info.next_sibling()) {
