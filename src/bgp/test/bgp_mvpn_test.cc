@@ -54,8 +54,8 @@ public:
             pmsi_params.find(MvpnState::SG(source, group));
         if (iter == pmsi_params.end() || !iter->second.result)
             return NULL;
-        while (!*(iter->second.ermvpn_rt))
-            usleep(10);
+        TASK_UTIL_EXPECT_NE(static_cast<ErmVpnRoute *>(NULL),
+                            *(iter->second.ermvpn_rt));
         return *(iter->second.ermvpn_rt);
     }
 
@@ -178,7 +178,7 @@ protected:
 
         BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
         STLDeleteValues(&attr_spec);
-        add_req.data.reset(new MvpnTable::RequestData(attr, 0, 20));
+        add_req.data.reset(new ErmVpnTable::RequestData(attr, 0, 20));
         add_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         table->Enqueue(&add_req);
         return FindErmVpnRoute(table, prefix_str);

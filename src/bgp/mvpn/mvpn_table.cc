@@ -37,7 +37,7 @@ size_t MvpnTable::HashFunction(const MvpnPrefix &prefix) const {
 }
 
 MvpnTable::MvpnTable(DB *db, const string &name)
-    : BgpTable(db, name), manager_(NULL) {
+    : BgpTable(db, name), manager_(NULL), force_replication_(false) {
 }
 
 PathResolver *MvpnTable::CreatePathResolver() {
@@ -302,35 +302,125 @@ const MvpnRoute *MvpnTable::FindType7SourceTreeJoinRoute(MvpnRoute *rt) const {
     return FindRoute(prefix);
 }
 
-BgpRoute *MvpnTable::RouteReplicate(BgpServer *server,
-        BgpTable *stable, BgpRoute *src_rt, const BgpPath *src_path,
-        ExtCommunityPtr community) {
+BgpRoute *MvpnTable::RouteReplicate(BgpServer *server, BgpTable *stable,
+        BgpRoute *rt, const BgpPath *src_path, ExtCommunityPtr community) {
     MvpnTable *src_table = dynamic_cast<MvpnTable *>(stable);
     assert(src_table);
-    assert(src_table->family() == Address::MVPN);
+    MvpnRoute *src_rt = dynamic_cast<MvpnRoute *>(rt);
+    assert(src_rt);
 
-    MvpnRoute *mvpn_route = dynamic_cast<MvpnRoute *>(src_rt);
-    assert(mvpn_route);
+    if (force_replication()) {
+        return ReplicatePath(server, src_rt->GetPrefix(), src_table, src_rt,
+                             src_path, community);
+    }
+
+    // Replicate Type7 C-Join route.
+    if (src_rt->GetPrefix().type() == MvpnPrefix::SourceTreeJoinRoute) {
+        return ReplicateType7SourceTreeJoin(server, src_table, src_rt,
+                                            src_path, community);
+    }
 
     if (!IsMaster()) {
         // For type-4 paths, only replicate if there is a type-3 primary path
         // present in the table.
-        if (mvpn_route->GetPrefix().type() == MvpnPrefix::LeafADRoute) {
+        if (src_rt->GetPrefix().type() == MvpnPrefix::LeafADRoute) {
             MvpnProjectManager *pm = GetProjectManager();
             if (!pm)
                 return NULL;
-            MvpnStatePtr mvpn_state = pm->GetState(mvpn_route);
+            MvpnStatePtr mvpn_state = pm->GetState(src_rt);
             if (!mvpn_state || !mvpn_state->spmsi_rt() ||
                     !mvpn_state->spmsi_rt()->IsUsable()) {
                 return NULL;
             }
         }
-
-        // For type-7 paths, only replicate if route has a target that matches
-        // this table's auto created route target (vit).
     }
 
-    MvpnPrefix mprefix(mvpn_route->GetPrefix());
+    // Replicate all other types.
+    return ReplicatePath(server, src_rt->GetPrefix(), src_table, src_rt,
+                         src_path, community);
+}
+
+BgpRoute *MvpnTable::ReplicateType7SourceTreeJoin(BgpServer *server,
+    MvpnTable *src_table, MvpnRoute *src_rt, const BgpPath *src_path,
+    ExtCommunityPtr ext_community) {
+
+    // Only replicate if route has a target that matches this table's auto
+    // created route target (vit).
+    if (!IsMaster()) {
+        RouteTarget vit(Ip4Address(server->bgp_identifier()),
+                        routing_instance()->index());
+        bool vit_found = false;
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_community->communities()) {
+            if (ExtCommunity::is_route_target(comm)) {
+                RouteTarget rtarget(comm);
+                if (rtarget == vit) {
+                    vit_found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!vit_found)
+            return NULL;
+    }
+
+    // If replicating from Master table, no special checks are required.
+    if (src_table->IsMaster()) {
+        return ReplicatePath(server, src_rt->GetPrefix(), src_table, src_rt,
+                             src_path, ext_community);
+    }
+
+    // This is the case when routes are replicated either to Master or to other
+    // vrf.mvpn.0 as identified the route targets. In either case, basic idea
+    // is to target the replicated path directly to vrf where sender resides.
+    //
+    // Route-target of the target vrf is derived from the Vrf Import Target of
+    // the route the source resolves to. Resolver code would have already
+    // computed this and encoded inside source-rd. Also source-as to encode in
+    // the RD is also encoded as part of the SourceAS extended community.
+    const BgpAttr *attr = src_path->GetAttr();
+    if (!attr)
+        return NULL;
+
+    // Do not resplicate if the source is not resolvable.
+    if (attr->source_rd().IsZero())
+        return NULL;
+
+    // Find source-as extended-community. If not present, do not replicate
+    bool source_as_found = false;
+    SourceAs source_as;
+    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &value,
+                  attr->ext_community()->communities()) {
+        if (ExtCommunity::is_source_as(value)) {
+            source_as_found = true;
+            source_as = SourceAs(value);
+            break;
+        }
+    }
+
+    if (!source_as_found)
+        return NULL;
+
+    // No need to send SourceAS with this mvpn route. This is only sent along
+    // with the unicast routes.
+    ext_community =
+        server->extcomm_db()->RemoveSourceASAndLocate(ext_community.get());
+
+    // Replicate path using source route's<C-S,G>, source_rd and asn as encoded
+    // in the source-as attribute.
+    MvpnPrefix prefix(MvpnPrefix::SourceTreeJoinRoute, attr->source_rd(),
+                      source_as.GetAsn(), src_rt->GetPrefix().group(),
+                      src_rt->GetPrefix().source());
+
+    // Replicate the path with the computed prefix and attributes.
+    return ReplicatePath(server, prefix, src_table, src_rt, src_path,
+                         ext_community);
+}
+
+BgpRoute *MvpnTable::ReplicatePath(BgpServer *server, const MvpnPrefix &mprefix,
+        MvpnTable *src_table, MvpnRoute *src_rt, const BgpPath *src_path,
+        ExtCommunityPtr comm) {
     MvpnRoute rt_key(mprefix);
 
     // Find or create the route.
@@ -346,7 +436,7 @@ BgpRoute *MvpnTable::RouteReplicate(BgpServer *server,
 
     BgpAttrPtr new_attr =
         server->attr_db()->ReplaceExtCommunityAndLocate(src_path->GetAttr(),
-                                                        community);
+                                                        comm.get());
 
     // Check whether peer already has a path.
     BgpPath *dest_path = dest_route->FindSecondaryPath(src_rt,

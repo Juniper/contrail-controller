@@ -47,6 +47,8 @@ protected:
         master_ = static_cast<MvpnTable *>(
             server_.database()->FindTable("bgp.mvpn.0"));
         TASK_UTIL_EXPECT_EQ(Address::MVPN, master_->family());
+        blue_->set_force_replication(true);
+        master_->set_force_replication(true);
 
         tid_ = blue_->Register(
             boost::bind(&MvpnTableTest::TableListener, this, _1, _2));

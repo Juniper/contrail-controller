@@ -595,10 +595,10 @@ void MvpnManager::ReOriginateType1Route(const Ip4Address &old_identifier) {
 
 void MvpnManager::OriginateType1Route() {
     // Originate Type1 Intra AS Auto-Discovery path.
-    BgpServer *server = table()->server();
+    BgpServer *server = table_->server();
 
     // Check for the presence of valid identifier.
-    if (!table()->server()->bgp_identifier())
+    if (!table_->server()->bgp_identifier())
         return;
     MvpnRoute *route = table_->LocateType1ADRoute();
     BgpAttrSpec attr_spec;
@@ -659,7 +659,7 @@ void MvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
 // Update MVPN neighbor list with create/delete/update of auto-discovery routes.
 //
 // Protect access to neighbors_ map with a mutex as the same be 'read' off other
-// DB tasks in parallel. (Type-1 and Type-2 do not carrry any <S,G> information.
+// DB tasks in parallel. (Type-1 and Type-2 do not carrry any <S,G> information)
 void MvpnManager::UpdateNeighbor(MvpnRoute *route) {
     RouteDistinguisher rd = route->GetPrefix().route_distinguisher();
 
@@ -1062,7 +1062,7 @@ UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
             continue;
         if (pmsi->tunnel_type() != PmsiTunnelSpec::IngressReplication)
             continue;
-        uint32_t label = attr->pmsi_tunnel()->GetLabel();
+        uint32_t label = attr->pmsi_tunnel()->GetLabel(true);
         if (!label)
             continue;
         const ExtCommunity *extcomm = attr->ext_community();
@@ -1075,7 +1075,7 @@ UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
         return NULL;
 
     BgpAttrDB *attr_db = table()->server()->attr_db();
-    BgpAttrPtr attr = attr_db->ReplaceLeafOListAndLocate(
+    BgpAttrPtr attr = attr_db->ReplaceOListAndLocate(
         route->BestPath()->GetAttr(), &olist_spec);
     UpdateInfo *uinfo = new UpdateInfo;
     uinfo->roattr = RibOutAttr(table(), route, attr.get(), 0, false, true);

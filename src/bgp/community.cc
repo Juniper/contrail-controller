@@ -451,6 +451,21 @@ ExtCommunityPtr ExtCommunityDB::ReplaceRTargetAndLocate(const ExtCommunity *src,
     return Locate(clone);
 }
 
+ExtCommunityPtr ExtCommunityDB::ReplaceSourceASAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &source_as_list) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSourceAS();
+    clone->Append(source_as_list);
+    return Locate(clone);
+}
+
 ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(
     const ExtCommunity *src,
     const ExtCommunity::ExtCommunityList &sgid_list) {
@@ -478,6 +493,19 @@ ExtCommunityPtr ExtCommunityDB::ReplaceTagListAndLocate(
 
     clone->RemoveTag();
     clone->Append(tag_list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::RemoveSourceASAndLocate(
+        const ExtCommunity *src) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSourceAS();
     return Locate(clone);
 }
 
