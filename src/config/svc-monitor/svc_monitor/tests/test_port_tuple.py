@@ -760,6 +760,7 @@ class PortTupleTest(unittest.TestCase):
                                 'instance-ip', 'fake-iip-uuid',
                                 'virtual-machine-interface', lvmi.uuid,
                                 None, 'DELETE')
+        test_utils.delete_test_port_tuple(pt)
 
     def test_port_tuple_logging(self):
         # Test various logging invocations.
