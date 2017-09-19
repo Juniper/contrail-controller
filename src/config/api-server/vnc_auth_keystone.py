@@ -29,7 +29,9 @@ from cfgm_common import utils as cfgmutils
 from cfgm_common import vnc_greenlets
 
 #keystone SSL cert bundle
-_DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
+_DEFAULT_KS_CERT_BUNDLE= "/tmp/keystonecertbundle.pem"
+_DEFAULT_USER_DOMAIN_NAME = "Default"
+_DEFAULT_DOMAIN_ID = "default"
 
 # Open port for access to API server for trouble shooting
 class LocalAuth(object):
@@ -136,32 +138,45 @@ class AuthPostKeystone(object):
 class AuthServiceKeystone(object):
 
     def __init__(self, server_mgr, args):
+        self.args = args
         _kscertbundle=''
         if args.auth_protocol == 'https' and args.cafile:
             certs=[args.cafile]
             if args.keyfile and args.certfile:
                 certs=[args.certfile, args.keyfile, args.cafile]
             _kscertbundle=cfgmutils.getCertKeyCaBundle(_DEFAULT_KS_CERT_BUNDLE,certs)
-        identity_uri = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
         self._conf_info = {
-            'auth_host': args.auth_host,
-            'auth_port': args.auth_port,
-            'auth_protocol': args.auth_protocol,
-            'admin_user': args.admin_user,
-            'admin_password': args.admin_password,
-            'admin_tenant_name': args.admin_tenant_name,
             'admin_port': args.admin_port,
             'max_requests': args.max_requests,
             'region_name': args.region_name,
             'insecure': args.insecure,
-            'identity_uri': identity_uri,
         }
-        try:
-            if 'v3' in args.auth_url:
-                self._conf_info['auth_version'] = 'v3.0'
-            self._conf_info['auth_uri'] = args.auth_url
-        except AttributeError:
-            pass
+        if 'v2.0' in args.auth_url.split('/'):
+            identity_uri = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
+            self._conf_info.update({
+                'auth_host': args.auth_host,
+                'auth_port': args.auth_port,
+                'auth_protocol': args.auth_protocol,
+                'admin_user': args.admin_user,
+                'admin_password': args.admin_password,
+                'admin_tenant_name': args.admin_tenant_name,
+                'identity_uri': identity_uri})
+        else:
+            self._conf_info.update({
+                'auth_type': args.auth_type,
+                'auth_url': args.auth_url,
+                'username': args.admin_user,
+                'password': args.admin_password,
+            })
+            # Add user domain info
+            self._conf_info.update(**self.get_user_domain_kwargs())
+            # Get project scope auth params
+            scope_kwargs = self.get_project_scope_kwargs()
+            if not scope_kwargs:
+                # Default to domain scoped auth
+                scope_kwargs = self.get_domain_scope_kwargs()
+            self._conf_info.update(**scope_kwargs)
+
         if _kscertbundle:
             self._conf_info['cafile'] = _kscertbundle
         self._server_mgr = server_mgr
@@ -186,6 +201,54 @@ class AuthServiceKeystone(object):
             if 'token_cache_time' in args:
                 self._conf_info['token_cache_time'] = args.token_cache_time
     # end __init__
+
+    def get_arg(self, name, default=None):
+        try:
+            kwarg = {name: eval('self.args.%s' % name)}
+        except AttributeError:
+            if not default:
+                return
+            kwarg = {name: default}
+
+        return kwarg
+    # end get_arg
+
+    def get_user_domain_kwargs(self):
+        user_domain = self.get_arg('user_domain_id')
+        if not user_domain:
+            user_domain = self.get_arg('user_domain_name', _DEFAULT_USER_DOMAIN_NAME)
+
+        return user_domain
+    # end get_user_domain_kwargs
+
+    def get_project_scope_kwargs(self):
+        scope_kwargs = {}
+        project_domain_name = self.get_arg('project_domain_name')
+        project_domain_id = self.get_arg('project_domain_id')
+        if project_domain_name:
+            # use project domain name
+            scope_kwargs.update(**project_domain_name)
+        elif project_domain_id:
+            # use project domain id
+            scope_kwargs.update(**project_domain_id)
+        if scope_kwargs:
+            scope_kwargs.update({'project_name': self.args.admin_tenant_name})
+
+        return scope_kwargs
+    # end get_project_scope_kwargs
+
+    def get_domain_scope_kwargs(self):
+        scope_kwargs = {}
+        domain_name = self.get_arg('domain_name')
+        domain_id = self.get_arg('domain_id', _DEFAULT_DOMAIN_ID)
+        if domain_name:
+            # use domain name
+            scope_kwargs.update(**domain_name)
+        elif domain_id:
+            # use domain id
+            scope_kwargs.update(**domain_id)
+        return scope_kwargs
+    # end get_domain_scope_kwargs
 
     def get_middleware_app(self):
         if not self._auth_method:
