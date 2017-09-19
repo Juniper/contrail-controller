@@ -99,11 +99,12 @@ class LocalVncApi(VncApi):
             if user_token:
                 auth_hdrs = self.api_server_obj.get_auth_headers_from_token(
                     get_context().request, user_token)
+                # auth hdrs none, so token invalid
+                if not auth_hdrs:
+                    raise vnc_exc.AuthFailed(401, 'Token Invalid')
             else:
                 auth_hdrs = {}
 
-            if auth_hdrs is None:
-                raise vnc_exc.AuthFailed(401, 'Token Invalid')
 
             environ = {
                 'PATH_INFO': url,
