@@ -1928,8 +1928,9 @@ class VncApiServer(object):
 
         try:
             obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(400, 'Invalid object id')
+        except NoIdError as e:
+            # Not present in DB
+            raise cfgm_common.exceptions.HttpError(404, str(e))
 
         # ensure user has RW permissions to object
         perms = self._permissions.obj_perms(get_request(), obj_uuid)
@@ -1961,8 +1962,9 @@ class VncApiServer(object):
 
         try:
             obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(400, 'Invalid object id')
+        except NoIdError as e:
+            # Not present in DB
+            raise cfgm_common.exceptions.HttpError(404, str(e))
 
         # ensure user has RW permissions to object
         perms = self._permissions.obj_perms(get_request(), obj_uuid)
