@@ -89,6 +89,8 @@ public:
     MvpnRoute *LocateType4LeafADRoute(const MvpnRoute *type3_spmsi_rt);
     MvpnRoute *FindRoute(const MvpnPrefix &prefix);
     const MvpnRoute *FindRoute(const MvpnPrefix &prefix) const;
+    bool force_replication() const { return force_replication_; }
+    void set_force_replication(bool flag) { force_replication_ = flag; }
 
 private:
     friend class BgpMulticastTest;
@@ -98,8 +100,15 @@ private:
     MvpnRoute *LocateRoute(MvpnPrefix &prefix);
     UpdateInfo *GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
                                   const RibPeerSet &peerset);
+    BgpRoute *ReplicateType7SourceTreeJoin(BgpServer *server,
+        MvpnTable *src_table, MvpnRoute *src_rt, const BgpPath *src_path,
+        ExtCommunityPtr ext_community);
+    BgpRoute *ReplicatePath(BgpServer *server, const MvpnPrefix &mprefix,
+        MvpnTable *src_table, MvpnRoute *src_rt, const BgpPath *src_path,
+        ExtCommunityPtr comm);
 
     MvpnManager *manager_;
+    bool force_replication_;
 
     DISALLOW_COPY_AND_ASSIGN(MvpnTable);
 };
