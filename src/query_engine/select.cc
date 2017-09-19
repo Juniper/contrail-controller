@@ -11,6 +11,7 @@
 #include "analytics/viz_types.h"
 #include "analytics/viz_constants.h"
 #include "analytics/vizd_table_desc.h"
+#include "analytics/db_handler_impl.h"
 #include "stats_select.h"
 
 using std::string;
@@ -450,7 +451,16 @@ class SessionTableAttributeConverter : public boost::static_visitor<> {
         attribs_->push_back(se);
     }
     void operator()(const GenDb::Blob &tblob, const int idx) const {
-        QE_ASSERT(0);
+        T2IpIndex t2_ip;
+        memcpy(&t2_ip, tblob.data(), tblob.size());
+        StatsSelect::StatEntry se;
+        std::string cname = "column" + integerToString(idx);
+        std::map<std::string, std::string>::const_iterator itr;
+        itr = (cass_column2column_name_map_.find(cname));
+        QE_ASSERT(itr != cass_column2column_name_map_.end());
+        se.name = itr->second;
+        se.value = t2_ip.ip_.to_string();
+        attribs_->push_back(se);
     }
 private:
     std::vector<StatsSelect::StatEntry> *attribs_;

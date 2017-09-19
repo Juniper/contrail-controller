@@ -28,4 +28,11 @@ void PopulateFlowIndexTableColumnValues(
     const FlowValueArray &fvalues, GenDb::DbDataValueVec *cvalues,
     int ttl, FlowFieldValuesCb fncb);
 
+struct T2IpIndex {
+    uint32_t t2_;
+    IpAddress ip_;
+
+    T2IpIndex(uint32_t t2, IpAddress ip): t2_(t2), ip_(ip) {}
+    T2IpIndex(): t2_(0), ip_(IpAddress()) {}
+};
 #endif // ANALYTICS_DB_HANDLER_IMPL_H_

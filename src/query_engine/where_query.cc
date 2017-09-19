@@ -818,7 +818,35 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     }
                     QE_TRACE(DEBUG, "where match term for sport_value " << value);
                 }
-                else {
+                else if (name == g_viz_constants.SessionRecordNames[
+                                SessionRecordFields::SESSION_IP]) {
+                    std::string columnN;
+                    if (!SessionTableQueryColumn2CassColumn(name, &columnN)) {
+                        QE_INVALIDARG_ERROR(0);
+                    }
+                    IpAddress ipaddr = IpAddress::from_string(value);
+                    if (op == IN_RANGE) {
+                        {
+                            GenDb::Op::type comparator = GenDb::Op::GE;
+                            GenDb::WhereIndexInfo where_info = boost::make_tuple(
+                                            columnN, comparator, ipaddr);
+                            where_vec.push_back(where_info);
+                        }
+                        {
+                            IpAddress ipaddr2 = IpAddress::from_string(value2);
+                            GenDb::Op::type comparator = GenDb::Op::LE;
+                            GenDb::WhereIndexInfo where_info = boost::make_tuple(
+                                            columnN, comparator, ipaddr2);
+                            where_vec.push_back(where_info);
+                        }
+                    } else {
+                        QE_INVALIDARG_ERROR(op == EQUAL);
+                        GenDb::Op::type comparator = GenDb::Op::EQ;
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                                comparator, ipaddr);
+                        where_vec.push_back(where_info);
+                    }
+                } else {
                     std::string columnN;
                     if (!SessionTableQueryColumn2CassColumn(name, &columnN)) {
                         QE_INVALIDARG_ERROR(0);
@@ -889,6 +917,11 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                         filter.value = boost::get<std::string>(sip);
                         filter_and.push_back(filter);
                         additional_select_.push_back(filter.name);
+                    } else {
+                        sip = IpAddress::from_string(value);
+                        if (sip_op == IN_RANGE) {
+                            sip2 = IpADdress::from_string(value2);
+                        }
                     }
                 }
                 if (name == g_viz_constants.FlowRecordNames[
@@ -910,6 +943,11 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                         filter.value = boost::get<std::string>(dip);
                         filter_and.push_back(filter);
                         additional_select_.push_back(filter.name);
+                    } else {
+                        dip = IpAddress::from_string(value);
+                        if (dip_op == IN_RANGE) {
+                            dip2 = IpADdress::from_string(value2);
+                        }
                     }
                 }
                 if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT])
@@ -1197,7 +1235,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
             if (sport_match) {
                 QE_INVALIDARG_ERROR(proto_match);
                 session_db_query->cr.start_.push_back(sport);
-                if(sport_op == EQUAL) {
+                if (sport_op == EQUAL) {
                     session_db_query->cr.finish_.push_back(sport);
                 } else if (sport_op == IN_RANGE) {
                     session_db_query->cr.finish_.push_back(sport2);
@@ -1248,20 +1286,31 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     if (!SessionTableQueryColumn2CassColumn("local_ip", &columnN)) {
                         QE_INVALIDARG_ERROR(0);
                     }
-
                     int op = direction_ing?sip_op:dip_op;
-                    std::string val = direction_ing?
-                        (boost::get<std::string>(sip)):(boost::get<std::string>(dip));
-                    GenDb::Op::type comparator;
-                    if (op == PREFIX) {
-                        val += "%";
-                        comparator = GenDb::Op::LIKE;
-                    } else {
-                        comparator = GenDb::Op::EQ;
+                    try {
+                        IpAddress val = direction_ing?
+                            (boost::get<IpAddress>(sip)):(boost::get<IpAddress>(dip));
+                    } catch (boost::bad_get& ex) {
+                        QE_ASSERT(0);
                     }
-                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
-                        comparator, val);
-                    client_session_query->where_vec.push_back(where_info);
+                    if (op == IN_RANGE) {
+                        try {
+                            IpAddress val2 = direction_ing?
+                                (boost::get<IpAddress>(sip2)):(boost::get<IpAddress>(dip2));
+                        } catch (boost::bad_get& ex) {
+                            QE_ASSERT(0);
+                        }
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(
+                            columnN, GenDb::Op::GE, val);
+                        server_session_query->where_vec.push_back(where_info);
+                        GenDb::WhereIndexInfo where_info2 = boost::make_tuple(
+                            columnN, GenDb::Op::LE, val2);
+                        server_session_query->where_vec.push_back(where_info2);
+                    } else {
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            GenDb::Op::EQ, val);
+                        client_session_query->where_vec.push_back(where_info);
+                    }
                 }
                 if ((direction_ing == 0 && dvn_match) ||
                     (direction_ing == 1 && svn_match)) {
@@ -1311,10 +1360,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                                         (uint8_t)SessionType::SERVER_SESSION);
                 if (proto_match) {
                     server_session_query->cr.start_.push_back(proto);
-                    if(proto_op == EQUAL) {
+                    if (proto_op == EQUAL) {
                         server_session_query->cr.finish_.push_back(proto);
-                    }
-                    else if (proto_op == IN_RANGE) {
+                    } else if (proto_op == IN_RANGE) {
                         server_session_query->cr.finish_.push_back(proto2);
                     }
                 } else {
@@ -1326,7 +1374,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     QE_INVALIDARG_ERROR(proto_match);
                     server_session_query->cr.start_.push_back(sport);
                     int op = direction_ing?sport_op:dport_op;
-                    if(op == EQUAL) {
+                    if (op == EQUAL) {
                         server_session_query->cr.finish_.push_back(direction_ing?
                             sport:dport);
                     } else if (op == IN_RANGE) {
@@ -1343,18 +1391,30 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                         QE_INVALIDARG_ERROR(0);
                     }
                     int op = direction_ing?sip_op:dip_op;
-                    std::string val = direction_ing?
-                        (boost::get<std::string>(sip)):(boost::get<std::string>(dip));
-                    GenDb::Op::type comparator;
-                    if (op == PREFIX) {
-                        val += "%";
-                        comparator = GenDb::Op::LIKE;
-                    } else {
-                        comparator = GenDb::Op::EQ;
+                    try {
+                        IpAddress val = direction_ing?
+                            (boost::get<IpAddress>(sip)):(boost::get<IpAddress>(dip));
+                    } catch (boost::bad_get& ex) {
+                        QE_ASSERT(0);
                     }
-                    GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
-                        comparator, val);
-                    server_session_query->where_vec.push_back(where_info);
+                    if (op == IN_RANGE) {
+                        try {
+                            IpAddress val2 = direction_ing?
+                                (boost::get<IpAddress>(sip2)):(boost::get<IpAddress>(dip2));
+                        } catch (boost::bad_get& ex) {
+                            QE_ASSERT(0);
+                        }
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(
+                            columnN, GenDb::Op::GE, val);
+                        server_session_query->where_vec.push_back(where_info);
+                        GenDb::WhereIndexInfo where_info2 = boost::make_tuple(
+                            columnN, GenDb::Op::LE, val2);
+                        server_session_query->where_vec.push_back(where_info2);
+                    } else {
+                        GenDb::WhereIndexInfo where_info = boost::make_tuple(columnN,
+                            GenDb::Op::EQ, val);
+                        client_session_query->where_vec.push_back(where_info);
+                    }
                 }
                 if ((direction_ing == 0 && dvn_match) ||
                     (direction_ing == 1 && svn_match)) {
