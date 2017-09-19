@@ -102,8 +102,6 @@ class LocalVncApi(VncApi):
             else:
                 auth_hdrs = {}
 
-            if auth_hdrs is None:
-                raise vnc_exc.AuthFailed(401, 'Token Invalid')
 
             environ = {
                 'PATH_INFO': url,
