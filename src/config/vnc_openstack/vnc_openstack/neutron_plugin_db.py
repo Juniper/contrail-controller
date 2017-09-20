@@ -4410,6 +4410,9 @@ class DBInterface(object):
                 not self._port_fixed_ips_is_present(filters['fixed_ips'],
                                                     neutron_port['fixed_ips'])):
                 continue
+            if not self._filters_is_present(filters,'mac_address',
+                                            neutron_port['mac_address']):
+                continue
 
             ret_list.append(neutron_port)
         return ret_list
