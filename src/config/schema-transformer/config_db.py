@@ -304,8 +304,6 @@ class GlobalSystemConfigST(DBBaseST):
 
 # a struct to store attributes related to Virtual Networks needed by
 # schema transformer
-
-
 class VirtualNetworkST(DBBaseST):
     _dict = {}
     obj_type = 'virtual_network'
