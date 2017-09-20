@@ -63,6 +63,7 @@ using process::ProcessState;
 using process::ConnectionType;
 using process::ConnectionTypeName;
 using process::g_process_info_constants;
+using boost::system::error_code;
 
 static EventManager evm;
 
@@ -388,9 +389,18 @@ int main(int argc, char *argv[]) {
     // TODO:  Initialize throws an exception (via boost) in case the
     // user does not have permissions to bind to the port.
     bgp_server->rtarget_group_mgr()->Initialize();
-    LOG(DEBUG, "Starting Bgp Server at port " << options.bgp_port());
-    if (!bgp_server->session_manager()->Initialize(options.bgp_port()))
+    LOG(DEBUG, "Starting Bgp Server at address:port " <<
+                options.bgp_ip() << ":" << options.bgp_port());
+    error_code ec;
+    address::from_string(options.bgp_ip(), ec);
+    if (ec) {
+        LOG(ERROR, "IpAddress conversion error:" << ec.message());
         exit(1);
+    }
+    if (!bgp_server->session_manager()->Initialize(
+         options.bgp_port(), address::from_string(options.bgp_ip()))) {
+        exit(1);
+    }
 
     // Create Xmpp Server.
     XmppChannelConfig xmpp_cfg(false);
