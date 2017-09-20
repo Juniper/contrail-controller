@@ -77,9 +77,12 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.bgp_port",
              opt::value<uint16_t>()->default_value(default_bgp_port),
              "BGP listener port")
+        ("DEFAULT.bgp_ip",
+             opt::value<string>()->default_value("0.0.0.0"),
+             "BGP listener interface ip")
         ("DEFAULT.collectors",
-           opt::value<vector<string> >()->default_value(
-               default_collector_server_list_, "127.0.0.1:8086"),
+             opt::value<vector<string> >()->default_value(
+             default_collector_server_list_, "127.0.0.1:8086"),
              "Collector server list")
 
         ("DEFAULT.gr_helper_bgp_disable",
@@ -248,6 +251,7 @@ bool Options::Process(int argc, char *argv[],
     // Retrieve the options.
     GetOptValue<string>(var_map, bgp_config_file_, "DEFAULT.bgp_config_file");
     GetOptValue<uint16_t>(var_map, bgp_port_, "DEFAULT.bgp_port");
+    GetOptValue<string>(var_map, bgp_ip_, "DEFAULT.bgp_ip");
     GetOptValue< vector<string> >(var_map, collector_server_list_,
                                   "DEFAULT.collectors");
     string error_msg;

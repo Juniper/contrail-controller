@@ -56,6 +56,7 @@ TEST_F(OptionsTest, NoArguments) {
 
     EXPECT_EQ(options_.bgp_config_file(), "bgp_config.xml");
     EXPECT_EQ(options_.bgp_port(), default_bgp_port);
+    EXPECT_EQ(options_.bgp_ip(), "0.0.0.0");
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(), "/etc/contrail/contrail-control.conf");
@@ -98,6 +99,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
 
     EXPECT_EQ(options_.bgp_config_file(), "bgp_config.xml");
     EXPECT_EQ(options_.bgp_port(), default_bgp_port);
+    EXPECT_EQ(options_.bgp_ip(), "0.0.0.0");
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
@@ -144,6 +146,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
 
     EXPECT_EQ(options_.bgp_config_file(), "bgp_config.xml");
     EXPECT_EQ(options_.bgp_port(), default_bgp_port);
+    EXPECT_EQ(options_.bgp_ip(), "0.0.0.0");
     TASK_UTIL_EXPECT_VECTOR_EQ(default_collector_server_list_,
                      options_.collector_server_list());
     EXPECT_EQ(options_.config_file(),
@@ -216,6 +219,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "[DEFAULT]\n"
         "bgp_config_file=test.xml\n"
         "bgp_port=200\n"
+        "bgp_ip=20.20.20.22\n"
         "collectors=10.10.10.1:100\n"
         "collectors=20.20.20.2:200\n"
         "collectors=30.30.30.3:300\n"
@@ -270,6 +274,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
 
     EXPECT_EQ(options_.bgp_config_file(), "test.xml");
     EXPECT_EQ(options_.bgp_port(), 200);
+    EXPECT_EQ(options_.bgp_ip(), "20.20.20.22");
 
     vector<string> collector_server_list;
     collector_server_list.push_back("10.10.10.1:100");
@@ -316,6 +321,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "[DEFAULT]\n"
         "bgp_config_file=test.xml\n"
         "bgp_port=200\n"
+        "bgp_ip=20.20.20.20\n"
         "collectors=10.10.10.1:100\n"
         "collectors=20.20.20.2:200\n"
         "collectors=30.30.30.3:300\n"
@@ -375,6 +381,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
 
     EXPECT_EQ(options_.bgp_config_file(), "test.xml");
     EXPECT_EQ(options_.bgp_port(), 200);
+    EXPECT_EQ(options_.bgp_ip(), "20.20.20.20");
 
     vector<string> collector_server_list;
     collector_server_list.push_back("11.10.10.1:100");

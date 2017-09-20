@@ -18,6 +18,7 @@
 #include "base/util.h"
 #include "io/server_manager.h"
 #include "io/io_utils.h"
+#include "net/address.h"
 
 class EventManager;
 class TcpSession;
@@ -33,6 +34,7 @@ public:
 
     // Bind a listening socket and register it with the event manager.
     virtual bool Initialize(unsigned short port);
+    virtual bool Initialize(unsigned short port, const IpAddress &host_ip);
 
     const std::string ToString() const { return name_; }
     void SetAcceptor();

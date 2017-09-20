@@ -14,6 +14,7 @@ public:
 
     std::string bgp_config_file() const { return bgp_config_file_; }
     uint16_t bgp_port() const { return bgp_port_; }
+    std::string bgp_ip() const { return bgp_ip_; }
     std::vector<std::string> collector_server_list() const {
         return collector_server_list_;
     }
@@ -89,6 +90,7 @@ private:
 
     std::string bgp_config_file_;
     uint16_t bgp_port_;
+    std::string bgp_ip_;
     std::vector<std::string> collector_server_list_;
     std::string config_file_;
     std::string discovery_server_;
