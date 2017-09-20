@@ -200,6 +200,7 @@ int main(int argc, char *argv[]) {
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(options.config_file()));
 
+    Dns::SetSelfIp(options.host_ip());
     if (!DnsAgentXmppManager::Init(options.xmpp_auth_enabled(),
                                    options.xmpp_server_cert(),
                                    options.xmpp_server_key(),
@@ -235,8 +236,6 @@ int main(int argc, char *argv[]) {
         ds_client->Init();
 
         // Publish DNServer Service
-        Dns::SetSelfIp(options.host_ip());
-
         if (!options.host_ip().empty()) {
             stringstream pub_ss;
             const std::string &sname(

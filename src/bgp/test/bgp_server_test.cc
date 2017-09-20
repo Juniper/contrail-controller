@@ -14,7 +14,9 @@
 #include "io/test/event_manager_test.h"
 
 using namespace boost::asio;
+using namespace boost::asio::ip;
 using namespace std;
+using boost::system::error_code;
 
 class BgpSessionManagerCustom : public BgpSessionManager {
 public:
@@ -51,6 +53,8 @@ struct ConfigUTAuthKeyItem {
     string key;
     string start_time;
 };
+
+bool static bgp_speaker_ip = true;
 
 class BgpServerUnitTest : public ::testing::Test {
 public:
@@ -91,7 +95,14 @@ protected:
         a_.reset(new BgpServerTest(evm_.get(), "A"));
         b_.reset(new BgpServerTest(evm_.get(), "B"));
         thread_.reset(new ServerThread(evm_.get()));
+        if (bgp_speaker_ip) {
+            SetUp_BgpSpeaker();
+        } else {
+            SetUp_BgpSpeaker_Any();
+        }
+    }
 
+    virtual void SetUp_BgpSpeaker_Any() {
         a_session_manager_ =
             static_cast<BgpSessionManagerCustom *>(a_->session_manager());
         a_session_manager_->Initialize(0);
@@ -103,6 +114,27 @@ protected:
         b_session_manager_->Initialize(0);
         BGP_DEBUG_UT("Created server at port: " <<
             b_session_manager_->GetPort());
+
+        thread_->Start();
+    }
+
+    virtual void SetUp_BgpSpeaker() {
+        a_session_manager_ =
+            static_cast<BgpSessionManagerCustom *>(a_->session_manager());
+        error_code ec;
+        IpAddress bgp_server_ip_a = address::from_string("127.0.0.2", ec);
+        a_session_manager_->Initialize(0, bgp_server_ip_a);
+        BGP_DEBUG_UT("Created server at ip:port: " <<
+            "127.0.0.2:" << a_session_manager_->GetPort());
+
+        b_session_manager_ =
+            static_cast<BgpSessionManagerCustom *>(b_->session_manager());
+        IpAddress bgp_server_ip_b = address::from_string("127.0.0.3", ec);
+        b_session_manager_->Initialize(0, bgp_server_ip_b);
+        BGP_DEBUG_UT("Created server at ip:port: " <<
+            "127.0.0.3:" << a_session_manager_->GetPort());
+
+        bgp_speaker_ip = false;
         thread_->Start();
     }
 
@@ -613,6 +645,19 @@ static void ResumeDelete(LifetimeActor *actor) {
     TaskScheduler::GetInstance()->Stop();
     actor->ResumeDelete();
     TaskScheduler::GetInstance()->Start();
+}
+
+TEST_F(BgpServerUnitTest, Connection_Bgp_Speaker_Ip) {
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(1, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.2", "127.0.0.3",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(1, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
