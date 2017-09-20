@@ -4042,11 +4042,13 @@ void DeleteBgpPeer(Peer *peer) {
     FireAllControllerTimers(Agent::GetInstance(), channel);
     if (bgp_peer) {
         channel = bgp_peer->GetAgentXmppChannel();
-        //Increment sequence number to clear config
-        Agent::GetInstance()->controller()->
-            DisConnectControllerIfmapServer(channel->GetXmppServerIdx());
-        Agent::GetInstance()->controller()->FlushTimedOutChannels(channel->
-                                            GetXmppServerIdx());
+        if (channel) {
+            //Increment sequence number to clear config
+            Agent::GetInstance()->controller()->
+                DisConnectControllerIfmapServer(channel->GetXmppServerIdx());
+            Agent::GetInstance()->controller()->FlushTimedOutChannels(channel->
+                                                                      GetXmppServerIdx());
+        }
     }
     client->WaitForIdle();
     int task_id = TaskScheduler::GetInstance()->GetTaskId("Agent::ControllerXmpp");
