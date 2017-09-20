@@ -70,6 +70,9 @@ bool ControllerRouteWalker::VrfNotifyAll(DBTablePartBase *partition,
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     if (peer_->GetType() == Peer::BGP_PEER) {
         BgpPeer *bgp_peer = static_cast<BgpPeer *>(peer_);
+        if (IgnoreNotify()) {
+            return false;
+        }
 
         DBTableBase::ListenerId id = bgp_peer->GetVrfExportListenerId();
         VrfExport::State *state = 
