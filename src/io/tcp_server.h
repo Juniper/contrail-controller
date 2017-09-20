@@ -33,6 +33,7 @@ public:
 
     // Bind a listening socket and register it with the event manager.
     virtual bool Initialize(unsigned short port);
+    virtual bool Initialize(unsigned short port, std::string host_ip);
 
     const std::string ToString() const { return name_; }
     void SetAcceptor();

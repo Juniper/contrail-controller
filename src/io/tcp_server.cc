@@ -22,6 +22,7 @@ using boost::bind;
 using boost::system::error_code;
 
 using boost::asio::ip::tcp;
+using boost::asio::ip::address;
 using boost::asio::socket_base;
 using std::ostringstream;
 using std::string;
@@ -112,6 +113,53 @@ bool TcpServer::Initialize(unsigned short port) {
 
     return true;
 }
+
+bool TcpServer::Initialize(unsigned short port, std::string host_ip) {
+    tcp::endpoint localaddr(address::from_string(host_ip), port);
+    acceptor_.reset(new tcp::acceptor(*evm_->io_service(), localaddr));
+    if (!acceptor_) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "Cannot create acceptor");
+        ResetAcceptor();
+        return false;
+    }
+
+    error_code ec;
+    acceptor_->set_option(socket_base::reuse_address(true), ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP reuse_address: "
+                                                   << ec.message());
+        ResetAcceptor();
+        return false;
+    }
+
+    tcp::endpoint local_endpoint = acceptor_->local_endpoint(ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                             "Cannot retrieve acceptor local-endpont");
+        ResetAcceptor();
+        return false;
+    }
+
+    //
+    // Server name can be set after local-endpoint information is available.
+    //
+    SetName(local_endpoint);
+
+    acceptor_->listen(socket_base::max_connections, ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP listen(" << port << "): "
+                                                   << ec.message());
+        ResetAcceptor();
+        return false;
+    }
+
+    TCP_SERVER_LOG_DEBUG(this, TCP_DIR_NA, "Initialization complete");
+    AsyncAccept();
+
+    return true;
+}
+
+
 
 void TcpServer::Shutdown() {
     tbb::mutex::scoped_lock lock(mutex_);

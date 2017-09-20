@@ -30,8 +30,8 @@ BgpSessionManager::~BgpSessionManager() {
 //
 // Start listening at the given port.
 //
-bool BgpSessionManager::Initialize(unsigned short port) {
-    return TcpServer::Initialize(port);
+bool BgpSessionManager::Initialize(unsigned short port, std::string ip) {
+    return TcpServer::Initialize(port, ip);
 }
 
 //

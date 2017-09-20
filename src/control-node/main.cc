@@ -389,8 +389,11 @@ int main(int argc, char *argv[]) {
     // user does not have permissions to bind to the port.
     bgp_server->rtarget_group_mgr()->Initialize();
     LOG(DEBUG, "Starting Bgp Server at port " << options.bgp_port());
-    if (!bgp_server->session_manager()->Initialize(options.bgp_port()))
+    LOG(DEBUG, "Starting Bgp Server at ip " << options.bgp_ip());
+    if (!bgp_server->session_manager()->Initialize(options.bgp_port(),
+                                                   options.bgp_ip())) {
         exit(1);
+    }
 
     // Create Xmpp Server.
     XmppChannelConfig xmpp_cfg(false);
