@@ -40,6 +40,7 @@ systemlog sandesh LinkOper {
  * @description: System log for IFMap module
  * @severity: DEBUG
  * @cause: Normal operation
+ * currently not used
  */
 systemlog sandesh CleanupInterest {
     1: string name
@@ -176,40 +177,9 @@ systemlog sandesh IFMapStaleEntriesCleanerInfo {
  * @severity: DEBUG
  * @cause: Normal operation
  */
-systemlog sandesh IFMapStaleEntriesCleanupTimerFired {
-    1: string str1
-    2: string str2
-}
-
-/**
- * @description: System log for IFMap module
- * @severity: DEBUG
- * @cause: Normal operation
- */
 systemlog sandesh IFMapChannelUnregisterMessage {
     1: string message
     2: string client_name (key="ObjectVRouter")
-}
-
-/**
- * @description: System log for IFMap module
- * @severity: DEBUG
- * @cause: Normal operation
- */
-systemlog sandesh IFMapSmExpiredTimerMessage {
-    1: u32 value
-    2: string message
-}
-
-/**
- * @description: System log for IFMap module
- * @severity: DEBUG
- * @cause: Normal operation
- */
-systemlog sandesh IFMapSmTransitionMessage {
-    1: string from_state
-    2: string to
-    3: string to_state
 }
 
 /**
@@ -280,58 +250,6 @@ systemlog sandesh IFMapDuplicateVmSub {
     2: string client_fqn
     /** UUID of the virtual machine */
     3: string vm_uuid
-}
-
-/**
- * @description: System log for IFMap module
- * @severity: ERROR
- * @cause: Connection to the ifmap-server has detected errors
- * @action: Contact your technical support representative
- */
-systemlog sandesh IFMapPeerConnError {
-    /** Error message */
-    1: string error
-    /** Last state of the state machine when the error occured */
-    2: string last_state
-    /** Current state of the state machine when the error occured */
-    3: string current_state
-    /** Last event that was processed before the error occured */
-    4: string last_event
-}
-
-/**
- * @description: System log for IFMap module
- * @severity: DEBUG
- * @cause: Normal operation
- */
-systemlog sandesh IFMapBestPeer {
-    1: string event
-    2: string peer
-    3: bool valid
-}
-
-/**
- * @description: System log for IFMap module
- * @severity: DEBUG
- * @cause: Normal operation
- */
-systemlog sandesh IFMapDSResp {
-    1: string current_peer
-    2: string new_response
-}
-
-/**
- * @description: System log for IFMap module
- * @severity: DEBUG
- * @cause: Normal operation
- */
-systemlog sandesh IFMapChannelProcResp {
-    1: string str1
-    2: u32 header_length
-    3: string str2
-    4: u32 content_length
-    5: string str3
-    6: u32 total_length
 }
 
 /**
@@ -483,6 +401,7 @@ trace sandesh LinkOperTrace {
 /**
  * @description: Trace message for IFMap module
  * @severity: DEBUG
+ * currently not used
  */
 trace sandesh CleanupInterestTrace {
     1: string name
@@ -560,15 +479,6 @@ trace sandesh IFMapIntStringTrace {
  * @description: Trace message for IFMap module
  * @severity: DEBUG
  */
-trace sandesh IFMapServerConnectionTrace {
-    1: string str1
-    2: string str2
-}
-
-/**
- * @description: Trace message for IFMap module
- * @severity: DEBUG
- */
 trace sandesh IFMapUrlInfoTrace {
     1: string message1
     2: string hostname
@@ -602,15 +512,6 @@ trace sandesh IFMapStaleEntriesCleanerInfoTrace {
     8: u32 links_deleted
     9: "ObjectsDeleted:"
     10: u32 objects_deleted
-}
-
-/**
- * @description: Trace message for IFMap module
- * @severity: DEBUG
- */
-trace sandesh IFMapStaleEntriesCleanupTimerFiredTrace {
-    1: string str1
-    2: string str2
 }
 
 /**

@@ -108,8 +108,9 @@ class ConfigJsonParserTest : public ::testing::Test {
         TASK_UTIL_EXPECT_EQ(result.size(), resp->get_uuid_cache().size());
         TASK_UTIL_EXPECT_EQ(next_batch, resp->get_next_batch());
         for (size_t i = 0; i < resp->get_uuid_cache().size(); ++i) {
-            TASK_UTIL_EXPECT_EQ(result[i],
-                                resp->get_uuid_cache()[i].get_uuid());
+            string result_match = resp->get_uuid_cache()[i].get_uuid() +
+                '/' + resp->get_uuid_cache()[i].get_fq_name();
+            TASK_UTIL_EXPECT_EQ(result[i], result_match);
             cout << resp->get_uuid_cache()[i].log() << endl;
         }
         validate_done_ = true;
@@ -622,9 +623,9 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache) {
                 "default-domain:demo:vn3") != NULL);
 
     vector<string> obj_cache_expected_entries =
-        list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9")
-               ("634ae160-d3ef-4e82-b58d-d196211eb4da")
-               ("634ae160-d3ef-4e83-b58d-d196211eb4db");
+        list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9/default-domain:demo:vn1")
+               ("634ae160-d3ef-4e82-b58d-d196211eb4da/default-domain:demo:vn2")
+               ("634ae160-d3ef-4e83-b58d-d196211eb4db/default-domain:demo:vn3");
     ifmap_sandesh_context_->set_page_limit(3);
     string next_batch;
     validate_done_ = false;
@@ -653,7 +654,7 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_SpecificUUID) {
                 "default-domain:demo:vn3") != NULL);
 
     vector<string> obj_cache_expected_entries =
-        list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9");
+        list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9/default-domain:demo:vn1");
     ifmap_sandesh_context_->set_page_limit(2);
     string next_batch;
     validate_done_ = false;
@@ -713,8 +714,8 @@ TEST_F(ConfigJsonParserTest,
                 "default-domain:demo:vn3") != NULL);
 
     vector<string> obj_cache_expected_entries =
-        list_of("634ae160-d3ef-4e82-b58d-d196211eb4da")
-               ("634ae160-d3ef-4e83-b58d-d196211eb4db");
+        list_of("634ae160-d3ef-4e82-b58d-d196211eb4da/default-domain:demo:vn2")
+               ("634ae160-d3ef-4e83-b58d-d196211eb4db/default-domain:demo:vn3");
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
     string next_batch;
@@ -745,8 +746,8 @@ TEST_F(ConfigJsonParserTest,
                 "default-domain:demo:vn3") != NULL);
 
     vector<string> obj_cache_expected_entries =
-        list_of("634ae160-d3ef-4e82-b58d-d196211eb4da")
-               ("634ae160-d3ef-4e83-b58d-d196211eb4db");
+        list_of("634ae160-d3ef-4e82-b58d-d196211eb4da/default-domain:demo:vn2")
+               ("634ae160-d3ef-4e83-b58d-d196211eb4db/default-domain:demo:vn3");
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
     string next_batch;
@@ -777,8 +778,8 @@ TEST_F(ConfigJsonParserTest,
                 "default-domain:demo:vn3") != NULL);
 
     vector<string> obj_cache_expected_entries =
-        list_of("634ae160-d3ef-4e82-b58d-d196211eb4da")
-               ("634ae160-d3ef-4e83-b58d-d196211eb4db");
+        list_of("634ae160-d3ef-4e82-b58d-d196211eb4da/default-domain:demo:vn2")
+               ("634ae160-d3ef-4e83-b58d-d196211eb4db/default-domain:demo:vn3");
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
     string next_batch;
@@ -812,8 +813,8 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_ReqIterate_Deleted) {
     validate_done_ = false;
     ifmap_sandesh_context_->set_page_limit(2);
     vector<string> obj_cache_expected_entries =
-        list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9")
-               ("634ae160-d3ef-4e82-b58d-d196211eb4da");
+        list_of("634ae160-d3ef-4e81-b58d-d196211eb4d9/default-domain:demo:vn1")
+               ("634ae160-d3ef-4e82-b58d-d196211eb4da/default-domain:demo:vn2");
     string next_batch = "634ae160||634ae160-d3ef-4e82-b58d-d196211eb4da";
 
     Sandesh::set_response_callback(boost::bind(
