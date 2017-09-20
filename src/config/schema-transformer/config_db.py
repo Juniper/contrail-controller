@@ -1792,7 +1792,8 @@ class SecurityGroupST(DBBaseST):
         #                 allocation in schema and in the vnc API for one
         #                 release overlap to prevent any upgrade issue. So the
         #                 following code need to be remove in release (3.2 + 1)
-        if 'configured_security_group_id' in changed:
+        if ('configured_security_group_id' in changed or
+                self.obj.get_security_group_id() is None):
             self.set_configured_security_group_id()
         if changed:
             self.process_referred_sgs()
@@ -1855,14 +1856,15 @@ class SecurityGroupST(DBBaseST):
             if sg_id is not None:
                 if sg_id < SGID_MIN_ALLOC:
                     if self.name == self._object_db.get_sg_from_id(sg_id):
-                        self.obj.set_security_group_id(sg_id + SGID_MIN_ALLOC)
+                        self.obj.set_security_group_id(
+                            str(sg_id + SGID_MIN_ALLOC))
                     else:
                         do_alloc = True
             else:
                 do_alloc = True
             if do_alloc:
                 sg_id_num = self._object_db.alloc_sg_id(self.name)
-                self.obj.set_security_group_id(sg_id_num + SGID_MIN_ALLOC)
+                self.obj.set_security_group_id(str(sg_id_num + SGID_MIN_ALLOC))
         if sg_id != int(self.obj.get_security_group_id()):
             self._vnc_lib.security_group_update(self.obj)
         self.sg_id = self.obj.get_security_group_id()
