@@ -363,6 +363,8 @@ void SessionPolicy::Reset() {
 }
 
 void SessionPolicy::ResetAction() {
+    rule_uuid_ = FlowEntry::FlowPolicyStateStr.at(FlowEntry::NOT_EVALUATED);
+    acl_name_ = "";
     out_action = 0;
     action = 0;
     reverse_action = 0;
@@ -2190,42 +2192,6 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp) {
     }
 }
 
-void FlowEntry::UpdateMatchPolicy(const FlowPolicyInfo &nw_acl_info) {
-    /* If the match_policy is already set, return. In case of action as drop,
-     * the match_policy would already be set.
-     */
-    if (!data_.match_policy.empty()) {
-        return;
-    }
-    if (!nw_acl_info.acl_name.empty()) {
-        data_.match_policy.assign(nw_acl_info.acl_name);
-        data_.match_policy_uuid.assign(nw_acl_info.uuid);
-        return;
-    }
-    if (!nw_acl_info.uuid.empty()) {
-        data_.match_policy_uuid.assign(nw_acl_info.uuid);
-        return;
-    }
-    if (!data_.match_p.sg_policy.acl_name_.empty()) {
-        data_.match_policy.assign(data_.match_p.sg_policy.acl_name_);
-        data_.match_policy_uuid.assign(data_.match_p.sg_policy.rule_uuid_);
-        return;
-    }
-    if (!data_.match_p.sg_policy.rule_uuid_.empty()) {
-        data_.match_policy_uuid.assign(data_.match_p.sg_policy.rule_uuid_);
-        return;
-    }
-    if (!data_.match_p.aps_policy.acl_name_.empty()) {
-        data_.match_policy.assign(data_.match_p.aps_policy.acl_name_);
-        data_.match_policy_uuid.assign(data_.match_p.aps_policy.rule_uuid_);
-        return;
-    }
-    if (!data_.match_p.aps_policy.rule_uuid_.empty()) {
-        data_.match_policy_uuid.assign(data_.match_p.aps_policy.rule_uuid_);
-        return;
-    }
-}
-
 // Apply Policy and SG rules for a flow.
 //
 // Special case of local flows:
@@ -2290,15 +2256,11 @@ bool FlowEntry::DoPolicy() {
     data_.match_p.policy_action = MatchAcl(hdr, data_.match_p.m_acl_l, true,
                                            true, &nw_acl_info);
     if (ShouldDrop(data_.match_p.policy_action)) {
-        data_.match_policy.assign(nw_acl_info.acl_name);
-        data_.match_policy_uuid.assign(nw_acl_info.uuid);
         goto done;
     }
     data_.match_p.out_policy_action = MatchAcl(hdr, data_.match_p.m_out_acl_l,
                                                true, true, &nw_acl_info);
     if (ShouldDrop(data_.match_p.policy_action)) {
-        data_.match_policy.assign(nw_acl_info.acl_name);
-        data_.match_policy_uuid.assign(nw_acl_info.uuid);
         goto done;
     }
 
@@ -2313,16 +2275,10 @@ bool FlowEntry::DoPolicy() {
 
         SessionMatch(&data_.match_p.sg_policy, r_sg_policy);
         if (ShouldDrop(data_.match_p.sg_policy.action_summary)) {
-            data_.match_policy.assign(data_.match_p.sg_policy.acl_name_);
-            data_.match_policy_uuid.assign(data_.match_p.sg_policy.rule_uuid_);
             goto done;
         }
 
         SessionMatch(&data_.match_p.aps_policy, r_aps_policy);
-        if (ShouldDrop(data_.match_p.aps_policy.action_summary)) {
-            data_.match_policy.assign(data_.match_p.aps_policy.acl_name_);
-            data_.match_policy_uuid.assign(data_.match_p.aps_policy.rule_uuid_);
-        }
     } else {
         // SG is reflexive ACL. For reverse-flow, copy SG action from
         // forward flow 
@@ -2341,7 +2297,6 @@ done:
     SetVrfAssignEntry();
     // Summarize the actions based on lookups above
     ActionRecompute();
-    UpdateMatchPolicy(nw_acl_info);
     return true;
 }
 
@@ -2579,12 +2534,6 @@ void FlowEntry::UpdateReflexiveAction(SessionPolicy *sp, SessionPolicy *rsp) {
 
     if (ShouldDrop(sp->action_summary) == false) {
         return;
-    } else {
-        /* Action was copied from rsp. So matching acl and rule should be copied
-         * from rsp
-         */
-        data_.match_policy.assign(rsp->acl_name_);
-        data_.match_policy_uuid.assign(rsp->rule_uuid_);
     }
 
     if (ShouldDrop(rsp->reverse_action) == false &&
@@ -3209,7 +3158,7 @@ void FlowEntry::FillUveLocalRevFlowStatsInfo(FlowUveFwPolicyInfo *info,
     info->remote_vn_ = data_.dest_vn_match;
     info->local_tagset_ = local_tagset();
     info->remote_tagset_ = remote_tagset();
-    info->fw_policy_ = policy_name_uuid();
+    info->fw_policy_ = fw_policy_name_uuid();
     info->remote_prefix_ = RemotePrefix();
     info->added_ = added;
     if (is_flags_set(FlowEntry::ShortFlow)) {
@@ -3233,7 +3182,7 @@ void FlowEntry::FillUveFwdFlowStatsInfo(FlowUveFwPolicyInfo *info,
     }
     info->local_tagset_ = local_tagset();
     info->remote_tagset_ = remote_tagset();
-    info->fw_policy_ = policy_name_uuid();
+    info->fw_policy_ = fw_policy_name_uuid();
     info->remote_prefix_ = RemotePrefix();
     info->added_ = added;
     if (is_flags_set(FlowEntry::ShortFlow)) {
@@ -3272,11 +3221,12 @@ void FlowEntry::FillUveFwStatsInfo(FlowUveFwPolicyInfo *info,
     }
 }
 
-const std::string FlowEntry::policy_name_uuid() const {
+const std::string FlowEntry::fw_policy_name_uuid() const {
     /* If policy-name is empty return only policy UUID. Policy-name will be
      * empty when one of the implicit rules match */
-    if (data_.match_policy.empty()) {
-        return data_.match_policy_uuid;
+    if (data_.match_p.aps_policy.acl_name_.empty()) {
+        return data_.match_p.aps_policy.rule_uuid_;
     }
-    return data_.match_policy + ":" + data_.match_policy_uuid;
+    return data_.match_p.aps_policy.acl_name_ + ":" +
+        data_.match_p.aps_policy.rule_uuid_;
 }

@@ -305,7 +305,7 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
     ep.local_tagset = flow->local_tagset();
     ep.remote_tagset = flow->remote_tagset();
     ep.remote_prefix = flow->RemotePrefix();
-    ep.policy = flow->policy_name_uuid();
+    ep.policy = flow->fw_policy_name_uuid();
     ep.diff_bytes = bytes;
     ep.diff_pkts = pkts;
     if (flow->is_flags_set(FlowEntry::LocalFlow)) {
@@ -359,7 +359,7 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
                 ep.remote_tagset = flow->local_tagset();
                 ep.local_vn = dst_vn;
                 ep.remote_vn = src_vn;
-                ep.policy = rflow->policy_name_uuid();
+                ep.policy = rflow->fw_policy_name_uuid();
                 ep.client = egress_flow_is_client;
                 ep.vmi = static_cast<const VmInterface *>(ritf);
                 ep.in_stats = false;
