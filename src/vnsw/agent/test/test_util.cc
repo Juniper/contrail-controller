@@ -4209,11 +4209,13 @@ static bool ControllerCleanupTrigger(BgpPeer *bgp_peer) {
     AgentXmppChannel *channel = NULL;
     if (bgp_peer) {
         channel = bgp_peer->GetAgentXmppChannel();
-        //Increment sequence number to clear config
-        Agent::GetInstance()->controller()->
-            DisConnectControllerIfmapServer(channel->GetXmppServerIdx());
-        Agent::GetInstance()->controller()->FlushTimedOutChannels(channel->
-                                            GetXmppServerIdx());
+        if (channel) {
+            //Increment sequence number to clear config
+            Agent::GetInstance()->controller()->
+                DisConnectControllerIfmapServer(channel->GetXmppServerIdx());
+            Agent::GetInstance()->controller()->FlushTimedOutChannels(channel->
+                                                                      GetXmppServerIdx());
+        }
     }
     Agent::GetInstance()->controller()->Cleanup();
     return true;

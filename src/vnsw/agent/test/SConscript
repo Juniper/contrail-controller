@@ -130,6 +130,9 @@ test_xmppcs_bcast_hv = AgentEnv.MakeTestCmd(env, 'test_xmppcs_bcast_hv',
                                             flaky_agent_suite)
 test_xmppcs_bcast_non_hv = AgentEnv.MakeTestCmd(env,'test_xmppcs_bcast_non_hv',
                                                 flaky_agent_suite)
+test_controller_route_walker = AgentEnv.MakeTestCmd(env,
+                                               'test_controller_route_walker',
+                                               agent_suite)
 test_xmpp_hv = AgentEnv.MakeTestCmd(env, 'test_xmpp_hv', flaky_agent_suite)
 
 flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)

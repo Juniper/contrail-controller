@@ -46,6 +46,7 @@ public:
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
     //Override route notification
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
+    Type type() const {return type_;}
 
 private:
     //VRF notification handlers
