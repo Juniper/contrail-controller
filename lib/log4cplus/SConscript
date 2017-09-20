@@ -13,11 +13,43 @@ version = '.7.0.0'
 libs = [ str(File('#/build/lib/liblog4cplus' + env['LIBSUFFIX'])) ]
 shlibs = [ str(File('#/build/lib/liblog4cplus-1.1' + env['SHLIBSUFFIX'] +
                     version)) ]
-products = libs + shlibs + [ str(File('#/build/include/log4cplus/logger.h')) ]
 
-log4cplus_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
+headers = [
+    '#/build/include/log4cplus/appender.h',
+    '#/build/include/log4cplus/config/defines.hxx',
+    '#/build/include/log4cplus/config.hxx',
+    '#/build/include/log4cplus/config/macosx.h',
+    '#/build/include/log4cplus/configurator.h',
+    '#/build/include/log4cplus/config/win32.h',
+    '#/build/include/log4cplus/fileappender.h',
+    '#/build/include/log4cplus/fstreams.h',
+    '#/build/include/log4cplus/helpers/lockfile.h',
+    '#/build/include/log4cplus/helpers/pointer.h',
+    '#/build/include/log4cplus/helpers/property.h',
+    '#/build/include/log4cplus/helpers/snprintf.h',
+    '#/build/include/log4cplus/helpers/socketbuffer.h',
+    '#/build/include/log4cplus/helpers/socket.h',
+    '#/build/include/log4cplus/helpers/thread-config.h',
+    '#/build/include/log4cplus/helpers/timehelper.h',
+    '#/build/include/log4cplus/layout.h',
+    '#/build/include/log4cplus/logger.h',
+    '#/build/include/log4cplus/loggingmacros.h',
+    '#/build/include/log4cplus/loglevel.h',
+    '#/build/include/log4cplus/spi/appenderattachable.h',
+    '#/build/include/log4cplus/spi/filter.h',
+    '#/build/include/log4cplus/spi/loggerfactory.h',
+    '#/build/include/log4cplus/streams.h',
+    '#/build/include/log4cplus/syslogappender.h',
+    '#/build/include/log4cplus/tchar.h',
+    '#/build/include/log4cplus/thread/syncprims.h',
+    '#/build/include/log4cplus/tracelogger.h',
+    '#/build/include/log4cplus/tstring.h',
+]
 
-env.SideEffect(products, log4cplus_cfg)
+products = libs + shlibs + headers
+
+log4cplus_cfg = env.Command(products, str(Dir(vpath)), cmd)
+env.SideEffect('config.status', log4cplus_cfg)
 
 env.Alias('install', env.Install(env['INSTALL_LIB'], shlibs))
 
