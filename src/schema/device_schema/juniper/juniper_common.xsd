@@ -114,7 +114,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 
 <xsd:complexType name="EtherOptions">
     <xsd:all>
-        <xsd:element name="ieee-802-3ad" type="Ieee802"/>
+        <xsd:element name="ieee-802.3ad" type="Ieee802"/>
     </xsd:all>
 </xsd:complexType>
 
