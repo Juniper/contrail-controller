@@ -121,6 +121,106 @@ class GeneratorFixture(fixtures.Fixture):
             return conn_status['status'] == "Established"
     # end verify_on_setup
 
+    def generate_session_samples(self):
+        self.flow_cnt = 3
+        self.forward_flows = []
+        self.reverse_flows = []
+        self.client_sessions = []
+        self.server_sessions = []
+        self.client_session_cnt = self.flow_cnt
+        self.server_session_cnt = self.flow_cnt
+        self.session_start_time = self._start_time
+        self.session_end_time = self._start_time + 40*self._KSECINMSEC
+
+        for i in range(self.flow_cnt*self.flow_cnt):
+            self.forward_flows.append(SessionFlowInfo(flow_uuid=uuid.uuid1(),
+                sampled_bytes=((i/3)+1)*20,
+                sampled_pkts=((i/3)+1)*2,
+                action='pass',
+                sg_rule_uuid=uuid.uuid1(),
+                nw_ace_uuid=uuid.uuid1()))
+            self.reverse_flows.append(SessionFlowInfo(flow_uuid=uuid.uuid1(),
+                sampled_bytes=((i/3)+1)*10,
+                sampled_pkts=(i/3)+1,
+                action='pass',
+                sg_rule_uuid=uuid.uuid1(),
+                nw_ace_uuid=uuid.uuid1()))
+
+        for i in range(self.client_session_cnt):
+            session_agg_info = {}
+            cnt = 0
+            for j in range(self.flow_cnt):
+                session_map = {}
+                for k in range(self.flow_cnt):
+                    sess_ip_port = SessionIpPort(
+                        ip=netaddr.IPAddress('2001:db8::1:2'),
+                        port=cnt*10+32747)
+                    session_map[sess_ip_port] = SessionInfo(
+                        forward_flow_info=self.forward_flows[cnt],
+                        reverse_flow_info=self.reverse_flows[cnt])
+                    cnt += 1
+                sess_ip_port_proto = SessionIpPortProtocol(
+                    ip=netaddr.IPAddress('10.10.10.1'),
+                    port=j+100, protocol=j/2)
+                session_agg_info[sess_ip_port_proto] = SessionAggInfo(
+                    sampled_forward_bytes = (j+1)*60,
+                    sampled_forward_pkts = (j+1)*6,
+                    sampled_reverse_bytes = (j+1)*30,
+                    sampled_reverse_pkts = (j+1)*3,
+                    sessionMap = session_map)
+            client_session = SessionEndpoint(vmi = str(uuid.uuid1()),
+                vn='domain1:admin:vn1', deployment='Dep'+str(i),
+                application="App"+str(i), tier='Tier'+str(i),
+                site='Site'+str(i), remote_deployment='RDep'+str(i),
+                remote_application='RApp'+str(i), remote_tier='RTier'+str(i),
+                remote_site='RSite'+str(i), remote_vn='domain1:admin:vn2',
+                is_client_session = 1, is_si = 0,
+                sess_agg_info = session_agg_info)
+            self._logger.info(str(client_session))
+            session_object = SessionEndpointObject(session_data=[client_session],
+                sandesh=self._sandesh_instance)
+            session_object._timestamp = self.session_start_time + \
+                i*10*self._KSECINMSEC
+            session_object.send(sandesh=self._sandesh_instance)
+            self.client_sessions.append(session_object)
+
+        for i in range(self.server_session_cnt):
+            session_agg_info = {}
+            cnt = 0
+            for j in range(self.flow_cnt):
+                session_map = {}
+                for k in range(self.flow_cnt):
+                    sess_ip_port = SessionIpPort(
+                        ip=netaddr.IPAddress('10.10.10.1'),
+                        port=cnt*10+32747)
+                    session_map[sess_ip_port] = SessionInfo(
+                        forward_flow_info=self.reverse_flows[cnt],
+                        reverse_flow_info=self.forward_flows[cnt])
+                    cnt += 1
+                sess_ip_port_proto = SessionIpPortProtocol(
+                    ip=netaddr.IPAddress('2001:db8::1:2'),
+                    port=j+100, protocol=j/2)
+                session_agg_info[sess_ip_port_proto] = SessionAggInfo(
+                    sampled_forward_bytes = j*60,
+                    sampled_forward_pkts = j*6,
+                    sampled_reverse_bytes = j*30,
+                    sampled_reverse_pkts = j*3,
+                    sessionMap = session_map)
+            server_session = SessionEndpoint(vmi = str(uuid.uuid1()),
+                vn='domain1:admin:vn2', deployment='Dep'+str(i),
+                application="App"+str(i), tier='Tier'+str(i),
+                site='Site'+str(i), remote_deployment='RDep'+str(i),
+                remote_application='RApp'+str(i), remote_tier='RTier'+str(i),
+                remote_site='RSite'+str(i), remote_vn='domain1:admin:vn1',
+                is_client_session = 0, is_si = 0,
+                sess_agg_info = session_agg_info)
+            session_object = SessionEndpointObject(session_data=[server_session],
+                sandesh=self._sandesh_instance)
+            session_object._timestamp = self.session_start_time + \
+                i*10*self._KSECINMSEC
+            session_object.send(sandesh=self._sandesh_instance)
+            self.server_sessions.append(session_object)
+
     def send_flow_stat(self, flow, flow_bytes, flow_pkts, ts=None):
         self.set_sandesh_send_queue_watermarks()
         self._logger.info('Sending Flow Stats')
