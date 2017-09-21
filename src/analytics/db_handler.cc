@@ -366,7 +366,7 @@ bool DbHandler::CreateTables() {
         }
 
         // will be un-commented once we start using cassandra-2.10 for systemless tests
-        /*table_schema cfschema = g_viz_constants._VIZD_SESSION_TABLE_SCHEMA
+        table_schema cfschema = g_viz_constants._VIZD_SESSION_TABLE_SCHEMA
                                                     .find(it->cfname_)->second;
         BOOST_FOREACH(schema_column column, cfschema.columns) {
             if (column.index_type) {
@@ -398,7 +398,7 @@ bool DbHandler::CreateTables() {
                     return false;
                 }
             }
-        }*/
+        }
     }
 
     GenDb::ColList col_list;
