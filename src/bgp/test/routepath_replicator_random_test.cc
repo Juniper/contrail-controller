@@ -588,17 +588,17 @@ protected:
 
         for (RoutingInstanceMgr::RoutingInstanceIterator it =
              rtinst_mgr->begin(); it != rtinst_mgr->end(); it++) {
-            BOOST_FOREACH(RouteTarget tgt, it->GetImportList()) {
+            BOOST_FOREACH(RouteTarget tgt, it->second->GetImportList()) {
                 const RoutingInstance *from_rt
                     = rtinst_mgr->GetInstanceByTarget(tgt);
                 assert(from_rt);
-                assert(VerifyConnection(from_rt->name(), it->name()));
+                assert(VerifyConnection(from_rt->name(), it->second->name()));
             }
-            BgpTable *table = it->GetTable(Address::INET);
+            BgpTable *table = it->second->GetTable(Address::INET);
             if (table != NULL) {
                 db->GetWalker()->WalkTable(table, NULL, walker, walk_complete);
             }
-            table = it->GetTable(Address::INETVPN);
+            table = it->second->GetTable(Address::INETVPN);
             if (table != NULL) {
                 db->GetWalker()->WalkTable(table, NULL, walker, walk_complete);
 

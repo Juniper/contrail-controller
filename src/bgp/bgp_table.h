@@ -15,6 +15,7 @@
 #include "bgp/bgp_rib_policy.h"
 #include "db/db_table_walker.h"
 #include "route/table.h"
+#include "bgp/bgp_ribout.h"
 
 class BgpServer;
 class BgpRoute;

@@ -259,10 +259,10 @@ class RoutingInstanceSet : public BitSet {
 class RoutingInstanceMgr {
 public:
     typedef std::set<std::string> RoutingInstanceConfigList;
-    typedef IndexMap<std::string, RoutingInstance,
-            RoutingInstanceSet> RoutingInstanceList;
+    typedef std::map<std::string, RoutingInstance *> RoutingInstanceList;
     typedef RoutingInstanceList::iterator name_iterator;
     typedef RoutingInstanceList::const_iterator const_name_iterator;
+    typedef RoutingInstanceList::iterator RoutingInstanceIterator;
     typedef std::multimap<RouteTarget, RoutingInstance *> InstanceTargetMap;
     typedef std::multimap<int, RoutingInstance *> VnIndexMap;
 
@@ -274,45 +274,16 @@ public:
         INSTANCE_UPDATE = 2,
         INSTANCE_DELETE = 3
     };
-    class RoutingInstanceIterator
-        : public boost::iterator_facade<RoutingInstanceIterator,
-                                        RoutingInstance,
-                                        boost::forward_traversal_tag> {
-    public:
-        explicit RoutingInstanceIterator(const RoutingInstanceList &indexmap,
-                          const RoutingInstanceSet &set, size_t index)
-            : indexmap_(indexmap), set_(set), index_(index) {
-        }
-        size_t index() const { return index_; }
-
-    private:
-        friend class boost::iterator_core_access;
-
-        void increment() {
-            index_ = set_.find_next(index_);
-        }
-        bool equal(const RoutingInstanceIterator &rhs) const {
-            return index_ == rhs.index_;
-        }
-        RoutingInstance &dereference() const {
-            return *indexmap_.At(index_);
-        }
-        const RoutingInstanceList &indexmap_;
-        const RoutingInstanceSet &set_;
-        size_t index_;
-    };
 
     explicit RoutingInstanceMgr(BgpServer *server);
     virtual ~RoutingInstanceMgr();
 
     RoutingInstanceIterator begin() {
-        return RoutingInstanceIterator(instances_, instances_.bits(),
-                                       instances_.bits().find_first());
+        return instances_.begin();
     }
 
     RoutingInstanceIterator end() {
-        return RoutingInstanceIterator(instances_, instances_.bits(),
-                                       RoutingInstanceSet::npos);
+        return instances_.end();
     }
 
     name_iterator name_begin() { return instances_.begin(); }
@@ -320,8 +291,8 @@ public:
     name_iterator name_lower_bound(const std::string &name) {
         return instances_.lower_bound(name);
     }
-    const_name_iterator name_cbegin() { return instances_.cbegin(); }
-    const_name_iterator name_cend() { return instances_.cend(); }
+    const_name_iterator name_cbegin() { return instances_.begin(); }
+    const_name_iterator name_cend() { return instances_.end(); }
     const_name_iterator name_clower_bound(const std::string &name) {
         return instances_.lower_bound(name);
     }
@@ -355,7 +326,7 @@ public:
 
     void CreateRoutingInstanceNeighbors(const BgpInstanceConfig *config);
 
-    size_t count() const { return instances_.count(); }
+    size_t count() const { return instances_.size(); }
     BgpServer *server() { return server_; }
     const BgpServer *server() const { return server_; }
     LifetimeActor *deleter();
