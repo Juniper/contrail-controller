@@ -21,12 +21,9 @@ from keystoneclient.auth.identity import generic as kauth
 from keystoneclient import client as kclient
 from keystoneclient import exceptions as kexceptions
 from netaddr import *
-try:
-    from cfgm_common import vnc_plugin_base
-    from cfgm_common import utils as cfgmutils
-except ImportError:
-    from common import vnc_plugin_base
-    from cfgm_common import utils as cfgmutils
+from cfgm_common import vnc_plugin_base
+from cfgm_common import utils as cfgmutils
+from cfgm_common import exceptions as vnc_exc
 from cfgm_common.utils import cgitb_hook
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
@@ -1072,6 +1069,18 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
             try:
                 response = handler(*args, **kwargs)
                 return response
+            except vnc_exc.AuthFailed:
+                bottle.abort(401,'Authentication Failed')
+            except vnc_exc.PermissionDenied:
+                bottle.abort(403,'Permission Denied')
+            except vnc_exc.BadRequest:
+                bottle.abort(400,'Bad Request')
+            except vnc_exc.RefsExistError:
+                bottle.abort(409,'Refs Exist')
+            except vnc_exc.OverQuota:
+                bottle.abort(412,'Over Quota')
+            except vnc_exe.NoIdError:
+                bottle.abort(404,'Not Found')
             except Exception as e:
                 # don't log details of bottle.abort i.e handled error cases
                 if not isinstance(e, bottle.HTTPError):

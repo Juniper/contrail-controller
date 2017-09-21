@@ -131,6 +131,8 @@ class LocalVncApi(VncApi):
                     raise vnc_exc.BadRequest(status, content)
                 elif status == 403:
                     raise vnc_exc.PermissionDenied(content)
+                elif status == 401:
+                    raise vnc_exc.AuthFailed(content)
                 elif status == 409:
                     raise vnc_exc.RefsExistError(content)
                 elif status == 412:
