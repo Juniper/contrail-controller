@@ -886,7 +886,7 @@ bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
 
     handle_flow_object(parent, db, header, db_cb);
 
-    //handle_session_object(parent, db, header, db_cb);
+    handle_session_object(parent, db, header, db_cb);
 
     RuleMsg rmsg(vmsgp); 
     rulelist_->rule_execute(rmsg);

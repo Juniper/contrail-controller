@@ -949,7 +949,8 @@ class OpServerUtils(object):
     def get_query_dict(table, start_time=None, end_time=None,
                        select_fields=None,
                        where_clause="",
-                       sort_fields=None, sort=None, limit=None, filter=None, dir=None):
+                       sort_fields=None, sort=None, limit=None, filter=None, dir=None,
+                       is_service_instance=None, session_type=None):
         """
         This function takes in the query parameters,
         format appropriately and calls
@@ -980,57 +981,57 @@ class OpServerUtils(object):
 
         sf = select_fields
         where = []
-        for term in where_clause.split('OR'):
-            term_elem = []
-            for match in term.split('AND'):
-                if match == '':
-                    continue
-                match_s = match.strip(' ()')
-                match_e = match_s.split('=')
-                match_e[0] = match_e[0].strip(' ()')
-                match_e[1] = match_e[1].strip(' ()')
+        if where_clause is not None:
+            for term in where_clause.split('OR'):
+                term_elem = []
+                for match in term.split('AND'):
+                    if match == '':
+                        continue
+                    match_s = match.strip(' ()')
+                    match_e = match_s.split('=')
+                    match_e[0] = match_e[0].strip(' ()')
+                    match_e[1] = match_e[1].strip(' ()')
 
-                match_sp = match_e[0].split('|')
+                    match_sp = match_e[0].split('|')
 
-                if len(match_sp) is 1:
-                    tname = match_sp[0]
-                    match_v = match_e[1].split("<")
-                else:
-                    tname = match_sp[1]
-                    bname = match_sp[0]
-                    match_vp = match_e[1].split('|')
-                    bval = match_vp[0]
-                    match_v = match_vp[1].split("<")
+                    if len(match_sp) is 1:
+                        tname = match_sp[0]
+                        match_v = match_e[1].split("<")
+                    else:
+                        tname = match_sp[1]
+                        bname = match_sp[0]
+                        match_vp = match_e[1].split('|')
+                        bval = match_vp[0]
+                        match_v = match_vp[1].split("<")
 
-                
-                if len(match_v) is 1:
-                    if match_v[0][-1] is '*':
-                        match_prefix = match_v[0][:(len(match_v[0]) - 1)]
-                        print match_prefix
-                        match_elem = OpServerUtils.Match(
-                            name=tname, value=match_prefix,
-                            op=OpServerUtils.MatchOp.PREFIX)
+                    if len(match_v) is 1:
+                        if match_v[0][-1] is '*':
+                            match_prefix = match_v[0][:(len(match_v[0]) - 1)]
+                            print match_prefix
+                            match_elem = OpServerUtils.Match(
+                                name=tname, value=match_prefix,
+                                op=OpServerUtils.MatchOp.PREFIX)
+                        else:
+                            match_elem = OpServerUtils.Match(
+                                name=tname, value=match_v[0],
+                                op=OpServerUtils.MatchOp.EQUAL)
                     else:
                         match_elem = OpServerUtils.Match(
                             name=tname, value=match_v[0],
-                            op=OpServerUtils.MatchOp.EQUAL)
-                else:
-                    match_elem = OpServerUtils.Match(
-                        name=tname, value=match_v[0],
-                        op=OpServerUtils.MatchOp.IN_RANGE, value2=match_v[1])
+                            op=OpServerUtils.MatchOp.IN_RANGE, value2=match_v[1])
 
-                if len(match_sp) is 1:
-                    term_elem.append(match_elem.__dict__)
-                else:
-                    selem = OpServerUtils.Match(
-                        name=bname, value=bval, op=OpServerUtils.MatchOp.EQUAL,
-                        value2=None, suffix = match_elem)
-                    term_elem.append(selem.__dict__)
+                    if len(match_sp) is 1:
+                        term_elem.append(match_elem.__dict__)
+                    else:
+                        selem = OpServerUtils.Match(
+                            name=bname, value=bval, op=OpServerUtils.MatchOp.EQUAL,
+                            value2=None, suffix = match_elem)
+                        term_elem.append(selem.__dict__)
 
-            if len(term_elem) == 0:
-                where = None
-            else:
-                where.append(term_elem)
+                if len(term_elem) == 0:
+                    where = None
+                else:
+                    where.append(term_elem)
 
         filter_terms = []
         if filter is not None:
@@ -1060,11 +1061,17 @@ class OpServerUtils(object):
                                                  op=op)
                 filter_terms.append(match_elem.__dict__)
 
+        if len(where) == 0:
+            where = None
+
         if len(filter_terms) == 0:
             filter_terms = None
         if table == "FlowSeriesTable" or table == "FlowRecordTable":
             if dir is None:
-                 dir = 1
+                dir = 1
+        if table == "SessionSeriesTable" or table == "SessionRecordTable":
+            if is_service_instance is None:
+                is_service_instance = 0
         qe_query = OpServerUtils.Query(table,
                         start_time=lstart_time,
                         end_time=lend_time,
@@ -1074,7 +1081,9 @@ class OpServerUtils(object):
                         sort=sort,
                         limit=limit,
                         filter=filter_terms,
-                        dir=dir)
+                        dir=dir,
+                        is_service_instance=is_service_instance,
+                        session_type=session_type)
 
         return qe_query.__dict__
 
@@ -1089,10 +1098,13 @@ class OpServerUtils(object):
         limit = None
         filter = None
         dir = None
+        is_service_instance = None
+        session_type = None
 
         def __init__(self, table, start_time, end_time, select_fields,
                      where=None, sort_fields=None, sort=None, limit=None,
-                     filter=None, dir=None):
+                     filter=None, dir=None, is_service_instance=None,
+                     session_type=None):
             self.table = table
             self.start_time = start_time
             self.end_time = end_time
@@ -1109,6 +1121,10 @@ class OpServerUtils(object):
                 self.limit = limit
             if filter is not None:
                 self.filter = filter
+            if is_service_instance is not None:
+                self.is_service_instance = is_service_instance
+            if session_type is not None:
+                self.session_type = session_type
         # end __init__
 
     # end class Query

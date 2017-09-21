@@ -337,7 +337,8 @@ void StatsSelect::SetSortOrder(const std::vector<sort_field_t>& sort_fields) {
             std::string sfield = sort_fields[st].name;
             QEOpServerProxy::AggOper agg =
                 StatsQuery::ParseAgg(sort_fields[st].name, sfield);
-            if (main_query->stats().is_stat_table_static()) {
+            if (main_query->is_stat_table_query(main_query->table()) &&
+                    main_query->stats().is_stat_table_static()) {
                 StatsQuery::column_t c = main_query->stats().get_column_desc(sfield);
                 if (c.datatype == QEOpServerProxy::BLANK) {
                     QE_LOG(INFO, "StatsSelect unknown field " << sort_fields[st].name);
