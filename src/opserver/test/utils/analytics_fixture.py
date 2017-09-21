@@ -1634,6 +1634,538 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_flow_table
 
+    @retry(delay=1, tries=10)
+    def verify_session_samples(self, generator_obj):
+        self.logger.info("verify_session_samples")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
+            self.admin_user, self.admin_password)
+        vrouter = generator_obj._hostname
+        res = vns.post_query('SessionSeriesTable',
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
+                             select_fields=['T'], session_type="client")
+        self.logger.info(str(res))
+        if len(res) != generator_obj.client_session_cnt:
+            self.logger.error("Session samples client: Actual %d expected %d" %
+                (len(res), generator_obj.client_session_cnt))
+            return False
+
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
+            self.admin_user, self.admin_password)
+        vrouter = generator_obj._hostname
+        result = vns.post_query('SessionSeriesTable',
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
+                             select_fields=['T'], session_type="server")
+        self.logger.info(str(result))
+        if len(result) != generator_obj.server_session_cnt:
+            self.logger.error("Session samples server: Actual %d expected %d" %
+                (len(res), generator_obj.server_session_cnt))
+            return False
+
+        return True
+    #end verify_session_samples
+
+    def verify_session_table(self, generator_obj):
+
+        self.logger.info('verify_session_table')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
+            self.admin_user, self.admin_password)
+        # query session records
+        res = vns.post_query('SessionRecordTable',
+                        start_time=str(generator_obj.session_start_time),
+                        end_time=str(generator_obj.session_end_time),
+                        select_fields=[
+                            'forward_flow_uuid',
+                            'reverse_flow_uuid',
+                            'forward_teardown_bytes',
+                            'reverse_teardown_bytes'],
+                        session_type="client")
+        self.logger.info("SessionRecordTable result:%s" % str(res))
+        assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
+
+        # query based on various WHERE parameters and filters
+
+        # vn and remote_vn
+        res = vns.post_query(
+            'SessionRecordTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['forward_flow_uuid',
+                           'reverse_flow_uuid', 'vn', 'remote_vn'],
+            where_clause='vn=domain1:admin:vn1 AND remote_vn=domain1:admin:vn2',
+            session_type="client", is_service_instance = 0)
+        self.logger.info(str(res))
+        self.logger.info("exp_len:" + str(generator_obj.flow_cnt) + " res_len:" + str(len(res)))
+        assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
+
+        # give non-existent values in the where clause
+        res = vns.post_query(
+            'SessionRecordTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['forward_flow_uuid',
+                           'reverse_flow_uuid', 'vn', 'remote_vn'],
+            where_clause='vn=domain1:admin:vn10 AND remote_vn=domain1:admin:vn2',
+            session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == 0)
+
+        # local_ip and server_port AND protocol
+        res = vns.post_query(
+            'SessionRecordTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['forward_flow_uuid',
+                           'reverse_flow_uuid', 'vn', 'remote_vn'],
+            where_clause='local_ip=10.10.10.1 AND server_port=102 AND protocol=1',
+            session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt)
+        # non-existent values in the where clause
+        res = vns.post_query(
+            'SessionRecordTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['forward_flow_uuid',
+                           'reverse_flow_uuid', 'server_port', 'protocol'],
+            where_clause='server_port=123 AND protocol=22',
+            session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == 0)
+
+        # do not provide uuid in select, should still include it in the results
+        res = vns.post_query(
+            'SessionRecordTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['vn', 'remote_vn'],
+            where_clause='local_ip=10.10.10.1 AND server_port=102 AND protocol=1',
+            session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt)
+        for record in res:
+            assert('forward_flow_uuid' in record)
+            assert('reverse_flow_uuid' in record)
+
+        # filter by remote_ip and client_port
+        res = vns.post_query(
+            'SessionRecordTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['forward_flow_uuid', 'reverse_flow_uuid',
+                           'remote_ip', 'client_port'],
+            filter='client_port=32787',
+            session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == 1)
+
+        # sort and limit
+        res = vns.post_query(
+            'SessionRecordTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['forward_flow_uuid', 'reverse_flow_uuid',
+                           'protocol', 'server_port'],
+            session_type="client",
+            sort_fields=['protocol'], sort=1)
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
+        assert(res[0]['protocol'] == 0)
+
+        res = vns.post_query(
+            'SessionRecordTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['forward_flow_uuid', 'reverse_flow_uuid',
+                           'protocol', 'server_port'],
+            session_type="client",
+            limit=5)
+        self.logger.info(str(res))
+        assert(len(res) == 5)
+
+        return True
+    # end verify_session_table
+
+    def verify_session_series_aggregation_binning(self, generator_obj):
+        vrouter = generator_obj._hostname
+        self.logger.info('verify_session_series_aggregation_binning')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
+            self.admin_user, self.admin_password)
+
+        #Helper function for stats aggregation
+        def _aggregate_stats(session, ip=None, port=None, protocol=None):
+            stats = {'sum_fwd_bytes':0, 'sum_rev_pkts':0}
+            for key, agg_info in session.session_data[0].sess_agg_info.iteritems():
+                if (ip is None or ip == key.ip) and \
+                    (port is None or port == key.port) and \
+                    (protocol is None or protocol == key.protocol):
+                    stats['sum_fwd_bytes'] += agg_info.sampled_forward_bytes
+                    stats['sum_rev_pkts'] += agg_info.sampled_reverse_pkts
+            return stats
+
+        def _aggregate_session_stats(sessions, start_time, end_time, ip=None,
+                port=None, protocol=None):
+            stats = {'sum_fwd_bytes':0, 'sum_rev_pkts':0}
+            for session in sessions:
+                if session._timestamp < start_time:
+                        continue
+                elif session._timestamp > end_time:
+                        break
+                s = _aggregate_stats(session, ip, port, protocol)
+                stats['sum_fwd_bytes'] += s['sum_fwd_bytes']
+                stats['sum_rev_pkts'] += s['sum_rev_pkts']
+            return stats
+
+        # 1. stats
+        self.logger.info('SessionSeries: [SUM(forward_sampled_bytes), SUM(reverse_sampled_pkts), sample_count]')
+        res = vns.post_query(
+            'SessionSeriesTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['SUM(forward_sampled_bytes)', 'SUM(reverse_sampled_pkts)', 'sample_count'],
+            filter='vrouter=%s'% vrouter, session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == 1)
+        exp_sum_fwd_bytes = exp_sum_rev_pkts = 0
+        for s in generator_obj.client_sessions:
+            for agg_info in s.session_data[0].sess_agg_info.values():
+                exp_sum_fwd_bytes += agg_info.sampled_forward_bytes
+                exp_sum_rev_pkts += agg_info.sampled_reverse_pkts
+        assert(res[0]['SUM(forward_sampled_bytes)'] == exp_sum_fwd_bytes)
+        assert(res[0]['SUM(reverse_sampled_pkts)'] == exp_sum_rev_pkts)
+        assert(res[0]['sample_count'] ==
+            generator_obj.client_session_cnt*generator_obj.client_session_cnt)
+
+        # 2. session tuple + stats
+        self.logger.info(
+            'SessionSeries: [server_port, local_ip, \
+                SUM(forward_sampled_bytes), SUM(reverse_sampled_pkts), sample_count]')
+        # Each session msg has unique (deployment, application, stie, tier).
+        # Therefore, the following query
+        # should return # records equal to the # client sessions.
+        res = vns.post_query(
+            'SessionSeriesTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['deployment', 'tier', 'application', 'site', 
+                           'SUM(forward_sampled_bytes)',
+                           'SUM(reverse_sampled_pkts)', 'sample_count'],
+            filter='vrouter=%s'% vrouter, session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.client_session_cnt)
+        for r in res:
+            sum_fwd_bytes = 0
+            sum_rev_pkts = 0
+            for s in generator_obj.client_sessions:
+                if r['deployment'] == s.session_data[0].deployment:
+                    for key,agg_info in s.session_data[0].sess_agg_info.iteritems():
+                        sum_fwd_bytes += agg_info.sampled_forward_bytes
+                        sum_rev_pkts += agg_info.sampled_reverse_pkts
+                    assert(r['SUM(forward_sampled_bytes)'] == sum_fwd_bytes)
+                    assert(r['SUM(reverse_sampled_pkts)'] == sum_rev_pkts)
+                    assert(r['sample_count'] == generator_obj.client_session_cnt)
+                    break
+
+        # all session msgs have same vn-remote_vn hence following query should
+        # return 1 record
+        res = vns.post_query(
+            'SessionSeriesTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['vn', 'remote_vn',
+                           'SUM(forward_sampled_bytes)',
+                           'SUM(reverse_sampled_pkts)', 'sample_count'],
+            filter='vrouter=%s'% vrouter, session_type="server")
+        self.logger.info(str(res))
+        assert(len(res) == 1)
+        sum_fwd_bytes = 0
+        sum_rev_pkts = 0
+        exp_sample_cnt = 0
+        for s in generator_obj.server_sessions:
+            for key,agg_info in s.session_data[0].sess_agg_info.iteritems():
+                sum_fwd_bytes += agg_info.sampled_forward_bytes
+                sum_rev_pkts += agg_info.sampled_reverse_pkts
+                exp_sample_cnt += 1
+        assert(res[0]['SUM(forward_sampled_bytes)'] == sum_fwd_bytes)
+        assert(res[0]['SUM(reverse_sampled_pkts)'] == sum_rev_pkts)
+        assert(res[0]['sample_count'] == exp_sample_cnt)
+
+        # sort results by aggregate column
+        res = vns.post_query('SessionSeriesTable',
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['protocol', 'server_port',
+                           'SUM(forward_sampled_bytes)',
+                           'SUM(reverse_sampled_pkts)'],
+            filter='vrouter=%s'% vrouter, session_type="client",
+            sort_fields=['SUM(forward_sampled_bytes)'], sort=1, limit=3)
+        self.logger.info(str(res))
+        assert(len(res) == 3)
+        server_port = 100
+        sum_fwd_bytes = 180
+        sum_rev_pkts = 9
+        for r in res:
+            assert(r['server_port'] == server_port)
+            assert(r['SUM(forward_sampled_bytes)'] == sum_fwd_bytes)
+            assert(r['SUM(reverse_sampled_pkts)'] == sum_rev_pkts)
+            server_port += 1
+            sum_fwd_bytes += 180
+            sum_rev_pkts += 9
+
+        # 3. T=<granularity> + stats
+        self.logger.info('SessionSeries: [T=<x>, SUM(forward_sampled_bytes), SUM(reverse_sampled_pkts)]')
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (30 * 1000 * 1000))
+        granularity = 10
+        gms = granularity * 1000 * 1000 # in micro seconds
+        res = vns.post_query(
+            'SessionSeriesTable', start_time=st, end_time=et,
+            select_fields=['T=%s' % (granularity), 'SUM(forward_sampled_bytes)',
+                           'SUM(reverse_sampled_pkts)'],
+            session_type = "client",
+            filter='vrouter=%s' % vrouter)
+        diff_t = int(et) - int(st)
+        num_records = (diff_t/gms) + bool(diff_t%gms)
+        assert(len(res) == num_records)
+        res_start_time = generator_obj.session_start_time - \
+                            (generator_obj.session_start_time % gms)
+        ts = [res_start_time + (x * gms) for x in range(num_records)]
+        exp_result = {}
+        for t in ts:
+            end_time = t + gms
+            if end_time > int(et):
+                end_time = int(et)
+            exp_result[t] = _aggregate_session_stats(generator_obj.client_sessions,
+                                                t, end_time)
+        self.logger.info('exp_result: %s' % str(exp_result))
+        self.logger.info('res: %s' % str(res))
+        assert(len(exp_result) == num_records)
+        for r in res:
+            try:
+                stats = exp_result[r['T=']]
+            except KeyError:
+                assert(False)
+            assert(r['SUM(forward_sampled_bytes)'] == stats['sum_fwd_bytes'])
+            assert(r['SUM(reverse_sampled_pkts)'] == stats['sum_rev_pkts'])
+
+        # 4. T=<granularity + tuple + stats
+        self.logger.info('SessionSeries: [T=<x>, protocol, \
+            SUM(forward_sampled_bytes), SUM(reverse_sampled_pkts)]')
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (30 * 1000 * 1000))
+        granularity = 10
+        gms = granularity * 1000 * 1000 # in micro seconds
+        res = vns.post_query(
+            'SessionSeriesTable', start_time=st, end_time=et,
+            select_fields=['T=%s' % (granularity), 'protocol',
+                            'SUM(forward_sampled_bytes)',
+                            'SUM(reverse_sampled_pkts)'],
+            filter='vrouter=%s' % vrouter,
+            session_type = "client")
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        res_start_time = generator_obj.session_start_time - \
+                            (generator_obj.session_start_time % gms)
+        ts_list = [res_start_time + (x * gms) \
+              for x in range(num_ts)]
+        protos = [0, 1]
+        exp_result = {}
+        for i in protos:
+            ts_stats = {}
+            for ts in ts_list:
+                end_time = ts + gms
+                if end_time > int(et):
+                    end_time = int(et)
+                ts_stats[ts] = _aggregate_session_stats(generator_obj.client_sessions, 
+                        ts, end_time, protocol=i)
+            exp_result[i] = ts_stats
+        self.logger.info('exp_result: %s' % str(exp_result))
+        self.logger.info('res: %s' % str(res))
+        assert(len(res) == 6)
+        for r in res:
+            try:
+                stats = exp_result[r['protocol']][r['T=']]
+            except KeyError:
+                assert(False)
+            assert(r['SUM(forward_sampled_bytes)'] == stats['sum_fwd_bytes'])
+            assert(r['SUM(reverse_sampled_pkts)'] == stats['sum_rev_pkts'])
+
+        # 5. T=<granularity> + tuples
+        self.logger.info(
+            'SessionSeriesTable: [T=<x>, protocol, vn, remote_vn]')
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + 30 * 1000 * 1000)
+        granularity = 10
+        gms = 10 * 1000 * 1000
+        res = vns.post_query(
+            'SessionSeriesTable', start_time=st, end_time=et,
+            select_fields=['T=%s' % (granularity), 'protocol', 'vn', 'remote_vn'],
+            filter="vrouter=%s" % (vrouter),
+            session_type="client")
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        res_start_time = generator_obj.session_start_time - \
+                            (generator_obj.session_start_time % gms)
+        ts = [res_start_time + (x * gms) \
+                for x in range(num_ts)]
+        exp_result = []
+
+        exp_result_cnt = 0
+        proto = [0, 1]
+        vn = generator_obj.client_sessions[0].session_data[0].vn
+        remote_vn = generator_obj.client_sessions[0].session_data[0].remote_vn
+        for t in ts:
+            for i in proto:
+                exp_result.append({'T=':t, 'vn':vn,
+                                              'remote_vn':remote_vn,
+                                              'protocol':i})
+                exp_result_cnt += 1
+        self.logger.info("exp_result:" + str(exp_result))
+        self.logger.info("res" + str(res))
+        assert(exp_result_cnt == len(res))
+        for r in res:
+            found = 0
+            for exp_res in exp_result:
+                if ((r['T='] == exp_res['T=']) and \
+                    (r['vn'] == exp_res['vn']) and \
+                    (r['remote_vn'] == exp_res['remote_vn']) and \
+                    (r['protocol'] == exp_res['protocol'])):
+                    found = 1
+                    break
+            assert(found)
+
+        # 6. Timestamp + stats
+        self.logger.info('Sessionseries: [T, forward_sampled_bytes, \
+                                           reverse_sampled_pkts]')
+        res  = vns.post_query(
+                'SessionSeriesTable',
+                start_time = str(generator_obj.session_start_time),
+                end_time = str(generator_obj.session_end_time),
+                select_fields=['T', 'forward_sampled_bytes', 'reverse_sampled_pkts'],
+                where_clause='server_port=102 AND protocol=1',
+                session_type="client")
+        self.logger.info(str(res))
+
+        server_port = 102
+        assert(len(res) == generator_obj.client_session_cnt)
+        for r in res:
+            found = 0
+            for session_obj in generator_obj.client_sessions:
+                session = session_obj.session_data[0]
+                if (r['T'] == session_obj._timestamp):
+                    for key, agg_info in session.sess_agg_info.iteritems():
+                        if(key.port == server_port):
+                            assert(r['forward_sampled_bytes'] ==
+                                agg_info.sampled_forward_bytes)
+                            assert(r['reverse_sampled_pkts'] ==
+                                agg_info.sampled_reverse_pkts)
+                            found = 1
+            assert(found)
+
+        # 7. Timestamp + tuple + stats
+        self.logger.info('Sessionseries: [T, deployment, protocol, \
+                                            forward_sampled_bytes, \
+                                            reverse_sampled_pkts]')
+        res  = vns.post_query(
+                'SessionSeriesTable',
+                start_time = str(generator_obj.session_start_time),
+                end_time = str(generator_obj.session_end_time),
+                select_fields=['T', 'deployment', 'protocol',
+                               'forward_sampled_bytes', 'reverse_sampled_pkts'],
+                where_clause='server_port=101 AND protocol=0',
+                session_type="client")
+        self.logger.info(str(res))
+
+        server_port = 101
+        proto = 0
+        assert(len(res) == generator_obj.client_session_cnt)
+        for r in res:
+            found = 0
+            for session_obj in generator_obj.client_sessions:
+                session = session_obj.session_data[0]
+                if (r['T'] == session_obj._timestamp):
+                    for key, agg_info in session.sess_agg_info.iteritems():
+                        if (key.port == server_port and key.protocol == proto):
+                            assert(r['forward_sampled_bytes'] ==
+                                agg_info.sampled_forward_bytes)
+                            assert(r['reverse_sampled_pkts'] ==
+                                agg_info.sampled_reverse_pkts)
+                            assert(r['deployment'] == session.deployment)
+                            found = 1
+            assert(found)
+
+        # 8. Timestamp + tuple
+        self.logger.info('SessionSeriesTable: [T, deployment, protocol, server_port]')
+        res = vns.post_query(
+                'SessionSeriesTable',
+                start_time = str(generator_obj.session_start_time),
+                end_time = str(generator_obj.session_end_time),
+                select_fields=['T', 'deployment', 'protocol', 'server_port'],
+                session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.client_session_cnt * generator_obj.flow_cnt)
+        for r in res:
+            found = 0
+            for session_obj in generator_obj.client_sessions:
+                session = session_obj.session_data[0]
+                if (r['T'] == session_obj._timestamp):
+                    for key, agg_info in session.sess_agg_info.iteritems():
+                        if (key.port == r['server_port']):
+                            assert(r['protocol'] == key.protocol)
+                            assert(r['deployment'] == session.deployment)
+                            found = 1
+            assert(found)
+
+        # 9. T= + tuple + stats (with unrolling)
+        self.logger.info('SessionSeriesTable: [T=, deployment, \
+                                                server_port, remote_ip, \
+                                                SUM(forward_sampled_bytes), \
+                                                SUM(reverse_sampled_pkts)]')
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (30 * 1000 * 1000))
+        granularity = 5
+        gms = 5 * 1000 * 1000
+        res = vns.post_query(
+                'SessionSeriesTable',
+                start_time = st, end_time = et,
+                select_fields=['T=%s'%str(granularity), 'deployment',
+                                'protocol', 'remote_ip',
+                                'SUM(forward_sampled_bytes)',
+                                'SUM(reverse_sampled_pkts)'],
+                session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == 6)
+
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        res_start_time = generator_obj.session_start_time - \
+                            (generator_obj.session_start_time % gms)
+        ts_list = [res_start_time + (x * gms) \
+              for x in range(num_ts)]
+        protos = [0, 1]
+        exp_result = {}
+        for i in protos:
+            ts_stats = {}
+            for ts in ts_list:
+                end_time = ts + gms
+                if end_time > int(et): end_time = int(et)
+                ts_stats[ts] = _aggregate_session_stats(generator_obj.client_sessions,
+                        ts, end_time, protocol=i)
+            exp_result[i] = ts_stats
+        self.logger.info("expected_results: %s" % str(exp_result))
+
+        for r in res:
+            try:
+                stats = exp_result[r['protocol']][r['T=']]
+            except KeyError:
+                assert(False)
+            assert(r['SUM(forward_sampled_bytes)'] == stats['sum_fwd_bytes'])
+            assert(r['SUM(reverse_sampled_pkts)'] == stats['sum_rev_pkts'])
+
+        return True
+    # end verify_session_series_aggregation_binning
+
     def verify_flow_series_aggregation_binning(self, generator_object):
         generator_obj = generator_object[0]
         vrouter = generator_obj._hostname

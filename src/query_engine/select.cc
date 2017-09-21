@@ -757,8 +757,8 @@ query_status_t SelectQuery::process_query() {
                 GenDb::DbDataValueVec::const_iterator itr;
                 int idx = 2;
                 uint8_t session_type = boost::get<uint8_t>(it->info.at(1));
-                std::vector<StatsSelect::StatEntry> attribs;
-                SessionTableAttributeConverter session_attribs_builder(&attribs);
+                std::vector<StatsSelect::StatEntry> temp_attribs;
+                SessionTableAttributeConverter session_attribs_builder(&temp_attribs);
                 for (itr = it->info.begin(); itr != (it->info.end() - 1); ++itr) {
                     if (g_viz_constants.SessionCassTableColumns[idx] ==
                         SessionRecordFields::SESSION_T1) {
@@ -795,6 +795,7 @@ query_status_t SelectQuery::process_query() {
                 for (contrail_rapidjson::Value::ConstMemberIterator itr2 =
                     d.MemberBegin(); itr2 != d.MemberEnd(); ++itr2) {
                     QE_ASSERT(itr2->name.IsString());
+                    std::vector<StatsSelect::StatEntry> attribs;
                     uint64_t thenp = UTCTimestampUsec();
                     std::string ip_port(itr2->name.GetString());
                     size_t delim_idx = ip_port.find(":");
@@ -811,6 +812,8 @@ query_status_t SelectQuery::process_query() {
                         attribs.push_back(se_remote_ip);
                     }
                     parse_json(itr2->value, &attribs);
+                    attribs.insert(attribs.end(), temp_attribs.begin(),
+                                        temp_attribs.end());
                     parset += UTCTimestampUsec() - thenp;
                     uint64_t thenl = UTCTimestampUsec();
                     if (m_query->is_flow_query(m_query->table())) {
