@@ -65,6 +65,7 @@ for file in test_sources:
 
 # install in common so that unit tests can run from src or build
 test_sources_rules.append(env.Install("tests", Glob("#controller/src/config/common/tests/*")))
+test_sources_rules.append(env.Install("tests/tools", Glob("#controller/src/config/common/tests/tools/*")))
 
 pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', 'cfgm_common/uve/', False),
        env.SandeshGenPy('#controller/src/config/uve/vnc_api.sandesh', 'cfgm_common/uve/', False),
