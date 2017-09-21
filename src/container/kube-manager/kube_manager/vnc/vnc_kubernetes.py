@@ -211,9 +211,16 @@ class VncKubernetes(VncCommon):
         if curr_ipam_refs:
             for ipam_ref in curr_ipam_refs:
                 if ipam_fq_name == ipam_ref['to']:
-                    if subnet and len(ipam_ref['attr'].ipam_subnets) and \
-                       subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
-                        return True
+                   if subnet:
+                       # Subnet is specified.
+                       # Validate that we are able to match subnect as well.
+                       if len(ipam_ref['attr'].ipam_subnets) and \
+                           subnet == ipam_ref['attr'].ipam_subnets[0].subnet:
+                           return True
+                   else:
+                       # Subnet is not specified.
+                       # So ipam-fq-name match will suffice.
+                       return True
         return False
 
     def _create_cluster_network(self, vn_name, proj_obj):
@@ -322,11 +329,10 @@ class VncKubernetes(VncCommon):
             self._get_cluster_service_fip_pool_name(vn_obj.name),
             floating_ip_pool_subnets = fip_subnets,
             parent_obj=vn_obj)
+
         try:
             # Create floating ip pool for cluster service network.
-            fip_pool_vnc_obj =\
-                self.vnc_lib.floating_ip_pool_create(fip_pool_obj)
-
+            self.vnc_lib.floating_ip_pool_create(fip_pool_obj)
         except RefsExistError:
             # Floating-ip-pool exists.
             #
@@ -334,12 +340,12 @@ class VncKubernetes(VncCommon):
             # uuid as one of its subnets. If not raise an exception, as the
             # floating-ip-pool cannot be created, as one with the same name but
             # different attributes exists in the system.
-            fip_pool_vnc_obj = self._get_cluster_service_fip_pool()
+            fip_pool_db_obj = self._get_cluster_service_fip_pool()
             svc_subnet_found = False
             fip_subnets = None
 
-            if hasattr(fip_pool_vnc_obj, 'floating_ip_pool_subnets'):
-                fip_subnets = fip_pool_vnc_obj.floating_ip_pool_subnets
+            if hasattr(fip_pool_db_obj, 'floating_ip_pool_subnets'):
+                fip_subnets = fip_pool_db_obj.floating_ip_pool_subnets
 
             if fip_subnets:
                 for subnet in fip_subnets['subnet_uuid']:
@@ -348,13 +354,23 @@ class VncKubernetes(VncCommon):
                         break
 
             if not svc_subnet_found:
-                self.logger.error("Failed to create floating-ip-pool %s for"\
-                    "subnet %s. A floating-ip-pool with same name exists." %\
-                    (":".join(fip_pool_vnc_obj.fq_name), svc_subnet_uuid))
+                # Requested service subnet was not found in existing fip pool.
+                # Update existing fip pool entry with desired subnet.
+                self.logger.debug("Failed to create floating-ip-pool %s for"\
+                    "subnet %s. A floating-ip-pool with same name exists."\
+                    " Update existing entry." %\
+                    (":".join(fip_pool_db_obj.fq_name), svc_subnet_uuid))
+
+                # Update vnc.
+                self.vnc_lib.floating_ip_pool_update(fip_pool_obj)
+                # Update subnet info in local cache.
+                fip_subnets['subnet_uuid'] = [svc_subnet_uuid]
 
         else:
-            # Update local cache.
-            FloatingIpPoolKM.locate(fip_pool_vnc_obj)
+            # Read and update local cache.
+            fip_pool_obj = self.vnc_lib.floating_ip_pool_read(
+                fq_name=fip_pool_obj.fq_name)
+            FloatingIpPoolKM.locate(fip_pool_obj.get_uuid())
 
         return
 
