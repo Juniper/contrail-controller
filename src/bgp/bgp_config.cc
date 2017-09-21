@@ -314,6 +314,7 @@ BgpInstanceConfig::BgpInstanceConfig(const string &name)
       virtual_network_index_(0),
       virtual_network_allow_transit_(false),
       virtual_network_pbb_evpn_enable_(false),
+      index_(-1),
       vxlan_id_(0),
       last_change_at_(UTCTimestampUsec()) {
 }

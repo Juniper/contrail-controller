@@ -96,8 +96,8 @@ void RoutingInstanceMgr::ManagedDelete() {
 
 void RoutingInstanceMgr::Shutdown() {
     for (RoutingInstanceIterator it = begin(); it != end(); ++it) {
-        InstanceTargetRemove(it.operator->());
-        InstanceVnIndexRemove(it.operator->());
+        InstanceTargetRemove(it->second);
+        InstanceVnIndexRemove(it->second);
     }
 }
 
@@ -345,24 +345,33 @@ const RoutingInstance *RoutingInstanceMgr::GetDefaultRoutingInstance() const {
 }
 
 RoutingInstance *RoutingInstanceMgr::GetRoutingInstance(const string &name) {
-    return instances_.Find(name);
+    RoutingInstanceList::iterator iter = instances_.find(name);
+    if (iter != instances_.end())
+        return iter->second;
+    return NULL;
 }
 
 const RoutingInstance *RoutingInstanceMgr::GetRoutingInstance(
     const string &name) const {
-    return instances_.Find(name);
+    RoutingInstanceList::const_iterator iter = instances_.find(name);
+    if (iter != instances_.end())
+        return iter->second;
+    return NULL;
 }
 
 RoutingInstance *RoutingInstanceMgr::GetRoutingInstanceLocked(
     const string &name) {
     tbb::mutex::scoped_lock lock(mutex_);
-    return instances_.Find(name);
+    RoutingInstanceList::iterator iter = instances_.find(name);
+    if (iter != instances_.end())
+        return iter->second;
+    return NULL;
 }
 
 void RoutingInstanceMgr::InsertRoutingInstance(RoutingInstance *rtinstance) {
     tbb::mutex::scoped_lock lock(mutex_);
-    int index = instances_.Insert(rtinstance->config()->name(), rtinstance);
-    rtinstance->set_index(index);
+    instances_.insert(make_pair(rtinstance->config()->name(),
+                rtinstance));
 }
 
 void RoutingInstanceMgr::LocateRoutingInstance(
@@ -493,8 +502,9 @@ uint32_t RoutingInstanceMgr::SendTableStatsUve() {
         RoutingInstanceStatsData instance_info;
         map<string, RoutingTableStats> stats_map;
 
-        stats_map.insert(make_pair(rit->name(), RoutingTableStats()));
-        RoutingInstance::RouteTableList const rt_list = rit->GetTables();
+        stats_map.insert(make_pair(rit->second->name(), RoutingTableStats()));
+        RoutingInstance::RouteTableList const rt_list =
+                                         rit->second->GetTables();
 
         // Prepare and send Statistics UVE for each routing-instance.
         for (RoutingInstance::RouteTableList::const_iterator it =
@@ -504,23 +514,23 @@ uint32_t RoutingInstanceMgr::SendTableStatsUve() {
             size_t markers;
             out_q_depth += table->GetPendingRiboutsCount(&markers);
 
-            stats_map[rit->name()].set_prefixes(table->Size());
-            stats_map[rit->name()].set_primary_paths(
+            stats_map[rit->second->name()].set_prefixes(table->Size());
+            stats_map[rit->second->name()].set_primary_paths(
                 table->GetPrimaryPathCount());
-            stats_map[rit->name()].set_secondary_paths(
+            stats_map[rit->second->name()].set_secondary_paths(
                 table->GetSecondaryPathCount());
-            stats_map[rit->name()].set_infeasible_paths(
+            stats_map[rit->second->name()].set_infeasible_paths(
                 table->GetInfeasiblePathCount());
 
             uint64_t total_paths = table->GetPrimaryPathCount() +
                                    table->GetSecondaryPathCount() +
                                    table->GetInfeasiblePathCount();
-            stats_map[rit->name()].set_total_paths(total_paths);
+            stats_map[rit->second->name()].set_total_paths(total_paths);
             SetTableStatsUve(table->family(), stats_map, &instance_info);
         }
 
         // Set the primary key and trigger uve send.
-        instance_info.set_name(rit->GetVirtualNetworkName());
+        instance_info.set_name(rit->second->GetVirtualNetworkName());
         RoutingInstanceStats::Send(instance_info);
     }
 
@@ -531,10 +541,15 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
     const BgpInstanceConfig *config) {
     RoutingInstance *rtinstance = BgpObjectFactory::Create<RoutingInstance>(
         config->name(), server_, this, config);
-    if (config->name() == BgpConfigManager::kMasterInstance)
+    uint32_t ri_index = config->index();
+    if (config->name() == BgpConfigManager::kMasterInstance) {
         default_rtinstance_ = rtinstance;
+        ri_index = 0;
+    }
+
     rtinstance->ProcessConfig();
     InsertRoutingInstance(rtinstance);
+    rtinstance->set_index(ri_index);
 
     InstanceTargetAdd(rtinstance);
     InstanceVnIndexAdd(rtinstance);
@@ -643,9 +658,16 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     DeleteVirtualNetworkMapping(rtinstance->GetVirtualNetworkName(),
                                 rtinstance->name());
 
-    // Remove call here also deletes the instance.
+    // instance should also be deleted here
     const string name = rtinstance->name();
-    instances_.Remove(rtinstance->name(), rtinstance->index());
+    RoutingInstanceList::iterator loc = instances_.find(rtinstance->name());
+    assert(loc != instances_.end());
+    instances_.erase(loc);
+    int index = rtinstance->index();
+    delete rtinstance;
+    // index was allocated in Config Manager so needs to be freed
+    if (index >= 0)
+        server()->config_manager()->ResetIndexBit(index);
 
     if (deleted())
         return;
@@ -692,15 +714,15 @@ void RoutingInstanceMgr::ASNUpdateCallback(as_t old_asn, as_t old_local_asn) {
     if (server_->local_autonomous_system() == old_local_asn)
         return;
     for (RoutingInstanceIterator it = begin(); it != end(); ++it) {
-        it->FlushAllRTargetRoutes(old_local_asn);
-        it->InitAllRTargetRoutes(server_->local_autonomous_system());
+        it->second->FlushAllRTargetRoutes(old_local_asn);
+        it->second->InitAllRTargetRoutes(server_->local_autonomous_system());
     }
 }
 
 void RoutingInstanceMgr::IdentifierUpdateCallback(Ip4Address old_identifier) {
     for (RoutingInstanceIterator it = begin(); it != end(); ++it) {
-        it->FlushAllRTargetRoutes(server_->local_autonomous_system());
-        it->InitAllRTargetRoutes(server_->local_autonomous_system());
+        it->second->FlushAllRTargetRoutes(server_->local_autonomous_system());
+        it->second->InitAllRTargetRoutes(server_->local_autonomous_system());
     }
 }
 

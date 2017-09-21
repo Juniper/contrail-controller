@@ -16,6 +16,7 @@
 
 #include "base/task_trigger.h"
 #include "base/util.h"
+#include "base/index_map.h"
 #include "bgp/bgp_config.h"
 #include "ifmap/ifmap_config_listener.h"
 #include "ifmap/ifmap_node_proxy.h"
@@ -140,6 +141,7 @@ public:
     const BgpIfmapInstanceConfig *instance() { return instance_; }
 
     const BgpProtocolConfig *protocol_config() const { return &data_; }
+    void ProcessIdentifierUpdate(uint32_t new_id, uint32_t old_id);
 
 private:
     BgpIfmapInstanceConfig *instance_;
@@ -242,6 +244,12 @@ public:
     int virtual_network_index() const { return data_.virtual_network_index(); }
     void AddRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp);
     void DeleteRoutingPolicy(BgpIfmapRoutingPolicyConfig *rtp);
+    void set_index(int index) { index_ = index; };
+    int index() const { return index_; }
+    std::string GetVitFromId(uint32_t identifier);
+    void InsertVitInImportList(BgpIfmapConfigManager *manager,
+            BgpInstanceConfig::RouteTargetList& import_list);
+    void ProcessIdentifierUpdate(uint32_t new_id, uint32_t old_id);
 
 private:
     friend class BgpConfigManagerTest;
@@ -249,6 +257,7 @@ private:
     std::string name_;
     IFMapNodeProxy node_proxy_;
     BgpInstanceConfig data_;
+    int index_;
     boost::scoped_ptr<BgpIfmapProtocolConfig> protocol_;
     NeighborMap neighbors_;
     PeeringMap peerings_;
@@ -364,8 +373,8 @@ class BgpIfmapConfigData {
 public:
     typedef BgpConfigManager::InstanceMap BgpInstanceMap;
     typedef BgpConfigManager::RoutingPolicyMap BgpRoutingPolicyMap;
-    typedef std::map<std::string,
-        BgpIfmapInstanceConfig *> IfmapInstanceMap;
+    typedef IndexMap<std::string,
+        BgpIfmapInstanceConfig, BitSet> IfmapInstanceMap;
     typedef std::map<std::string,
         BgpIfmapRoutingPolicyConfig *> IfmapRoutingPolicyMap;
     typedef std::map<std::string,
@@ -409,7 +418,7 @@ public:
     BgpConfigManager::RoutingPolicyMapRange RoutingPolicyMapItems(
         const std::string &start_name = std::string()) const;
 
-    const IfmapInstanceMap &instances() const { return instances_; }
+    IfmapInstanceMap &instances() { return instances_; }
     const IfmapPeeringMap &peerings() const { return peerings_; }
     BgpIfmapGlobalSystemConfig *global_config() { return &global_config_; }
     const BgpIfmapGlobalSystemConfig *global_config() const {
@@ -419,6 +428,8 @@ public:
     const BgpIfmapGlobalQosConfig *global_qos() const {
         return &global_qos_;
     }
+    void ProcessIdentifierUpdate(BgpIfmapConfigManager* manager,
+                    uint32_t new_id, uint32_t old_id);
 
 private:
     IfmapInstanceMap instances_;
@@ -472,6 +483,7 @@ public:
         const std::string &instance_name) const;
 
     virtual int NeighborCount(const std::string &instance_name) const;
+    virtual void ResetIndexBit(int index);
 
     virtual const BgpInstanceConfig *FindInstance(
         const std::string &name) const;
@@ -489,6 +501,9 @@ public:
     DB *database() { return db_; }
     DBGraph *graph() { return db_graph_; }
     const BgpIfmapConfigData *config() const { return config_.get(); }
+    BgpIfmapConfigData *config() { return config_.get(); }
+    void UpdateInstanceConfig(BgpIfmapInstanceConfig *rti,
+            BgpConfigManager::EventType event);
 
 private:
     friend class BgpConfigListenerTest;
