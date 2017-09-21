@@ -157,19 +157,23 @@ class VerificationOpsSrv (IntrospectUtilBase):
             return res        
 
     def post_query(self, table, start_time=None, end_time=None,
-                   select_fields=None, where_clause=None,
+                   select_fields=None, where_clause='',
                    sort_fields=None, sort=None, limit=None,
-                   filter=None, sync=True,dir=None):
+                   filter=None, sync=True,dir=None, session_type=None,
+                   is_service_instance=None):
         res = None
         try:
             flows_url = OpServerUtils.opserver_query_url(
                 self._ip, str(self._port))
             print flows_url
             query_dict = OpServerUtils.get_query_dict(
-                table, start_time, end_time,
-                select_fields,
-                where_clause,
-                sort_fields, sort, limit, filter, dir)
+                table, start_time=start_time, end_time=end_time,
+                select_fields=select_fields,
+                where_clause=where_clause,
+                sort_fields=sort_fields, sort=sort, limit=limit, filter=filter,
+                dir=dir,
+                is_service_instance=is_service_instance,
+                session_type=session_type)
 
             print json.dumps(query_dict)
             res = []

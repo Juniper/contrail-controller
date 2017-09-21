@@ -135,8 +135,42 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_message_table_query
 
+    #@unittest.skip('Send/query session stats to test QE')
+    def test_03_session_query(self):
+        '''
+        This test starts redis, vizd, opserver and qed
+        It uses the test class' cassandra instance
+        Then it sends session stats to the collector
+        and checks if session stats can be accessed from QE
+        '''
+        logging.info("%%% test_03_session_query  %%%")
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        # set the start time in analytics db 1 hour earlier than
+        # the current time. For flow series test, we need to create
+        # flow samples older than the current time.
+        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
+        self._update_analytics_start_time(start_time)
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture("contrail-vrouter-agent", collectors,
+                             logging, vizd_obj.get_opserver_port(),
+                             start_time))
+        assert generator_obj.verify_on_setup()
+        generator_obj.generate_session_samples()
+        assert vizd_obj.verify_session_samples(generator_obj)
+        assert vizd_obj.verify_session_table(generator_obj)
+        assert vizd_obj.verify_session_series_aggregation_binning(generator_obj)
+        return True
+    # end test_03_session_query
+
     #@unittest.skip('Send/query flow stats to test QE')
-    def test_03_flow_query(self):
+    def test_04_flow_query(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
@@ -180,7 +214,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
     # end test_03_flow_query
 
     #@unittest.skip('InterVN stats using StatsOracle')
-    def test_04_intervn_query(self):
+    def test_05_intervn_query(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
@@ -217,7 +251,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
     # end test_04_intervn_query
 
     #@unittest.skip('Fieldname queries')
-    def test_05_fieldname_query(self):
+    def test_06_fieldname_query(self):
         '''
         This test starts redis,vizd,opserver and qed
         It uses the test class' cassandra instance
@@ -254,7 +288,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
     # end test_05_fieldname_query
 
     #@unittest.skip('verify send-tracebuffer')
-    def test_06_send_tracebuffer(self):
+    def test_07_send_tracebuffer(self):
         '''
         This test verifies /analytics/send-tracebuffer/ REST API.
         Opserver publishes the request to send trace buffer to all
