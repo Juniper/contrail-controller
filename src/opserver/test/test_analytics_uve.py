@@ -336,7 +336,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
                                       num_vm_ifs=5, msg_count=5)
     # end test_05_collector_ha
 
-    #@unittest.skip('Skipping AlarmGen basic test')
+    @unittest.skip('Skipping AlarmGen basic test')
     def test_06_alarmgen_basic(self):
         '''
         This test starts the analytics processes.
@@ -458,7 +458,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_06_alarmgen_basic
 
-    #@unittest.skip('Skipping Alarm test')
+    @unittest.skip('Skipping Alarm test')
     def test_07_alarm(self):
         '''
         This test starts redis, collectors, analytics-api and
@@ -575,7 +575,7 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
             alarm_gen1.alarms[BGP_ROUTER_TABLE][keys[0]].data)))
     # end test_07_alarm
 
-    #@unittest.skip('Skipping UVE/Alarm Filter test')
+    @unittest.skip('Skipping UVE/Alarm Filter test')
     def test_08_uve_alarm_filter(self):
         '''
         This test verifies the filter options kfilt, sfilt, mfilt and cfilt
