@@ -1199,6 +1199,18 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         return json.loads(resp.text)
     # end list_resource
 
+    def delete_resource(self, res_type, proj_id, id, is_admin=False):
+        context = {'operation': 'DELETE',
+                   'user_id': '',
+                   'is_admin': is_admin,
+                   'roles': '',
+                   'tenant_id': proj_id}
+
+        data = {'id': id}
+
+        body = {'context': context, 'data': data}
+        self._api_svr_app.post_json('/neutron/%s' % res_type, body)
+
     def test_filters_with_id(self):
         neutron_api_obj = FakeExtensionManager.get_extension_objects(
             'vnc_cfg_api.neutronApi')[0]
@@ -1325,22 +1337,43 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         vn3_obj.set_router_external(True)
         self._vnc_lib.virtual_network_create(vn3_obj)
 
-        #filter for list of shared network='False' should return 2
+        subnet1_q = self.create_resource('subnet', proj_obj.uuid,
+                                extra_res_fields={'network_id': vn1_obj.uuid,
+                                                  'cidr': '10.0.0.0/24',
+                                                  'ip_version': 4})
+        subnet2_q = self.create_resource('subnet', proj_obj.uuid,
+                                extra_res_fields={'network_id': vn2_obj.uuid,
+                                                  'cidr': '10.1.0.0/24',
+                                                  'ip_version': 4})
+        subnet3_q = self.create_resource('subnet', proj_obj.uuid,
+                                extra_res_fields={'network_id': vn3_obj.uuid,
+                                                  'cidr': '10.2.0.0/24',
+                                                  'ip_version': 4})
+
+        #filter for list of shared network/subnet='False' should return 2
         vn1_neutron_list = self.list_resource(
                                 'network', proj_uuid=proj_obj.uuid,
                                 req_filters={'shared': [False]})
+        vn1_3_subnet_list = self.list_resource(
+                                 'subnet', proj_uuid=proj_obj.uuid,
+                                 req_filters={'shared': [False]})
         self.assertEqual(len(vn1_neutron_list), 2)
+        self.assertEqual(len(vn1_3_subnet_list), 2)
         vn_ids = []
         vn_ids.append(vn1_neutron_list[0]['id'])
         vn_ids.append(vn1_neutron_list[1]['id'])
         self.assertIn(vn1_obj.uuid, vn_ids)
         self.assertIn(vn3_obj.uuid, vn_ids)
 
-        #filter for list of router:external='False' network should return 1
+        #filter for list of router:external='False' net/subnet should return 1
         vn2_neutron_list = self.list_resource(
                                 'network', proj_uuid=proj_obj.uuid,
                                 req_filters={'router:external': [False]})
         self.assertEqual(len(vn2_neutron_list), 1)
+        vn2_subnet_list = self.list_resource(
+                                'subnet', proj_uuid=proj_obj.uuid,
+                                req_filters={'router:external': [False]})
+        self.assertEqual(len(vn2_subnet_list), 1)
         self.assertEqual(vn2_neutron_list[0]['id'], vn2_obj.uuid)
 
         #filter for list of router:external and
@@ -1352,7 +1385,10 @@ class TestListWithFilters(test_case.NeutronBackendTestCase):
         self.assertEqual(len(vn3_neutron_list), 1)
         self.assertEqual(vn3_neutron_list[0]['id'], vn3_obj.uuid)
 
-
+        # cleanup
+        self.delete_resource('subnet', proj_obj.uuid, subnet1_q['id'])
+        self.delete_resource('subnet', proj_obj.uuid, subnet2_q['id'])
+        self.delete_resource('subnet', proj_obj.uuid, subnet3_q['id'])
         self._vnc_lib.virtual_network_delete(id=vn1_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn2_obj.uuid)
         self._vnc_lib.virtual_network_delete(id=vn3_obj.uuid)
