@@ -185,6 +185,8 @@ class AuthServiceKeystone(object):
                 'memcached_servers'] = args.memcache_servers.split(',')
             if 'token_cache_time' in args:
                 self._conf_info['token_cache_time'] = args.token_cache_time
+        self._user_auth_middleware = None
+        self._hdr_from_token_auth_middleware = None
     # end __init__
 
     def get_middleware_app(self):
@@ -236,36 +238,42 @@ class AuthServiceKeystone(object):
         pass
 
     def validate_user_token(self, request):
-        # following config forces keystone middleware to always return the result
-        # back in HTTP_X_IDENTITY_STATUS env variable
-        conf_info = self._conf_info.copy()
-        conf_info['delay_auth_decision'] = True
+        if not self._user_auth_middleware:
+            # following config forces keystone middleware to always return
+            # the result back in HTTP_X_IDENTITY_STATUS env variable
+            conf_info = self._conf_info.copy()
+            conf_info['delay_auth_decision'] = True
 
-        auth_middleware = auth_token.AuthProtocol(self.token_valid, conf_info)
-        return auth_middleware(request.headers.environ, self.start_response)
+            self._user_auth_middleware = auth_token.AuthProtocol(
+                    self.token_valid, conf_info)
+        return self._user_auth_middleware(
+                request.headers.environ, self.start_response)
 
     def get_auth_headers_from_token(self, request, token):
         if not token:
             return {}
 
-        conf_info = self._conf_info.copy()
-        conf_info['delay_auth_decision'] = True
+        if not self._hdr_from_token_auth_middleware:
+            conf_info = self._conf_info.copy()
+            conf_info['delay_auth_decision'] = True
 
-        def token_to_headers(env, start_response):
-            start_response('200 OK', [('Content-type', 'text/plain')])
-            status = env.get('HTTP_X_IDENTITY_STATUS')
-            if status and status.lower() == 'invalid':
-                return {}
-            ret_headers_dict = {}
-            for hdr_name in ['HTTP_X_DOMAIN_ID', 'HTTP_X_PROJECT_ID',
-                'HTTP_X_PROJECT_NAME', 'HTTP_X_USER', 'HTTP_X_ROLE',
-                'HTTP_X_API_ROLE']:
-                hdr_val = env.get(hdr_name)
-                if hdr_val:
-                    ret_headers_dict[hdr_name] = hdr_val
-            return ret_headers_dict
+            def token_to_headers(env, start_response):
+                start_response('200 OK', [('Content-type', 'text/plain')])
+                status = env.get('HTTP_X_IDENTITY_STATUS')
+                if status and status.lower() == 'invalid':
+                    return {}
+                ret_headers_dict = {}
+                for hdr_name in ['HTTP_X_DOMAIN_ID', 'HTTP_X_PROJECT_ID',
+                    'HTTP_X_PROJECT_NAME', 'HTTP_X_USER', 'HTTP_X_ROLE',
+                    'HTTP_X_API_ROLE']:
+                    hdr_val = env.get(hdr_name)
+                    if hdr_val:
+                        ret_headers_dict[hdr_name] = hdr_val
+                return ret_headers_dict
 
-        auth_middleware = auth_token.AuthProtocol(token_to_headers, conf_info)
-        return auth_middleware(request.headers.environ, self.start_response)
+            self._hdr_from_token_auth_middleware = auth_token.AuthProtocol(
+                    token_to_headers, conf_info)
+        return self._hdr_from_token_auth_middleware(
+                request.headers.environ, self.start_response)
     # end get_auth_headers_from_token
 # end class AuthService
