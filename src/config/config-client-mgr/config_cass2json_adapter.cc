@@ -38,7 +38,7 @@ const set<string> ConfigCass2JsonAdapter::allowed_properties =
              list_of(prop_prefix)(map_prop_prefix)
                     (list_prop_prefix)(ref_prefix)(parent_prefix);
 
-bool ConfigCass2JsonAdapter::assert_on_parse_error_ =
+bool ConfigCass2JsonAdapter::assert_on_parse_error_ = 0;
     getenv("CONTRAIL_CONFIG_ASSERT_ON_PARSE_ERROR") != NULL;
 
 #define CONFIG_PARSE_ASSERT(t, condition)                                      \
@@ -159,7 +159,10 @@ void ConfigCass2JsonAdapter::AddOneEntry(Value *jsonObject,
             IsLinkWithAttr(obj_type, ref_type);
         if (link_with_attr) {
             Document ref_document(&a);
-            ref_document.Parse<0>(c.value.c_str());
+            string c_value = c.value;
+            if (c_value == "null")
+                c_value = "{\"attr\":{}}";
+            ref_document.Parse<0>(c_value.c_str());
             CONFIG_PARSE_ASSERT(ReferenceLinkAttributes,
                                 !ref_document.HasParseError());
             CONFIG_PARSE_ASSERT(ReferenceLinkAttributes,
