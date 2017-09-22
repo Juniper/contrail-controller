@@ -48,6 +48,9 @@ proto_dict = {
 
 DEFAULT_MATCH_TAG_TYPE = ['deployment']
 
+RULE_IMPLICIT_ALLOW_UUID = "00000000-0000-0000-0000-100000000001"
+RULE_IMPLICIT_DENY_UUID = "00000000-0000-0000-0000-100000000002"
+
 def obj_to_json(obj):
     return dict((k, v) for k, v in obj.__dict__.iteritems())
 #end obj_to_json
