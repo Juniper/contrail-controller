@@ -986,7 +986,7 @@ class OpServerUtils(object):
                 if match == '':
                     continue
                 match_s = match.strip(' ()')
-                match_e = match_s.split('=')
+                match_e = match_s.split('=', 1)
                 match_e[0] = match_e[0].strip(' ()')
                 match_e[1] = match_e[1].strip(' ()')
 
@@ -1036,7 +1036,7 @@ class OpServerUtils(object):
         if filter is not None:
             for match in filter.split(','):
                 match_s = match.strip(' ()')
-                match_e = match_s.split('=')
+                match_e = match_s.split('=', 1)
                 match_op = ["", ""]
                 if (len(match_e) == 2):
                     match_op[0] = match_e[0].strip(' ()')
