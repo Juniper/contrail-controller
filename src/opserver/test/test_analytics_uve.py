@@ -1952,6 +1952,31 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_09_verify_db_info
 
+    #@unittest.skip('Skipping AnalyticsApiInfo UVE test')
+    def test_10_analytics_api_info_uve(self):
+
+        '''
+        This test starts redis, vizd, opserver, qed, and a python generator
+        that simulates analytics API
+
+        Reads rest_api_ip and host_ip of OpServer as AnalyticsApiInfoUVE
+        Test case doesn't invoke AnalyticsAPiInfo UVE add
+        and UVE delete.
+
+        '''
+        logging.info("%%% test_10_analytics_api_info_uve %%%")
+
+        vizd_obj = self.useFixture(
+                AnalyticsFixture(logging, builddir, 0))
+        table = _OBJECT_TABLES[COLLECTOR_INFO_TABLE].log_query_name
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_analytics_api_info_uve(
+                    hostname = socket.gethostname(),
+                    analytics_table = table,
+                    rest_api_ip = '0.0.0.0',
+                    host_ip = '127.0.0.1')
+        return True
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

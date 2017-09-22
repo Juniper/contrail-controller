@@ -79,6 +79,7 @@ from vnc_cfg_api_client import VncCfgApiClient
 from opserver_local import LocalApp
 from opserver_util import AnalyticsDiscovery
 from strict_redis_wrapper import StrictRedisWrapper
+from sandesh.analytics_api_info.ttypes import AnalyticsApiInfoUVE, AnalyticsApiInfo
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -2340,6 +2341,20 @@ class OpServer(object):
         return (json.dumps([]))
     # end column_process
 
+    def send_analytics_api_info_uve(self):
+        analytics_api_info = AnalyticsApiInfo()
+        analytics_api_info.name = self._hostname
+        analytics_api_info.analytics_node_ip = dict()
+        analytics_api_info.analytics_node_ip[
+                'rest_api_ip'] = self._args.rest_api_ip
+        analytics_api_info.analytics_node_ip[
+                'host_ip'] = self._args.host_ip
+        uve_analytics_api_info = AnalyticsApiInfoUVE(
+                data=analytics_api_info,
+                sandesh = self._sandesh)
+        uve_analytics_api_info.send(sandesh = self._sandesh)
+    #end send_analytics_api_info_uve
+
     def start_uve_server(self):
         self._uve_server.run()
 
@@ -2402,6 +2417,7 @@ class OpServer(object):
 
     def run(self):
         self._uvedbstream.start()
+        self.send_analytics_api_info_uve()
 
         self.gevs += [
             self._uvedbstream,
