@@ -131,6 +131,12 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
     s_intf->set_tx_vlan(intf_->tx_vlan_id());
     s_intf->set_rx_vlan(intf_->rx_vlan_id());
     s_intf->set_vhostuser_mode(intf_->vhostuser_mode());
+    if (intf_->GetAnalyzer() != std::string()) {
+        s_intf->set_port_mirror_enabled(true);
+    } else {
+        s_intf->set_port_mirror_enabled(false);
+    }
+
     const Interface *parent = intf_->parent();
     if (parent) {
         const VmInterface *p_vmi = dynamic_cast<const VmInterface*>(parent);

@@ -242,6 +242,8 @@ struct UveVMInterfaceAgent {
    48: optional list<string> policy_rules;
    /** Vhostuser mode */
    49: optional byte vhostuser_mode;
+   /** shows whether interface port mirror is enabled or not*/
+   50: optional bool port_mirror_enabled;
 }
 
 /**
