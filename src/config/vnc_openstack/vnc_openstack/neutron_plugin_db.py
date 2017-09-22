@@ -2506,7 +2506,7 @@ class DBInterface(object):
             port_q_dict['extra_dhcp_opts'] = dhcp_options
 
         allowed_address_pairs = port_obj.get_virtual_machine_interface_allowed_address_pairs()
-	address_pairs = []
+        address_pairs = []
         if allowed_address_pairs and allowed_address_pairs.allowed_address_pair:
             for aap in allowed_address_pairs.allowed_address_pair:
                 pair = {}

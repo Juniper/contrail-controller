@@ -415,7 +415,7 @@ class ConfigDBTest(unittest.TestCase):
         route_table = RouteTableType("Test-Route-Table")
         route_table.set_route([])
         intf_route_table_obj = InterfaceRouteTable('Test-route-table',
-		interface_route_table_routes=route_table, parent_obj=project)
+                interface_route_table_routes=route_table, parent_obj=project)
         irt_dict = self.obj_to_dict(intf_route_table_obj)
         irt_dict['parent_uuid'] = 'project'
         irt_dict['uuid'] = 'irt'
@@ -507,8 +507,8 @@ class ConfigDBTest(unittest.TestCase):
 
         lr = LogicalRouter(name="Test-LR", parent_obj=project)
         lr.set_service_instance(si_obj)
-	lr.set_virtual_network(net_obj)
-	lr.set_virtual_machine_interface(vmi_obj)
+        lr.set_virtual_network(net_obj)
+        lr.set_virtual_machine_interface(vmi_obj)
         lr._pending_field_updates.add('service_instance_refs')
         lr._pending_field_updates.add('virtual_network_refs')
         lr._pending_field_updates.add('virtual_machine_interface_refs')

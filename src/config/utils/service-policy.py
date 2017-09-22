@@ -62,7 +62,7 @@ class ServicePolicyCmd(object):
             'api_server_use_ssl_': False,
         }
 
-	if not args.conf_file:
+        if not args.conf_file:
             args.conf_file = '/etc/contrail/contrail-svc-monitor.conf'
 
         config = ConfigParser.SafeConfigParser()

@@ -167,10 +167,10 @@ class FlowQuerier(object):
             help="Flow records to vrouter IP address")
         parser.add_argument("--tunnel-info", action="store_true",
             help="Show flow tunnel information")
-	parser.add_argument("--vmi-uuid",
+        parser.add_argument("--vmi-uuid",
             help="Show vmi uuid information")
         parser.add_argument(
-            "--verbose", action="store_true", help="Show internal information")        
+            "--verbose", action="store_true", help="Show internal information")
         self._args = parser.parse_args(remaining_argv)
 
         self._args.admin_user = args.admin_user

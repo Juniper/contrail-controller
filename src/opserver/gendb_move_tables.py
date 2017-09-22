@@ -111,16 +111,16 @@ def list_cf(keyspace = COLLECTOR_KEYSPACE):
 def copy_table(name):
     found_table = False
     for t in table_list:
-	print t.table_name, name
-	if(t.table_name == name):
-	    found_table = True
-	    if(t.is_static == True):
-		copy_static_table(name)
-	    else:
-		copy_dynamic_table(name)
-	    break
+        print t.table_name, name
+        if(t.table_name == name):
+            found_table = True
+            if(t.is_static == True):
+                copy_static_table(name)
+            else:
+                copy_dynamic_table(name)
+            break
     if found_table == False:
-    	print 'Not sure, how to copy this table: ', name
+        print 'Not sure, how to copy this table: ', name
     return
 
 def _convert_to_cql_data(columns, col_num, thrift_data, data_index):
@@ -148,44 +148,44 @@ def copy_static_table(table):
     command = "BEGIN BATCH INSERT INTO {0} (key".format(table)
     columns = []
     for t in table_list:
-	if(t.table_name == table):
-	    columns = t.columns
-	    break
+        if(t.table_name == table):
+            columns = t.columns
+            break
     field_dict = {}
     for column in columns:
-	field_dict[column.name] = column.datatype
+        field_dict[column.name] = column.datatype
 
     num_rows_in_batch = 0
     rowKey = ''
     for rowKey,columns in table_rows:
-	num_rows_in_batch += 1
-	if(num_rows_in_batch % args.max_batch_entry_count == 0):
-	    num_rows_in_batch = 0
-	    command += 'APPLY BATCH;'
-    	    client.session.execute(command)
-    	    command = "BEGIN BATCH INSERT INTO {0} (key".format(table)
-	if isinstance(rowKey, unicode):
-	    rowKey = rowKey.encode('utf-8')
-	values = [rowKey]
-	ttl = 0
-	for key in columns.keys():
-	    value, ttl = columns.get(key)
-	    if(DbDataType.Unsigned32Type == field_dict['key']):
-		value = numpy.int32(value)
-	    elif(DbDataType.InetType == field_dict['key']):
-	    	ip = socket.inet_ntoa(hex(value & 0xffffffff)[2:].zfill(8).decode('hex'))
-		value = ip
-	    command = '{0}, "{1}"'.format(command, key)
-	    values.append(value)
-	command += ') VALUES '
-	if(ttl):
-	    command = "{0}{1} USING TTL {2};".format(command, tuple(values), ttl)
-	else:
-	    command = "{0}{1};".format(command, tuple(values))
+        num_rows_in_batch += 1
+        if(num_rows_in_batch % args.max_batch_entry_count == 0):
+            num_rows_in_batch = 0
+            command += 'APPLY BATCH;'
+            client.session.execute(command)
+            command = "BEGIN BATCH INSERT INTO {0} (key".format(table)
+        if isinstance(rowKey, unicode):
+            rowKey = rowKey.encode('utf-8')
+        values = [rowKey]
+        ttl = 0
+        for key in columns.keys():
+            value, ttl = columns.get(key)
+            if(DbDataType.Unsigned32Type == field_dict['key']):
+                value = numpy.int32(value)
+            elif(DbDataType.InetType == field_dict['key']):
+                ip = socket.inet_ntoa(hex(value & 0xffffffff)[2:].zfill(8).decode('hex'))
+            value = ip
+            command = '{0}, "{1}"'.format(command, key)
+            values.append(value)
+        command += ') VALUES '
+        if(ttl):
+            command = "{0}{1} USING TTL {2};".format(command, tuple(values), ttl)
+        else:
+            command = "{0}{1};".format(command, tuple(values))
     if(rowKey != ''):
-    	command += 'APPLY BATCH;'
-    	client.session.execute(command)
-	    
+        command += 'APPLY BATCH;'
+        client.session.execute(command)
+
 def is_json(myjson):
   try:
     json_object = json.loads(myjson)
@@ -202,18 +202,18 @@ def copy_dynamic_table(table):
     values = ''
     keyCount = 0
     for t in table_list:
-	if(t.table_name == table):
-	    table_columns = t.columns
-	    for column in t.columns:
+        if(t.table_name == table):
+            table_columns = t.columns
+            for column in t.columns:
                 if keyCount == 0:
-		    command += column.name
-		    values = ') VALUES (?'
+                    command += column.name
+                    values = ') VALUES (?'
                 else:
-		    command += ', ' + column.name
-		    values += ', ?'
-                if (column.key == True):    
-		    keyCount += 1
-	    break
+                    command += ', ' + column.name
+                    values += ', ?'
+                if (column.key == True):
+                    keyCount += 1
+            break
     command += values + ') USING TTL ?'
     insert_flow = client.session.prepare(command.format(table))
 
@@ -221,36 +221,36 @@ def copy_dynamic_table(table):
     num_rows_in_batch = 0
     rowKey = ''
     for rowKey,columns in table_rows:
-	key_value = []
-	rowKey_size = 0
-	if isinstance(rowKey, tuple):
-	    for key in range(0, len(list(rowKey))):
-		key_value.append(_convert_to_cql_data(table_columns, rowKey_size, rowKey, rowKey_size))
-	    	rowKey_size += 1
+        key_value = []
+        rowKey_size = 0
+        if isinstance(rowKey, tuple):
+            for key in range(0, len(list(rowKey))):
+                key_value.append(_convert_to_cql_data(table_columns, rowKey_size, rowKey, rowKey_size))
+                rowKey_size += 1
             if(t.is_index_table == True):
-                key_value.append(random.randrange(0, 16)) 
-	else:
-	    key_value.append(_convert_to_cql_data(table_columns, rowKey_size, rowKey, rowKey_size))
-	    rowKey_size += 1
-	for key in columns.keys():
-	    value, ttl = columns.get(key)
-	    jsonValue = value
-	    if is_json(value) != True:
-	    	jsonValue = json.dumps(value, ensure_ascii=False)
-	    column_value = copy.deepcopy(key_value)
-	    num_rows_in_batch += 1
-	    if(num_rows_in_batch % args.max_batch_entry_count == 0):
-	    	num_rows_in_batch = 0
-    	    	client.load_data(batch)
-	    	batch = BatchStatement()
-	    for col_num in range(rowKey_size, len(table_columns)-1):
-		column_value.append(_convert_to_cql_data(table_columns, col_num, key, col_num-rowKey_size))
-	    column_value.append(jsonValue)
-	    column_value.append(ttl if ttl else 7200)
-	    
-	    batch.add(insert_flow, tuple(column_value))
+                key_value.append(random.randrange(0, 16))
+        else:
+            key_value.append(_convert_to_cql_data(table_columns, rowKey_size, rowKey, rowKey_size))
+            rowKey_size += 1
+        for key in columns.keys():
+            value, ttl = columns.get(key)
+            jsonValue = value
+            if is_json(value) != True:
+                jsonValue = json.dumps(value, ensure_ascii=False)
+            column_value = copy.deepcopy(key_value)
+            num_rows_in_batch += 1
+            if(num_rows_in_batch % args.max_batch_entry_count == 0):
+                num_rows_in_batch = 0
+                client.load_data(batch)
+                batch = BatchStatement()
+            for col_num in range(rowKey_size, len(table_columns)-1):
+                column_value.append(_convert_to_cql_data(table_columns, col_num, key, col_num-rowKey_size))
+            column_value.append(jsonValue)
+            column_value.append(ttl if ttl else 7200)
+
+            batch.add(insert_flow, tuple(column_value))
     if(rowKey != ''):
-    	client.load_data(batch)
+        client.load_data(batch)
 
 client = SimpleClient()
 client.connect([args.cassandra_server_ip])
@@ -264,9 +264,9 @@ if args.copy_cf == None:
     startTime = datetime.utcnow()
     print 'Start time for copying: ', startTime
     for table in tables:
-    	print 'Start time for table ', table, ': ', datetime.utcnow()
-	copy_table(table)
-    	print 'Finish time for table ', table, ': ', datetime.utcnow()
+        print 'Start time for table ', table, ': ', datetime.utcnow()
+        copy_table(table)
+        print 'Finish time for table ', table, ': ', datetime.utcnow()
     endTime = datetime.utcnow()
     print 'Total time taken: ', endTime - startTime
 else:

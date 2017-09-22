@@ -430,7 +430,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         vn.add_network_ipam(ipam2, VnSubnetsType([ipam2_sn_v4]))
         with ExpectedException(cfgm_common.exceptions.OverQuota):
             self._vnc_lib.virtual_network_create(vn)
-	#increase subnet quota to 2, and network_create will go through..
+        #increase subnet quota to 2, and network_create will go through..
         quota_type.set_subnet(2)
         project.set_quota(quota_type)
         self._vnc_lib.project_update(project)
@@ -1048,7 +1048,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
 
         #try allocating specific ip, which has been assigned already
-	ipv4_obj5.set_instance_ip_address('12.1.1.4')
+        ipv4_obj5.set_instance_ip_address('12.1.1.4')
         with ExpectedException(cfgm_common.exceptions.RefsExistError,
                                'Ip address already in use') as e:
             ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
@@ -1445,7 +1445,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
             logger.debug('Allocation failed, expected v4 IP Address 13.1.1.8')
 
         ipv4_obj2.set_virtual_network(net_obj)
-	ipv4_obj2.set_subnet_uuid(str(subnet_uuid2))
+        ipv4_obj2.set_subnet_uuid(str(subnet_uuid2))
         ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
         ipv4_obj2 = self._vnc_lib.instance_ip_read(id=ipv4_id2)
         ipv4_addr2 = ipv4_obj2.get_instance_ip_address()

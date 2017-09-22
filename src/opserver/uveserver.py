@@ -152,12 +152,12 @@ class UVEServer(object):
                 finally:
                     # Update redis/collector health
                     if old_pid is None and rinst.collector_pid is not None:
-	                ConnectionState.update(ConnectionType.REDIS_UVE,\
-		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.UP,
+                        ConnectionState.update(ConnectionType.REDIS_UVE,\
+                                rkey.ip + ":" + str(rkey.port), ConnectionStatus.UP,
                         [rkey.ip+":"+str(rkey.port)])
                     if old_pid is not None and rinst.collector_pid is None:
-	                ConnectionState.update(ConnectionType.REDIS_UVE,\
-		                rkey.ip + ":" + str(rkey.port), ConnectionStatus.DOWN,
+                        ConnectionState.update(ConnectionType.REDIS_UVE,\
+                                rkey.ip + ":" + str(rkey.port), ConnectionStatus.DOWN,
                         [rkey.ip+":"+str(rkey.port)])
             if not exitrun:
                 gevent.sleep(self._freq)
@@ -634,7 +634,7 @@ class ParallelAggregator:
                     result['list'][sname].append(elem)
                     siz += 1
         result['list']['@size'] = str(siz)
-        
+
         return result
 
     def _map_union_agg(self, oattr):
@@ -648,38 +648,38 @@ class ParallelAggregator:
         result['map']['@value'] = oattr[akey]['map']['@value']
         result['map']['element'] = []
 
-	sname = None
-	for ss in oattr[akey]['map'].keys():
-	    if ss[0] != '@':
-		if ss != 'element':
-		    sname = ss
+        sname = None
+        for ss in oattr[akey]['map'].keys():
+            if ss[0] != '@':
+                if ss != 'element':
+                    sname = ss
                     result['map'][sname] = []
 
         siz = 0
         for source in oattr.keys():
             if sname is None:
-		for subidx in range(0,int(oattr[source]['map']['@size'])):
-		    print "map_union_agg Content %s" % (oattr[source]['map'])
-		    result['map']['element'].append(source + ":" + \
-			    json.dumps(oattr[source]['map']['element'][subidx*2]))
-		    result['map']['element'].append(\
-			    oattr[source]['map']['element'][(subidx*2) + 1])
-		    siz += 1
+                for subidx in range(0,int(oattr[source]['map']['@size'])):
+                    print "map_union_agg Content %s" % (oattr[source]['map'])
+                    result['map']['element'].append(source + ":" + \
+                            json.dumps(oattr[source]['map']['element'][subidx*2]))
+                    result['map']['element'].append(\
+                            oattr[source]['map']['element'][(subidx*2) + 1])
+                    siz += 1
             else:
                 if not isinstance(oattr[source]['map']['element'], list):
                     oattr[source]['map']['element'] = [oattr[source]['map']['element']]
                 if not isinstance(oattr[source]['map'][sname], list):
                     oattr[source]['map'][sname] = [oattr[source]['map'][sname]]
-                
+
                 for idx in range(0,int(oattr[source]['map']['@size'])):
                     result['map']['element'].append(source + ":" + \
                             json.dumps(oattr[source]['map']['element'][idx]))
                     result['map'][sname].append(\
                             oattr[source]['map'][sname][idx])
                     siz += 1
-        
+
         result['map']['@size'] = str(siz)
-             
+
         return result
 
     def _append_agg(self, oattr):

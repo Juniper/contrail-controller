@@ -647,7 +647,7 @@ class UveStreamer(gevent.Greenlet):
         self._logger.error("Stopping agguve part %d" % partno)
         self._parts[partno].kill()
         del self._parts[partno]
-            
+
 class PartitionHandler(gevent.Greenlet):
     def __init__(self, brokers, group, topic, logger, limit):
         gevent.Greenlet.__init__(self)
@@ -659,10 +659,10 @@ class PartitionHandler(gevent.Greenlet):
         self._uvedb = {}
         self._partoffset = 0
         self._kfk = None
-	self._failed = False
+        self._failed = False
 
     def failed(self):
-	return self._failed
+        return self._failed
 
     def resource_check(self):
         self._logger.info("%s Resource check" % self._topic)
@@ -672,7 +672,7 @@ class PartitionHandler(gevent.Greenlet):
         return True
 
     def _run(self):
-	pcount = 0
+        pcount = 0
         pause = False
         self.part_prev_time = 0
         while True:
@@ -698,7 +698,7 @@ class PartitionHandler(gevent.Greenlet):
                         template = "Consumer Failure {0} occured. Arguments:\n{1!r}"
                         messag = template.format(type(ex).__name__, ex.args)
                         self._logger.error("Error: %s" % (messag))
-		    self._failed = True
+                    self._failed = True
                     raise RuntimeError(messag)
 
                 self._logger.error("Starting %s" % self._topic)
@@ -748,7 +748,7 @@ class PartitionHandler(gevent.Greenlet):
                     messag = template.format(type(ex).__name__, ex.args)
                     self._logger.error("%s %s" % (self._topic, messag))
                 self.stop_partition()
-		self._failed = True
+                self._failed = True
                 pause = True
                 if hasattr(ex,'errno'):
                     # This is an unrecoverable error
@@ -765,7 +765,7 @@ class UveStreamProc(PartitionHandler):
     #  brokers   : broker list for kafka bootstrap
     #  partition : partition number
     #  uve_topic : Topic to consume
-    #  logger    : logging object to use  
+    #  logger    : logging object to use
     #  callback  : Callback function for reporting the set of the UVEs
     #              that may have changed for a given notification
     #  rsc       : Callback function to check on collector status
@@ -774,7 +774,7 @@ class UveStreamProc(PartitionHandler):
     #  rport     : redis server port
     def __init__(self, brokers, partition, uve_topic, logger, callback,
             host_ip, rsc, aginst, rport, group="-workers"):
-        super(UveStreamProc, self).__init__(brokers, group, 
+        super(UveStreamProc, self).__init__(brokers, group,
             uve_topic, logger, False)
         self._uvedb = {}
         self._uvein = {}
@@ -786,7 +786,7 @@ class UveStreamProc(PartitionHandler):
         self.disc_rset = set()
         self._resource_cb = rsc
         self._aginst = aginst
-        self._acq_time = UTCTimestampUsec() 
+        self._acq_time = UTCTimestampUsec()
         self._up = True
         self._rport = rport
 
@@ -808,7 +808,7 @@ class UveStreamProc(PartitionHandler):
         if len(chg_res):
             self.start_partition(chg_res)
         self.disc_rset = newset
-        
+
     def stop_partition(self, kcoll=None):
         clist = []
         if not kcoll:
@@ -830,7 +830,7 @@ class UveStreamProc(PartitionHandler):
                         chg[uk] = None
                         partdb[coll][gen][uk] = \
                             set(self._uvedb[coll][gen][tab][rkey].keys())
-                        
+
             del self._uvedb[coll]
         self._logger.error("Stopping part %d UVEs %s" % \
                 (self._partno,str(chg.keys())))
@@ -983,7 +983,7 @@ class UveStreamProc(PartitionHandler):
         else:
             self._callback(self._partno, chg)
         return True
-           
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO,
         format='%(asctime)s %(levelname)s %(message)s')
@@ -991,18 +991,18 @@ if __name__ == '__main__':
     workers = {}
     brokers = "localhost:9092,localhost:9093,localhost:9094"
     group = "workers"
-    
+
     kafka = KafkaClient(brokers,str(os.getpid()))
     cons = SimpleConsumer(kafka, group, "ctrl")
     cons.provide_partition_info()
     print "Starting control"
     end_ready = False
     while end_ready == False:
-	try:
-	    while True:
-		part, mmm = cons.get_message(timeout=None)
+        try:
+            while True:
+                part, mmm = cons.get_message(timeout=None)
                 mm = mmm.message
-		print "Consumed ctrl " + str(mm)
+                print "Consumed ctrl " + str(mm)
                 if mm.value == "start":
                     if workers.has_key(mm.key):
                         print "Dup partition %s" % mm.key
@@ -1020,18 +1020,18 @@ if __name__ == '__main__':
                         print "Returned " + str(res)
                         print "State :"
                         for k,v in db.iteritems():
-                            print "%s -> %s" % (k,str(v)) 
+                            print "%s -> %s" % (k,str(v))
                         del workers[int(mm.key)]
                 else:
                     end_ready = True
                     cons.commit()
-		    gevent.sleep(2)
+                    gevent.sleep(2)
                     break
-	except TypeError:
-	    gevent.sleep(0.1)
-	except common.FailedPayloadsError as ex:
-	    print "Payload Error: " + str(ex.args)
-	    gevent.sleep(0.1)
+        except TypeError:
+            gevent.sleep(0.1)
+        except common.FailedPayloadsError as ex:
+            print "Payload Error: " + str(ex.args)
+            gevent.sleep(0.1)
     lw=[]
     for key, value in workers.iteritems():
         gevent.kill(value)

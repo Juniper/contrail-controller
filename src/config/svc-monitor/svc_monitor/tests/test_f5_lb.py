@@ -393,7 +393,7 @@ OpencontrailLoadbalancerDriver")
         pool = self.create_pool("test-lb-pool",
                "default-domain:admin:test-lb-pool", project, vip)
 
-	hm_obj = self.create_hm_obj("test-hm")
+        hm_obj = self.create_hm_obj("test-hm")
         hm_obj['loadbalancer_pool_back_refs']=[{'uuid': pool.uuid}]
         hm = config_db.HealthMonitorSM.locate(hm_obj['uuid'], hm_obj)
 
@@ -797,7 +797,7 @@ OpencontrailLoadbalancerDriver")
         vip = self.create_vip('vip', project)
         pool = self.create_pool("test-lb-pool",
                "default-domain:admin:test-lb-pool", project, vip)
-	hm_obj = self.create_hm_obj("test-hm")
+        hm_obj = self.create_hm_obj("test-hm")
         hm_obj['loadbalancer_pool_back_refs']=[{'uuid': pool.uuid}]
         hm = config_db.HealthMonitorSM.locate(hm_obj['uuid'], hm_obj)
         self.create_pool_members("test-lb-pool", 2)

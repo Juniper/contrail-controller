@@ -30,7 +30,7 @@ try:
     from pysandesh.gen_py.sandesh.ttypes import SandeshType
     from pysandesh.connection_info import ConnectionState
     from pysandesh.gen_py.process_info.ttypes import ConnectionStatus, \
-	ConnectionType
+        ConnectionType
     from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 except:
     class SandeshType(object):
