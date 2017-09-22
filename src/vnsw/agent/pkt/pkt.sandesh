@@ -128,7 +128,7 @@ struct SandeshFlowData {
     59: bool deleted;
     60: SandeshFlowIndexInfo flow_index_info;
     65: list<SandeshInetRouteFlowMgmtEntryLink> inet_rt_keys;
-    66: string policy_match;
+    66: string fw_policy_match;
 }
 
 /**

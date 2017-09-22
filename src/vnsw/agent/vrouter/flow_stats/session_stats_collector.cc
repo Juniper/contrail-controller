@@ -323,7 +323,7 @@ bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
     session_endpoint_key.local_tagset = fe->local_tagset();
     session_endpoint_key.remote_tagset = fe->remote_tagset();
     session_endpoint_key.remote_prefix = fe->RemotePrefix();
-    session_endpoint_key.match_policy = fe->data().match_policy;
+    session_endpoint_key.match_policy = fe->fw_policy_name_uuid();
     if (vmi->service_intf_type().empty()) {
         session_endpoint_key.is_si = false;
     } else {
