@@ -4,14 +4,10 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 
-// Trace buffer for small messages
+// Trace buffer for config-client-manager messages
 SandeshTraceBufferPtr ConfigClientTraceBuf(
-          SandeshTraceBufferCreate("ConfigClientTraceBuf", 50000));
+    SandeshTraceBufferCreate("ConfigClientTraceBuf", 50000));
 
-// Trace buffer for large messages like poll responses
-SandeshTraceBufferPtr ConfigClientBigMsgTraceBuf(
-    SandeshTraceBufferCreate("ConfigClientBigMsgTraceBuf", 25));
-
-// Trace buffer for config-cassandra-client messages
-SandeshTraceBufferPtr ConfigCassClientTraceBuf(
-    SandeshTraceBufferCreate("ConfigCassClientTraceBuf", 50000));
+// Trace buffer for rabbit messages
+SandeshTraceBufferPtr ConfigClientRabbitMsgTraceBuf(
+    SandeshTraceBufferCreate("ConfigClientRabbitMsgTraceBuf", 50000));
