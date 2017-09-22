@@ -230,6 +230,8 @@ struct VrouterAgent {
    53: optional VrouterAgentObjectCount vm_count (tags="")
    /** shows whether currently BGPaaS is enabled or not */
    54: optional bool bgpaas_enabled;
+   /** shows whether currently port mirror is enabled or not*/
+   55: optional bool port_mirror_enabled;
 }
 
 /**

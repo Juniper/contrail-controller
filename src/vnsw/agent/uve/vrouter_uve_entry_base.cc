@@ -570,12 +570,13 @@ void VrouterUveEntryBase::BuildAgentConfig(VrouterAgent &vrouter_agent) {
     vrouter_agent.set_collector_server_list_cfg(param->collector_server_list());
     vrouter_agent.set_bgpaas_enabled(
             agent_->oper_db()->bgp_as_a_service()->IsConfigured());
+    vrouter_agent.set_port_mirror_enabled(MirrorTable::GetInstance()->IsConfigured());
 }
 
 
 bool VrouterUveEntryBase::SendVrouterMsg() {
     VrouterAgent vrouter_agent;
-    bool changed = false, bgp_aas;
+    bool changed = false, bgp_aas, port_mirror;
     static bool first = true, build_info = false;
     vrouter_agent.set_name(agent_->agent_name());
     Ip4Address rid = agent_->router_id();
@@ -651,6 +652,13 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
     if (prev_vrouter_.get_bgpaas_enabled() != bgp_aas) {
         vrouter_agent.set_bgpaas_enabled(bgp_aas);
         prev_vrouter_.set_bgpaas_enabled(bgp_aas);
+        changed = true;
+    }
+
+    port_mirror = MirrorTable::GetInstance()->IsConfigured();
+    if (prev_vrouter_.get_port_mirror_enabled() != port_mirror) {
+        vrouter_agent.set_port_mirror_enabled(port_mirror);
+        prev_vrouter_.set_port_mirror_enabled(port_mirror);
         changed = true;
     }
 
