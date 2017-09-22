@@ -599,6 +599,7 @@ class OpServerProxy::OpServerImpl {
             conf->set("metadata.broker.list", brokers_, errstr);
             conf->set("event_cb", &k_event_cb, errstr);
             conf->set("dr_cb", &k_dr_cb, errstr);
+            conf->set("api.version.request", "false", errstr);
             producer_.reset(RdKafka::Producer::create(conf, errstr));
             LOG(ERROR, "Kafka new Prod " << errstr);
             if (!producer_) 
