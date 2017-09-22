@@ -14,22 +14,43 @@ from svc_monitor.module_logger import ServiceMonitorModuleLogger
 from svc_monitor.sandesh.port_tuple import ttypes
 from cfgm_common import exceptions as vnc_exc
 
+PROJECT_FQ_NAME = ['default-domain', 'demo']
+PROJECT_UUID = 'a8d55cfc-c66a-4eeb-82f8-d144fe74c46b'
 ROUTER_1 = {
-    'fq_name': ['default-domain', 'demo', 'router1'],
-    'parent_uuid': 'a8d55cfc-c66a-4eeb-82f8-d144fe74c46b',
+    'fq_name': PROJECT_FQ_NAME + ['router2'],
+    'parent_uuid': PROJECT_UUID,
     'uuid': '8e9b4859-d4c2-4ed5-9468-4809b1a926f3',
     'parent_type': 'project',
     'virtual_machine_interface_refs': [
-        {'attr': None,
-         'to': ['default-domain',
-                'demo',
-                'ccc56e1c-a749-4147-9f2f-a04b32bd658d'],
-         'uuid': 'ccc56e1c-a749-4147-9f2f-a04b32bd658d'}],
+        {
+            'attr': None,
+            'to': PROJECT_FQ_NAME + ['ccc56e1c-a749-4147-9f2f-a04b32bd658d'],
+            'uuid': 'ccc56e1c-a749-4147-9f2f-a04b32bd658d'
+        },
+    ],
     'virtual_network_refs': [
-        {'attr': None,
-         'to': ['default-domain', 'demo', 'public'],
-         'uuid': '4f60e029-6029-4039-ad3a-4e4eb0e89407'}]
+        {
+            'attr': None,
+            'to': PROJECT_FQ_NAME + ['public'],
+            'uuid': '4f60e029-6029-4039-ad3a-4e4eb0e89407'
+        },
+    ],
 }
+ROUTER_2 = {
+    'fq_name': PROJECT_FQ_NAME + ['router2'],
+    'parent_uuid': PROJECT_UUID,
+    'uuid': 'ee6082ff-1f02-46ed-a8e4-3f25e84ba424',
+    'parent_type': 'project',
+    'virtual_machine_interface_refs': [],
+    'virtual_network_refs': [
+        {
+            'attr': None,
+            'to': PROJECT_FQ_NAME + ['public'],
+            'uuid': '4f60e029-6029-4039-ad3a-4e4eb0e89407'
+        },
+    ],
+}
+ROUTERS = [ROUTER_1, ROUTER_2]
 
 
 class RouteTableMatcher(object):
@@ -142,25 +163,27 @@ class SnatAgentTest(unittest.TestCase):
         DBBase.init(self, self.logger, self.cassandra)
 
         # register the project
-        proj_fq_name = ['default-domain', 'demo']
-        config_db.ProjectSM.locate(
-            ROUTER_1['parent_uuid'],
-            {'fq_name': proj_fq_name})
+        config_db.ProjectSM.locate(PROJECT_UUID, {'fq_name': PROJECT_FQ_NAME})
 
-        project = Project(name=proj_fq_name[-1])
-        self.vnc_lib.project_read = mock.Mock(
-            return_value=project)
+        project = Project(name=PROJECT_FQ_NAME[-1])
+        self.vnc_lib.project_read = mock.Mock(return_value=project)
 
-        # register the public network
-        config_db.VirtualNetworkSM.locate(
-            ROUTER_1['virtual_network_refs'][0]['uuid'],
-            {'fq_name': ROUTER_1['virtual_network_refs'][0]['to'], 'parent_type': 'project'})
+        for router in ROUTERS:
+            # register the public network
+            config_db.VirtualNetworkSM.locate(
+                router['virtual_network_refs'][0]['uuid'],
+                {'fq_name': router['virtual_network_refs'][0]['to'], 'parent_type': 'project'})
 
-        # register interfaces
-        config_db.VirtualMachineInterfaceSM.locate(
-            ROUTER_1['virtual_machine_interface_refs'][0]['uuid'],
-            {'fq_name': ROUTER_1['virtual_machine_interface_refs'][0]['to'],
-             'virtual_network_refs': [{'uuid': 'private1-uuid'}], 'parent_type': 'project'})
+            for vmi_ref in router['virtual_machine_interface_refs']:
+                # register interfaces
+                config_db.VirtualMachineInterfaceSM.locate(
+                    vmi_ref['uuid'],
+                    {
+                        'fq_name': vmi_ref['to'],
+                        'virtual_network_refs': [{'uuid': 'private1-uuid'}],
+                        'parent_type': 'project',
+                    },
+                )
 
     def tearDown(self):
         config_db.LogicalRouterSM.reset()
@@ -256,8 +279,13 @@ class SnatAgentTest(unittest.TestCase):
             'logical-router', ROUTER_1['uuid'], 'route-table',
             None, [u'default-domain', u'demo', rt_name], 'ADD', None)
 
+    def test_gateway_set_even_with_internal_interface(self):
+        self._test_gateway_set(ROUTER_1)
 
-    def test_gateway_set(self):
+    def test_gateway_set_even_without_internal_interface(self):
+        self._test_gateway_set(ROUTER_2)
+
+    def _test_gateway_set(self, router):
         router_obj = LogicalRouter('rtr1-name')
         self.vnc_lib.logical_router_read = mock.Mock(return_value=router_obj)
 
@@ -275,7 +303,7 @@ class SnatAgentTest(unittest.TestCase):
                 return (True, [{'fq_name':
                                 ['default-domain',
                                  'demo',
-                                 'snat-si-left_si_' + ROUTER_1['uuid']],
+                                 'snat-si-left_si_' + router['uuid']],
                                 'uuid': 'snat-vn-uuid'}])
             return (False, None)
 
@@ -283,7 +311,7 @@ class SnatAgentTest(unittest.TestCase):
             side_effect=db_read_side_effect)
 
         def vn_create_side_effect(vn_obj):
-            if vn_obj.name == ('snat-si-left_si_' + ROUTER_1['uuid']):
+            if vn_obj.name == ('snat-si-left_si_' + router['uuid']):
                 vn_obj.uuid = 'snat-vn-uuid'
 
         self.vnc_lib.virtual_network_create = mock.Mock(
@@ -304,9 +332,8 @@ class SnatAgentTest(unittest.TestCase):
         self.vnc_lib.virtual_network_update = mock.Mock()
         self.vnc_lib.logical_router_update = mock.Mock()
 
-        router = config_db.LogicalRouterSM.locate(ROUTER_1['uuid'],
-                                                  ROUTER_1)
-        self.snat_agent.update_snat_instance(router)
+        router_obj = config_db.LogicalRouterSM.locate(router['uuid'], router)
+        self.snat_agent.update_snat_instance(router_obj)
 
         # Verify that SNAT VN was not found in the db and it was logged.
         # This will trigger the creation of the VN.
@@ -318,8 +345,7 @@ class SnatAgentTest(unittest.TestCase):
                           sandesh.snat_agent.ttypes.SNATAgentDebugLog)
 
         # check that the snat service network is created
-        left = ('default-domain:demo:snat-si-left_snat_' +
-                ROUTER_1['uuid'])
+        left = ('default-domain:demo:snat-si-left_snat_' + router['uuid'])
         self.vnc_lib.virtual_network_create.assert_called_with(
             VirtualNetworkMatcher(left, False))
 
@@ -334,23 +360,21 @@ class SnatAgentTest(unittest.TestCase):
             RouteTableMatcher('0.0.0.0/0'))
 
         # check that the route table is applied to the network
-        rt_name = 'rt_' + ROUTER_1['uuid']
+        rt_name = 'rt_' + router['uuid']
         self.vnc_lib.logical_router_update.assert_called_with(
             LogicalRouterMatcher(rt_name=rt_name))
 
         # check that the SI is correctly set with the right interfaces
-        right = ':'.join(ROUTER_1['virtual_network_refs'][0]['to'])
+        right = ':'.join(router['virtual_network_refs'][0]['to'])
         self.vnc_lib.service_instance_create.assert_called_with(
-            ServiceInstanceMatcher('snat_' + ROUTER_1['uuid'],
+            ServiceInstanceMatcher('snat_' + router['uuid'],
                                    left, right, 'active-standby'))
 
         # check that the SI created is set to the logical router
         self.vnc_lib.logical_router_update.assert_called_with(
-            LogicalRouterMatcher(si_name='snat_' + ROUTER_1['uuid']))
+            LogicalRouterMatcher(si_name='snat_' + router['uuid']))
 
-    def _test_snat_delete(self, router_dict):
-        self.test_gateway_set()
-
+    def _test_snat(self, router_dict, deleted=False):
         # reset all calls
         self.vnc_lib.logical_router_update.reset_mock()
         self.vnc_lib.service_instance_read.reset_mock()
@@ -391,91 +415,45 @@ class SnatAgentTest(unittest.TestCase):
         router.update(router_dict)
         self.snat_agent.update_snat_instance(router)
 
-        self.vnc_lib.service_instance_read.assert_called_with(
-            id='si-uuid')
+        if not deleted:
+            self.vnc_lib.service_instance_read.assert_not_called()
+        else:
+            self.vnc_lib.service_instance_read.assert_called_with(
+                id='si-uuid')
 
-        # check that the route table is removed from the networks
-        self.vnc_lib.logical_router_update.assert_called_with(
-            LogicalRouterMatcher(rt_name=''))
+        if not deleted:
+            # check that the route table is not removed from the networks
+            self.vnc_lib.logical_router_update.assert_not_called()
+        else:
+            # check that the route table is removed from the networks
+            self.vnc_lib.logical_router_update.assert_called_with(
+                LogicalRouterMatcher(rt_name=''))
 
-        # check that the route table is deleted
-        self.vnc_lib.route_table_delete.assert_called_with(id=rt_obj.uuid)
+        if not deleted:
+            # check that the route table is not deleted
+            self.vnc_lib.route_table_delete.assert_not_called()
+        else:
+            # check that the route table is deleted
+            self.vnc_lib.route_table_delete.assert_called_with(id=rt_obj.uuid)
 
-        # check that the SI is removed from the logical router
-        self.vnc_lib.logical_router_update.assert_called_with(
-            LogicalRouterMatcher(si_name=''))
+        if not deleted:
+            # check that the SI is removed from the logical router
+            self.vnc_lib.logical_router_update.assert_not_called()
+        else:
+            # check that the SI is removed from the logical router
+            self.vnc_lib.logical_router_update.assert_called_with(
+                LogicalRouterMatcher(si_name=''))
 
-        # check that the SI is beeing to be deleted
-        self.vnc_lib.service_instance_delete.assert_called_with(
-            id=si_obj.get_uuid())
+        if not deleted:
+            # check that the SI will be deleted
+            self.vnc_lib.service_instance_delete.assert_not_called()
+        else:
+            # check that the SI is beeing to be deleted
+            self.vnc_lib.service_instance_delete.assert_called_with(
+                id=si_obj.get_uuid())
 
-    # Test cleanup of snat SI created without internat interfaces
-    def test_snat_delete_without_rt_net_back_refs(self):
-        self.test_gateway_set()
-
-        # reset all calls
-        self.vnc_lib.logical_router_update.reset_mock()
-        self.vnc_lib.service_instance_read.reset_mock()
-
-        # now we have a route table
-        def no_id_side_effect(type, fq_name):
-            if type == 'route_table':
-                return 'fake-uuid'
-
-            raise NoIdError("xxx")
-
-        self.cassandra.fq_name_to_uuid = mock.Mock(
-            side_effect=no_id_side_effect)
-
-        si_obj = ServiceInstance('si_' + ROUTER_1['uuid'])
-        si_obj.set_uuid('si-uuid')
-        self.vnc_lib.service_instance_read.return_value = si_obj
-
-        # get and use the route table previously created, but without
-        # any back_refs to virtual networks
-        rt_obj = self.vnc_lib.route_table_create.mock_calls[0][1][0]
-        rt_dict = self.obj_to_dict(rt_obj)
-
-        def db_read_side_effect(obj_type, uuids, **kwargs):
-            if obj_type == 'route_table':
-                return (True, [rt_dict])
-            if 'private2-uuid' in uuids:
-                return (True, [{'fq_name': ['default-domain',
-                                            'demo',
-                                            'private2-name'],
-                                'uuid': 'private2-uuid'}])
-            return (False, None)
-
-        self.cassandra.object_read = mock.Mock(
-            side_effect=db_read_side_effect)
-
-        router_dict = copy.deepcopy(ROUTER_1)
-        router_dict['virtual_machine_interface_refs'] = []
-        router_dict['service_instance_refs'] = [
-            {'to': ['default-domain',
-                    'demo',
-                    'si_' + ROUTER_1['uuid']],
-             'uuid': 'si-uuid'}]
-
-        router = config_db.LogicalRouterSM.locate(ROUTER_1['uuid'])
-        router.update(router_dict)
-        self.snat_agent.update_snat_instance(router)
-
-        self.vnc_lib.service_instance_read.assert_called_with(
-            id='si-uuid')
-
-        # check that the route table is deleted
-        self.vnc_lib.route_table_delete.assert_called_with(id=rt_obj.uuid)
-
-        # check that the SI is removed from the logical router
-        self.vnc_lib.logical_router_update.assert_called_with(
-            LogicalRouterMatcher(si_name=''))
-
-        # check that the SI is beeing to be deleted
-        self.vnc_lib.service_instance_delete.assert_called_with(
-            id=si_obj.get_uuid())
-
-    def test_gateway_clear(self):
+    def test_snat_removed_when_gateway_cleared(self):
+        self._test_gateway_set(ROUTER_1)
 
         # update the previous router by removing the ext net
         router_dict = copy.deepcopy(ROUTER_1)
@@ -486,9 +464,10 @@ class SnatAgentTest(unittest.TestCase):
                     'si_' + ROUTER_1['uuid']],
              'uuid': 'si-uuid'}]
 
-        self._test_snat_delete(router_dict)
+        self._test_snat(router_dict, deleted=True)
 
-    def test_no_more_interface(self):
+    def test_snat_not_remove_if_no_more_internal_interface(self):
+        self._test_gateway_set(ROUTER_1)
 
         # update the previous router by removing all the interfaces
         router_dict = copy.deepcopy(ROUTER_1)
@@ -499,7 +478,7 @@ class SnatAgentTest(unittest.TestCase):
                     'si_' + ROUTER_1['uuid']],
              'uuid': 'si-uuid'}]
 
-        self._test_snat_delete(router_dict)
+        self._test_snat(router_dict, deleted=False)
 
 
     def test_add_snat_errors(self):
@@ -632,7 +611,7 @@ class SnatAgentTest(unittest.TestCase):
         """
 
         # First, create the SNAT that is to be deleted.
-        self.test_gateway_set()
+        self._test_gateway_set(ROUTER_1)
 
         router_dict = copy.deepcopy(ROUTER_1)
         router_dict['virtual_network_refs'] = []
@@ -728,7 +707,7 @@ class SnatAgentTest(unittest.TestCase):
         """
 
         # First, create the SNAT that is to be deleted.
-        self.test_gateway_set()
+        self._test_gateway_set(ROUTER_1)
 
         router_dict = copy.deepcopy(ROUTER_1)
         router_dict['virtual_network_refs'] = []
@@ -777,7 +756,7 @@ class SnatAgentTest(unittest.TestCase):
         """
 
         # First, create the SNAT that is to be deleted.
-        self.test_gateway_set()
+        self._test_gateway_set(ROUTER_1)
 
         # Get and use the route table created as a part of SNAT create.
         si_obj = self.vnc_lib.service_instance_create.mock_calls[0][1][0]
@@ -841,4 +820,3 @@ class SnatAgentTest(unittest.TestCase):
         self.vnc_lib.route_table_delete = rt_delete_original_mock
         self.vnc_lib.service_instance_delete = orig_si_delete_mock
         self.vnc_lib.service_instance_read = original_si_read_mock
-
