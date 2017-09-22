@@ -295,7 +295,7 @@
       "d0116475-a0a8-472d-9743-314d0e94c9e9": {
         "fq_name": "[\"default-domain\",\"demo\",\"vn27-1\"]",
         "type": "\"virtual_network\"",
-        "ref:network_policy:7367cbbc-8036-445d-9f7c-4190c91cdf5d": "{\"attr\":{\"major\":\"0\",\"minor\":\"0\"}}",
+        "ref:network_policy:7367cbbc-8036-445d-9f7c-4190c91cdf5d": "{\"attr\": null}",
         "ref:network_ipam:9963c319-fadd-4b8d-b3f8-7160e682e2f6": "{\"attr\":{\"ipam_subnets\":[{\"subnet\":{\"ip_prefix\":\"27.1.1.0\",\"ip_prefix_len\":\"24\"},\"default_gateway\":\"27.1.1.254\"}]}}",
         "prop:id_perms": "{\"permissions\":{\"owner\":\"cloud-admin\",\"owner_access\":\"7\",\"group\":\"cloud-admin-group\",\"group_access\":\"7\",\"other_access\":\"7\"},\"uuid\":{\"uuid_mslong\":\"14992875090862425901\",\"uuid_lslong\":\"10899609730193607145\"},\"enable\":\"true\"}",
         "parent:project:ee523edc-e957-41ab-b7b0-2d557e9573ff": "null"
