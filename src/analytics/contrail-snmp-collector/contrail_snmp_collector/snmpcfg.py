@@ -88,18 +88,24 @@ Mibs = LldpTable, ArpTable
             'cluster_id'          :'',
         }
         defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
-        api_opts = {
-            'api_server_list' : ['127.0.0.1:8082'],
-            'api_server_use_ssl' : False
+
+        configdb_opts = {
+            'rabbitmq_server_list': None,
+            'rabbitmq_port': 5672,
+            'rabbitmq_user': 'guest',
+            'rabbitmq_password': 'guest',
+            'rabbitmq_vhost': None,
+            'rabbitmq_ha_mode': False,
+            'rabbitmq_use_ssl': False,
+            'rabbitmq_ssl_version': '',
+            'rabbitmq_ssl_keyfile': '',
+            'rabbitmq_ssl_certfile': '',
+            'rabbitmq_ssl_ca_certs': '',
+            'config_db_server_list': None,
+            'config_db_username': None,
+            'config_db_password': None
         }
-        ksopts = {
-            'auth_host': '127.0.0.1',
-            'auth_protocol': 'http',
-            'auth_port': 35357,
-            'admin_user': 'user1',
-            'admin_password': 'password1',
-            'admin_tenant_name': 'default-domain'
-        }
+
         sandesh_opts = SandeshConfig.get_default_options()
 
         config = None
@@ -109,10 +115,8 @@ Mibs = LldpTable, ArpTable
             config.read(args.conf_file)
             if 'DEFAULTS' in config.sections():
                 defaults.update(dict(config.items("DEFAULTS")))
-            if 'API_SERVER' in config.sections():
-                api_opts.update(dict(config.items("API_SERVER")))
-            if 'KEYSTONE' in config.sections():
-                ksopts.update(dict(config.items("KEYSTONE")))
+            if 'CONFIGDB' in config.sections():
+                configdb_opts.update(dict(config.items('CONFIGDB')))
             SandeshConfig.update_options(sandesh_opts, config)
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -124,8 +128,7 @@ Mibs = LldpTable, ArpTable
             # Don't mess with format of description
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
-        defaults.update(api_opts)
-        defaults.update(ksopts)
+        defaults.update(configdb_opts)
         defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
         parser.add_argument("--collectors",
@@ -153,27 +156,37 @@ Mibs = LldpTable, ArpTable
             help="Time between snmp interface status poll")
         parser.add_argument("--http_server_port", type=int,
             help="introspect server port")
-        parser.add_argument("--auth_host",
-                            help="ip of keystone server")
-        parser.add_argument("--auth_protocol",
-                            help="keystone authentication protocol")
-        parser.add_argument("--auth_port", type=int,
-                            help="ip of keystone server")
-        parser.add_argument("--admin_user",
-                            help="Name of keystone admin user")
-        parser.add_argument("--admin_password",
-                            help="Password of keystone admin user")
-        parser.add_argument("--admin_tenant_name",
-                            help="Tenant name for keystone admin user")
+        parser.add_argument("--rabbitmq_server_list",
+            help="List of Rabbitmq servers in ip:port format")
+        parser.add_argument("--rabbitmq_user",
+            help="Username for Rabbitmq")
+        parser.add_argument("--rabbitmq_password",
+            help="Password for Rabbitmq")
+        parser.add_argument("--rabbitmq_vhost",
+            help="vhost for Rabbitmq")
+        parser.add_argument("--rabbitmq_ha_mode",
+            action="store_true",
+            help="True if the rabbitmq cluster is mirroring all queue")
+        parser.add_argument("--rabbitmq_use_ssl",
+            action="store_true",
+            help="Use SSL for RabbitMQ connection")
+        parser.add_argument("--rabbitmq_ssl_keyfile",
+            help="Keyfile for SSL RabbitMQ connection")
+        parser.add_argument("--rabbitmq_ssl_certfile",
+            help="Certificate file for SSL RabbitMQ connection")
+        parser.add_argument("--rabbitmq_ssl_ca_certs",
+            help="CA Certificate file for SSL RabbitMQ connection")
+        parser.add_argument("--config_db_server_list",
+            help="List of cassandra servers in ip:port format",
+            nargs='+')
+        parser.add_argument("--config_db_username",
+            help="Cassandra user name")
+        parser.add_argument("--config_db_password",
+            help="Cassandra password")
         parser.add_argument("--zookeeper",
             help="ip:port of zookeeper server")
         parser.add_argument("--cluster_id",
             help="Used for database keyspace separation")
-        parser.add_argument("--api_server_list",
-            help="List of api-servers in ip:port format separated by space",
-            nargs="+")
-        parser.add_argument("--api_server_use_ssl",
-            help="Use SSL to connect to api-server")
         SandeshConfig.add_parser_arguments(parser)
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument("--device-config-file",
@@ -181,31 +194,14 @@ Mibs = LldpTable, ArpTable
         self._args = parser.parse_args(remaining_argv)
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
-        if type(self._args.api_server_list) is str:
-            self._args.api_server_list = self._args.api_server_list.split()
+        if type(self._args.config_db_server_list) is str:
+            self._args.config_db_server_list = \
+                self._args.config_db_server_list.split()
         self._args.config_sections = config
         self._args.conf_file = args.conf_file
 
-    def set_api_server_list(self, api_servers):
-        self._args.api_server_list = api_servers
-
-    def devices(self):
-        prouters = []
-        if self._args.api_server_list:
-            prouters = DeviceConfig.get_prouters(
-                    self._args.api_server_list,
-                    self._args.admin_user, self._args.admin_password,
-                    self._args.admin_tenant_name,
-                    self._args.api_server_use_ssl,
-                    self._args.auth_host, self._args.auth_port,
-                    self._args.auth_protocol, self._cb)
-        return prouters
-
     def collectors(self):
         return self._args.collectors
-
-    def api_server_list(self):
-        return self._args.api_server_list
 
     def zookeeper_server(self):
         return self._args.zookeeper
@@ -242,3 +238,23 @@ Mibs = LldpTable, ArpTable
 
     def sandesh_config(self):
         return SandeshConfig.from_parser_arguments(self._args)
+
+    def rabbitmq_params(self):
+        return {'servers': self._args.rabbitmq_server_list,
+                'port': self._args.rabbitmq_port,
+                'user': self._args.rabbitmq_user,
+                'password': self._args.rabbitmq_password,
+                'vhost': self._args.rabbitmq_vhost,
+                'ha_mode': self._args.rabbitmq_ha_mode,
+                'use_ssl': self._args.rabbitmq_use_ssl,
+                'ssl_version': self._args.rabbitmq_ssl_version,
+                'ssl_keyfile': self._args.rabbitmq_ssl_keyfile,
+                'ssl_certfile': self._args.rabbitmq_ssl_certfile,
+                'ssl_ca_certs': self._args.rabbitmq_ssl_ca_certs}
+
+    def cassandra_params(self):
+        return {'servers': self._args.config_db_server_list,
+                'user': self._args.config_db_username,
+                'password': self._args.config_db_password,
+                'cluster_id': self._args.cluster_id}
+    # end cassandra_params

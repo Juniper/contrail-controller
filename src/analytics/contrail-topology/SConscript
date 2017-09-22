@@ -23,7 +23,14 @@ sources = [
     'contrail_topology/controller.py',
     'contrail_topology/config.py',
     'contrail_topology/topology_uve.py',
+    'contrail_topology/topology_config_db.py',
+    'contrail_topology/topology_config_handler.py'
     ]
+
+common_sources = [
+    '#controller/src/opserver/analytics_logger.py',
+    '#controller/src/opserver/config_handler.py'
+]
 
 src_sandesh = env.SandeshGenPy('link.sandesh', 'contrail_topology/sandesh/', False)
 topology_info_pkg = env.SandeshGenPy('topology_info.sandesh', 'contrail_topology/sandesh/', False)
@@ -32,12 +39,14 @@ process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.s
 nodeinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'contrail_topology/sandesh/', False)
 derived_stats_pkg = env.SandeshGenPy('#tools/sandesh/library/common/derived_stats_results.sandesh', 'contrail_topology/sandesh/analytics/', False)
 
+common_sources_rules = [env.Install('contrail_topology', f) for f in common_sources]
+
 version = '0.0.1'
 #with open("CHANGES.txt") as f:
 #    version = f.read().split(",")[0][1:]
 
 sdist_depends = [ nodeinfo_pkg, cpuinfo_pkg, process_info_pkg,
-                  derived_stats_pkg, topology_info_pkg ]
+                  derived_stats_pkg, topology_info_pkg, common_sources_rules ]
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = env.Command('dist/contrail-topology-' \
         + version + '.tar.gz',
@@ -49,6 +58,7 @@ env.Alias('controller/src/analytics/contrail-topology/' + \
 
 src_rules = [env.Install(Dir("."),
     '#controller/src/analytics/contrail-topology/' + f) for f in sources]
+src_rules += [env.Install(Dir("."), f) for f in common_sources]
 src_rules.append(env.Install(Dir("."),
         '#controller/src/opserver/run_tests.sh'))
 
@@ -89,7 +99,6 @@ test_depends = [
         '/config/common/dist/cfgm_common-0.1dev.tar.gz',
         '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
         '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
-        '/api-lib/dist/vnc_api-0.1dev.tar.gz',
         '/opserver/dist/opserver-0.1dev.tar.gz',
 ]
 

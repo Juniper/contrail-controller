@@ -42,9 +42,17 @@ class LinkUve(object):
         self._logger = sandesh_global.logger()
         # end __init__
 
+    def sandesh_instance(self):
+        return sandesh_global
+    # end sandesh_instance
+
     def logger(self):
         return self._logger
     # end logger
+
+    def stop(self):
+        sandesh_global.uninit()
+    # end stop
 
     def send(self, data):
         for prouter in data:

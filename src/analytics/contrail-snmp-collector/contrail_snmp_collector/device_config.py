@@ -3,16 +3,12 @@
 #
 from snmp import SnmpSession
 import copy, traceback, time, ConfigParser
-from vnc_api.vnc_api import VncApi
 
 class DeviceDict(dict):
-    def __init__(self, name, vnc, *a, **k):
+    def __init__(self, name, obj, *a, **k):
         super(DeviceDict, self).__init__(*a, **k)
         self.name = name
-        self._vnc = vnc
-
-    def vnc(self):
-        return self._vnc
+        self.obj = obj
 
 
 class DeviceConfig(object):
@@ -70,49 +66,10 @@ class DeviceConfig(object):
         return s
 
     @staticmethod
-    def get_vnc(usr, passwd, tenant, api_servers, use_ssl=False,
-            auth_host=None, auth_port=None, auth_protocol=None, notifycb=None):
-        e = IOError('Api servers (%s) not reachable' % ','.join(api_servers))
-        api_server_list = [srv.split(':')[0] for srv in api_servers]
-        api_server_port = api_servers[0].split(':')[1] if api_servers else None
-        try:
-            vnc = VncApi(usr, passwd, tenant, api_server_list,
-                        api_server_port, api_server_use_ssl=use_ssl,
-                        auth_host=auth_host, auth_port=auth_port,
-                        auth_protocol=auth_protocol)
-        except Exception as e:
-            if callable(notifycb):
-                notifycb('api', str(e), servers=api_servers, up=False)
-        else:
-            if callable(notifycb):
-                notifycb('api', 'Connected', servers=api_servers)
-            return vnc
-        return None
-
-    @staticmethod
-    def get_prouters(api_servers, usr, passwd, tenant, use_ssl=False,
-            auth_host=None, auth_port=None, auth_protocol=None, notifycb=None):
-        try:
-            vnc = DeviceConfig.get_vnc(usr, passwd, tenant, api_servers,
-                        use_ssl=use_ssl, auth_host=auth_host,
-                        auth_port=auth_port, auth_protocol=auth_protocol,
-                        notifycb=notifycb)
-            if not vnc:
-                return []
-            devices = map(lambda e: DeviceDict(e['fq_name'][-1], vnc, **e),
-                    vnc.physical_routers_list()['physical-routers'])
-            return devices
-        except Exception as e:
-            traceback.print_exc()
-        return None
-
-    @staticmethod
     def populate_cfg(devicelist):
         devices = []
-        vnc = devicelist[0].vnc()
-        for pr in vnc.physical_routers_list(detail=True, obj_uuids=[
-                x['uuid'] for x in devicelist]):
-            snmp = pr.get_physical_router_snmp_credentials()
+        for pr in devicelist:
+            snmp = pr.obj.get_physical_router_snmp_credentials()
             if snmp:
                 nd = { 'Version': snmp.get_version() }
                 if snmp.get_local_port():
@@ -145,6 +102,6 @@ class DeviceConfig(object):
                         nd['PrivProto'] = snmp.get_v3_privacy_password()
                 devices.append(DeviceConfig(
                             pr.name,
-                            nd, [], pr.get_physical_router_management_ip(),
-                            pr.get_physical_router_management_ip()))
+                            nd, [], pr.obj.get_physical_router_management_ip(),
+                            pr.obj.get_physical_router_management_ip()))
         return devices

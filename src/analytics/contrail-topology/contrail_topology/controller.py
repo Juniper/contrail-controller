@@ -7,6 +7,7 @@ from topology_uve import LinkUve
 import gevent
 from gevent.lock import Semaphore
 from opserver.consistent_schdlr import ConsistentScheduler
+from topology_config_handler import TopologyConfigHandler
 import traceback
 import ConfigParser
 import signal
@@ -29,31 +30,26 @@ class Controller(object):
         self.analytic_api = AnalyticApiClient(self._config)
         self._config.random_collectors = self._config.collectors()
         self._chksum = ""
-        self._api_server_checksum = ""
         if self._config.collectors():
             self._chksum = hashlib.md5("".join(self._config.collectors())).hexdigest()
             self._config.random_collectors = random.sample(self._config.collectors(), \
                                                            len(self._config.collectors()))
-        if self._config.api_server_list():
-            self._api_server_checksum = hashlib.md5("".join(
-                self._config.api_server_list())).hexdigest()
-            random_api_servers = random.sample(
-                self._config.api_server_list(),
-                len(self._config.api_server_list()))
-            self._config.set_api_server_list(random_api_servers)
         self.uve = LinkUve(self._config)
+        self._sandesh = self.uve.sandesh_instance()
         self._logger = self.uve.logger()
         self.sleep_time()
-        self._keep_running = True
-        self._vnc = None
+        self._sem = Semaphore()
         self._members = None
         self._partitions = None
         self._prouters = {}
         self._vrouter_l2ifs = {}
         self._old_vrouter_l2ifs = {}
-
-    def stop(self):
-        self._keep_running = False
+        self._config_handler = TopologyConfigHandler(self._sandesh,
+            self._config.rabbitmq_params(), self._config.cassandra_params())
+        self.constnt_schdlr = ConsistentScheduler(self.uve._moduleid,
+            zookeeper=self._config.zookeeper_server(),
+            delete_hndlr=self._del_uves, logger=self._logger,
+            cluster_id=self._config.cluster_id())
 
     def sleep_time(self, newtime=None):
         if newtime:
@@ -173,33 +169,28 @@ class Controller(object):
     # end _send_topology_uve
 
     def bms_links(self, prouter, ifm):
-        if self._vnc:
-            try:
-                for li in self._vnc.logical_interfaces_list()[
-                            'logical-interfaces']:
-                    if prouter.name in li['fq_name']:
-                        lif = self._vnc.logical_interface_read(id=li['uuid'])
-                        for vmif in lif.get_virtual_machine_interface_refs():
-                            vmi = self._vnc.virtual_machine_interface_read(
-                                    id=vmif['uuid'])
-                            for mc in vmi.virtual_machine_interface_mac_addresses.get_mac_address():
-                                ifi = [k for k in ifm if ifm[k] in li[
-                                                    'fq_name']][0]
-                                rsys = '-'.join(['bms', 'host'] + mc.split(
-                                            ':'))
-                                if self._add_link(
-                                        prouter=prouter,
-                                        remote_system_name=rsys,
-                                        local_interface_name=li['fq_name'][
-                                                                    -1],
-                                        remote_interface_name='em0',#no idea
-                                        local_interface_index=ifi,
-                                        remote_interface_index=1, #dont know TODO:FIX
-                                        link_type=RemoteType.BMS):
-                                    pass
-            except:
-                traceback.print_exc()
-                self._vnc = None # refresh
+        try:
+            for lif_fqname, lif in self._config_handler.get_logical_interfaces():
+                if prouter.name in lif_fqname:
+                    for vmif in lif.obj.get_virtual_machine_interface_refs():
+                        vmi = self._config_handler.\
+                                get_virtual_machine_interface(uuid=vmif.uuid)
+                        if not vmi:
+                            continue
+                        vmi = vmi.obj
+                        for mc in vmi.virtual_machine_interface_mac_addresses.\
+                                get_mac_address():
+                            ifi = [k for k in ifm if ifm[k] in lif_fqname][0]
+                            rsys = '-'.join(['bms', 'host'] + mc.split(':'))
+                            self._add_link(prouter=prouter,
+                                remote_system_name=rsys,
+                                local_interface_name=lif.obj.fq_name[-1],
+                                remote_interface_name='em0',#no idea
+                                local_interface_index=ifi,
+                                remote_interface_index=1, #dont know TODO:FIX
+                                link_type=RemoteType.BMS)
+        except:
+            traceback.print_exc()
 
 
     def compute(self):
@@ -415,43 +406,10 @@ class Controller(object):
                                 self._config.random_collectors)
                 except ConfigParser.NoOptionError as e:
                     pass
-            if 'API_SERVER' in config.sections():
-                try:
-                    api_servers = config.get('API_SERVER', 'api_server_list')
-                except ConfigParser.NoOptionError:
-                    pass
-                else:
-                    if isinstance(api_servers, basestring):
-                        api_servers = api_servers.split()
-                    new_api_server_checksum = hashlib.md5("".join(
-                        api_servers)).hexdigest()
-                    if new_api_server_checksum != self._api_server_checksum:
-                        self._api_server_checksum = new_api_server_checksum
-                        random_api_servers = random.sample(api_servers,
-                            len(api_servers))
-                        self._config.set_api_server_list(random_api_servers)
-                        self._vnc = None
     # end sighup_handler
- 
-        
-    def run(self):
 
-        """ @sighup
-        SIGHUP handler to indicate configuration changes 
-        """
-        gevent.signal(signal.SIGHUP, self.sighup_handler)
-
-        self._sem = Semaphore()
-        self.constnt_schdlr = ConsistentScheduler(
-                            self.uve._moduleid,
-                            zookeeper=self._config.zookeeper_server(),
-                            delete_hndlr=self._del_uves,
-                            logger=self._logger,
-                            cluster_id=self._config.cluster_id())
-
-        while self._keep_running:
-            if not self._vnc:
-                self._vnc = self._config.vnc_api()
+    def _uve_scanner(self):
+        while True:
             self.scan_data()
             if self.constnt_schdlr.schedule(self.prouters):
                 members = self.constnt_schdlr.members()
@@ -468,4 +426,41 @@ class Controller(object):
                 gevent.sleep(self._sleep_time)
             else:
                 gevent.sleep(1)
+    # end _uve_scanner
+
+    def run(self):
+        """ @sighup
+        SIGHUP handler to indicate configuration changes
+        """
+        gevent.signal(signal.SIGHUP, self.sighup_handler)
+
+        self.gevs = [
+            gevent.spawn(self._config_handler.start),
+            gevent.spawn(self._uve_scanner)
+        ]
+
+        try:
+            gevent.joinall(self.gevs)
+        except KeyboardInterrupt:
+            self._logger.error('Exiting on ^C')
+        except gevent.GreenletExit:
+            self._logger.error('Exiting on gevent-kill')
+        except:
+            raise
+        finally:
+            self._logger.error('stopping everything!')
+            self.stop()
+    # end run
+
+    def stop(self):
+        self.uve.stop()
+        l = len(self.gevs)
+        for i in range(0, l):
+            self._logger.error('killing %d of %d' % (i+1, l))
+            self.gevs[0].kill()
+            self._logger.error('joining %d of %d' % (i+1, l))
+            self.gevs[0].join()
+            self._logger.error('stopped %d of %d' % (i+1, l))
+            self.gevs.pop(0)
         self.constnt_schdlr.finish()
+    # end stop
