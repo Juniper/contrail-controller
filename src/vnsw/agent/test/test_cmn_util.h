@@ -711,4 +711,8 @@ void AddPhysicalDeviceWithIp(int id, std::string name, std::string vendor,
                              std::string ip, std::string mgmt_ip,
                              std::string protocol, Agent *agent);
 void DelPhysicalDeviceWithIp(Agent *agent, int id);
+void AddLocalVmRoute(Agent *agent, const std::string &vrf_name,
+                     const std::string &ip, uint32_t plen,
+                     const std::string &vn, uint32_t intf_uuid,
+                     const Peer *peer);
 #endif // vnsw_agent_test_cmn_util_h

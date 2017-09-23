@@ -5078,3 +5078,29 @@ void AddGlobalPolicySet(const std::string &name, uint32_t id) {
     str << "<is-global>true</is-global>";
     AddNode("application-policy-set", name.c_str(), id, str.str().c_str());
 }
+
+void AddLocalVmRoute(Agent *agent, const std::string &vrf_name,
+                     const std::string &ip, uint32_t plen,
+                     const std::string &vn, uint32_t intf_uuid,
+                     const Peer *peer) {
+    const VmInterface *vm_intf =
+        static_cast<const VmInterface *> (VmPortGet(intf_uuid));
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, MakeUuid(intf_uuid),
+            "");
+    VnListType vn_list;
+    vn_list.insert(vn);
+    LocalVmRoute *local_vm_rt =
+        new LocalVmRoute(intf_key, vm_intf->label(),
+                         VxLanTable::kInvalidvxlan_id, false, vn_list,
+                         InterfaceNHFlags::INET4, SecurityGroupList(),
+                         TagList(), CommunityList(),
+                         PathPreference(), Ip4Address(0),
+                         EcmpLoadBalance(), false, false,
+                         peer->sequence_number(), false);
+    InetUnicastAgentRouteTable *rt_table =
+        agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
+
+    rt_table->AddLocalVmRouteReq(peer, vrf_name,
+            Ip4Address::from_string(ip), plen,
+            static_cast<LocalVmRoute *>(local_vm_rt));
+}
