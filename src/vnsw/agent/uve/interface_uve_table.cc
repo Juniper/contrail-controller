@@ -837,6 +837,7 @@ void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
         item.set_remote_deployment_id(entry->GetTagIdStr(agent,
                                                        TagTable::DEPLOYMENT));
         item.set_remote_vn(entry->remote_vn);
+        item.set_local_vn(entry->local_vn);
         item.set_added(entry->added - entry->prev_added);
         item.set_deleted(entry->deleted - entry->prev_deleted);
         item.set_active(entry->active);
