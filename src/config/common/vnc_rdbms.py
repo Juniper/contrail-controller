@@ -237,13 +237,29 @@ class RDBMSIndexAllocator(object):
         return size
 
     @use_session
-    def alloc(self, value=None):
+    def alloc(self, value=None, pools=None):
+        if pools and self.reverse:
+            pools = list(reversed(pools))
+
         session = self.session_ctx
-        query = session.query(IDPool).filter(
-            and_(
-                IDPool.path == self.path,
-                IDPool.used == False
-        ))
+        query = session.query(IDPool)
+
+        if not pools:
+            query = query.filter(
+                and_(
+                    IDPool.path == self.path,
+                    IDPool.used == False
+                    ))
+        else:
+            query = query.filter(
+                and_(
+                    IDPool.path == self.path,
+                    IDPool.used == False,
+                    or_(
+                        and_(pack(p["start"]) <= IDPool.start, IDPool.end <= pack(p["end"]))
+                        for p in pools)
+                )
+            )
 
         if self.reverse:
             query = query.order_by(IDPool.start.desc())
@@ -741,10 +757,17 @@ class VncRDBMSClient(object):
                     ref_info['href'] = self._generate_url(ref_type, ref_uuid)
                     ref_info['uuid'] = ref_uuid
 
-                    try:
-                        obj_dict['%s_refs' %(ref_type)].append(ref_info)
-                    except KeyError:
+                    if '%s_refs' %(ref_type) in obj_dict:
+                        ref_objs = obj_dict['%s_refs' %(ref_type)] 
+                        found = False
+                        for ref_obj in ref_objs:
+                            if ref_obj['uuid'] == ref_uuid:
+                                found =True
+                        if not found:
+                            ref_objs.append(ref_info)
+                    else:
                         obj_dict['%s_refs' %(ref_type)] = [ref_info]
+
                 elif hasattr(extra_obj, 'to_obj_uuid') and extra_obj.to_obj_uuid == obj_uuid: # backref
                     backref_uuid = extra_obj.from_obj_uuid
                     backref_type = self.uuid_to_obj_type(backref_uuid)
@@ -762,11 +785,17 @@ class VncRDBMSClient(object):
                     backref_info['href'] = self._generate_url(
                         backref_type, backref_uuid)
                     backref_info['uuid'] = backref_uuid
-
-                    try:
-                        obj_dict['%s_back_refs' %(backref_type)].append(backref_info)
-                    except KeyError:
+                    if '%s_back_refs' %(backref_type) in obj_dict:
+                        backref_objs = obj_dict['%s_back_refs' %(backref_type)]
+                        found = False
+                        for backref_obj in backref_objs:
+                            if backref_obj['uuid'] == backref_uuid:
+                                found = True
+                        if not found:
+                            backref_objs.append(backref_info)
+                    else:
                         obj_dict['%s_back_refs' %(backref_type)] = [backref_info]
+
                 elif hasattr(extra_obj, 'key') and extra_obj.owner == obj_uuid: # map
                     prop_name = extra_obj.property
                     if obj_class.prop_map_field_has_wrappers[prop_name]:
@@ -1582,10 +1611,17 @@ class VncRDBMSClient(object):
         return allocator.get_alloc_count()
     # end subnet_alloc_count
 
-    def subnet_alloc_req(self, subnet, value=None):
+    def subnet_alloc_req(self, subnet, value=None, alloc_pools=None,
+                         alloc_unit=1):
         allocator = self._get_subnet_allocator(subnet)
+        if alloc_pools:
+            alloc_list=[{'start': x['start']/alloc_unit, 'end':x['end']/alloc_unit}
+                         for x in alloc_pools]
+        else:
+            alloc_list = []
+
         try:
-            return allocator.alloc(value=value)
+            return allocator.alloc(value=value, pools=alloc_list)
         except ResourceExhaustionError:
             return None
     # end subnet_alloc_req
