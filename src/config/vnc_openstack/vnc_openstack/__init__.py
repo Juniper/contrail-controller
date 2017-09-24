@@ -21,12 +21,9 @@ from keystoneclient.auth.identity import generic as kauth
 from keystoneclient import client as kclient
 from keystoneclient import exceptions as kexceptions
 from netaddr import *
-try:
-    from cfgm_common import vnc_plugin_base
-    from cfgm_common import utils as cfgmutils
-except ImportError:
-    from common import vnc_plugin_base
-    from cfgm_common import utils as cfgmutils
+from cfgm_common import vnc_plugin_base
+from cfgm_common import utils as cfgmutils
+from cfgm_common import exceptions as vnc_exc
 from cfgm_common.utils import cgitb_hook
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
@@ -39,6 +36,7 @@ from vnc_api.gen.resource_common import *
 
 import neutron_plugin_interface as npi
 from context import use_context
+from neutron_plugin_db import DBInterface as npd
 
 Q_CREATE = 'create'
 Q_DELETE = 'delete'
@@ -1072,6 +1070,23 @@ class NeutronApiDriver(vnc_plugin_base.NeutronApi):
             try:
                 response = handler(*args, **kwargs)
                 return response
+            except vnc_exc.AuthFailed as e:
+                bottle.abort(401, str(e))
+            except vnc_exc.PermissionDenied as e:
+                npd._raise_contrail_exception(
+                          'NotAuthorized', msg=str(e))
+            except vnc_exc.BadRequest as e:
+                npd._raise_contrail_exception(
+                          'BadRequest', msg=str(e))
+            except vnc_exc.RefsExistError as e:
+                npd._raise_contrail_exception(
+                          'Conflict', msg=str(e))
+            except vnc_exc.OverQuota as e:
+                npd._raise_contrail_exception(
+                          'OverQuota', msg=str(e))
+            except vnc_exc.NoIdError as e:
+                npd._raise_contrail_exception(
+                          'NotFound', msg=str(e))
             except Exception as e:
                 # don't log details of bottle.abort i.e handled error cases
                 if not isinstance(e, bottle.HTTPError):
