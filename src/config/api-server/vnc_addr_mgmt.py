@@ -431,7 +431,8 @@ class Subnet(object):
         return self._db_conn.subnet_alloc_count(self._name)
     # end ip_count
 
-    def ip_alloc(self, ipaddr=None, value=None, version=None):
+    def ip_alloc(self, ipaddr=None, value=None, version=None,
+                 sn_alloc_pools=None):
         if ipaddr:
             #check if ipaddr is multiple of alloc_unit
             if ipaddr % self.alloc_unit:
@@ -440,7 +441,9 @@ class Subnet(object):
                           'IP address %s not aligned' %(ipaddr))
             return self.ip_reserve(ipaddr/self.alloc_unit, value)
 
-        addr = self._db_conn.subnet_alloc_req(self._name, value)
+        addr = self._db_conn.subnet_alloc_req(self._name, value,
+                                              alloc_pools=sn_alloc_pools,
+                                              alloc_unit=self.alloc_unit)
         if addr:
             ip_addr = IPAddress(addr * self.alloc_unit, version)
             return str(ip_addr)
@@ -1506,7 +1509,7 @@ class AddrMgmt(object):
 
     def _ipam_ip_alloc(self, ipam_ref=None,
                 sn_uuid=None, sub=None, asked_ip_addr=None,
-                asked_ip_version=4, alloc_id=None):
+                asked_ip_version=4, alloc_id=None, alloc_pools=None):
         db_conn = self._get_db_conn()
         subnets_tried = []
         ip_addr = None
@@ -1518,8 +1521,10 @@ class AddrMgmt(object):
             return (ip_addr, subnets_tried)
 
         for subnet_name in subnet_objs:
+            subnet_alloc_pools = []
             subnet_obj = subnet_objs[subnet_name]
-            if asked_ip_version and asked_ip_version != subnet_obj.get_version():
+            if (asked_ip_version and asked_ip_version !=
+                    subnet_obj.get_version()):
                 continue
             if asked_ip_addr == str(subnet_obj.gw_ip):
                 return (asked_ip_addr, subnets_tried)
@@ -1527,6 +1532,18 @@ class AddrMgmt(object):
                 return (asked_ip_addr, subnets_tried)
             if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                 continue
+
+            if alloc_pools:
+                # build a alloc_pool list only for this subnet
+                # check of alloc_pool is a part of this subnet
+                for alloc_pool in alloc_pools:
+                    pool_start = alloc_pool['start']
+                    pool_end = alloc_pool['end']
+                    if (subnet_obj.ip_belongs(pool_start) and
+                        subnet_obj.ip_belongs(pool_end)):
+                        subnet_pool = {'start': int(IPAddress(pool_start)),
+                                       'end': int(IPAddress(pool_end))}
+                        subnet_alloc_pools.append(subnet_pool)
 
             subnets_tried.append(subnet_name)
             # if user requests ip-addr and that can't be reserved due to
@@ -1544,8 +1561,9 @@ class AddrMgmt(object):
                 return (subnet_obj.ip_reserve(ipaddr=asked_ip_addr,
                                                  value=alloc_id), subnets_tried)
             try:
-                ip_addr = subnet_obj.ip_alloc(ipaddr=None,
-                            value=alloc_id, version=subnet_obj._network.version)
+                ip_addr = subnet_obj.ip_alloc(ipaddr=None, value=alloc_id,
+                              version=subnet_obj._network.version,
+                              sn_alloc_pools=subnet_alloc_pools)
             except cfgm_common.exceptions.ResourceExhaustionError as e:
                 continue
             if ip_addr is not None or sub:
@@ -1553,11 +1571,27 @@ class AddrMgmt(object):
         return (ip_addr, subnets_tried)
     # end _ipam_ip_alloc
 
+    def _ipam_ip_alloc_from_pools(self, ipam_refs, sub=None,
+            asked_ip_addr=None, asked_ip_version=4, alloc_id=None,
+            alloc_pools=None):
+        db_conn = self._get_db_conn()
+        if not ipam_refs:
+          ipam_refs = []
+
+        sn_uuid = None
+        for ipam_ref in ipam_refs:
+            ip_addr, _ = \
+                self._ipam_ip_alloc(ipam_ref, sn_uuid, sub,
+                        asked_ip_addr, asked_ip_version, alloc_id, alloc_pools)
+            if ip_addr:
+                return (ip_addr, None)
+        raise AddrMgmtSubnetExhausted('instace_ip_request', alloc_pools)
+    # end _ipam_ip_alloc_from_pools
+
     def _ipam_ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None,
             asked_ip_addr=None, asked_ip_version=4, alloc_id=None):
         db_conn = self._get_db_conn()
-        ipam_refs_passed = False
-        ipam_refs = vn_dict['network_ipam_refs']
+        ipam_refs = vn_dict.get('network_ipam_refs', [])
         subnets_tried = []
         found_subnet_match = False
         for ipam_ref in ipam_refs:
@@ -1567,8 +1601,9 @@ class AddrMgmt(object):
             # otherwise it is not a flat subnet
             vnsn_data = ipam_ref.get('attr') or {}
             ipam_subnets = vnsn_data.get('ipam_subnets') or []
-            # if there are no ipam_subnets then either it is a user-define-subnet
-            # without any subnet added or flat-subnet ipam without and ipam_subnets
+            # if there are no ipam_subnets then either
+            # it is a user-define-subnet without any subnet
+            # added or flat-subnet ipam without and ipam_subnets
             if len(ipam_subnets) is 0:
                 continue
             first_ipam_subnet = ipam_subnets[0]
@@ -1682,15 +1717,31 @@ class AddrMgmt(object):
     # allocate an IP address for given virtual network
     # we use the first available subnet unless provided
     def ip_alloc_req(self, vn_fq_name, vn_dict=None, sub=None,
-                          asked_ip_addr=None, asked_ip_version=4,
-                          alloc_id=None, ipam_refs=None):
+                     asked_ip_addr=None, asked_ip_version=4,
+                     alloc_id=None, ipam_refs=None,
+                     alloc_pools=None):
         db_conn = self._get_db_conn()
-        if ipam_refs:
+        if ipam_refs and not alloc_pools:
+            # This is a request for ip address from flat subnet
+            # where instace_ip is directly referencing ipam
+            # for internal ip address 
             sn_uuid = None
             ip_addr, _ = \
                 self._ipam_ip_alloc(ipam_refs[0], sn_uuid, sub,
                         asked_ip_addr, asked_ip_version, alloc_id)
             return (ip_addr, sn_uuid)
+
+        if ipam_refs and alloc_pools:
+            # This is a request for ip address from flat subnet
+            # where instace_ip is referring to vrouter which has
+            # allocation pools on vrouter->ipam link.
+            ip_addr, _ = self._ipam_ip_alloc_from_pools(ipam_refs, sub,
+                             asked_ip_addr, asked_ip_version,
+                            alloc_id, alloc_pools=alloc_pools)
+            return (ip_addr, None)
+
+        # This is a Virtual network based ip allocation either from flat-subnet
+        # ipam or user-defined connected ipam
         if not vn_dict:
             obj_fields=['network_ipam_refs']
             (ok, vn_dict) = self._fq_name_to_obj_dict('virtual_network',

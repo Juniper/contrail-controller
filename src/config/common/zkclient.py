@@ -197,16 +197,88 @@ class IndexAllocator(object):
         return self._in_use.count()
     # end get_alloc_count
 
-    def alloc(self, value=None):
-        # Allocates a index from the allocation list
-        if self._in_use.all():
-            idx = self._in_use.length()
-            if idx > self._max_alloc:
-                raise ResourceExhaustionError()
-            self._in_use.append(1)
+    def _alloc_from_pools(self, pools=None):
+        if not pools:
+            raise ResourceExhaustionError()
+
+        if self._reverse:
+            pools = list(reversed(pools))
+        for pool in pools:
+            last_idx = self._in_use.length() - 1
+            pool_start = pool['start']
+            pool_end = pool['end']
+            pool_size = pool_end - pool_start + 1
+            if self._reverse: 
+                start_bit_idx = self._get_bit_from_zk_index(pool_end)
+                end_bit_idx = self._get_bit_from_zk_index(pool_start)
+            else:
+                start_bit_idx = self._get_bit_from_zk_index(pool_start)
+                end_bit_idx = self._get_bit_from_zk_index(pool_end)
+
+            # if bitarray is less then start_bit_index, 
+            # extend bit array to start_bit_idx and use that idx
+            if last_idx < start_bit_idx:
+                temp = bitarray(start_bit_idx - last_idx)
+                temp.setall(0)
+                self._in_use.extend(temp)
+                self._in_use[start_bit_idx] = 1
+                return start_bit_idx
+
+            # if bitarray is in between start_bit_idx and end_bit_idx
+            if last_idx >= start_bit_idx and last_idx <= end_bit_idx:
+                if self._in_use.all():
+                    if last_idx == end_bit_idx:
+                        continue
+                    idx = self._in_use.length()
+                    self._in_use.append(1)
+                    return idx
+                else:
+                    # we need to slice part of bitarray from
+                    # start of the pool and end of array
+                    pool_bitarray = self._in_use[
+                        start_bit_idx:last_idx+1]
+                    if ((pool_bitarray.length() == 1) and
+                        (pool_bitarray.all())):
+                        idx = self._in_use.length()
+                        self._in_use.append(1)
+                    else:
+                        if pool_bitarray.all():
+                            continue
+                        idx = pool_bitarray.index(0)
+                        idx += start_bit_idx
+
+                    self._in_use[idx] = 1
+                    return idx
+            else:
+                pool_bitarray = self._in_use[
+                    start_bit_idx:end_bit_idx+1]
+                if pool_bitarray.all():
+                    if pool == pools[-1]:
+                        raise ResourceExhaustionError()
+                    else:
+                        continue
+                else:
+                    idx = pool_bitarray.index(0)
+                    idx += start_bit_idx
+                    self._in_use[idx] = 1
+                    return idx
+
+        raise ResourceExhaustionError()
+    # end _alloc_from_pools
+
+    def alloc(self, value=None, pools=[]):
+        if pools:
+            idx = self._alloc_from_pools(pools)
         else:
-            idx = self._in_use.index(0)
-            self._in_use[idx] = 1
+            # Allocates a index from the allocation list
+            if self._in_use.all():
+                idx = self._in_use.length()
+                if idx > self._max_alloc:
+                    raise ResourceExhaustionError()
+                self._in_use.append(1)
+            else:
+                idx = self._in_use.index(0)
+                self._in_use[idx] = 1
 
         idx = self._get_zk_index_from_bit(idx)
         try:
