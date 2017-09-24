@@ -1889,6 +1889,292 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_delete(id=ipam_obj.uuid)
     #end
 
+    def test_flat_ipam_vrouter_allocation_pools(self):
+        # Create Project
+        project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+
+        global_sys_config = GlobalSystemConfig('my-sys-config')
+        self._vnc_lib.global_system_config_create(global_sys_config)
+
+        vr_pool_list = []
+        vr_pool_list.append(AllocationPoolType(start='11.1.1.16', end='11.1.1.18'))
+        vr_pool_list.append(AllocationPoolType(start='12.1.1.32', end='12.1.1.63'))
+
+        #ipam0 with user-defined-subnet
+        ipam0 = NetworkIpam('ipam0', project, IpamType("dhcp"),
+                            ipam_subnet_method="user-defined-subnet")
+        self._vnc_lib.network_ipam_create(ipam0)
+        ipam0_uuid=ipam0.uuid
+
+        # create a two vrouters and attach this to a ipam0
+        vr0 = VirtualRouter('vrouter0', global_sys_config)
+        vr0.add_network_ipam(ipam0, VirtualRouterNetworkIpamType(vr_pool_list, []))
+
+        # create the virtual routers
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+            'only flat-subnet ipam can be attached to vrouter') as e:
+            self._vnc_lib.virtual_router_create(vr0)
+
+        vr0.del_network_ipam(ipam0)
+        self._vnc_lib.network_ipam_delete(id=ipam0.uuid)
+
+        # create a ipam with flat-subnet and without any allocation pools
+        ipam0_sn_1 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+        ipam0_sn_2 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 24))
+
+        # declare ipam
+        ipam0 = NetworkIpam('ipam2', project, IpamType("dhcp"),
+                             ipam_subnet_method="flat-subnet")
+        # create ipams
+        self._vnc_lib.network_ipam_create(ipam0)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
+
+        vr0.add_network_ipam(ipam0, VirtualRouterNetworkIpamType(vr_pool_list, []))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+            'vrouter allocation-pool not found in ipam') as e:
+            self._vnc_lib.virtual_router_create(vr0)
+        vr0.del_network_ipam(ipam0)
+
+        # add subnet to ipam0
+        ipam0.set_ipam_subnets(IpamSubnets([ipam0_sn_1, ipam0_sn_2]))
+        self._vnc_lib.network_ipam_update(ipam0)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
+        vr0.add_network_ipam(ipam0, VirtualRouterNetworkIpamType(vr_pool_list, []))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+            'vrouter allocation-pool not found in ipam') as e:
+            self._vnc_lib.virtual_router_create(vr0)
+        vr0.del_network_ipam(ipam0)
+
+        ipam0.set_ipam_subnets(IpamSubnets([]))
+        self._vnc_lib.network_ipam_update(ipam0)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
+
+        sn1_pool_list = []
+        sn1_pool_list.append(AllocationPoolType(start='11.1.1.16',
+                                                end='11.1.1.18',
+                                                vrouter_specific_pool=True))
+        ipam0_sn1 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24),
+                                   allocation_pools=sn1_pool_list,
+                                   alloc_unit=1)
+
+        sn2_pool_list = []
+        sn2_pool_list.append(AllocationPoolType(start='12.1.1.32',
+                                                end='12.1.1.63'))
+        ipam0_sn2 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 24),
+                                   allocation_pools=sn2_pool_list,
+                                   alloc_unit=1)
+
+        ipam0.set_ipam_subnets(IpamSubnets([ipam0_sn1, ipam0_sn2]))
+        self._vnc_lib.network_ipam_update(ipam0)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
+
+        vr_pool_list.append(AllocationPoolType(start='13.1.1.8', end='13.1.1.9'))
+        vr0.add_network_ipam(ipam0, VirtualRouterNetworkIpamType(vr_pool_list, []))
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+            'vrouter allocation-pool not found in ipam') as e:
+            self._vnc_lib.virtual_router_create(vr0)
+        vr0.del_network_ipam(ipam0)
+
+        ipam0.set_ipam_subnets(IpamSubnets([]))
+        self._vnc_lib.network_ipam_update(ipam0)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
+
+        sn2_pool_list = []
+        sn2_pool_list.append(AllocationPoolType(start='12.1.1.32',
+                                                end='12.1.1.63',
+                                                vrouter_specific_pool=True))
+
+        ipam0_sn2 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 24),
+                                   allocation_pools=sn2_pool_list,
+                                   alloc_unit=1)
+
+        ipam0.set_ipam_subnets(IpamSubnets([ipam0_sn1, ipam0_sn2]))
+        self._vnc_lib.network_ipam_update(ipam0)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
+        vr0.add_network_ipam(ipam0, VirtualRouterNetworkIpamType(vr_pool_list, []))
+
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+            'vrouter allocation-pool not found in ipam') as e:
+            self._vnc_lib.virtual_router_create(vr0)
+        vr0.del_network_ipam(ipam0)
+
+        vr_pool_list = vr_pool_list[:-1]
+
+        vr_subnet_list = []
+        vr_subnet_list.append(SubnetType(ip_prefix='haha',
+                                         ip_prefix_len=24))
+        vr_ipam_type = VirtualRouterNetworkIpamType(vr_pool_list, vr_subnet_list)
+        vr0.add_network_ipam(ipam0, vr_ipam_type)
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+            'vrouter subnet prefix is invalid') as e:
+            self._vnc_lib.virtual_router_create(vr0)
+        vr0.del_network_ipam(ipam0)
+
+        vr_subnet_list = []
+        vr_subnet_list.append(SubnetType(ip_prefix='10.10.10.0',
+                                         ip_prefix_len=24))
+        vr_subnet_list.append(SubnetType(ip_prefix='11.11.11.0',
+                                         ip_prefix_len=24))
+        vr_ipam_type = VirtualRouterNetworkIpamType(vr_pool_list, vr_subnet_list)
+        vr0.add_network_ipam(ipam0, vr_ipam_type)
+        self._vnc_lib.virtual_router_create(vr0)
+        vr_obj = self._vnc_lib.virtual_router_read(id=vr0.uuid)
+
+        # update ipam with one more allocation pool in existing subnets
+        # add that pool in vrouter/ipam link and test vrouter update.
+        sn2_pool_list.append(AllocationPoolType(start='12.1.1.8',
+                                                end='12.1.1.15',
+                                                vrouter_specific_pool=True))
+
+        ipam0_sn2 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 24),
+                                   allocation_pools=sn2_pool_list,
+                                   alloc_unit=1)
+
+        ipam0.set_ipam_subnets(IpamSubnets([ipam0_sn1, ipam0_sn2]))
+        self._vnc_lib.network_ipam_update(ipam0)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
+
+        vr_pool_list.append(AllocationPoolType(start='12.1.1.8', end='12.1.1.15'))
+
+        vr_ipam_type.set_allocation_pools(vr_pool_list)
+        vr0._pending_field_updates.add('network_ipam_refs')
+        self._vnc_lib.virtual_router_update(vr0)
+        vr_obj = self._vnc_lib.virtual_router_read(id=vr0.uuid)
+
+        # add a new subnet in ipam with a allocation pool
+        # add it on a link vrouter->ipm
+        sn3_pool_list = []
+        sn3_pool_list.append(AllocationPoolType(start='13.1.1.8',
+                                                end='13.1.1.9',
+                                                vrouter_specific_pool=True))
+        sn3_pool_list.append(AllocationPoolType(start='13.1.1.16',
+                                                end='13.1.1.17',
+                                                vrouter_specific_pool=False))
+        sn3_pool_list.append(AllocationPoolType(start='13.1.1.24',
+                                                end='13.1.1.25',
+                                                vrouter_specific_pool=True))
+        ipam0_sn3 = IpamSubnetType(subnet=SubnetType('13.1.1.0', 24),
+                                   allocation_pools=sn3_pool_list,
+                                   alloc_unit=1)
+        ipam0.set_ipam_subnets(IpamSubnets([ipam0_sn1, ipam0_sn2, ipam0_sn3]))
+        self._vnc_lib.network_ipam_update(ipam0)
+        ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
+
+        vr_pool_list.append(AllocationPoolType(start='13.1.1.8', end='13.1.1.9'))
+        vr_ipam_type.set_allocation_pools(vr_pool_list)
+        vr0._pending_field_updates.add('network_ipam_refs')
+        self._vnc_lib.virtual_router_update(vr0)
+        vr_obj = self._vnc_lib.virtual_router_read(id=vr0.uuid)
+
+        vr_pool_list1 = []
+        vr1 = VirtualRouter('vrouter1', global_sys_config)
+        vr_ipam_type1 = VirtualRouterNetworkIpamType(vr_pool_list1, [])
+        vr_ipam_type1.set_allocation_pools(vr_pool_list1)
+        vr1.add_network_ipam(ipam0, vr_ipam_type1)
+        self._vnc_lib.virtual_router_create(vr1)
+        vr_pool_list1.append(AllocationPoolType(start='13.1.1.24', end='13.1.1.25'))
+        vr_ipam_type1.set_allocation_pools(vr_pool_list1)
+        vr1._pending_field_updates.add('network_ipam_refs')
+        self._vnc_lib.virtual_router_update(vr1)
+        vr_obj1 = self._vnc_lib.virtual_router_read(id=vr1.uuid)
+
+        vn = VirtualNetwork('my-vn', project,
+                            virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
+                            address_allocation_mode='flat-subnet-only')
+
+        vn.add_network_ipam(ipam0, VnSubnetsType([]))
+        # put a add method to add flag for ip allocation user-only
+        self._vnc_lib.virtual_network_create(vn)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # Create v4 Ip objects
+        ipv4_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj1.uuid = ipv4_obj1.name
+        ipv4_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj2.uuid = ipv4_obj2.name
+        ipv4_obj3 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj3.uuid = ipv4_obj3.name
+        ipv4_obj4 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj4.uuid = ipv4_obj4.name
+        ipv4_obj5 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj5.uuid = ipv4_obj5.name
+
+        # Create VM
+        vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
+        vm_inst_obj1.uuid = vm_inst_obj1.name
+        self._vnc_lib.virtual_machine_create(vm_inst_obj1)
+
+        id_perms = IdPermsType(enable=True)
+        port_obj1 = VirtualMachineInterface(
+            str(uuid.uuid4()), vm_inst_obj1, id_perms=id_perms)
+        port_obj1.uuid = port_obj1.name
+        port_obj1.set_virtual_network(vn)
+
+        ipv4_obj1.set_virtual_machine_interface(port_obj1)
+        ipv4_obj1.set_virtual_network(net_obj)
+        ipv4_obj1.set_virtual_router(vr_obj)
+
+        ipv4_obj2.set_virtual_machine_interface(port_obj1)
+        ipv4_obj2.set_virtual_network(net_obj)
+        ipv4_obj2.set_virtual_router(vr_obj)
+
+        ipv4_obj3.set_virtual_machine_interface(port_obj1)
+        ipv4_obj3.set_virtual_network(net_obj)
+        ipv4_obj3.set_virtual_router(vr_obj)
+
+        ipv4_obj4.set_virtual_machine_interface(port_obj1)
+        ipv4_obj4.set_virtual_network(net_obj)
+        ipv4_obj4.set_virtual_router(vr_obj1)
+
+        ipv4_obj5.set_virtual_machine_interface(port_obj1)
+        ipv4_obj5.set_virtual_network(net_obj)
+
+        port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
+
+        ipv4_obj1.set_instance_ip_address(None)
+        ipv4_obj2.set_instance_ip_address(None)
+        ipv4_obj3.set_instance_ip_address(None)
+        ipv4_obj4.set_instance_ip_address(None)
+        ipv4_obj5.set_instance_ip_address(None)
+
+        ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
+        ipv4_obj1 = self._vnc_lib.instance_ip_read(id=ipv4_id1)
+        ipv4_addr1 = ipv4_obj1.get_instance_ip_address()
+
+        ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
+        ipv4_obj2 = self._vnc_lib.instance_ip_read(id=ipv4_id2)
+        ipv4_addr2 = ipv4_obj2.get_instance_ip_address()
+
+        ipv4_id3 = self._vnc_lib.instance_ip_create(ipv4_obj3)
+        ipv4_obj3 = self._vnc_lib.instance_ip_read(id=ipv4_id3)
+        ipv4_addr3 = ipv4_obj3.get_instance_ip_address()
+
+        ipv4_id4 = self._vnc_lib.instance_ip_create(ipv4_obj4)
+        ipv4_obj4 = self._vnc_lib.instance_ip_read(id=ipv4_id4)
+        ipv4_addr4 = ipv4_obj4.get_instance_ip_address()
+
+        # Now get a regular instanceIp
+        ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
+        ipv4_obj5 = self._vnc_lib.instance_ip_read(id=ipv4_id5)
+        ipv4_addr5 = ipv4_obj5.get_instance_ip_address()
+
+        #cleanup
+        self._vnc_lib.instance_ip_delete(id=ipv4_id5)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id4)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id3)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id2)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id1)
+        self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn.uuid)
+        self._vnc_lib.virtual_router_delete(id=vr0.uuid)
+        self._vnc_lib.virtual_router_delete(id=vr1.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam0.uuid)
+        self._vnc_lib.global_system_config_delete(id=global_sys_config.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+    #end
+
     def test_ip_alloction(self):
         # Create Project
         project = Project('my-v4-v6-proj-%s' %(self.id()), Domain())
