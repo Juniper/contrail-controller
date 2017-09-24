@@ -509,10 +509,17 @@ class VncZkClient(object):
         return allocator.get_alloc_count()
     # end subnet_alloc_count
 
-    def subnet_alloc_req(self, subnet, value=None):
+    def subnet_alloc_req(self, subnet, value=None, alloc_pools=None,
+                         alloc_unit=1):
         allocator = self._get_subnet_allocator(subnet)
+        if alloc_pools:
+            alloc_list=[{'start': x['start']/alloc_unit, 'end':x['end']/alloc_unit}
+                         for x in alloc_pools]
+        else:
+            alloc_list = []
+
         try:
-            return allocator.alloc(value=value)
+            return allocator.alloc(value=value, pools=alloc_list)
         except ResourceExhaustionError:
             return None
     # end subnet_alloc_req
@@ -1427,8 +1434,10 @@ class VncDbClient(object):
         return self._zk_db.subnet_alloc_count(subnet)
     # end subnet_alloc_count
 
-    def subnet_alloc_req(self, subnet, value=None):
-        return self._zk_db.subnet_alloc_req(subnet, value)
+    def subnet_alloc_req(self, subnet, value=None, alloc_pools=[],
+                         alloc_unit=1):
+        return self._zk_db.subnet_alloc_req(subnet, value, alloc_pools,
+                                            alloc_unit)
     # end subnet_alloc_req
 
     def subnet_reserve_req(self, subnet, addr=None, value=None):
