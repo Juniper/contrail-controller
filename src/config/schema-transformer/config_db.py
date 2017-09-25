@@ -1422,11 +1422,15 @@ class VirtualNetworkST(DBBaseST):
         prefixes = []
         for ipam in self.ipams.values():
             for ipam_subnet in ipam.ipam_subnets:
-                prefix = '%s/%d' % (ipam_subnet.subnet.ip_prefix,
-                                    ipam_subnet.subnet.ip_prefix_len)
-                network = IPNetwork(prefix)
-                if network.version == ip_version:
-                    prefixes.append(prefix)
+                # LP #1717838
+                # IPAMs with subnet method = FLAT do not have subnet
+                # Skip exporting prefixes of FLAT subnets
+                if ipam_subnet.subnet:
+                    prefix = '%s/%d' % (ipam_subnet.subnet.ip_prefix,
+                                        ipam_subnet.subnet.ip_prefix_len)
+                    network = IPNetwork(prefix)
+                    if network.version == ip_version:
+                        prefixes.append(prefix)
         return prefixes
     # end get_prefixes
 
