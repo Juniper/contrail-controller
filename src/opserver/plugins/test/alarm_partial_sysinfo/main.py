@@ -4,7 +4,7 @@ from opserver.sandesh.alarmgen_ctrl.sandesh_alarm_base.ttypes import *
 class PartialSysinfo(AlarmBase):
 
     def __init__(self):
-	AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
+        AlarmBase.__init__(self, AlarmBase.ALARM_MAJOR)
 
 
 class PartialSysinfoCompute(PartialSysinfo):

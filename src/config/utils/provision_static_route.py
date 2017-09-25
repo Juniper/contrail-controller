@@ -6,7 +6,7 @@
 import sys
 import argparse
 import ConfigParser
-import netaddr	
+import netaddr
 
 from vnc_api.vnc_api import *
 from vnc_api.gen.resource_xsd import RouteType
@@ -81,7 +81,7 @@ class StaticRouteProvisioner(object):
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
 
     # end __init__
-    
+
     def add_route(self, intf_route_table_obj, prefix):
         rt_routes = intf_route_table_obj.get_interface_route_table_routes()
         routes = rt_routes.get_route()
@@ -90,14 +90,14 @@ class StaticRouteProvisioner(object):
             if route.prefix == prefix:
                 print "Prefix already present in Interface Route Table, not adding"
                 found = True
-                sys.exit(0) 
+                sys.exit(0)
         if not found:
-   	    rt1 = RouteType(prefix = prefix)
+            rt1 = RouteType(prefix = prefix)
         routes.append(rt1)
         intf_route_table_obj.set_interface_route_table_routes(rt_routes)
         return intf_route_table_obj
-    #end add_route 
-     
+    #end add_route
+
     def del_route(self, intf_route_table_obj, prefix):
 #        routes = intf_route_table_obj['interface_route_table_routes']['route']
         rt_routes = intf_route_table_obj.get_interface_route_table_routes()
@@ -107,12 +107,12 @@ class StaticRouteProvisioner(object):
             if route.prefix == prefix:
                 found = True
                 routes.remove(route)
-        if not found : 
+        if not found:
             print "Prefix %s not found in Route table %s!" %( prefix, intf_route_table_obj.name)
             sys.exit(1)
         intf_route_table_obj.set_interface_route_table_routes(rt_routes)
         return intf_route_table_obj
-    
+
     def is_route_table_empty(self, intf_route_table_obj):
         rt_routes = intf_route_table_obj.get_interface_route_table_routes()
         if len(rt_routes.get_route()) == 0 :
@@ -123,13 +123,13 @@ class StaticRouteProvisioner(object):
 
     def _parse_args(self, args_str):
         '''
-        Eg. python provision_static_route.py 
+        Eg. python provision_static_route.py
                                         --api_server_ip 127.0.0.1
                                         --api_server_port 8082
                                         --api_server_use_ssl False
                                         --prefix 2.2.2.0/24
-                                        --virtual_machine_interface_id 242717c9-8e78-4c67-94a8-5fbef1f2f096 
-                                        --route_table_name "MyRouteTable" 
+                                        --virtual_machine_interface_id 242717c9-8e78-4c67-94a8-5fbef1f2f096
+                                        --route_table_name "MyRouteTable"
                                         --tenant_name "admin"
                                         --oper <add | del>
         '''
@@ -210,7 +210,7 @@ class StaticRouteProvisioner(object):
 
 
 def main(args_str=None):
-    st=StaticRouteProvisioner(args_str)
+    st = StaticRouteProvisioner(args_str)
     #st.add_route()
 # end main
 

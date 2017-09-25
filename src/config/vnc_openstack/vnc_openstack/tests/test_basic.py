@@ -528,7 +528,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
     def test_empty_list_for_allowed_address(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         port_q = self._create_port_with_no_sg(proj_obj.uuid)
-	self.assertTrue(port_q['allowed_address_pairs'] is not None)
+        self.assertTrue(port_q['allowed_address_pairs'] is not None)
 
     def test_update_port_with_port_security_disabled_and_sg(self):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])

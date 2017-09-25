@@ -60,7 +60,7 @@ class ServicePolicyCmd(object):
             'api_server_port': '8082',
         }
 
-	if not args.conf_file:
+        if not args.conf_file:
             args.conf_file = '/etc/contrail/contrail-svc-monitor.conf'
 
         config = ConfigParser.SafeConfigParser()

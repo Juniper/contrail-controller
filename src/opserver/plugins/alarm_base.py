@@ -44,13 +44,13 @@ class AlarmBase(object):
 
     def FreqCheck_Times(self):
         """Return the number of times an alarm should be enabled
-	for FreqExceededCheck
+        for FreqExceededCheck
         """
         return self._FreqCheck_Times
 
     def FreqCheck_Seconds(self):
         """Return the number of seconds in which FreqExceededCheck
-	should be checked
+        should be checked
         """
         return self._FreqCheck_Seconds
 
@@ -61,13 +61,13 @@ class AlarmBase(object):
 
     def IdleTimer(self):
         """Return the soak time value for clearing the alarm
-	   This should be 0 if there is no need of soak time
+        This should be 0 if there is no need of soak time
         """
         return self._IdleTimer
 
     def ActiveTimer(self):
         """Return the soak time value for setting the alarm
-	   This should be 0 if there is no need of soak time
+        This should be 0 if there is no need of soak time
         """
         return self._ActiveTimer
 

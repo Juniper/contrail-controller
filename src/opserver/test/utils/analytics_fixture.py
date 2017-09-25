@@ -62,7 +62,7 @@ class Query(object):
             self.filter = filter
 
 class Collector(object):
-    def __init__(self, analytics_fixture, redis_uve, 
+    def __init__(self, analytics_fixture, redis_uve,
                  logger, ipfix_port = False, sflow_port = False,
                  syslog_port = False, protobuf_port = True,
                  kafka = None, is_dup = False,
@@ -145,7 +145,7 @@ class Collector(object):
         args = [self.analytics_fixture.builddir + '/analytics/vizd',
             '--DEFAULT.cassandra_server_list', '127.0.0.1:' +
             str(self.analytics_fixture.cassandra_port),
-            '--REDIS.port', 
+            '--REDIS.port',
             str(self._redis_uve.port),
             '--COLLECTOR.port', str(self.listen_port),
             '--DEFAULT.hostip', '127.0.0.1',
@@ -168,14 +168,14 @@ class Collector(object):
         else:
             self.protobuf_port = None
         if self.cassandra_user is not None and \
-           self.cassandra_password is not None:
-               args.append('--CASSANDRA.cassandra_user')
-               args.append(self.cassandra_user)
-               args.append('--CASSANDRA.cassandra_password')
-               args.append(self.cassandra_password)
+            self.cassandra_password is not None:
+                args.append('--CASSANDRA.cassandra_user')
+                args.append(self.cassandra_user)
+                args.append('--CASSANDRA.cassandra_password')
+                args.append(self.cassandra_password)
         if self.kafka_port:
             args.append('--DEFAULT.kafka_broker_list')
-            args.append('127.0.0.1:%d' % self.kafka_port)        
+            args.append('127.0.0.1:%d' % self.kafka_port)
             args.append('--DEFAULT.partitions')
             args.append(str(4))
         args.append('--DEFAULT.zookeeper_server_list')
@@ -202,7 +202,7 @@ class Collector(object):
             if 'disable_object_logs' in self.sandesh_config and \
                 self.sandesh_config['disable_object_logs']:
                 args.append('--SANDESH.disable_object_logs')
-        self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
+        self._logger.info('Setting up Vizd: %s' % (' '.join(args)))
         ports, self._instance = \
                          self.analytics_fixture.start_with_ephemeral_ports(
                          "contrail-collector", ["http","collector"],
@@ -280,7 +280,7 @@ class AlarmGen(object):
         if self.kafka_port:
             args.append('--kafka_broker_list')
             args.append('127.0.0.1:' + str(self.kafka_port))
-        args.append('--redis_uve_list') 
+        args.append('--redis_uve_list')
         for redis_uve in self.analytics_fixture.redis_uves:
             args.append('127.0.0.1:'+str(redis_uve.port))
         args.append('--collectors')
@@ -746,8 +746,8 @@ class AnalyticsFixture(fixtures.Fixture):
         if not self.opserver.start():
             self.logger.error("OpServer did NOT start")
         self.opserver_port = self.get_opserver_port()
-        
-        if self.kafka is not None: 
+
+        if self.kafka is not None:
             self.alarmgen = AlarmGen(self.get_collectors(), self.kafka.port,
                                      self, self.logger, zkport,
                                      sandesh_config=self.sandesh_config)
@@ -878,7 +878,7 @@ class AnalyticsFixture(fixtures.Fixture):
             return True
         else:
             return False
-      
+
     @retry(delay=2, tries=5)
     def verify_uvetable_alarm(self, table, name, type, is_set=True, rules=None):
         vag = self.alarmgen.get_introspect()
@@ -898,14 +898,14 @@ class AnalyticsFixture(fixtures.Fixture):
         if not uves:
             uves = []
         alarms = {}
-	for uve in uves:
-	    elem = uve['uai']['UVEAlarms']
+        for uve in uves:
+            elem = uve['uai']['UVEAlarms']
             if name and elem['name'] != name:
                 continue
-	    #alarms in Idle state should not be counted
-	    alarm_state = int(uve['uas']['UVEAlarmOperState']['state'])
-	    if (alarm_state == UVEAlarmState.Idle):
-		continue
+            #alarms in Idle state should not be counted
+            alarm_state = int(uve['uas']['UVEAlarmOperState']['state'])
+            if (alarm_state == UVEAlarmState.Idle):
+                continue
             for alm in elem['alarms']:
                 if len(alm['alarm_rules']):
                     alarms[alm['type']] = alm['alarm_rules']['AlarmRules']['or_list']
@@ -923,8 +923,8 @@ class AnalyticsFixture(fixtures.Fixture):
                         return False
             return is_set
         else:
-	    if not name:
-		return True
+            if not name:
+                return True
             return not is_set
 
     @retry(delay=2, tries=10)
@@ -1008,20 +1008,20 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time='-10m', end_time='now',
                              select_fields=["Level", "Type", "MessageTS", "SequenceNum"],
                              where_clause='')
-	if (res == []):
+        if (res == []):
             return False
-	else:
-	    for x in res:
-	        assert('Level' in x)
-		assert('Type' in x)
-		assert('MessageTS' in x)
-		assert('SequenceNum' in x)
-	    	assert(type(x['Level']) is int)
-	    	assert(type(x['Type']) is int)
-	    	assert(type(x['MessageTS']) is int)
-	    	assert(type(x['SequenceNum']) is int)
-	    return True
-    
+        else:
+            for x in res:
+                assert('Level' in x)
+                assert('Type' in x)
+                assert('MessageTS' in x)
+                assert('SequenceNum' in x)
+                assert(type(x['Level']) is int)
+                assert(type(x['Type']) is int)
+                assert(type(x['MessageTS']) is int)
+                assert(type(x['SequenceNum']) is int)
+            return True
+
     @retry(delay=1, tries=6)
     def verify_message_table_moduleid(self):
         self.logger.info("verify_message_table_moduleid")
@@ -2153,7 +2153,7 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         query = Query(table="StatTable.FieldNames.fields",
-		            start_time="now-10m",
+                            start_time="now-10m",
                             end_time="now",
                             select_fields=["fields.value"],
                             where=[[{"name": "name", "value": "MessageTable:Messagetype",
@@ -2487,8 +2487,8 @@ class AnalyticsFixture(fixtures.Fixture):
                              select_fields=['fields.value'],
                              where_clause = 'name=ObjectVNTable:ObjectId')
         self.logger.info(str(res))
-	#Verify that 2 different n/w are present vn0 and vn1
-	assert(len(res)==2)
+        #Verify that 2 different n/w are present vn0 and vn1
+        assert(len(res)==2)
         return True
     # end verify_fieldname_table
 
@@ -2893,7 +2893,7 @@ class AnalyticsFixture(fixtures.Fixture):
     @staticmethod
     def enable_core():
         try:
-	    resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))
+            resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))
         except:
             pass
 

@@ -661,7 +661,7 @@ class EventManager(object):
             node_status.build_info = self.get_build_info()
             node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                             data=node_status)
-	    msg = 'send_process_state_db_base: Sending UVE:' + str(node_status_uve)
+            msg = 'send_process_state_db_base: Sending UVE:' + str(node_status_uve)
             self.msg_log(msg, SandeshLevel.SYS_INFO)
             node_status_uve.send()
     # end send_process_state_db_base
@@ -932,15 +932,15 @@ class EventManager(object):
         return ""
 
     def event_process_state(self, process_info):
-	msg = ("process:" + process_info['name'] + "," + "group:" +
-		process_info['group'] + "," + "state:" + process_info['state'])
+        msg = ("process:" + process_info['name'] + "," + "group:" +
+                process_info['group'] + "," + "state:" + process_info['state'])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
         self.send_process_state(process_info)
         for rules in self.rules_data['Rules']:
             if 'processname' in rules:
                 if ((rules['processname'] == process_info['group']) and
                    (rules['process_state'] == process_info['state'])):
-		    msg = "got a hit with:" + str(rules)
+                    msg = "got a hit with:" + str(rules)
                     self.msg_log(msg, SandeshLevel.SYS_DEBUG)
                     # do not make async calls
                     try:
@@ -948,13 +948,13 @@ class EventManager(object):
                             [rules['action']], shell=True,
                             stdout=self.stderr, stderr=self.stderr)
                     except Exception as e:
-		        msg = ('Failed to execute action: ' + rules['action'] +
-				 ' with err ' + str(e))
+                        msg = ('Failed to execute action: ' + rules['action'] +
+                                 ' with err ' + str(e))
                         self.msg_log(msg, SandeshLevel.SYS_ERR)
                     else:
                         if ret_code:
-			    msg = ('Execution of action ' + rules['action'] + 
-					' returned err ' + str(ret_code))
+                            msg = ('Execution of action ' + rules['action'] +
+                                        ' returned err ' + str(ret_code))
                             self.msg_log(msg, SandeshLevel.SYS_ERR)
     # end event_process_state
 
@@ -968,7 +968,7 @@ class EventManager(object):
                 if ((rules['flag_name'] == flag_and_value[0]) and
                    (rules['flag_value'].strip() == flag_and_value[2].strip())):
                     msg = "got a hit with:" + str(rules)
-	            self.msg_log(msg, SandeshLevel.SYS_DEBUG)
+                    self.msg_log(msg, SandeshLevel.SYS_DEBUG)
                     cmd_and_args = ['/usr/bin/bash', '-c', rules['action']]
                     subprocess.Popen(cmd_and_args)
 
