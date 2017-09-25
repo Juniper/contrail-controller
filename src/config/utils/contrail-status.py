@@ -201,6 +201,31 @@ def check_svc(svc, initd_svc=False):
 _DEFAULT_CONF_FILE_DIR = '/etc/contrail/'
 _DEFAULT_CONF_FILE_EXTENSION = '.conf'
 
+def get_http_server_port_from_cmdline_options(svc_name, debug):
+    name, instance = svc_name, None
+    name_instance = svc_name.rsplit(':', 1)
+    if len(name_instance) == 2:
+        name, instance = name_instance
+    cmd = 'ps -eaf | grep %s | grep http_server_port' % (name)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    cmdout = p.communicate()[0]
+    processes = cmdout.splitlines()
+    for p in processes:
+        p = p.split()
+        try:
+            if instance:
+                wi = p.index('--worker_id')
+                if instance == p[wi+1]:
+                    pi = p.index('--http_server_port')
+                    return int(p[pi+1])
+            else:
+                pi = p.index('--http_server_port')
+                return int(p[pi+1])
+        except ValueError:
+            continue
+    return -1
+# end get_http_server_port_from_cmdline_options
+
 def get_http_server_port_from_conf(svc_name, debug):
     # Open and extract conf file
     if svc_name in ServicesDefaultConfigurationFile:
@@ -257,7 +282,9 @@ def get_default_http_server_port(svc_name, debug):
         return -1
 
 def get_http_server_port(svc_name, debug):
-    http_server_port = get_http_server_port_from_conf(svc_name, debug)
+    http_server_port = get_http_server_port_from_cmdline_options(svc_name, debug)
+    if http_server_port == -1:
+        http_server_port = get_http_server_port_from_conf(svc_name, debug)
     if http_server_port == -1:
         http_server_port = get_default_http_server_port(svc_name, debug)
     return http_server_port
@@ -321,7 +348,8 @@ def check_svc_status(service_name, debug, detail, timeout):
                 # Extract UVE state only for running processes
                 svc_uve_description = None
                 if (svc_name in NodeUVEImplementedServices or
-                    svc_name.rsplit('-', 1)[0] in NodeUVEImplementedServices) and svc_status == 'active':
+                    svc_name.rsplit('-', 1)[0] in NodeUVEImplementedServices or
+                    svc_name.rsplit(':', 1)[0] in NodeUVEImplementedServices) and svc_status == 'active':
                     try:
                         svc_uve_status, svc_uve_description = get_svc_uve_status(svc_name, debug, timeout)
                     except requests.ConnectionError, e:
