@@ -191,17 +191,14 @@ public:
         cassandra_options_.ttlmap_ = ttl_map;
         cassandra_options_.disable_all_db_writes_ = false;
         cassandra_options_.disable_db_messages_keyword_writes_ = true;
-
         db_handler_.reset(new DbHandler(evm_.get(), boost::bind(&DbHandler::UnInit, db_handler_.get()),
                                      "localhost",
                                      cassandra_options_,
                                      false,
                                      DbWriteOptions(),
-                                     std::vector<std::string>(),
-                                     VncApiConfig()));
-        udc_mock_ = new UserDefinedCountersMock(db_handler_->cfgdb_connection_);
+                                     NULL));
+        udc_mock_ = new UserDefinedCountersMock();
         db_handler_->udc_.reset(udc_mock_);
-
     }
 
     virtual void TearDown() {
@@ -224,7 +221,7 @@ private:
     Options::Cassandra cassandra_options_;
     boost::scoped_ptr<DbHandler> db_handler_;
     UserDefinedCountersMock* udc_mock_;
-    boost::scoped_ptr<EventManager> evm_; 
+    boost::scoped_ptr<EventManager> evm_;
 };
 
 SandeshXMLMessageTestBuilder

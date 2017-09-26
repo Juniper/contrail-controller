@@ -16,8 +16,7 @@ class DbHandlerMock : public DbHandler {
             cassandra_options,
             false,
             DbWriteOptions(),
-            std::vector<std::string>(),
-            VncApiConfig()) {
+            NULL) {
 
     }
     void StartDbifReinit() {
