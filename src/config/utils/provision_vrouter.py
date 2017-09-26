@@ -207,7 +207,8 @@ class VrouterProvisioner(object):
         vhost0_vmi =  VirtualMachineInterface(name="vhost0", parent_obj = vrouter_obj)
         ip_fab_vn = self._vnc_lib.virtual_network_read(fq_name = [u'default-domain', u'default-project', u'ip-fabric'])
         vhost0_vmi.set_virtual_network(ip_fab_vn)
-
+        # Disable policy on the vhost0 vmi
+        vhost0_vmi.set_virtual_machine_interface_disable_policy(True)
         try:
             vhost0_vmi = self._vnc_lib.virtual_machine_interface_read(
                 fq_name = vhost0_vmi_fq_name)
