@@ -50,7 +50,17 @@ ConfigJsonParser::ConfigJsonParser() {
 ConfigJsonParser::~ConfigJsonParser() {
 }
 
-void ConfigJsonParser::setup_schema_graph_filter(){
+void ConfigJsonParser::SetupObjectFilter() {
+    ObjectTypeList FilterList;
+    bgp_schema_Server_GenerateObjectTypeList(&FilterList);
+    vnc_cfg_Server_GenerateObjectTypeList(&FilterList);
+    for (ObjectTypeList::iterator it = FilterList.begin();
+        it != FilterList.end(); it++) {
+        AddObjectType(*it);
+    }
+}
+
+void ConfigJsonParser::SetupSchemaGraphFilter(){
     vnc_cfg_FilterInfo vnc_filter_info;
     bgp_schema_FilterInfo bgp_schema_filter_info;
 
@@ -80,7 +90,7 @@ void ConfigJsonParser::setup_schema_graph_filter(){
     }
 }
 
-void ConfigJsonParser::setup_schema_wrapper_property_info() {
+void ConfigJsonParser::SetupSchemaWrapperPropertyInfo() {
     WrapperFieldMap wrapper_field_map;
     bgp_schema_Server_GenerateWrapperPropertyInfo(&wrapper_field_map);
     vnc_cfg_Server_GenerateWrapperPropertyInfo(&wrapper_field_map);
@@ -90,16 +100,11 @@ void ConfigJsonParser::setup_schema_wrapper_property_info() {
     }
 }
 
-void ConfigJsonParser::setup_objector_filter() {
-    ObjectTypeList FilterList;
-    bgp_schema_Server_GenerateObjectTypeList(&FilterList);
-    vnc_cfg_Server_GenerateObjectTypeList(&FilterList);
-    for (ObjectTypeList::iterator it = FilterList.begin();
-        it != FilterList.end(); it++) {
-        AddObjectType(*it);
-    }
+void ConfigJsonParser::SetupGraphFilter() {
+    SetupObjectFilter();
+    SetupSchemaGraphFilter();
+    SetupSchemaWrapperPropertyInfo();
 }
-
 void ConfigJsonParser::EndOfConfig() {
     ifmap_server_->CleanupStaleEntries();
 }
