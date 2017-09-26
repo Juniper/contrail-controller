@@ -222,6 +222,9 @@ class VrouterProvisioner(object):
             except RefsExistError:
                 print "vhost0 vmi already created!"
 
+        # Disable policy on the vhost0 vmi
+        vhost0_vmi.set_virtual_machine_interface_disable_policy(True)
+
     # end add_vhost0_vmi
 
     def del_vrouter(self):
