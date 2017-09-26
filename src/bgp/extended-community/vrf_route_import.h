@@ -21,6 +21,7 @@ public:
 
     VrfRouteImport();
     explicit VrfRouteImport(const bytes_type &data);
+    VrfRouteImport(const uint32_t bgp_id, const uint32_t ri_index);
 
     bool IsNull() const { return operator==(VrfRouteImport::null_rt_import); }
     uint8_t Type() const { return data_[0]; }

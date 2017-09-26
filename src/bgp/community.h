@@ -167,6 +167,8 @@ public:
     int CompareTo(const ExtCommunity &rhs) const;
 
     bool ContainsOriginVn(const ExtCommunityValue &val) const;
+    bool ContainsVrfRouteImport(const ExtCommunityValue &val) const;
+    bool ContainsSourceAs(const ExtCommunityValue &val) const;
 
     // Return vector of communities
     const ExtCommunityList &communities() const {
@@ -390,6 +392,12 @@ public:
     ExtCommunityPtr RemoveSiteOfOriginAndLocate(const ExtCommunity *src);
     ExtCommunityPtr ReplaceSiteOfOriginAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &soo);
+    ExtCommunityPtr RemoveVrfRouteImportAndLocate(const ExtCommunity *src);
+    ExtCommunityPtr ReplaceVrfRouteImportAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityValue &vit);
+    ExtCommunityPtr RemoveSourceASAndLocate(const ExtCommunity *src);
+    ExtCommunityPtr ReplaceSourceASAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityValue &sas);
     ExtCommunityPtr RemoveOriginVnAndLocate(const ExtCommunity *src);
     ExtCommunityPtr ReplaceOriginVnAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &origin_vn);

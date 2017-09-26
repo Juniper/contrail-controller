@@ -21,6 +21,7 @@ public:
 
     SourceAs();
     explicit SourceAs(const bytes_type &data);
+    SourceAs(const uint32_t asn, const uint32_t ri_index);
 
     bool IsNull() const { return operator==(SourceAs::null_sas); }
     uint8_t Type() const { return data_[0]; }
