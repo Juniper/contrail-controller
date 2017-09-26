@@ -1012,13 +1012,6 @@ AnalyticsQuery::AnalyticsQuery(const std::string& qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
-    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
-            it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_UseColumnfamily(*it)) {
-            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-            this->status_details = EIO;
-        }
-    }
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_stat_tables.begin();
             it != vizd_stat_tables.end(); it++) {
         if (!dbif_->Db_UseColumnfamily(*it)) {
@@ -1159,19 +1152,21 @@ QueryEngine::QueryEngine(EventManager *evm,
         }
 
         if (!retry) {
-            for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
-                    it != vizd_flow_tables.end(); it++) {
+            for (std::vector<GenDb::NewCf>::const_iterator it =
+                    vizd_stat_tables.begin();
+                    it != vizd_stat_tables.end(); it++) {
                 if (!dbif_->Db_UseColumnfamily(*it)) {
                     retry = true;
                     break;
                 }
             }
-       }
 
-       if (!retry) {
+        }
+
+        if (!retry) {
             for (std::vector<GenDb::NewCf>::const_iterator it =
-                    vizd_stat_tables.begin();
-                    it != vizd_stat_tables.end(); it++) {
+                    vizd_session_tables.begin();
+                    it != vizd_session_tables.end(); it++) {
                 if (!dbif_->Db_UseColumnfamily(*it)) {
                     retry = true;
                     break;
