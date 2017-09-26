@@ -709,7 +709,7 @@ public:
 
     virtual int NeighborCount(const std::string &instance_name) const = 0;
 
-    virtual void ResetIndexBit(int index) = 0;
+    virtual void ResetRoutingInstanceIndexBit(int index) = 0;
     virtual const BgpInstanceConfig *FindInstance(
         const std::string &name) const = 0;
     virtual const BgpRoutingPolicyConfig *FindRoutingPolicy(

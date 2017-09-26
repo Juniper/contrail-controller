@@ -1534,11 +1534,11 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete1) {
     // Verify reach/unreach, end-of-rib and total counts.
     // 1 route-target and kRouteCount inet-vpn routes.
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
-    TASK_UTIL_EXPECT_EQ(2 + kRouteCount, peer_xy->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(3 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(2 + kRouteCount, peer_xy->get_tx_route_unreach());
     TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
-        2 * (2 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+        2 * (2 + kRouteCount) + 3, peer_xy->get_tx_route_total());
 
     // Close the sessions.
     agent_a_->SessionDown();
@@ -1634,7 +1634,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete2) {
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
     TASK_UTIL_EXPECT_EQ(4 + 3 + kRouteCount, peer_xy->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(5, peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_GE(32, peer_xy->get_socket_writes());
 
     // Close the sessions.
@@ -1788,11 +1788,11 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     // Verify bgp reach/unreach, end-of-rib and total counts.
     // 1 route-target and kRouteCount inet-vpn routes.
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
-    TASK_UTIL_EXPECT_EQ(2 + kRouteCount, peer_xy->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(3 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(2 + kRouteCount, peer_xy->get_tx_route_unreach());
     TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
-        2 * (2 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+        2 * (2 + kRouteCount) + 3, peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
@@ -1802,8 +1802,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete3) {
     //        2 end-of-rib (1 route-target, 1 inet-vpn)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(10, peer_xy->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(11, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(5, peer_yx->get_tx_update());
 
     // Verify xmpp update counters.
     const BgpXmppChannel *xc_a =
@@ -1983,11 +1983,11 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     // Verify bgp reach/unreach, end-of-rib and total counts.
     // 1 route-target and kRouteCount inet-vpn routes.
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
-    TASK_UTIL_EXPECT_EQ(2 + kRouteCount, peer_xy->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(3 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(2 + kRouteCount, peer_xy->get_tx_route_unreach());
     TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
-        2 * (2 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+        2 * (2 + kRouteCount) + 3, peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
@@ -1997,8 +1997,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete4) {
     //        2 end-of-rib (1 route-target, 1 inet-vpn)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(4 + 3 + kRouteCount, peer_xy->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(4 + 4 + kRouteCount, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(5, peer_yx->get_tx_update());
 
     // Verify xmpp update counters.
     const BgpXmppChannel *xc_a =
@@ -2351,11 +2351,11 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     // Verify bgp reach/unreach, end-of-rib and total counts.
     // 1 route-target and kRouteCount inet-vpn routes.
     // 2 end-of-ribs - one for route-target and one for inet-vpn.
-    TASK_UTIL_EXPECT_EQ(2 + kRouteCount, peer_xy->get_tx_route_reach());
+    TASK_UTIL_EXPECT_EQ(3 + kRouteCount, peer_xy->get_tx_route_reach());
     TASK_UTIL_EXPECT_EQ(2 + kRouteCount, peer_xy->get_tx_route_unreach());
     TASK_UTIL_EXPECT_EQ(2, peer_xy->get_tx_end_of_rib());
     TASK_UTIL_EXPECT_EQ(
-        2 * (2 + kRouteCount) + 2, peer_xy->get_tx_route_total());
+        2 * (2 + kRouteCount) + 3, peer_xy->get_tx_route_total());
 
     // Verify bgp update message counters.
     // X->Y : 2 route-target (1 advertise, 1 withdraw) +
@@ -2365,8 +2365,8 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, MultipleRouteAddDelete6) {
     //        2 end-of-rib (1 route-target, 1 inet-vpn)
     TASK_UTIL_EXPECT_EQ(peer_xy->get_rx_update(), peer_yx->get_tx_update());
     TASK_UTIL_EXPECT_EQ(peer_xy->get_tx_update(), peer_yx->get_rx_update());
-    TASK_UTIL_EXPECT_EQ(4 + 3 + kRouteCount, peer_xy->get_tx_update());
-    TASK_UTIL_EXPECT_EQ(4, peer_yx->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(4 + 4 + kRouteCount, peer_xy->get_tx_update());
+    TASK_UTIL_EXPECT_EQ(5, peer_yx->get_tx_update());
 
     // Verify xmpp update counters.
     const BgpXmppChannel *xc_a =

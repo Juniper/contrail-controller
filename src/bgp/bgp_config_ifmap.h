@@ -483,7 +483,7 @@ public:
         const std::string &instance_name) const;
 
     virtual int NeighborCount(const std::string &instance_name) const;
-    virtual void ResetIndexBit(int index);
+    virtual void ResetRoutingInstanceIndexBit(int index);
 
     virtual const BgpInstanceConfig *FindInstance(
         const std::string &name) const;

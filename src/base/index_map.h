@@ -23,7 +23,7 @@ public:
     typedef typename MapType::iterator iterator;
     typedef typename MapType::const_iterator const_iterator;
 
-    IndexMap() { reserved_bits_ = 0; }
+    IndexMap() : reserved_bits_(0) { }
     ~IndexMap() {
         STLDeleteValues(&values_);
     }
@@ -41,10 +41,10 @@ public:
 
     void ReserveBit(int index) {
         if (bits_.test(index))
-	    assert(!values_[index]);
-	bits_.set(index);
-	reserved_bits_++;
-	values_.resize(values_.size() + 1);
+            assert(!values_[index]);
+        bits_.set(index);
+        reserved_bits_++;
+        values_.resize(values_.size() + 1);
     }
 
     // Allocate a new index associated with the new key.
@@ -54,11 +54,11 @@ public:
         if (!result.second) {
             return -1;
         }
-        size_t bit = bits_.find_first_clear();
-	if (index != -1)
-	    bit = index;
+        size_t bit = index;
+        if (index == -1)
+            bit = bits_.find_first_clear();
         if (bit >= values_.size()) {
-	    if (reserved_bits_ == 0)
+            if (reserved_bits_ == 0)
                 assert(bit == values_.size());
             values_.push_back(value);
         } else {
@@ -76,15 +76,8 @@ public:
         ValueType *value = values_[index];
         values_[index] = NULL;
         delete value;
-	if (!clear_bit)
-	    return;
-        bits_.reset(index);
-        for (ssize_t i = values_.size() - 1; i >= 0; i--) {
-            if (values_[i] != NULL) {
-                break;
-            }
-            values_.pop_back();
-        }
+        if (clear_bit)
+            ResetBit(index);
     }
 
     void ResetBit(int index) {

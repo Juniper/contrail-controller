@@ -667,7 +667,7 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     delete rtinstance;
     // index was allocated in Config Manager so needs to be freed
     if (index >= 0)
-        server()->config_manager()->ResetIndexBit(index);
+        server()->config_manager()->ResetRoutingInstanceIndexBit(index);
 
     if (deleted())
         return;
@@ -717,6 +717,10 @@ void RoutingInstanceMgr::ASNUpdateCallback(as_t old_asn, as_t old_local_asn) {
         it->second->FlushAllRTargetRoutes(old_local_asn);
         it->second->InitAllRTargetRoutes(server_->local_autonomous_system());
     }
+    RoutingInstance *master = GetDefaultRoutingInstance();
+    const Ip4Address old_identifier(server()->bgp_identifier());
+    master->DeleteMvpnRTargetRoute(old_local_asn, old_identifier);
+    master->AddMvpnRTargetRoute(server_->local_autonomous_system());
 }
 
 void RoutingInstanceMgr::IdentifierUpdateCallback(Ip4Address old_identifier) {
@@ -724,6 +728,10 @@ void RoutingInstanceMgr::IdentifierUpdateCallback(Ip4Address old_identifier) {
         it->second->FlushAllRTargetRoutes(server_->local_autonomous_system());
         it->second->InitAllRTargetRoutes(server_->local_autonomous_system());
     }
+    RoutingInstance *master = GetDefaultRoutingInstance();
+    master->DeleteMvpnRTargetRoute(server_->local_autonomous_system(),
+            old_identifier);
+    master->AddMvpnRTargetRoute(server_->local_autonomous_system());
 }
 
 //
@@ -959,6 +967,23 @@ void RoutingInstance::FlushRouteAggregationConfig() {
     }
 }
 
+void RoutingInstance::DeleteMvpnRTargetRoute(as4_t asn, Ip4Address old_ip) {
+    if (asn == 0)
+        return;
+    string id_str = "target:" + old_ip.to_string() + ":0";
+    RouteTarget rtarget = RouteTarget::FromString(id_str);
+    DeleteRTargetRoute(asn, rtarget);
+}
+
+void RoutingInstance::AddMvpnRTargetRoute(as4_t asn) {
+    if (asn == 0)
+        return;
+    const Ip4Address server_ip(server()->bgp_identifier());
+    string id_str = "target:" + server_ip.to_string() + ":0";
+    RouteTarget rtarget = RouteTarget::FromString(id_str);
+    AddRTargetRoute(asn, rtarget);
+}
+
 void RoutingInstance::ProcessConfig() {
     RoutingInstanceInfo info = GetDataCollection("");
 
@@ -1147,6 +1172,11 @@ void RoutingInstance::Shutdown() {
 
     ClearConfig();
     FlushAllRTargetRoutes(server_->local_autonomous_system());
+    if (is_master_) {
+        const Ip4Address old_identifier(server()->bgp_identifier());
+        DeleteMvpnRTargetRoute(server_->local_autonomous_system(),
+                old_identifier);
+    }
     ClearRouteTarget();
 
     ProcessServiceChainConfig();
@@ -1214,9 +1244,6 @@ void RoutingInstance::ClearFamilyRouteTarget(Address::Family vrf_family,
 void RoutingInstance::AddRTargetRoute(uint32_t asn,
     const RouteTarget &rtarget) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
-
-    if (asn == 0 || !always_subscribe_)
-        return;
 
     RTargetPrefix prefix(asn, rtarget);
     RTargetRoute rt_key(prefix);
@@ -1289,7 +1316,8 @@ void RoutingInstance::InitAllRTargetRoutes(as4_t asn) {
 
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     BOOST_FOREACH(RouteTarget rtarget, import_) {
-        AddRTargetRoute(asn, rtarget);
+        if (asn != 0 && always_subscribe_)
+            AddRTargetRoute(asn, rtarget);
     }
 }
 
@@ -1324,7 +1352,8 @@ void RoutingInstance::AddRouteTarget(bool import,
     change_list->push_back(it->ToString());
     if (import) {
         import_.insert(*it);
-        AddRTargetRoute(server_->local_autonomous_system(), *it);
+        if (server_->local_autonomous_system() != 0 && always_subscribe_)
+            AddRTargetRoute(server_->local_autonomous_system(), *it);
     } else {
         export_.insert(*it);
     }

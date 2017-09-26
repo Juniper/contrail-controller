@@ -41,7 +41,7 @@ class BgpMockConfigManager : public BgpConfigManager {
         return 0;
     }
 
-    virtual void ResetIndexBit(int indec) {
+    virtual void ResetRoutingInstanceIndexBit(int indec) {
         return;
     }
 
