@@ -646,22 +646,13 @@ public:
         const std::string &structured_syslog_kafka_broker,
         const std::string &structured_syslog_kafka_topic,
         uint16_t structured_syslog_kafka_partitions,
-        boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
+        ConfigClientCollector *config_client,
         StatWalker::StatTableInsertFn stat_db_callback) :
         udp_server_(new StructuredSyslogUdpServer(evm, port,
             stat_db_callback)),
         tcp_server_(new StructuredSyslogTcpServer(evm, port,
             stat_db_callback)),
-        structured_syslog_config_(new StructuredSyslogConfig(cfgdb_connection)),
-        hostname_record_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
-            "structured_syslog_config hostname record poll timer",
-        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))),
-        application_record_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
-            "structured_syslog_config application record poll timer",
-        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))),
-        message_config_poll_timer_(TimerManager::CreateTimer(*evm->io_service(),
-            "structured_syslog_config message config poll timer",
-        TaskScheduler::GetInstance()->GetTaskId("vnc-api http client"))) {
+        structured_syslog_config_(new StructuredSyslogConfig(config_client)) {
         if ((structured_syslog_tcp_forward_dst.size() != 0) || structured_syslog_kafka_broker != "") {
             forwarder_.reset(new StructuredSyslogForwarder (evm, structured_syslog_tcp_forward_dst,
                                                             structured_syslog_kafka_broker,
@@ -670,17 +661,6 @@ public:
         } else {
             LOG(DEBUG, "forward destination not configured");
         }
-        hostname_record_poll_timer_->Start(30000,
-        boost::bind(&StructuredSyslogServerImpl::PollHostnameRecords, this),
-        boost::bind(&StructuredSyslogServerImpl::PollStructuredSyslogConfigErrorHandler, this, _1, _2));
-
-        application_record_poll_timer_->Start(60000,
-        boost::bind(&StructuredSyslogServerImpl::PollApplicationRecords, this),
-        boost::bind(&StructuredSyslogServerImpl::PollStructuredSyslogConfigErrorHandler, this, _1, _2));
-
-        message_config_poll_timer_->Start(20000,
-        boost::bind(&StructuredSyslogServerImpl::PollMessageConfigs, this),
-        boost::bind(&StructuredSyslogServerImpl::PollStructuredSyslogConfigErrorHandler, this, _1, _2));
 
     }
 
@@ -697,32 +677,6 @@ public:
             TimerManager::DeleteTimer(message_config_poll_timer_);
             message_config_poll_timer_ = NULL;
         }
-    }
-
-    void PollStructuredSyslogConfigErrorHandler(string error_name,
-        string error_message) {
-        LOG(ERROR, "StructuredSyslogConfig poll Timer Err: " << error_name << " " << error_message);
-    }
-
-    bool PollHostnameRecords() {
-        LOG(DEBUG, "PollHostnameRecords start");
-        hostname_record_poll_timer_->Reschedule(kHostnameRecordPollInterval);
-        if(structured_syslog_config_) structured_syslog_config_->PollHostnameRecords();
-        return true;
-    }
-
-    bool PollApplicationRecords() {
-        LOG(DEBUG, "PollApplicationRecords start");
-        application_record_poll_timer_->Reschedule(kApplicationRecordPollInterval);
-        if(structured_syslog_config_) structured_syslog_config_->PollApplicationRecords();
-        return true;
-    }
-
-    bool PollMessageConfigs() {
-        LOG(DEBUG, "PollMessageConfigs start");
-        message_config_poll_timer_->Reschedule(kMessageConfigPollInterval);
-        if(structured_syslog_config_) structured_syslog_config_->PollMessageConfigs();
-        return true;
     }
 
     StructuredSyslogConfig *GetStructuredSyslogConfig() {
@@ -901,14 +855,14 @@ StructuredSyslogServer::StructuredSyslogServer(EventManager *evm,
     const std::string &structured_syslog_kafka_broker,
     const std::string &structured_syslog_kafka_topic,
     uint16_t structured_syslog_kafka_partitions,
-    boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
+    ConfigClientCollector *config_client,
     StatWalker::StatTableInsertFn stat_db_fn,
     GrokParser* gp, bool use_grok) {
     impl_ = new StructuredSyslogServerImpl(evm, port, structured_syslog_tcp_forward_dst,
                                            structured_syslog_kafka_broker,
                                            structured_syslog_kafka_topic,
                                            structured_syslog_kafka_partitions,
-                                           cfgdb_connection, stat_db_fn);
+                                           config_client, stat_db_fn);
     structured_syslog::impl::use_grok = use_grok;
     structured_syslog::impl::gp = gp;
 }
