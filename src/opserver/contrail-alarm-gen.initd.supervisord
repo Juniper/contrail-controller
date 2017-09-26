@@ -9,5 +9,13 @@ else
     path='unix:///var/run/supervisord_analytics.sock'
 fi
 
-alarm_gen_name=$(supervisorctl -s $path status | grep `basename ${0}` | awk {'print $1'})
-supervisorctl -s $path ${1} $alarm_gen_name
+if [[ $# -eq 2 ]]; then
+    pname=${0}:${1}
+    action=${2}
+else
+    pname=${0}
+    action=${1}
+fi
+
+alarm_gen_name=$(supervisorctl -s $path status | grep `basename $pname` | awk {'print $1'})
+supervisorctl -s $path $action $alarm_gen_name
