@@ -66,7 +66,7 @@ TEST_F(SelectTest, InvalidFlowseriesSelectTQuery) {
 
     std::map<std::string, std::string> json_select;
     json_select.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"T\", \"sum(bytes)\", \"destvn\"]"));
+        "select_fields", "[\"T\", \"SUM(bytes)\", \"destvn\"]"));
     SelectQuery* select_query = new SelectQuery(&analytics_query_mock,
                                                 json_select);
     EXPECT_TRUE(select_query->status_details == EINVAL);
@@ -114,7 +114,7 @@ TEST_F(SelectTest, InvalidFlowseriesSelectStatsQuery) {
 
     std::map<std::string, std::string> json_select;
     json_select.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"sum(bytes)\", \"packets\"]"));
+        "select_fields", "[\"SUM(bytes)\", \"packets\"]"));
     SelectQuery* select_query = new SelectQuery(&analytics_query_mock,
                                                 json_select);
     EXPECT_TRUE(select_query->status_details == EINVAL);
@@ -131,7 +131,7 @@ TEST_F(SelectTest, TestProcessObjectQuerySelectParams) {
 
     std::map<std::string, std::string> json_select;
     json_select.insert(std::pair<std::string, std::string>(
-        "select_fields", "[\"sum(bytes)\", \"packets\", \"ObjecId\"]"));
+        "select_fields", "[\"SUM(bytes)\", \"packets\", \"ObjecId\"]"));
     SelectQuery* select_query = new SelectQuery(&analytics_query_mock,
                                                 json_select);
     std::string select_field("ObjectId");
