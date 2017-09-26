@@ -18,7 +18,7 @@ StructuredSyslogCollector::StructuredSyslogCollector(EventManager *evm,
         structured_syslog_tcp_forward_dst, structured_syslog_kafka_broker,
         structured_syslog_kafka_topic,
         structured_syslog_kafka_partitions,
-        db_handler->GetConfigDBConnection(),
+        db_handler->GetConfigClient(),
         boost::bind(&DbHandler::StatTableInsert, db_handler,
             _1, _2, _3, _4, _5, GenDb::GenDbIf::DbAddColumnCb()), gp, use_grok)) {
 }
