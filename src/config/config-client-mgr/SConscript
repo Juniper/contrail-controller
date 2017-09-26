@@ -47,6 +47,6 @@ env.Requires(libconfig_client_mgr, '#build/lib/libSimpleAmqpClient.a')
 env.Requires(libconfig_client_mgr, '#/build/include/rapidjson.h')
 env.Install(env['TOP_LIB'], libconfig_client_mgr)
 
-client_unit_tests = env.SConscript('test/SConscript', exports='CfgmEnv',
+config_client_unit_tests = env.SConscript('test/SConscript', exports='CfgmEnv',
                                    duplicate = 0)
-Return('client_unit_tests')
+Return('config_client_unit_tests')
