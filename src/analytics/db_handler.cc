@@ -342,14 +342,6 @@ bool DbHandler::CreateTables() {
         }
     }
 
-    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
-            it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it, flow_tables_compaction_strategy_)) {
-            DB_LOG(ERROR, it->cfname_ << " FAILED");
-            return false;
-        }
-    }
-
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_stat_tables.begin();
             it != vizd_stat_tables.end(); it++) {
         if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {

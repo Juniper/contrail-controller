@@ -135,7 +135,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_message_table_query
 
-    #@unittest.skip('Send/query flow stats to test QE')
+    @unittest.skip('Send/query flow stats to test QE')
     def test_03_flow_query(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -334,7 +334,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     #end test_08_where_clause_query
 
-    #@unittest.skip('verify ObjectTable query')
+    @unittest.skip('verify ObjectTable query')
     def test_09_verify_object_table_query(self):
         '''
         This test verifies the Object Table query.
