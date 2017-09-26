@@ -34,7 +34,7 @@
 #include "uflow_types.h"
 #include "viz_constants.h"
 #include <database/cassandra/cql/cql_types.h>
-#include "configdb_connection.h"
+#include "config_client_collector.h"
 #include "usrdef_counters.h"
 #include "options.h"
 
@@ -94,8 +94,7 @@ public:
         bool use_zookeeper,
         bool use_db_write_options,
         const DbWriteOptions &db_write_options,
-        const std::vector<std::string> &api_server_list,
-        const VncApiConfig &api_config);
+        ConfigClientCollector *config_client);
     DbHandler(GenDb::GenDbIf *dbif, const TtlMap& ttl_map);
     virtual ~DbHandler();
 
@@ -143,8 +142,8 @@ public:
     void ResetDbQueueWaterMarkInfo();
     std::vector<boost::asio::ip::tcp::endpoint> GetEndpoints() const;
     std::string GetName() const;
-    boost::shared_ptr<ConfigDBConnection> GetConfigDBConnection() {
-        return cfgdb_connection_;
+    ConfigClientCollector *GetConfigClient() {
+        return config_client_;
     }
     bool IsAllWritesDisabled() const;
     bool IsStatisticsWritesDisabled() const;
@@ -186,10 +185,12 @@ public:
                                         uint32_t pending_compaction_tasks,
                                         SandeshLevel::type level);
     void ProcessPendingCompactionTasks(uint32_t pending_compaction_tasks);
-    void ReConfigApiServerList(const  std::vector<std::string> &api_server_list) {
-        cfgdb_connection_->ReConfigApiServerList(api_server_list);
+    void GetUDCConfig(std::vector<LogStatisticConfigInfo> *config_info) {
+        udc_->GetUDCConfig(config_info);
     }
-
+    void ReceiveConfig(const contrail_rapidjson::Document &jdoc, bool add_change) {
+        udc_->UDCHandler(jdoc, add_change);
+    }
 private:
     void MessageTableKeywordInsert(const VizMsg *vmsgp,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
@@ -234,8 +235,6 @@ private:
         return GetTtlFromMap(ttl_map_, type);
     }
     bool CanRecordDataForT2(uint32_t, std::string);
-    bool PollUDCCfg() { if(udc_) udc_->PollCfg(); return true; }
-    void PollUDCCfgErrorHandler(std::string err_name, std::string err_message);
     bool InsertIntoDb(std::auto_ptr<GenDb::ColList> col_list,
         GenDb::DbConsistency::type dconsistency,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
@@ -263,9 +262,8 @@ private:
     bool disable_statistics_writes_;
     bool disable_messages_writes_;
     bool disable_messages_keyword_writes_;
-    boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
+    ConfigClientCollector *config_client_;
     boost::scoped_ptr<UserDefinedCounters> udc_;
-    Timer *udc_cfg_poll_timer_;
     static const int kUDCPollInterval = 120 * 1000; // in ms
     bool use_db_write_options_;
     uint32_t disk_usage_percentage_;
@@ -316,8 +314,7 @@ class DbHandlerInitializer {
         const std::string &zookeeper_server_list,
         bool use_zookeeper,
         const DbWriteOptions &db_write_options,
-        const std::vector<std::string> &api_server_list,
-        const VncApiConfig &api_config);
+        ConfigClientCollector *config_client);
     DbHandlerInitializer(EventManager *evm,
         const std::string &db_name,
         const std::string &timer_task_name, InitializeDoneCb callback,

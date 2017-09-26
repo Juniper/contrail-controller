@@ -8,13 +8,15 @@
 #include <boost/regex.hpp>
 #include "analytics_types.h"
 #include "structured_syslog_config.h"
-#include "http/client/vncapi.h"
 #include "options.h"
 #include <base/logging.h>
+#include <boost/bind.hpp>
 
-StructuredSyslogConfig::StructuredSyslogConfig(boost::shared_ptr<ConfigDBConnection> cfgdb_connection)
-          : cfgdb_connection_(cfgdb_connection) {
-
+StructuredSyslogConfig::StructuredSyslogConfig(ConfigClientCollector *config_client) {
+    if (config_client) {
+        config_client->RegisterConfigReceive("structured-systemlog", boost::bind(
+                                 &StructuredSyslogConfig::ReceiveConfig, this, _1, _2));
+    }
 }
 
 StructuredSyslogConfig::~StructuredSyslogConfig() {
@@ -27,244 +29,159 @@ StructuredSyslogConfig::~StructuredSyslogConfig() {
 }
 
 void
-StructuredSyslogConfig::PollHostnameRecords() {
-    if (cfgdb_connection_->GetVnc()) {
-        std::vector<std::string> ids;
-        std::vector<std::string> filters;
-        std::vector<std::string> parents;
-        std::vector<std::string> refs;
-        std::vector<std::string> fields;
+StructuredSyslogConfig::HostnameRecordsHandler(const contrail_rapidjson::Document &jdoc,
+                                               bool add_update) {
+    if (jdoc.IsObject() && jdoc.HasMember("structured_syslog_hostname_record")) {
+        const contrail_rapidjson::Value& hr = jdoc["structured_syslog_hostname_record"];
+        std::string name, hostaddr, tenant, location, device;
 
-        fields.push_back("display_name");
-        fields.push_back("structured_syslog_hostaddr");
-        fields.push_back("structured_syslog_tenant");
-        fields.push_back("structured_syslog_location");
-        fields.push_back("structured_syslog_device");
-
-        cfgdb_connection_->GetVnc()->GetConfig("structured-syslog-hostname-record", ids,
-                filters, parents, refs,
-                fields, boost::bind(&StructuredSyslogConfig::HostnameRecordsHandler, this,
-                    _1, _2, _3, _4, _5, _6));
-    }
-}
-
-void
-StructuredSyslogConfig::PollApplicationRecords() {
-    if (cfgdb_connection_->GetVnc()) {
-        std::vector<std::string> ids;
-        std::vector<std::string> filters;
-        std::vector<std::string> parents;
-        std::vector<std::string> refs;
-        std::vector<std::string> fields;
-
-        fields.push_back("display_name");
-        fields.push_back("structured_syslog_app_category");
-        fields.push_back("structured_syslog_app_subcategory");
-        fields.push_back("structured_syslog_app_groups");
-        fields.push_back("structured_syslog_app_risk");
-        fields.push_back("structured_syslog_app_service_tags");
-
-        cfgdb_connection_->GetVnc()->GetConfig("structured-syslog-application-record", ids,
-                filters, parents, refs,
-                fields, boost::bind(&StructuredSyslogConfig::ApplicationRecordsHandler, this,
-                    _1, _2, _3, _4, _5, _6));
-    }
-}
-
-void
-StructuredSyslogConfig::PollMessageConfigs() {
-    if (cfgdb_connection_->GetVnc()) {
-        std::vector<std::string> ids;
-        std::vector<std::string> filters;
-        std::vector<std::string> parents;
-        std::vector<std::string> refs;
-        std::vector<std::string> fields;
-
-        fields.push_back("display_name");
-        fields.push_back("structured_syslog_message_tagged_fields");
-        fields.push_back("structured_syslog_message_integer_fields");
-        fields.push_back("structured_syslog_message_process_and_store");
-        fields.push_back("structured_syslog_message_forward");
-        fields.push_back("structured_syslog_message_process_and_summarize");
-        fields.push_back("structured_syslog_message_process_and_summarize_user");
-
-        cfgdb_connection_->GetVnc()->GetConfig("structured-syslog-message", ids,
-                filters, parents, refs,
-                fields, boost::bind(&StructuredSyslogConfig::MessageConfigsHandler, this,
-                    _1, _2, _3, _4, _5, _6));
-    }
-}
-
-void
-StructuredSyslogConfig::HostnameRecordsHandler(contrail_rapidjson::Document &jdoc,
-            boost::system::error_code &ec,
-            const std::string &version, int status, const std::string &reason,
-            std::map<std::string, std::string> *headers) {
-    if (jdoc.IsObject() && jdoc.HasMember("structured-syslog-hostname-records")) {
-        for (contrail_rapidjson::SizeType j = 0;
-                    j < jdoc["structured-syslog-hostname-records"].Size(); j++) {
-                const contrail_rapidjson::Value& hr = jdoc["structured-syslog-hostname-records"][j];
-                std::string name, hostaddr, tenant, location, device;
-
-                name = hr["display_name"].GetString();
-                if (hr.HasMember("structured_syslog_hostaddr")) {
-                    hostaddr = hr["structured_syslog_hostaddr"].GetString();
-                }
-                if (hr.HasMember("structured_syslog_tenant")) {
-                    tenant = hr["structured_syslog_tenant"].GetString();
-                }
-                if (hr.HasMember("structured_syslog_location")) {
-                    location = hr["structured_syslog_location"].GetString();
-                }
-                if (hr.HasMember("structured_syslog_device")) {
-                    device = hr["structured_syslog_device"].GetString();
-                }
-                LOG(DEBUG, "Adding HostnameRecord: " << name);
-                AddHostnameRecord(name, hostaddr, tenant,
-                                     location, device);
+        name = hr["display_name"].GetString();
+        if (hr.HasMember("structured_syslog_hostaddr")) {
+            hostaddr = hr["structured_syslog_hostaddr"].GetString();
         }
-        Chr_t::iterator cit = hostname_records_.begin();
-        while (cit != hostname_records_.end()) {
-            Chr_t::iterator dit = cit++;
-            if (!dit->second->GetandClearRefreshed()) {
-                LOG(DEBUG, "Erasing HostnameRecord: " << dit->second->name());
-                hostname_records_.erase(dit);
+        if (hr.HasMember("structured_syslog_tenant")) {
+            tenant = hr["structured_syslog_tenant"].GetString();
+        }
+        if (hr.HasMember("structured_syslog_location")) {
+            location = hr["structured_syslog_location"].GetString();
+        }
+        if (hr.HasMember("structured_syslog_device")) {
+            device = hr["structured_syslog_device"].GetString();
+        }
+        if (add_update) {
+            LOG(DEBUG, "Adding HostnameRecord: " << name);
+            AddHostnameRecord(name, hostaddr, tenant,
+                                 location, device);
+        } else {
+            Chr_t::iterator cit = hostname_records_.find(name);
+            if (cit != hostname_records_.end()) {
+                LOG(DEBUG, "Erasing HostnameRecord: " << cit->second->name());
+                hostname_records_.erase(cit);
             }
         }
         return;
-    } else {
-        cfgdb_connection_->RetryNextApi();
+    }
+}
+
+void
+StructuredSyslogConfig::ApplicationRecordsHandler(const contrail_rapidjson::Document &jdoc,
+                                                  bool add_update) {
+    if (jdoc.IsObject() && jdoc.HasMember("structured_syslog_application_record")) {
+        const contrail_rapidjson::Value& ar = jdoc["structured_syslog_application_record"];
+        std::string name, app_category, app_subcategory,
+                    app_groups, app_risk, app_service_tags;
+
+        name = ar["display_name"].GetString();
+        if (ar.HasMember("structured_syslog_app_category")) {
+            app_category = ar["structured_syslog_app_category"].GetString();
+        }
+        if (ar.HasMember("structured_syslog_app_subcategory")) {
+            app_subcategory = ar["structured_syslog_app_subcategory"].GetString();
+        }
+        if (ar.HasMember("structured_syslog_app_groups")) {
+            app_groups = ar["structured_syslog_app_groups"].GetString();
+        }
+        if (ar.HasMember("structured_syslog_app_risk")) {
+            app_risk = ar["structured_syslog_app_risk"].GetString();
+        }
+        if (ar.HasMember("structured_syslog_app_service_tags")) {
+            app_service_tags = ar["structured_syslog_app_service_tags"].GetString();
+        }
+
+        const contrail_rapidjson::Value& fq_name = ar["fq_name"];
+        std::string tenant_name = fq_name[1].GetString();
+        if (tenant_name.compare("default-global-analytics-config") == 0) {
+            if (add_update) {
+                LOG(DEBUG, "Adding ApplicationRecord: " << name);
+                AddApplicationRecord(name, app_category, app_subcategory,
+                                        app_groups, app_risk, app_service_tags);
+            } else {
+                Car_t::iterator cit = application_records_.find(name);
+                if (cit != application_records_.end()) {
+                    LOG(DEBUG, "Erasing ApplicationRecord: " << cit->second->name());
+                    application_records_.erase(cit);
+                }
+           }
+        }
+        else {
+            std::string apprec_name;
+            apprec_name =  tenant_name + '/' + name;
+            if (add_update) {
+                LOG(DEBUG, "Adding TenantApplicationRecord: " << apprec_name);
+                AddTenantApplicationRecord(apprec_name, app_category, app_subcategory,
+                                        app_groups, app_risk, app_service_tags);
+            } else {
+                Ctar_t::iterator ctit = tenant_application_records_.find(apprec_name);
+                if (ctit != tenant_application_records_.end()) {
+                    LOG(DEBUG, "Erasing TenantApplicationRecord: " << ctit->second->name());
+                    tenant_application_records_.erase(ctit);
+                }
+            }   
+        }
+
+        return;
+    }
+}
+
+void
+StructuredSyslogConfig::MessageConfigsHandler(const contrail_rapidjson::Document &jdoc,
+                                              bool add_update) {
+    if (jdoc.IsObject() && jdoc.HasMember("structured_syslog_message")) {
+        const contrail_rapidjson::Value& hr = jdoc["structured_syslog_message"];
+        std::vector< std::string > ints;
+        std::vector< std::string > tags;
+        std::string name, forward;
+        bool process_and_store = false;
+        bool process_and_summarize = false;
+        bool process_and_summarize_user = false;
+
+        name = hr["display_name"].GetString();
+        if (hr.HasMember("structured_syslog_message_tagged_fields")) {
+            const contrail_rapidjson::Value& tagged_fields = hr["structured_syslog_message_tagged_fields"];
+            const contrail_rapidjson::Value& tag_array = tagged_fields["field_names"];
+            assert(tag_array.IsArray());
+            for (contrail_rapidjson::SizeType i = 0; i < tag_array.Size(); i++)
+                tags.push_back(tag_array[i].GetString());
+        }
+        if (hr.HasMember("structured_syslog_message_integer_fields")) {
+            const contrail_rapidjson::Value& integer_fields = hr["structured_syslog_message_integer_fields"];
+            const contrail_rapidjson::Value& int_array = integer_fields["field_names"];
+            assert(int_array.IsArray());
+            for (contrail_rapidjson::SizeType i = 0; i < int_array.Size(); i++)
+                ints.push_back(int_array[i].GetString());
+        }
+        if (hr.HasMember("structured_syslog_message_forward")) {
+            forward = hr["structured_syslog_message_forward"].GetString();
+        }
+        if (hr.HasMember("structured_syslog_message_process_and_store")) {
+            process_and_store = hr["structured_syslog_message_process_and_store"].GetBool();
+        }
+        if (hr.HasMember("structured_syslog_message_process_and_summarize")) {
+            process_and_summarize = hr["structured_syslog_message_process_and_summarize"].GetBool();
+        }
+        if (hr.HasMember("structured_syslog_message_process_and_summarize_user")) {
+            process_and_summarize_user = hr["structured_syslog_message_process_and_summarize_user"].GetBool();
+        }
+        if (add_update) {
+            LOG(DEBUG, "Adding MessageConfig: " << name);
+            AddMessageConfig(name, tags, ints, process_and_store, forward, process_and_summarize, process_and_summarize_user);
+        } else {
+            Cmc_t::iterator cit = message_configs_.find(name);
+            if (cit != message_configs_.end()) {
+                LOG(DEBUG, "Erasing HostnameRecord: " << cit->second->name());
+                message_configs_.erase(cit);
+            }
+        }
+        return;
     }
 
 }
 
 void
-StructuredSyslogConfig::ApplicationRecordsHandler(contrail_rapidjson::Document &jdoc,
-            boost::system::error_code &ec,
-            const std::string &version, int status, const std::string &reason,
-            std::map<std::string, std::string> *headers) {
-    if (jdoc.IsObject() && jdoc.HasMember("structured-syslog-application-records")) {
-        for (contrail_rapidjson::SizeType j = 0;
-                    j < jdoc["structured-syslog-application-records"].Size(); j++) {
-                const contrail_rapidjson::Value& ar = jdoc["structured-syslog-application-records"][j];
-                std::string name, app_category, app_subcategory,
-                            app_groups, app_risk, app_service_tags;
-
-                name = ar["display_name"].GetString();
-                if (ar.HasMember("structured_syslog_app_category")) {
-                    app_category = ar["structured_syslog_app_category"].GetString();
-                }
-                if (ar.HasMember("structured_syslog_app_subcategory")) {
-                    app_subcategory = ar["structured_syslog_app_subcategory"].GetString();
-                }
-                if (ar.HasMember("structured_syslog_app_groups")) {
-                    app_groups = ar["structured_syslog_app_groups"].GetString();
-                }
-                if (ar.HasMember("structured_syslog_app_risk")) {
-                    app_risk = ar["structured_syslog_app_risk"].GetString();
-                }
-                if (ar.HasMember("structured_syslog_app_service_tags")) {
-                    app_service_tags = ar["structured_syslog_app_service_tags"].GetString();
-                }
-
-                const contrail_rapidjson::Value& fq_name = ar["fq_name"];
-                std::string tenant_name = fq_name[1].GetString();
-                if (tenant_name.compare("default-global-analytics-config") == 0) {
-                    LOG(DEBUG, "Adding ApplicationRecord: " << name);
-                    AddApplicationRecord(name, app_category, app_subcategory,
-                                            app_groups, app_risk, app_service_tags);
-                }
-                else {
-                    std::string apprec_name;
-                    apprec_name =  tenant_name + '/' + name;
-                    LOG(DEBUG, "Adding TenantApplicationRecord: " << apprec_name);
-                    AddTenantApplicationRecord(apprec_name, app_category, app_subcategory,
-                                            app_groups, app_risk, app_service_tags);
-                }
-        }
-        Car_t::iterator cit = application_records_.begin();
-        while (cit != application_records_.end()) {
-            Car_t::iterator dit = cit++;
-            if (!dit->second->GetandClearRefreshed()) {
-                LOG(DEBUG, "Erasing ApplicationRecord: " << dit->second->name());
-                application_records_.erase(dit);
-            }
-        }
-        Ctar_t::iterator ctit = tenant_application_records_.begin();
-        while (ctit != tenant_application_records_.end()) {
-            Ctar_t::iterator dtit = ctit++;
-            if (!dtit->second->GetandClearRefreshed()) {
-                LOG(DEBUG, "Erasing TenantApplicationRecord: " << dtit->second->name());
-                tenant_application_records_.erase(dtit);
-            }
-        }
-
-        return;
-    } else {
-        cfgdb_connection_->RetryNextApi();
-    }
-
-}
-
-void
-StructuredSyslogConfig::MessageConfigsHandler(contrail_rapidjson::Document &jdoc,
-            boost::system::error_code &ec,
-            const std::string &version, int status, const std::string &reason,
-            std::map<std::string, std::string> *headers) {
-    if (jdoc.IsObject() && jdoc.HasMember("structured-syslog-messages")) {
-        for (contrail_rapidjson::SizeType j = 0;
-                    j < jdoc["structured-syslog-messages"].Size(); j++) {
-                const contrail_rapidjson::Value& hr = jdoc["structured-syslog-messages"][j];
-                std::vector< std::string > ints;
-                std::vector< std::string > tags;
-                std::string name, forward;
-                bool process_and_store = false;
-                bool process_and_summarize = false;
-                bool process_and_summarize_user = false;
-
-                name = hr["display_name"].GetString();
-                if (hr.HasMember("structured_syslog_message_tagged_fields")) {
-                    const contrail_rapidjson::Value& tagged_fields = hr["structured_syslog_message_tagged_fields"];
-                    const contrail_rapidjson::Value& tag_array = tagged_fields["field_names"];
-                    assert(tag_array.IsArray());
-                    for (contrail_rapidjson::SizeType i = 0; i < tag_array.Size(); i++)
-                        tags.push_back(tag_array[i].GetString());
-                }
-                if (hr.HasMember("structured_syslog_message_integer_fields")) {
-                    const contrail_rapidjson::Value& integer_fields = hr["structured_syslog_message_integer_fields"];
-                    const contrail_rapidjson::Value& int_array = integer_fields["field_names"];
-                    assert(int_array.IsArray());
-                    for (contrail_rapidjson::SizeType i = 0; i < int_array.Size(); i++)
-                        ints.push_back(int_array[i].GetString());
-                }
-                if (hr.HasMember("structured_syslog_message_forward")) {
-                    forward = hr["structured_syslog_message_forward"].GetString();
-                }
-                if (hr.HasMember("structured_syslog_message_process_and_store")) {
-                    process_and_store = hr["structured_syslog_message_process_and_store"].GetBool();
-                }
-                if (hr.HasMember("structured_syslog_message_process_and_summarize")) {
-                    process_and_summarize = hr["structured_syslog_message_process_and_summarize"].GetBool();
-                }
-                if (hr.HasMember("structured_syslog_message_process_and_summarize_user")) {
-                    process_and_summarize_user = hr["structured_syslog_message_process_and_summarize_user"].GetBool();
-                }
-                LOG(DEBUG, "Adding MessageConfig: " << name);
-                AddMessageConfig(name, tags, ints, process_and_store, forward, process_and_summarize, process_and_summarize_user);
-        }
-        Cmc_t::iterator cit = message_configs_.begin();
-        while (cit != message_configs_.end()) {
-            Cmc_t::iterator dit = cit++;
-            if (!dit->second->GetandClearRefreshed()) {
-                LOG(DEBUG, "Erasing HostnameRecord: " << dit->second->name());
-                message_configs_.erase(dit);
-            }
-        }
-        return;
-    } else {
-        cfgdb_connection_->RetryNextApi();
-    }
-
+StructuredSyslogConfig::ReceiveConfig(const contrail_rapidjson::Document &jdoc, bool add_change) {
+    HostnameRecordsHandler(jdoc, add_change);
+    ApplicationRecordsHandler(jdoc, add_change);
+    MessageConfigsHandler(jdoc, add_change);
 }
 
 boost::shared_ptr<HostnameRecord>
