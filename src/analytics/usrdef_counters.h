@@ -11,7 +11,8 @@
 #include <boost/regex.hpp>
 #include "http/client/vncapi.h"
 #include "parser_util.h"
-#include "configdb_connection.h"
+#include "analytics_types.h"
+#include "config_client_collector.h"
 
 class Options;
 
@@ -46,22 +47,16 @@ typedef std::map<std::string, boost::shared_ptr<UserDefinedCounterData> > Cfg_t;
 
 class UserDefinedCounters {
     public:
-        UserDefinedCounters(boost::shared_ptr<ConfigDBConnection> cfgdb_connection);
+        UserDefinedCounters();
         virtual ~UserDefinedCounters();
         virtual void MatchFilter(std::string text, LineParser::WordListType *words);
         void SendUVEs();
         void AddConfig(std::string name, std::string pattern);
         bool FindByName(std::string name);
-        void PollCfg();
-
+        void UDCHandler(const contrail_rapidjson::Document &jdoc, bool add_change);
+        void GetUDCConfig(std::vector<LogStatisticConfigInfo> *config_info);
     private:
-        void ReadConfig();
-        void UDCHandler(contrail_rapidjson::Document &jdoc,
-                    boost::system::error_code &ec,
-                    std::string version, int status, std::string reason,
-                    std::map<std::string, std::string> *headers);
         Cfg_t config_;
-        boost::shared_ptr<ConfigDBConnection> cfgdb_connection_;
 
     friend class DbHandlerMsgKeywordInsertTest;
 };
