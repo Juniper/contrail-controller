@@ -66,7 +66,7 @@ env.Append(LIBPATH=libs)
 env.Append(LIBPATH=['.', SrcBuildDir('base'),
     SrcBuildDir('io'), SrcBuildDir('sandesh')])
 
-#env.Append(CCFLAGS=' -DUSE_SESSION')
+env.Append(CCFLAGS=' -DUSE_SESSION')
 
 includes = MapBuildDir(['analytics', 'query_engine', 'database'])
 env.Append(CPPPATH = includes)
