@@ -280,8 +280,14 @@ void DbHandler::ProcessPendingCompactionTasks(
 bool DbHandler::DropMessage(const SandeshHeader &header,
     const VizMsg *vmsg) {
     SandeshType::type stype(header.get_Type());
+    // If Flow message, drop it
+    if (stype == SandeshType::FLOW) {
+        tbb::mutex::scoped_lock lock(smutex_);
+        dropped_msg_stats_.Update(vmsg);
+        return true;
+    }
     if (!(stype == SandeshType::SYSTEM || stype == SandeshType::OBJECT ||
-          stype == SandeshType::FLOW || stype == SandeshType::UVE ||
+          stype == SandeshType::UVE ||
           stype == SandeshType::SESSION)) {
         return false;
     }
@@ -337,14 +343,6 @@ bool DbHandler::CreateTables() {
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
         if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
-            DB_LOG(ERROR, it->cfname_ << " FAILED");
-            return false;
-        }
-    }
-
-    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
-            it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it, flow_tables_compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
@@ -584,13 +582,6 @@ bool DbHandler::Setup() {
         if (!dbif_->Db_UseColumnfamily(*it)) {
             DB_LOG(ERROR, it->cfname_ << 
                    ": Db_UseColumnfamily FAILED");
-            return false;
-        }
-    }
-    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
-            it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_UseColumnfamily(*it)) {
-            DB_LOG(ERROR, it->cfname_ << ": Db_UseColumnfamily FAILED");
             return false;
         }
     }
