@@ -185,12 +185,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     State *state = static_cast<State *>(route->GetState(partition->parent(),
                                                         id_));
     AgentPath *path = NULL;
-    if (route->vrf()->GetName().compare(table->agent()->
-                                        fabric_policy_vrf_name()) == 0) {
-        path = route->FindLocalPath();
-    } else {
-        path = route->FindLocalVmPortPath();
-    }
+    path = route->FindLocalVmPortPath();
 
     std::stringstream path_str;
     if (path && path->peer())
