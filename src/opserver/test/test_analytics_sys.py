@@ -135,7 +135,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_message_table_query
 
-    #@unittest.skip('Send/query flow stats to test QE')
+    @unittest.skip('Send/query flow stats to test QE')
     def test_03_flow_query(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -303,7 +303,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
     #end test_06_send_tracebuffer
 
-    #@unittest.skip(' where queries with different conditions')
+    @unittest.skip(' where queries with different conditions')
     def test_08_where_clause_query(self):
         '''
         This test is used to check the working of integer 
