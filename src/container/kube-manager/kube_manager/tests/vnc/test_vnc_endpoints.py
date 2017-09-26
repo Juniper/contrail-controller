@@ -6,7 +6,10 @@ monkey.patch_all()
 
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM, ServiceKM
 from kube_manager.tests.vnc import test_case
+from kube_manager.tests.vnc.db_mock import DBBaseKM
+from kube_manager.vnc.config_db import InstanceIpKM
 from kube_manager.vnc.vnc_kubernetes import VncKubernetes
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig
 from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 
 TEST_NAMESPACE = 'test-namespace'
@@ -21,12 +24,11 @@ TEST_SERVICE_SPEC = {
 }
 
 
-class VncEndpointsTest(test_case.KMTestCase):
+class VncEndpointsTestBase(test_case.KMTestCase):
 
     @classmethod
-    def setUpClass(cls, extra_config_knobs=None):
-        super(VncEndpointsTest, cls).setUpClass(
-            extra_config_knobs=extra_config_knobs)
+    def setUpClass(cls, *args, **kwargs):
+        super(VncEndpointsTestBase, cls).setUpClass(*args, **kwargs)
         cls.kube_mock = MagicMock()
         VncKubernetes._vnc_kubernetes.endpoints_mgr._kube = cls.kube_mock
 
@@ -39,10 +41,10 @@ class VncEndpointsTest(test_case.KMTestCase):
         for namespace in list(NamespaceKM):
             NamespaceKM.delete(namespace)
 
-        super(VncEndpointsTest, cls).tearDownClass()
+        super(VncEndpointsTestBase, cls).tearDownClass()
 
     def setUp(self, *args, **kwargs):
-        super(VncEndpointsTest, self).setUp(*args, **kwargs)
+        super(VncEndpointsTestBase, self).setUp(*args, **kwargs)
         self._add_namespace(namespace_name=TEST_NAMESPACE)
         self.service_uid = self._add_service(
             namespace=TEST_NAMESPACE,
@@ -116,7 +118,7 @@ class VncEndpointsTest(test_case.KMTestCase):
         self.enqueue_event(pod_add_event)
         return pod_uid
 
-    def _add_endpoints(self, name, namespace, pod_uids):
+    def _add_endpoints(self, name, namespace, pod_uids=(), host_ips=()):
         endpoint_uid = str(uuid.uuid4())
         event = self.create_event(
             kind='Endpoints',
@@ -128,13 +130,9 @@ class VncEndpointsTest(test_case.KMTestCase):
             },
             event_type='ADDED'
         )
-        event['object']['subsets'] = [{
-            'ports': [{
-                'name': 'http',
-                'port': 80,
-                'protocol': 'TCP'
-            }],
-            'addresses': [{
+
+        if pod_uids:
+            addresses = [{
                 'targetRef': {
                     'kind': 'Pod',
                     'name': 'test-pod',
@@ -142,6 +140,18 @@ class VncEndpointsTest(test_case.KMTestCase):
                     'uid': pod_uid
                 }
             } for pod_uid in pod_uids]
+        else:
+            addresses = [{
+                'ip': ip
+            } for ip in host_ips]
+
+        event['object']['subsets'] = [{
+            'ports': [{
+                'name': 'http',
+                'port': 80,
+                'protocol': 'TCP'
+            }],
+            'addresses': addresses
         }]
         self.enqueue_event(event)
         return event['object']
@@ -220,6 +230,9 @@ class VncEndpointsTest(test_case.KMTestCase):
                     KeyValuePair('vmi', vmi_uid)]),
                 member_annotations)
 
+
+class VncEndpointsTest(VncEndpointsTestBase):
+
     def test_endpoints_add(self):
         pod_uid = self._add_pod(
             pod_name='test-pod',
@@ -257,7 +270,6 @@ class VncEndpointsTest(test_case.KMTestCase):
         self.wait_for_all_tasks_done()
         vmi1_uid = self._get_vmi_uid(pod1_uid)
         vmi2_uid = self._get_vmi_uid(pod2_uid)
-
         endpoints = self._add_endpoints(
             name=TEST_SERVICE_NAME,
             namespace=TEST_NAMESPACE,
@@ -427,3 +439,48 @@ class VncEndpointsTest(test_case.KMTestCase):
         self.wait_for_all_tasks_done()
         self._delete_endpoints(endpoints)
         # No assertion here. It should just pass without error.
+
+
+class VncEndpointsNestedTest(VncEndpointsTestBase):
+
+    @classmethod
+    def setUpClass(cls, extra_config_knobs=None):
+        super(VncEndpointsNestedTest, cls).setUpClass(
+            extra_config_knobs=extra_config_knobs,
+            kube_args=(('KUBERNETES', 'nested_mode', '1'),))
+
+    @classmethod
+    def tearDownClass(cls):
+        super(VncEndpointsNestedTest, cls).tearDownClass()
+        DBBaseKM.set_nested(False)
+
+    def _get_objs(self):
+        return dict(map(
+            lambda f: (f, getattr(self._vnc_lib, f)().values()[0]),
+            filter(
+                lambda n: n.endswith('list') and not
+                n.startswith('_') and not
+                          n == 'resource_list',
+                dir(self._vnc_lib))))
+
+    def test_endpoints_add(self):
+        vn = self._vnc_lib.virtual_network_read(
+            fq_name=VncKubernetesConfig.cluster_default_network_fq_name())
+        vm, vmi, ip = self.create_virtual_machine('test-vm', vn, '10.32.0.1')
+
+        self._add_pod(
+            pod_name='test-pod',
+            pod_namespace=TEST_NAMESPACE,
+            pod_status={
+                'hostIP': '10.32.0.1',
+                'phase': 'created'
+            })
+        self.wait_for_all_tasks_done()
+
+        self._add_endpoints(
+            name=TEST_SERVICE_NAME,
+            namespace=TEST_NAMESPACE,
+            host_ips=['10.32.0.1'])
+        self.wait_for_all_tasks_done()
+
+        self._check_lb_members((vm.uuid, vmi.uuid))
