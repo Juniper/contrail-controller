@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/string_util.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 
 #include "bgp/ipeer.h"
@@ -9,6 +10,8 @@
 #include "bgp/bgp_update.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/extended-community/vrf_route_import.h"
+#include "bgp/extended-community/source_as.h"
 
 using std::auto_ptr;
 using std::string;
@@ -90,6 +93,22 @@ BgpRoute *InetVpnTable::RouteReplicate(BgpServer *server,
         rtp->Add(dest_route);
     } else {
         dest_route->ClearDelete();
+    }
+
+    if (server->bgp_identifier() != 0) {
+        string vit_str = "rt-import:" + server->bgp_identifier_string() + ":" +
+	    integerToString(src_table->routing_instance()->index());
+        VrfRouteImport vit(VrfRouteImport::FromString(vit_str, NULL));
+        community = server->extcomm_db()->ReplaceVrfRouteImportAndLocate(
+                    community.get(), vit.GetExtCommunity());
+    }
+    if (server->autonomous_system() != 0) {
+        string sas_str = "source-as:" + integerToString(
+		server->autonomous_system()) + ":" +
+	        integerToString(src_table->routing_instance()->index());
+        SourceAs sas(SourceAs::FromString(sas_str, NULL));
+        community = server->extcomm_db()->ReplaceSourceASAndLocate(
+                    community.get(), sas.GetExtCommunity());
     }
 
     BgpAttrPtr new_attr =

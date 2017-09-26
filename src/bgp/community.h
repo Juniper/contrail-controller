@@ -390,6 +390,12 @@ public:
     ExtCommunityPtr RemoveSiteOfOriginAndLocate(const ExtCommunity *src);
     ExtCommunityPtr ReplaceSiteOfOriginAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &soo);
+    ExtCommunityPtr RemoveVrfRouteImportAndLocate(const ExtCommunity *src);
+    ExtCommunityPtr ReplaceVrfRouteImportAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityValue &vit);
+    ExtCommunityPtr RemoveSourceASAndLocate(const ExtCommunity *src);
+    ExtCommunityPtr ReplaceSourceASAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityValue &sas);
     ExtCommunityPtr RemoveOriginVnAndLocate(const ExtCommunity *src);
     ExtCommunityPtr ReplaceOriginVnAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityValue &origin_vn);

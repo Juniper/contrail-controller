@@ -509,6 +509,62 @@ ExtCommunityPtr ExtCommunityDB::ReplaceSiteOfOriginAndLocate(
     return Locate(clone);
 }
 
+ExtCommunityPtr ExtCommunityDB::RemoveSourceASAndLocate(
+        const ExtCommunity *src) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSourceAS();
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceSourceASAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityValue &sas) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSourceAS();
+    clone->Append(sas);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::RemoveVrfRouteImportAndLocate(
+        const ExtCommunity *src) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveVrfRouteImport();
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceVrfRouteImportAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityValue &vit) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveVrfRouteImport();
+    clone->Append(vit);
+    return Locate(clone);
+}
+
 ExtCommunityPtr ExtCommunityDB::RemoveOriginVnAndLocate(
         const ExtCommunity *src) {
     ExtCommunity *clone;

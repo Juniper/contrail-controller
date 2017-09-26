@@ -248,6 +248,25 @@ protected:
         return notification_count_[table_base];
     }
 
+    void CheckCommunities(BgpRoute* vpn_rt) {
+        bool found_vit = false, found_sas = false;
+        Route::PathList::const_iterator it = vpn_rt->GetPathList().begin();
+        for (; it != vpn_rt->GetPathList().end(); ++it) {
+            const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+
+            ExtCommunityPtr ext_community = path->GetAttr()->ext_community();
+            BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &value,
+                    ext_community->communities()) {
+            if (ExtCommunity::is_vrf_route_import(value))
+                    found_vit = true;
+            if (ExtCommunity::is_source_as(value))
+                    found_sas = true;
+            }
+        }
+        TASK_UTIL_EXPECT_EQ(found_vit, true);
+        TASK_UTIL_EXPECT_EQ(found_sas, true);
+    }
+
     void VerifyVpnTable(RoutingInstance *from_instance, string prefix,
         DBTable *dest, bool present = true, BgpPeer *peer = NULL) {
         Ip4Prefix rt_prefix(Ip4Prefix::FromString(prefix));
@@ -258,6 +277,7 @@ protected:
         BgpRoute *vpn_rt = static_cast<BgpRoute *>(dest->Find(&key));
         if (present) {
             TASK_UTIL_EXPECT_NE(static_cast<BgpRoute *>(NULL), vpn_rt);
+            CheckCommunities(vpn_rt);
         } else {
             TASK_UTIL_EXPECT_EQ(static_cast<BgpRoute *>(NULL), vpn_rt);
         }
