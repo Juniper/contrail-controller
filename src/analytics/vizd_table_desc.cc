@@ -9,7 +9,6 @@
 #include <database/gendb_constants.h>
 
 std::vector<GenDb::NewCf> vizd_tables;
-std::vector<GenDb::NewCf> vizd_flow_tables;
 std::vector<GenDb::NewCf> vizd_stat_tables;
 std::vector<GenDb::NewCf> vizd_session_tables;
 FlowTypeMap flow_msg2type_map;
@@ -86,8 +85,6 @@ void init_vizd_tables() {
  * the following are flow index tables - for SVN:SIP, DVN:DIP, ...
  *
  */
-    init_tables(vizd_flow_tables, g_viz_constants._VIZD_FLOW_TABLE_SCHEMA);
-
     init_tables(vizd_stat_tables, g_viz_constants._VIZD_STAT_TABLE_SCHEMA);
 
     init_tables(vizd_session_tables, g_viz_constants._VIZD_SESSION_TABLE_SCHEMA);
