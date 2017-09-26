@@ -27,7 +27,7 @@ class StructuredSyslogServer {
         const std::string &structured_syslog_kafka_broker,
         const std::string &structured_syslog_kafka_topic,
         uint16_t structured_syslog_kafka_partitions,
-        boost::shared_ptr<ConfigDBConnection> cfgdb_connection,
+        ConfigClientCollector *config_client,
         StatWalker::StatTableInsertFn stat_db_cb,
         GrokParser* gp, bool use_grok=false);
     virtual ~StructuredSyslogServer();
