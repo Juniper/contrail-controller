@@ -52,8 +52,7 @@ public:
             bool use_zookeeper,
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
-            const std::vector<std::string> &api_server_list,
-            const VncApiConfig &api_config,
+            ConfigClientCollector *config_client,
             bool grok_enabled,
             const std::vector<std::string> &grok_key_list,
             const std::vector<std::string> &grok_attrib_list);
@@ -88,10 +87,6 @@ public:
         if (rsc) {
             redis_gen_ ++;
         }
-    }
-    void ReConfigApiServerList(const std::vector<std::string> &api_server_list) {
-        DbHandlerPtr db_handler = db_initializer_->GetDbHandler();
-        db_handler->ReConfigApiServerList(api_server_list);
     }
     void SendDbStatistics();
     void SendProtobufCollectorStatistics();

@@ -64,7 +64,11 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'boost_program_options',
         'libdl',
         'grok',
-        'sasl2'])
+        'sasl2',
+        'config_client_mgr',
+        'SimpleAmqpClient',
+        'boost_chrono',
+        'rabbitmq'])
 
 (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 if PLATFORM.lower() != 'ubuntu' or (PLATFORM.lower() == 'ubuntu' and VERSION.find('16.') == 0):
@@ -160,13 +164,12 @@ vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'protobuf_collector.cc', 'protobuf_server.cc',
                 'structured_syslog_collector.cc', 'structured_syslog_server.cc',
                 'structured_syslog_kafka_forwarder.cc',
-                'configdb_connection.cc',
                 'sflow.cc',
                 'sflow_generator.cc', 'sflow_collector.cc',
                 'usrdef_counters.cc',
                 'sflow_parser.cc', 'ipfix_collector.cc',
                 'kafka_processor.cc',
-                'uve_aggregator.cc', 'grok_parser.cc']
+                'uve_aggregator.cc', 'grok_parser.cc', 'config_client_collector.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
