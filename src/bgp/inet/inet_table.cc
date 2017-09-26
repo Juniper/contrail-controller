@@ -6,6 +6,8 @@
 
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
+#include "bgp/extended-community/source_as.h"
+#include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -87,6 +89,18 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
     }
 
     // Replace the extended community with the one provided.
+    if (server->bgp_identifier() != 0) {
+        VrfRouteImport vit(server->bgp_identifier(),
+		src_table->routing_instance()->index());
+        community = server->extcomm_db()->ReplaceVrfRouteImportAndLocate(
+                    community.get(), vit.GetExtCommunity());
+    }
+    if (server->autonomous_system() != 0) {
+        SourceAs sas(server->bgp_identifier(), 0);
+        community = server->extcomm_db()->ReplaceSourceASAndLocate(
+                    community.get(), sas.GetExtCommunity());
+    }
+
     BgpAttrDB *attr_db = server->attr_db();
     BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(path->GetAttr(),
                                                                 community);

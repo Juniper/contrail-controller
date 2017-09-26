@@ -2405,7 +2405,7 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, BigUpdateMessage1) {
     task_util::WaitForIdle();
 
     // Add a bunch of route targets to blue instance.
-    static const int kRouteTargetCount = 497;
+    static const int kRouteTargetCount = 496;
     for (int idx = 0; idx < kRouteTargetCount; ++idx) {
         string target = string("target:1:") + integerToString(10000 + idx);
         AddRouteTarget(bs_x_, "blue", target);

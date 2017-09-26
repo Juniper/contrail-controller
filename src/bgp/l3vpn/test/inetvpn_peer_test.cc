@@ -9,6 +9,8 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_session_manager.h"
+#include "bgp/extended-community/source_as.h"
+#include "bgp/extended-community/vrf_route_import.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -248,6 +250,27 @@ protected:
         return notification_count_[table_base];
     }
 
+    void CheckCommunities(BgpRoute* vpn_rt, RoutingInstance *ri) {
+        bool found_vit = false, found_sas = false;
+        Route::PathList::const_iterator it = vpn_rt->GetPathList().begin();
+	VrfRouteImport vit(ri->server()->bgp_identifier(), ri->index());
+	SourceAs sas(ri->server()->bgp_identifier(), 0);
+        for (; it != vpn_rt->GetPathList().end(); ++it) {
+            const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+
+            ExtCommunityPtr ext_community = path->GetAttr()->ext_community();
+            //BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &value,
+                    //ext_community->communities()) {
+            if (ext_community->ContainsVrfRouteImport(vit.GetExtCommunity()))
+                found_vit = true;
+            if (ext_community->ContainsSourceAs(sas.GetExtCommunity()))
+                found_sas = true;
+            //}
+        }
+        TASK_UTIL_EXPECT_EQ(found_vit, true);
+        TASK_UTIL_EXPECT_EQ(found_sas, true);
+    }
+
     void VerifyVpnTable(RoutingInstance *from_instance, string prefix,
         DBTable *dest, bool present = true, BgpPeer *peer = NULL) {
         Ip4Prefix rt_prefix(Ip4Prefix::FromString(prefix));
@@ -258,6 +281,7 @@ protected:
         BgpRoute *vpn_rt = static_cast<BgpRoute *>(dest->Find(&key));
         if (present) {
             TASK_UTIL_EXPECT_NE(static_cast<BgpRoute *>(NULL), vpn_rt);
+            CheckCommunities(vpn_rt, from_instance);
         } else {
             TASK_UTIL_EXPECT_EQ(static_cast<BgpRoute *>(NULL), vpn_rt);
         }
