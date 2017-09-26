@@ -838,20 +838,6 @@ bool Ruleeng::handle_uve_publish(const pugi::xml_node& parent,
     return true;
 }
 
-// handle flow message
-bool Ruleeng::handle_flow_object(const pugi::xml_node &parent,
-    DbHandler *db, const SandeshHeader &header,
-    GenDb::GenDbIf::DbAddColumnCb db_cb) {
-    if (header.get_Type() != SandeshType::FLOW) {
-        return true;
-    }
-
-    if (!(db->FlowTableInsert(parent, header, db_cb))) {
-        return false;
-    }
-    return true;
-}
-
 bool Ruleeng::handle_session_object(const pugi::xml_node &parent,
     DbHandler *db, const SandeshHeader &header,
     GenDb::GenDbIf::DbAddColumnCb db_cb) {
@@ -883,8 +869,6 @@ bool Ruleeng::rule_execute(const VizMsg *vmsgp, bool uveproc, DbHandler *db,
     handle_object_log(parent, vmsgp, db, header, db_cb);
 
     if (uveproc) handle_uve_statistics(parent, vmsgp, db, header, db_cb);
-
-    handle_flow_object(parent, db, header, db_cb);
 
     handle_session_object(parent, db, header, db_cb);
 
