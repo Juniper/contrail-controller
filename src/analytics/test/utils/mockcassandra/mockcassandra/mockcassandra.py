@@ -33,7 +33,20 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
     Arguments:
         cport : An unused TCP port for Cassandra to use as the client port
     '''
-    cassandra_version = '2.1.9'
+    jdk_8_download = 'wget -P ' + cassandra_bdir + ' https://github.com/Juniper/contrail-third-party-cache/raw/master/openjdk-1.8.0/java-1.8.0-openjdk-amd64.tar.gz'
+
+    jdk_url = cassandra_bdir + '/java-1.8.0-openjdk-amd64.tar.gz'
+
+    if not os.path.exists(cassandra_bdir):
+        output,_ = call_command_("mkdir " + cassandra_bdir)
+
+    if not os.path.exists(jdk_url):
+        process = subprocess.Popen(jdk_8_download.split(' '))
+        process.wait()
+        if process.returncode is not 0:
+            return
+
+    cassandra_version = '3.10'
     cassandra_url = cassandra_bdir + '/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
     if not os.path.exists(cassandra_bdir):
@@ -55,6 +68,8 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
     output,_ = call_command_("rm -rf " + cassbase)
     output,_ = call_command_("mkdir " + cassbase)
 
+    logging.info('Installing jdk in ' + cassbase)
+    os.system("cat " + jdk_url + " | tar -xpzf - -C " + cassbase)
     logging.info('Installing cassandra in ' + cassbase)
     os.system("cat " + tarfile + " | tar -xpzf - -C " + cassbase)
 
@@ -116,7 +131,7 @@ def start_cassandra(cport, sport_arg=None, cassandra_user=None, cassandra_passwo
     o_clients.close()
 
 
-    output,_ = call_command_(cassbase + basefile + "/bin/cassandra -p " + cassbase + "pid")
+    output,_ = call_command_(cassbase + basefile + "/bin/cassandra -p " + cassbase + "pid", cassbase + 'jvm/java-1.8.0-openjdk-amd64')
     assert(verify_cassandra(thriftport, cqlport, cassandra_user, cassandra_password))
 
     return cassbase, basefile
@@ -173,11 +188,11 @@ def verify_cassandra(thriftport, cqlport, cassandra_user, cassandra_password):
              time.sleep(5)
     return False
 
-def call_command_(command):
+def call_command_(command ,jpath=None):
 
     distribution = platform.dist()[0]
-    jpath = "/usr/local/java/jre1.6.0_43"
-    if distribution == "debian" and os.path.isdir(jpath):
+
+    if jpath:
         jenv = { "JAVA_HOME" : jpath }
     else:
         jenv = None
