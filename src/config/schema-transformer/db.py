@@ -249,19 +249,10 @@ class SchemaTransformerDB(VncObjectDBClient):
     # end free_route_target
 
     def get_service_chain_ip(self, sc_name):
-        addresses = self.get(self._SC_IP_CF, sc_name)
-        if addresses:
-            return addresses.get('ip_address'), addresses.get('ipv6_address')
-        else:
-            return None, None
+        return self.get(self._SC_IP_CF, sc_name)
 
-    def add_service_chain_ip(self, sc_name, ip, ipv6):
-        val = {}
-        if ip:
-            val['ip_address'] = ip
-        if ipv6:
-            val['ipv6_address'] = ipv6
-        self._sc_ip_cf.insert(sc_name, val)
+    def add_service_chain_ip(self, sc_name, ip_dict):
+        self._sc_ip_cf.insert(sc_name, ip_dict)
 
     def remove_service_chain_ip(self, sc_name):
         try:
