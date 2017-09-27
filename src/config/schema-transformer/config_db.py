@@ -653,46 +653,79 @@ class VirtualNetworkST(DBBaseST):
                        v.obj.get_parent_fq_name()))
     # end get_vns_in_project
 
+    def create_instance_ip(self, sc_name, family, ipam_obj):
+        iip_name = sc_name + '-' + family
+        iip_obj = InstanceIp(name=iip_name, instance_ip_family=family)
+        iip_obj.set_instance_ip_secondary(True)
+        iip_obj.set_instance_ip_mode('active-active')
+        iip_obj.add_network_ipam(ipam_obj)
+        try:
+            iip_uuid = self._vnc_lib.instance_ip_create(iip_obj)
+            iip_obj = self._vnc_lib.instance_ip_read(id=iip_uuid)
+        except RefsExistError:
+            iip_obj = self._vnc_lib.instance_ip_read(fq_name=[iip_name])
+            iip_uuid = iip_obj.get_uuid()
+        except Exception as e:
+            self._logger.error(
+                "Error while allocating ip%s address in network-ipam %s: %s"
+                % (family, ipam_obj.name, str(e)))
+            return None, None
+        iip_address = iip_obj.get_instance_ip_address()
+        return iip_uuid, iip_address
+    # end create_instance_ip
+
     def allocate_service_chain_ip(self, sc_fq_name):
         sc_name = sc_fq_name.split(':')[-1]
-        v4_address, v6_address = self._object_db.get_service_chain_ip(sc_name)
-        if v4_address or v6_address:
-            return v4_address, v6_address
-        try:
-            v4_address = self._vnc_lib.virtual_network_ip_alloc(
-                self.obj, count=1, family='v4')[0]
-        except (NoIdError, RefsExistError) as e:
-            self._logger.error(
-                "Error while allocating ipv4 in network %s: %s" % (self.name,
-                                                                   str(e)))
-        try:
-            v6_address = self._vnc_lib.virtual_network_ip_alloc(
-                self.obj, count=1, family='v6')[0]
-        except (NoIdError, RefsExistError) as e:
-            self._logger.error(
-                "Error while allocating ipv6 in network %s: %s" % (self.name,
-                                                                   str(e)))
-        if v4_address is None and v6_address is None:
+        ip_dict = self._object_db.get_service_chain_ip(sc_name)
+        if ip_dict:
+            return ip_dict.get('ip_address'), ip_dict.get('ipv6_address')
+        ip_dict = {}
+        sc_ipam_obj = ServiceChain._get_service_chain_ipam()
+        v4_iip_uuid, v4_address = \
+            self.create_instance_ip(sc_name, 'v4', ipam_obj=sc_ipam_obj)
+        if v4_iip_uuid:
+            ip_dict['ip_address'] = v4_address
+            ip_dict['ip_uuid'] = v4_iip_uuid
+        v6_iip_uuid, v6_address = \
+            self.create_instance_ip(sc_name, 'v6', ipam_obj=sc_ipam_obj)
+        if v6_iip_uuid:
+            ip_dict['ipv6_address'] = v6_address
+            ip_dict['ipv6_uuid'] = v6_iip_uuid
+        if v4_iip_uuid is None and v6_iip_uuid is None:
             return None, None
-        self._object_db.add_service_chain_ip(sc_name, v4_address, v6_address)
+        self._object_db.add_service_chain_ip(sc_name, ip_dict)
         return v4_address, v6_address
     # end allocate_service_chain_ip
 
     def free_service_chain_ip(self, sc_fq_name):
         sc_name = sc_fq_name.split(':')[-1]
-        v4_address, v6_address = self._object_db.get_service_chain_ip(sc_name)
-        ip_addresses = []
-        if v4_address:
-            ip_addresses.append(v4_address)
-        if v6_address:
-            ip_addresses.append(v6_address)
-        if not ip_addresses:
+        ip_dict = self._object_db.get_service_chain_ip(sc_name)
+        if not ip_dict:
             return
+        if ip_dict.get('ip_uuid'):
+            try:
+                self._vnc_lib.instance_ip_delete(id=ip_dict['ip_uuid'])
+            except NoIdError:
+                pass
+        elif ip_dict.get('ip_address'):
+            # To Handle old scheme
+            try:
+                self._vnc_lib.virtual_network_ip_free(self.obj, ip_dict[ip_address])
+            except NoIdError:
+                pass
+
+        if ip_dict.get('ipv6_uuid'):
+            try:
+                self._vnc_lib.instance_ip_delete(id=ip_dict['ipv6_uuid'])
+            except NoIdError:
+                pass
+        elif ip_dict.get('ipv6_address'):
+            # To Handle old scheme
+            try:
+                self._vnc_lib.virtual_network_ip_free(self.obj, ip_dict[ipv6_address])
+            except NoIdError:
+                pass
         self._object_db.remove_service_chain_ip(sc_name)
-        try:
-            self._vnc_lib.virtual_network_ip_free(self.obj, ip_addresses)
-        except NoIdError:
-            pass
     # end free_service_chain_ip
 
     def get_route_target(self):
@@ -2594,7 +2627,18 @@ class ServiceChain(DBBaseST):
             if not hasattr(chain, 'si_info'):
                 chain.si_info = None
             cls._dict[name] = chain
+        cls.sc_ipam_obj = None
+        cls._get_service_chain_ipam()
     # end init
+
+    @classmethod
+    def _get_service_chain_ipam(cls):
+        if cls.sc_ipam_obj:
+            return cls.sc_ipam_obj
+        fq_name = ['default-domain', 'default-project', 'service-chain-flat-ipam']
+        cls.sc_ipam_obj = cls._vnc_lib.network_ipam_read(fq_name=fq_name)
+        return cls.sc_ipam_obj
+    # end _get_service_chain_ipam
 
     def __init__(self, name, left_vn, right_vn, direction, sp_list, dp_list,
                  protocol, services):
