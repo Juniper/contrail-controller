@@ -104,11 +104,11 @@ class VerifyServicePolicy(VerifyPolicy):
         self.assertTrue(ip == None)
 
     @retries(5)
-    def check_service_chain_pbf_rules(self, vn1, vn2, sc_ri_name, service_name, sc_ip):
+    def check_service_chain_pbf_rules(self, vn1, vn2, sc_ri_name, service_name, sc_ip, sc_ip6):
         mac1 = '02:00:00:00:00:01'
         mac2 = '02:00:00:00:00:02'
-        expected_pbf = PolicyBasedForwardingRuleType(
-            vlan_tag=1, direction='both', service_chain_address=sc_ip)
+        expected_pbf = PolicyBasedForwardingRuleType(vlan_tag=1, direction='both',
+            service_chain_address=sc_ip, ipv6_service_chain_address=sc_ip6)
         for interface_type in ('left', 'right'):
             if interface_type == 'left':
                 expected_pbf.src_mac = mac1
@@ -363,8 +363,12 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                   vn2_obj.get_fq_name_str(), ':'.join(self.get_ri_name(vn2_obj, sc_ri_name)))
 
         si_name = 'default-domain:default-project:' + service_name
-        v4_service_chain_address = '10.0.0.252'
-        v6_service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+        if version == 2:
+            v4_service_chain_address = '0.255.255.250'
+            v6_service_chain_address = '::0.255.255.250'
+        else:
+            v4_service_chain_address = '0.255.255.252'
+            v6_service_chain_address = '::0.255.255.252'
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
                                service_chain_address = v4_service_chain_address,
@@ -504,12 +508,12 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         si_name = 'default-domain:default-project:' + service_name
         sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
-                               service_chain_address = '10.0.0.252',
+                               service_chain_address = '0.255.255.252',
                                service_instance = si_name)
         self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
-                               service_chain_address = '10.0.0.252',
+                               service_chain_address = '0.255.255.252',
                                service_instance = si_name)
         self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
 
@@ -532,12 +536,12 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         si_name = 'default-domain:default-project:' + service_name
         sci = ServiceChainInfo(prefix = ['30.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn3_obj)),
-                               service_chain_address = '30.0.0.252',
+                               service_chain_address = '0.255.255.251',
                                service_instance = si_name)
         self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
-                               service_chain_address = '30.0.0.252',
+                               service_chain_address = '0.255.255.251',
                                service_instance = si_name)
         self.check_service_chain_info(self.get_ri_name(vn3_obj, sc_ri_name), sci)
 
@@ -736,9 +740,12 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                          (service_name, if_type)]
                         for service_name in service_names for if_type in ('left__1', 'right__2')]
 
-        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[0], service_names[0], '10.0.0.252')
-        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[1], service_names[1], '10.0.0.251')
-        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[2], service_names[2], '10.0.0.250')
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[0],
+                service_names[0], '0.255.255.252', '::0.255.255.252')
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[1],
+                service_names[1], '0.255.255.251', '::0.255.255.251')
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[2],
+                service_names[2], '0.255.255.250', '::0.255.255.250')
 
         old_service_list = np.network_policy_entries.policy_rule[0].action_list.apply_service
         np.network_policy_entries.policy_rule[0].action_list.apply_service = \
@@ -754,13 +761,16 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                 continue
             sc_ri_names = ['service-'+sc+'-default-domain_default-project_' + s for s in service_names]
             try:
-                self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[2], service_names[2], '10.0.0.250')
+                self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[2],
+                        service_names[2], '0.255.255.250', '::0.255.255.250')
                 gevent.sleep(1)
             except Exception:
                 break
 
-        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[0], service_names[0], '10.0.0.252')
-        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[1], service_names[1], '10.0.0.251')
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[0],
+                service_names[0], '0.255.255.252', '::0.255.255.252')
+        self.check_service_chain_pbf_rules(vn1_obj, vn2_obj, sc_ri_names[1],
+                service_names[1], '0.255.255.251', '::0.255.255.251')
         vn2_obj.del_network_policy(np)
         self._vnc_lib.virtual_network_update(vn2_obj)
         self.check_ri_is_deleted(fq_name=self.get_ri_name(vn1_obj, sc_ri_names[0]))
@@ -828,26 +838,26 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
             sci = ServiceChainInfo(prefix = ['10.0.0.0/24'],
                                    routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
-                                   service_chain_address = '10.0.0.%s' % (253-i),
+                                   service_chain_address = '0.255.255.%s' % (253-i),
                                    service_instance = si_name)
             self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
             sci.prefix = ['1000::/16']
             if i == 1:
-                sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+                sci.service_chain_address = '::0.255.255.252'
             else:
-                sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffb'
+                sci.service_chain_address = '::0.255.255.251'
 
             self.check_v6_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
             sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                    routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
-                                   service_chain_address = '10.0.0.%s' % (253-i),
+                                   service_chain_address = '0.255.255.%s' % (253-i),
                                    service_instance = si_name)
             self.check_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
             sci.prefix = ['2000::/16']
             if i == 1:
-                sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
+                sci.service_chain_address = '::0.255.255.252'
             else:
-                sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffb'
+                sci.service_chain_address = '::0.255.255.251'
             self.check_v6_service_chain_info(self.get_ri_name(vn1_obj, sc_ri_name), sci)
 
 
@@ -877,7 +887,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             self.wait_to_get_object(config_db.RouteAggregateST,
                                     ra.get_fq_name_str())
             ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
-            self.assertEqual(ra.get_aggregate_route_nexthop(), '10.0.0.%s' % (253-i))
+            self.assertEqual(ra.get_aggregate_route_nexthop(), '0.255.255.%s' % (253-i))
 
             self.assertTill(self.vnc_db_ident_has_ref,
                     obj=ra, ref_name='routing_instance_refs',
