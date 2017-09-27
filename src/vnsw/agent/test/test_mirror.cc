@@ -164,6 +164,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
     mirror_list_req->Release();
     client->WaitForIdle();
 
+    EXPECT_TRUE(agent_->mirror_table()->GetInstance()->IsConfigured());
     DelAllMirrorEntry();
     //make sure all Mirror entry are deleted
     for (int i = 0; i < count_; i++) {
@@ -174,6 +175,8 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
         EXPECT_FALSE(MirrorNHFind(i));
     }
     DelAllArpEntry();
+    usleep(1000);
+    EXPECT_FALSE(agent_->mirror_table()->GetInstance()->IsConfigured());
 }
 
 TEST_F(MirrorTableTest, MirrorEntryAddDel_2) {
