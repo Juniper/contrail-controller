@@ -1325,7 +1325,8 @@ static bool MatchFlowAction(FlowEntry *flow, const string &str) {
     }
 
     if (str == "deny") {
-        return ((action & TrafficAction::DROP_FLAGS) != 0);
+        return (((action & TrafficAction::DROP_FLAGS) != 0) |
+                (flow->IsShortFlow()));
     }
 
     return false;
