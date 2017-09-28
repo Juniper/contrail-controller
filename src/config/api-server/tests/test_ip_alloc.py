@@ -2021,8 +2021,8 @@ class TestIpAlloc(test_case.ApiServerTestCase):
 
         # update ipam with one more allocation pool in existing subnets
         # add that pool in vrouter/ipam link and test vrouter update.
-        sn2_pool_list.append(AllocationPoolType(start='12.1.1.8',
-                                                end='12.1.1.15',
+        sn2_pool_list.append(AllocationPoolType(start='12.1.1.64',
+                                                end='12.1.1.95',
                                                 vrouter_specific_pool=True))
 
         ipam0_sn2 = IpamSubnetType(subnet=SubnetType('12.1.1.0', 24),
@@ -2033,7 +2033,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.network_ipam_update(ipam0)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
 
-        vr_pool_list.append(AllocationPoolType(start='12.1.1.8', end='12.1.1.15'))
+        vr_pool_list.append(AllocationPoolType(start='12.1.1.64', end='12.1.1.95'))
 
         vr_ipam_type.set_allocation_pools(vr_pool_list)
         vr0._pending_field_updates.add('network_ipam_refs')

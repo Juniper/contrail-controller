@@ -71,11 +71,10 @@ class IndexAllocator(object):
         return size
 
     def _has_ranges_shrunk(self, old_list, new_list):
-        if len(old_list) != len(new_list):
+        if len(old_list) > len(new_list):
             return True
 
-        for i, new_pool in enumerate(new_list):
-            old_pool = old_list[i]
+        for old_pool, new_pool in zip(old_list, new_list):
             if (new_pool['start'] > old_pool['start'] or
                 new_pool['end'] < old_pool['end']):
                 return True
@@ -95,7 +94,7 @@ class IndexAllocator(object):
         sorted_alloc_list = sorted(new_alloc_list,
                                    key=lambda k: k['start'])
 
-        if not self._has_ranges_shrunk(self._alloc_list, sorted_alloc_list):
+        if self._has_ranges_shrunk(self._alloc_list, sorted_alloc_list):
             raise Exception('Indexes allocated cannot be shrunk: %s' %
                             (self._alloc_list))
 
