@@ -511,6 +511,10 @@ void AgentParam::ParseDefaultSection() {
                                     "DEFAULT.sandesh_send_rate_limit")) {
         send_ratelimit_ = Sandesh::get_send_rate_limit();
     }
+    if (!GetValueFromTree<uint16_t>(min_aap_prefix_len_,
+                                    "DEFAULT.min_aap_prefix_len")) {
+        min_aap_prefix_len_ = Agent::kMinAapPrefixLen;
+    }
 
     if (optional<bool> subnet_hosts_resolvable_opt =
             tree_.get_optional<bool>("DEFAULT.subnet_hosts_resolvable")) {
@@ -871,6 +875,8 @@ void AgentParam::ParseDefaultSectionArguments
                           "DEFAULT.pkt0_tx_buffers");
     GetOptValue<bool>(var_map, measure_queue_delay_,
                       "DEFAULT.measure_queue_delay");
+    GetOptValue<uint16_t>(var_map, min_aap_prefix_len_,
+                          "DEFAULT.min_aap_prefix_len");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -1490,7 +1496,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
         task_monitor_timeout_msec_(Agent::kDefaultTaskMonitorTimeout),
-        default_nic_queue_(Agent::kInvalidQueueId) {
+        default_nic_queue_(Agent::kInvalidQueueId),
+        min_aap_prefix_len_(Agent::kMinAapPrefixLen) {
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
     generic.add_options()
@@ -1572,6 +1579,8 @@ AgentParam::AgentParam(bool enable_flow_options,
           opt::value<bool>()->default_value(true))
         ("DEFAULT.pkt0_tx_buffers", opt::value<uint32_t>(),
          "Number of tx-buffers for pkt0 interface")
+        ("DEFAULT.min_aap_prefix_len", opt::value<uint16_t>(),
+         "Minimum prefix-len Allowed-address-pair entries")
         ;
     options_.add(generic);
 

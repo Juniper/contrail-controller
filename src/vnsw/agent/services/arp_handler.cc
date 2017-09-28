@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "vr_defs.h"
+#include "init/agent_param.h"
 #include "oper/route_common.h"
 #include "oper/operdb_init.h"
 #include "oper/path_preference.h"
@@ -391,6 +392,10 @@ void ArpHandler::SendArpRequestByPlen(uint32_t itf, const MacAddress &smac,
          * IP*/
         uint8_t diff_plen = Address::kMaxV4PrefixLen - data->plen();
         uint32_t num_addresses = pow(2, diff_plen);
+        const uint32_t &max_addresses = MaxArpProbeAddresses();
+        if (num_addresses > max_addresses) {
+            num_addresses = max_addresses;
+        }
         uint32_t base_addr = data->ip().to_v4().to_ulong();
         for (uint32_t i = 1; i < (num_addresses - 1); ++i) {
             uint32_t addr = base_addr + i;
@@ -400,6 +405,12 @@ void ArpHandler::SendArpRequestByPlen(uint32_t itf, const MacAddress &smac,
             agent()->GetArpProto()->IncrementStatsVmArpReq();
         }
     }
+}
+
+uint32_t ArpHandler::MaxArpProbeAddresses() const {
+    uint32_t diff_plen = Address::kMaxV4PrefixLen -
+                         agent()->params()->min_aap_prefix_len();
+    return pow(2, diff_plen);
 }
 
 void intrusive_ptr_add_ref(const ArpHandler *p) {
