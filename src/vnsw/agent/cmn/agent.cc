@@ -194,6 +194,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::StatsCollector",
         "io::ReaderTask",
         "Agent::PktFlowResponder",
+        "Agent::Profile",
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME,
         AGENT_SANDESH_TASKNAME
