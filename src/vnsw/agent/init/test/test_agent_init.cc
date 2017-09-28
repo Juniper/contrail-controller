@@ -418,6 +418,7 @@ TEST_F(FlowTest, Default_Cmdline_arg3) {
     EXPECT_STREQ(param.log_file().c_str(), "3.log");
     EXPECT_TRUE(param.isVmwareMode());
     EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
+    EXPECT_EQ(param.min_aap_prefix_len(), 24);
 }
 
 TEST_F(FlowTest, MultitokenVector) {
@@ -440,6 +441,7 @@ TEST_F(FlowTest, MultitokenVector) {
     collector_server_list.push_back("30.30.30.3:300");
     TASK_UTIL_EXPECT_VECTOR_EQ(param.collector_server_list(),
                      collector_server_list);
+    EXPECT_EQ(param.min_aap_prefix_len(), 20);
 }
 
 int main(int argc, char **argv) {
