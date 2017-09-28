@@ -95,7 +95,7 @@ class IndexAllocator(object):
         sorted_alloc_list = sorted(new_alloc_list,
                                    key=lambda k: k['start'])
 
-        if not self._has_ranges_shrunk(self._alloc_list, sorted_alloc_list):
+        if self._has_ranges_shrunk(self._alloc_list, sorted_alloc_list):
             raise Exception('Indexes allocated cannot be shrunk: %s' %
                             (self._alloc_list))
 
