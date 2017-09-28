@@ -191,7 +191,7 @@ class GlobalSystemConfigST(DBBaseST):
         if bgpaas_params:
             new_range = {'start': bgpaas_params.port_start,
                          'end': bgpaas_params.port_end}
-            self._object_db._bgpaas_port_allocator.reallocate([new_range])
+            self._cassandra._bgpaas_port_allocator.reallocate([new_range])
  
     @classmethod
     def get_autonomous_system(cls):
