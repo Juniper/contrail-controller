@@ -28,6 +28,7 @@
 #include "bgp/inet6/inet6_table.h"
 #include "bgp/inet6vpn/inet6vpn_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/mvpn/mvpn_table.h"
 #include "bgp/peer_close_manager.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
@@ -1264,7 +1265,8 @@ void BgpPeer::RegisterAllTables() {
     Register(table, BuildRibExportPolicy(family));
 
     vector<Address::Family> vpn_family_list = list_of
-        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
+        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN)
+        (Address::MVPN);
     BOOST_FOREACH(Address::Family vpn_family, vpn_family_list) {
         if (!IsFamilyNegotiated(vpn_family))
             continue;
@@ -1281,6 +1283,7 @@ const vector<Address::Family> BgpPeer::supported_families_ = list_of
     (Address::EVPN)
     (Address::RTARGET)
     (Address::ERMVPN)
+    (Address::MVPN)
     (Address::INET6)
     (Address::INET6VPN);
 
@@ -1307,6 +1310,8 @@ void BgpPeer::SendOpen(TcpSession *session) {
              BgpAf::FamilyToSafi(supported_families_[5]) },
         { 0, (uint8_t) BgpAf::FamilyToAfi(supported_families_[6]), 0,
              BgpAf::FamilyToSafi(supported_families_[6]) },
+        { 0, (uint8_t) BgpAf::FamilyToAfi(supported_families_[7]), 0,
+             BgpAf::FamilyToSafi(supported_families_[7]) },
     };
 
     static const FamilyToCapabilityMap family_to_cap_map = map_list_of
@@ -1316,7 +1321,8 @@ void BgpPeer::SendOpen(TcpSession *session) {
         (supported_families_[3], cap_mp[3])
         (supported_families_[4], cap_mp[4])
         (supported_families_[5], cap_mp[5])
-        (supported_families_[6], cap_mp[6]);
+        (supported_families_[6], cap_mp[6])
+        (supported_families_[7], cap_mp[7]);
 
     // Add capabilities for configured address families.
     BOOST_FOREACH(const FamilyToCapabilityMap::value_type &val,
@@ -1787,6 +1793,10 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
             ProcessNlri<ErmVpnTable, ErmVpnPrefix>(
                 family, oper, nlri, attr, flags);
             break;
+        case Address::MVPN:
+            ProcessNlri<MvpnTable, MvpnPrefix>(
+                family, oper, nlri, attr, flags);
+            break;
         case Address::RTARGET:
             ProcessNlri<RTargetTable, RTargetPrefix>(
                 family, oper, nlri, attr, flags);
@@ -1857,7 +1867,8 @@ void BgpPeer::RegisterToVpnTables() {
 
     RoutingInstance *instance = GetRoutingInstance();
     vector<Address::Family> vpn_family_list = list_of
-        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN);
+        (Address::INETVPN)(Address::INET6VPN)(Address::ERMVPN)(Address::EVPN)
+        (Address::MVPN);
     BOOST_FOREACH(Address::Family vpn_family, vpn_family_list) {
         if (!IsFamilyNegotiated(vpn_family))
             continue;
