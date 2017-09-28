@@ -73,7 +73,7 @@ template <typename T>
 static std::vector<std::vector<T> > GetSubSets(const std::vector<T> &vector) {
     std::vector<std::vector<T> > subsets;
 
-    for (size_t i = 0; i < (1 << vector.size()); i++) {
+    for (size_t i = 0; i < (size_t)(1 << vector.size()); i++) {
         std::vector<T> subset;
         for (size_t j = 0; j < vector.size(); j++) {
             if (i & (1 << j))
