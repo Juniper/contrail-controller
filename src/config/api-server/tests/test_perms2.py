@@ -676,21 +676,6 @@ class TestPermissions(test_case.ApiServerTestCase):
         logger.info( 'User should be able to see VN in own project and any shared')
         logger.info( 'alice: get virtual network collection ... should fail')
 
-        try:
-            x = alice.vnc_lib.virtual_networks_list(parent_id = alice.project_uuid)
-            self.assertTrue(False,
-                'Read VN collection without list permission ... test failed!')
-        except PermissionDenied as e:
-            self.assertTrue(True, 'Failed to read VN collection ... test passed')
-
-        # allow permission to read virtual-network collection
-        for user in [alice, bob]:
-            logger.info( "%s: project %s to allow collection access to role %s" % \
-                (user.name, user.project, user.role))
-            # note that collection API is set for create operation
-            vnc_aal_add_rule(admin.vnc_lib, user.proj_rg,
-                rule_str = 'virtual-networks %s:CR' % user.role)
-
         # create one more VN in alice project to differentiate from what bob sees
         vn2 = VirtualNetwork('second-vn', alice.project_obj)
         alice.vnc_lib.virtual_network_create(vn2)
@@ -880,7 +865,7 @@ class TestPermissions(test_case.ApiServerTestCase):
                 (user.name, user.project, user.role))
             # note that collection API is set for create operation
             vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
-                "virtual-networks %s:CRUD" % user.role)
+                "virtual-network %s:CRUD" % user.role)
 
         logger.info( '')
         logger.info( 'alice: trying to create VN in her project')
@@ -992,7 +977,7 @@ class TestPermissions(test_case.ApiServerTestCase):
                 (user.name, user.project, user.role))
             # note that collection API is set for create operation
             vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
-                rule_str = 'virtual-networks %s:CRUD' % user.role)
+                rule_str = 'virtual-network %s:CRUD' % user.role)
 
         # Create VN as non-admin user
         vn_fq_name = [self.domain_name, alice.project, self.vn_name]
@@ -1316,7 +1301,7 @@ class TestPermissions(test_case.ApiServerTestCase):
                 (user.name, user.project, user.role))
             # note that collection API is set for create operation
             vnc_aal_add_rule(self.admin.vnc_lib, user.proj_rg,
-                rule_str = 'virtual-networks %s:CRUD' % user.role)
+                rule_str = 'virtual-network %s:CRUD' % user.role)
 
         # Create VN as non-admin user
         vn_fq_name = [self.domain_name, alice.project, self.vn_name]
