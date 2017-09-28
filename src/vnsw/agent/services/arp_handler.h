@@ -30,6 +30,7 @@ public:
     friend void intrusive_ptr_release(const ArpHandler *p);
 
 private:
+    uint32_t MaxArpProbeAddresses() const;
     bool HandlePacket();
     bool HandleMessage();
     void EntryDelete(ArpKey &key);
