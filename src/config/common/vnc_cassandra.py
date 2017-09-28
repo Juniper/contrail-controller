@@ -594,7 +594,7 @@ class VncCassandraClient(object):
                         dict_class=dict,
                         **cf_kwargs)
                 except pycassa.NotFoundException:
-                    if cf_dict in self._rw_keyspaces.items():
+                    if cf_dict in self._rw_keyspaces.values():
                         raise
                     self._cf_dict[cf_name] = {}
                     continue
