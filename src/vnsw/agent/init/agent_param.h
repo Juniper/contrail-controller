@@ -314,6 +314,12 @@ public:
     void add_nic_queue(uint16_t queue, uint16_t nic_queue) {
         qos_queue_map_[queue] = nic_queue;
     }
+    uint16_t min_aap_prefix_len() const {
+        if ((min_aap_prefix_len_ < 1) || (min_aap_prefix_len_ > 31)) {
+            return Agent::kMinAapPrefixLen;
+        }
+        return min_aap_prefix_len_;
+    }
 
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
@@ -552,6 +558,7 @@ private:
     uint32_t task_monitor_timeout_msec_;
     std::map<uint16_t, uint16_t> qos_queue_map_;
     uint16_t default_nic_queue_;
+    uint16_t min_aap_prefix_len_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
