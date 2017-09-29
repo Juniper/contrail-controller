@@ -138,8 +138,9 @@ def generate_logconf_file_contents():
     return cfg_parser
 # end generate_logconf_file_contents
 
-def launch_disc_server(test_id, listen_ip, listen_port, http_server_port, conf_sections):
+def launch_disc_server(cluster_id, test_id, listen_ip, listen_port, http_server_port, conf_sections):
     args_str = ""
+    args_str = args_str + "--cluster_id %s " % (cluster_id)
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
     args_str = args_str + "--listen_port %s " % (listen_port)
     args_str = args_str + "--http_server_port %s " % (http_server_port)
