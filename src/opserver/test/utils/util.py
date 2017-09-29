@@ -6,6 +6,7 @@ import math
 import subprocess
 import os
 import time
+import socket
 
 # Code borrowed from http://wiki.python.org/moin/PythonDecoratorLibrary#Retry
 
@@ -76,3 +77,11 @@ def find_buildroot(path):
     except:
         return path + '/build/debug'
 #end find_buildroot
+
+def get_free_port():
+    cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    cs.bind(("", 0))
+    cport = cs.getsockname()[1]
+    cs.close()
+    return cport
+#end get_free_port

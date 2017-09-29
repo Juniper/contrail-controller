@@ -22,6 +22,7 @@ import os
 import unittest
 import testtools
 import fixtures
+import mock
 import socket
 from utils.analytics_fixture import AnalyticsFixture
 from utils.stats_fixture import StatsFixture
@@ -30,6 +31,7 @@ import logging
 import time
 from opserver.sandesh.viz.constants import *
 from utils.opserver_introspect_utils import VerificationOpsSrv
+from opserver.vnc_cfg_api_client import VncCfgApiClient
 from utils.util import retry, find_buildroot
 
 logging.basicConfig(level=logging.INFO,
@@ -58,6 +60,14 @@ class StatsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         mockcassandra.stop_cassandra(cls.cassandra_port)
         pass
+
+    def setUp(self):
+        super(StatsTest, self).setUp()
+        mock_is_role_cloud_admin = mock.patch.object(VncCfgApiClient,
+            'is_role_cloud_admin')
+        mock_is_role_cloud_admin.return_value = True
+        mock_is_role_cloud_admin.start()
+        self.addCleanup(mock_is_role_cloud_admin.stop)
 
     #@unittest.skip('Get samples using StatsOracle')
     def test_00_basicsamples(self):

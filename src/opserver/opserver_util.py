@@ -478,7 +478,7 @@ class OpServerUtils(object):
     # end parse_start_end_time
 
     @staticmethod
-    def post_url_http(url, params, user, password, sync=False):
+    def post_url_http(url, params, user, password, sync=False, headers=None):
         if sync:
             hdrs = OpServerUtils.POST_HEADERS_SYNC
             stm = False
@@ -487,7 +487,8 @@ class OpServerUtils(object):
             hdrs = OpServerUtils.POST_HEADERS
             stm = True
             pre = False
-
+        if headers:
+            hdrs.update(headers)
         try:
             if int(pkg_resources.get_distribution("requests").version[0]) != 0:
                 response = requests.post(url, stream=stm,
@@ -510,15 +511,17 @@ class OpServerUtils(object):
     # end post_url_http
 
     @staticmethod
-    def get_url_http(url, user, password):
+    def get_url_http(url, user, password, headers=None):
         data = {}
         try:
             if int(pkg_resources.get_distribution("requests").version[0]) != 0:
                 data = requests.get(url, stream=True,
-                                    auth=HTTPBasicAuth(user, password))
+                                    auth=HTTPBasicAuth(user, password),
+                                    headers=headers)
             else:
                 data = requests.get(url, prefetch=False,
-                                    auth=HTTPBasicAuth(user, password))
+                                    auth=HTTPBasicAuth(user, password),
+                                    headers=headers)
         except requests.exceptions.ConnectionError, e:
             print "Connection to %s failed %s" % (url, str(e))
 
@@ -554,13 +557,13 @@ class OpServerUtils(object):
 
     @staticmethod
     def get_query_result(opserver_ip, opserver_port, qid, user, password,
-                         time_out=None):
+                         time_out=None, headers=None):
         sleep_interval = 0.5
         time_left = time_out
         while True:
             url = OpServerUtils.opserver_query_url(
                 opserver_ip, opserver_port) + '/' + qid
-            resp = OpServerUtils.get_url_http(url, user, password)
+            resp = OpServerUtils.get_url_http(url, user, password, headers)
             if resp.status_code != 200:
                 yield {}
                 return
@@ -583,7 +586,7 @@ class OpServerUtils(object):
                 for chunk in status['chunks']:
                     url = OpServerUtils.opserver_url(
                         opserver_ip, opserver_port) + chunk['href']
-                    resp = OpServerUtils.get_url_http(url, user, password)
+                    resp = OpServerUtils.get_url_http(url, user, password, headers)
                     if resp.status_code != 200:
                         yield {}
                     else:

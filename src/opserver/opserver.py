@@ -80,6 +80,7 @@ from opserver_local import LocalApp
 from opserver_util import AnalyticsDiscovery
 from strict_redis_wrapper import StrictRedisWrapper
 from sandesh.analytics_api_info.ttypes import AnalyticsApiInfoUVE, AnalyticsApiInfo
+from cfgm_common.exceptions import BadRequest, HttpError, PermissionDenied, AuthFailed
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -402,18 +403,44 @@ class OpServer(object):
         * ``/analytics/operation/database-purge``:
     """
 
-    def validate_user_token(func=None, only_cloud_admin=True):
+    def validate_user_token(func=None, only_cloud_admin=True,
+            get_token_info=False):
         def _validate_user_token_impl(func):
             def _impl(self, *f_args, **f_kwargs):
                 if self._args.auth_conf_info.get('aaa_auth_enabled') and \
                         bottle.request.app == bottle.app():
                     user_token = bottle.request.headers.get('X-Auth-Token')
-                    if not user_token or (only_cloud_admin and not \
-                            self._vnc_api_client.is_role_cloud_admin(
-                                user_token)):
+                    if not user_token:
                         raise bottle.HTTPResponse(status = 401,
                             body = 'Authentication required',
                             headers = self._reject_auth_headers())
+                    if get_token_info:
+                        user_token_info = dict()
+                    else:
+                        user_token_info = None
+                    try:
+                        is_cloud_admin = \
+                                self._vnc_api_client.is_role_cloud_admin(
+                                    user_token,
+                                    user_token_info=user_token_info)
+                    except (BadRequest, HttpError) as vnce:
+                        raise bottle.HTTPResponse(status = vnce.status_code,
+                            body = vnce.content)
+                    except AuthFailed as afe:
+                        raise bottle.HTTPResponse(status = 401,
+                            body = 'Authentication required',
+                            headers = self._reject_auth_headers())
+                    except PermissionDenied as pde:
+                        raise bottle.HTTPResponse(status = 403,
+                            body = pde.args[0],
+                            headers = self._reject_auth_headers())
+                    else:
+                        bottle.request.is_role_cloud_admin = is_cloud_admin
+                        bottle.request.user_token_info = user_token_info
+                        if only_cloud_admin and not is_cloud_admin:
+                            raise bottle.HTTPResponse(status = 401,
+                                body = 'Authentication required',
+                                headers = self._reject_auth_headers())
                 return func(self, *f_args, **f_kwargs)
             return _impl
         if not func:
@@ -424,16 +451,19 @@ class OpServer(object):
             return _validate_user_token_impl(func)
     # end validate_user_token
 
-    def is_role_cloud_admin(self, token_info=None):
+    def is_role_cloud_admin(self):
         if self._args.auth_conf_info.get('aaa_auth_enabled') and \
                 bottle.request.app == bottle.app():
-            user_token = bottle.request.headers.get('X-Auth-Token')
-            if not user_token or not \
-                    self._vnc_api_client.is_role_cloud_admin(user_token,
-                            token_info):
-                return False
+            return bottle.request.is_role_cloud_admin
         return True
     # end is_role_cloud_admin
+
+    def get_user_token_info(self, token_info):
+        if self._args.auth_conf_info.get('aaa_auth_enabled') and \
+                bottle.request.app == bottle.app():
+            return bottle.request.user_token_info
+        return None
+    # end get_user_token_info
 
     """
     returns the list of resources for which user has permissions
@@ -457,11 +487,6 @@ class OpServer(object):
     def get_resource_list(self, obj_type):
         if self._args.aaa_mode == AAA_MODE_RBAC and \
                 bottle.request.app == bottle.app():
-            user_token = bottle.request.headers.get('X-Auth-Token')
-            if not user_token:
-                raise bottle.HTTPResponse(status = 401,
-                        body = 'Authentication required',
-                        headers = self._reject_auth_headers())
             res_list = self._vnc_api_client.get_resource_list(obj_type,\
                     user_token)
             if res_list is None:
@@ -1243,8 +1268,8 @@ class OpServer(object):
         """
         set tablefilt for non-admin users
         """
-        user_token_info = dict()
-        if not self.is_role_cloud_admin(user_token_info):
+        if not self.is_role_cloud_admin():
+            user_token_info = self.get_user_token_info()
             config_types = self.ObjectLogTypeToConfigObjectType.keys()
             if filters['tablefilt']:
                 for filtr in filters['tablefilt']:
@@ -1291,9 +1316,11 @@ class OpServer(object):
         ph.start()
         return body
 
+    @validate_user_token(only_cloud_admin=False, get_token_info=True)
     def uve_stream(self):
         return self._serve_streams(False)
 
+    @validate_user_token(only_cloud_admin=False, get_token_info=True)
     def alarm_stream(self):
         return self._serve_streams(True)
 
@@ -1632,12 +1659,14 @@ class OpServer(object):
         return
     # end _sync_query
 
+    @validate_user_token(only_cloud_admin=False)
     def query_process(self):
         self._post_common(bottle.request, None)
         result = self._query(bottle.request)
         return result
     # end query_process
 
+    @validate_user_token(only_cloud_admin=False)
     def query_status_get(self, queryId):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
@@ -1646,6 +1675,7 @@ class OpServer(object):
         return self._query_status(bottle.request, queryId)
     # end query_status_get
 
+    @validate_user_token(only_cloud_admin=False)
     def query_chunk_get(self, queryId, chunkId):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
@@ -1785,6 +1815,7 @@ class OpServer(object):
         return filters
     # end _uve_http_post_filter_set
 
+    @validate_user_token(only_cloud_admin=False)
     def dyn_http_post(self, tables):
         (ok, result) = self._post_common(bottle.request, None)
         base_url = bottle.request.urlparts.scheme + \
@@ -1854,6 +1885,7 @@ class OpServer(object):
             yield u']}'
     # end dyn_http_post
 
+    @validate_user_token(only_cloud_admin=False)
     def dyn_http_get(self, table, name):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
@@ -1956,6 +1988,7 @@ class OpServer(object):
                 return bottle.HTTPError(_ERRORS[errno.EIO],json.dumps(alms))
     # end alarms_http_get
 
+    @validate_user_token(only_cloud_admin=False)
     def dyn_list_http_get(self, tables):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
@@ -2227,6 +2260,7 @@ class OpServer(object):
             json.dumps(response), 200, {'Content-type': 'application/json'})
     # end _get_analytics_data_start_time
 
+    @validate_user_token(only_cloud_admin=False)
     def table_process(self, table):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
@@ -2254,6 +2288,7 @@ class OpServer(object):
         return json.dumps(json_links)
     # end table_process
 
+    @validate_user_token(only_cloud_admin=False)
     def table_schema_process(self, table):
         (ok, result) = self._get_common(bottle.request)
         if not ok:
