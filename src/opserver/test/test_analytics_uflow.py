@@ -20,11 +20,13 @@ import logging
 import unittest
 import testtools
 import fixtures
+import mock
 from collections import OrderedDict
 
 from mockcassandra import mockcassandra
 from utils.analytics_fixture import AnalyticsFixture
 from utils.opserver_introspect_utils import VerificationOpsSrv
+from opserver.vnc_cfg_api_client import VncCfgApiClient
 from utils.util import retry, find_buildroot
 
 builddir = find_buildroot(os.getcwd())
@@ -48,6 +50,14 @@ class AnalyticsUFlowTest(testtools.TestCase, fixtures.TestWithFixtures):
     def tearDownClass(cls):
         mockcassandra.stop_cassandra(cls.cassandra_port)
     # end tearDownClass
+
+    def setUp(self):
+        super(AnalyticsUFlowTest, self).setUp()
+        mock_is_role_cloud_admin = mock.patch.object(VncCfgApiClient,
+            'is_role_cloud_admin')
+        mock_is_role_cloud_admin.return_value = True
+        mock_is_role_cloud_admin.start()
+        self.addCleanup(mock_is_role_cloud_admin.stop)
 
     @retry(delay=1, tries=5)
     def verify_uflow(self, vizd_obj, flow_type, exp_res):

@@ -47,7 +47,8 @@ class VerificationOpsSrvIntrospect (IntrospectUtilBase):
 
 class VerificationOpsSrv (IntrospectUtilBase):
     def __init__(self, ip, port=8181, user='test',
-                 password='password', headers=None):
+                 password='password',
+                 headers = {'X-Auth-Token' : 'user:admin'}):
         super(VerificationOpsSrv, self).__init__(ip, port, drv=JsonDrv)
         self._user = user
         self._password = password
@@ -80,6 +81,13 @@ class VerificationOpsSrv (IntrospectUtilBase):
             print e
         finally:
             return res
+
+    def get_ops_vns_response(self):
+        vns_url = self._http_str + \
+            "://%s:%d/analytics/uves/virtual-networks" % (self._ip, self._port)
+        headers = {'X-Auth-Token':'admin:password'}
+        res = requests.get(vns_url, headers=headers, timeout=10)
+        return res
 
     def get_ops_collector(self, col=None):
         if (col is None):
@@ -117,7 +125,7 @@ class VerificationOpsSrv (IntrospectUtilBase):
         url = 'http://%s:%s/analytics/uves/%s' % (self._ip, str(self._port), table)
         try:
             res = OpServerUtils.post_url_http(url, json_body, user=self._user,
-                password=self._password, sync=True)
+                password=self._password, sync=True, headers=self._headers)
             res = json.loads(res)
         except Exception as e:
             print 'Error: POST uve request: %s' % str(e)
@@ -138,7 +146,7 @@ class VerificationOpsSrv (IntrospectUtilBase):
             print "query is: ", json_str
             res = []
             resp = OpServerUtils.post_url_http(flows_url, json_str,
-                self._user, self._password, sync)
+                self._user, self._password, sync, headers=self._headers)
             if sync:
                 if resp is not None:
                     res = json.loads(resp)
@@ -148,7 +156,8 @@ class VerificationOpsSrv (IntrospectUtilBase):
                     resp = json.loads(resp)
                     qid = resp['href'].rsplit('/', 1)[1]
                     result = OpServerUtils.get_query_result(self._ip,
-                        str(self._port), qid, self._user, self._password, 30)
+                        str(self._port), qid, self._user, self._password, 30,
+                         headers = self._headers)
                     for item in result:
                         res.append(item)
         except Exception as e:
@@ -175,7 +184,7 @@ class VerificationOpsSrv (IntrospectUtilBase):
             res = []
             resp = OpServerUtils.post_url_http(
                 flows_url, json.dumps(query_dict), self._user, self._password,
-                sync)
+                sync, headers=self._headers)
             if sync:
                 if resp is not None:
                     res = json.loads(resp)
@@ -186,7 +195,7 @@ class VerificationOpsSrv (IntrospectUtilBase):
                     qid = resp['href'].rsplit('/', 1)[1]
                     result = OpServerUtils.get_query_result(
                         self._ip, str(self._port), qid, self._user,
-                        self._password, 30)
+                        self._password, 30, headers=self._headers)
                     for item in result:
                         res.append(item)
         except Exception as e:
