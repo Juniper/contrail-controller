@@ -486,6 +486,7 @@ KafkaProcessor::StartKafka(void) {
     conf->set("event_cb", &k_event_cb, errstr);
     conf->set("dr_cb", &k_dr_cb, errstr);
     conf->set("api.version.request", "false", errstr);
+    conf->set("broker.version.fallback", "0.9.0.1", errstr);
     producer_.reset(RdKafka::Producer::create(conf, errstr));
     LOG(ERROR, "Kafka new Prod " << errstr);
     delete conf;
