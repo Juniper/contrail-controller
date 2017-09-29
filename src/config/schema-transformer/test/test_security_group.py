@@ -514,4 +514,5 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
         self.check_acl_match_protocol(sg1_obj.get_fq_name(),
                                       'egress-access-control-list',
                                       rule1['protocol'])
+        self._vnc_lib.security_group_delete(id=sg1_obj.uuid)
     # end test_create_sg_check_acl_protocol
