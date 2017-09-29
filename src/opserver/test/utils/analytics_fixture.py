@@ -7,7 +7,7 @@ import socket
 import fixtures
 import subprocess
 import uuid
-from util import retry
+from util import retry, get_free_port
 from mockredis import mockredis
 from mockkafka import mockkafka
 from mockzoo import mockzoo
@@ -775,7 +775,7 @@ class AnalyticsFixture(fixtures.Fixture):
     # end get_collectors
 
     def get_opserver_port(self):
-        return self.opserver.admin_port
+        return self.opserver.rest_api_port
     # end get_opserver_port
 
     def get_generator_list(self, collector):
@@ -850,7 +850,7 @@ class AnalyticsFixture(fixtures.Fixture):
         data = {}
         url = 'http://127.0.0.1:' + str(self.opserver_port) + '/'
         data = OpServerUtils.get_url_http(url, self.admin_user,
-            self.admin_password)
+            self.admin_password, headers={'X-Auth-Token':'user:admin'})
         self.logger.info("Checking OpServer %s" % str(data))
         if data == {}:
             return False
@@ -2251,26 +2251,25 @@ class AnalyticsFixture(fixtures.Fixture):
         return not connected
     # end verify_opserver_redis_uve_connection
 
-    def get_opserver_vns(self, token):
+    def get_opserver_vns(self):
         self.logger.info('get_opserver_vns')
-        headers = {'X-Auth-Token' : token}
-        vops = VerificationOpsSrv('127.0.0.1', self.opserver.rest_api_port,
-            headers=headers)
+        vops = VerificationOpsSrv('127.0.0.1', self.opserver.rest_api_port)
         try:
             return vops.get_ops_vns()
         except Exception as err:
             self.logger.error('Exception: %s' % err)
         return []
-    #end get_uves
+    #end get_opserver_vns
 
-    def get_opserver_alarms(self, token=None):
+    def get_opserver_vns_response(self):
+        self.logger.info('get_opserver_vns_response')
+        vops = VerificationOpsSrv('127.0.0.1', self.opserver.rest_api_port)
+        return vops.get_ops_vns_response()
+    #end get_opserver_vns_response
+ 
+    def get_opserver_alarms(self):
         self.logger.info('get_opserver_alarms')
-        if token:
-            headers = {'X-Auth-Token' : token}
-        else:
-            headers = None
-        vops = VerificationOpsSrv('127.0.0.1', self.opserver.rest_api_port,
-            headers=headers)
+        vops = VerificationOpsSrv('127.0.0.1', self.opserver.rest_api_port)
         return vops.get_alarms(filters=None)
     #end get_opserver_alarms
 
@@ -2758,11 +2757,7 @@ class AnalyticsFixture(fixtures.Fixture):
 
     @staticmethod
     def get_free_port():
-        cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        cs.bind(("", 0))
-        cport = cs.getsockname()[1]
-        cs.close()
-        return cport
+        return get_free_port()
 
     @staticmethod
     def get_free_udp_port():

@@ -21,6 +21,7 @@ monkey.patch_all()
 import unittest
 import testtools
 import fixtures
+import mock
 import socket
 from utils.util import obj_to_dict, find_buildroot
 from utils.analytics_fixture import AnalyticsFixture
@@ -30,6 +31,7 @@ import logging
 import time
 from opserver.sandesh.viz.constants import *
 from opserver.sandesh.viz.constants import _OBJECT_TABLES
+from opserver.vnc_cfg_api_client import VncCfgApiClient
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
 import platform
@@ -51,6 +53,14 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
     @classmethod
     def tearDownClass(cls):
         pass
+    
+    def setUp(self):
+        super(AnalyticsUveTest, self).setUp()
+        mock_is_role_cloud_admin = mock.patch.object(VncCfgApiClient,
+            'is_role_cloud_admin')
+        mock_is_role_cloud_admin.return_value = True
+        mock_is_role_cloud_admin.start()
+        self.addCleanup(mock_is_role_cloud_admin.stop)
 
     #@unittest.skip('Skipping non-cassandra test with vizd')
     def test_00_nocassandra(self):
