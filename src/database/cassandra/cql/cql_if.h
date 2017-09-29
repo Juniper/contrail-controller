@@ -32,7 +32,6 @@ class CqlIf : public GenDb::GenDbIf {
     // Init/Uninit
     virtual bool Db_Init();
     virtual void Db_Uninit();
-    virtual void Db_UninitUnlocked();
     virtual void Db_SetInitDone(bool);
     // Tablespace
     virtual bool Db_SetTablespace(const std::string &tablespace);

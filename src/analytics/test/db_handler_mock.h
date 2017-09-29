@@ -13,8 +13,8 @@ class DbHandlerMock : public DbHandler {
     DbHandlerMock(EventManager *evm, const Options::Cassandra cassandra_options) :
         DbHandler(evm,  boost::bind(&DbHandlerMock::StartDbifReinit, this),
             "localhost",
-            cassandra_options, "",
-            false, false,
+            cassandra_options,
+            false,
             DbWriteOptions(),
             std::vector<std::string>(),
             VncApiConfig()) {

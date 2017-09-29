@@ -11,8 +11,6 @@
 
 #include "analytics/protobuf_server.h"
 
-class DbHandlerInitializer;
-
 class ProtobufCollector {
  public:
     ProtobufCollector(EventManager *evm, uint16_t udp_server_port,

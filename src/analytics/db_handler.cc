@@ -61,8 +61,6 @@ DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
         std::string name,
         const Options::Cassandra &cassandra_options,
-        const std::string &zookeeper_server_list,
-        bool use_zookeeper,
         bool use_db_write_options,
         const DbWriteOptions &db_write_options,
         const std::vector<std::string> &api_server_list,
@@ -78,8 +76,6 @@ DbHandler::DbHandler(EventManager *evm,
         cassandra_options.flow_tables_compaction_strategy_),
     gen_partition_no_((uint8_t)g_viz_constants.PARTITION_MIN,
         (uint8_t)g_viz_constants.PARTITION_MAX),
-    zookeeper_server_list_(zookeeper_server_list),
-    use_zookeeper_(use_zookeeper),
     disable_all_writes_(cassandra_options.disable_all_db_writes_),
     disable_statistics_writes_(cassandra_options.disable_db_stats_writes_),
     disable_messages_writes_(cassandra_options.disable_db_messages_writes_),
@@ -507,13 +503,6 @@ void DbHandler::UnInit() {
     dbif_->Db_SetInitDone(false);
 }
 
-// The caller *SHOULD* ensure that UnInit() is not called from another
-// task that can be executed in parallel.
-void DbHandler::UnInitUnlocked() {
-    dbif_->Db_UninitUnlocked();
-    dbif_->Db_SetInitDone(false);
-}
-
 bool DbHandler::Init(bool initial) {
     SetDropLevel(0, SandeshLevel::INVALID, NULL);
     if (initial) {
@@ -523,7 +512,7 @@ bool DbHandler::Init(bool initial) {
     }
 }
 
-bool DbHandler::InitializeInternal() {
+bool DbHandler::Initialize() {
     DB_LOG(DEBUG, "Initializing..");
 
     /* init of vizd table structures */
@@ -548,25 +537,6 @@ bool DbHandler::InitializeInternal() {
     DB_LOG(DEBUG, "Initializing Done");
 
     return true;
-}
-
-bool DbHandler::InitializeInternalLocked() {
-    // Synchronize creation across nodes using zookeeper
-    zookeeper::client::ZookeeperClient client(name_.c_str(),
-        zookeeper_server_list_.c_str());
-    zookeeper::client::ZookeeperLock dmutex(&client, "/collector");
-    assert(dmutex.Lock());
-    bool success(InitializeInternal());
-    assert(dmutex.Release());
-    return success;
-}
-
-bool DbHandler::Initialize() {
-    if (use_zookeeper_) {
-        return InitializeInternalLocked();
-    } else {
-        return InitializeInternal();
-    }
 }
 
 bool DbHandler::Setup() {
@@ -2324,6 +2294,8 @@ bool DbHandler::UnderlayFlowSampleInsert(const UFlowData& flow_data,
     return true;
 }
 
+using namespace zookeeper::client;
+
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     const std::string &db_name, const std::string &timer_task_name,
     DbHandlerInitializer::InitializeDoneCb callback,
@@ -2336,13 +2308,20 @@ DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
     db_name_(db_name),
     db_handler_(new DbHandler(evm,
         boost::bind(&DbHandlerInitializer::ScheduleInit, this),
-        db_name,
-        cassandra_options, zookeeper_server_list, use_zookeeper,
+        db_name, cassandra_options,
         true, db_write_options, api_server_list, api_config)),
     callback_(callback),
     db_init_timer_(TimerManager::CreateTimer(*evm->io_service(),
         db_name + " Db Init Timer",
-        TaskScheduler::GetInstance()->GetTaskId(timer_task_name))) {
+        TaskScheduler::GetInstance()->GetTaskId(timer_task_name))),
+    zookeeper_server_list_(zookeeper_server_list),
+    use_zookeeper_(use_zookeeper),
+    zoo_locked_(false) {
+    if (use_zookeeper_) {
+        zoo_client_.reset(new ZookeeperClient(db_name_.c_str(),
+            zookeeper_server_list_.c_str()));
+        zoo_mutex_.reset(new ZookeeperLock(zoo_client_.get(), "/collector"));
+    }
 }
 
 DbHandlerInitializer::DbHandlerInitializer(EventManager *evm,
@@ -2361,7 +2340,11 @@ DbHandlerInitializer::~DbHandlerInitializer() {
 }
 
 bool DbHandlerInitializer::Initialize() {
-    boost::system::error_code ec;
+    // Synchronize creation across nodes using zookeeper
+    if (use_zookeeper_ && !zoo_locked_) {
+        assert(zoo_mutex_->Lock());
+        zoo_locked_ = true;
+    }
     if (!db_handler_->Init(true)) {
         // Update connection info
         ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
@@ -2370,6 +2353,10 @@ bool DbHandlerInitializer::Initialize() {
         LOG(DEBUG, db_name_ << ": Db Initialization FAILED");
         ScheduleInit();
         return false;
+    }
+    if (use_zookeeper_ && zoo_locked_) {
+        assert(zoo_mutex_->Release());
+        zoo_locked_ = false;
     }
     // Update connection info
     ConnectionState::GetInstance()->Update(ConnectionType::DATABASE,
@@ -2413,6 +2400,6 @@ void DbHandlerInitializer::StartInitTimer() {
 }
 
 void DbHandlerInitializer::ScheduleInit() {
-    db_handler_->UnInitUnlocked();
+    db_handler_->UnInit();
     StartInitTimer();
 }
