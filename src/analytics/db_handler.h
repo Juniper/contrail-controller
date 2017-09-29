@@ -90,8 +90,6 @@ public:
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
         std::string name,
         const Options::Cassandra &cassandra_options,
-        const std::string &zookeeper_server_list,
-        bool use_zookeeper,
         bool use_db_write_options,
         const DbWriteOptions &db_write_options,
         const std::vector<std::string> &api_server_list,
@@ -106,7 +104,6 @@ public:
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial);
     void UnInit();
-    void UnInitUnlocked();
     void GetRuleMap(RuleMap& rulemap);
 
     virtual void MessageTableInsert(const VizMsg *vmsgp,
@@ -215,8 +212,6 @@ private:
         boost::function<void (void)> cb);
     bool Setup();
     bool Initialize();
-    bool InitializeInternal();
-    bool InitializeInternalLocked();
     bool StatTableWrite(uint32_t t2,
         const std::string& statName, const std::string& statAttr,
         const std::pair<std::string,DbHandler::Var>& ptag,
@@ -257,8 +252,6 @@ private:
     std::string compaction_strategy_;
     std::string flow_tables_compaction_strategy_;
     UniformInt8RandomGenerator gen_partition_no_;
-    std::string zookeeper_server_list_;
-    bool use_zookeeper_;
     bool disable_all_writes_;
     bool disable_statistics_writes_;
     bool disable_messages_writes_;
@@ -303,6 +296,13 @@ inline std::ostream& operator<<(std::ostream& out, const DbHandler::Var& value) 
     return out;
 }
 
+namespace zookeeper {
+namespace client {
+class ZookeeperClient;
+class ZookeeperLock;
+} // namespace client
+} // namespace zookeeper
+
 //
 // DbHandlerInitializer - Wrapper to perform DbHandler initialization
 //
@@ -339,6 +339,11 @@ class DbHandlerInitializer {
     DbHandlerPtr db_handler_;
     InitializeDoneCb callback_;
     Timer *db_init_timer_;
+    std::string zookeeper_server_list_;
+    bool use_zookeeper_;
+    bool zoo_locked_;
+    boost::scoped_ptr<zookeeper::client::ZookeeperClient> zoo_client_;
+    boost::scoped_ptr<zookeeper::client::ZookeeperLock> zoo_mutex_;
 };
 
 /*

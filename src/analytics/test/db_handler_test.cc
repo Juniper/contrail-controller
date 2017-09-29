@@ -195,8 +195,6 @@ public:
         db_handler_.reset(new DbHandler(evm_.get(), boost::bind(&DbHandler::UnInit, db_handler_.get()),
                                      "localhost",
                                      cassandra_options_,
-                                     "",
-                                     false,
                                      false,
                                      DbWriteOptions(),
                                      std::vector<std::string>(),
