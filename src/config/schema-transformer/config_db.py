@@ -3139,6 +3139,7 @@ class BgpRouterST(DBBaseST):
         self.router_type = None
         self.source_port = None
         self.update(obj)
+        self.update_single_ref('bgp_as_a_service', self.obj)
     # end __init__
 
     def update(self, obj=None):
@@ -3219,6 +3220,9 @@ class BgpRouterST(DBBaseST):
             if (bgpaas.virtual_machine_interfaces and
                 self.name in bgpaas.bgpaas_clients.values()):
                 vmi_name = list(bgpaas.virtual_machine_interfaces)[0]
+            elif self.name in bgpaas.bgpaas_clients.values():
+                del bgpaas.bgpaas_clients[bgpaas.obj.name]
+                return -1
             else:
                 return -1
         else:
@@ -3465,13 +3469,11 @@ class BgpAsAServiceST(DBBaseST):
             update = True
         if create:
             self._vnc_lib.bgp_router_create(bgp_router)
-            bgpr = BgpRouterST.locate(router_fq_name, bgp_router)
             self.obj.add_bgp_router(bgp_router)
             self._vnc_lib.bgp_as_a_service_update(self.obj)
+            bgpr = BgpRouterST.locate(router_fq_name)
         elif update:
             self._vnc_lib.bgp_router_update(bgp_router)
-        self.bgp_routers.add(router_fq_name)
-        bgpr.bgp_as_a_service = self.name
         if shared:
             self.bgpaas_clients[self.obj.name] = router_fq_name
         else:
