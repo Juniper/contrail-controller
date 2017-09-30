@@ -450,6 +450,7 @@ TEST_F(AgentParamTest, Default_Cmdline_arg3) {
     EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
     // QOS.priorty_tagging is configured as false in cfg-default1.ini.
     EXPECT_FALSE(param.qos_priority_tagging());
+    EXPECT_EQ(param.min_aap_prefix_len(), 24);
 }
 
 TEST_F(AgentParamTest, MultitokenVector) {
@@ -472,6 +473,7 @@ TEST_F(AgentParamTest, MultitokenVector) {
     collector_server_list.push_back("30.30.30.3:300");
     TASK_UTIL_EXPECT_VECTOR_EQ(param.collector_server_list(),
                      collector_server_list);
+    EXPECT_EQ(param.min_aap_prefix_len(), 20);
 }
 
 TEST_F(AgentParamTest, Restart_1) {

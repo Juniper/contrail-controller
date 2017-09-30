@@ -75,7 +75,7 @@ public:
     uint16_t Icmpv6Csum(const uint8_t *src, const uint8_t *dest,
                         icmp6_hdr *icmp, uint16_t plen);
 
-    Agent *agent() { return agent_; }
+    Agent *agent() const { return agent_; }
     uint32_t GetVrfIndex() const { return pkt_info_->GetAgentHdr().vrf; }
     uint32_t GetInterfaceIndex() const {
         return pkt_info_->GetAgentHdr().ifindex;
