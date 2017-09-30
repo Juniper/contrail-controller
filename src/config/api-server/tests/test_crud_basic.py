@@ -734,6 +734,46 @@ class TestCrud(test_case.ApiServerTestCase):
             user_cred_read = rtr.get_physical_router_user_credentials()
             self.assertEqual(user_cred_read.password, '**Password Hidden**')
        # end test_physical_router_credentials
+
+    def test_allowed_address_pair_prefix_len(self):
+       ip_addresses = {'10.10.10.1': 23,
+                       '10.10.10.2': 24,
+                       '10.10.10.3': 25,
+                       'fe80:0:0:0:0:0:a0a:a0a': 119,
+                       'fe80:0:0:0:0:0:a0a:a0b': 120,
+                       'fe80:0:0:0:0:0:a0a:a0c': 121,
+                      }
+       proj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+       vn = VirtualNetwork()
+       for ip_address, prefix in ip_addresses.items():
+           ip_family = netaddr.IPNetwork(ip_address).version
+           vmi = VirtualMachineInterface('vmi-%s-' % prefix +self.id(), parent_obj=proj)
+           print 'Validating with ip (%s) and prefix (%s)' % (ip_address, prefix)
+           aap = AllowedAddressPair(ip=SubnetType(ip_address, prefix), address_mode='active-standby')
+           aaps = AllowedAddressPairs()
+           aaps.allowed_address_pair.append(aap)
+           vmi.set_virtual_machine_interface_allowed_address_pairs(aaps)
+           vmi.add_virtual_network(vn)
+           try:
+               self._vnc_lib.virtual_machine_interface_create(vmi)
+               if ip_family == 4 and prefix < 24:
+                   raise RuntimeError('Prefix of length < 24 should have been rejected')
+               if ip_family == 6 and prefix < 120:
+                   raise RuntimeError('Prefix of length < 120 should have been rejected')
+           except cfgm_common.exceptions.BadRequest:
+               if ip_family == 4 and prefix >= 24:
+                   print 'ERROR: Prefix >= 24 should be accepted'
+                   raise
+               if ip_family == 6 and prefix >= 120:
+                   print 'ERROR: Prefix >= 120 should be accepted'
+                   raise
+           finally:
+               if ip_family == 4 and prefix >= 24:
+                   vmi.del_virtual_machine_interface(vmi)
+               if ip_family == 6 and prefix >= 120:
+                   vmi.del_virtual_machine_interface(vmi)
+    # end test_allowed_address_pair_prefix_len
+
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
