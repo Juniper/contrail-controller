@@ -1801,6 +1801,10 @@ class DBInterface(object):
             fip_obj.parent_uuid = fip_pool_obj.uuid
 
             proj_id = str(uuid.UUID(fip_q['tenant_id']))
+            perms2 = PermType2()
+            perms2.owner = proj_id
+            perms2.owner_access = 7
+            fip_obj.set_perms2(perms2)
             proj_obj = self._project_read(proj_id=proj_id)
             fip_obj.set_project(proj_obj)
         else:  # UPDATE
