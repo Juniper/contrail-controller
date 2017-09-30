@@ -734,6 +734,31 @@ class TestCrud(test_case.ApiServerTestCase):
             user_cred_read = rtr.get_physical_router_user_credentials()
             self.assertEqual(user_cred_read.password, '**Password Hidden**')
        # end test_physical_router_credentials
+
+    def test_allowed_address_pair_prefix_len(self):
+        proj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
+        vn = VirtualNetwork()
+        for prefix in [1, 23, 24, 25, 32]:
+            vmi = VirtualMachineInterface('vmi-%s-' % prefix +self.id(), parent_obj=proj)
+            print 'Validating with prefix (%s)' % prefix
+            aap = AllowedAddressPair(ip=SubnetType('1.0.0.0', prefix), address_mode='active-standby')
+            aaps = AllowedAddressPairs()
+            aaps.allowed_address_pair.append(aap)
+            vmi.set_virtual_machine_interface_allowed_address_pairs(aaps)
+            vmi.add_virtual_network(vn)
+            try:
+                self._vnc_lib.virtual_machine_interface_create(vmi)
+                if prefix < 24:
+                    raise RuntimeError('Prefix of length < 24 should be rejected')
+            except cfgm_common.exceptions.BadRequest:
+                if prefix >= 24:
+                    print 'ERROR: Prefix >= 24 should have been be accepted'
+                    raise
+            finally:
+                if prefix >= 24:
+                    vmi.del_virtual_machine_interface(vmi)
+    # end test_allowed_address_pair_prefix_len
+
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
