@@ -403,6 +403,12 @@ public:
     uint32_t task_monitor_timeout_msec() const {
         return task_monitor_timeout_msec_;
     }
+    uint16_t min_aap_prefix_len() const {
+        if ((min_aap_prefix_len_ < 1) || (min_aap_prefix_len_ > 31)) {
+            return Agent::kMinAapPrefixLen;
+        }
+        return min_aap_prefix_len_;
+    }
 
     // Restart parameters
     bool restart_backup_enable() const { return restart_backup_enable_; }
@@ -720,6 +726,7 @@ private:
     uint32_t mac_learning_add_tokens_;
     uint32_t mac_learning_update_tokens_;
     uint32_t mac_learning_delete_tokens_;
+    uint16_t min_aap_prefix_len_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
