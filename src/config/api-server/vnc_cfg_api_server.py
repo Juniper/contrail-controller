@@ -237,6 +237,8 @@ class VncApiServer(object):
             if attr_type_vals['is_complex']:
                 attr_cls = cfgm_common.utils.str_to_class(attr_type, __name__)
                 for item in values:
+                    if attr_type == 'AllowedAddressPair':
+                        cls._validate_allowed_address_pair_prefix_len(item)
                     cls._validate_complex_type(attr_cls, item)
             else:
                 simple_type = attr_type_vals['simple_type']
@@ -245,6 +247,17 @@ class VncApiServer(object):
                                               simple_type, item,
                                               restrictions)
     # end _validate_complex_type
+
+    @classmethod
+    def _validate_allowed_address_pair_prefix_len(cls, value):
+        '''Do not allow configuration of AAP with
+           prefix length less than 24. LP #1720118
+        '''
+        if value['address_mode'] == 'active-standby' and \
+           value['ip']['ip_prefix_len'] < 24:
+            raise ValueError('IP Prefix length lesser than 24'
+                             ' is not acceptable')
+    # end _validate_allowed_address_pair_prefix_len
 
     @classmethod
     def _validate_communityattribute_type(cls, value):
