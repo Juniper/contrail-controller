@@ -1641,9 +1641,9 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
     VnListType vn_list;
     vn_list.insert(vn_name);
     ControllerEcmpRoute *data =
-        new ControllerEcmpRoute(peer, vm_ip, plen, vn_list, -1, false, vrf_name,
-                                sg, tag, path_preference, TunnelType::MplsType(),
-                                EcmpLoadBalance(), nh_req);
+        new ControllerEcmpRoute(peer, vn_list, EcmpLoadBalance(), tag, sg,
+                                path_preference, TunnelType::MplsType(),
+                                nh_req, vm_ip.to_string());
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 
@@ -1666,9 +1666,9 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
     VnListType vn_list;
     vn_list.insert(vn_name);
     ControllerEcmpRoute *data =
-        new ControllerEcmpRoute(peer, vm_ip, plen, vn_list, -1, false, vrf_name,
-                                sg, tag, path_preference, TunnelType::MplsType(),
-                                ecmp_load_balance, nh_req);
+        new ControllerEcmpRoute(peer, vn_list, ecmp_load_balance, tag, sg,
+                                path_preference, TunnelType::MplsType(),
+                                nh_req, vm_ip.to_string());
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
 }
 

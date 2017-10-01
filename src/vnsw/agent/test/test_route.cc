@@ -2352,8 +2352,10 @@ TEST_F(RouteTest, fip_evpn_route_local) {
 
     bgp_peer_->GetAgentXmppChannel()->AddEvpnRoute("default-project:vn1:vn1",
                                                    "00:00:01:01:01:10",
-                                                 &item);
+                                      Ip4Address::from_string("2.2.2.10"),
+                                                   &item);
     client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (rt->GetActivePath() != path));
     EXPECT_TRUE(rt->GetActivePath() != path);
 
     client->WaitForIdle();

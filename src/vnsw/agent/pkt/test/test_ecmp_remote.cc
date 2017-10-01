@@ -1137,7 +1137,7 @@ TEST_F(RemoteEcmpTest, DISABLED_EcmpTest_1) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().rpf_nh.get() == src_rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(src_rt));
 
     //Reverse flow is no ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -1175,7 +1175,7 @@ TEST_F(RemoteEcmpTest, DISABLED_EcmpTest_2) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().rpf_nh.get() == src_rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(src_rt));
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx ==

@@ -44,6 +44,7 @@
 #include <ifmap/ifmap_agent_parser.h>
 #include <ifmap/ifmap_agent_table.h>
 #include <init/agent_param.h>
+#include <oper/ecmp.h>
 #include <oper/vn.h>
 #include <oper/multicast.h>
 #include <oper/vm.h>
