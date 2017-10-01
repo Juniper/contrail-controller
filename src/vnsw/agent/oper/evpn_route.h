@@ -80,6 +80,13 @@ public:
                          uint32_t ethernet_tag,
                          bool etree_leaf);
 
+    void AddClonedLocalPathReq(const Peer *peer,
+                               const string &vrf_name,
+                               const MacAddress &mac,
+                               const IpAddress &ip_addr,
+                               uint32_t ethernet_tag,
+                               ClonedLocalPath *data);
+
     static void ResyncVmRoute(const Peer *peer,
                               const string &vrf_name,
                               const MacAddress &mac,
