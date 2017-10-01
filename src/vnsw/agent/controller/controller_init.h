@@ -10,12 +10,14 @@
 #include <boost/shared_ptr.hpp>
 #include <controller/controller_timer.h>
 #include "xmpp/xmpp_channel.h"
-#include <oper/peer.h>
+#include <xmpp_enet_types.h>
+#include <xmpp_unicast_types.h>
+#include <xmpp_multicast_types.h>
+#include <oper/route_common.h>
 
 class AgentXmppChannel;
 class AgentDnsXmppChannel;
 class AgentIfMapVmExport;
-class BgpPeer;
 class XmlBase;
 class XmppChannelConfig;
 
@@ -175,6 +177,13 @@ public:
                             int port, int size,
                             const std::string &msg,
                             const XmppStanza::XmppMessage *xmpp_msg);
+    //Tunnel type helpers
+    TunnelType::TypeBmap GetTypeBitmap
+        (const autogen::EnetTunnelEncapsulationListType &encap);
+    TunnelType::TypeBmap GetTypeBitmap
+        (const autogen::TunnelEncapsulationListType &encap);
+    TunnelType::TypeBmap GetTypeBitmap
+        (const autogen::McastTunnelEncapsulationListType &encap);
     //Unit test helpers
     bool IsWorkQueueEmpty() const;
     void EnableWorkQueue() { work_queue_.set_disable(false); }

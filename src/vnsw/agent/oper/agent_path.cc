@@ -1291,7 +1291,7 @@ void UnresolvedNH::HandleRequest() const {
 
 //TODO IMplement filltrace in path class
 void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event, 
-                           const AgentPath *path) {
+                           const AgentPath *path) const {
     Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
     rt_info.set_ip(ToString());
     rt_info.set_vrf(vrf()->GetName());

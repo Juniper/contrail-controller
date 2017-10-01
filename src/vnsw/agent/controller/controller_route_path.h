@@ -8,6 +8,8 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <oper/route_common.h>
+#include <xmpp_enet_types.h>
+#include <xmpp_unicast_types.h>
 
 //Forward declaration
 class AgentXmppChannel;
@@ -23,6 +25,8 @@ class LocalVmRoute;
 class InetInterfaceRoute;
 class VlanNhRoute;
 class VNController;
+class ClonedLocalPath;
+class EcmpData;
 
 /*
  * Contains all Controller Route data definition.
@@ -110,40 +114,49 @@ private:
 
 class ControllerEcmpRoute : public ControllerPeerPath {
 public:
-    ControllerEcmpRoute(const BgpPeer *peer, const IpAddress &dest_addr,
-                        uint8_t plen, const VnListType &vn_list,
-                        uint32_t label, bool local_ecmp_nh,
-                        const string &vrf_name, SecurityGroupList sg_list,
-                        TagList tag_list,
-                        const PathPreference &path_preference,
-                        TunnelType::TypeBmap tunnel_bmap,
+    static const uint32_t maximum_ecmp_paths = 128;
+    typedef std::list<ClonedLocalPath *> ClonedLocalPathList;
+    typedef ClonedLocalPathList::iterator ClonedLocalPathListIter;
+    //Uses Item to build attributes
+    template <typename TYPE>
+    ControllerEcmpRoute(const BgpPeer *peer,
+                        const VnListType &vn_list,
                         const EcmpLoadBalance &ecmp_load_balance,
-                        DBRequest &nh_req) :
-        ControllerPeerPath(peer), dest_addr_(dest_addr), plen_(plen),
-        vn_list_(vn_list), label_(label), local_ecmp_nh_(local_ecmp_nh),
-        vrf_name_(vrf_name), sg_list_(sg_list), tag_list_(tag_list),
-        path_preference_(path_preference), tunnel_bmap_(tunnel_bmap),
-        ecmp_load_balance_(ecmp_load_balance)
-        {nh_req_.Swap(&nh_req);}
-
+                        const TagList &tag_list,
+                        const TYPE *item,
+                        const AgentRouteTable *rt_table,
+                        const std::string &prefix_str);
+    //Non item based constructor (Used by UT)
+    ControllerEcmpRoute(const BgpPeer *peer,
+                        const VnListType &vn_list,
+                        const EcmpLoadBalance &ecmp_load_balance,
+                        const TagList &tag_list,
+                        const SecurityGroupList &sg_list,
+                        const PathPreference &path_pref,
+                        TunnelType::TypeBmap tunnel_bmap,
+                        DBRequest &nh_req,
+                        const std::string &prefix_str);
     virtual ~ControllerEcmpRoute() { }
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
                                        const AgentRoute *rt);
     virtual string ToString() const {return "inet4 ecmp";}
+    bool CopyToPath(AgentPath *path);
+    void BuildNhReq(const string &vrf_name, const autogen::ItemType *item_type,
+                    const VnListType &vn_list);
+    ClonedLocalPathList &cloned_local_path_list() {
+        return cloned_data_list_;
+    }
 
 private:
-    IpAddress dest_addr_;
-    uint8_t plen_;
     VnListType vn_list_;
-    uint32_t label_;
-    bool local_ecmp_nh_;
-    string vrf_name_;
     SecurityGroupList sg_list_;
+    EcmpLoadBalance ecmp_load_balance_;
     TagList tag_list_;
     PathPreference path_preference_;
     TunnelType::TypeBmap tunnel_bmap_;
-    EcmpLoadBalance ecmp_load_balance_;
     DBRequest nh_req_;
+    ClonedLocalPathList cloned_data_list_;
+    Agent *agent_;
     DISALLOW_COPY_AND_ASSIGN(ControllerEcmpRoute);
 };
 

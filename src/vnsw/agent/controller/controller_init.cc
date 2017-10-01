@@ -7,6 +7,7 @@
 #include "base/timer.h"
 #include "base/contrail_ports.h"
 #include "base/connection_info.h"
+#include "net/tunnel_encap_type.h"
 #include <sandesh/sandesh_trace.h>
 #include "cmn/agent_cmn.h"
 #include "xmpp/xmpp_init.h"
@@ -929,4 +930,58 @@ bool VNController::TxXmppMessageTrace(uint8_t peer_index,
 
 bool VNController::IsWorkQueueEmpty() const {
     return (work_queue_.IsQueueEmpty() == 0);
+}
+
+TunnelType::TypeBmap VNController::GetTypeBitmap
+(const autogen::EnetTunnelEncapsulationListType &encap) {
+    TunnelType::TypeBmap bmap = 0;
+    for (autogen::EnetTunnelEncapsulationListType::const_iterator iter =
+         encap.begin(); iter != encap.end(); iter++) {
+        TunnelEncapType::Encap encap =
+            TunnelEncapType::TunnelEncapFromString(*iter);
+        if ((encap == TunnelEncapType::GRE) ||
+            (encap == TunnelEncapType::MPLS_O_GRE))
+            bmap |= (1 << TunnelType::MPLS_GRE);
+        if (encap == TunnelEncapType::MPLS_O_UDP)
+            bmap |= (1 << TunnelType::MPLS_UDP);
+        if (encap == TunnelEncapType::VXLAN)
+            bmap |= (1 << TunnelType::VXLAN);
+        if (encap == TunnelEncapType::NATIVE_CONTRAIL)
+            bmap |= (1 << TunnelType::NATIVE);
+    }
+    return bmap;
+}
+
+TunnelType::TypeBmap VNController::GetTypeBitmap
+(const autogen::TunnelEncapsulationListType &encap) {
+    TunnelType::TypeBmap bmap = 0;
+    for (autogen::TunnelEncapsulationListType::const_iterator iter =
+         encap.begin(); iter != encap.end(); iter++) {
+        TunnelEncapType::Encap encap =
+            TunnelEncapType::TunnelEncapFromString(*iter);
+        if ((encap == TunnelEncapType::GRE) ||
+            (encap == TunnelEncapType::MPLS_O_GRE))
+            bmap |= (1 << TunnelType::MPLS_GRE);
+        if (encap == TunnelEncapType::MPLS_O_UDP)
+            bmap |= (1 << TunnelType::MPLS_UDP);
+        if (encap == TunnelEncapType::NATIVE_CONTRAIL)
+            bmap |= (1 << TunnelType::NATIVE);
+    }
+    return bmap;
+}
+
+TunnelType::TypeBmap VNController::GetTypeBitmap
+(const autogen::McastTunnelEncapsulationListType &encap) {
+    TunnelType::TypeBmap bmap = 0;
+    for (autogen::McastTunnelEncapsulationListType::const_iterator iter =
+         encap.begin(); iter != encap.end(); iter++) {
+        TunnelEncapType::Encap encap =
+            TunnelEncapType::TunnelEncapFromString(*iter);
+        if ((encap == TunnelEncapType::GRE) ||
+            (encap == TunnelEncapType::MPLS_O_GRE))
+            bmap |= (1 << TunnelType::MPLS_GRE);
+        if (encap == TunnelEncapType::MPLS_O_UDP)
+            bmap |= (1 << TunnelType::MPLS_UDP);
+    }
+    return bmap;
 }
