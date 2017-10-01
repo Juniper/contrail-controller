@@ -124,12 +124,10 @@
      Link('application-policy-set-firewall-policy',
           'application-policy-set', 'firewall-policy', ['ref'], 'required', 'CRUD',
           'Reference to firewall-policy attached to this application-policy') -->
-<!-- global flag in application policy set not controlled by user -->
-<xsd:element name="is-global" type="xsd:boolean"/>
+<xsd:element name="all-applications" type="xsd:boolean" default="false"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('is-global', 'application-policy-set', 'optional', 'R',
-              'If set, indicates application policy set to be applied globally') -->
-<!-- global flag in application policy set not controlled by user -->
+     Property('all-applications', 'application-policy-set', 'optional', 'R',
+              'If set, indicates application policy set to be applied to all application tags') -->
 
 <xsd:element name="policy-management" type="ifmap:IdentityType"/>
 <xsd:element name="policy-management-service-group"/>
@@ -183,11 +181,18 @@
      Link('project-application-policy-set',
           'project', 'application-policy-set', ['has'], 'optional', 'CRUD',
           'Project level application-policy object defining policies to apply for a given application tag') -->
-
+<xsd:element name="project-default-application-policy-set" minOccurs="0" maxOccurs="1"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-default-application-policy-set',
+          'project', 'application-policy-set', ['ref'], 'system-only', 'CRUD',
+          'Reference to default application-policy-set is automatically '
+          'createdby system for default socped application policy sets. '
+          'Needed by vrouter to identify default application-policy-set rules '
+          'of a virtual machine interface') -->
 <xsd:element name="application-policy-set-global-vrouter-config"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('application-policy-set-global-vrouter-config',
-          'application-policy-set', 'global-vrouter-config', ['ref'], 'system-internal', 'CRUD',
+          'application-policy-set', 'global-vrouter-config', ['ref'], 'system-only', 'CRUD',
           'Reference to global-vrouter-config is automatically created by system for global
            application policy sets') -->
 <xsd:element name="firewall-rule-virtual-network"/>

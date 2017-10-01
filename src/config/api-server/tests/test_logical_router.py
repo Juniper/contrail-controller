@@ -106,16 +106,16 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug('Created Logical Router ')
 
         # Create a Virtual Machine Interface belonging to my-vn-1
-        id_perms = IdPermsType(enable=True) 
+        id_perms = IdPermsType(enable=True)
         port_obj1 = VirtualMachineInterface(
            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
-        port_obj1.uuid = port_obj1.name 
+        port_obj1.uuid = port_obj1.name
         port_obj1.set_virtual_network(vn1)
         port_obj1.set_virtual_machine_interface_device_owner('DEVICE_OWNER_ROUTER_INTF')
         #Assign gateway ip
-        ipam_refs = net_obj1.get_network_ipam_refs() 
+        ipam_refs = net_obj1.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
-            subnets = ipam_ref['attr'].get_ipam_subnets() 
+            subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
                 cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                   subnet.subnet.get_ip_prefix_len())
@@ -131,7 +131,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj1.uuid = ip_obj1.name
         ip_obj1.set_virtual_machine_interface(port_obj1)
         ip_obj1.set_virtual_network(net_obj1)
-        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1) 
+        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
  
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj1)
@@ -141,13 +141,13 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create a Virtual Machine Interface belonging to my-vn-2
         port_obj2 = VirtualMachineInterface(
            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
-        port_obj2.uuid = port_obj2.name 
+        port_obj2.uuid = port_obj2.name
         port_obj2.set_virtual_network(vn2)
         port_obj2.set_virtual_machine_interface_device_owner('DEVICE_OWNER_ROUTER_INTF')
         #Assign gateway ip
-        ipam_refs = net_obj2.get_network_ipam_refs() 
+        ipam_refs = net_obj2.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
-            subnets = ipam_ref['attr'].get_ipam_subnets() 
+            subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
                 cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                   subnet.subnet.get_ip_prefix_len())
@@ -163,7 +163,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj2.uuid = ip_obj2.name
         ip_obj2.set_virtual_machine_interface(port_obj2)
         ip_obj2.set_virtual_network(net_obj2)
-        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2) 
+        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
  
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj2)
@@ -254,16 +254,16 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug('Created Logical Router ')
 
         # Create a Virtual Machine Interface belonging to my-vn-1
-        id_perms = IdPermsType(enable=True) 
+        id_perms = IdPermsType(enable=True)
         port_obj1 = VirtualMachineInterface(
            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
-        port_obj1.uuid = port_obj1.name 
+        port_obj1.uuid = port_obj1.name
         port_obj1.set_virtual_network(vn1)
         port_obj1.set_virtual_machine_interface_device_owner('DEVICE_OWNER_ROUTER_INTF')
         #Assign gateway ip
-        ipam_refs = net_obj1.get_network_ipam_refs() 
+        ipam_refs = net_obj1.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
-            subnets = ipam_ref['attr'].get_ipam_subnets() 
+            subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
                 cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                   subnet.subnet.get_ip_prefix_len())
@@ -279,7 +279,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj1.uuid = ip_obj1.name
         ip_obj1.set_virtual_machine_interface(port_obj1)
         ip_obj1.set_virtual_network(net_obj1)
-        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1) 
+        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
  
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj1)
@@ -290,13 +290,13 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create a Virtual Machine Interface belonging to my-vn-2
         port_obj2 = VirtualMachineInterface(
            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
-        port_obj2.uuid = port_obj2.name 
+        port_obj2.uuid = port_obj2.name
         port_obj2.set_virtual_network(vn2)
         port_obj2.set_virtual_machine_interface_device_owner('DEVICE_OWNER_ROUTER_INTF')
         #Assign gateway ip
-        ipam_refs = net_obj2.get_network_ipam_refs() 
+        ipam_refs = net_obj2.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
-            subnets = ipam_ref['attr'].get_ipam_subnets() 
+            subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
                 cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                   subnet.subnet.get_ip_prefix_len())
@@ -312,7 +312,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj2.uuid = ip_obj2.name
         ip_obj2.set_virtual_machine_interface(port_obj2)
         ip_obj2.set_virtual_network(net_obj2)
-        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2) 
+        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
  
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj2)
@@ -548,9 +548,6 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
     # end test_same_network_not_attached_to_lr
 
     def test_vxlan_routing_for_internal_vn(self):
-        global_vrouter_config = GlobalVrouterConfig()
-        self._vnc_lib.global_vrouter_config_create(global_vrouter_config)
-
         project = self._vnc_lib.project_read(fq_name=['default-domain',
                                                       'default-project'])
         project.set_vxlan_routing(True)
