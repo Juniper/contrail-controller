@@ -4,6 +4,7 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import cfgm_common
 from datetime import datetime
 
+
 class ApiInternalRequest(object):
     def __init__(self, url, urlparts, environ, headers, json_as_dict, query):
         self.url = url
@@ -14,6 +15,7 @@ class ApiInternalRequest(object):
         self.query = query
     # end __init__
 # end class ApiInternalRequest
+
 
 class ApiContext(object):
     """
@@ -63,7 +65,7 @@ class ApiContext(object):
 
     def get_keystone_response_time(self):
         if (('PRE_KEYSTONE_REQ' in self.proc_times)
-            and ('POST_KEYSTONE_REQ' in self.proc_times)):
+                and ('POST_KEYSTONE_REQ' in self.proc_times)):
             pre = self.proc_times['PRE_KEYSTONE_REQ']
             post = self.proc_times['POST_KEYSTONE_REQ']
             return (post - pre)
@@ -94,21 +96,31 @@ class ApiContext(object):
     # end invoke_undo
 # end class ApiContext
 
+
 def get_request():
     return gevent.getcurrent().api_context.request
+
 
 def get_context():
     return gevent.getcurrent().api_context
 
+
 def set_context(api_ctx):
     gevent.getcurrent().api_context = api_ctx
+
 
 def clear_context():
     gevent.getcurrent().api_context = None
 
+
 def have_context():
     return (hasattr(gevent.getcurrent(), 'api_context') and
             gevent.getcurrent().api_context is not None)
+
+
+def is_internal_request():
+    return isinstance(get_context().request, ApiInternalRequest)
+
 
 def use_context(fn):
     def wrapper(*args, **kwargs):
