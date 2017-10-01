@@ -151,12 +151,6 @@ static bool IsVgwOrVmInterface(const Interface *intf) {
 static bool PickEcmpMember(const Agent *agent, const NextHop **nh,
 			   const PktInfo *pkt, PktFlowInfo *info,
                            const EcmpLoadBalance &ecmp_load_balance) {
-    // We dont support ECMP in L2 yet. Return failure to drop packet
-    if (info->l3_flow == false) {
-        info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
-        return true;
-    }
-
     const CompositeNH *comp_nh = dynamic_cast<const CompositeNH *>(*nh);
     // ECMP supported only if composite-type is ECMP or LOCAL_ECMP
     if (comp_nh == NULL ||

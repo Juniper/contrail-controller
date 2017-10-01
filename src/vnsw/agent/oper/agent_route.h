@@ -25,12 +25,12 @@
 #include <oper/peer.h>
 #include <oper/agent_types.h>
 #include <oper/multicast.h>
-#include <controller/controller_peer.h>
 #include <sandesh/sandesh_trace.h>
 
 class AgentRoute;
 class AgentPath;
 class Peer;
+class EcmpData;
 
 struct AgentRouteKey : public AgentKey {
     AgentRouteKey(const Peer *peer, const std::string &vrf_name) : 
@@ -289,7 +289,7 @@ public:
     bool IsDependantRouteEmpty() { return dependant_routes_.empty(); }
     bool IsTunnelNHListEmpty() { return tunnel_nh_list_.empty(); }
 
-    void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
+    void FillTrace(RouteInfo &route, Trace event, const AgentPath *path) const;
     bool WaitForTraffic() const;
     virtual uint8_t plen() const { return 0; }
 
@@ -311,6 +311,9 @@ protected:
 
 private:
     friend class AgentRouteTable;
+    //EcmpData can insert/delete path
+    friend class EcmpData;
+
     bool ProcessPath(Agent *agent, DBTablePartition *part, AgentPath *path,
                      AgentRouteData *data);
 

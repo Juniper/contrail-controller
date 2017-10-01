@@ -10,6 +10,7 @@
 
 #include <cmn/agent_cmn.h>
 #include <oper/ecmp_load_balance.h>
+#include <oper/ecmp.h>
 #include <oper/route_common.h>
 #include <oper/vrf.h>
 #include <oper/tunnel_nh.h>
@@ -21,7 +22,11 @@
 #include <controller/controller_peer.h>
 #include <controller/controller_init.h>
 #include <controller/controller_export.h>
+#include <controller/controller_types.h>
 #include <oper/agent_sandesh.h>
+#include <xmpp/xmpp_channel.h>
+#include <xmpp_enet_types.h>
+#include <xmpp_unicast_types.h>
 
 using namespace std;
 using namespace boost::asio;
@@ -32,6 +37,19 @@ ControllerPeerPath::ControllerPeerPath(const BgpPeer *peer) :
     if (peer)
         sequence_number_ = peer->GetAgentXmppChannel()->
             sequence_number();
+}
+
+bool ControllerEcmpRoute::CopyToPath(AgentPath *path) {
+    bool ret = false;
+
+    path->set_peer_sequence_number(sequence_number());
+    if (path->ecmp_load_balance() != ecmp_load_balance_) {
+        path->UpdateEcmpHashFields(agent_, ecmp_load_balance_,
+                                          nh_req_);
+        ret = true;
+    }
+
+    return ret;
 }
 
 bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -47,26 +65,140 @@ bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     if (!comp_nh_policy) {
         comp_key->SetPolicy(new_comp_nh_policy);
     }
+    ret |= CopyToPath(path);
 
-    path->set_peer_sequence_number(sequence_number());
-    if (path->ecmp_load_balance() != ecmp_load_balance_) {
-        path->UpdateEcmpHashFields(agent, ecmp_load_balance_,
-                                          nh_req_);
-        ret = true;
-    }
+    EcmpData ecmp_data(agent, rt->vrf()->GetName(), rt->ToString(),
+                       path, false);
+    ret |= ecmp_data.UpdateWithParams(sg_list_, tag_list_, CommunityList(),
+                                      path_preference_, tunnel_bmap_,
+                                      ecmp_load_balance_, vn_list_, nh_req_);
 
-    ret |= InetUnicastRouteEntry::ModifyEcmpPath(dest_addr_, plen_, vn_list_,
-                                                 label_, local_ecmp_nh_,
-                                                 vrf_name_, sg_list_,
-                                                 tag_list_,
-                                                 CommunityList(),
-                                                 path_preference_,
-                                                 tunnel_bmap_,
-                                                 ecmp_load_balance_,
-                                                 nh_req_, agent, path, "",
-                                                 false);
     return ret;
 }
+
+ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
+                        const VnListType &vn_list,
+                        const EcmpLoadBalance &ecmp_load_balance,
+                        const TagList &tag_list,
+                        const SecurityGroupList &sg_list,
+                        const PathPreference &path_pref,
+                        TunnelType::TypeBmap tunnel_bmap,
+                        DBRequest &nh_req,
+                        const std::string &prefix_str) :
+    ControllerPeerPath(peer), vn_list_(vn_list), sg_list_(sg_list),
+    ecmp_load_balance_(ecmp_load_balance), tag_list_(tag_list),
+    path_preference_(path_pref), tunnel_bmap_(tunnel_bmap) {
+        nh_req_.Swap(&nh_req);
+    agent_ = peer->agent();
+}
+
+template <typename TYPE>
+ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
+                                         const VnListType &vn_list,
+                                         const EcmpLoadBalance &ecmp_load_balance,
+                                         const TagList &tag_list,
+                                         const TYPE *item,
+                                         const AgentRouteTable *rt_table,
+                                         const std::string &prefix_str) :
+        ControllerPeerPath(peer), vn_list_(vn_list),
+        ecmp_load_balance_(ecmp_load_balance), tag_list_(tag_list) {
+    const AgentXmppChannel *channel = peer->GetAgentXmppChannel();
+    std::string bgp_peer_name = channel->GetBgpPeerName();
+    std::string vrf_name = rt_table->vrf_name();
+    agent_ = rt_table->agent();
+
+    // use LOW PathPreference if local preference attribute is not set
+    uint32_t preference = PathPreference::LOW;
+    TunnelType::TypeBmap encap = TunnelType::AllType(); //default
+    if (item->entry.local_preference != 0) {
+        preference = item->entry.local_preference;
+    }
+    PathPreference rp(item->entry.sequence_number, preference, false, false);
+    path_preference_ = rp;
+
+    sg_list_ = item->entry.security_group_list.security_group;
+
+    ComponentNHKeyList comp_nh_list;
+    bool comp_nh_policy = false;
+    for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
+        std::string nexthop_addr =
+            item->entry.next_hops.next_hop[i].address;
+        boost::system::error_code ec;
+        IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
+        if (ec.value() != 0) {
+            CONTROLLER_TRACE(Trace, bgp_peer_name, vrf_name,
+                             "Error parsing nexthop ip address");
+            continue;
+        }
+        if (!addr.is_v4()) {
+            CONTROLLER_TRACE(Trace, bgp_peer_name, vrf_name,
+                             "Non IPv4 address not supported as nexthop");
+            continue;
+        }
+
+        if (comp_nh_list.size() >= maximum_ecmp_paths) {
+            std::stringstream msg;
+            msg << "Nexthop paths for prefix "
+                << prefix_str
+                << " (" << item->entry.next_hops.next_hop.size()
+                << ") exceed the maximum supported, ignoring them";
+            CONTROLLER_TRACE(Trace, bgp_peer_name, vrf_name, msg.str());
+            break;
+        }
+
+        uint32_t label = item->entry.next_hops.next_hop[i].label;
+        if (agent_->router_id() == addr.to_v4()) {
+            //Get local list of interface and append to the list
+            MplsLabel *mpls =
+                agent_->mpls_table()->FindMplsLabel(label);
+            if (mpls != NULL) {
+                if (mpls->nexthop()->GetType() == NextHop::VRF) {
+                    ClonedLocalPath *data =
+                        new ClonedLocalPath(label, vn_list,
+                                item->entry.security_group_list.security_group,
+                                tag_list, sequence_number());
+                    cloned_data_list_.push_back(data);
+                    return;
+                }
+
+                const NextHop *mpls_nh = mpls->nexthop();
+                DBEntryBase::KeyPtr key = mpls_nh->GetDBRequestKey();
+                NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
+                if (nh_key->GetType() != NextHop::COMPOSITE) {
+                    //By default all component members of composite NH
+                    //will be policy disabled, except for component NH
+                    //of type composite
+                    nh_key->SetPolicy(false);
+                }
+                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+                ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                   nh_key_ptr));
+                comp_nh_list.push_back(component_nh_key);
+                if (!comp_nh_policy) {
+                    comp_nh_policy = mpls_nh->NexthopToInterfacePolicy();
+                }
+            }
+        } else {
+            encap = agent_->controller()->GetTypeBitmap
+                (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
+            TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
+                                                  agent_->router_id(),
+                                                  addr.to_v4(), false,
+                                                  TunnelType::ComputeType(encap));
+            std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
+            ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
+                                                                  nh_key_ptr));
+            comp_nh_list.push_back(component_nh_key);
+        }
+    }
+
+    // Build the NH request and then create route data to be passed
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, comp_nh_policy,
+                                        comp_nh_list, vrf_name));
+    nh_req.data.reset(new CompositeNHData());
+    nh_req_.Swap(&nh_req);
+ }
 
 ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
                                          const BgpPeer *bgp_peer,
@@ -329,3 +461,15 @@ bool StalePathData::CanDeletePath(Agent *agent, AgentPath *path,
        return false;
    return true;
 }
+
+//Force instantiation
+template ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
+ const VnListType &vn_list,
+ const EcmpLoadBalance &ecmp_load_balance,
+ const TagList &tag_list, const autogen::ItemType *item,
+ const AgentRouteTable *rt_table, const std::string &prefix_str);
+template ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
+ const VnListType &vn_list,
+ const EcmpLoadBalance &ecmp_load_balance,
+ const TagList &tag_list, const autogen::EnetItemType *item,
+ const AgentRouteTable *rt_table, const std::string &prefix_str);
