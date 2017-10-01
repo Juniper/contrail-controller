@@ -86,6 +86,7 @@ test_vhost_ip_change = AgentEnv.MakeTestCmd(env, 'test_vhost_ip_change',
                                             agent_suite)
 test_nh = AgentEnv.MakeTestCmd(env, 'test_nh', agent_suite)
 test_ecmp_nh = AgentEnv.MakeTestCmd(env, 'test_ecmp_nh', agent_suite)
+test_ecmp_l2 = AgentEnv.MakeTestCmd(env, 'test_ecmp_l2', agent_suite)
 test_global_vrouter_config = AgentEnv.MakeTestCmd(env,
                                                  'test_global_vrouter_config',
                                                   agent_suite)
