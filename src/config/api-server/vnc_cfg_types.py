@@ -21,14 +21,16 @@ import netaddr
 import uuid
 import vnc_quota
 from vnc_quota import QuotaHelper
+from provision_defaults import PERMS_RWX
+from provision_defaults import PERMS_RX
 
 from context import get_context
+from context import is_internal_request
 from gen.resource_xsd import *
 from gen.resource_common import *
 from netaddr import IPNetwork, IPAddress, IPRange
 from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from provision_defaults import *
 from sandesh_common.vns import constants
 
 
@@ -125,7 +127,7 @@ class ResourceDbMixin(object):
         pass
 
     @classmethod
-    def pre_dbe_read(cls, id, db_conn):
+    def pre_dbe_read(cls, id, fq_name, db_conn):
         return True, ''
 
     @classmethod
@@ -1675,6 +1677,16 @@ class TagServer(Resource, Tag):
         return True, ""
 
 
+
+class FirewallPolicyServer(Resource, FirewallPolicy):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        if obj_dict['parent_type'] == 'project':
+            return ProjectServer.ensure_default_application_policy_set(
+                obj_dict['parent_uuid'], obj_dict['fq_name'][-1])
+        return True, ''
+
+
 class FirewallRuleServer(Resource, FirewallRule):
 
     @classmethod
@@ -1866,34 +1878,58 @@ class FirewallRuleServer(Resource, FirewallRule):
         return True, ""
 # end class FirewallRuleServer
 
-class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
 
-    @classmethod
-    def _check_global_flag(cls, obj_dict):
-        # is_global flag is read-only for user
-        if 'is_global' in obj_dict:
-            msg = "Application policy set global flag is read-only"
+class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
+    @staticmethod
+    def _check_all_applications_flags(obj_dict):
+        # all_applications flag is read-only for user
+        if 'all_applications' in obj_dict:
+            msg = "Application policy set 'all-applications' flag is read-only"
             return (False, (400, msg))
         return True, ""
 
     @classmethod
+    def pre_dbe_read(cls, id, fq_name, db_conn):
+        try:
+            project_uuid = db_conn.fq_name_to_uuid('project', fq_name[:-1])
+        except cfgm_common.exceptions.NoIdError:
+            return True, ''
+        return ProjectServer.ensure_default_application_policy_set(
+            project_uuid, fq_name[:-1])
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        return cls._check_global_flag(obj_dict)
+        return cls._check_all_applications_flags(obj_dict)
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls._check_global_flag(obj_dict)
-
-    @classmethod
-    def pre_dbe_delete(cls, id, obj_dict, db_conn):
         ok, read_result = cls.dbe_read(db_conn, 'application_policy_set', id)
         if not ok:
             return ok, read_result
-        if read_result.get('is_global'):
+        db_obj_dict = read_result
+        if db_obj_dict['parent_type'] == 'project':
+            ok, result = ProjectServer.ensure_default_application_policy_set(
+                db_obj_dict['parent_uuid'], fq_name[:-1])
+            if not ok:
+                return ok, result
+
+        return cls._check_all_applications_flags(obj_dict)
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, result = cls.dbe_read(db_conn, 'application_policy_set', id)
+        if not ok:
+            return ok, result
+        aps = result
+
+        if (aps['fq_name'][-1] == 'default-application-policy-set' and
+                not is_internal_request()):
             msg = "Global Application Policy Set cannot be deleted"
             return (False, (400, msg))
+
         return True, ''
 # end class ApplicationPolicySetServer
+
 
 class VirtualRouterServer(Resource, VirtualRouter):
 
@@ -1978,7 +2014,7 @@ class VirtualRouterServer(Resource, VirtualRouter):
         if not ipam_refs:
             return True, ''
 
-        ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs] 
+        ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs]
         (ok, ipam_list, _) = db_conn.dbe_list('network_ipam',
                                 obj_uuids=ipam_uuid_list,
                                 field_names=['ipam_subnet_method',
@@ -2069,6 +2105,7 @@ class VirtualRouterServer(Resource, VirtualRouter):
 
         return True, ''
 # end class VirtualRouterServer
+
 
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
@@ -3658,6 +3695,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
 # end class PhysicalInterfaceServer
 
+
 class ProjectServer(Resource, Project):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
@@ -3674,7 +3712,44 @@ class ProjectServer(Resource, Project):
                 return (False, (400, 'VxLAN Routing update cannot be ' +
                                 'done when Logical Routers are configured'))
         return True, ""
-#end ProjectServer
+
+    @classmethod
+    def ensure_default_application_policy_set(cls, project_uuid,
+                                              project_fq_name):
+        default_name = 'default-application-policy-set'
+        attrs = {
+            'parent_type': 'project',
+            'fq_name': project_fq_name + [default_name],
+            'name': default_name,
+            'all_applications': True,
+        }
+        already_exists, aps = cls.server.create_singleton_entry(
+            ApplicationPolicySet(**attrs))
+        if not already_exists:
+            api_server.internal_chown(aps.uuid, project_uuid)
+
+        return True, ''
+
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls.ensure_default_application_policy_set(obj_dict['uuid'],
+                                                         obj_dict['fq_name'])
+
+    @classmethod
+    def pre_dbe_read(cls, id, fq_name, db_conn):
+        return cls.ensure_default_application_policy_set(id, fq_name)
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        defaut_aps_uuid = None
+        for aps_ref in obj_dict.get('application_policy_sets', []):
+            if aps_ref['to'][-1] == 'default-application-policy-set':
+                api_server = db_conn.get_api_server()
+                api_server.internal_request_delete('application-policy-set',
+                                                   aps_ref['uuid'])
+        return True, ''
+# end ProjectServer
+
 
 class LoadbalancerMemberServer(Resource, LoadbalancerMember):
 
