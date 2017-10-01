@@ -5,11 +5,13 @@ import sys
 import cfgm_common
 from cfgm_common import has_role
 from cfgm_common import jsonutils as json
+from context import is_internal_request
 import string
 import uuid
 from provision_defaults import *
 from cfgm_common.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
 
 class VncPermissions(object):
 
@@ -258,6 +260,9 @@ class VncPermissions(object):
 
     # This API sends perms instead of error code & message
     def obj_perms(self, request, id):
+        if is_internal_request():
+            return 'RWX'
+
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return 'RWX'
