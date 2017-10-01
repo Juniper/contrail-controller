@@ -467,31 +467,66 @@ class TestFw(test_case.ApiServerTestCase):
         self.assertEqual(sg_firewall_service[0].protocol_id, 6)
     # end test_firewall_rule_update
 
-    def test_aps_global(self):
+    def test_default_global_application_policy_set(self):
         pm_obj = PolicyManagement('pm-%s' % self.id())
         self._vnc_lib.policy_management_create(pm_obj)
 
-        # validate another global APS can't be created
-        aps = ApplicationPolicySet('aps-%s' % self.id(), parent_obj=pm_obj, is_global=True)
-        with ExpectedException(BadRequest) as e:
-            self._vnc_lib.application_policy_set_create(pm_obj)
+        # check global default APS is instantiated
+        fq_name = ['default-policy-management',
+                   'default-application-policy-set']
+        try:
+            self._vnc_lib.application_policy_set_read(fq_name=fq_name)
+        except NoIdError:
+            self.fail("Default global APS %s not instantiated" %
+                      ':'.join(fq_name))
 
-        # validate APS can't be updated to global
+        # validate another default global APS can't be created
+        aps = ApplicationPolicySet('aps-%s' % self.id(), parent_obj=pm_obj,
+                                   all_applications=True)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.application_policy_set_create(aps)
+
+        # validate global APS can't be updated for all applications
         aps = ApplicationPolicySet('aps-%s' % self.id(), parent_obj=pm_obj)
         self._vnc_lib.application_policy_set_create(aps)
-        aps.set_is_global(True)
-        with ExpectedException(BadRequest) as e:
-            self._vnc_lib.application_policy_set_update(aps)
-        aps.set_is_global(False)
-        with ExpectedException(BadRequest) as e:
+        aps.set_all_applications(True)
+        with ExpectedException(BadRequest):
             self._vnc_lib.application_policy_set_update(aps)
 
         # validate default global APS can't be deleted
-        global_aps = ['default-policy-management', 'global-application-policy-set']
-        aps = self._vnc_lib.application_policy_set_read(fq_name=global_aps)
-        with ExpectedException(BadRequest) as e:
+        aps = self._vnc_lib.application_policy_set_read(fq_name=fq_name)
+        with ExpectedException(BadRequest):
             self._vnc_lib.application_policy_set_delete(id=aps.uuid)
-    # end test_aps_global
+
+    def test_default_scoped_application_policy_set(self):
+        project = vnc_api.Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+
+        # check scoped default APS is instantiated
+        fq_name = project.fq_name + ['default-application-policy-set']
+        try:
+            self._vnc_lib.application_policy_set_read(fq_name=fq_name)
+        except NoIdError:
+            self.fail("Default scoped APS %s not instantiated" %
+                      ':'.join(fq_name))
+
+        # validate another default scoped APS can't be created
+        aps = ApplicationPolicySet('aps-%s' % self.id(), parent_obj=project,
+                                   all_applications=True)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.application_policy_set_create(aps)
+
+        # validate scoped APS can't be updated for all applications
+        aps = ApplicationPolicySet('aps-%s' % self.id(), parent_obj=project)
+        self._vnc_lib.application_policy_set_create(aps)
+        aps.set_all_applications(True)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.application_policy_set_update(aps)
+
+        # validate default scoped APS can't be deleted
+        aps = self._vnc_lib.application_policy_set_read(fq_name=fq_name)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.application_policy_set_delete(id=aps.uuid)
 
 # end class TestFw
 

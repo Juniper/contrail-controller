@@ -5075,7 +5075,7 @@ void DeleteTags(TestTag *tag, uint32_t count) {
 
 void AddGlobalPolicySet(const std::string &name, uint32_t id) {
     std::stringstream str;
-    str << "<is-global>true</is-global>";
+    str << "<all-applications>true</all-applications>";
     AddNode("application-policy-set", name.c_str(), id, str.str().c_str());
 }
 
