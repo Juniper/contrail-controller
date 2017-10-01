@@ -69,35 +69,6 @@ public:
     }
     virtual bool ReComputePathDeletion(AgentPath *path);
     virtual bool ReComputePathAdd(AgentPath *path);
-    virtual bool EcmpAddPath(AgentPath *path);
-    virtual bool EcmpDeletePath(AgentPath *path);
-    void AppendEcmpPath(Agent *agent, AgentPath *path);
-    void DeleteComponentNH(Agent *agent, AgentPath *path);
-    bool UpdateComponentNH(Agent *agent, AgentPath *ecmp_path, AgentPath *path);
-
-    AgentPath *AllocateEcmpPath(Agent *agent, const AgentPath *path1,
-                                const AgentPath *path2);
-    static bool ModifyEcmpPath(const IpAddress &dest_addr,
-                               uint8_t plen, const VnListType &vn_name,
-                               uint32_t label, bool local_ecmp_nh,
-                               const string &vrf_name,
-                               SecurityGroupList sg_list,
-                               TagList tag_list,
-                               const CommunityList &communities,
-                               const PathPreference &path_preference,
-                               TunnelType::TypeBmap tunnel_bmap,
-                               const EcmpLoadBalance &ecmp_ecmp_load_balance,
-                               DBRequest &nh_req,
-                               Agent* agent,
-                               AgentPath *path, const string &route_str,
-                               bool alloc_label);
-    static bool SyncEcmpPath(AgentPath *path, SecurityGroupList sg_list,
-                             TagList tag_list,
-                             const CommunityList &communities,
-                             const PathPreference &path_preference,
-                             TunnelType::TypeBmap tunnel_bmap,
-                             const EcmpLoadBalance &ecmp_ecmp_load_balance);
-
     const IpAddress &addr() const { return addr_; }
     void set_addr(IpAddress addr) { addr_ = addr; };
 
@@ -127,7 +98,6 @@ public:
           }
     };
     bool DBEntrySandesh(Sandesh *sresp, IpAddress addr, uint8_t plen, bool stale) const;
-    const NextHop* GetLocalNextHop() const;
     bool IsHostRoute() const;
     bool IpamSubnetRouteAvailable() const;
     InetUnicastRouteEntry *GetIpamSuperNetRoute() const;
