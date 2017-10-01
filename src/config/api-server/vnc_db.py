@@ -936,7 +936,11 @@ class VncDbClient(object):
                             obj_dict['access_control_list_hash'] = hash(rules_obj)
                             self._object_db.object_update('access_control_list',
                                                           obj_uuid, obj_dict)
-
+                elif obj_type == 'project':
+                    self._api_svr_mgr.create_singleton_entry(
+                        ApplicationPolicySet(parent_obj=Project(**obj_dict),
+                                             all_applications=True),
+                    )
                 # create new perms if upgrading
                 perms2 = obj_dict.get('perms2')
                 update_obj = False
@@ -1286,7 +1290,7 @@ class VncDbClient(object):
                 shares = [(_uuid, _perms) for _uuid, _perms in shares
                     if _uuid > start]
 
-            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in 
+            owned_objs = set([obj_uuid for (fq_name, obj_uuid) in
                                        owned_fq_name_uuids or []])
 
             collected = 0

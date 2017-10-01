@@ -27,7 +27,8 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
 from cfgm_common import utils as cfgmutils
 from cfgm_common import vnc_greenlets
-from context import get_context, use_context
+from context import get_request, get_context, set_context, use_context
+from context import ApiContext, ApiInternalRequest
 
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
@@ -248,14 +249,41 @@ class AuthServiceKeystone(object):
     def start_response(self, status, headers, exc_info=None):
         pass
 
-    def validate_user_token(self, request):
-        # following config forces keystone middleware to always return the result
-        # back in HTTP_X_IDENTITY_STATUS env variable
-        conf_info = self._conf_info.copy()
-        conf_info['delay_auth_decision'] = True
+    def validate_user_token(self):
+        request_attrs = {
+            'REQUEST_METHOD': get_request().route.method,
+            'bottle.app': get_request().environ['bottle.app'],
+        }
+        if 'HTTP_X_AUTH_TOKEN' in get_request().environ:
+            request_attrs['HTTP_X_AUTH_TOKEN'] =\
+                get_request().environ['HTTP_X_AUTH_TOKEN'].encode("ascii")
+        elif 'HTTP_X_USER_TOKEN' in get_request().environ:
+            request_attrs['HTTP_X_USER_TOKEN'] =\
+                get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
+        else:
+            return False, (400, "User token needed for validation")
+        b_req = bottle.BaseRequest(request_attrs)
+        # get permissions in internal context
+        orig_context = get_context()
+        i_req = ApiInternalRequest(b_req.url, b_req.urlparts, b_req.environ,
+                                   b_req.headers, None, None)
+        set_context(ApiContext(internal_req=i_req))
+        try:
+            # following config forces keystone middleware to always return the
+            # result back in HTTP_X_IDENTITY_STATUS env variable
+            conf_info = self._conf_info.copy()
+            conf_info['delay_auth_decision'] = True
 
-        auth_middleware = auth_token.AuthProtocol(self.token_valid, conf_info)
-        return auth_middleware(request.headers.environ, self.start_response)
+            auth_middleware = auth_token.AuthProtocol(self.token_valid,
+                                                      conf_info)
+            token_info = auth_middleware(get_request().headers.environ,
+                                         self.start_response)
+        finally:
+            set_context(orig_context)
+
+        if not token_info:
+            return False, (403, " Permission denied")
+        return True, token_info
 
     def get_auth_headers_from_token(self, request, token):
         conf_info = self._conf_info.copy()
