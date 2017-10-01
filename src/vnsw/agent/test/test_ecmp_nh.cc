@@ -105,11 +105,10 @@ TEST_F(EcmpNhTest, DISABLED_EcmpNH_controller) {
     VnListType vn_list;
     vn_list.insert("vn10");
     ControllerEcmpRoute *data =
-        new ControllerEcmpRoute(peer_, prefix, 24, vn_list, -1,
-                                false, "vrf10", sg, TagList(), rp,
+        new ControllerEcmpRoute(peer_, vn_list, EcmpLoadBalance(),
+                                TagList(), sg, rp,
                                 (1 << TunnelType::MPLS_GRE),
-                                EcmpLoadBalance(),
-                                nh_req);
+                                nh_req, prefix.to_string());
 
     //ECMP create component NH
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer_, "vrf10",

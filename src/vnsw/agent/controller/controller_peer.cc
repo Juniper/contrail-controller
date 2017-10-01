@@ -8,6 +8,7 @@
 #include <net/bgp_af.h>
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
+#include "controller/controller_route_path.h"
 #include "controller/controller_peer.h"
 #include "controller/controller_vrf_export.h"
 #include "controller/controller_init.h"
@@ -26,12 +27,12 @@
 #include <pugixml/pugixml.hpp>
 #include "xml/xml_pugi.h"
 #include "xmpp/xmpp_init.h"
+#include <xmpp_enet_types.h>
+#include <xmpp_unicast_types.h>
 #include "xmpp_multicast_types.h"
 #include "ifmap/ifmap_agent_table.h"
 #include "controller/controller_types.h"
-#include "net/tunnel_encap_type.h"
 #include <assert.h>
-#include <controller/controller_route_path.h>
 
 using namespace boost::asio;
 using namespace autogen;
@@ -276,66 +277,25 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
     for (vector<EnetItemType>::iterator iter =items->item.begin();
          iter != items->item.end(); iter++) {
         item = &*iter;
+        IpAddress ip_addr;
+        if (ParseAddress(item->entry.nlri.address, &ip_addr) < 0) {
+            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
+                             "Error parsing address : " + item->entry.nlri.address);
+            return;
+        }
+
         if (item->entry.nlri.mac != "") {
-            AddEvpnRoute(vrf_name, item->entry.nlri.mac, item);
+            if (IsEcmp(item->entry.next_hops.next_hop)) {
+                AddEvpnEcmpRoute(vrf_name, MacAddress(item->entry.nlri.mac),
+                                 ip_addr, item, VnListType());
+            } else {
+                AddEvpnRoute(vrf_name, item->entry.nlri.mac, ip_addr, item);
+            }
         } else {
             CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                         "NLRI missing mac address for evpn, failed parsing");
         }
     }
-}
-
-static TunnelType::TypeBmap
-GetEnetTypeBitmap(const EnetTunnelEncapsulationListType &encap) {
-    TunnelType::TypeBmap bmap = 0;
-    for (EnetTunnelEncapsulationListType::const_iterator iter = encap.begin();
-         iter != encap.end(); iter++) {
-        TunnelEncapType::Encap encap =
-            TunnelEncapType::TunnelEncapFromString(*iter);
-        if ((encap == TunnelEncapType::GRE) ||
-            (encap == TunnelEncapType::MPLS_O_GRE))
-            bmap |= (1 << TunnelType::MPLS_GRE);
-        if (encap == TunnelEncapType::MPLS_O_UDP)
-            bmap |= (1 << TunnelType::MPLS_UDP);
-        if (encap == TunnelEncapType::VXLAN)
-            bmap |= (1 << TunnelType::VXLAN);
-        if (encap == TunnelEncapType::NATIVE)
-            bmap |= (1 << TunnelType::NATIVE);
-    }
-    return bmap;
-}
-
-static TunnelType::TypeBmap
-GetTypeBitmap(const TunnelEncapsulationListType &encap) {
-    TunnelType::TypeBmap bmap = 0;
-    for (TunnelEncapsulationListType::const_iterator iter = encap.begin();
-         iter != encap.end(); iter++) {
-        TunnelEncapType::Encap encap =
-            TunnelEncapType::TunnelEncapFromString(*iter);
-        if ((encap == TunnelEncapType::GRE) ||
-            (encap == TunnelEncapType::MPLS_O_GRE))
-            bmap |= (1 << TunnelType::MPLS_GRE);
-        if (encap == TunnelEncapType::MPLS_O_UDP)
-            bmap |= (1 << TunnelType::MPLS_UDP);
-        if (encap == TunnelEncapType::NATIVE)
-            bmap |= (1 << TunnelType::NATIVE);
-    }
-    return bmap;
-}
-static TunnelType::TypeBmap
-GetMcastTypeBitmap(const McastTunnelEncapsulationListType &encap) {
-    TunnelType::TypeBmap bmap = 0;
-    for (McastTunnelEncapsulationListType::const_iterator iter = encap.begin();
-         iter != encap.end(); iter++) {
-        TunnelEncapType::Encap encap =
-            TunnelEncapType::TunnelEncapFromString(*iter);
-        if ((encap == TunnelEncapType::GRE) ||
-            (encap == TunnelEncapType::MPLS_O_GRE))
-            bmap |= (1 << TunnelType::MPLS_GRE);
-        if (encap == TunnelEncapType::MPLS_O_UDP)
-            bmap |= (1 << TunnelType::MPLS_UDP);
-    }
-    return bmap;
 }
 
 void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
@@ -471,8 +431,8 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             int label;
             stringstream nh_label(nh.label);
             nh_label >> label;
-            TunnelType::TypeBmap encap =
-                GetMcastTypeBitmap(nh.tunnel_encapsulation_list);
+            TunnelType::TypeBmap encap = agent_->controller()->
+                GetTypeBitmap(nh.tunnel_encapsulation_list);
             olist.push_back(OlistTunnelEntry(nil_uuid(), label,
                                              addr.to_v4(), encap));
         }
@@ -607,7 +567,8 @@ void AgentXmppChannel::ReceiveV4V6Update(XmlPugi *pugi) {
     }
 }
 
-static void GetEcmpHashFieldsToUse(ItemType *item,
+template <typename TYPE>
+static void GetEcmpHashFieldsToUse(TYPE *item,
                                    EcmpLoadBalance &ecmp_load_balance) {
     ecmp_load_balance.ResetAll();
     if (item->entry.load_balance.load_balance_decision.empty() ||
@@ -636,123 +597,88 @@ static void GetEcmpHashFieldsToUse(ItemType *item,
     }
 }
 
-void AgentXmppChannel::AddEcmpRoute(string vrf_name, IpAddress prefix_addr,
-                                    uint32_t prefix_len, ItemType *item,
-                                    const VnListType &vn_list) {
-    //Extract the load balancer fields.
-    EcmpLoadBalance ecmp_load_balance;
-    GetEcmpHashFieldsToUse(item, ecmp_load_balance);
-
-    // use LOW PathPreference if local preference attribute is not set
-    uint32_t preference = PathPreference::LOW;
-    TunnelType::TypeBmap encap = TunnelType::MplsType(); //default
-    if (item->entry.local_preference != 0) {
-        preference = item->entry.local_preference;
-    }
-    PathPreference rp(item->entry.sequence_number, preference, false, false);
+void AgentXmppChannel::AddInetEcmpRoute(string vrf_name, IpAddress prefix_addr,
+                                        uint32_t prefix_len, ItemType *item,
+                                        const VnListType &vn_list) {
+    BgpPeer *bgp_peer = bgp_peer_id();
     InetUnicastAgentRouteTable *rt_table = PrefixToRouteTable(vrf_name,
                                                               prefix_addr);
     if (rt_table == NULL) {
         return;
     }
 
-    TagList tag_list;
-    BuildTagList(item, &tag_list);
+    std::stringstream str;
+    str << prefix_addr.to_string();
+    str << "/";
+    str << prefix_len;
 
-    ComponentNHKeyList comp_nh_list;
-    bool comp_nh_policy = false;
-    for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
-        std::string nexthop_addr =
-            item->entry.next_hops.next_hop[i].address;
-        boost::system::error_code ec;
-        IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
-        if (ec.value() != 0) {
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                             "Error parsing nexthop ip address");
-            continue;
-        }
-        if (!addr.is_v4()) {
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                             "Non IPv4 address not supported as nexthop");
-            continue;
-        }
-
-        if (comp_nh_list.size() >= maximum_ecmp_paths) {
-            std::stringstream msg;
-            msg << "Nexthop paths for prefix "
-                << prefix_addr.to_string() << "/" << prefix_len
-                << " (" << item->entry.next_hops.next_hop.size()
-                << ") exceed the maximum supported, ignoring them";
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name, msg.str());
-            break;
-        }
-
-        uint32_t label = item->entry.next_hops.next_hop[i].label;
-        if (agent_->router_id() == addr.to_v4()) {
-            //Get local list of interface and append to the list
-            MplsLabel *mpls =
-                agent_->mpls_table()->FindMplsLabel(label);
-            if (mpls != NULL) {
-                if (mpls->nexthop()->GetType() == NextHop::VRF) {
-                    BgpPeer *bgp_peer = bgp_peer_id();
-                    ClonedLocalPath *data =
-                        new ClonedLocalPath(label, vn_list,
-                                item->entry.security_group_list.security_group,
-                                tag_list, sequence_number());
-                    rt_table->AddClonedLocalPathReq(bgp_peer, vrf_name,
-                                                    prefix_addr, prefix_len,
-                                                    data);
-                    return;
-                }
-
-                const NextHop *mpls_nh = mpls->nexthop();
-                DBEntryBase::KeyPtr key = mpls_nh->GetDBRequestKey();
-                NextHopKey *nh_key = static_cast<NextHopKey *>(key.release());
-                if (nh_key->GetType() != NextHop::COMPOSITE) {
-                    //By default all component members of composite NH
-                    //will be policy disabled, except for component NH
-                    //of type composite
-                    nh_key->SetPolicy(false);
-                }
-                std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
-                ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
-                                                   nh_key_ptr));
-                comp_nh_list.push_back(component_nh_key);
-                if (!comp_nh_policy) {
-                    comp_nh_policy = mpls_nh->NexthopToInterfacePolicy();
-                }
-            }
-        } else {
-            encap = GetTypeBitmap
-                (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
-            TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
-                                                  agent_->router_id(),
-                                                  addr.to_v4(), false,
-                                                  TunnelType::ComputeType(encap));
-            std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
-            ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
-                                                                  nh_key_ptr));
-            comp_nh_list.push_back(component_nh_key);
-        }
+    EcmpLoadBalance ecmp_load_balance;
+    GetEcmpHashFieldsToUse(item, ecmp_load_balance);
+    ControllerEcmpRoute *data = BuildEcmpData(item, vn_list, ecmp_load_balance,
+                                              rt_table, str.str());
+    ControllerEcmpRoute::ClonedLocalPathListIter iter =
+        data->cloned_local_path_list().begin();
+    while (iter != data->cloned_local_path_list().end()) {
+        rt_table->AddClonedLocalPathReq(bgp_peer, vrf_name,
+                                        prefix_addr, prefix_len,
+                                        (*iter));
     }
-
-    // Build the NH request and then create route data to be passed
-    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    nh_req.key.reset(new CompositeNHKey(Composite::ECMP, comp_nh_policy,
-                                        comp_nh_list, vrf_name));
-    nh_req.data.reset(new CompositeNHData());
-    ControllerEcmpRoute *data =
-        new ControllerEcmpRoute(bgp_peer_id(), prefix_addr, prefix_len,
-                                vn_list, -1, false, vrf_name,
-                                item->entry.security_group_list.security_group,
-                                tag_list, rp, encap, ecmp_load_balance, nh_req);
-
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name,
                                   prefix_addr, prefix_len, data);
 }
 
-static bool FillEvpnOlist(EnetOlistType &olist, TunnelOlist *tunnel_olist) {
+void AgentXmppChannel::AddEvpnEcmpRoute(string vrf_name,
+                                        const MacAddress &mac,
+                                        const IpAddress &prefix_addr,
+                                        EnetItemType *item,
+                                        const VnListType &vn_list) {
+    BgpPeer *bgp_peer = bgp_peer_id();
+    EvpnAgentRouteTable *rt_table = static_cast<EvpnAgentRouteTable *>
+        (agent_->vrf_table()->GetEvpnRouteTable(vrf_name));
+    if (rt_table == NULL) {
+        return;
+    }
+
+    std::stringstream str;
+    str << item->entry.nlri.ethernet_tag;
+    str << ":";
+    str << mac.ToString();
+    str << ":";
+    str << prefix_addr.to_string();
+    ControllerEcmpRoute *data = BuildEcmpData(item, vn_list, EcmpLoadBalance(),
+                                              rt_table, str.str());
+    ControllerEcmpRoute::ClonedLocalPathListIter iter =
+        data->cloned_local_path_list().begin();
+    while (iter != data->cloned_local_path_list().end()) {
+        rt_table->AddClonedLocalPathReq(bgp_peer, vrf_name,
+                                        mac, prefix_addr,
+                                        item->entry.nlri.ethernet_tag,
+                                        (*iter));
+    }
+    //ECMP create component NH
+    rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, prefix_addr,
+                                  item->entry.nlri.ethernet_tag, data);
+}
+
+template <typename TYPE>
+ControllerEcmpRoute *AgentXmppChannel::BuildEcmpData(TYPE *item,
+                              const VnListType &vn_list,
+                              const EcmpLoadBalance &ecmp_load_balance,
+                              const AgentRouteTable *rt_table,
+                              const std::string &prefix_str) {
+   TagList tag_list;
+   BuildTagList(item, &tag_list);
+
+   ControllerEcmpRoute *data = new ControllerEcmpRoute(bgp_peer_id(),
+                                vn_list, ecmp_load_balance, tag_list,
+                                item, rt_table, prefix_str);
+   return data;
+}
+
+static bool FillEvpnOlist(Agent *agent,
+                          EnetOlistType &olist,
+                          TunnelOlist *tunnel_olist) {
     for (uint32_t i = 0; i < olist.next_hop.size(); i++) {
         boost::system::error_code ec;
         IpAddress addr =
@@ -763,8 +689,8 @@ static bool FillEvpnOlist(EnetOlistType &olist, TunnelOlist *tunnel_olist) {
         }
 
         int label = olist.next_hop[i].label;
-        TunnelType::TypeBmap encap =
-            GetEnetTypeBitmap(olist.next_hop[i].tunnel_encapsulation_list);
+        TunnelType::TypeBmap encap = agent->controller()->
+            GetTypeBitmap(olist.next_hop[i].tunnel_encapsulation_list);
         tunnel_olist->push_back(OlistTunnelEntry(nil_uuid(), label,
                                                  addr.to_v4(), encap));
     }
@@ -782,14 +708,14 @@ void AgentXmppChannel::AddMulticastEvpnRoute(const string &vrf_name,
     //and then populate leaf_olist
     CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), "Composite",
                      "add leaf evpn multicast route");
-    if (FillEvpnOlist(item->entry.leaf_olist, &leaf_olist) == false) {
+    if (FillEvpnOlist(agent_, item->entry.leaf_olist, &leaf_olist) == false) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Error parsing next-hop address");
         return;
     }
     CONTROLLER_INFO_TRACE(Trace, GetBgpPeerName(), "Composite",
                      "add evpn multicast route");
-    if (FillEvpnOlist(item->entry.olist, &olist) == false) {
+    if (FillEvpnOlist(agent_, item->entry.olist, &olist) == false) {
         CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                          "Error parsing next-hop address");
         return;
@@ -847,6 +773,7 @@ void AgentXmppChannel::AddFabricVrfRoute(const Ip4Address &prefix_addr,
 
 void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                     std::string mac_str,
+                                    const IpAddress &ip_addr,
                                     EnetItemType *item) {
     // Validate VRF first
     EvpnAgentRouteTable *rt_table =
@@ -865,32 +792,11 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         return;
     }
 
-    int n = -1;
-    IpAddress nh_ip;
-    // if list contains more than one nexthop, pick the lowest IP for
-    // active nexthop of ecmp
-    for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
-        string nexthop_addr = item->entry.next_hops.next_hop[i].address;
-        IpAddress temp_nh_ip = IpAddress::from_string(nexthop_addr, ec);
-        if (ec.value() != 0) {
-            continue;
-        }
-
-        if (n == -1 || temp_nh_ip < nh_ip) {
-            n = i;
-            nh_ip = temp_nh_ip;
-        }
-    }
-
-    if (n == -1) {
-        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Error parsing nexthop ip address");
-        return;
-    }
-
-    uint32_t label = item->entry.next_hops.next_hop[n].label;
-    TunnelType::TypeBmap encap = GetEnetTypeBitmap
-        (item->entry.next_hops.next_hop[n].tunnel_encapsulation_list);
+    string nexthop_addr = item->entry.next_hops.next_hop[0].address;
+    IpAddress nh_ip = IpAddress::from_string(nexthop_addr, ec);
+    uint32_t label = item->entry.next_hops.next_hop[0].label;
+    TunnelType::TypeBmap encap = agent_->controller()->GetTypeBitmap
+        (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
     // use LOW PathPreference if local preference attribute is not set
     uint32_t preference = PathPreference::LOW;
     if (item->entry.local_preference != 0) {
@@ -902,14 +808,6 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
     TagList tag_list;
     BuildTagList(item, &tag_list);
 
-    IpAddress ip_addr;
-    if (ParseAddress(item->entry.nlri.address, &ip_addr) < 0) {
-        CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                         "Error parsing address : " + item->entry.nlri.address);
-        return;
-    }
-
-    string nexthop_addr = item->entry.next_hops.next_hop[n].address;
     CONTROLLER_INFO_TRACE(RouteImport, GetBgpPeerName(), vrf_name,
                      mac.ToString(), 0, nexthop_addr, label, "");
 
@@ -1035,7 +933,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;
     uint32_t label = item->entry.next_hops.next_hop[0].label;
     IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
-    TunnelType::TypeBmap encap = GetTypeBitmap
+    TunnelType::TypeBmap encap = agent_->controller()->GetTypeBitmap
         (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
 
     if (ec.value() != 0) {
@@ -1164,7 +1062,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
             break;
             }
         case NextHop::COMPOSITE: {
-            AddEcmpRoute(vrf_name, prefix_addr, prefix_len, item, vn_list);
+            AddInetEcmpRoute(vrf_name, prefix_addr, prefix_len, item, vn_list);
             break;
             }
         case NextHop::VRF: {
@@ -1196,7 +1094,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
     }
 }
 
-bool AgentXmppChannel::IsEcmp(const std::vector<autogen::NextHopType> &nexthops) {
+template <typename TYPE>
+bool AgentXmppChannel::IsEcmp(const TYPE &nexthops) {
     if (nexthops.size() == 0)
         return false;
 
@@ -1209,8 +1108,8 @@ bool AgentXmppChannel::IsEcmp(const std::vector<autogen::NextHopType> &nexthops)
     return false;
 }
 
-void AgentXmppChannel::GetVnList(const std::vector<autogen::NextHopType> &nexthops,
-                                 VnListType *vn_list) {
+template <typename TYPE>
+void AgentXmppChannel::GetVnList(const TYPE &nexthops, VnListType *vn_list) {
     for (uint32_t index = 0; index < nexthops.size(); index++) {
         vn_list->insert(nexthops[index].virtual_network);
     }
@@ -1227,7 +1126,7 @@ void AgentXmppChannel::AddRoute(string vrf_name, IpAddress prefix_addr,
     VnListType vn_list;
     GetVnList(item->entry.next_hops.next_hop, &vn_list);
     if (IsEcmp(item->entry.next_hops.next_hop)) {
-        AddEcmpRoute(vrf_name, prefix_addr, prefix_len, item, vn_list);
+        AddInetEcmpRoute(vrf_name, prefix_addr, prefix_len, item, vn_list);
     } else {
         AddRemoteRoute(vrf_name, prefix_addr, prefix_len, item, vn_list);
     }
@@ -2643,13 +2542,8 @@ void AgentXmppChannel::StopEndOfRibTxWalker() {
     }
 }
 
-void AgentXmppChannel::BuildTagList(const autogen::ItemType *item,
-                                    TagList *tag_list) {
-    *tag_list = item->entry.next_hops.next_hop[0].tag_list.tag;
-    std::sort(tag_list->begin(), tag_list->end());
-}
-
-void AgentXmppChannel::BuildTagList(const autogen::EnetItemType *item,
+template <typename TYPE>
+void AgentXmppChannel::BuildTagList(const TYPE *item,
                                     TagList *tag_list) {
     *tag_list = item->entry.next_hops.next_hop[0].tag_list.tag;
     std::sort(tag_list->begin(), tag_list->end());
