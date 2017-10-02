@@ -101,25 +101,21 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     // whether uuid key was provided in select field
     bool uuid_key_selected = false;
     bool reverse_uuid_key_selected = false;
+    bool session_class_selected = false;
+    bool session_count_selected = false;
 
     if (m_query->is_stat_table_query(m_query->table())
            || m_query->is_session_query(m_query->table())) {
         for (contrail_rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
             std::string field(json_select_fields[i].GetString());
             if (field == SELECT_SESSION_CLASS_ID) {
-                try {
-                    select_column_fields.push_back("CLASS(" +
-                                                select_column_fields[0] + ")");
-                } catch (std::out_of_range& e) {
-                    QE_INVALIDARG_ERROR(0);
-                }
+                session_class_selected = true;
+                QE_INVALIDARG_ERROR(m_query->table() ==
+                    g_viz_constants.SESSION_SERIES_TABLE);
             } else if (field == SELECT_SAMPLE_COUNT) {
-                try {
-                    select_column_fields.push_back("COUNT(" +
-                                                select_column_fields[0] + ")");
-                } catch (std::out_of_range& e) {
-                    QE_INVALIDARG_ERROR(0);
-                }
+                session_count_selected = true;
+                QE_INVALIDARG_ERROR(m_query->table() ==
+                    g_viz_constants.SESSION_SERIES_TABLE);
             } else {
                 if (field == "forward_flow_uuid") {
                     uuid_key_selected = true;
@@ -135,7 +131,16 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                             field);
                 unroll_needed |= (it != session_json_fields.end());
         }
-        
+
+        if (session_class_selected) {
+            select_column_fields.push_back("CLASS(" +
+                                           select_column_fields[0] + ")");
+        }
+        if (session_count_selected) {
+            select_column_fields.push_back("COUNT(" +
+                                           select_column_fields[0] + ")");
+        }
+
         if (m_query->table() == g_viz_constants.SESSION_RECORD_TABLE) {
             if (!uuid_key_selected) {
                 select_column_fields.push_back(g_viz_constants.FORWARD_FLOW_UUID);
@@ -150,6 +155,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         return;
     }     
 
+    bool flow_class_selected = false;
     for (contrail_rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) 
     {
         QE_PARSE_ERROR(json_select_fields[i].IsString());
@@ -222,12 +228,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_FLOW_CLASS_ID)) {
-#ifndef USE_SESSION
-            select_column_fields.push_back(SELECT_FLOW_CLASS_ID);
-#else
-            select_column_fields.push_back("CLASS(" +
-                                            select_column_fields[0] + ")");
-#endif
+            flow_class_selected = true;
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }
@@ -269,6 +270,19 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         evaluate_fs_query_type();
         if (fs_query_type_ == SelectQuery::FS_SELECT_INVALID)
             QE_INVALIDARG_ERROR(false);
+    }
+
+    if (flow_class_selected) {
+#ifndef USE_SESSION
+        select_column_fields.push_back(SELECT_FLOW_CLASS_ID);
+#else
+        try {
+            select_column_fields.push_back("CLASS(" +
+                                        select_column_fields[0] + ")");
+        } catch (std::out_of_range& e) {
+            QE_INVALIDARG_ERROR(0);
+        }
+#endif
     }
 
     if ((m_query->table() == g_viz_constants.FLOW_TABLE) && !uuid_key_selected) {
