@@ -38,8 +38,11 @@ static bool FillServiceChainInfo(Address::Family family,
         (search_string != "deleted" || !table->IsDeleted())) {
         return false;
     }
-    const BgpInstanceConfig *rtconfig = rtinstance->config();
-    const ServiceChainConfig *sc_config = rtconfig->service_chain_info(family);
+    const BgpInstanceConfig *rt_config = rtinstance->config();
+    if (!rt_config)
+        return false;
+
+    const ServiceChainConfig *sc_config = rt_config->service_chain_info(family);
     if (!sc_config)
         return false;
 
