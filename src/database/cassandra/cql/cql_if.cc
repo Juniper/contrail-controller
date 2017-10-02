@@ -1496,6 +1496,7 @@ static void ExecuteQueryAsyncInternal(interface::CassLibrary *cci,
     CassSession *session, const char *qid, CassStatement *qstatement,
     CassConsistency consistency, CassAsyncQueryCallback cb,
     CassQueryResultContext *rctx = NULL) {
+    CQLIF_DEBUG_TRACE( "AsyncQuery: " << qid);
     cci->CassStatementSetConsistency(qstatement, consistency);
     CassFuturePtr future(cci->CassSessionExecute(session, qstatement), cci);
     std::auto_ptr<CassAsyncQueryContext> ctx(
