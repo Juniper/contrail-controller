@@ -232,6 +232,23 @@ protected:
         }
     }
 
+    void VerifyRoutingInstanceIsDeleted(const string &instance_name) {
+        TASK_UTIL_EXPECT_TRUE(ri_mgr_->GetRoutingInstance(instance_name) !=
+                              NULL);
+        const RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
+        TASK_UTIL_EXPECT_TRUE(rti->deleted());
+    }
+
+    void VerifyNoRoutingInstanceExists(const string &instance_name) {
+        TASK_UTIL_EXPECT_TRUE(ri_mgr_->GetRoutingInstance(instance_name) ==
+                              NULL);
+    }
+
+    void VerifyRoutingInstanceExists(const string &instance_name) {
+        TASK_UTIL_EXPECT_TRUE(ri_mgr_->GetRoutingInstance(instance_name) !=
+                              NULL);
+    }
+
     void CreatePeer(const string &address) {
         boost::system::error_code ec;
         peers_.push_back(new BgpPeerMock(Ip4Address::from_string(address, ec)));
@@ -2000,7 +2017,7 @@ TYPED_TEST(ServiceChainTest, UpdateLabel) {
     this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
 }
 
-TYPED_TEST(ServiceChainTest, DeleteRoutingInstance) {
+TYPED_TEST(ServiceChainTest, DeleteRoutingInstance1) {
     vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
     multimap<string, string> connections =
         map_list_of("blue", "blue-i1") ("red-i2", "red");
@@ -2023,6 +2040,28 @@ TYPED_TEST(ServiceChainTest, DeleteRoutingInstance) {
     // Delete More specific & connected
     this->DeleteRoute(NULL, "red", this->BuildPrefix("192.168.1.1", 32));
     this->DeleteConnectedRoute(NULL, this->BuildPrefix("1.1.2.3", 32));
+}
+
+TYPED_TEST(ServiceChainTest, DeleteRoutingInstance2) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    this->NetworkConfig(instance_names, connections);
+    this->VerifyNetworkConfig(instance_names);
+
+    this->SetServiceChainInformation("blue-i1",
+        "controller/src/bgp/testdata/service_chain_1.xml");
+
+    this->VerifyRoutingInstanceExists("blue-i1");
+    this->SetLifetimeManagerQueueDisable(true);
+    this->RemoveRoutingInstance("blue-i1", "blue");
+    this->ClearServiceChainInformation("blue-i1");
+    this->VerifyRoutingInstanceIsDeleted("blue-i1");
+    vector<string> result;
+    this->VerifyServiceChainSandesh(this, result);
+    this->SetLifetimeManagerQueueDisable(false);
+    this->VerifyNoRoutingInstanceExists("blue-i1");
+    this->VerifyServiceChainSandesh(this, result);
 }
 
 
