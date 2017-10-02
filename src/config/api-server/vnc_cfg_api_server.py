@@ -1557,7 +1557,7 @@ class VncApiServer(object):
             if not ok:
                 (code, err_msg) = status
                 raise cfgm_common.exceptions.HttpError(code, err_msg)
-            if project['quota']:
+            if project.get('quota'):
                 path_prefix = self._path_prefix + project['uuid']
                 QuotaHelper._zk_quota_counter_init(
                            path_prefix, project['quota'], project['uuid'],
