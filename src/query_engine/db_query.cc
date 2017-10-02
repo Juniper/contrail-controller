@@ -145,9 +145,10 @@ std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
                         for (GenDb::DbDataValueVec::iterator it =
                                 row_key_suffix.begin(); it!=row_key_suffix.end();
                                 it++) {
-                            tmp_rowkey2.push_back(*it);
+                            GenDb::DbDataValueVec tmp_rowkey3(tmp_rowkey2);
+                            tmp_rowkey3.push_back(*it);
+                            keys.push_back(tmp_rowkey3);
                         }
-                        keys.push_back(tmp_rowkey2);
                     }
                 } else {
 #endif

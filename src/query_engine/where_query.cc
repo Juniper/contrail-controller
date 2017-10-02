@@ -1230,7 +1230,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                 if ((direction_ing == 0 && sport_match) ||
                     (direction_ing == 1 && dport_match)) {
                     QE_INVALIDARG_ERROR(proto_match);
-                    client_session_query->cr.start_.push_back(sport);
+                    client_session_query->cr.start_.push_back(direction_ing?
+                            dport:sport);
                     int op = direction_ing?dport_op:sport_op;
                     if (op == EQUAL) {
                         client_session_query->cr.finish_.push_back(direction_ing?
@@ -1324,7 +1325,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                 if ((direction_ing == 0 && dport_match) ||
                     (direction_ing == 1 && sport_match)) {
                     QE_INVALIDARG_ERROR(proto_match);
-                    server_session_query->cr.start_.push_back(sport);
+                    server_session_query->cr.start_.push_back(direction_ing?
+                            sport:dport);
                     int op = direction_ing?sport_op:dport_op;
                     if(op == EQUAL) {
                         server_session_query->cr.finish_.push_back(direction_ing?
