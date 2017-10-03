@@ -319,7 +319,7 @@ class VirtualNetworkST(DBBaseST):
     _dict = {}
     obj_type = 'virtual_network'
     ref_fields = ['network_policy', 'virtual_machine_interface', 'route_table',
-                  'bgpvpn', 'network_ipam', 'virtual_network']
+                  'bgpvpn', 'network_ipam', 'virtual_network', 'routing_policy']
     prop_fields = ['virtual_network_properties', 'route_target_list',
                    'multi_policy_service_chains_enabled', 'is_provider_network']
 
@@ -329,6 +329,8 @@ class VirtualNetworkST(DBBaseST):
     def __init__(self, name, obj=None, acl_dict=None):
         self.name = name
         self.network_policys = OrderedDict()
+        self.routing_policys = {}
+        self.old_routing_policys = {}
         self.virtual_machine_interfaces = set()
         self.connections = set()
         self.routing_instances = set()
@@ -386,6 +388,7 @@ class VirtualNetworkST(DBBaseST):
     # end
 
     def update(self, obj=None):
+        self.old_routing_policys = self.routing_policys
         ret = self.update_vnc_obj(obj)
 
         old_policies = set(self.network_policys.keys())
@@ -1466,6 +1469,18 @@ class VirtualNetworkST(DBBaseST):
         primary_ri = self.get_primary_routing_instance()
         if primary_ri:
             primary_ri.update_static_routes()
+            for (rp,attr) in self.routing_policys.iteritems():
+                if rp not in primary_ri.routing_policys:
+                    rp_obj = RoutingPolicyST.get(rp)
+                    rp_obj.add_routing_instance(primary_ri, attr.sequence)
+                    primary_ri.routing_policys[rp] = attr.sequence
+
+            for rp in primary_ri.routing_policys.keys():
+                if rp not in self.routing_policys:
+                    del primary_ri.routing_policys[rp]
+                    rp_obj = RoutingPolicyST.get(rp)
+                    rp_obj.delete_routing_instance(primary_ri)
+
         self.update_pnf_presence()
         self.check_multi_policy_service_chain_status()
         for ri_name in self.routing_instances:
