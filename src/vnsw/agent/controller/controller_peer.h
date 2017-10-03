@@ -188,6 +188,12 @@ protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
 private:
+    void AddFabricVrfRoute(const Ip4Address &prefix_addr,
+                           uint32_t prefix_len,
+                           const Ip4Address &addr,
+                           const VnListType &vn_list,
+                           const SecurityGroupList &sg_list,
+                           const TagList &tag_list);
     void PeerIsNotConfig();
     InetUnicastAgentRouteTable *PrefixToRouteTable(const std::string &vrf_name,
                                                    const IpAddress &prefix_addr);
