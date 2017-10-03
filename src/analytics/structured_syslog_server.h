@@ -101,7 +101,7 @@ protected:
                uint16_t structured_syslog_kafka_partitions);
 private:
     EventManager                           *evm_;
-    std::vector<boost::shared_ptr<StructuredSyslogTcpForwarder> > tcpForwarder_;
+    std::vector<StructuredSyslogTcpForwarder*> tcpForwarder_;
     KafkaForwarder*                            kafkaForwarder_;
     Timer                                  *tcpForwarder_poll_timer_;
     static const int tcpForwarderPollInterval = 60 * 1000; // in ms
