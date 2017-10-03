@@ -2,26 +2,23 @@
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
 
-import unittest
 import uuid
 
 from kube_manager.tests.vnc.test_case import KMTestCase
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
 from kube_manager.vnc.vnc_namespace import NamespaceKM
 
-class VncNamespaceTestClusterProjectDefined(KMTestCase):
+class VncNamespaceTest(KMTestCase):
     def setUp(self, extra_config_knobs=None):
-        super(VncNamespaceTestClusterProjectDefined, self).setUp(
+        super(VncNamespaceTest, self).setUp(
             extra_config_knobs=extra_config_knobs)
-    #end setUp
 
     def tearDown(self):
-        super(VncNamespaceTestClusterProjectDefined, self).tearDown()
-    #end tearDown
+        super(VncNamespaceTest, self).tearDown()
 
     @classmethod
     def setUpClass(cls, extra_config_knobs=None):
-        super(VncNamespaceTestClusterProjectDefined, cls).setUpClass(
+        super(VncNamespaceTest, cls).setUpClass(
             extra_config_knobs=extra_config_knobs)
         cls.domain = 'default-domain'
         cls.cluster_project = 'test-project'
@@ -46,6 +43,14 @@ class VncNamespaceTestClusterProjectDefined(KMTestCase):
         self.wait_for_all_tasks_done()
         return ns_uuid
 
+class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
+    def setUp(self, extra_config_knobs=None):
+        super(VncNamespaceTestClusterProjectDefined, self).setUp(
+            extra_config_knobs=extra_config_knobs)
+
+    def tearDown(self):
+        super(VncNamespaceTestClusterProjectDefined, self).tearDown()
+
     def test_add_namespace(self):
         ns_uuid = self._create_and_add_namespace(self.ns_name, {}, None)
 
@@ -61,7 +66,8 @@ class VncNamespaceTestClusterProjectDefined(KMTestCase):
     def test_add_namespace_with_isolation_annotation(self):
         ns_annotations = {'opencontrail.org/isolation': "true"}
 
-        ns_uuid = self._create_and_add_namespace(self.ns_name, {}, ns_annotations, True)
+        ns_uuid = self._create_and_add_namespace(self.ns_name, {},
+                                                 ns_annotations, True)
 
         proj = self._vnc_lib.project_read(fq_name=["default-domain",
                                                    self.cluster_project])
@@ -81,11 +87,9 @@ class VncNamespaceTestClusterProjectUndefined(
     def setUp(self, extra_config_knobs=None):
         super(VncNamespaceTestClusterProjectUndefined, self).setUp(
             extra_config_knobs=extra_config_knobs)
-    #end setUp
 
     def tearDown(self):
         super(VncNamespaceTestClusterProjectUndefined, self).tearDown()
-    #end tearDown
 
     @classmethod
     def setUpClass(cls, extra_config_knobs=None):
@@ -99,15 +103,13 @@ class VncNamespaceTestClusterProjectUndefined(
         kube_config.VncKubernetesConfig.args().cluster_network = None
 
 
-class VncNamespaceTestCustomNetwork(VncNamespaceTestClusterProjectDefined):
+class VncNamespaceTestCustomNetwork(VncNamespaceTest):
     def setUp(self, extra_config_knobs=None):
         super(VncNamespaceTestCustomNetwork, self).setUp(
             extra_config_knobs=extra_config_knobs)
-    #end setUp
 
     def tearDown(self):
         super(VncNamespaceTestCustomNetwork, self).tearDown()
-    #end tearDown
 
     @classmethod
     def setUpClass(cls, extra_config_knobs=None):
@@ -122,7 +124,6 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTestClusterProjectDefined):
         kube_config.VncKubernetesConfig.args().cluster_network = None
 
     def test_add_namespace_with_custom_network_annotation(self):
-        # Create network for Pod
         proj_fq_name = [self.domain, self.cluster_project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
@@ -145,10 +146,30 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTestClusterProjectDefined):
         vn = self._vnc_lib.virtual_network_read(fq_name=fqname)
         self.assertIsNotNone(vn)
 
-    @unittest.skip('Skipping. Test irrelevant for class.')
-    def test_add_namespace(self):
-        pass
+class VncNamespaceTestScaling(VncNamespaceTest):
+    def setUp(self, extra_config_knobs=None):
+        super(VncNamespaceTestScaling, self).setUp(
+            extra_config_knobs=extra_config_knobs)
 
-    @unittest.skip('Skipping. Test irrelevant for class.')
-    def test_add_namespace_with_isolation_annotation(self):
-        pass
+    def tearDown(self):
+        super(VncNamespaceTestScaling, self).tearDown()
+
+    def test_add_namespace_scaling(self):
+        scale = 100
+        ns_uuids = []
+
+        for i in xrange(scale):
+            ns_uuid = self._create_and_add_namespace(self.ns_name + str(i), {},
+                                                     None)
+            proj = self._vnc_lib.project_read(fq_name=["default-domain",
+                                                       self.cluster_project])
+            self.assertIsNotNone(proj)
+            self.assertEquals(self.cluster_project, proj.name)
+
+            ns_uuids.append(ns_uuid)
+
+        for i, ns_uuid in enumerate(ns_uuids):
+            ns = NamespaceKM.find_by_name_or_uuid(ns_uuid)
+            if ns:
+                NamespaceKM.delete(ns_uuid)
+                NamespaceKM.delete(ns.name)
