@@ -21,7 +21,7 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType, VirtualNetworkType,
         VirtualMachineInterface, InterfaceMirrorType, MirrorActionType,
         ServiceChainInfo, RoutingPolicy, RoutingPolicyServiceInstanceType,
         RouteListType, RouteAggregate,RouteTargetList, ServiceInterfaceTag,
-        PolicyBasedForwardingRuleType)
+        PolicyBasedForwardingRuleType, RoutingPolicyType)
 
 from cfgm_common.exceptions import RefsExistError
 from test_case import STTestCase, retries
@@ -287,6 +287,7 @@ class VerifyServicePolicy(VerifyPolicy):
         return vm_obj
 
 class TestServicePolicy(STTestCase, VerifyServicePolicy):
+
     def test_match_subnets_in_service_policy(self, version=None):
         # create  vn1
         vn1_name = self.id() + 'vn1'
@@ -421,10 +422,26 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
         self.assertTill(self.vnc_db_ident_has_ref,
                 obj=rp, ref_name='routing_instance_refs',
                 ref_fq_name=self.get_ri_name(vn1_obj, sc_ri_name))
+
+        rp_attr = RoutingPolicyType(sequence='1.0')
+        vn1_obj.set_routing_policy(rp, rp_attr)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+
         rp.del_service_instance(si_obj)
         self._vnc_lib.routing_policy_update(rp)
+
+        self.assertTill(self.vnc_db_ident_has_ref,
+                obj=rp, ref_name='routing_instance_refs',
+                ref_fq_name=self.get_ri_name(vn1_obj))
+        primary_ri = self._vnc_lib.routing_instance_read(
+                                           fq_name=self.get_ri_name(vn1_obj))
+        # check if routing_policy has a ref to primary_ri
+        self.assertEqual(primary_ri.get_routing_policy_back_refs()[0]['to'],
+                         rp.fq_name)
         self.assertTill(self.vnc_db_ident_doesnt_have_ref, obj=rp,
                         ref_name='routing_instance_refs')
+        vn1_obj.del_routing_policy(rp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
         self._vnc_lib.routing_policy_delete(id=rp.uuid)
 
         rlist = RouteListType(route=['100.0.0.0/24'])

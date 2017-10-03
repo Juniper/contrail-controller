@@ -1409,6 +1409,26 @@ class VirtualNetworkST(DBBaseST):
         primary_ri = self.get_primary_routing_instance()
         if primary_ri:
             primary_ri.update_static_routes()
+            for ref in self.obj.get_routing_policy_refs() or []:
+                rp_name = ':'.join(ref['to'])
+                if rp_name not in primary_ri.routing_policys:
+                    rp = RoutingPolicyST.get(rp_name)
+                    if rp:
+                        rp.obj.set_routing_instance(primary_ri.obj,
+                                                    ref.get('attr'))
+                        self._vnc_lib.routing_policy_update(rp.obj)
+                    else:
+                        try:
+                            rp_obj = RoutingPolicyST.read_vnc_obj(
+                                                              fq_name=rp_name)
+                            if rp_obj:
+                               rp_obj.set_routing_instance(primary_ri.obj,
+                                                           ref.get('attr'))
+                               self._vnc_lib.routing_policy_update(rp_obj)
+                        except NoIdError:
+                            pass
+                    primary_ri.routing_policys[rp_name] = ref['attr'].sequence
+
         self.update_pnf_presence()
         self.check_multi_policy_service_chain_status()
         for ri_name in self.routing_instances:
