@@ -341,11 +341,21 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
     AppTrackRecord apprecord;
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
-    std::string link;
+    std::string link1;
+    std::string link2;
+    int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
+    int64_t link2_bytes = SyslogParser::GetMapVal(v, "uplink-rx-bytes", -1);
+    if (link1_bytes == -1)
+        link1_bytes = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
+    if (link2_bytes == -1)
+        link2_bytes = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
+
     if (boost::equals(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"), "RT_FLOW_NEXTHOP_CHANGE")) {
-        link = (SyslogParser::GetMapVals(v, "last-interface-name", "UNKNOWN"));
+        link1 = (SyslogParser::GetMapVals(v, "last-destination-interface-name", "UNKNOWN"));
+        link2 = (SyslogParser::GetMapVals(v, "last-incoming-interface-name", "UNKNOWN"));
     } else {
-        link = (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+        link1 = (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+        link2 = (SyslogParser::GetMapVals(v, "uplink-incoming-interface-name", link1));
     }
     const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
     const std::string app_category(SyslogParser::GetMapVals(v, "app-category", "UNKNOWN"));
@@ -361,12 +371,6 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
     const std::string uvename= tenant + "::" + location + "::" + device_id;
     apprecord.set_name(uvename);
 
-    AppMetrics appmetric;
-    appmetric.set_total_bytes(SyslogParser::GetMapVal(v, "total-bytes", 0));
-    if (boost::equals(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"), "APPTRACK_SESSION_CLOSE")) {
-        appmetric.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
-        appmetric.set_session_count(1);
-    }
     std::string appgroup = SyslogParser::GetMapVals(v, "app-groups", "UNKNOWN");
     std::string nested_appname = SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN");
     std::string appname = SyslogParser::GetMapVals(v, "application", "UNKNOWN");
@@ -376,27 +380,49 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
     } else {
         app_dept_info = appgroup + "(" + nested_appname + ":" + appname + "/" + app_category +  ")" + "::" + department + "::";
     }
+    if (boost::equals(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"), "APPTRACK_SESSION_CLOSE")) {
+        AppMetrics appmetric;
+        appmetric.set_total_bytes(SyslogParser::GetMapVal(v, "total-bytes", 0));
+        appmetric.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
+        appmetric.set_session_count(1);
         // Map 1:  app_metric_sla
-    std::map<std::string, AppMetrics> appmetric_sla;
-    std::string slamap_key(app_dept_info + sla_profile);
-    LOG(DEBUG,"UVE: slamap key :" << slamap_key);
-    appmetric_sla.insert(std::make_pair(slamap_key, appmetric));
-    apprecord.set_app_metrics_sla(appmetric_sla);
-
-    // Map 2:  app_metric_link
-    std::map<std::string, AppMetrics> appmetric_link;
-    std::string linkmap_key(app_dept_info + link);
-    LOG(DEBUG,"UVE: linkmap key :" << linkmap_key);
-    appmetric_link.insert(std::make_pair(linkmap_key, appmetric));
-    apprecord.set_app_metrics_link(appmetric_link);
-
-    // Map 3:  app_metric_user: forward only if flag is true
-    if (summarize_user == true) {
-        std::map<std::string, AppMetrics> appmetric_user;
-        std::string usermap_key(app_dept_info + username);
-        LOG(DEBUG,"UVE: usermap key :" << usermap_key);
-        appmetric_user.insert(std::make_pair(usermap_key, appmetric));
-        apprecord.set_app_metrics_user(appmetric_user);
+        std::map<std::string, AppMetrics> appmetric_sla;
+        std::string slamap_key(app_dept_info + sla_profile);
+        LOG(DEBUG,"UVE: slamap key :" << slamap_key);
+        appmetric_sla.insert(std::make_pair(slamap_key, appmetric));
+        apprecord.set_app_metrics_sla(appmetric_sla);
+        // Map 3:  app_metric_user: forward only if flag is true
+        if (summarize_user == true) {
+            std::map<std::string, AppMetrics> appmetric_user;
+            std::string usermap_key(app_dept_info + username);
+            LOG(DEBUG,"UVE: usermap key :" << usermap_key);
+            appmetric_user.insert(std::make_pair(usermap_key, appmetric));
+            apprecord.set_app_metrics_user(appmetric_user);
+        }
+    }
+    if (boost::equals(link1, link2)) {
+        AppMetrics appmetric;
+        appmetric.set_total_bytes(link1_bytes + link2_bytes);
+        // Map 2:  app_metric_link
+        std::map<std::string, AppMetrics> appmetric_link;
+        std::string linkmap_key(app_dept_info + link1);
+        LOG(DEBUG,"UVE: linkmap key :" << linkmap_key);
+        appmetric_link.insert(std::make_pair(linkmap_key, appmetric));
+        apprecord.set_app_metrics_link(appmetric_link);
+    } else {
+        AppMetrics appmetric1;
+        AppMetrics appmetric2;
+        appmetric1.set_total_bytes(link1_bytes);
+        appmetric2.set_total_bytes(link2_bytes);
+        // Map 2:  app_metric_link
+        std::map<std::string, AppMetrics> appmetric_link;
+        std::string linkmap_key1(app_dept_info + link1);
+        std::string linkmap_key2(app_dept_info + link2);
+        LOG(DEBUG,"UVE: linkmap key1 :" << linkmap_key1);
+        LOG(DEBUG,"UVE: linkmap key2 :" << linkmap_key2);
+        appmetric_link.insert(std::make_pair(linkmap_key1, appmetric1));
+        appmetric_link.insert(std::make_pair(linkmap_key2, appmetric2));
+        apprecord.set_app_metrics_link(appmetric_link);
     }
     AppTrack::Send(apprecord, "ObjectCPETable");
     return;
@@ -405,8 +431,8 @@ void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_use
 void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
                                boost::shared_ptr<std::string> msg) {
 
-    int64_t from_client = SyslogParser::GetMapVal(v, "last-interface-bytes-from-client", 0);
-    int64_t from_server = SyslogParser::GetMapVal(v, "last-interface-bytes-from-server", 0);
+    int64_t from_client = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
+    int64_t from_server = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
     size_t prev_pos = 0;
     v.insert(std::pair<std::string, SyslogParser::Holder>("total-bytes",
     SyslogParser::Holder("total-bytes", (from_client + from_server))));
