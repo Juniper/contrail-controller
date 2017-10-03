@@ -75,6 +75,7 @@ class SchemaTransformer(object):
             'virtual_machine_interface': [],
             'route_table': [],
             'bgpvpn': [],
+            'routing_policy': [],
         },
         'virtual_machine': {
             'self': ['service_instance'],
@@ -143,7 +144,7 @@ class SchemaTransformer(object):
             'self': [],
         },
         'routing_policy': {
-            'self': ['service_instance'],
+            'self': ['service_instance', 'virtual_network'],
         },
         'route_aggregate': {
             'self': ['service_instance'],
