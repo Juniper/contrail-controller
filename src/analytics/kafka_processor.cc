@@ -86,6 +86,8 @@ class KafkaProcessor::KafkaWorker {
 
             } else if (message->err() ==  RdKafka::ERR__TIMED_OUT) {
                 LOG(DEBUG, "Consuming Timeout");
+            } else if (message->err() ==  RdKafka::ERR__PARTITION_EOF) {
+                LOG(DEBUG, "Reached end of partition :" << message->errstr());
             } else {
                 LOG(ERROR, "Message consume failed : " << message->errstr());
             }
