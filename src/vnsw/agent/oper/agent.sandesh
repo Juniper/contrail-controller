@@ -3314,3 +3314,22 @@ response sandesh SLOListResp {
     /** List of security logging objects information */
     1: list<SLOSandeshData> slo_list;
 }
+
+/**
+ * Response message for VRouter Object information request
+ */
+response sandesh VrouterInfoResp {
+    /** Name of VRouter object */
+    1: string name;
+    /** Display name of VRouter object */
+    2: string display_name;
+    /** List of subnets associated with virtual router */
+    3: list<VnIpamData> subnet_list;
+}
+
+/**
+ * @description: Request message for VRouter object information
+ * @cli_name: read oper vrouter object
+ */
+request sandesh VrouterInfoReq {
+}
