@@ -808,6 +808,43 @@ void AgentXmppChannel::AddMulticastEvpnRoute(const string &vrf_name,
                           multicast_sequence_number());
 }
 
+void AgentXmppChannel::AddFabricVrfRoute(const Ip4Address &prefix_addr,
+                                         uint32_t prefix_len,
+                                         const Ip4Address &addr,
+                                         const VnListType &vn_list,
+                                         const SecurityGroupList &sg_list,
+                                         const TagList &tag_list) {
+    if (addr == agent_->router_id()) {
+        return;
+    }
+
+    InetUnicastAgentRouteTable *table =
+        agent_->fabric_vrf()->GetInet4UnicastRouteTable();
+    Ip4Address nh = addr;
+
+    if (table->FindResolveRoute(addr) == NULL) {
+        nh = agent_->vhost_default_gateway();
+    }
+
+    if (prefix_addr == addr && prefix_len == 32 &&
+        table->FindResolveRoute(addr)) {
+        //Route is resolvable dont add any entry
+        return;
+    }
+
+    InetUnicastRouteEntry *rt = table->FindResolveRoute(prefix_addr);
+    if (rt && rt->addr() == prefix_addr && rt->plen() == prefix_len) {
+        //Dont overwrite resolve route
+        return;
+    }
+
+    CommunityList cl;
+    table->AddGatewayRoute(bgp_peer_id(), agent_->fabric_vrf_name(),
+                           prefix_addr, prefix_len, nh,
+                           vn_list, MplsTable::kInvalidExportLabel,
+                           sg_list, tag_list, cl);
+}
+
 void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                                     std::string mac_str,
                                     EnetItemType *item) {
@@ -1027,6 +1064,16 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                      prefix_addr.to_string(), prefix_len,
                      addr.to_v4().to_string(), label, vn_string);
 
+    if (item->entry.next_hops.next_hop[0].label ==
+            MplsTable::kInvalidExportLabel &&
+        vrf_name == agent_->fabric_vrf_name()) {
+        AddFabricVrfRoute(prefix_addr.to_v4(), prefix_len, addr.to_v4(),
+                          vn_list,
+                          item->entry.security_group_list.security_group,
+                          tag_list);
+        return;
+    }
+
     if (agent_->router_id() != addr.to_v4()) {
         EcmpLoadBalance ecmp_load_balance;
         GetEcmpHashFieldsToUse(item, ecmp_load_balance);
@@ -1171,11 +1218,6 @@ void AgentXmppChannel::GetVnList(const std::vector<autogen::NextHopType> &nextho
 
 void AgentXmppChannel::AddRoute(string vrf_name, IpAddress prefix_addr,
                                 uint32_t prefix_len, ItemType *item) {
-    if (item->entry.next_hops.next_hop[0].label ==
-            MplsTable::kInvalidExportLabel) {
-        return;
-    }
-
     VnListType vn_list;
     GetVnList(item->entry.next_hops.next_hop, &vn_list);
     if (IsEcmp(item->entry.next_hops.next_hop)) {

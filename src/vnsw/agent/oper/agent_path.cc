@@ -1249,6 +1249,34 @@ bool IpamSubnetRoute::UpdateRoute(AgentRoute *rt) {
     return uc_rt->UpdateRouteFlags(true, false, false);
 }
 
+VrouterSubnetRoute::VrouterSubnetRoute(DBRequest &nh_req,
+                                       const std::string &dest_vn_name) :
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    dest_vn_name_(dest_vn_name) {
+    nh_req_.Swap(&nh_req);
+}
+
+bool VrouterSubnetRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
+                                               const AgentRoute *rt) {
+    agent->nexthop_table()->Process(nh_req_);
+    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                    FindActiveEntry(nh_req_.key.get()));
+    assert(nh);
+
+    path->ChangeNH(agent, nh);
+    path->set_is_subnet_discard(true);
+    path->set_tunnel_bmap((TunnelType::MplsType()) | (TunnelType::NativeType()));
+    path->set_tunnel_type(TunnelType::NATIVE);
+
+    VnListType dest_vn_list;
+    dest_vn_list.insert(dest_vn_name_);
+    if (path->dest_vn_list() != dest_vn_list) {
+        path->set_dest_vn_list(dest_vn_list);
+    }
+
+    return true;
+}
+
 ///////////////////////////////////////////////
 // Sandesh routines below (route_sandesh.cc) 
 //////////////////////////////////////////////

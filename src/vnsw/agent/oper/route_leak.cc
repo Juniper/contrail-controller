@@ -4,6 +4,7 @@
 #include <oper/tunnel_nh.h>
 #include <oper/route_common.h>
 #include <oper/vrf.h>
+#include <oper/vrouter.h>
 #include <oper/route_leak.h>
 
 void RouteLeakState::AddIndirectRoute(const AgentRoute *route) {
@@ -82,6 +83,16 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
     if (uc_rt->FindLocalVmPortPath() == NULL) {
         peer = agent_->local_peer();
         local_peer = true;
+    }
+
+    /* Don't export /32 routes on fabric-vrf, if they are part of vrouter's
+     * subnet list. To disable export, use local_peer */
+    if ((uc_rt->plen() == 32) &&
+        dest_vrf_->GetName() == agent_->fabric_vrf_name()) {
+        if (agent_->oper_db()->vrouter()->IsSubnetMember(uc_rt->addr())) {
+            peer = agent_->local_peer();
+            local_peer = true;
+        }
     }
 
     if (installed_ && local_peer_ != local_peer) {
@@ -283,4 +294,88 @@ void RouteLeakManager::Notify(DBTablePartBase *partition, DBEntryBase *entry) {
     if (vrf->forwarding_vrf() != state->dest_vrf()) {
         state->SetDestVrf(vrf->forwarding_vrf());
     }
+}
+
+void RouteLeakManager::ReEvaluateRouteExports() {
+    if (vrf_walk_ref_.get() == NULL) {
+        vrf_walk_ref_ = agent_->vrf_table()->AllocWalker(
+            boost::bind(&RouteLeakManager::VrfWalkNotify, this, _1, _2),
+            boost::bind(&RouteLeakManager::VrfWalkDone, this, _2));
+    }
+    agent_->vrf_table()->WalkAgain(vrf_walk_ref_);
+}
+
+bool RouteLeakManager::VrfWalkNotify(DBTablePartBase *partition,
+                                     DBEntryBase *e) {
+    VrfEntry *vrf = static_cast<VrfEntry *>(e);
+    RouteLeakVrfState *state =
+        static_cast<RouteLeakVrfState *>(e->GetState(partition->parent(),
+                                                     vrf_listener_id_));
+    if (vrf->IsDeleted()) {
+        return true;
+    }
+    /* Ignore VRFs on which routes are not leaked by RouteLeakManager */
+    if (state == NULL) {
+        return true;
+    }
+    if (state->deleted()) {
+        return true;
+    }
+
+    StartRouteWalk(vrf, state);
+    return true;
+}
+
+void RouteLeakManager::VrfWalkDone(DBTableBase *part) {
+}
+
+void RouteLeakManager::StartRouteWalk(VrfEntry *vrf, RouteLeakVrfState *state) {
+    InetUnicastAgentRouteTable *table = vrf->GetInet4UnicastRouteTable();
+    if (!table) {
+        return;
+    }
+    DBTable::DBTableWalkRef rt_table_walk_ref = table->AllocWalker(
+        boost::bind(&RouteLeakManager::RouteWalkNotify, this, _1, _2, state),
+        boost::bind(&RouteLeakManager::RouteWalkDone, this, _2));
+    table->WalkAgain(rt_table_walk_ref);
+}
+
+
+bool RouteLeakManager::RouteWalkNotify(DBTablePartBase *partition,
+                                       DBEntryBase *e,
+                                       RouteLeakVrfState *vrf_state) {
+    InetUnicastRouteEntry *rt = static_cast<InetUnicastRouteEntry *>(e);
+    /* Ignore routes whose prefix len is NOT /32 */
+    if (rt->plen() != 32) {
+        return true;
+    }
+    /* Ignore routes whose NH is not InterfaceNH */
+    if (rt->GetActiveNextHop()->GetType() != NextHop::INTERFACE) {
+        return true;
+    }
+    if (!vrf_state) {
+        return true;
+    }
+    if (vrf_state->deleted()) {
+        return true;
+    }
+    const DBTableBase::ListenerId &rt_id = vrf_state->route_listener_id();
+    RouteLeakState *state =
+        static_cast<RouteLeakState *>(rt->GetState(partition->parent(), rt_id));
+    bool is_subnet_member = agent_->oper_db()->vrouter()->
+        IsSubnetMember(rt->addr());
+    if (state == NULL) {
+        return true;
+    }
+
+    if (state->installed()) {
+        if ((is_subnet_member && !state->local_peer()) ||
+            (!is_subnet_member && state->local_peer())) {
+            state->AddRoute(rt);
+        }
+    }
+    return true;
+}
+
+void RouteLeakManager::RouteWalkDone(DBTableBase *part) {
 }

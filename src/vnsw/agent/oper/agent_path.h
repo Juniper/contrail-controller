@@ -810,6 +810,19 @@ private:
     DISALLOW_COPY_AND_ASSIGN(IpamSubnetRoute);
 };
 
+class VrouterSubnetRoute : public AgentRouteData {
+public:
+    VrouterSubnetRoute(DBRequest &nh_req, const std::string &dest_vn_name);
+    virtual ~VrouterSubnetRoute() {}
+    virtual string ToString() const {return "vrouter subnet route";}
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
+private:
+    DBRequest nh_req_;
+    std::string dest_vn_name_;
+    DISALLOW_COPY_AND_ASSIGN(VrouterSubnetRoute);
+};
+
 class ReceiveRoute : public AgentRouteData {
 public:
     ReceiveRoute(const InterfaceKey &intf_key, uint32_t label,

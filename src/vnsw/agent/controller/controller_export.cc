@@ -33,7 +33,11 @@ bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path)
     if (force_chg_ == true)
         return true;
 
-    if (label_ != path->GetActiveLabel())
+    uint32_t route_label = path->GetActiveLabel();
+    if (route_label == MplsTable::kInvalidLabel) {
+        route_label = 0;
+    }
+    if (label_ != route_label)
         return true;
 
     if (tunnel_type_ != path->tunnel_type()) {
@@ -70,6 +74,9 @@ bool RouteExport::State::Changed(const AgentRoute *route, const AgentPath *path)
 void RouteExport::State::Update(const AgentRoute *route, const AgentPath *path) {
     force_chg_ = false;
     label_ = path->GetActiveLabel();
+    if (label_ == MplsTable::kInvalidLabel) {
+        label_ = 0;
+    }
     vn_ = path->dest_vn_name();
     sg_list_ = path->sg_list();
     tag_list_ = path->tag_list();
@@ -203,7 +210,6 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
             path = NULL;
         }
     }
-
     if (!state && route->IsDeleted()) {
         goto done;
     }

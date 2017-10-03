@@ -20,6 +20,9 @@ struct RouteLeakState :  public DBState {
         return dest_vrf_.get();
     }
 
+    bool installed() const { return installed_; }
+    bool local_peer() const { return local_peer_; }
+
 private:
     void AddIndirectRoute(const AgentRoute *route);
     void AddInterfaceRoute(const AgentRoute *route);
@@ -42,6 +45,10 @@ public:
     VrfEntry* dest_vrf() {
         return dest_vrf_.get();
     }
+    DBTableBase::ListenerId route_listener_id() const {
+        return route_listener_id_;
+    }
+    bool deleted() const { return deleted_; }
 
 private:
     void WalkDoneInternal(DBTableBase *part);
@@ -68,9 +75,18 @@ public:
 
     //VRF notify handler
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
+    void ReEvaluateRouteExports();
 
 private:
+    bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
+    void VrfWalkDone(DBTableBase *part);
+    void StartRouteWalk(VrfEntry *vrf, RouteLeakVrfState *state);
+    bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e,
+                         RouteLeakVrfState *vrf_state);
+    void RouteWalkDone(DBTableBase *part);
+
     Agent *agent_;
+    DBTable::DBTableWalkRef vrf_walk_ref_;
     DBTableBase::ListenerId vrf_listener_id_;
 };
 #endif
