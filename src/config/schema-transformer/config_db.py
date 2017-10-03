@@ -319,7 +319,7 @@ class VirtualNetworkST(DBBaseST):
     _dict = {}
     obj_type = 'virtual_network'
     ref_fields = ['network_policy', 'virtual_machine_interface', 'route_table',
-                  'bgpvpn', 'network_ipam']
+                  'bgpvpn', 'network_ipam', 'routing_policy']
     prop_fields = ['virtual_network_properties', 'route_target_list',
                    'multi_policy_service_chains_enabled']
 
@@ -329,6 +329,7 @@ class VirtualNetworkST(DBBaseST):
     def __init__(self, name, obj=None, acl_dict=None):
         self.name = name
         self.network_policys = OrderedDict()
+        self.routing_policys = {}
         self.virtual_machine_interfaces = set()
         self.connections = set()
         self.routing_instances = set()
@@ -1459,6 +1460,7 @@ class VirtualNetworkST(DBBaseST):
         primary_ri = self.get_primary_routing_instance()
         if primary_ri:
             primary_ri.update_static_routes()
+
         self.update_pnf_presence()
         self.check_multi_policy_service_chain_status()
         for ri_name in self.routing_instances:
@@ -4450,11 +4452,12 @@ class ServiceInstanceST(DBBaseST):
 class RoutingPolicyST(DBBaseST):
     _dict = {}
     obj_type = 'routing_policy'
-    ref_fields = ['service_instance']
+    ref_fields = ['service_instance', 'virtual_network']
 
     def __init__(self, name, obj=None):
         self.name = name
         self.service_instances = {}
+        self.virtual_networks = {}
         self.routing_instances = set()
         self.update(obj)
         ri_refs = self.obj.get_routing_instance_refs() or []
@@ -4483,6 +4486,13 @@ class RoutingPolicyST(DBBaseST):
         self.service_instances = new_refs
         return True
     # end update
+
+    def evaluate(self):
+        for (vn_name,attr) in self.virtual_networks.iteritems():
+            vn = VirtualNetworkST.get(vn_name)
+            primary_ri = vn.get_primary_routing_instance()
+            self.obj.set_routing_instance(primary_ri.obj, attr)
+            self._vnc_lib.routing_policy_update(self.obj)
 
     def add_routing_instance(self, ri, seq):
         if ri.name in self.routing_instances:

@@ -68,7 +68,7 @@ class SchemaTransformer(object):
             'bgp_as_a_service': [],
         },
         'virtual_network': {
-            'self': ['network_policy', 'route_table'],
+            'self': ['network_policy', 'route_table', 'routing_policy'],
             'routing_instance': ['network_policy'],
             'network_policy': [],
             'virtual_machine_interface': [],
@@ -143,6 +143,7 @@ class SchemaTransformer(object):
         },
         'routing_policy': {
             'self': ['service_instance'],
+            'virtual_network': [],
         },
         'route_aggregate': {
             'self': ['service_instance'],
