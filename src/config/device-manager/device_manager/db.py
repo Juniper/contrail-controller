@@ -233,7 +233,9 @@ class PhysicalRouterDM(DBBaseDM):
             if ip:
                 self.vn_ip_map[ip_used_for][subnet] = ip
         ae_id_map = self._object_db.get_pr_ae_id_map(self.uuid)
-        for esi, ae_id in ae_id_map.values():
+        if not ae_id_map:
+            return
+        for esi, ae_id in ae_id_map.items():
             ae_id = self._object_db.get_ae_id(self.uuid + ':' + esi)
             if ae_id:
                 self.ae_id_map[esi] = ae_id
@@ -295,8 +297,11 @@ class PhysicalRouterDM(DBBaseDM):
             index = self.ae_id_map[esi]
             self.ae_index_allocator.free_index(index)
             self._object_db.delete_ae_id(self.uuid, esi)
-            pi_list = esi_map.get(esi)
-            for pi in pi_list:
+            pi_set = PhysicalInterfaceDM.get_esi_interfaces(esi)
+            pi_list = list(pi_set) if pi_set else []
+            # set_parent_id modifies pi_set, hence copied to new list
+            for pi_uuid in pi_list:
+                pi = PhysicalInterfaceDM.get(pi_uuid)
                 pi.set_parent_ae_id(None)
             del self.ae_id_map[esi]
 
@@ -674,6 +679,7 @@ class GlobalSystemConfigDM(DBBaseDM):
 class PhysicalInterfaceDM(DBBaseDM):
     _dict = {}
     obj_type = 'physical_interface'
+    _esi_map = {}
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
@@ -698,8 +704,26 @@ class PhysicalInterfaceDM(DBBaseDM):
         return obj
     # end update
 
+    @classmethod
+    def get_esi_interfaces(cls, esi):
+        return cls._esi_map.get(esi)
+
     def set_parent_ae_id(self, ae_id):
         self.parent_ae_id = ae_id
+        if ae_id:
+            if not self.esi:
+                self._logger.error("Invalid pi state, trying to set ae for non "
+                              "esi interface (%s:%s)" % (self.uuid, self.name))
+                return
+            PhysicalInterfaceDM._esi_map.setdefault(self.esi, set()).add(self.uuid)
+        else:
+            if not self.esi:
+                return
+            pi_set = PhysicalInterfaceDM._esi_map.get(self.esi)
+            if pi_set:
+                pi_set.discard(self.uuid)
+                if not pi_set:
+                    del PhysicalInterfaceDM._esi_map[self.esi]
     # end set_parent_ae_id
 
     def get_parent_ae_id(self):
@@ -711,6 +735,7 @@ class PhysicalInterfaceDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        obj.set_parent_ae_id(None)
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
@@ -1588,9 +1613,10 @@ class DMCassandraDB(VncObjectDBClient):
             (pr_uuid, esi) = (key_data[0], key_data[1])
             ae_index = pr_entries[key] or {}
             ae_id = ae_index.get("index")
-            if pr_uuid not in self.pr_ae_id_map:
-                self.pr_ae_id_map[pr_uuid] = {}
-            self.pr_ae_id_map[pr_uuid][esi] = ae_id
+            if ae_id:
+                if pr_uuid not in self.pr_ae_id_map:
+                    self.pr_ae_id_map[pr_uuid] = {}
+                self.pr_ae_id_map[pr_uuid][esi] = ae_id
     # end
 
     def get_ip(self, key, ip_used_for):
@@ -1622,7 +1648,7 @@ class DMCassandraDB(VncObjectDBClient):
 
     def delete_ae_id(self, pr_uuid, esi):
         key = pr_uuid + ':' + esi
-        self.delete(self._PR_AE_ID_CF, key, ["index"])
+        self.delete(self._PR_AE_ID_CF, key)
         del self.pr_ae_id_map[pr_uuid][esi]
     # end
 
