@@ -222,10 +222,10 @@ class TestQfxBasicDM(TestCommonDM):
         bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product=self.product)
         pr.set_physical_router_role("leaf")
         self._vnc_lib.physical_router_update(pr)
-        pi = PhysicalInterface('pi1-esi', parent_obj = pr)
+        pi1 = PhysicalInterface('pi1-esi', parent_obj = pr)
         esi_value = "33:33:33:33:33:33:33:33:33:33"
-        pi.set_ethernet_segment_identifier(esi_value)
-        pi_id = self._vnc_lib.physical_interface_create(pi)
+        pi1.set_ethernet_segment_identifier(esi_value)
+        pi_id = self._vnc_lib.physical_interface_create(pi1)
 
         # associate li, vmi
         vn1_name = 'vn-esi-' + self.id() + "-" + self.product
@@ -248,24 +248,24 @@ class TestQfxBasicDM(TestCommonDM):
         vmi1.set_virtual_network(vn1_obj)
         self._vnc_lib.virtual_machine_interface_create(vmi1)
 
-        li1 = LogicalInterface('li1.0', parent_obj = pi)
+        li1 = LogicalInterface('li1.0', parent_obj = pi1)
         li1.set_virtual_machine_interface(vmi1)
         li1_id = self._vnc_lib.logical_interface_create(li1)
 
         self.check_esi_config('ae127', esi_value)
         self.check_esi_config('pi1-esi', esi_value, False)
 
-        pi = PhysicalInterface('pi2-esi', parent_obj = pr)
+        pi2 = PhysicalInterface('pi2-esi', parent_obj = pr)
         esi_value = "33:33:33:33:33:33:33:33:33:33"
-        pi.set_ethernet_segment_identifier(esi_value)
-        pi_id = self._vnc_lib.physical_interface_create(pi)
+        pi2.set_ethernet_segment_identifier(esi_value)
+        pi_id = self._vnc_lib.physical_interface_create(pi2)
 
         fq_name = ['default-domain', 'default-project', 'vmi2-esi' + self.id()]
         vmi2 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
         vmi2.set_virtual_network(vn1_obj)
         self._vnc_lib.virtual_machine_interface_create(vmi2)
 
-        li2 = LogicalInterface('li2.0', parent_obj = pi)
+        li2 = LogicalInterface('li2.0', parent_obj = pi2)
         li2.set_virtual_machine_interface(vmi2)
         li2_id = self._vnc_lib.logical_interface_create(li2)
 
@@ -276,9 +276,29 @@ class TestQfxBasicDM(TestCommonDM):
         self.check_lacp_config("ae127", esi_value, ["pi1-esi", "pi2-esi"])
         self.check_l2_evpn_config("ae127")
 
-        pi.set_ethernet_segment_identifier(None)
-        self._vnc_lib.physical_interface_update(pi)
+        # unset esi value  on one interface, ae config should still be generated
+        pi1.set_ethernet_segment_identifier(None)
+        self._vnc_lib.physical_interface_update(pi1)
+        self.check_esi_config('ae127', esi_value, True)
+
+        # unset esi value  on both interfaces, ae config should not be generated
+        pi2.set_ethernet_segment_identifier(None)
+        self._vnc_lib.physical_interface_update(pi2)
         self.check_esi_config('ae127', esi_value, False)
+
+        # set esi value back, run delete tests
+        pi1.set_ethernet_segment_identifier(esi_value)
+        self._vnc_lib.physical_interface_update(pi1)
+        pi2.set_ethernet_segment_identifier(esi_value)
+        self._vnc_lib.physical_interface_update(pi2)
+        self.check_esi_config('ae127', esi_value, True)
+
+        self._vnc_lib.logical_interface_delete(fq_name=li1.get_fq_name())
+        self._vnc_lib.logical_interface_delete(fq_name=li2.get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi1.get_fq_name())
+        self._vnc_lib.physical_interface_delete(fq_name=pi2.get_fq_name())
+        self.check_esi_config('ae127', esi_value, False)
+
     # end test_esi_config
 
     @retries(5, hook=retry_exc_handler)
