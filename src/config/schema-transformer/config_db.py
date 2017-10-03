@@ -319,7 +319,7 @@ class VirtualNetworkST(DBBaseST):
     _dict = {}
     obj_type = 'virtual_network'
     ref_fields = ['network_policy', 'virtual_machine_interface', 'route_table',
-                  'bgpvpn', 'network_ipam', 'virtual_network']
+                  'bgpvpn', 'network_ipam', 'virtual_network', 'routing_policy']
     prop_fields = ['virtual_network_properties', 'route_target_list',
                    'multi_policy_service_chains_enabled', 'is_provider_network']
 
@@ -329,6 +329,7 @@ class VirtualNetworkST(DBBaseST):
     def __init__(self, name, obj=None, acl_dict=None):
         self.name = name
         self.network_policys = OrderedDict()
+        self.routing_policys = {}
         self.virtual_machine_interfaces = set()
         self.connections = set()
         self.routing_instances = set()
@@ -1466,6 +1467,19 @@ class VirtualNetworkST(DBBaseST):
         primary_ri = self.get_primary_routing_instance()
         if primary_ri:
             primary_ri.update_static_routes()
+            old_rp_set = set(primary_ri.routing_policys.keys())
+            new_rp_set = set(self.routing_policys.keys())
+            for rp in new_rp_set - old_rp_set:
+                rp_obj = RoutingPolicyST.get(rp)
+                seq = self.routing_policys[rp].sequence
+                rp_obj.add_routing_instance(primary_ri, seq)
+                primary_ri.routing_policys[rp] = seq
+
+            for rp in old_rp_set - new_rp_set:
+                rp_obj = RoutingPolicyST.get(rp)
+                rp_obj.delete_routing_instance(primary_ri)
+                del primary_ri.routing_policys[rp]
+
         self.update_pnf_presence()
         self.check_multi_policy_service_chain_status()
         for ri_name in self.routing_instances:
