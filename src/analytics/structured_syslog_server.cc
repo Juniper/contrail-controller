@@ -1012,9 +1012,9 @@ void StructuredSyslogForwarder::Init(const std::vector<std::string> &tcp_forward
     for (std::vector<std::string>::const_iterator it = tcp_forward_dst.begin(); it != tcp_forward_dst.end(); ++it) {
         std::vector<std::string> dest;
         boost::split(dest, *it, boost::is_any_of(":"), boost::token_compress_on);
-        boost::shared_ptr<StructuredSyslogTcpForwarder> fwder(new StructuredSyslogTcpForwarder(evm_,
-                                                                                               dest[0],
-                                                                                               atoi(dest[1].c_str())));
+        StructuredSyslogTcpForwarder* fwder = new StructuredSyslogTcpForwarder(evm_,
+                                                                               dest[0],
+                                                                               atoi(dest[1].c_str()));
         fwder->CreateSession();
         fwder->Connect();
         fwder->SetSocketOptions();
@@ -1044,19 +1044,20 @@ void StructuredSyslogForwarder::PollTcpForwarderErrorHandler(string error_name,
 
 bool StructuredSyslogForwarder::PollTcpForwarder() {
     LOG(DEBUG, "PollTcpForwarder start");
-    for (std::vector<boost::shared_ptr<StructuredSyslogTcpForwarder> >::iterator it = tcpForwarder_.begin();
+    for (std::vector<StructuredSyslogTcpForwarder*>::iterator it = tcpForwarder_.begin();
          it != tcpForwarder_.end(); ++it) {
         if ((*it)->Connected() ==  false) {
             std::string dst = (*it)->GetIpAddress();
             int port = (*it)->GetPort();
             LOG(DEBUG,"reconnecting to remote syslog server " << dst << ":" << port);
-            boost::shared_ptr<StructuredSyslogTcpForwarder> old_fwder = *it;
-            boost::shared_ptr<StructuredSyslogTcpForwarder> new_fwder(new StructuredSyslogTcpForwarder(evm_, dst, port));
+            StructuredSyslogTcpForwarder* old_fwder = *it;
+            StructuredSyslogTcpForwarder* new_fwder = new StructuredSyslogTcpForwarder(evm_, dst, port);
             new_fwder->CreateSession();
             new_fwder->Connect();
             new_fwder->SetSocketOptions();
             std::replace(tcpForwarder_.begin(),tcpForwarder_.end(), old_fwder, new_fwder);
             old_fwder->ClearSessions();
+            TcpServerManager::DeleteServer(old_fwder);
         } else {
             LOG(DEBUG,"connection to remote syslog server " << (*it)->GetIpAddress() << ":"<< (*it)->GetPort() << " is fine");
         }
@@ -1076,7 +1077,7 @@ bool StructuredSyslogForwarder::kafkaForwarder() {
 }
 
 void StructuredSyslogForwarder::Forward(boost::shared_ptr<StructuredSyslogQueueEntry> sqe) {
-    for (std::vector<boost::shared_ptr<StructuredSyslogTcpForwarder> >::iterator it = tcpForwarder_.begin();
+    for (std::vector<StructuredSyslogTcpForwarder*>::iterator it = tcpForwarder_.begin();
          it != tcpForwarder_.end(); ++it) {
         size_t bytes_written;
         (*it)->Send((const u_int8_t*)sqe->data->c_str(), sqe->length, &bytes_written);
