@@ -85,7 +85,9 @@ public:
         return route_walk_manager_.get();
     }
     TsnElector *tsn_elector() const { return tsn_elector_.get(); }
-
+    RouteLeakManager *route_leak_manager() const {
+        return route_leak_manager_.get();
+    }
 private:
     OperDB();
 

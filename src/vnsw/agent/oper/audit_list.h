@@ -36,13 +36,13 @@ bool AuditList(List &list, Iterator old_first, Iterator old_last,
     while (old_iterator != old_last) {
         Iterator bkp = old_iterator++;
         list.Remove(bkp);
-            ret = true;
+        ret = true;
     }
 
     while (new_iterator != new_last) {
         Iterator bkp = new_iterator++;
         list.Insert(bkp.operator->());
-            ret = true;
+        ret = true;
     }
 
     return ret;

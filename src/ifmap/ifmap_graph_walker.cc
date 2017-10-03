@@ -341,9 +341,11 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
         ("virtual-router",
          list_of("physical-router-virtual-router")
                 ("virtual-router-virtual-machine")
+                ("virtual-router-network-ipam")
                 ("global-system-config-virtual-router")
                 ("provider-attachment-virtual-router")
                 ("virtual-router-virtual-machine-interface"))
+        ("virtual-router-network-ipam", list_of("virtual-router-network-ipam"))
         ("virtual-machine",
          list_of("virtual-machine-service-instance")
                 ("virtual-machine-interface-virtual-machine")
