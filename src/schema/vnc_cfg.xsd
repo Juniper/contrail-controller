@@ -2317,6 +2317,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'virtual-network', 'bgp:routing-instance', ['has', 'derived'], 'system-only', 'CRUD',
           'List of references of routing instances for this virtual network, routing instances are internal to the system.') -->
 
+<xsd:element name="virtual-network-routing-policy"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('virtual-network-routing-policy', 'virtual-network', 'routing-policy', ['ref'], 'optional', 'CRUD',
+         'List of references of routing policy objects. imported by user.') -->
+
 <xsd:element name="project-routing-policy"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('project-routing-policy', 'project', 'routing-policy', ['has'], 'optional', 'CRUD',

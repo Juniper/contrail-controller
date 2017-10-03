@@ -1409,6 +1409,9 @@ class VirtualNetworkST(DBBaseST):
         primary_ri = self.get_primary_routing_instance()
         if primary_ri:
             primary_ri.update_static_routes()
+            for ref in self.obj.get_routing_policy_back_refs() or []:
+                rp_name = ':'.join(ref['to'])
+                primary_ri.routing_policys[rp_name] = ref['attr']['sequence']
         self.update_pnf_presence()
         self.check_multi_policy_service_chain_status()
         for ri_name in self.routing_instances:
