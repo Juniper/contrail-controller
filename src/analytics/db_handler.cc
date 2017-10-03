@@ -360,7 +360,7 @@ bool DbHandler::CreateTables() {
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_session_tables.begin();
             it != vizd_session_tables.end(); it++) {
-        if (!dbif_->Db_AddColumnfamily(*it, compaction_strategy_)) {
+        if (!dbif_->Db_AddColumnfamily(*it, flow_tables_compaction_strategy_)) {
             DB_LOG(ERROR, it->cfname_ << " FAILED");
             return false;
         }
