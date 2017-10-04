@@ -29,16 +29,6 @@ class Qfx5kConf(QfxConf):
         return super(Qfx5kConf, cls).register(qconf)
     # end register
 
-    def set_product_specific_config(self):
-        if not self.routing_instances:
-            # no vn config then no need to configure route distinguisher
-            return
-        if self.global_switch_options_config is None:
-            self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
-        self.global_switch_options_config.set_route_distinguisher(
-                                 RouteDistinguisher(rd_type=self.bgp_params['identifier'] + ":1"))
-    # end set_product_specific_config
-
     def build_evpn_config(self):
         return Evpn(encapsulation='vxlan')
     # end build_evpn_config

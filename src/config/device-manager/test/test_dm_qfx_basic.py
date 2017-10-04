@@ -276,6 +276,12 @@ class TestQfxBasicDM(TestCommonDM):
         self.check_lacp_config("ae127", esi_value, ["pi1-esi", "pi2-esi"])
         self.check_l2_evpn_config("ae127")
 
+        '''
+        # changing  esi value on one interface is not allowed by api-server
+        # need to disable interface, if we want to change esi.
+        # DM/api server support will be implemented.
+        # We should re-write this piece of validation code
+
         # unset esi value  on one interface, ae config should still be generated
         pi1.set_ethernet_segment_identifier(None)
         self._vnc_lib.physical_interface_update(pi1)
@@ -292,6 +298,7 @@ class TestQfxBasicDM(TestCommonDM):
         pi2.set_ethernet_segment_identifier(esi_value)
         self._vnc_lib.physical_interface_update(pi2)
         self.check_esi_config('ae127', esi_value, True)
+        '''
 
         self._vnc_lib.logical_interface_delete(fq_name=li1.get_fq_name())
         self._vnc_lib.logical_interface_delete(fq_name=li2.get_fq_name())
