@@ -278,6 +278,9 @@ class TestBasic(test_case.NeutronBackendTestCase):
                          vnc_api.SubnetType('1.1.1.0', 24))]))
         self._vnc_lib.virtual_network_create(vn_obj)
 
+        vr_obj = vnc_api.VirtualRouter("somehost")
+        vr_obj = self._vnc_lib.virtual_router_create(vr_obj)
+
         sg_obj = vnc_api.SecurityGroup('default')
         try:
             self._vnc_lib.security_group_create(sg_obj)
