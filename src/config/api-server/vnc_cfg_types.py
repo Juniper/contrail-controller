@@ -905,6 +905,15 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
     portbindings['PORT_FILTER'] = True
+    portbindings['VIF_TYPE_VHOST_USER'] = 'vhostuser'
+    portbindings['VHOST_USER_MODE'] = 'vhostuser_mode'
+    portbindings['VHOST_USER_MODE_SERVER'] = 'server'
+    portbindings['VHOST_USER_MODE_CLIENT'] = 'client'
+    portbindings['VHOST_USER_SOCKET'] = 'vhostuser_socket'
+    portbindings['VHOST_USER_VROUTER_PLUG'] = 'vhostuser_vrouter_plug'
+
+    vhostuser_sockets_dir='/var/run/vrouter/'
+    NIC_NAME_LEN = 14
 
     @staticmethod
     def _kvp_to_dict(kvps):
@@ -1057,6 +1066,35 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         return (True, '')
 
     @classmethod
+    def _get_port_vhostuser_socket_name(cls, obj_dict, id=None):
+        name = 'tap' + (id if id else obj_dict['id'])
+        name = name[:cls.NIC_NAME_LEN]
+        return cls.vhostuser_sockets_dir + 'uvh_vif_' + name
+
+    @classmethod
+    def _is_dpdk_enabled(cls, obj_dict, db_conn):
+        if 'virtual_machine_interface_bindings' in obj_dict:
+            bindings = obj_dict['virtual_machine_interface_bindings']
+            kvps = bindings['key_value_pair']
+            kvp_dict = cls._kvp_to_dict(kvps)
+            host_id = kvp_dict['host_id']
+            if not host_id:
+                return False
+        else:
+            return False
+
+        vrouter_fq_name = ['default-global-system-config',host_id]
+        vrouter_id = db_conn.fq_name_to_uuid('virtual_router', vrouter_fq_name)
+        (ok, result) = db_conn.dbe_read('virtual_router', vrouter_id)
+        if not ok:
+            return False
+        if result['virtual_router_dpdk_enabled']:
+            return True
+        else:
+            return False
+    # end of _is_dpdk_enabled
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict.get('uuid')
@@ -1156,15 +1194,32 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
                 kvps.append(vif_details)
 
-            if 'vif_type' not in kvp_dict:
-                vif_type = {'key': 'vif_type',
-                            'value': cls.portbindings['VIF_TYPE_VROUTER']}
-                kvps.append(vif_type)
-
             if 'vnic_type' not in kvp_dict:
                 vnic_type = {'key': 'vnic_type',
                              'value': cls.portbindings['VNIC_TYPE_NORMAL']}
                 kvps.append(vnic_type)
+
+            kvp_dict = cls._kvp_to_dict(kvps)
+            if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL']:
+                if _is_dpdk_enabled(obj_dict, db_conn):
+                    vif_params = {cls.portbindings['VHOST_USER_MODE']: \
+                                  cls.portbindings['VHOST_USER_MODE_CLIENT'],
+                                  cls.portbindings['VHOST_USER_SOCKET']: \
+                                  cls._get_port_vhostuser_socket_name(obj_dict, obj_dict['id']),
+                                  cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
+                                 }
+                    vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                    kvps.append(vif_details)
+
+                if 'vif_type' not in kvp_dict:
+                    vif_type = {'key': 'vif_type',
+                                'value': cls.portbindings['VIF_TYPE_VHOST_USER']}
+                    kvps.append(vif_type)
+            else:
+                if 'vif_type' not in kvp_dict:
+                    vif_type = {'key': 'vif_type',
+                                'value': cls.portbindings['VIF_TYPE_VROUTER']}
+                    kvps.append(vif_type)
 
         (ok, result) = cls._check_port_security_and_address_pairs(obj_dict)
 
@@ -1272,6 +1327,37 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                             .get('sub_interface_vlan_tag') or 0)
             if new_vlan != old_vlan:
                 return (False, (400, "Cannot change Vlan tag"))
+
+        if 'virtual_machine_interface_bindings' in read_result:
+            bindings = read_result['virtual_machine_interface_bindings']
+            kvps = bindings['key_value_pair']
+            kvp_dict = cls._kvp_to_dict(kvps)
+            if kvp_dict.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL']:
+                if cls._is_dpdk_enabled(read_result, db_conn):
+                    vif_type = {'key': 'vif_type',
+                                'value': cls.portbindings['VIF_TYPE_VHOST_USER']}
+                    vif_params = {cls.portbindings['VHOST_USER_MODE']: \
+                                  cls.portbindings['VHOST_USER_MODE_CLIENT'],
+                                  cls.portbindings['VHOST_USER_SOCKET']: \
+                                  cls._get_port_vhostuser_socket_name(read_result, id),
+                                  cls.portbindings['VHOST_USER_VROUTER_PLUG']: True
+                                 }
+                    vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
+                    if vif_details not in kvps:
+                        bindings = obj_dict.get('virtual_machine_interface_bindings') or {}
+                        kvps_obj = bindings.get('key_value_pair') or []
+                        kvps_obj.append(vif_details)
+                    if vif_type not in kvps:
+                        bindings = obj_dict.get('virtual_machine_interface_bindings') or {}
+                        kvps_obj = bindings.get('key_value_pair') or []
+                        kvps_obj.append(vif_type)
+                else:
+                    vif_type = {'key': 'vif_type',
+                                'value': cls.portbindings['VIF_TYPE_VROUTER']}
+                    if vif_type not in kvps:
+                        bindings = obj_dict.get('virtual_machine_interface_bindings') or {}
+                        kvps_obj = bindings.get('key_value_pair') or []
+                        kvps_obj.append(vif_type)
 
         (ok,result) = cls._check_port_security_and_address_pairs(obj_dict,
                                                                  read_result)
