@@ -2616,18 +2616,32 @@ class NetworkPolicyServer(Resource, NetworkPolicy):
 
 # end class NetworkPolicyServer
 
+
 class LogicalInterfaceServer(Resource, LogicalInterface):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        (ok, msg) = cls._check_vlan(obj_dict, db_conn)
-        if ok == False:
-            return (False, msg)
+        (ok, result) = cls._check_vlan(obj_dict, db_conn)
+        if not ok:
+            return (ok, result)
 
         vlan = 0
         if 'logical_interface_vlan_tag' in obj_dict:
             vlan = obj_dict['logical_interface_vlan_tag']
-        return PhysicalInterfaceServer._check_interface_name(obj_dict, db_conn, vlan)
+
+        ok, result = PhysicalInterfaceServer._check_interface_name(obj_dict,
+                                                                   db_conn,
+                                                                   vlan)
+        if not ok:
+            return ok, result
+
+        ok, result = cls._check_esi(obj_dict, db_conn, vlan,
+                                    obj_dict.get('parent_type'),
+                                    obj_dict.get('parent_uuid'))
+        if not ok:
+            return ok, result
+
+        return (True, '')
     # end pre_dbe_create
 
     @classmethod
@@ -2647,9 +2661,62 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
             if 'logical_interface_vlan_tag' in read_result:
                 if int(vlan) != int(read_result.get('logical_interface_vlan_tag')):
                     return (False, (403, "Cannot change Vlan id"))
+        ok, result = cls._check_esi(obj_dict, db_conn,
+                                    read_result.get('logical_interface_vlan_tag'),
+                                    read_result.get('parent_type'),
+                                    read_result.get('parent_uuid'))
+        if not ok:
+            return ok, result
 
         return True, ""
     # end pre_dbe_update
+
+    @classmethod
+    def _check_esi(cls, obj_dict, db_conn, vlan, p_type, p_uuid):
+        vmis_ref = obj_dict.get('virtual_machine_interface_refs')
+        # Created Logical Interface does not point to a VMI.
+        # Nothing to validate.
+        if not vmis_ref:
+            return (True, '')
+
+        vmis = {x.get('uuid') for x in vmis_ref}
+        if p_type == 'physical-interface':
+            ok, result = cls.dbe_read(db_conn,
+                                      'physical_interface', p_uuid)
+            if not ok:
+                return ok, result
+            esi = result.get('ethernet_segment_identifier')
+            if esi:
+                filters = {'ethernet_segment_identifier' : [esi]}
+                obj_fields = [u'logical_interfaces']
+                ok, result = db_conn.dbe_list(obj_type='physical_interface',
+                                              filters=filters,
+                                              field_names=obj_fields)
+                if not ok:
+                    return ok, result
+
+                for pi in result:
+                    for li in pi.get('logical_interfaces') or []:
+                        if li.get('uuid') == obj_dict.get('uuid'):
+                            continue
+                        ok, li_obj = cls.dbe_read(db_conn,
+                                                  'logical_interface',
+                                                  li.get('uuid'))
+                        if not ok:
+                            return ok, li_obj
+
+                        # If the LI belongs to a different VLAN than the one created,
+                        # then no-op.
+                        li_vlan = li_obj.get('logical_interface_vlan_tag')
+                        if vlan != li_vlan:
+                            continue
+
+                        peer_li_vmis = {x.get('uuid')
+                                        for x in li_obj.get('virtual_machine_interface_refs')}
+                        if peer_li_vmis != vmis:
+                            return (False, (403, "LI should refer to the same set " +
+                                                 "of VMIs as peer LIs belonging to the same ESI"))
+        return (True, "")
 
     @classmethod
     def _check_vlan(cls, obj_dict, db_conn):
@@ -2692,24 +2759,97 @@ class RouteTableServer(Resource, RouteTable):
 class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
     @classmethod
+    def _check_esi_string(cls, esi):
+        res = re.match(r'^([0-9A-Fa-f]{2}[:]){9}[0-9A-Fa-f]{2}', esi)
+        if not res:
+            return (False, (400, "Invalid ESI string format"))
+        return (True, '')
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        return cls._check_interface_name(obj_dict, db_conn, None)
+        ok, result = cls._check_interface_name(obj_dict, db_conn, None)
+        if not ok:
+            return ok, result
+
+        esi = obj_dict.get('ethernet_segment_identifier')
+        if esi:
+            ok, result = cls._check_esi_string(esi)
+            if not ok:
+                return ok, result
+
+        return (True, '')
     # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, read_result = cls.dbe_read(db_conn, 'physical_interface', id,
+                                       obj_fields=['display_name',
+                                                   'logical_interfaces'])
+        if not ok:
+            return ok, read_result
+
         # do not allow change in display name
         if 'display_name' in obj_dict:
-            ok, read_result = cls.dbe_read(db_conn, 'physical_interface',
-                                           id, obj_fields=['display_name'])
-            if not ok:
-                return ok, read_result
-
             if obj_dict['display_name'] != read_result.get('display_name'):
                 return (False, (403, "Cannot change display name !"))
 
+        esi = obj_dict.get('ethernet_segment_identifier')
+        if esi and read_result.get('logical_interfaces'):
+            ok, result = cls._check_esi_string(esi)
+            if not ok:
+                return ok, result
+
+            ok, result = cls._check_esi(obj_dict, db_conn, esi,
+                                        read_result.get('logical_interfaces'))
+            if not ok:
+                return ok, result
         return True, ""
     # end pre_dbe_update
+
+    @classmethod
+    def _check_esi(cls, obj_dict, db_conn, esi, li_refs):
+        # Collecting a set of VMIs associated with LIs
+        # associated to a PI.
+        vlan_vmis = {}
+        for li in li_refs:
+            ok, li_obj = cls.dbe_read(db_conn,
+                                  'logical_interface',
+                                  li.get('uuid'))
+            if not ok:
+                return ok, li_obj
+
+            vmi_refs = li_obj.get('virtual_machine_interface_refs')
+            if vmi_refs:
+                vlan_tag = li_obj.get('logical_interface_vlan_tag')
+                vlan_vmis[vlan_tag] = {x.get('uuid') for x in vmi_refs}
+
+        filters = {'ethernet_segment_identifier' : [esi]}
+        obj_fields = [u'logical_interfaces']
+        ok, result = db_conn.dbe_list(obj_type='physical_interface',
+                                      filters=filters,
+                                      field_names=obj_fields)
+        if not ok:
+            return ok, result
+        for pi in result:
+            for li in pi.get('logical_interfaces') or []:
+                ok, li_obj = cls.dbe_read(db_conn,
+                                          'logical_interface',
+                                          li.get('uuid'))
+                if not ok:
+                    return ok, li_obj
+
+                vlan_to_check = li_obj.get('logical_interface_vlan_tag')
+                # Ignore LI's with no VMI association
+                if not li_obj.get('virtual_machine_interface_refs'):
+                    continue
+
+                vmis_to_check = {x.get('uuid')
+                                 for x in li_obj.get('virtual_machine_interface_refs')}
+                if vlan_vmis.get(vlan_to_check) != vmis_to_check:
+                    return (False, (403, 'LI associated with the PI should have the' +
+                                         ' same VMIs as LIs (associated with the PIs)' +
+                                         ' of the same ESI family'))
+        return (True, '')
 
     @classmethod
     def _check_interface_name(cls, obj_dict, db_conn, vlan_tag):
