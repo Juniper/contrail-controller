@@ -2381,10 +2381,11 @@ class VncApiServer(object):
     def _load_extensions(self):
         try:
             conf_sections = self._args.config_sections
-            self._extension_mgrs['resync'] = ExtensionManager(
-                'vnc_cfg_api.resync', api_server_ip=self._args.listen_ip_addr,
-                api_server_port=self._args.listen_port,
-                conf_sections=conf_sections, sandesh=self._sandesh)
+            if self._args.auth == 'keystone':
+                self._extension_mgrs['resync'] = ExtensionManager(
+                    'vnc_cfg_api.resync', api_server_ip=self._args.listen_ip_addr,
+                    api_server_port=self._args.listen_port,
+                    conf_sections=conf_sections, sandesh=self._sandesh)
             self._extension_mgrs['resourceApi'] = ExtensionManager(
                 'vnc_cfg_api.resourceApi',
                 propagate_map_exceptions=True,
