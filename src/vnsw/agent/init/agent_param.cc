@@ -513,6 +513,8 @@ void AgentParam::ParseDefaultSectionArguments
                       "DEFAULT.measure_queue_delay");
     GetOptValue<string>(var_map, tunnel_type_,
                         "DEFAULT.tunnel_type");
+    GetOptValue<uint16_t>(var_map, min_aap_prefix_len_,
+                         "DEFAULT.min_aap_prefix_len");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -562,7 +564,6 @@ void AgentParam::ParseFlowArguments
     if (GetOptValue<float>(var_map, val, "FLOWS.max_vm_flows")) {
         max_vm_flows_ = val;
     }
-
     GetOptValue<uint16_t>(var_map, linklocal_system_flows_,
                           "FLOWS.max_system_linklocal_flows");
     GetOptValue<uint16_t>(var_map, linklocal_vm_flows_,
@@ -1315,7 +1316,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         mac_learning_thread_count_(Agent::kDefaultFlowThreadCount),
         mac_learning_add_tokens_(Agent::kMacLearningDefaultTokens),
         mac_learning_update_tokens_(Agent::kMacLearningDefaultTokens),
-        mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens) {
+        mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens),
+        min_aap_prefix_len_(Agent::kMinAapPrefixLen) {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
@@ -1382,6 +1384,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("DEFAULT.tsn_servers",
          opt::value<std::vector<std::string> >()->multitoken(),
          "List of IPAddress of TSN Servers")
+        ("DEFAULT.min_aap_prefix_len", opt::value<uint16_t>(),
+         "Minimum prefix-len for Allowed-address-pair entries")
         ("DNS.dns_timeout", opt::value<uint32_t>()->default_value(3000),
          "DNS Timeout")
         ("DNS.dns_max_retries", opt::value<uint32_t>()->default_value(2),

@@ -15,6 +15,7 @@ class ArpPathPreferenceState;
 
 class ArpHandler : public ProtoHandler {
 public:
+    static const uint16_t kMaxArpProbes = 256;
     ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                boost::asio::io_service &io);
     virtual ~ArpHandler();
@@ -30,6 +31,7 @@ public:
     friend void intrusive_ptr_release(const ArpHandler *p);
 
 private:
+    uint32_t MaxArpProbeAddresses() const;
     bool HandlePacket();
     bool HandleMessage();
     void EntryDelete(ArpKey &key);
