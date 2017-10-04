@@ -6,6 +6,7 @@
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
 #include "pkt/flow_proto.h"
+#include "ksync/ksync_sock_user.h"
 
 #define AGE_TIME 10*1000
 
@@ -445,6 +446,55 @@ TEST_F(EcmpTest, EcmpTest_8) {
 
     WAIT_FOR(1000, 1000, (get_flow_proto()->FlowCount() == 0));
 }
+
+//Test to simulate continous stream of flow packets getting evicted
+//To run the test, please modify KSyncUserSockFlowContext::Process
+//to return same flow handle and incremental gen_id
+//
+//+  static uint8_t gen_id = 0;
+//+  fwd_flow_idx = 100;
+//   req_->set_fr_index(fwd_flow_idx);
+//-  req_->set_fr_gen_id((fwd_flow_idx % 255));
+//+  req_->set_fr_gen_id(gen_id++);
+//
+//and to pass ttl as gen id in below API
+#if 0
+TEST_F(EcmpTest, TEST_1) {
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
+    Ip4Address zero = Ip4Address::from_string("0.0.0.0");
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    PathPreference path_preference(0, PathPreference::HIGH, false, false);
+    Inet4TunnelRouteAdd(bgp_peer, "vrf1", zero, 0, server_ip, bmap,
+                        16, "vn1", SecurityGroupList(), path_preference);
+    client->WaitForIdle();
+
+    uint32_t gen_id = 0;
+    for (uint32_t i = 0; i < 10000; i++) {
+        gen_id++;
+        TxTcpPacket(VmPortGetId(1), "1.1.1.1", "2.1.1.1",
+                    10, 15, false, 1, VrfGet("vrf1")->vrf_id(), gen_id);
+        client->WaitForIdle();
+
+        FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+                                   "1.1.1.1", "2.1.1.1", 6, 10, 15,
+                                   GetFlowKeyNH(1));
+        client->WaitForIdle();
+
+        if (entry) {
+            entry->MakeShortFlow(FlowEntry::SHORT_FAILED_VROUTER_INSTALL);
+            KSyncSockTypeMap::SetEvictedFlag(entry->reverse_flow_entry()->
+                                             flow_handle());
+        }
+        client->WaitForIdle();
+
+        if (gen_id % 10 == 0) {
+            WAIT_FOR(1000, 1000, (flow_proto_->FlowCount() == 0));
+        }
+    }
+
+    WAIT_FOR(1000, 1000, (flow_proto_->FlowCount() == 0));
+}
+#endif
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
