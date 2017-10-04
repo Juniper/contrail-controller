@@ -14,7 +14,7 @@ from juniper_conf import JunosInterface
 from device_api.juniper_common_xsd import *
 
 class MxConf(JuniperConf):
-    _products = ['mx']
+    _products = ['mx', 'vmx']
 
     def __init__(self, logger, params={}):
         self._logger = logger
