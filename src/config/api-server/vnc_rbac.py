@@ -11,6 +11,7 @@ from provision_defaults import *
 from cfgm_common.exceptions import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from gen.vnc_api_client_gen import all_resource_types
+from collections import defaultdict
 
 class VncRbac(object):
 
@@ -74,6 +75,7 @@ class VncRbac(object):
         return rbac_rules
 
     def get_rbac_rules_object(self, obj_type, obj_uuid):
+        rule_list = []
         obj_fields = ['api_access_lists']
         try:
             (ok, result) = self._db_conn.dbe_read(obj_type, obj_uuid, obj_fields)
@@ -88,9 +90,17 @@ class VncRbac(object):
             'api_access_list', api_access_lists[0]['uuid'], obj_fields)
         if not ok or 'api_access_list_entries' not in result:
             return []
+
+        for api_access_list in api_access_lists:
+            (ok, result) = self._db_conn.dbe_read('api_access_list',
+                                                   api_access_list['uuid'],
+                                                   obj_fields)
+            if not ok or 'api_access_list_entries' not in result:
+                continue
+            rule_list.extend(result['api_access_list_entries'].get('rbac_rule'))
+
         # {u'rbac_rule': [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]}
-        api_access_list_entries = result['api_access_list_entries']
-        return api_access_list_entries['rbac_rule']
+        return rule_list
 
     def get_rbac_rules(self, request):
         rule_list = []
@@ -114,7 +124,7 @@ class VncRbac(object):
             try:
                 domain_id = self._db_conn.fq_name_to_uuid('domain', domain_name)
             except NoIdError:
-                return rule_list
+                return []
         else:
             x = uuid.UUID(domain_id)
             domain_id = str(x)
@@ -131,11 +141,9 @@ class VncRbac(object):
         rule_list.extend(rules)
 
         # get project rbac group
-        if project_id is None:
-            return rule_list
-
-        rules = self.get_rbac_rules_object('project', project_id)
-        rule_list.extend(rules)
+        if project_id is not None:
+            rules = self.get_rbac_rules_object('project', project_id)
+            rule_list.extend(rules)
 
         # [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]
 
@@ -146,6 +154,9 @@ class VncRbac(object):
             o = rule['rule_object']
             f = rule['rule_field']
             p = rule['rule_perms']
+            if f is None or f == '':
+                f = '*'
+                rule['rule_field'] = '*'
             o_f = "%s.%s" % (o,f) if f else o
             if o_f not in rule_dict:
                 rule_dict[o_f] = rule
@@ -161,10 +172,8 @@ class VncRbac(object):
                         role_to_crud_dict[role_name] = role_crud
                 # update perms in existing rule
                 rule_dict[o_f]['rule_perms'] = [{'role_crud': rc, 'role_name':rn} for rn,rc in role_to_crud_dict.items()]
-                # remove duplicate rule from list
-                rule_list.remove(rule)
 
-        return rule_list
+        return rule_dict.values()
     # end
 
     def request_path_to_obj_type(self, path):
@@ -192,6 +201,64 @@ class VncRbac(object):
         else:
             return (False, err_msg)
     #end
+    def tree(self):
+        return defaultdict(self.tree)
+
+    def add_node(self, t, path, rule):
+        v = t
+        for field in path:
+            if field == 'rbacrule':
+                t['rbacrule'] = rule
+            else:
+                t = t[field]
+        return v
+
+    def build_rule_tree(self, rule, fields, sub_tree):
+        if sub_tree is None:
+            sub_tree = self.tree()
+        sub_tree = self.add_node(sub_tree, fields, rule)
+        return sub_tree
+
+    def validate_inner_fields(self, rule_sub_tree,
+                              obj_sub_dict, roles, api_op):
+        parent_rule_match = 0
+        match = 2
+        for key in obj_sub_dict:
+            if key in rule_sub_tree:
+                if isinstance(obj_sub_dict[key], dict):
+                    # validate inner fields
+                    match = self.validate_inner_fields(
+                        rule_sub_tree[key], obj_sub_dict[key], roles, api_op)
+                    if match == 0:
+                        return match
+                    elif match & 1:
+                        if 'rbacrule' in rule_sub_tree[key]:
+                        # do the parent match
+                            ret, err_msg = self._match_rule(
+                                rule_sub_tree[key]['rbacrule'], roles, api_op)
+                            if ret is False:
+                                return 0
+                            else:
+                                # reset parent need parent match
+                                match = match ^ 1
+                else:
+                   # get the rule for  match
+                    if 'rbacrule' in rule_sub_tree[key]:
+                        # do the match
+                        ret, err_msg = self._match_rule(
+                                         rule_sub_tree[key]['rbacrule'],
+                                         roles, api_op)
+                        if ret is False:
+                            return 0
+                    else:
+                        # need parent rule match
+                        match = 1
+            else:
+                # need parent rule match
+                match = 1
+            parent_rule_match = (parent_rule_match |
+                                        match)
+        return parent_rule_match
 
     # op is one of 'CRUD'
     def validate_request(self, request):
@@ -252,24 +319,56 @@ class VncRbac(object):
         wildcard_rule = None
         obj_rule = None
         field_rule_list = []
+        sub_field_rule_tree = {}
         for rule in rule_list:
             if (rule['rule_object'] == '*'):
                 wildcard_rule = (rule)
             elif (rule['rule_object'] == obj_key):
-                if ((rule['rule_field'] != '') and
-                   (rule['rule_field'] is not None) and
-                   (rule['rule_field'] != '*')):
-                    field_rule_list.append(rule)
+                if (rule['rule_field'] != '*'):
+                    fields = rule['rule_field'].split('.')
+                    # subfield rules
+                    if len(fields) > 1:
+                        fields.append('rbacrule')
+                        tree = self.build_rule_tree(rule, fields[1:],
+                            (sub_field_rule_tree.get(
+                                rule['rule_object']).get(fields[0])
+                        if sub_field_rule_tree.get(
+                          rule['rule_object']) else None))
+                        if rule['rule_object'] not in sub_field_rule_tree:
+                            sub_field_rule_tree[rule['rule_object']] = {}
+                        sub_field_rule_tree[rule['rule_object']][fields[0]] = tree
+                    else:
+                        field_rule_list.append(rule)
+
                 else:
                     obj_rule = (rule)
             else:
                 #Not interested rule
                 continue
+        need_generic_rule_match = False
+        self.need_generic_field_rule_match = {}
+        if (obj_key in sub_field_rule_tree) and (len(obj_dict) != 0):
+            for key in obj_dict.keys():
+                if key in sub_field_rule_tree[obj_key]:
+                    match = self.validate_inner_fields(
+                      sub_field_rule_tree[obj_key][key],
+                      obj_dict[key], roles, api_op)
+                    if match == 0:
+                        return False, err_msg
+                    self.need_generic_field_rule_match[key] = match & 1
+                else:
+                    self.need_generic_field_rule_match[key] = 0
+            if 1 not in self.need_generic_field_rule_match.values():
+                return True, ''
 
         if field_rule_list and obj_dict:
             for rule in field_rule_list:
                 f = rule['rule_field']
-                if f in obj_dict:
+               subfield_generic_match = True
+               if f in self.need_generic_field_rule_match:
+                   subfield_generic_match = self.need_generic_field_rule_match[f]
+
+               if f in obj_dict and subfield_generic_match ==  1:
                     match, err_msg = self._match_rule(rule, roles, api_op)
                     if match == True:
                         del obj_dict[f]
