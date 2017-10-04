@@ -25,7 +25,7 @@ from vnc_quota import QuotaHelper
 from context import get_context
 from gen.resource_xsd import *
 from gen.resource_common import *
-from netaddr import IPNetwork
+from netaddr import IPNetwork, IPAddress, IPRange
 from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from provision_defaults import *
@@ -38,7 +38,7 @@ def _parse_rt(rt):
     target = int(target)
     if not asn.isdigit():
         try:
-            netaddr.IPAddress(asn)
+            IPAddress(asn)
         except netaddr.core.AddrFormatError:
             raise ValueError()
     else:
@@ -528,7 +528,19 @@ class InstanceIpServer(Resource, InstanceIp):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        if 'virtual_network_refs' in obj_dict:
+        virtual_router_refs = obj_dict.get('virtual_router_refs')
+        virtual_network_refs = obj_dict.get('virtual_network_refs')
+        network_ipam_refs = obj_dict.get('network_ipam_refs')
+
+        if virtual_router_refs and network_ipam_refs:
+            msg = "virtual_router_refs and ipam_refs are not allowed"
+            return (False, (400, msg))
+
+        if virtual_router_refs and virtual_network_refs:
+            msg = "router_refs and network_refs are not allowed"
+            return (False, (400, msg))
+
+        if virtual_network_refs:
             vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
             if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
@@ -546,9 +558,26 @@ class InstanceIpServer(Resource, InstanceIp):
             ipam_refs = None
         else:
             vn_fq_name = vn_id = vn_dict = None
-            ipam_refs = obj_dict['network_ipam_refs']
+            if virtual_router_refs:
+                if len(virtual_router_refs) > 1:
+                    return (False,
+                        (400,
+                         'Instance Ip can not refer to multiple vrouters'))
+
+                vrouter_uuid = virtual_router_refs[0].get('uuid')
+                (ok, vrouter_dict) = db_conn.dbe_read(obj_type='virtual_router',
+                                                      obj_id=vrouter_uuid)
+                if not ok:
+                    return (ok, (400, obj_dict))
+                ipam_refs = vrouter_dict.get('network_ipam_refs') or []
+            else:
+                ipam_refs = obj_dict.get('network_ipam_refs')
 
         subnet_uuid = obj_dict.get('subnet_uuid')
+        if subnet_uuid and virtual_router_refs:
+            msg = "subnet uuid based allocation not supported with vrouter"
+            return (False, (400, msg))
+
         req_ip = obj_dict.get("instance_ip_address")
         req_ip_family = obj_dict.get("instance_ip_family")
         if req_ip_family == "v4":
@@ -574,13 +603,24 @@ class InstanceIpServer(Resource, InstanceIp):
                     (400, 'Gateway IP cannot be used by VM port'))
         # end if request has ip addr
 
+        alloc_pool_list=[]
+        if 'virtual_router_refs' in obj_dict:
+            # go over all the ipam_refs and build a list of alloc_pools
+            # from where ip is expected
+            for vr_ipam in ipam_refs:
+                vr_ipam_data = vr_ipam.get('attr', {})
+                vr_alloc_pools = vr_ipam_data.get('allocation_pools', [])
+                alloc_pool_list.extend(
+                    [(vr_alloc_pool) for vr_alloc_pool in vr_alloc_pools])
+
         try:
             (ip_addr, sn_uuid) = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, vn_dict=vn_dict, sub=subnet_uuid,
                 asked_ip_addr=req_ip,
                 asked_ip_version=req_ip_version,
                 alloc_id=obj_dict['uuid'],
-                ipam_refs=ipam_refs)
+                ipam_refs=ipam_refs,
+                alloc_pools=alloc_pool_list)
 
             def undo():
                 db_conn.config_log('AddrMgmt: free IP %s, vn=%s tenant=%s on post fail'
@@ -1705,6 +1745,181 @@ class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
         return True, ''
 # end class ApplicationPolicySetServer
 
+class VirtualRouterServer(Resource, VirtualRouter):
+
+    @classmethod
+    def _vr_to_pools(self, obj_dict):
+        # given a VR return its allocation-pools in list
+
+        ipam_refs = obj_dict.get('network_ipam_refs')
+        if ipam_refs != None:
+            pool_list = []
+            for ref in ipam_refs:
+                vr_ipam_data = ref['attr']
+                vr_pools = vr_ipam_data.get('allocation_pools', [])
+                pool_list.extend([(vr_pool['start'], vr_pool['end'])
+                                 for vr_pool in vr_pools])
+        else:
+            pool_list = None
+
+        return pool_list
+    # end _vr_to_pools
+
+    #check if any ip address from given alloc_pool sets is used in
+    # in given virtual router, for instance_ip
+    @classmethod
+    def _check_vr_alloc_pool_delete(self, pool_set, vr_dict, db_conn):
+        iip_refs = vr_dict.get('instance_ip_back_refs') or []
+        if not iip_refs:
+            return True, ""
+
+        iip_uuid_list = [(iip_ref['uuid']) for iip_ref in iip_refs]
+        (ok, iip_list, _) = db_conn.dbe_list('instance_ip',
+                                obj_uuids=iip_uuid_list,
+                                field_names=['instance_ip_address'])
+        if not ok:
+            return (ok, 400, 'Error in dbe_list: %s' % pformat(iip_list))
+
+        for iip in iip_list:
+            iip_addr = iip.get('instance_ip_address')
+            if not iip_addr:
+                self.config_log(
+                    "Error in pool delete ip null: %s" %(iip['uuid']),
+                    level=SandeshLevel.SYS_ERR)
+                continue
+
+            for alloc_pool in pool_set:
+                if iip_addr in IPRange(alloc_pool[0], alloc_pool[1]):
+                    return (False,
+                        'Cannot Delete allocation pool, %s in use' % iip_addr)
+
+        return True, ""
+    # end _check_vr_alloc_pool_delete
+
+    @classmethod
+    def _vrouter_check_alloc_pool_delete(self, db_vr_dict, req_vr_dict,
+                                         db_conn):
+        if 'network_ipam_refs' not in req_vr_dict:
+            # alloc_pools not modified in request
+            return True, ""
+
+        ipam_refs = req_vr_dict.get('network_ipam_refs')
+        if not ipam_refs:
+            iip_refs = db_dict.get('instance_ip_back_refs')
+            if iip_refs:
+                return (False,
+                        'Cannot Delete allocation pool,ip address in use')
+
+        existing_vr_pools = self._vr_to_pools(db_vr_dict)
+        if not existing_vr_pools:
+            return True, ""
+
+        requested_vr_pools = self._vr_to_pools(req_vr_dict)
+        delete_set = set(existing_vr_pools) - set(requested_vr_pools)
+        if not delete_set:
+            return True, ""
+
+        return self._check_vr_alloc_pool_delete(delete_set, db_vr_dict,
+                                                db_conn)
+    # end _vrouter_check_alloc_pool_delete
+
+    @classmethod
+    def _validate_vrouter_alloc_pools(cls, vrouter_dict, db_conn, ipam_refs):
+        if not ipam_refs:
+            return True, ''
+
+        ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs] 
+        (ok, ipam_list, _) = db_conn.dbe_list('network_ipam',
+                                obj_uuids=ipam_uuid_list,
+                                field_names=['ipam_subnet_method',
+                                             'ipam_subnets'])
+        if not ok:
+            return (ok, 400, 'Error in dbe_list: %s' % pformat(ipam_list))
+
+        for ipam_ref, ipam in zip(ipam_refs, ipam_list):
+            subnet_method = ipam.get('ipam_subnet_method')
+            if subnet_method != 'flat-subnet':
+                return (False, "only flat-subnet ipam can be attached to vrouter")
+
+            ipam_subnets = ipam.get('ipam_subnets', {})
+            # read data on the link between vrouter and ipam
+            # if alloc pool exists, then make sure that alloc-pools are
+            # configured in ipam subnet with a flag indicating
+            # vrouter specific allocation pool
+            vr_ipam_data = ipam_ref['attr']
+            vr_alloc_pools = vr_ipam_data.get('allocation_pools')
+            if not vr_alloc_pools:
+                return (False,
+                        "No allocation-pools for this vrouter")
+
+            for vr_alloc_pool in vr_alloc_pools:
+                vr_alloc_pool.pop('vrouter_specific_pool', None)
+
+            vr_subnets = vr_ipam_data.get('subnet', [])
+            if vr_subnets:
+                for vr_subnet in vr_subnets:
+                    vr_sn_prefix = vr_subnet['ip_prefix']
+                    vr_sn_prefix_len = vr_subnet['ip_prefix_len']
+                    try:
+                        prefix = IPAddress(vr_sn_prefix)
+                    except netaddr.core.AddrFormatError:
+                        return (False,
+                                "vrouter subnet prefix is invalid")
+
+            # get all allocation pools in this ipam
+            subnets = ipam_subnets.get('subnets', [])
+            ipam_alloc_pools = []
+            for subnet in subnets:
+                subnet_alloc_pools = subnet.get('allocation_pools', [])
+                for subnet_alloc_pool in subnet_alloc_pools:
+                    vr_flag = subnet_alloc_pool.get('vrouter_specific_pool')
+                    if vr_flag:
+                        ipam_alloc = {'start':subnet_alloc_pool['start'],
+                                      'end':subnet_alloc_pool['end']}
+                        ipam_alloc_pools.append(ipam_alloc)
+
+            for vr_alloc_pool in vr_alloc_pools:
+                if vr_alloc_pool not in ipam_alloc_pools:
+                    return (False,
+                            'vrouter allocation-pool start:%s, end:%s '
+                            'not in ipam' %(vr_alloc_pool['start'],
+                                            vr_alloc_pool['end']))
+
+        return True, ''
+
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ipam_refs = obj_dict.get('network_ipam_refs') or []
+        if not ipam_refs:
+            return True, ''
+
+        (ok, result) = cls._validate_vrouter_alloc_pools(obj_dict, db_conn,
+                                                         ipam_refs)
+        if not ok:
+            return (False, (400, result))
+
+        return True, ''
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+
+        (ok, db_dict) = cls.dbe_read(db_conn, 'virtual_router', id)
+        (ok, result) = cls._vrouter_check_alloc_pool_delete(db_dict, obj_dict,
+                                                            db_conn)
+        if not ok:
+            return (False, (400, result))
+
+        ipam_refs = obj_dict.get('network_ipam_refs')
+        if ipam_refs:
+                (ok, result) = cls._validate_vrouter_alloc_pools(obj_dict,
+                                                                 db_conn,
+                                                                 ipam_refs)
+                if not ok:
+                    return (False, (400, result))
+
+        return True, ''
+# end class VirtualRouterServer
+
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
@@ -1865,7 +2080,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
                                                     ipam_fq_name)
 
             (ok, ipam_dict) = db_conn.dbe_read(obj_type='network_ipam',
-                                               obj_id=ipam_uuid)
+                                               obj_id=ipam_uuid,
+                                               obj_fields=['ipam_subnet_method',
+                                                           'ipam_subnets'])
             if not ok:
                 return (ok, 400, ipam_dict)
 
