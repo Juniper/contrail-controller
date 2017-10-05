@@ -4,13 +4,12 @@ from gevent import monkey
 from mock import MagicMock
 monkey.patch_all()
 
+from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM, ServiceKM
 from kube_manager.tests.vnc import test_case
 from kube_manager.tests.vnc.db_mock import DBBaseKM
-from kube_manager.vnc.config_db import InstanceIpKM
 from kube_manager.vnc.vnc_kubernetes import VncKubernetes
 from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig
-from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
 
 TEST_NAMESPACE = 'test-namespace'
 TEST_SERVICE_NAME = 'test-service'
@@ -456,7 +455,7 @@ class VncEndpointsTest(VncEndpointsTestBase):
 class VncEndpointsNestedTest(VncEndpointsTestBase):
 
     @classmethod
-    def setUpClass(cls, extra_config_knobs=None):
+    def setUpClass(cls, extra_config_knobs=None, kube_args=None):
         super(VncEndpointsNestedTest, cls).setUpClass(
             extra_config_knobs=extra_config_knobs,
             kube_args=(('KUBERNETES', 'nested_mode', '1'),))
@@ -481,8 +480,7 @@ class VncEndpointsNestedTest(VncEndpointsTestBase):
             lambda f: (f, getattr(self._vnc_lib, f)().values()[0]),
             filter(
                 lambda n: n.endswith('list') and not
-                n.startswith('_') and not
-                          n == 'resource_list',
+                n.startswith('_') and n != 'resource_list',
                 dir(self._vnc_lib))))
 
     def test_endpoints_add(self):
@@ -599,3 +597,34 @@ class VncEndpointsNestedTest(VncEndpointsTestBase):
 
         self._check_lb_members()
 
+
+class VncEndpointsTestScaling(VncEndpointsTestBase):
+    def test_endpoints_add_scaling(self):
+        scale = 50
+        endpoint_list = []
+
+        for i in xrange(scale):
+            pod_uid = self._add_pod(
+                pod_name = 'test-pod' + str(i),
+                pod_namespace = TEST_NAMESPACE,
+                pod_status={
+                    'hostIP': '192.168.0.1',
+                    'phase': 'created'
+                })
+            self.wait_for_all_tasks_done()
+            vmi_uid = self._get_vmi_uid(pod_uid)
+
+            endpoints = self._add_endpoints(
+                name=TEST_SERVICE_NAME,
+                namespace=TEST_NAMESPACE,
+                pod_uids=[pod_uid])
+            self.wait_for_all_tasks_done()
+
+            self._check_lb_members((pod_uid, vmi_uid))
+            endpoint_list.append(endpoints)
+
+        for i in xrange(scale):
+            self._delete_endpoints(endpoint_list[i])
+            self.wait_for_all_tasks_done()
+
+        self._check_lb_members()
