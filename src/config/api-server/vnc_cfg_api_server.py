@@ -1550,12 +1550,12 @@ class VncApiServer(object):
         # ZK quota counter initialization
         (ok, project_list) = self._db_conn.dbe_list('project')
         if not ok:
-            (code, err_msg) = status
+            (code, err_msg) = project_list
             raise cfgm_common.exceptions.HttpError(code, err_msg)
         for _project in project_list or []:
             (ok, project) = self._db_conn.dbe_read('project', {'uuid': _project[1]})
             if not ok:
-                (code, err_msg) = status
+                (code, err_msg) = project
                 raise cfgm_common.exceptions.HttpError(code, err_msg)
             if project.get('quota'):
                 path_prefix = self._path_prefix + project['uuid']
