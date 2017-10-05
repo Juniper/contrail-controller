@@ -2377,19 +2377,27 @@ class DBInterface(object):
     #end _gw_port_vnc_to_neutron
 
     def _get_router_gw_interface_for_neutron(self, context, router):
-        # Only admin user can list router gw inteface
-        if not context.get('is_admin', False):
-            return
-
         si_ref = (router.get_service_instance_refs() or [None])[0]
-        if si_ref is None:
+        vn_ref = (router.get_virtual_network_refs() or [None])[0]
+        if si_ref is None or vn_ref is None:
             # No gateway set on that router
             return
 
         # Router's gateway is enabled on the router
         # As Contrail model uses a service instance composed of 2 VM for the
         # gw stuff, we use the first VMI of the first SI's VM as Neutron router
-        # gw port
+        # gw port.
+        # Only admin user or port's network owner can list router gw interface.
+        if not context.get('is_admin', False):
+            try:
+                vn = self._vnc_lib.virtual_network_read(
+                    id=vn_ref['uuid'], fields=['parent_uuid'],
+                )
+            except NoIdError:
+                return
+            if vn.parent_uuid != self._validate_project_ids(context)[0]:
+                return
+
         try:
             si = self._vnc_lib.service_instance_read(
                 id=si_ref['uuid'],
@@ -2397,6 +2405,7 @@ class DBInterface(object):
             )
         except NoIdError:
             return
+
         # To be sure to always use the same SI's VM, we sort them by theirs
         # name
         vm_ref = sorted(si.get_virtual_machine_back_refs() or [],
@@ -2598,8 +2607,10 @@ class DBInterface(object):
                 port_q_dict['device_id'] = rtr_uuid
                 port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_GW
                 # Neutron router gateway interface is a system resource only
-                # visible by admin user. Neutron intentionally set the tenant
-                # id to None for that
+                # visible by admin user or port's network owner. Neutron
+                # intentionally set the tenant id to None for that
+                # https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L354-L355
+                # Not sure why it's necessary
                 port_q_dict['tenant_id'] = ''
             else:
                 port_q_dict['device_id'] = \
