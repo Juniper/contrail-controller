@@ -3425,6 +3425,8 @@ class DBInterface(object):
         fip_objs = self._vnc_lib.floating_ips_list(obj_uuids=fip_ids,
                                                back_ref_id=backref_ids,
                                                detail=True)
+        if fip_objs == []:
+            return []
 
         # prep memo for optimization
         fip_vn_fqn = set(tuple(fip_obj.fq_name[:-2]) for fip_obj in fip_objs)
