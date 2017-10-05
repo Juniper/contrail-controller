@@ -759,6 +759,21 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
     //Now process events.
     switch (req->event()) {
     case FlowEvent::DELETE_FLOW: {
+        //In case of continous stream of short lived TCP flows with same 5 tuple,
+        //flow eviction logic might cause below set of event
+        //1> F1 and R1 flow are added to flow table
+        //2> R1 is written to vrouter
+        //3> F1 is written to vrouter
+        //4> R1 flow add response is received, triggering update of
+        //   F1(not needed now as reverse flow index is not written to kernel?)
+        //5> In the meantime flow is evicted in vrouter, hence flow update for F1
+        //   would result in error from vrouter resulting in short flow
+        //6> Since F1 is shortflow Flow delete gets enqueued
+        //7> Since R1 is evict marked, flow evict gets enqueued
+        //8> Both event F1 and R1 delete and evict event can run in parallel,
+        //   and hence reverse flow pointer obtained before FLOW lock could
+        //   be invalid, hence read back the same
+        rflow = flow->reverse_flow_entry();
         DeleteUnLocked(true, flow, rflow);
         break;
     }
