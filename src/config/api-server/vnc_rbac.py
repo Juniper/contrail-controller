@@ -183,8 +183,7 @@ class VncRbac(object):
             obj_type = x.group(1)
         """
     # end
-    def _match_rule(self, rule, roles, api_op):
-        err_msg = (403, 'Permission Denied')
+    def _match_rule(self, rule, roles, api_op, err_msg):
         p = rule['rule_perms']
         role_match = [rc['role_name'] in (roles + ['*']) and
                       api_op in rc['role_crud'] for rc in p]
@@ -214,7 +213,7 @@ class VncRbac(object):
         return sub_tree
 
     def validate_inner_fields(self, rule_sub_tree,
-                              obj_sub_dict, roles, api_op):
+                              obj_sub_dict, roles, api_op, err_msg):
         parent_rule_match = 0
         match = 2
         for key in obj_sub_dict:
@@ -222,14 +221,14 @@ class VncRbac(object):
                 if isinstance(obj_sub_dict[key], dict):
                     # validate inner fields
                     match = self.validate_inner_fields(
-                        rule_sub_tree[key], obj_sub_dict[key], roles, api_op)
+                        rule_sub_tree[key], obj_sub_dict[key], roles, api_op, err_msg)
                     if match == 0:
                         return match
                     elif match & 1:
                         if 'rbacrule' in rule_sub_tree[key]:
                         # do the parent match
                             ret, err_msg = self._match_rule(
-                                rule_sub_tree[key]['rbacrule'], roles, api_op)
+                                rule_sub_tree[key]['rbacrule'], roles, api_op, err_msg)
                             if ret is False:
                                 return 0
                             else:
@@ -241,7 +240,7 @@ class VncRbac(object):
                         # do the match
                         ret, err_msg = self._match_rule(
                                          rule_sub_tree[key]['rbacrule'],
-                                         roles, api_op)
+                                         roles, api_op, err_msg)
                         if ret is False:
                             return 0
                     else:
@@ -265,8 +264,6 @@ class VncRbac(object):
         if not self.rbac_enabled():
             return (True, '')
 
-        err_msg = (403, 'Permission Denied')
-
         user, roles = self.get_user_roles(request)
         is_admin = self.cloud_admin_role in roles
         # other checks redundant if admin
@@ -280,7 +277,7 @@ class VncRbac(object):
         if len(rule_list) == 0:
             msg = 'rbac: rule list empty!!'
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
-            return (False, err_msg)
+            return (403, 'Permission Denied RBAC rule list empty')
 
         # object of access = 'project', 'virtual-network' ...
         obj_type = self.request_path_to_obj_type(request.path)
@@ -294,12 +291,16 @@ class VncRbac(object):
             obj_key = obj_type[:-1]
         else:
             obj_key = obj_type
-
+        err_msg = (403, 'Permission Denied for %s as %s to %s %s in %s'
+                   %(user, roles, api_op, obj_key, project_name ))
         try:
             obj_dict = dict(request.json[obj_key])
         except Exception:
             obj_dict = {}
-
+        if 'uuid' in obj_dict:
+            del obj_dict['uuid']
+        if 'fq_name' in obj_dict:
+            del obj_dict['fq_name']
         msg = 'rbac: u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s(%s), dom:%s' \
             % (user, roles, obj_type, api_op, len(rule_list), project_id, project_name, domain_id)
         self._server_mgr.config_log(msg, level=SandeshLevel.SYS_DEBUG)
@@ -339,12 +340,12 @@ class VncRbac(object):
                 if key in sub_field_rule_tree[obj_key]:
                     match = self.validate_inner_fields(
                       sub_field_rule_tree[obj_key][key],
-                      obj_dict[key], roles, api_op)
+                      obj_dict[key], roles, api_op, err_msg)
                     if match == 0:
                         return False, err_msg
                     self.need_generic_field_rule_match[key] = match & 1
                 else:
-                    self.need_generic_field_rule_match[key] = 0
+                    self.need_generic_field_rule_match[key] = 1
             if 1 not in self.need_generic_field_rule_match.values():
                 return True, ''
 
@@ -357,7 +358,7 @@ class VncRbac(object):
                if f in self.need_generic_field_rule_match:
                    subfield_generic_match = self.need_generic_field_rule_match[f]
                if f in obj_dict and subfield_generic_match ==  1:
-                   match, err_msg = self._match_rule(rule, roles, api_op)
+                   match, err_msg = self._match_rule(rule, roles, api_op, err_msg)
                    if match == True:
                        del obj_dict[f]
                    else:
@@ -367,17 +368,17 @@ class VncRbac(object):
                return (True, '')
            elif (obj_rule) is not None:
                #validate against obj_rule
-               return self._match_rule(obj_rule, roles, api_op)
+               return self._match_rule(obj_rule, roles, api_op, err_msg)
            elif (wildcard_rule) is not None:
-               return self._match_rule(wildcard_rule, roles, api_op)
+               return self._match_rule(wildcard_rule, roles, api_op, err_msg)
            else:
                return (False, err_msg)
         elif (obj_rule) is not None:
             #No field rules, match obj rule permissions.
-            return self._match_rule(obj_rule, roles, api_op)
+            return self._match_rule(obj_rule, roles, api_op, err_msg)
         elif (wildcard_rule) is not None:
             #No obj or field rules, match wildcard rule permissions
-            return self._match_rule(wildcard_rule, roles, api_op)
+            return self._match_rule(wildcard_rule, roles, api_op, err_msg)
         else:
             msg = 'rbac: No interested rules!!'
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
