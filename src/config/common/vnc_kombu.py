@@ -293,13 +293,12 @@ class VncKombuClientV1(VncKombuClientBase):
 
 class VncKombuClientV2(VncKombuClientBase):
     def _parse_rabbit_hosts(self, rabbit_hosts):
-        server_list = rabbit_hosts.split(",")
 
         default_dict = {'user': self._rabbit_user,
                         'password': self._rabbit_password,
                         'port': self._rabbit_port}
         ret = []
-        for s in server_list:
+        for s in rabbit_hosts:
             match = re.match("(?:(?P<user>.*?)(?::(?P<password>.*?))*@)*(?P<host>.*?)(?::(?P<port>\d+))*$", s)
             if match:
                 mdict = match.groupdict().copy()
@@ -319,9 +318,9 @@ class VncKombuClientV2(VncKombuClientBase):
                                                rabbit_vhost, rabbit_ha_mode,
                                                q_name, subscribe_cb, logger,
                                                heartbeat_seconds, **kwargs)
-        self._server_addrs = rabbit_hosts.split(',')
+        self._server_addrs = re.compile('[,\s]+').split(rabbit_hosts)
 
-        _hosts = self._parse_rabbit_hosts(rabbit_hosts)
+        _hosts = self._parse_rabbit_hosts(self._server_addrs)
         self._urls = []
         for h in _hosts:
             h['vhost'] = "" if not rabbit_vhost else rabbit_vhost
