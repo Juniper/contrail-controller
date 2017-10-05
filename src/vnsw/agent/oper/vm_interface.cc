@@ -2084,9 +2084,6 @@ void VmInterface::AllowedAddressPair::Copy(const Agent *agent,
 
 VmInterfaceState::Op VmInterface::AllowedAddressPair::GetOpL2
 (const Agent *agent, const VmInterface *vmi) const {
-    if (GetIpActiveState(addr_, vmi) == false)
-        return VmInterfaceState::DEL;
-
     if (vmi->bridging() == false)
         return VmInterfaceState::DEL;
 
