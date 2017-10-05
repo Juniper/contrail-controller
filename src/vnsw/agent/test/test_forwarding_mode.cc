@@ -556,6 +556,17 @@ TEST_F(ForwardingModeTest, default_forwarding_mode_l2) {
     DeleteSingleVmEnvironment();
 }
 
+TEST_F(ForwardingModeTest, default_forwarding_mode_l2_add_aap) {
+    SetupSingleVmEnvironment("l2");
+    VerifyL2OnlyMode();
+    /* Adding AAP entry */
+    AddAap("vnet1", 1, Ip4Address::from_string("11.11.11.11"), "11:11:11:11:11:11");
+    client->WaitForIdle();    
+    BridgeRouteEntry* aap_l2_rt = L2RouteGet("vrf1", MacAddress::FromString("11:11:11:11:11:11"));
+    EXPECT_TRUE(aap_l2_rt != NULL);
+    DeleteSingleVmEnvironment();
+}
+
 TEST_F(ForwardingModeTest, default_forwarding_mode_l3) {
     SetupSingleVmEnvironment("l3");
     client->WaitForIdle();
