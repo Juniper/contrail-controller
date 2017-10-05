@@ -89,11 +89,11 @@ bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
     icmp->icmp6_code = 0;
     icmp->icmp6_mtu = htonl(pkt_info_->agent_hdr.mtu); 
     icmp->icmp6_cksum = 0;
+    memcpy(buff + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN, data, len);
     icmp->icmp6_cksum =
         Icmpv6Csum(ipam->default_gw.to_v6().to_bytes().data(),
                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
-                   icmp, len);
-    memcpy(buff + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN, data, len); 
+                   icmp, len + ICMP_UNREACH_HDR_LEN);
     pkt_info_->set_len(len + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN);
  
     uint16_t command =
