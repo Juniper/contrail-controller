@@ -88,7 +88,6 @@ class VncPermissions(object):
     # end validate_perms
 
     def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None):
-        err_msg = (403, 'Permission Denied')
 
         # retrieve object and permissions
         try:
@@ -105,6 +104,7 @@ class VncPermissions(object):
             return (True, 'RWX')
         if has_role(self.global_read_only_role, roles) and mode == PERMS_R:
             return (True, 'R')
+
 
         env = request.headers.environ
         tenant = env.get('HTTP_X_PROJECT_ID')
@@ -166,6 +166,8 @@ class VncPermissions(object):
             msg = "rbac: %s doesn't have %s permission in tenant %s" % (user, self.mode_str2[mode], owner)
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
+        err_msg = (403, 'Permission Denied for %s to %s operation on %s in %s'
+                   %(roles, mode, obj_type, tenant?tenant:domain))
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
