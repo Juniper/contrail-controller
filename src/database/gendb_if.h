@@ -259,7 +259,6 @@ public:
     // Init/Uninit
     virtual bool Db_Init() = 0;
     virtual void Db_Uninit() = 0;
-    virtual void Db_UninitUnlocked() = 0;
     virtual void Db_SetInitDone(bool init_done) = 0;
     // Tablespace
     virtual bool Db_SetTablespace(const std::string& tablespace) = 0;
