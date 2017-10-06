@@ -33,6 +33,23 @@ from test_perms2 import User, set_perms, vnc_read_obj, vnc_aal_create, vnc_aal_a
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+
+def token_from_user_info(user_name, tenant_name, domain_name, role_name,
+        tenant_id = None, domain_id = None):
+    token_dict = {
+        'X-User': user_name,
+        'X-User-Name': user_name,
+        'X-Project-Name': tenant_name,
+        'X-Project-Id': tenant_id or '',
+        'X-Domain-Id' : domain_id or '',
+        'X-Domain-Name' : domain_name,
+        'X-Role': role_name,
+    }
+    rval = json.dumps(token_dict)
+    # logger.info( 'Generate token %s' % rval)
+    return rval
+
+
 # This is needed for VncApi._authenticate invocation from within Api server.
 # We don't have access to user information so we hard code admin credentials.
 def ks_admin_authenticate(self, response=None, headers=None):
