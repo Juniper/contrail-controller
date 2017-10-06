@@ -28,8 +28,13 @@ from collections import OrderedDict
 import sys
 import cStringIO
 import logging
+from ConfigParser import NoOptionError
 
 from cfgm_common import vnc_cgitb
+
+
+_DEFAULT_USER_DOMAIN_NAME = 'Default'
+_DEFAULT_DOMAIN_ID = 'default'
 
 
 def cgitb_hook(info=None, **kwargs):
@@ -184,3 +189,56 @@ def compare_refs(old_refs, new_refs):
     new_ref_dict = dict((':'.join(ref['to']), ref.get('attr')) for ref in new_refs or [])
     return old_ref_dict == new_ref_dict
 # end compare_refs
+
+
+def get_arg(args, name, default=None):
+    try:
+        kwarg = {name: eval('args.%s' % name)}
+    except AttributeError:
+        try:
+           kwarg = {name: args.get('KEYSTONE', name)}
+        except (NoOptionError, AttributeError):
+            if not default:
+                return
+            kwarg = {name: default}
+
+    return kwarg
+# end get_arg
+
+def get_user_domain_kwargs(args):
+    user_domain = get_arg(args, 'user_domain_id')
+    if not user_domain:
+        user_domain = get_arg(args, 'user_domain_name', _DEFAULT_USER_DOMAIN_NAME)
+
+    return user_domain
+# end get_user_domain_kwargs
+
+def get_project_scope_kwargs(args):
+    scope_kwargs = {}
+    project_domain_name = get_arg(args, 'project_domain_name')
+    project_domain_id = get_arg(args, 'project_domain_id')
+    if project_domain_name:
+        # use project domain name
+        scope_kwargs.update(**project_domain_name)
+    elif project_domain_id:
+        # use project domain id
+        scope_kwargs.update(**project_domain_id)
+    if scope_kwargs:
+        project_name = get_arg(args, 'project_name', args.admin_tenant_name)
+        scope_kwargs.update({'project_name': project_name})
+
+    return scope_kwargs
+# end get_project_scope_kwargs
+
+def get_domain_scope_kwargs(args):
+    scope_kwargs = {}
+    domain_name = get_arg(args, 'domain_name')
+    domain_id = get_arg(args, 'domain_id', _DEFAULT_DOMAIN_ID)
+    if domain_name:
+        # use domain name
+        scope_kwargs.update(**domain_name)
+    elif domain_id:
+        # use domain id
+        scope_kwargs.update(**domain_id)
+    return scope_kwargs
+# end get_domain_scope_kwargs
