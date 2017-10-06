@@ -310,17 +310,15 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             kwargs = {
                 'username': self._auth_user,
                 'password': self._auth_passwd,
-                'user_domain_name': self._user_domain_name,
             }
-            if self._domain_id:
-                kwargs.update({
-                    'domain_id': self._domain_id,
-                })
-            else:
-                kwargs.update({
-                    'project_domain_name': self._project_domain_name,
-                    'project_name': self._project_name,
-                })
+            # Add user domain info
+            kwargs.update(**cfgmutils.get_user_domain_kwargs(self._config_sections))
+            # Get project scope auth params
+            scope_kwargs = cfgmutils.get_project_scope_kwargs(self._config_sections)
+            if not scope_kwargs:
+                # Default to domain scoped auth
+                scope_kwargs = cfgmutils.get_domain_scope_kwargs(self._config_sections)
+            kwargs.update(**scope_kwargs)
             auth = kauth.password.Password(self._auth_url, **kwargs)
 
         sess = ksession.Session(auth=auth, verify=verify)
