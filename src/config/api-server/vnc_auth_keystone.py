@@ -30,8 +30,6 @@ from cfgm_common import vnc_greenlets
 
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE= "/tmp/keystonecertbundle.pem"
-_DEFAULT_USER_DOMAIN_NAME = "Default"
-_DEFAULT_DOMAIN_ID = "default"
 
 # Open port for access to API server for trouble shooting
 class LocalAuth(object):
@@ -176,12 +174,12 @@ class AuthServiceKeystone(object):
                 'password': args.admin_password,
             })
             # Add user domain info
-            self._conf_info.update(**self.get_user_domain_kwargs())
+            self._conf_info.update(**cfgmutils.get_user_domain_kwargs(args))
             # Get project scope auth params
-            scope_kwargs = self.get_project_scope_kwargs()
+            scope_kwargs = cfgmutils.get_project_scope_kwargs(args)
             if not scope_kwargs:
                 # Default to domain scoped auth
-                scope_kwargs = self.get_domain_scope_kwargs()
+                scope_kwargs = cfgmutils.get_domain_scope_kwargs(args)
             self._conf_info.update(**scope_kwargs)
 
         if _kscertbundle:
@@ -210,54 +208,6 @@ class AuthServiceKeystone(object):
         self._user_auth_middleware = None
         self._hdr_from_token_auth_middleware = None
     # end __init__
-
-    def get_arg(self, name, default=None):
-        try:
-            kwarg = {name: eval('self.args.%s' % name)}
-        except AttributeError:
-            if not default:
-                return
-            kwarg = {name: default}
-
-        return kwarg
-    # end get_arg
-
-    def get_user_domain_kwargs(self):
-        user_domain = self.get_arg('user_domain_id')
-        if not user_domain:
-            user_domain = self.get_arg('user_domain_name', _DEFAULT_USER_DOMAIN_NAME)
-
-        return user_domain
-    # end get_user_domain_kwargs
-
-    def get_project_scope_kwargs(self):
-        scope_kwargs = {}
-        project_domain_name = self.get_arg('project_domain_name')
-        project_domain_id = self.get_arg('project_domain_id')
-        if project_domain_name:
-            # use project domain name
-            scope_kwargs.update(**project_domain_name)
-        elif project_domain_id:
-            # use project domain id
-            scope_kwargs.update(**project_domain_id)
-        if scope_kwargs:
-            scope_kwargs.update({'project_name': self.args.admin_tenant_name})
-
-        return scope_kwargs
-    # end get_project_scope_kwargs
-
-    def get_domain_scope_kwargs(self):
-        scope_kwargs = {}
-        domain_name = self.get_arg('domain_name')
-        domain_id = self.get_arg('domain_id', _DEFAULT_DOMAIN_ID)
-        if domain_name:
-            # use domain name
-            scope_kwargs.update(**domain_name)
-        elif domain_id:
-            # use domain id
-            scope_kwargs.update(**domain_id)
-        return scope_kwargs
-    # end get_domain_scope_kwargs
 
     def get_middleware_app(self):
         if not self._auth_method:
