@@ -98,6 +98,13 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     QE_PARSE_ERROR(json_select_fields.IsArray());
     QE_TRACE(DEBUG, "# of select fields is " << json_select_fields.Size());
 
+    // set direction
+    int direction = INGRESS;
+    iter = json_api_data.find(QUERY_FLOW_DIR);
+    if (iter != json_api_data.end()) {
+        std::istringstream(iter->second) >> direction;
+    }
+
     // whether uuid key was provided in select field
     bool uuid_key_selected = false;
     bool reverse_uuid_key_selected = false;
@@ -255,8 +262,8 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                             session_json_fields.end(),
                             json_select_fields[i].GetString());
                 std::string field = json_select_fields[i].GetString();
-                if ((m_query->wherequery_->direction_ing == 1 && field == "sourceip")
-                    || (m_query->wherequery_->direction_ing == 0 && field == "destip")) {
+                if ((direction == 1 && field == "sourceip")
+                    || (direction == 0 && field == "destip")) {
                     unroll_needed |= false;
                 } else {
                     unroll_needed |= (it != session_json_fields.end());
