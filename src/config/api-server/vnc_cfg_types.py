@@ -1205,10 +1205,12 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict)
         if not ok:
             return (ok, response)
+
+        is_shared = obj_dict.get('is_shared')
         # neutorn <-> vnc sharing
-        if obj_dict['perms2']['global_access']:
+        if obj_dict['perms2']['global_access'] == PERMS_RWX:
             obj_dict['is_shared'] = True
-        elif obj_dict.get('is_shared'):
+        elif is_shared:
             obj_dict['perms2']['global_access'] = PERMS_RWX
 
         # TODO(ethuleau): As we keep the virtual network ID allocation in
