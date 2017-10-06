@@ -949,7 +949,8 @@ class OpServerUtils(object):
     def get_query_dict(table, start_time=None, end_time=None,
                        select_fields=None,
                        where_clause="",
-                       sort_fields=None, sort=None, limit=None, filter=None, dir=None):
+                       sort_fields=None, sort=None, limit=None, filter=None, dir=None,
+                       is_service_instance=None, session_type=None):
         """
         This function takes in the query parameters,
         format appropriately and calls
@@ -1002,7 +1003,7 @@ class OpServerUtils(object):
                     bval = match_vp[0]
                     match_v = match_vp[1].split("<")
 
-                
+
                 if len(match_v) is 1:
                     if match_v[0][-1] is '*':
                         match_prefix = match_v[0][:(len(match_v[0]) - 1)]
@@ -1064,7 +1065,10 @@ class OpServerUtils(object):
             filter_terms = None
         if table == "FlowSeriesTable" or table == "FlowRecordTable":
             if dir is None:
-                 dir = 1
+                dir = 1
+        if table == "SessionSeriesTable" or table == "SessionRecordTable":
+            if is_service_instance is None:
+                is_service_instance = 0
         qe_query = OpServerUtils.Query(table,
                         start_time=lstart_time,
                         end_time=lend_time,
@@ -1074,7 +1078,9 @@ class OpServerUtils(object):
                         sort=sort,
                         limit=limit,
                         filter=filter_terms,
-                        dir=dir)
+                        dir=dir,
+                        is_service_instance=is_service_instance,
+                        session_type=session_type)
 
         return qe_query.__dict__
 
@@ -1089,10 +1095,13 @@ class OpServerUtils(object):
         limit = None
         filter = None
         dir = None
+        is_service_instance = None
+        session_type = None
 
         def __init__(self, table, start_time, end_time, select_fields,
                      where=None, sort_fields=None, sort=None, limit=None,
-                     filter=None, dir=None):
+                     filter=None, dir=None, is_service_instance=None,
+                     session_type=None):
             self.table = table
             self.start_time = start_time
             self.end_time = end_time
@@ -1109,6 +1118,10 @@ class OpServerUtils(object):
                 self.limit = limit
             if filter is not None:
                 self.filter = filter
+            if is_service_instance is not None:
+                self.is_service_instance = is_service_instance
+            if session_type is not None:
+                self.session_type = session_type
         # end __init__
 
     # end class Query
