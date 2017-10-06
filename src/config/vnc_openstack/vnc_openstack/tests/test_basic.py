@@ -945,27 +945,18 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.delete_resource('network', proj_obj.uuid, net_q['id'])
     # end test_external_network_fip_pool
 
-    def test_list_router_gw_interfaces_with_not_owned_public_network(self):
-        # Admin project
-        admin_proj_id = str(uuid.uuid4())
-        admin_proj_name = 'admin-proj-%s' % self.id()
-        test_case.get_keystone_client().tenants.add_tenant(admin_proj_id,
-                                                           admin_proj_name)
-        admin_proj_obj = self._vnc_lib.project_read(id=admin_proj_id)
-
-        # Classic project
+    def test_list_router_interfaces(self):
         proj_id = str(uuid.uuid4())
         proj_name = 'proj-%s' % self.id()
         test_case.get_keystone_client().tenants.add_tenant(proj_id, proj_name)
         proj_obj = self._vnc_lib.project_read(id=proj_id)
-
-        # public network/subnet on an admin project
+        # public network/subnet
         public_net = self.create_resource(
-            'network', admin_proj_obj.uuid, 'public-%s' % self.id(),
+            'network', proj_obj.uuid, 'public-%s' % self.id(),
             extra_res_fields={'router:external': True},
         )
         self.create_resource(
-            'subnet', admin_proj_obj.uuid, 'public-%s' % self.id(),
+            'subnet', proj_obj.uuid, 'public-%s' % self.id(),
             extra_res_fields={
                 'network_id': public_net['id'],
                 'cidr': '80.0.0.0/24',
@@ -975,7 +966,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         public_net_obj = self._vnc_lib.virtual_network_read(
             id=public_net['id'])
 
-        # private network/subnet on classic project
+        # private network/subnet
         privat_net = self.create_resource('network', proj_obj.uuid,
                                           name='private-%s' % self.id())
         private_subnet = self.create_resource(
@@ -987,8 +978,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
             },
         )
 
-        # Router on classic project with a gateway on the public network
-        # (owned by the admin project)
+        # Router with a gateway on the public network
         router = self.create_resource(
             'router', proj_obj.uuid, name='router-%s' % self.id(),
             extra_res_fields={
@@ -1006,19 +996,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         )
         router_obj = self._vnc_lib.logical_router_read(id=router['id'])
 
-        # Create fake gw VMI
-        fake_gw = vnc_api.VirtualMachineInterface(
-            'fake-gw-interface-%s' % self.id(), proj_obj)
-        fake_gw.add_virtual_network(public_net_obj)
-        fake_gw_id = self._vnc_lib.virtual_machine_interface_create(fake_gw)
-        fake_gw = self._vnc_lib.virtual_machine_interface_read(id=fake_gw_id)
-
         def router_with_fake_si_ref(orig_method, *args, **kwargs):
             if 'obj_uuids' in kwargs and kwargs['obj_uuids'] == [router['id']]:
-                mock_router_vn_ref = mock.patch.object(
-                    router_obj, 'get_virtual_network_refs',).start()
-                mock_router_vn_ref.return_value = [{
-                    'uuid': public_net_obj.uuid}]
                 mock_router_si_ref = mock.patch.object(
                     router_obj, 'get_service_instance_refs',).start()
                 mock_router_si_ref.return_value = [{'uuid': 'fake_si_uuid'}]
@@ -1036,7 +1015,13 @@ class TestBasic(test_case.NeutronBackendTestCase):
         def return_router_gw_interface(orig_method, *args, **kwargs):
             if ('back_ref_id' in kwargs and
                     kwargs['back_ref_id'] == ['fake_vm_uuid']):
-                return [fake_gw]
+                fake_gw = vnc_api.VirtualMachineInterface('fake_gw_interface',
+                                                          proj_obj)
+                fake_gw.add_virtual_network(public_net_obj)
+                fake_gw_id = self._vnc_lib.virtual_machine_interface_create(
+                    fake_gw)
+                return [self._vnc_lib.virtual_machine_interface_read(
+                    id=fake_gw_id)]
             return orig_method(*args, **kwargs)
 
         neutron_api_obj = FakeExtensionManager.get_extension_objects(
@@ -1049,136 +1034,19 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 test_common.patch(neutron_db_obj._vnc_lib,
                                   'virtual_machine_interfaces_list',
                                   return_router_gw_interface):
-                # list with a user that not own the router gw port's network
                 router_interfaces = self.list_resource(
                     'port',
                     proj_uuid=proj_obj.uuid,
                     req_filters={'device_id': [router['id']]},
                 )
                 self.assertEqual(len(router_interfaces), 1)
-                # list as admin, project does not matter
-                router_interfaces = self.list_resource(
+                router_interfaces2 = self.list_resource(
                     'port',
                     proj_uuid=proj_obj.uuid,
                     req_filters={'device_id': [router['id']]},
                     is_admin=True,
                 )
-                self.assertEqual(len(router_interfaces), 2)
-
-    def test_list_router_gw_interfaces_with_owned_public_network(self):
-        # Admin project
-        admin_proj_id = str(uuid.uuid4())
-        admin_proj_name = 'admin-proj-%s' % self.id()
-        test_case.get_keystone_client().tenants.add_tenant(admin_proj_id,
-                                                           admin_proj_name)
-        admin_proj_obj = self._vnc_lib.project_read(id=admin_proj_id)
-
-        # public network/subnet
-        public_net = self.create_resource(
-            'network', admin_proj_obj.uuid, 'public-%s' % self.id(),
-            extra_res_fields={'router:external': True},
-        )
-        self.create_resource(
-            'subnet', admin_proj_obj.uuid, 'public-%s' % self.id(),
-            extra_res_fields={
-                'network_id': public_net['id'],
-                'cidr': '80.0.0.0/24',
-                'ip_version': 4,
-            },
-        )
-        public_net_obj = self._vnc_lib.virtual_network_read(
-            id=public_net['id'])
-
-        # private network/subnet
-        privat_net = self.create_resource('network', admin_proj_obj.uuid,
-                                          name='private-%s' % self.id())
-        private_subnet = self.create_resource(
-            'subnet', admin_proj_obj.uuid, 'private-%s' % self.id(),
-            extra_res_fields={
-                'network_id': privat_net['id'],
-                'cidr': '10.0.0.0/24',
-                'ip_version': 4,
-            },
-        )
-
-        # Router on admin project with a gateway on the public network
-        # (owned by the admin project)
-        router = self.create_resource(
-            'router', admin_proj_obj.uuid, name='router-%s' % self.id(),
-            extra_res_fields={
-                'external_gateway_info': {
-                    'network_id': public_net['id'],
-                }
-            },
-        )
-
-        # Add router interface on the private network/subnet
-        self.update_resource(
-            'router', router['id'], admin_proj_obj.uuid, is_admin=True,
-            operation='ADDINTERFACE',
-            extra_res_fields={'subnet_id': private_subnet['id']},
-        )
-        router_obj = self._vnc_lib.logical_router_read(id=router['id'])
-
-        # Create fake gw VMI
-        fake_gw = vnc_api.VirtualMachineInterface(
-            'fake-gw-interface-%s' % self.id(), admin_proj_obj)
-        fake_gw.add_virtual_network(public_net_obj)
-        fake_gw_id = self._vnc_lib.virtual_machine_interface_create(fake_gw)
-        fake_gw = self._vnc_lib.virtual_machine_interface_read(id=fake_gw_id)
-
-        def router_with_fake_si_ref(orig_method, *args, **kwargs):
-            if 'obj_uuids' in kwargs and kwargs['obj_uuids'] == [router['id']]:
-                mock_router_vn_ref = mock.patch.object(
-                    router_obj, 'get_virtual_network_refs',).start()
-                mock_router_vn_ref.return_value = [{
-                    'uuid': public_net_obj.uuid}]
-                mock_router_si_ref = mock.patch.object(
-                    router_obj, 'get_service_instance_refs',).start()
-                mock_router_si_ref.return_value = [{'uuid': 'fake_si_uuid'}]
-                return [router_obj]
-            return orig_method(*args, **kwargs)
-
-        def fake_si_obj(orig_method, *args, **kwargs):
-            if 'id' in kwargs and kwargs['id'] == 'fake_si_uuid':
-                si = mock.Mock()
-                si.get_virtual_machine_back_refs.return_value = \
-                    [{'to': 'fake_vm_name', 'uuid': 'fake_vm_uuid'}]
-                return si
-            return orig_method(*args, **kwargs)
-
-        def return_router_gw_interface(orig_method, *args, **kwargs):
-            if ('back_ref_id' in kwargs and
-                    kwargs['back_ref_id'] == ['fake_vm_uuid']):
-                return [fake_gw]
-            return orig_method(*args, **kwargs)
-
-        neutron_api_obj = FakeExtensionManager.get_extension_objects(
-            'vnc_cfg_api.neutronApi')[0]
-        neutron_db_obj = neutron_api_obj._npi._cfgdb
-        with test_common.patch(neutron_db_obj._vnc_lib, 'logical_routers_list',
-                               router_with_fake_si_ref), \
-                test_common.patch(neutron_db_obj._vnc_lib,
-                                  'service_instance_read', fake_si_obj), \
-                test_common.patch(neutron_db_obj._vnc_lib,
-                                  'virtual_machine_interfaces_list',
-                                  return_router_gw_interface):
-                # list as admin, project does not matter
-                router_interfaces = self.list_resource(
-                    'port',
-                    proj_uuid=admin_proj_obj.uuid,
-                    req_filters={'device_id': [router['id']]},
-                    is_admin=True,
-                )
-                self.assertEqual(len(router_interfaces), 2)
-                # list as user owner of the router gw port's network
-                router_interfaces = self.list_resource(
-                    'port',
-                    proj_uuid=admin_proj_obj.uuid,
-                    req_filters={'device_id': [router['id']]},
-                    is_admin=False,
-                )
-                self.assertEqual(len(router_interfaces), 2)
+                self.assertEqual(len(router_interfaces2), 2)
 
     def test_update_any_other_fields_in_fip_doesnt_disassociate(self):
         proj_obj = vnc_api.Project('proj-%s' %(self.id()), vnc_api.Domain())
