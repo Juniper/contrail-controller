@@ -519,11 +519,8 @@ void SessionStatsCollector::DeleteSession(FlowEntry* fe, uint64_t teardown_time,
                  * Process the stats collector
                  */
                 session_map_iter->second.teardown_time = teardown_time;
-                ProcessSessionEndpoint(session_endpoint_map_iter,
-                            agent_uve_->agent()->ksync()->ksync_flow_memory(),
-                            params,
-                            true,
-                            read_flow);
+                ProcessSessionEndpoint(session_endpoint_map_iter, params, true,
+                                       read_flow);
                 DeleteFlowToSessionMap(session_map_iter->second.fwd_flow.flow.get());
                 session_agg_map_iter->second.session_map_.erase(session_map_iter);
                 if (session_agg_map_iter->second.session_map_.size() == 0) {
@@ -544,7 +541,6 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
                                                 uint32_t oflow_bytes,
                                                 const boost::uuids::uuid &u) {
     FlowSessionMap::iterator flow_session_map_iter;
-    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->ksync_flow_memory();
     SessionInfo session_info;
     SessionIpPort session_key;
     SessionAggInfo session_agg_info;
@@ -578,8 +574,8 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
                 session_agg_map_iter->second.session_map_.find(session_db_key);
             if (session_map_iter !=
                     session_agg_map_iter->second.session_map_.end()) {
-                FillSessionInfo(session_map_iter, ksync_obj, &session_info,
-                            &session_key, NULL, false, false);
+                FillSessionInfoUnlocked(session_map_iter, &session_info,
+                                        &session_key, NULL, false);
                 /*
                  * update the latest statistics
                  */
@@ -651,7 +647,7 @@ void SessionStatsCollector::DeleteFlowToSessionMap(FlowEntry *fe) {
 }
 
 uint64_t SessionStatsCollector::GetUpdatedSessionFlowBytes(uint64_t info_bytes,
-                                                    uint64_t k_flow_bytes) {
+                                                 uint64_t k_flow_bytes) const {
     uint64_t oflow_bytes = 0xffff000000000000ULL & info_bytes;
     uint64_t old_bytes = 0x0000ffffffffffffULL & info_bytes;
     if (old_bytes > k_flow_bytes) {
@@ -661,8 +657,8 @@ uint64_t SessionStatsCollector::GetUpdatedSessionFlowBytes(uint64_t info_bytes,
 }
 
 uint64_t SessionStatsCollector::GetUpdatedSessionFlowPackets(
-                                                    uint64_t info_packets,
-                                                    uint64_t k_flow_pkts) {
+                                                  uint64_t info_packets,
+                                                  uint64_t k_flow_pkts) const {
     uint64_t oflow_pkts = 0xffffff0000000000ULL & info_packets;
     uint64_t old_pkts = 0x000000ffffffffffULL & info_packets;
     if (old_pkts > k_flow_pkts) {
@@ -672,8 +668,8 @@ uint64_t SessionStatsCollector::GetUpdatedSessionFlowPackets(
 }
 
 void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
-                                                 KSyncFlowMemory *ksync_obj,
-                                                 SessionFlowInfo *flow_info) {
+                                                 SessionFlowInfo *flow_info)
+                                                 const {
     FlowEntry *fe = session_flow.flow.get();
     uint32_t flow_handle = session_flow.flow_handle;
     uint16_t gen_id = session_flow.gen_id;
@@ -682,6 +678,8 @@ void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_f
     uint64_t k_bytes, bytes, total_bytes, diff_bytes = 0;
     uint64_t k_packets, total_packets, diff_packets = 0;
     const vr_flow_entry *k_flow = NULL;
+    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
+        ksync_flow_memory();
 
     k_flow = ksync_obj->GetKFlowStatsAndInfo(fe->key(),
                                              flow_handle,
@@ -720,13 +718,13 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
                                                 uint64_t setup_time,
                                                 uint64_t teardown_time,
                                                 const RevFlowDepParams *params,
-                                                KSyncFlowMemory *ksync_obj,
                                                 bool read_flow,
-                                                SessionFlowInfo *flow_info) {
+                                                SessionFlowInfo *flow_info)
+                                                const {
     FlowEntry *fe = session_flow.flow.get();
     std::string action_str;
 
-    FillSessionFlowStats(session_flow, ksync_obj, flow_info);
+    FillSessionFlowStats(session_flow, flow_info);
     flow_info->set_flow_uuid(session_flow.uuid);
     flow_info->set_setup_time(setup_time);
     flow_info->set_teardown_time(teardown_time);
@@ -749,20 +747,28 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
     }
 }
 
-void SessionStatsCollector::FillSessionInfo(SessionPreAggInfo::SessionMap::iterator session_map_iter,
-                                            KSyncFlowMemory *ksync_obj,
-                                            SessionInfo *session_info,
-                                            SessionIpPort *session_key,
-                                            const RevFlowDepParams *params,
-                                            bool from_config,
-                                            bool read_flow) {
-    string rid = agent_uve_->agent()->router_id().to_string();
+void SessionStatsCollector::FillSessionInfoLocked
+    (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+     SessionInfo *session_info,
+     SessionIpPort *session_key,
+     const RevFlowDepParams *params,
+     bool read_flow) const {
     FlowEntry *fe = session_map_iter->second.fwd_flow.flow.get();
     FlowEntry *rfe = session_map_iter->second.rev_flow.flow.get();
+    FLOW_LOCK(fe, rfe, FlowEvent::FLOW_MESSAGE);
+    FillSessionInfoUnlocked(session_map_iter, session_info, session_key, params,
+                            read_flow);
+}
+
+void SessionStatsCollector::FillSessionInfoUnlocked
+    (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+     SessionInfo *session_info,
+     SessionIpPort *session_key,
+     const RevFlowDepParams *params,
+     bool read_flow) const {
+    string rid = agent_uve_->agent()->router_id().to_string();
+    FlowEntry *fe = session_map_iter->second.fwd_flow.flow.get();
     boost::system::error_code ec;
-    if (!from_config) {
-        FLOW_LOCK(fe, rfe, FlowEvent::FLOW_MESSAGE);
-    }
     /*
      * Fill the session Key
      */
@@ -771,15 +777,11 @@ void SessionStatsCollector::FillSessionInfo(SessionPreAggInfo::SessionMap::itera
     FillSessionFlowInfo(session_map_iter->second.fwd_flow,
                         session_map_iter->second.setup_time,
                         session_map_iter->second.teardown_time,
-                        NULL,
-                        ksync_obj, read_flow,
-                        &session_info->forward_flow_info);
+                        NULL, read_flow, &session_info->forward_flow_info);
     FillSessionFlowInfo(session_map_iter->second.rev_flow,
                         session_map_iter->second.setup_time,
                         session_map_iter->second.teardown_time,
-                        params,
-                        ksync_obj, read_flow,
-                        &session_info->reverse_flow_info);
+                        params, read_flow, &session_info->reverse_flow_info);
     if (read_flow) {
         session_info->set_vm(fe->data().vm_cfg_name);
         if (fe->is_flags_set(FlowEntry::LocalFlow)) {
@@ -787,7 +789,7 @@ void SessionStatsCollector::FillSessionInfo(SessionPreAggInfo::SessionMap::itera
                     boost::asio::ip::address::from_string(rid, ec));
         } else {
             session_info->set_other_vrouter_ip(
-                    boost::asio::ip::address::from_string(fe->peer_vrouter(), ec));
+                boost::asio::ip::address::from_string(fe->peer_vrouter(), ec));
         }
         session_info->set_underlay_proto(fe->tunnel_type().GetType());
     }
@@ -799,7 +801,8 @@ void SessionStatsCollector::FillSessionAggInfo(SessionEndpointInfo::SessionAggMa
                                                uint64_t total_fwd_bytes,
                                                uint64_t total_fwd_packets,
                                                uint64_t total_rev_bytes,
-                                               uint64_t total_rev_packets) {
+                                               uint64_t total_rev_packets)
+                                               const {
     /*
      * Fill the session agg key
      */
@@ -814,7 +817,7 @@ void SessionStatsCollector::FillSessionAggInfo(SessionEndpointInfo::SessionAggMa
 
 void SessionStatsCollector::FillSessionTagInfo(const TagList &list,
                                                SessionEndpoint *session_ep,
-                                               bool is_remote) {
+                                               bool is_remote) const {
     std::set<std::string>   labels;
     TagList::const_iterator it = list.begin();
     while (it != list.end()) {
@@ -860,7 +863,8 @@ void SessionStatsCollector::FillSessionTagInfo(const TagList &list,
 }
 
 void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
-                                                SessionEndpoint *session_ep) {
+                                                SessionEndpoint *session_ep)
+                                                const {
     string rid = agent_uve_->agent()->router_id().to_string();
     boost::system::error_code ec;
 
@@ -878,7 +882,6 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
 }
 
 uint32_t SessionStatsCollector::ProcessSessionEndpoint(SessionEndpointMap::iterator &it,
-                                         KSyncFlowMemory *ksync_obj,
                                          const RevFlowDepParams *params,
                                          bool from_config,
                                          bool read_flow) {
@@ -893,7 +896,7 @@ uint32_t SessionStatsCollector::ProcessSessionEndpoint(SessionEndpointMap::itera
     SessionAggInfo session_agg_info;
     SessionIpPortProtocol session_agg_key;
 
-    SessionEndpoint &session_ep =  session_msg_list_[GetSessionMsgIdx()];
+    SessionEndpoint &session_ep = session_msg_list_[GetSessionMsgIdx()];
 
     session_agg_map_iter = it->second.session_agg_map_.begin();
     while (session_agg_map_iter != it->second.session_agg_map_.end()) {
@@ -901,8 +904,13 @@ uint32_t SessionStatsCollector::ProcessSessionEndpoint(SessionEndpointMap::itera
         total_fwd_packets = total_rev_packets = 0;
         session_map_iter = session_agg_map_iter->second.session_map_.begin();
         while (session_map_iter != session_agg_map_iter->second.session_map_.end()) {
-            FillSessionInfo(session_map_iter, ksync_obj, &session_info,
-                            &session_key, params, from_config, read_flow);
+            if (from_config) {
+                FillSessionInfoUnlocked(session_map_iter, &session_info,
+                                        &session_key, params, read_flow);
+            } else {
+                FillSessionInfoLocked(session_map_iter, &session_info,
+                                      &session_key, params, read_flow);
+            }
             session_agg_info.sessionMap.insert(make_pair(session_key, session_info));
             total_fwd_bytes +=
                 session_info.get_forward_flow_info().get_logged_bytes();
@@ -926,19 +934,6 @@ uint32_t SessionStatsCollector::ProcessSessionEndpoint(SessionEndpointMap::itera
     return count;
 }
 
-uint32_t SessionStatsCollector::RunSessionStatsCollect() {
-    SessionEndpointMap::iterator it;
-    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->ksync_flow_memory();
-    uint32_t count = 0;
-
-    it = session_endpoint_map_.begin();
-    while (it != session_endpoint_map_.end()) {
-        count += ProcessSessionEndpoint(it, ksync_obj, NULL, false, true);
-        it++;
-    }
-    return count;
-}
-
 uint32_t SessionStatsCollector::RunSessionEndpointStats(uint32_t max_count) {
     SessionEndpointMap::iterator it;
     if (session_ep_iteration_key_.vmi == NULL) {
@@ -952,15 +947,13 @@ uint32_t SessionStatsCollector::RunSessionEndpointStats(uint32_t max_count) {
         }
     }
 
-    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
-        ksync_flow_memory();
     uint32_t count = 0;
     while (count < max_count) {
         if (it == session_endpoint_map_.end()) {
             break;
         }
 
-        count += ProcessSessionEndpoint(it, ksync_obj, NULL, false, true);
+        count += ProcessSessionEndpoint(it, NULL, false, true);
         it++;
         session_ep_visited_++;
     }

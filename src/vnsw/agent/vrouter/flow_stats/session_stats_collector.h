@@ -105,45 +105,7 @@ public:
     static const uint32_t kSessionStatsTimerInterval = 100;
     static const uint32_t kSessionsPerTask = 256;
 
-    uint32_t RunSessionStatsCollect();
     uint32_t RunSessionEndpointStats(uint32_t max_count);
-    uint32_t ProcessSessionEndpoint(SessionEndpointMap::iterator &it,
-                                     KSyncFlowMemory *ksync_obj,
-                                     const RevFlowDepParams *params,
-                                     bool from_config,
-                                     bool read_flow);
-    uint64_t GetUpdatedSessionFlowBytes(uint64_t info_bytes,
-                                        uint64_t k_flow_bytes);
-    uint64_t GetUpdatedSessionFlowPackets(uint64_t info_packets,
-                                          uint64_t k_flow_pkts);
-    void FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
-                              KSyncFlowMemory *ksync_obj,
-                              SessionFlowInfo *flow_info);
-    void FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
-                             uint64_t setup_time,
-                             uint64_t teardown_time,
-                             const RevFlowDepParams *params,
-                             KSyncFlowMemory *ksync_obj,
-                             bool read_flow,
-                             SessionFlowInfo *flow_info);
-    void FillSessionInfo(SessionPreAggInfo::SessionMap::iterator session_map_iter,
-                         KSyncFlowMemory *ksync_obj,
-                         SessionInfo *session_info, SessionIpPort *session_key,
-                         const RevFlowDepParams *params,
-                         bool from_config,
-                         bool read_flow);
-    void FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter,
-                            SessionAggInfo *session_agg_info,
-                            SessionIpPortProtocol *session_agg_key,
-                                               uint64_t total_fwd_bytes,
-                                               uint64_t total_fwd_packets,
-                                               uint64_t total_rev_bytes,
-                                               uint64_t total_rev_packets);
-    void FillSessionEndpoint(SessionEndpointMap::iterator it,
-                             SessionEndpoint *session_ep);
-    void FillSessionTagInfo(const TagList &list,
-                            SessionEndpoint *session_ep,
-                            bool is_remote);
 
     class SessionTask : public Task {
     public:
@@ -172,6 +134,46 @@ public:
 protected:
     virtual void DispatchSessionMsg(const std::vector<SessionEndpoint> &lst);
 private:
+    uint32_t ProcessSessionEndpoint(SessionEndpointMap::iterator &it,
+                                     const RevFlowDepParams *params,
+                                     bool from_config,
+                                     bool read_flow);
+    uint64_t GetUpdatedSessionFlowBytes(uint64_t info_bytes,
+                                        uint64_t k_flow_bytes) const;
+    uint64_t GetUpdatedSessionFlowPackets(uint64_t info_packets,
+                                          uint64_t k_flow_pkts) const;
+    void FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
+                              SessionFlowInfo *flow_info) const;
+    void FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
+                             uint64_t setup_time,
+                             uint64_t teardown_time,
+                             const RevFlowDepParams *params,
+                             bool read_flow,
+                             SessionFlowInfo *flow_info) const;
+    void FillSessionInfoLocked
+        (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+         SessionInfo *session_info,
+         SessionIpPort *session_key,
+         const RevFlowDepParams *params,
+         bool read_flow) const;
+    void FillSessionInfoUnlocked
+        (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+         SessionInfo *session_info,
+         SessionIpPort *session_key,
+         const RevFlowDepParams *params,
+         bool read_flow) const;
+    void FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter,
+                            SessionAggInfo *session_agg_info,
+                            SessionIpPortProtocol *session_agg_key,
+                            uint64_t total_fwd_bytes,
+                            uint64_t total_fwd_packets,
+                            uint64_t total_rev_bytes,
+                            uint64_t total_rev_packets) const;
+    void FillSessionEndpoint(SessionEndpointMap::iterator it,
+                             SessionEndpoint *session_ep) const;
+    void FillSessionTagInfo(const TagList &list,
+                            SessionEndpoint *session_ep,
+                            bool is_remote) const;
     static uint64_t GetCurrentTime();
     void UpdateSessionFlowStatsInfo(FlowEntry* fe,
                                     SessionFlowStatsInfo *session_flow);
