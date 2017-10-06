@@ -1331,21 +1331,27 @@ class DBInterface(object):
             project_obj = self._get_project_obj(network_q)
             id_perms = IdPermsType(enable=True)
             net_obj = VirtualNetwork(net_name, project_obj, id_perms=id_perms)
+            if 'shared' in network_q:
+                net_obj.is_shared = network_q['shared']
+            else:
+                net_obj.is_shared = False
+
             if external_attr == attr_not_specified:
                 net_obj.router_external = False
             else:
                 net_obj.router_external = external_attr
                 # external network should be readable and reference-able from
                 # outside
-                if external_attr:
+                if external_attr and net_obj.is_shared:
                     net_obj.perms2 = PermType2(
                         project_obj.uuid, PERMS_RWX, # tenant, tenant-access
                         PERMS_RX,                    # global-access
                         [])                          # share list
-            if 'shared' in network_q:
-                net_obj.is_shared = network_q['shared']
-            else:
-                net_obj.is_shared = False
+                else:
+                    net_obj.perms2 = PermType2(
+                        project_obj.uuid, PERMS_RWX, # tenant, tenant-access
+                        PERMS_NONE,                  # global-access
+                        [])                          # share list
             net_id = self._get_resource_id(network_q, False)
             if net_id:
                 net_obj.uuid = net_id

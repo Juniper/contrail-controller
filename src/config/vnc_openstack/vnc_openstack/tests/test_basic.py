@@ -903,7 +903,7 @@ class TestBasic(test_case.NeutronBackendTestCase):
         })
 
         net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
-        self.assertEqual(net_obj.perms2.global_access, PERMS_RX)
+        self.assertEqual(net_obj.perms2.global_access, PERMS_NONE)
 
         self.update_resource('network', net_q['id'], proj_obj.uuid,
                              extra_res_fields={'router:external':False})
@@ -911,7 +911,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.assertEqual(net_obj.perms2.global_access, PERMS_NONE)
 
         self.update_resource('network', net_q['id'], proj_obj.uuid,
-                             extra_res_fields={'router:external':True})
+                             extra_res_fields={'router:external':True,
+                                               'shared':True})
         net_obj = self._vnc_lib.virtual_network_read(net_q['fq_name'])
         self.assertEqual(net_obj.perms2.global_access, PERMS_RX)
         self.delete_resource('network', proj_obj.uuid, net_q['id'])
