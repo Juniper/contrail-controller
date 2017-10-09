@@ -1012,6 +1012,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         fake_gw.add_virtual_network(public_net_obj)
         fake_gw_id = self._vnc_lib.virtual_machine_interface_create(fake_gw)
         fake_gw = self._vnc_lib.virtual_machine_interface_read(id=fake_gw_id)
+        mock.patch.object(fake_gw, 'get_instance_ip_back_refs',
+                          return_value='fake_iip').start()
 
         def router_with_fake_si_ref(orig_method, *args, **kwargs):
             if 'obj_uuids' in kwargs and kwargs['obj_uuids'] == [router['id']]:
@@ -1126,6 +1128,8 @@ class TestBasic(test_case.NeutronBackendTestCase):
         fake_gw.add_virtual_network(public_net_obj)
         fake_gw_id = self._vnc_lib.virtual_machine_interface_create(fake_gw)
         fake_gw = self._vnc_lib.virtual_machine_interface_read(id=fake_gw_id)
+        mock.patch.object(fake_gw, 'get_instance_ip_back_refs',
+                          return_value='fake_iip').start()
 
         def router_with_fake_si_ref(orig_method, *args, **kwargs):
             if 'obj_uuids' in kwargs and kwargs['obj_uuids'] == [router['id']]:
