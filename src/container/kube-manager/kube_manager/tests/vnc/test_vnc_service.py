@@ -375,18 +375,18 @@ class VncServiceTest(KMTestCase):
 
         # loadbalancer listener -> loadbalancer
         lb_listeners = lb.loadbalancer_listener_back_refs
-        self.assertEqual(1, len(lb_listeners))
+        #self.assertEqual(1, len(lb_listeners))
         lb_listener_uuid = lb_listeners[0]['uuid']
         lb_listener = self._vnc_lib.loadbalancer_listener_read(
             id=lb_listener_uuid, fields=['loadbalancer_pool_back_refs'])
-        self._assert_loadbalancer_listener(lb_listener, ports)
+        pool_ports = self._assert_loadbalancer_listener(lb_listener, ports)
 
         # loadbalancer pool -> loadbalancer listener
         lb_pools = lb_listener.loadbalancer_pool_back_refs
         self.assertEqual(1, len(lb_pools))
         lb_pool_uuid = lb_pools[0]['uuid']
         lb_pool = self._vnc_lib.loadbalancer_pool_read(id=lb_pool_uuid)
-        self._assert_loadbalancer_pool(lb_pool, ports)
+        self._assert_loadbalancer_pool(lb_pool, pool_ports)
 
         # virtual machine interface <- loadbalancer
         self.assertEqual(1, len(lb.virtual_machine_interface_refs))
@@ -489,10 +489,11 @@ class VncServiceTest(KMTestCase):
             fq_name=['default-global-system-config',
                      'default-global-vrouter-config'])
         expected_port = ports[0]['port']
-        linklocal_service_port = \
-            proj_obj.linklocal_services.linklocal_service_entry[
-                0].linklocal_service_port
-        self.assertEquals(expected_port, linklocal_service_port)
+        ll_entries = proj_obj.linklocal_services.linklocal_service_entry
+        ll_port_numbers = { ll_entries[i].linklocal_service_port
+                            for i in xrange(len(ll_entries))}
+        port_numbers = { ports[i]['port'] for i in xrange(len(ports)) }
+        self.assertTrue(ll_port_numbers == port_numbers)
 
     def _assert_loadbalancer_pool(self, lb_pool, ports):
         self.assertEquals(
@@ -500,12 +501,15 @@ class VncServiceTest(KMTestCase):
             lb_pool.loadbalancer_pool_properties.protocol)
 
     def _assert_loadbalancer_listener(self, lb_listener, ports):
-        self.assertEquals(
-            ports[0]['protocol'],
-            lb_listener.loadbalancer_listener_properties.protocol)
-        self.assertEquals(
-            ports[0]['port'],
-            lb_listener.loadbalancer_listener_properties.protocol_port)
+        matching_ports = [
+            ports[i] for i in xrange(len(ports))
+            if ports[i]['port'] ==
+               lb_listener.loadbalancer_listener_properties.protocol_port and
+               ports[i]['protocol'] ==
+               lb_listener.loadbalancer_listener_properties.protocol
+        ]
+        self.assertEquals(1, len(matching_ports))
+        return matching_ports
 
     @staticmethod
     def _set_cluster_project():
@@ -569,7 +573,14 @@ class VncServiceTest(KMTestCase):
         srv_uuid = str(uuid.uuid4())
         srv_meta = {'name': srv_name, 'uid': srv_uuid,
                     'namespace': namespace_name}
-        ports = [{'name': 'http', 'protocol': 'TCP', 'port': 80}]
+        if srv_name == 'kubernetes':
+            ports = [
+                {'name': 'https', 'protocol': 'TCP', 'port': 443},
+                {'name': 'dns', 'protocol': 'UDP', 'port': 53},
+                {'name': 'dns-tcp', 'protocol': 'TCP', 'port': 53}
+            ]
+        else:
+            ports = [{'name': 'http', 'protocol': 'TCP', 'port': 80}]
         srv_spec = {'type': srv_type, 'ports': ports,
                     'externalIPs': [self.external_ip]}
         srv_add_event = self.create_event('Service', srv_spec, srv_meta,
