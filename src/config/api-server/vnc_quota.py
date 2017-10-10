@@ -4,6 +4,9 @@ from pprint import pformat
 import cfgm_common.exceptions
 
 QUOTA_OVER_ERROR_CODE = 412
+NON_OBJECT_TYPES = ['security_group_rule',
+                    'loadbalancer_member',
+                    'subnet']
 
 class QuotaHelper(object):
 
@@ -66,6 +69,20 @@ class QuotaHelper(object):
         return (True, result)
 
     @classmethod
+    def get_security_group_rule_count(cls, db_conn, proj_uuid):
+        (ok, res_list) = db_conn.dbe_list(
+                'security_group', back_ref_uuids=[proj_uuid])
+        if not ok:
+            return (False, (500, 'Internal error : Failed to read '
+                            'security_group resource list'))
+        quota_count = 0
+        for res in res_list:
+            quota_count += \
+                    SecurityGroupServer.get_security_group_rule_count(res[1])
+
+        return True, quota_count
+
+    @classmethod
     def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
 
         if obj_type+'s' in Project.children_fields:
@@ -76,6 +93,12 @@ class QuotaHelper(object):
             if not ok:
                 return (False, (500, 'Internal error : Failed to read current '
                                 'resource count'))
+        elif obj_type in NON_OBJECT_TYPES:
+            if obj_type == 'security_group_rule':
+                ok, result = cls.get_security_group_rule_count(db_conn, proj_uuid)
+                if not ok:
+                    return (ok, result)
+                quota_count = result
         else:
             (ok, res_list) = db_conn.dbe_list(obj_type,
                                               back_ref_uuids=[proj_uuid])
