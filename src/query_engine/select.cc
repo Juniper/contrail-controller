@@ -136,6 +136,9 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 }
                 select_column_fields.push_back(field);
             }
+            if (m_query->is_session_query(m_query->table())) {
+                QE_INVALIDARG_ERROR(is_valid_select_field(field));
+            }
             std::vector<std::string>::iterator it =
                 std::find(session_json_fields.begin(),
                             session_json_fields.end(),
