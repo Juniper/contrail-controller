@@ -240,20 +240,26 @@ class VncRbac(object):
         else:
             obj_key = obj_type
 
-        if request.json is not None:
+        obj_dict = {}
+        try:
+            loaded_content = request.json
             # Make a shallow copy of the dict body as RBAC supports only on
             # first level of fields
-            try:
-                if isinstance(request.json[obj_key], dict):
-                    obj_dict = dict(request.json[obj_key])
-                else:
-                    obj_dict = dict(request.json)
-            # Special API calls do not have obj_key in the POST dict
-            # ie. ref-update, list-bulk-collection, set-tag...
-            except KeyError:
-                obj_dict = dict(request.json)
-        else:
-            obj_dict = {}
+            if obj_key not in loaded_content:
+                # Special API calls do not have obj_key in the POST dict
+                # ie. ref-update, list-bulk-collection, set-tag...
+                obj_dict = dict(loaded_content)
+            elif isinstance(loaded_content[obj_key], dict):
+                obj_dict = dict(loaded_content[obj_key])
+            else:
+                obj_dict = dict(loaded_content)
+        except ValueError as e:
+            # Fail to decode JSON body, seems happening with certain python
+            # stdlib version (Ubunutu Trusty) when the body is empty. Ignore it
+            # TODO(ethuleau): don't ignore JSON decoding exceptions when we
+            #                 does not support Ubuntu Trusty anymore
+            # return 400, "Invalid body: %s" % str(e)
+            pass
 
         msg = 'rbac: u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s(%s), dom:%s' \
             % (user, roles, obj_type, api_op, len(rule_list), project_id, project_name, domain_id)
