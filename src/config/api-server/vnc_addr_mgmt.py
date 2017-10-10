@@ -1592,6 +1592,16 @@ class AddrMgmt(object):
             asked_ip_addr=None, asked_ip_version=4, alloc_id=None):
         db_conn = self._get_db_conn()
         ipam_refs = vn_dict.get('network_ipam_refs', [])
+
+        # read ipam_subnets from all ipam_refs to be used later
+        # to find out any allocation pool not specific to vrouter
+        ipam_uuid_list = []
+        ipam_uuid_list.extend(
+            [(ipam_ref['uuid']) for ipam_ref in ipam_refs])
+
+        (ok, ipams_data, _) = db_conn.dbe_list('network_ipam',
+                                               obj_uuids=ipam_uuid_list,
+                                               field_names=['ipam_subnets'])
         subnets_tried = []
         found_subnet_match = False
         for ipam_ref in ipam_refs:
@@ -1625,9 +1635,37 @@ class AddrMgmt(object):
                         break
                 if not found_subnet_match:
                     continue
+            alloc_pools = []
+            # walk through all subnets in ipam and build list of alloc_pools
+            # which are not specific to the vrouter
+
+            for ipam_data in ipams_data:
+                if ipam_data['uuid'] == ipam_ref['uuid']:
+                    break
+                else:
+                    continue
+
+            ipam_subnets = ipam_data.get('ipam_subnets', {})
+            subnets = ipam_subnets.get('subnets', [])
+            vr_pool_found = False
+            for ipam_subnet in subnets:
+                subnet_alloc_pools = ipam_subnet.get('allocation_pools', [])
+                for subnet_alloc_pool in subnet_alloc_pools:
+                    vr_flag = subnet_alloc_pool.get('vrouter_specific_pool',
+                                                    False)
+                    if not vr_flag:
+                        alloc_pools.append(subnet_alloc_pool)
+                    else:
+                        vr_pool_found = True
+
+            # if no vr_pool found then no need to send alloc_pools
+            if not vr_pool_found:
+                alloc_pools = []
+
             ip_addr, subnets_tried = \
                 self._ipam_ip_alloc(ipam_ref, sn_uuid,
-                    sub, asked_ip_addr, asked_ip_version, alloc_id)
+                    sub, asked_ip_addr, asked_ip_version, alloc_id,
+                    alloc_pools)
             if ip_addr:
                 return (ip_addr, sn_uuid)
 
