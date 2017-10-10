@@ -240,20 +240,23 @@ class VncRbac(object):
         else:
             obj_key = obj_type
 
-        if request.json is not None:
-            # Make a shallow copy of the dict body as RBAC supports only on
-            # first level of fields
+        obj_dict = {}
+        if (api_op in ['C', 'U'] and
+                'application/json' in request.content_type):
             try:
-                if isinstance(request.json[obj_key], dict):
-                    obj_dict = dict(request.json[obj_key])
+                loaded_content = request.json
+                # Make a shallow copy of the dict body as RBAC supports only on
+                # first level of fields
+                if obj_key not in loaded_content:
+                    # Special API calls do not have obj_key in the POST dict
+                    # ie. ref-update, list-bulk-collection, set-tag...
+                    obj_dict = dict(loaded_content)
+                elif isinstance(loaded_content[obj_key], dict):
+                    obj_dict = dict(loaded_content[obj_key])
                 else:
-                    obj_dict = dict(request.json)
-            # Special API calls do not have obj_key in the POST dict
-            # ie. ref-update, list-bulk-collection, set-tag...
-            except KeyError:
-                obj_dict = dict(request.json)
-        else:
-            obj_dict = {}
+                    obj_dict = dict(loaded_content)
+            except ValueError as e:
+                return 400, "Invalid body: %s" % str(e)
 
         msg = 'rbac: u=%s, r=%s, o=%s, op=%s, rules=%d, proj:%s(%s), dom:%s' \
             % (user, roles, obj_type, api_op, len(rule_list), project_id, project_name, domain_id)
