@@ -187,7 +187,6 @@ None
 ### 9.1.4 analytics standalone solution sample json config files
 ### 9.1.4.1 all-in-one node
 contrail+openstack on single node
-file combined.json.sangupta-u14-working
 ```
 {
     "cluster": [
@@ -266,7 +265,7 @@ file combined.json.sangupta-u14-working
 ### 9.1.4.2 two node setup - no-auth
 a) server-manager+openstack
 b) contrail node, aaa-mode=no-auth
-file combined.json.sangupta-u14d.contrail
+contrail node config
 ```
 {
     "cluster": [
@@ -343,7 +342,7 @@ file combined.json.sangupta-u14d.contrail
 }
 ```
 
-file combined.json.sangupta-u14d2.openstack
+openstack node config
 ```
 {
     "cluster": [
@@ -405,7 +404,7 @@ file combined.json.sangupta-u14d2.openstack
 ### 9.1.4.3 external openstack/keystone
 a) server-manager+openstack
 b) contrail node
-file combined.json.sangupta-u14d.contrail
+contrail node config
 ```
 {
     "cluster": [
@@ -481,7 +480,7 @@ file combined.json.sangupta-u14d.contrail
 }
 ```
 
-file combined.json.sangupta-u14d2.openstack
+openstack node config
 ```
 {
     "cluster": [
@@ -533,6 +532,90 @@ file combined.json.sangupta-u14d2.openstack
         {
             "category": "package",
             "id": "image_contrail_cloud_package_4_0_1_0_32",
+            "path": "/root/sangupta/contrail-cloud-docker_4.0.1.0-32-mitaka_trusty.tgz",
+            "type": "contrail-ubuntu-package",
+            "version": "4.0.1.0-32"
+        }
+    ]
+}
+```
+
+### 9.1.4.4 all-in-one node
+contrail+openstack with no-auth on single node
+```
+{
+    "cluster": [
+        {
+            "id": "sangupta-u14",
+            "parameters": {
+                "domain": "contrail.juniper.net",
+                "subnet_mask": "255.255.0.0",
+                "gateway": "192.168.0.1",
+                "provision": {
+                    "contrail": {
+                        "kernel_upgrade": false
+                    },
+                    "contrail_4": {
+                        "api_config": {
+                            "aaa_mode": "no-auth"
+                        },
+                        "analytics_api_config": {
+                            "aaa_mode": "no-auth"
+                        }
+                    },
+                    "openstack": {
+                        "openstack_manage_amqp": true
+                    }
+                }
+            }
+        }
+    ],
+    "server": [
+        {
+            "cluster_id": "sangupta-u14",
+            "domain": "contrail.juniper.net",
+            "id": "sangupta-u14",
+            "network": {
+                "interfaces": [
+                    {
+                        "default_gateway": "192.168.0.1",
+                        "ip_address": "192.168.0.17/16",
+                        "mac_address": "02:bd:08:9a:d8:be",
+                        "dhcp": false,
+                        "name": "eth0"
+                    }
+                ],
+                "management_interface": "eth0",
+                "provisioning": "kickstart"
+            },
+            "parameters": {
+                "partition": "/dev/vda",
+                "provision": {
+                    "contrail": {
+                        "kernel_upgrade": false
+                    },
+                    "contrail_4": {
+                        "controller_components": "['config','webui']"
+                    }
+                }
+            },
+            "password": "c0ntrail123",
+            "ipmi_address": "",
+            "roles": [
+                "contrail-analytics",
+                "contrail-controller",
+                "openstack",
+                "contrail-analyticsdb"
+            ]
+        }
+    ],
+    "image": [
+        {
+            "category": "package",
+            "id": "image_contrail_cloud_package_4_0_1_0_32",
+            "parameters": {
+                "contrail-container-package": true
+            },
             "path": "/root/sangupta/contrail-cloud-docker_4.0.1.0-32-mitaka_trusty.tgz",
             "type": "contrail-ubuntu-package",
             "version": "4.0.1.0-32"
