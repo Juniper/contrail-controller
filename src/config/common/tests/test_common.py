@@ -1005,4 +1005,76 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
         sg_obj.set_security_group_entries(rules)
     #end _security_group_rule_append
+
+    def _security_group_rule_remove(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            raise Exception('SecurityGroupRuleNotExists %s' % sgr.rule_uuid)
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                if sgr.rule_uuid == sg_rule.rule_uuid:
+                    rules.delete_policy_rule(sgr)
+                    sg_obj.set_security_group_entries(rules)
+                    return
+            raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
+    #end _security_group_rule_append
+
+# end TestCase
+
+
+class ErrorInterceptingLogger(sandesh_logger.SandeshLogger):
+
+    _exceptions = []
+    _other_errors = []
+
+    @classmethod
+    def register_exception(cls, msg, *args, **kwargs):
+        if 'traceback' in msg.lower():
+            cls._exceptions.append((msg, args, kwargs))
+            return True
+        return False
+
+    @classmethod
+    def register_error(cls, msg, *args, **kwargs):
+        if not cls.register_exception(msg, *args, **kwargs):
+            cls._other_errors.append((msg, args, kwargs))
+
+    @classmethod
+    def get_exceptions(cls):
+        return list(cls._exceptions)
+
+    @classmethod
+    def get_other_errors(cls):
+        return list(cls._other_errors)
+
+    @classmethod
+    def reset(cls):
+        cls._exceptions, cls._other_errors = [], []
+
+    @classmethod
+    def get_qualified_name(cls):
+        return '{module_name}.{class_name}'.format(
+            module_name=cls.__module__, class_name=cls.__name__)
+
+    class LoggerWrapper(object):
+
+        def __init__(self, logger):
+            self._logger = logger
+
+        def __getattr__(self, item):
+            return getattr(self._logger, item)
+
+    def _security_group_rule_remove(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            raise Exception('SecurityGroupRuleNotExists %s' % sgr.rule_uuid)
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                if sgr.rule_uuid == sg_rule.rule_uuid:
+                    rules.delete_policy_rule(sgr)
+                    sg_obj.set_security_group_entries(rules)
+                    return
+            raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
+    #end _security_group_rule_append
+
 # end TestCase
