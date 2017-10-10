@@ -136,6 +136,15 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 }
                 select_column_fields.push_back(field);
             }
+            if (m_query->is_session_query(m_query->table())) {
+                if (field == g_viz_constants.STAT_TIME_FIELD ||
+                    field.substr(0, g_viz_constants.STAT_TIMEBIN_FIELD.size()) ==
+                        g_viz_constants.STAT_TIMEBIN_FIELD) {
+                    QE_INVALIDARG_ERROR(m_query->table() == g_viz_constants.SESSION_SERIES_TABLE);
+                } else {
+                    QE_INVALIDARG_ERROR(is_valid_select_field(field));
+                }
+            }
             std::vector<std::string>::iterator it =
                 std::find(session_json_fields.begin(),
                             session_json_fields.end(),
