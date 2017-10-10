@@ -12,7 +12,7 @@ import itertools
 import socket
 
 import cfgm_common
-import cfgm_common.utils
+from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 import cfgm_common.exceptions
 import netaddr
 import uuid
@@ -252,7 +252,7 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ok, result = cls._check_udc(obj_dict, filter(lambda x: x.get('field',
                     '') == 'user_defined_log_statistics' and x.get(
                         'operation', '') == 'set', kwargs.get(
@@ -686,7 +686,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ok, result = cls.check_port_gateway_not_in_same_network(
                 db_conn, obj_dict, id)
         if not ok:
@@ -1101,7 +1101,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
 
 class ServiceApplianceSetServer(Resource, ServiceApplianceSet):
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         (ok, result) = db_conn.dbe_list('loadbalancer_pool', back_ref_uuids=[id])
         if not ok:
             return (ok, (500, 'Error in dbe_list: %s' %(result)))
@@ -1438,7 +1438,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end post_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
@@ -1700,7 +1700,7 @@ class NetworkIpamServer(Resource, NetworkIpam):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ok, read_result = cls.dbe_read(db_conn, 'network_ipam', id)
         if not ok:
             return ok, read_result
@@ -1728,13 +1728,13 @@ class NetworkIpamServer(Resource, NetworkIpam):
             new_subnet_method = obj_dict.get('ipam_subnet_method')
             if (old_subnet_method != new_subnet_method):
                 return (False, (400, 'ipam_subnet_method can not be changed'))
-       
+
         if (old_subnet_method != 'flat-subnet'):
             if 'ipam_subnets' in obj_dict:
                 return (False,
                         (400, 'ipam-subnets are allowed only with flat-subnet'))
             return True, ""
-  
+
         if 'ipam_subnets' in obj_dict:
             req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
 
@@ -1955,7 +1955,7 @@ class VirtualDnsServer(Resource, VirtualDns):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         return cls.validate_dns_server(obj_dict, db_conn)
     # end pre_dbe_update
 
@@ -2098,7 +2098,7 @@ class VirtualDnsRecordServer(Resource, VirtualDnsRecord):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         return cls.validate_dns_record(obj_dict, db_conn)
     # end pre_dbe_update
 
@@ -2259,12 +2259,55 @@ class SecurityGroupServer(Resource, SecurityGroup):
         return True, ''
 
     @classmethod
+    def check_security_group_rule_quota(
+            cls, proj_dict, db_conn, rule_count):
+        quota_counter = cls.server.quota_counter
+        obj_type = 'security_group_rule'
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+
+        if (rule_count and quota_limit >= 0):
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
+            path = path_prefix + "/" + obj_type
+            if not quota_counter.get(path):
+                # Init quota counter for security group rule
+                QuotaHelper._zk_quota_counter_init(
+                           path_prefix, QuotaHelper.default_quota, proj_dict['uuid'],
+                           db_conn, quota_counter)
+            ok, result = QuotaHelper.verify_quota(
+                obj_type, quota_limit, quota_counter[path],
+                count=rule_count)
+            if not ok:
+                return (False,
+                        (vnc_quota.QUOTA_OVER_ERROR_CODE,
+                         'security_group_entries: ' + str(quota_limit)))
+            def undo():
+                # Revert back quota count
+                quota_counter[path].value -= rule_count
+            get_context().push_undo(undo)
+
+        return True, ""
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
 
         ok, response = _check_policy_rules(
             obj_dict.get('security_group_entries'))
         if not ok:
             return (ok, response)
+  
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            obj_dict['parent_uuid'], db_conn)
+        if not ok:
+            return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+
+        if obj_dict['id_perms'].get('user_visible', True):
+            rule_count = len(
+                    obj_dict.get('security_group_entries',
+                        {}).get('policy_rule', []))
+            ok, result = cls.check_security_group_rule_quota(
+                    proj_dict, db_conn, rule_count)
+            if not ok:
+                return ok, result
 
         # TODO(ethuleau): As we keep the virtual network ID allocation in
         #                 schema and in the vnc API for one release overlap to
@@ -2281,7 +2324,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ok, result = cls.dbe_read(db_conn, 'security_group', id)
         if not ok:
             return ok, result
@@ -2307,44 +2350,59 @@ class SecurityGroupServer(Resource, SecurityGroup):
                 return ok, result
             obj_dict['security_group_id'] = sg_dict['security_group_id']
 
-        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
-            sg_dict['parent_uuid'], db_conn)
+        ok, result = _check_policy_rules(
+                obj_dict.get('security_group_entries'))
         if not ok:
-            return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+            return ok, result
 
-        obj_type = 'security_group_rule'
-        if ('security_group_entries' in obj_dict and
-            QuotaHelper.get_quota_limit(proj_dict, obj_type) >= 0):
-            rule_count = len(obj_dict['security_group_entries']['policy_rule'])
-            for sg in proj_dict.get('security_groups') or []:
-                if sg['uuid'] == sg_dict['uuid']:
-                    continue
-                try:
-                    ok, result = cls.dbe_read(db_conn, 'security_group',
-                                              sg['uuid'])
-                    remote_sg_dict = result
-                    sge = remote_sg_dict.get('security_group_entries') or {}
-                    rule_count += len(sge.get('policy_rule') or [])
-                except Exception as e:
-                    ok = False
-                    result = (500, 'Error in security group update: %s' %(
-                                    cfgm_common.utils.detailed_traceback()))
-                if not ok:
-                    code, msg = result
-                    if code == 404:
-                        continue
-                    db_conn.config_log(result, level=SandeshLevel.SYS_ERR)
-                    continue
-            # end for all sg in projects
+        if sg_dict['id_perms'].get('user_visible', True):
+            (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+                sg_dict['parent_uuid'], db_conn)
+            if not ok:
+                return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+            new_rule_count = len(
+                    obj_dict.get('security_group_entries',
+                        {}).get('policy_rule', []))
+            existing_rule_count = len(
+                    sg_dict.get('security_group_entries',
+                        {}).get('policy_rule', []))
+            rule_count = (new_rule_count - existing_rule_count)
+            ok, result = cls.check_security_group_rule_quota(
+                    proj_dict, db_conn, rule_count)
+            if not ok:
+                return ok, result
 
-            if sg_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(
-                                        proj_dict, obj_type, rule_count-1)
-                if not ok:
-                    return (False, (vnc_quota.QUOTA_OVER_ERROR_CODE, pformat(fq_name) + ' : ' + quota_limit))
-
-        return _check_policy_rules(obj_dict.get('security_group_entries'))
+        return True, ""
     # end pre_dbe_update
+
+    @classmethod
+    def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        ok, result = cls.dbe_read(db_conn, 'security_group', id)
+        if not ok:
+            return ok, result
+        sg_dict = result
+
+        if sg_dict['id_perms'].get('user_visible', True) is not False:
+            (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+                sg_dict['parent_uuid'], db_conn)
+            if not ok:
+                return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+            obj_type = 'security_group_rule'
+            quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+
+            if ('security_group_entries' in obj_dict and quota_limit >= 0):
+                rule_count = len(obj_dict['security_group_entries']['policy_rule'])
+                path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
+                path = path_prefix + "/" + obj_type
+                quota_counter = cls.server.quota_counter
+                quota_counter[path].value -= rules_count
+                def undo():
+                    # Revert back quota count
+                    quota_counter[path].value += rules_count
+                get_context().push_undo(undo)
+
+        return True, ""
+    # end pre_dbe_delete
 
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
@@ -2352,6 +2410,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
         cls.vnc_zk_client.free_sg_id(obj_dict.get('security_group_id'))
 
         return True, ""
+    # end post_dbe_delete
 # end class SecurityGroupServer
 
 
@@ -2362,7 +2421,7 @@ class NetworkPolicyServer(Resource, NetworkPolicy):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ok, result = cls.dbe_read(db_conn, 'network_policy', id)
         if not ok:
             return ok, result
@@ -2387,7 +2446,7 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ok, read_result = cls.dbe_read(db_conn, 'logical_interface', id)
         if not ok:
             return ok, read_result
@@ -2426,7 +2485,7 @@ class RouteTableServer(Resource, RouteTable):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         return cls._check_prefixes(obj_dict)
     # end pre_dbe_update
 
@@ -2453,7 +2512,7 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         # do not allow change in display name
         if 'display_name' in obj_dict:
             ok, read_result = cls.dbe_read(db_conn, 'physical_interface',
@@ -2619,7 +2678,7 @@ class RouteAggregateServer(Resource, RouteAggregate):
         return cls._check(obj_dict, db_conn)
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         return cls._check(obj_dict, db_conn)
 
 # end class RouteAggregateServer
@@ -2649,7 +2708,7 @@ class ForwardingClassServer(Resource, ForwardingClass):
         return cls._check_fc_id(obj_dict, db_conn)
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         ok, forwarding_class = cls.dbe_read(db_conn, 'forwarding_class', id)
         if not ok:
             return ok, read_result
@@ -2676,7 +2735,7 @@ class AlarmServer(Resource, Alarm):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         if 'alarm_rules' in obj_dict:
             if obj_dict['alarm_rules'] is None:
                 return (False, (400, 'alarm_rules cannot be removed'))
@@ -2762,7 +2821,7 @@ class QosConfigServer(Resource, QosConfig):
         return cls._check_qos_values(obj_dict, db_conn)
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         return cls._check_qos_values(obj_dict, db_conn)
 # end class QosConfigServer
 
@@ -2777,7 +2836,7 @@ class BgpAsAServiceServer(Resource, BgpAsAService):
     # end pre_dbe_create
 
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn):
         if 'bgpaas_shared' in obj_dict:
             ok, result = cls.dbe_read(db_conn, 'bgp_as_a_service', id)
 

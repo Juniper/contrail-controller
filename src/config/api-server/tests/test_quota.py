@@ -3,35 +3,19 @@
 #
 
 import gevent
-import os
 import sys
-import socket
-import errno
 import uuid
 import logging
-import coverage
 
-import fixtures
-import testtools
-from testtools.matchers import Equals, MismatchError, Not, Contains
-from testtools import content, content_type, ExpectedException
-import unittest
-import re
-import json
-import copy
-from lxml import etree
-import inspect
-import requests
-import stevedore
+from testtools.matchers import MismatchError
+from testtools import ExpectedException
 
 from vnc_api.vnc_api import *
-import cfgm_common
 from cfgm_common import vnc_cgitb
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
 import test_utils
-import test_common
 import test_case
 
 logger = logging.getLogger(__name__)
@@ -136,7 +120,7 @@ class TestQuota(test_case.ApiServerTestCase):
 
 class TestGlobalQuota(test_case.ApiServerTestCase):
 
-    global_quotas = {'security_group_rule' : 2}
+    global_quotas = {'security_group_rule' : 5}
 
     def __init__(self, *args, **kwargs):
         super(TestGlobalQuota, self).__init__(*args, **kwargs)
@@ -158,11 +142,37 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         super(TestGlobalQuota, cls).tearDownClass(*args, **kwargs)
 
     def test_security_group_rule_global_quota(self):
-        logger.info("Creating security group with rules up to the quota limit.")
+        logger.info("Test#1: Create a security group with one rule")
+        sg_name = '%s-first-sg' % self.id()
+        sg_obj = SecurityGroup(sg_name)
+        rule = {'port_min': 1,
+                'port_max': 1,
+                'direction': 'egress',
+                'ip_prefix': None,
+                'protocol': 'any',
+                'ether_type': 'IPv4'}
+        sg_rule = self._security_group_rule_build(
+                rule, "default-domain:default-project:%s" % sg_name)
+        self._security_group_rule_append(sg_obj, sg_rule)
+        self._vnc_lib.security_group_create(sg_obj)
+        # make sure expected number of rules are present
+        sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", sg_name])
+        self.assertEqual(1,
+                len(sg_obj.get_security_group_entries().get_policy_rule()))
+        quota_counters = self._server_info['api_server'].quota_counter
+        quota_counter_keys = quota_counters.keys()
+        # make sure one counter is initialized
+        self.assertEqual(len(quota_counter_keys), 1)
+        # make sure sgr quota counter is incremented
+        sgr_quota_counter = quota_counters[quota_counter_keys[0]]
+        self.assertEqual(sgr_quota_counter.value, 1)
+
+        logger.info("Test#2: Update sg with rules one less than quota limit.")
         sg_name = '%s-sg' % self.id()
         sg_obj = SecurityGroup(sg_name)
         self._vnc_lib.security_group_create(sg_obj)
-        for i in range(1, self.global_quotas['security_group_rule'] + 1):
+        for i in range(2, self.global_quotas['security_group_rule']):
             rule = {'port_min': i,
                     'port_max': i,
                     'direction': 'egress',
@@ -173,8 +183,59 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
                     rule, "default-domain:default-project:%s" % sg_name)
             self._security_group_rule_append(sg_obj, sg_rule)
         self._vnc_lib.security_group_update(sg_obj)
+        # make sure expected number of rules are present
+        sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", sg_name])
+        self.assertEqual(3,
+                len(sg_obj.get_security_group_entries().get_policy_rule()))
+        # make sure sgr quota counter is incremented
+        self.assertEqual(sgr_quota_counter.value, 4)
 
-        logger.info("Creating one more security group rule object.")
+        logger.info("Test#3: Try updating sg with two rules; one more than quota limit.")
+        sg_rules = []
+        for i in range(self.global_quotas['security_group_rule'],
+                self.global_quotas['security_group_rule'] + 2):
+            rule = {'port_min': i,
+                    'port_max': i,
+                    'direction': 'egress',
+                    'ip_prefix': None,
+                    'protocol': 'any',
+                    'ether_type': 'IPv4'}
+            sg_rule = self._security_group_rule_build(
+                    rule, "default-domain:default-project:%s" % sg_name)
+            self._security_group_rule_append(sg_obj, sg_rule)
+            sg_rules.append(sg_rule)
+        with ExpectedException(OverQuota) as e:
+            self._vnc_lib.security_group_update(sg_obj)
+        # make sure sgr quota counter is not incremented
+        self.assertEqual(sgr_quota_counter.value, 4)
+
+        #for sg_rule in sg_rules:
+        #    self._security_group_rule_remove(sg_obj, sg_rule)
+        logger.info("Test#4: Update sg with one rule to reach quota limit.")
+        # Read the latest sb obj
+        sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", sg_name])
+        port = self.global_quotas['security_group_rule']
+        rule = {'port_min': port,
+                'port_max': port,
+                'direction': 'egress',
+                'ip_prefix': None,
+                'protocol': 'any',
+                'ether_type': 'IPv4'}
+        last_sg_rule = self._security_group_rule_build(
+                rule, "default-domain:default-project:%s" % sg_name)
+        self._security_group_rule_append(sg_obj, last_sg_rule)
+        self._vnc_lib.security_group_update(sg_obj)
+        # make sure expected number of rules are present
+        sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", sg_name])
+        self.assertEqual(4,
+                len(sg_obj.get_security_group_entries().get_policy_rule()))
+        # make sure sgr quota counter is incremented
+        self.assertEqual(sgr_quota_counter.value, 5)
+
+        logger.info("Test#5: Try updating sg with one rule more than quota limit.")
         with ExpectedException(OverQuota) as e:
             port = self.global_quotas['security_group_rule'] + 1
             rule = {'port_min': port,
@@ -187,4 +248,51 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
                     rule, "default-domain:default-project:%s" % sg_name)
             self._security_group_rule_append(sg_obj, sg_rule)
             self._vnc_lib.security_group_update(sg_obj)
+        # make sure sgr quota counter is not incremented
+        self.assertEqual(sgr_quota_counter.value, 5)
+
+        logger.info("Test#6: Creating one more security group object with rule entries.")
+        new_sg_name = '%s-one_more_sg' % self.id()
+        new_sg_obj = SecurityGroup(new_sg_name)
+        with ExpectedException(OverQuota) as e:
+            port = self.global_quotas['security_group_rule'] + 1
+            rule = {'port_min': port,
+                    'port_max': port,
+                    'direction': 'egress',
+                    'ip_prefix': None,
+                    'protocol': 'any',
+                    'ether_type': 'IPv4'}
+            new_sg_rule = self._security_group_rule_build(
+                    rule, "default-domain:default-project:%s" % new_sg_name)
+            self._security_group_rule_append(new_sg_obj, sg_rule)
+            self._vnc_lib.security_group_create(new_sg_obj)
+        # make sure sgr quota counter is not incremented
+        self.assertEqual(sgr_quota_counter.value, 5)
+
+        logger.info("Test#7: Remove the last rule from SG")
+        # Read the latest sb obj
+        sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", sg_name])
+        self._security_group_rule_remove(sg_obj, last_sg_rule)
+        self._vnc_lib.security_group_update(sg_obj)
+        # make sure expected number of rules are present
+        sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", sg_name])
+        self.assertEqual(3,
+                len(sg_obj.get_security_group_entries().get_policy_rule()))
+        # make sure sgr quota counter is decremented
+        self.assertEqual(sgr_quota_counter.value, 4)
+
+        logger.info("Test#8: Create new SG with one rule.")
+        self._vnc_lib.security_group_create(new_sg_obj)
+        # make sure expected number of rules are present
+        new_sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", new_sg_name])
+        self.assertEqual(1,
+                len(new_sg_obj.get_security_group_entries().get_policy_rule()))
+        # make sure sgr quota counter is incremented
+        self.assertEqual(sgr_quota_counter.value, 5)
+
+
+
     #end TestGlobalQuota
