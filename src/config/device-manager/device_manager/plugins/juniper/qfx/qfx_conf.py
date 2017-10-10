@@ -378,6 +378,16 @@ class QfxConf(JuniperConf):
             groups.set_chassis(self.chassis_config)
     # end add_product_specific_config
 
+    def set_route_distinguisher_config(self):
+        if not self.routing_instances:
+            # no vn config then no need to configure route distinguisher
+            return
+        if self.global_switch_options_config is None:
+            self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
+        self.global_switch_options_config.set_route_distinguisher(
+                                 RouteDistinguisher(rd_type=self.bgp_params['identifier'] + ":1"))
+    # end set_route_distinguisher_config
+
     def build_esi_config(self):
         pr = self.physical_router
         if not pr or self.is_spine():
@@ -607,7 +617,7 @@ class QfxConf(JuniperConf):
         self.set_resolve_bgp_route_target_family_config()
         self.build_esi_config()
         self.set_route_targets_config()
-        self.set_product_specific_config()
+        self.set_route_distinguisher_config()
     # end set_qfx_common_config
 
 # end QfxConf

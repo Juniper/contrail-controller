@@ -29,24 +29,31 @@ class Qfx10kConf(QfxConf):
         return super(Qfx10kConf, cls).register(qconf)
     # end register
 
-    def set_product_specific_config(self):
-        pass
-    # end set_product_specific_config
-
     def build_evpn_config(self):
         evpn = Evpn(encapsulation='vxlan')
         if self.is_spine():
             evpn.set_default_gateway("no-gateway-community")
-        else:
-            evpn.set_default_gateway("do-not-advertise")
         return evpn
     # end build_evpn_config
 
     def is_l3_supported(self, vn):
-        if '_lr_internal_vn__' in vn.name:
+        if self.is_spine() and '_lr_internal_vn__' in vn.name:
             return True
         return False
     # end is_l3_supported
+
+    def add_dynamic_tunnels(self, tunnel_source_ip,
+                             ip_fabric_nets, bgp_router_ips):
+        if self.is_spine():
+            super(Qfx10kConf, self).add_dynamic_tunnels(tunnel_source_ip,
+                                              ip_fabric_nets,bgp_router_ips)
+    # end add_dynamic_tunnels
+
+
+    def add_ibgp_export_policy(self, params, bgp_group):
+        if self.is_spine():
+            super(Qfx10kConf, self).add_ibgp_export_policy(params, bgp_group)
+    # end add_ibgp_export_policy
 
     def push_conf(self, is_delete=False):
         if not self.physical_router:
