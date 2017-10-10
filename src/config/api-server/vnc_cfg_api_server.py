@@ -39,6 +39,7 @@ from cStringIO import StringIO
 
 from cfgm_common import vnc_cgitb
 from cfgm_common import has_role
+from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -565,8 +566,9 @@ class VncApiServer(object):
 
             get_context().set_state('PRE_DBE_CREATE')
             # type-specific hook
-            (ok, result) = r_class.pre_dbe_create(tenant_name, obj_dict,
-                                                  db_conn)
+            (ok, result) = r_class.pre_dbe_create(
+                    tenant_name, obj_dict, db_conn,
+                    quota_counter=self.quota_counter)
             if not ok:
                 return (ok, result)
 
@@ -935,7 +937,9 @@ class VncApiServer(object):
 
             proj_id = r_class.get_project_id_for_resource(read_result, db_conn)
 
-            (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
+            (ok, del_result) = r_class.pre_dbe_delete(
+                    id, read_result, db_conn,
+                    quota_counter=self.quota_counter)
             if not ok:
                 return (ok, del_result)
             # Delete default children first
@@ -1284,7 +1288,7 @@ class VncApiServer(object):
         self._db_conn = None
         self._resource_classes = {}
         self._args = None
-        self._path_prefix = "/vnc_api_server_obj_create/"
+        self._path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX
         self.quota_counter = {}
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
@@ -3174,7 +3178,8 @@ class VncApiServer(object):
             # type-specific hook
             (ok, result) = r_class.pre_dbe_update(
                 obj_uuid, obj_fq_name, req_obj_dict or {}, self._db_conn,
-                prop_collection_updates=req_prop_coll_updates)
+                prop_collection_updates=req_prop_coll_updates,
+                quota_counter=self.quota_counter)
             if not ok:
                 return (ok, result)
 
