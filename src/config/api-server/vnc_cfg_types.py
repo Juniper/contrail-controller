@@ -2140,6 +2140,13 @@ class SecurityGroupServer(Resource, SecurityGroup):
     # end pre_dbe_create
 
     @classmethod
+    def get_security_group_rule_count(cls, uuid):
+        ok, result = cls.dbe_read(db_conn, 'security_group', uuid)
+        remote_sg_dict = result
+        sge = remote_sg_dict.get('security_group_entries') or {}
+        return ok, result, len(sge.get('policy_rule') or [])
+
+    @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls.dbe_read(db_conn, 'security_group', id)
         if not ok:
@@ -2179,11 +2186,8 @@ class SecurityGroupServer(Resource, SecurityGroup):
                 if sg['uuid'] == sg_dict['uuid']:
                     continue
                 try:
-                    ok, result = cls.dbe_read(db_conn, 'security_group',
-                                              sg['uuid'])
-                    remote_sg_dict = result
-                    sge = remote_sg_dict.get('security_group_entries') or {}
-                    rule_count += len(sge.get('policy_rule') or [])
+                    ok, result, count = cls.get_security_group_rule_count()
+                    rule_count += count
                 except Exception as e:
                     ok = False
                     result = (500, 'Error in security group update: %s' %(
