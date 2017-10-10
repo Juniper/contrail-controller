@@ -4,6 +4,7 @@ from pprint import pformat
 import cfgm_common.exceptions
 
 QUOTA_OVER_ERROR_CODE = 412
+NON_OBJECT_TYPES = ['security_group_rule']
 
 class QuotaHelper(object):
 
@@ -40,18 +41,26 @@ class QuotaHelper(object):
         return (True, quota_limit)
 
     @classmethod
-    def verify_quota_and_create_resource(cls, db_conn, obj_dict, obj_type, obj_id,
-                                         quota_limit, quota_counter):
+    def verify_quota(cls, obj_type, quota_limit, quota_counter, count=1):
         quota_count = quota_counter.value
-
-        if quota_count < quota_limit:
+        if (quota_count < quota_limit or count < 0):
             try:
-                quota_counter += 1
+                quota_counter += count
             except cfgm_common.exceptions.OverQuota:
                 msg = ('quota limit (%d) exceeded for resource %s'
                        % (quota_limit, obj_type))
                 return False, (412, msg)
+        else:
+            msg = ('quota limit (%d) exceeded for resource %s'
+                   % (quota_limit, obj_type))
+            return False, (412, msg)
+        return True, ""
 
+    @classmethod
+    def verify_quota_and_create_resource(cls, db_conn, obj_dict, obj_type, obj_id,
+                                         quota_limit, quota_counter):
+        ok, result = cls.verify_quota(obj_type, quota_limit, quota_counter)
+        if ok:
             (ok, result) = db_conn.dbe_create(obj_type, obj_id,
                                                     obj_dict)
 	    if not ok:
@@ -59,11 +68,29 @@ class QuotaHelper(object):
                 quota_counter -= 1
 	        return ok, result
         else:
-            msg = ('quota limit (%d) exceeded for resource %s'
-                   % (quota_limit, obj_type))
-            return False, (412, msg)
-
+            return ok, result
         return (True, result)
+
+    @classmethod
+    def get_security_group_rule_count(cls, db_conn, proj_uuid):
+
+        (ok, res_list) = db_conn.dbe_list(
+                'security_group', [proj_uuid])
+        if not ok:
+            return (False, (500, 'Internal error : Failed to read '
+                            'security_group resource list'))
+        quota_count = 0
+        for res in res_list:
+            uuid = {'uuid' :res[1]}
+            ok, result = db_conn.dbe_read('security_group', uuid)
+            if not ok:
+                return ok, result
+            sg_dict = result
+            if sg_dict['id_perms'].get('user_visible', True) is not False:
+                sge = sg_dict.get('security_group_entries') or {}
+                quota_count = len(sge.get('policy_rule') or [])
+
+        return True, quota_count
 
     @classmethod
     def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
@@ -76,6 +103,12 @@ class QuotaHelper(object):
             if not ok:
                 return (False, (500, 'Internal error : Failed to read current '
                                 'resource count'))
+        elif obj_type in NON_OBJECT_TYPES:
+            if obj_type == 'security_group_rule':
+                ok, result = cls.get_security_group_rule_count(db_conn, proj_uuid)
+                if not ok:
+                    return (ok, result)
+                quota_count = result
         else:
             (ok, res_list) = db_conn.dbe_list(obj_type,
                                               back_ref_uuids=[proj_uuid])

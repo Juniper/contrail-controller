@@ -12,7 +12,7 @@ import itertools
 import socket
 
 import cfgm_common
-import cfgm_common.utils
+from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 import cfgm_common.exceptions
 import netaddr
 import uuid
@@ -85,12 +85,14 @@ class ResourceDbMixin(object):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
-            prop_collection_updates=None, ref_update=None):
+            prop_collection_updates=None, ref_update=None,
+            quota_counter=None):
         return True, ''
 
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
-            prop_collection_updates=None, ref_update=None):
+            prop_collection_updates=None, ref_update=None,
+            quota_counter=None):
         return True, ''
 
     @classmethod
@@ -98,7 +100,7 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         return True, ''
 
     @classmethod
@@ -309,7 +311,7 @@ class FloatingIpServer(Resource, FloatingIp):
     # end pre_dbe_create
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         if obj_dict['parent_type'] == 'instance-ip':
             return True, ""
 
@@ -382,7 +384,7 @@ class AliasIpServer(Resource, AliasIp):
 
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         vn_fq_name = obj_dict['fq_name'][:-2]
         aip_addr = obj_dict['alias_ip_address']
         db_conn.config_log('AddrMgmt: free AIP %s for vn=%s'
@@ -563,7 +565,7 @@ class InstanceIpServer(Resource, InstanceIp):
     # end pre_dbe_update
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
         if ((vn_fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (vn_fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
@@ -1420,7 +1422,7 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end pre_dbe_delete
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
         api_server = db_conn.get_api_server()
 
         # Delete native/vn-default routing instance
@@ -1587,13 +1589,13 @@ class NetworkIpamServer(Resource, NetworkIpam):
             new_subnet_method = obj_dict.get('ipam_subnet_method')
             if (old_subnet_method != new_subnet_method):
                 return (False, (400, 'ipam_subnet_method can not be changed'))
-       
+
         if (old_subnet_method != 'flat-subnet'):
             if 'ipam_subnets' in obj_dict:
                 return (False,
                         (400, 'ipam-subnets are allowed only with flat-subnet'))
             return True, ""
-  
+
         if 'ipam_subnets' in obj_dict:
             req_subnets_list = cls.addr_mgmt._ipam_to_subnets(obj_dict)
 
@@ -2172,41 +2174,77 @@ class SecurityGroupServer(Resource, SecurityGroup):
             return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
 
         obj_type = 'security_group_rule'
-        if ('security_group_entries' in obj_dict and
-            QuotaHelper.get_quota_limit(proj_dict, obj_type) >= 0):
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+        if ('security_group_entries' in obj_dict and quota_limit >= 0):
             rule_count = len(obj_dict['security_group_entries']['policy_rule'])
-            for sg in proj_dict.get('security_groups') or []:
-                if sg['uuid'] == sg_dict['uuid']:
-                    continue
-                try:
-                    ok, result = cls.dbe_read(db_conn, 'security_group',
-                                              sg['uuid'])
-                    remote_sg_dict = result
-                    sge = remote_sg_dict.get('security_group_entries') or {}
-                    rule_count += len(sge.get('policy_rule') or [])
-                except Exception as e:
-                    ok = False
-                    result = (500, 'Error in security group update: %s' %(
-                                    cfgm_common.utils.detailed_traceback()))
-                if not ok:
-                    code, msg = result
-                    if code == 404:
-                        continue
-                    db_conn.config_log(result, level=SandeshLevel.SYS_ERR)
-                    continue
-            # end for all sg in projects
-
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
+            path = path_prefix + "/" + obj_type
+            quota_counter = kwargs.get('quota_counter')
+            if not quota_counter.get(path):
+                # Init quota counter for security group rule
+                QuotaHelper._zk_quota_counter_init(
+                           path_prefix, QuotaHelper.default_quota, proj_dict['uuid'],
+                           db_conn, quota_counter)
             if sg_dict['id_perms'].get('user_visible', True) is not False:
-                (ok, quota_limit) = QuotaHelper.check_quota_limit(
-                                        proj_dict, obj_type, rule_count-1)
+                new_rules_count = rule_count - quota_counter[path].value
+                ok, result = QuotaHelper.verify_quota(
+                    obj_type, quota_limit, quota_counter[path],
+                    count=new_rules_count)
                 if not ok:
-                    return (False, (vnc_quota.QUOTA_OVER_ERROR_CODE, pformat(fq_name) + ' : ' + quota_limit))
+                    return (False,
+                            (vnc_quota.QUOTA_OVER_ERROR_CODE,
+                             pformat(fq_name) + ' : ' + str(quota_limit)))
+                # Revert back quota count, will be incremented
+                # finally during post_dbe_update
+                sgr_quota_counter = quota_counter[path].value
+                sgr_quota_counter -= new_rules_count
 
         return _check_policy_rules(obj_dict.get('security_group_entries'))
     # end pre_dbe_update
 
     @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.dbe_read(db_conn, 'security_group', id)
+        if not ok:
+            return ok, result
+        sg_dict = result
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            sg_dict['parent_uuid'], db_conn)
+        if not ok:
+            return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+        obj_type = 'security_group_rule'
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+        if ('security_group_entries' in obj_dict and quota_limit >= 0):
+            rule_count = len(obj_dict['security_group_entries']['policy_rule'])
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
+            path = path_prefix + "/" + obj_type
+            quota_counter = kwargs.get('quota_counter')
+            if sg_dict['id_perms'].get('user_visible', True) is not False:
+                sgr_quota_counter = quota_counter[path].value
+                new_rules_count = sgr_quota_counter - rule_count
+                sgr_quota_counter += new_rules_count
+        return True, ""
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn, **kwargs):
+        ok, result = cls.dbe_read(db_conn, 'security_group', id)
+        if not ok:
+            return ok, result
+        sg_dict = result
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            sg_dict['parent_uuid'], db_conn)
+        if not ok:
+            return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+        obj_type = 'security_group_rule'
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+        if ('security_group_entries' in obj_dict and quota_limit >= 0):
+            rule_count = len(obj_dict['security_group_entries']['policy_rule'])
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
+            path = path_prefix + "/" + obj_type
+            quota_counter = kwargs.get('quota_counter')
+            if sg_dict['id_perms'].get('user_visible', True) is not False:
+                sgr_quota_counter = quota_counter[path].value
+                sgr_quota_counter -= rule_count
         # Deallocate the security group ID
         cls.vnc_zk_client.free_sg_id(obj_dict.get('security_group_id'))
 

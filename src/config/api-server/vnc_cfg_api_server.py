@@ -36,6 +36,7 @@ from lxml import etree
 
 from cfgm_common import vnc_cgitb
 from cfgm_common import has_role
+from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
 
 logger = logging.getLogger(__name__)
 
@@ -848,7 +849,8 @@ class VncApiServer(object):
             get_context().set_state('PRE_DBE_UPDATE')
             # type-specific hook
             (ok, result) = r_class.pre_dbe_update(
-                id, fq_name, obj_dict, self._db_conn)
+                id, fq_name, obj_dict, self._db_conn,
+                quota_counter=self.quota_counter)
             if not ok:
                 return (ok, result)
 
@@ -868,7 +870,9 @@ class VncApiServer(object):
 
             get_context().set_state('POST_DBE_UPDATE')
             # type-specific hook
-            (ok, result) = r_class.post_dbe_update(id, fq_name, obj_dict, self._db_conn)
+            (ok, result) = r_class.post_dbe_update(
+                id, fq_name, obj_dict, self._db_conn,
+                quota_counter=self.quota_counter)
             if not ok:
                 return (ok, result)
 
@@ -1057,7 +1061,9 @@ class VncApiServer(object):
             # type-specific hook
             get_context().set_state('POST_DBE_DELETE')
             try:
-                ok, err_msg = r_class.post_dbe_delete(id, read_result, db_conn)
+                ok, err_msg = r_class.post_dbe_delete(
+                    id, read_result, db_conn,
+                    quota_counter=self.quota_counter)
             except Exception as e:
                 ok = False
                 err_msg = '%s:%s post_dbe_delete had an exception: ' \
@@ -1379,7 +1385,7 @@ class VncApiServer(object):
         self._post_common = None
         self._resource_classes = {}
         self._args = None
-        self._path_prefix = "/vnc_api_server_obj_create/"
+        self._path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX
         self.quota_counter = {}
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
