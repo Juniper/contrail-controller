@@ -2159,7 +2159,7 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_id5 = self._vnc_lib.instance_ip_create(ipv4_obj5)
         ipv4_obj5 = self._vnc_lib.instance_ip_read(id=ipv4_id5)
         ipv4_addr5 = ipv4_obj5.get_instance_ip_address()
-        self.assertEqual(ipv4_addr5, '13.1.1.24')
+        self.assertEqual(ipv4_addr5, '13.1.1.17')
 
         # update vrouter allocation-pool by deleting 13.1.1.8/9 pools
         # ipv4_addr1 and ipv4_addr2 are from this pool
