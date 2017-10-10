@@ -1005,4 +1005,18 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
 
         sg_obj.set_security_group_entries(rules)
     #end _security_group_rule_append
+
+    def _security_group_rule_remove(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            raise Exception('SecurityGroupRuleNotExists %s' % sgr.rule_uuid)
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                if sgr.rule_uuid == sg_rule.rule_uuid:
+                    rules.delete_policy_rule(sgr)
+                    sg_obj.set_security_group_entries(rules)
+                    return
+            raise Exception('SecurityGroupRuleNotExists %s' % sg_rule.rule_uuid)
+    #end _security_group_rule_append
+
 # end TestCase
