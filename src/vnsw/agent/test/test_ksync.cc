@@ -59,7 +59,7 @@ public:
             (peer_, vmi_->vrf()->GetName(), ip, 32, MakeUuid(1),
              vn_list, 10, SecurityGroupList(), TagList(), CommunityList(),
              false, PathPreference(), Ip4Address(0), EcmpLoadBalance(), false,
-             false);
+             false, false);
         client->WaitForIdle();
     }
 

@@ -115,7 +115,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
         agent->fabric_inet4_unicast_table()->AddVHostRecvRoute
             (agent->local_peer(),
              agent->fabric_vrf_name(), vmi_key,
-             agent->router_id(), 32, "", false);
+             agent->router_id(), 32, "", false, true);
     }
 
     return client;

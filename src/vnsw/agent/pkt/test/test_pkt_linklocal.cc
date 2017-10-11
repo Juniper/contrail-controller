@@ -77,7 +77,8 @@ public:
                                SecurityGroupList(), TagList(),
                                CommunityList(), false,
                                PathPreference(), Ip4Address(0),
-                               EcmpLoadBalance(), false, false);
+                               EcmpLoadBalance(), false, false,
+                               false);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }

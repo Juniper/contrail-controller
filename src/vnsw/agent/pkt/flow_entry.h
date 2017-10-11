@@ -527,7 +527,8 @@ class FlowEntry {
         BgpRouterService          = 1 << 12,
         BgpHealthCheckService     = 1 << 13,
         AliasIpFlow               = 1 << 14,
-        FabricControlFlow         = 1 << 15
+        FabricControlFlow         = 1 << 15,
+        FabricFlow                = 1 << 16
     };
 
     FlowEntry(FlowTable *flow_table);

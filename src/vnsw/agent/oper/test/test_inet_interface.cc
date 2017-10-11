@@ -328,7 +328,7 @@ static void RestoreInetConfig(Agent *agent) {
                            Ip4Address(0), 0, param->vhost_gw(),
                            vn_list,
                            MplsTable::kInvalidLabel, SecurityGroupList(),
-                           TagList(), CommunityList());
+                           TagList(), CommunityList(), true);
     client->WaitForIdle();
 }
 

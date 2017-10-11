@@ -554,7 +554,7 @@ public:
                  const IpAddress &subnet_service_ip,
                  const EcmpLoadBalance &ecmp_load_balance, bool is_local,
                  bool is_health_check_service, uint64_t sequence_number,
-                 bool etree_leaf) :
+                 bool etree_leaf, bool native_encap) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
         intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
@@ -566,7 +566,7 @@ public:
         subnet_service_ip_(subnet_service_ip),
         ecmp_load_balance_(ecmp_load_balance), is_local_(is_local),
         is_health_check_service_(is_health_check_service),
-        etree_leaf_(etree_leaf) {
+        etree_leaf_(etree_leaf), native_encap_(native_encap) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -604,6 +604,7 @@ private:
     bool is_local_;
     bool is_health_check_service_;
     bool etree_leaf_;
+    bool native_encap_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 
@@ -871,10 +872,12 @@ public:
                              const VnListType &vn_list,
                              uint32_t label, const SecurityGroupList &sg,
                              const TagList &tag,
-                             const CommunityList &communities) :
+                             const CommunityList &communities,
+                             bool native_encap):
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
         gw_ip_(gw_ip), vrf_name_(vrf_name), vn_list_(vn_list),
-        mpls_label_(label), sg_list_(sg), tag_list_(tag), communities_(communities) {
+        mpls_label_(label), sg_list_(sg), tag_list_(tag), communities_(communities),
+        native_encap_(native_encap) {
     }
     virtual ~Inet4UnicastGatewayRoute() { }
     virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
@@ -889,6 +892,7 @@ private:
     const SecurityGroupList sg_list_;
     const TagList tag_list_;
     const CommunityList communities_;
+    bool native_encap_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastGatewayRoute);
 };
 
