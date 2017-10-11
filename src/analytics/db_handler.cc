@@ -671,7 +671,8 @@ bool DbHandler::InsertIntoDb(std::auto_ptr<GenDb::ColList> col_list,
 
 bool DbHandler::AllowMessageTableInsert(const SandeshHeader &header) {
     return !IsMessagesWritesDisabled() && !IsAllWritesDisabled() &&
-        (header.get_Type() != SandeshType::FLOW);
+        (header.get_Type() != SandeshType::FLOW) &&
+        (header.get_Type() != SandeshType::SESSION);
 }
 
 bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
