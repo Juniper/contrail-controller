@@ -664,6 +664,7 @@ void AnalyticsQuery::Init(const std::string& qid,
         if (time_slice > smax) {
             time_slice = smax;
         }          
+#ifndef USE_SESSION
         // Adjust the time_slice for Flowseries query, if time granularity is 
         // specified. Divide the query based on the time granularity.
         if (selectquery_->provide_timeseries && selectquery_->granularity) {
@@ -682,7 +683,7 @@ void AnalyticsQuery::Init(const std::string& qid,
               fs_query_type == SelectQuery::FS_SELECT_FLOW_TUPLE_STATS))) {
             merge_needed = true;
         }
-
+#endif
         QE_TRACE(DEBUG, "time_slice:" << time_slice << " , # of parallel "
                 "batches:" << total_parallel_batches);
 
