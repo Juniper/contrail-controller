@@ -404,7 +404,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
                                         vmi_key,
                                         key.linklocal_service_ip, 32,
                                         vn_entry->GetName(),
-                                        true);
+                                        true, false);
         }
     } else {
         state->Delete(key.linklocal_service_ip);
@@ -467,7 +467,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                                         key,
                                         it->first.linklocal_service_ip, 32,
                                         vn_entry->GetName(),
-                                        true);
+                                        true, false);
         }
     }
     return true;

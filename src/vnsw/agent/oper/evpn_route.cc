@@ -261,7 +261,7 @@ void EvpnAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           IpAddress(),
                                           EcmpLoadBalance(), false, false,
                                           peer->sequence_number(),
-                                          etree_leaf);
+                                          etree_leaf, false);
     data->set_tunnel_bmap(TunnelType::AllType());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
@@ -298,7 +298,7 @@ void EvpnAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                           IpAddress(),
                                           EcmpLoadBalance(), false, false,
                                           peer->sequence_number(),
-                                          etree_leaf);
+                                          etree_leaf, false);
     data->set_tunnel_bmap(TunnelType::AllType());
 
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);

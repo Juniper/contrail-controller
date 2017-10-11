@@ -61,7 +61,7 @@ protected:
                 vn_list, vm_intf->label(), SecurityGroupList(),
                 TagList(), CommunityList(),
                 false, PathPreference(), Ip4Address(0), EcmpLoadBalance(),
-                false, false);
+                false, false, false);
         client->WaitForIdle();
 
         Inet4TunnelRouteAdd(bgp_peer_, "__internal__",

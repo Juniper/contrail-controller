@@ -514,7 +514,7 @@ TEST_F(TestKSyncRoute, IndirectRoute) {
         AddGatewayRouteReq(agent_->local_peer(), agent_->fabric_vrf_name(),
                            ip, 32, server_ip, vn_list,
                            MplsTable::kInvalidLabel, SecurityGroupList(),
-                           TagList(), CommunityList());
+                           TagList(), CommunityList(), true);
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt = RouteGet(agent_->fabric_vrf_name(), ip, 32);

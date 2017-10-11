@@ -172,7 +172,7 @@ VirtualGateway::SubnetUpdate(const std::string &vrf,
                                        agent_->fabric_vrf_name(),
                                        vmi_key,
                                        addr, add_list[idx].plen_,
-                                       vrf, false);
+                                       vrf, false, true);
     }
     for (uint32_t idx = 0; idx < del_list.size(); idx++) {
         Ip4Address addr = Address::GetIp4SubnetAddress(del_list[idx].ip_,

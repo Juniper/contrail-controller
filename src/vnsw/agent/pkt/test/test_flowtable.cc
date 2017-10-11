@@ -130,7 +130,8 @@ public:
                                vn_list, label,
                                SecurityGroupList(), TagList(),
                                CommunityList(), false, PathPreference(),
-                               Ip4Address(0), EcmpLoadBalance(), false, false);
+                               Ip4Address(0), EcmpLoadBalance(), false,
+                               false, false);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
