@@ -2409,9 +2409,9 @@ class DBInterface(object):
 
         # To be sure to always use the same SI's VM, we sort them by theirs
         # name
-        vm_ref = sorted(si.get_virtual_machine_back_refs() or [],
-                        key=lambda ref: ref['to'][-1])[0]
-        if vm_ref:
+        sorted_vm_refs = sorted(si.get_virtual_machine_back_refs() or [],
+                                key=lambda ref: ref['to'][-1])
+        if len(sorted_vm_refs) >= 1:
             # And list right VM's VMIs. Return the first one (sorted by
             # name) but SI's VM habitually have only one right interface
             filters = {
@@ -2419,9 +2419,12 @@ class DBInterface(object):
                     json.dumps({'service_interface_type': "right"}),
             }
             vmis = self._virtual_machine_interface_list(
-                back_ref_id=[vm_ref['uuid']], filters=filters)
-            if vmis:
-                return sorted(vmis, key=lambda vmi: vmi.name)[0]
+                back_ref_id=[sorted_vm_refs[0]['uuid']], filters=filters)
+            sorted_vmis = sorted(vmis, key=lambda vmi: vmi.name)
+            # Return first right VM's VMI if at least one IP is configured
+            if (len(sorted_vmis) >= 1 and
+                    sorted_vmis[0].get_instance_ip_back_refs()):
+                return sorted_vmis[0]
 
     @catch_convert_exception
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None, oper=READ):
