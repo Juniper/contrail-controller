@@ -56,7 +56,9 @@ class TorAgentBaseSetup(ContrailSetup):
                 '__contrail_tor_ssl_cacert__': self.ssl_cacert,
                 '__contrail_control_servers__': control_servers,
                 '__contrail_collector_servers__': collector_servers,
-                '__contrail_dns_servers__': dns_servers
+                '__contrail_dns_servers__': dns_servers,
+                '__xmpp_dns_auth_enable__': self._args.xmpp_dns_auth_enable,
+                '__xmpp_auth_enable__': self._args.xmpp_auth_enable,
                 }
         self._template_substitute_write(
                 tor_agent_conf.template, template_vals,
@@ -179,7 +181,9 @@ class TorAgentSetup(ContrailSetup):
             'tor_product_name':'',
             'http_server_port':9090,
             'tor_agent_ovs_ka':10000,
-            'restart':True
+            'restart':True,
+            'xmpp_auth_enable': False,
+            'xmpp_dns_auth_enable': False,
         }
 
         self.parse_args(args_str)
@@ -227,6 +231,12 @@ class TorAgentSetup(ContrailSetup):
                 help="List of IP of the VNC collectors",
                 nargs='+', type=str)
         parser.add_argument("--tor_id_list", help="tor id list", nargs='+', type=str)
+        parser.add_argument(
+                "--xmpp_auth_enable", help="Enable xmpp auth",
+                action="store_true")
+        parser.add_argument(
+                "--xmpp_dns_auth_enable", help="Enable DNS xmpp auth",
+                action="store_true")
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)
 
