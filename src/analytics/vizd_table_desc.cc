@@ -195,7 +195,7 @@ void init_vizd_tables() {
             GenDb::DbDataType::Unsigned64Type);
     session_msg2type_map[g_viz_constants.SessionRecordNames[
             SessionRecordFields::SESSION_LOGGED_FORWARD_PKTS]] =
-        SessionTypeInfo(SessionRecordFields::SESSION_LOGGED_REVERSE_PKTS,
+        SessionTypeInfo(SessionRecordFields::SESSION_LOGGED_FORWARD_PKTS,
             GenDb::DbDataType::Unsigned64Type);
     session_msg2type_map[g_viz_constants.SessionRecordNames[
             SessionRecordFields::SESSION_LOGGED_REVERSE_BYTES]] =
