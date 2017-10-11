@@ -195,7 +195,6 @@ void VmInterfaceConfigData::CopyVhostData(const Agent *agent) {
                                          false));
 
     mc_addr = Ip6Address::from_string(IPV6_MULTICAST_BASE_ADDRESS, ec);
-    disable_policy_ = false;
     receive_route_list_.list_.insert(
             VmInterface::VmiReceiveRoute(mc_addr, MULTICAST_BASE_ADDRESS_PLEN,
                                          false));
