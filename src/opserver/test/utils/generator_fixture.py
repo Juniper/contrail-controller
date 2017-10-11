@@ -131,6 +131,8 @@ class GeneratorFixture(fixtures.Fixture):
         self.server_session_cnt = self.flow_cnt
         self.session_start_time = self._start_time
         self.session_end_time = self._start_time + 40*self._KSECINMSEC
+        self.client_vmi = 'domain1:' + str(uuid.uuid1())
+        self.server_vmi = 'domain1:' + str(uuid.uuid1())
 
         for i in range(self.flow_cnt*self.flow_cnt):
             self.forward_flows.append(SessionFlowInfo(flow_uuid=uuid.uuid1(),
@@ -158,6 +160,19 @@ class GeneratorFixture(fixtures.Fixture):
                     session_map[sess_ip_port] = SessionInfo(
                         forward_flow_info=self.forward_flows[cnt],
                         reverse_flow_info=self.reverse_flows[cnt])
+                    if (i == self.client_session_cnt - 1):
+                        session_map[sess_ip_port].forward_flow_info.action \
+                                = 'drop'
+                        session_map[sess_ip_port].forward_flow_info.teardown_bytes \
+                                = 3*(((i/3)+1)*20)
+                        session_map[sess_ip_port].forward_flow_info.teardown_pkts \
+                                = 3*(((i/3)+1)*2)
+                        session_map[sess_ip_port].reverse_flow_info.action \
+                                = 'drop'
+                        session_map[sess_ip_port].reverse_flow_info.teardown_bytes \
+                                = 3*(((i/3)+1)*10)
+                        session_map[sess_ip_port].reverse_flow_info.teardown_pkts \
+                                = 3*(((i/3)+1)*1)
                     cnt += 1
                 sess_ip_port_proto = SessionIpPortProtocol(
                     ip=netaddr.IPAddress('10.10.10.1'),
@@ -168,7 +183,7 @@ class GeneratorFixture(fixtures.Fixture):
                     sampled_reverse_bytes = (j+1)*30,
                     sampled_reverse_pkts = (j+1)*3,
                     sessionMap = session_map)
-            client_session = SessionEndpoint(vmi = str(uuid.uuid1()),
+            client_session = SessionEndpoint(vmi = self.client_vmi,
                 vn='domain1:admin:vn1', deployment='Dep'+str(i),
                 application="App"+str(i), tier='Tier'+str(i),
                 site='Site'+str(i), remote_deployment='RDep'+str(i),
@@ -194,19 +209,32 @@ class GeneratorFixture(fixtures.Fixture):
                         ip=netaddr.IPAddress('10.10.10.1'),
                         port=cnt*10+32747)
                     session_map[sess_ip_port] = SessionInfo(
-                        forward_flow_info=self.reverse_flows[cnt],
-                        reverse_flow_info=self.forward_flows[cnt])
+                        forward_flow_info=self.forward_flows[cnt],
+                        reverse_flow_info=self.reverse_flows[cnt])
+                    if (i == self.server_session_cnt - 1):
+                        session_map[sess_ip_port].forward_flow_info.action \
+                                = 'drop'
+                        session_map[sess_ip_port].forward_flow_info.teardown_bytes \
+                                = 3*(((i/3)+1)*20)
+                        session_map[sess_ip_port].forward_flow_info.teardown_pkts \
+                                = 3*(((i/3)+1)*2)
+                        session_map[sess_ip_port].reverse_flow_info.action \
+                                = 'drop'
+                        session_map[sess_ip_port].reverse_flow_info.teardown_bytes \
+                                = 3*(((i/3)+1)*10)
+                        session_map[sess_ip_port].reverse_flow_info.teardown_pkts \
+                                = 3*(((i/3)+1)*1)
                     cnt += 1
                 sess_ip_port_proto = SessionIpPortProtocol(
                     ip=netaddr.IPAddress('2001:db8::1:2'),
                     port=j+100, protocol=j/2)
                 session_agg_info[sess_ip_port_proto] = SessionAggInfo(
-                    sampled_forward_bytes = j*60,
-                    sampled_forward_pkts = j*6,
-                    sampled_reverse_bytes = j*30,
-                    sampled_reverse_pkts = j*3,
+                    sampled_forward_bytes = (j+1)*60,
+                    sampled_forward_pkts = (j+1)*6,
+                    sampled_reverse_bytes = (j+1)*30,
+                    sampled_reverse_pkts = (j+1)*3,
                     sessionMap = session_map)
-            server_session = SessionEndpoint(vmi = str(uuid.uuid1()),
+            server_session = SessionEndpoint(vmi = self.server_vmi,
                 vn='domain1:admin:vn2', deployment='Dep'+str(i),
                 application="App"+str(i), tier='Tier'+str(i),
                 site='Site'+str(i), remote_deployment='RDep'+str(i),
@@ -214,6 +242,7 @@ class GeneratorFixture(fixtures.Fixture):
                 remote_site='RSite'+str(i), remote_vn='domain1:admin:vn1',
                 is_client_session = 0, is_si = 0,
                 sess_agg_info = session_agg_info)
+            self._logger.info(str(server_session))
             session_object = SessionEndpointObject(session_data=[server_session],
                 sandesh=self._sandesh_instance)
             session_object._timestamp = self.session_start_time + \
