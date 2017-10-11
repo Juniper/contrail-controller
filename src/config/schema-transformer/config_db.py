@@ -298,7 +298,8 @@ class GlobalSystemConfigST(DBBaseST):
         for router in LogicalRouterST.values():
             router.update_autonomous_system(self._autonomous_system)
         # end for router
-        self.update_bgpaas_parameters(self.obj.bgpaas_parameters)
+        if self.obj.bgpaas_parameters:
+            self.update_bgpaas_parameters(self.obj.bgpaas_parameters)
     # end evaluate
 # end GlobalSystemConfigST
 
