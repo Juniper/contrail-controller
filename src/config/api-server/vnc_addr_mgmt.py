@@ -906,8 +906,20 @@ class AddrMgmt(object):
         req_subnet_names = set(req_subnet_dicts.keys())
 
         del_subnet_names = db_subnet_names - req_subnet_names
+        add_subnet_names = req_subnet_names - db_subnet_names
+
         for subnet_name in del_subnet_names:
             Subnet.delete_cls('%s:%s' % (vn_fq_name_str, subnet_name), False)
+
+        # Remove stale entries in _subnet_objs
+        vn_subnet_objs = self._subnet_objs.get(vn_uuid)
+        if vn_subnet_objs:
+            for subnet_name in add_subnet_names:
+                subnet_obj = vn_subnet_objs.pop(subnet_name, None)
+                if subnet_obj is not None:
+                    msg = "Removing stale subnet entry: %s:%s" % (
+                        vn_fq_name_str, subnet_name,)
+                    self.config_log(msg, level=SandeshLevel.SYS_WARN)
 
         # check db_subnet_dicts and req_subnet_dicts
         # following parameters are same for subnets present in both dicts
@@ -2158,8 +2170,20 @@ class AddrMgmt(object):
         req_subnet_names = set(req_subnet_dicts.keys())
 
         del_subnet_names = db_subnet_names - req_subnet_names
+        add_subnet_names = req_subnet_names - db_subnet_names
+
         for subnet_name in del_subnet_names:
             Subnet.delete_cls('%s:%s' % (ipam_fq_name_str, subnet_name), False)
+
+        # Remove stale entries in _subnet_objs
+        ipam_subnet_objs = self._subnet_objs.get(obj_uuid)
+        if ipam_subnet_objs:
+            for subnet_name in add_subnet_names:
+                subnet_obj = ipam_subnet_objs.pop(subnet_name, None)
+                if subnet_obj is not None:
+                    msg = "Removing stale ipam subnet entry: %s:%s" % (
+                        ipam_fq_name_str, subnet_name,)
+                    self.config_log(msg, level=SandeshLevel.SYS_WARN)
 
         # check db_subnet_dicts and req_subnet_dicts
         # following parameters are same for subnets present in both dicts
