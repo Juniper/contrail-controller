@@ -957,6 +957,73 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
         self._vnc_lib.logical_router_create(lr)
         return lr, vns, vmis, iips
 
+    def _security_group_rule_build(self, rule_info, sg_fq_name_str):
+        protocol = rule_info['protocol']
+        port_min = rule_info['port_min'] or 0
+        port_max = rule_info['port_max'] or 65535
+        direction = rule_info['direction'] or 'ingress'
+        ip_prefix = rule_info['ip_prefix']
+        ether_type = rule_info['ether_type']
+
+        if ip_prefix:
+            cidr = ip_prefix.split('/')
+            pfx = cidr[0]
+            pfx_len = int(cidr[1])
+            endpt = [AddressType(subnet=SubnetType(pfx, pfx_len))]
+        else:
+            endpt = [AddressType(security_group=sg_fq_name_str)]
+
+        local = None
+        remote = None
+        if direction == 'ingress':
+            dir = '>'
+            local = endpt
+            remote = [AddressType(security_group='local')]
+        else:
+            dir = '>'
+            remote = endpt
+            local = [AddressType(security_group='local')]
+
+        if not protocol:
+            protocol = 'any'
+
+        if protocol.isdigit():
+            protocol = int(protocol)
+            if protocol < 0 or protocol > 255:
+                raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
+        else:
+            if protocol not in ['any', 'tcp', 'udp', 'icmp', 'icmp6']:
+                raise Exception('SecurityGroupRuleInvalidProtocol-%s' % protocol)
+
+        if not ip_prefix and not sg_fq_name_str:
+            if not ether_type:
+                ether_type = 'IPv4'
+
+        sgr_uuid = str(uuid.uuid4())
+        rule = PolicyRuleType(rule_uuid=sgr_uuid, direction=dir,
+                                  protocol=protocol,
+                                  src_addresses=local,
+                                  src_ports=[PortType(0, 65535)],
+                                  dst_addresses=remote,
+                                  dst_ports=[PortType(port_min, port_max)],
+                                  ethertype=ether_type)
+        return rule
+    #end _security_group_rule_build
+
+    def _security_group_rule_append(self, sg_obj, sg_rule):
+        rules = sg_obj.get_security_group_entries()
+        if rules is None:
+            rules = PolicyEntriesType([sg_rule])
+        else:
+            for sgr in rules.get_policy_rule() or []:
+                sgr_copy = copy.copy(sgr)
+                sgr_copy.rule_uuid = sg_rule.rule_uuid
+                if sg_rule == sgr_copy:
+                    raise Exception('SecurityGroupRuleExists %s' % sgr.rule_uuid)
+            rules.add_policy_rule(sg_rule)
+
+        sg_obj.set_security_group_entries(rules)
+    #end _security_group_rule_append
 # end TestCase
 
 
