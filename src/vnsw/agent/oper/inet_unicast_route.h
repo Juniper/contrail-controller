@@ -229,7 +229,8 @@ public:
                             const IpAddress &subnet_service_ip,
                             const EcmpLoadBalance &ecmp_load_balance,
                             bool is_local,
-                            bool is_health_check_service);
+                            bool is_health_check_service,
+                            bool native_encap);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const IpAddress &addr, uint8_t plen,
                                 const uuid &intf_uuid,
@@ -243,7 +244,8 @@ public:
                                 const IpAddress &subnet_service_ip,
                                 const EcmpLoadBalance &ecmp_load_balance,
                                 bool is_local, bool is_health_check_service,
-                                const std::string &intf_name);
+                                const std::string &intf_name,
+                                bool native_encap);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
@@ -311,11 +313,13 @@ public:
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
                                   const InterfaceKey &interface,
                                   const IpAddress &addr, uint8_t plen,
-                                  const string &vn_name, bool policy);
+                                  const string &vn_name, bool policy,
+                                  bool native_encap);
     static void AddVHostRecvRouteReq(const Peer *peer, const string &vrf,
                                      const InterfaceKey &interface,
                                      const IpAddress &addr, uint8_t plen,
-                                     const string &vn_name, bool policy);
+                                     const string &vn_name, bool policy,
+                                     bool native_encap);
     static void AddVHostSubnetRecvRoute(const Peer *peer, const string &vrf,
                                         const InterfaceKey &interface,
                                         const Ip4Address &addr, uint8_t plen,

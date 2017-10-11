@@ -976,7 +976,7 @@ TEST_F(CfgTest, EcmpNH_18) {
                 MakeUuid(1), vn_list, vm_intf->label(),
                 SecurityGroupList(), TagList(), CommunityList(),
                 false, PathPreference(),
-                Ip4Address(0), EcmpLoadBalance(), false, false);
+                Ip4Address(0), EcmpLoadBalance(), false, false, false);
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 

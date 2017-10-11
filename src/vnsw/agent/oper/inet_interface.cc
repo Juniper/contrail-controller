@@ -185,7 +185,7 @@ static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
 
     InetInterfaceKey intf_key(interface);
     table->AddVHostRecvRoute(agent->local_peer(), vrf->GetName(), intf_key,
-                             addr, 32, vn_name, false);
+                             addr, 32, vn_name, false, true);
 
     const PhysicalInterface *physical_intf =
         static_cast<const PhysicalInterface *>(xconnect);
@@ -221,7 +221,7 @@ static void AddHostRoutes(Agent *agent, InetUnicastAgentRouteTable *table,
                                          agent->params()->vhost_addr(),
                                          32,
                                          agent->fabric_vn_name(),
-                                         false);
+                                         false, true);
     }
 }
 
@@ -256,7 +256,7 @@ void InetInterface::AddHostMulticastRoutes() {
                                                   ec),
                           MULTICAST_BASE_ADDRESS_PLEN,
                           vn_name_,
-                          false);
+                          false, true);
     // Add v6 route for covering multicast
     uc_rt_table->
         AddVHostRecvRoute(uc_rt_table->agent()->local_peer(),
@@ -266,7 +266,7 @@ void InetInterface::AddHostMulticastRoutes() {
                                                   ec),
                           MULTICAST_BASE_ADDRESS_PLEN,
                           vn_name_,
-                          false);
+                          false, true);
 }
 
 void InetInterface::DelHostMulticastRoutes() {

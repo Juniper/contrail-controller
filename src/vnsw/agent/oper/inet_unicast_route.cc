@@ -1503,7 +1503,8 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const IpAddress &subnet_service_ip,
                                                const EcmpLoadBalance &ecmp_load_balance,
                                                bool is_local,
-                                               bool is_health_check_service)
+                                               bool is_health_check_service,
+                                               bool native_encap)
 {
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     LocalVmRoute *data = new LocalVmRoute(intf_key, label,
@@ -1513,7 +1514,7 @@ InetUnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                     subnet_service_ip, ecmp_load_balance,
                                     is_local, is_health_check_service,
                                     peer->sequence_number(),
-                                    false);
+                                    false, native_encap);
 
     AddLocalVmRouteReq(peer, vm_vrf, addr, plen, data);
 }
@@ -1550,7 +1551,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             const EcmpLoadBalance &ecmp_load_balance,
                                             bool is_local,
                                             bool is_health_check_service,
-                                            const std::string &intf_name)
+                                            const std::string &intf_name,
+                                            bool native_encap)
 {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(peer, vm_vrf, addr, plen));
@@ -1563,7 +1565,7 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                     subnet_service_ip,
                                     ecmp_load_balance, is_local,
                                     is_health_check_service,
-                                    peer->sequence_number(), false));
+                                    peer->sequence_number(), false, native_encap));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 
@@ -1750,14 +1752,18 @@ static void AddVHostRecvRouteInternal(DBRequest *req, const Peer *peer,
                                       const string &vrf,
                                       const InterfaceKey &intf_key,
                                       const IpAddress &addr, uint8_t plen,
-                                      const string &vn_name, bool policy) {
+                                      const string &vn_name, bool policy,
+                                      bool native_encap) {
     req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req->key.reset(new InetUnicastRouteKey(peer, vrf, addr, plen));
 
+    int tunnel_bmap = TunnelType::AllType();
+    if (native_encap) {
+        tunnel_bmap |= TunnelType::NativeType();
+    }
+
     req->data.reset(new ReceiveRoute(intf_key, MplsTable::kInvalidExportLabel,
-                                    TunnelType::AllType() |
-                                    TunnelType::NativeType(),
-                                    policy, vn_name));
+                                    tunnel_bmap, policy, vn_name));
 }
 
 void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
@@ -1766,10 +1772,10 @@ void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
                                                    const IpAddress &addr,
                                                    uint8_t plen,
                                                    const string &vn_name,
-                                                   bool policy) {
+                                                   bool policy, bool native_encap) {
     DBRequest req;
     AddVHostRecvRouteInternal(&req, peer, vrf, intf_key, addr, plen,
-                              vn_name, policy);
+                              vn_name, policy, native_encap);
     static_cast<ReceiveRoute *>(req.data.get())->set_proxy_arp();
     if (addr.is_v4()) {
         Inet4UnicastTableProcess(Agent::GetInstance(), vrf, req);
@@ -1780,10 +1786,11 @@ void InetUnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
 
 void InetUnicastAgentRouteTable::AddVHostRecvRouteReq
     (const Peer *peer, const string &vrf, const InterfaceKey &intf_key,
-     const IpAddress &addr, uint8_t plen, const string &vn_name, bool policy) {
+     const IpAddress &addr, uint8_t plen, const string &vn_name, bool policy,
+     bool native_encap) {
     DBRequest req;
     AddVHostRecvRouteInternal(&req, peer, vrf, intf_key, addr, plen,
-                              vn_name, policy);
+                              vn_name, policy, native_encap);
     static_cast<ReceiveRoute *>(req.data.get())->set_proxy_arp();
     if (addr.is_v4()) {
         Inet4UnicastTableEnqueue(Agent::GetInstance(), &req);
@@ -1802,7 +1809,7 @@ InetUnicastAgentRouteTable::AddVHostSubnetRecvRoute(const Peer *peer,
                                                     bool policy) {
     DBRequest req;
     AddVHostRecvRouteInternal(&req, peer, vrf, intf_key, addr, plen,
-                              vn_name, policy);
+                              vn_name, policy, true);
     Inet4UnicastTableProcess(Agent::GetInstance(), vrf, req);
 }
 

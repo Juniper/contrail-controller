@@ -146,7 +146,8 @@ public:
                                SecurityGroupList(), TagList(),
                                CommunityList(), false,
                                PathPreference(), Ip4Address(0),
-                               EcmpLoadBalance(), false, false);
+                               EcmpLoadBalance(), false, false,
+                               false);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
@@ -615,6 +616,9 @@ protected:
         client->WaitForIdle();
         vn_count++;
 
+        AddVn("default-domain:default-project:ip-fabric", 100);
+        client->WaitForIdle();
+        vn_count++;
         EXPECT_TRUE(VmPortActive(input, 0));
         EXPECT_TRUE(VmPortActive(input, 1));
         EXPECT_TRUE(VmPortActive(input, 2));
@@ -651,6 +655,9 @@ protected:
         flow3 = VmInterfaceGet(input2[0].intf_id);
         assert(flow3);
 
+        AddLink("virtual-network", "vn5",
+                "routing-instance", "vrf5");
+        client->WaitForIdle();
         /* Create interface flow4 in default-project:vn4 */
         client->Reset();
         CreateVmportFIpEnv(input3, 1);
@@ -707,6 +714,11 @@ protected:
         EXPECT_FALSE(VmPortFind(input, 2));
         EXPECT_EQ(6U, agent()->interface_table()->Size());
         EXPECT_EQ(2U, PortSubscribeSize(agent()));
+
+        DelLink("virtual-network", "vn5",
+                "routing-instance", "vrf5");
+        DelVn("default-domain:default-project:ip-fabric");
+        client->WaitForIdle();
 
         client->Reset();
         DeleteVmportEnv(input2, 1, true, 2);

@@ -5096,7 +5096,7 @@ void AddLocalVmRoute(Agent *agent, const std::string &vrf_name,
                          TagList(), CommunityList(),
                          PathPreference(), Ip4Address(0),
                          EcmpLoadBalance(), false, false,
-                         peer->sequence_number(), false);
+                         peer->sequence_number(), false, false);
     InetUnicastAgentRouteTable *rt_table =
         agent->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 

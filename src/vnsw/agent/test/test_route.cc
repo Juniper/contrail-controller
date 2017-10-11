@@ -1051,7 +1051,7 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
                                                             PathPreference(),
                                                             Ip4Address(0),
                                                             EcmpLoadBalance(),
-                                                            false, false);
+                                                            false, false, false);
     client->WaitForIdle();
 
     InetUnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32, NULL);
@@ -1105,7 +1105,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             PathPreference(),
                                                             Ip4Address(0),
                                                             EcmpLoadBalance(),
-                                                            false, false);
+                                                            false, false, false);
     agent_->fabric_inet4_unicast_table()->AddLocalVmRouteReq(peer2, "vrf1",
                                                             addr, 32,
                                                             MakeUuid(1),
@@ -1117,7 +1117,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             PathPreference(),
                                                             Ip4Address(0),
                                                             EcmpLoadBalance(),
-                                                            false, false);
+                                                            false, false, false);
     client->WaitForIdle();
 
     DelNode("access-control-list", "acl1");
@@ -1135,7 +1135,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
                                                             PathPreference(),
                                                             Ip4Address(0),
                                                             EcmpLoadBalance(),
-                                                            false, false);
+                                                            false, false, false);
     client->WaitForIdle();
 
     InetUnicastAgentRouteTable::DeleteReq(peer1, "vrf1", addr, 32, NULL);
@@ -1183,7 +1183,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
                                                             PathPreference(),
                                                             Ip4Address(0),
                                                             EcmpLoadBalance(),
-                                                            false, false);
+                                                            false, false, false);
     client->WaitForIdle();
     DelVn("vn1");
     client->WaitForIdle();
@@ -1201,7 +1201,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
                                                             PathPreference(),
                                                             Ip4Address(0),
                                                             EcmpLoadBalance(),
-                                                            false, false);
+                                                            false, false, false);
     client->WaitForIdle();
 
     InetUnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32, NULL);

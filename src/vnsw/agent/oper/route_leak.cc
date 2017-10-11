@@ -105,7 +105,8 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
                                                 active_path->path_preference(),
                                                 Ip4Address(0),
                                                 EcmpLoadBalance(), false, false,
-                                                intf_nh->GetInterface()->name());
+                                                intf_nh->GetInterface()->name(),
+                                                true);
 }
 
 void RouteLeakState::AddReceiveRoute(const AgentRoute *route) {
@@ -129,7 +130,7 @@ void RouteLeakState::AddReceiveRoute(const AgentRoute *route) {
                              vmi_key,
                              uc_rt->addr(),
                              uc_rt->plen(),
-                             agent_->fabric_vn_name(), false);
+                             agent_->fabric_vn_name(), false, true);
 }
 
 void RouteLeakState::AddRoute(const AgentRoute *route) {

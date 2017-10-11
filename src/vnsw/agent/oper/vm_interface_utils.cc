@@ -473,6 +473,14 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
     PathPreference path_preference;
     SetPathPreference(&path_preference, ecmp, dependent_rt);
 
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    bool native_encap = false;
+    VrfEntry *vrf = table->FindVrfRef(vrf_name);
+    if (addr.is_v4() &&
+        vrf && vrf->forwarding_vrf() == table->agent()->fabric_vrf()) {
+        native_encap = true;
+    }
+
     VnListType vn_list;
     vn_list.insert(dest_vn);
     EcmpLoadBalance ecmp_load_balance;
@@ -481,7 +489,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const IpAddress &addr,
         (peer_.get(), vrf_name, addr, plen, GetUuid(), vn_list, label,
          sg_id_list, tag_list, communities, force_policy, path_preference,
          service_ip, ecmp_load_balance, is_local, is_health_check_service,
-         name_);
+         name_, native_encap);
     return;
 }
 

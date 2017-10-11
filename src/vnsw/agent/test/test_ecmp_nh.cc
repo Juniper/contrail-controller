@@ -1511,7 +1511,7 @@ TEST_F(EcmpNhTest, EcmpNH_17) {
             MakeUuid(1), vn_list, intf->label(),
             SecurityGroupList(), TagList(),
             CommunityList(), false, PathPreference(),
-            Ip4Address(0), EcmpLoadBalance(), false, false);
+            Ip4Address(0), EcmpLoadBalance(), false, false, false);
     client->WaitForIdle();
 
     InetUnicastRouteEntry *rt = RouteGet("vrf1", ip, 32);

@@ -188,7 +188,7 @@ TEST_F(FabricVmiTest, basic_3) {
             agent->fabric_policy_vrf_name(), ip, 32, MakeUuid(2),
             vn_list, 10, SecurityGroupList(),
             TagList(), CommunityList(), false, PathPreference(),
-            Ip4Address(0), EcmpLoadBalance(), false, false);
+            Ip4Address(0), EcmpLoadBalance(), false, false, true);
     client->WaitForIdle();
 
     //Route should be leaked to fabric VRF
@@ -206,7 +206,7 @@ TEST_F(FabricVmiTest, basic_3) {
             agent->fabric_policy_vrf_name(), ip, 32, MakeUuid(2),
             vn_list, 10, SecurityGroupList(),
             TagList(), CommunityList(), false, PathPreference(),
-            Ip4Address(0), EcmpLoadBalance(), false, false);
+            Ip4Address(0), EcmpLoadBalance(), false, false, true);
     client->WaitForIdle();
 
     EXPECT_TRUE(rt->GetActivePath()->peer() == agent->fabric_rt_export_peer());
@@ -361,6 +361,36 @@ TEST_F(FabricVmiTest, FabricAndLocalPeerRoute) {
             agent->fabric_vn_name().c_str());
     client->WaitForIdle();
 }
+
+TEST_F(FabricVmiTest, v6) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd11::2"},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+        {"fd11::", 96, "fd11::1"},
+    };
+
+    CreateV6VmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    Ip6Address addr = Ip6Address::from_string(input[0].ip6addr, ec);
+    InetUnicastRouteEntry* rt = RouteGetV6("vrf1", addr, 128);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
+                TunnelType::NativeType()) == 0);
+
+    DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+}
+
 
 int main(int argc, char **argv) {
     GETUSERARGS();

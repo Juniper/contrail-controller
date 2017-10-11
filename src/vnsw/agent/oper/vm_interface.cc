@@ -2773,7 +2773,7 @@ bool VmInterface::VmiReceiveRoute::AddL3(const Agent *agent,
 
     table->AddVHostRecvRoute(vmi->peer(), vrf_->GetName(), vmi_key,
                              addr_, plen_, agent->fabric_vn_name(),
-                             vmi->policy_enabled());
+                             vmi->policy_enabled(), true);
     return true;
 }
 
