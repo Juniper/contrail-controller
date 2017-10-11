@@ -1311,8 +1311,8 @@ class AnalyticsFixture(fixtures.Fixture):
             self.admin_user, self.admin_password)
         vrouter = generator_obj._hostname
         res = vns.post_query('FlowSeriesTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['T'], dir=1, where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         if len(res) != generator_obj.num_flow_samples:
@@ -1323,8 +1323,8 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         result = vns.post_query('FlowSeriesTable',
-                             start_time=str(generator_obj.egress_flow_start_time),
-                             end_time=str(generator_obj.egress_flow_end_time),
+                             start_time=str(generator_obj.egress_session_start_time),
+                             end_time=str(generator_obj.egress_session_end_time),
                              select_fields=['T'], dir=0, where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(result))
         if len(result) != generator_obj.egress_num_flow_samples:
@@ -1337,24 +1337,23 @@ class AnalyticsFixture(fixtures.Fixture):
  
     def verify_where_query_prefix(self,generator_obj):
         
-        self.logger.info('verify where query in FlowSeriesTable')
+        self.logger.info('verify where query in SessionSeriesTable')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         vrouter = generator_obj._hostname
-        a_query = Query(table="FlowSeriesTable",
-                start_time=(generator_obj.flow_start_time),
-                end_time=(generator_obj.flow_end_time),
-                select_fields=["sourcevn","sourceip","vrouter"],
-                where=[[{"name":"sourcevn","value":"domain1:admin","op":7},
-                        {"name":"destvn","value":"domain1:admin","op":7},
-                        {"name":"vrouter","value":"%s"%vrouter,"op":1}]])
+        a_query = Query(table="SessionSeriesTable",
+                start_time=(generator_obj.session_start_time),
+                end_time=(generator_obj.session_end_time),
+                select_fields=["vn","local_ip","vrouter"],
+                where=[[{"name":"vn","value":"domain1:admin","op":7},
+                        {"name":"remote-vn","value":"domain1:admin","op":7}]])
         json_qstr = json.dumps(a_query.__dict__)
         res = vns.post_query_json(json_qstr)
         assert(len(res)>0)
-        a_query = Query(table="FlowSeriesTable",
-                start_time=(generator_obj.flow_start_time),
-                end_time=(generator_obj.flow_end_time),
-                select_fields=["sourcevn","sourceip","vrouter"],
+        a_query = Query(table="SessionSeriesTable",
+                start_time=(generator_obj.session_start_time),
+                end_time=(generator_obj.session_end_time),
+                select_fields=["vn","local_ip","vrouter"],
                 where=[[{"name":"protocol","value":1,"op":1}]])
         json_qstr = json.dumps(a_query.__dict__)
         res = vns.post_query_json(json_qstr)
@@ -1368,45 +1367,44 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=[
-                                 'UuidKey', 'agg-packets', 'agg-bytes'],
-                             where_clause='vrouter=%s'% vrouter)
+                                 'UuidKey', 'agg-packets', 'agg-bytes'])
         self.logger.info("FlowRecordTable result:%s" % str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == 2*(generator_obj.flow_cnt**2))
 
         # query based on various WHERE parameters
 
         # sourcevn and sourceip
         res = vns.post_query(
             'FlowRecordTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['UuidKey', 'sourcevn', 'sourceip'],
             where_clause='sourceip=10.10.10.1 AND sourcevn=domain1:admin:vn1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['sourcevn', 'sourceip'],
             where_clause='sourceip=10.10.10.1 AND sourcevn=domain1:admin:vn1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.num_flow_samples)
+        assert(len(res) == 1)
         # give non-existent values in the where clause
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'sourcevn', 'sourceip'],
                              where_clause='sourceip=20.1.1.10 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['sourcevn', 'sourceip'],
             where_clause='sourceip=20.1.1.10 AND sourcevn=domain1:admin:vn1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
@@ -1415,27 +1413,27 @@ class AnalyticsFixture(fixtures.Fixture):
         # destvn and destip
         res = vns.post_query(
             'FlowRecordTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['UuidKey', 'destvn', 'destip'],
-            where_clause='destip=2001:db8::2:1 AND destvn=domain1:admin:vn2&>'+
+            where_clause='destip=2001:db8::1:2 AND destvn=domain1:admin:vn2'+
                          ' AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['destvn', 'destip'],
-            where_clause='destip=2001:db8::2:1 AND destvn=domain1:admin:vn2&>'+
+            where_clause='destip=2001:db8::1:2 AND destvn=domain1:admin:vn2'+
                          ' AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.num_flow_samples)
+        assert(len(res) == 1)
         # give non-existent values in the where clause
         res = vns.post_query(
             'FlowRecordTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['UuidKey', 'destvn', 'destip'],
             where_clause='destip=10.10.10.2 AND ' +
             'destvn=default-domain:default-project:default-virtual-network AND' +
@@ -1444,8 +1442,8 @@ class AnalyticsFixture(fixtures.Fixture):
         assert(len(res) == 0)
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['destvn', 'destip'],
             where_clause='destip=20.1.1.10 AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
@@ -1454,8 +1452,8 @@ class AnalyticsFixture(fixtures.Fixture):
         # sourcevn + sourceip AND destvn + destip [ipv4/ipv6]
         res = vns.post_query(
             'FlowRecordTable',
-            start_time=str(generator_obj.egress_flow_start_time),
-            end_time=str(generator_obj.egress_flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['UuidKey', 'sourcevn', 'sourceip',
                 'destvn', 'destip'],
             where_clause='sourceip=2001:db8::1:2 AND '+
@@ -1464,11 +1462,11 @@ class AnalyticsFixture(fixtures.Fixture):
                 'vrouter=%s'% vrouter,
             dir=0)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.egress_flow_start_time),
-            end_time=str(generator_obj.egress_flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['sourcevn', 'sourceip', 'destvn', 'destip'],
             where_clause='sourceip=2001:db8::1:2 AND '+
                 'sourcevn=domain1:admin:vn2 AND '+
@@ -1476,66 +1474,39 @@ class AnalyticsFixture(fixtures.Fixture):
                 'vrouter=%s'% vrouter,
             dir=0)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.egress_num_flow_samples)
+        assert(len(res) == 1)
 
         # sport and protocol
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'sport', 'protocol'],
-                             where_clause='sport=32777 AND protocol=1 AND vrouter=%s'% vrouter)
+                             where_clause='sport=32777 AND protocol=0 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
-        res = vns.post_query('FlowSeriesTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
-                             select_fields=['sport', 'protocol'],
-                             where_clause='sport=32777 AND protocol=1 AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
-        assert(len(res) == 5)
         # give no-existent values in the where clause
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'sport', 'protocol'],
                              where_clause='sport=20 AND protocol=17 AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
-        assert(len(res) == 0)
-        res = vns.post_query('FlowSeriesTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
-                             select_fields=['sport', 'protocol'],
-                             where_clause='sport=20 AND protocol=1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
 
         # dport and protocol
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'dport', 'protocol'],
-                             where_clause='dport=104 AND protocol=2 AND vrouter=%s'% vrouter)
+                             where_clause='dport=102 AND protocol=1 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == 1)
-        res = vns.post_query('FlowSeriesTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
-                             select_fields=['dport', 'protocol'],
-                             where_clause='dport=104 AND protocol=2 AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
-        assert(len(res) == 5)
+        assert(len(res) == generator_obj.flow_cnt)
+
         # give no-existent values in the where clause
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'dport', 'protocol'],
-                             where_clause='dport=10 AND protocol=17 AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
-        assert(len(res) == 0)
-        res = vns.post_query('FlowSeriesTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
-                             select_fields=['dport', 'protocol'],
                              where_clause='dport=10 AND protocol=17 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 0)
@@ -1543,93 +1514,92 @@ class AnalyticsFixture(fixtures.Fixture):
         # sort and limit
         res = vns.post_query(
             'FlowRecordTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['UuidKey', 'protocol'], where_clause='vrouter=%s'% vrouter,
             sort_fields=['protocol'], sort=1)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == 2 * (generator_obj.flow_cnt ** 2))
         assert(res[0]['protocol'] == 0)
 
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['protocol'], where_clause='vrouter=%s'% vrouter,
-                             sort_fields=['protocol'], sort=2, limit=1)
+                             sort_fields=['protocol'], sort=1, limit=1)
         self.logger.info(str(res))
         assert(len(res) == 1)
-        assert(res[0]['protocol'] == 2)
+        assert(res[0]['protocol'] == 0)
 
         # limit without sort
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['protocol'], where_clause='vrouter=%s'% vrouter,
-                             limit=1)
+                             limit=5)
         self.logger.info(str(res))
-        assert(len(res) == 1)
+        assert(len(res) == 5)
 
         # Filter by action
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'action', 'drop_reason'],
                              where_clause='vrouter=%s'% vrouter,
-                             filter='action=pass')
+                             filter='action=drop')
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == 2 * (generator_obj.flow_cnt**2))
 
         # verify vmi_uuid field
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'vmi_uuid'],
-                             where_clause='vrouter=%s'% vrouter)
+                             where_clause='vrouter=%s AND sourceip=10.10.10.1'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == generator_obj.flow_cnt**2)
         for r in res:
-            assert(r['vmi_uuid'] == generator_obj.flow_vmi_uuid)
+            assert(r['vmi_uuid'] == generator_obj.client_vmi)
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
+                             select_fields=['UuidKey', 'vmi_uuid'],
+                             where_clause='vrouter=%s AND sourceip=2001:db8::1:2'% vrouter)
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt**2)
+        for r in res:
+            assert(r['vmi_uuid'] == generator_obj.server_vmi)
 
         # verify vmi_uuid with filter
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'vmi_uuid'],
                              where_clause='vrouter=%s'% vrouter,
-                             filter='vmi_uuid=%s'% generator_obj.flow_vmi_uuid)
+                             filter='vmi_uuid=%s'% generator_obj.client_vmi)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == generator_obj.flow_cnt**2)
         for r in res:
-            assert(r['vmi_uuid'] == generator_obj.flow_vmi_uuid)
+            assert(r['vmi_uuid'] == generator_obj.client_vmi)
 
         res = vns.post_query('FlowRecordTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
                              select_fields=['UuidKey', 'vmi_uuid'],
                              where_clause='vrouter=%s'% vrouter,
                              filter='vmi_uuid=%s'% str(uuid.uuid1()))
         self.logger.info(str(res))
         assert(len(res) == 0)
 
-        # Filter by drop_reason
-        res = vns.post_query('FlowRecordTable',
-                  start_time=str(generator_obj.egress_flow_start_time),
-                  end_time=str(generator_obj.egress_flow_end_time),
-                  select_fields=['UuidKey', 'drop_reason'],
-                  where_clause='vrouter=%s'% vrouter,
-                  filter='drop_reason=Reason1', dir=0)
-        self.logger.info(str(res))
-        assert(len(res) == 1)
-
         # Range query on sport
         res = vns.post_query('FlowRecordTable',
-                  start_time=str(generator_obj.flow_start_time),
-                  end_time=str(generator_obj.flow_end_time),
+                  start_time=str(generator_obj.session_start_time),
+                  end_time=str(generator_obj.session_end_time),
                   select_fields=['UuidKey', 'sport', 'protocol'],
-                  where_clause='(sport=32747<32787 AND protocol=0 AND \
+                  where_clause='(sport=32747<32817 AND protocol=0 AND \
                       vrouter=%s)' % vrouter)
         self.logger.info(str(res))
-        assert(len(res) == 2)
+        assert(len(res) == 6)
 
         return True
     # end verify_flow_table
@@ -2173,509 +2143,359 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
 
-        # Helper function for stats aggregation 
-        def _aggregate_stats(flow, start_time, end_time):
-            stats = {'sum_bytes':0, 'sum_pkts':0}
-            for f in flow.samples:
-                if f._timestamp < start_time:
-                    continue
-                elif f._timestamp > end_time:
-                    break
-                stats['sum_bytes'] += f.flowdata[0].diff_bytes
-                stats['sum_pkts'] += f.flowdata[0].diff_packets
-            return stats 
-        
-        def _aggregate_flows_stats(flows, start_time, end_time):
-            stats = {'sum_bytes':0, 'sum_pkts':0}
-            for f in flows:
-                s = _aggregate_stats(f, start_time, end_time)
-                stats['sum_bytes'] += s['sum_bytes']
-                stats['sum_pkts'] += s['sum_pkts']
-            return stats
-
         # 1. stats
-        self.logger.info('Flowseries: [sum(bytes), sum(packets), flow_count]')
+        self.logger.info('Flowseries: [sum(bytes), sum(packets)]')
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['sum(bytes)', 'sum(packets)', 'flow_count'], 
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['SUM(bytes)', 'SUM(packets)'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
-        for f in generator_obj.flows:
-            exp_sum_pkts += f.packets
-            exp_sum_bytes += f.bytes
-        assert(res[0]['sum(packets)'] == exp_sum_pkts)
-        assert(res[0]['sum(bytes)'] == exp_sum_bytes)
-        assert(res[0]['flow_count'] == generator_obj.flow_cnt)
+
+        for flow in generator_obj.forward_flows:
+            exp_sum_pkts += flow.sampled_pkts
+            exp_sum_bytes += flow.sampled_bytes
+        for flow in generator_obj.reverse_flows:
+            exp_sum_pkts += flow.sampled_pkts
+            exp_sum_bytes += flow.sampled_bytes
+
+        assert(res[0]['SUM(packets)'] == 3*exp_sum_pkts)
+        assert(res[0]['SUM(bytes)'] == 3*exp_sum_bytes)
 
         # 2. flow tuple + stats
         self.logger.info(
-            'Flowseries: [sport, dport, sum(bytes), sum(packets), flow_count]')
-        # Each flow has unique (sport, dport). Therefore, the following query
-        # should return # records equal to the # flows.
+            'Flowseries: [sport, dport, sum(bytes), sum(packets)]')
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['sport', 'dport', 'sum(bytes)', 
-                           'sum(packets)', 'flow_count'],
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['sport', 'dport', 'SUM(bytes)',
+                           'SUM(packets)'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.flow_cnt)
+        assert(len(res) == 2 * (generator_obj.flow_cnt ** 2))
+        exp_sum_bytes = {}
+        exp_sum_pkts = {}
+        for i in range(generator_obj.flow_cnt*generator_obj.flow_cnt):
+            sport = 32747 + i*10
+            dport = 100 + i/3
+            if sport not in exp_sum_bytes:
+                exp_sum_bytes[sport] = {}
+            exp_sum_bytes[sport][dport] = generator_obj.forward_flows[i].sampled_bytes
+            if sport not in exp_sum_pkts:
+                exp_sum_pkts[sport] = {}
+            exp_sum_pkts[sport][dport] = generator_obj.forward_flows[i].sampled_pkts
+        for i in range(generator_obj.flow_cnt*generator_obj.flow_cnt):
+            sport = 100 + i/3
+            dport = 32747 + i*10
+            if sport not in exp_sum_bytes:
+                exp_sum_bytes[sport] = {}
+            exp_sum_bytes[sport][dport] = generator_obj.reverse_flows[i].sampled_bytes
+            if sport not in exp_sum_pkts:
+                exp_sum_pkts[sport] = {}
+            exp_sum_pkts[sport][dport] = generator_obj.reverse_flows[i].sampled_pkts
+        self.logger.info(str(exp_sum_bytes))
+        self.logger.info(str(exp_sum_pkts))
         for r in res:
-            cnt = 0
-            for f in generator_obj.flows:
-                if r['sport'] == f.sport and r['dport'] == f.dport:
-                    assert(r['sum(packets)'] == f.packets)
-                    assert(r['sum(bytes)'] == f.bytes)
-                    assert(r['flow_count'] == 1)
-                    break
-                cnt += 1
-            assert(cnt < generator_obj.flow_cnt)
+            assert(r['sport'] in exp_sum_bytes)
+            assert(r['dport'] in exp_sum_bytes[r['sport']])
+            assert(r['SUM(bytes)'] == 3*exp_sum_bytes[r['sport']][r['dport']])
+            assert(r['SUM(packets)'] == 3*exp_sum_pkts[r['sport']][r['dport']])
 
-        # All flows has the same (sourcevn, destvn). Therefore, the following
-        # query should return one record.
+        self.logger.info('Flowseries: [sourcevn, destvn, sum(bytes), sum(pkts)]')
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['sourcevn', 'destvn', 'sum(bytes)', 
-                           'sum(packets)', 'flow_count'],
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['sourcevn', 'destvn', 'SUM(bytes)', 'SUM(packets)'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == 1)
-        exp_sum_pkts = exp_sum_bytes = 0
-        for f in generator_obj.flows:
-            exp_sum_pkts += f.packets
-            exp_sum_bytes += f.bytes
-        assert(res[0]['sum(packets)'] == exp_sum_pkts)
-        assert(res[0]['sum(bytes)'] == exp_sum_bytes)
-        assert(res[0]['flow_count'] == generator_obj.flow_cnt)
-
-        # top 3 flows
-        res = vns.post_query('FlowSeriesTable',
-                             start_time=str(generator_obj.flow_start_time),
-                             end_time=str(generator_obj.flow_end_time),
-                             select_fields=['sport', 'dport', 'sum(bytes)'],
-                             where_clause='vrouter=%s'% vrouter,
-                             sort_fields=['sum(bytes)'], sort=2, limit=3)
-        self.logger.info(str(res))
-        assert(len(res) == 3)
-        exp_res = sorted(
-            generator_obj.flows, key=lambda flow: flow.bytes, reverse=True)
-        cnt = 0
+        assert(len(res) == 2)
+        exp_sum_pkts  = [0, 0]
+        exp_sum_bytes = [0, 0]
+        for i in range(generator_obj.flow_cnt * generator_obj.flow_cnt):
+            exp_sum_pkts[0] += generator_obj.forward_flows[i].sampled_pkts
+            exp_sum_bytes[0] += generator_obj.forward_flows[i].sampled_bytes
+        for i in range(generator_obj.flow_cnt * generator_obj.flow_cnt):
+            exp_sum_pkts[1] += generator_obj.reverse_flows[i].sampled_pkts
+            exp_sum_bytes[1] += generator_obj.reverse_flows[i].sampled_bytes
+        self.logger.info(str(exp_sum_bytes))
+        self.logger.info(str(exp_sum_pkts))
         for r in res:
-            assert(r['sport'] == exp_res[cnt].sport)
-            assert(r['dport'] == exp_res[cnt].dport)
-            assert(r['sum(bytes)'] == exp_res[cnt].bytes)
-            cnt += 1
+            if r['sourcevn'] == 'domain1:admin:vn1':
+                assert(r['SUM(bytes)'] == 3*exp_sum_bytes[0])
+                assert(r['SUM(packets)'] == 3*exp_sum_pkts[0])
+            elif r['sourcevn'] == 'domain1:admin:vn2':
+                assert(r['SUM(bytes)'] == 3*exp_sum_bytes[1])
+                assert(r['SUM(packets)'] == 3*exp_sum_pkts[1])
+            else:
+                assert(False)
 
         # 3. T=<granularity> + stats
         self.logger.info('Flowseries: [T=<x>, sum(bytes), sum(packets)]')
-        st = str(generator_obj.flow_start_time)
-        et = str(generator_obj.flow_start_time + (30 * 1000 * 1000))
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (30 * 1000 * 1000))
         granularity = 10
         gms = granularity * 1000 * 1000 # in micro seconds
         res = vns.post_query(
             'FlowSeriesTable', start_time=st, end_time=et,
-            select_fields=['T=%s' % (granularity), 'sum(bytes)',
-                           'sum(packets)'],
-            where_clause='sourcevn=domain1:admin:vn1 ' +
-            'AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
+            select_fields=['T=%s' % (granularity), 'SUM(bytes)',
+                           'SUM(packets)'],
+            where_clause='sourcevn=domain1:admin:vn2 ' +
+            'AND destvn=domain1:admin:vn1 AND vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
-        num_records = (diff_t/gms) + bool(diff_t%gms)
-        assert(len(res) == num_records)
-        ts = [generator_obj.flow_start_time + (x * gms) \
-              for x in range(num_records)]
+        num_records = (diff_t/(10*1000*1000)) + bool(diff_t%(10*1000*1000))
+        #assert(len(res) == num_records)
+        res_start_time = generator_obj.session_start_time - \
+                            (generator_obj.session_start_time % gms)
+        ts = [res_start_time + (x * gms) for x in range(num_records)]
         exp_result = {}
         for t in ts:
             end_time = t + gms
             if end_time > int(et):
                 end_time = int(et)
-            ts_stats = _aggregate_flows_stats(generator_obj.flows, 
-                                              t, end_time)
-            exp_result[t] = {'sum(bytes)':ts_stats['sum_bytes'],
-                             'sum(packets)':ts_stats['sum_pkts']}
+            exp_result[t] = {'SUM(bytes)':exp_sum_bytes[1],
+                             'SUM(packets)':exp_sum_pkts[1]}
         self.logger.info('exp_result: %s' % str(exp_result))
         self.logger.info('res: %s' % str(res))
         assert(len(exp_result) == num_records)
         for r in res:
             try:
-                stats = exp_result[r['T']]
+                stats = exp_result[r['T=']]
             except KeyError:
                 assert(False)
-            assert(r['sum(bytes)'] == stats['sum(bytes)'])
-            assert(r['sum(packets)'] == stats['sum(packets)'])
+            assert(r['SUM(bytes)'] == stats['SUM(bytes)'])
+            assert(r['SUM(packets)'] == stats['SUM(packets)'])
 
         # 4. T=<granularity> + tuples + stats
         self.logger.info(
-            'Flowseries: [T=<x>, protocol, sum(bytes), sum(packets)]')
-        st = str(generator_obj.flow_start_time)
-        et = str(generator_obj.flow_start_time + (10 * 1000 * 1000))
+            'Flowseries: [T=<x>, protocol, sport, sum(bytes), sum(packets)]')
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (20 * 1000 * 1000))
         granularity = 5
         gms = 5 * 1000 * 1000
         res = vns.post_query(
             'FlowSeriesTable', start_time=st, end_time=et,
-            select_fields=['T=%s' % (granularity), 'protocol', 'sum(bytes)',
-                           'sum(packets)'],
-            where_clause='sourcevn=domain1:admin:vn1 ' +
-            'AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
-        diff_t = int(et) - int(st)
-        num_ts = (diff_t/gms) + bool(diff_t%gms)
-        ts = [generator_obj.flow_start_time + (x * gms) \
-              for x in range(num_ts)]
-        proto_flows = [
-                        [generator_obj.flows[0], generator_obj.flows[1]],
-                        [generator_obj.flows[2], generator_obj.flows[3]],
-                        [generator_obj.flows[4]]
-                      ]
-        proto_ts = [ts, ts, [ts[0]]]
-        exp_result = {}
-        for i in range(0, len(proto_flows)):
-            ts_stats = {}
-            for ts in proto_ts[i]:
-                end_time = ts + gms
-                if end_time > int(et): end_time = int(et)
-                stats = _aggregate_flows_stats(proto_flows[i], ts, end_time)
-                ts_stats[ts] = {'sum(bytes)':stats['sum_bytes'],
-                                'sum(packets)':stats['sum_pkts']}
-            exp_result[i] = ts_stats
-        self.logger.info('exp_result: %s' % str(exp_result))
-        self.logger.info('res: %s' % str(res))
-        assert(len(res) == 5)
-        for r in res:
-            try:
-                stats = exp_result[r['protocol']][r['T']]
-            except KeyError:
-                assert(False)
-            assert(r['sum(bytes)'] == stats['sum(bytes)'])
-            assert(r['sum(packets)'] == stats['sum(packets)'])
-
-        # 5. T=<granularity> + stats, granularity > (end_time - start_time)
-        self.logger.info('Flowseries: [T=<x>, sum(bytes), sum(packets)], '
-                         'x > (end_time - start_time)')
-        st = str(generator_obj.flow_start_time)
-        et = str(generator_obj.flow_end_time)
-        granularity = 70
-        gms = granularity * 1000 * 1000 # in micro seconds
-        assert(gms > (int(et) - int(st)))
-        res = vns.post_query(
-            'FlowSeriesTable', start_time=st, end_time=et,
-            select_fields=['T=%s' % (granularity), 'sum(bytes)',
-                           'sum(packets)'],
+            select_fields=['T=%s' % (granularity), 'sport', 'protocol', 'SUM(bytes)',
+                           'SUM(packets)'],
             where_clause='vrouter=%s'% vrouter)
-        ts_stats = _aggregate_flows_stats(generator_obj.flows, 
-                                          int(st), int(et))
-        exp_result = {int(st):{'sum(bytes)':ts_stats['sum_bytes'],
-                               'sum(packets)':ts_stats['sum_pkts']}}
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/(10*1000*1000)) + bool(diff_t%(10*1000*1000))
+        res_start_time = generator_obj.session_start_time - \
+                            (generator_obj.session_start_time % gms)
+        ts = [res_start_time + (x * 10*1000*1000) for x in range(num_records)]
+
+        exp_result = {}
+        client_session = generator_obj.client_sessions[0].session_data[0]
+        for key, value in client_session.sess_agg_info.iteritems():
+            for key2, value2 in value.sessionMap.iteritems():
+                if not key2.port in exp_result:
+                    exp_result[key2.port] = {'protocol':key.protocol,
+                                             'SUM(bytes)':value2.forward_flow_info.sampled_bytes,
+                                             'SUM(packets)':value2.forward_flow_info.sampled_pkts}
+                else:
+                    exp_result[key2.port]['SUM(bytes)'] += value2.forward_flow_info.sampled_bytes
+                    exp_result[key2.port]['SUM(packets)'] += value2.forward_flow_info.sampled_pkts
+        server_session = generator_obj.server_sessions[0].session_data[0]
+        for key, value in server_session.sess_agg_info.iteritems():
+            for key2, value2 in value.sessionMap.iteritems():
+                if not key.port in exp_result:
+                    exp_result[key.port] = {'protocol':key.protocol,
+                                             'SUM(bytes)':value2.reverse_flow_info.sampled_bytes,
+                                             'SUM(packets)':value2.reverse_flow_info.sampled_pkts}
+                else:
+                    exp_result[key.port]['SUM(bytes)'] += value2.reverse_flow_info.sampled_bytes
+                    exp_result[key.port]['SUM(packets)'] += value2.reverse_flow_info.sampled_pkts
+
         self.logger.info('exp_result: %s' % str(exp_result))
         self.logger.info('res: %s' % str(res))
-        assert(len(res) == 1)
+        assert(len(res) == len(ts)*len(exp_result))
         for r in res:
             try:
-                stats = exp_result[r['T']]
+                stats = exp_result[r['sport']]
             except KeyError:
                 assert(False)
-            assert(r['sum(bytes)'] == stats['sum(bytes)'])
-            assert(r['sum(packets)'] == stats['sum(packets)'])
+            assert(r['protocol'] == stats['protocol'])
+            assert(r['SUM(bytes)'] == stats['SUM(bytes)'])
+            assert(r['SUM(packets)'] == stats['SUM(packets)'])
         
         # 6. direction_ing + stats
-        self.logger.info('Flowseries: [direction_ing, sum(bytes), sum(packets), flow_count]')
+        self.logger.info('Flowseries: [direction_ing, SUM(bytes), SUM(packets)')
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['direction_ing', 'SUM(bytes)', 'SUM(packets)'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
-        for f in generator_obj.flows:
-            exp_sum_pkts += f.packets
-            exp_sum_bytes += f.bytes
-        direction_ing = generator_obj.flows[0].direction_ing
-        assert(res[0]['sum(packets)'] == exp_sum_pkts)
-        assert(res[0]['sum(bytes)'] == exp_sum_bytes)
-        assert(res[0]['flow_count'] == generator_obj.flow_cnt)
-        assert(res[0]['direction_ing'] == direction_ing)
+        for flow in generator_obj.forward_flows:
+            exp_sum_pkts += flow.sampled_pkts
+            exp_sum_bytes += flow.sampled_bytes
+        for flow in generator_obj.reverse_flows:
+            exp_sum_pkts += flow.sampled_pkts
+            exp_sum_bytes += flow.sampled_bytes
+        self.logger.info("exp_sum_bytes:" + str(exp_sum_bytes))
+        self.logger.info("exp_sum_pkts:" + str(exp_sum_pkts))
+        assert(res[0]['SUM(packets)'] == 3*exp_sum_pkts)
+        assert(res[0]['SUM(bytes)'] == 3*exp_sum_bytes)
+        assert(res[0]['direction_ing'] == 1)
         
-        self.logger.info('Flowseries: [direction_ing, sum(bytes), sum(packets), flow_count]')
+        self.logger.info('Flowseries: [direction_ing, SUM(bytes), SUM(packets)]')
         result = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.egress_flow_start_time),
-            end_time=str(generator_obj.egress_flow_end_time),
-            select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
+            select_fields=['direction_ing', 'SUM(bytes)', 'SUM(packets)'],
             where_clause='vrouter=%s'% vrouter, dir=0)
         self.logger.info(str(result))
         assert(len(result) == 1)
-        exp_sum_pkts = exp_sum_bytes = 0
-        for f in generator_obj.egress_flows:
-            exp_sum_pkts += f.packets
-            exp_sum_bytes += f.bytes
-        direction_ing = generator_obj.egress_flows[0].direction_ing
-        assert(result[0]['sum(packets)'] == exp_sum_pkts)
-        assert(result[0]['sum(bytes)'] == exp_sum_bytes)
-        assert(result[0]['flow_count'] == generator_obj.flow_cnt)
-        assert(result[0]['direction_ing'] == direction_ing)
+        assert(result[0]['SUM(packets)'] == 3*exp_sum_pkts)
+        assert(result[0]['SUM(bytes)'] == 3*exp_sum_bytes)
+        assert(result[0]['direction_ing'] == 0)
         
         # 7. T=<granularity> + tuples
         self.logger.info(
             'Flowseries: [T=<x>, sourcevn, destvn, sport, dport, protocol]')
-        st = str(generator_obj.flow_start_time)
-        et = str(generator_obj.flow_start_time + (10 * 1000 * 1000))
-        granularity = 5
-        gms = 5 * 1000 * 1000
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (20 * 1000 * 1000))
+        granularity = 10
+        gms = 10 * 1000 * 1000
         res = vns.post_query(
             'FlowSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity), 'protocol', 'sourcevn', 'destvn',
                            'sport', 'dport'],
-            where_clause='sourcevn=domain1:admin:vn1' +
-            'AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
+            where_clause='vrouter=%s'% vrouter)
         diff_t = int(et) - int(st)
         num_ts = (diff_t/gms) + bool(diff_t%gms)
-        ts = [generator_obj.flow_start_time + (x * gms) \
-              for x in range(num_ts)]
-        exp_result = {}
-        
-        exp_result_cnt=0
-        for i in generator_obj.flows:
-            exp_result[exp_result_cnt] = {'T':ts[0], 'sourcevn':i.sourcevn, 
-                                  'destvn':i.destvn, 'sport':i.sport,  
-                                  'dport':i.dport, 'protocol':i.protocol,}
-            exp_result_cnt +=1
+        res_start_time = generator_obj.session_start_time - \
+                            (generator_obj.session_start_time % gms)
+        ts = [res_start_time + (x * gms) for x in range(num_records)]
+        exp_result = []
 
-        records = generator_obj.flow_cnt-1
-        for i in range(0,records):
-            exp_result[exp_result_cnt] = {'T':ts[1], 'sourcevn':generator_obj.flows[i].sourcevn,
-                                  'destvn':generator_obj.flows[i].destvn,
-                                  'sport':generator_obj.flows[i].sport,
-                                  'dport':generator_obj.flows[i].dport,
-                                  'protocol':generator_obj.flows[i].protocol,}
-            exp_result_cnt +=1
+        client_session = generator_obj.client_sessions[0].session_data[0]
+        server_session = generator_obj.server_sessions[0].session_data[0]
+        for t in ts:
+            for key, value in client_session.sess_agg_info.iteritems():
+                for key2, value2 in value.sessionMap.iteritems():
+                    exp_result.append({'protocol':key.protocol,
+                                       'sourcevn':client_session.vn,
+                                       'destvn':client_session.remote_vn,
+                                       'sport':key2.port,
+                                       'dport':key.port,
+                                       'T=':t,
+                                       'vrouter':vrouter})
+            for key, value in server_session.sess_agg_info.iteritems():
+                for key2, value2 in value.sessionMap.iteritems():
+                    exp_result.append({'protocol':key.protocol,
+                                       'sourcevn':server_session.vn,
+                                       'destvn':server_session.remote_vn,
+                                       'sport':key.port,
+                                       'dport':key2.port,
+                                       'T=':t,
+                                       'vrouter':vrouter})
 
-        assert(exp_result_cnt == len(res))
-        count = 0
-        for r in res:
-             assert(r['T'] == exp_result[count]['T'])
-             assert(r['sourcevn'] == exp_result[count]['sourcevn'])
-             assert(r['destvn'] == exp_result[count]['destvn'])
-             assert(r['sport'] == exp_result[count]['sport'])
-             assert(r['dport'] == exp_result[count]['dport'])
-             assert(r['protocol'] == exp_result[count]['protocol'])
-             count +=1
-
-        # 8. Timestamp + stats
-        self.logger.info('Flowseries: [T, bytes, packets]')
-        # testing for flows at index 1 in generator_obj.flows
-        flow = generator_obj.flows[1]
-        res = vns.post_query(
-            'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['T', 'bytes', 'packets'],
-            where_clause='sourcevn=%s' %(flow.sourcevn) +
-            'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
-            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol) +
-            'AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
-        
-        assert(len(res) == len(flow.samples))
-        for f in flow.samples:
-            found = 0
-            for r in res:
-                if r['T'] == f._timestamp:
-                      assert(r['packets'] == f.flowdata[0].diff_packets)
-                      assert(r['bytes'] == f.flowdata[0].diff_bytes)
-                      found = 1
-                      break
-            assert(found)
-
-        # limit
-        res = vns.post_query(
-            'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['T', 'bytes', 'packets'],
-            where_clause='sourcevn=%s' %(flow.sourcevn) +
-            'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
-            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol) +
-            'AND vrouter=%s'% vrouter, limit=len(flow.samples)/2)
-        self.logger.info(str(res))
-        assert(len(res) == len(flow.samples)/2)
-
-        # 9. Raw bytes and packets
-        self.logger.info('Flowseries: [bytes, packets]')
-        res = vns.post_query(
-            'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['bytes', 'packets'],
-            where_clause='vrouter=%s'% vrouter)
-        self.logger.info(str(res))
-        assert(len(res) == generator_obj.num_flow_samples)
-        sorted_res = sorted(res, key=itemgetter('packets', 'bytes'))
-        flow = []
-        for f in generator_obj.flows:
-            for s in f.samples:
-                flow.append({'packets':s.flowdata[0].diff_packets,
-                            'bytes':s.flowdata[0].diff_bytes})
-        sorted_flow = sorted(flow, key=itemgetter('packets', 'bytes'))
-        assert(sorted_res == sorted_flow)
-
-        # limit
-        res = vns.post_query(
-            'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['bytes', 'packets'],
-            where_clause='vrouter=%s'% vrouter, limit=5)
-        self.logger.info(str(res))
-        assert(len(res) == 5)
-
-        # 10. Timestamp
-        self.logger.info('Flowseries: [T]')
-        # testing for flows at index 1 in generator_obj.flows
-        flow = generator_obj.flows[1]
-        res = vns.post_query(
-            'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['T'],
-            where_clause='sourcevn=%s' %(flow.sourcevn) +
-            'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
-            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol) +
-            'AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
-        assert(len(res) == len(flow.samples))
-        sorted_res = sorted(res, key=itemgetter('T'))
-        
-        cnt = 0
-        for f in flow.samples:
-            assert(sorted_res[cnt]['T'] == f._timestamp)
-            cnt+= 1
+        assert(len(exp_result) == len(res))
+        res = sorted(res, key=lambda r: (r['sport'], r['dport']))
+        exp_result = sorted(exp_result, key=lambda r: (r['sport'], r['dport']))
+        self.logger.info("res:" + str(res))
+        self.logger.info("exp_res:" + str(exp_result))
+        assert(res == exp_result)
 
         # 11. T=<granularity>
         self.logger.info('Flowseries: [T=<x>]')
-        st = str(generator_obj.flow_start_time)
-        et = str(generator_obj.flow_start_time + (10 * 1000 * 1000))
-        granularity = 5
-        gms = 5 * 1000 * 1000
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (15 * 1000 * 1000))
+        granularity = 10
         res = vns.post_query(
             'FlowSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity)],
             where_clause='sourcevn=domain1:admin:vn1' +
-            'AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
+            'AND destvn=domain1:admin:vn2')
         diff_t = int(et) - int(st)
-        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        num_ts = (diff_t/(10*1000*1000)) + bool(diff_t%(10*1000*1000))
         ts = []
-        for x in range(num_ts):
-            ts.append({'T':generator_obj.flow_start_time + (x * gms)})
+        res_start_time = generator_obj.session_start_time - \
+                            (generator_obj.session_start_time % gms)
+        ts = [{'T=':res_start_time + (x * 10*1000*1000)} for x in range(num_ts)]
         self.logger.info(str(res))
+        self.logger.info(str(ts))
         assert(res == ts)
 
         # 12. Flow tuple
         self.logger.info('Flowseries: [protocol, sport, dport]')
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['protocol', 'sport', 'dport'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.num_flow_samples)
-        for flow in generator_obj.flows:
+
+        exp_result = []
+        session = generator_obj.client_sessions[0].session_data[0]
+        for key, value in session.sess_agg_info.iteritems():
+            for key2, value2 in value.sessionMap.iteritems():
+                dict = {'protocol':key.protocol, 'sport':key2.port,
+                        'dport':key.port,
+                        'bytes':value2.forward_flow_info.sampled_bytes,
+                        'packets':value2.forward_flow_info.sampled_pkts}
+                exp_result.append(dict)
+        session = generator_obj.server_sessions[0].session_data[0]
+        for key, value in session.sess_agg_info.iteritems():
+            for key2, value2 in value.sessionMap.iteritems():
+                dict = {'protocol':key.protocol, 'sport':key.port,
+                        'dport':key2.port,
+                        'bytes':value2.reverse_flow_info.sampled_bytes,
+                        'packets':value2.reverse_flow_info.sampled_pkts}
+                exp_result.append(dict)
+        self.logger.info(exp_result)
+        assert(len(res) == len(exp_result))
+        for exp_r in exp_result:
             found = 0
             for r in res:
-                if flow.sport == r['sport']:
-                    assert(r['dport'] == flow.dport)
-                    assert(r['protocol'] == flow.protocol)
+                if exp_r['sport'] == r['sport'] and exp_r['dport'] == r['dport'] and \
+                    exp_r['protocol'] == r['protocol']:
                     found = 1
             assert(found)
 
-        # 13. T + flow tuple
+        # T + flow tuple
         self.logger.info('Flowseries: [T, protocol, sport, dport]')
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['T', 'protocol', 'sport', 'dport'],
-            where_clause='vrouter=%s'% vrouter)
+            where_clause='sourcevn=domain1:admin:vn1' +
+                'AND destvn=domain1:admin:vn2 AND vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.num_flow_samples)
-        for flow in generator_obj.flows:
-            sport = flow.sport
-            for sample in flow.samples:
-                found = 0
-                for r in res:
-                    if r['T'] == sample._timestamp and r['sport'] == sport:
-                        assert(r['protocol'] == flow.protocol)
-                        assert(r['dport'] == flow.dport)
-                        found = 1
-                        break
-                assert(found) 
+        assert(len(res) == 27)
 
         # 14. T + flow tuple + stats
         self.logger.info('Flowseries: [T, protocol, sport, dport, bytes, packets]')
         res = vns.post_query(
             'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
+            start_time=str(generator_obj.session_start_time),
+            end_time=str(generator_obj.session_end_time),
             select_fields=['T', 'protocol', 'sport', 'dport', 'bytes', 'packets'],
             where_clause='vrouter=%s'% vrouter)
         self.logger.info(str(res))
-        assert(len(res) == generator_obj.num_flow_samples)
-        for flow in generator_obj.flows:
-            sport = flow.sport
-            for sample in flow.samples:
-                found = 0
-                for r in res:
-                    if r['T'] == sample._timestamp and r['sport'] == sport:
-                        assert(r['protocol'] == flow.protocol)
-                        assert(r['dport'] == flow.dport)
-                        assert(r['bytes'] == sample.flowdata[0].diff_bytes)
-                        assert(r['packets'] == sample.flowdata[0].diff_packets)
-                        found = 1
-                        break
-                assert(found)
+        assert(len(res) == 3*len(exp_result))
+        for exp_r in exp_result:
+            found = 0
+            for r in res:
+                if r['sport'] == exp_r['sport'] and r['protocol'] == exp_r['protocol'] and \
+                        r['dport'] == exp_r['dport']:
+                    assert(r['bytes'] == exp_r['bytes'])
+                    assert(r['packets'] == exp_r['packets'])
+                    found = 1
+                    break
+            assert(found)
 
-        # limit
-        res = vns.post_query(
-            'FlowSeriesTable',
-            start_time=str(generator_obj.flow_start_time),
-            end_time=str(generator_obj.flow_end_time),
-            select_fields=['T', 'protocol', 'sport', 'dport', 'bytes', 'packets'],
-            where_clause='vrouter=%s'% vrouter,
-            limit=generator_obj.num_flow_samples+10)
-        self.logger.info(str(res))
-        assert(len(res) == generator_obj.num_flow_samples)
-
-        # 15 vrouter
-        self.logger.info("Flowseries: [sourcevn, destvn, vrouter]")
-        generator_obj1 = generator_object[1]
-        res = vns.post_query('FlowSeriesTable',
-                             start_time=str(generator_obj1.flow_start_time),
-                             end_time=str(generator_obj1.flow_end_time),
-                             select_fields=['sourcevn', 'destvn', 'vrouter'], dir=1, where_clause='')
-        self.logger.info(str(res))
-        assert(len(res) == (generator_obj1.num_flow_samples + generator_obj.num_flow_samples))
-
-        sorted_res = sorted(res, key=itemgetter('vrouter'))
-        exp_result = []
-        for flow in generator_obj1.flows:
-            for f in flow.samples:
-                dict = {'vrouter':f._source, 'destvn':f.flowdata[0].destvn,
-                        'sourcevn':f.flowdata[0].sourcevn}
-                exp_result.append(dict)
-        for flow in generator_obj.flows:
-            for f in flow.samples:
-                dict = {'vrouter':f._source, 'destvn':f.flowdata[0].destvn,
-                        'sourcevn':f.flowdata[0].sourcevn}
-                exp_result.append(dict)
-        sorted_exp_result = sorted(exp_result, key=itemgetter('vrouter'))
-        assert(sorted_res == sorted_exp_result)
         return True
     # end verify_flow_series_aggregation_binning
 
@@ -2921,7 +2741,7 @@ class AnalyticsFixture(fixtures.Fixture):
         if not res:
             return False
         self.logger.info('ObjectTable query response: %s' % str(res))
-        actual_msg_types = [r['Messagetype'] for r in res]
+        actual_msg_types = list(set([r['Messagetype'] for r in res]))
         actual_msg_types.sort()
         exp_msg_types.sort()
         self.logger.info('Expected message types: %s' % str(exp_msg_types))
