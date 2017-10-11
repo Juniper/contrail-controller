@@ -1955,14 +1955,16 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
             vn_list.insert(vn_name);
         }
 
+        bool native_encap = false;
         if (vrf_->GetName() == agent->fabric_vrf_name()) {
             vn_list.insert(agent->fabric_vn_name());
+            native_encap = true;
         }
 
         InetUnicastAgentRouteTable::AddGatewayRoute
             (vmi->peer_.get(), vrf_->GetName(), addr_.to_v4(), plen_,
              gw_.to_v4(), vn_list, vmi->vrf_->table_label(),
-             sg_id_list, tag_id_list, communities_);
+             sg_id_list, tag_id_list, communities_, native_encap);
     } else {
         IpAddress dependent_ip;
         bool ecmp = false;
@@ -2770,7 +2772,7 @@ bool VmInterface::VmiReceiveRoute::AddL3(const Agent *agent,
 
     table->AddVHostRecvRoute(vmi->peer(), vrf_->GetName(), vmi_key,
                              addr_, plen_, agent->fabric_vn_name(),
-                             vmi->policy_enabled());
+                             vmi->policy_enabled(), true);
     return true;
 }
 

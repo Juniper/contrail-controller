@@ -72,7 +72,7 @@ protected:
                                16, SecurityGroupList(), TagList(),
                                CommunityList(), false,
                                PathPreference(), Ip4Address(0),
-                               EcmpLoadBalance(), false, false);
+                               EcmpLoadBalance(), false, false, false);
         agent_->fabric_inet4_unicast_table()->
             AddLocalVmRouteReq(agent_->local_peer(),
                                "default-project:vn3:vn3", ip2, 24, MakeUuid(1),
@@ -80,7 +80,7 @@ protected:
                                16, SecurityGroupList(), TagList(),
                                CommunityList(), false,
                                PathPreference(), Ip4Address(0),
-                               EcmpLoadBalance(), false, false);
+                               EcmpLoadBalance(), false, false, false);
         client->WaitForIdle();
     }
 
@@ -168,7 +168,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAcl3) {
                            vn_list, 16, SecurityGroupList(), TagList(),
                            CommunityList(), false,
                            PathPreference(), Ip4Address(0), EcmpLoadBalance(),
-                           false, false);
+                           false, false, false);
     AddAddressVrfAssignAcl("intf1", 1, "1.1.1.0", "2.1.1.0", 6, 1, 65535,
                            1, 65535, "vrf4", "true");
     TestFlow flow[] = {
@@ -460,7 +460,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror1) {
                            vn_list, 16, SecurityGroupList(), TagList(),
                            CommunityList(), false,
                            PathPreference(), Ip4Address(0), EcmpLoadBalance(),
-                           false, false);
+                           false, false, false);
     client->WaitForIdle();
 
     AddMirrorAcl("Acl", 10, "default-project:vn1", "default-project:vn2", "pass",
@@ -508,7 +508,7 @@ TEST_F(TestVrfAssignAclFlow, VrfAssignAclWithMirror2) {
                            vn_list, 16, SecurityGroupList(), TagList(),
                            CommunityList(), false,
                            PathPreference(), Ip4Address(0), EcmpLoadBalance(),
-                           false, false);
+                           false, false, false);
 
     client->WaitForIdle();
     // pushing more DB Request so just before addin mirror entry 

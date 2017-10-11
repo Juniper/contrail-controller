@@ -58,7 +58,7 @@ public:
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddVHostRecvRoute(Agent::GetInstance()->local_peer(),
                               Agent::GetInstance()->fabric_vrf_name(),
-                              "vhost0", vhost_rcv_route_, 32, "", false);
+                              "vhost0", vhost_rcv_route_, 32, "", false, true);
         return true;
     }
 

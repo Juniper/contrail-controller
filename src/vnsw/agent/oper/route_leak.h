@@ -46,6 +46,8 @@ public:
 private:
     void WalkDoneInternal(DBTableBase *part);
     bool WalkCallBack(DBTablePartBase *partition, DBEntryBase *entry);
+    void AddDefaultRoute();
+    void DeleteDefaultRoute();
     //VRF from which routes have to be sourced
     VrfEntryRef source_vrf_;
     //VRF to which routes have to be mirrored

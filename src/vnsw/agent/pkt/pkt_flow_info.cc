@@ -869,8 +869,19 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     } else {
         dest_vrf = alias_vrf->vrf_id();
     }
+
     if (VrfTranslate(pkt, in, out, pkt->ip_saddr, true) == false) {
         return;
+    }
+
+    if (underlay_flow) {
+        if (it->vrf_->forwarding_vrf()) {
+            //Pick the underlay ip-fabric VRF for forwarding
+            nat_dest_vrf = it->vrf_->forwarding_vrf()->vrf_id();
+        }
+        if (out->intf_->vrf()->forwarding_vrf()) {
+            dest_vrf = out->intf_->vrf()->forwarding_vrf()->vrf_id();
+        }
     }
 
     // Force packet to be treated as L3-flow in such case
@@ -1051,29 +1062,38 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     return;
 }
 
-void PktFlowInfo::OverlayForwarding(const VmInterface *intf, const PktInfo *pkt,
-                                    PktControlInfo *in, PktControlInfo *out) {
+//Check if both source and destination route support Native Encap
+//if yes use underlay forwarding (no change)
+//Else Do a VRF translate to interface VRF
+void PktFlowInfo::ChangeEncapToOverlay(const VmInterface *intf,
+                                       const PktInfo *pkt,
+                                       PktControlInfo *in,
+                                       PktControlInfo *out) {
 
-    if (nat_done) {
+    if (intf->vrf() && intf->vrf()->forwarding_vrf() == NULL) {
         return;
     }
 
-    //Do route lookup in policy VRF and if the tunnel encap list
-    //doesnt support fabric forwarding, we will do vrf translate
-    //and do forwarding in overlay network
-     AgentRoute *src_rt = FlowEntry::GetUcRoute(intf->vrf(), pkt->ip_saddr);
-     AgentRoute *dst_rt = FlowEntry::GetUcRoute(intf->vrf(), pkt->ip_daddr);
+    const AgentRoute *src_rt = FlowEntry::GetUcRoute(intf->vrf(),
+                                                     pkt->ip_saddr);
+    const AgentRoute *dst_rt = FlowEntry::GetUcRoute(intf->vrf(),
+                                                     pkt->ip_daddr);
 
-     if (src_rt == NULL || dst_rt == NULL) {
+    if (src_rt == NULL || dst_rt == NULL) {
          return;
-     }
+    }
 
-     uint32_t src_tunnel_bmap = src_rt->GetActivePath()->tunnel_bmap();
-     uint32_t dst_tunnel_bmap = dst_rt->GetActivePath()->tunnel_bmap();
+    uint32_t src_tunnel_bmap = src_rt->GetActivePath()->tunnel_bmap();
+    uint32_t dst_tunnel_bmap = dst_rt->GetActivePath()->tunnel_bmap();
 
      if ((src_tunnel_bmap & (1 << TunnelType::NATIVE)) &&
          (dst_tunnel_bmap & (1 << TunnelType::NATIVE))) {
-         //Use native forwarding, no change
+         underlay_flow = true;
+         //Set policy VRF for route tracking
+         src_policy_vrf = intf->vrf()->vrf_id();
+         dst_policy_vrf = intf->vrf()->vrf_id();
+         src_vn = RouteToVn(src_rt);
+         dst_vn = RouteToVn(dst_rt);
          return;
      }
 
@@ -1082,9 +1102,57 @@ void PktFlowInfo::OverlayForwarding(const VmInterface *intf, const PktInfo *pkt,
      dest_vrf = vrf->vrf_id();
      alias_ip_flow = true;
      UpdateRoute(&out->rt_, vrf, pkt->ip_daddr, pkt->dmac,
-                 flow_dest_plen_map);
+             flow_dest_plen_map);
      UpdateRoute(&in->rt_, vrf, pkt->ip_saddr, pkt->smac,
+             flow_source_plen_map);
+}
+
+void PktFlowInfo::ChangeFloatingIpEncap(const PktInfo *pkt,
+                                        PktControlInfo *in,
+                                        PktControlInfo *out) {
+     if (in->rt_ == NULL || out->rt_ == NULL) {
+         return;
+     }
+
+     const InetUnicastRouteEntry *src =
+         static_cast<const InetUnicastRouteEntry *>(in->rt_);
+     const IpAddress src_ip = src->addr();
+
+     const InetUnicastRouteEntry *dst =
+         static_cast<const InetUnicastRouteEntry *>(out->rt_);
+     const IpAddress dst_ip = dst->addr();
+
+     uint32_t src_tunnel_bmap = in->rt_->GetActivePath()->tunnel_bmap();
+     uint32_t dst_tunnel_bmap = out->rt_->GetActivePath()->tunnel_bmap();
+
+     if ((src_tunnel_bmap & (1 << TunnelType::NATIVE)) &&
+         (dst_tunnel_bmap & (1 << TunnelType::NATIVE))) {
+
+         underlay_flow = true;
+         src_vn = RouteToVn(in->rt_);
+         dst_vn = RouteToVn(out->rt_);
+
+         if (nat_done == false) {
+             src_policy_vrf = in->rt_->vrf()->vrf_id();
+         }
+         dst_policy_vrf = out->rt_->vrf()->vrf_id();
+         const VrfEntry *vrf = agent->fabric_vrf();
+         ChangeVrf(pkt, out, vrf);
+         UpdateRoute(&out->rt_, vrf, dst_ip, pkt->dmac,
+                 flow_dest_plen_map);
+         UpdateRoute(&in->rt_, vrf, src_ip, pkt->smac,
                  flow_source_plen_map);
+     }
+}
+
+void PktFlowInfo::ChangeEncap(const VmInterface *intf, const PktInfo *pkt,
+                              PktControlInfo *in, PktControlInfo *out,
+                              bool nat_flow) {
+    if (nat_flow) {
+        ChangeFloatingIpEncap(pkt, in, out);
+    } else {
+        ChangeEncapToOverlay(intf, pkt, in, out);
+    }
 }
 
 bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
@@ -1105,9 +1173,7 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     //packet, else get the acl attached to VN and try matching the packet to
     //network acl
 
-    if (vm_intf->vrf() != vm_intf->forwarding_vrf()) {
-        OverlayForwarding(vm_intf, pkt, in, out);
-    }
+    ChangeEncap(vm_intf, pkt, in, out, nat_flow);
 
     const AclDBEntry *acl = NULL;
     if (nat_flow == false) {
@@ -1144,6 +1210,11 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
     hdr.src_policy_id = RouteToVn(in->rt_);
     hdr.dst_policy_id = RouteToVn(out->rt_);
 
+    if (underlay_flow) {
+        hdr.src_policy_id = src_vn;
+        hdr.dst_policy_id = dst_vn;
+    }
+
     if (in->rt_) {
         const AgentPath *path = in->rt_->GetActivePath();
         hdr.src_sg_id_l = &(path->sg_list());
@@ -1175,6 +1246,7 @@ bool PktFlowInfo::VrfTranslate(const PktInfo *pkt, PktControlInfo *in,
                     flow_dest_plen_map);
         UpdateRoute(&in->rt_, vrf, hdr.src_ip, pkt->smac,
                     flow_source_plen_map);
+        underlay_flow = false;
     }
     return true;
 }
