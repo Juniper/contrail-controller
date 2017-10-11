@@ -165,6 +165,7 @@ class AuthServiceKeystone(object):
                 'admin_user': args.admin_user,
                 'admin_password': args.admin_password,
                 'admin_tenant_name': args.admin_tenant_name,
+                'signing_dir': args.signing_dir,
                 'identity_uri': identity_uri})
         else:
             self._conf_info.update({
@@ -172,6 +173,7 @@ class AuthServiceKeystone(object):
                 'auth_url': auth_url,
                 'username': args.admin_user,
                 'password': args.admin_password,
+                'signing_dir': args.signing_dir,
             })
             # Add user domain info
             self._conf_info.update(**cfgmutils.get_user_domain_kwargs(args))
