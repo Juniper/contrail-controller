@@ -132,4 +132,60 @@ class TestQuota(test_case.ApiServerTestCase):
             # Expect MismatchError on asserEqual(result['exception'], 1)
             self.test_create_vmi_with_quota_in_parallels(project=project)
     # end test_update_quota_and_create_resource_negative
-# class TestPermissions
+# class TestQuota
+
+
+class TestGlobalQuota(test_case.ApiServerTestCase):
+
+    global_quotas = {'security_group_rule' : 2}
+
+    def __init__(self, *args, **kwargs):
+        super(TestGlobalQuota, self).__init__(*args, **kwargs)
+
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        extra_config_knobs = []
+        for k, v in cls.global_quotas.items():
+            extra_config_knobs.append(('QUOTA', k, v))
+        kwargs.update({'extra_config_knobs' : extra_config_knobs})
+        super(TestGlobalQuota, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestGlobalQuota, cls).tearDownClass(*args, **kwargs)
+
+    def test_security_group_rule_global_quota(self):
+        logger.info("Creating security group with rules up to the quota limit.")
+        sg_name = '%s-sg' % self.id()
+        sg_obj = SecurityGroup(sg_name)
+        self._vnc_lib.security_group_create(sg_obj)
+        for i in range(1, self.global_quotas['security_group_rule'] + 1):
+            rule = {'port_min': i,
+                    'port_max': i,
+                    'direction': 'egress',
+                    'ip_prefix': None,
+                    'protocol': 'any',
+                    'ether_type': 'IPv4'}
+            sg_rule = self._security_group_rule_build(
+                    rule, "default-domain:default-project:%s" % sg_name)
+            self._security_group_rule_append(sg_obj, sg_rule)
+        self._vnc_lib.security_group_update(sg_obj)
+
+        logger.info("Creating one more security group rule object.")
+        with ExpectedException(OverQuota) as e:
+            port = self.global_quotas['security_group_rule'] + 1
+            rule = {'port_min': port,
+                    'port_max': port,
+                    'direction': 'egress',
+                    'ip_prefix': None,
+                    'protocol': 'any',
+                    'ether_type': 'IPv4'}
+            sg_rule = self._security_group_rule_build(
+                    rule, "default-domain:default-project:%s" % sg_name)
+            self._security_group_rule_append(sg_obj, sg_rule)
+            self._vnc_lib.security_group_update(sg_obj)
+    #end TestGlobalQuota
