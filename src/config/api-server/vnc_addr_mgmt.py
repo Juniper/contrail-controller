@@ -540,28 +540,25 @@ class AddrMgmt(object):
                     subnet_name = subnet['ip_prefix'] + '/' + str(
                         subnet['ip_prefix_len'])
 
-                    try:
-                        subnet_obj = self._subnet_objs[vn_fq_name_str][subnet_name]
-                    except KeyError:
-                        gateway_ip = ipam_subnet.get('default_gateway')
-                        service_address = ipam_subnet.get('dns_server_address')
-                        allocation_pools = ipam_subnet.get('allocation_pools')
-                        dhcp_config = ipam_subnet.get('enable_dhcp', True)
-                        nameservers = ipam_subnet.get('dns_nameservers')
-                        addr_start = ipam_subnet.get('addr_from_start', False)
-                        alloc_unit = ipam_subnet.get('alloc_unit', 1)
-                        subnet_obj = Subnet(
-                            '%s:%s' % (vn_fq_name_str, subnet_name),
-                            subnet['ip_prefix'], str(subnet['ip_prefix_len']),
-                            gw=gateway_ip, service_address=service_address,
-                            enable_dhcp=dhcp_config,
-                            dns_nameservers=nameservers,
-                            alloc_pool_list=allocation_pools,
-                            addr_from_start=addr_start,
-                            should_persist=should_persist,
-                            ip_alloc_unit=alloc_unit)
-                        self._subnet_objs[vn_fq_name_str][subnet_name] = \
-                             subnet_obj
+                    gateway_ip = ipam_subnet.get('default_gateway')
+                    service_address = ipam_subnet.get('dns_server_address')
+                    allocation_pools = ipam_subnet.get('allocation_pools')
+                    dhcp_config = ipam_subnet.get('enable_dhcp', True)
+                    nameservers = ipam_subnet.get('dns_nameservers')
+                    addr_start = ipam_subnet.get('addr_from_start', False)
+                    alloc_unit = ipam_subnet.get('alloc_unit', 1)
+                    subnet_obj = Subnet(
+                        '%s:%s' % (vn_fq_name_str, subnet_name),
+                        subnet['ip_prefix'], str(subnet['ip_prefix_len']),
+                        gw=gateway_ip, service_address=service_address,
+                        enable_dhcp=dhcp_config,
+                        dns_nameservers=nameservers,
+                        alloc_pool_list=allocation_pools,
+                        addr_from_start=addr_start,
+                        should_persist=should_persist,
+                        ip_alloc_unit=alloc_unit)
+                    self._subnet_objs[vn_fq_name_str][subnet_name] = \
+                            subnet_obj
 
                     ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
                     ipam_subnet['dns_server_address'] = str(subnet_obj.dns_server_address)
