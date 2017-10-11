@@ -119,7 +119,7 @@ TEST_F(FabricVmiTest, VerifyReceiveRoute) {
 TEST_F(FabricVmiTest, DefaultRoute) {
     Ip4Address ip = Ip4Address::from_string("0.0.0.0");
 
-    EXPECT_FALSE(RouteFind(agent->fabric_policy_vrf_name(), ip, 0));
+    EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 0));
 
     EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(), ip, 0));
     InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 0);

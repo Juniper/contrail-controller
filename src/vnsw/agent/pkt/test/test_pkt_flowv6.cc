@@ -81,7 +81,8 @@ public:
                                      CommunityList(), false,
                                      PathPreference(),
                                      Ip6Address(),
-                                     EcmpLoadBalance(), false, false);
+                                     EcmpLoadBalance(), false, false,
+                                     false);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFindV6(vrf, addr, 128));
     }
