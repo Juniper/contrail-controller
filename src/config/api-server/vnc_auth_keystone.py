@@ -151,6 +151,7 @@ class AuthServiceKeystone(object):
             'max_requests': args.max_requests,
             'region_name': args.region_name,
             'insecure': args.insecure,
+            'signing_dir': args.signing_dir,
         }
         if args.auth_url:
             auth_url = args.auth_url
