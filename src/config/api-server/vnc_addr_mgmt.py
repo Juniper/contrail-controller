@@ -617,6 +617,10 @@ class AddrMgmt(object):
             except KeyError:
                 pass
 
+        # Remove stale entries in _subnet_objs
+        for subnet_name in add_subnet_names:
+            self._subnet_objs[vn_fq_name_str].pop(subnet_name, None)
+
         # check db_subnet_dicts and req_subnet_dicts
         # following parameters are same for subnets present in both dicts
         # 1. enable_dhcp, 2. default_gateway, 3. dns_server_address
