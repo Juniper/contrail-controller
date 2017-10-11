@@ -67,6 +67,10 @@ http_server_port=$__contrail_http_server_port__
 # values are 1 and 2
 # max_control_nodes=1
 
+# Enable/Disable SSL based XMPP Authentication
+xmpp_auth_enable=$__xmpp_auth_enable__
+xmpp_dns_auth_enable=$__xmpp_dns_auth_enable__
+
 [DNS]
 # IP address to be used to connect to dns-node. Maximum of 2 IP addresses
 # (separated by a space) can be provided. If no IP is configured then the
