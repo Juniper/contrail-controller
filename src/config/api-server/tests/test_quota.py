@@ -131,4 +131,79 @@ class TestQuota(test_case.ApiServerTestCase):
             # Expect MismatchError on asserEqual(result['exception'], 1)
             self.test_create_vmi_with_quota_in_parallels(project=project)
     # end test_update_quota_and_create_resource_negative
-# class TestPermissions
+# class TestQuota
+
+
+class TestGlobalQuota(test_case.ApiServerTestCase):
+
+    global_quotas = {'security_group_rule' : 2,
+            'virtual_network': 5}
+
+    def __init__(self, *args, **kwargs):
+        super(TestGlobalQuota, self).__init__(*args, **kwargs)
+
+    @classmethod
+    def setUpClass(cls, *args, **kwargs):
+        cls.console_handler = logging.StreamHandler()
+        cls.console_handler.setLevel(logging.DEBUG)
+        logger.addHandler(cls.console_handler)
+        extra_config_knobs = []
+        for k, v in cls.global_quotas.items():
+            extra_config_knobs.append(('QUOTA', k, v))
+        kwargs.update({'extra_config_knobs' : extra_config_knobs})
+        super(TestGlobalQuota, cls).setUpClass(*args, **kwargs)
+
+    @classmethod
+    def tearDownClass(cls, *args, **kwargs):
+        logger.removeHandler(cls.console_handler)
+        super(TestGlobalQuota, cls).tearDownClass(*args, **kwargs)
+
+    def test_virtual_network_global_quota(self):
+        vns = self._vnc_lib.virtual_networks_list()['virtual-networks']
+        logger.info("Creating test VN object up to the quota limit.")
+        for i in range(len(vns) + 1, self.global_quotas['virtual_network'] + 1):
+            vn_name = 'testvn_%s_%s' % ( self.id(), i)
+            self.create_virtual_network(vn_name, '%s.0.0.0/24' % i)
+            logger.info("Created test VN: %s" % vn_name)
+
+        logger.info("Creating one more VN object.")
+        i = self.global_quotas['virtual_network'] + 1
+        vn_name =  'testvn_%s_%s' % (self.id(), i)
+        with ExpectedException(OverQuota) as e:
+            self.create_virtual_network(vn_name, '%s.0.0.0/24' % i)
+            logger.info("Created test VN: %s" % vn_name)
+
+        vns = self._vnc_lib.virtual_networks_list()['virtual-networks']
+        self.assertEqual(len(vns), self.global_quotas['virtual_network'])
+
+    def test_security_group_rule_global_quota(self):
+        logger.info("Creating security group with rules up to the quota limit.")
+        sg_name = '%s-sg' % self.id()
+        sg_obj = SecurityGroup(sg_name)
+        self._vnc_lib.security_group_create(sg_obj)
+        for i in range(1, self.global_quotas['security_group_rule'] + 1):
+            rule = {'port_min': i,
+                    'port_max': i,
+                    'direction': 'egress',
+                    'ip_prefix': None,
+                    'protocol': 'any',
+                    'ether_type': 'IPv4'}
+            sg_rule = self._security_group_rule_build(
+                    rule, "default-domain:default-project:%s" % sg_name)
+            self._security_group_rule_append(sg_obj, sg_rule)
+        self._vnc_lib.security_group_update(sg_obj)
+
+        logger.info("Creating one more security group rule object.")
+        with ExpectedException(OverQuota) as e:
+            port = self.global_quotas['security_group_rule'] + 1
+            rule = {'port_min': port,
+                    'port_max': port,
+                    'direction': 'egress',
+                    'ip_prefix': None,
+                    'protocol': 'any',
+                    'ether_type': 'IPv4'}
+            sg_rule = self._security_group_rule_build(
+                    rule, "default-domain:default-project:%s" % sg_name)
+            self._security_group_rule_append(sg_obj, sg_rule)
+            self._vnc_lib.security_group_update(sg_obj)
+    #end TestGlobalQuota
