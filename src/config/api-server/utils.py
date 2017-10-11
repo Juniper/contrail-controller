@@ -107,6 +107,7 @@ def parse_args(args_str):
     }
     # keystone options
     ksopts = {
+        'signing_dir': '/var/cache/contrail/keystone-signing',
         'auth_host': '127.0.0.1',
         'auth_port': '35357',
         'auth_protocol': 'http',
