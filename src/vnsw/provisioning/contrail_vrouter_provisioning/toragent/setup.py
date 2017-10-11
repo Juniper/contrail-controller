@@ -56,7 +56,9 @@ class TorAgentBaseSetup(ContrailSetup):
                 '__contrail_tor_ssl_cacert__': self.ssl_cacert,
                 '__contrail_control_servers__': control_servers,
                 '__contrail_collector_servers__': collector_servers,
-                '__contrail_dns_servers__': dns_servers
+                '__contrail_dns_servers__': dns_servers,
+                '__xmpp_dns_auth_enable__': self._args.xmpp_dns_auth_enable,
+                '__xmpp_auth_enable__': self._args.xmpp_auth_enable,
                 }
         self._template_substitute_write(
                 tor_agent_conf.template, template_vals,
