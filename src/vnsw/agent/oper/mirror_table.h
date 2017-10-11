@@ -185,6 +185,7 @@ public:
     static MirrorEntryData::MirrorEntryFlags
         DecodeMirrorFlag (const std::string &nh_mode, bool juniper_header);
     void DeleteMirrorVrf(MirrorEntry *entry);
+    bool IsConfigured(); 
 private:
     std::auto_ptr<boost::asio::ip::udp::socket> udp_sock_;
     static MirrorTable *mirror_table_;
