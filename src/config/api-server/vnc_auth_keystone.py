@@ -161,6 +161,7 @@ class AuthServiceKeystone(object):
             'region_name': args.region_name,
             'insecure': args.insecure,
             'identity_uri': identity_uri,
+            'signing_dir': args.signing_dir,
         }
         try:
             if 'v3' in args.auth_url:
