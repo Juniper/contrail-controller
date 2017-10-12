@@ -62,7 +62,7 @@ TEST_F(TunnelEncapTest, String_7) {
 
 TEST_F(TunnelEncapTest, String_8) {
     TunnelEncap tunnel_encap("native");
-    EXPECT_EQ(TunnelEncapType::NATIVE_CONTRAIL, tunnel_encap.tunnel_encap());
+    EXPECT_EQ(TunnelEncapType::NATIVE, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:native", tunnel_encap.ToString());
     EXPECT_EQ("native", tunnel_encap.ToXmppString());
 }
@@ -123,8 +123,8 @@ TEST_F(TunnelEncapTest, EncapType_7) {
 }
 
 TEST_F(TunnelEncapTest, EncapType_8) {
-    TunnelEncap tunnel_encap(TunnelEncapType::NATIVE_CONTRAIL);
-    EXPECT_EQ(TunnelEncapType::NATIVE_CONTRAIL, tunnel_encap.tunnel_encap());
+    TunnelEncap tunnel_encap(TunnelEncapType::NATIVE);
+    EXPECT_EQ(TunnelEncapType::NATIVE, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:native", tunnel_encap.ToString());
     EXPECT_EQ("native", tunnel_encap.ToXmppString());
 }
@@ -203,9 +203,9 @@ TEST_F(TunnelEncapTest, ByteArray_7) {
 
 TEST_F(TunnelEncapTest, ByteArray_8) {
     TunnelEncap::bytes_type data =
-        { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x90, 0x8b } };
+        { { 0x03, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10 } };
     TunnelEncap tunnel_encap(data);
-    EXPECT_EQ(TunnelEncapType::NATIVE_CONTRAIL, tunnel_encap.tunnel_encap());
+    EXPECT_EQ(TunnelEncapType::NATIVE, tunnel_encap.tunnel_encap());
     EXPECT_EQ("encapsulation:native", tunnel_encap.ToString());
     EXPECT_EQ("native", tunnel_encap.ToXmppString());
 }
