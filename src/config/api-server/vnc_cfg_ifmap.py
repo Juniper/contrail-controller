@@ -1514,6 +1514,8 @@ class VncDbClient(object):
                 perms2 = obj_dict.get('perms2')
                 if perms2 is None:
                     perms2 = self._cassandra_db.update_perms2(obj_uuid)
+                if obj_dict.get('is_shared'):
+                        obj_dict.perms2['global_access'] = 7
                 if obj_type == 'domain' and len(perms2['share']) == 0:
                     self._cassandra_db.enable_domain_sharing(obj_uuid, perms2)
 
