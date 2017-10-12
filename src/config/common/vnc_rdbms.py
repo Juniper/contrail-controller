@@ -22,6 +22,7 @@ from cfgm_common.exceptions import NoIdError, DatabaseUnavailableError, \
                                    NoUserAgentKey
 from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 from cfgm_common import SGID_MIN_ALLOC
+from sandesh_common.vns import constants
 
 Base = declarative_base()
 
@@ -360,8 +361,12 @@ class VncRDBMSClient(object):
     _SG_ID_ALLOC_PATH = "/id/security-groups/id/"
     _SG_MAX_ID = 1 << 32
 
-    _TAG_VALUE_ID_ALLOC_PATH = "/id/tag-values/%s/"
-    _TAG_VALUE_MAX_ID = (1<<27) - 1
+    _TAG_ID_ALLOC_ROOT_PATH = "/id/tags"
+    _TAG_TYPE_ID_ALLOC_PATH = "%s/types/" % _TAG_ID_ALLOC_ROOT_PATH
+    _TAG_VALUE_ID_ALLOC_PATH = "%s/values/%%s/" % _TAG_ID_ALLOC_ROOT_PATH
+    _TAG_TYPE_MAX_ID = (1 << 16) - 1
+    _TAG_TYPE_RESERVED_SIZE = 255
+    _TAG_VALUE_MAX_ID = (1 << 16) - 1
 
     @classmethod
     def create_sqalchemy_models(cls):
@@ -531,11 +536,22 @@ class VncRDBMSClient(object):
         self._sg_id_allocator.reserve(0, '__reserved__')
         self._generate_url = generate_url or (lambda x,y: '')
 
-        # Initialize the tag value ID allocator
-        self._tag_value_id_allocator = {tag_type: RDBMSIndexAllocator(engine,
-                                               self._TAG_VALUE_ID_ALLOC_PATH % tag_type,
-                                               self._TAG_VALUE_MAX_ID)
-                                        for tag_type in cfgm_common.tag_dict.keys()}
+        # Initialize tag type ID allocator
+        self._tag_type_id_allocator = RDBMSIndexAllocator(
+            engine,
+            self._TAG_TYPE_ID_ALLOC_PATH,
+            size=self._TAG_TYPE_MAX_ID,
+            start_idx=self._TAG_TYPE_RESERVED_SIZE,
+        )
+
+        # Initialize the tag value ID allocator for pref-defined tag-type.
+        # One allocator per tag type
+        self._tag_value_id_allocator = {
+            type_name: RDBMSIndexAllocator(
+                engine,
+                self._TAG_VALUE_ID_ALLOC_PATH % type_name,
+                self._TAG_VALUE_MAX_ID,
+            ) for type_name in constants.TagTypeNameToId.keys()}
     # end __init__
 
     def _get_resource_class(self, obj_type):
