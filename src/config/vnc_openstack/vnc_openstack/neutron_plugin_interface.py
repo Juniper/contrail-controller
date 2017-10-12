@@ -646,7 +646,7 @@ class NeutronPluginInterface(object):
         """
 
         cfgdb = self._get_user_cfgdb(context)
-        router_info = cfgdb.router_create(router['resource'])
+        router_info = cfgdb.router_create(context, router['resource'])
         return router_info
 
     def plugin_update_router(self, context, router):
@@ -655,7 +655,7 @@ class NeutronPluginInterface(object):
         """
 
         cfgdb = self._get_user_cfgdb(context)
-        router_info = cfgdb.router_update(router['id'],
+        router_info = cfgdb.router_update(context, router['id'],
                                           router['resource'])
         return router_info
 

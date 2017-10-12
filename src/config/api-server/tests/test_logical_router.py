@@ -106,16 +106,16 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug('Created Logical Router ')
 
         # Create a Virtual Machine Interface belonging to my-vn-1
-        id_perms = IdPermsType(enable=True) 
+        id_perms = IdPermsType(enable=True)
         port_obj1 = VirtualMachineInterface(
            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
-        port_obj1.uuid = port_obj1.name 
+        port_obj1.uuid = port_obj1.name
         port_obj1.set_virtual_network(vn1)
         port_obj1.set_virtual_machine_interface_device_owner('DEVICE_OWNER_ROUTER_INTF')
         #Assign gateway ip
-        ipam_refs = net_obj1.get_network_ipam_refs() 
+        ipam_refs = net_obj1.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
-            subnets = ipam_ref['attr'].get_ipam_subnets() 
+            subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
                 cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                   subnet.subnet.get_ip_prefix_len())
@@ -131,23 +131,26 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj1.uuid = ip_obj1.name
         ip_obj1.set_virtual_machine_interface(port_obj1)
         ip_obj1.set_virtual_network(net_obj1)
-        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1) 
+        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
  
         # Add Router Interface (test being subnet)
-        lr.add_virtual_machine_interface(port_obj1)
+        lr.add_virtual_machine_interface(
+            port_obj1,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_update(lr)
         logger.debug('Linked VMI object (VN1) and LR object')
 
         # Create a Virtual Machine Interface belonging to my-vn-2
         port_obj2 = VirtualMachineInterface(
            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
-        port_obj2.uuid = port_obj2.name 
+        port_obj2.uuid = port_obj2.name
         port_obj2.set_virtual_network(vn2)
         port_obj2.set_virtual_machine_interface_device_owner('DEVICE_OWNER_ROUTER_INTF')
         #Assign gateway ip
-        ipam_refs = net_obj2.get_network_ipam_refs() 
+        ipam_refs = net_obj2.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
-            subnets = ipam_ref['attr'].get_ipam_subnets() 
+            subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
                 cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                   subnet.subnet.get_ip_prefix_len())
@@ -163,10 +166,13 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj2.uuid = ip_obj2.name
         ip_obj2.set_virtual_machine_interface(port_obj2)
         ip_obj2.set_virtual_network(net_obj2)
-        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2) 
+        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
  
         # Add Router Interface (test being subnet)
-        lr.add_virtual_machine_interface(port_obj2)
+        lr.add_virtual_machine_interface(
+            port_obj2,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_update(lr)
         logger.debug('Linked VMI object (VN2) and LR object')
         
@@ -254,16 +260,16 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug('Created Logical Router ')
 
         # Create a Virtual Machine Interface belonging to my-vn-1
-        id_perms = IdPermsType(enable=True) 
+        id_perms = IdPermsType(enable=True)
         port_obj1 = VirtualMachineInterface(
            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
-        port_obj1.uuid = port_obj1.name 
+        port_obj1.uuid = port_obj1.name
         port_obj1.set_virtual_network(vn1)
         port_obj1.set_virtual_machine_interface_device_owner('DEVICE_OWNER_ROUTER_INTF')
         #Assign gateway ip
-        ipam_refs = net_obj1.get_network_ipam_refs() 
+        ipam_refs = net_obj1.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
-            subnets = ipam_ref['attr'].get_ipam_subnets() 
+            subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
                 cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                   subnet.subnet.get_ip_prefix_len())
@@ -279,10 +285,13 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj1.uuid = ip_obj1.name
         ip_obj1.set_virtual_machine_interface(port_obj1)
         ip_obj1.set_virtual_network(net_obj1)
-        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1) 
+        ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
  
         # Add Router Interface (test being subnet)
-        lr.add_virtual_machine_interface(port_obj1)
+        lr.add_virtual_machine_interface(
+            port_obj1,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         lr_obj = self._vnc_lib.logical_router_read(id=lr_uuid)
         self._vnc_lib.logical_router_update(lr_obj)
         logger.debug('Linked VMI object (VN1) and LR object')
@@ -290,13 +299,13 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create a Virtual Machine Interface belonging to my-vn-2
         port_obj2 = VirtualMachineInterface(
            str(uuid.uuid4()), parent_obj=project, id_perms=id_perms)
-        port_obj2.uuid = port_obj2.name 
+        port_obj2.uuid = port_obj2.name
         port_obj2.set_virtual_network(vn2)
         port_obj2.set_virtual_machine_interface_device_owner('DEVICE_OWNER_ROUTER_INTF')
         #Assign gateway ip
-        ipam_refs = net_obj2.get_network_ipam_refs() 
+        ipam_refs = net_obj2.get_network_ipam_refs()
         for ipam_ref in ipam_refs:
-            subnets = ipam_ref['attr'].get_ipam_subnets() 
+            subnets = ipam_ref['attr'].get_ipam_subnets()
             for subnet in subnets:
                 cidr = '%s/%s' % (subnet.subnet.get_ip_prefix(),
                                   subnet.subnet.get_ip_prefix_len())
@@ -312,10 +321,13 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj2.uuid = ip_obj2.name
         ip_obj2.set_virtual_machine_interface(port_obj2)
         ip_obj2.set_virtual_network(net_obj2)
-        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2) 
+        ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
  
         # Add Router Interface (test being subnet)
-        lr.add_virtual_machine_interface(port_obj2)
+        lr.add_virtual_machine_interface(
+            port_obj2,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         lr_obj = self._vnc_lib.logical_router_read(id=lr_uuid)
         self._vnc_lib.logical_router_update(lr_obj)
         logger.debug('Linked VMI object (VN2) and LR object')
@@ -439,7 +451,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug('Created Logical Router ')
 
         # Add Router Interface
-        lr.add_virtual_machine_interface(vm_port_obj)
+        lr.add_virtual_machine_interface(
+            vm_port_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         logger.debug("Trying to Link VM's VMI object and LR object")
         with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
             self._vnc_lib.logical_router_update(lr)
@@ -449,7 +464,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Port
         logger.debug("Add internal interface to LR")
         port_obj = self.create_port(project, net_obj)
-        lr.add_virtual_machine_interface(port_obj)
+        lr.add_virtual_machine_interface(
+            port_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_update(lr)
         logger.debug("Link VM to internal interface of a LR")
         with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
@@ -515,7 +533,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug('Created Logical Router ')
 
         # Add Router Interface
-        lr.add_virtual_machine_interface(port_obj)
+        lr.add_virtual_machine_interface(
+            port_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_update(lr)
 
         # set router_external
@@ -540,7 +561,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         port_obj = self.create_port(project, net_obj)
         logger.debug("Try adding interafce from same network as of gateway to LR object")
         with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
-            lr.add_virtual_machine_interface(port_obj)
+            lr.add_virtual_machine_interface(
+                port_obj,
+                LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+            )
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Adding interface from same network as of gateway to LR object failed as expected")
         self._vnc_lib.logical_router_delete(id=lr.uuid)

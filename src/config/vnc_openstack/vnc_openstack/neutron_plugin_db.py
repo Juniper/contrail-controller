@@ -2352,88 +2352,6 @@ class DBInterface(object):
     # end _port_neutron_to_vnc
 
     @catch_convert_exception
-    def _gw_port_vnc_to_neutron(self, port_obj, port_req_memo, oper=READ):
-        vm_refs = port_obj.get_virtual_machine_refs()
-        vm_uuid = vm_refs[0]['uuid']
-        vm_obj = None
-        try:
-            vm_obj = port_req_memo['virtual-machines'][vm_uuid]
-        except KeyError:
-            try:
-                vm_obj = self._vnc_lib.virtual_machine_read(id=vm_uuid)
-            except NoIdError:
-                return None
-            port_req_memo['virtual-machines'][vm_uuid] = vm_obj
-
-        si_refs = vm_obj.get_service_instance_refs()
-        if not si_refs:
-            return None
-
-        try:
-            si_obj = port_req_memo['service-instances'][si_refs[0]['uuid']]
-        except KeyError:
-            try:
-                si_obj = self._vnc_lib.service_instance_read(id=si_refs[0]['uuid'],
-                        fields=["logical_router_back_refs"])
-            except NoIdError:
-                return None
-
-        rtr_back_refs = getattr(si_obj, "logical_router_back_refs", None)
-        if not rtr_back_refs:
-            return None
-        return rtr_back_refs[0]['uuid']
-    #end _gw_port_vnc_to_neutron
-
-    def _get_router_gw_interface_for_neutron(self, context, router):
-        si_ref = (router.get_service_instance_refs() or [None])[0]
-        vn_ref = (router.get_virtual_network_refs() or [None])[0]
-        if si_ref is None or vn_ref is None:
-            # No gateway set on that router
-            return
-
-        # Router's gateway is enabled on the router
-        # As Contrail model uses a service instance composed of 2 VM for the
-        # gw stuff, we use the first VMI of the first SI's VM as Neutron router
-        # gw port.
-        # Only admin user or port's network owner can list router gw interface.
-        if not context.get('is_admin', False):
-            try:
-                vn = self._vnc_lib.virtual_network_read(
-                    id=vn_ref['uuid'], fields=['parent_uuid'],
-                )
-            except NoIdError:
-                return
-            if vn.parent_uuid != self._validate_project_ids(context)[0]:
-                return
-
-        try:
-            si = self._vnc_lib.service_instance_read(
-                id=si_ref['uuid'],
-                fields=['virtual_machine_back_refs'],
-            )
-        except NoIdError:
-            return
-
-        # To be sure to always use the same SI's VM, we sort them by theirs
-        # name
-        sorted_vm_refs = sorted(si.get_virtual_machine_back_refs() or [],
-                                key=lambda ref: ref['to'][-1])
-        if len(sorted_vm_refs) >= 1:
-            # And list right VM's VMIs. Return the first one (sorted by
-            # name) but SI's VM habitually have only one right interface
-            filters = {
-                'virtual_machine_interface_properties':
-                    json.dumps({'service_interface_type': "right"}),
-            }
-            vmis = self._virtual_machine_interface_list(
-                back_ref_id=[sorted_vm_refs[0]['uuid']], filters=filters)
-            sorted_vmis = sorted(vmis, key=lambda vmi: vmi.name)
-            # Return first right VM's VMI if at least one IP is configured
-            if (len(sorted_vmis) >= 1 and
-                    sorted_vmis[0].get_instance_ip_back_refs()):
-                return sorted_vmis[0]
-
-    @catch_convert_exception
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None, oper=READ):
         port_q_dict = {}
         extra_dict = {}
@@ -2606,16 +2524,12 @@ class DBInterface(object):
 
         # port can be router interface or vm interface
         # for perf read logical_router_back_ref only when we have to
-        port_parent_name = port_obj.parent_name
         router_refs = getattr(port_obj, 'logical_router_back_refs', None)
         if router_refs is not None:
             port_q_dict['device_id'] = router_refs[0]['uuid']
-        elif port_obj.parent_type == 'virtual-machine':
-            port_q_dict['device_id'] = port_obj.parent_name
-        elif port_obj.get_virtual_machine_refs() is not None:
-            rtr_uuid = self._gw_port_vnc_to_neutron(port_obj, port_req_memo)
-            if rtr_uuid:
-                port_q_dict['device_id'] = rtr_uuid
+            attr = router_refs[0]['attr']
+            if (attr is not None and 'interface_type' in attr and
+                    attr['interface_type'] == 'external'):
                 port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_GW
                 # Neutron router gateway interface is a system resource only
                 # visible by admin user or port's network owner. Neutron
@@ -2624,9 +2538,14 @@ class DBInterface(object):
                 # Not sure why it's necessary
                 port_q_dict['tenant_id'] = ''
             else:
-                port_q_dict['device_id'] = \
-                    port_obj.get_virtual_machine_refs()[0]['to'][-1]
-                port_q_dict['device_owner'] = ''
+                port_q_dict['device_owner'] =\
+                    constants.DEVICE_OWNER_ROUTER_INTF
+        elif port_obj.parent_type == 'virtual-machine':
+            port_q_dict['device_id'] = port_obj.parent_name
+        elif port_obj.get_virtual_machine_refs() is not None:
+            port_q_dict['device_id'] =\
+                port_obj.get_virtual_machine_refs()[0]['to'][-1]
+            port_q_dict['device_owner'] = ''
         else:
             port_q_dict['device_id'] = ''
 
@@ -3541,7 +3460,7 @@ class DBInterface(object):
         return len(policy_info)
     #end policy_count
 
-    def _router_update_gateway(self, router_q, rtr_obj):
+    def _router_update_gateway(self, context, router_q, rtr_obj):
         ext_gateway = router_q.get('external_gateway_info', None)
         old_ext_gateway = self._get_external_gateway_info(rtr_obj)
         if ext_gateway or old_ext_gateway:
@@ -3561,30 +3480,57 @@ class DBInterface(object):
                     self._raise_contrail_exception('NetworkNotFound',
                                                    net_id=network_id)
 
-                self._router_set_external_gateway(rtr_obj, net_obj)
+                self._router_set_external_gateway(context, rtr_obj, net_obj)
             else:
                 self._router_clear_external_gateway(rtr_obj)
 
-    def _router_set_external_gateway(self, router_obj, ext_net_obj):
+    def _router_set_external_gateway(self, context, router, external_network):
         # Set logical gateway virtual network
-        router_obj.set_virtual_network(ext_net_obj)
-        self._resource_update('logical_router', router_obj)
+        router.set_virtual_network(external_network)
+        # Create virtual machine interface corresponding to the router gw
+        n_gw_port = {
+            'tenant_id': router.parent_uuid.replace('-', ''),
+            'network_id': external_network.uuid,
+            'device_id': router.uuid,
+            'device_owner': constants.DEVICE_OWNER_ROUTER_GW,
+            'admin_state_up': True,
+        }
+        gw_port_uuid = self.port_create(context, n_gw_port)['id']
+        gw_port = self._vnc_lib.virtual_machine_interface_read(id=gw_port_uuid)
+        # And add a reference from the router
+        router.add_virtual_machine_interface(
+            gw_port,
+            LogicalRouterInterfacePrioritiesType(interface_type='external'),
+        )
+        try:
+            self._resource_update('logical_router', router)
+        except Exception as e:
+            self.port_delete(gw_port_uuid)
+            raise e
 
-    def _router_clear_external_gateway(self, router_obj):
+    def _router_clear_external_gateway(self, router):
         # Clear logical gateway virtual network
-        router_obj.set_virtual_network_list([])
-        self._resource_update('logical_router', router_obj)
+        router.set_virtual_network_list([])
+        # Clear the external gateway interface reference
+        for vmi_ref in router.get_virtual_machine_interface_refs() or []:
+            if (vmi_ref['attr'] is not None and
+                    vmi_ref['attr'].get_interface_type() == 'external'):
+                gw_vmi = VirtualMachineInterface(parent_type='project',
+                                                 fq_name=vmi_ref['to'])
+                router.del_virtual_machine_interface(gw_vmi)
+                break
+        self._resource_update('logical_router', router)
 
     # router api handlers
     @wait_for_api_server_connection
-    def router_create(self, router_q):
+    def router_create(self, context, router_q):
         #self._ensure_project_exists(router_q['tenant_id'])
 
         rtr_obj = self._router_neutron_to_vnc(router_q, CREATE)
         rtr_uuid = self._resource_create('logical_router', rtr_obj)
         # read it back to update id perms
         rtr_obj = self._logical_router_read(rtr_uuid)
-        self._router_update_gateway(router_q, rtr_obj)
+        self._router_update_gateway(context, router_q, rtr_obj)
         ret_router_q = self._router_vnc_to_neutron(rtr_obj)
 
         return ret_router_q
@@ -3607,11 +3553,11 @@ class DBInterface(object):
     #end router_read
 
     @wait_for_api_server_connection
-    def router_update(self, rtr_id, router_q):
+    def router_update(self, context, rtr_id, router_q):
         router_q['id'] = rtr_id
         rtr_obj = self._router_neutron_to_vnc(router_q, UPDATE)
         self._logical_router_update(rtr_obj)
-        self._router_update_gateway(router_q, rtr_obj)
+        self._router_update_gateway(context, router_q, rtr_obj)
         ret_router_q = self._router_vnc_to_neutron(rtr_obj)
 
         return ret_router_q
@@ -3621,12 +3567,12 @@ class DBInterface(object):
     def router_delete(self, rtr_id):
         try:
             rtr_obj = self._logical_router_read(rtr_id)
-            if rtr_obj.get_virtual_machine_interface_refs():
-                self._raise_contrail_exception('RouterInUse',
-                                               router_id=rtr_id)
         except NoIdError:
-            self._raise_contrail_exception('RouterNotFound',
-                                           router_id=rtr_id)
+            self._raise_contrail_exception('RouterNotFound', router_id=rtr_id)
+        for vmi_ref in rtr_obj.get_virtual_machine_interface_refs():
+            if (vmi_ref['attr'] is not None and
+                    vmi_ref['attr'].get_interface_type() == 'internal'):
+                self._raise_contrail_exception('RouterInUse', router_id=rtr_id)
 
         self._router_clear_external_gateway(rtr_obj)
         self._logical_router_delete(rtr_id=rtr_id)
@@ -3825,7 +3771,10 @@ class DBInterface(object):
         vmi_obj.set_virtual_machine_interface_device_owner(
             constants.DEVICE_OWNER_ROUTER_INTF)
         self._resource_update('virtual_machine_interface', vmi_obj)
-        router_obj.add_virtual_machine_interface(vmi_obj)
+        router_obj.add_virtual_machine_interface(
+            vmi_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._logical_router_update(router_obj)
         info = {'id': router_id,
                 'tenant_id': subnet['tenant_id'],
@@ -4113,7 +4062,6 @@ class DBInterface(object):
             self._raise_contrail_exception('NetworkNotFound',
                                            net_id=net_id)
         tenant_id = self._get_tenant_id_for_create(context, port_q);
-        proj_id = str(uuid.UUID(tenant_id))
 
         # if mac-address is specified, check against the exisitng ports
         # to see if there exists a port with the same mac-address
@@ -4388,28 +4336,43 @@ class DBInterface(object):
             if not_found_device_ids:
                 # Port has a back_ref to logical router, so need to read in
                 # logical routers based on device ids
-                router_objs = self._logical_router_list(
+                routers = self._logical_router_list(
                     obj_uuids=list(not_found_device_ids),
                     parent_id=project_ids,
                     back_ref_id=filters.get('network_id'),
                     fields=['virtual_machine_interface_back_refs'])
-                router_port_ids = [
-                    vmi_ref['uuid']
-                    for router_obj in router_objs
-                    for vmi_ref in
-                    router_obj.get_virtual_machine_interface_refs() or []
-                ]
-                # Add all router intefraces on private networks
+                # Only admin user or port's network owner can list router gw
+                # interface.
+                router_port_ids = []
+                if not context.get('is_admin', False):
+                    for router in routers:
+                        list_gw_interface = False
+                        if (router.get_virtual_network_refs() is not None and
+                                router.get_virtual_machine_interface_refs() is not None):
+                            vn_ref = router.get_virtual_network_refs()[0]
+                            try:
+                                vn = self._vnc_lib.virtual_network_read(
+                                    id=vn_ref['uuid'], fields=['parent_uuid'],
+                                )
+                            except NoIdError:
+                                pass
+                            if vn.parent_uuid == self._validate_project_ids(context)[0]:
+                                list_gw_interface = True
+                        router_port_ids.extend(
+                            [vmi_ref['uuid'] for vmi_ref in
+                             router.get_virtual_machine_interface_refs() or []
+                             if (vmi_ref['attr'].get_interface_type() == 'internal' or
+                                 (vmi_ref['attr'].get_interface_type() == 'external' and list_gw_interface))])
+                else:
+                    router_port_ids = [
+                        vmi_ref['uuid']
+                        for router in routers
+                        for vmi_ref in
+                        router.get_virtual_machine_interface_refs() or []
+                    ]
                 if router_port_ids:
                     port_objs.extend(self._virtual_machine_interface_list(
                         obj_uuids=router_port_ids, parent_id=project_ids))
-
-                # Add router gateway interface
-                for router in router_objs:
-                    gw_vmi = self._get_router_gw_interface_for_neutron(context,
-                                                                       router)
-                    if gw_vmi is not None:
-                        port_objs.append(gw_vmi)
 
             # Filter it with project ids if there are.
             if project_ids:

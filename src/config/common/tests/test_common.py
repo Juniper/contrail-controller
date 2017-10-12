@@ -936,7 +936,10 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
                 'network:router_interface')
             vmi.add_virtual_network(vn)
             self._vnc_lib.virtual_machine_interface_create(vmi)
-            lr.add_virtual_machine_interface(vmi)
+            lr.add_virtual_machine_interface(
+                vmi,
+                LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+            )
             vmis.append(vmi)
 
             # Instance IP

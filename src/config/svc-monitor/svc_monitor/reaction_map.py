@@ -110,5 +110,6 @@ REACTION_MAP = {
     },
     "logical_router": {
         'self': [],
+        # 'virtual_machine_interface': [],
     },
 }

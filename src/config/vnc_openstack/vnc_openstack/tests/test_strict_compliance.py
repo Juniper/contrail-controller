@@ -25,6 +25,7 @@ class TestStrictCompOn(test_case.NeutronBackendTestCase):
     #end setUpClass
 
     def _create_resource(self, res_type, proj_id, name=None, extra_res_fields=None):
+        proj_id = proj_id.replace('-', '')
         context = {'operation': 'CREATE',
                    'user_id': '',
                    'is_admin': False,
@@ -54,7 +55,7 @@ class TestStrictCompOn(test_case.NeutronBackendTestCase):
         pvt_net_name, pvt_net_q = self._create_resource('network', proj_id)
         pvt_subnet_name, pvt_subnet_q = self._create_resource('subnet', proj_id, name, extra_res_fields={'network_id': pvt_net_q['id'], 'cidr': '10.1.0.0/24', 'ip_version': 4})
         
-        port_name, port_q = self._create_resource('port', proj_id, name, extra_res_fields={'network_id': pvt_subnet_q['network_id']}) 
+        port_name, port_q = self._create_resource('port', proj_id, name, extra_res_fields={'network_id': pvt_subnet_q['network_id']})
         
         return self._create_resource('floatingip', proj_id, name, extra_res_fields={'floating_network_id': net_q['id'], 'port_id':port_q['id']})
 
@@ -68,16 +69,17 @@ class TestStrictCompOn(test_case.NeutronBackendTestCase):
         pvt_net_name, pvt_net_q = self._create_resource('network', proj_id)
         pvt_subnet_name, pvt_subnet_q = self._create_resource('subnet', proj_id, name, extra_res_fields={'network_id': pvt_net_q['id'], 'cidr': '10.1.0.0/24', 'ip_version': 4})
         
-        port_name, port_q = self._create_resource('port', proj_id, name, extra_res_fields={'network_id': pvt_subnet_q['network_id']}) 
-        port2_name, port2_q = self._create_resource('port', proj_id, name, extra_res_fields={'network_id': pvt_subnet_q['network_id']}) 
+        port_name, port_q = self._create_resource('port', proj_id, name, extra_res_fields={'network_id': pvt_subnet_q['network_id']})
+        port2_name, port2_q = self._create_resource('port', proj_id, name, extra_res_fields={'network_id': pvt_subnet_q['network_id']})
        
-        #External gateway  
+        #External gateway
         router_name, router_q = self._update_resource('router', router_q['id'], proj_id, name, extra_res_fields={'external_gateway_info': {'network_id':net_q['id']}})
         router_name, router_q = self._add_router_interface('router', router_q['id'], proj_id, name, extra_res_fields={'port_id':port2_q['id']})
         return self._create_resource('floatingip', proj_id, name, extra_res_fields={'floating_network_id': net_q['id'], 'port_id':port_q['id']})
 
 
     def _update_resource(self, res_type, res_id, proj_id, name=None, extra_res_fields=None):
+        proj_id = proj_id.replace('-', '')
         context = {'operation': 'UPDATE',
                    'user_id': '',
                    'is_admin': False,
@@ -128,7 +130,7 @@ class TestStrictCompOn(test_case.NeutronBackendTestCase):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         for res_type in ['security_group']:
             res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_obj.uuid)
-            res_list = self._list_resources(res_type, tenant_id=proj_obj.uuid, name=res_name)
+            res_list = self._list_resources(res_type, proj_id=proj_obj.uuid, name=res_name)
 
         with ExpectedException(webtest.app.AppError):
             self._create_floatingip_and_associate_port_without_ext_gw(proj_obj.uuid)
@@ -138,17 +140,18 @@ class TestStrictCompOn(test_case.NeutronBackendTestCase):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         for res_type in ['security_group']:
             res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_obj.uuid)
-            res_list = self._list_resources(res_type, tenant_id=proj_obj.uuid, name=res_name)
+            res_list = self._list_resources(res_type, proj_id=proj_obj.uuid, name=res_name)
 
         self._create_floatingip_and_associate_port_with_ext_gw(proj_obj.uuid)
 
-    def _list_resources(self, res_type, fields=None, tenant_id=None, name=None):
+    def _list_resources(self, res_type, fields=None, proj_id=None, name=None):
+        proj_id = proj_id.replace('-', '')
         context = {'operation': 'READALL',
                    'userid': '',
                    'roles': '',
                    'is_admin': False,
-                   'tenant': tenant_id,
-                   'tenant_id': tenant_id}
+                   'tenant': proj_id,
+                   'tenant_id': proj_id}
 
         data = {'filters':{}, 'fields': None}
         if name:
@@ -166,13 +169,14 @@ class TestStrictCompOn(test_case.NeutronBackendTestCase):
 
 
 class TestStrictCompOff(test_case.NeutronBackendTestCase):
-    @classmethod  
+    @classmethod
     def setUpClass(cls):
         super(TestStrictCompOff, cls).setUpClass(
             extra_config_knobs=[('NEUTRON', 'strict_compliance', False)])
     #end setUpClass
 
     def _create_resource(self, res_type, proj_id, name=None, extra_res_fields=None):
+        proj_id = proj_id.replace('-', '')
         context = {'operation': 'CREATE',
                    'user_id': '',
                    'is_admin': False,
@@ -211,17 +215,18 @@ class TestStrictCompOff(test_case.NeutronBackendTestCase):
         proj_obj = self._vnc_lib.project_read(fq_name=['default-domain', 'default-project'])
         for res_type in ['security_group']:
             res_name, res_q = getattr(self, '_create_' + res_type, lambda x:self._create_resource(res_type, x))(proj_obj.uuid)
-            res_list = self._list_resources(res_type, tenant_id=proj_obj.uuid, name=res_name)
+            res_list = self._list_resources(res_type, proj_id=proj_obj.uuid, name=res_name)
 
         self._create_floatingip_and_associate_port_without_ext_gw(proj_obj.uuid)
 
-    def _list_resources(self, res_type, fields=None, tenant_id=None, name=None):
+    def _list_resources(self, res_type, fields=None, proj_id=None, name=None):
+        proj_id = proj_id.replace('-', '')
         context = {'operation': 'READALL',
                    'userid': '',
                    'roles': '',
                    'is_admin': False,
-                   'tenant': tenant_id,
-                   'tenant_id': tenant_id}
+                   'tenant': proj_id,
+                   'tenant_id': proj_id}
 
         data = {'filters':{}, 'fields': None}
         if name:

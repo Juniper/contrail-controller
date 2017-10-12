@@ -819,8 +819,11 @@ class LogicalRouterServer(Resource, LogicalRouter):
     def is_port_gateway_in_same_network(cls, db_conn, vmi_refs, vn_refs):
         interface_vn_uuids = []
         for vmi_ref in vmi_refs:
+            if vmi_ref['attr']['interface_type'] == 'external':
+                continue
             ok, vmi_result = cls.dbe_read(
-                  db_conn, 'virtual_machine_interface', vmi_ref['uuid'])
+                  db_conn, 'virtual_machine_interface', vmi_ref['uuid'],
+                  obj_fields=['virtual_network_refs'])
             if not ok:
                 return ok, vmi_result
             interface_vn_uuids.append(
@@ -1349,8 +1352,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         # router
         if (read_result.get('logical_router_back_refs') and
                 obj_dict.get('virtual_machine_refs')):
-            return (False,
-                    (400, 'Logical router interface cannot be used by VM'))
+            for lr_ref in read_result.get('logical_router_back_refs', []):
+                if lr_ref['attr']['interface_type'] == 'internal':
+                    msg = "Logical router interface cannot be used by VM"
+                    return False, (400, msg)
         # check if vmi is going to point to vm and if its using
         # gateway address in iip, disallow
         for iip_ref in read_result.get('instance_ip_back_refs') or []:
@@ -1975,7 +1980,7 @@ class VirtualRouterServer(Resource, VirtualRouter):
         if not ipam_refs:
             return True, ''
 
-        ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs] 
+        ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs]
         (ok, ipam_list, _) = db_conn.dbe_list('network_ipam',
                                 obj_uuids=ipam_uuid_list,
                                 field_names=['ipam_subnet_method',

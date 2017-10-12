@@ -963,6 +963,66 @@ class VncDbClient(object):
 
     # end iip_update_subnet_uuid
 
+    def _update_logical_router_interface_ref(self, obj_dict):
+        update = False
+        gw_vmi_already_set = False
+        for vmi_ref in obj_dict.get('virtual_machine_interface_refs', []):
+            if (vmi_ref['attr'] is None or
+                    'interface_type' not in vmi_ref['attr'] or
+                    vmi_ref['attr']['interface_type'] is None):
+                vmi_ref['attr'] = {'interface_type': 'internal'}
+                update = True
+            elif vmi_ref['attr']['interface_type'] == 'external':
+                gw_vmi_already_set = True
+
+        if not gw_vmi_already_set:
+            si_refs = obj_dict.get('service_instance_refs')
+            if si_refs is None:
+                return update
+
+            ok, result = self._object_db.object_read(
+                'service_instance',
+                [si_refs[0]['uuid']],
+                field_names=['virtual_machine_back_refs'],
+            )
+            if not ok:
+                return update
+            si = result[0]
+
+            gw_vmi = None
+            first_vm_name = '__'.join(si['fq_name'] + ['1'])
+            for vm_ref in si.get('virtual_machine_back_refs', []):
+                if vm_ref['to'][-1] == first_vm_name:
+                    filters = {
+                        'virtual_machine_interface_properties':
+                            [json.dumps({'service_interface_type': "right"})],
+                    }
+                    ok, result, _ = self._object_db.object_list(
+                        'virtual_machine_interface',
+                        back_ref_uuids=[vm_ref['uuid']],
+                        filters=filters,
+                    )
+                    if not ok:
+                        return update
+                    vmis = result
+                    sorted_vmis = sorted(vmis, key=lambda vmi: vmis[0][0][-1])
+                    if not sorted_vmis:
+                        return update
+                    gw_vmi = sorted_vmis[0]
+
+                    gw_vmi_ref = {
+                        'to': gw_vmi[0],
+                        'uuid': gw_vmi[1],
+                        'attr': {
+                            'interface_type': 'external',
+                        },
+                    }
+                    obj_dict.setdefault(
+                        'virtual_machine_interface_refs', []).append(
+                            gw_vmi_ref)
+                    update = True
+        return update
+
     def _dbe_resync(self, obj_type, obj_uuids):
         obj_class = cfgm_common.utils.obj_type_to_vnc_class(obj_type, __name__)
         obj_fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
@@ -1034,6 +1094,11 @@ class VncDbClient(object):
 
                 if obj_type == 'instance_ip' and 'subnet_uuid' not in obj_dict:
                     self.iip_update_subnet_uuid(obj_dict)
+
+                if obj_type == 'logical_router':
+                    if self._update_logical_router_interface_ref(obj_dict):
+                        self._object_db.object_update(obj_type, obj_uuid,
+                                                      obj_dict)
             except Exception as e:
                 tb = cfgm_common.utils.detailed_traceback()
                 self.config_log(tb, level=SandeshLevel.SYS_ERR)

@@ -12,7 +12,7 @@ except ImportError:
     from schema_transformer import config_db
 from vnc_api.vnc_api import (BgpRouterParams, VirtualMachineInterface,
         BgpRouter, LogicalRouter, RouteTargetList, InstanceIp, BgpAsAService,
-        NoIdError)
+        NoIdError, LogicalRouterInterfacePrioritiesType)
 
 from test_case import STTestCase, retries
 from test_route_target import VerifyRouteTarget
@@ -137,7 +137,10 @@ class TestBgp(STTestCase, VerifyBgp):
         lr = LogicalRouter(lr_name)
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         lr.set_configured_route_target_list(rtgt_list)
-        lr.add_virtual_machine_interface(vmi)
+        lr.add_virtual_machine_interface(
+            vmi,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_create(lr)
         lr_target = self.check_lr_target(lr.get_fq_name())
         ri_name = self.get_ri_name(vn1_obj)
@@ -224,7 +227,10 @@ class TestBgp(STTestCase, VerifyBgp):
         # create logical router
         lr_name = self.id() + 'lr1'
         lr = LogicalRouter(lr_name)
-        lr.add_virtual_machine_interface(vmi)
+        lr.add_virtual_machine_interface(
+            vmi,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_create(lr)
         lr_target = self.check_lr_target(lr.get_fq_name())
 
@@ -292,7 +298,7 @@ class TestBgp(STTestCase, VerifyBgp):
         self.wait_to_get_object(config_db.BgpRouterST, router1_name)
         self.wait_to_get_object(config_db.BgpRouterST, router2_name)
 
-        # check whether shared IP address is assigned to the BGP rotuer 
+        # check whether shared IP address is assigned to the BGP rotuer
         self.check_bgp_router_ip(router1_name, '1.1.1.1')
 
         # Add a new VMI to the BGPaaS. This should not create a new BGP router

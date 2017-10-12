@@ -3001,7 +3001,10 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         rtr_vmi_obj.add_virtual_network(vn_obj)
         self._vnc_lib.virtual_machine_interface_create(rtr_vmi_obj)
         lr_obj = LogicalRouter('rtr-%s' %(self.id()), proj_obj)
-        lr_obj.add_virtual_machine_interface(rtr_vmi_obj)
+        lr_obj.add_virtual_machine_interface(
+            rtr_vmi_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_create(lr_obj)
 
         isolated_vmi_obj = VirtualMachineInterface('iso-vmi-%s' %(self.id()),
