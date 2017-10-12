@@ -2434,7 +2434,10 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
         # Try to reattach the virtual network to the logical router
         with ExpectedException(BadRequest):
-            lr.add_virtual_machine_interface(vmi)
+            lr.add_virtual_machine_interface(
+                vmi,
+                LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+            )
             self._vnc_lib.logical_router_update(lr)
 # end class TestVncCfgApiServer
 
@@ -4710,7 +4713,7 @@ class TestPagination(test_case.ApiServerTestCase):
     # end _create_vmi_collection
 
     def test_validate_input(self):
-        # * fail 400 if last part of non-None page_marker is not alphanumeric 
+        # * fail 400 if last part of non-None page_marker is not alphanumeric
         #   (non-None marker is uuid in anchored walks and fq_name_str_uuid
         #    in unanchored walks)
         # * fail 400 if page_limit is not number(None, string, array, dict)
@@ -4738,7 +4741,7 @@ class TestPagination(test_case.ApiServerTestCase):
             all_vn_ids = []
             all_vn_count = self._vnc_lib.virtual_networks_list(
                 count=True)['virtual-networks']['count']
-            max_fetches = (all_vn_count / 
+            max_fetches = (all_vn_count /
                            (page_limit or self.default_paginate_count)) + 1
             fetches = 0
             while True:
@@ -4756,7 +4759,7 @@ class TestPagination(test_case.ApiServerTestCase):
                     return
 
                 self.assertEqual(resp.status_code, 200)
-                read_vn_ids = [vn['uuid'] 
+                read_vn_ids = [vn['uuid']
                     for vn in json.loads(resp.text)['virtual-networks']]
                 all_vn_ids.extend(read_vn_ids)
                 marker = json.loads(resp.text)['marker']
@@ -4804,7 +4807,7 @@ class TestPagination(test_case.ApiServerTestCase):
                     self.assertEqual(resp.status_code, 400)
                     return
                 self.assertEqual(resp.status_code, 200)
-                read_vn_ids = [vn['uuid'] 
+                read_vn_ids = [vn['uuid']
                     for vn in json.loads(resp.text)['virtual-networks']]
                 self.assertEqual(len(read_vn_ids), fe_obj.num_objs)
                 marker = json.loads(resp.text)['marker']
@@ -4862,7 +4865,7 @@ class TestPagination(test_case.ApiServerTestCase):
                     self.assertEqual(resp.status_code, 400)
                     return
                 self.assertEqual(resp.status_code, 200)
-                read_vmi_ids = [vmi['uuid'] 
+                read_vmi_ids = [vmi['uuid']
                     for vmi in json.loads(resp.text)['virtual-machine-interfaces']]
                 self.assertEqual(len(read_vmi_ids), fe_obj.num_objs)
                 marker = json.loads(resp.text)['marker']
@@ -5240,7 +5243,7 @@ class TestPagination(test_case.ApiServerTestCase):
             FetchExpect(0, None)])
         verify_collection_walk(page_limit=1, fetch_expects=[
             FetchExpect(1, val) for idx, val in enumerate(sorted_vn_uuid)] +
-            [FetchExpect(1, 'shared:%s' %(val)) 
+            [FetchExpect(1, 'shared:%s' %(val))
                 for idx, val in enumerate(sorted_shared_vn_uuid)] +
             [FetchExpect(0, None)])
         verify_collection_walk(page_limit=2, fetch_expects=[

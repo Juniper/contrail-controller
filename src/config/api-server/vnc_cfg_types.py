@@ -182,11 +182,10 @@ class Resource(ResourceDbMixin):
         else:
             uuid = kwargs['uuid']
         if uuid:
-            ok, result = cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
-            if not ok and result[0] == 404:
+            try:
+                return cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
+            except cfgm_common.exceptions.NoIdError:
                 pass
-            else:
-                return ok, result
 
         parent_obj = None
         if 'parent_type' in kwargs:
@@ -197,15 +196,16 @@ class Resource(ResourceDbMixin):
         obj.fq_name = fq_name
         obj.uuid = kwargs.get('uuid')
         obj_dict = json.loads(json.dumps(obj, default=_obj_serializer_all))
+        for ref_name in set(kwargs.keys()) & (
+                set(cls.children_fields) | set(cls.ref_fields) |
+                set(cls.backref_fields)):
+            obj_dict[ref_name] = copy.deepcopy(kwargs[ref_name])
         try:
-            cls.server.internal_request_create(cls.resource_type, obj_dict)
+            obj_dict = cls.server.internal_request_create(
+                cls.resource_type, obj_dict)[cls.resource_type]
         except cfgm_common.exceptions.HttpError as e:
             return False, (e.status_code, e.content)
-        try:
-            uuid = cls.db_conn.fq_name_to_uuid(cls.object_type, fq_name)
-        except cfgm_common.exceptions.NoIdError as e:
-            return False, (404, str(e))
-        return cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
+        return True, obj_dict
 # end class Resource
 
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
@@ -812,6 +812,30 @@ class InstanceIpServer(Resource, InstanceIp):
 
 class LogicalRouterServer(Resource, LogicalRouter):
     @classmethod
+    def check_only_one_external_network(cls, obj_dict):
+        if len(obj_dict.get('virtual_network_refs', [])) > 1:
+            msg = ("Only one external virtual network can be set on a logical "
+                   "router")
+            return False, (400, msg)
+        return True, ''
+
+    @classmethod
+    def check_not_set_external_interface(cls, obj_dict, db_obj_dict=None):
+        msg = ("User can only associate virtual machine interface with "
+               "internal type to a logical router")
+        old_vmi_uuids = set()
+        if db_obj_dict and 'virtual_machine_interface_refs' in db_obj_dict:
+            old_vmi_uuids = {ref['uuid'] for ref in
+                             db_obj_dict['virtual_machine_interface_refs']}
+
+        for vmi_ref in obj_dict.get('virtual_machine_interface_refs', []):
+            if vmi_ref['attr']['interface_type'] == 'external':
+                if vmi_ref['uuid'] in old_vmi_uuids:
+                    continue
+                return False, (400, msg)
+        return True, ''
+
+    @classmethod
     def is_port_in_use_by_vm(cls, obj_dict, db_conn):
         for vmi_ref in obj_dict.get('virtual_machine_interface_refs') or []:
             vmi_id = vmi_ref['uuid']
@@ -830,8 +854,11 @@ class LogicalRouterServer(Resource, LogicalRouter):
     def is_port_gateway_in_same_network(cls, db_conn, vmi_refs, vn_refs):
         interface_vn_uuids = []
         for vmi_ref in vmi_refs:
+            if vmi_ref['attr']['interface_type'] == 'external':
+                continue
             ok, vmi_result = cls.dbe_read(
-                  db_conn, 'virtual_machine_interface', vmi_ref['uuid'])
+                  db_conn, 'virtual_machine_interface', vmi_ref['uuid'],
+                  obj_fields=['virtual_network_refs'])
             if not ok:
                 return ok, vmi_result
             interface_vn_uuids.append(
@@ -915,7 +942,130 @@ class LogicalRouterServer(Resource, LogicalRouter):
         return (True, '')
 
     @classmethod
+    def create_gateway_interface(cls, obj_dict, db_obj_dict=None):
+        new_vn_refs = obj_dict.get('virtual_network_refs')
+        if new_vn_refs is None:
+            return True, ''
+        old_vn_refs = None
+        parent_uuid = obj_dict.get('parent_uuid')
+        if db_obj_dict is not None:
+            old_vn_refs = db_obj_dict.get('virtual_network_refs')
+            if parent_uuid is None:
+                parent_uuid = db_obj_dict.get('parent_uuid')
+
+        def _create_gw_vmi():
+            if not new_vn_refs:
+                return True, ''
+            gw_vmi_uuid = str(uuid.uuid4())
+            if 'fq_name' in obj_dict:
+                gw_vmi_fq_name = obj_dict['fq_name'][:-1] + [gw_vmi_uuid]
+            elif db_obj_dict and 'fq_name' in db_obj_dict:
+                gw_vmi_fq_name = db_obj_dict['fq_name'][:-1] + [gw_vmi_uuid]
+            else:
+                msg = ("Cannot determine logical router %s fq_name" %
+                       obj_dict['uuid'])
+                return False, (400, msg)
+            attrs = {
+                'uuid': gw_vmi_uuid,
+                'parent_type': ProjectServer.object_type,
+                'parent_uuid': parent_uuid,
+                'virtual_network_refs': [copy.deepcopy(new_vn_refs[0])],
+                'virtual_machine_interface_bindings': {
+                    'key_value_pair': [
+                        {
+                            'key': 'vnic_type',
+                            'value': 'normal',
+                        },
+                        {
+                            'key': 'vif_type',
+                            'value': 'vrouter',
+                        },
+                    ],
+                },
+                'virtual_machine_interface_device_owner':
+                    'network:router_gateway',
+                'port_security_enabled': True,
+            }
+            ok, result = VirtualMachineInterfaceServer.locate(
+                gw_vmi_fq_name, **attrs)
+            if not ok:
+                return False, result
+            gw_vmi = result
+
+            def undo_gw_vmi():
+                cls.internal_request_delete(
+                    VirtualMachineInterfaceServer.resource_type, gw_vmi['vmi'])
+            get_context().push_undo(undo_gw_vmi)
+            old_vmi_ref = []
+            if db_obj_dict and 'virtual_machine_interface_refs' in db_obj_dict:
+                old_vmi_ref = db_obj_dict['virtual_machine_interface_refs']
+            obj_dict.setdefault('virtual_machine_interface_refs',
+                                old_vmi_ref).append(
+                {
+                    'to': gw_vmi['fq_name'],
+                    'uuid': gw_vmi['uuid'],
+                    'attr': {
+                        'interface_type': 'external',
+                    },
+                },
+            )
+            return True, ''
+
+        def _remove_old_gw_vmi_ref():
+            if db_obj_dict is None or old_vn_refs is None or not old_vn_refs:
+                return True, ''
+            for vmi_ref in\
+                    db_obj_dict.get('virtual_machine_interface_refs', []):
+                if vmi_ref['attr']['interface_type'] == 'external':
+                    try:
+                        cls.server.internal_request_ref_update(
+                            cls.resource_type,
+                            obj_dict['uuid'],
+                            'DELETE',
+                            VirtualMachineInterfaceServer.resource_type,
+                            vmi_ref['uuid'],
+                        )
+                    except cfgm_common.exceptions.HttpError as e:
+                        return False, (e.status_code, e.content)
+                    db_obj_dict['virtual_machine_interface_refs'].remove(
+                        vmi_ref)
+                    # try to clean external vmi if it was not used by
+                    # svc-monitor for any reason (ignore RefExistError)
+                    try:
+                        cls.server.internal_request_delete(
+                            VirtualMachineInterfaceServer.object_type,
+                            vmi_ref['uuid'],
+                        )
+                    except cfgm_common.exceptions.HttpError as e:
+                        if e.status_code != 409:
+                            raise e
+            return True, ''
+
+        if ((not new_vn_refs and (old_vn_refs is None or not old_vn_refs)) or
+                (new_vn_refs and old_vn_refs is not None and old_vn_refs and
+                 new_vn_refs[0]['uuid'] == old_vn_refs[0]['uuid'])):
+            # No change on the gateway, nothing to do
+            return True, ''
+
+        # Old gw vmi is stale, remove the reference, svc-monitor will
+        # delete it when it will destroy SI
+        ok, result = _remove_old_gw_vmi_ref()
+        if not ok:
+            return ok, result
+
+        # Create new gw vmi and add reference to the logical router
+        return _create_gw_vmi()
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_only_one_external_network(obj_dict)
+        if not ok:
+            return ok, result
+
+        ok, result = cls.check_not_set_external_interface(obj_dict)
+        if not ok:
+            return ok, result
+
         ok, result = cls.check_for_external_gateway(db_conn, obj_dict)
         if not ok:
             return (ok, result)
@@ -936,12 +1086,21 @@ class LogicalRouterServer(Resource, LogicalRouter):
             return ok, result
 
         # Check if we can reference the BGP VPNs
-        return BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
+        ok, result = BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
             db_conn, obj_dict)
+        if not ok:
+            return ok, result
+
+        # Create router gateway interface if needed
+        return cls.create_gateway_interface(obj_dict)
     # end pre_dbe_create
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.check_only_one_external_network(obj_dict)
+        if not ok:
+            return ok, result
+
         ok, result = cls.check_for_external_gateway(db_conn, obj_dict)
         if not ok:
             return (ok, result)
@@ -963,11 +1122,24 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
         # Check if we can reference the BGP VPNs
         ok, result = cls.dbe_read(db_conn, 'logical_router', id,
-            obj_fields=['bgpvpn_refs', 'virtual_machine_interface_refs'])
+            obj_fields=['bgpvpn_refs', 'virtual_network_refs',
+                        'virtual_machine_interface_refs'])
         if not ok:
             return ok, result
-        return BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
-            db_conn, obj_dict, result)
+        db_obj_dict = result
+
+        ok, result = BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
+            db_conn, obj_dict, db_obj_dict)
+        if not ok:
+            return ok, result
+
+        ok, result = cls.check_not_set_external_interface(obj_dict,
+                                                          db_obj_dict)
+        if not ok:
+            return ok, result
+
+        # Create router gateway interface if needed
+        return cls.create_gateway_interface(obj_dict, db_obj_dict)
     # end pre_dbe_update
 
     @classmethod
@@ -1360,8 +1532,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         # router
         if (read_result.get('logical_router_back_refs') and
                 obj_dict.get('virtual_machine_refs')):
-            return (False,
-                    (400, 'Logical router interface cannot be used by VM'))
+            for lr_ref in read_result.get('logical_router_back_refs', []):
+                if lr_ref['attr']['interface_type'] == 'internal':
+                    msg = "Logical router interface cannot be used by VM"
+                    return False, (400, msg)
         # check if vmi is going to point to vm and if its using
         # gateway address in iip, disallow
         for iip_ref in read_result.get('instance_ip_back_refs') or []:
@@ -1678,7 +1852,11 @@ class TagServer(Resource, Tag):
         if obj_dict.get('tag_type_refs') is not None:
             # Tag can have only one tag-type reference
             tag_type_uuid = obj_dict['tag_type_refs'][0]['uuid']
-            cls.server.internal_request_delete('tag-type', tag_type_uuid)
+            try:
+                cls.server.internal_request_delete('tag-type', tag_type_uuid)
+            except cfgm_common.exceptions.HttpError as e:
+                if e.status_code != 409:
+                    raise e
 
         return True, ""
 

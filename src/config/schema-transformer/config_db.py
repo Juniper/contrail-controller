@@ -4014,7 +4014,7 @@ class LogicalRouterST(DBBaseST):
     prop_fields = ['configured_route_target_list']
     def __init__(self, name, obj=None):
         self.name = name
-        self.virtual_machine_interfaces = set()
+        self.virtual_machine_interfaces = {}
         self.virtual_networks = set()
         self.route_tables = set()
         self.rt_list = set()
@@ -4024,6 +4024,9 @@ class LogicalRouterST(DBBaseST):
         self.bgpvpn_import_rt_list = set()
         self.bgpvpn_export_rt_list = set()
         self.update_vnc_obj()
+
+        self.update_multiple_refs_with_attr('virtual_machine_interface',
+                                            self.obj)
 
         rt_ref = self.obj.get_route_target_refs()
         old_rt_key = None
@@ -4052,7 +4055,7 @@ class LogicalRouterST(DBBaseST):
     # end evaluate
 
     def delete_obj(self):
-        self.update_multiple_refs('virtual_machine_interface', {})
+        self.update_multiple_refs_with_attr('virtual_machine_interface', {})
         self.update_multiple_refs('route_table', {})
         self.update_multiple_refs('bgpvpn', {})
         self.update_virtual_networks()
@@ -4063,7 +4066,9 @@ class LogicalRouterST(DBBaseST):
 
     def update_virtual_networks(self):
         vn_set = set()
-        for vmi in self.virtual_machine_interfaces:
+        for vmi, attr in self.virtual_machine_interfaces.items():
+            if attr is not None and attr.get_interface_type() == 'external':
+                continue
             vmi_obj = VirtualMachineInterfaceST.get(vmi)
             if vmi_obj is not None:
                 vn_set.add(vmi_obj.virtual_network)

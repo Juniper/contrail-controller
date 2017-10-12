@@ -58,7 +58,8 @@ class VirtualMachineManager(InstanceManager):
         nics_with_port = []
         for nic in si.vn_info:
             nic_with_port = {}
-            vmi_obj = self._create_svc_vm_port(nic, instance_name, si, st)
+            vmi_obj = self._create_svc_vm_port(nic, instance_name, si, st,
+                                               instance_index)
             nic_with_port['port-id'] = vmi_obj.get_uuid()
             nics_with_port.append(nic_with_port)
 

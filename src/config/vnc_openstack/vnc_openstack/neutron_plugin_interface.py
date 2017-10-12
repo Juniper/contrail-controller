@@ -655,8 +655,7 @@ class NeutronPluginInterface(object):
         """
 
         cfgdb = self._get_user_cfgdb(context)
-        router_info = cfgdb.router_update(router['id'],
-                                          router['resource'])
+        router_info = cfgdb.router_update(router['id'], router['resource'])
         return router_info
 
     def plugin_delete_router(self, context, router):

@@ -1090,7 +1090,7 @@ class VncApiServer(object):
                 json_as_dict, None)
             set_context(context.ApiContext(internal_req=i_req))
             self.http_resource_create(object_type)
-            return True, ""
+            return i_req.json
         finally:
             set_context(orig_context)
     # end internal_request_create

@@ -33,9 +33,8 @@ class SNATAgent(Agent):
         for lr in LogicalRouterSM.values():
             self.update_snat_instance(lr)
         for si in ServiceInstanceSM.values():
-            si_name = si.fq_name[-1]
             st_obj = ServiceTemplateSM.get(si.service_template)
-            if st_obj == None or st_obj.params['service_type'] != "source-nat":
+            if st_obj is None or st_obj.params['service_type'] != "source-nat":
                 continue
             lr_uuid = si.logical_router
             lr = LogicalRouterSM.get(lr_uuid)
@@ -47,8 +46,18 @@ class SNATAgent(Agent):
         return svc_info.get_snat_service_type()
 
     def pre_create_service_vm(self, instance_index, si, st, vm):
+        first_right_vmi_uuid = None
+        lr = LogicalRouterSM.get(si.logical_router)
+        if lr is not None:
+            for vmi_id, attr in lr.virtual_machine_interfaces.items():
+                if (attr is not None and 'interface_type' in attr and
+                        attr['interface_type'] == 'external'):
+                    first_right_vmi_uuid = vmi_id
+                    break
         for nic in si.vn_info:
             nic['user-visible'] = False
+            if nic['type'] == 'right' and first_right_vmi_uuid:
+                nic['uuid'] = [first_right_vmi_uuid]
         return True
 
     def _create_snat_vn(self, si_obj, vn_name):
@@ -80,8 +89,6 @@ class SNATAgent(Agent):
             if router_obj.service_instance:
                 self.delete_snat_instance(router_obj)
 
-        router_obj.last_virtual_machine_interfaces = copy.copy(
-            router_obj.virtual_machine_interfaces)
         return router_obj
     # end update_snat_instance
 
