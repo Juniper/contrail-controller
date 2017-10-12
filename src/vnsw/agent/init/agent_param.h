@@ -393,6 +393,15 @@ public:
         flow_latency_limit_ = count;
     }
 
+    uint16_t max_sessions_per_aggregate() const {
+        return max_sessions_per_aggregate_;
+    }
+    uint16_t max_aggregates_per_session_endpoint() const {
+        return max_aggregates_per_session_endpoint_;
+    }
+    uint16_t max_endpoints_per_session_msg() const {
+        return max_endpoints_per_session_msg_;
+    }
     std::string ksync_thread_cpu_pin_policy() const {
         return ksync_thread_cpu_pin_policy_;
     }
@@ -685,6 +694,9 @@ private:
     uint16_t flow_thread_count_;
     bool flow_trace_enable_;
     uint16_t flow_latency_limit_;
+    uint16_t max_sessions_per_aggregate_;
+    uint16_t max_aggregates_per_session_endpoint_;
+    uint16_t max_endpoints_per_session_msg_;
     bool subnet_hosts_resolvable_;
     std::string bgp_as_a_service_port_range_;
     std::vector<uint16_t> bgp_as_a_service_port_range_value_;

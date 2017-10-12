@@ -355,6 +355,9 @@ public:
     static const uint8_t  kMinAapPrefixLen = 24;
     static const uint8_t kInvalidQueueId = 255;
     static const int kInvalidCpuId = -1;
+    static const uint8_t kMaxSessionEndpoints = 5;
+    static const uint8_t kMaxSessionAggs = 8;
+    static const uint8_t kMaxSessions = 100;
     enum ForwardingMode {
         NONE,
         L2_L3,
