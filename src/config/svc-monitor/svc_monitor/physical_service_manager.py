@@ -68,11 +68,8 @@ class PhysicalServiceManager(InstanceManager):
                 pi_obj = PhysicalInterfaceSM.get(pi_uuid)
                 if not pi_obj:
                     return
-                vmi_obj = self._create_svc_vm_port(nic,
-                                                   instance_name, si, st,
-                                                   vm_obj=vm_obj,
-                                                   pi=pi_obj,
-                                                   pt=pt_obj)
+                self._create_svc_vm_port(nic, instance_name, si, st, idx,
+                                         vm_obj, pi=pi_obj, pt=pt_obj)
         si.state = "active"
 
     def delete_service(self, vm):

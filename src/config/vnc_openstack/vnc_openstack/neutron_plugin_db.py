@@ -2346,7 +2346,18 @@ class DBInterface(object):
 
     @catch_convert_exception
     def _gw_port_vnc_to_neutron(self, port_obj, port_req_memo, oper=READ):
+        # If port UUID - 1 correspond to a LR, we can use can consider that
+        # port as the gateway of that LR
+        lr_uuid = str(uuid.UUID(int=int(uuid.UUID(port_obj.uuid)) - 1))
+        try:
+            _, type = self._vnc_lib.id_to_fq_name_type(lr_uuid)
+            if type == 'logical-router':
+                return lr_uuid
+        except NoIdError:
+            pass
         vm_refs = port_obj.get_virtual_machine_refs()
+        if not vm_refs:
+            return None
         vm_uuid = vm_refs[0]['uuid']
         vm_obj = None
         try:
@@ -2378,17 +2389,13 @@ class DBInterface(object):
     #end _gw_port_vnc_to_neutron
 
     def _get_router_gw_interface_for_neutron(self, context, router):
-        si_ref = (router.get_service_instance_refs() or [None])[0]
         vn_ref = (router.get_virtual_network_refs() or [None])[0]
-        if si_ref is None or vn_ref is None:
+        if vn_ref is None:
             # No gateway set on that router
             return
+        # Router's gateway is set on that router
 
-        # Router's gateway is enabled on the router
-        # As Contrail model uses a service instance composed of 2 VM for the
-        # gw stuff, we use the first VMI of the first SI's VM as Neutron router
-        # gw port.
-        # Only admin user or port's network owner can list router gw interface.
+        # Only admin user or port's network owner can list router gw interface
         if not context.get('is_admin', False):
             try:
                 vn = self._vnc_lib.virtual_network_read(
@@ -2399,13 +2406,48 @@ class DBInterface(object):
             if vn.parent_uuid != self._validate_project_ids(context)[0]:
                 return
 
+        # Try to fetch VMI with UUID = LR UUID + 1
+        gw_vmi_uuid = str(uuid.UUID(int=int(uuid.UUID(router.uuid)) + 1))
+        try:
+            return self._virtual_machine_interface_read(port_id=gw_vmi_uuid)
+        except NoIdError:
+            # GW VMI does not exist yet, 2 possible cases:
+            # - the GW VMI UUID is not LR UUID + 1 (old fashion)
+            # - gateway was just set and svc-monitor does not yet spawn all
+            #   resources
+            domain = Domain(router.fq_name[0])
+            project = Project(router.fq_name[1], domain)
+            id_perms = IdPermsType(enable=True)
+            fake_gw_vmi = VirtualMachineInterface(gw_vmi_uuid,
+                                                  parent_obj=project,
+                                                  id_perms=id_perms)
+            fake_gw_vmi.uuid = gw_vmi_uuid
+            fake_gw_vmi.parent_uuid = router.parent_uuid
+            virtual_network = VirtualNetwork(parent_obj=project)
+            virtual_network.uuid = vn_ref['uuid']
+            fake_gw_vmi.set_virtual_network(virtual_network)
+
+        si_ref = (router.get_service_instance_refs() or [None])[0]
+        if si_ref is None:
+            # No SI instance created yet by svc-monitor, we can return the fake
+            # VMI created above
+            return fake_gw_vmi
+
+        # SI was instantiated by svc-monitor, 2 possible cases:
+        # - the GW VMI UUID is not LR UUID + 1 (old fashion)
+        # - only the SI was spawn by the svc-monitor, still in progress
+
+        # Try to fetch gateway VMI with old fashion
+        # As Contrail model uses a service instance composed of 2 VM for the
+        # gw stuff, we use the first VMI of the first SI's VM as Neutron router
+        # gw port.
         try:
             si = self._vnc_lib.service_instance_read(
                 id=si_ref['uuid'],
                 fields=['virtual_machine_back_refs'],
             )
         except NoIdError:
-            return
+            return fake_gw_vmi
 
         # To be sure to always use the same SI's VM, we sort them by theirs
         # name
@@ -2425,6 +2467,12 @@ class DBInterface(object):
             if (len(sorted_vmis) >= 1 and
                     sorted_vmis[0].get_instance_ip_back_refs()):
                 return sorted_vmis[0]
+            else:
+                # VMI not yet spawned by the svc-monitor
+                return fake_gw_vmi
+        else:
+            # VM not yet spawned by svc-monitor
+            return fake_gw_vmi
 
     @catch_convert_exception
     def _port_vnc_to_neutron(self, port_obj, port_req_memo=None, oper=READ):
@@ -2616,20 +2664,40 @@ class DBInterface(object):
                 # https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L354-L355
                 # Not sure why it's necessary
                 port_q_dict['tenant_id'] = ''
+                try:
+                    self._vnc_lib.id_to_fq_name(port_obj.uuid)
+                except NoIdError:
+                    # Router gw port not yet spawn, set state to BUILD
+                    port_q_dict['status'] = constants.PORT_STATUS_BUILD
             else:
                 port_q_dict['device_id'] = \
                     port_obj.get_virtual_machine_refs()[0]['to'][-1]
                 port_q_dict['device_owner'] = ''
         else:
-            port_q_dict['device_id'] = ''
+            rtr_uuid = self._gw_port_vnc_to_neutron(port_obj, port_req_memo)
+            if rtr_uuid:
+                port_q_dict['device_id'] = rtr_uuid
+                port_q_dict['device_owner'] = constants.DEVICE_OWNER_ROUTER_GW
+                # Neutron router gateway interface is a system resource only
+                # visible by admin user or port's network owner. Neutron
+                # intentionally set the tenant id to None for that
+                # https://github.com/openstack/neutron/blob/master/neutron/db/l3_db.py#L354-L355
+                # Not sure why it's necessary
+                port_q_dict['tenant_id'] = ''
+                # Router gw port not link to a SI through a VM, SNAT build in
+                # progress
+                port_q_dict['status'] = constants.PORT_STATUS_BUILD
+            else:
+                port_q_dict['device_id'] = ''
 
         if not port_q_dict.get('device_owner'):
             port_q_dict['device_owner'] = \
                 port_obj.get_virtual_machine_interface_device_owner() or '';
-        if port_q_dict['device_id']:
-            port_q_dict['status'] = constants.PORT_STATUS_ACTIVE
-        else:
-            port_q_dict['status'] = constants.PORT_STATUS_DOWN
+        if 'status' not in port_q_dict:
+            if port_q_dict['device_id']:
+                port_q_dict['status'] = constants.PORT_STATUS_ACTIVE
+            else:
+                port_q_dict['status'] = constants.PORT_STATUS_DOWN
 
         if self._contrail_extensions_enabled:
             port_q_dict.update(extra_dict)

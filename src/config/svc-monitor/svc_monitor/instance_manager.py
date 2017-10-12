@@ -492,18 +492,18 @@ class InstanceManager(object):
             vm_obj.uuid = vm.uuid
 
         for nic in si.vn_info:
-            vmi_obj = self._create_svc_vm_port(nic, instance_name, si, st,
-                                               local_preference=si.local_preference[
-                                                   instance_index],
-                                               vm_obj=vm_obj)
+            self._create_svc_vm_port(nic, instance_name, si, st,
+                                     instance_index, vm_obj,
+                                     local_preference=si.local_preference[
+                                                   instance_index])
 
         # notify all the agents
         self._agent_manager.post_create_service_vm(instance_index, si, st, vm)
 
         return vm
 
-    def _create_svc_vm_port(self, nic, instance_name, si, st,
-                            local_preference=None, vm_obj=None, pi=None, pt=None):
+    def _create_svc_vm_port(self, nic, instance_name, si, st, instance_index,
+                            vm_obj, local_preference=None, pi=None, pt=None):
         # get network
         vn = VirtualNetworkSM.get(nic['net-id'])
         if vn:
@@ -543,6 +543,8 @@ class InstanceManager(object):
                 vmi_vm = vmi.virtual_machine
                 break
         if not vmi_obj.uuid:
+            if 'uuid' in nic and len(nic['uuid']) >= instance_index + 1:
+                vmi_obj.uuid = nic['uuid'][instance_index]
             if nic['user-visible'] is not None:
                 id_perms = IdPermsType(enable=True,
                                        user_visible=nic['user-visible'])

@@ -47,8 +47,11 @@ class SNATAgent(Agent):
         return svc_info.get_snat_service_type()
 
     def pre_create_service_vm(self, instance_index, si, st, vm):
+        first_right_vmi_uuid = str(uuid.UUID(int=int(uuid.UUID(si.logical_router)) + 1))
         for nic in si.vn_info:
             nic['user-visible'] = False
+            if nic['type'] == 'right':
+                nic['uuid'] = [first_right_vmi_uuid]
         return True
 
     def _create_snat_vn(self, si_obj, vn_name):
