@@ -24,7 +24,7 @@ import re
 from operator import itemgetter
 import itertools
 import sys
-from collections import Mapping
+from collections import Mapping, OrderedDict
 
 
 def merge_dict(orig_dict, new_dict):
@@ -1625,7 +1625,7 @@ class ObjectCacheManager(object):
     def __init__(self, db_client, max_entries):
         self.max_entries = max_entries
         self._db_client = db_client
-        self._cache = {}
+        self._cache = OrderedDict()
     # end __init__
 
     def evict(self, obj_uuids):
@@ -1643,7 +1643,8 @@ class ObjectCacheManager(object):
                        set(db_rendered_objs.keys()))
         if new_size > self.max_entries:
             for i in range(new_size - self.max_entries):
-                self._cache.popitem()
+                # Evict the oldest entry
+                self._cache.pop(self._cache.keys()[0])
 
         # build up results with field filter
         result_obj_dicts = []
