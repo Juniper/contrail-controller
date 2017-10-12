@@ -8,6 +8,7 @@
 #include <uve/interface_uve_stats_table.h>
 #include <sandesh/common/flow_types.h>
 #include <cmn/agent_factory.h>
+#include <init/agent_param.h>
 #include <vrouter/flow_stats/session_stats_collector.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <oper/tag.h>
@@ -25,17 +26,18 @@ SessionStatsCollector::SessionStatsCollector(boost::asio::io_service &io,
         agent_uve_(uve),
         task_id_(uve->agent()->task_scheduler()->GetTaskId
                  (kTaskSessionStatsCollector)),
+        session_ep_iteration_key_(), session_agg_iteration_key_(),
+        session_iteration_key_(),
         request_queue_(agent_uve_->agent()->task_scheduler()->
                        GetTaskId(kTaskSessionStatsCollector),
                        instance_id,
                        boost::bind(&SessionStatsCollector::RequestHandler,
                                    this, _1)),
-        session_msg_list_(kMaxSessionMsgsPerSend, SessionEndpoint()), session_msg_index_(0),
-        instance_id_(instance_id),
-        flow_stats_manager_(aging_module), parent_(obj),
-        session_task_(NULL),
-        current_time_(GetCurrentTime()),
-        session_task_starts_(0) {
+        session_msg_list_(agent_uve_->agent()->params()->max_endpoints_per_session_msg(),
+                          SessionEndpoint()),
+        session_msg_index_(0), instance_id_(instance_id),
+        flow_stats_manager_(aging_module), parent_(obj), session_task_(NULL),
+        current_time_(GetCurrentTime()), session_task_starts_(0) {
         request_queue_.set_name("Session stats collector");
         request_queue_.set_measure_busy_time
             (agent_uve_->agent()->MeasureQueueDelay());
@@ -119,7 +121,8 @@ void SessionStatsCollector::DispatchSessionMsg(const std::vector<SessionEndpoint
 
 void SessionStatsCollector::EnqueueSessionMsg() {
     session_msg_index_++;
-    if (session_msg_index_ == kMaxSessionMsgsPerSend) {
+    if (session_msg_index_ ==
+        agent_uve_->agent()->params()->max_endpoints_per_session_msg()) {
         DispatchSessionMsg(session_msg_list_);
         session_msg_index_ = 0;
     }
@@ -182,8 +185,8 @@ bool SessionStatsCollector::RequestHandler(boost::shared_ptr<SessionStatsReq> re
 }
 
 bool SessionEndpointKey::IsLess(const SessionEndpointKey &rhs) const {
-    if (vmi != rhs.vmi) {
-        return vmi < rhs.vmi;
+    if (vmi_cfg_name != rhs.vmi_cfg_name) {
+        return vmi_cfg_name < rhs.vmi_cfg_name;
     }
     if (local_vn != rhs.local_vn) {
         return local_vn < rhs.local_vn;
@@ -209,25 +212,8 @@ bool SessionEndpointKey::IsLess(const SessionEndpointKey &rhs) const {
     return is_si < rhs.is_si;
 }
 
-bool SessionAggKey::IsLess(const SessionAggKey &rhs) const {
-    if (local_ip != rhs.local_ip) {
-        return local_ip < rhs.local_ip;
-    }
-    if (dst_port != rhs.dst_port) {
-        return dst_port < rhs.dst_port;
-    }
-    return proto < rhs.proto;
-}
-
-bool SessionKey::IsLess(const SessionKey &rhs) const {
-    if (remote_ip != rhs.remote_ip) {
-        return remote_ip < rhs.remote_ip;
-    }
-    return src_port < rhs.src_port;
-}
-
 bool SessionEndpointKey::IsEqual(const SessionEndpointKey &rhs) const {
-    if (vmi != rhs.vmi) {
+    if (vmi_cfg_name != rhs.vmi_cfg_name) {
         return false;
     }
     if (local_vn != rhs.local_vn) {
@@ -257,6 +243,28 @@ bool SessionEndpointKey::IsEqual(const SessionEndpointKey &rhs) const {
     return true;
 }
 
+void SessionEndpointKey::Reset() {
+    vmi_cfg_name = "";
+    local_vn = "";
+    remote_vn = "";
+    local_tagset.clear();
+    remote_tagset.clear();
+    remote_prefix = "";
+    match_policy = "";
+    is_client_session = false;
+    is_si = false;
+}
+
+bool SessionAggKey::IsLess(const SessionAggKey &rhs) const {
+    if (local_ip != rhs.local_ip) {
+        return local_ip < rhs.local_ip;
+    }
+    if (dst_port != rhs.dst_port) {
+        return dst_port < rhs.dst_port;
+    }
+    return proto < rhs.proto;
+}
+
 bool SessionAggKey::IsEqual(const SessionAggKey &rhs) const {
     if (local_ip != rhs.local_ip) {
         return false;
@@ -270,6 +278,19 @@ bool SessionAggKey::IsEqual(const SessionAggKey &rhs) const {
     return true;
 }
 
+void SessionAggKey::Reset() {
+    local_ip = IpAddress();
+    dst_port = 0;
+    proto = 0;
+}
+
+bool SessionKey::IsLess(const SessionKey &rhs) const {
+    if (remote_ip != rhs.remote_ip) {
+        return remote_ip < rhs.remote_ip;
+    }
+    return src_port < rhs.src_port;
+}
+
 bool SessionKey::IsEqual(const SessionKey &rhs) const {
     if (remote_ip != rhs.remote_ip) {
         return false;
@@ -278,6 +299,11 @@ bool SessionKey::IsEqual(const SessionKey &rhs) const {
         return false;
     }
     return true;
+}
+
+void SessionKey::Reset() {
+    remote_ip = IpAddress();
+    src_port = 0;
 }
 
 bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
@@ -316,10 +342,13 @@ bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
     }
 
     const VmInterface *vmi = static_cast<const VmInterface *>(itf);
+    if (vmi->cfg_name().empty()) {
+        return false;
+    }
     const string &src_vn = fe->data().source_vn_match;
     const string &dst_vn = fe->data().dest_vn_match;
 
-    session_endpoint_key.vmi = vmi;
+    session_endpoint_key.vmi_cfg_name = vmi->cfg_name();
     session_endpoint_key.local_tagset = fe->local_tagset();
     session_endpoint_key.remote_tagset = fe->remote_tagset();
     session_endpoint_key.remote_prefix = fe->RemotePrefix();
@@ -494,7 +523,7 @@ void SessionStatsCollector::DeleteSession(FlowEntry* fe, uint64_t teardown_time,
     flow_session_map_iter = flow_session_map_.find(fe);
     if (flow_session_map_iter != flow_session_map_.end()) {
         if (fe->uuid() != flow_session_map_iter->second.uuid()) {
-            read_flow =false;
+            read_flow = false;
         }
         session_endpoint_key = flow_session_map_iter->second.session_endpoint_key();
         session_agg_key = flow_session_map_iter->second.session_agg_key();
@@ -519,8 +548,10 @@ void SessionStatsCollector::DeleteSession(FlowEntry* fe, uint64_t teardown_time,
                  * Process the stats collector
                  */
                 session_map_iter->second.teardown_time = teardown_time;
-                ProcessSessionEndpoint(session_endpoint_map_iter, params, true,
-                                       read_flow);
+                ProcessSessionDelete(session_endpoint_map_iter,
+                                     session_agg_map_iter, session_map_iter,
+                                     params, read_flow);
+
                 DeleteFlowToSessionMap(session_map_iter->second.fwd_flow.flow.get());
                 session_agg_map_iter->second.session_map_.erase(session_map_iter);
                 if (session_agg_map_iter->second.session_map_.size() == 0) {
@@ -597,6 +628,8 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
                 session_flow.total_packets = total_packets;
                 flow_info.set_logged_pkts(diff_packets);
                 flow_info.set_logged_bytes(diff_bytes);
+                flow_info.set_sampled_pkts(diff_packets);
+                flow_info.set_sampled_bytes(diff_bytes);
 
                 /*
                  * inert to agg map
@@ -687,6 +720,8 @@ void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_f
     if (!k_flow) {
         flow_info->set_logged_pkts(diff_packets);
         flow_info->set_logged_bytes(diff_bytes);
+        flow_info->set_sampled_pkts(diff_packets);
+        flow_info->set_sampled_bytes(diff_bytes);
         return;
     }
 
@@ -711,6 +746,8 @@ void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_f
         session_flow.total_packets = total_packets;
         flow_info->set_logged_pkts(diff_packets);
         flow_info->set_logged_bytes(diff_bytes);
+        flow_info->set_sampled_pkts(diff_packets);
+        flow_info->set_sampled_bytes(diff_bytes);
     }
 }
 
@@ -750,14 +787,12 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
 void SessionStatsCollector::FillSessionInfoLocked
     (SessionPreAggInfo::SessionMap::iterator session_map_iter,
      SessionInfo *session_info,
-     SessionIpPort *session_key,
-     const RevFlowDepParams *params,
-     bool read_flow) const {
+     SessionIpPort *session_key) const {
     FlowEntry *fe = session_map_iter->second.fwd_flow.flow.get();
     FlowEntry *rfe = session_map_iter->second.rev_flow.flow.get();
     FLOW_LOCK(fe, rfe, FlowEvent::FLOW_MESSAGE);
-    FillSessionInfoUnlocked(session_map_iter, session_info, session_key, params,
-                            read_flow);
+    FillSessionInfoUnlocked(session_map_iter, session_info, session_key, NULL,
+                            true);
 }
 
 void SessionStatsCollector::FillSessionInfoUnlocked
@@ -813,6 +848,10 @@ void SessionStatsCollector::FillSessionAggInfo(SessionEndpointInfo::SessionAggMa
     session_agg_info->set_logged_forward_pkts(total_fwd_packets);
     session_agg_info->set_logged_reverse_bytes(total_rev_bytes);
     session_agg_info->set_logged_reverse_pkts(total_rev_packets);
+    session_agg_info->set_sampled_forward_bytes(total_fwd_bytes);
+    session_agg_info->set_sampled_forward_pkts(total_fwd_packets);
+    session_agg_info->set_sampled_reverse_bytes(total_rev_bytes);
+    session_agg_info->set_sampled_reverse_pkts(total_rev_packets);
 }
 
 void SessionStatsCollector::FillSessionTagInfo(const TagList &list,
@@ -868,7 +907,7 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
     string rid = agent_uve_->agent()->router_id().to_string();
     boost::system::error_code ec;
 
-    session_ep->set_vmi(UuidToString(it->first.vmi->vmi_cfg_uuid()));
+    session_ep->set_vmi(it->first.vmi_cfg_name);
     session_ep->set_vn(it->first.local_vn);
     session_ep->set_remote_vn(it->first.remote_vn);
     session_ep->set_is_client_session(it->first.is_client_session);
@@ -881,13 +920,12 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
                     boost::asio::ip::address::from_string(rid, ec));
 }
 
-uint32_t SessionStatsCollector::ProcessSessionEndpoint(SessionEndpointMap::iterator &it,
-                                         const RevFlowDepParams *params,
-                                         bool from_config,
-                                         bool read_flow) {
-    uint32_t count = 1;
-    uint64_t total_fwd_bytes, total_rev_bytes;
-    uint64_t total_fwd_packets, total_rev_packets;
+void SessionStatsCollector::ProcessSessionDelete
+    (const SessionEndpointMap::iterator &ep_it,
+     const SessionEndpointInfo::SessionAggMap::iterator &agg_it,
+     const SessionPreAggInfo::SessionMap::iterator &session_it,
+     const RevFlowDepParams *params, bool read_flow) {
+
     SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
     SessionPreAggInfo::SessionMap::iterator session_map_iter;
 
@@ -898,20 +936,50 @@ uint32_t SessionStatsCollector::ProcessSessionEndpoint(SessionEndpointMap::itera
 
     SessionEndpoint &session_ep = session_msg_list_[GetSessionMsgIdx()];
 
-    session_agg_map_iter = it->second.session_agg_map_.begin();
+    FillSessionInfoUnlocked(session_it, &session_info, &session_key, params,
+                            read_flow);
+    session_agg_info.sessionMap.insert(make_pair(session_key, session_info));
+    FillSessionAggInfo(agg_it, &session_agg_info, &session_agg_key,
+                       session_info.get_forward_flow_info().get_logged_bytes(),
+                       session_info.get_forward_flow_info().get_logged_pkts(),
+                       session_info.get_reverse_flow_info().get_logged_bytes(),
+                       session_info.get_reverse_flow_info().get_logged_pkts());
+    session_ep.sess_agg_info.insert(make_pair(session_agg_key,
+                                              session_agg_info));
+    FillSessionEndpoint(ep_it, &session_ep);
+    EnqueueSessionMsg();
+    DispatchPendingSessionMsg();
+}
+
+bool SessionStatsCollector::ProcessSessionEndpoint
+    (const SessionEndpointMap::iterator &it) {
+    uint64_t total_fwd_bytes, total_rev_bytes;
+    uint64_t total_fwd_packets, total_rev_packets;
+    SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
+    SessionPreAggInfo::SessionMap::iterator session_map_iter;
+
+    SessionInfo session_info;
+    SessionIpPort session_key;
+    SessionAggInfo session_agg_info;
+    SessionIpPortProtocol session_agg_key;
+    uint32_t session_count, session_agg_count = 0;
+    bool exit = false, ep_completed = true;
+
+    SessionEndpoint &session_ep = session_msg_list_[GetSessionMsgIdx()];
+
+    session_agg_map_iter = it->second.session_agg_map_.
+        lower_bound(session_agg_iteration_key_);
     while (session_agg_map_iter != it->second.session_agg_map_.end()) {
         total_fwd_bytes = total_rev_bytes = 0;
         total_fwd_packets = total_rev_packets = 0;
-        session_map_iter = session_agg_map_iter->second.session_map_.begin();
+        session_count = 0;
+        session_map_iter = session_agg_map_iter->second.session_map_.
+            lower_bound(session_iteration_key_);
         while (session_map_iter != session_agg_map_iter->second.session_map_.end()) {
-            if (from_config) {
-                FillSessionInfoUnlocked(session_map_iter, &session_info,
-                                        &session_key, params, read_flow);
-            } else {
-                FillSessionInfoLocked(session_map_iter, &session_info,
-                                      &session_key, params, read_flow);
-            }
-            session_agg_info.sessionMap.insert(make_pair(session_key, session_info));
+            FillSessionInfoLocked(session_map_iter, &session_info,
+                                  &session_key);
+            session_agg_info.sessionMap.insert(make_pair(session_key,
+                                                         session_info));
             total_fwd_bytes +=
                 session_info.get_forward_flow_info().get_logged_bytes();
             total_fwd_packets +=
@@ -921,30 +989,75 @@ uint32_t SessionStatsCollector::ProcessSessionEndpoint(SessionEndpointMap::itera
             total_rev_packets +=
                 session_info.get_reverse_flow_info().get_logged_pkts();
             session_map_iter++;
+            ++session_count;
+            if (session_count ==
+                agent_uve_->agent()->params()->max_sessions_per_aggregate()) {
+                exit = true;
+                break;
+            }
         }
         FillSessionAggInfo(session_agg_map_iter, &session_agg_info, &session_agg_key,
                            total_fwd_bytes, total_fwd_packets, total_rev_bytes,
                            total_rev_packets);
         session_ep.sess_agg_info.insert(make_pair(session_agg_key, session_agg_info));
+        if (exit) {
+            break;
+        }
         session_agg_map_iter++;
+        ++session_agg_count;
+        if (session_agg_count ==
+            agent_uve_->agent()->params()->max_aggregates_per_session_endpoint()) {
+            break;
+        }
     }
     FillSessionEndpoint(it, &session_ep);
-
     EnqueueSessionMsg();
-    return count;
+
+    if (session_count ==
+        agent_uve_->agent()->params()->max_sessions_per_aggregate()) {
+        ep_completed = false;
+        session_ep_iteration_key_ = it->first;
+        session_agg_iteration_key_ = session_agg_map_iter->first;
+        if (session_map_iter == session_agg_map_iter->second.session_map_.end()) {
+            ++session_agg_map_iter;
+            if (session_agg_map_iter == it->second.session_agg_map_.end()) {
+                /* session_iteration_key_ and session_agg_iteration_key_ are
+                 * both reset when ep_completed is returned as true in the
+                 * calling function */
+                ep_completed = true;
+            } else {
+                session_iteration_key_.Reset();
+                session_agg_iteration_key_ = session_agg_map_iter->first;
+            }
+        } else {
+            session_iteration_key_ = session_map_iter->first;
+        }
+    } else if (session_agg_count ==
+               agent_uve_->agent()->params()->
+               max_aggregates_per_session_endpoint()) {
+        ep_completed = false;
+        session_ep_iteration_key_ = it->first;
+        if (session_agg_map_iter == it->second.session_agg_map_.end()) {
+            /* session_iteration_key_ and session_agg_iteration_key_ are both
+             * reset when ep_completed is returned as true in the calling
+             * function */
+            ep_completed = true;
+        } else {
+            session_agg_iteration_key_ = session_agg_map_iter->first;
+            session_iteration_key_.Reset();
+        }
+    }
+    return ep_completed;
 }
 
 uint32_t SessionStatsCollector::RunSessionEndpointStats(uint32_t max_count) {
-    SessionEndpointMap::iterator it;
-    if (session_ep_iteration_key_.vmi == NULL) {
+    SessionEndpointMap::iterator it = session_endpoint_map_.
+        lower_bound(session_ep_iteration_key_);
+    if (it == session_endpoint_map_.end()) {
         it = session_endpoint_map_.begin();
-    } else {
-        it = session_endpoint_map_.find(session_ep_iteration_key_);
-        // We will continue from begining on next timer
-        if (it == session_endpoint_map_.end()) {
-            session_ep_iteration_key_.vmi = NULL;
-            return 0;
-        }
+    }
+    if (it == session_endpoint_map_.end()) {
+        return 0;
     }
 
     uint32_t count = 0;
@@ -953,9 +1066,18 @@ uint32_t SessionStatsCollector::RunSessionEndpointStats(uint32_t max_count) {
             break;
         }
 
-        count += ProcessSessionEndpoint(it, NULL, false, true);
-        it++;
-        session_ep_visited_++;
+        /* ProcessSessionEndpoint will build 1 SessionEndpoint message. This
+         * may or may not include all aggregates and all sessions within each
+         * aggregate. It returns true if the built message includes all
+         * aggregates and all sessions of each aggregate */
+        bool ep_completed = ProcessSessionEndpoint(it);
+        ++count;
+        if (ep_completed) {
+            ++it;
+            ++session_ep_visited_;
+            session_agg_iteration_key_.Reset();
+            session_iteration_key_.Reset();
+        }
     }
 
     //Send any pending session export messages
@@ -963,11 +1085,12 @@ uint32_t SessionStatsCollector::RunSessionEndpointStats(uint32_t max_count) {
 
     // Update iterator for next pass
     if (it == session_endpoint_map_.end()) {
-        session_ep_iteration_key_.vmi = NULL;
+        session_ep_iteration_key_.Reset();
     } else {
         session_ep_iteration_key_ = it->first;
     }
 
+    session_task_ = NULL;
     return count;
 }
 /////////////////////////////////////////////////////////////////////////////
