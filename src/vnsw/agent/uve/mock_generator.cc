@@ -336,11 +336,13 @@ private:
 
             int lsession_cnt = 0;
             int last_lsession_cnt = 0;
+            uint64_t diff_time = 0;
             std::vector<SessionEndpoint>::iterator begin(mgen_->sessions_.begin() +
                 mgen_->session_counter_);
             for (std::vector<SessionEndpoint>::iterator it = begin;
                 it != mgen_->sessions_.end(); ++it) {
                 bool sent_message(false);
+                uint64_t stime = UTCTimestampUsec();
                 SessionEndpoint &end_point(*it);
                 SessionAggMap sess_agg_info_map;
                 for (SessionAggMap::const_iterator it2
@@ -416,8 +418,20 @@ private:
                         SESSION_ENDPOINT_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
                             std::vector<SessionEndpoint>(begin+last_lsession_cnt, it + 1));
                     }
+                    diff_time += UTCTimestampUsec() - stime;
+                    usleep(1000000 - diff_time);
                     return false;
                 }
+                diff_time += UTCTimestampUsec() - stime;
+                if (diff_time >= 1000000) {
+                    if (lsession_cnt < mgen_->num_session_samples_per_sec_) {
+                        LOG(ERROR, "Sent: " << lsession_cnt << " in " <<
+                            diff_time/1000000 << " seconds, NOT sending at " <<
+                            mgen_->num_session_samples_per_sec_ << " rate");
+                        return false;
+                    }
+                }
+
             }
             mgen_->session_counter_ = 0;
             return false;
