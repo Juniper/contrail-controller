@@ -451,6 +451,9 @@ TEST_F(AgentParamTest, Default_Cmdline_arg3) {
     // QOS.priorty_tagging is configured as false in cfg-default1.ini.
     EXPECT_FALSE(param.qos_priority_tagging());
     EXPECT_EQ(param.min_aap_prefix_len(), 24);
+    EXPECT_EQ(param.max_sessions_per_aggregate(), 100);
+    EXPECT_EQ(param.max_aggregates_per_session_endpoint(), 8);
+    EXPECT_EQ(param.max_endpoints_per_session_msg(), 5);
 }
 
 TEST_F(AgentParamTest, MultitokenVector) {
@@ -474,6 +477,9 @@ TEST_F(AgentParamTest, MultitokenVector) {
     TASK_UTIL_EXPECT_VECTOR_EQ(param.collector_server_list(),
                      collector_server_list);
     EXPECT_EQ(param.min_aap_prefix_len(), 20);
+    EXPECT_EQ(param.max_sessions_per_aggregate(), 80);
+    EXPECT_EQ(param.max_aggregates_per_session_endpoint(), 4);
+    EXPECT_EQ(param.max_endpoints_per_session_msg(), 2);
 }
 
 TEST_F(AgentParamTest, Restart_1) {
