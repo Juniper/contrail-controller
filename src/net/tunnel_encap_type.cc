@@ -21,7 +21,7 @@ static const map<string, TunnelEncapType::Encap>
         ("mpls", TunnelEncapType::MPLS)
         ("vxlan-gpe", TunnelEncapType::VXLAN_GPE)
         ("udp", TunnelEncapType::MPLS_O_UDP)
-        ("native", TunnelEncapType::NATIVE_CONTRAIL);
+        ("native", TunnelEncapType::NATIVE);
 
 static const map<TunnelEncapType::Encap, string>
     toString = boost::assign::map_list_of
@@ -33,7 +33,7 @@ static const map<TunnelEncapType::Encap, string>
         (TunnelEncapType::MPLS_O_GRE, "mpls-o-gre")
         (TunnelEncapType::VXLAN_GPE, "vxlan-gpe")
         (TunnelEncapType::MPLS_O_UDP, "udp")
-        (TunnelEncapType::NATIVE_CONTRAIL, "native");
+        (TunnelEncapType::NATIVE, "native");
 
 static const map<TunnelEncapType::Encap, string>
     toXmppString = boost::assign::map_list_of
@@ -45,7 +45,7 @@ static const map<TunnelEncapType::Encap, string>
         (TunnelEncapType::MPLS_O_GRE, "gre")
         (TunnelEncapType::VXLAN_GPE, "vxlan-gpe")
         (TunnelEncapType::MPLS_O_UDP, "udp")
-        (TunnelEncapType::NATIVE_CONTRAIL, "native");
+        (TunnelEncapType::NATIVE, "native");
 
 bool TunnelEncapType::TunnelEncapIsValid(uint16_t value) {
     TunnelEncapType::Encap encap = static_cast<TunnelEncapType::Encap>(value);
