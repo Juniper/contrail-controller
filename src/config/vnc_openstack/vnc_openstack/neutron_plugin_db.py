@@ -84,6 +84,10 @@ class LocalVncApi(VncApi):
                 had_user_token = False
 
             url_parts = url.split('/')
+            logger = logging.getLogger(__name__)
+            logger.info("DOCUMENTATION neutron request %s id %s needs %s permission on %s"
+                        %(get_context().request, get_context().request_id,
+                          operations[op], url_parts[1]))
             if op != rest.OP_GET or url_parts[1] not in self.api_server_routes:
                 return super(LocalVncApi, self)._request(
                     op, url, data, *args, **kwargs)
