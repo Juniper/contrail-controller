@@ -508,7 +508,10 @@ class ConfigDBTest(unittest.TestCase):
         lr = LogicalRouter(name="Test-LR", parent_obj=project)
         lr.set_service_instance(si_obj)
         lr.set_virtual_network(net_obj)
-        lr.set_virtual_machine_interface(vmi_obj)
+        lr.set_virtual_machine_interface(
+            vmi_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         lr._pending_field_updates.add('service_instance_refs')
         lr._pending_field_updates.add('virtual_network_refs')
         lr._pending_field_updates.add('virtual_machine_interface_refs')

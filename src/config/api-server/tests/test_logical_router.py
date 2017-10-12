@@ -134,7 +134,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
  
         # Add Router Interface (test being subnet)
-        lr.add_virtual_machine_interface(port_obj1)
+        lr.add_virtual_machine_interface(
+            port_obj1,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_update(lr)
         logger.debug('Linked VMI object (VN1) and LR object')
 
@@ -166,7 +169,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
  
         # Add Router Interface (test being subnet)
-        lr.add_virtual_machine_interface(port_obj2)
+        lr.add_virtual_machine_interface(
+            port_obj2,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_update(lr)
         logger.debug('Linked VMI object (VN2) and LR object')
         
@@ -282,7 +288,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
  
         # Add Router Interface (test being subnet)
-        lr.add_virtual_machine_interface(port_obj1)
+        lr.add_virtual_machine_interface(
+            port_obj1,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         lr_obj = self._vnc_lib.logical_router_read(id=lr_uuid)
         self._vnc_lib.logical_router_update(lr_obj)
         logger.debug('Linked VMI object (VN1) and LR object')
@@ -315,7 +324,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
  
         # Add Router Interface (test being subnet)
-        lr.add_virtual_machine_interface(port_obj2)
+        lr.add_virtual_machine_interface(
+            port_obj2,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         lr_obj = self._vnc_lib.logical_router_read(id=lr_uuid)
         self._vnc_lib.logical_router_update(lr_obj)
         logger.debug('Linked VMI object (VN2) and LR object')
@@ -439,7 +451,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug('Created Logical Router ')
 
         # Add Router Interface
-        lr.add_virtual_machine_interface(vm_port_obj)
+        lr.add_virtual_machine_interface(
+            vm_port_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         logger.debug("Trying to Link VM's VMI object and LR object")
         with ExpectedException(cfgm_common.exceptions.RefsExistError) as e:
             self._vnc_lib.logical_router_update(lr)
@@ -449,7 +464,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         # Create Port
         logger.debug("Add internal interface to LR")
         port_obj = self.create_port(project, net_obj)
-        lr.add_virtual_machine_interface(port_obj)
+        lr.add_virtual_machine_interface(
+            port_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_update(lr)
         logger.debug("Link VM to internal interface of a LR")
         with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
@@ -515,7 +533,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         logger.debug('Created Logical Router ')
 
         # Add Router Interface
-        lr.add_virtual_machine_interface(port_obj)
+        lr.add_virtual_machine_interface(
+            port_obj,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         self._vnc_lib.logical_router_update(lr)
 
         # set router_external
@@ -540,7 +561,10 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         port_obj = self.create_port(project, net_obj)
         logger.debug("Try adding interafce from same network as of gateway to LR object")
         with ExpectedException(cfgm_common.exceptions.BadRequest) as e:
-            lr.add_virtual_machine_interface(port_obj)
+            lr.add_virtual_machine_interface(
+                port_obj,
+                LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+            )
             self._vnc_lib.logical_router_update(lr)
         logger.debug("Adding interface from same network as of gateway to LR object failed as expected")
         self._vnc_lib.logical_router_delete(id=lr.uuid)
@@ -622,6 +646,215 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
             logger.debug('PASS - VxLAN Routing update successful')
     #end test_vxlan_routing
 
+    def test_cannot_create_lr_with_external_vmi(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        gw_vmi = VirtualMachineInterface('gw-vmi-%s' % self.id(),
+                                         parent_obj=project)
+        gw_vmi.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(gw_vmi)
+        lr = LogicalRouter('router-%s' % self.id(), parent_obj=project)
+        lr.add_virtual_machine_interface(
+            gw_vmi,
+            LogicalRouterInterfacePrioritiesType(interface_type='external'),
+        )
+
+        with ExpectedException(cfgm_common.exceptions.BadRequest):
+            self._vnc_lib.logical_router_create(lr)
+
+    def test_cannot_update_lr_wtih_external_vmi(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        gw_vmi = VirtualMachineInterface('gw-vmi-%s' % self.id(),
+                                         parent_obj=project)
+        gw_vmi.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(gw_vmi)
+        lr = LogicalRouter('router-%s' % self.id(), parent_obj=project)
+        self._vnc_lib.logical_router_create(lr)
+        lr.add_virtual_machine_interface(
+            gw_vmi,
+            LogicalRouterInterfacePrioritiesType(interface_type='external'),
+        )
+
+        with ExpectedException(cfgm_common.exceptions.BadRequest):
+            self._vnc_lib.logical_router_update(lr)
+
+    def test_external_vmi_create_when_create_lr_with_vn(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        lr = LogicalRouter('router-%s' % self.id(), parent_obj=project)
+        lr.set_virtual_network(vn)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+
+        self.assertIsNotNone(lr.get_virtual_machine_interface_refs())
+        gw_vmi_ref = lr.get_virtual_machine_interface_refs()[0]
+        self.assertEqual(gw_vmi_ref['attr'].get_interface_type(), 'external')
+        try:
+            vmi = self._vnc_lib.virtual_machine_interface_read(
+                id=gw_vmi_ref['uuid'])
+        except cfgm_common.exceptions.NoIdError:
+            self.fail("Cannot read logical router's external virtual machine "
+                      "interface")
+        self.assertIsNotNone(vmi.get_virtual_network_refs())
+        self.assertEqual(vmi.get_virtual_network_refs()[0]['uuid'], vn.uuid)
+
+    def test_external_vmi_create_when_update_lr_with_vn(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        lr = LogicalRouter('router-%s' % self.id(), parent_obj=project)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr.set_virtual_network(vn)
+        self._vnc_lib.logical_router_update(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+
+        vn_refs = lr.get_virtual_network_refs()
+        self.assertIsNotNone(vn_refs)
+        self.assertEqual(vn_refs[0]['uuid'], vn.uuid)
+        gw_vmi_refs = lr.get_virtual_machine_interface_refs()
+        self.assertIsNotNone(gw_vmi_refs)
+        self.assertEqual(gw_vmi_refs[0]['attr'].get_interface_type(),
+                         'external')
+        try:
+            vmi = self._vnc_lib.virtual_machine_interface_read(
+                id=gw_vmi_refs[0]['uuid'])
+        except cfgm_common.exceptions.NoIdError:
+            self.fail("Cannot read logical router's external virtual machine "
+                      "interface")
+        self.assertIsNotNone(vmi.get_virtual_network_refs())
+        self.assertEqual(vmi.get_virtual_network_refs()[0]['uuid'], vn.uuid)
+
+    def test_external_vmi_updated_when_update_lr_vn(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn1 = VirtualNetwork('vn1-%s' % self.id(), parent_obj=project)
+        vn1.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn1)
+        lr = LogicalRouter('router-%s' % self.id(), parent_obj=project)
+        lr.set_virtual_network(vn1)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+
+        vn_refs = lr.get_virtual_network_refs()
+        self.assertIsNotNone(vn_refs)
+        self.assertEqual(vn_refs[0]['uuid'], vn1.uuid)
+        first_gw_vmi_refs = lr.get_virtual_machine_interface_refs()
+        self.assertIsNotNone(first_gw_vmi_refs)
+        self.assertEqual(first_gw_vmi_refs[0]['attr'].get_interface_type(),
+                         'external')
+        try:
+            first_gw_vmi = self._vnc_lib.virtual_machine_interface_read(
+                id=first_gw_vmi_refs[0]['uuid'])
+        except cfgm_common.exceptions.NoIdError:
+            self.fail("Cannot read logical router's external virtual machine "
+                      "interface")
+        self.assertIsNotNone(first_gw_vmi.get_virtual_network_refs())
+        self.assertEqual(first_gw_vmi.get_virtual_network_refs()[0]['uuid'],
+                         vn1.uuid)
+
+        vn2 = VirtualNetwork('vn2-%s' % self.id(), parent_obj=project)
+        vn2.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn2)
+        lr.set_virtual_network(vn2)
+        self._vnc_lib.logical_router_update(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+
+        vn_refs = lr.get_virtual_network_refs()
+        self.assertIsNotNone(vn_refs)
+        self.assertEqual(vn_refs[0]['uuid'], vn2.uuid)
+        second_gw_vmi_refs = lr.get_virtual_machine_interface_refs()
+        self.assertIsNotNone(second_gw_vmi_refs)
+        self.assertEqual(second_gw_vmi_refs[0]['attr'].get_interface_type(),
+                         'external')
+        try:
+            second_gw_vmi = self._vnc_lib.virtual_machine_interface_read(
+                id=second_gw_vmi_refs[0]['uuid'])
+        except cfgm_common.exceptions.NoIdError:
+            self.fail("Cannot read logical router's external virtual machine "
+                      "interface")
+        self.assertIsNotNone(second_gw_vmi.get_virtual_network_refs())
+        self.assertEqual(second_gw_vmi.get_virtual_network_refs()[0]['uuid'],
+                         vn2.uuid)
+        self.assertNotEquals(first_gw_vmi.uuid, second_gw_vmi.uuid)
+        self.assertIsNone(first_gw_vmi.get_logical_router_back_refs())
+
+    def test_external_vmi_ref_removed_when_remove_lr_vn(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        lr = LogicalRouter('router-%s' % self.id(), parent_obj=project)
+        lr.set_virtual_network(vn)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+
+        vn_refs = lr.get_virtual_network_refs()
+        self.assertIsNotNone(vn_refs)
+        self.assertEqual(vn_refs[0]['uuid'], vn.uuid)
+        gw_vmi_refs = lr.get_virtual_machine_interface_refs()
+        self.assertIsNotNone(gw_vmi_refs)
+        self.assertEqual(gw_vmi_refs[0]['attr'].get_interface_type(),
+                         'external')
+        try:
+            vmi = self._vnc_lib.virtual_machine_interface_read(
+                id=gw_vmi_refs[0]['uuid'])
+        except cfgm_common.exceptions.NoIdError:
+            self.fail("Cannot read logical router's external virtual machine "
+                      "interface")
+        self.assertIsNotNone(vmi.get_virtual_network_refs())
+        self.assertEqual(vmi.get_virtual_network_refs()[0]['uuid'], vn.uuid)
+
+        lr.del_virtual_network(vn)
+        self._vnc_lib.logical_router_update(lr)
+        lr = self._vnc_lib.logical_router_read(id=lr_uuid)
+        self.assertIsNone(lr.get_virtual_network_refs())
+        self.assertIsNone(lr.get_virtual_machine_interface_refs())
+
+    def test_create_logical_router_is_limited_to_one_external_gateway(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn1 = VirtualNetwork('vn1-%s' % self.id(), parent_obj=project)
+        vn1.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn1)
+        vn2 = VirtualNetwork('vn2-%s' % self.id(), parent_obj=project)
+        vn2.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn2)
+        lr = LogicalRouter('router-%s' % self.id(), parent_obj=project)
+        lr.set_virtual_network(vn1)
+        lr.add_virtual_network(vn2)
+
+        with ExpectedException(cfgm_common.exceptions.BadRequest):
+            lr_uuid = self._vnc_lib.logical_router_create(lr)
+
+    def test_update_logical_router_is_limited_to_one_external_gateway(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        vn1 = VirtualNetwork('vn1-%s' % self.id(), parent_obj=project)
+        vn1.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn1)
+        vn2 = VirtualNetwork('vn2-%s' % self.id(), parent_obj=project)
+        vn2.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn2)
+        lr = LogicalRouter('router-%s' % self.id(), parent_obj=project)
+        lr.set_virtual_network(vn1)
+        lr_uuid = self._vnc_lib.logical_router_create(lr)
+
+        lr.add_virtual_network(vn2)
+        with ExpectedException(cfgm_common.exceptions.BadRequest):
+            lr_uuid = self._vnc_lib.logical_router_update(lr)
 #end class TestLogicalRouter
 
 if __name__ == '__main__':

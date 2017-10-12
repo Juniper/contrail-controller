@@ -1241,8 +1241,7 @@ class LogicalRouterSM(DBBaseSM):
         self.uuid = uuid
         self.service_instance = None
         self.virtual_network = None
-        self.virtual_machine_interfaces = set()
-        self.last_virtual_machine_interfaces = set()
+        self.virtual_machine_interfaces = {}
         self.update(obj_dict)
     # end __init__
 
@@ -1252,7 +1251,7 @@ class LogicalRouterSM(DBBaseSM):
         self.fq_name = obj['fq_name']
         self.parent_uuid = obj['parent_uuid']
         self.update_single_ref('service_instance', obj)
-        self.update_multiple_refs('virtual_machine_interface', obj)
+        self.update_multiple_refs_with_attr('virtual_machine_interface', obj)
         self.update_single_ref('virtual_network', obj)
         self.name = obj['fq_name'][-1]
     # end update
@@ -1265,7 +1264,7 @@ class LogicalRouterSM(DBBaseSM):
         cls._manager.snat_agent.delete_snat_instance(obj)
         obj.update_single_ref('service_instance', {})
         obj.update_single_ref('virtual_network', {})
-        obj.update_multiple_refs('virtual_machine_interface', {})
+        obj.update_multiple_refs_with_attr('virtual_machine_interface', {})
         del cls._dict[uuid]
     # end delete
 

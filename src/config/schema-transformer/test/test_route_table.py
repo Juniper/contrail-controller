@@ -9,8 +9,9 @@ try:
 except ImportError:
     from schema_transformer import to_bgp
 from vnc_api.vnc_api import (RouteTargetList, RouteTable, RouteTableType,
-        VirtualNetwork, VirtualMachineInterface, NetworkIpam, VnSubnetsType, IpamSubnetType,
-        LogicalRouter, SubnetType, RouteType, CommunityAttributes)
+    VirtualNetwork, VirtualMachineInterface, NetworkIpam, VnSubnetsType,
+    IpamSubnetType, LogicalRouter, SubnetType, RouteType, CommunityAttributes,
+    LogicalRouterInterfacePrioritiesType)
 
 from test_case import STTestCase, retries
 from test_policy import VerifyPolicy
@@ -166,7 +167,10 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         lr = LogicalRouter(lr_name)
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         lr.set_configured_route_target_list(rtgt_list)
-        lr.add_virtual_machine_interface(vmi)
+        lr.add_virtual_machine_interface(
+            vmi,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         lr.add_virtual_network(vn_public)
         self._vnc_lib.logical_router_create(lr)
 

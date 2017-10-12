@@ -380,7 +380,10 @@ class TestQfxBasicDM(TestCommonDM):
         fq_name = ['default-domain', 'default-project', 'lr1' + self.id() + "-" + product]
         lr = LogicalRouter(fq_name=fq_name, parent_type = 'project')
         lr.set_physical_router(pr)
-        lr.add_virtual_machine_interface(vmi1)
+        lr.add_virtual_machine_interface(
+            vmi1,
+            LogicalRouterInterfacePrioritiesType(interface_type='internal'),
+        )
         lr_uuid = self._vnc_lib.logical_router_create(lr)
 
         # make sure internal is created
