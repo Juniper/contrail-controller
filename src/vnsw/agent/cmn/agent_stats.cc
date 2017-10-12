@@ -114,8 +114,17 @@ void AgentStatsReq::HandleRequest() const {
     sandesh->set_sandesh_http_sessions(stats->sandesh_http_sessions());
     sandesh->set_sandesh_reconnects(stats->sandesh_reconnects());
     sandesh->set_context(context());
-    sandesh->set_more(false);
+    sandesh->set_more(true);
     sandesh->Response();
+
+    SessionEndpointExportStatsResp *srsp = new SessionEndpointExportStatsResp();
+    srsp->set_record_export_count(agent->flow_stats_manager()->
+                                  session_sample_exports());
+    srsp->set_msg_export_count(agent->flow_stats_manager()->
+                               session_msg_exports());
+    srsp->set_context(context());
+    srsp->set_more(false);
+    srsp->Response();
 }
 
 void AgentStats::UpdateFlowMinMaxStats(uint64_t total_flows,

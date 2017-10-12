@@ -13,7 +13,7 @@ class FlowToSessionMap;
 
 struct SessionEndpointKey {
 public:
-    const VmInterface *vmi;
+    std::string vmi_cfg_name;
     std::string local_vn;
     std::string remote_vn;
     TagList local_tagset;
@@ -22,7 +22,9 @@ public:
     std::string match_policy;
     bool is_client_session;
     bool is_si;
+    SessionEndpointKey() { Reset(); }
 
+    void Reset();
     bool IsLess(const SessionEndpointKey &rhs) const;
     bool IsEqual(const SessionEndpointKey &rhs) const;
 };
@@ -32,6 +34,8 @@ public:
     IpAddress local_ip;
     uint16_t dst_port;
     uint16_t proto;
+    SessionAggKey() { Reset(); }
+    void Reset();
     bool IsLess(const SessionAggKey &rhs) const;
     bool IsEqual(const SessionAggKey &rhs) const;
 };
@@ -40,13 +44,15 @@ struct SessionKey {
 public:
     IpAddress remote_ip;
     uint16_t src_port;
+    SessionKey() { Reset(); }
+
+    void Reset();
     bool IsLess(const SessionKey &rhs) const;
     bool IsEqual(const SessionKey &rhs) const;
 };
 
 struct SessionKeyCmp {
-    bool operator() (const SessionKey &lhs,
-                     const SessionKey &rhs) const {
+    bool operator()(const SessionKey &lhs, const SessionKey &rhs) const {
         return lhs.IsLess(rhs);
     }
 };
@@ -68,22 +74,24 @@ public:
     SessionFlowStatsInfo fwd_flow;
     SessionFlowStatsInfo rev_flow;
 };
+
 struct SessionPreAggInfo {
 public:
-    typedef std::map<const SessionKey, SessionStatsInfo, SessionKeyCmp> SessionMap;
+    typedef std::map<const SessionKey, SessionStatsInfo,
+                     SessionKeyCmp> SessionMap;
     SessionMap session_map_;
 };
 
 struct SessionAggKeyCmp {
-    bool operator() (const SessionAggKey &lhs,
-                     const SessionAggKey &rhs) const {
+    bool operator()(const SessionAggKey &lhs, const SessionAggKey &rhs) const {
         return lhs.IsLess(rhs);
     }
 };
 
 struct SessionEndpointInfo {
 public:
-    typedef std::map<const SessionAggKey, SessionPreAggInfo, SessionAggKeyCmp> SessionAggMap;
+    typedef std::map<const SessionAggKey, SessionPreAggInfo,
+                     SessionAggKeyCmp> SessionAggMap;
     SessionAggMap session_agg_map_;
 };
 
@@ -97,12 +105,14 @@ struct SessionEndpointKeyCmp {
 class SessionStatsCollector : public StatsCollector {
 public:
     typedef std::map<const SessionEndpointKey, SessionEndpointInfo,
-                             SessionEndpointKeyCmp> SessionEndpointMap;
+                     SessionEndpointKeyCmp> SessionEndpointMap;
     typedef WorkQueue<boost::shared_ptr<SessionStatsReq> > Queue;
     typedef std::map<FlowEntryPtr, FlowToSessionMap> FlowSessionMap;
 
-    static const uint8_t  kMaxSessionMsgsPerSend = 16;
-    static const uint32_t kSessionStatsTimerInterval = 100;
+    static const uint8_t  kMaxSessionEndpoints = 5;
+    static const uint8_t  kMaxSessionAggs = 8;
+    static const uint8_t  kMaxSessions = 100;
+    static const uint32_t kSessionStatsTimerInterval = 1000;
     static const uint32_t kSessionsPerTask = 256;
 
     uint32_t RunSessionEndpointStats(uint32_t max_count);
@@ -118,10 +128,9 @@ public:
     };
 
 
-    SessionStatsCollector(boost::asio::io_service &io,
-                       AgentUveBase *uve, uint32_t instance_id,
-                       FlowStatsManager *aging_module,
-                       SessionStatsCollectorObject *obj);
+    SessionStatsCollector(boost::asio::io_service &io, AgentUveBase *uve,
+                          uint32_t instance_id, FlowStatsManager *fsm,
+                          SessionStatsCollectorObject *obj);
     virtual ~SessionStatsCollector();
     bool Run();
 
@@ -134,10 +143,12 @@ public:
 protected:
     virtual void DispatchSessionMsg(const std::vector<SessionEndpoint> &lst);
 private:
-    uint32_t ProcessSessionEndpoint(SessionEndpointMap::iterator &it,
-                                     const RevFlowDepParams *params,
-                                     bool from_config,
-                                     bool read_flow);
+    bool ProcessSessionEndpoint(const SessionEndpointMap::iterator &it);
+    void ProcessSessionDelete
+        (const SessionEndpointMap::iterator &ep_it,
+         const SessionEndpointInfo::SessionAggMap::iterator &agg_it,
+         const SessionPreAggInfo::SessionMap::iterator &session_it,
+         const RevFlowDepParams *params, bool read_flow);
     uint64_t GetUpdatedSessionFlowBytes(uint64_t info_bytes,
                                         uint64_t k_flow_bytes) const;
     uint64_t GetUpdatedSessionFlowPackets(uint64_t info_packets,
@@ -153,9 +164,7 @@ private:
     void FillSessionInfoLocked
         (SessionPreAggInfo::SessionMap::iterator session_map_iter,
          SessionInfo *session_info,
-         SessionIpPort *session_key,
-         const RevFlowDepParams *params,
-         bool read_flow) const;
+         SessionIpPort *session_key) const;
     void FillSessionInfoUnlocked
         (SessionPreAggInfo::SessionMap::iterator session_map_iter,
          SessionInfo *session_info,
@@ -214,6 +223,8 @@ private:
     AgentUveBase *agent_uve_;
     int task_id_;
     SessionEndpointKey session_ep_iteration_key_;
+    SessionAggKey session_agg_iteration_key_;
+    SessionKey session_iteration_key_;
     SessionEndpointMap session_endpoint_map_;
     FlowSessionMap flow_session_map_;
     Queue request_queue_;
@@ -236,8 +247,7 @@ class SessionStatsCollectorObject {
 public:
     static const int kMaxSessionCollectors = 1;
     typedef boost::shared_ptr<SessionStatsCollector> SessionStatsCollectorPtr;
-    SessionStatsCollectorObject(Agent *agent,
-                             FlowStatsManager *mgr);
+    SessionStatsCollectorObject(Agent *agent, FlowStatsManager *mgr);
     SessionStatsCollector* GetCollector(uint8_t idx) const;
     void SetExpiryTime(int time);
     int GetExpiryTime() const;
