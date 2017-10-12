@@ -86,3 +86,11 @@ response sandesh SandeshStatsResp {
     3: i16 sandesh_http_sessions;
     4: i16 sandesh_reconnects;
 }
+
+/**
+ *  Session Message export stats sent as a part of agent stats request
+ */
+response sandesh SessionEndpointExportStatsResp {
+    1: u64 record_export_count;
+    2: u64 msg_export_count;
+}

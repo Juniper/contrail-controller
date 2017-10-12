@@ -173,6 +173,8 @@ public:
         return flow_exports_;
     }
 
+    uint64_t session_sample_exports() const { return session_sample_exports_; }
+    uint64_t session_msg_exports() const { return session_msg_exports_; }
     uint64_t threshold() const { return threshold_;}
     bool delete_short_flow() const {
         return delete_short_flow_;

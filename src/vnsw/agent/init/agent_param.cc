@@ -576,6 +576,12 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.del_tokens");
     GetOptValue<uint32_t>(var_map, flow_update_tokens_,
                           "FLOWS.update_tokens");
+    GetOptValue<uint16_t>(var_map, max_sessions_per_aggregate_,
+                          "FLOWS.max_sessions_per_aggregate");
+    GetOptValue<uint16_t>(var_map, max_aggregates_per_session_endpoint_,
+                          "FLOWS.max_aggregates_per_session_endpoint");
+    GetOptValue<uint16_t>(var_map, max_endpoints_per_session_msg_,
+                          "FLOWS.max_endpoints_per_session_msg");
 }
 
 void AgentParam::ParseDhcpRelayModeArguments
@@ -1136,6 +1142,9 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Flow update-tokens          : " << flow_update_tokens_);
     LOG(DEBUG, "Pin flow netlink task to CPU: "
         << ksync_thread_cpu_pin_policy_);
+    LOG(DEBUG, "Maximum sessions            : " << max_sessions_per_aggregate_);
+    LOG(DEBUG, "Maximum session aggregates  : " << max_aggregates_per_session_endpoint_);
+    LOG(DEBUG, "Maximum session endpoints   : " << max_endpoints_per_session_msg_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1291,6 +1300,9 @@ AgentParam::AgentParam(bool enable_flow_options,
         flow_thread_count_(Agent::kDefaultFlowThreadCount),
         flow_trace_enable_(true),
         flow_latency_limit_(Agent::kDefaultFlowLatencyLimit),
+        max_sessions_per_aggregate_(Agent::kMaxSessions),
+        max_aggregates_per_session_endpoint_(Agent::kMaxSessionAggs),
+        max_endpoints_per_session_msg_(Agent::kMaxSessionEndpoints),
         subnet_hosts_resolvable_(true),
         bgp_as_a_service_port_range_("50000-50512"),
         services_queue_limit_(1024),
@@ -1519,6 +1531,12 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Index Sm Log Count")
             ("FLOWS.latency_limit", opt::value<uint16_t>()->default_value(Agent::kDefaultFlowLatencyLimit),
              "Latency Limit")
+            ("FLOWS.max_sessions_per_aggregate", opt::value<uint16_t>()->default_value(Agent::kMaxSessions),
+             "Maximum number of sessions per Session Aggregate entry")
+            ("FLOWS.max_aggregates_per_session_endpoint", opt::value<uint16_t>()->default_value(Agent::kMaxSessionAggs),
+             "Maximum number of Session Aggregates per SessionEndpoint Entry")
+            ("FLOWS.max_endpoints_per_session_msg", opt::value<uint16_t>()->default_value(Agent::kMaxSessionEndpoints),
+             "Maximum number of SessionEnpoint entries per SessionEndpointObject")
             ;
         options_.add(flow);
         config_file_options_.add(flow);

@@ -755,10 +755,6 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
     m_acl.terminal_rule = false;
 	m_acl.action_info.action = 0;
 
-    if (info) {
-        info->acl_name = GetName();
-    }
-
     for (iter = acl_entries_.begin();
          iter != acl_entries_.end();
          ++iter) {
@@ -803,6 +799,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                  info->terminal = false;
                  info->other = false;
                  info->uuid = iter->uuid();
+                 info->acl_name = GetName();
              }
          }
 	}
@@ -817,6 +814,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                     info->terminal = true;
                     info->other = false;
                     info->uuid = iter->uuid();
+                    info->acl_name = GetName();
                 }
                 return ret_val;
             }
@@ -825,6 +823,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
             if (info && !info->drop && !info->terminal && !info->other) {
                 info->other = true;
                 info->uuid = iter->uuid();
+                info->acl_name = GetName();
             }
         }
     }
