@@ -2319,6 +2319,12 @@ TEST_F(BgpXmppRTargetTest, IdentifierUpdate1) {
 
     UpdateIdentifier(64496, 64496, 64496, 64496, 64496, 64496);
 
+    TASK_UTIL_EXPECT_EQ(true, agent_a_1_->IsEstablished());
+    TASK_UTIL_EXPECT_EQ(true, agent_a_2_->IsEstablished());
+    agent_a_1_->Subscribe("blue", 1);
+    agent_a_2_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
     vector<string> nexthops1 = list_of("192.168.1.1")("192.168.1.2");
     VerifyRTargetRouteNexthops(cn1_.get(), "64496:target:64496:1", nexthops1);
     VerifyRTargetRouteNexthops(cn2_.get(), "64496:target:64496:1", nexthops1);
@@ -2369,6 +2375,13 @@ TEST_F(BgpXmppRTargetTest, IdentifierUpdate2) {
     TASK_UTIL_EXPECT_EQ(1, RTargetRouteCount(mx_.get()));
 
     UpdateIdentifier(64496, 64496, 64496, 64497, 64497, 64497);
+
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(true, agent_a_1_->IsEstablished());
+    TASK_UTIL_EXPECT_EQ(true, agent_a_2_->IsEstablished());
+    agent_a_1_->Subscribe("blue", 1);
+    agent_a_2_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
 
     vector<string> nexthops1 = list_of("192.168.1.1")("192.168.1.2");
     VerifyRTargetRouteNexthops(cn1_.get(), "64497:target:64496:1", nexthops1);

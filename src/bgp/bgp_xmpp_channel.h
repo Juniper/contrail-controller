@@ -133,7 +133,6 @@ public:
     bool deleted() { return deleted_; }
     void RoutingInstanceCallback(std::string vrf_name, int op);
     void ASNUpdateCallback(as_t old_asn, as_t old_local_asn);
-    void IdentifierUpdateCallback(Ip4Address old_identifier);
     void FillInstanceMembershipInfo(BgpNeighborResp *resp) const;
     void FillTableMembershipInfo(BgpNeighborResp *resp) const;
     void FillCloseInfo(BgpNeighborResp *resp) const;
