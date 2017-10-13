@@ -1134,7 +1134,7 @@ class Controller(object):
           Our treatment of the 2nd and 3rd case above is the same
         """
         uveq_trace = UVEQTrace()
-        uveq_trace.uves = uves.keys()
+        uveq_trace.uves = [str((k,str(v))) for k,v in uves.iteritems()]
         uveq_trace.part = part
         if part not in self._uveq:
             self._uveq[part] = OrderedDict()
@@ -1184,6 +1184,12 @@ class Controller(object):
         for r_inst in r_added:
             coll, res = self._us.get_part(part, r_inst)
             chg_res[coll] = res
+            uveq_trace = UVEQTrace()
+            uveq_trace.uves = [str((k,str(v))) for k,v in res.iteritems()]
+            uveq_trace.part = part
+            uveq_trace.oper = "get-part-" + coll
+            uveq_trace.trace_msg(name="UVEQTrace",\
+                    sandesh=self._sandesh)
 
         return disc_instances, coll_delete, chg_res            
 
@@ -1755,7 +1761,7 @@ class Controller(object):
         output = {}
 
 	uveq_trace = UVEQTrace()
-	uveq_trace.uves = uves.keys()
+	uveq_trace.uves = [str((k,str(v))) for k,v in uves.iteritems()]
 	uveq_trace.part = part
 	uveq_trace.oper = "process"
 	uveq_trace.trace_msg(name="UVEQTrace",\
@@ -1905,7 +1911,8 @@ class Controller(object):
             self.examine_uve_for_alarms(part, uv, local_uve)
         if success:
 	    uveq_trace = UVEQTrace()
-	    uveq_trace.uves = output.keys()
+	    uveq_trace.uves = [str((k,str(v.keys() if isinstance(v,dict) \
+                    else None))) for k,v in output.iteritems()]
 	    uveq_trace.part = part
 	    uveq_trace.oper = "proc-output"
 	    uveq_trace.trace_msg(name="UVEQTrace",\
