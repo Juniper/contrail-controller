@@ -202,9 +202,6 @@ TEST_P(BgpXmppRTargetManagerTestRun, Test) {
     // Verify all rtarget routes update for new gr flags.
     rtarget_manager_test_->set_verify(true);
 
-    // Trigger identifier change process to trigger GR flags update.
-    rtarget_manager_test_->IdentifierUpdateCallback(Ip4Address());
-
     // Trigger asn change process to trigger GR flags update.
     rtarget_manager_test_->ASNUpdateCallback(0, 1);
 }
