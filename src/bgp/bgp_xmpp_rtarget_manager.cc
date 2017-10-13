@@ -136,19 +136,6 @@ void BgpXmppRTargetManager::ASNUpdateCallback(as_t old_asn,
     }
 }
 
-void BgpXmppRTargetManager::IdentifierUpdateCallback(
-        Ip4Address old_identifier) const {
-    if (IsSubscriptionEmpty())
-        return;
-    BgpAttrPtr attr = GetRouteTargetRouteAttr();
-
-    // Update the route with new nexthop
-    for (PublishedRTargetRoutes::const_iterator it = rtarget_routes_.begin();
-            it != rtarget_routes_.end(); it++) {
-        RTargetRouteOp(local_autonomous_system(), it->first, attr, true);
-    }
-}
-
 void BgpXmppRTargetManager::AddNewRTargetRoute(RoutingInstance *rtinstance,
         const RouteTarget &rtarget, BgpAttrPtr attr) {
     PublishedRTargetRoutes::iterator rt_loc = rtarget_routes_.find(rtarget);
