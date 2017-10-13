@@ -1033,17 +1033,14 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_bridging, bool force_update,
         label = GetPbbLabel();
     }
 
-    if (new_ip_addr.is_unspecified() || layer3_forwarding_ == true) {
-        table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this,
-                               new_ip_addr, label, vn_->GetName(), sg_id_list,
-                               path_preference, ethernet_tag_, etree_leaf_);
-    }
+    table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this,
+            new_ip_addr, label, vn_->GetName(), sg_id_list,
+            path_preference, ethernet_tag_, etree_leaf_);
 
-    if (new_ip6_addr.is_unspecified() == false && layer3_forwarding_ == true) {
-        table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this,
-                               new_ip6_addr, label, vn_->GetName(), sg_id_list,
-                               path_preference, ethernet_tag_, etree_leaf_);
-    }
+    table->AddLocalVmRoute(peer_.get(), vrf_->GetName(), mac, this,
+            new_ip6_addr, label, vn_->GetName(), sg_id_list,
+            path_preference, ethernet_tag_, etree_leaf_);
+
 }
 
 void VmInterface::DeleteL2InterfaceRoute(bool old_bridging, VrfEntry *old_vrf,
@@ -2005,15 +2002,7 @@ void VmInterface::AllowedAddressPair::L2Activate(VmInterface *interface,
                                    dependent_rt);
         }
         ethernet_tag_ = interface->ethernet_tag();
-        //If layer3 forwarding is disabled
-        //  * IP + mac allowed address pair should not be published
-        //  * Only mac allowed address pair should be published
-        //Logic for same is present in UpdateL2InterfaceRoute
-        if (interface->layer3_forwarding() || addr_.is_unspecified() == true) {
-            l2_entry_installed_ = true;
-        } else {
-            l2_entry_installed_ = false;
-        }
+        l2_entry_installed_ = true;
         ecmp_config_changed_ = false;
     }
 }
@@ -2164,18 +2153,18 @@ void VmInterface::UpdateAllowedAddressPair(bool force_update,
 
     for (it = allowed_address_pair_list_.list_.begin();
          it != allowed_address_pair_list_.list_.end(); it++) {
-        /* V4 AAP entries should be enabled only if ipv4_active_ is true
-         * V6 AAP entries should be enabled only if ipv6_active_ is true
-         */
-        if ((!ipv4_active_ && it->addr_.is_v4()) ||
-            (!ipv6_active_ && it->addr_.is_v6())) {
-            continue;
-        }
         if (l2) {
             it->L2Activate(this, force_update, policy_change,
                     old_layer2_forwarding, old_layer3_forwarding);
         } else {
-           it->Activate(this, force_update, policy_change);
+            /* V4 AAP entries should be enabled only if ipv4_active_ is true
+             * V6 AAP entries should be enabled only if ipv6_active_ is true
+             */
+            if ((!ipv4_active_ && it->addr_.is_v4()) ||
+                    (!ipv6_active_ && it->addr_.is_v6())) {
+                continue;
+            }
+            it->Activate(this, force_update, policy_change);
         }
     }
 }
