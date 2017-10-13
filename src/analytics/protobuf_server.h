@@ -22,7 +22,8 @@ namespace protobuf {
 //
 class ProtobufServer {
  public:
-    ProtobufServer(EventManager *evm, uint16_t udp_server_port,
+    ProtobufServer(EventManager *evm, uint16_t udp_server_porto,
+        const std::string schema_file_directory,
         StatWalker::StatTableInsertFn stat_db_cb);
     virtual ~ProtobufServer();
     bool Initialize();

@@ -1369,13 +1369,13 @@ const map<string, table_schema> _VIZD_STAT_TABLE_SCHEMA = {
               'key' : true},
             { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
               'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
             { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
               'clustering' : true },
@@ -1394,13 +1394,13 @@ const map<string, table_schema> _VIZD_STAT_TABLE_SCHEMA = {
               'key' : true},
             { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
               'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
             { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
               'clustering' : true },
@@ -1419,13 +1419,13 @@ const map<string, table_schema> _VIZD_STAT_TABLE_SCHEMA = {
               'key' : true},
             { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
               'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
             { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type,
               'clustering' : true },
@@ -1444,13 +1444,13 @@ const map<string, table_schema> _VIZD_STAT_TABLE_SCHEMA = {
               'key' : true},
             { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
               'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key6', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
             { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type,
               'clustering' : true },
@@ -1469,11 +1469,11 @@ const map<string, table_schema> _VIZD_STAT_TABLE_SCHEMA = {
               'key' : true},
             { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
               'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
             { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned64Type,
               'clustering' : true },
@@ -1490,11 +1490,11 @@ const map<string, table_schema> _VIZD_STAT_TABLE_SCHEMA = {
               'key' : true},
             { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
               'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
             { 'name' : 'column1', 'datatype' : Gendb.DbDataType.DoubleType,
               'clustering' : true },
@@ -1511,11 +1511,11 @@ const map<string, table_schema> _VIZD_STAT_TABLE_SCHEMA = {
               'key' : true},
             { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
               'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key4', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
-            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type, 
+            { 'name' : 'key5', 'datatype' : Gendb.DbDataType.UTF8Type,
               'key' : true},
             { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
               'clustering' : true },
@@ -1625,6 +1625,3667 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.q_depth_peak', 'datatype' : 'int',    'index' : false},
           { 'name' : 'enterprise.juniperNetworks.fabricMessageExt.edges.class_stats.transmit_counts.q_depth_max',  'datatype' : 'int',    'index' : false},
         ]
+    },
+   {
+    'display_name': 'Firewall Stats Memory Usage',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.memory_usage',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.memory_usage.name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.memory_usage.allocated',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.filter_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Firewall Stats Counter Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.counter_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.counter_stats.name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.counter_stats.packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.counter_stats.bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.filter_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Firewall Stats Policer Stats Extended Policer Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.extended_policer_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.extended_policer_stats.offered_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.extended_policer_stats.offered_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.extended_policer_stats.transmitted_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.extended_policer_stats.transmitted_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.filter_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Firewall Stats Policer Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.out_of_spec_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.policer_stats.out_of_spec_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.filter_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Firewall Stats Hierarchical Policer Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.hierarchical_policer_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.hierarchical_policer_stats.name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.hierarchical_policer_stats.premium_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.hierarchical_policer_stats.premium_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.hierarchical_policer_stats.aggregate_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.hierarchical_policer_stats.aggregate_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.filter_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Firewall Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.filter_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_firewall_ext.firewall_stats.timestamp',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_firewall_ext',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Optics Diag Optics Diag Stats Optics Lane Diag Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_temperature',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_output_power_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_receiver_power_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_bias_current',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_output_power_high_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_output_power_low_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_output_power_high_warning',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_output_power_low_warning',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_receiver_power_high_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_receiver_power_low_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_receiver_power_high_warning',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_receiver_power_low_warning',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_bias_current_high_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_bias_current_low_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_bias_current_high_warning',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_laser_bias_current_low_warning',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_tx_loss_of_signal_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_rx_loss_of_signal_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_lane_diag_stats.lane_tx_laser_disabled_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.if_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Optics Diag Optics Diag Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.optics_type',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp_high_alarm_threshold',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp_low_alarm_threshold',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp_high_warning_threshold',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp_low_warning_threshold',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_output_power_high_alarm_threshold_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_output_power_low_alarm_threshold_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_output_power_high_warning_threshold_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_output_power_low_warning_threshold_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_rx_power_high_alarm_threshold_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_rx_power_low_alarm_threshold_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_rx_power_high_warning_threshold_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_rx_power_low_warning_threshold_dbm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_bias_current_high_alarm_threshold',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_bias_current_low_alarm_threshold',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_bias_current_high_warning_threshold',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.laser_bias_current_low_warning_threshold',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp_high_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp_low_alarm',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp_high_warning',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.optics_diag_stats.module_temp_low_warning',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.if_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Optics Diag',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_optics_ext.Optics_diag.snmp_if_index',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': '',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_optics_ext',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Utilization Application Utilization',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.application_utilization',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.application_utilization.name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.application_utilization.bytes_allocated',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.application_utilization.allocations',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.application_utilization.frees',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.application_utilization.allocations_failed',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Utilization',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.size',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.bytes_allocated',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.cpu_memory_util_ext.utilization.utilization',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.cpu_memory_util_ext',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Packet Stats Counter',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats.counter',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats.counter.packet_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats.counter.byte_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats.counter.packet_rate',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Packet Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats.name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Packet Stats Pfe Packet Stats Counter',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats_pfe.packet_stats.counter',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats_pfe.packet_stats.counter.packet_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats_pfe.packet_stats.counter.byte_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats_pfe.packet_stats.counter.packet_rate',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Packet Stats Pfe Packet Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats_pfe.packet_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats_pfe.packet_stats.name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Packet Stats Pfe',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats_pfe',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext.packet_stats_pfe.pfe_identifier',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_packet_statistics_ext',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Npu Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.npu_identifier',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flow_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flow_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_total_flows',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_active_flows',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flows_exported',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_packets_exported',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flows_inactive_timed_out',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flows_active_timed_out',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flow_create_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_route_lookup_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_autonomous_system_lookup_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flow_packet_export_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flow_table_utilization',
+            'datatype': 'double',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv4_flow_insert_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flow_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flow_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_total_flows',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_active_flows',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flows_exported',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_packets_exported',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flows_inactive_timed_out',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flows_active_timed_out',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flow_create_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_route_lookup_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_autonomous_system_lookup_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flow_packet_export_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flow_table_utilization',
+            'datatype': 'double',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.ipv6_flow_insert_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flow_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flow_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_total_flows',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_active_flows',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flows_exported',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_packets_exported',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flows_inactive_timed_out',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flows_active_timed_out',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flow_create_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_route_lookup_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_autonomous_system_lookup_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flow_packet_export_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flow_table_utilization',
+            'datatype': 'double',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.vpls_flow_insert_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flow_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flow_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_total_flows',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_active_flows',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flows_exported',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_packets_exported',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flows_inactive_timed_out',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flows_active_timed_out',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flow_create_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_route_lookup_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_autonomous_system_lookup_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flow_packet_export_failure',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flow_table_utilization',
+            'datatype': 'double',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.npu_stats.mpls_flow_insert_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.inline_jflow_stats_ext',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv4_flows_export_format',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv6_flows_export_format',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.vpls_flows_export_format',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.mpls_flows_export_format',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv4_route_record_cnt',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv6_route_record_cnt',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.mpls_route_record_cnt',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.autonomous_system_record_cnt',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv4_max_flows_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv6_max_flows_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.vpls_max_flows_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.mpls_max_flows_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.memory_alloc_fail_cnt',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv4_configured_observation_domain_id',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv6_configured_observation_domain_id',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.vpls_configured_observation_domain_id',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.mpls_configured_observation_domain_id',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.last_clear_timestamp',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.ipv6_extended_attribute',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.flexible_flow_sizing',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.inline_jflow_stats_ext.use_extended_flow_memory',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Lsp Stats Records',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext.lsp_stats_records',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext.lsp_stats_records.name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext.lsp_stats_records.instance_identifier',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext.lsp_stats_records.counter_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext.lsp_stats_records.packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext.lsp_stats_records.bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext.lsp_stats_records.packet_rate',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext.lsp_stats_records.byte_rate',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_lsp_statistics_ext',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Npu Util Stats Packets',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.packets',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.packets.identifier',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.packets.rate',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.packets.average_instructions_per_packet',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.packets.average_wait_cycles_per_packet',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.packets.average_cycles_per_packet',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Npu Util Stats Memory',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.memory',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.memory.name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.memory.average_util',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.memory.highest_util',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.memory.lowest_util',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.memory.average_cache_hit_rate',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.memory.highest_cache_hit_rate',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.memory.lowest_cache_hit_rate',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Npu Util Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.identifier',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext.npu_util_stats.utilization',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_npu_utilization_ext',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Stats Egress Queue Info',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.queue_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.tail_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.rl_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.rl_drop_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.red_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.red_drop_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.avg_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.cur_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.peak_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_queue_info.allocated_buffer_size',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Stats Ingress Queue Info',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.queue_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.tail_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.rl_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.rl_drop_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.red_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.red_drop_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.avg_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.cur_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.peak_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_queue_info.allocated_buffer_size',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Stats Ingress Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_octets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_1sec_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_1sec_octets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_uc_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_mc_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_bc_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_error',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_stats.if_pause_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Stats Egress Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_octets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_1sec_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_1sec_octets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_uc_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_mc_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_bc_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_error',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.egress_stats.if_pause_pkts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Stats Ingress Errors',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_errors',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_qdrops',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_frame_errors',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_discards',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_runts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_l3_incompletes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_l2chan_errors',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_l2_mismatch_timeouts',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_fifo_errors',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ingress_errors.if_in_resource_errors',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.init_time',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.snmp_if_index',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.parent_ae_name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_administration_status',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_operational_status',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_description',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.if_transitions',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ifLastChange',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnpr_interface_ext.interface_stats.ifHighSpeed',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnpr_interface_ext',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Info Ingress Stats If Fc Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_fc_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_fc_stats.if_family',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_fc_stats.fc_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_fc_stats.if_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_fc_stats.if_octets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.snmp_if_index',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.parent_ae_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Info Ingress Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_octets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_ucast_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_stats.if_mcast_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.snmp_if_index',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.parent_ae_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Info Egress Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_stats.if_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_stats.if_octets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_stats.if_ucast_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_stats.if_mcast_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.snmp_if_index',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.parent_ae_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Info Op State',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.op_state',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.op_state.operational_status',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.snmp_if_index',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.parent_ae_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Info Ingress Queue Info',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.queue_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.tail_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.rate_limit_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.rate_limit_drop_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.red_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.red_drop_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.average_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.current_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.peak_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.ingress_queue_info.allocated_buffer_size',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.snmp_if_index',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.parent_ae_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Info Egress Queue Info',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.queue_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.tail_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.rate_limit_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.rate_limit_drop_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.red_drop_packets',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.red_drop_bytes',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.average_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.current_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.peak_buffer_occupancy',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.egress_queue_info.allocated_buffer_size',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.snmp_if_index',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.parent_ae_name',
+            'datatype': 'string',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Interface Info',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.if_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.init_time',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.snmp_if_index',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.parent_ae_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.administractive_status',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.description',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.last_change',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt.interface_info.high_speed',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.jnprLogicalInterfaceExt',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Memory Stats Summary',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.summary',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.summary.resource_name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.summary.size',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.summary.allocated',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.summary.utilization',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Memory Stats Partition',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.partition',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.partition.name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.partition.application_name',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.partition.bytes_allocated',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.partition.allocation_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.partition.free_count',
+            'datatype': 'int',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Memory Stats',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats',
+    'attributes': [
+        {
+            'name': 'enterprise.juniperNetworks.npu_memory_ext.memory_stats.identifier',
+            'datatype': 'string',
+            'index': false
+        },
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
+    },
+    {
+    'display_name': 'Test',
+    'stat_type': 'TelemetryStream',
+    'obj_table': 'NONE',
+    'stat_attr': 'enterprise.juniperNetworks.npu_memory_ext',
+    'attributes': [
+        {
+            'name': 'system_id',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sub_component_id',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sequence_number',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'sensor_name',
+            'datatype': 'string',
+            'index': true
+        },
+        {
+            'name': 'version_major',
+            'datatype': 'int',
+            'index': true
+        },
+        {
+            'name': 'version_minor',
+            'datatype': 'int',
+            'index': true
+        }
+    ]
     },
     {
       'display_name' : 'Underlay Flow Information',

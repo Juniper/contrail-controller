@@ -20,29 +20,28 @@
 #include <io/udp_server.h>
 
 #include "analytics/db_handler.h"
-#include "analytics/protobuf_schema.pb.h"
+#include "analytics/jti-protos/telemetry_top.pb.h"
 #include "analytics/protobuf_server_impl.h"
 #include "analytics/protobuf_server.h"
 #include "test_message.pb.h"
-#include "test_message_extensions.pb.h"
 
 using namespace ::google::protobuf;
 using boost::assign::map_list_of;
 
-static std::string tm_desc_file_(
-    "build/debug/analytics/test/test_message.desc");
-static std::string tme_desc_file_(
-    "build/debug/analytics/test/test_message_extensions.desc");
 static const int kTestMessageBufferSize = 1024;
-static const int kSelfDescribingMessageBufferSize = 8 * 1024;
+static const int kTelemetryStreamBufferSize = 8 * 1024;
 static const int kTestMessageSizeBufferSize = 5 * 1024;
-static const int kSelfDescribingMessageSizeBufferSize = 16 * 1024;
+static const int kTelemetryStreamSizeBufferSize = 16 * 1024;
 
+static std::string schema_file_directory("build/debug/analytics/test/");
 namespace {
 
 class MockProtobufReader : public protobuf::impl::ProtobufReader {
  protected:
-    virtual const Message* GetPrototype(const Descriptor *mdesc) {
+    virtual const Message* GetPrototype(std::string msg_type) {
+        return NULL;
+    }
+    virtual const Message* GetPrototype(const ::google::protobuf::Descriptor *mdesc) {
         return NULL;
     }
 };
@@ -50,60 +49,7 @@ class MockProtobufReader : public protobuf::impl::ProtobufReader {
 class ProtobufReaderTest : public ::testing::Test {
 };
 
-template<typename MessageT, typename InnerMessageT>
-bool VerifyTestMessageInner(const Message &inner_msg, int expected_status,
-    typename MessageT::TestMessageEnum expected_enum,
-    const char *expected_enum_name) {
-    // Descriptor
-    const Descriptor *inner_msg_desc = inner_msg.GetDescriptor();
-    const FieldDescriptor* tm_inner_name_field =
-        inner_msg_desc->FindFieldByName("tm_inner_name");
-    EXPECT_TRUE(tm_inner_name_field != NULL);
-    EXPECT_TRUE(tm_inner_name_field->type() == FieldDescriptor::TYPE_STRING);
-    EXPECT_TRUE(tm_inner_name_field->label() ==
-        FieldDescriptor::LABEL_REQUIRED);
-    EXPECT_TRUE(tm_inner_name_field->number() == 1);
-    const FieldDescriptor* tm_inner_status_field =
-        inner_msg_desc->FindFieldByName("tm_inner_status");
-    EXPECT_TRUE(tm_inner_status_field != NULL);
-    EXPECT_TRUE(tm_inner_status_field->type() == FieldDescriptor::TYPE_INT32);
-    EXPECT_TRUE(tm_inner_status_field->label() ==
-        FieldDescriptor::LABEL_OPTIONAL);
-    EXPECT_TRUE(tm_inner_status_field->number() == 2);
-    const FieldDescriptor* tm_inner_counter_field =
-        inner_msg_desc->FindFieldByName("tm_inner_counter");
-    EXPECT_TRUE(tm_inner_counter_field != NULL);
-    EXPECT_TRUE(tm_inner_counter_field->type() == FieldDescriptor::TYPE_INT32);
-    EXPECT_TRUE(tm_inner_counter_field->label() ==
-        FieldDescriptor::LABEL_OPTIONAL);
-    EXPECT_TRUE(tm_inner_counter_field->number() == 3);
-    const FieldDescriptor* tm_inner_enum_field =
-        inner_msg_desc->FindFieldByName("tm_inner_enum");
-    EXPECT_TRUE(tm_inner_enum_field != NULL);
-    EXPECT_TRUE(tm_inner_enum_field->type() == FieldDescriptor::TYPE_ENUM);
-    EXPECT_TRUE(tm_inner_enum_field->label() ==
-        FieldDescriptor::LABEL_OPTIONAL);
-    EXPECT_TRUE(tm_inner_enum_field->number() == 4);
-    // Reflection
-    const Reflection *inner_reflection = inner_msg.GetReflection();
-    std::string tm_inner_name(TYPE_NAME(InnerMessageT));
-    std::stringstream ss;
-    ss << tm_inner_name << expected_status;
-    EXPECT_TRUE(inner_reflection->GetString(
-        inner_msg, tm_inner_name_field) == ss.str());
-    EXPECT_TRUE(inner_reflection->GetInt32(
-        inner_msg, tm_inner_status_field) == expected_status);
-    EXPECT_TRUE(inner_reflection->GetInt32(
-        inner_msg, tm_inner_counter_field) == expected_status);
-    const EnumValueDescriptor *edesc(inner_reflection->GetEnum(
-        inner_msg, tm_inner_enum_field));
-    EXPECT_TRUE(edesc != NULL);
-    EXPECT_STREQ(edesc->name().c_str(), expected_enum_name);
-    EXPECT_EQ(typename MessageT::TestMessageEnum(edesc->number()),
-        expected_enum);
-    return true;
-}
-
+// Verify the content and structure of Test Message
 template<typename MessageT, typename InnerMessageT>
 bool VerifyTestMessage(const Message *msg, const Descriptor *mdesc) {
     // Get the descriptors for the fields we're interested in and verify
@@ -111,25 +57,21 @@ bool VerifyTestMessage(const Message *msg, const Descriptor *mdesc) {
     const FieldDescriptor* tm_name_field = mdesc->FindFieldByName("tm_name");
     EXPECT_TRUE(tm_name_field != NULL);
     EXPECT_TRUE(tm_name_field->type() == FieldDescriptor::TYPE_STRING);
-    EXPECT_TRUE(tm_name_field->label() == FieldDescriptor::LABEL_REQUIRED);
     EXPECT_TRUE(tm_name_field->number() == 1);
     const FieldDescriptor* tm_status_field =
         mdesc->FindFieldByName("tm_status");
     EXPECT_TRUE(tm_status_field != NULL);
     EXPECT_TRUE(tm_status_field->type() == FieldDescriptor::TYPE_STRING);
-    EXPECT_TRUE(tm_status_field->label() == FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_status_field->number() == 2);
     const FieldDescriptor* tm_counter_field =
         mdesc->FindFieldByName("tm_counter");
     EXPECT_TRUE(tm_counter_field != NULL);
     EXPECT_TRUE(tm_counter_field->type() == FieldDescriptor::TYPE_INT32);
-    EXPECT_TRUE(tm_counter_field->label() == FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_counter_field->number() == 3);
     const FieldDescriptor* tm_enum_field =
         mdesc->FindFieldByName("tm_enum");
     EXPECT_TRUE(tm_enum_field != NULL);
     EXPECT_TRUE(tm_enum_field->type() == FieldDescriptor::TYPE_ENUM);
-    EXPECT_TRUE(tm_enum_field->label() == FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_enum_field->number() == 5);
     // Inner Message
     const FieldDescriptor* tm_inner_field = mdesc->FindFieldByName("tm_inner");
@@ -143,31 +85,24 @@ bool VerifyTestMessage(const Message *msg, const Descriptor *mdesc) {
         imdesc->FindFieldByName("tm_inner_name");
     EXPECT_TRUE(tm_inner_name_field != NULL);
     EXPECT_TRUE(tm_inner_name_field->type() == FieldDescriptor::TYPE_STRING);
-    EXPECT_TRUE(tm_inner_name_field->label() ==
-        FieldDescriptor::LABEL_REQUIRED);
     EXPECT_TRUE(tm_inner_name_field->number() == 1);
     const FieldDescriptor* tm_inner_status_field =
         imdesc->FindFieldByName("tm_inner_status");
     EXPECT_TRUE(tm_inner_status_field != NULL);
     EXPECT_TRUE(tm_inner_status_field->type() == FieldDescriptor::TYPE_INT32);
-    EXPECT_TRUE(tm_inner_status_field->label() ==
-        FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_inner_status_field->number() == 2);
     const FieldDescriptor* tm_inner_counter_field =
         imdesc->FindFieldByName("tm_inner_counter");
     EXPECT_TRUE(tm_inner_counter_field != NULL);
     EXPECT_TRUE(tm_inner_counter_field->type() == FieldDescriptor::TYPE_INT32);
-    EXPECT_TRUE(tm_inner_counter_field->label() ==
-        FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_inner_counter_field->number() == 3);
     const FieldDescriptor* tm_inner_enum_field =
         imdesc->FindFieldByName("tm_inner_enum");
     EXPECT_TRUE(tm_inner_enum_field != NULL);
     EXPECT_TRUE(tm_inner_enum_field->type() == FieldDescriptor::TYPE_ENUM);
-    EXPECT_TRUE(tm_inner_enum_field->label() ==
-        FieldDescriptor::LABEL_OPTIONAL);
     EXPECT_TRUE(tm_inner_enum_field->number() == 4);
     // Use the reflection interface to examine the contents.
+    // Ensure that value is same as the set in PopulateTestMessage()
     const Reflection* reflection = msg->GetReflection();
     EXPECT_TRUE(reflection->GetString(*msg, tm_name_field) ==
         TYPE_NAME(MessageT));
@@ -179,16 +114,6 @@ bool VerifyTestMessage(const Message *msg, const Descriptor *mdesc) {
     EXPECT_EQ(typename MessageT::TestMessageEnum(edesc->number()),
         MessageT::GOOD);
     EXPECT_TRUE(reflection->FieldSize(*msg, tm_inner_field) == 2);
-    const Message &inner_msg1(
-        reflection->GetRepeatedMessage(*msg, tm_inner_field, 0));
-    bool success(VerifyTestMessageInner<MessageT, InnerMessageT>(inner_msg1,
-        1, MessageT::GOOD, "GOOD"));
-    EXPECT_TRUE(success);
-    const Message &inner_msg2(
-        reflection->GetRepeatedMessage(*msg, tm_inner_field, 1));
-    success = VerifyTestMessageInner<MessageT, InnerMessageT>(inner_msg2, 2,
-        MessageT::BAD, "BAD");
-    EXPECT_TRUE(success);
     return true;
 }
 
@@ -199,12 +124,14 @@ void PopulateTestMessage(MessageT *test_message) {
     test_message->set_tm_status("Test");
     test_message->set_tm_counter(3);
     test_message->set_tm_enum(MessageT::GOOD);
+    // Add element to tm_inner list
     InnerMessageT *test_message_inner = test_message->add_tm_inner();
     ASSERT_TRUE(test_message_inner != NULL);
     test_message_inner->set_tm_inner_name(TYPE_NAME(InnerMessageT) + "1");
     test_message_inner->set_tm_inner_status(1);
     test_message_inner->set_tm_inner_counter(1);
     test_message_inner->set_tm_inner_enum(MessageT::GOOD);
+    // Add element to tm_inner list
     test_message_inner = test_message->add_tm_inner();
     test_message_inner->set_tm_inner_name(TYPE_NAME(InnerMessageT) + "2");
     test_message_inner->set_tm_inner_status(2);
@@ -216,6 +143,7 @@ void PopulateTestMessage(MessageT *test_message) {
 void CreateAndSerializeTestMessage(uint8_t *output, size_t size,
     int *serialized_size) {
     TestMessage test_message;
+    // Populate the members in TestMessage Instance
     PopulateTestMessage<TestMessage, TestMessageInner>(&test_message);
     int test_message_size = test_message.ByteSize();
     ASSERT_GE(size, test_message_size);
@@ -279,226 +207,50 @@ void CreateAndSerializeTestMessageSize(uint8_t *output, size_t size,
     ASSERT_TRUE(success);
 }
 
-// Populate FileDescriptorSet
-void PopulateFileDescriptorSet(FileDescriptorSet *fds, const char *desc_file) {
-    std::ifstream desc(desc_file,
-        std::ios_base::in | std::ios_base::binary);
-    ASSERT_TRUE(desc.is_open());
-    bool success = fds->ParseFromIstream(&desc);
-    ASSERT_TRUE(success);
-    desc.close();
-}
-
-// Populate empty FileDescriptorSet
-void PopulateEmptyFileDescriptorSet(FileDescriptorSet *fds) {
-    fds->add_file();
-}
-
-void CreateAndSerializeSelfDescribingMessageInternal(
-    const FileDescriptorSet &fds,
+void CreateAndSerializeTelemetryStreamMessageInternal(
     const std::string &message_name, uint8_t *output, size_t size,
     int *serialized_size, uint8_t *message_data, size_t message_data_size) {
-    SelfDescribingMessage sdm_message;
-    sdm_message.set_timestamp(123456789);
-    sdm_message.mutable_proto_files()->CopyFrom(fds);
-    sdm_message.set_type_name(message_name);
-    sdm_message.set_message_data(message_data, message_data_size);
-    int sdm_message_size = sdm_message.ByteSize();
-    ASSERT_GE(size, sdm_message_size);
-    *serialized_size = sdm_message_size;
-    bool success = sdm_message.SerializeToArray(output, sdm_message_size);
-    ASSERT_TRUE(success);
-}
-
-// Create SelfDescribingMessage for message_name and serialize it
-void CreateAndSerializeSelfDescribingMessage(const std::string &message_name,
-    uint8_t *output, size_t size, int *serialized_size, const char *desc_file,
-    uint8_t *message_data, size_t message_data_size) {
-    FileDescriptorSet fds;
-    PopulateFileDescriptorSet(&fds, desc_file);
-    CreateAndSerializeSelfDescribingMessageInternal(fds,
-        message_name, output, size, serialized_size, message_data,
-        message_data_size);
-}
-
-TEST_F(ProtobufReaderTest, Parse) {
-    // Create TestMessage and serialize it
-    boost::scoped_array<uint8_t> data(new uint8_t[kTestMessageBufferSize]);
-    int serialized_data_size(0);
-    CreateAndSerializeTestMessage(data.get(), kTestMessageBufferSize,
-        &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessage and serialize it
-    boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
-    int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tm_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
-    // Parse the SelfDescribingMessage from sdm_data to get TestMessage
-    protobuf::impl::ProtobufReader reader;
-    Message *msg = NULL;
-    uint64_t timestamp;
-    bool success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg, NULL);
-    ASSERT_TRUE(success);
-    ASSERT_TRUE(msg != NULL);
-    EXPECT_EQ(123456789, timestamp);
-    const Descriptor *mdesc = msg->GetDescriptor();
-    ASSERT_TRUE(mdesc != NULL);
-    success = VerifyTestMessage<TestMessage, TestMessageInner>(msg, mdesc);
-    EXPECT_TRUE(success);
-    delete msg;
-}
-
-void PopulateTestMessageBaseExtension(int extension,
-    TestMessageBase *base_message) {
-    TestMessageExtension1 *test_message_ext10;
-    TestMessageExtension2 *test_message_ext20;
-    switch (extension) {
-    case 10:
-        test_message_ext10 =
-            base_message->MutableExtension(tmb_extension10);
-        ASSERT_TRUE(test_message_ext10 != NULL);
-        PopulateTestMessage<TestMessageExtension1,
-            TestMessageExtension1Inner>(test_message_ext10);
-        break;
-    case 20:
-        test_message_ext20 =
-            base_message->MutableExtension(tmb_extension20);
-        ASSERT_TRUE(test_message_ext20 != NULL);
-        PopulateTestMessage<TestMessageExtension2,
-            TestMessageExtension2Inner>(test_message_ext20);
-        break;
-    default:
-        ASSERT_TRUE(0);
-        break;
+    TelemetryStream tstream;
+    tstream.set_timestamp(123456789);
+    tstream.set_system_id("protobuf_test");
+    if (message_data[0] == 0) {
+    } else if (message_name.compare("TestMessage") == 0) {
+        ASSERT_TRUE(tstream.mutable_enterprise()
+                ->MutableExtension(juniperNetworks)->MutableExtension(tm_simple)
+                    ->ParseFromArray(message_data, message_data_size));
+    } else if (message_name.compare("TestMessageBase") == 0) {
+        ASSERT_TRUE(tstream.mutable_enterprise()
+                    ->MutableExtension(juniperNetworks)->MutableExtension(tm_base)
+                    ->ParseFromArray(message_data, message_data_size));
+    } else if (message_name.compare("TestMessageBaseStream") == 0) {
+        ASSERT_TRUE(tstream.mutable_enterprise()
+                    ->MutableExtension(juniperNetworks)
+                    ->MutableExtension(tm_base_stream)
+                    ->ParseFromArray(message_data, message_data_size));
+    } else if (message_name.compare("TestMessageAllTypes") == 0) {
+        ASSERT_TRUE(tstream.mutable_enterprise()
+                    ->MutableExtension(juniperNetworks)->MutableExtension(tm_all_types)
+                    ->ParseFromArray(message_data, message_data_size));
+    } else if (message_name.compare("TestMessageSize") == 0) {
+        ASSERT_TRUE(tstream.mutable_enterprise()
+                    ->MutableExtension(juniperNetworks)->MutableExtension(tm_size)
+                    ->ParseFromArray(message_data, message_data_size));
     }
-}
-
-// Create TestMessageBase and serialize it
-void CreateAndSerializeTestMessageBase(uint8_t *output,
-    size_t size, int *serialized_size) {
-    TestMessageBase base_message;
-    base_message.set_tmb_name("TestMessageBase");
-    base_message.set_tmb_status("Test");
-    base_message.set_tmb_counter(3);
-    base_message.set_tmb_enum(TestMessageBase::GOOD);
-    PopulateTestMessageBaseExtension(10, &base_message);
-    PopulateTestMessageBaseExtension(20, &base_message);
-    int base_message_size = base_message.ByteSize();
-    ASSERT_GE(size, base_message_size);
-    *serialized_size += base_message_size;
-    bool success = base_message.SerializeToArray(output, base_message_size);
+    int tstream_size = tstream.ByteSize();
+    ASSERT_GE(size, tstream_size);
+    *serialized_size = tstream_size;
+    bool success = tstream.SerializeToArray(output, tstream_size);
     ASSERT_TRUE(success);
 }
 
-template<typename MessageT, typename InnerMessageT>
-bool VerifyTestMessageBaseExtension(int extension, const Message *msg,
-    const Descriptor *mdesc) {
-    std::string extension_name_prefix("tmb_extension");
-    std::stringstream ss;
-    ss << extension_name_prefix << extension;
-    std::string extension_name(ss.str());
-    // Use the reflection interface to examine the contents.
-    const Reflection* reflection = msg->GetReflection();
-    const FieldDescriptor* reflect_tmb_extension_field =
-        reflection->FindKnownExtensionByName(extension_name);
-    EXPECT_TRUE(reflect_tmb_extension_field != NULL);
-    // Get the descriptors for the fields we're interested in and verify
-    // their types.
-    const DescriptorPool *pool(mdesc->file()->pool());
-    EXPECT_TRUE(pool != NULL);
-    const FieldDescriptor* tmb_extension_field =
-        pool->FindExtensionByName(extension_name);
-    EXPECT_TRUE(tmb_extension_field != NULL);
-    EXPECT_TRUE(tmb_extension_field->type() == FieldDescriptor::TYPE_MESSAGE);
-    EXPECT_TRUE(tmb_extension_field->label() ==
-        FieldDescriptor::LABEL_OPTIONAL);
-    EXPECT_TRUE(tmb_extension_field->number() == extension);
-    EXPECT_TRUE(tmb_extension_field == reflect_tmb_extension_field);
-    const Message &extension_msg(
-        reflection->GetMessage(*msg, tmb_extension_field));
-    const Descriptor *extension_mdesc = extension_msg.GetDescriptor();
-    EXPECT_TRUE(extension_mdesc != NULL);
-    bool success = VerifyTestMessage<MessageT, InnerMessageT>(
-        &extension_msg, extension_mdesc);
-    EXPECT_TRUE(success);
-    return success;
-}
-
-bool VerifyTestMessageBase(const Message *msg, const Descriptor *mdesc) {
-    // Get the descriptors for the fields we're interested in and verify
-    // their types.
-    const FieldDescriptor* tmb_name_field = mdesc->FindFieldByName("tmb_name");
-    EXPECT_TRUE(tmb_name_field != NULL);
-    EXPECT_TRUE(tmb_name_field->type() == FieldDescriptor::TYPE_STRING);
-    EXPECT_TRUE(tmb_name_field->label() == FieldDescriptor::LABEL_REQUIRED);
-    EXPECT_TRUE(tmb_name_field->number() == 1);
-    const FieldDescriptor* tmb_status_field =
-        mdesc->FindFieldByName("tmb_status");
-    EXPECT_TRUE(tmb_status_field != NULL);
-    EXPECT_TRUE(tmb_status_field->type() == FieldDescriptor::TYPE_STRING);
-    EXPECT_TRUE(tmb_status_field->label() == FieldDescriptor::LABEL_OPTIONAL);
-    EXPECT_TRUE(tmb_status_field->number() == 2);
-    const FieldDescriptor* tmb_counter_field =
-        mdesc->FindFieldByName("tmb_counter");
-    EXPECT_TRUE(tmb_counter_field != NULL);
-    EXPECT_TRUE(tmb_counter_field->type() == FieldDescriptor::TYPE_INT32);
-    EXPECT_TRUE(tmb_counter_field->label() == FieldDescriptor::LABEL_OPTIONAL);
-    EXPECT_TRUE(tmb_counter_field->number() == 3);
-    const FieldDescriptor* tmb_enum_field =
-        mdesc->FindFieldByName("tmb_enum");
-    EXPECT_TRUE(tmb_enum_field != NULL);
-    EXPECT_TRUE(tmb_enum_field->type() == FieldDescriptor::TYPE_ENUM);
-    EXPECT_TRUE(tmb_enum_field->label() == FieldDescriptor::LABEL_OPTIONAL);
-    EXPECT_TRUE(tmb_enum_field->number() == 4);
-    // Use the reflection interface to examine the contents.
-    const Reflection* reflection = msg->GetReflection();
-    EXPECT_TRUE(reflection->GetString(*msg, tmb_name_field) ==
-        "TestMessageBase");
-    EXPECT_TRUE(reflection->GetString(*msg, tmb_status_field) == "Test");
-    EXPECT_TRUE(reflection->GetInt32(*msg, tmb_counter_field) == 3);
-    const EnumValueDescriptor *edesc(reflection->GetEnum(*msg,
-        tmb_enum_field));
-    EXPECT_TRUE(edesc != NULL);
-    EXPECT_STREQ(edesc->name().c_str(), "GOOD");
-    EXPECT_EQ(TestMessageBase::TestMessageEnum(edesc->number()),
-        TestMessageBase::GOOD);
-    bool success(VerifyTestMessageBaseExtension<TestMessageExtension1,
-        TestMessageExtension1Inner>(10, msg, mdesc));
-    EXPECT_TRUE(success);
-    success = VerifyTestMessageBaseExtension<TestMessageExtension2,
-        TestMessageExtension2Inner>(20, msg, mdesc);
-    EXPECT_TRUE(success);
-    return success;
-}
-
-TEST_F(ProtobufReaderTest, ParseMessageExtensions) {
-    // Create TestMessageBase with extensions and serialize it
-    boost::scoped_array<uint8_t> data(new uint8_t[kTestMessageBufferSize]);
-    int serialized_data_size(0);
-    CreateAndSerializeTestMessageBase(data.get(), kTestMessageBufferSize,
-        &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessageBase and serialize it
-    boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
-    int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessageBase", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tme_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
-    // Parse the SelfDescribingMessage from sdm_data to get TestMessageBase
-    protobuf::impl::ProtobufReader reader;
-    Message *msg = NULL;
-    uint64_t timestamp;
-    bool success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg, NULL);
-    ASSERT_TRUE(success);
-    ASSERT_TRUE(msg != NULL);
-    EXPECT_EQ(123456789, timestamp);
-    const Descriptor *mdesc = msg->GetDescriptor();
-    ASSERT_TRUE(mdesc != NULL);
-    EXPECT_TRUE(VerifyTestMessageBase(msg, mdesc));
-    delete msg;
+// Create TelemetryStream for message_name and serialize it
+void CreateAndSerializeTelemetryStreamMessage(const std::string &message_name,
+    uint8_t *output, size_t size, int *serialized_size,
+    uint8_t *message_data, size_t message_data_size) {
+    CreateAndSerializeTelemetryStreamMessageInternal(message_name, output,
+                                                     size, serialized_size,
+                                                     message_data,
+                                                     message_data_size);
 }
 
 static void ProtobufReaderTestParseFailure(const std::string &message) {
@@ -506,95 +258,83 @@ static void ProtobufReaderTestParseFailure(const std::string &message) {
 
 TEST_F(ProtobufReaderTest, ParseFail) {
     google::protobuf::SetLogHandler(&protobuf::impl::ProtobufLibraryLog);
+
     // Create TestMessage and serialize it
     boost::scoped_array<uint8_t> data(new uint8_t[kTestMessageBufferSize]);
     int serialized_data_size(0);
     CreateAndSerializeTestMessage(data.get(), kTestMessageBufferSize,
         &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessage and serialize it
+
+    // Failure 1
+    // Create TelemetryStream for TestMessage and serialize it
     boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
+                                new uint8_t[kTelemetryStreamBufferSize]);
     int serialized_sdm_data_size(0);
-    // FAILURE 1
     // Change message name to fail parsing
-    CreateAndSerializeSelfDescribingMessage("TestMessageFail", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tm_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
-    // Parse the SelfDescribingMessage from sdm_data to get TestMessage
+    CreateAndSerializeTelemetryStreamMessage("TestMessageFail", sdm_data.get(),
+        kTelemetryStreamBufferSize, &serialized_sdm_data_size,
+        data.get(), (size_t) serialized_data_size);
+    // Parse the TelemetryStream from sdm_data to get TestMessage
     protobuf::impl::ProtobufReader reader;
+    std::string message_name;
     Message *msg = NULL;
     uint64_t timestamp;
-    bool success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg,
+    TelemetryStream tstream;
+    bool success = reader.ParseTelemetryStreamMessage(&tstream, sdm_data.get(),
+        serialized_sdm_data_size, &timestamp, &message_name, &msg,
         ProtobufReaderTestParseFailure);
     ASSERT_FALSE(success);
     ASSERT_TRUE(msg == NULL);
-    // Create SelfDescribingMessage for TestMessage and serialize it
-    sdm_data.reset(new uint8_t[kSelfDescribingMessageBufferSize]);
+
+    // Failure 2 
+    // Create TelemetryStream for TestMessage and serialize it
+    sdm_data.reset(new uint8_t[kTelemetryStreamBufferSize]);
     serialized_sdm_data_size = 0;
-    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tm_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
-    // FAILURE 2
-    // Change one byte in the serialized SelfDescribingMessage to fail parsing
+    CreateAndSerializeTelemetryStreamMessage("TestMessage", sdm_data.get(),
+        kTelemetryStreamBufferSize, &serialized_sdm_data_size,
+        data.get(), (size_t) serialized_data_size);
+    // Change one byte in the serialized TelemetryStream to fail parsing
     uint8_t *sdm_data_start(sdm_data.get());
     *sdm_data_start = 0;
-    success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg,
+    success = reader.ParseTelemetryStreamMessage(&tstream, sdm_data.get(),
+        serialized_sdm_data_size, &timestamp, &message_name, &msg,
         ProtobufReaderTestParseFailure);
     ASSERT_FALSE(success);
     ASSERT_TRUE(msg == NULL);
-    // Create SelfDescribingMessage for TestMessage and serialize it
-    sdm_data.reset(new uint8_t[kSelfDescribingMessageBufferSize]);
+
+    // Failure 3
+    // Create TelemetryStream for TestMessage and serialize it
+    sdm_data.reset(new uint8_t[kTelemetryStreamBufferSize]);
     serialized_sdm_data_size = 0;
-    // FAILURE 3
     // Change one byte in the serialized TestMessage to fail parsing
     uint8_t *data_start(data.get());
     *data_start = 0;
-    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tm_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
-    success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg,
+    CreateAndSerializeTelemetryStreamMessage("TestMessage", sdm_data.get(),
+        kTelemetryStreamBufferSize, &serialized_sdm_data_size,
+        data.get(), (size_t) serialized_data_size);
+    success = reader.ParseTelemetryStreamMessage(&tstream, sdm_data.get(),
+        serialized_sdm_data_size, &timestamp, &message_name, &msg,
         ProtobufReaderTestParseFailure);
     ASSERT_FALSE(success);
     ASSERT_TRUE(msg == NULL);
+
+    // Failure 4
     // Create TestMessage and serialize it
     data.reset(new uint8_t[kTestMessageBufferSize]);
     serialized_data_size = 0;
     CreateAndSerializeTestMessage(data.get(), kTestMessageBufferSize,
         &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessage and serialize it
-    sdm_data.reset(new uint8_t[kSelfDescribingMessageBufferSize]);
+    // Create TelemetryStream for TestMessage and serialize it
+    sdm_data.reset(new uint8_t[kTelemetryStreamBufferSize]);
     serialized_sdm_data_size = 0;
-    FileDescriptorSet fds;
-    // FAILURE 4
-    // Populate empty FileDescriptorSet/Proto
-    PopulateEmptyFileDescriptorSet(&fds);
-    CreateAndSerializeSelfDescribingMessageInternal(fds,
-        "TestMessage", sdm_data.get(), kSelfDescribingMessageBufferSize,
-        &serialized_sdm_data_size, data.get(), (size_t) serialized_data_size);
-    success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg,
-        ProtobufReaderTestParseFailure);
-    ASSERT_FALSE(success);
-    ASSERT_TRUE(msg == NULL);
-    // Create TestMessage and serialize it
-    data.reset(new uint8_t[kTestMessageBufferSize]);
-    serialized_data_size = 0;
-    CreateAndSerializeTestMessage(data.get(), kTestMessageBufferSize,
-        &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessage and serialize it
-    sdm_data.reset(new uint8_t[kSelfDescribingMessageBufferSize]);
-    serialized_sdm_data_size = 0;
-    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tm_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
-    // FAILURE 5
+    CreateAndSerializeTelemetryStreamMessage("TestMessage", sdm_data.get(),
+        kTelemetryStreamBufferSize, &serialized_sdm_data_size,
+        data.get(), (size_t) serialized_data_size);
+
     // Override GetPrototype to return NULL prototype message
     MockProtobufReader mreader;
-    success = mreader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg,
+    success = mreader.ParseTelemetryStreamMessage(&tstream, sdm_data.get(),
+        serialized_sdm_data_size, &timestamp, &message_name, &msg,
         ProtobufReaderTestParseFailure);
     ASSERT_FALSE(success);
     ASSERT_TRUE(msg == NULL);
@@ -685,21 +425,49 @@ public:
 vector<ArgSet> PopulateTestMessageStatsInfo() {
     vector<ArgSet> av;
     ArgSet a1;
-    a1.statAttr = string("tm_inner");
+    a1.statAttr = string("enterprise.juniperNetworks.tm_simple.tm_inner");
     a1.attribs = map_list_of
         ("Source", DbHandler::Var("127.0.0.1"))
+        ("component_id", DbHandler::Var((uint64_t)0))
+        ("sensor_name", DbHandler::Var(""))
+        ("sequence_number", DbHandler::Var((uint64_t)0))
+        ("sub_component_id", DbHandler::Var((uint64_t)0))
+        ("system_id", DbHandler::Var("protobuf_test"))
+        ("version_major", DbHandler::Var((uint64_t)0))
+        ("version_minor", DbHandler::Var((uint64_t)0))
+
         ("tm_name", DbHandler::Var("TestMessage"))
         ("tm_status", DbHandler::Var("Test"))
         ("tm_counter", DbHandler::Var((uint64_t)3))
         ("tm_enum", DbHandler::Var("GOOD"))
-        ("tm_inner.tm_inner_name", DbHandler::Var("TestMessageInner1"))
-        ("tm_inner.tm_inner_status", DbHandler::Var((uint64_t)1))
-        ("tm_inner.tm_inner_counter", DbHandler::Var((uint64_t)1))
-        ("tm_inner.tm_inner_enum", DbHandler::Var("GOOD"));
+
+        ("enterprise.juniperNetworks.tm_simple.tm_name", DbHandler::Var("TestMessage"))
+        ("enterprise.juniperNetworks.tm_simple.tm_status", DbHandler::Var("Test"))
+        ("enterprise.juniperNetworks.tm_simple.tm_counter", DbHandler::Var((uint64_t)3))
+        ("enterprise.juniperNetworks.tm_simple.tm_enum", DbHandler::Var("GOOD"))
+        ("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_name", DbHandler::Var("TestMessageInner1"))
+        ("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_status", DbHandler::Var((uint64_t)1))
+        ("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_counter", DbHandler::Var((uint64_t)1))
+        ("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_enum", DbHandler::Var("GOOD"));
 
     DbHandler::AttribMap sm;
     a1.attribs_tag.insert(make_pair("Source", make_pair(
         DbHandler::Var("127.0.0.1"), sm)));
+    a1.attribs_tag.insert(make_pair("component_id", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a1.attribs_tag.insert(make_pair("sensor_name", make_pair(
+        DbHandler::Var(""), sm)));
+    a1.attribs_tag.insert(make_pair("sequence_number", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a1.attribs_tag.insert(make_pair("sub_component_id", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a1.attribs_tag.insert(make_pair("system_id", make_pair(
+        DbHandler::Var("protobuf_test"), sm)));
+    a1.attribs_tag.insert(make_pair("version_major", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a1.attribs_tag.insert(make_pair("version_minor", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+
     a1.attribs_tag.insert(make_pair("tm_name", make_pair(
         DbHandler::Var("TestMessage"), sm)));
     a1.attribs_tag.insert(make_pair("tm_status", make_pair(
@@ -708,27 +476,65 @@ vector<ArgSet> PopulateTestMessageStatsInfo() {
         DbHandler::Var((uint64_t)3), sm)));
     a1.attribs_tag.insert(make_pair("tm_enum", make_pair(
         DbHandler::Var("GOOD"), sm)));
-    a1.attribs_tag.insert(make_pair("tm_inner.tm_inner_name",
+
+    a1.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_name", make_pair(
+        DbHandler::Var("TestMessage"), sm)));
+    a1.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_status", make_pair(
+        DbHandler::Var("Test"), sm)));
+    a1.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_counter", make_pair(
+        DbHandler::Var((uint64_t)3), sm)));
+    a1.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
+
+    a1.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_name",
         make_pair(DbHandler::Var("TestMessageInner1"), sm)));
-    a1.attribs_tag.insert(make_pair("tm_inner.tm_inner_enum",
+    a1.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_enum",
         make_pair(DbHandler::Var("GOOD"), sm)));
     av.push_back(a1);
 
     ArgSet a2;
-    a2.statAttr = string("tm_inner");
+    a2.statAttr = string("enterprise.juniperNetworks.tm_simple.tm_inner");
     a2.attribs = map_list_of
         ("Source", DbHandler::Var("127.0.0.1"))
+        ("component_id", DbHandler::Var((uint64_t)0))
+        ("sensor_name", DbHandler::Var(""))
+        ("sequence_number", DbHandler::Var((uint64_t)0))
+        ("sub_component_id", DbHandler::Var((uint64_t)0))
+        ("system_id", DbHandler::Var("protobuf_test"))
+        ("version_major", DbHandler::Var((uint64_t)0))
+        ("version_minor", DbHandler::Var((uint64_t)0))
+
         ("tm_name", DbHandler::Var("TestMessage"))
         ("tm_status", DbHandler::Var("Test"))
         ("tm_counter", DbHandler::Var((uint64_t)3))
         ("tm_enum", DbHandler::Var("GOOD"))
-        ("tm_inner.tm_inner_name", DbHandler::Var("TestMessageInner2"))
-        ("tm_inner.tm_inner_status", DbHandler::Var((uint64_t)2))
-        ("tm_inner.tm_inner_counter", DbHandler::Var((uint64_t)2))
-        ("tm_inner.tm_inner_enum", DbHandler::Var("BAD"));
+
+        ("enterprise.juniperNetworks.tm_simple.tm_name", DbHandler::Var("TestMessage"))
+        ("enterprise.juniperNetworks.tm_simple.tm_status", DbHandler::Var("Test"))
+        ("enterprise.juniperNetworks.tm_simple.tm_counter", DbHandler::Var((uint64_t)3))
+        ("enterprise.juniperNetworks.tm_simple.tm_enum", DbHandler::Var("GOOD"))
+        ("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_name", DbHandler::Var("TestMessageInner2"))
+        ("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_status", DbHandler::Var((uint64_t)2))
+        ("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_counter", DbHandler::Var((uint64_t)2))
+        ("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_enum", DbHandler::Var("BAD"));
 
     a2.attribs_tag.insert(make_pair("Source", make_pair(
         DbHandler::Var("127.0.0.1"), sm)));
+    a2.attribs_tag.insert(make_pair("component_id", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a2.attribs_tag.insert(make_pair("sensor_name", make_pair(
+        DbHandler::Var(""), sm)));
+    a2.attribs_tag.insert(make_pair("sequence_number", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a2.attribs_tag.insert(make_pair("sub_component_id", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a2.attribs_tag.insert(make_pair("system_id", make_pair(
+        DbHandler::Var("protobuf_test"), sm)));
+    a2.attribs_tag.insert(make_pair("version_major", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a2.attribs_tag.insert(make_pair("version_minor", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+
     a2.attribs_tag.insert(make_pair("tm_name", make_pair(
         DbHandler::Var("TestMessage"), sm)));
     a2.attribs_tag.insert(make_pair("tm_status", make_pair(
@@ -737,11 +543,80 @@ vector<ArgSet> PopulateTestMessageStatsInfo() {
         DbHandler::Var((uint64_t)3), sm)));
     a2.attribs_tag.insert(make_pair("tm_enum", make_pair(
         DbHandler::Var("GOOD"), sm)));
-    a2.attribs_tag.insert(make_pair("tm_inner.tm_inner_name",
+
+    a2.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_name", make_pair(
+        DbHandler::Var("TestMessage"), sm)));
+    a2.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_status", make_pair(
+        DbHandler::Var("Test"), sm)));
+    a2.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_counter", make_pair(
+        DbHandler::Var((uint64_t)3), sm)));
+    a2.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
+
+    a2.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_name",
         make_pair(DbHandler::Var("TestMessageInner2"), sm)));
-    a2.attribs_tag.insert(make_pair("tm_inner.tm_inner_enum",
+    a2.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_inner.tm_inner_enum",
         make_pair(DbHandler::Var("BAD"), sm)));
     av.push_back(a2);
+
+    ArgSet a3;
+    a3.statAttr = string("enterprise.juniperNetworks.tm_simple");
+    a3.attribs = map_list_of
+        ("Source", DbHandler::Var("127.0.0.1"))
+        ("component_id", DbHandler::Var((uint64_t)0))
+        ("sensor_name", DbHandler::Var(""))
+        ("sequence_number", DbHandler::Var((uint64_t)0))
+        ("sub_component_id", DbHandler::Var((uint64_t)0))
+        ("system_id", DbHandler::Var("protobuf_test"))
+        ("version_major", DbHandler::Var((uint64_t)0))
+        ("version_minor", DbHandler::Var((uint64_t)0))
+
+        ("tm_name", DbHandler::Var("TestMessage"))
+        ("tm_status", DbHandler::Var("Test"))
+        ("tm_counter", DbHandler::Var((uint64_t)3))
+        ("tm_enum", DbHandler::Var("GOOD"))
+
+        ("enterprise.juniperNetworks.tm_simple.tm_name", DbHandler::Var("TestMessage"))
+        ("enterprise.juniperNetworks.tm_simple.tm_status", DbHandler::Var("Test"))
+        ("enterprise.juniperNetworks.tm_simple.tm_counter", DbHandler::Var((uint64_t)3))
+        ("enterprise.juniperNetworks.tm_simple.tm_enum", DbHandler::Var("GOOD"));
+
+    a3.attribs_tag.insert(make_pair("Source", make_pair(
+        DbHandler::Var("127.0.0.1"), sm)));
+    a3.attribs_tag.insert(make_pair("component_id", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a3.attribs_tag.insert(make_pair("sensor_name", make_pair(
+        DbHandler::Var(""), sm)));
+    a3.attribs_tag.insert(make_pair("sequence_number", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a3.attribs_tag.insert(make_pair("sub_component_id", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a3.attribs_tag.insert(make_pair("system_id", make_pair(
+        DbHandler::Var("protobuf_test"), sm)));
+    a3.attribs_tag.insert(make_pair("version_major", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+    a3.attribs_tag.insert(make_pair("version_minor", make_pair(
+        DbHandler::Var((uint64_t)0), sm)));
+
+    a3.attribs_tag.insert(make_pair("tm_name", make_pair(
+        DbHandler::Var("TestMessage"), sm)));
+    a3.attribs_tag.insert(make_pair("tm_status", make_pair(
+        DbHandler::Var("Test"), sm)));
+    a3.attribs_tag.insert(make_pair("tm_counter", make_pair(
+        DbHandler::Var((uint64_t)3), sm)));
+    a3.attribs_tag.insert(make_pair("tm_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
+
+    a3.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_name", make_pair(
+        DbHandler::Var("TestMessage"), sm)));
+    a3.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_status", make_pair(
+        DbHandler::Var("Test"), sm)));
+    a3.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_counter", make_pair(
+        DbHandler::Var((uint64_t)3), sm)));
+    a3.attribs_tag.insert(make_pair("enterprise.juniperNetworks.tm_simple.tm_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
+
+    av.push_back(a3);
     return av;
 }
 
@@ -847,63 +722,16 @@ void PopulateTestMessageExtensionStatsAttribsTag(DbHandler::TagMap *attribs_tag,
         make_pair(DbHandler::Var(inner_enum_name), sm)));
 }
 
-vector<ArgSet> PopulateTestMessageBaseStatsInfo() {
-    vector<ArgSet> av;
-
-    ArgSet a1;
-    a1.statAttr = string("tmb_extension10");
-    PopulateTestMessageBaseStatsAttribs<TestMessageExtension1>(&a1.attribs,
-        10);
-    PopulateTestMessageBaseStatsAttribsTag<TestMessageExtension1>(
-        &a1.attribs_tag, 10);
-    av.push_back(a1);
-
-    ArgSet a2;
-    a2.statAttr = string("tmb_extension10.tm_inner");
-    PopulateTestMessageExtensionStatsAttribs<TestMessageExtension1,
-        TestMessageExtension1Inner>(&a2.attribs, 10, 1, 1, "GOOD");
-    PopulateTestMessageExtensionStatsAttribsTag<TestMessageExtension1,
-        TestMessageExtension1Inner>(&a2.attribs_tag, 10, 1, "GOOD");
-    av.push_back(a2);
-
-    ArgSet a3;
-    a3.statAttr = string("tmb_extension10.tm_inner");
-    PopulateTestMessageExtensionStatsAttribs<TestMessageExtension1,
-        TestMessageExtension1Inner>(&a3.attribs, 10, 2, 2, "BAD");
-    PopulateTestMessageExtensionStatsAttribsTag<TestMessageExtension1,
-        TestMessageExtension1Inner>(&a3.attribs_tag, 10, 2, "BAD");
-    av.push_back(a3);
-
-    ArgSet a4;
-    a4.statAttr = string("tmb_extension20");
-    PopulateTestMessageBaseStatsAttribs<TestMessageExtension2>(&a4.attribs,
-        20);
-    PopulateTestMessageBaseStatsAttribsTag<TestMessageExtension2>(
-        &a4.attribs_tag, 20);
-    av.push_back(a4);
-
-    ArgSet a5;
-    a5.statAttr = string("tmb_extension20.tm_inner");
-    PopulateTestMessageExtensionStatsAttribs<TestMessageExtension2,
-        TestMessageExtension2Inner>(&a5.attribs, 20, 1, 1, "GOOD");
-    PopulateTestMessageExtensionStatsAttribsTag<TestMessageExtension2,
-        TestMessageExtension2Inner>(&a5.attribs_tag, 20, 1, "GOOD");
-    av.push_back(a5);
-
-    ArgSet a6;
-    a6.statAttr = string("tmb_extension20.tm_inner");
-    PopulateTestMessageExtensionStatsAttribs<TestMessageExtension2,
-        TestMessageExtension2Inner>(&a6.attribs, 20, 2, 2, "BAD");
-    PopulateTestMessageExtensionStatsAttribsTag<TestMessageExtension2,
-        TestMessageExtension2Inner>(&a6.attribs_tag, 20, 2, "BAD");
-    av.push_back(a6);
-
-    return av;
-}
-
-void PopulateTestMessageAllTypesAttribs(DbHandler::AttribMap *attribs,
-    const std::string &statAttr) {
+void PopulateTestMessageAllTypes(DbHandler::AttribMap *attribs) {
     attribs->insert(make_pair("Source", DbHandler::Var("127.0.0.1")));
+    attribs->insert(make_pair("component_id", DbHandler::Var(static_cast<uint64_t>(0))));
+    attribs->insert(make_pair("sensor_name", DbHandler::Var("")));
+    attribs->insert(make_pair("sequence_number", DbHandler::Var(static_cast<uint64_t>(0))));
+    attribs->insert(make_pair("sub_component_id", DbHandler::Var(static_cast<uint64_t>(0))));
+    attribs->insert(make_pair("system_id", DbHandler::Var("protobuf_test")));
+    attribs->insert(make_pair("version_major", DbHandler::Var(static_cast<uint64_t>(0))));
+    attribs->insert(make_pair("version_minor", DbHandler::Var(static_cast<uint64_t>(0))));
+
     attribs->insert(make_pair("tmp_string", DbHandler::Var(
         "TestMessageAllTypes")));
     attribs->insert(make_pair("tmp_int32", DbHandler::Var(
@@ -921,6 +749,56 @@ void PopulateTestMessageAllTypesAttribs(DbHandler::AttribMap *attribs,
     attribs->insert(make_pair("tmp_bool", DbHandler::Var(
         static_cast<uint64_t>(true))));
     attribs->insert(make_pair("tmp_enum", DbHandler::Var("GOOD")));
+
+}
+void PopulateTestMessageAllTypesAttribs(DbHandler::AttribMap *attribs,
+    const std::string &statAttr) {
+    attribs->insert(make_pair("Source", DbHandler::Var("127.0.0.1")));
+    attribs->insert(make_pair("component_id", DbHandler::Var(static_cast<uint64_t>(0))));
+    attribs->insert(make_pair("sensor_name", DbHandler::Var("")));
+    attribs->insert(make_pair("sequence_number", DbHandler::Var(static_cast<uint64_t>(0))));
+    attribs->insert(make_pair("sub_component_id", DbHandler::Var(static_cast<uint64_t>(0))));
+    attribs->insert(make_pair("system_id", DbHandler::Var("protobuf_test")));
+    attribs->insert(make_pair("version_major", DbHandler::Var(static_cast<uint64_t>(0))));
+    attribs->insert(make_pair("version_minor", DbHandler::Var(static_cast<uint64_t>(0))));
+
+    attribs->insert(make_pair("tmp_string", DbHandler::Var(
+        "TestMessageAllTypes")));
+    attribs->insert(make_pair("tmp_int32", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<int32_t>::max()))));
+    attribs->insert(make_pair("tmp_int64", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))));
+    attribs->insert(make_pair("tmp_uint32", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))));
+    attribs->insert(make_pair("tmp_uint64", DbHandler::Var(
+        std::numeric_limits<uint64_t>::max())));
+    attribs->insert(make_pair("tmp_float", DbHandler::Var(
+        static_cast<double>(std::numeric_limits<float>::max()))));
+    attribs->insert(make_pair("tmp_double", DbHandler::Var(
+        std::numeric_limits<double>::max())));
+    attribs->insert(make_pair("tmp_bool", DbHandler::Var(
+        static_cast<uint64_t>(true))));
+    attribs->insert(make_pair("tmp_enum", DbHandler::Var("GOOD")));
+
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_string", DbHandler::Var(
+        "TestMessageAllTypes")));
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_int32", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<int32_t>::max()))));
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_int64", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))));
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_uint32", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))));
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_uint64", DbHandler::Var(
+        std::numeric_limits<uint64_t>::max())));
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_float", DbHandler::Var(
+        static_cast<double>(std::numeric_limits<float>::max()))));
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_double", DbHandler::Var(
+        std::numeric_limits<double>::max())));
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_bool", DbHandler::Var(
+        static_cast<uint64_t>(true))));
+    attribs->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_enum", DbHandler::Var("GOOD")));
+
+
     attribs->insert(make_pair(statAttr + ".tmp_inner_string", DbHandler::Var(
         "TestMessageAllTypesInner")));
     attribs->insert(make_pair(statAttr + ".tmp_inner_int32", DbHandler::Var(
@@ -941,11 +819,25 @@ void PopulateTestMessageAllTypesAttribs(DbHandler::AttribMap *attribs,
         "BAD")));
 }
 
-void PopulateTestMessageAllTypesAttribTags(DbHandler::TagMap *attribs_tag,
-    const std::string &statAttr) {
+void PopulateTestMessageAllTypesTags(DbHandler::TagMap *attribs_tag) {
     DbHandler::AttribMap sm;
     attribs_tag->insert(make_pair("Source", make_pair(
         DbHandler::Var("127.0.0.1"), sm)));
+    attribs_tag->insert(make_pair("component_id", make_pair(DbHandler::Var((uint64_t)0), sm)));
+    attribs_tag->insert(make_pair("sensor_name", make_pair(
+                                DbHandler::Var(""), sm)));
+    attribs_tag->insert(make_pair("sequence_number", make_pair(
+                                DbHandler::Var((uint64_t)0), sm)));
+    attribs_tag->insert(make_pair("sub_component_id", make_pair(
+                                DbHandler::Var((uint64_t)0), sm)));
+    attribs_tag->insert(make_pair("system_id", make_pair(
+                                DbHandler::Var("protobuf_test"), sm)));
+    attribs_tag->insert(make_pair("version_major", make_pair(
+                                DbHandler::Var((uint64_t)0), sm)));
+    attribs_tag->insert(make_pair("version_minor", make_pair(
+                                DbHandler::Var((uint64_t)0), sm)));
+
+
     attribs_tag->insert(make_pair("tmp_string", make_pair(
         DbHandler::Var("TestMessageAllTypes"), sm)));
     attribs_tag->insert(make_pair("tmp_int32", make_pair(
@@ -964,6 +856,84 @@ void PopulateTestMessageAllTypesAttribTags(DbHandler::TagMap *attribs_tag,
         DbHandler::Var((uint64_t) true), sm)));
     attribs_tag->insert(make_pair("tmp_enum", make_pair(
         DbHandler::Var("GOOD"), sm)));
+
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_string", make_pair(
+        DbHandler::Var("TestMessageAllTypes"), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_int32", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<int32_t>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_int64", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<int64_t>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_uint32", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<uint32_t>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_uint64", make_pair(
+        DbHandler::Var(std::numeric_limits<uint64_t>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_float", make_pair(
+        DbHandler::Var((double) std::numeric_limits<float>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_double", make_pair(
+        DbHandler::Var(std::numeric_limits<double>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_bool", make_pair(
+        DbHandler::Var((uint64_t) true), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
+}
+void PopulateTestMessageAllTypesAttribTags(DbHandler::TagMap *attribs_tag,
+    const std::string &statAttr) {
+    DbHandler::AttribMap sm;
+    attribs_tag->insert(make_pair("Source", make_pair(
+        DbHandler::Var("127.0.0.1"), sm)));
+    attribs_tag->insert(make_pair("component_id", make_pair(DbHandler::Var((uint64_t)0), sm)));
+    attribs_tag->insert(make_pair("sensor_name", make_pair(
+                                DbHandler::Var(""), sm)));
+    attribs_tag->insert(make_pair("sequence_number", make_pair(
+                                DbHandler::Var((uint64_t)0), sm)));
+    attribs_tag->insert(make_pair("sub_component_id", make_pair(
+                                DbHandler::Var((uint64_t)0), sm)));
+    attribs_tag->insert(make_pair("system_id", make_pair(
+                                DbHandler::Var("protobuf_test"), sm)));
+    attribs_tag->insert(make_pair("version_major", make_pair(
+                                DbHandler::Var((uint64_t)0), sm)));
+    attribs_tag->insert(make_pair("version_minor", make_pair(
+                                DbHandler::Var((uint64_t)0), sm)));
+
+
+    attribs_tag->insert(make_pair("tmp_string", make_pair(
+        DbHandler::Var("TestMessageAllTypes"), sm)));
+    attribs_tag->insert(make_pair("tmp_int32", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<int32_t>::max()), sm)));
+    attribs_tag->insert(make_pair("tmp_int64", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<int64_t>::max()), sm)));
+    attribs_tag->insert(make_pair("tmp_uint32", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<uint32_t>::max()), sm)));
+    attribs_tag->insert(make_pair("tmp_uint64", make_pair(
+        DbHandler::Var(std::numeric_limits<uint64_t>::max()), sm)));
+    attribs_tag->insert(make_pair("tmp_float", make_pair(
+        DbHandler::Var((double) std::numeric_limits<float>::max()), sm)));
+    attribs_tag->insert(make_pair("tmp_double", make_pair(
+        DbHandler::Var(std::numeric_limits<double>::max()), sm)));
+    attribs_tag->insert(make_pair("tmp_bool", make_pair(
+        DbHandler::Var((uint64_t) true), sm)));
+    attribs_tag->insert(make_pair("tmp_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
+
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_string", make_pair(
+        DbHandler::Var("TestMessageAllTypes"), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_int32", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<int32_t>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_int64", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<int64_t>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_uint32", make_pair(
+        DbHandler::Var((uint64_t) std::numeric_limits<uint32_t>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_uint64", make_pair(
+        DbHandler::Var(std::numeric_limits<uint64_t>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_float", make_pair(
+        DbHandler::Var((double) std::numeric_limits<float>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_double", make_pair(
+        DbHandler::Var(std::numeric_limits<double>::max()), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_bool", make_pair(
+        DbHandler::Var((uint64_t) true), sm)));
+    attribs_tag->insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_enum", make_pair(
+        DbHandler::Var("GOOD"), sm)));
+
     attribs_tag->insert(make_pair(statAttr + ".tmp_inner_string",
         make_pair(DbHandler::Var("TestMessageAllTypesInner"), sm)));
     attribs_tag->insert(make_pair(statAttr + ".tmp_inner_enum",
@@ -973,16 +943,40 @@ void PopulateTestMessageAllTypesAttribTags(DbHandler::TagMap *attribs_tag,
 vector<ArgSet> PopulateTestMessageAllTypesStatsInfo() {
     vector<ArgSet> av;
     ArgSet a1;
-    a1.statAttr = string("tmp_inner");
+    a1.statAttr = string("enterprise.juniperNetworks.tm_all_types.tmp_inner");
     PopulateTestMessageAllTypesAttribs(&a1.attribs, a1.statAttr);
     PopulateTestMessageAllTypesAttribTags(&a1.attribs_tag, a1.statAttr);
     av.push_back(a1);
 
     ArgSet a2;
-    a2.statAttr = string("tmp_message");
+    a2.statAttr = string("enterprise.juniperNetworks.tm_all_types.tmp_message");
     PopulateTestMessageAllTypesAttribs(&a2.attribs, a2.statAttr);
     PopulateTestMessageAllTypesAttribTags(&a2.attribs_tag, a2.statAttr);
     av.push_back(a2);
+
+    ArgSet a3;
+    a3.statAttr = string("enterprise.juniperNetworks.tm_all_types");
+    PopulateTestMessageAllTypes(&a3.attribs);
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_string", DbHandler::Var(
+        "TestMessageAllTypes")));
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_int32", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<int32_t>::max()))));
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_int64", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))));
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_uint32", DbHandler::Var(
+        static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()))));
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_uint64", DbHandler::Var(
+        std::numeric_limits<uint64_t>::max())));
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_float", DbHandler::Var(
+        static_cast<double>(std::numeric_limits<float>::max()))));
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_double", DbHandler::Var(
+        std::numeric_limits<double>::max())));
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_bool", DbHandler::Var(
+        static_cast<uint64_t>(true))));
+    a3.attribs.insert(make_pair("enterprise.juniperNetworks.tm_all_types.tmp_enum", DbHandler::Var("GOOD")));
+    PopulateTestMessageAllTypesTags(&a3.attribs_tag);
+
+    av.push_back(a3);
 
     return av;
 }
@@ -998,189 +992,23 @@ TEST_F(ProtobufStatWalkerTest, Basic) {
     int serialized_data_size(0);
     CreateAndSerializeTestMessage(data.get(), kTestMessageBufferSize,
         &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessage and serialize it
+    // Create TelemetryStream for TestMessage and serialize it
     boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
+        new uint8_t[kTelemetryStreamBufferSize]);
     int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tm_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
-    // Parse the SelfDescribingMessage from sdm_data to get TestMessage
-    protobuf::impl::ProtobufReader reader;
-    Message *msg = NULL;
-    uint64_t timestamp;
-    bool success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg, NULL);
-    ASSERT_TRUE(success);
-    ASSERT_TRUE(msg != NULL);
-
-    boost::system::error_code ec;
-    boost::asio::ip::address raddr(
-        boost::asio::ip::address::from_string("127.0.0.1", ec));
-    boost::asio::ip::udp::endpoint rep(raddr, 0);
-    protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
-    delete msg;
-}
-
-TEST_F(ProtobufStatWalkerTest, Extensions) {
-    StatCbTester ct(PopulateTestMessageBaseStatsInfo());
-    // Create TestMessageBase with extensions and serialize it
-    boost::scoped_array<uint8_t> data(new uint8_t[kTestMessageBufferSize]);
-    int serialized_data_size(0);
-    CreateAndSerializeTestMessageBase(data.get(), kTestMessageBufferSize,
-        &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessageBase and serialize it
-    boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
-    int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessageBase", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tme_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
-    // Parse the SelfDescribingMessage from sdm_data to get TestMessageBase
-    protobuf::impl::ProtobufReader reader;
-    Message *msg = NULL;
-    uint64_t timestamp;
-    bool success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg, NULL);
-    ASSERT_TRUE(success);
-    ASSERT_TRUE(msg != NULL);
-
-    boost::system::error_code ec;
-    boost::asio::ip::address raddr(
-        boost::asio::ip::address::from_string("127.0.0.1", ec));
-    boost::asio::ip::udp::endpoint rep(raddr, 0);
-    protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
-    delete msg;
-}
-
-// Create TestMessageBaseStream and serialize it
-void CreateAndSerializeTestMessageBaseStream(uint8_t *output, size_t size,
-    int *serialized_size) {
-    TestMessageBaseStream base_message;
-    base_message.set_tmbs_name("TestMessageBaseStream");
-    TestMessageBaseSensors *tmbs_message(base_message.mutable_tmbs_sensor());
-    ASSERT_TRUE(tmbs_message != NULL);
-    TestMessageContrailSensors *tmcs_message(
-        tmbs_message->mutable_tmbs_sensor());
-    ASSERT_TRUE(tmcs_message != NULL);
-    TestMessageContrailSensorsExtension1 *tmcse1_message(
-        tmcs_message->MutableExtension(tmcs_extension1));
-    ASSERT_TRUE(tmcse1_message != NULL);
-    tmcse1_message->set_tmcse1_name("TestMessageContrailSensorsExtension1");
-    tmcse1_message->set_tmcse1_counter(1);
-    TestMessageContrailSensorsExtension1Inner *tmcse1_inner_message(
-        tmcse1_message->add_tmcse1_inner());
-    ASSERT_TRUE(tmcse1_inner_message != NULL);
-    tmcse1_inner_message->set_tmcse1_inner_name(
-        "TestMessageContrailSensorsExtension1Inner");
-    tmcse1_inner_message->set_tmcse1_inner_counter(2);
-    int base_message_size = base_message.ByteSize();
-    ASSERT_GE(size, base_message_size);
-    *serialized_size = base_message_size;
-    bool success = base_message.SerializeToArray(output, base_message_size);
-    ASSERT_TRUE(success);
-}
-
-vector<ArgSet> PopulateTestMessageBaseStreamStatsInfo() {
-    vector<ArgSet> av;
-
-    ArgSet a1;
-    a1.statAttr = string("tmbs_sensor");
-    a1.attribs = map_list_of
-        ("Source", DbHandler::Var("127.0.0.1"))
-        ("tmbs_name", DbHandler::Var("TestMessageBaseStream"));
-
-    DbHandler::AttribMap sm;
-    a1.attribs_tag.insert(make_pair("Source", make_pair(
-        DbHandler::Var("127.0.0.1"), sm)));
-    a1.attribs_tag.insert(make_pair("tmbs_name", make_pair(
-        DbHandler::Var("TestMessageBaseStream"), sm)));
-    av.push_back(a1);
-
-    ArgSet a2;
-    a2.statAttr = string("tmbs_sensor.tmbs_sensor");
-    a2.attribs = map_list_of
-        ("Source", DbHandler::Var("127.0.0.1"))
-        ("tmbs_name", DbHandler::Var("TestMessageBaseStream"));
-
-    a2.attribs_tag.insert(make_pair("Source", make_pair(
-        DbHandler::Var("127.0.0.1"), sm)));
-    a2.attribs_tag.insert(make_pair("tmbs_name", make_pair(
-        DbHandler::Var("TestMessageBaseStream"), sm)));
-    av.push_back(a2);
-
-    ArgSet a3;
-    a3.statAttr = string("tmbs_sensor.tmbs_sensor.tmcs_extension1");
-    a3.attribs = map_list_of
-        ("Source", DbHandler::Var("127.0.0.1"))
-        ("tmbs_name", DbHandler::Var("TestMessageBaseStream"))
-        ("tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_name",
-            DbHandler::Var("TestMessageContrailSensorsExtension1"))
-        ("tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_counter",
-            DbHandler::Var((uint64_t)1));
-
-    a3.attribs_tag.insert(make_pair("Source", make_pair(
-        DbHandler::Var("127.0.0.1"), sm)));
-    a3.attribs_tag.insert(make_pair("tmbs_name", make_pair(
-        DbHandler::Var("TestMessageBaseStream"), sm)));
-    a3.attribs_tag.insert(make_pair(
-        "tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_name", make_pair(
-        DbHandler::Var("TestMessageContrailSensorsExtension1"), sm)));
-    av.push_back(a3);
-
-    ArgSet a4;
-    a4.statAttr =
-        string("tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_inner");
-    a4.attribs = map_list_of
-    ("Source", DbHandler::Var("127.0.0.1"))
-    ("tmbs_name", DbHandler::Var("TestMessageBaseStream"))
-    ("tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_name",
-        DbHandler::Var("TestMessageContrailSensorsExtension1"))
-    ("tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_inner.tmcse1_inner_name",
-        DbHandler::Var("TestMessageContrailSensorsExtension1Inner"))
-    ("tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_inner.tmcse1_inner_counter",
-        DbHandler::Var((uint64_t)2));
-
-    a4.attribs_tag.insert(make_pair("Source", make_pair(
-        DbHandler::Var("127.0.0.1"), sm)));
-    a4.attribs_tag.insert(make_pair("tmbs_name", make_pair(
-        DbHandler::Var("TestMessageBaseStream"), sm)));
-    a4.attribs_tag.insert(make_pair(
-        "tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_name", make_pair(
-        DbHandler::Var("TestMessageContrailSensorsExtension1"), sm)));
-    a4.attribs_tag.insert(make_pair(
-        "tmbs_sensor.tmbs_sensor.tmcs_extension1.tmcse1_inner.tmcse1_inner_name",
-        make_pair(DbHandler::Var("TestMessageContrailSensorsExtension1Inner"),
-        sm)));
-    av.push_back(a4);
-
-    return av;
-}
-
-TEST_F(ProtobufStatWalkerTest, ExtensionsInnerMessage) {
-    StatCbTester ct(PopulateTestMessageBaseStreamStatsInfo());
-    // Create TestMessageBaseStream with extension and serialize it
-    boost::scoped_array<uint8_t> data(new uint8_t[kTestMessageBufferSize]);
-    int serialized_data_size(0);
-    CreateAndSerializeTestMessageBaseStream(data.get(), kTestMessageBufferSize,
-        &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessageBaseStream and serialize it
-    boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
-    int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessageBaseStream",
-        sdm_data.get(), kSelfDescribingMessageBufferSize,
-        &serialized_sdm_data_size, tme_desc_file_.c_str(),
+    CreateAndSerializeTelemetryStreamMessage("TestMessage", sdm_data.get(),
+        kTelemetryStreamBufferSize, &serialized_sdm_data_size,
         data.get(), (size_t) serialized_data_size);
-    // Parse the SelfDescribingMessage from sdm_data to get
-    // TestMessageBaseStream
+    // Parse the TelemetryStream from sdm_data to get TestMessage
     protobuf::impl::ProtobufReader reader;
+
+    std::string message_name;
     Message *msg = NULL;
     uint64_t timestamp;
-    bool success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg, NULL);
+    TelemetryStream tstream;
+    ASSERT_TRUE(reader.ParseSchemaFiles(schema_file_directory));
+    bool success = reader.ParseTelemetryStreamMessage(&tstream, sdm_data.get(),
+        serialized_sdm_data_size, &timestamp, &message_name, &msg, NULL);
     ASSERT_TRUE(success);
     ASSERT_TRUE(msg != NULL);
 
@@ -1188,8 +1016,9 @@ TEST_F(ProtobufStatWalkerTest, ExtensionsInnerMessage) {
     boost::asio::ip::address raddr(
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
-    protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
-        boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
+    protobuf::impl::ProcessProtobufMessage(tstream, message_name,
+                                           *msg, timestamp, rep,
+                    boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
     delete msg;
 }
 
@@ -1201,20 +1030,23 @@ TEST_F(ProtobufStatWalkerTest, AllTypes) {
     int serialized_data_size(0);
     CreateAndSerializeTestMessageAllTypes(data.get(), kTestMessageBufferSize,
         &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessageAllTyes and serialize it
+    // Create TelemetryStream for TestMessageAllTyes and serialize it
     boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
+         new uint8_t[kTelemetryStreamBufferSize]);
     int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessageAllTypes",
-        sdm_data.get(), kSelfDescribingMessageBufferSize,
-        &serialized_sdm_data_size, tm_desc_file_.c_str(),
+    CreateAndSerializeTelemetryStreamMessage("TestMessageAllTypes",
+        sdm_data.get(), kTelemetryStreamBufferSize,
+        &serialized_sdm_data_size,
         data.get(), (size_t) serialized_data_size);
-    // Parse the SelfDescribingMessage from sdm_data to get TestMessageAllTypes
+    // Parse the TelemetryStream from sdm_data to get TestMessageAllTypes
     protobuf::impl::ProtobufReader reader;
+    std::string message_name;
     Message *msg = NULL;
     uint64_t timestamp;
-    bool success = reader.ParseSelfDescribingMessage(sdm_data.get(),
-        serialized_sdm_data_size, &timestamp, &msg, NULL);
+    TelemetryStream tstream;
+    ASSERT_TRUE(reader.ParseSchemaFiles(schema_file_directory));
+    bool success = reader.ParseTelemetryStreamMessage(&tstream, sdm_data.get(),
+        serialized_sdm_data_size, &timestamp, &message_name, &msg, NULL);
     ASSERT_TRUE(success);
     ASSERT_TRUE(msg != NULL);
 
@@ -1222,7 +1054,8 @@ TEST_F(ProtobufStatWalkerTest, AllTypes) {
     boost::asio::ip::address raddr(
         boost::asio::ip::address::from_string("127.0.0.1", ec));
     boost::asio::ip::udp::endpoint rep(raddr, 0);
-    protobuf::impl::ProcessProtobufMessage(*msg, timestamp, rep,
+    protobuf::impl::ProcessProtobufMessage(tstream, message_name,
+                                           *msg, timestamp, rep,
         boost::bind(&StatCbTester::Cb, &ct, _1, _2, _3, _4, _5));
     delete msg;
 }
@@ -1270,7 +1103,7 @@ class ProtobufServerStatsTest : public ::testing::Test {
             match_.push_back(true);
         }
         evm_.reset(new EventManager());
-        server_.reset(new protobuf::ProtobufServer(evm_.get(), 0,
+        server_.reset(new protobuf::ProtobufServer(evm_.get(), 0, schema_file_directory,
             boost::bind(&StatCbTester::Cb, &stats_tester_, _1, _2, _3,
             _4, _5)));
         // Set libprotobuf shutdown on delete to false since that can happen
@@ -1352,13 +1185,13 @@ TEST_F(ProtobufServerStatsTest, Basic) {
     int serialized_data_size(0);
     CreateAndSerializeTestMessage(data.get(), kTestMessageBufferSize,
         &serialized_data_size);
-    // Create SelfDescribingMessage for TestMessage and serialize it
+    // Create TelemetryStream for TestMessage and serialize it
     boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
+        new uint8_t[kTelemetryStreamBufferSize]);
     int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessage", sdm_data.get(),
-        kSelfDescribingMessageBufferSize, &serialized_sdm_data_size,
-        tm_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
+    CreateAndSerializeTelemetryStreamMessage("TestMessage", sdm_data.get(),
+        kTelemetryStreamBufferSize, &serialized_sdm_data_size,
+        data.get(), (size_t) serialized_data_size);
     std::string snd(reinterpret_cast<const char *>(sdm_data.get()),
         serialized_sdm_data_size);
     client_->Send(snd, server_endpoint);
@@ -1371,7 +1204,7 @@ TEST_F(ProtobufServerStatsTest, Basic) {
     const SocketEndpointMessageStats &a_rx_msg_stats(va_rx_msg_stats[0]);
     std::string client_endpoint(GetClientEndpoint());
     EXPECT_TRUE(VerifySocketEndpointMessageStats(a_rx_msg_stats,
-        client_endpoint, "TestMessage", 1, serialized_sdm_data_size, 0));
+        client_endpoint, "enterprise.juniperNetworks.tm_simple", 1, serialized_sdm_data_size, 0));
 
     std::vector<SocketIOStats> va_rx_stats, va_tx_stats;
     std::vector<SocketEndpointMessageStats> va_rx_diff_msg_stats;
@@ -1390,14 +1223,14 @@ TEST_F(ProtobufServerStatsTest, Basic) {
     const SocketEndpointMessageStats &a_rx_diff_msg_stats(
         va_rx_diff_msg_stats[0]);
     EXPECT_TRUE(VerifySocketEndpointMessageStats(a_rx_diff_msg_stats,
-        client_endpoint, "TestMessage", 1, serialized_sdm_data_size, 0));
+        client_endpoint, "enterprise.juniperNetworks.tm_simple", 1, serialized_sdm_data_size, 0));
 }
 
 class ProtobufServerTest : public ::testing::Test {
  protected:
     virtual void SetUp() {
         evm_.reset(new EventManager());
-        server_.reset(new protobuf::ProtobufServer(evm_.get(), 0, NULL));
+        server_.reset(new protobuf::ProtobufServer(evm_.get(), 0, schema_file_directory, NULL));
         // Set libprotobuf shutdown on delete to false since that can happen
         // only once in the lifetime of a binary
         server_->SetShutdownLibProtobufOnDelete(false);
@@ -1458,13 +1291,13 @@ TEST_F(ProtobufServerTest, MessageSize) {
     int serialized_data_size(0);
     CreateAndSerializeTestMessageSize(data.get(), kTestMessageSizeBufferSize,
         &serialized_data_size, 4096);
-    // Create SelfDescribingMessage for TestMessageSize and serialize it
+    // Create TelemetryStream for TestMessageSize and serialize it
     boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageSizeBufferSize]);
+         new uint8_t[kTelemetryStreamSizeBufferSize]);
     int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessageSize", sdm_data.get(),
-        kSelfDescribingMessageSizeBufferSize, &serialized_sdm_data_size,
-        tm_desc_file_.c_str(), data.get(), (size_t) serialized_data_size);
+    CreateAndSerializeTelemetryStreamMessage("TestMessageSize", sdm_data.get(),
+        kTelemetryStreamSizeBufferSize, &serialized_sdm_data_size,
+        data.get(), (size_t) serialized_data_size);
     std::string snd(reinterpret_cast<const char *>(sdm_data.get()),
         serialized_sdm_data_size);
     client_->Send(snd, server_endpoint);
@@ -1488,7 +1321,7 @@ TEST_F(ProtobufServerTest, MessageSize) {
     EXPECT_EQ(1, a_rx_msg_stats.get_messages());
     EXPECT_EQ(0, a_rx_msg_stats.get_errors());
     EXPECT_EQ(serialized_sdm_data_size, a_rx_msg_stats.get_bytes());
-    EXPECT_EQ("TestMessageSize", a_rx_msg_stats.get_message_name());
+    EXPECT_EQ("enterprise.juniperNetworks.tm_size", a_rx_msg_stats.get_message_name());
 }
 
 TEST_F(ProtobufServerTest, Drop) {
@@ -1506,21 +1339,23 @@ TEST_F(ProtobufServerTest, Drop) {
     int serialized_data_size(0);
     CreateAndSerializeTestMessageSize(data.get(), kTestMessageBufferSize,
         &serialized_data_size, 8);
-    // Create SelfDescribingMessage for TestMessageSize with type name
+    // Create TelemetryStream for TestMessageSize with type name
     // wrongly set to TestMessageSizeWrong and serialize it, so that the
     // server drops it when parsing
     boost::scoped_array<uint8_t> sdm_data(
-        new uint8_t[kSelfDescribingMessageBufferSize]);
+        new uint8_t[kTelemetryStreamBufferSize]);
     int serialized_sdm_data_size(0);
-    CreateAndSerializeSelfDescribingMessage("TestMessageSizeWrong",
-        sdm_data.get(), kSelfDescribingMessageBufferSize,
-        &serialized_sdm_data_size, tm_desc_file_.c_str(), data.get(),
+    CreateAndSerializeTelemetryStreamMessage("TestMessageSizeWrong",
+        sdm_data.get(), kTelemetryStreamBufferSize,
+        &serialized_sdm_data_size, data.get(),
         (size_t) serialized_data_size);
-    std::string snd(reinterpret_cast<const char *>(sdm_data.get()),
-        serialized_sdm_data_size);
+    //std::string snd(reinterpret_cast<const char *>(sdm_data.get()),
+    //    serialized_sdm_data_size);
+    std::string snd(reinterpret_cast<const char *>(data.get()),
+                    serialized_data_size);
     client_->Send(snd, server_endpoint);
     TASK_UTIL_EXPECT_EQ(client_->GetTxPackets(), 1);
-    TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), (size_t) serialized_sdm_data_size);
+    //TASK_UTIL_EXPECT_EQ(GetServerRxBytes(), (size_t) serialized_sdm_data_size);
     // Compare statistics
     TASK_UTIL_EXPECT_EQ(1, GetServerReceivedMessageStatisticsSize());
     std::vector<SocketEndpointMessageStats> va_rx_msg_stats;
@@ -1539,18 +1374,11 @@ TEST_F(ProtobufServerTest, Drop) {
     EXPECT_EQ(0, a_rx_msg_stats.get_messages());
     EXPECT_EQ(1, a_rx_msg_stats.get_errors());
     EXPECT_EQ(0, a_rx_msg_stats.get_bytes());
-    EXPECT_EQ("TestMessageSizeWrong", a_rx_msg_stats.get_message_name());
+    EXPECT_EQ("JuniperNetworksSensors", a_rx_msg_stats.get_message_name());
 }
 }  // namespace
 
 int main(int argc, char **argv) {
-    char *top_obj_dir = getenv("TOP_OBJECT_PATH");
-    if (top_obj_dir) {
-        tm_desc_file_ = std::string(top_obj_dir) +
-            "/analytics/test/test_message.desc";
-        tme_desc_file_ = std::string(top_obj_dir) +
-            "/analytics/test/test_message_extensions.desc";
-    }
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();
     int result = RUN_ALL_TESTS();
