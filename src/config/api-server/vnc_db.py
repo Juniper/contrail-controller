@@ -189,9 +189,19 @@ class VncServerCassandraClient(VncCassandraClient):
     # end is_latest
 
     # Insert new perms. Called on startup when walking DB
-    def update_perms2(self, obj_uuid):
+    def update_perms2(self, obj_uuid, obj_dict):
         bch = self._obj_uuid_cf.batch()
-        perms2 = copy.deepcopy(Provision.defaults.perms2)
+        skip_update = True
+        perms2 = obj_dict.get('perms2')
+        if perms2 is None or perms2.get('owner') is None:
+            skip_update = False
+            perms2 = copy.deepcopy(Provision.defaults.perms2)
+        if ((obj_dict.get('is_shared') == True) and (perms2['global_access'] == 0)):
+            perms2['global_access'] = PERMS_RWX
+            skip_update = False
+        if skip_update:
+            return perms2
+
         perms2_json = json.dumps(perms2, default=lambda o: dict((k, v)
                                for k, v in o.__dict__.iteritems()))
         perms2 = json.loads(perms2_json)
@@ -961,9 +971,7 @@ class VncDbClient(object):
                                                               obj_uuid, obj_dict)
 
                 # create new perms if upgrading
-                perms2 = obj_dict.get('perms2')
-                if perms2 is None or perms2.get('owner') is None:
-                    perms2 = self._cassandra_db.update_perms2(obj_uuid)
+                perms2 = self._cassandra_db.update_perms2(obj_uuid, obj_dict)
                 if obj_type == 'domain' and len(perms2['share']) == 0:
                     self._cassandra_db.enable_domain_sharing(obj_uuid, perms2)
 
