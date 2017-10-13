@@ -12,10 +12,13 @@ from vnc_api.vnc_api import (
     Project, AddressType, SubnetType, PolicyRuleType, RefsExistError, PortType,
     PolicyEntriesType, IdPermsType, SecurityGroup, VirtualNetwork,
     VirtualNetworkType, NoIdError, VirtualMachine, VirtualMachineInterface,
-    InstanceIp, NetworkIpam, IpamSubnets, IpamSubnetType, VnSubnetsType)
+    InstanceIp, NetworkIpam, IpamSubnets, IpamSubnetType, VnSubnetsType,
+    KeyValuePair, KeyValuePairs)
 from kube_manager.common import args as kube_args
 from kube_manager.vnc import vnc_kubernetes
 from kube_manager.vnc import vnc_kubernetes_config as vnc_kube_config
+from kube_manager.vnc.config_db import (
+    VirtualMachineInterfaceKM, InstanceIpKM, VirtualMachineKM, DBBaseKM)
 
 
 class KMTestCase(test_common.TestCase):
@@ -23,7 +26,7 @@ class KMTestCase(test_common.TestCase):
     DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
 
     @classmethod
-    def setUpClass(cls, extra_config_knobs=None):
+    def setUpClass(cls, extra_config_knobs=None, kube_args=()):
         extra_config = [
             ('DEFAULTS', 'multi_tenancy', 'False'),
             ('DEFAULTS', 'aaa_mode', 'no-auth'),
@@ -54,7 +57,7 @@ class KMTestCase(test_common.TestCase):
 
         cls.vnc_kubernetes_config_dict = None
         cls.event_queue = gevent.queue.Queue()
-        cls.spawn_kube_manager()
+        cls.spawn_kube_manager(extra_args=kube_args)
 
     @classmethod
     def spawn_kube_manager(cls, extra_args=()):
@@ -223,8 +226,9 @@ class KMTestCase(test_common.TestCase):
         sg_rules = PolicyEntriesType(rules)
 
         # create security group
-        id_perms = IdPermsType(enable=True,
-                               description=KMTestCase.DEFAULT_SECGROUP_DESCRIPTION)
+        id_perms = IdPermsType(
+            enable=True,
+            description=KMTestCase.DEFAULT_SECGROUP_DESCRIPTION)
         sg_obj = SecurityGroup(name='default', parent_obj=proj_obj,
                                id_perms=id_perms,
                                security_group_entries=sg_rules)
@@ -286,34 +290,39 @@ class KMTestCase(test_common.TestCase):
         return vn_obj
 
     def create_virtual_machine(self, name, vn, ipaddress):
-        vm_instance = VirtualMachine(name)
-        self._vnc_lib.virtual_machine_create(vm_instance)
-        fq_name = [name, '0']
-        vmi = VirtualMachineInterface(parent_type='virtual-machine',
-                                      fq_name=fq_name)
+        vm = VirtualMachine(name)
+        self._vnc_lib.virtual_machine_create(vm)
+        VirtualMachineKM.locate(vm.uuid)
+
+        vmi = VirtualMachineInterface(
+            parent_type='virtual-machine', fq_name=[name, '0'])
+        vmi.set_virtual_machine(vm)
         vmi.set_virtual_network(vn)
+        if DBBaseKM.is_nested():
+            vmi.set_virtual_machine_interface_bindings(
+                KeyValuePairs([KeyValuePair('host_id', 'WHATEVER')]))
         self._vnc_lib.virtual_machine_interface_create(vmi)
-        ip = InstanceIp(vm_instance.name + '.0')
+        VirtualMachineInterfaceKM.locate(vmi.uuid)
+
+        ip = InstanceIp(vm.name + '.0')
         ip.set_virtual_machine_interface(vmi)
         ip.set_virtual_network(vn)
         ip.set_instance_ip_address(ipaddress)
         self._vnc_lib.instance_ip_create(ip)
-        return vm_instance
+        InstanceIpKM.locate(ip.uuid)
+
+        return vm, vmi, ip
 
     def vmi_clean(self, vm_instance):
-        fq_name = vm_instance.fq_name
-        fq_name.append('0')
-        try:
-            vmi = self._vnc_lib.virtual_machine_interface_read(fq_name=fq_name)
-        except NoIdError:
-            return
+        for vmi in vm_instance.get_virtual_machine_interface_back_refs() or ():
+            vmi = self._vnc_lib.virtual_machine_interface_read(id=vmi['uuid'])
+            for ref in vmi.get_instance_ip_back_refs() or ():
+                self._vnc_lib.instance_ip_delete(id=ref['uuid'])
+            self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
 
-        ips = vmi.get_instance_ip_back_refs()
-        for ref in ips:
-            self._vnc_lib.instance_ip_delete(id=ref['uuid'])
+    def delete_virtual_machine(self, vm_instance=None, vm_id=None):
+        if vm_instance is None:
+            vm_instance = self._vnc_lib.virtual_machine_read(id=vm_id)
 
-        self._vnc_lib.virtual_machine_interface_delete(id=vmi.uuid)
-
-    def delete_virtual_machine(self, vm_instance):
         self.vmi_clean(vm_instance)
         self._vnc_lib.virtual_machine_delete(id=vm_instance.uuid)
