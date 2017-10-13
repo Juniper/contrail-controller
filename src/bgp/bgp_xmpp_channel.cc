@@ -2875,12 +2875,9 @@ void BgpXmppChannelManager::ASNUpdateCallback(as_t old_asn,
 }
 
 void BgpXmppChannelManager::IdentifierUpdateCallback(
-    Ip4Address old_identifier) {
+        Ip4Address old_identifier) {
     CHECK_CONCURRENCY("bgp::Config");
-    BOOST_FOREACH(XmppChannelMap::value_type &i, channel_map_) {
-        i.second->rtarget_manager()->IdentifierUpdateCallback(
-                old_identifier);
-    }
+    xmpp_server_->ClearAllConnections();
 }
 
 void BgpXmppChannelManager::RoutingInstanceCallback(string vrf_name, int op) {
