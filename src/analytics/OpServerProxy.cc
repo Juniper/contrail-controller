@@ -572,6 +572,13 @@ OpServerProxy::UVENotif(const std::string &type,
                              sval, dd.GetAllocator());
             }
         }
+
+        contrail_rapidjson::Value val(contrail_rapidjson::kNumberType);
+        val.SetUint64(UTCTimestampUsec());
+        contrail_rapidjson::Value skey(contrail_rapidjson::kStringType);
+        dd.AddMember(skey.SetString("__T", dd.GetAllocator()),
+                val, dd.GetAllocator());
+
         contrail_rapidjson::StringBuffer sb;
         contrail_rapidjson::Writer<contrail_rapidjson::StringBuffer> writer(sb);
         dd.Accept(writer);
