@@ -124,7 +124,8 @@ class ConfigCassandraPartition {
     const ObjectCacheEntry *GetObjectCacheEntry(const std::string &uuid) const;
     bool StoreKeyIfUpdated(const std::string &uuid, const std::string &key,
                            const std::string &value, uint64_t timestamp,
-                           ConfigCassandraParseContext &context);
+                           ConfigCassandraParseContext &context,
+                           JsonAdapterDataType &adapter);
     void ListMapPropReviseUpdateList(const std::string &uuid,
                                      ConfigCassandraParseContext &context);
     ObjectCacheEntry *MarkCacheDirty(const std::string &uuid);

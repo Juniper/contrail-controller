@@ -11,9 +11,11 @@
 struct JsonAdapterDataType {
     JsonAdapterDataType(const std::string &k, const std::string &v)
         : key(k), value(v) {
+        ref_fq_name = "";
     }
     std::string key;
     std::string value;
+    std::string ref_fq_name;
 };
 
 typedef std::vector<JsonAdapterDataType> CassColumnKVVec;
