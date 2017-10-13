@@ -1902,6 +1902,7 @@ TEST_F(ConfigJsonParserTest, ServerParser16InParts) {
     TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
 }
 
+// Verify out of order add sequence for ref and parent
 // In 3 separate messages:
 // 1) create link(vr,vm), then vr-with-properties, then vm-with-properties,
 // 2) create link(vr,gsc), then gsc-with-properties
@@ -1959,10 +1960,58 @@ TEST_F(ConfigJsonParserTest, ServerParser17InParts) {
                    "global-system-config-virtual-router") != NULL);
 
     FeedEventsJson();
+    FeedEventsJson();
+    FeedEventsJson();
     TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
     TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
     TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
 
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
+}
+
+// Verify out of order delete sequence for ref and parent
+TEST_F(ConfigJsonParserTest, ServerParser18InParts) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+
+    ParseEventsJson(
+            "controller/src/ifmap/testdata/server_parser_test18.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc")->Find(
+                 IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") != NULL);
+    TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1")->Find(
+                IFMapOrigin(IFMapOrigin::CASSANDRA)) != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("virtual-router", "gsc:vr1"),
+        NodeLookup("virtual-machine", "vm1"),
+        "virtual-router-virtual-machine") != NULL);
+    TASK_UTIL_EXPECT_TRUE(LinkLookup(
+        NodeLookup("global-system-config", "gsc"),
+        NodeLookup("virtual-router", "gsc:vr1"),
+                   "global-system-config-virtual-router") != NULL);
+
+    FeedEventsJson();
+    FeedEventsJson();
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-router", "gsc:vr1") == NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("virtual-machine", "vm1") == NULL);
     TASK_UTIL_EXPECT_TRUE(NodeLookup("global-system-config", "gsc") == NULL);
