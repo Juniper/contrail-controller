@@ -805,8 +805,14 @@ bool PktHandler::IgnoreFragmentedPacket(PktInfo *pkt_info) {
             return true;
     } else if (pkt_info->ip6) {
         uint8_t proto = pkt_info->ip6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
-        if (proto == IPPROTO_FRAGMENT && !IsFlowPacket(pkt_info))
-            return true;
+        if (proto == IPPROTO_FRAGMENT) {
+            if (IsFlowPacket(pkt_info) ||
+                pkt_info->agent_hdr.cmd == AgentHdr::TRAP_HANDLE_DF) {
+                return false;
+            } else {
+                return true;
+            }
+        }
     }
 
     return false;
