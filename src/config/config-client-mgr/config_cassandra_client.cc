@@ -347,10 +347,10 @@ void ConfigCassandraClient::ParseObjUUIDTableEachColumnBuildContext(
                      uint64_t timestamp, CassColumnKVVec *cass_data_vec,
                      ConfigCassandraParseContext &context) {
     // Check whether there was an update to property of ref
-    if (GetPartition(uuid)->StoreKeyIfUpdated(uuid, key, value,
-                                              timestamp, context)) {
+    JsonAdapterDataType adapter(key, value);
+    if (GetPartition(uuid)->StoreKeyIfUpdated(uuid, &adapter, timestamp, context)) {
         // Field is updated.. enqueue to parsing
-        cass_data_vec->push_back(JsonAdapterDataType(key, value));
+        cass_data_vec->push_back(adapter);
     }
 }
 
@@ -1005,20 +1005,20 @@ void ConfigCassandraPartition::ListMapPropReviseUpdateList(
 }
 
 bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
-                  const string &key, const string &value, uint64_t timestamp,
+                  JsonAdapterDataType *adapter, uint64_t timestamp,
                   ConfigCassandraParseContext &context) {
     ObjectCacheMap::iterator uuid_iter = object_cache_map_.find(uuid);
     assert(uuid_iter != object_cache_map_.end());
-    size_t from_front_pos = key.find(':');
-    size_t from_back_pos = key.rfind(':');
-    string type_field = key.substr(0, from_front_pos+1);
+    size_t from_front_pos = adapter->key.find(':');
+    size_t from_back_pos = adapter->key.rfind(':');
+    string type_field = adapter->key.substr(0, from_front_pos+1);
     bool is_ref = (type_field == ConfigCass2JsonAdapter::ref_prefix);
     bool is_parent = (type_field == ConfigCass2JsonAdapter::parent_prefix);
     bool is_propl = (type_field == ConfigCass2JsonAdapter::list_prop_prefix);
     bool is_propm = (type_field == ConfigCass2JsonAdapter::map_prop_prefix);
     bool is_prop = (type_field == ConfigCass2JsonAdapter::prop_prefix);
     if (is_prop) {
-        string prop_name  = key.substr(from_front_pos+1);
+        string prop_name  = adapter->key.substr(from_front_pos+1);
         //
         // properties like perms2 has no importance to control-node/dns
         // This property is present on each config object. Hence skipping such
@@ -1032,30 +1032,34 @@ bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
 
     string prop_name = "";
     if (is_ref || is_parent) {
-        string ref_uuid = key.substr(from_back_pos+1);
+        string ref_uuid = adapter->key.substr(from_back_pos+1);
+
         string ref_name = client()->UUIDToFQName(ref_uuid).second;
         if (ref_name == "ERROR") {
             context.parent_or_ref_fq_name_unknown = true;
             CONFIG_CLIENT_DEBUG(ConfigCassandraReadRetry,
-                    "Out of order parent or ref", uuid + ":" + key);
+                    "Out of order parent or ref", uuid + ":" + adapter->key);
             return false;
         }
+        if (is_ref) {
+            adapter->ref_fq_name = ref_name;
+        }
     } else if (is_propl || is_propm) {
-        prop_name = key.substr(0, from_back_pos);
-        context.list_map_properties.insert(make_pair(prop_name,
-                                            JsonAdapterDataType(key, value)));
+        prop_name = adapter->key.substr(0, from_back_pos);
+
+        context.list_map_properties.insert(make_pair(prop_name, *adapter));
     }
 
-    if (key == "type") {
+    if (adapter->key == "type") {
         if (context.obj_type.empty()) {
-            context.obj_type = value;
+            context.obj_type = adapter->value;
             context.obj_type.erase(remove(context.obj_type.begin(),
                       context.obj_type.end(), '\"'), context.obj_type.end());
         }
-    } else if (key == "fq_name") {
+    } else if (adapter->key == "fq_name") {
         context.fq_name_present = true;
         if (context.fq_name.empty()) {
-            context.fq_name = value.substr(1, value.size()-2);
+            context.fq_name = adapter->value.substr(1, adapter->value.size()-2);
             context.fq_name.erase(remove(context.fq_name.begin(),
                         context.fq_name.end(), '\"'), context.fq_name.end());
             context.fq_name.erase(remove(context.fq_name.begin(),
@@ -1065,18 +1069,18 @@ bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
     }
 
     FieldDetailMap::iterator field_iter =
-    uuid_iter->second->GetFieldDetailMap().find(JsonAdapterDataType(key, value));
+    uuid_iter->second->GetFieldDetailMap().find(*adapter);
     if (field_iter == uuid_iter->second->GetFieldDetailMap().end()) {
         // seeing field for first time
         FieldTimeStampInfo field_ts_info;
         field_ts_info.refreshed = true;
         field_ts_info.time_stamp = timestamp;
-        uuid_iter->second->GetFieldDetailMap().insert(
-                  make_pair(JsonAdapterDataType(key, value), field_ts_info));
+        uuid_iter->second->GetFieldDetailMap().insert(make_pair
+                                        (*adapter, field_ts_info));
     } else {
         field_iter->second.refreshed = true;
         if (client()->SkipTimeStampCheckForTypeAndFQName() &&
-                (key == "type" || key == "fq_name")) {
+                (adapter->key == "type" || adapter->key == "fq_name")) {
             return true;
         }
         if (timestamp && field_iter->second.time_stamp == timestamp) {

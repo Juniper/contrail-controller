@@ -122,8 +122,8 @@ class ConfigCassandraPartition {
     virtual int UUIDRetryTimeInMSec(const ObjectCacheEntry *obj) const;
     ObjectCacheEntry *GetObjectCacheEntry(const std::string &uuid);
     const ObjectCacheEntry *GetObjectCacheEntry(const std::string &uuid) const;
-    bool StoreKeyIfUpdated(const std::string &uuid, const std::string &key,
-                           const std::string &value, uint64_t timestamp,
+    bool StoreKeyIfUpdated(const std::string &uuid, JsonAdapterDataType *adapter,
+                           uint64_t timestamp,
                            ConfigCassandraParseContext &context);
     void ListMapPropReviseUpdateList(const std::string &uuid,
                                      ConfigCassandraParseContext &context);
