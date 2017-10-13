@@ -104,12 +104,17 @@ void BgpAsAService::BgpAsAServiceList::Update(const BgpAsAServiceEntry *lhs,
     if (lhs->health_check_configured_ != rhs->health_check_configured_) {
         lhs->health_check_configured_ = rhs->health_check_configured_;
         if (lhs->health_check_configured_) {
+            lhs->old_health_check_delete_ = false;
             lhs->new_health_check_add_ = true;
+            lhs->old_health_check_uuid_ = nil_uuid();
             lhs->health_check_uuid_ = rhs->health_check_uuid_;
         } else {
             lhs->old_health_check_delete_ = true;
+            lhs->new_health_check_add_ = false;
             lhs->old_health_check_uuid_ = lhs->health_check_uuid_;
+            lhs->health_check_uuid_ = nil_uuid();
         }
+        return;
     }
     if (lhs->health_check_uuid_ != rhs->health_check_uuid_) {
         // delete old health check and add new
@@ -126,6 +131,19 @@ void BgpAsAService::BgpAsAServiceList::Remove(BgpAsAServiceEntryListIterator &it
 
 void BgpAsAService::BgpAsAServiceList::Flush() {
     list_.clear();
+}
+
+void BgpAsAService::StartHealthCheck(const boost::uuids::uuid &vm_uuid,
+                                     const BgpAsAServiceEntryList &list) {
+    for (BgpAsAServiceEntryListConstIterator iter = list.begin();
+         iter != list.end(); ++iter) {
+        if (!health_check_cb_.empty() &&
+            iter->health_check_uuid_ != nil_uuid()) {
+            health_check_cb_(vm_uuid, iter->source_port_,
+                             iter->health_check_uuid_, true);
+        }
+        iter->new_health_check_add_ = false;
+    }
 }
 
 static const std::string GetBgpRouterVrfName(const Agent *agent,
@@ -145,6 +163,7 @@ static const std::string GetBgpRouterVrfName(const Agent *agent,
 
 void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                            BgpAsAServiceEntryList &new_list,
+                                           bool &health_check_configured,
                                            const std::string &vm_vrf_name,
                                            const boost::uuids::uuid &vm_uuid) {
     IFMapAgentTable *table =
@@ -155,10 +174,10 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
 
     IpAddress peer_ip;
     uint32_t source_port = 0;
-    bool health_check_configured = false;
-    boost::uuids::uuid health_check_uuid;
+    boost::uuids::uuid health_check_uuid = nil_uuid();
 
     // Find the health check config first
+    health_check_configured = false;
     for (DBGraphVertex::adjacency_iterator it = bgp_as_a_service_node->begin(table->GetGraph());
          it != bgp_as_a_service_node->end(table->GetGraph()); ++it) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(it.operator->());
@@ -257,9 +276,10 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
         node_map.begin();
     BgpAsAServiceEntryList new_bgp_as_a_service_entry_list;
 
+    bool health_check_configured = false;
     while (it != node_map.end()) {
         BuildBgpAsAServiceInfo(*it, new_bgp_as_a_service_entry_list,
-                               vrf_name, vm_uuid);
+                               health_check_configured, vrf_name, vm_uuid);
         it++;
     }
 
@@ -279,6 +299,8 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
     } else if (new_bgp_as_a_service_entry_list.size() != 0) {
         bgp_as_a_service_entry_map_[vm_uuid] =
             new BgpAsAServiceList(new_bgp_as_a_service_entry_list);
+        if (health_check_configured)
+            StartHealthCheck(vm_uuid, new_bgp_as_a_service_entry_list);
     }
 
     if (changed && !service_delete_cb_.empty()) {

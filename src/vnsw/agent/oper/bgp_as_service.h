@@ -161,9 +161,12 @@ public:
     }
 
 private:
+    void StartHealthCheck(const boost::uuids::uuid &vm_uuid,
+                          const BgpAsAServiceEntryList &list);
     void BindBgpAsAServicePorts(const std::vector<uint16_t> &ports);
     void BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
                                 BgpAsAServiceEntryList &new_list,
+                                bool &health_check_configured,
                                 const std::string &vrf_name,
                                 const boost::uuids::uuid &vm_uuid);
 
