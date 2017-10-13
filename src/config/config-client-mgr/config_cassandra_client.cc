@@ -347,10 +347,11 @@ void ConfigCassandraClient::ParseObjUUIDTableEachColumnBuildContext(
                      uint64_t timestamp, CassColumnKVVec *cass_data_vec,
                      ConfigCassandraParseContext &context) {
     // Check whether there was an update to property of ref
+    JsonAdapterDataType jsonAdapter(key, value);
     if (GetPartition(uuid)->StoreKeyIfUpdated(uuid, key, value,
-                                              timestamp, context)) {
+                                              timestamp, context, jsonAdapter)) {
         // Field is updated.. enqueue to parsing
-        cass_data_vec->push_back(JsonAdapterDataType(key, value));
+        cass_data_vec->push_back(jsonAdapter);
     }
 }
 
@@ -1006,7 +1007,7 @@ void ConfigCassandraPartition::ListMapPropReviseUpdateList(
 
 bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
                   const string &key, const string &value, uint64_t timestamp,
-                  ConfigCassandraParseContext &context) {
+                  ConfigCassandraParseContext &context, JsonAdapterDataType &adapter) {
     ObjectCacheMap::iterator uuid_iter = object_cache_map_.find(uuid);
     assert(uuid_iter != object_cache_map_.end());
     size_t from_front_pos = key.find(':');
@@ -1040,10 +1041,12 @@ bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
                     "Out of order parent or ref", uuid + ":" + key);
             return false;
         }
+        if (is_ref) {
+            adapter.ref_fq_name = ref_name;
+        }
     } else if (is_propl || is_propm) {
         prop_name = key.substr(0, from_back_pos);
-        context.list_map_properties.insert(make_pair(prop_name,
-                                            JsonAdapterDataType(key, value)));
+        context.list_map_properties.insert(make_pair(prop_name, adapter));
     }
 
     if (key == "type") {
@@ -1065,14 +1068,14 @@ bool ConfigCassandraPartition::StoreKeyIfUpdated(const string &uuid,
     }
 
     FieldDetailMap::iterator field_iter =
-    uuid_iter->second->GetFieldDetailMap().find(JsonAdapterDataType(key, value));
+    uuid_iter->second->GetFieldDetailMap().find(adapter);
     if (field_iter == uuid_iter->second->GetFieldDetailMap().end()) {
         // seeing field for first time
         FieldTimeStampInfo field_ts_info;
         field_ts_info.refreshed = true;
         field_ts_info.time_stamp = timestamp;
-        uuid_iter->second->GetFieldDetailMap().insert(
-                  make_pair(JsonAdapterDataType(key, value), field_ts_info));
+        uuid_iter->second->GetFieldDetailMap().insert(make_pair
+                                        (adapter, field_ts_info));
     } else {
         field_iter->second.refreshed = true;
         if (client()->SkipTimeStampCheckForTypeAndFQName() &&
