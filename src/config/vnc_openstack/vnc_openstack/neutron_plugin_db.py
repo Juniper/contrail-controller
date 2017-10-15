@@ -29,6 +29,9 @@ import vnc_openstack
 import vnc_cfg_api_server.context
 from context import get_context, use_context
 import datetime
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+
+operations = ['NOOP', 'CREATE', 'READ', 'UPDATE', 'DELETE']
 
 _DEFAULT_HEADERS = {
     'Content-type': 'application/json; charset="UTF-8"', }
@@ -84,6 +87,10 @@ class LocalVncApi(VncApi):
                 had_user_token = False
 
             url_parts = url.split('/')
+            self.api_server_obj.config_log(
+                         "neutron request %s id %s needs %s permission on %s"
+                        %(get_context().request, get_context().request_id,
+                          operations[op], url_parts[1]), level=SandeshLevel.SYS_INFO)
             if op != rest.OP_GET or url_parts[1] not in self.api_server_routes:
                 return super(LocalVncApi, self)._request(
                     op, url, data, *args, **kwargs)
