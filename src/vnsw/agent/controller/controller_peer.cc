@@ -299,7 +299,7 @@ GetEnetTypeBitmap(const EnetTunnelEncapsulationListType &encap) {
             bmap |= (1 << TunnelType::MPLS_UDP);
         if (encap == TunnelEncapType::VXLAN)
             bmap |= (1 << TunnelType::VXLAN);
-        if (encap == TunnelEncapType::NATIVE_CONTRAIL)
+        if (encap == TunnelEncapType::NATIVE)
             bmap |= (1 << TunnelType::NATIVE);
     }
     return bmap;
@@ -317,7 +317,7 @@ GetTypeBitmap(const TunnelEncapsulationListType &encap) {
             bmap |= (1 << TunnelType::MPLS_GRE);
         if (encap == TunnelEncapType::MPLS_O_UDP)
             bmap |= (1 << TunnelType::MPLS_UDP);
-        if (encap == TunnelEncapType::NATIVE_CONTRAIL)
+        if (encap == TunnelEncapType::NATIVE)
             bmap |= (1 << TunnelType::NATIVE);
     }
     return bmap;
