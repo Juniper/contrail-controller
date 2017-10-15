@@ -270,7 +270,7 @@ protected:
         BgpTable *table = GetTable(server, instance);
         BgpAttrSpec attr_spec;
 
-        BgpAttrOrigin origin_spec(BgpAttrOrigin::INCOMPLETE);
+        BgpAttrOrigin origin_spec(BgpAttrOrigin::IGP);
         attr_spec.push_back(&origin_spec);
 
         AsPathSpec path_spec;
@@ -332,6 +332,8 @@ protected:
             if (path->GetPeer() != peer)
                 continue;
             if (path->GetAttr()->nexthop().to_string() != nexthop)
+                continue;
+            if (path->GetAttr()->origin() != BgpAttrOrigin::IGP)
                 continue;
             return true;
         }
