@@ -314,6 +314,7 @@ public:
                                    const CommunityList &communities);
     void AddIpamSubnetRoute(const string &vm_vrf, const IpAddress &addr,
                             uint8_t plen, const std::string &vn_name);
+    void AddVrouterSubnetRoute(const IpAddress &dst_addr, uint8_t plen);
     void AddInterfaceRouteReq(Agent *agent, const Peer *peer,
                               const string &vrf_name,
                               const Ip4Address &ip, uint8_t plen,
