@@ -56,6 +56,7 @@ class VncChmod():
     # end
 # end
 
+ignore_list = ['floating_ips']
 
 def print_perms(obj_perms):
     share_perms = ['%s:%d' % (x.tenant, x.tenant_access) for x in obj_perms.share]
@@ -102,6 +103,9 @@ def update_owner_field(parent_fq_name, obj, owner):
         return
     else:
         for child_name in obj.children_fields:
+            if child_name in ignore_list:
+                print "Ignoring update of %s owner" %(child_name)
+                continue
             method = getattr(obj, "get_%s" % (child_name))
             val = method() or []
             for each in val:
