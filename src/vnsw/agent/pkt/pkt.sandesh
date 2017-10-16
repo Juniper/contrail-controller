@@ -129,6 +129,10 @@ struct SandeshFlowData {
     60: SandeshFlowIndexInfo flow_index_info;
     65: list<SandeshInetRouteFlowMgmtEntryLink> inet_rt_keys;
     66: string fw_policy_match;
+    67: optional list<i32> local_tag_list;
+    68: optional list<i32> remote_tag_list;
+    69: optional string remote_prefix;
+    70: optional string vmi;
 }
 
 /**
