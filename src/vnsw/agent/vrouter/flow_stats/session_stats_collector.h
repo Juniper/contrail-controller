@@ -10,6 +10,14 @@
 class FlowStatsManager;
 class SessionStatsReq;
 class FlowToSessionMap;
+struct SessionSloRuleEntry;
+class SessionSloState;
+
+enum SloAttachmentType {
+    VMI_SLO,
+    VN_SLO,
+    GLOBAL_SLO
+};
 
 struct SessionEndpointKey {
 public:
@@ -100,12 +108,42 @@ public:
                              SessionEndpointKeyCmp> SessionEndpointMap;
     typedef WorkQueue<boost::shared_ptr<SessionStatsReq> > Queue;
     typedef std::map<FlowEntryPtr, FlowToSessionMap> FlowSessionMap;
+    typedef std::map<std::string, SessionSloRuleEntry> SessionSloRuleMap;
 
     static const uint8_t  kMaxSessionMsgsPerSend = 16;
     static const uint32_t kSessionStatsTimerInterval = 100;
     static const uint32_t kSessionsPerTask = 256;
 
+    void UpdateSloMatchRuleEntry(boost::uuids::uuid slo_uuid,
+                                 std::string match_uuid,
+                                 bool *is_logged);
+    void FindSloMatchRule(SessionSloRuleMap &map,
+                          std::string match_uuid,
+                          bool *is_logged,
+                          boost::uuids::uuid *slo_uuid);
+    bool MatchSloForSession(SessionPreAggInfo::SessionMap::iterator session_map_iter,
+                            std::string match_uuid);
     uint32_t RunSessionEndpointStats(uint32_t max_count);
+    void BuildSloList(SessionFlowStatsInfo &session_flow);
+    void AddSloList(const UuidList &slo_list, SloAttachmentType type);
+    void AddSloEntry(SecurityLoggingObject *slo, SloAttachmentType type);
+    void AddSloFirewallPolicies(UuidList &list, int rate,
+                                SloAttachmentType type,
+                                SecurityLoggingObject *slo);
+    void AddSloFirewallRules(UuidList &list, int rate,
+                             SloAttachmentType type,
+                             SecurityLoggingObject *slo);
+    void AddSloRules(
+        const std::vector<autogen::SecurityLoggingObjectRuleEntryType> &list,
+        SloAttachmentType type,
+        SecurityLoggingObject *slo);
+    void AddSessionSloRuleEntry(std::string uuid, int rate,
+                                SloAttachmentType type,
+                                SecurityLoggingObject *slo);
+    void SloNotify(DBTablePartBase *partition, DBEntryBase *e);
+    void UpdateSloStateRules(SecurityLoggingObject *slo,
+                             SessionSloState *state,
+                             bool is_update);
 
     class SessionTask : public Task {
     public:
@@ -197,6 +235,7 @@ private:
                              SessionEndpointKey session_endpoint_key);
     void DeleteFlowToSessionMap(FlowEntry *fe);
     void Shutdown();
+    void RegisterDBClients();
     void AddEvent(const FlowEntryPtr &flow);
     void DeleteEvent(const FlowEntryPtr &flow, const RevFlowDepParams &params);
     void UpdateSessionStatsEvent(const FlowEntryPtr &flow,
@@ -216,6 +255,9 @@ private:
     SessionEndpointKey session_ep_iteration_key_;
     SessionEndpointMap session_endpoint_map_;
     FlowSessionMap flow_session_map_;
+    SessionSloRuleMap vmi_session_slo_rule_map_;
+    SessionSloRuleMap vn_session_slo_rule_map_;
+    SessionSloRuleMap global_session_slo_rule_map_;
     Queue request_queue_;
     std::vector<SessionEndpoint> session_msg_list_;
     uint8_t session_msg_index_;
@@ -229,6 +271,7 @@ private:
     uint64_t current_time_;
     uint64_t session_task_starts_;
     uint32_t session_ep_visited_;
+    DBTable::ListenerId slo_listener_id_;
     DISALLOW_COPY_AND_ASSIGN(SessionStatsCollector);
 };
 
@@ -244,6 +287,7 @@ public:
     SessionStatsCollector* FlowToCollector(const FlowEntry *flow);
     void Shutdown();
     size_t Size() const;
+    void RegisterDBClients();
 private:
     SessionStatsCollectorPtr collectors[kMaxSessionCollectors];
     DISALLOW_COPY_AND_ASSIGN(SessionStatsCollectorObject);
@@ -318,4 +362,32 @@ private:
     SessionAggKey session_agg_key_;
     SessionEndpointKey session_endpoint_key_;
 };
+
+struct SessionSloRuleEntry {
+public:
+    int rate;
+    boost::uuids::uuid slo_uuid;
+};
+
+struct SessionSloRuleState {
+public:
+    int rate;
+    int ref_count;
+};
+
+class SessionSloState : public DBState {
+public:
+    typedef std::map<std::string, SessionSloRuleState> SessionSloRuleStateMap;
+    void DeleteSessionSloStateRuleEntry(std::string uuid);
+    void UpdateSessionSloStateRuleEntry(std::string uuid, int rate);
+    void UpdateSessionSloStateRuleRefCount(std::string uuid,
+                                           bool *is_logged);
+    SessionSloState() {}
+    ~SessionSloState() {
+        session_rule_state_map_.clear();
+    }
+private:
+    SessionSloRuleStateMap session_rule_state_map_;
+};
+
 #endif //vnsw_agent_session_stats_collector_h
