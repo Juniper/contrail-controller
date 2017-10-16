@@ -95,6 +95,10 @@ TEST_F(FabricVmiTest, Vhost) {
     EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(), ip, 32));
     rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
+
+    const VmInterface *vhost =
+        static_cast<const VmInterface *>(agent->vhost_interface());
+    EXPECT_TRUE(vhost->policy_enabled() == false);
 }
 
 TEST_F(FabricVmiTest, basic_1) {

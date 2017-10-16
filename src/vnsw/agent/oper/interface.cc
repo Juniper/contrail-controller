@@ -375,6 +375,7 @@ void InterfaceTable::CreateVhost() {
     VmInterfaceConfigData *data = new VmInterfaceConfigData(agent(), NULL);
     data->CopyVhostData(agent());
 
+    data->disable_policy_ = true;
     req.data.reset(data);
     Process(req);
 }
