@@ -19,11 +19,7 @@ local _table = KEYS[3]
 local _uves = KEYS[4]
 local _values = KEYS[5]
 
-if typ == "ModuleClientState" and attr == "client_info" then
-    redis.log(redis.LOG_NOTICE,"UVEUpdate for "..sm.." key "..key.." type:attr "..typ..":"..attr)
-else
-    redis.log(redis.LOG_DEBUG,"UVEUpdate for "..sm.." key "..key.." type:attr "..typ..":"..attr)
-end
+redis.log(redis.LOG_DEBUG,"UVEUpdate for "..sm.." key "..key.." type:attr "..typ..":"..attr)
 
 redis.call('select',db)
 local ism = redis.call('sismember', 'NGENERATORS', ngen_sm)
