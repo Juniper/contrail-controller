@@ -206,7 +206,7 @@ TEST_F(FipEcmpTest, Test_1) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(rt));
 
 
     rt = static_cast<InetUnicastRouteEntry *>( 
@@ -241,7 +241,7 @@ TEST_F(FipEcmpTest, Test_2) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(rt));
 
     rt = static_cast<InetUnicastRouteEntry *>( 
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
@@ -276,7 +276,7 @@ TEST_F(FipEcmpTest, Test_3) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx !=
                     CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(rt));
 
     rt = static_cast<InetUnicastRouteEntry *>( 
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
@@ -313,7 +313,7 @@ TEST_F(FipEcmpTest, Test_4) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->data().rpf_nh.get() == rt->GetLocalNextHop());
+    EXPECT_TRUE(entry->data().rpf_nh.get() == EcmpData::GetLocalNextHop(rt));
 
     rt = static_cast<InetUnicastRouteEntry *>( 
         RouteGet(VRF2, Ip4Address::from_string("0.0.0.0"), 0));
