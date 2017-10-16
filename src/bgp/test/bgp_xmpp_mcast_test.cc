@@ -1832,6 +1832,8 @@ TEST_P(BgpXmppMcast2ServerParamTest, SingleAgent) {
     const char *mroute = "225.0.0.1,0.0.0.0";
 
     // Add mcast route for all agents
+    TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
     agent_xa_->AddMcastRoute("blue", mroute, "10.1.1.1", "10000-19999");
     agent_ya_->AddMcastRoute("blue", mroute, "10.1.1.4", "40000-49999");
     task_util::WaitForIdle();
@@ -1850,8 +1852,34 @@ TEST_P(BgpXmppMcast2ServerParamTest, SingleAgent) {
         VerifyLabel(agent_xa_, "blue", mroute, 10000, 19999);
         VerifyLabel(agent_ya_, "blue", mroute, 40000, 49999);
 
+        uint32_t flap_count_xa_ = agent_xa_->flap_count();
+        uint32_t flap_count_ya_ = agent_ya_->flap_count();
+
         // Update the RouterIDs of X and Y as appropriate.
         Reconfigure(config_tmpl2_new);
+
+        if (idx == 0) {
+            if (tr1::get<0>(GetParam())) {
+                TASK_UTIL_EXPECT_NE(flap_count_xa_, agent_xa_->flap_count());
+                TASK_UTIL_EXPECT_TRUE(agent_xa_->IsEstablished());
+                agent_xa_->ClearInstances();
+                TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
+                agent_xa_->McastSubscribe("blue", 1);
+            }
+
+            if (tr1::get<1>(GetParam())) {
+                TASK_UTIL_EXPECT_NE(flap_count_ya_, agent_ya_->flap_count());
+                TASK_UTIL_EXPECT_TRUE(agent_ya_->IsEstablished());
+                agent_ya_->ClearInstances();
+                TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
+                agent_ya_->McastSubscribe("blue", 1);
+            }
+
+            agent_xa_->AddMcastRoute("blue", mroute, "10.1.1.1", "10000-19999");
+            agent_ya_->AddMcastRoute("blue", mroute, "10.1.1.4", "40000-49999");
+            TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
+            TASK_UTIL_EXPECT_EQ(1, agent_ya_->McastRouteCount());
+        }
         task_util::WaitForIdle();
     }
 
@@ -1877,6 +1905,13 @@ TEST_P(BgpXmppMcast2ServerParamTest, MultipleAgent) {
     agent_yb_->AddMcastRoute("blue", mroute, "10.1.1.5", "50000-59999");
     agent_yc_->AddMcastRoute("blue", mroute, "10.1.1.6", "60000-69999");
     task_util::WaitForIdle();
+
+    uint32_t flap_count_xa_ = agent_xa_->flap_count();
+    uint32_t flap_count_xb_ = agent_xb_->flap_count();
+    uint32_t flap_count_xc_ = agent_xc_->flap_count();
+    uint32_t flap_count_ya_ = agent_ya_->flap_count();
+    uint32_t flap_count_yb_ = agent_yb_->flap_count();
+    uint32_t flap_count_yc_ = agent_yc_->flap_count();
 
     for (int idx = 0; idx < 3; ++idx) {
 
@@ -1911,6 +1946,57 @@ TEST_P(BgpXmppMcast2ServerParamTest, MultipleAgent) {
 
         // Update the RouterIDs of X and Y as appropriate.
         Reconfigure(config_tmpl2_new);
+
+        if (idx == 0) {
+            if (tr1::get<0>(GetParam())) {
+                TASK_UTIL_EXPECT_NE(flap_count_xa_, agent_xa_->flap_count());
+                TASK_UTIL_EXPECT_NE(flap_count_xb_, agent_xb_->flap_count());
+                TASK_UTIL_EXPECT_NE(flap_count_xc_, agent_xc_->flap_count());
+                TASK_UTIL_EXPECT_TRUE(agent_xa_->IsEstablished());
+                TASK_UTIL_EXPECT_TRUE(agent_xb_->IsEstablished());
+                TASK_UTIL_EXPECT_TRUE(agent_xc_->IsEstablished());
+                agent_xa_->ClearInstances();
+                agent_xb_->ClearInstances();
+                agent_xc_->ClearInstances();
+                TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
+                TASK_UTIL_EXPECT_EQ(0, agent_xb_->McastRouteCount());
+                TASK_UTIL_EXPECT_EQ(0, agent_xc_->McastRouteCount());
+                agent_xa_->McastSubscribe("blue", 1);
+                agent_xb_->McastSubscribe("blue", 1);
+                agent_xc_->McastSubscribe("blue", 1);
+            }
+
+            if (tr1::get<1>(GetParam())) {
+                TASK_UTIL_EXPECT_NE(flap_count_ya_, agent_ya_->flap_count());
+                TASK_UTIL_EXPECT_NE(flap_count_yb_, agent_yb_->flap_count());
+                TASK_UTIL_EXPECT_NE(flap_count_yc_, agent_yc_->flap_count());
+                TASK_UTIL_EXPECT_TRUE(agent_ya_->IsEstablished());
+                TASK_UTIL_EXPECT_TRUE(agent_yb_->IsEstablished());
+                TASK_UTIL_EXPECT_TRUE(agent_yc_->IsEstablished());
+                agent_ya_->ClearInstances();
+                agent_yb_->ClearInstances();
+                agent_yc_->ClearInstances();
+                TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
+                TASK_UTIL_EXPECT_EQ(0, agent_yb_->McastRouteCount());
+                TASK_UTIL_EXPECT_EQ(0, agent_yc_->McastRouteCount());
+                agent_ya_->McastSubscribe("blue", 1);
+                agent_yb_->McastSubscribe("blue", 1);
+                agent_yc_->McastSubscribe("blue", 1);
+            }
+
+            agent_xa_->AddMcastRoute("blue", mroute, "10.1.1.1", "10000-19999");
+            agent_xb_->AddMcastRoute("blue", mroute, "10.1.1.2", "20000-29999");
+            agent_xc_->AddMcastRoute("blue", mroute, "10.1.1.3", "30000-39999");
+            agent_ya_->AddMcastRoute("blue", mroute, "10.1.1.4", "40000-49999");
+            agent_yb_->AddMcastRoute("blue", mroute, "10.1.1.5", "50000-59999");
+            agent_yc_->AddMcastRoute("blue", mroute, "10.1.1.6", "60000-69999");
+            TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
+            TASK_UTIL_EXPECT_EQ(1, agent_xb_->McastRouteCount());
+            TASK_UTIL_EXPECT_EQ(1, agent_xc_->McastRouteCount());
+            TASK_UTIL_EXPECT_EQ(1, agent_ya_->McastRouteCount());
+            TASK_UTIL_EXPECT_EQ(1, agent_yb_->McastRouteCount());
+            TASK_UTIL_EXPECT_EQ(1, agent_yc_->McastRouteCount());
+        }
         task_util::WaitForIdle();
     }
 
