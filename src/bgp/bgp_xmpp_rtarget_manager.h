@@ -29,7 +29,6 @@ public:
                              bool add_change);
     void Close();
 
-    void IdentifierUpdateCallback(Ip4Address old_identifier) const;
     void ASNUpdateCallback(as_t old_asn, as_t old_local_asn) const;
     void FillInfo(BgpNeighborRoutingInstance *instance,
                   const RouteTargetList &targets) const;
