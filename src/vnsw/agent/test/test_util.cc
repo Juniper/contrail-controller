@@ -155,6 +155,10 @@ static void BuildLinkToMetadata() {
                       "virtual-network-network-ipam");
     AddLinkToMetadata("virtual-network-network-ipam", "network-ipam",
                       "virtual-network-network-ipam");
+    AddLinkToMetadata("virtual-router", "virtual-router-network-ipam",
+                      "virtual-vrouter-network-ipam");
+    AddLinkToMetadata("virtual-router-network-ipam", "network-ipam",
+                      "virtual-router-network-ipam");
 
     AddLinkToMetadata("security-group", "access-control-list");
 

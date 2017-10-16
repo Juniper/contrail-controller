@@ -35,13 +35,14 @@ public:
     RouteLeakVrfState(VrfEntry *source_vrf, VrfEntry *dest_vrf);
     ~RouteLeakVrfState();
     //Route Notify handler
-    void Notify(DBTablePartBase *partition, DBEntryBase *e);
+    bool Notify(DBTablePartBase *partition, DBEntryBase *e);
     void Delete();
     void SetDestVrf(VrfEntry *dest_vrf);
 
     VrfEntry* dest_vrf() {
         return dest_vrf_.get();
     }
+    bool deleted() const { return deleted_; }
 
 private:
     void WalkDoneInternal(DBTableBase *part);
@@ -68,9 +69,16 @@ public:
 
     //VRF notify handler
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
+    void ReEvaluateRouteExports();
 
 private:
+    bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
+    void VrfWalkDone(DBTableBase *part);
+    void StartRouteWalk(VrfEntry *vrf, RouteLeakVrfState *state);
+    void RouteWalkDone(DBTableBase *part);
+
     Agent *agent_;
+    DBTable::DBTableWalkRef vrf_walk_ref_;
     DBTableBase::ListenerId vrf_listener_id_;
 };
 #endif

@@ -1894,7 +1894,7 @@ InetUnicastAgentRouteTable::AddIpamSubnetRoute(const string &vrf_name,
         table = agent_ptr->vrf_table()->GetInet6UnicastRouteTable(vrf_name);
     }
 
-    //Add local perr path with discard NH
+    //Add local peer path with discard NH
     DBRequest dscd_nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     dscd_nh_req.key.reset(new DiscardNHKey());
     dscd_nh_req.data.reset(NULL);
@@ -1902,11 +1902,31 @@ InetUnicastAgentRouteTable::AddIpamSubnetRoute(const string &vrf_name,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(new InetUnicastRouteKey(agent_ptr->local_peer(),
-                                            vrf_name, dst_addr, plen));
+                                          vrf_name, dst_addr, plen));
     req.data.reset(new IpamSubnetRoute(dscd_nh_req, vn_name));
     if (table) {
         table->Process(req);
     }
+}
+
+void
+InetUnicastAgentRouteTable::AddVrouterSubnetRoute(const IpAddress &dst_addr,
+                                                  uint8_t plen) {
+    /* Only IPv4 is supported */
+    if (!dst_addr.is_v4()) {
+        return;
+    }
+    const string &vrf_name = agent()->fabric_vrf_name();
+    InetUnicastAgentRouteTable *table = NULL;
+    table = agent()->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
+    const Peer *peer = agent()->fabric_rt_export_peer();
+
+    VnListType vn_list;
+    vn_list.insert(agent()->fabric_vn_name());
+    const Ip4Address &gw = agent()->router_id();
+    table->AddGatewayRoute(peer, vrf_name, dst_addr.to_v4(), plen, gw, vn_list,
+                           MplsTable::kInvalidExportLabel, SecurityGroupList(),
+                           TagList(), CommunityList());
 }
 
 uint8_t InetUnicastAgentRouteTable::GetHostPlen(const IpAddress &ip_addr) const {
