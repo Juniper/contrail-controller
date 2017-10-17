@@ -135,7 +135,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_message_table_query
 
-    @unittest.skip('Send/query flow stats to test QE')
+    #@unittest.skip('Send/query flow stats to test QE')
     def test_03_flow_query(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -164,16 +164,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              logging, vizd_obj.get_opserver_port(),
                              start_time))
         assert generator_obj.verify_on_setup()
-        generator_obj.generate_flow_samples()
-        generator_obj1 = self.useFixture(
-            GeneratorFixture("contrail-vrouter-agent", collectors,
-                             logging, vizd_obj.get_opserver_port(),
-                             start_time, hostname=socket.gethostname() + "dup"))
-        assert generator_obj1.verify_on_setup()
-        generator_obj1.generate_flow_samples()
-        generator_object = [generator_obj, generator_obj1]
-        for obj in generator_object:
-            assert vizd_obj.verify_flow_samples(obj)
+        generator_obj.generate_session_samples()
+        generator_object = [generator_obj]
         assert vizd_obj.verify_flow_table(generator_obj)
         assert vizd_obj.verify_flow_series_aggregation_binning(generator_object)
         return True
@@ -337,7 +329,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
     #end test_06_send_tracebuffer
 
-    @unittest.skip(' where queries with different conditions')
+    #@unittest.skip(' where queries with different conditions')
     def test_08_where_clause_query(self):
         '''
         This test is used to check the working of integer 
@@ -348,14 +340,14 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         if AnalyticsTest._check_skip_test() is True:
             return True
 
-        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
-        self._update_analytics_start_time(start_time)
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
                              self.__class__.cassandra_port))
         assert vizd_obj.verify_on_setup()
+        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
+        self._update_analytics_start_time(start_time)
         assert vizd_obj.verify_where_query()
-        #Query the flowseriestable with different where options
+        #Query the sessionseriestable with different where options
         assert vizd_obj.verify_collector_obj_count()
         collectors = [vizd_obj.get_collector()]
         generator_obj = self.useFixture(
@@ -363,7 +355,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                              logging, vizd_obj.get_opserver_port(),
                              start_time))
         assert generator_obj.verify_on_setup()
-        generator_obj.generate_flow_samples()
+        generator_obj.generate_session_samples()
         assert vizd_obj.verify_where_query_prefix(generator_obj)
         return True
     #end test_08_where_clause_query

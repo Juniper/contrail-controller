@@ -764,6 +764,10 @@ query_status_t SelectQuery::process_query() {
                     ++idx;
                 }
                 if (m_query->is_flow_query(m_query->table())) {
+                    StatsSelect::StatEntry direction;
+                    direction.name = "direction_ing";
+                    direction.value = (uint64_t)m_query->wherequery_->direction_ing;
+                    attribs.push_back(direction);
                     map_session_to_flow(&attribs, session_type,
                                     m_query->wherequery_->direction_ing);
                 }
@@ -824,7 +828,9 @@ query_status_t SelectQuery::process_query() {
                     {
                         StatsSelect::StatEntry se_client_port;
                         se_client_port.name = "client_port";
-                        se_client_port.value = ip_port.substr(0, delim_idx);
+                        uint64_t cport;
+                        stringToInteger(ip_port.substr(0, delim_idx), cport);
+                        se_client_port.value = cport;
                         attribs.push_back(se_client_port);
                     }
                     {
@@ -839,6 +845,10 @@ query_status_t SelectQuery::process_query() {
                     parset += UTCTimestampUsec() - thenp;
                     uint64_t thenl = UTCTimestampUsec();
                     if (m_query->is_flow_query(m_query->table())) {
+                        StatsSelect::StatEntry direction;
+                        direction.name = "direction_ing";
+                        direction.value = (uint64_t)m_query->wherequery_->direction_ing;
+                        attribs.push_back(direction);
                         map_session_to_flow(&attribs, session_type,
                             m_query->wherequery_->direction_ing);
                     }
