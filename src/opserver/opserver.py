@@ -79,6 +79,11 @@ from vnc_cfg_api_client import VncCfgApiClient
 from opserver_local import LocalApp
 from opserver_util import AnalyticsDiscovery
 from strict_redis_wrapper import StrictRedisWrapper
+from sandesh.analytics_api_info.ttypes import UVEDbCacheTablesRequest, \
+    UVEDbCacheTable, UVEDbCacheTablesResponse, UVEDbCacheTableKeysRequest, \
+    UVEDbCacheTableKey, UVEDbCacheTableKeysResponse, \
+    UVEDbCacheUveRequest, UVEDbCacheUveResponse
+
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -763,6 +768,13 @@ class OpServer(object):
                                          self._args.cassandra_user,
                                          self._args.cassandra_password,
                                          self._args.cluster_id)
+
+        # Register introspect request handlers
+        UVEDbCacheTablesRequest.handle_request = \
+            self.handle_UVEDbCacheTablesRequest
+        UVEDbCacheTableKeysRequest.handle_request = \
+            self.handle_UVEDbCacheTableKeysRequest
+        UVEDbCacheUveRequest.handle_request = self.handle_UVEDbCacheUveRequest
 
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
@@ -2447,6 +2459,33 @@ class OpServer(object):
             return (json.dumps(self.generator_info(table, column)))
         return (json.dumps([]))
     # end column_process
+
+    def handle_UVEDbCacheTablesRequest(self, req):
+        tables = self._uve_server.get_uvedb_cache_tables()
+        resp = UVEDbCacheTablesResponse()
+        resp.tables = [UVEDbCacheTable(table) for table in tables]
+        resp.response(req.context())
+    # end handle_UVEDbCacheTablesRequest
+
+    def handle_UVEDbCacheTableKeysRequest(self, req):
+        uve_keys = self._uve_server.get_uvedb_cache_table_keys(req.table)
+        resp = UVEDbCacheTableKeysResponse()
+        resp.uves = [UVEDbCacheTableKey(req.table+':'+key) for key in uve_keys]
+        resp.response(req.context())
+    # end handle_UVEDbCacheTableKeysRequest
+
+    def handle_UVEDbCacheUveRequest(self, req):
+        try:
+            table, uve_key = req.table_uve_key.split(':', 1)
+        except ValueError:
+            raise
+        uve = self._uve_server.get_uvedb_cache_uve(table, uve_key)
+        resp = UVEDbCacheUveResponse()
+        if uve:
+            resp.source = json.dumps(uve.pop('__SOURCE__'))
+            resp.data = json.dumps(uve)
+        resp.response(req.context())
+    # end handle_UVEDbCacheUveRequest
 
     def start_uve_server(self):
         self._uve_server.run()
