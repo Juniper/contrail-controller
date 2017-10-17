@@ -69,7 +69,15 @@ class VerifyServicePolicy(VerifyPolicy):
         sci = ri.get_service_chain_information()
         if sci is None:
             raise Exception('Service chain info not found for %s' % fq_name)
-        self.assertEqual(sci, expected)
+        expected_attrs = expected.__dict__
+        sci_attrs = expected.__dict__
+        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
+        for attr in expected_attrs.keys():
+            if attr == 'service_chain_address':
+                self.assertEqual(IPNetwork(expected_attrs[attr]),
+                        IPNetwork(sci_attrs[attr]))
+            else:
+                self.assertEqual(expected_attrs[attr], sci_attrs[attr])
 
     @retries(5)
     def check_v6_service_chain_info(self, fq_name, expected):
@@ -77,7 +85,15 @@ class VerifyServicePolicy(VerifyPolicy):
         sci = ri.get_ipv6_service_chain_information()
         if sci is None:
             raise Exception('Ipv6 service chain info not found for %s' % fq_name)
-        self.assertEqual(sci, expected)
+        expected_attrs = expected.__dict__
+        sci_attrs = expected.__dict__
+        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
+        for attr in expected_attrs.keys():
+            if attr == 'service_chain_address':
+                self.assertEqual(IPNetwork(expected_attrs[attr]),
+                        IPNetwork(sci_attrs[attr]))
+            else:
+                self.assertEqual(expected_attrs[attr], sci_attrs[attr])
 
     @retries(5)
     def check_service_chain_is_deleted(self, sc_uuid):
