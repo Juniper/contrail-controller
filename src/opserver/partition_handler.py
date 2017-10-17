@@ -272,6 +272,28 @@ class UveCacheProcessor(object):
             clear_cb(key) 
         self._partkeys[partno] = set()
 
+    def get_uvedb_cache_tables(self):
+        return self._uvedb.keys()
+    # end get_uvedb_cache_tables
+
+    def get_uvedb_cache_table_keys(self, table):
+        try:
+            return self._uvedb[table].keys()
+        except KeyError:
+            return []
+    # end get_uvedb_cache_table_keys
+
+    def get_uvedb_cache_uve(self, table, uve_key):
+        try:
+            return self._uvedb[table][uve_key]
+        except KeyError:
+            return None
+    # end get_uvedb_cache_uve
+
+
+# end class UveCacheProcessor
+
+
 class UveStreamPart(gevent.Greenlet):
     def __init__(self, partno, logger, cb, pi, rpass, content = True, 
                 tablefilt = None, cfilter = None, patterns = None, token =
@@ -558,6 +580,18 @@ class UveStreamer(gevent.Greenlet):
 
     def get_uve_list(self, utab, filters, patterns, keysonly = True):
         return self._uvedbcache.get_cache_list(utab, filters, patterns, keysonly)
+
+    def get_uvedb_cache_tables(self):
+        return self._uvedbcache.get_uvedb_cache_tables()
+    # end get_uvedb_cache_tables
+
+    def get_uvedb_cache_table_keys(self, table):
+        return self._uvedbcache.get_uvedb_cache_table_keys(table)
+    # end get_uvedb_cache_table_keys
+
+    def get_uvedb_cache_uve(self, table, uve_key):
+        return self._uvedbcache.get_uvedb_cache_uve(table, uve_key)
+    # end get_uvedb_cache_uve
 
     def clear_callback(self, key):
         if self._q:
