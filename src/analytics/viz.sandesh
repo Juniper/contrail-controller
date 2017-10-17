@@ -156,7 +156,7 @@ const string STATS_TABLE_BY_STR_TAG         = "StatsTableByStrTagV3"
 const string STATS_TABLE_BY_U64_TAG         = "StatsTableByU64TagV3"
 
 const u16 PARTITION_MIN = 0
-const u16 PARTITION_MAX = 16
+const u16 PARTITION_MAX = 8
 
 enum SessionType {
     SERVER_SESSION = 0,
