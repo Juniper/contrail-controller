@@ -113,16 +113,6 @@ public:
 
     virtual void SetUp() {
         agent_->flow_stats_manager()->set_delete_short_flow(false);
-        FlowStatsCollectorObject *obj = agent_->flow_stats_manager()->
-            default_flow_stats_collector_obj();
-        FlowStatsCollectorTest *f1 = static_cast<FlowStatsCollectorTest *>
-            (obj->GetCollector(0));
-        FlowStatsCollectorTest *f2 = static_cast<FlowStatsCollectorTest *>
-            (obj->GetCollector(1));
-        f1->ClearList();
-        EXPECT_EQ(0U, f1->ingress_flow_log_list().size());
-        f2->ClearList();
-        EXPECT_EQ(0U, f2->ingress_flow_log_list().size());
         AddIPAM("vn5", ipam_info, 1);
         client->WaitForIdle();
         AddIPAM("default-project:vn4", ipam_info2, 1);

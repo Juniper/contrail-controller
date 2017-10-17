@@ -59,7 +59,6 @@ FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
                        instance_id,
                        boost::bind(&FlowStatsCollector::RequestHandler, 
                                    this, _1)),
-        msg_list_(kMaxFlowMsgsPerSend, FlowLogData()), msg_index_(0),
         flow_aging_key_(*key), instance_id_(instance_id),
         flow_stats_manager_(aging_module), parent_(obj), ageing_task_(NULL),
         current_time_(GetCurrentTime()), ageing_task_starts_(0) {
@@ -421,19 +420,12 @@ void FlowStatsCollector::UpdateInterVnStats(FlowExportInfo *info,
     }
 }
 
-void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
-                                                  uint64_t teardown_time,
-                                                  const RevFlowDepParams *p) {
+void FlowStatsCollector::UpdateFlowStats(FlowExportInfo *info,
+                                         uint64_t teardown_time) {
     if (!info) {
         return;
     }
     FlowEntry *fe = info->flow();
-    bool read_flow = true;
-    if (info->uuid() != fe->uuid()) {
-        /* If UUID for a flow has changed, don't read fields of FlowEntry while
-         * sending FlowExport message to collector */
-        read_flow = false;
-    }
     KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
                                          ksync_flow_memory();
     /* Fetch vrouter Flow entry using gen_id and flow_handle from FlowExportInfo
@@ -445,16 +437,13 @@ void FlowStatsCollector::UpdateStatsAndExportFlow(FlowExportInfo *info,
                                                            info->gen_id(),
                                                            &k_stats);
     if (k_flow) {
-        UpdateAndExportInternal(info, k_stats.flow_bytes,
+        UpdateFlowStatsInternal(info, k_stats.flow_bytes,
                                 k_stats.flow_bytes_oflow,
                                 k_stats.flow_packets,
                                 k_stats.flow_packets_oflow,
-                                teardown_time, true, p, read_flow);
+                                teardown_time, true);
         return;
     }
-    /* If reading of stats fails, send a message with just teardown time */
-    info->set_teardown_time(teardown_time);
-    ExportFlow(info, 0, 0, p, read_flow);
 }
 
 void FlowStatsCollector::FlowDeleteEnqueue(FlowExportInfo *info, uint64_t t) {
@@ -481,23 +470,35 @@ void FlowStatsCollector::FlowEvictEnqueue(FlowExportInfo *info, uint64_t t,
     info->set_evict_enqueue_time(t);
 }
 
+void FlowStatsCollector::UpdateFlowStatsInternalLocked(FlowExportInfo *info,
+                                                       uint32_t bytes,
+                                                       uint16_t oflow_bytes,
+                                                       uint32_t pkts,
+                                                       uint16_t oflow_pkts,
+                                                       uint64_t time,
+                                                       bool teardown_time) {
+    FlowEntry *flow = info->flow();
+    FlowEntry *rflow = info->reverse_flow();
+    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
+    UpdateFlowStatsInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
+                            teardown_time);
+}
+
 void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
                                                  uint32_t bytes,
                                                  uint16_t oflow_bytes,
                                                  uint32_t pkts,
                                                  uint16_t oflow_pkts,
                                                  uint64_t time,
-                                                 bool teardown_time,
-                                                 uint64_t *diff_bytes,
-                                                 uint64_t *diff_pkts) {
+                                                 bool teardown_time) {
     uint64_t k_bytes, k_packets, total_bytes, total_packets;
     k_bytes = GetFlowStats(oflow_bytes, bytes);
     k_packets = GetFlowStats(oflow_pkts, pkts);
 
     total_bytes = GetUpdatedFlowBytes(info, k_bytes);
     total_packets = GetUpdatedFlowPackets(info, k_packets);
-    *diff_bytes = total_bytes - info->bytes();
-    *diff_pkts = total_packets - info->packets();
+    uint64_t diff_bytes = total_bytes - info->bytes();
+    uint64_t diff_pkts = total_packets - info->packets();
     info->set_bytes(total_bytes);
     info->set_packets(total_packets);
     if (teardown_time) {
@@ -511,41 +512,11 @@ void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
         return;
     }
     //Update Inter-VN stats
-    UpdateInterVnStats(info, *diff_bytes, *diff_pkts);
+    UpdateInterVnStats(info, diff_bytes, diff_pkts);
     //Update Endpoint stats
-    UpdateVmiTagBasedStats(info, *diff_bytes, *diff_pkts);
+    UpdateVmiTagBasedStats(info, diff_bytes, diff_pkts);
     //Update Floating-IP stats
-    UpdateFloatingIpStats(info, *diff_bytes, *diff_pkts);
-}
-
-void FlowStatsCollector::UpdateAndExportInternalLocked(FlowExportInfo *info,
-                                                       uint32_t bytes,
-                                                       uint16_t oflow_bytes,
-                                                       uint32_t pkts,
-                                                       uint16_t oflow_pkts,
-                                                       uint64_t time,
-                                                       bool teardown_time,
-                                                   const RevFlowDepParams *p) {
-    FlowEntry *flow = info->flow();
-    FlowEntry *rflow = info->reverse_flow();
-    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
-    UpdateAndExportInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
-                            teardown_time, p, true);
-}
-
-void FlowStatsCollector::UpdateAndExportInternal(FlowExportInfo *info,
-                                                 uint32_t bytes,
-                                                 uint16_t oflow_bytes,
-                                                 uint32_t pkts,
-                                                 uint16_t oflow_pkts,
-                                                 uint64_t time,
-                                                 bool teardown_time,
-                                                 const RevFlowDepParams *p,
-                                                 bool read_flow) {
-    uint64_t diff_bytes, diff_pkts;
-    UpdateFlowStatsInternal(info, bytes, oflow_bytes, pkts, oflow_pkts, time,
-                            teardown_time, &diff_bytes, &diff_pkts);
-    ExportFlow(info, diff_bytes, diff_pkts, p, read_flow);
+    UpdateFloatingIpStats(info, diff_bytes, diff_pkts);
 }
 
 // Check if flow needs to be evicted
@@ -634,24 +605,15 @@ bool FlowStatsCollector::AgeFlow(KSyncFlowMemory *ksync_obj,
         k_bytes = GetFlowStats(k_stats.flow_bytes_oflow,
                                k_stats.flow_bytes);
         bytes = 0x0000ffffffffffffULL & info->bytes();
-        /* Always copy udp source port even though vrouter does not change
-         * it. Vrouter many change this behavior and recompute source port
-         * whenever flow action changes. To keep agent independent of this,
-         * always copy UDP source port */
-        info->set_underlay_source_port(kinfo.underlay_src_port);
-        info->set_tcp_flags(kinfo.tcp_flags);
         /* Don't account for agent overflow bits while comparing change in
          * stats */
         if (bytes != k_bytes) {
-            UpdateAndExportInternalLocked(info,
+            UpdateFlowStatsInternalLocked(info,
                                           k_stats.flow_bytes,
                                           k_stats.flow_bytes_oflow,
                                           k_stats.flow_packets,
                                           k_stats.flow_packets_oflow,
-                                          curr_time, false, NULL);
-        } else if (info->changed()) {
-            /* export flow (reverse) for which traffic is not seen yet. */
-            ExportFlowLocked(info, 0, 0, NULL);
+                                          curr_time, false);
         }
     }
     return deleted;
@@ -780,9 +742,6 @@ uint32_t FlowStatsCollector::RunAgeing(uint32_t max_count) {
         count += ProcessFlow(it, ksync_obj, info, curr_time);
     }
 
-    //Send any pending flow export messages
-    DispatchPendingFlowMsg();
-
     // Update iterator for next pass
     if (it == flow_export_info_list_.end()) {
         flow_iteration_key_ = NULL;
@@ -877,357 +836,6 @@ void FlowStatsCollector::UpdateStatsEvent(const FlowEntryPtr &flow,
     request_queue_.Enqueue(req);
 }
 
-void FlowStatsCollector::SetUnderlayInfo(FlowExportInfo *info,
-                                         FlowLogData &s_flow) {
-    string rid = agent_uve_->agent()->router_id().to_string();
-    FlowEntry *flow = info->flow();
-    uint16_t underlay_src_port = 0;
-    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
-        s_flow.set_vrouter_ip(rid);
-        s_flow.set_other_vrouter_ip(rid);
-        /* Set source_port as 0 for local flows. Source port is calculated by
-         * vrouter irrespective of whether flow is local or not. So for local
-         * flows we need to ignore port given by vrouter
-         */
-        s_flow.set_underlay_source_port(0);
-    } else {
-        s_flow.set_vrouter_ip(rid);
-        s_flow.set_other_vrouter_ip(flow->peer_vrouter());
-        if (flow->tunnel_type().GetType() != TunnelType::MPLS_GRE) {
-            underlay_src_port = info->underlay_source_port();
-        }
-        s_flow.set_underlay_source_port(underlay_src_port);
-    }
-    s_flow.set_underlay_proto(flow->tunnel_type().GetType());
-}
-
-/* For ingress flows, change the SIP as Nat-IP instead of Native IP */
-void FlowStatsCollector::SourceIpOverride(FlowExportInfo *info,
-                                          FlowLogData &s_flow,
-                                          const RevFlowDepParams *params) {
-    if (params && params->sip_.is_v4()) {
-        s_flow.set_sourceip(params->sip_);
-        return;
-    }
-    FlowEntry *flow = info->flow();
-    FlowEntry *rflow = info->reverse_flow();
-    if (info->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
-        rflow) {
-        const FlowKey *nat_key = &rflow->key();
-        if (flow->key().src_addr != nat_key->dst_addr) {
-            s_flow.set_sourceip(nat_key->dst_addr);
-        }
-    }
-}
-
-void FlowStatsCollector::SetImplicitFlowDetails(FlowExportInfo *info,
-                                                FlowLogData &s_flow,
-                                                const RevFlowDepParams *params) {
-
-    FlowEntry *rflow = info->reverse_flow();
-
-    if (rflow) {
-        s_flow.set_flowuuid(to_string(rflow->egress_uuid()));
-        s_flow.set_vm(rflow->data().vm_cfg_name);
-        s_flow.set_sg_rule_uuid(rflow->sg_rule_uuid());
-        if (rflow->intf_entry()) {
-            const VmInterface *vmi =
-                dynamic_cast<const VmInterface *>(rflow->intf_entry());
-            if (vmi) {
-                s_flow.set_vmi_uuid(UuidToString(vmi->vmi_cfg_uuid()));
-            } else {
-                s_flow.set_vmi_uuid(UuidToString(rflow->intf_entry()->
-                                                 GetUuid()));
-            }
-        }
-        s_flow.set_reverse_uuid(to_string(rflow->uuid()));
-    } else if (params) {
-        s_flow.set_flowuuid(to_string(params->rev_egress_uuid_));
-        s_flow.set_vm(params->vm_cfg_name_);
-        s_flow.set_sg_rule_uuid(params->sg_uuid_);
-        s_flow.set_reverse_uuid(to_string(params->rev_uuid_));
-        s_flow.set_vmi_uuid(params->vmi_uuid_);
-    }
-}
-
-void FlowStatsCollector::GetFlowSandeshActionParams
-    (const FlowAction &action_info, std::string &action_str) {
-    std::bitset<32> bs(action_info.action);
-    for (unsigned int i = 0; i <= bs.size(); i++) {
-        if (bs[i]) {
-            if (!action_str.empty()) {
-                action_str += "|";
-            }
-            action_str += TrafficAction::ActionToString(
-                static_cast<TrafficAction::Action>(i));
-        }
-    }
-}
-
-void FlowStatsCollector::EnqueueFlowMsg() {
-    msg_index_++;
-    if (msg_index_ == kMaxFlowMsgsPerSend) {
-        DispatchFlowMsg(msg_list_);
-        msg_index_ = 0;
-    }
-}
-
-void FlowStatsCollector::DispatchPendingFlowMsg() {
-    if (msg_index_ == 0) {
-        return;
-    }
-
-    vector<FlowLogData>::const_iterator first = msg_list_.begin();
-    vector<FlowLogData>::const_iterator last = msg_list_.begin() + msg_index_;
-    vector<FlowLogData> new_list(first, last);
-    DispatchFlowMsg(new_list);
-    msg_index_ = 0;
-}
-
-void FlowStatsCollector::DispatchFlowMsg(const std::vector<FlowLogData> &lst) {
-    flow_stats_manager_->UpdateFlowMsgExportStats(1);
-    flow_stats_manager_->UpdateFlowSampleExportStats(lst.size());
-    FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_INFO, lst);
-}
-
-uint8_t FlowStatsCollector::GetFlowMsgIdx() {
-    FlowLogData &obj = msg_list_[msg_index_];
-    obj = FlowLogData();
-    return msg_index_;
-}
-
-void FlowStatsCollector::ExportFlowLocked(FlowExportInfo *info,
-                                          uint64_t diff_bytes,
-                                          uint64_t diff_pkts,
-                                          const RevFlowDepParams *params) {
-    /* In TSN mode, we don't export flows */
-    if (agent_uve_->agent()->tsn_enabled()) {
-        return;
-    }
-    FlowEntry *flow = info->flow();
-    FlowEntry *rflow = info->reverse_flow();
-    FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
-    ExportFlow(info, diff_bytes, diff_pkts, params, true);
-}
-
-/* Flow Export Algorithm
- * (1) Flow samples greater than or equal to sampling threshold will always be
- * exported, with the byte/packet counts reported as-is.
- * (2) Flow samples smaller than the sampling threshold will be exported
- * probabilistically, with the byte/packets counts adjusted upwards according to
- * the probability.
- * (3) Probability =  diff_bytes/sampling_threshold
- * (4) We generate a random number less than sampling threshold.
- * (5) If the diff_bytes is greater than random number then the flow is dropped
- * (6) Otherwise the flow is exported after normalizing the diff bytes and
- * packets. The normalization is done by dividing diff_bytes and diff_pkts with
- * probability. This normalization is used as heuristictic to account for stats
- * of dropped flows */
-void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
-                                    uint64_t diff_bytes,
-                                    uint64_t diff_pkts,
-                                    const RevFlowDepParams *params,
-                                    bool read_flow) {
-    /* In TSN mode, we don't export flows */
-    if (agent_uve_->agent()->tsn_enabled()) {
-        return;
-    }
-    FlowEntry *flow = info->flow();
-    FlowEntry *rflow = info->reverse_flow();
-    bool first_time_export = false;
-
-    /* Drop Deleted Flow export messages if add for it was never exported. This
-     * includes only those delete messages where we cannot read FlowEntry
-     * because deleted msg is for a Flow UUID which is different from the UUID
-     * in FlowEntry pointer
-     */
-    if (!info->exported_atleast_once() && !read_flow) {
-        assert(info->teardown_time());
-        flow_stats_manager_->deleted_flow_export_drops_++;
-        return;
-    }
-
-    int32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
-                        flow_export_rate();
-    /* We should always try to export flows with Action as LOG regardless of
-     * configured flow-export-rate */
-    if (!info->IsActionLog() && !cfg_rate) {
-        flow_stats_manager_->flow_export_disable_drops_++;
-        return;
-    }
-
-    /* Subject a flow to sampling algorithm only when all of below is met:-
-     * a. if Log is not configured as action for flow
-     * b. actual flow-export-rate is >= 80% of configured flow-export-rate. This
-     *    is done only for first time.
-     * c. diff_bytes is lesser than the threshold
-     * d. Flow-sampling is not disabled
-     * e. Flow-sample does not have teardown time or the sample for the flow is
-     *    not exported earlier.
-     */
-    bool subject_flows_to_algorithm = false;
-    if (!info->IsActionLog() && (diff_bytes < threshold()) &&
-        (cfg_rate != GlobalVrouter::kDisableSampling) &&
-        (!info->teardown_time() || !info->exported_atleast_once()) &&
-        ((!flow_stats_manager_->flows_sampled_atleast_once_ &&
-         flow_stats_manager_->flow_export_rate() >= ((double)cfg_rate) * 0.8)
-         || flow_stats_manager_->flows_sampled_atleast_once_)) {
-        subject_flows_to_algorithm = true;
-        flow_stats_manager_->set_flows_sampled_atleast_once();
-    }
-
-    if (subject_flows_to_algorithm) {
-        double probability = diff_bytes/threshold();
-        uint32_t num = rand() % threshold();
-        if (num > diff_bytes) {
-            /* Do not export the flow, if the random number generated is more
-             * than the diff_bytes */
-            flow_stats_manager_->flow_export_sampling_drops_++;
-            /* The second part of the if condition below is not required but
-             * added for better readability. It is not required because
-             * exported_atleast_once() will always be false if teardown time is
-             * set. If both teardown_time and exported_atleast_once are true we
-             * will never be here */
-            if (info->teardown_time() && !info->exported_atleast_once()) {
-                flow_stats_manager_->flow_export_drops_++;
-            }
-            return;
-        }
-        /* Normalize the diff_bytes and diff_packets reported using the
-         * probability value */
-        if (probability == 0) {
-            diff_bytes = diff_pkts = 0;
-        } else {
-            diff_bytes = diff_bytes/probability;
-            diff_pkts = diff_pkts/probability;
-        }
-    }
-
-    if (!info->exported_atleast_once()) {
-        first_time_export = true;
-        /* Mark the flow as exported */
-        info->set_exported_atleast_once(true);
-    }
-
-    FlowLogData &s_flow = msg_list_[GetFlowMsgIdx()];
-
-    s_flow.set_flowuuid(to_string(info->uuid()));
-    s_flow.set_bytes(info->bytes());
-    s_flow.set_packets(info->packets());
-    s_flow.set_diff_bytes(diff_bytes);
-    s_flow.set_diff_packets(diff_pkts);
-    s_flow.set_setup_time(info->setup_time());
-    if (info->teardown_time()) {
-        s_flow.set_teardown_time(info->teardown_time());
-    }
-    info->set_changed(false);
-
-    s_flow.set_sourceip(flow->key().src_addr);
-    s_flow.set_destip(flow->key().dst_addr);
-    s_flow.set_protocol(flow->key().protocol);
-    s_flow.set_sport(flow->key().src_port);
-    s_flow.set_dport(flow->key().dst_port);
-    if (!read_flow) {
-        s_flow.set_sourcevn(info->last_exported_source_vn());
-        s_flow.set_destvn(info->last_exported_dest_vn());
-    } else {
-        s_flow.set_tcp_flags(info->tcp_flags());
-        s_flow.set_sourcevn(flow->data().source_vn_match);
-        s_flow.set_destvn(flow->data().dest_vn_match);
-        /* Save the last exported Source VN and Destination VN for the flow
-         * This can be used during export of flow-delete messages when flow
-         * pointer is reused for different flow(detected by change of flow uuid)
-         */
-        info->set_last_exported_source_vn(flow->data().source_vn_match);
-        info->set_last_exported_dest_vn(flow->data().dest_vn_match);
-        s_flow.set_vm(flow->data().vm_cfg_name);
-        if (info->is_flags_set(FlowEntry::ReverseFlow)) {
-            s_flow.set_forward_flow(false);
-        } else {
-            s_flow.set_forward_flow(true);
-        }
-
-        string drop_reason = FlowEntry::DropReasonStr(flow->data().drop_reason);
-        s_flow.set_drop_reason(drop_reason);
-
-        s_flow.set_sg_rule_uuid(flow->sg_rule_uuid());
-        s_flow.set_nw_ace_uuid(flow->nw_ace_uuid());
-        if (flow->intf_entry()) {
-            const VmInterface *vmi =
-                dynamic_cast<const VmInterface *>(flow->intf_entry());
-            if (vmi) {
-                s_flow.set_vmi_uuid(UuidToString(vmi->vmi_cfg_uuid()));
-            } else {
-                s_flow.set_vmi_uuid(UuidToString(flow->intf_entry()->
-                                                 GetUuid()));
-            }
-        }
-
-        if (rflow) {
-            s_flow.set_reverse_uuid(to_string(rflow->uuid()));
-        } else if (params) {
-            s_flow.set_reverse_uuid(to_string(params->rev_uuid_));
-        }
-
-        // Set flow action
-        std::string action_str;
-        GetFlowSandeshActionParams(flow->data().match_p.action_info, action_str);
-        s_flow.set_action(action_str);
-        SetUnderlayInfo(info, s_flow);
-    }
-
-    if (info->is_flags_set(FlowEntry::LocalFlow)) {
-        /* For local flows we need to send two flow log messages.
-         * 1. With direction as ingress
-         * 2. With direction as egress
-         * For local flows we have already sent flow log above with
-         * direction as ingress. We are sending flow log below with
-         * direction as egress.
-         */
-        s_flow.set_direction_ing(1);
-        if (read_flow) {
-            s_flow.set_reverse_uuid(to_string(flow->egress_uuid()));
-        }
-        SourceIpOverride(info, s_flow, params);
-        EnqueueFlowMsg();
-
-        FlowLogData &s_flow2 = msg_list_[GetFlowMsgIdx()];
-        s_flow2 = s_flow;
-        s_flow2.set_direction_ing(0);
-        //Update the interface and VM name in this flow
-        //For the reverse flow this would be egress flow
-        //For example
-        //    VM1 A --> B is fwd flow
-        //    VM2 B --> A is rev flow
-        //
-        //Egress flow for fwd flow would be exported
-        //while exporting rev flow, this done so that
-        //key, stats and other stuff can be copied over
-        //from current flow
-        if (read_flow) {
-            SetImplicitFlowDetails(info, s_flow2, params);
-        } else {
-            s_flow2.set_flowuuid(to_string(info->rev_flow_egress_uuid()));
-        }
-        //Export local flow of egress direction with a different UUID even when
-        //the flow is same. Required for analytics module to query flows
-        //irrespective of direction.
-        EnqueueFlowMsg();
-        flow_stats_manager_->UpdateFlowExportStats(2, first_time_export,
-                                                   subject_flows_to_algorithm);
-    } else {
-        if (info->is_flags_set(FlowEntry::IngressDir)) {
-            s_flow.set_direction_ing(1);
-            SourceIpOverride(info, s_flow, params);
-        } else {
-            s_flow.set_direction_ing(0);
-        }
-        EnqueueFlowMsg();
-        flow_stats_manager_->UpdateFlowExportStats(1, first_time_export,
-                                                   subject_flows_to_algorithm);
-    }
-}
-
 bool FlowStatsManager::UpdateFlowThreshold() {
     uint64_t curr_time = FlowStatsCollector::GetCurrentTime();
     bool export_rate_calculated = false;
@@ -1314,14 +922,7 @@ bool FlowStatsCollector::RequestHandlerEntry() {
     return true;
 }
 
-/*
- * The DELETE_FLOW processing would have enqueued FlowLog messages. However,
- * if we have not hit max messages to be sent, it will not dispatch. Invoke
- * DispatchPendingFlowMsg to send pending messages from
- * FlowStatsCollector::RequestHandler
- */
 void FlowStatsCollector::RequestHandlerExit(bool done) {
-    DispatchPendingFlowMsg();
 }
 
 bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
@@ -1349,7 +950,7 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
              * and export the flow. So delete handling for evicted flows need
              * not update stats and export flow */
             if (!info->teardown_time()) {
-                UpdateStatsAndExportFlow(info, req->time(), &req->params());
+                UpdateFlowStats(info, req->time());
             }
         }
         /* Remove the entry from our tree */
@@ -1462,14 +1063,13 @@ void FlowStatsCollector::AddFlow(FlowExportInfo info) {
              * comes before this duplicate add.
              */
             if (!prev.teardown_time()) {
-                UpdateStatsAndExportFlow(&prev, info.setup_time(), NULL);
+                UpdateFlowStats(&prev, info.last_modified_time());
             }
             /* After sending Delete to collector (if required), reset the stats
              */
             prev.ResetStats();
         }
         prev.CopyFlowInfo(fe);
-        prev.set_changed(true);
         prev.set_delete_enqueue_time(0);
         prev.set_evict_enqueue_time(0);
         prev.set_teardown_time(0);
@@ -1549,9 +1149,9 @@ void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
         /* We are updating stats of evicted flow. Set teardown_time here.
          * When delete event is being handled we don't export flow if
          * teardown time is set */
-        UpdateAndExportInternal(info, bytes, oflow_bytes & 0xFFFF,
+        UpdateFlowStatsInternal(info, bytes, oflow_bytes & 0xFFFF,
                                 packets, oflow_bytes & 0xFFFF0000,
-                                GetCurrentTime(), true, NULL, false);
+                                GetCurrentTime(), true);
     }
 }
 
@@ -1590,17 +1190,14 @@ static void FlowExportInfoToSandesh(const FlowExportInfo &value,
     if (rflow) {
         info.set_rev_flow_uuid(to_string(rflow->uuid()));
     }
-    info.set_egress_uuid(to_string(value.egress_uuid()));
     info.set_source_vn(flow->data().source_vn_match);
     info.set_dest_vn(flow->data().dest_vn_match);
     info.set_sg_rule_uuid(flow->sg_rule_uuid());
     info.set_nw_ace_uuid(flow->nw_ace_uuid());
-    info.set_setup_time(value.setup_time());
     info.set_teardown_time(value.teardown_time());
     info.set_last_modified_time(value.last_modified_time());
     info.set_bytes(value.bytes());
     info.set_packets(value.packets());
-    info.set_flags(flow->flags());
     info.set_flow_handle(flow->flow_handle());
     std::vector<ActionStr> action_str_l;
     SetActionStr(flow->data().match_p.action_info, action_str_l);
@@ -1613,7 +1210,6 @@ static void FlowExportInfoToSandesh(const FlowExportInfo &value,
     info.set_fip_vmi(vmi_str);
     Ip4Address ip(flow->fip());
     info.set_fip(ip.to_string());
-    info.set_underlay_source_port(value.underlay_source_port());
     info.set_delete_enqueued(value.delete_enqueue_time() ? true : false);
 }
 

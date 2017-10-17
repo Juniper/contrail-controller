@@ -766,17 +766,13 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
     flow_info->set_setup_time(setup_time);
     flow_info->set_teardown_time(teardown_time);
     if (params) {
-        FlowStatsCollector::GetFlowSandeshActionParams(
-                                            params->action_info_,
-                                            action_str);
+        GetFlowSandeshActionParams(params->action_info_, action_str);
         flow_info->set_action(action_str);
         flow_info->set_sg_rule_uuid(StringToUuid(params->sg_uuid_));
         flow_info->set_nw_ace_uuid(StringToUuid(params->nw_ace_uuid_));
         flow_info->set_drop_reason(params->drop_reason_);
     } else if (read_flow) {
-        FlowStatsCollector::GetFlowSandeshActionParams(
-                                            fe->data().match_p.action_info,
-                                            action_str);
+        GetFlowSandeshActionParams(fe->data().match_p.action_info, action_str);
         flow_info->set_action(action_str);
         flow_info->set_sg_rule_uuid(StringToUuid(fe->sg_rule_uuid()));
         flow_info->set_nw_ace_uuid(StringToUuid(fe->nw_ace_uuid()));
@@ -1115,6 +1111,20 @@ std::string SessionStatsCollector::SessionTask::Description() const {
 bool SessionStatsCollector::SessionTask::Run() {
     ssc_->RunSessionEndpointStats(kSessionsPerTask);
     return true;
+}
+
+void SessionStatsCollector::GetFlowSandeshActionParams
+    (const FlowAction &action_info, std::string &action_str) const {
+    std::bitset<32> bs(action_info.action);
+    for (unsigned int i = 0; i <= bs.size(); i++) {
+        if (bs[i]) {
+            if (!action_str.empty()) {
+                action_str += "|";
+            }
+            action_str += TrafficAction::ActionToString(
+                static_cast<TrafficAction::Action>(i));
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////////////

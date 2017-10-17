@@ -14,7 +14,6 @@
 #include <vrouter/ksync/test/ksync_test.h>
 #include <uve/agent_uve.h>
 #include <uve/test/agent_uve_test.h>
-#include <vrouter/flow_stats/test/flow_stats_collector_test.h>
 #include <vrouter/flow_stats/session_stats_collector.h>
 
 #include "test_agent_init.h"
@@ -60,7 +59,7 @@ void TestAgentInit::ProcessComputeAddress(AgentParam *param) {
 void TestAgentInit::FactoryInit() {
     AgentObjectFactory::Register<AgentUveBase>(boost::factory<AgentUveBaseTest *>());
     AgentObjectFactory::Register<KSync>(boost::factory<KSyncTest *>());
-    AgentObjectFactory::Register<FlowStatsCollector>(boost::factory<FlowStatsCollectorTest *>());
+    AgentObjectFactory::Register<FlowStatsCollector>(boost::factory<FlowStatsCollector *>());
     AgentObjectFactory::Register<SessionStatsCollector>(boost::factory<SessionStatsCollector *>());
 }
 
