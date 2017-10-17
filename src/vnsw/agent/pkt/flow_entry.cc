@@ -2960,9 +2960,6 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
         if (info) {
             fe_sandesh_data.set_bytes(integerToString(info->bytes()));
             fe_sandesh_data.set_packets(integerToString(info->packets()));
-            fe_sandesh_data.set_setup_time(
-                integerToString(UTCUsecToPTime(info->setup_time())));
-            fe_sandesh_data.set_setup_time_utc(info->setup_time());
             if (info->teardown_time()) {
                 fe_sandesh_data.set_teardown_time(
                     integerToString(UTCUsecToPTime(info->teardown_time())));
