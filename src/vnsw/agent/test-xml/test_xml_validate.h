@@ -64,28 +64,4 @@ private:
     uint16_t id_;
 };
 
-class AgentUtXmlFlowExportValidate : public AgentUtXmlValidationNode {
-public:
-    AgentUtXmlFlowExportValidate(const pugi::xml_node &node);
-    virtual ~AgentUtXmlFlowExportValidate();
-
-    virtual bool ReadXml();
-    virtual bool Validate();
-    virtual const std::string ToString();
-private:
-    int count_;
-};
-
-class AgentUtXmlFlowThresholdValidate : public AgentUtXmlValidationNode {
-public:
-    AgentUtXmlFlowThresholdValidate(const pugi::xml_node &node);
-    virtual ~AgentUtXmlFlowThresholdValidate();
-
-    virtual bool ReadXml();
-    virtual bool Validate();
-    virtual const std::string ToString();
-private:
-    uint32_t threshold_;
-};
-
 #endif //vnsw_agent_test_xml_test_xml_validate_h

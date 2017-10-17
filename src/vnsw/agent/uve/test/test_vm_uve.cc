@@ -26,7 +26,6 @@
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 #include "pkt/test/test_flow_util.h"
-#include <vrouter/flow_stats/test/flow_stats_collector_test.h>
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
 #include <uve/test/vm_uve_table_test.h>
@@ -105,16 +104,6 @@ public:
     }
     virtual void SetUp() {
         agent_->flow_stats_manager()->set_delete_short_flow(false);
-        FlowStatsCollectorObject *obj = agent_->flow_stats_manager()->
-            default_flow_stats_collector_obj();
-        FlowStatsCollectorTest *f1 = static_cast<FlowStatsCollectorTest *>
-            (obj->GetCollector(0));
-        FlowStatsCollectorTest *f2 = static_cast<FlowStatsCollectorTest *>
-            (obj->GetCollector(1));
-        f1->ClearList();
-        EXPECT_EQ(0U, f1->ingress_flow_log_list().size());
-        f2->ClearList();
-        EXPECT_EQ(0U, f2->ingress_flow_log_list().size());
         AddIPAM("vn5", ipam_info, 1);
         client->WaitForIdle();
         AddIPAM("vn4", ipam_info2, 1);
@@ -1005,100 +994,6 @@ TEST_F(UveVmUveTest, VmChangeOnVMI) {
     client->WaitForIdle(3);
 
     //clear counters at the end of test case
-    client->Reset();
-    util_.EnqueueSendVmUveTask();
-    client->WaitForIdle();
-    WAIT_FOR(1000, 500, ((vmut->VmUveCount() == 0U)));
-    vmut->ClearCount();
-}
-
-//Verfiy Source IP overriden for NAT flows in flow-log messages exported by
-//agent
-TEST_F(UveVmUveTest, SIP_override) {
-    FlowSetUp();
-    TestFlow flow[] = {
-        {
-            TestFlowPkt(Address::INET, vm1_ip, vm4_ip, 1, 0, 0, "vrf5",
-                        flow0->id(), 1),
-            {
-                new VerifyNat(vm4_ip, vm1_fip, 1, 0, 0)
-            }
-        }
-    };
-
-    CreateFlow(flow, 1);
-    EXPECT_EQ(2U, proto_->FlowCount());
-
-    //Verify Floating IP flows are created.
-    FlowEntry *f1 = flow[0].pkt_.FlowFetch();
-    FlowEntry *rev = f1->reverse_flow_entry();
-    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm4_ip, 1, 0, 0,
-                        flow0->flow_key_nh()->id()));
-    EXPECT_TRUE(FlowGet(VrfGet("default-project:vn4:vn4")->vrf_id(), vm4_ip,
-                        vm1_fip, 1, 0, 0, rev->key().nh));
-
-    EXPECT_TRUE(f1 != NULL);
-    FlowStatsCollector *fsc = f1->fsc();
-    EXPECT_TRUE(fsc != NULL);
-
-    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>(fsc);
-    FlowExportInfo *info = f->FindFlowExportInfo(f1);
-    FlowExportInfo *rinfo = f->FindFlowExportInfo(rev);
-    EXPECT_TRUE(info != NULL);
-    EXPECT_TRUE(rinfo != NULL);
-
-    //Set the action as Log for the flow-entries to ensure that they are not
-    //dropped during export
-    util_.EnqueueFlowActionLogChange(f1);
-    util_.EnqueueFlowActionLogChange(rev);
-    client->WaitForIdle(10);
-    WAIT_FOR(1000, 500, ((info->IsActionLog() == true)));
-    WAIT_FOR(1000, 500, ((rinfo->IsActionLog() == true)));
-
-    //Invoke FlowStatsCollector to export flow logs
-    util_.EnqueueFlowStatsCollectorTask();
-    client->WaitForIdle(10);
-
-    std::vector<FlowLogData> list = f->ingress_flow_log_list();
-    EXPECT_EQ(2U, list.size());
-
-    IpAddress dip_addr = IpAddress::from_string(vm4_ip);
-    IpAddress sip_addr = IpAddress::from_string(vm1_fip);
-    //Verify that the source-ip of one of the exported flow is overwritten
-    //with FIP
-    FlowLogData fl1, fl2;
-    fl1 = list.at(0);
-    fl2 = list.at(1);
-    if (fl1.get_destip() == dip_addr) {
-        EXPECT_EQ(fl1.get_sourceip(), sip_addr);
-    } else if (fl2.get_destip() == dip_addr) {
-        EXPECT_EQ(fl2.get_sourceip(), sip_addr);
-    }
-
-    f->ClearList();
-    //cleanup
-    FlowTearDown();
-    RemoveFipConfig();
-    EXPECT_EQ(0U, proto_->FlowCount());
-    client->WaitForIdle(10);
-
-    //Verify that flow-logs are sent during flow delete
-    WAIT_FOR(1000, 500, ((f->ingress_flow_log_list().size() == 2U)));
-    list = f->ingress_flow_log_list();
-    EXPECT_EQ(2U, list.size());
-
-    //Verify that SIP is overwritten even for flows sent during flow delete
-    fl1 = list.at(0);
-    fl2 = list.at(1);
-    if (fl1.get_destip() == dip_addr) {
-        EXPECT_EQ(fl1.get_sourceip(), sip_addr);
-    } else if (fl2.get_destip() == dip_addr) {
-        EXPECT_EQ(fl2.get_sourceip(), sip_addr);
-    }
-    f->ClearList();
-
-    VmUveTableTest *vmut = static_cast<VmUveTableTest *>
-        (Agent::GetInstance()->uve()->vm_uve_table());
     client->Reset();
     util_.EnqueueSendVmUveTask();
     client->WaitForIdle();

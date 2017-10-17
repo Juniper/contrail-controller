@@ -11,7 +11,6 @@
 #include <uve/test/vn_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
 #include <uve/test/agent_stats_collector_test.h>
-#include <vrouter/flow_stats/test/flow_stats_collector_test.h>
 #include "uve/test/test_uve_util.h"
 #include "pkt/test/test_flow_util.h"
 
@@ -524,74 +523,6 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
         SetFlowAgeTime(bkp_age_time);
 }
 
-TEST_F(StatsTestMock, FlowStatsTest_tcp_flags) {
-    hash_id = 1;
-
-    VrfEntry *vrf = Agent::GetInstance()->vrf_table()->FindVrfFromName("vrf5");
-    //Flow creation using TCP packet
-    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
-                    1000, 200, hash_id);
-    client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
-                        "vn5", "vn5", hash_id++, flow0->flow_key_nh()->id()));
-    FlowEntry *f2 = FlowGet(vrf->vrf_id(), "1.1.1.1", "1.1.1.2", 6, 1000, 200,
-                            flow0->flow_key_nh()->id());
-    EXPECT_TRUE(f2 != NULL);
-    FlowEntry *f2_rev = f2->reverse_flow_entry();
-    EXPECT_TRUE(f2_rev != NULL);
-    FlowStatsCollector *fsc = f2->fsc();
-    EXPECT_TRUE(fsc != NULL);
-    FlowExportInfo *info = fsc->FindFlowExportInfo(f2);
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(f2_rev);
-    EXPECT_TRUE(info != NULL);
-    EXPECT_TRUE(rinfo != NULL);
-
-    //Create flow in reverse direction and make sure it is linked to previous
-    //flow
-    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 200, 1000,
-                    f2_rev->flow_handle());
-    client->WaitForIdle(10);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true,
-                        "vn5", "vn5", f2_rev->flow_handle(),
-                        flow1->flow_key_nh()->id(),
-                        flow0->flow_key_nh()->id()));
-
-    //Verify flow count
-    EXPECT_EQ(2U, flow_proto_->FlowCount());
-
-    //Invoke FlowStatsCollector to update the TCP flags
-    util_.EnqueueFlowStatsCollectorTask();
-    client->WaitForIdle(10);
-
-    info = fsc->FindFlowExportInfo(f2);
-    rinfo = fsc->FindFlowExportInfo(f2_rev);
-    EXPECT_TRUE(info != NULL);
-    EXPECT_TRUE(rinfo != NULL);
-    //Verify flow TCP flags
-    EXPECT_TRUE((info->tcp_flags() == 0));
-    EXPECT_TRUE((rinfo->tcp_flags() == 0));
-
-    //Change the stats
-    KSyncSockTypeMap::SetFlowTcpFlags(f2->flow_handle(), VR_FLOW_TCP_SYN);
-    KSyncSockTypeMap::SetFlowTcpFlags(f2_rev->flow_handle(), VR_FLOW_TCP_SYN);
-
-    //Invoke FlowStatsCollector to update the TCP flags
-    util_.EnqueueFlowStatsCollectorTask();
-    client->WaitForIdle(10);
-
-    info = fsc->FindFlowExportInfo(f2);
-    rinfo = fsc->FindFlowExportInfo(f2_rev);
-    EXPECT_TRUE(info != NULL);
-    EXPECT_TRUE(rinfo != NULL);
-    //Verify the updated flow TCP flags
-    EXPECT_TRUE((info->tcp_flags() == VR_FLOW_TCP_SYN));
-    EXPECT_TRUE((rinfo->tcp_flags() == VR_FLOW_TCP_SYN));
-
-    client->EnqueueFlowFlush();
-    client->WaitForIdle(10);
-    WAIT_FOR(100, 10000, (flow_proto_->FlowCount() == 0U));
-}
-
 TEST_F(StatsTestMock, IntfStatsTest) {
     AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
         (Agent::GetInstance()->stats_collector());
@@ -913,20 +844,14 @@ TEST_F(StatsTestMock, Underlay_1) {
     EXPECT_TRUE(fe != NULL);
     FlowStatsCollector *fsc = fe->fsc();
     EXPECT_TRUE(fsc != NULL);
-    FlowExportInfo *info = fsc->FindFlowExportInfo(fe);
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rfe);
-    EXPECT_TRUE(info != NULL);
-    EXPECT_TRUE(rinfo != NULL);
 
     EXPECT_STREQ(fe->peer_vrouter().c_str(),
                  Agent::GetInstance()->router_id().to_string().c_str());
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::INVALID);
-    EXPECT_EQ(info->underlay_source_port(), 0);
 
     EXPECT_STREQ(rfe->peer_vrouter().c_str(),
                  Agent::GetInstance()->router_id().to_string().c_str());
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::INVALID);
-    EXPECT_EQ(rinfo->underlay_source_port(), 0);
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
@@ -959,18 +884,12 @@ TEST_F(StatsTestMock, Underlay_2) {
     EXPECT_TRUE(fe != NULL);
     FlowStatsCollector *fsc = fe->fsc();
     EXPECT_TRUE(fsc != NULL);
-    FlowExportInfo *info = fsc->FindFlowExportInfo(fe);
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rfe);
-    EXPECT_TRUE(info != NULL);
-    EXPECT_TRUE(rinfo != NULL);
 
     EXPECT_STREQ(fe->peer_vrouter().c_str(), remote_router_ip);
     EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(info->underlay_source_port(), 0);
 
     EXPECT_STREQ(rfe->peer_vrouter().c_str(), remote_router_ip);
     EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(rinfo->underlay_source_port(), 0);
 
     DeleteFlow(flow, 1);
     client->WaitForIdle();
@@ -979,157 +898,6 @@ TEST_F(StatsTestMock, Underlay_2) {
     //Remove remote VM routes
     util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);
     client->WaitForIdle();
-}
-
-//Flow underlay source port verification for non-local flow
-TEST_F(StatsTestMock, Underlay_3) {
-    /* Add remote VN route to vrf5 */
-    util_.CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3",
-                            peer_);
-
-    TestFlow flow[] = {
-        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
-        {
-            TestFlowPkt(Address::INET, remote_vm4_ip, "1.1.1.1", 1, 0, 0, "vrf5",
-                        remote_router_ip, flow0->label()),
-            {
-                new VerifyVn("vn3", "vn5"),
-            }
-        }
-    };
-    CreateFlow(flow, 1);
-    client->WaitForIdle();
-    EXPECT_EQ(2U, flow_proto_->FlowCount());
-
-    FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    FlowEntry *rfe = fe->reverse_flow_entry();
-    EXPECT_TRUE(fe != NULL);
-    FlowStatsCollector *fsc = fe->fsc();
-    EXPECT_TRUE(fsc != NULL);
-    FlowExportInfo *info = fsc->FindFlowExportInfo(fe);
-    FlowExportInfo *rinfo = fsc->FindFlowExportInfo(rfe);
-    EXPECT_TRUE(info != NULL);
-    EXPECT_TRUE(rinfo != NULL);
-    client->WaitForIdle();
-
-    WAIT_FOR(1000, 10000, (rfe->flow_handle() != FlowEntry::kInvalidFlowHandle));
-    //Change the underlay source port
-    KSyncSockTypeMap::SetUnderlaySourcePort(fe->flow_handle(), 1234);
-    KSyncSockTypeMap::SetUnderlaySourcePort(rfe->flow_handle(), 5678);
-
-    //Increment flow stats to ensure that when flow_stats_collector is
-    //invoked, the dispatch of flow log message happens
-    KSyncSockTypeMap::IncrFlowStats(fe->flow_handle(), 1, 30);
-
-    //Invoke FlowStatsCollector to update the stats
-    util_.EnqueueFlowStatsCollectorTask();
-    client->WaitForIdle(10);
-
-    //Verify that exported flows have exported_alteast_once_ flag set
-    EXPECT_TRUE(info->exported_atleast_once());
-    EXPECT_TRUE(rinfo->exported_atleast_once());
-
-    //Verify underlay source port for forward flow
-    EXPECT_EQ(fe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(info->underlay_source_port(), 1234);
-
-    //Verify underlay source port for reverse flow
-    EXPECT_EQ(rfe->tunnel_type().GetType(), TunnelType::MPLS_GRE);
-    EXPECT_EQ(rinfo->underlay_source_port(), 5678);
-
-    //Since encap type is MPLS_GRE verify that exported flow has
-    //0 as underlay source port
-    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>(fsc);
-    FlowLogData flow_log = f->last_sent_flow_log();
-    EXPECT_EQ(flow_log.get_underlay_source_port(), 0);
-
-    //Verify that forward_flow field is set
-    EXPECT_TRUE((flow_log.__isset.forward_flow));
-
-    //Verify that teardown_time is not set
-    EXPECT_FALSE((flow_log.__isset.teardown_time));
-
-    //cleanup
-    DeleteFlow(flow, 1);
-    client->WaitForIdle();
-    EXPECT_EQ(0U, flow_proto_->FlowCount());
-
-    //Verify that FlowLog sent for deleted flow has teadown time set.
-    flow_log = f->last_sent_flow_log();
-    EXPECT_TRUE((flow_log.__isset.teardown_time));
-    EXPECT_TRUE((flow_log.get_teardown_time() != 0));
-
-    //Verify that forward_flow field is set
-    EXPECT_TRUE((flow_log.__isset.forward_flow));
-
-    //Remove remote VM routes
-    util_.DeleteRemoteRoute("vrf5", remote_vm4_ip, peer_);
-    client->WaitForIdle();
-}
-
-TEST_F(StatsTestMock, FlowReuse_1) {
-    TestFlow flow[] = {
-        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
-        {
-            TestFlowPkt(Address::INET, "1.1.1.1", "1.1.1.2", 1, 0, 0, "vrf5",
-                        flow0->id()),
-            {
-                new VerifyVn("vn5", "vn5"),
-            }
-        }
-    };
-
-    FlowStatsCollector *col1 = agent_->flow_stats_manager()->
-        default_flow_stats_collector_obj()->GetCollector(0);
-    EXPECT_TRUE(col1 != NULL);
-    FlowStatsCollectorTest *f1 = static_cast<FlowStatsCollectorTest *>(col1);
-    f1->ClearCount();
-    FlowStatsCollector *col2 = agent_->flow_stats_manager()->
-        default_flow_stats_collector_obj()->GetCollector(1);
-    EXPECT_TRUE(col2 != NULL);
-    FlowStatsCollectorTest *f2 = static_cast<FlowStatsCollectorTest *>(col2);
-    f2->ClearCount();
-
-    CreateFlow(flow, 1);
-    client->WaitForIdle();
-    EXPECT_EQ(2U, flow_proto_->FlowCount());
-
-    FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    EXPECT_TRUE(fe != NULL);
-    FlowEntry *rfe = fe->reverse_flow_entry();
-    EXPECT_TRUE(fe != NULL);
-
-    FlowStatsCollector *fsc = fe->fsc();
-    EXPECT_TRUE(fsc != NULL);
-    FlowStatsCollectorTest *f = static_cast<FlowStatsCollectorTest *>(fsc);
-    WAIT_FOR(1000, 10000, (f->dispatch_count() == 4U));
-    boost::uuids::uuid u = fe->uuid();
-    boost::uuids::uuid u_r = rfe->uuid();
-    boost::uuids::uuid u_e = fe->egress_uuid();
-    boost::uuids::uuid u_r_e = rfe->egress_uuid();
-    f->ResetLastSentLog();
-    f->ClearCount();
-    client->WaitForIdle();
-    CreateFlow(flow, 1);
-    client->WaitForIdle();
-    fe = flow[0].pkt_.FlowFetch();
-    EXPECT_TRUE((u != fe->uuid()));
-
-    WAIT_FOR(1000, 10000, (f->dispatch_count() == 4U));
-    WAIT_FOR(1000, 10000, (f->flow_del_log_valid() == true));
-    FlowLogData flow_log = f->last_sent_flow_del_log();
-    EXPECT_TRUE((flow_log.get_flowuuid() == to_string(u)) ||
-                (flow_log.get_flowuuid() == to_string(u_r)) ||
-                (flow_log.get_flowuuid() == to_string(u_e)) ||
-                (flow_log.get_flowuuid() == to_string(u_r_e)));
-    EXPECT_TRUE((!flow_log.get_sourcevn().empty()));
-    EXPECT_TRUE((!flow_log.get_destvn().empty()));
-
-    DeleteFlow(flow, 1);
-    client->WaitForIdle();
-    EXPECT_EQ(0U, flow_proto_->FlowCount());
-    f->ResetLastSentLog();
-    f->ClearCount();
 }
 
 #if 0
