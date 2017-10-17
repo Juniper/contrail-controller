@@ -713,7 +713,7 @@ string BgpStressTest::GetInstanceName(int instance_id, int vn_id) {
     if (!instance_id) return BgpConfigManager::kMasterInstance;
     ostringstream out;
 
-    out << "default-domain:default-project";
+    out << "default-domain:admin";
 
     //
     // Check if instance name is provided by the user
