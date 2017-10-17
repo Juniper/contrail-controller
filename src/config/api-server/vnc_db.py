@@ -28,6 +28,7 @@ from cfgm_common.utils import cgitb_hook
 from cfgm_common.utils import shareinfo_from_perms2
 from cfgm_common import vnc_greenlets
 from cfgm_common import SGID_MIN_ALLOC
+from cfgm_common import VNID_MIN_ALLOC
 
 import copy
 from cfgm_common import jsonutils as json
@@ -313,9 +314,10 @@ class VncServerKombuClient(VncKombuClient):
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_type)
             if r_class:
-                r_class.dbe_create_notification(self._db_client_mgr, obj_uuid)
+                r_class.dbe_create_notification(self._db_client_mgr, obj_uuid,
+                                                obj_info.get('obj_dict'))
         except Exception as e:
-            err_msg = ("Failed in dbe_create_notification " + str(e))
+            err_msg = ("Failed in dbe_create_notification: " + str(e))
             self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_create_notification
@@ -327,9 +329,10 @@ class VncServerKombuClient(VncKombuClient):
         try:
             r_class = self._db_client_mgr.get_resource_class(obj_type)
             if r_class:
-                r_class.dbe_update_notification(obj_uuid)
+                r_class.dbe_update_notification(obj_uuid,
+                                                obj_info.get('obj_dict'))
         except Exception as e:
-            msg = "Failure in dbe_update_notification" + str(e)
+            msg = "Failure in dbe_update_notification: " + str(e)
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_update_notification
@@ -347,7 +350,7 @@ class VncServerKombuClient(VncKombuClient):
             if r_class:
                 r_class.dbe_delete_notification(obj_uuid, obj_dict)
         except Exception as e:
-            msg = "Failure in dbe_delete_notification" + str(e)
+            msg = "Failure in dbe_delete_notification: " + str(e)
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
             raise
     # end _dbe_delete_notification
@@ -584,53 +587,133 @@ class VncZkClient(object):
         return self._zk_client.is_connected()
     # end is_connected
 
-    def alloc_vn_id(self, name):
-        if name is not None:
-            return self._vn_id_allocator.alloc(name)
+    def alloc_vn_id(self, fq_name_str, id=None):
+        # If ID provided, it's a notify allocation, just lock allocated ID in
+        # memory
+        if id is not None and self.get_vn_from_id(id) is not None:
+            self._vn_id_allocator.set_in_use(id - VNID_MIN_ALLOC)
+            return id
+        elif fq_name_str is not None:
+            return self._vn_id_allocator.alloc(fq_name_str) + VNID_MIN_ALLOC
 
-    def free_vn_id(self, vn_id):
-        if vn_id is not None and vn_id < self._VN_MAX_ID:
-            self._vn_id_allocator.delete(vn_id)
+    def free_vn_id(self, id, fq_name_str, notify=False):
+        if id is not None and id - VNID_MIN_ALLOC < self._VN_MAX_ID:
+            # If fq_name associated to the allocated ID does not correpond to
+            # freed resource fq_name, keep zookeeper lock
+            allocated_fq_name_str = self.get_vn_from_id(id)
+            if (allocated_fq_name_str is not None and
+                    allocated_fq_name_str != fq_name_str):
+                return
+            if notify:
+                # If notify, the ZK allocation already removed, just remove
+                # lock in memory
+                self._vn_id_allocator.reset_in_use(id - VNID_MIN_ALLOC)
+            else:
+                self._vn_id_allocator.delete(id - VNID_MIN_ALLOC)
 
-    def get_vn_from_id(self, vn_id):
-        if vn_id is not None and vn_id < self._VN_MAX_ID:
-            return self._vn_id_allocator.read(vn_id)
+    def get_vn_from_id(self, id):
+        if id is not None and id - VNID_MIN_ALLOC < self._VN_MAX_ID:
+            return self._vn_id_allocator.read(id - VNID_MIN_ALLOC)
 
-    def alloc_sg_id(self, name):
-        if name is not None:
-            return self._sg_id_allocator.alloc(name) + SGID_MIN_ALLOC
+    def alloc_sg_id(self, fq_name_str, id=None):
+        # If ID provided, it's a notify allocation, just lock allocated ID in
+        # memory
+        if id is not None and self.get_sg_from_id(id) is not None:
+            self._vn_id_allocator.set_in_use(id)
+            return id
+        elif fq_name_str is not None:
+            return self._sg_id_allocator.alloc(fq_name_str) + SGID_MIN_ALLOC
 
-    def free_sg_id(self, sg_id):
-        if (sg_id is not None and
-                sg_id > SGID_MIN_ALLOC and
-                sg_id < self._SG_MAX_ID):
-            self._sg_id_allocator.delete(sg_id - SGID_MIN_ALLOC)
+    def free_sg_id(self, id, fq_name_str, notify=False):
+        if id is not None and id > SGID_MIN_ALLOC and id < self._SG_MAX_ID:
+            # If fq_name associated to the allocated ID does not correpond to
+            # freed resource fq_name, keep zookeeper lock
+            allocated_fq_name_str = self.get_sg_from_id(id)
+            if (allocated_fq_name_str is not None and
+                    allocated_fq_name_str != fq_name_str):
+                return
+            if notify:
+                # If notify, the ZK allocation already removed, just remove
+                # lock in memory
+                self._sg_id_allocator.reset_in_use(id - SGID_MIN_ALLOC)
+            else:
+                self._sg_id_allocator.delete(id - SGID_MIN_ALLOC)
 
-    def get_sg_from_id(self, sg_id):
-        if (sg_id is not None and
-                sg_id > SGID_MIN_ALLOC and
-                sg_id < self._SG_MAX_ID):
-            return self._sg_id_allocator.read(sg_id - SGID_MIN_ALLOC)
+    def get_sg_from_id(self, id):
+        if id is not None and id > SGID_MIN_ALLOC and id < self._SG_MAX_ID:
+            return self._sg_id_allocator.read(id - SGID_MIN_ALLOC)
 
-    def alloc_tag_type_id(self, type_str):
-        if type_str is not None:
+    def alloc_tag_type_id(self, type_str, id=None):
+        # If ID provided, it's a notify allocation, just lock allocated ID in
+        # memory
+        if id is not None and self.get_tag_type_from_id(id) is not None:
+            self._tag_type_id_allocator.set_in_use(id)
+            return id
+        elif type_str is not None:
             return self._tag_type_id_allocator.alloc(type_str)
 
-    def free_tag_type_id(self, type_id, notify=False):
-        if type_id is not None and type_id < self._TAG_TYPE_MAX_ID:
-            type_str = self._tag_type_id_allocator.read(type_id)
-            self._tag_type_id_allocator.delete(type_id)
-            if not notify:
+    def free_tag_type_id(self, id, type_str, notify=False):
+        if id is not None and id < self._TAG_TYPE_MAX_ID:
+            # If tag type name associated to the allocated ID does not
+            # correpond to freed tag type name, keep zookeeper lock
+            allocated_type_str = self.get_tag_type_from_id(id)
+            if (allocated_type_str is not None and
+                    allocated_type_str != type_str):
+                return
+            if notify:
+                # If notify, the ZK allocation already removed, just remove
+                # lock in memory
+                self._tag_type_id_allocator.reset_in_use(id)
+            else:
                 IndexAllocator.delete_all(
                     self._zk_client, self._tag_value_id_alloc_path % type_str)
+                self._tag_type_id_allocator.delete(id)
             self._tag_value_id_allocator.pop(type_str, None)
 
-    def get_tag_type_from_id(self, type_id):
-        if type_id is not None and type_id < self._TAG_TYPE_MAX_ID:
-            return self._tag_type_id_allocator.read(type_id)
+    def get_tag_type_from_id(self, id):
+        if id is not None and id < self._TAG_TYPE_MAX_ID:
+            return self._tag_type_id_allocator.read(id)
 
-    def alloc_tag_value_id(self, type_str, value_str):
-        if value_str is not None:
+    def alloc_tag_value_id(self, type_str, fq_name_str, id=None):
+        tag_value_id_allocator = self._tag_value_id_allocator.setdefault(
+            type_str,
+            IndexAllocator(
+                self._zk_client,
+                self._tag_value_id_alloc_path % type_str,
+                self._TAG_VALUE_MAX_ID,
+            ),
+        )
+        # If ID provided, it's a notify allocation, just lock allocated ID in
+        # memory
+        if id is not None and tag_value_id_allocator.read(id) is not None:
+            tag_value_id_allocator.set_in_use(id)
+            return id
+        if fq_name_str is not None:
+            return tag_value_id_allocator.alloc(fq_name_str)
+
+    def free_tag_value_id(self, type_str, id, fq_name_str, notify=False):
+        tag_value_id_allocator = self._tag_value_id_allocator.setdefault(
+            type_str,
+            IndexAllocator(
+                self._zk_client,
+                self._tag_value_id_alloc_path % type_str,
+                self._TAG_VALUE_MAX_ID,
+            ),
+        )
+        if id is not None and id < self._TAG_VALUE_MAX_ID:
+            # If tag value associated to the allocated ID does not correpond to
+            # freed tag value, keep zookeeper lock
+            if fq_name_str != tag_value_id_allocator.read(id):
+                return
+            if notify:
+                # If notify, the ZK allocation already removed, just remove
+                # lock in memory
+                tag_value_id_allocator.reset_in_use(id)
+            else:
+                tag_value_id_allocator.delete(id)
+
+    def get_tag_value_from_id(self, type_str, id):
+        if id is not None and id < self._TAG_VALUE_MAX_ID:
             return self._tag_value_id_allocator.setdefault(
                 type_str,
                 IndexAllocator(
@@ -638,29 +721,7 @@ class VncZkClient(object):
                     self._tag_value_id_alloc_path % type_str,
                     self._TAG_VALUE_MAX_ID,
                 ),
-            ).alloc(value_str)
-
-    def free_tag_value_id(self, type_str, value_id):
-        if value_id is not None and value_id < self._TAG_VALUE_MAX_ID:
-            self._tag_value_id_allocator.setdefault(
-                type_str,
-                IndexAllocator(
-                    self._zk_client,
-                    self._tag_value_id_alloc_path % type_str,
-                    self._TAG_VALUE_MAX_ID,
-                ),
-            ).delete(value_id)
-
-    def get_tag_value_from_id(self, type_str, value_id):
-        if value_id is not None and value_id < self._TAG_VALUE_MAX_ID:
-            return self._tag_value_id_allocator.setdefault(
-                type_str,
-                IndexAllocator(
-                    self._zk_client,
-                    self._tag_value_id_alloc_path % type_str,
-                    self._TAG_VALUE_MAX_ID,
-                ),
-            ).read(value_id)
+            ).read(id)
 # end VncZkClient
 
 
@@ -1297,7 +1358,8 @@ class VncDbClient(object):
         if ok:
             # publish to message bus (rabbitmq)
             fq_name = self.uuid_to_fq_name(obj_uuid)
-            self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name)
+            self._msgbus.dbe_publish('UPDATE', obj_type, obj_uuid, fq_name,
+                                     new_obj_dict)
             self._dbe_publish_update_implicit(obj_type, result)
         return (ok, result)
     # end dbe_update

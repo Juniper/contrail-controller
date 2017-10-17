@@ -1164,7 +1164,7 @@ class VncApiServer(object):
     # end internal_request_ref_update
 
     def alloc_vn_id(self, name):
-        return self._db_conn._zk_db.alloc_vn_id(name) + 1
+        return self._db_conn._zk_db.alloc_vn_id(name)
 
     def alloc_tag_value_id(self, tag_type, name):
         return self._db_conn._zk_db.alloc_tag_value_id(tag_type, name)

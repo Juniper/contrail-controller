@@ -395,22 +395,6 @@ class TestSecurityGroup(STTestCase, VerifySecurityGroup):
                                 'ingress-access-control-list',
                                 sg2_obj.get_security_group_id(), True)
 
-        # duplicate security group id configured, vnc api allows
-        # isn't this a problem?
-        sg2_obj.set_configured_security_group_id(100)
-        self._vnc_lib.security_group_update(sg2_obj)
-        self.check_security_group_id(sg2_obj.get_fq_name(), 100)
-
-        #sg id '0' is not allowed, should not get modified
-        sg1_obj.set_configured_security_group_id(0)
-        self._vnc_lib.security_group_update(sg1_obj)
-        self.check_security_group_id(sg1_obj.get_fq_name(), 8000001)
-
-        # -ve security group id not allowed, should not get modified
-        sg1_obj.set_configured_security_group_id(-100)
-        self._vnc_lib.security_group_update(sg1_obj)
-        self.check_security_group_id(sg1_obj.get_fq_name(), -100)
-
         self._vnc_lib.security_group_delete(id=sg1_obj.uuid)
         self._vnc_lib.security_group_delete(id=sg2_obj.uuid)
     #end test_sg

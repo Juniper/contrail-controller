@@ -40,7 +40,6 @@ class ApiServerTestCase(test_common.TestCase):
         vmi_objs = []
         for i in range(obj_count):
             vn_obj = vnc_api.VirtualNetwork('%s-vn-%s' %(self.id(), i))
-            vn_obj.set_virtual_network_network_id(i)
 
             ipam_obj = vnc_api.NetworkIpam('%s-ipam-%s' % (self.id(), i))
             vn_obj.add_network_ipam(ipam_obj, vnc_api.VnSubnetsType())
