@@ -96,4 +96,64 @@
      Property('telemetry-info', 'physical-router', 'optional', 'CRUD',
               'Telemetry info of router. Check TelemetryStateInfo') -->
 
+<!-- VRS Schema -->
+
+<xsd:complexType name="PeerType">
+    <xsd:all>
+        <xsd:element name="as-number" type="xsd:integer" required="true"
+             description="Autonomous system of the peering-router."/>
+        <xsd:element name="ip-address" type="IpAddressType" required="true"
+             description="IP address of the peering-router."/>
+        <xsd:element name="auth-key" type="xsd:string" required="optional"
+             description="MD5 authentication-key for the peering-router."/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PeerListType">
+    <xsd:all>
+        <xsd:element name="peer-list" type="PeerType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="service-provider" type="ifmap:IdentityType"/>
+<xsd:element name="provider-peer-list" type="PeerListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('provider-peer-list', 'service-provider', 'required', 'CRUD',
+                  'Peer routers that belong to a Service Provider.') -->
+
+<xsd:simpleType name="PeeringServiceType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="public-peering"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="peering-policy" type="ifmap:IdentityType"/>
+<xsd:element name="peering-service" type="PeeringServiceType" required="true"
+             description="Peering service type."/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('peering-service', 'peering-policy', 'required', 'CRUD',
+              'Peering policy service type.') -->
+<xsd:element name="peering-address-family" type="IpAddressFamilyType" required="true"
+             description="Address family for which peering is enabled"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('peering-address-family', 'peering-policy', 'optional', 'CRUD',
+              'Peering policy address family.') -->
+
+<xsd:element name="service-provider-peering-policy"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('service-provider-peering-policy',
+          'service-provider', 'peering-policy', ['ref'], 'optional', 'CRUD',
+          'Links the service provider to a peering policy.') -->
+
+<xsd:element name="service-provider-physical-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('service-provider-physical-router',
+          'service-provider', 'physical-router', ['ref'], 'optional', 'CRUD',
+          'Links the service provider to peer routers.') -->
+
+<xsd:element name="service-provider-promiscuous" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('service-provider-promiscuous', 'service-provider', 'optional', 'CRUD',
+              'This service provider is connected to all other service providers.') -->
+
 </xsd:schema>

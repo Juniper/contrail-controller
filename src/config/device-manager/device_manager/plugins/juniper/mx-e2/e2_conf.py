@@ -16,7 +16,7 @@ from juniper_conf import JuniperConf
 from e2_services_info import L2cktErrors, L2vpnErrors
 
 class MxE2Conf(JuniperConf):
-    _products = ['mx']
+    _products = ['mx', 'vmx', 'vrr']
     def __init__(self, logger, params={}):
         self._l2ckt_errors = L2cktErrors()
         self._l2vpn_errors = L2vpnErrors()
@@ -34,6 +34,12 @@ class MxE2Conf(JuniperConf):
         self.e2_chassis_config = None
         self.e2_router_config = None
         self.e2_telemetry_config = None
+
+        # VRS config
+        self.e2_vrs_system_config = None
+        self.e2_vrs_routing_options_config = None
+        self.e2_vrs_policy_options_config = None
+        self.e2_vrs_provider_ri_config = None
     # end initialize
 
     @classmethod
@@ -87,6 +93,11 @@ class MxE2Conf(JuniperConf):
         service_exists = False
         service_index = 0
         node_role = self.physical_router.physical_router_role
+
+        # Configure VRS services
+        if node_role == 'e2-vrr':
+            return self.config_e2_vrs_services()
+
         self._logger.info("Total services on %s is =%d" %
                 (self.physical_router.name, \
                 len(self.physical_router.service_endpoints)))
@@ -939,6 +950,16 @@ class MxE2Conf(JuniperConf):
             telemetry_cfg.append(self.e2_telemetry_config)
             config_list.append(telemetry_cfg)
 
+        # VRS config
+        if self.e2_vrs_system_config is not None:
+            config_list.append(self.e2_vrs_system_config)
+        if self.e2_vrs_routing_options_config is not None:
+            config_list.append(self.e2_vrs_routing_options_config)
+        if self.e2_vrs_policy_options_config is not None:
+            config_list.append(self.e2_vrs_policy_options_config)
+        if self.e2_vrs_provider_ri_config is not None:
+            config_list.append(self.e2_vrs_provider_ri_config)
+
         #no element exists, so delete e2 config.
         if len(config_list) == 1:
            return self.device_send([], default_operation="none",
@@ -1106,5 +1127,257 @@ class MxE2Conf(JuniperConf):
             analytics_cfg.append(tele_scfg)
             self.e2_telemetry_config = analytics_cfg
     # end add_e2_telemetry_per_resource_config_xml
+
+    def config_e2_vrs_services(self):
+        # Push vrr global config
+        vrr_conf = {'vrr_name': self.physical_router.name}
+        vrr_conf['vrr_ip'] = self.physical_router.management_ip
+        bgp_router = BgpRouterDM.get(self.physical_router.bgp_router)
+        if bgp_router:
+            vrr_conf['vrr_as'] = bgp_router.params.get('autonomous_system')
+        self.add_e2_vrs_vrr_global_config(vrr_conf)
+
+        self._logger.info("Total E2 VRS clients on %s is =%d" %
+                         (self.physical_router.name, \
+                         len(self.physical_router.service_providers)))
+
+        for spindex, sp_uuid in enumerate(self.physical_router.service_providers):
+            sp = ServiceProviderDM.get(sp_uuid)
+            if sp is None:
+                self._logger.info("Service provider is NULL for node=%s" %
+                                  (self.physical_router.name))
+                continue
+            peer_list = sp.peer_list['peer_list']
+
+            # Push provider config
+            as_set = set()
+            provider_conf = {'provider_name': sp.name}
+            provider_conf['vrr_ip'] = vrr_conf['vrr_ip']
+            provider_conf['vrr_as'] = vrr_conf['vrr_as']
+            provider_conf['promiscuous'] = sp.promiscuous
+
+            for peer in peer_list:
+                as_set.add(peer['as_number'])
+
+            for as_num in as_set:
+                provider_conf['provider_as'] = as_num
+                self.add_e2_vrs_provider_as_config(provider_conf)
+
+            for peer in peer_list:
+                self._logger.info("Peer ip %s as %s key %s." %
+                    (peer['ip_address'], peer['as_number'], peer['auth_key']))
+                provider_conf['peer_ip'] = peer['ip_address']
+                provider_conf['provider_as'] = peer['as_number']
+                provider_conf['peer_key'] = peer['auth_key']
+                self.add_e2_vrs_provider_peer_config(provider_conf)
+
+            #for pid in sp.peering_policys:
+                #policy = PeeringPolicyDM.get(pid)
+    # end config_e2_vrs_services
+
+    def add_e2_vrs_vrr_global_config(self, vrr_conf):
+        self.add_e2_vrs_vrr_global_config_xml(vrr_conf['vrr_name'], \
+                                              vrr_conf['vrr_ip'], \
+                                              vrr_conf['vrr_as'])
+        self.add_e2_vrs_global_policy_config_xml(vrr_conf['vrr_as'])
+    # end add_e2_vrs_vrr_global_config
+
+    def add_e2_vrs_provider_as_config(self, provider_conf):
+        self.add_e2_vrs_provider_policy_config_xml(provider_conf['provider_name'], \
+                                                   provider_conf['provider_as'], \
+                                                   provider_conf['vrr_as'])
+        self.add_e2_vrs_provider_instance_config_xml(provider_conf['provider_name'], \
+                                                     provider_conf['provider_as'], \
+                                                     provider_conf['vrr_ip'], \
+                                                     provider_conf['promiscuous'])
+    # end add_e2_vrs_provider_as_config
+
+    def add_e2_vrs_provider_peer_config(self, provider_conf):
+        self.add_e2_vrs_provider_instance_peer_config_xml(provider_conf['provider_name'], \
+                                                          provider_conf['provider_as'], \
+                                                          provider_conf['peer_ip'], \
+                                                          provider_conf['peer_key'])
+    # end add_e2_vrs_provider_peer_config
+
+    def add_e2_vrs_vrr_global_config_xml(self, name, ip, as_num):
+        # System config
+        system = etree.Element("system")
+        etree.SubElement(system, "host-name").text = name
+        self.e2_vrs_system_config = system
+
+        # Routing options config
+        routing_options = etree.Element("routing-options")
+        etree.SubElement(routing_options, "router-id").text = ip
+        as_cfg = etree.SubElement(routing_options, "autonomous-system")
+        etree.SubElement(as_cfg, "as-number").text = str(as_num)
+        self.e2_vrs_routing_options_config = routing_options
+    # end add_e2_vrs_vrr_global_config_xml
+
+    def add_e2_vrs_global_policy_config_xml(self, as_num):
+        if self.e2_vrs_policy_options_config is None:
+            self.e2_vrs_policy_options_config = etree.Element("policy-options")
+
+        # Statement: filter-global-comms
+        filter_global_stmt = etree.Element("policy-statement")
+        etree.SubElement(filter_global_stmt, "name").text = "filter-global-comms"
+        block_all_term = etree.SubElement(filter_global_stmt, "term")
+        etree.SubElement(block_all_term, "name").text = "block-all"
+        block_all_comm = etree.SubElement(block_all_term, "from")
+        etree.SubElement(block_all_comm, "community").text = "block-all-comm"
+        block_all_action = etree.SubElement(block_all_term, "then")
+        etree.SubElement(block_all_action, "reject")
+        filter_global_next = etree.SubElement(filter_global_stmt, "then")
+        etree.SubElement(filter_global_next, "next").text = "policy"
+        self.e2_vrs_policy_options_config.append(filter_global_stmt)
+
+        # Statement: import-from-all-inst
+        import_all_stmt = etree.Element("policy-statement")
+        etree.SubElement(import_all_stmt, "name").text = "import-from-all-inst"
+        import_all_term = etree.SubElement(import_all_stmt, "term")
+        etree.SubElement(import_all_term, "name").text = "from-any"
+        import_all_inst = etree.SubElement(import_all_term, "from")
+        etree.SubElement(import_all_inst, "instance-any")
+        import_all_action = etree.SubElement(import_all_term, "then")
+        etree.SubElement(import_all_action, "accept")
+        import_all_next = etree.SubElement(import_all_stmt, "then")
+        etree.SubElement(import_all_next, "reject")
+        self.e2_vrs_policy_options_config.append(import_all_stmt)
+
+        # Community: block-all-comm
+        block_all_comm = etree.Element("community")
+        etree.SubElement(block_all_comm, "name").text = "block-all-comm"
+        etree.SubElement(block_all_comm, "members").text = "0:" + str(as_num)
+        self.e2_vrs_policy_options_config.append(block_all_comm)
+
+        # Community: to-all-comm
+        to_all_comm = etree.Element("community")
+        etree.SubElement(to_all_comm, "name").text = "to-all-comm"
+        etree.SubElement(to_all_comm, "members").text = str(as_num) + ":" + str(as_num)
+        self.e2_vrs_policy_options_config.append(to_all_comm)
+
+        # Community: to-wildcard-comm
+        to_wildcard_comm = etree.Element("community")
+        etree.SubElement(to_wildcard_comm, "name").text = "to-wildcard-comm"
+        etree.SubElement(to_wildcard_comm, "members").text = "^1:[0-9]*$"
+        self.e2_vrs_policy_options_config.append(to_wildcard_comm)
+    # end add_e2_vrs_global_policy_config_xml
+
+    def add_e2_vrs_provider_policy_config_xml(self, name, provider_as, vrr_as):
+        if self.e2_vrs_policy_options_config is None:
+            self.e2_vrs_policy_options_config = etree.Element("policy-options")
+
+        # Statement: filter-provider-as-comms
+        filter_name = "filter-" + name + "-as-" + str(provider_as) + "-comms"
+        filter_provider_stmt = etree.Element("policy-statement")
+        etree.SubElement(filter_provider_stmt, "name").text = filter_name
+
+        # Term: block-this-rib
+        block_rib_term = etree.SubElement(filter_provider_stmt, "term")
+        etree.SubElement(block_rib_term, "name").text = "block-this-rib"
+        block_rib_name = "block-" + name + "-as-" + str(provider_as) + "-comm"
+        block_rib_comm = etree.SubElement(block_rib_term, "from")
+        etree.SubElement(block_rib_comm, "community").text = block_rib_name
+        block_rib_action = etree.SubElement(block_rib_term, "then")
+        etree.SubElement(block_rib_action, "reject")
+
+        # Term: to-this-rib
+        to_rib_term = etree.SubElement(filter_provider_stmt, "term")
+        etree.SubElement(to_rib_term, "name").text = "to-this-rib"
+        to_rib_name = "to-" + name + "-as-" + str(provider_as) + "-comm"
+        to_rib_comm = etree.SubElement(to_rib_term, "from")
+        etree.SubElement(to_rib_comm, "community").text = to_rib_name
+        to_rib_action = etree.SubElement(to_rib_term, "then")
+        etree.SubElement(to_rib_action, "next").text = "policy"
+
+        # Term: to-all
+        to_all_term = etree.SubElement(filter_provider_stmt, "term")
+        etree.SubElement(to_all_term, "name").text = "to-all"
+        to_all_comm = etree.SubElement(to_all_term, "from")
+        etree.SubElement(to_all_comm, "community").text = "to-all-comm"
+        to_all_action = etree.SubElement(to_all_term, "then")
+        etree.SubElement(to_all_action, "next").text = "policy"
+
+        # Term: to-any-specific-rib
+        to_any_rib_term = etree.SubElement(filter_provider_stmt, "term")
+        etree.SubElement(to_any_rib_term, "name").text = "to-any-specific-rib"
+        to_any_rib_comm = etree.SubElement(to_any_rib_term, "from")
+        etree.SubElement(to_any_rib_comm, "community").text = "to-wildcard-comm"
+        to_any_rib_action = etree.SubElement(to_any_rib_term, "then")
+        etree.SubElement(to_any_rib_action, "reject")
+
+        # Default action
+        filter_provider_next = etree.SubElement(filter_provider_stmt, "then")
+        etree.SubElement(filter_provider_next, "next").text = "policy"
+        self.e2_vrs_policy_options_config.append(filter_provider_stmt)
+
+        # Community: block-provider-as-comm
+        block_provider_comm = etree.Element("community")
+        etree.SubElement(block_provider_comm, "name").text = block_rib_name
+        etree.SubElement(block_provider_comm, "members").text = "0:" + str(provider_as)
+        self.e2_vrs_policy_options_config.append(block_provider_comm)
+
+        # Community: to-all-comm
+        to_provider_comm = etree.Element("community")
+        etree.SubElement(to_provider_comm, "name").text = to_rib_name
+        etree.SubElement(to_provider_comm, "members").text = str(vrr_as) + ":" + str(provider_as)
+        self.e2_vrs_policy_options_config.append(to_provider_comm)
+    # end add_e2_vrs_provider_policy_config_xml
+
+    def add_e2_vrs_provider_instance_config_xml(self, name, provider_as, vrr_ip, promiscuous):
+        if self.e2_vrs_provider_ri_config is None:
+            self.e2_vrs_provider_ri_config = etree.Element("routing-instances")
+
+        # Instance
+        provider_instance = etree.Element("instance")
+        ri_name = name + "-as-" + str(provider_as)
+        filter_name = "filter-" + name + "-as-" + str(provider_as) + "-comms"
+        etree.SubElement(provider_instance, "name").text = ri_name
+        etree.SubElement(provider_instance, "instance-type").text = "no-forwarding"
+
+        # Instance routing-options
+        routing_options = etree.SubElement(provider_instance, "routing-options")
+        etree.SubElement(routing_options, "router-id").text = vrr_ip
+        etree.SubElement(routing_options, "instance-import").text = "filter-global-comms"
+        etree.SubElement(routing_options, "instance-import").text = filter_name
+        if promiscuous is True:
+            etree.SubElement(routing_options, "instance-import").text = "import-from-all-inst"
+
+        # Instance protocols
+        protocols = etree.SubElement(provider_instance, "protocols")
+        bgp = etree.SubElement(protocols, "bgp")
+        etree.SubElement(bgp, "peer-as").text = str(provider_as)
+        bgp_group = etree.SubElement(bgp, "group")
+        etree.SubElement(bgp_group, "name").text = "bgp-as-" + str(provider_as)
+        etree.SubElement(bgp_group, "type").text = "external"
+        etree.SubElement(bgp_group, "route-server-client")
+        etree.SubElement(bgp_group, "mtu-discovery")
+        bgp_group_family = etree.SubElement(bgp_group, "family")
+        bgp_group_family_inet = etree.SubElement(bgp_group_family, "inet")
+        bgp_group_family_inet_ucast = etree.SubElement(bgp_group_family_inet, "unicast")
+
+        self.e2_vrs_provider_ri_config.append(provider_instance)
+    # end add_e2_vrs_provider_instance_config_xml
+
+    def add_e2_vrs_provider_instance_peer_config_xml(self, name, provider_as, peer_ip, key):
+        if self.e2_vrs_provider_ri_config is None:
+            self.e2_vrs_provider_ri_config = etree.Element("routing-instances")
+
+        # Instance
+        provider_instance = etree.Element("instance")
+        ri_name = name + "-as-" + str(provider_as)
+        etree.SubElement(provider_instance, "name").text = ri_name
+
+        # Instance protocols
+        protocols = etree.SubElement(provider_instance, "protocols")
+        bgp = etree.SubElement(protocols, "bgp")
+        bgp_group = etree.SubElement(bgp, "group")
+        etree.SubElement(bgp_group, "name").text = "bgp-as-" + str(provider_as)
+        #etree.SubElement(bgp_group, "authentication-key").text = key
+        bgp_group_nbr = etree.SubElement(bgp_group, "neighbor")
+        etree.SubElement(bgp_group_nbr, "name").text = peer_ip
+        etree.SubElement(bgp_group_nbr, "forwarding-context").text = "master"
+
+        self.e2_vrs_provider_ri_config.append(provider_instance)
+    # end add_e2_vrs_provider_instance_peer_config_xml
 
 # end MxE2Conf
