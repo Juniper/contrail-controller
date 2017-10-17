@@ -103,7 +103,23 @@ class TestTagType(TestTagBase):
         tag_type = self.api.tag_type_read(id=tag_type_uuid)
         zk_id = int(tag_type.tag_type_id, 0)
         self.api.tag_type_delete(id=tag_type_uuid)
-        self.assertIsNone(mock_zk.get_tag_type_from_id(zk_id))
+        self.assertNotEqual(mock_zk.get_tag_type_from_id(zk_id),
+                            tag_type.fq_name[-1])
+
+    def test_not_deallocate_tag_type_id_if_value_does_not_correspond(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        type_str = 'tag-type-%s' % self.id()
+        tag_type = TagType(name=type_str)
+        tag_type_uuid = self.api.tag_type_create(tag_type)
+
+        tag_type = self.api.tag_type_read(id=tag_type_uuid)
+        zk_id = int(tag_type.tag_type_id, 0)
+        fake_tag_type = "fake tag type"
+        mock_zk._tag_type_id_allocator.delete(zk_id)
+        mock_zk._tag_type_id_allocator.reserve(zk_id, fake_tag_type)
+        self.api.tag_type_delete(id=tag_type_uuid)
+        self.assertIsNotNone(mock_zk.get_tag_type_from_id(zk_id))
+        self.assertEqual(fake_tag_type, mock_zk.get_tag_type_from_id(zk_id))
 
 
 class TestTag(TestTagBase):
@@ -328,8 +344,34 @@ class TestTag(TestTagBase):
 
         zk_id = int(tag.tag_id, 0) & 0x0000ffff
         self.api.tag_delete(id=tag_uuid)
-        self.assertIsNone(
-            mock_zk.get_tag_value_from_id(tag.tag_type_name, zk_id))
+        self.assertNotEqual(
+            mock_zk.get_tag_value_from_id(tag.tag_type_name, zk_id),
+            tag.get_fq_name_str(),
+        )
+
+    def test_not_deallocate_tag_id_if_value_does_not_correspond(self):
+        mock_zk = self._api_server._db_conn._zk_db
+        type = 'fake_type-%s' % self.id()
+        value1 = 'fake_value1-%s' % self.id()
+        value2 = 'fake_value2-%s' % self.id()
+        tag1 = Tag(tag_type_name=type, tag_value=value1)
+        tag_uuid = self.api.tag_create(tag1)
+        tag1 = Tag(tag_type_name=type, tag_value=value2)
+        tag_uuid = self.api.tag_create(tag1)
+        tag1 = self.api.tag_read(id=tag_uuid)
+
+        zk_id = int(tag1.tag_id, 0) & 0x0000ffff
+        fake_fq_name= "fake fq_name"
+        mock_zk._tag_value_id_allocator[tag1.tag_type_name].delete(zk_id)
+        mock_zk._tag_value_id_allocator[tag1.tag_type_name].reserve(
+            zk_id, fake_fq_name)
+        self.api.tag_delete(id=tag_uuid)
+        self.assertIsNotNone(
+            mock_zk.get_tag_value_from_id(tag1.tag_type_name, zk_id))
+        self.assertEqual(
+            fake_fq_name,
+            mock_zk.get_tag_value_from_id(tag1.tag_type_name, zk_id),
+        )
 
     def test_create_project_scoped_tag(self):
         project = Project('project-%s' % self.id())

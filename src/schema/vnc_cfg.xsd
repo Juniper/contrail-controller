@@ -1,18 +1,18 @@
 <!--
  Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  -->
-<xsd:schema 
+<xsd:schema
 xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" 
-xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2" 
+xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2"
+xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2"
 targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <!-- E2 services -->
 <xsd:include schemaLocation='e2_services.xsd'/>
 
-<!-- Definition of IFMAP-SEMANTICS-IDL 
-     It describes relationship and properties of meta data elements with 
-     respect to identifier. It appears in comment after the referenced 
+<!-- Definition of IFMAP-SEMANTICS-IDL
+     It describes relationship and properties of meta data elements with
+     respect to identifier. It appears in comment after the referenced
      elements. All statements are "element = some property"
 
      Start the contains of comment with #IFMAP-SEMANTICS-IDL
@@ -35,14 +35,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
                             R |
      ref-type-list:= ref-type-list 'has' |
                   := ref-type-list 'ref' |
-                  := 
+                  :=
      ref-type-list:= ref-type-list 'string-enum' |
-                  := 
-     string-enum  := This command will convert string type restriction to 
+                  :=
+     string-enum  := This command will convert string type restriction to
                    enum type
      generator-list:= generator-list 'backend'|
                    := generator-list 'frontend'|
-                   := 
+                   :=
  -->
 
 <!--Common types-->
@@ -53,7 +53,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 
 <xsd:simpleType name="IpAddressType">
-    <xsd:restriction base="xsd:string" 
+    <xsd:restriction base="xsd:string"
          description='String of standard notation of ipv4 or ipv6 address'/>
 </xsd:simpleType>
 
@@ -83,7 +83,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="ip-prefix" type="xsd:string"/>
         <xsd:element name="ip-prefix-len" type="xsd:integer"/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 
 <xsd:complexType name="VirtualRouterNetworkIpamType">
     <xsd:all>
@@ -102,7 +102,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Address-mode active-backup is used for VRRP address.
                           Address-mode active-active is used for ECMP.'/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 
 <xsd:complexType name="AllowedAddressPairs">
     <xsd:element name="allowed-address-pair" type="AllowedAddressPair" maxOccurs="unbounded"/>
@@ -113,7 +113,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="uuid-mslong" type="xsd:unsignedLong"/>
         <xsd:element name="uuid-lslong" type="xsd:unsignedLong"/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 
 <!-- ACL type definition -->
 
@@ -361,14 +361,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="api-name"      type="xsd:string" required='true'/>
         <xsd:element name="permissions"   type="PermType" required='true'/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 
 <xsd:complexType name="ApiAccessListType">
     <xsd:all>
-        <xsd:element name="api-access" type="ApiAccessType" 
+        <xsd:element name="api-access" type="ApiAccessType"
                                                        maxOccurs="unbounded" required='true'/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 <!-- API access list type End -->
 
 <!-- Ip address mngmt type -->
@@ -383,7 +383,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="dhcp-option-value-bytes" type="xsd:string" required='true'
              description='Value of the DHCP option to be copied byte by byte'/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 
 <xsd:complexType name="DhcpOptionsListType">
     <xsd:all>
@@ -455,7 +455,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="EncapsulationPrioritiesType">
     <xsd:all>
-        <xsd:element name="encapsulation" type="EncapsulationType" 
+        <xsd:element name="encapsulation" type="EncapsulationType"
                                               maxOccurs="unbounded" required='optional'
              description='Ordered list of encapsulation types to be used in priority'/>
     </xsd:all>
@@ -473,7 +473,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='DNS name to which link local service will be proxied'/>
         <xsd:element name="ip-fabric-service-port" type="xsd:integer" required='true'
              description='Destination TCP port number to which link local traffic will forwarded'/>
-        <xsd:element name="ip-fabric-service-ip"   type="smi:IpAddress" 
+        <xsd:element name="ip-fabric-service-ip"   type="smi:IpAddress"
                                                    maxOccurs="unbounded" required='optional'
              description='Destination ip address to which link local traffic will forwarded'/>
     </xsd:all>
@@ -481,7 +481,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="LinklocalServicesTypes">
     <xsd:all>
-        <xsd:element name="linklocal-service-entry" 
+        <xsd:element name="linklocal-service-entry"
                    type="LinklocalServiceEntryType" maxOccurs="unbounded" required='optional'
              description='List of link local services'/>
     </xsd:all>
@@ -609,7 +609,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Common host routes to be sent via DHCP for VM(s) in all the subnets, Next hop for these routes is always default gateway'/>
     </xsd:all>
 </xsd:complexType>
-<!-- 
+<!--
     host-routes will normally have no next hop. Next hop sent in DHCP will be
     default gateway address in the given subnet
 -->
@@ -656,7 +656,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          description='Maximum number of security groups allowed in this domain'/>
     <!-- More limits to come here -->
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 <!-- domain limits type end -->
 
 <xsd:simpleType name="AutonomousSystemType">
@@ -743,7 +743,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="property"   type="xsd:string"/>
         <xsd:element name="value"   type="xsd:string"/>
     </xsd:all>
-</xsd:complexType> 
+</xsd:complexType>
 
 <xsd:complexType name="PluginProperties">
     <xsd:all>
@@ -930,7 +930,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
                                   'Display name user configured string(name) that can be updated any time. Used as openstack name.') -->
 
 <!--Identifier "config-root" is used start config tree traversal for
-    Entire config of the VNC, 
+    Entire config of the VNC,
     Its value will always be "contrail:config-root:root"
   -->
 <xsd:element name="config-root"  type="ifmap:IdentityType"/>
@@ -942,16 +942,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     Its value will always be "contrail:global-system-config:default-global-system-config"
   -->
 <xsd:element name="config-root-global-system-config"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('config-root-global-system-config', 
+<!--#IFMAP-SEMANTICS-IDL
+     Link('config-root-global-system-config',
              'config-root', 'global-system-config', ['has'], 'required', 'R',
              'Global system config is object where all global system configuration is present.') -->
 <xsd:element name="autonomous-system" type="AutonomousSystemType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('autonomous-system', 'global-system-config', 'required', 'CRUD',
               '16 bit BGP Autonomous System number for the cluster.') -->
 <xsd:element name="config-version" type="xsd:string"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('config-version', 'global-system-config', 'system-only', 'R',
               'Version of OpenContrail software that generated this config.') -->
 
@@ -961,7 +961,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'CRUD', 'Graceful Restart parameters') -->
 
 <xsd:element name="plugin-tuning" type="PluginProperties"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('plugin-tuning', 'global-system-config', 'optional', 'CRUD',
               'Various Orchestration system plugin(interface) parameters, like Openstack Neutron plugin.') -->
 
@@ -982,8 +982,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'List of all subnets in which vrouter ip address exist. Used by Device manager to configure dynamic GRE tunnels on the SDN gateway.') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('global-system-config-bgp-router', 
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-bgp-router',
              'global-system-config', 'bgp-router', ['ref'], 'required', 'R',
              'List of references to all bgp routers in systems.') -->
 
@@ -1097,8 +1097,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="global-vrouter-config"        type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-global-vrouter-config"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('global-system-config-global-vrouter-config', 
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-global-vrouter-config',
              'global-system-config', 'global-vrouter-config', ['has'], 'required', 'R',
              'Global vrouter config is object where all global vrouter config is present.') -->
 
@@ -1109,13 +1109,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'ECMP hashing config at global level.') -->
 
 <xsd:element name="linklocal-services" type="LinklocalServicesTypes"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('linklocal-services', 'global-vrouter-config', 'optional', 'CRUD',
               'Global services provided on link local subnet to the virtual machines.') -->
 
-<xsd:element name="encapsulation-priorities" 
+<xsd:element name="encapsulation-priorities"
                                   type="EncapsulationPrioritiesType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('encapsulation-priorities', 'global-vrouter-config', 'optional', 'CRUD',
               'Ordered list of encapsulations that vrouter will use in priority order.') -->
 
@@ -1125,16 +1125,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:enumeration value='automatic'/>
     </xsd:restriction>
 </xsd:simpleType>
-<xsd:element name="vxlan-network-identifier-mode" 
+<xsd:element name="vxlan-network-identifier-mode"
                                  type="VxlanNetworkIdentifierModeType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('vxlan-network-identifier-mode', 'global-vrouter-config', 'optional', 'CRUD',
               ['Method of allocation of VxLAN VNI(s). Set at provision time and cannot be changed.',
                '    configured = VxLAN VNI is given by user when virtual network is configured.',
                '    automatic = System will allocate VxLAN VNI automatically.']) -->
 <xsd:element name="flow-export-rate" type="xsd:integer"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('flow-export-rate', 'global-vrouter-config', 'optional', 'CRUD', 
+     Property('flow-export-rate', 'global-vrouter-config', 'optional', 'CRUD',
               'Flow export rate is global config, rate at which each vrouter will sample and export flow records to analytics') -->
 
 <xsd:element name="flow-aging-timeout-list" type="FlowAgingTimeoutList"/>
@@ -1169,18 +1169,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
 <xsd:element name="config-root-domain"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('config-root-domain', 'config-root', 'domain', ['has'], 'system-only', 'CRUD',
           'Domain is authentication namespace, a collection of projects.') -->
 <xsd:element name="domain-limits" type="DomainLimitsType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('domain-limits', ['backend']);
      Property('domain-limits', 'domain', 'optional', 'CRUD',
               'Domain level quota, not currently implemented') -->
 
 <xsd:element name="project"   type="ifmap:IdentityType"/>
 <xsd:element name="domain-project"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('domain-project', 'domain', 'project', ['has'], 'system-only', 'CRUD',
           'Project represent one instance of application or tenant.') -->
 
@@ -1188,39 +1188,51 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--project-namespace is identifies namespace and also CIDR block -->
 
 <xsd:element name="namespace-cidr" type="SubnetType"/>
-<!--#IFMAP-SEMANTICS-IDL Property('namespace-cidr', 'namespace', 'optional', 'CRUD', 
+<!--#IFMAP-SEMANTICS-IDL Property('namespace-cidr', 'namespace', 'optional', 'CRUD',
                                   'All networks in this namespace belong to this list of Prefixes. Not implemented.') -->
 
 <xsd:element name="domain-namespace"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('domain-namespace', 'domain', 'namespace', ['has'], 'optional', 'CRUD',
           'Namespace is unique networking namespace within this domain. If namespace is not present then default namespace of default project is used.') -->
 
 <xsd:element name="project-namespace" type="SubnetType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('project-namespace', 'project', 'namespace', ['ref'], 'optional', 'CRUD',
           'Reference to network namespace of this project.') -->
 
 <xsd:element name="security-group" type="ifmap:IdentityType"/>
-<xsd:element name="security-group-id" type="xsd:string"/>
+<xsd:simpleType name="SecurityGroupIdType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="8000000"/>
+         <xsd:maxInclusive value="4294967296"/>
+     </xsd:restriction>
+</xsd:simpleType>
+<xsd:element name="security-group-id" type="SecurityGroupIdType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('security-group-id', 'security-group', 'system-only', 'CR',
+     Property('security-group-id', 'security-group', 'system-only', 'R',
               'Unique 32 bit ID automatically assigned to this security group [8M+1, 32G].') -->
 
-<xsd:element name="configured-security-group-id" type="xsd:integer"/>
+<xsd:simpleType name="ConfiguredSecurityGroupIdType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="7999999"/>
+     </xsd:restriction>
+</xsd:simpleType>
+<xsd:element name="configured-security-group-id" type="ConfiguredSecurityGroupIdType" default="0"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('configured-security-group-id', 'security-group', 'optional', 'CRUD'
-              'Unique 32 bit user defined ID assigned to this security group [1, 8M].') -->
+     Property('configured-security-group-id', 'security-group', 'optional', 'CRUD',
+              'Unique 32 bit user defined ID assigned to this security group [1, 8M - 1].') -->
 
 <xsd:element name="project-security-group"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('project-security-group',
           'project', 'security-group', ['has'], 'optional', 'CRUD',
           'Security Groups are set of state full access control rules attached to interfaces.It can be used to implement microsegmentation.') -->
 
 <xsd:element name="virtual-network" type="ifmap:IdentityType"/>
 <xsd:element name="project-virtual-network"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('project-virtual-network',
           'project', 'virtual-network', ['has'], 'optional', 'CRUD',
           'Virtual network is collection of end points (interface or ip(s) or MAC(s)) that can talk to each other by default. It is collection of subnets connected by implicit router which default gateway in each subnet.') -->
@@ -1255,16 +1267,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="qos-queue" type="ifmap:IdentityType"/>
 <xsd:element name="global-qos-config-qos-queue"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('global-qos-config-qos-queue',
           'global-qos-config', 'qos-queue', ['has'], 'optional', 'CRUD',
           'QOS queue config object in this project.') -->
 <xsd:element name="min-bandwidth" type="xsd:integer"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('min-bandwidth', 'qos-queue', 'required', 'CRUD',
               'Minimum bandwidth for this queue.') -->
 <xsd:element name="max-bandwidth" type="xsd:integer"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('max-bandwidth', 'qos-queue', 'required', 'CRUD',
               'Maximum bandwidth for this queue.') -->
 <xsd:element name="qos-queue-identifier" type="xsd:integer"/>
@@ -1321,10 +1333,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          <xsd:minInclusive value="1"/>
          <xsd:maxInclusive value="16777215"/>
      </xsd:restriction>
-</xsd:simpleType> 
+</xsd:simpleType>
 
 <xsd:simpleType name="ForwardingModeType">
-     <xsd:restriction base='xsd:string' required='optional' operations='CRUD' 
+     <xsd:restriction base='xsd:string' required='optional' operations='CRUD'
           description_1='L2_L3 = Packet will be L2 switched within subnet and routed(L3) outside subnet.'
           description_2='L2 = Packet will be always L2 switched, unknown MACs will be broadcasted within Virtual network.'
           description_3='L3 = Packets will be routed(L3) and vrouter behaves as proxy arp router.'>
@@ -1411,8 +1423,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('provider-properties', 'virtual-network', 'optional', 'CRD',
               'Virtual network is provider network. Specifies VLAN tag and physical network name.') -->
 
-
-<xsd:element name="virtual-network-network-id" type='xsd:integer'/>
+<xsd:simpleType name="VirtualNetworkIdType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="4294967296"/>
+     </xsd:restriction>
+</xsd:simpleType>
+<xsd:element name="virtual-network-network-id" type='VirtualNetworkIdType'/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-network-network-id', 'virtual-network', 'system-only', 'CR',
               'System assigned unique 32 bit ID for every virtual network.') -->
@@ -1457,15 +1474,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'The VNI that needs to be associated with the internal VN if vxlan_routing mode is enabled.') -->
 
 <xsd:element name="router-external" type="xsd:boolean"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('router-external', ['backend']);
-     Property('router-external', 'virtual-network', 'optional', 'CRUD', 
+     Property('router-external', 'virtual-network', 'optional', 'CRUD',
               'When true, this virtual network is openstack router external network.') -->
 
 <xsd:element name="is-shared" type="xsd:boolean"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('is-shared', ['backend']);
-     Property('is-shared', 'virtual-network', 'optional', 'CRUD', 
+     Property('is-shared', 'virtual-network', 'optional', 'CRUD',
               'When true, this virtual network is shared with all tenants.') -->
 
 <xsd:element name="external-ipam" type="xsd:boolean"/>
@@ -1540,12 +1557,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('ipam-subnet-method', 'network-ipam', 'optional', 'CRD',
               'Subnet method configuration for ipam, user can configure user-defined, flat or auto.') -->
 <xsd:element name="project-network-ipam"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('project-network-ipam',
           'project', 'network-ipam', ['has'], 'optional', 'CRUD',
           'IP Address Management object that controls, ip allocation, DNS and DHCP') -->
 <xsd:element name="virtual-network-network-ipam" type="VnSubnetsType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-network-network-ipam',
           'virtual-network', 'network-ipam', ['ref'], 'required', 'CRUD',
           'Reference to network-ipam this network is using. It has list of subnets that are being used as property of the reference.') -->
@@ -1557,12 +1574,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="network-policy" type="ifmap:IdentityType"/>
 <xsd:element name="project-network-policy"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('project-network-policy',
           'project', 'network-policy', ['has'], 'optional', 'CRUD',
           'Network Policy is set access control rules that can be attached to virtual networks. Network ACL(s) and connectivity information is derived from Network policies that are attached to virtual networks.') -->
 <xsd:element name="virtual-network-network-policy" type="VirtualNetworkPolicyType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-network-network-policy',
           'virtual-network', 'network-policy', ['ref'], 'optional', 'CRUD',
           'Reference to network-policy attached to this network. It has sequence number to specify attachment order.') -->
@@ -1584,11 +1601,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'When this knob is enabled for a project, an internal system VN (VN-Int) is created for every logical router in the project.') -->
 
 <xsd:element name="network-policy-entries" type="PolicyEntriesType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('network-policy-entries', 'network-policy', 'required', 'CRUD',
               'Network policy rule entries.') -->
 <xsd:element name="security-group-entries" type="PolicyEntriesType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('security-group-entries', 'security-group', 'required', 'CRUD',
               'Security group rule entries.') -->
 <xsd:element name="access-control-list" type="ifmap:IdentityType"/>
@@ -1604,7 +1621,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="virtual-network-access-control-list"/>
 <xsd:element name="security-group-access-control-list"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('security-group-access-control-list',
           'security-group', 'access-control-list', ['has', 'derived'], 'system-only', 'CRUD',
           'port access control list is  automatically derived from all the security groups attached to port.');
@@ -1615,15 +1632,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-machine" type="ifmap:IdentityType"/>
 
 <xsd:element name="virtual-machine-interface-security-group"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-security-group',
           'virtual-machine-interface', 'security-group', ['ref'], 'optional', 'CRUD',
           'Interface ACL, Automatically generated by system based on security groups attached to this interface.') -->
 
 <xsd:element name="virtual-machine-interface" type="ifmap:IdentityType"/>
-<xsd:element name="virtual-machine-interface-mac-addresses" 
+<xsd:element name="virtual-machine-interface-mac-addresses"
                                                 type="MacAddressesType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-mac-addresses',
              'virtual-machine-interface', 'required', 'CRUD',
              'MAC address of the virtual machine interface, automatically assigned by system if not provided.') -->
@@ -1640,9 +1657,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'virtual-machine-interface', 'optional', 'CRUD',
               'List of host routes(prefixes, nexthop) that are passed to VM via DHCP.') -->
 
-<xsd:element name="virtual-machine-interface-allowed-address-pairs" 
+<xsd:element name="virtual-machine-interface-allowed-address-pairs"
                                                 type="AllowedAddressPairs"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-allowed-address-pairs',
              'virtual-machine-interface', 'optional', 'CRUD',
              'List of (IP address, MAC) other than instance ip on this interface.') -->
@@ -1746,7 +1763,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('ecmp-hashing-include-fields', 'virtual-machine-interface', 'optional', 'CRUD',
               'Ecmp hashing config at interface level, overrides virtual network config.') -->
 
-<xsd:element name="virtual-machine-interface-properties" 
+<xsd:element name="virtual-machine-interface-properties"
              type="VirtualMachineInterfacePropertiesType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-machine-interface-properties',
@@ -1756,7 +1773,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-machine-interface-bindings" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
      MapProperty('virtual-machine-interface-bindings',
-                 'virtual-machine-interface', 'key', 'optional', 'CRUD', 
+                 'virtual-machine-interface', 'key', 'optional', 'CRUD',
                  'Dictionary of arbitrary (key, value) for this interface. Neutron port bindings use this.') -->
 
 <xsd:complexType name="ProtocolType">
@@ -1780,7 +1797,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              type="FatFlowProtocols"/>
 <!--#IFMAP-SEMANTICS-IDL
      ListProperty('virtual-machine-interface-fat-flow-protocols',
-             'virtual-machine-interface', 'optional', 'CRUD', 
+             'virtual-machine-interface', 'optional', 'CRUD',
              'List of (protocol, port number), for flows to interface with (protocol, destination port number), vrouter will ignore source port while setting up flow and ignore it as source port in reverse flow. Hence many flows will map to single flow.') -->
 
 <xsd:element name="virtual-machine-interface-sub-interface"/>
@@ -1793,7 +1810,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-machine-virtual-machine-interface"/> <!-- DEPRECATED -->
 <xsd:element name="project-virtual-machine-interface"/>
 <xsd:element name="virtual-router-virtual-machine-interface"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-virtual-machine-interface',
           'virtual-machine', 'virtual-machine-interface', ['has'], 'optional', 'CRUD',
           'References to child interfaces this virtual machine has, this is DEPRECATED.');
@@ -1839,9 +1856,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 <xsd:element name="virtual-machine-interface-routing-instance"
              type="PolicyBasedForwardingRuleType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-routing-instance',
-          'virtual-machine-interface', 'bgp:routing-instance', ['ref'], 'system-only', 'CRUD', 
+          'virtual-machine-interface', 'bgp:routing-instance', ['ref'], 'system-only', 'CRUD',
           'Automatically generated Forwarding policy. This will be deprecated in future in favour of VRF assign rules.') -->
 
 <xsd:simpleType name="IpAddressFamilyType">
@@ -1853,15 +1870,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="instance-ip" type="ifmap:IdentityType"/>
 <xsd:element name="instance-ip-address" type="IpAddressType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('instance-ip-address', 'instance-ip', 'required', 'CR',
               'Ip address value for instance ip.') -->
 <xsd:element name="instance-ip-family" type="IpAddressFamilyType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('instance-ip-family', 'instance-ip', 'optional', 'CR',
               'Ip address family for instance ip, IPv4(v4) or IPv6(v6).') -->
 <xsd:element name="instance-ip-mode" type="AddressMode"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('instance-ip-mode', 'instance-ip', 'optional', 'CR',
               'Ip address HA mode in case this instance ip is used in more than one interface, active-Active or active-Standby.') -->
 <xsd:element name="secondary-ip-tracking-ip" type="SubnetType"/>
@@ -1869,7 +1886,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('secondary-ip-tracking-ip', 'instance-ip', 'optional', 'CRUD',
               'When this instance ip is secondary ip, it can track activeness of another ip.') -->
 <xsd:element name="subnet-uuid" type="xsd:string"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('subnet-uuid', 'instance-ip', 'optional', 'CR',
               'This instance ip was allocated from this Subnet(UUID).') -->
 <xsd:element name="instance-ip-secondary" type="xsd:boolean" default='false'/>
@@ -1889,7 +1906,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('service-health-check-ip', 'instance-ip', 'system-only', 'CRUD',
               'This instance ip is used as service health check source ip',) -->
 <xsd:element name="instance-ip-virtual-network"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('instance-ip-virtual-network',
           'instance-ip', 'virtual-network', ['ref'], 'required', 'CRUD',
           'Reference to virtual network of this instance ip.') -->
@@ -1899,12 +1916,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'instance-ip', 'network-ipam', ['ref'], 'required', 'CRUD',
           'Reference to network ipam of this instance ip.') -->
 <xsd:element name="instance-ip-virtual-machine-interface"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('instance-ip-virtual-machine-interface',
           'instance-ip', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
           'Reference to virtual machine interface to which this instance ip is attached.') -->
 <xsd:element name="instance-ip-physical-router"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('instance-ip-physical-router',
           'instance-ip', 'physical-router', ['ref'], 'optional', 'CRUD',
           'This instance ip is used as IRB address on the referenced physical router (e.g.MX), In case of OVSDB TOR usecase this address will be used as default gateway for Host behind the TOR.') -->
@@ -1927,18 +1944,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="floating-ip-pool" type="ifmap:IdentityType"/>
 <xsd:element name="floating-ip-pool-subnets" type="FloatingIpPoolSubnetType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('floating-ip-pool-subnets', ['backend']);
      Property('floating-ip-pool-subnets', 'floating-ip-pool', 'optional', 'CRUD',
               'Subnets that restrict floating ip allocation from the corresponding virtual network.') -->
 <xsd:element name="virtual-network-floating-ip-pool"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('virtual-network-floating-ip-pool', ['backend']);
      Link('virtual-network-floating-ip-pool',
           'virtual-network', 'floating-ip-pool', ['has'], 'optional', 'CRUD',
           'Floating ip pool is set of ip address that are carved out of a given network. Ip(s) from this set can be assigned to (virtual machine interface, ip) so that they become members of this network using one:one NAT.') -->
 <xsd:element name="project-floating-ip-pool"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('project-floating-ip-pool', ['backend']);
      Link('project-floating-ip-pool',
           'project', 'floating-ip-pool', ['ref'], 'optional', 'CRUD',
@@ -1947,35 +1964,35 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="floating-ip" type="ifmap:IdentityType"/>
 <xsd:element name="floating-ip-address" type="IpAddressType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('floating-ip-address', 'floating-ip', 'required', 'CR',
               'Floating ip address.') -->
 <xsd:element name="floating-ip-is-virtual-ip" type="xsd:boolean"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('floating-ip-is-virtual-ip', ['backend']);
      Property('floating-ip-is-virtual-ip', 'floating-ip', 'optional', 'CRUD',
               'This floating ip is used as virtual ip (VIP) in case of LBaaS.') -->
 <xsd:element name="floating-ip-fixed-ip-address" type="IpAddressType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('floating-ip-fixed-ip-address', 'floating-ip', 'optional', 'CRUD',
               'This floating is tracking given fixed ip of the interface. The given fixed ip is used in 1:1 NAT.') -->
 <xsd:element name="floating-ip-address-family" type="IpAddressFamilyType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('floating-ip-address-family', 'floating-ip', 'optional', 'CRUD',
               'Ip address family of the floating ip, IpV4 or IpV6') -->
 <xsd:element name="floating-ip-project"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('floating-ip-project',
           'floating-ip', 'project', ['ref'], 'required', 'CRUD',
           'Reference to project is which this floating ip was allocated.') -->
 <xsd:element name="floating-ip-pool-floating-ip"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('floating-ip-pool-floating-ip', ['backend']);
      Link('floating-ip-pool-floating-ip',
           'floating-ip-pool', 'floating-ip', ['has'], 'optional', 'CRUD',
           'Floating ip is a ip that can be assigned to (virtual machine interface(VMI), ip), By doing so VMI can no be part of the floating ip network and floating ip is used as one:one to NAT for doing so.') -->
 <xsd:element name="floating-ip-virtual-machine-interface"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Exclude('floating-ip-virtual-machine-interface', ['backend']);
      Link('floating-ip-virtual-machine-interface',
           'floating-ip', 'virtual-machine-interface', ['ref'], 'optional', 'CRUD',
@@ -2043,8 +2060,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="physical-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-physical-router"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('global-system-config-physical-router', 
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-physical-router',
              'global-system-config', 'physical-router', ['has'], 'optional', 'CRUD',
              'Physical router object represent any physical device that participates in virtual networking, like routers, switches, servers, firewalls etc.') -->
 
@@ -2062,7 +2079,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="virtual-router-type" type="VirtualRouterType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('virtual-router-type', 'virtual-router', 'optional', 'CRD', 
+     Property('virtual-router-type', 'virtual-router', 'optional', 'CRD',
               'Different types of the vrouters in the system.') -->
 
 <xsd:element name="virtual-router-dpdk-enabled" type="xsd:boolean"/>
@@ -2078,7 +2095,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          'Reference to vrouter responsible for this physical router. Currently only applicable for vrouters that are TOR agents.') -->
 
 <xsd:element name="physical-router-bgp-router"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
     Link('physical-router-bgp-router',
          'physical-router', 'bgp-router', ['ref'], 'optional', 'CRUD',
          'Reference to BGP peer representing this physical router.') -->
@@ -2096,7 +2113,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               'Ethernet Segment Id configured for the Physical Interface. In a multihomed environment, user should configure the peer Physical interface with the same ESI.') -->
 
 <xsd:element name="physical-router-physical-interface"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('physical-router-physical-interface',
           'physical-router', 'physical-interface', ['has'], 'optional', 'CRUD',
           'Physical interfaces on physical routers.') -->
@@ -2104,7 +2121,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="logical-interface" type="ifmap:IdentityType"/>
 <xsd:element name="physical-router-logical-interface"/>
 <xsd:element name="physical-interface-logical-interface"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('physical-router-logical-interface',
           'physical-router', 'logical-interface', ['has'], 'optional', 'CRUD',
           'Logical interfaces on physical routers.');
@@ -2297,11 +2314,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="virtual-router" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-virtual-router"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Link('global-system-config-virtual-router', 
+     Link('global-system-config-virtual-router',
              'global-system-config', 'virtual-router', ['has'], 'optional', 'CRUD',
              'Virtual router is packet forwarding system on devices such as compute nodes(servers), TOR(s), routers.') -->
 <xsd:element name="virtual-router-ip-address" type="IpAddressType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('virtual-router-ip-address', 'virtual-router' , 'required', 'CRUD',
               'Ip address of the virtual router.') -->
 
@@ -2409,7 +2426,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:restriction>
 </xsd:simpleType>
 
-<xsd:complexType name='ServiceTemplateType'> 
+<xsd:complexType name='ServiceTemplateType'>
     <xsd:sequence>
         <xsd:element name="version" type='xsd:integer' default='1' required='optional'
              description_1='Version of service template.'
@@ -2441,7 +2458,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:sequence>
 </xsd:complexType>
 
-<xsd:complexType name='ServiceInstanceType'> 
+<xsd:complexType name='ServiceInstanceType'>
     <xsd:sequence>
         <xsd:element name='auto-policy' type="xsd:boolean" default='false' required='system-only'
              description='Set when system creates internal service chains, example SNAT with router external flag in logical router'/>
@@ -2463,7 +2480,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description='Number of virtual machines in this service instance, used in version 1 (V1) only'/>
         <xsd:element name="ha-mode" type="AddressMode" required='optional'
              description='When scale-out is greater than one, decides if active-active or active-backup, used in version 1 (V1) only'/>
-        <xsd:element name='virtual-router-id' type='xsd:string' required='optional' 
+        <xsd:element name='virtual-router-id' type='xsd:string' required='optional'
              description='UUID of a virtual-router on which this service instance need to spawn. Used to spawn services on CPE device when Nova is not present'/>
     </xsd:sequence>
 </xsd:complexType>
@@ -2474,8 +2491,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('service-instance-properties', 'service-instance', 'required', 'CRUD',
               'Service instance configuration parameters.')-->
 <xsd:element name="project-service-instance"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('project-service-instance', 'project', 
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-service-instance', 'project',
              'service-instance', ['has'], 'optional', 'CRUD',
              'Service instance represents logical instance service used in the virtual world, e.g. firewall, load balancer etc. It can represent one or multiple virtual machines or physical devices. Many service instances can share a virtual machine or physical device.') -->
 <xsd:element name="service-instance-bindings" type="KeyValuePairs"/>
@@ -2555,29 +2572,29 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="virtual-DNS"        type="ifmap:IdentityType"/>
 <xsd:element name="domain-virtual-DNS"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('domain-virtual-DNS', 'domain', 'virtual-DNS',  ['has'], 'optional', 'CRUD',
           'Virtual DNS server is DNS as service for tenants. It is inbound DNS service for virtual machines in this project. DNS requests by end points inside this project/IPAM are served by this DNS server rules.') -->
 
 <xsd:element name="virtual-DNS-data" type="VirtualDnsType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('virtual-DNS-data', 'virtual-DNS', 'required', 'CRUD',
               'Virtual DNS data has configuration for virtual DNS like domain, dynamic records etc.') -->
 
 <xsd:element name="virtual-DNS-record"     type="ifmap:IdentityType"/>
 <xsd:element name="virtual-DNS-virtual-DNS-record"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('virtual-DNS-virtual-DNS-record', 
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-DNS-virtual-DNS-record',
                 'virtual-DNS', 'virtual-DNS-record',  ['has'], 'optional', 'CRUD',
                 'Static DNS records in virtual DNS server.') -->
 
 <xsd:element name="virtual-DNS-record-data" type="VirtualDnsRecordType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('virtual-DNS-record-data', 'virtual-DNS-record', 'required', 'CRUD',
               'DNS record data has configuration like type, name, ip address, loadbalancing etc.') -->
 
 <xsd:element name="network-ipam-virtual-DNS"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('network-ipam-virtual-DNS', 'network-ipam', 'virtual-DNS', ['ref'], 'optional', 'CRUD',
           'Reference to virtual DNS used by this IPAM.') -->
 
@@ -2614,7 +2631,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:simpleType name="RouteNextHopType">
     <xsd:restriction base="xsd:string">
-        <xsd:enumeration value="service-instance" 
+        <xsd:enumeration value="service-instance"
              description='Next hop as service instance is used internal by the system internally currently'/>
         <xsd:enumeration value="ip-address"
              description='Users can set ip address as next hop'/>
@@ -2710,40 +2727,40 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-route-table"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('project-route-table',
           'project', 'route-table', ['has'], 'optional', 'CRUD',
           'Network route table is mechanism of adding static routes in the virtual network') -->
 <xsd:element name="virtual-network-route-table"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-network-route-table',
           'virtual-network', 'route-table', ['ref'], 'optional', 'CRUD',
           'Reference to route table attached to this virtual network.') -->
 <xsd:element name="routes" type="RouteTableType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('routes', 'route-table', 'required', 'CRUD',
               'Routes in the route table are configured in following way.') -->
 
 <xsd:element name="interface-route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-interface-route-table"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('project-interface-route-table',
           'project', 'interface-route-table', ['has'], 'optional', 'CRUD',
           'Interface route table is mechanism to add static routes pointing to this interface.') -->
 <xsd:element name="virtual-machine-interface-route-table"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('virtual-machine-interface-route-table',
           'virtual-machine-interface', 'interface-route-table', ['ref'], 'optional', 'CRUD',
           'Reference to the interface route table attached to this interface.') -->
 <xsd:element name="interface-route-table-routes" type="RouteTableType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('interface-route-table-routes', 'interface-route-table', 'required', 'CRUD',
               'Interface route table used same structure as route table, however the next hop field is irrelevant.') -->
 
 <xsd:element name="logical-router" type="ifmap:IdentityType"/>
 
 <xsd:element name="project-logical-router"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('project-logical-router',
           'project', 'logical-router', ['has'], 'optional', 'CRUD',
           'Logical router is a mechanism to connect multiple virtual network as they have been connected by a router.') -->
@@ -2755,18 +2772,18 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'Reference to the interface attached to this logical router. By attaching a interface to logical network all subnets in the virtual network of the interface has this router.') -->
 
 <xsd:element name="logical-router-target"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-target',
           'logical-router', 'route-target', ['ref'], 'system-only', 'CRUD',
           'Route target that represent this logical router.') -->
 
 <xsd:element name="logical-router-route-table"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-route-table',
           'logical-router', 'route-table', ['ref'], 'optional', 'CRUD',
           'Reference to the route table attached to this logical router. By attaching route table, system will create static routes with the route target only of route targets linked to this logical router') -->
 
-<!-- 
+<!--
     Link a virtual network used as the external gateway for source NAT support
     (aka external gateway in OpenStack Neutron API).
 -->
@@ -2802,25 +2819,25 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="analytics-node" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-analytics-node"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('global-system-config-analytics-node', 
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-analytics-node',
              'global-system-config', 'analytics-node', ['has'], 'admin-only', 'CRUD',
              'Analytics node is object representing a logical node in system which serves operational API and analytics collector.') -->
 
 <xsd:element name="analytics-node-ip-address" type="IpAddressType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('analytics-node-ip-address', 'analytics-node', 'admin-only', 'CRUD',
               'Ip address of the analytics node, set while provisioning.') -->
 
 <xsd:element name="database-node" type="ifmap:IdentityType"/>
 <xsd:element name="global-system-config-database-node"/>
-<!--#IFMAP-SEMANTICS-IDL 
-     Link('global-system-config-database-node', 
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-database-node',
              'global-system-config', 'database-node', ['has'], 'required', 'CRUD',
              'Database node is object representing a logical node in system which host Cassandra DB and Zookeeper.') -->
 
 <xsd:element name="database-node-ip-address" type="IpAddressType"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<!--#IFMAP-SEMANTICS-IDL
      Property('database-node-ip-address', 'database-node', 'required', 'CRUD',
               'Ip address of the database node, set while provisioning.') -->
 
@@ -2845,7 +2862,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         while creating loadbalancer pool
     By default, system will create service-appliance-set with name "opencontrail"
     This is the default loadbalancer provider for pools in Contrail
-    This provider is based on "ha-proxy" 
+    This provider is based on "ha-proxy"
     Service appliance set has following attribute
         - Driver to load for provisioning the appliance
         - Service appliance properties
@@ -2888,7 +2905,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <!--
     Service appliance
-        This config object defines the property of appliance 
+        This config object defines the property of appliance
         (e.g. Loadbalancer, Firewall provider)
         - ip address
         - Login credentials

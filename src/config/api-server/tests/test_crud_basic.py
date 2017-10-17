@@ -41,6 +41,7 @@ import cfgm_common
 from cfgm_common import vnc_plugin_base
 from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
+from cfgm_common import SGID_MIN_ALLOC
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
@@ -2056,164 +2057,6 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                              resources['%ss' % test_obj.get_type()]]
         self.assertEqual([test_obj.uuid], resource_ids)
 
-    def test_allocate_vn_id(self):
-        mock_zk = self._api_server._db_conn._zk_db
-        vn_obj = VirtualNetwork('%s-vn' % self.id())
-
-        self._vnc_lib.virtual_network_create(vn_obj)
-
-        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
-        vn_id = vn_obj.virtual_network_network_id
-        self.assertEqual(vn_obj.get_fq_name_str(),
-                         mock_zk.get_vn_from_id(vn_id - 1))
-
-    def test_deallocate_vn_id(self):
-        mock_zk = self._api_server._db_conn._zk_db
-        vn_obj = VirtualNetwork('%s-vn' % self.id())
-        self._vnc_lib.virtual_network_create(vn_obj)
-        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
-        vn_id = vn_obj.virtual_network_network_id
-
-        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-
-        self.assertIsNone(mock_zk.get_vn_from_id(vn_id - 1))
-
-    # TODO(ethuleau): As we keep the virtual network ID allocation in
-    #                 schema and in the vnc API for one release overlap to
-    #                 prevent any upgrade issue, we still authorize to
-    #                 set or update the virtual network ID until release
-    #                 (3.2 + 1)
-    def test_cannot_set_vn_id(self):
-        self.skipTest("Skipping test_cannot_set_vn_id")
-        vn_obj = VirtualNetwork('%s-vn' % self.id())
-        vn_obj.set_virtual_network_network_id(42)
-
-        with ExpectedException(PermissionDenied):
-            self._vnc_lib.virtual_network_create(vn_obj)
-
-    # TODO(ethuleau): As we keep the virtual network ID allocation in
-    #                 schema and in the vnc API for one release overlap to
-    #                 prevent any upgrade issue, we still authorize to
-    #                 set or update the virtual network ID until release
-    #                 (3.2 + 1)
-    def test_cannot_update_vn_id(self):
-        self.skipTest("Skipping test_cannot_update_vn_id")
-        vn_obj = VirtualNetwork('%s-vn' % self.id())
-        self._vnc_lib.virtual_network_create(vn_obj)
-        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
-
-        vn_obj.set_virtual_network_network_id(42)
-        with ExpectedException(PermissionDenied):
-            self._vnc_lib.virtual_network_update(vn_obj)
-
-        # test can update with same value, needed internally
-        vn_obj = self._vnc_lib.virtual_network_read(id=vn_obj.uuid)
-        vn_obj.set_virtual_network_network_id(
-            vn_obj.virtual_network_network_id)
-        self._vnc_lib.virtual_network_update(vn_obj)
-
-    def test_allocate_sg_id(self):
-        mock_zk = self._api_server._db_conn._zk_db
-        sg_obj = SecurityGroup('%s-sg' % self.id())
-
-        self._vnc_lib.security_group_create(sg_obj)
-
-        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
-        sg_id = sg_obj.security_group_id
-        self.assertEqual(sg_obj.get_fq_name_str(),
-                         mock_zk.get_sg_from_id(sg_id))
-
-    def test_deallocate_sg_id(self):
-        mock_zk = self._api_server._db_conn._zk_db
-        sg_obj = SecurityGroup('%s-sg' % self.id())
-        self._vnc_lib.security_group_create(sg_obj)
-        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
-        sg_id = sg_obj.security_group_id
-
-        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
-
-        self.assertIsNone(mock_zk.get_sg_from_id(sg_id))
-
-    # TODO(ethuleau): As we keep the virtual network ID allocation in
-    #                 schema and in the vnc API for one release overlap to
-    #                 prevent any upgrade issue, we still authorize to
-    #                 set or update the virtual network ID until release
-    #                 (3.2 + 1)
-    def test_cannot_set_sg_id(self):
-        self.skipTest("Skipping test_cannot_set_sg_id")
-        sg_obj = SecurityGroup('%s-sg' % self.id())
-
-        sg_obj.set_security_group_id(42)
-        with ExpectedException(PermissionDenied):
-            self._vnc_lib.security_group_create(sg_obj)
-
-    # TODO(ethuleau): As we keep the virtual network ID allocation in
-    #                 schema and in the vnc API for one release overlap to
-    #                 prevent any upgrade issue, we still authorize to
-    #                 set or update the virtual network ID until release
-    #                 (3.2 + 1)
-    def test_cannot_update_sg_id(self):
-        self.skipTest("Skipping test_cannot_update_sg_id")
-        sg_obj = SecurityGroup('%s-sg' % self.id())
-        self._vnc_lib.security_group_create(sg_obj)
-        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
-
-        sg_obj.set_security_group_id(42)
-        with ExpectedException(PermissionDenied):
-            self._vnc_lib.security_group_update(sg_obj)
-
-        # test can update with same value, needed internally
-        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
-        sg_obj.set_security_group_id(sg_obj.security_group_id)
-        self._vnc_lib.security_group_update(sg_obj)
-
-    def test_create_sg_with_configured_id(self):
-        mock_zk = self._api_server._db_conn._zk_db
-        sg_obj = SecurityGroup('%s-sg' % self.id())
-        sg_obj.set_configured_security_group_id(42)
-
-        self._vnc_lib.security_group_create(sg_obj)
-
-        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
-        sg_id = sg_obj.security_group_id
-        configured_sg_id = sg_obj.configured_security_group_id
-        self.assertEqual(sg_id, 42)
-        self.assertEqual(configured_sg_id, 42)
-        self.assertIsNone(mock_zk.get_sg_from_id(sg_id))
-
-    def test_update_sg_with_configured_id(self):
-        mock_zk = self._api_server._db_conn._zk_db
-        sg_obj = SecurityGroup('%s-sg' % self.id())
-
-        self._vnc_lib.security_group_create(sg_obj)
-
-        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
-        allocated_sg_id = sg_obj.security_group_id
-        configured_sg_id = sg_obj.configured_security_group_id
-        self.assertEqual(sg_obj.get_fq_name_str(),
-                         mock_zk.get_sg_from_id(allocated_sg_id))
-        self.assertIsNone(configured_sg_id)
-
-        sg_obj.set_configured_security_group_id(42)
-        self._vnc_lib.security_group_update(sg_obj)
-
-        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
-        sg_id = sg_obj.security_group_id
-        configured_sg_id = sg_obj.configured_security_group_id
-        self.assertEqual(sg_id, 42)
-        self.assertEqual(configured_sg_id, 42)
-        self.assertIsNone(mock_zk.get_sg_from_id(allocated_sg_id))
-
-        sg_obj.set_configured_security_group_id(0)
-        self._vnc_lib.security_group_update(sg_obj)
-
-        sg_obj = self._vnc_lib.security_group_read(id=sg_obj.uuid)
-        allocated_sg_id = sg_obj.security_group_id
-        configured_sg_id = sg_obj.configured_security_group_id
-        self.assertEqual(sg_obj.get_fq_name_str(),
-                         mock_zk.get_sg_from_id(allocated_sg_id))
-        self.assertEqual(configured_sg_id, 0)
-
     def test_qos_config(self):
         qc = QosConfig('qos-config-%s' %(self.id()), Project())
         self._vnc_lib.qos_config_create(qc)
@@ -2604,6 +2447,7 @@ class TestVncCfgApiServerRequests(test_case.ApiServerTestCase):
     # end tearDownClass
 
     def api_requests(self, orig_vn_read, count, vn_name):
+        self.blocked = False
         api_server = self._server_info['api_server']
         def slow_response_on_vn_read(obj_type, *args, **kwargs):
             if obj_type == 'virtual_network':
@@ -4750,7 +4594,7 @@ class TestPagination(test_case.ApiServerTestCase):
     # end _create_vmi_collection
 
     def test_validate_input(self):
-        # * fail 400 if last part of non-None page_marker is not alphanumeric 
+        # * fail 400 if last part of non-None page_marker is not alphanumeric
         #   (non-None marker is uuid in anchored walks and fq_name_str_uuid
         #    in unanchored walks)
         # * fail 400 if page_limit is not number(None, string, array, dict)
@@ -4778,7 +4622,7 @@ class TestPagination(test_case.ApiServerTestCase):
             all_vn_ids = []
             all_vn_count = self._vnc_lib.virtual_networks_list(
                 count=True)['virtual-networks']['count']
-            max_fetches = (all_vn_count / 
+            max_fetches = (all_vn_count /
                            (page_limit or self.default_paginate_count)) + 1
             fetches = 0
             while True:
@@ -4796,7 +4640,7 @@ class TestPagination(test_case.ApiServerTestCase):
                     return
 
                 self.assertEqual(resp.status_code, 200)
-                read_vn_ids = [vn['uuid'] 
+                read_vn_ids = [vn['uuid']
                     for vn in json.loads(resp.text)['virtual-networks']]
                 all_vn_ids.extend(read_vn_ids)
                 marker = json.loads(resp.text)['marker']
@@ -4844,7 +4688,7 @@ class TestPagination(test_case.ApiServerTestCase):
                     self.assertEqual(resp.status_code, 400)
                     return
                 self.assertEqual(resp.status_code, 200)
-                read_vn_ids = [vn['uuid'] 
+                read_vn_ids = [vn['uuid']
                     for vn in json.loads(resp.text)['virtual-networks']]
                 self.assertEqual(len(read_vn_ids), fe_obj.num_objs)
                 marker = json.loads(resp.text)['marker']
@@ -4902,7 +4746,7 @@ class TestPagination(test_case.ApiServerTestCase):
                     self.assertEqual(resp.status_code, 400)
                     return
                 self.assertEqual(resp.status_code, 200)
-                read_vmi_ids = [vmi['uuid'] 
+                read_vmi_ids = [vmi['uuid']
                     for vmi in json.loads(resp.text)['virtual-machine-interfaces']]
                 self.assertEqual(len(read_vmi_ids), fe_obj.num_objs)
                 marker = json.loads(resp.text)['marker']
@@ -5280,7 +5124,7 @@ class TestPagination(test_case.ApiServerTestCase):
             FetchExpect(0, None)])
         verify_collection_walk(page_limit=1, fetch_expects=[
             FetchExpect(1, val) for idx, val in enumerate(sorted_vn_uuid)] +
-            [FetchExpect(1, 'shared:%s' %(val)) 
+            [FetchExpect(1, 'shared:%s' %(val))
                 for idx, val in enumerate(sorted_shared_vn_uuid)] +
             [FetchExpect(0, None)])
         verify_collection_walk(page_limit=2, fetch_expects=[
