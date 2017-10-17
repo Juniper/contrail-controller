@@ -110,11 +110,11 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
-    def dbe_create_notification(cls, db_conn, obj_id):
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
         pass
 
     @classmethod
-    def dbe_update_notification(cls, obj_id):
+    def dbe_update_notification(cls, obj_id, obj_dict):
         pass
 
     @classmethod
@@ -433,10 +433,7 @@ class FloatingIpServer(Resource, FloatingIp):
     # end post_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, db_conn, obj_id):
-        ok, obj_dict = cls.dbe_read(db_conn, 'floating_ip', obj_id)
-        if not ok:
-            return
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
         if obj_dict['parent_type'] == 'instance-ip':
             return
 
@@ -507,10 +504,7 @@ class AliasIpServer(Resource, AliasIp):
 
 
     @classmethod
-    def dbe_create_notification(cls, db_conn, obj_id):
-        ok, obj_dict = cls.dbe_read(db_conn, 'alias_ip', obj_id)
-        if not ok:
-            return
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
         aip_addr = obj_dict['alias_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
         cls.addr_mgmt.ip_alloc_notify(aip_addr, vn_fq_name)
@@ -767,10 +761,7 @@ class InstanceIpServer(Resource, InstanceIp):
     # end post_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, db_conn, obj_id):
-        ok, obj_dict = cls.dbe_read(db_conn, 'instance_ip', obj_id)
-        if not ok:
-            return
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
         ip_addr = obj_dict['instance_ip_address']
         vn_fq_name = None
         ipam_refs = None
@@ -1515,7 +1506,7 @@ class TagTypeServer(Resource, TagType):
         type_id = cls.vnc_zk_client.alloc_tag_type_id(type_str)
 
         def undo_type_id():
-            cls.vnc_zk_client.free_tag_type_id(type_id)
+            cls.vnc_zk_client.free_tag_type_id(type_id, obj_dict['fq_name'])
             return True, ""
         get_context().push_undo(undo_type_id)
 
@@ -1535,12 +1526,20 @@ class TagTypeServer(Resource, TagType):
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
         # Deallocate tag-type ID
-        cls.vnc_zk_client.free_tag_type_id(int(obj_dict['tag_type_id'], 0))
+        cls.vnc_zk_client.free_tag_type_id(int(obj_dict['tag_type_id'], 0),
+                                           obj_dict['fq_name'][-1])
+
+    @classmethod
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
+        vn_id = cls.vnc_zk_client.alloc_tag_type_id(
+            ':'.join(obj_dict['fq_name']), int(tag_type['tag_type_id'], 0))
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
         # Deallocate in memory tag-type ID
-        cls.vnc_zk_client.free_tag_type_id(int(obj_dict['tag_type_id'], 0), notify=True)
+        cls.vnc_zk_client.free_tag_type_id(int(obj_dict['tag_type_id'], 0),
+                                           obj_dict['fq_name'][-1],
+                                           notify=True)
 
     @classmethod
     def get_all_tag_types(cls):
@@ -1626,7 +1625,8 @@ class TagServer(Resource, Tag):
             type_str, ':'.join(obj_dict['fq_name']))
 
         def undo_value_id():
-            cls.vnc_zk_client.free_tag_value_id(type_str, value_id)
+            cls.vnc_zk_client.free_tag_value_id(type_str, value_id,
+                                                ':'.join(obj_dict['fq_name']))
             return True, ""
         get_context().push_undo(undo_value_id)
 
@@ -1660,7 +1660,9 @@ class TagServer(Resource, Tag):
 
         # Deallocate ID for tag value
         value_id = int(obj_dict['tag_id'], 0) & 0x0000ffff
-        cls.vnc_zk_client.free_tag_value_id(obj_dict['tag_type_name'], value_id)
+        cls.vnc_zk_client.free_tag_value_id(obj_dict['tag_type_name'],
+                                            value_id,
+                                            ':'.join(obj_dict['fq_name']))
 
         # Try to delete referenced tag-type and ignore RefExistError which
         # means it's still in use by other Tag resource
@@ -1670,6 +1672,23 @@ class TagServer(Resource, Tag):
             cls.server.internal_request_delete('tag-type', tag_type_uuid)
 
         return True, ""
+
+    @classmethod
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
+        vn_id = cls.vnc_zk_client.alloc_tag_value_id(
+            obj_dict['tag_type_name'],
+            ':'.join(obj_dict['fq_name']),
+            int(obj_dict['tag_id'], 0) & 0x0000ffff,
+        )
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        cls.vnc_zk_client.free_tag_value_id(
+            obj_dict['tag_type_name'],
+            int(obj_dict['tag_id'], 0) & 0x0000ffff,
+            ':'.join(obj_dict['fq_name']),
+            notify=True,
+        )
 
 
 class FirewallRuleServer(Resource, FirewallRule):
@@ -1975,7 +1994,7 @@ class VirtualRouterServer(Resource, VirtualRouter):
         if not ipam_refs:
             return True, ''
 
-        ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs] 
+        ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs]
         (ok, ipam_list, _) = db_conn.dbe_list('network_ipam',
                                 obj_uuids=ipam_uuid_list,
                                 field_names=['ipam_subnet_method',
@@ -2306,23 +2325,19 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         elif is_shared:
             obj_dict['perms2']['global_access'] = PERMS_RWX
 
-        # TODO(ethuleau): As we keep the virtual network ID allocation in
-        #                 schema and in the vnc API for one release overlap to
-        #                 prevent any upgrade issue, we still authorize to
-        #                 set or update the virtual network ID until release
-        #                 (3.2 + 1)
-        # # Does not authorize to set the virtual network ID as it's allocated
-        # # by the vnc server
-        # if obj_dict.get('virtual_network_network_id') is not None:
-        #     return (False, (403, "Cannot set the virtual network ID"))
-        if obj_dict.get('virtual_network_network_id') is None:
-            # Allocate virtual network ID
-            vn_id = cls.vnc_zk_client.alloc_vn_id(':'.join(obj_dict['fq_name']))
-            def undo_vn_id():
-                cls.vnc_zk_client.free_vn_id(vn_id)
-                return True, ""
-            get_context().push_undo(undo_vn_id)
-            obj_dict['virtual_network_network_id'] = vn_id + 1
+        # Does not authorize to set the virtual network ID as it's allocated
+        # by the vnc server
+        if obj_dict.get('virtual_network_network_id') is not None:
+            return (False, (403, "Cannot set the virtual network ID"))
+        # Allocate virtual network ID
+        vn_id = cls.vnc_zk_client.alloc_vn_id(
+            ':'.join(obj_dict['fq_name']))
+        def undo_vn_id():
+            cls.vnc_zk_client.free_vn_id(
+                vn_id, ':'.join(obj_dict['fq_name']))
+            return True, ""
+        get_context().push_undo(undo_vn_id)
+        obj_dict['virtual_network_network_id'] = vn_id
 
         vn_uuid = obj_dict.get('uuid')
         (ok, return_code, result) = cls._check_ipam_network_subnets(obj_dict,
@@ -2441,17 +2456,12 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return ok, read_result
 
-        # TODO(ethuleau): As we keep the virtual network ID allocation in
-        #                 schema and in the vnc API for one release overlap to
-        #                 prevent any upgrade issue, we still authorize to
-        #                 set or update the virtual network ID until release
-        #                 (3.2 + 1)
-        # new_vn_id = obj_dict.get('virtual_network_network_id')
-        # # Does not authorize to update the virtual network ID as it's allocated
-        # # by the vnc server
-        # if (new_vn_id is not None and
-        #         new_vn_id != read_result.get('virtual_network_network_id')):
-        #     return (False, (403, "Cannot update the virtual network ID"))
+        new_vn_id = obj_dict.get('virtual_network_network_id')
+        # Does not authorize to update the virtual network ID as it's allocated
+        # by the vnc server
+        if (new_vn_id is not None and
+                new_vn_id != read_result.get('virtual_network_network_id')):
+            return (False, (403, "Cannot update the virtual network ID"))
 
         (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict,
                                                                       read_result)
@@ -2576,7 +2586,9 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
 
         # Deallocate the virtual network ID
         cls.vnc_zk_client.free_vn_id(
-            obj_dict.get('virtual_network_network_id') - 1)
+            obj_dict.get('virtual_network_network_id'),
+            ':'.join(obj_dict['fq_name']),
+        )
 
         return True, ""
     # end post_dbe_delete
@@ -2616,17 +2628,26 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end subnet_ip_count
 
     @classmethod
-    def dbe_create_notification(cls, db_conn, obj_id):
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
+        vn_id = cls.vnc_zk_client.alloc_vn_id(
+            ':'.join(obj_dict['fq_name']),
+            obj_dict['virtual_network_network_id'],
+        )
         cls.addr_mgmt.net_create_notify(obj_id)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_id):
+    def dbe_update_notification(cls, obj_id, obj_dict):
         cls.addr_mgmt.net_update_notify(obj_id)
     # end dbe_update_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
+        cls.vnc_zk_client.free_vn_id(
+            obj_dict.get('virtual_network_network_id'),
+            ':'.join(obj_dict['fq_name']),
+            notify=True,
+        )
         cls.addr_mgmt.net_delete_notify(obj_id, obj_dict)
     # end dbe_delete_notification
 
@@ -2834,19 +2855,19 @@ class NetworkIpamServer(Resource, NetworkIpam):
     # end pre_dbe_delete
 
     @classmethod
-    def dbe_create_notification(cls, db_conn, obj_id):
-        cls.addr_mgmt.ipam_create_notify(obj_id)
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
+        cls.addr_mgmt.ipam_create_notify(obj_dict)
     # end dbe_create_notification
 
     @classmethod
-    def dbe_update_notification(cls, obj_id):
+    def dbe_update_notification(cls, obj_id, obj_dict):
         cls.addr_mgmt.ipam_update_notify(obj_id)
     # end dbe_update_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_id, obj_dict):
         cls.addr_mgmt.ipam_delete_notify(obj_id, obj_dict)
-    # end dbe_update_notification
+    # end dbe_delete_notification
 
     @classmethod
     def is_change_allowed(cls, old, new, obj_dict, db_conn):
@@ -3212,7 +3233,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
 
         if configured_sg_id > 0:
             if sg_id is not None:
-                cls.vnc_zk_client.free_sg_id(sg_id)
+                cls.vnc_zk_client.free_sg_id(sg_id, fq_name_str)
                 def undo_dealloacte_sg_id():
                     cls.vnc_zk_client.alloc_sg_id(sg_id)
                     return True, ""
@@ -3225,7 +3246,7 @@ class SecurityGroupServer(Resource, SecurityGroup):
             else:
                 sg_id_allocated = cls.vnc_zk_client.alloc_sg_id(fq_name_str)
                 def undo_allocate_sg_id():
-                    cls.vnc_zk_client.free_sg_id(sg_id_allocated)
+                    cls.vnc_zk_client.free_sg_id(sg_id_allocated, fq_name_str)
                     return True, ""
                 get_context().push_undo(undo_allocate_sg_id)
                 obj_dict['security_group_id'] = sg_id_allocated
@@ -3240,15 +3261,10 @@ class SecurityGroupServer(Resource, SecurityGroup):
         if not ok:
             return (ok, response)
 
-        # TODO(ethuleau): As we keep the virtual network ID allocation in
-        #                 schema and in the vnc API for one release overlap to
-        #                 prevent any upgrade issue, we still authorize to
-        #                 set or update the virtual network ID until release
-        #                 (3.2 + 1)
-        # # Does not authorize to set the security group ID as it's allocated
-        # # by the vnc server
-        # if obj_dict.get('security_group_id') is not None:
-        #     return (False, (403, "Cannot set the security group ID"))
+        # Does not authorize to set the security group ID as it's allocated
+        # by the vnc server
+        if obj_dict.get('security_group_id') is not None:
+            return (False, (403, "Cannot set the security group ID"))
 
         # Allocate security group ID if necessary
         return cls._set_configured_security_group_id(obj_dict)
@@ -3261,24 +3277,23 @@ class SecurityGroupServer(Resource, SecurityGroup):
             return ok, result
         sg_dict = result
 
-        # TODO(ethuleau): As we keep the virtual network ID allocation in
-        #                 schema and in the vnc API for one release overlap to
-        #                 prevent any upgrade issue, we still authorize to
-        #                 set or update the virtual network ID until release
-        #                 (3.2 + 1)
-        # # Does not authorize to update the security group ID as it's allocated
-        # # by the vnc server
-        # new_sg_id = obj_dict.get('security_group_id')
-        # if new_sg_id is not None and new_sg_id != sg_dict['security_group_id']:
-        #     return (False, (403, "Cannot update the security group ID"))
+        # Does not authorize to update the security group ID as it's allocated
+        # by the vnc server
+        new_sg_id = obj_dict.get('security_group_id')
+        if (new_sg_id is not None and
+                int(new_sg_id) != sg_dict['security_group_id']):
+            return (False, (403, "Cannot update the security group ID"))
 
         # Update the configured security group ID
         if 'configured_security_group_id' in obj_dict:
+            actual_sg_id = sg_dict['security_group_id']
             sg_dict['configured_security_group_id'] =\
                 obj_dict['configured_security_group_id']
             ok, result = cls._set_configured_security_group_id(sg_dict)
             if not ok:
                 return ok, result
+            if actual_sg_id != sg_dict['security_group_id']:
+                obj_dict['deallocated_security_group_id'] = actual_sg_id
             obj_dict['security_group_id'] = sg_dict['security_group_id']
 
         (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
@@ -3323,9 +3338,38 @@ class SecurityGroupServer(Resource, SecurityGroup):
     @classmethod
     def post_dbe_delete(cls, id, obj_dict, db_conn):
         # Deallocate the security group ID
-        cls.vnc_zk_client.free_sg_id(obj_dict.get('security_group_id'))
+        cls.vnc_zk_client.free_sg_id(
+            obj_dict.get('security_group_id'), ':'.join(obj_dict['fq_name']))
 
         return True, ""
+
+    @classmethod
+    def _notify_sg_id_modified(cls, obj_dict):
+        fq_name_str = ':'.join(obj_dict['fq_name'])
+        configured_sg_id = obj_dict.get('configured_security_group_id')
+        sg_id = obj_dict.get('security_group_id')
+        deallocated_sg_id = obj_dict.get('deallocated_security_group_id')
+        if deallocated_sg_id is not None:
+            cls.vnc_zk_client.free_sg_id(deallocated_sg_id, fq_name_str,
+                                         notify=True)
+        if sg_id is not None:
+            cls.vnc_zk_client.alloc_sg_id(fq_name_str, sg_id)
+
+    @classmethod
+    def dbe_create_notification(cls, db_conn, obj_id, obj_dict):
+        cls._notify_sg_id_modified(obj_dict)
+
+    @classmethod
+    def dbe_update_notification(cls, db_conn, obj_id, obj_dict):
+        cls._notify_sg_id_modified(obj_dict)
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_id, obj_dict):
+        cls.vnc_zk_client.free_sg_id(
+            obj_dict.get('security_group_id'),
+            ':'.join(obj_dict['fq_name']),
+            notify=True,
+        )
 # end class SecurityGroupServer
 
 
