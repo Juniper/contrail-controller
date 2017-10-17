@@ -1619,8 +1619,8 @@ class AnalyticsFixture(fixtures.Fixture):
                         select_fields=[
                             'forward_flow_uuid',
                             'reverse_flow_uuid',
-                            'forward_sampled_bytes',
-                            'reverse_sampled_bytes'],
+                            'forward_teardown_bytes',
+                            'reverse_teardown_bytes'],
                         session_type="client")
         self.logger.info("SessionRecordTable result:%s" % str(res))
         assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
