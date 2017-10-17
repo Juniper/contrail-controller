@@ -29,3 +29,55 @@ uve sandesh AnalyticsApiInfoUVE {
     1: AnalyticsApiInfo data
 }
 
+/**
+ * @description: sandesh request to get UVE in the uvedb cache
+ * @cli_name: read uvedb uve data
+ */
+request sandesh UVEDbCacheUveRequest {
+    1: string table_uve_key
+}
+
+/**
+ * @description: sandesh response to send UVE data in the uvedb cache
+ */
+response sandesh UVEDbCacheUveResponse {
+    1: string source
+    2: string data
+}
+
+/**
+ * @description: sandesh request to get all UVE keys in a table
+ * @cli_name: read uvedb table keys
+ */
+request sandesh UVEDbCacheTableKeysRequest {
+    1: string table
+}
+
+struct UVEDbCacheTableKey {
+    1: string table_uve_key (link="UVEDbCacheRequest")
+}
+
+/**
+ * @description: sandesh response to send all UVE keys in a table
+ */
+response sandesh UVEDbCacheTableKeysResponse {
+    1: list<UVEDbCacheTableKey> uves
+}
+
+/**
+ * @description: sandesh request to get list of tables in the uvedb cache
+ * @cli_name: read uvedb tables
+ */
+request sandesh UVEDbCacheTablesRequest {
+}
+
+struct UVEDbCacheTable {
+    1: string table (link="UVEDbCacheTableKeysRequest")
+}
+
+/**
+ * @description: sandesh response to send list of tables in the uvedb cache
+ */
+response sandesh UVEDbCacheTablesResponse {
+    1: list<UVEDbCacheTable> tables
+}
