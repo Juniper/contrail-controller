@@ -1165,7 +1165,7 @@ class VncApiServer(object):
     # end internal_request_ref_update
 
     def alloc_vn_id(self, name):
-        return self._db_conn._zk_db.alloc_vn_id(name) + 1
+        return self._db_conn._zk_db.alloc_vn_id(name)
 
     def alloc_tag_value_id(self, tag_type, name):
         return self._db_conn._zk_db.alloc_tag_value_id(tag_type, name)
@@ -3355,6 +3355,9 @@ class VncApiServer(object):
                 prop_collection_updates=req_prop_coll_updates)
             if not ok:
                 return (ok, result)
+            attr_to_publish = None
+            if isinstance(result, dict):
+                attr_to_publish = result
 
             get_context().set_state('DBE_UPDATE')
             if api_name == 'ref-update':
@@ -3365,11 +3368,22 @@ class VncApiServer(object):
                 operation = ref_args.get('operation')
 
                 (ok, result) = db_conn.ref_update(
-                                       obj_type, obj_uuid, ref_obj_type,
-                                       ref_uuid, ref_data, operation,
-                                       db_obj_dict['id_perms'])
+                    obj_type,
+                    obj_uuid,
+                    ref_obj_type,
+                    ref_uuid,
+                    ref_data,
+                    operation,
+                    db_obj_dict['id_perms'],
+                    attr_to_publish=attr_to_publish,
+                )
             elif req_obj_dict:
-                (ok, result) = db_conn.dbe_update(obj_type, obj_uuid, req_obj_dict)
+                (ok, result) = db_conn.dbe_update(
+                    obj_type,
+                    obj_uuid,
+                    req_obj_dict,
+                    attr_to_publish=attr_to_publish,
+                )
                 # Update quota counter
                 if resource_type == 'project' and 'quota' in req_obj_dict:
                     proj_id = req_obj_dict['uuid']
@@ -3380,7 +3394,11 @@ class VncApiServer(object):
                                self.quota_counter)
             elif req_prop_coll_updates:
                 (ok, result) = db_conn.prop_collection_update(
-                    obj_type, obj_uuid, req_prop_coll_updates)
+                    obj_type,
+                    obj_uuid,
+                    req_prop_coll_updates,
+                    attr_to_publish=attr_to_publish,
+                )
             if not ok:
                 return (ok, result)
 

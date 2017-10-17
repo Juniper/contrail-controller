@@ -1770,7 +1770,7 @@ class AddrMgmt(object):
         if ipam_refs and not alloc_pools:
             # This is a request for ip address from flat subnet
             # where instace_ip is directly referencing ipam
-            # for internal ip address 
+            # for internal ip address
             sn_uuid = None
             ip_addr, _ = \
                 self._ipam_ip_alloc(ipam_refs[0], sn_uuid, sub,
@@ -2116,15 +2116,9 @@ class AddrMgmt(object):
                                           alloc_pool_change=[])
     # end ipam_create_req
 
-    def ipam_create_notify(self, obj_id):
-        db_conn = self._get_db_conn()
-        try:
-            (ok, obj_dict) = db_conn.dbe_read('network_ipam', obj_id=obj_id)
-        except cfgm_common.exceptions.NoIdError:
-            return
-
+    def ipam_create_notify(self, obj_dict):
         if obj_dict.get('ipam_subnet_method') == 'flat-subnet':
-            self._create_ipam_subnet_objs(obj_id, obj_dict,
+            self._create_ipam_subnet_objs(obj_dict['uuid'], obj_dict,
                                           should_persist=False)
     # end ipam_create_notify
 
