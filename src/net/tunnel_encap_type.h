@@ -19,9 +19,9 @@ public:
         MPLS_O_GRE = 11,
         VXLAN_GPE = 12,
         MPLS_O_UDP = 13,
+        NATIVE = 16,
         MPLS_O_UDP_CONTRAIL = 37001,
-        VXLAN_CONTRAIL = 37002,
-        NATIVE_CONTRAIL = 37003
+        VXLAN_CONTRAIL = 37002
     };
 
     TunnelEncapType();
