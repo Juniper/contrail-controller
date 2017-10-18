@@ -32,15 +32,16 @@ import logging
 import time
 from opserver.sandesh.viz.constants import *
 from opserver.opserver import OpServer
+from opserver.vnc_cfg_api_client import VncCfgApiClient
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames
 from utils.util import find_buildroot
 from cassandra.cluster import Cluster
+import bottle
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
 builddir = find_buildroot(os.getcwd())
-
 
 class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
@@ -56,7 +57,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         cls.cassandra_port = AnalyticsTest.get_free_port()
         mockcassandra.start_cassandra(cls.cassandra_port)
 
-
     @classmethod
     def tearDownClass(cls):
         if AnalyticsTest._check_skip_test() is True:
@@ -64,6 +64,14 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         mockcassandra.stop_cassandra(cls.cassandra_port)
         pass
+
+    def setUp(self):
+        super(AnalyticsTest, self).setUp()
+        mock_is_role_cloud_admin = mock.patch.object(VncCfgApiClient,
+            'is_role_cloud_admin')
+        mock_is_role_cloud_admin.return_value = True
+        mock_is_role_cloud_admin.start()
+        self.addCleanup(mock_is_role_cloud_admin.stop)
 
     def _update_analytics_start_time(self, start_time):
         cluster = Cluster(['127.0.0.1'],
@@ -676,18 +684,22 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         logging.info("Starting intervn gen " + str(UTCTimestampUsec()))
         # send 2 vn UVEs
         generator_obj.generate_intervn()
-        token = 'user:admin'
         mock_is_role_cloud_admin.return_value=True
         mock_get_resource_list_from_uve_type.return_value=None
         # for admin role, there should be 2 vn uves
-        uves = vizd_obj.get_opserver_vns(token)
+        uves = vizd_obj.get_opserver_vns()
         assert (len(uves) == 2)
         mock_is_role_cloud_admin.return_value=False
         mock_get_resource_list_from_uve_type.return_value=set(["default-domain:vn0"])
-        token = 'user:default-domain:vn0'
         # for non-admin role, there should be 1 vn uve
-        uves = vizd_obj.get_opserver_vns(token)
+        uves = vizd_obj.get_opserver_vns()
         assert (len(uves) == 1)
+        # 401
+        mock_is_role_cloud_admin.return_value=False
+        mock_get_resource_list_from_uve_type.side_effect=bottle.HTTPResponse(
+            status=401)
+        resp = vizd_obj.get_opserver_vns_response()
+        assert (resp.status_code == 401)
         return True
     # end test_16_rbac
 
