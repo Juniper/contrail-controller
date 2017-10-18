@@ -260,8 +260,8 @@ bool SessionAggKey::IsLess(const SessionAggKey &rhs) const {
     if (local_ip != rhs.local_ip) {
         return local_ip < rhs.local_ip;
     }
-    if (dst_port != rhs.dst_port) {
-        return dst_port < rhs.dst_port;
+    if (server_port != rhs.server_port) {
+        return server_port < rhs.server_port;
     }
     return proto < rhs.proto;
 }
@@ -270,7 +270,7 @@ bool SessionAggKey::IsEqual(const SessionAggKey &rhs) const {
     if (local_ip != rhs.local_ip) {
         return false;
     }
-    if (dst_port != rhs.dst_port) {
+    if (server_port != rhs.server_port) {
         return false;
     }
     if (proto != rhs.proto) {
@@ -281,7 +281,7 @@ bool SessionAggKey::IsEqual(const SessionAggKey &rhs) const {
 
 void SessionAggKey::Reset() {
     local_ip = IpAddress();
-    dst_port = 0;
+    server_port = 0;
     proto = 0;
 }
 
@@ -289,14 +289,14 @@ bool SessionKey::IsLess(const SessionKey &rhs) const {
     if (remote_ip != rhs.remote_ip) {
         return remote_ip < rhs.remote_ip;
     }
-    return src_port < rhs.src_port;
+    return client_port < rhs.client_port;
 }
 
 bool SessionKey::IsEqual(const SessionKey &rhs) const {
     if (remote_ip != rhs.remote_ip) {
         return false;
     }
-    if (src_port != rhs.src_port) {
+    if (client_port != rhs.client_port) {
         return false;
     }
     return true;
@@ -304,7 +304,7 @@ bool SessionKey::IsEqual(const SessionKey &rhs) const {
 
 void SessionKey::Reset() {
     remote_ip = IpAddress();
-    src_port = 0;
+    client_port = 0;
 }
 
 bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
@@ -362,7 +362,9 @@ bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
 
     if (fe->IsClientFlow()) {
         session_agg_key.local_ip = fe->key().src_addr;
+        session_agg_key.server_port = fe->key().dst_port;
         session_key.remote_ip = fe->key().dst_addr;
+        session_key.client_port = fe->key().src_port;
         session_endpoint_key.local_vn = src_vn;
         session_endpoint_key.remote_vn = dst_vn;
         session_endpoint_key.is_client_session = true;
@@ -374,12 +376,16 @@ bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
          */
         if (fe->is_flags_set(FlowEntry::LocalFlow)) {
             session_agg_key.local_ip = fe->key().src_addr;
+            session_agg_key.server_port = fe->key().src_port;
             session_key.remote_ip = fe->key().dst_addr;
+            session_key.client_port = fe->key().dst_port;
             session_endpoint_key.local_vn = src_vn;
             session_endpoint_key.remote_vn = dst_vn;
         } else {
             session_agg_key.local_ip = fe->key().dst_addr;
+            session_agg_key.server_port = fe->key().dst_port;
             session_key.remote_ip = fe->key().src_addr;
+            session_key.client_port = fe->key().src_port;
             session_endpoint_key.local_vn = dst_vn;
             session_endpoint_key.remote_vn = src_vn;
         }
@@ -387,14 +393,12 @@ bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
     } else {
         return false;
     }
-    session_agg_key.dst_port = fe->key().dst_port;
     session_agg_key.proto = fe->key().protocol;
-    session_key.src_port = fe->key().src_port;
     return true;
 }
 
 void SessionStatsCollector::UpdateSessionFlowStatsInfo(FlowEntry *fe,
-                                        SessionFlowStatsInfo *session_flow) {
+    SessionFlowStatsInfo *session_flow) const {
     session_flow->flow = fe;
     session_flow->gen_id= fe->gen_id();
     session_flow->flow_handle = fe->flow_handle();
@@ -402,21 +406,20 @@ void SessionStatsCollector::UpdateSessionFlowStatsInfo(FlowEntry *fe,
 }
 
 void SessionStatsCollector::UpdateSessionStatsInfo(FlowEntry* fe,
-                                                   uint64_t setup_time,
-                                                   SessionStatsInfo &session) {
+    uint64_t setup_time, SessionStatsInfo *session) const {
     FlowEntry *rfe = fe->reverse_flow_entry();
 
-    session.setup_time = setup_time;
-    UpdateSessionFlowStatsInfo(fe, &session.fwd_flow);
-    UpdateSessionFlowStatsInfo(rfe, &session.rev_flow);
+    session->setup_time = setup_time;
+    UpdateSessionFlowStatsInfo(fe, &session->fwd_flow);
+    UpdateSessionFlowStatsInfo(rfe, &session->rev_flow);
 }
 
 void SessionStatsCollector::AddSession(FlowEntry* fe, uint64_t setup_time) {
     SessionAggKey session_agg_key;
     SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
-    SessionPreAggInfo  session_agg_info = {};
-    SessionStatsInfo session = {};
-    SessionKey    session_key;
+    SessionPreAggInfo session_agg_info;
+    SessionStatsInfo session;
+    SessionKey session_key;
     SessionPreAggInfo::SessionMap::iterator session_map_iter;
     SessionEndpointInfo  session_endpoint_info = {};
     SessionEndpointKey session_endpoint_key;
@@ -461,7 +464,7 @@ void SessionStatsCollector::AddSession(FlowEntry* fe, uint64_t setup_time) {
         }
     }
 
-    UpdateSessionStatsInfo(fe_fwd, setup_time, session);
+    UpdateSessionStatsInfo(fe_fwd, setup_time, &session);
 
     session_endpoint_map_iter = session_endpoint_map_.find(
                                             session_endpoint_key);
@@ -805,7 +808,7 @@ void SessionStatsCollector::FillSessionInfoUnlocked
      * Fill the session Key
      */
     session_key->set_ip(session_map_iter->first.remote_ip);
-    session_key->set_port(session_map_iter->first.src_port);
+    session_key->set_port(session_map_iter->first.client_port);
     FillSessionFlowInfo(session_map_iter->second.fwd_flow,
                         session_map_iter->second.setup_time,
                         session_map_iter->second.teardown_time,
@@ -839,7 +842,7 @@ void SessionStatsCollector::FillSessionAggInfo(SessionEndpointInfo::SessionAggMa
      * Fill the session agg key
      */
     session_agg_key->set_ip(session_agg_map_iter->first.local_ip);
-    session_agg_key->set_port(session_agg_map_iter->first.dst_port);
+    session_agg_key->set_port(session_agg_map_iter->first.server_port);
     session_agg_key->set_protocol(session_agg_map_iter->first.proto);
     session_agg_info->set_logged_forward_bytes(total_fwd_bytes);
     session_agg_info->set_logged_forward_pkts(total_fwd_packets);
