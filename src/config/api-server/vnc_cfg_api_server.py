@@ -1856,8 +1856,11 @@ class VncApiServer(object):
         if not 'RW' in perms:
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
-        (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
-                                                obj_fields=['perms2'])
+        try:
+            (ok, obj_dict) = self._db_conn.dbe_read(obj_type, obj_uuid,
+                                                    obj_fields=['perms2'])
+        except NoIdError as e:
+            raise cfgm_common.exceptions.HttpError(404, str(e))
         obj_dict['perms2']['owner'] = owner
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
 
