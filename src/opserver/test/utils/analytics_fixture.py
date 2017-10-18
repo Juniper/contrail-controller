@@ -388,8 +388,6 @@ class OpServer(object):
         args = ['contrail-analytics-api',
                 '--redis_query_port',
                 str(self.analytics_fixture.redis_uves[0].port),
-                '--cassandra_server_list', '127.0.0.1:' +
-                str(self.analytics_fixture.cassandra_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
                 '--log_level', "SYS_DEBUG",
@@ -416,15 +414,6 @@ class OpServer(object):
         if self._is_dup:
             args.append('--dup')
 
-        if self.analytics_fixture.cassandra_user is not None:
-            args.append('--cassandra_user')
-            args.append(self.analytics_fixture.cassandra_user)
-        if self.analytics_fixture.cassandra_password is not None:
-            args.append('--cassandra_password')
-            args.append(self.analytics_fixture.cassandra_password)
-        if self.analytics_fixture.cluster_id:
-            args.append('--cluster_id')
-            args.append(self.analytics_fixture.cluster_id)
         if self.sandesh_config:
             if 'sandesh_ssl_enable' in self.sandesh_config and \
                 self.sandesh_config['sandesh_ssl_enable']:

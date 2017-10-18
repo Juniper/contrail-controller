@@ -919,12 +919,8 @@ class OpServer(object):
             self._VIRTUAL_TABLES.append(stt)
 
         self._analytics_db = AnalyticsDb(self._logger,
-                                         self._args.cassandra_server_list,
                                          self._args.redis_query_port,
-                                         self._args.redis_password,
-                                         self._args.cassandra_user,
-                                         self._args.cassandra_password,
-                                         self._args.cluster_id)
+                                         self._args.redis_password)
 
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
@@ -970,7 +966,6 @@ class OpServer(object):
                                --redis_query_port 6379
                                --redis_password
                                --collectors 127.0.0.1:8086
-                               --cassandra_server_list 127.0.0.1:9160
                                --http_server_port 8090
                                --rest_api_port 8081
                                --rest_api_ip 0.0.0.0
@@ -999,7 +994,6 @@ class OpServer(object):
         defaults = {
             'host_ip'            : "127.0.0.1",
             'collectors'         : None,
-            'cassandra_server_list' : ['127.0.0.1:9160'],
             'http_server_port'   : 8090,
             'rest_api_port'      : 8081,
             'rest_api_ip'        : '0.0.0.0',
@@ -1031,13 +1025,6 @@ class OpServer(object):
             'redis_password'       : None,
             'redis_uve_list'     : ['127.0.0.1:6379'],
         }
-        database_opts = {
-            'cluster_id'     : '',
-        }
-        cassandra_opts = {
-            'cassandra_user'     : None,
-            'cassandra_password' : None,
-        }
         keystone_opts = {
             'auth_host': '127.0.0.1',
             'auth_protocol': 'http',
@@ -1057,13 +1044,9 @@ class OpServer(object):
                 defaults.update(dict(config.items("DEFAULTS")))
             if 'REDIS' in config.sections():
                 redis_opts.update(dict(config.items('REDIS')))
-            if 'CASSANDRA' in config.sections():
-                cassandra_opts.update(dict(config.items('CASSANDRA')))
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
             SandeshConfig.update_options(sandesh_opts, config)
-            if 'DATABASE' in config.sections():
-                database_opts.update(dict(config.items('DATABASE')))
 
         # Override with CLI options
         # Don't surpress add_help here so it will handle -h
@@ -1075,8 +1058,6 @@ class OpServer(object):
             description=__doc__,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         defaults.update(redis_opts)
-        defaults.update(cassandra_opts)
-        defaults.update(database_opts)
         defaults.update(keystone_opts)
         defaults.update(sandesh_opts)
         parser.set_defaults(**defaults)
@@ -1125,21 +1106,12 @@ class OpServer(object):
         parser.add_argument(
             "--worker_id",
             help="Worker Id")
-        parser.add_argument("--cassandra_server_list",
-            help="List of cassandra_server_ip in ip:port format",
-            nargs="+")
         parser.add_argument(
             "--logging_conf",
             help=("Optional logging configuration file, default: None"))
         parser.add_argument(
             "--logger_class",
             help=("Optional external logger class, default: None"))
-        parser.add_argument("--cluster_id",
-            help="Analytics Cluster Id")
-        parser.add_argument("--cassandra_user",
-            help="Cassandra user name")
-        parser.add_argument("--cassandra_password",
-            help="Cassandra password")
         parser.add_argument("--partitions", type=int,
             help="Number of partitions for hashing UVE keys")
         parser.add_argument("--zk_list",
@@ -1176,8 +1148,6 @@ class OpServer(object):
             self._args.collectors = self._args.collectors.split()
         if type(self._args.redis_uve_list) is str:
             self._args.redis_uve_list = self._args.redis_uve_list.split()
-        if type(self._args.cassandra_server_list) is str:
-            self._args.cassandra_server_list = self._args.cassandra_server_list.split()
         if type(self._args.zk_list) is str:
             self._args.zk_list= self._args.zk_list.split()
         if type(self._args.api_server) is str:
