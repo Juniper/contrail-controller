@@ -1194,6 +1194,7 @@ class PortTupleDM(DBBaseDM):
             vmi_obj = VirtualMachineInterfaceDM.get(vmi)
             if vmi_obj and not vmi_obj.service_instance:
                 vmi_obj.service_instance = self.parent_uuid
+        return obj
     # end update
 
     @classmethod
