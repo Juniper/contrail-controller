@@ -1785,22 +1785,22 @@ SessionValueArray default_col_values = boost::assign::list_of
     (GenDb::DbDataValue((uint16_t)0))
     (GenDb::DbDataValue((uint32_t)0))
     (GenDb::DbDataValue(boost::uuids::nil_uuid()))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
-    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue(""))
     (GenDb::DbDataValue(IpAddress()))
     (GenDb::DbDataValue((uint64_t)0))
@@ -1813,7 +1813,7 @@ SessionValueArray default_col_values = boost::assign::list_of
     (GenDb::DbDataValue((uint64_t)0))
     (GenDb::DbDataValue(""));
 
-static bool PopulateSessionTable(SessionValueArray& svalues,
+static bool PopulateSessionTable(uint32_t t2, SessionValueArray& svalues,
     DbInsertCb db_insert_cb, TtlMap& ttl_map) {
 
     std::auto_ptr<GenDb::ColList> colList(new GenDb::ColList);
@@ -1827,10 +1827,17 @@ static bool PopulateSessionTable(SessionValueArray& svalues,
 
     // Column Names
     GenDb::DbDataValueVec* cnames(new GenDb::DbDataValueVec);
-    for (int sfield = SessionRecordFields::SESSION_PROTOCOL;
-            sfield != SessionRecordFields::SESSION_MAP; sfield++) {
+    for (int sfield = g_viz_constants.SESSION_MIN;
+            sfield != g_viz_constants.SESSION_MAX - 1; sfield++) {
         if (svalues[sfield].which() == GenDb::DB_VALUE_BLANK) {
-            cnames->push_back(default_col_values[sfield]);
+            if (sfield >= SessionRecordFields::SESSION_DEPLOYMENT &&
+                sfield <= SessionRecordFields::SESSION_REMOTE_VN &&
+                sfield != SessionRecordFields::SESSION_LABELS &&
+                sfield != SessionRecordFields::SESSION_REMOTE_LABELS) {
+                cnames->push_back(integerToString(t2) + ":" + g_viz_constants.UNKNOWN);
+            } else {
+                cnames->push_back(default_col_values[sfield]);
+            }
         }
         else {
             cnames->push_back(svalues[sfield]);
@@ -2108,7 +2115,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         DbInsertCb db_insert_cb =
             boost::bind(&DbHandler::InsertIntoDb, this, _1,
             GenDb::DbConsistency::LOCAL_ONE, db_cb);
-        if (!PopulateSessionTable(session_entry_values,
+        if (!PopulateSessionTable(T2, session_entry_values,
             db_insert_cb, ttl_map_)) {
                 DB_LOG(ERROR, "Populating SessionRecordTable FAILED");
         }
