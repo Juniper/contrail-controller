@@ -9,68 +9,16 @@
 
 import redis
 from sandesh.viz.constants import *
-import code
-import urllib2
 import json
-import pdb
-import argparse
-import socket
-import struct
-from cassandra.cluster import Cluster
-from cassandra.auth import PlainTextAuthProvider
-from cassandra import ConsistencyLevel
-from cassandra.io.geventreactor import GeventConnection
-import platform
 from opserver_util import OpServerUtils
 
 class AnalyticsDb(object):
-    def __init__(self, logger, cassandra_server_list,
-                    redis_query_port, redis_password, cassandra_user,
-                    cassandra_password, cluster_id):
+    def __init__(self, logger, redis_query_port, redis_password):
         self._logger = logger
-        self._cassandra_server_list = cassandra_server_list
         self._redis_query_port = redis_query_port
         self._redis_password = redis_password
-        self._pool = None
-        self._session = None
-        self._cluster_id = cluster_id
-        self._cassandra_user = cassandra_user
-        self._cassandra_password = cassandra_password
-        if (cluster_id != ''):
-            self._keyspace = COLLECTOR_KEYSPACE_CQL + '_' + cluster_id
-        else:
-            self._keyspace = COLLECTOR_KEYSPACE_CQL
-        self.connect_db()
-        self.number_of_purge_requests = 0
     # end __init__
     
-    def connect_db(self):
-        self.get_cql_session()
-    # end connect_db
-
-    def get_cql_session(self):
-        if self._session:
-            return self._session
-        creds=None
-        try:
-            if self._cassandra_user is not None and \
-               self._cassandra_password is not None:
-                   creds = PlainTextAuthProvider(username=self._cassandra_user,
-                       password=self._cassandra_password)
-            # Extract the server_list and port number seperately
-            server_list = [i.split(":")[0] for i in self._cassandra_server_list]
-            cql_port = int(self._cassandra_server_list[0].split(":")[1])
-            cluster = Cluster(contact_points = server_list,
-                auth_provider = creds, port = cql_port)
-            self._session=cluster.connect(self._keyspace)
-            self._session.connection_class = GeventConnection
-            self._session.default_consistency_level = ConsistencyLevel.LOCAL_ONE
-            return self._session
-        except Exception as e:
-            self._logger.error("Exception: get_cql_session Failure %s" % e)
-            return None
-        # end get_cql_session
-
     def get_pending_compaction_tasks(self, ip, port, user, password):
         """Collects pending compaction tasks from all db nodes
         Returns:
