@@ -445,6 +445,30 @@ TEST_F(TsnElectorTest, Test_6) {
     EXPECT_FALSE(VmPortActive(input, 0));
 }
 
+//Refer: https://bugs.launchpad.net/juniperopenstack/+bug/1724064
+//Routes in fabric vrf should remain active in tsn-no-forwarding-mode
+TEST_F(TsnElectorTest, Test_7) {
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    VrfEntry *fabric_vrf = agent_->fabric_vrf();
+    InetUnicastAgentRouteTable *inet4_table = fabric_vrf->
+        GetInet4UnicastRouteTable();
+    InetUnicastRouteEntry *default_rt =
+        inet4_table->FindRoute(Ip4Address::from_string("0.0.0.0"));
+    EXPECT_FALSE(default_rt->GetActivePath()->inactive());
+
+    //Delete
+    DeleteVmportEnv(input, 1, true);
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortActive(input, 0));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     strcpy(init_file, DEFAULT_VNSW_TSN_NO_FORWARDING_CONFIG_FILE);
