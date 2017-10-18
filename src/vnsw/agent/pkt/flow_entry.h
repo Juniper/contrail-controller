@@ -756,8 +756,9 @@ private:
     bool SetQosConfigIndex();
     void SetAclInfo(SessionPolicy *sp, SessionPolicy *rsp,
                     const FlowPolicyInfo &fwd_flow_info,
-                    const FlowPolicyInfo &rev_flow_info, bool tcp_rev_sg);
-    void SessionMatch(SessionPolicy *sp, SessionPolicy *rsp);
+                    const FlowPolicyInfo &rev_flow_info, bool tcp_rev,
+                    bool is_sg);
+    void SessionMatch(SessionPolicy *sp, SessionPolicy *rsp, bool is_sg);
     void UpdateReflexiveAction(SessionPolicy *sp, SessionPolicy *rsp);
     const std::string BuildRemotePrefix(const FlowRouteRefMap &rt_list,
                                         uint32_t vr, const IpAddress &ip) const;

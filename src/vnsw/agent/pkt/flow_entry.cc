@@ -2041,7 +2041,7 @@ void FlowEntry::SetOutPacketHeader(PacketHeader *hdr) {
 void FlowEntry::SetAclInfo(SessionPolicy *sp, SessionPolicy *rsp,
                            const FlowPolicyInfo &fwd_flow_info,
                            const FlowPolicyInfo &rev_flow_info,
-                           bool tcp_rev_sg) {
+                           bool tcp_rev, bool is_sg) {
 
     FlowEntry *rflow = reverse_flow_entry();
     if (rflow == NULL) {
@@ -2070,19 +2070,31 @@ void FlowEntry::SetAclInfo(SessionPolicy *sp, SessionPolicy *rsp,
         return;
     }
 
-    if (tcp_rev_sg == false) {
-        if (data_.match_p.sg_policy.rule_present == false) {
-            sp->rule_uuid_ = rev_flow_info.uuid;
-            sp->acl_name_ = rev_flow_info.acl_name;
-        }
+    if (tcp_rev == false) {
+        if (is_sg) {
+            if (data_.match_p.sg_policy.rule_present == false) {
+                sp->rule_uuid_ = rev_flow_info.uuid;
+                sp->acl_name_ = rev_flow_info.acl_name;
+            }
 
-        if (data_.match_p.sg_policy.out_rule_present == false) {
-            rsp->rule_uuid_ = fwd_flow_info.uuid;
-            rsp->acl_name_ = fwd_flow_info.acl_name;
+            if (data_.match_p.sg_policy.out_rule_present == false) {
+                rsp->rule_uuid_ = fwd_flow_info.uuid;
+                rsp->acl_name_ = fwd_flow_info.acl_name;
+            }
+        } else {
+            if (data_.match_p.aps_policy.rule_present == false) {
+                sp->rule_uuid_ = rev_flow_info.uuid;
+                sp->acl_name_ = rev_flow_info.acl_name;
+            }
+
+            if (data_.match_p.aps_policy.out_rule_present == false) {
+                rsp->rule_uuid_ = fwd_flow_info.uuid;
+                rsp->acl_name_ = fwd_flow_info.acl_name;
+            }
         }
     }
 
-    if (tcp_rev_sg == true) {
+    if (tcp_rev == true) {
         if (sp->reverse_rule_present == false) {
             rsp->rule_uuid_ = fwd_flow_info.uuid;
             rsp->acl_name_ = fwd_flow_info.acl_name;
@@ -2095,7 +2107,8 @@ void FlowEntry::SetAclInfo(SessionPolicy *sp, SessionPolicy *rsp,
     }
 }
 
-void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp) {
+void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
+                             bool is_sg) {
 
     FlowEntry *rflow = reverse_flow_entry();
     const string value = FlowPolicyStateStr.at(NOT_EVALUATED);
@@ -2179,19 +2192,19 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp) {
     if (!is_flags_set(FlowEntry::TcpAckFlow)) {
         sp->action_summary =
             sp->action | sp->out_action | sp->reverse_action | sp->reverse_out_action;
-        SetAclInfo(sp, rsp, acl_info, out_acl_info, false);
+        SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
     } else if (ShouldDrop(sp->action | sp->out_action) &&
                ShouldDrop(sp->reverse_action | sp->reverse_out_action)) {
             //If both ingress ACL and egress ACL of VMI denies the
             //packet, then pick ingress ACE uuid to send to UVE
             sp->action_summary = (1 << TrafficAction::DENY);
-            SetAclInfo(sp, rsp, acl_info, out_acl_info, false);
+            SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
     } else {
         sp->action_summary = (1 << TrafficAction::PASS);
         if (!ShouldDrop(sp->action | sp->out_action)) {
-            SetAclInfo(sp, rsp, acl_info, out_acl_info, false);
+            SetAclInfo(sp, rsp, acl_info, out_acl_info, false, is_sg);
         } else if (!ShouldDrop(sp->reverse_action | sp->reverse_out_action)) {
-            SetAclInfo(sp, rsp, rev_out_acl_info, rev_acl_info, true);
+            SetAclInfo(sp, rsp, rev_out_acl_info, rev_acl_info, true, is_sg);
         }
     }
 }
@@ -2277,12 +2290,12 @@ bool FlowEntry::DoPolicy() {
             r_aps_policy = &(rflow->data_.match_p.aps_policy);
         }
 
-        SessionMatch(&data_.match_p.sg_policy, r_sg_policy);
+        SessionMatch(&data_.match_p.sg_policy, r_sg_policy, true);
         if (ShouldDrop(data_.match_p.sg_policy.action_summary)) {
             goto done;
         }
 
-        SessionMatch(&data_.match_p.aps_policy, r_aps_policy);
+        SessionMatch(&data_.match_p.aps_policy, r_aps_policy, false);
     } else {
         // SG is reflexive ACL. For reverse-flow, copy SG action from
         // forward flow 
