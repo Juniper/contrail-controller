@@ -856,4 +856,3 @@ bool AgentRoute::IsRPFInvalid() const {
 
     return path->is_subnet_discard();
 }
-

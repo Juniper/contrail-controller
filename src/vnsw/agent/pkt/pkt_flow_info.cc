@@ -12,6 +12,7 @@
 
 #include "cmn/agent_cmn.h"
 #include "init/agent_param.h"
+#include "oper/ecmp.h"
 #include "oper/interface_common.h"
 #include "oper/metadata_ip.h"
 #include "oper/nexthop.h"
@@ -151,12 +152,6 @@ static bool IsVgwOrVmInterface(const Interface *intf) {
 static bool PickEcmpMember(const Agent *agent, const NextHop **nh,
 			   const PktInfo *pkt, PktFlowInfo *info,
                            const EcmpLoadBalance &ecmp_load_balance) {
-    // We dont support ECMP in L2 yet. Return failure to drop packet
-    if (info->l3_flow == false) {
-        info->out_component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
-        return true;
-    }
-
     const CompositeNH *comp_nh = dynamic_cast<const CompositeNH *>(*nh);
     // ECMP supported only if composite-type is ECMP or LOCAL_ECMP
     if (comp_nh == NULL ||
@@ -303,7 +298,7 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
         }
 
         // Get only local-NH from route
-        const NextHop *local_nh = rt->GetLocalNextHop();
+        const NextHop *local_nh = EcmpData::GetLocalNextHop(rt);
         if (local_nh && local_nh->IsActive() == false) {
             LogError(pkt, info, "Invalid or Inactive local nexthop ");
             info->short_flow = true;

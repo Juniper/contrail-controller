@@ -420,6 +420,19 @@ void EvpnAgentRouteTable::Delete(const Peer *peer, const string &vrf_name,
     EvpnTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
+void EvpnAgentRouteTable::AddClonedLocalPathReq(const Peer *peer,
+                                                const string &vrf_name,
+                                                const MacAddress &mac,
+                                                const IpAddress &ip_addr,
+                                                uint32_t ethernet_tag,
+                                                ClonedLocalPath *data) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, mac, ip_addr,
+                                   ethernet_tag));
+    req.data.reset(data);
+    EvpnTableEnqueue(Agent::GetInstance(), &req);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // EvpnRouteEntry methods
 /////////////////////////////////////////////////////////////////////////////

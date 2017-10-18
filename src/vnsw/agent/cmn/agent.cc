@@ -24,6 +24,7 @@
 #include <cmn/agent.h>
 #include <cmn/event_notifier.h>
 #include <controller/controller_init.h>
+#include <controller/controller_peer.h>
 
 #include <oper/operdb_init.h>
 #include <oper/config_manager.h>

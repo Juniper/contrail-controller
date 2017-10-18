@@ -291,7 +291,7 @@ public:
         const InetUnicastRouteEntry *rt =
             dynamic_cast<const InetUnicastRouteEntry *>
             (FlowEntry::GetUcRoute(vrf, rflow->key().dst_addr));
-        return rt->GetLocalNextHop();
+        return EcmpData::GetLocalNextHop(rt);
     }
 
     // Leak route for ip in vrf1 to vrf2 by re-ordering of ECMP components

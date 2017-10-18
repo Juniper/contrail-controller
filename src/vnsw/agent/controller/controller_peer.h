@@ -29,11 +29,10 @@ class EcmpLoadBalance;
 class ControllerTimer;
 class EndOfRibTxTimer;
 class EndOfRibRxTimer;
+class ControllerEcmpRoute;
 
 class AgentXmppChannel {
 public:
-    static const uint32_t maximum_ecmp_paths = 128;
-
     AgentXmppChannel(Agent *agent,
                      const std::string &xmpp_server, 
                      const std::string &label_range, uint8_t xs_idx);
@@ -174,9 +173,9 @@ public:
                                    const AgentPath *path,
                                    bool assisted_replication);
     void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
-                      autogen::EnetItemType *item);
-    void BuildTagList(const autogen::ItemType *item, TagList *tag_list);
-    void BuildTagList(const autogen::EnetItemType *item, TagList *tag_list);
+                      const IpAddress &ip, autogen::EnetItemType *item);
+    template <typename TYPE>
+    void BuildTagList(const TYPE *item, TagList *tag_list);
     uint64_t route_published_time() const {return route_published_time_;}
     EndOfRibTxTimer *end_of_rib_tx_timer();
     EndOfRibRxTimer *end_of_rib_rx_timer();
@@ -206,9 +205,18 @@ private:
     void AddRemoteRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
                         autogen::ItemType *item,
                         const VnListType &vn_list);
-    void AddEcmpRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
-                      autogen::ItemType *item,
-                      const VnListType &vn_list);
+    void AddInetEcmpRoute(std::string vrf_name, IpAddress ip, uint32_t plen,
+                          autogen::ItemType *item,
+                          const VnListType &vn_list);
+    void AddEvpnEcmpRoute(std::string vrf_name, const MacAddress &mac,
+                          const IpAddress &ip, autogen::EnetItemType *item,
+                          const VnListType &vn_list);
+    template <typename TYPE>
+    ControllerEcmpRoute *BuildEcmpData(TYPE *item,
+                                       const VnListType &vn_list,
+                                       const EcmpLoadBalance &ecmp_load_balance,
+                                       const AgentRouteTable *rt_table,
+                                       const std::string &prefix_str);
     //Common helpers
     bool ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
                                             const VnListType &vn_list,
@@ -250,9 +258,9 @@ private:
                              std::stringstream &ss_node,
                              const AgentRoute *route,
                              bool associate);
-    bool IsEcmp(const std::vector<autogen::NextHopType> &nexthops);
-    void GetVnList(const std::vector<autogen::NextHopType> &nexthops,
-                   VnListType *vn_list);
+    template <typename TYPE> bool IsEcmp(const TYPE &nexthops);
+    template <typename TYPE> void GetVnList(const TYPE &nexthops,
+                                            VnListType *vn_list);
 
     XmppChannel *channel_;
     std::string channel_str_;

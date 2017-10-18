@@ -1,5 +1,6 @@
 #include "pkt/flow_mgmt_dbclient.h"
 #include "oper/ecmp_load_balance.h"
+#include "oper/ecmp.h"
 
 void FlowMgmtDbClient::Init() {
     acl_listener_id_ = agent_->acl_table()->Register
@@ -646,10 +647,9 @@ void FlowMgmtDbClient::RouteNotify(VrfFlowHandlerState *vrf_state,
     const NextHop *active_nh = route->GetActiveNextHop();
     const NextHop *local_nh = NULL;
     if (active_nh->GetType() == NextHop::COMPOSITE) {
-        assert(inet_route);
         //If destination is ecmp, all remote flow would
         //have RPF NH set to that local component NH
-        local_nh = inet_route->GetLocalNextHop();
+        local_nh = EcmpData::GetLocalNextHop(route);
     }
 
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {
