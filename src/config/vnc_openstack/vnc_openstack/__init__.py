@@ -937,11 +937,21 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
 
     @wait_for_api_server_connection
     def pre_project_delete(self, proj_uuid):
-        proj_obj = self._vnc_lib.project_read(id=proj_uuid)
+        try:
+            proj_obj = self._vnc_lib.project_read(id=proj_uuid)
+        except vnc_exc.NoIdError:
+            # another api server has brought that project deletion
+            return
         sec_groups = proj_obj.get_security_groups()
         for group in sec_groups or []:
             if group['to'][2] == 'default':
-                self._vnc_lib.security_group_delete(id=group['uuid'])
+                try:
+                    # another api server has brought that project deletion and
+                    # its default security group
+                    self._vnc_lib.security_group_delete(id=group['uuid'])
+                except vnc_exc.NoIdError:
+                    pass
+                return
     # end pre_project_delete
 
     @wait_for_api_server_connection
