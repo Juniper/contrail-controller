@@ -87,14 +87,15 @@ class VncPermissions(object):
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
-    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None, perms2=None):
-        err_msg = (403, 'Permission Denied')
-
+    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None, obj_dict={}):
+        obj_type = obj_dict.get('type')
+        perms2 = obj_dict.get('perms2')
         # retrieve object and permissions
-        if not perms2:
+        if not perms2 or obj_type:
             try:
                 config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
                 perms2 = config.get('prop:perms2', config.get("perms2"))
+                obj_type = config.get("type")
             except NoIdError:
                 return (True, '')
 
@@ -165,6 +166,8 @@ class VncPermissions(object):
             msg = "rbac: %s doesn't have %s permission in tenant %s" % (user, self.mode_str2[mode], owner)
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
+        err_msg = (403, 'Permission Denied for %s to %s operation on %s in %s'
+                   %(roles, mode, obj_type, tenant if tenant else domain))
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
@@ -211,7 +214,8 @@ class VncPermissions(object):
 
         if self._rbac:
             return self.validate_perms_rbac(request, id, PERMS_R,
-                       perms2=obj_dict.get("perms2"))
+                                 obj_dict=obj_dict)
+
         elif self._auth_needed:
             return self.validate_perms(request, id, PERMS_R,
                        id_perms=obj_dict.get("id_perms"))
