@@ -8,6 +8,7 @@
 #include <string>
 #include "io/event_manager.h"
 #include "redis_types.h"
+#include "redis_processor_vizd.h"
 
 // This class can be used to send UVE Traces from vizd to the OpSever(s)
 // Currently, this is done via Redis. 
@@ -69,8 +70,36 @@ public:
     
     void FillRedisUVEInfo(RedisUveInfo& redis_uve_info);
     virtual bool IsRedisInitDone();
+    void CloseGenSession(string source, string module, string instance, string node);
 private:
     class OpServerImpl;
     OpServerImpl *impl_;
 };
+
+class OpserverUVEUpdatePrivate : public RedisProcessorIf {
+public:
+    OpserverUVEUpdatePrivate(OpServerProxy * const osp,
+             string source, string module,
+             string instance, string node_type) :
+             osp_(osp), source_(source), module_(module), 
+             instance_id_(instance), node_type_(node_type) {
+    }
+    void ProcessCallback(redisReply *reply) {
+        if (reply->type == REDIS_REPLY_NIL) {
+            LOG(ERROR, "UVE update key is missing from NGENATER");
+            osp_->CloseGenSession(source_, module_,
+                                        instance_id_, node_type_);
+        }
+    }
+    bool RedisSend() { return true; }
+    void FinalResult() {}
+    std::string Key() { return ""; }
+private:
+    OpServerProxy * const osp_;
+    string source_;
+    string module_;
+    string instance_id_;
+    string node_type_;
+};
+ 
 #endif
