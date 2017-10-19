@@ -824,7 +824,8 @@ bool AgentRouteData::AddChangePath(Agent *agent, AgentPath *path,
             local_route = true;
         if (rt->FindLocalPath())
             local_route = true;
-        if (is_inet_rt && (!service_address && !local_route))
+        if (is_inet_rt && (!service_address && !local_route) &&
+            (rt->vrf()->GetName().compare(agent->fabric_vrf_name()) != 0))
             path->set_inactive(true);
     }
 
