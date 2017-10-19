@@ -965,6 +965,26 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_generator_uve_list
 
+    @retry(delay=1, tries=5)
+    def verify_generator_connected_times(self, generator, times):
+        self.logger.info('verify_generator_connected_times')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
+            self.admin_user, self.admin_password)
+        try:
+            ModuleClientState  = vns.uve_query('generator/%s' % generator,
+                                {'cfilt':'ModuleClientState:client_info'})
+            clientinfo = ModuleClientState['ModuleClientState']['client_info']
+            self.logger.info('exp successful connections: %s' % times)
+            self.logger.info('actual successful connections: %s' %
+                                      clientinfo['successful_connections'])
+            if clientinfo['successful_connections'] != times:
+                return False
+        except Exception as e:
+            self.logger.error('Exception: %s' % e)
+            return False
+        return True
+    # end verify_generator_connected_times
+
     @retry(delay=1, tries=6)
     def verify_message_table_messagetype(self):
         self.logger.info("verify_message_table_messagetype")
@@ -2991,6 +3011,42 @@ class AnalyticsFixture(fixtures.Fixture):
             self.logger.info('Actual generator list: %s' % str(gen_list))
             return gen_list == set(exp_gen_list)
     # end verify_generator_list_in_redis
+ 
+    @retry(delay=1, tries=1)
+    def delete_generator_from_ngenerator(self, redis_uve, generator):
+        self.logger.info('delete %s from NGENERATOR' % generator)
+        try:
+            r = redis.StrictRedis(db=1, port=redis_uve.port, password=redis_uve.password)
+            if r.sismember("NGENERATORS", generator):
+                r.srem("NGENERATORS", generator)
+            else:
+              return False
+        except Exception as e:
+            self.logger.error('Failed to delete generator from redis - %s' % e)
+            return False
+        else:
+           return True
+
+    @retry(delay=1, tries=1)
+    def get_generator_resets(self, collectors, generator):
+        generator_list = []
+        for collector in collectors:
+            vcl = VerificationCollector('127.0.0.1', collector.http_port, \
+                    self.sandesh_config_struct)
+            try:
+                genlist = vcl.get_generators()['generators']
+                self.logger.info('Generator list from collector %s -> %s' %
+                    (collector.hostname, str(genlist)))
+                for gen in genlist:
+                    g_id = ('%s:%s:%s:%s' % (gen['source'],
+                        gen['node_type'], gen['module_id'], gen['instance_id']))
+                    if g_id == generator:
+                        self.logger.info('%s resets is %d' % (g_id, int(gen['resets'])))
+                        return int(gen['resets'])
+            except Exception as err:
+                self.logger.error('Failed to get generator resets: %s' % err)
+        return -1
+    # end get_generator_resets
 
     @retry(delay=1, tries=8)
     def verify_fieldname_table(self):
