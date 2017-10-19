@@ -1952,6 +1952,51 @@ class AnalyticsUveTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_09_verify_db_info
 
+    #@unittest.skip('Skipping test_11_analytics_generator_timeout'')
+    def test_11_analytics_generator_timeout(self):
+
+        '''
+        This test starts redis, vizd, opserver, qed, and a python generator
+        that simulates simulates vrouter.
+        1. check vrouter generator in collector
+        2. check generator successful connection
+        2. delete vrouter generator in redis NGENERATORS
+        3. send uve
+        4. check generator successful connection again
+        '''
+        logging.info('%%% test_11_analytics_generator_timeout %%%')
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir, 0))
+        assert vizd_obj.verify_on_setup()
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture("contrail-vrouter-agent", collectors,
+                             logging, vizd_obj.get_opserver_port()))
+        assert generator_obj.verify_on_setup()
+
+        source = socket.gethostname()
+        exp_genlist = [
+            source+':Analytics:contrail-collector:0',
+            source+':Analytics:contrail-analytics-api:0',
+            source+':Analytics:contrail-query-engine:0',
+            source+':Test:contrail-vrouter-agent:0',
+        ]
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors,
+                                              exp_genlist)
+
+        assert vizd_obj.verify_generator_connected_times(
+                                            source+':Test:contrail-vrouter-agent:0', 1)
+        assert vizd_obj.delete_generator_from_ngenerator(vizd_obj.collectors[0].get_redis_uve(),
+                                                  source+':Test:contrail-vrouter-agent:0')
+        generator_obj.send_vm_uve(vm_id='abcd',
+                                  num_vm_ifs=1,
+                                  msg_count=1)
+        time.sleep(1)
+        assert vizd_obj.verify_generator_connected_times(
+                                            source+':Test:contrail-vrouter-agent:0', 2)
+    # end test_11_verify_generator_timeout
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
