@@ -21,6 +21,13 @@ SourceAs::SourceAs(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
+SourceAs::SourceAs(const uint32_t asn, const uint32_t ri_index) {
+    data_[0] = BgpExtendedCommunityType::TwoOctetAS;
+    data_[1] = BgpExtendedCommunitySubType::SourceAS;
+    put_value(&data_[2], 2, asn);
+    put_value(&data_[4], SourceAs::kSize - 4, ri_index);
+}
+
 string SourceAs::ToString() const {
     uint8_t data[SourceAs::kSize];
     copy(data_.begin(), data_.end(), &data[0]);
