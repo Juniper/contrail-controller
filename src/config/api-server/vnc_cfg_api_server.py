@@ -2645,20 +2645,29 @@ class VncApiServer(object):
                               '' + 'parent_type needed')
                     parent_type = r_class.parent_types[0]
                     parent_type = parent_type.replace('-', '_')
-                parent_fq_name = obj_dict['fq_name'][:-1]
-                parent_uuid = self._db_conn.fq_name_to_uuid(parent_type,
-                                                            parent_fq_name)
-                (ok, parent_obj_dict) = self._db_conn.dbe_read(parent_type,
-                                                       parent_uuid,
-                                                       obj_fields=['perms2'])
-                perms2['owner'] = parent_obj_dict['perms2']['owner']
-            except:
+                if parent_type == 'domain':
+                    if project_id:
+                        perms2['owner'] = project_id
+                    else:
+                        perms2['owner'] = 'cloud-admin'
+                else:
+                    parent_fq_name = obj_dict['fq_name'][:-1]
+                    parent_uuid = self._db_conn.fq_name_to_uuid(parent_type,
+                                                             parent_fq_name)
+                    (ok, parent_obj_dict) = self._db_conn.dbe_read(parent_type,
+                                                            parent_uuid,
+                                                            obj_fields=['perms2'])
+                    perms2['owner'] = parent_obj_dict['perms2']['owner']
+
+            except Exception as e:
                  raise cfgm_common.exceptions.HttpError(404,
                        '' + parent_type + ' ' + pformat(parent_fq_name) +
                        ' not present')
 
         elif project_id:
             perms2['owner'] = project_id
+        else:
+            perms2['owner'] = 'cloud-admin'
 
         if obj_dict.get('perms2') is None:
             # Resource creation
