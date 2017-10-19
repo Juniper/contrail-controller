@@ -868,11 +868,13 @@ class FakeAuthProtocol(object):
         self.app = app
         self.conf = conf
 
-        auth_protocol = conf['auth_protocol']
-        auth_host = conf['auth_host']
-        auth_port = conf['auth_port']
+        self.request_uri = conf.get('auth_url')
+        if not self.request_uri:
+            auth_protocol = conf['auth_protocol']
+            auth_host = conf['auth_host']
+            auth_port = conf['auth_port']
+            self.request_uri = '%s://%s:%s' % (auth_protocol, auth_host, auth_port)
         self.delay_auth_decision = conf.get('delay_auth_decision', False)
-        self.request_uri = '%s://%s:%s' % (auth_protocol, auth_host, auth_port)
         self.auth_uri = self.request_uri
         # print 'FakeAuthProtocol init: auth-uri %s, conf %s' % (self.auth_uri, self.conf)
 
