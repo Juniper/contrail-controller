@@ -377,16 +377,20 @@ void FlowStatsCollector::UpdateFlowStatsInternal(FlowExportInfo *info,
     *diff_pkts = total_packets - info->packets();
     info->set_bytes(total_bytes);
     info->set_packets(total_packets);
-
-    //Update Inter-VN stats
-    UpdateInterVnStats(info, *diff_bytes, *diff_pkts);
-    //Update Floating-IP stats
-    UpdateFloatingIpStats(info, *diff_bytes, *diff_pkts);
     if (teardown_time) {
         info->set_teardown_time(time);
     } else {
         info->set_last_modified_time(time);
     }
+
+    /* In TSN mode, we don't export flows or statistics based on flows */
+    if (agent_uve_->agent()->tsn_enabled()) {
+        return;
+    }
+    //Update Inter-VN stats
+    UpdateInterVnStats(info, *diff_bytes, *diff_pkts);
+    //Update Floating-IP stats
+    UpdateFloatingIpStats(info, *diff_bytes, *diff_pkts);
 }
 
 void FlowStatsCollector::UpdateAndExportInternalLocked(FlowExportInfo *info,
@@ -775,6 +779,10 @@ void FlowStatsCollector::ExportFlowLocked(FlowExportInfo *info,
                                           uint64_t diff_bytes,
                                           uint64_t diff_pkts,
                                           const RevFlowDepParams *params) {
+    /* In TSN mode, we don't export flows */
+    if (agent_uve_->agent()->tsn_enabled()) {
+        return;
+    }
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
     FLOW_LOCK(flow, rflow, FlowEvent::FLOW_MESSAGE);
@@ -799,7 +807,10 @@ void FlowStatsCollector::ExportFlow(FlowExportInfo *info,
                                     uint64_t diff_pkts,
                                     const RevFlowDepParams *params,
                                     bool read_flow) {
-    assert((agent_uve_->agent()->tsn_enabled() == false));
+    /* In TSN mode, we don't export flows */
+    if (agent_uve_->agent()->tsn_enabled()) {
+        return;
+    }
     FlowEntry *flow = info->flow();
     FlowEntry *rflow = info->reverse_flow();
     bool first_time_export = false;
@@ -1109,13 +1120,16 @@ bool FlowStatsCollector::RequestHandler(boost::shared_ptr<FlowExportReq> req) {
     }
 
     case FlowExportReq::UPDATE_FLOW_STATS: {
-        EvictedFlowStatsUpdate(flow, req->bytes(), req->packets(),
-                               req->oflow_bytes(), req->uuid());
-        /* ExportFlow will enqueue FlowLog message for send. If we have not hit
-         * max messages to be sent, it will not dispatch. Invoke
-         * DispatchPendingFlowMsg to send any enqueued messages in the queue
-         * even if we don't have max messages to be sent */
-        DispatchPendingFlowMsg();
+        /* We don't export flows in TSN mode */
+        if (agent_uve_->agent()->tsn_enabled() == false) {
+            EvictedFlowStatsUpdate(flow, req->bytes(), req->packets(),
+                                   req->oflow_bytes(), req->uuid());
+            /* ExportFlow will enqueue FlowLog message for send. If we have not
+             * hit max messages to be sent, it will not dispatch. Invoke
+             * DispatchPendingFlowMsg to send any enqueued messages in the queue
+             * even if we don't have max messages to be sent */
+            DispatchPendingFlowMsg();
+        }
         break;
     }
 
@@ -1153,6 +1167,10 @@ FlowStatsCollector::FindFlowExportInfo(const FlowEntry *fe) const {
 
 
 void FlowStatsCollector::NewFlow(const FlowExportInfo &info) {
+    /* In TSN mode, we don't export flows or statistics based on flows */
+    if (agent_uve_->agent()->tsn_enabled()) {
+        return;
+    }
     FlowEntry *flow = info.flow();
     const FlowKey &key = flow->key();
     uint8_t proto = key.protocol;
