@@ -45,8 +45,11 @@ class VncPermissions(object):
         return id_perms.get('user_visible', True) is not False or is_admin
     # end
 
-    def validate_perms(self, request, uuid, mode=PERMS_R, id_perms=None):
+    def validate_perms(self, request, uuid, mode=PERMS_R, obj_dict=None):
         # retrieve object and permissions
+        id_perms = None
+        if obj_dict:
+            id_perms = obj_dict.get('id_perms')
         if not id_perms:
             try:
                 id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(uuid)
@@ -87,14 +90,20 @@ class VncPermissions(object):
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
-    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R, obj_owner_for_delete=None, perms2=None):
-        err_msg = (403, 'Permission Denied')
-
+    def validate_perms_rbac(self, request, obj_uuid, mode=PERMS_R,
+                            obj_owner_for_delete=None, obj_dict=None):
         # retrieve object and permissions
-        if not perms2:
+        obj_type = None
+        perms2 = None
+        if obj_dict:
+            obj_type = obj_dict.get('type')
+            perms2 = obj_dict.get('perms2')
+
+        if perms2 is None or obj_type is None:
             try:
                 config = self._server_mgr._db_conn.uuid_to_obj_dict(obj_uuid)
                 perms2 = config.get('prop:perms2', config.get("perms2"))
+                obj_type = config.get("type")
             except NoIdError:
                 return (True, '')
 
@@ -165,6 +174,8 @@ class VncPermissions(object):
             msg = "rbac: %s doesn't have %s permission in tenant %s" % (user, self.mode_str2[mode], owner)
             self._server_mgr.config_log(msg, level=SandeshLevel.SYS_NOTICE)
 
+        err_msg = (403, 'Permission Denied for %s to %s operation on %s in %s'
+                   %(roles, mode, obj_type, tenant if tenant else domain))
         return (True, self.mode_str[granted]) if ok else (False, err_msg)
     # end validate_perms
 
@@ -204,17 +215,17 @@ class VncPermissions(object):
             return (True, '')
     # end check_perms_write
 
-    def check_perms_read(self, request, id, obj_dict={}):
+    def check_perms_read(self, request, id, obj_dict=None):
         app = request.environ['bottle.app']
         if app.config.local_auth or self._server_mgr.is_auth_disabled():
             return (True, '')
 
         if self._rbac:
             return self.validate_perms_rbac(request, id, PERMS_R,
-                       perms2=obj_dict.get("perms2"))
+                                 obj_dict=obj_dict)
+
         elif self._auth_needed:
-            return self.validate_perms(request, id, PERMS_R,
-                       id_perms=obj_dict.get("id_perms"))
+            return self.validate_perms(request, id, PERMS_R, obj_dict=obj_dict)
         else:
             return (True, '')
     # end check_perms_read
