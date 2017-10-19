@@ -333,6 +333,7 @@ class OpServerProxy::OpServerImpl {
 
             if (rpi) {
                 rpi->ProcessCallback(reply);
+                delete rpi;
             }
 
         }
@@ -460,6 +461,11 @@ class OpServerProxy::OpServerImpl {
             from_ops_conn_.get()->RAC_Connect();
         }
 
+        void CloseGenSession(string source, string module,
+                             string instance, string node) {
+            collector_->GetCollector()->CloseGenSession(source, module,
+                                                        instance, node);
+        }
         void Shutdown() {
             if (kafka_proc_) kafka_proc_->Shutdown();
         }
@@ -622,7 +628,9 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
         pt = partdesc.first + (djb_hash(key.c_str(), key.size()) % partdesc.second);
     }
 
-    bool ret = RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,
+    OpserverUVEUpdatePrivate *rpi = new OpserverUVEUpdatePrivate(this,
+                                           source, module, instance_id, node_type); 
+    bool ret = RedisProcessorExec::UVEUpdate(prac.get(), rpi, type, attr,
             source, node_type, module, instance_id, key, message,
             seq, agg, ts, pt, is_alarm);
     if (ret) {
@@ -731,3 +739,8 @@ OpServerProxy::IsRedisInitDone() {
     return impl_->IsInitDone();
 }
 
+void
+OpServerProxy::CloseGenSession(string source, string module,
+                               string instance, string node) {
+    impl_->CloseGenSession(source, module, instance, node);
+}
