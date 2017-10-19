@@ -185,6 +185,9 @@ private:
     friend class RoutingInstanceMgr;
     class DeleteActor;
 
+    void AddMvpnRTargetRoute(as4_t asn);
+    void DeleteMvpnRTargetRoute(as4_t old_asn, Ip4Address old_ip);
+
     void AddRTargetRoute(as4_t asn, const RouteTarget &rtarget);
     void DeleteRTargetRoute(as4_t asn, const RouteTarget &rtarget);
     void InitAllRTargetRoutes(as4_t asn);

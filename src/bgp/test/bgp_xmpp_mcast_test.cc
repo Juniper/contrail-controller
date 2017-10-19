@@ -884,7 +884,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowRoute) {
     Sandesh::set_client_context(&sandesh_context);
 
     // First get all tables - blue.ermvpn.0, bgp.ermvpn.0 and bgp.rtarget.0.
-    std::vector<size_t> result = list_of(4)(1)(2);
+    std::vector<size_t> result = list_of(4)(1)(3);
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     ShowRouteReq *show_req = new ShowRouteReq;

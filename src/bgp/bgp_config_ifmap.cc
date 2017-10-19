@@ -1079,26 +1079,30 @@ void BgpIfmapInstanceConfig::ProcessIdentifierUpdate(uint32_t new_id,
 
 string BgpIfmapInstanceConfig::GetVitFromId(uint32_t identifier) {
     if (identifier == 0)
-	return "";
+        return "";
     return Ip4Address(identifier).to_string() + ":" + integerToString(index());
 }
 
 // Populate Vit in import list
 void BgpIfmapInstanceConfig::InsertVitInImportList(
-	                 BgpIfmapConfigManager *mgr,
-	                 BgpInstanceConfig::RouteTargetList& import_list) {
+                         BgpIfmapConfigManager *mgr,
+                         BgpInstanceConfig::RouteTargetList& import_list) {
     const BgpIfmapInstanceConfig *master_instance =
         mgr->config()->FindInstance(BgpConfigManager::kMasterInstance);
     uint32_t bgp_identifier = 0;
     if (master_instance) {
         const BgpIfmapProtocolConfig *master_protocol =
             master_instance->protocol_config();
-	if (master_protocol)
-	    bgp_identifier = master_protocol->protocol_config()->identifier();
+        if (master_protocol) {
+            if (master_protocol->protocol_config()) {
+                bgp_identifier =
+                    master_protocol->protocol_config()->identifier();
+	    }
+        }
     }
     if (bgp_identifier > 0) {
         import_list.insert("target:" +
-		 GetVitFromId(ntohl(bgp_identifier)));
+                 GetVitFromId(ntohl(bgp_identifier)));
     }
 }
 
@@ -1390,8 +1394,7 @@ void BgpIfmapConfigData::DeleteInstance(BgpIfmapInstanceConfig *rti) {
     BgpInstanceMap::iterator loc2 = instance_config_map_.find(rti->name());
     assert(loc2 != instance_config_map_.end());
     instance_config_map_.erase(loc2);
-    bool clear_index_bit = false;
-    instances_.Remove(rti->name(), rti->index(), clear_index_bit);
+    instances_.Remove(rti->name(), rti->index(), false);
 }
 
 //
@@ -1661,7 +1664,7 @@ BgpIfmapConfigManager::NeighborMapItems(
     return rti->NeighborMapItems();
 }
 
-void BgpIfmapConfigManager::ResetIndexBit(int index) {
+void BgpIfmapConfigManager::ResetRoutingInstanceIndexBit(int index) {
     config()->instances().ResetBit(index);
 }
 
@@ -1996,7 +1999,7 @@ void BgpIfmapConfigManager::UpdateInstanceConfig(BgpIfmapInstanceConfig *rti,
         return;
     }
 
-    // in case of id update import list and call subsequent code
+    // in case of id change, update import list and call subsequent code
     Notify(rti->instance_config(), event);
 
     vector<string> import_rt(rti->import_list().begin(),
