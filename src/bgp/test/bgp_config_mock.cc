@@ -41,6 +41,10 @@ class BgpMockConfigManager : public BgpConfigManager {
         return 0;
     }
 
+    virtual void ResetIndexBit(int indec) {
+        return;
+    }
+
     virtual const BgpInstanceConfig *FindInstance(
         const std::string &name) const {
         return NULL;

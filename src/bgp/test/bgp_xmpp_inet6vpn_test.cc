@@ -1077,11 +1077,11 @@ TEST_F(BgpXmppInet6Test, 1AgentConnectedInstances) {
     RoutingInstance *blue_ri = mgr->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri->GetImportList().size());
     RoutingInstance *pink_ri = mgr->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server.
     agent_a_.reset(
@@ -2719,22 +2719,22 @@ TEST_F(BgpXmppInet6Test2Peers, MultipleInstancesLeakChecks) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -2920,22 +2920,22 @@ TEST_F(BgpXmppInet6Test2Peers, MultipleInstancesLeakChecks1) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -3121,22 +3121,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithStaggeredSubscribeLater) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -3239,22 +3239,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithMultipleRoutes) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -3352,22 +3352,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithMultipleRoutes1) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -3501,22 +3501,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChange) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -3652,22 +3652,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeXmppDown) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -3770,22 +3770,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeUnsub) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -3888,22 +3888,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithEncapAddChangeBgpBounce) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -4010,22 +4010,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChange) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -4350,22 +4350,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeXmppDown) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -4474,22 +4474,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeUnsub) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -4608,22 +4608,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithSGidAddChangeBgpBounce) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -4732,22 +4732,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportAgentUnsub) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -4847,22 +4847,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithXmppDown) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -4959,22 +4959,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithXmppConnectLater) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -5069,22 +5069,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpBounce) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(
@@ -5544,22 +5544,22 @@ TEST_F(BgpXmppInet6Test2Peers, ImportExportWithBgpConnectLater) {
     RoutingInstance *blue_ri1 = mgr_1->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri1->GetImportList().size());
     RoutingInstance *pink_ri1 = mgr_1->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri1 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri1->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri1->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri1->GetImportList().size());
 
     // Make sure that the config got applied properly on bgp-server 2.
     RoutingInstanceMgr *mgr_2 = bgp_server2_->routing_instance_mgr();
     RoutingInstance *blue_ri2 = mgr_2->GetRoutingInstance("blue");
     TASK_UTIL_ASSERT_TRUE(blue_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, blue_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, blue_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, blue_ri2->GetImportList().size());
     RoutingInstance *pink_ri2 = mgr_2->GetRoutingInstance("pink");
     TASK_UTIL_ASSERT_TRUE(pink_ri2 != NULL);
     TASK_UTIL_EXPECT_EQ(1, pink_ri2->GetExportList().size());
-    TASK_UTIL_EXPECT_EQ(2, pink_ri2->GetImportList().size());
+    TASK_UTIL_EXPECT_EQ(3, pink_ri2->GetImportList().size());
 
     // Create XMPP Agent A connected to XMPP server 1.
     agent_a_.reset(

@@ -106,10 +106,20 @@ protected:
         }
     }
 
+    string GetVitRTargetName(int idx) {
+        string rtarget_name("target:192.168.0.1:");
+        rtarget_name += integerToString(idx);
+        return  rtarget_name;
+    }
+
     string GetRTargetName(int idx) {
         string rtarget_name("target:64496:");
         rtarget_name += integerToString(idx);
         return  rtarget_name;
+    }
+
+    void AddVitRTargetName(vector<string> *rtarget_names, int idx) {
+        rtarget_names->push_back(GetVitRTargetName(idx));
     }
 
     void AddRTargetName(vector<string> *rtarget_names, int idx) {
@@ -141,6 +151,9 @@ TEST_P(BgpShowRtGroupParamTest, Request1) {
     for (int idx = 1; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    for (int idx = 1; idx <= 12; ++idx) {
+        AddVitRTargetName(&rtargets, idx);
+    }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRtGroupParamTest::ValidateResponse, this,
@@ -154,15 +167,18 @@ TEST_P(BgpShowRtGroupParamTest, Request1) {
 
 //
 // Next rtarget = empty
-// Page limit = 12 (number of rtargets)
+// Page limit = 24 (number of rtargets)
 // Should return all rtargets.
 //
 TEST_P(BgpShowRtGroupParamTest, Request2) {
-    sandesh_context_.set_page_limit(12);
+    sandesh_context_.set_page_limit(24);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> rtargets;
     for (int idx = 1; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
+    }
+    for (int idx = 1; idx <= 12; ++idx) {
+        AddVitRTargetName(&rtargets, idx);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
@@ -211,6 +227,9 @@ TEST_P(BgpShowRtGroupParamTest, RequestWithSearch1) {
     for (int idx = 1; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    for (int idx = 1; idx <= 12; ++idx) {
+        AddVitRTargetName(&rtargets, idx);
+    }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRtGroupParamTest::ValidateResponse, this,
@@ -250,16 +269,19 @@ TEST_P(BgpShowRtGroupParamTest, RequestWithSearch2) {
 
 //
 // Next rtarget = empty
-// Page limit = 12 (number of matching rtargets)
-// Search string = "64496"
-// Should return all rtargets with "64496".
+// Page limit = 24 (number of matching rtargets)
+// Search string = "target"
+// Should return all rtargets with "target".
 //
 TEST_P(BgpShowRtGroupParamTest, RequestWithSearch3) {
-    sandesh_context_.set_page_limit(12);
+    sandesh_context_.set_page_limit(24);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> rtargets;
     for (int idx = 1; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
+    }
+    for (int idx = 1; idx <= 12; ++idx) {
+        AddVitRTargetName(&rtargets, idx);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
@@ -267,7 +289,7 @@ TEST_P(BgpShowRtGroupParamTest, RequestWithSearch3) {
         _1, rtargets, next_batch));
     validate_done_ = false;
     ShowRtGroupReq *req = new ShowRtGroupReq;
-    req->set_search_string("64496");
+    req->set_search_string("target");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
@@ -378,6 +400,9 @@ TEST_P(BgpShowRtGroupParamTest, RequestIterate1) {
     for (int idx = 2; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
     }
+    for (int idx = 1; idx <= 12; ++idx) {
+        AddVitRTargetName(&rtargets, idx);
+    }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRtGroupParamTest::ValidateResponse, this,
@@ -392,15 +417,18 @@ TEST_P(BgpShowRtGroupParamTest, RequestIterate1) {
 
 //
 // Next rtarget = "target:64496:2"
-// Page limit = 11
+// Page limit = 23
 // Should return all rtargets including and after "target:64496:2"
 //
 TEST_P(BgpShowRtGroupParamTest, RequestIterate2) {
-    sandesh_context_.set_page_limit(11);
+    sandesh_context_.set_page_limit(23);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> rtargets;
     for (int idx = 2; idx <= 12; ++idx) {
         AddRTargetName(&rtargets, idx);
+    }
+    for (int idx = 1; idx <= 12; ++idx) {
+        AddVitRTargetName(&rtargets, idx);
     }
     string next_batch;
     Sandesh::set_response_callback(boost::bind(
@@ -549,12 +577,12 @@ TEST_P(BgpShowRtGroupParamTest, RequestIterateWithSearch1) {
 
 //
 // Next rtarget = "target:64496:2"
-// Page limit = 3
+// Page limit = 15
 // Search string = "target:64496:1"
 // Should return 3 matching rtargets including and after "target:64496:10"
 //
 TEST_P(BgpShowRtGroupParamTest, RequestIterateWithSearch2) {
-    sandesh_context_.set_page_limit(3);
+    sandesh_context_.set_page_limit(15);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> rtargets;
     for (int idx = 10; idx <= 12; ++idx) {

@@ -23,7 +23,7 @@ public:
     typedef typename MapType::iterator iterator;
     typedef typename MapType::const_iterator const_iterator;
 
-    IndexMap() { }
+    IndexMap() { reserved_bits_ = 0; }
     ~IndexMap() {
         STLDeleteValues(&values_);
     }
@@ -39,16 +39,27 @@ public:
         return NULL;
     }
 
+    void ReserveBit(int index) {
+        if (bits_.test(index))
+	    assert(!values_[index]);
+	bits_.set(index);
+	reserved_bits_++;
+	values_.resize(values_.size() + 1);
+    }
+
     // Allocate a new index associated with the new key.
-    size_t Insert(const KeyType &key, ValueType *value) {
+    size_t Insert(const KeyType &key, ValueType *value, int index = -1) {
         std::pair<typename MapType::iterator, bool> result =
             map_.insert(std::make_pair(key, value));
         if (!result.second) {
             return -1;
         }
         size_t bit = bits_.find_first_clear();
+	if (index != -1)
+	    bit = index;
         if (bit >= values_.size()) {
-            assert(bit == values_.size());
+	    if (reserved_bits_ == 0)
+                assert(bit == values_.size());
             values_.push_back(value);
         } else {
             values_[bit] = value;
@@ -57,15 +68,27 @@ public:
         return bit;
     }
 
-    void Remove(const KeyType &key, int index) {
+    void Remove(const KeyType &key, int index, bool clear_bit = true) {
         typename MapType::iterator loc = map_.find(key);
         assert(loc != map_.end());
         assert(loc->second == values_[index]);
         map_.erase(loc);
         ValueType *value = values_[index];
         values_[index] = NULL;
-        bits_.reset(index);
         delete value;
+	if (!clear_bit)
+	    return;
+        bits_.reset(index);
+        for (ssize_t i = values_.size() - 1; i >= 0; i--) {
+            if (values_[i] != NULL) {
+                break;
+            }
+            values_.pop_back();
+        }
+    }
+
+    void ResetBit(int index) {
+        bits_.reset(index);
         for (ssize_t i = values_.size() - 1; i >= 0; i--) {
             if (values_[i] != NULL) {
                 break;
@@ -108,6 +131,7 @@ public:
 
 private:
     BitsetType bits_;
+    int reserved_bits_;
     VectorType values_;
     MapType map_;
     DISALLOW_COPY_AND_ASSIGN(IndexMap);
