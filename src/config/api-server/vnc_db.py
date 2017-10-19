@@ -862,6 +862,9 @@ class VncDbClient(object):
                 elif perms2['owner'] is None:
                     perms2['owner'] = 'cloud-admin'
                     update_obj = True
+                if ((obj_dict.get('is_shared') == True) and (perms2['global_access'] == 0)):
+                    perms2['global_access'] = PERMS_RWX
+                    update_obj = True
                 if obj_type == 'domain' and len(perms2['share']) == 0:
                     update_obj = True
                     perms2 = self.enable_domain_sharing(obj_uuid, perms2)
