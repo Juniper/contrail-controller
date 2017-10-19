@@ -143,6 +143,14 @@ static string InetRouteFlowMgmtKeyToString(uint16_t id,
         }\
         data.set_inet_rt_keys(key_list);\
     }\
+    data.set_local_tag_list(fe->local_tagset());\
+    data.set_remote_tag_list(fe->remote_tagset());\
+    data.set_remote_prefix(fe->RemotePrefix());\
+    const Interface *itfe = fe->intf_entry();\
+    if (itfe && (itfe->type() == Interface::VM_INTERFACE)) {\
+        const VmInterface *vmi_e = static_cast<const VmInterface *>(itfe);\
+        data.set_vmi(vmi_e->cfg_name());\
+    }\
 
 const std::string PktSandeshFlow::start_key = "0-0-0-0-0-0.0.0.0-0.0.0.0";
 
