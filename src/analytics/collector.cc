@@ -500,6 +500,21 @@ void Collector::GetSmQueueWaterMarkInfo(
     GetQueueWaterMarkInfo(QueueType::Sm, wm_info);
 }
 
+void Collector::CloseGeneratorSession(string source, string module,
+                         string instance, string node_type) {
+    SandeshGenerator::GeneratorId id(boost::make_tuple(source,
+                              module, instance, node_type));
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
+    GeneratorMap::iterator gen_it = gen_map_.find(id);
+    if (gen_it != gen_map_.end()) {
+        SandeshGenerator *gen = gen_it->second;
+        VizSession *gsession = gen->session();
+        if (gsession) {
+            gsession->EnqueueClose();
+        }
+    }
+}
+
 DbHandlerPtr Collector::GetDbHandlerPtr() {
     return db_handler_;
 }

@@ -114,6 +114,8 @@ public:
     void SendGeneratorStatistics();
 
     std::string DbGlobalName(bool dup=false);
+    void CloseGeneratorSession(std::string source, std::string module,
+                         std::string instance, std::string node_type);
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);
     virtual void DisconnectSession(SandeshSession *session);
