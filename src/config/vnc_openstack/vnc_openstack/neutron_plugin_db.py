@@ -4295,7 +4295,7 @@ class DBInterface(object):
                     obj_uuids=list(not_found_device_ids),
                     parent_id=project_ids,
                     back_ref_id=filters.get('network_id'),
-                    fields=['virtual_machine_interface_back_refs'])
+                    fields=['virtual_machine_interface_refs'])
                 router_port_ids = [
                     vmi_ref['uuid']
                     for router_obj in router_objs
