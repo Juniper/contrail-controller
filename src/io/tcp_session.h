@@ -168,6 +168,7 @@ public:
 
     int SetMd5SocketOption(uint32_t peer_ip, const std::string &md5_password);
     int ClearMd5SocketOption(uint32_t peer_ip);
+    boost::system::error_code SetTcpNoDelay();
 
 protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
