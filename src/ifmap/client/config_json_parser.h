@@ -35,9 +35,7 @@ public:
     ConfigJsonParser();
     ~ConfigJsonParser();
 
-    virtual void setup_schema_graph_filter();
-    virtual void setup_schema_wrapper_property_info();
-    virtual void setup_objector_filter();
+    virtual void SetupGraphFilter();
     virtual void EndOfConfig();
 
     void MetadataRegister(const std::string &metadata, MetadataParseFn parser);
@@ -49,6 +47,9 @@ public:
          };
 
 private:
+    void SetupObjectFilter();
+    void SetupSchemaGraphFilter();
+    void SetupSchemaWrapperPropertyInfo();
     bool ParseDocument(const ConfigCass2JsonAdapter &adapter,
         IFMapOrigin::Origin origin, RequestList *req_list,
         IFMapTable::RequestKey *key, bool add_change) const;

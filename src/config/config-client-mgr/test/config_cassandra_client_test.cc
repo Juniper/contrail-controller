@@ -93,9 +93,7 @@ static bool empty_fqnames_db;
 static uint64_t timestamp_;
 
 class ConfigJsonParserTest : public ConfigJsonParserBase {
-    virtual void setup_schema_graph_filter() { }
-    virtual void setup_schema_wrapper_property_info() { }
-    virtual void setup_objector_filter() { }
+    virtual void SetupGraphFilter() { }
     virtual bool Receive(const ConfigCass2JsonAdapter &adapter,
                          bool add_change) {
         return true;
