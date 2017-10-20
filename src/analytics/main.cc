@@ -33,12 +33,15 @@
 #include <analytics/buildinfo.h>
 #include "boost/python.hpp"
 #include <io/process_signal.h>
+#include "config_client_collector.h"
 
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
+using process::ConnectionInfo;
 using process::ConnectionStateManager;
 using process::GetProcessStateCb;
+using process::ProcessState;
 using process::ConnectionType;
 using process::ConnectionTypeName;
 using process::g_process_info_constants;
@@ -190,7 +193,6 @@ void ReConfigSignalHandler(const boost::system::error_code &error, int sig) {
              ostream_iterator<string>(api_servers_str, " "));
         LOG(INFO, "SIGHUP: Change in api_server_list: " <<
             api_servers_str.str());
-        analytics->ReConfigApiServerList(api_servers);
     }
 }
 
@@ -321,6 +323,7 @@ int main(int argc, char *argv[])
     } else {
         hostname = boost::asio::ip::host_name(error);
     }
+
     // Determine if the number of connections is expected:
     // 1. Collector client
     // 2. Redis From
@@ -328,6 +331,8 @@ int main(int argc, char *argv[])
     // 4. Database global
     // 5. Kafka Pub
     // 6. Database protobuf if enabled
+    // 7. Cassandra Server
+    // 8. AMQP Server
 
     std::vector<ConnectionTypeName> expected_connections; 
     expected_connections = boost::assign::list_of
@@ -341,7 +346,11 @@ int main(int argc, char *argv[])
                              ConnectionType::DATABASE)->second,
                              hostname+":Global"))
          (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
-                             ConnectionType::KAFKA_PUB)->second, kstr));
+                             ConnectionType::KAFKA_PUB)->second, kstr))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second, "Cassandra"))
+         (ConnectionTypeName(g_process_info_constants.ConnectionTypeNames.find(
+                             ConnectionType::DATABASE)->second, "RabbitMQ"));
 
     ConnectionStateManager::
         GetInstance()->Init(*a_evm->io_service(),
@@ -369,18 +378,8 @@ int main(int argc, char *argv[])
     std::string zookeeper_server_list(options.zookeeper_server_list());
     bool use_zookeeper = !zookeeper_server_list.empty() && !options.dup();
 
-    VncApiConfig api_config;
-    api_config.api_use_ssl = options.api_server_use_ssl();
-    api_config.ks_srv_ip = options.auth_host();
-    api_config.ks_srv_port = options.auth_port();
-    api_config.ks_protocol = options.auth_protocol();
-    api_config.ks_user = options.auth_user();
-    api_config.ks_password = options.auth_passwd();
-    api_config.ks_tenant = options.auth_tenant();
-    api_config.ks_keyfile = options.keystone_keyfile();
-    api_config.ks_certfile = options.keystone_certfile();
-    api_config.ks_cafile = options.keystone_cafile();
-
+    ConfigClientCollector *config_client =
+        new ConfigClientCollector(a_evm, hostname, module_id, options);
     analytics = new VizCollector(a_evm,
             options.collector_port(),
             protobuf_server_enabled,
@@ -408,12 +407,12 @@ int main(int argc, char *argv[])
             use_zookeeper,
             options.get_db_write_options(),
             options.sandesh_config(),
-            options.api_server_list(),
-            api_config,
+            config_client,
             options.use_grok(),
             options.grok_key_list(),
             options.grok_attrib_list());
 
+    config_client->Init();
     analytics->Init();
 
     unsigned short coll_port = analytics->GetCollector()->GetPort();
@@ -465,6 +464,7 @@ int main(int argc, char *argv[])
     signal.Terminate();
     ShutdownServers(analytics);
 
+    delete config_client;
     delete analytics;
     delete a_evm;
 
