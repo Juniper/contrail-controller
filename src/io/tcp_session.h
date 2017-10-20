@@ -171,6 +171,7 @@ public:
     int SetDscpSocketOption(uint8_t value);
     uint8_t GetDscpValue() const;
     const std::string &ToUVEKey() const { return uve_key_str_; }
+    boost::system::error_code SetTcpNoDelay();
 
 protected:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
