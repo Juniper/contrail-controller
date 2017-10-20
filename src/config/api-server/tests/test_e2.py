@@ -36,9 +36,15 @@ sys.path.append('../common/tests')
 from test_utils import *
 import test_common
 import test_case
+from netaddr import IPNetwork
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+def get_ip(ip_w_pfx):
+    """get the default network IP."""
+    return str(IPNetwork(ip_w_pfx).ip)
+# end get_ip
 
 class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
     @classmethod
@@ -124,7 +130,7 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=self._project_obj.uuid)
         """ remove e2 domain """
         self._vnc_lib.domain_delete(id=self._domain_obj.uuid)
-        # end tearDown
+    # end tearDown
 
     def _get_e2_ri_obj(self):
         rt_inst_obj = self._vnc_lib.routing_instance_read(
@@ -370,6 +376,308 @@ class TestVncE2CfgApiServer(test_case.ApiServerTestCase):
         self._vnc_lib.physical_router_delete(id=phy_rout_2.uuid)
 
     # end test_e2_services
+
+    def test_e2_vrs(self):
+
+        def add_vrs_client(client_info, vrr, peer_list):
+            client = client_info['name']
+            sp = ServiceProvider(client)
+            sp.add_physical_router(vrr)
+            sp_peer_list = PeerListType()
+
+            # Create peer state
+            for peer in peer_list:
+                peer_obj = PeerType()
+                peer_obj.ip_address = peer['ip']
+                peer_obj.as_number = peer['as_number']
+                peer_obj.auth_key = peer['auth_key']
+                sp_peer_list.add_peer_list(peer_obj)
+
+                peer_name = client
+                peer_name += '.as' + str(peer['as_number'])
+                peer_name += '.' + peer['ip']
+
+                # Create peer BGP router
+                peer_br = BgpRouter(peer_name, parent_obj=self._get_e2_ri_obj())
+                params = BgpRouterParams()
+                params.address = get_ip(peer['ip'])
+                params.autonomous_system = peer['as_number']
+                params.identifier = get_ip(peer['ip'])
+                params.address_families = AddressFamilies(['inet', 'inet6'])
+                peer_br.set_bgp_router_parameters(params)
+                logger.info('Creating BGP router %s', peer_name)
+                self._vnc_lib.bgp_router_create(peer_br)
+
+                # Create peer physical router
+                peer_pr = PhysicalRouter(peer_name)
+                peer_pr.physical_router_management_ip = get_ip(peer['ip'])
+                peer_pr.set_bgp_router(peer_br)
+                logger.info('Creating physical-router %s', peer_name)
+                self._vnc_lib.physical_router_create(peer_pr)
+
+                sp.add_physical_router(peer_pr)
+
+            # Update the service-provider peer list
+            sp.set_provider_peer_list(sp_peer_list)
+            sp.set_service_provider_promiscuous(client_info['promiscuous'])
+
+            # Create client
+            self._vnc_lib.service_provider_create(sp)
+            logger.info('Created all state for client %s', client)
+
+            # Verify client creation
+            read_sp = self._vnc_lib.service_provider_read(fq_name=[client])
+            self.assertEqual(read_sp.service_provider_promiscuous, True)
+            logger.info('Client verification success for client %s', client)
+
+            return sp
+        # end add_vrs_client
+
+        def delete_vrs_client(sp_obj):
+            pr_list = []
+            br_list = []
+            policy_list = []
+
+            # Get the physical routers referred to
+            pr_refs = sp_obj.get_physical_router_refs()
+            if pr_refs is not None:
+                for pr_ref in pr_refs:
+                    pr = None
+                    try:
+                        pr = self._vnc_lib.physical_router_read(pr_ref['to'])
+                    except NoIdError:
+                        pass
+                    if pr is not None:
+                        # Exclude the VRR physical router
+                        if pr.physical_router_role == "e2-vrr":
+                            continue
+                        pr_list.append(pr)
+
+                        # Get the BGP routers referred to
+                        bgp_refs = pr.get_bgp_router_refs()
+                        if bgp_refs is not None:
+                            for bgp_ref in bgp_refs:
+                                br = None
+                                try:
+                                    br = self._vnc_lib.bgp_router_read(bgp_ref['to'])
+                                except NoIdError:
+                                    pass
+                                if br is not None:
+                                    br_list.append(br)
+
+            # Get the policy objects referred to
+            policy_refs = sp_obj.get_peering_policy_refs()
+            if policy_refs is not None:
+                for policy_ref in policy_refs:
+                    # Get the policy object
+                    policy_obj = None
+                    try:
+                        policy_obj = self._vnc_lib.peering_policy_read(policy_ref['to'])
+                    except NoIdError:
+                        pass
+                    if policy_obj is not None:
+                        policy_list.append(policy_obj)
+
+            # Delete the service-provider-endpoint object
+            logger.info('Deleting client %s', sp_obj.get_fq_name()[0])
+            self._vnc_lib.service_provider_delete(sp_obj.get_fq_name())
+
+            # Delete all the physical routers in the list
+            for pr in pr_list:
+                logger.info('Deleting physical router %s', pr.get_display_name())
+                self._vnc_lib.physical_router_delete(pr.get_fq_name())
+
+            # Delete all the BGP routers in the list
+            for br in br_list:
+                logger.info('Deleting BGP router %s', br.get_display_name())
+                self._vnc_lib.bgp_router_delete(br.get_fq_name())
+
+            # Delete all the policy objects in the list
+            for policy_obj in policy_list:
+                # Get all service-providers and disconnect them
+                sp_list = policy_obj.get_service_provider_back_refs()
+
+                if sp_list is not None:
+                    for each_sp in sp_list:
+                        # Get the service-provider object
+                        each_sp_obj = None
+                        try:
+                            each_sp_obj = self._vnc_lib.service_provider_read(id=each_sp['uuid'])
+                        except NoIdError:
+                            pass
+                        if each_sp_obj is not None:
+                            logger.info('Disconnecting policy %s from client %s', \
+                                         policy_obj.get_display_name(), \
+                                         each_sp_obj.get_display_name())
+                            each_sp_obj.del_peering_policy(policy_obj)
+                            self._vnc_lib.service_provider_update(each_sp_obj)
+
+                logger.info('Deleting policy %s', policy_obj.get_display_name())
+                self._vnc_lib.peering_policy_delete(policy_obj.get_fq_name())
+        # end delete_vrs_client
+
+        logger.info('Verifying E2 VRS')
+
+        #
+        # Add VRR
+        #
+        logger.info(' ')
+        vrr_name = self.id() + '-e2-vrr'
+        user_cred_create = UserCredentials(username="test_user",
+                                           password="test_pswd")
+        mgmt_ip = '10.92.36.9'
+        router_id = '100.100.100.100'
+
+        # Create BGP router
+        vrr_br = BgpRouter(vrr_name, parent_obj=self._get_e2_ri_obj())
+        params = BgpRouterParams()
+        params.address = router_id
+        params.address_families = AddressFamilies(['inet', 'inet6'])
+        params.autonomous_system = 100
+        params.identifier = mgmt_ip
+        vrr_br.set_bgp_router_parameters(params)
+        logger.info('Creating BGP router %s', vrr_name)
+        self._vnc_lib.bgp_router_create(vrr_br)
+
+        # Create physical router
+        vrr = PhysicalRouter(vrr_name, physical_router_user_credentials=user_cred_create)
+        vrr.physical_router_role = 'e2-vrr'
+        vrr.set_bgp_router(vrr_br)
+        logger.info('Creating physical-router %s', vrr_name)
+        self._vnc_lib.physical_router_create(vrr)
+
+        # Verify VRR creation
+        read_pr = self._vnc_lib.physical_router_read(id=vrr.uuid)
+        read_br = self._vnc_lib.bgp_router_read(id=read_pr.bgp_router_refs[0]['uuid'])
+        self.assertEqual(read_br.bgp_router_parameters.autonomous_system, 100)
+        self.assertEqual(read_br.bgp_router_parameters.identifier, mgmt_ip)
+        self.assertEqual(read_br.bgp_router_parameters.address, router_id)
+        self.assertEqual(read_pr.physical_router_role, 'e2-vrr')
+        logger.info('VRR verification success !')
+        logger.info(' ')
+
+        #
+        # Add first client
+        #
+        client_info = {'name':'Google', \
+                       'promiscuous':True}
+        peer_list = [{'ip':'1.1.1.1', 'as_number':10, 'auth_key':'test_client_1'},\
+                     {'ip':'2.2.2.2', 'as_number':10, 'auth_key':'test_client_1'}]
+        client1 = client_info['name']
+        sp1 = add_vrs_client(client_info, vrr, peer_list)
+        logger.info(' ')
+
+        #
+        # Update client parameters
+        #
+        sp1.set_service_provider_promiscuous(False)
+        self._vnc_lib.service_provider_update(sp1)
+
+        # Verify client update
+        read_sp = self._vnc_lib.service_provider_read(fq_name=[client1])
+        self.assertEqual(read_sp.service_provider_promiscuous, False)
+        logger.info('Client update success for client %s', client1)
+        logger.info(' ')
+
+        #
+        # Add a second client
+        #
+        client_info = {'name':'Oracle', \
+                       'promiscuous':True}
+        peer_list = [{'ip':'3.3.3.3', 'as_number':20, 'auth_key':'test_client_2'},\
+                     {'ip':'4.4.4.4', 'as_number':30, 'auth_key':'test_client_2'}]
+        client2 = client_info['name']
+        sp2 = add_vrs_client(client_info, vrr, peer_list)
+        logger.info(' ')
+
+        #
+        # Connect the clients
+        #
+        policy_name = 'policy.' + client1 + '.' + client2
+
+        # Create peering policy
+        policy_obj = PeeringPolicy(policy_name)
+        policy_obj.peering_service = 'public-peering'
+        self._vnc_lib.peering_policy_create(policy_obj)
+
+        # Connect the clients to policy object and update
+        logger.info('Connecting %s and %s using policy %s', client1, client2, policy_name)
+        sp1.add_peering_policy(policy_obj)
+        self._vnc_lib.service_provider_update(sp1)
+        sp2.add_peering_policy(policy_obj)
+        self._vnc_lib.service_provider_update(sp2)
+
+        # Verify connection status
+        read_policy = self._vnc_lib.peering_policy_read(fq_name=[policy_name])
+        client_list = [client1, client2]
+        read_sp_list = read_policy.get_service_provider_back_refs()
+        if read_sp_list is not None:
+            self.assertEqual(len(read_sp_list), 2)
+            for read_sp in read_sp_list:
+                uclient = read_sp['to'][0]
+                uclient.encode("utf-8")
+                self.assertIn(uclient, client_list)
+                logger.info('Policy is connected to client %s', uclient)
+        logger.info(' ')
+
+        #
+        # Disconnect the clients
+        #
+        sp1.del_peering_policy(policy_obj)
+        self._vnc_lib.service_provider_update(sp1)
+        sp2.del_peering_policy(policy_obj)
+        self._vnc_lib.service_provider_update(sp2)
+
+        # Verify dis-connect
+        read_policy = self._vnc_lib.peering_policy_read(fq_name=[policy_name])
+        read_sp_list = read_policy.get_service_provider_back_refs()
+        self.assertEqual(read_sp_list, None)
+
+        # Delete policy
+        self._vnc_lib.peering_policy_delete(policy_obj.get_fq_name())
+        logger.info('Disconnected %s and %s', client1, client2)
+        logger.info(' ')
+
+        #
+        # Connect the clients again
+        # This time we will cleanup using delete client
+        #
+        policy_name = 'policy.' + client1 + '.' + client2
+
+        # Create peering policy
+        policy_obj = PeeringPolicy(policy_name)
+        policy_obj.peering_service = 'public-peering'
+        self._vnc_lib.peering_policy_create(policy_obj)
+
+        # Connect the clients to policy object and update
+        sp1.add_peering_policy(policy_obj)
+        self._vnc_lib.service_provider_update(sp1)
+        sp2.add_peering_policy(policy_obj)
+        self._vnc_lib.service_provider_update(sp2)
+        logger.info('Connected %s and %s using policy %s', client1, client2, policy_name)
+        logger.info(' ')
+
+        #
+        # Delete the first client
+        #
+        delete_vrs_client(sp1)
+        logger.info(' ')
+
+        #
+        # Delete the second client
+        #
+        delete_vrs_client(sp2)
+        logger.info(' ')
+
+        #
+        # Delete the VRR
+        #
+        logger.info('Deleting VRR physical-router %s', vrr_name)
+        self._vnc_lib.physical_router_delete(id=vrr.uuid)
+        logger.info('Deleting VRR BGP router %s', vrr_name)
+        self._vnc_lib.bgp_router_delete(id=vrr_br.uuid)
+
+    # end test_e2_vrs
 
 # end class TestVncE2CfgApiServer
 
