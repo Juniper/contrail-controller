@@ -4,10 +4,12 @@
 
 import time
 import requests
+import bottle
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
 from vnc_api import vnc_api
+from functools import wraps
 
 class VncCfgApiClient(object):
 
@@ -24,13 +26,26 @@ class VncCfgApiClient(object):
             server_addrs=self._conf_info['api_servers'])
     # end _update_connection_state
 
+    def check_client_presence(func):
+        @wraps(func)
+        def impl(self, *f_args, **f_kwargs):
+            if not self._vnc_api_client:
+                content = 'Not able to connect to VNC API: %s' % \
+                    (' '.join(self._conf_info['api_servers']))
+                raise bottle.HTTPResponse(status = 503, body = content)
+            return func(self, *f_args, **f_kwargs)
+        return impl
+    # end check_client_presence
+
+    @check_client_presence
     def _get_user_token_info(self, user_token, uuid=None):
-        if self._vnc_api_client:
-             return self._vnc_api_client.obj_perms(user_token, uuid)
-        else:
-            self._logger.error('VNC Config API Client NOT FOUND')
-            return None
+        return self._vnc_api_client.obj_perms(user_token, uuid)
     # end _get_user_token_info
+
+    @check_client_presence
+    def _get_resource_list(self, obj_type, token):
+        return self._vnc_api_client.resource_list(obj_type, token=token)
+    # end _get_resource_list
 
     def update_api_servers(self, api_servers):
         self._conf_info['api_servers'] = api_servers
@@ -65,13 +80,13 @@ class VncCfgApiClient(object):
     # end connect
 
     def get_resource_list(self, obj_type, token):
-        if self._vnc_api_client:
-            res_list = self._vnc_api_client.resource_list(obj_type,\
-                        token=token)
-            return res_list
-        else:
-            self._logger.error('VNC Config API Client NOT FOUND')
+        try:
+            res_list = self._get_resource_list(obj_type, token)
+        except Exception as e:
+            self._logger.error('VNC Config API Client NOT FOUND: %s' % str(e))
             return dict()
+        else:
+            return res_list
     # end get_resource_list
 
     def is_role_cloud_admin(self, user_token, user_token_info=None):
