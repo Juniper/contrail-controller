@@ -20,7 +20,7 @@ static const std::map<string, Address::Family>
         ("inet6-vpn", Address::INET6VPN) 
         ("route-target", Address::RTARGET) 
         ("e-vpn", Address::EVPN)
-        ("m-vpn", Address::MVPN)
+        ("inet-mvpn", Address::MVPN)
         ("erm-vpn", Address::ERMVPN);
 
 static const std::map<Address::Family, string>  
@@ -32,7 +32,7 @@ static const std::map<Address::Family, string>
         (Address::INET6VPN, "inet6-vpn") 
         (Address::RTARGET, "route-target") 
         (Address::EVPN, "e-vpn")
-        (Address::MVPN, "m-vpn")
+        (Address::MVPN, "inet-mvpn")
         (Address::ERMVPN, "erm-vpn");
 
 static const std::map<string, Address::Family>
