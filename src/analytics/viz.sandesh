@@ -5749,7 +5749,7 @@ const list<query_table> _TABLES = [
                { 'name' : 'other_vrouter_ip', 'datatype' : 'string', 'index' : false },
                { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
                { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
-               { 'name' : 'vmi_uuid', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'vmi_uuid', 'datatype' : 'string', 'index' : false },
                { 'name' : 'drop_reason', 'datatype' : 'string', 'index' : false },
                ]
          },
@@ -5774,9 +5774,8 @@ const list<query_table> _TABLES = [
                { 'name' : 'T=', 'datatype' : 'int', 'index' : false },
                { 'name' : 'packets', 'datatype' : 'int', 'index' : false },
                { 'name' : 'bytes', 'datatype' : 'int', 'index' : false },
-               { 'name' : 'sum(packets)', 'datatype' : 'int', 'index' : false },
-               { 'name' : 'sum(bytes)', 'datatype' : 'int', 'index' : false },
-               { 'name' : 'flow_count', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'SUM(packets)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'SUM(bytes)', 'datatype' : 'int', 'index' : false },
                ]
          },
          'columnvalues' : [ ],

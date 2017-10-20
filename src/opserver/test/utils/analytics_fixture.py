@@ -2372,7 +2372,7 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         res = vns.post_query(table, start_time='-1m', end_time='now',
-                select_fields=['Messagetype', 'ObjectLog', 'SystemLog'],
+                select_fields=['MessageTS','Messagetype', 'ObjectLog', 'SystemLog'],
                 where_clause='ObjectId=%s' % object_id)
         if not res:
             return False

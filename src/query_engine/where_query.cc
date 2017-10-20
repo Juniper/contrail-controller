@@ -991,8 +991,9 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     filter_and.push_back(filter);
                     additional_select_.push_back(filter.name);
                 }
+            }
 #else
-            } else if (m_query->is_flow_query(m_query->table())) {
+            else if (m_query->is_flow_query(m_query->table())) {
                 if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
                 {
                     vr_match = true; vr_op = op;

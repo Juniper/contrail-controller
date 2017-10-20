@@ -10,7 +10,6 @@
 #include "database/gendb_if.h"
 
 extern std::vector<GenDb::NewCf> vizd_tables;
-extern std::vector<GenDb::NewCf> vizd_flow_tables;
 extern std::vector<GenDb::NewCf> vizd_stat_tables;
 extern std::vector<GenDb::NewCf> vizd_session_tables;
 

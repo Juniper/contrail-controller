@@ -143,7 +143,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_02_message_table_query
 
-    #@unittest.skip('Send/query flow stats to test QE')
+    @unittest.skip('Send/query flow stats to test QE')
     def test_03_flow_query(self):
         '''
         This test starts redis,vizd,opserver and qed
@@ -311,7 +311,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
     #end test_06_send_tracebuffer
 
-    #@unittest.skip(' where queries with different conditions')
+    @unittest.skip(' where queries with different conditions')
     def test_08_where_clause_query(self):
         '''
         This test is used to check the working of integer 
@@ -343,11 +343,11 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
     #end test_08_where_clause_query
 
     #@unittest.skip('verify ObjectTable query')
-    def test_09_verify_object_table_query(self):
+    def test_18_verify_object_table_query(self):
         '''
         This test verifies the Object Table query.
         '''
-        logging.info('%%% test_09_verify_object_table_query %%%')
+        logging.info('%%% test_18_verify_object_table_query %%%')
         vizd_obj = self.useFixture(
             AnalyticsFixture(logging, builddir,
                              self.__class__.cassandra_port))
@@ -379,7 +379,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                   msg_count=2)
         assert vizd_obj.verify_object_table_objectid_values('ObjectVMTable',
             [vm1_name, vm2_name])
-    # end test_09_verify_object_table_query
+    # end test_18_verify_object_table_query
 
     #@unittest.skip('verify ObjectValueTable query')
     def test_10_verify_object_value_table_query(self):
