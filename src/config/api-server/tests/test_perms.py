@@ -28,7 +28,8 @@ import test_utils
 import test_common
 import test_case
 
-from test_perms2 import User, set_perms, vnc_read_obj, vnc_aal_create, vnc_aal_add_rule
+from test_perms2 import (User, set_perms, vnc_read_obj, vnc_aal_create,
+        vnc_aal_add_rule, token_from_user_info)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

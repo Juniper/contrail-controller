@@ -190,7 +190,7 @@ class VncApi(object):
     _DEFAULT_AUTHN_PROTOCOL = "http"
     _DEFAULT_AUTHN_SERVER = _DEFAULT_WEB_SERVER
     _DEFAULT_AUTHN_PORT = 35357
-    _DEFAULT_AUTHN_URL = "/v2.0/tokens"
+    _DEFAULT_AUTHN_URL = None
     _DEFAULT_AUTHN_USER = ""
     _DEFAULT_AUTHN_PASSWORD = ""
     _DEFAULT_AUTHN_TENANT = 'default-tenant'
@@ -359,32 +359,36 @@ class VncApi(object):
                                                               certs)
                 self._use_ks_certs = True
 
-            if 'v2' in self._authn_url:
-                self._authn_body = \
-                    '{"auth":{"passwordCredentials":{' + \
-                    '"username": "%s",' % (self._username) + \
-                    ' "password": "%s"},' % (self._password) + \
-                    ' "tenantName":"%s"}}' % (self._tenant_name)
+            self._v2_authn_body = \
+                '{"auth":{"passwordCredentials":{' + \
+                '"username": "%s",' % (self._username) + \
+                ' "password": "%s"},' % (self._password) + \
+                ' "tenantName":"%s"}}' % (self._tenant_name)
+            self._v3_authn_body = \
+                    '{"auth":{"identity":{' + \
+                    '"methods": ["password"],' + \
+                    ' "password":{' + \
+                    ' "user":{' + \
+                    ' "name": "%s",' % (self._username) + \
+                    ' "domain": { "name": "%s" },' % (self._domain_name) +\
+                    ' "password": "%s"' % (self._password) + \
+                    '}' + \
+                    '}' + \
+                    '},' + \
+                    ' "scope":{' + \
+                    ' "project":{' + \
+                    ' "domain": { "name": "%s" },' % (self._domain_name) +\
+                    ' "name": "%s"' % (self._tenant_name) + \
+                    '}' + \
+                    '}' + \
+                    '}' + \
+                    '}'
+            if not self._authn_url:
+                self._discover()
+            elif 'v2' in self._authn_url:
+                self._authn_body = self._v2_authn_body
             else:
-                self._authn_body = \
-                        '{"auth":{"identity":{' + \
-                        '"methods": ["password"],' + \
-                        ' "password":{' + \
-                        ' "user":{' + \
-                        ' "name": "%s",' % (self._username) + \
-                        ' "domain": { "name": "%s" },' % (self._domain_name) +\
-                        ' "password": "%s"' % (self._password) + \
-                        '}' + \
-                        '}' + \
-                        '},' + \
-                        ' "scope":{' + \
-                        ' "project":{' + \
-                        ' "domain": { "name": "%s" },' % (self._domain_name) +\
-                        ' "name": "%s"' % (self._tenant_name) + \
-                        '}' + \
-                        '}' + \
-                        '}' + \
-                        '}'
+                self._authn_body = self._v3_authn_body
 
         if not api_server_port:
             self._web_port = _read_cfg(cfg_parser, 'global', 'WEB_PORT',
@@ -663,6 +667,19 @@ class VncApi(object):
         self._api_server_session = ApiServerSession(
                 self._web_hosts, self._max_conns_per_pool, self._max_pools)
     # end _create_api_server_session
+
+    def _discover(self):
+        """Discover the authn_url when not specified"""
+        try:
+            # Try keystone v3
+            self._authn_url = '/v3/auth/tokens'
+            self._authn_body = self._v3_authn_body
+            self._authenticate()
+        except RuntimeError:
+            # Use keystone v2
+            self._authn_url = '/v2.0/tokens'
+            self._authn_body = self._v2_authn_body
+    # end _discover
 
     # Authenticate with configured service
     def _authenticate(self, response=None, headers=None):
