@@ -233,19 +233,6 @@ TEST_F(TestPkt, flow_export_1) {
     }
 }
 
-TEST_F(TestPkt, flow_threshold_1) {
-    AgentUtXmlTest test("controller/src/vnsw/agent/pkt/test/flow-threshold.xml");
-    AgentUtXmlOperInit(&test);
-    if (test.Load() == true) {
-        test.ReadXml();
-
-        string str;
-        test.ToString(&str);
-        cout << str << endl;
-        test.Run();
-    }
-}
-
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

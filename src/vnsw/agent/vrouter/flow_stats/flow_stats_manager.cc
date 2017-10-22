@@ -85,7 +85,10 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_export_disable_drops_(), flow_export_sampling_drops_(),
     flow_export_drops_(), deleted_flow_export_drops_(),
     flow_sample_exports_(), flow_msg_exports_(), flow_exports_(),
-    prev_cfg_flow_export_rate_(0),
+    prev_cfg_flow_export_rate_(0), session_export_rate_(0),
+    session_export_count_(), session_sample_exports_(), session_msg_exports_(),
+    session_exports_(), session_export_disable_drops_(),
+    session_export_sampling_drops_(), session_export_without_sampling_(),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
            "FlowThresholdTimer",
            TaskScheduler::GetInstance()->GetTaskId("Agent::FlowStatsManager"), 0)),
@@ -99,6 +102,15 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     flow_msg_exports_ = 0;
     flow_exports_ = 0;
     flows_sampled_atleast_once_ = false;
+
+    session_export_count_ = 0;
+    session_sample_exports_ = 0;
+    session_msg_exports_ = 0;
+    session_exports_ = 0;
+    session_export_disable_drops_ = 0;
+    session_export_sampling_drops_ = 0;
+    session_export_without_sampling_ = 0;
+    sessions_sampled_atleast_once_ = false;
     request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
     for (uint16_t i = 0; i < sizeof(protocol_list_)/sizeof(protocol_list_[0]);
          i++) {
@@ -376,14 +388,14 @@ void FlowStatsManager::Init(uint64_t flow_stats_interval,
     if (agent_->tsn_enabled()) {
         /* In TSN mode, we don't support add/delete of FlowStatsCollector
          * (so we don't invoke set_flow_stats_req_handler)
-         * Also, we don't export flows, so we don't start UpdateFlowThreshold
+         * Also, we don't export flows, so we don't start UpdateSessionThreshold
          * timer */
         return;
     }
     agent_->set_flow_stats_req_handler(&(FlowStatsManager::FlowStatsReqHandler));
 
     timer_->Start(FlowThresoldUpdateTime,
-                  boost::bind(&FlowStatsManager::UpdateFlowThreshold, this));
+                  boost::bind(&FlowStatsManager::UpdateSessionThreshold, this));
 }
 
 void FlowStatsManager::InitDone() {
@@ -504,5 +516,17 @@ void FlowStatsManager::UpdateFlowExportStats(uint32_t count, bool first_export,
     }
     if (!sampled_flow) {
         flow_export_without_sampling_ += count;
+    }
+}
+
+void FlowStatsManager::UpdateSessionExportStats(uint32_t count,
+                                                bool first_export,
+                                                bool sampled) {
+    session_export_count_ += count;
+    if (first_export) {
+        session_exports_ += count;
+    }
+    if (!sampled) {
+        session_export_without_sampling_ += count;
     }
 }

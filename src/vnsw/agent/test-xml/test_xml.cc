@@ -840,7 +840,7 @@ bool AgentUtXmlFlowThreshold::Run() {
     mgr->flow_export_count_ = flow_export_count_;
     mgr->threshold_ = threshold_;
 
-    mgr->UpdateFlowThreshold();
+    mgr->UpdateSessionThreshold();
     TestClient::WaitForIdle();
 }
 
