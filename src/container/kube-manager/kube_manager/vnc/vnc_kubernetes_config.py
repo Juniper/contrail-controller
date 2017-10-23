@@ -145,3 +145,8 @@ class VncKubernetesConfig(object):
         vn_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
                       cls.cluster_default_network_name()]
         return vn_fq_name
+
+    @classmethod
+    def cluster_ip_fabric_network_fq_name(cls):
+        vn_fq_name = ['default-domain', 'default-project', 'ip-fabric']
+        return vn_fq_name
