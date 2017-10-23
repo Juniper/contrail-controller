@@ -161,6 +161,109 @@ class VncKubernetes(VncCommon):
         for cls in DBBaseKM.get_obj_type_map().values():
             cls.reset()
 
+    def _create_attach_ip_fabric_security_group(self, ip_fabric_vn_obj):
+        def _get_rule(ingress, sg, prefix, ethertype):
+            sgr_uuid = str(uuid.uuid4())
+            if sg:
+                addr = AddressType(
+                    security_group=proj_obj.get_fq_name_str() + ':' + sg)
+            elif prefix:
+                addr = AddressType(subnet=SubnetType(prefix, 0))
+            local_addr = AddressType(security_group='local')
+            if ingress:
+                src_addr = addr
+                dst_addr = local_addr
+            else:
+                src_addr = local_addr
+                dst_addr = addr
+            rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+                                  protocol='any',
+                                  src_addresses=[src_addr],
+                                  src_ports=[PortType(0, 65535)],
+                                  dst_addresses=[dst_addr],
+                                  dst_ports=[PortType(0, 65535)],
+                                  ethertype=ethertype)
+            return rule
+
+        sg_dict = {}
+        sg_name = "-".join(['ip-fabric-default'])
+        DEFAULT_SECGROUP_DESCRIPTION = "Default ip-fabric security group"
+        id_perms = IdPermsType(enable=True,
+                               description=DEFAULT_SECGROUP_DESCRIPTION)
+        rules = []
+        rules.append(_get_rule(True, None, '0.0.0.0', 'IPv4'))
+        rules.append(_get_rule(True, None, '::', 'IPv6'))
+        rules.append(_get_rule(False, None, '0.0.0.0', 'IPv4'))
+        rules.append(_get_rule(False, None, '::', 'IPv6'))
+        sg_rules = PolicyEntriesType(rules)
+
+        proj_fq_name = ['default-domain', 'default-project']
+        proj_obj = self.vnc_lib.project_read(fq_name=proj_fq_name)
+
+        sg_obj = SecurityGroup(name=sg_name, parent_obj=proj_obj,
+                               id_perms=id_perms,
+                               security_group_entries=sg_rules)
+        try:
+            self.vnc_lib.security_group_create(sg_obj)
+            self.vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
+        except RefsExistError:
+            self.vnc_lib.security_group_update(sg_obj)
+
+        vmi_back_refs = \
+            ip_fabric_vn_obj.get_virtual_machine_interface_back_refs()
+        sg_uuid = sg_obj.get_uuid()
+        for vmi_back_ref in vmi_back_refs or []:
+            self.vnc_lib.ref_update('virtual-machine-interface',
+                vmi_back_ref['uuid'], 'security-group', sg_uuid, None, 'ADD')
+            # Set False to virtual_machine_interface_disable_policy
+            vmi_obj = self.vnc_lib.virtual_machine_interface_read(id=vmi_back_ref['uuid'])
+            vmi_obj.virtual_machine_interface_disable_policy = False
+            self.vnc_lib.virtual_machine_interface_update(vmi_obj)
+
+    def _create_policy(self, policy_name, proj_obj, src_vn_obj, dst_vn_obj):
+        policy_exists = False
+        policy = NetworkPolicy(name=policy_name, parent_obj=proj_obj)
+        try:
+            policy_obj = self.vnc_lib.network_policy_read(
+                fq_name=policy.get_fq_name())
+            policy_exists = True
+        except NoIdError:
+            # policy does not exist. Create one.
+            policy_obj = policy
+        network_policy_entries = PolicyEntriesType(
+            [PolicyRuleType(
+                direction = '<>',
+                action_list = ActionListType(simple_action='pass'),
+                protocol = 'any',
+                src_addresses = [
+                    AddressType(virtual_network = src_vn_obj.get_fq_name_str())
+                ],
+                src_ports = [PortType(-1, -1)],
+                dst_addresses = [
+                    AddressType(virtual_network = dst_vn_obj.get_fq_name_str())
+                ],
+                dst_ports = [PortType(-1, -1)])
+            ])
+        policy_obj.set_network_policy_entries(network_policy_entries)
+        if policy_exists:
+            self.vnc_lib.network_policy_update(policy)
+        else:
+            self.vnc_lib.network_policy_create(policy)
+        return policy_obj
+
+    def _attach_policy(self, vn_obj, policy):
+        vn_obj.add_network_policy(policy, \
+            VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
+        self.vnc_lib.virtual_network_update(vn_obj)
+
+    def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj, cluster_network_vn_obj):
+        policy_name = '%s-%s-default' \
+            %(ip_fabric_vn_obj.name, cluster_network_vn_obj.name)
+        network_policy = self._create_policy(policy_name, proj_obj, \
+            ip_fabric_vn_obj, cluster_network_vn_obj)
+        self._attach_policy(ip_fabric_vn_obj, network_policy)
+        self._attach_policy(cluster_network_vn_obj, network_policy)
+
     def _create_project(self, project_name):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(project_name)
         proj_obj = Project(name=proj_fq_name[-1], fq_name=proj_fq_name)
@@ -287,7 +390,7 @@ class VncKubernetes(VncCommon):
         self._create_cluster_service_fip_pool(vn_obj, pod_ipam_obj)
 
         VirtualNetworkKM.locate(vn_obj.uuid)
-        return vn_obj.uuid
+        return vn_obj
 
     def _get_cluster_service_fip_pool_name(self, vn_name):
         """
@@ -378,8 +481,14 @@ class VncKubernetes(VncCommon):
         self._create_project('kube-system')
         proj_obj = self._create_project(\
             vnc_kube_config.cluster_default_project_name())
-        self._create_cluster_network(\
+        cluster_network_vn_obj = self._create_cluster_network(\
             vnc_kube_config.cluster_default_network_name(), proj_obj)
+        ip_fabric_fq_name = vnc_kube_config.cluster_ip_fabric_network_fq_name()
+        ip_fabric_vn_obj = self.vnc_lib. \
+            virtual_network_read(fq_name=ip_fabric_fq_name)
+        self._create_attach_ip_fabric_security_group(ip_fabric_vn_obj)
+        self._create_attach_policy(proj_obj, ip_fabric_vn_obj, \
+            cluster_network_vn_obj)
 
     def _get_cluster_network(self):
         return VirtualNetworkKM.find_by_name_or_uuid(

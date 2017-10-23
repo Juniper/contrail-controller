@@ -12,7 +12,8 @@ from vnc_api.vnc_api import (
     AddressType, IpamSubnets, IdPermsType, IpamSubnetType, NetworkIpam,
     NoIdError, PolicyEntriesType, PolicyRuleType, PortType, Project,
     RefsExistError, SecurityGroup, SubnetType, VirtualNetwork,
-    VirtualNetworkType, VnSubnetsType)
+    VirtualNetworkType, VnSubnetsType, NetworkPolicy, ActionListType,
+    VirtualNetworkPolicyType, SequenceType)
 from kube_manager.vnc.config_db import (
     NetworkIpamKM, VirtualNetworkKM, ProjectKM, SecurityGroupKM)
 from kube_manager.common.kube_config_db import NamespaceKM
@@ -32,6 +33,8 @@ class VncNamespace(VncCommon):
         self._label_cache = vnc_kube_config.label_cache()
         self._logger = vnc_kube_config.logger()
         self._queue = vnc_kube_config.queue()
+        self._ip_fabric_fq_name = vnc_kube_config. \
+            cluster_ip_fabric_network_fq_name()
 
     def _get_namespace(self, ns_name):
         """
@@ -188,6 +191,9 @@ class VncNamespace(VncCommon):
 
         # Update VN.
         self._vnc_lib.virtual_network_update(vn)
+        ip_fabric_vn_obj = self._vnc_lib. \
+            virtual_network_read(fq_name=self._ip_fabric_fq_name)
+        self._create_attach_policy(proj_obj, ip_fabric_vn_obj, vn)
 
         # Cache the virtual network.
         VirtualNetworkKM.locate(vn_uuid)
@@ -218,6 +224,12 @@ class VncNamespace(VncCommon):
                         name=ipam['to'][-1], parent_obj=proj_obj)
                     vn_obj.del_network_ipam(ipam_obj)
                     self._vnc_lib.virtual_network_update(vn_obj)
+            # Delete/cleanup network policy allocated for this network.
+            network_policy_refs = vn_obj.get_network_policy_refs()
+            if network_policy_refs:
+                for network_policy_ref in network_policy_refs:
+                    self._vnc_lib. \
+                        network_policy_delete(id=network_policy_ref['uuid'])
         except NoIdError:
             pass
 
@@ -230,12 +242,59 @@ class VncNamespace(VncCommon):
         # Clear network info from namespace entry.
         self._set_namespace_virtual_network(ns_name, None)
 
+    def _create_policy(self, policy_name, proj_obj, src_vn_obj, dst_vn_obj):
+        policy_exists = False
+        policy = NetworkPolicy(name=policy_name, parent_obj=proj_obj)
+        try:
+            policy_obj = self._vnc_lib.network_policy_read(
+                fq_name=policy.get_fq_name())
+            policy_exists = True
+        except NoIdError:
+            # policy does not exist. Create one.
+            policy_obj = policy
+        network_policy_entries = PolicyEntriesType(
+            [PolicyRuleType(
+                direction = '<>',
+                action_list = ActionListType(simple_action='pass'),
+                protocol = 'any',
+                src_addresses = [
+                    AddressType(virtual_network = src_vn_obj.get_fq_name_str())
+                ],
+                src_ports = [PortType(-1, -1)],
+                dst_addresses = [
+                    AddressType(virtual_network = dst_vn_obj.get_fq_name_str())
+                ],
+                dst_ports = [PortType(-1, -1)])
+            ])
+        policy_obj.set_network_policy_entries(network_policy_entries)
+        if policy_exists:
+            self._vnc_lib.network_policy_update(policy)
+        else:
+            self._vnc_lib.network_policy_create(policy)
+        return policy_obj
+
+    def _attach_policy(self, policy, *vn_objects):
+        for vn_obj in vn_objects:
+            vn_obj.add_network_policy(policy, \
+                VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
+            self._vnc_lib.virtual_network_update(vn_obj)
+            self._vnc_lib.ref_relax_for_delete(vn_obj.uuid, policy.uuid)
+
+    def _create_attach_policy(self, proj_obj, src_vn_obj, dst_vn_obj):
+        policy_name = '%s-%s-default' \
+            %(src_vn_obj.name, dst_vn_obj.name)
+        policy = self._create_policy(policy_name, proj_obj, src_vn_obj, dst_vn_obj)
+        self._attach_policy(policy, src_vn_obj, dst_vn_obj)
+
     def _update_security_groups(self, ns_name, proj_obj, network_policy):
         def _get_rule(ingress, sg, prefix, ethertype):
             sgr_uuid = str(uuid.uuid4())
             if sg:
-                addr = AddressType(
-                    security_group=proj_obj.get_fq_name_str() + ':' + sg)
+                if ':' not in sg:
+                    sg_fq_name = proj_obj.get_fq_name_str() + ':' + sg
+                else:
+                    sg_fq_name = sg
+                addr = AddressType(security_group=sg_fq_name)
             elif prefix:
                 addr = AddressType(subnet=SubnetType(prefix, 0))
             local_addr = AddressType(security_group='local')
@@ -274,6 +333,10 @@ class VncNamespace(VncCommon):
             if self._is_service_isolated(ns_name):
                 rules.append(_get_rule(True, sg_name, None, 'IPv4'))
                 rules.append(_get_rule(True, sg_name, None, 'IPv6'))
+                ip_fabric_sg_name = ':'.join(
+                    ['default-domain', 'default-project', 'ip-fabric-default'])
+                rules.append(_get_rule(True, ip_fabric_sg_name, None, 'IPv4'))
+                rules.append(_get_rule(True, ip_fabric_sg_name, None, 'IPv6'))
             else:
                 rules.append(_get_rule(True, None, '0.0.0.0', 'IPv4'))
                 rules.append(_get_rule(True, None, '::', 'IPv6'))
