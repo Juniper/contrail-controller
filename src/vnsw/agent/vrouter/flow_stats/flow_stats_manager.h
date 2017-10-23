@@ -126,55 +126,43 @@ public:
     void AddReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
     void DeleteReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
     void FreeReqHandler(boost::shared_ptr<FlowStatsCollectorReq> req);
-    uint32_t flow_export_rate() const {
-        return flow_export_rate_;
-    }
-    uint32_t flow_export_count() const {
-        return flow_export_count_;
+
+    uint32_t session_export_rate() const {
+        return session_export_rate_;
     }
 
-    void set_flow_export_count(uint32_t count) {
-        flow_export_count_ = count;
+    uint32_t session_export_count() const {
+        return session_export_count_;
     }
 
-    uint32_t flow_export_count_reset() {
-        return flow_export_count_.fetch_and_store(0);
+    void set_session_export_count(uint32_t count) {
+        session_export_count_ = count;
     }
 
-    uint32_t flow_export_without_sampling_reset() {
-        return flow_export_without_sampling_.fetch_and_store(0);
+    uint32_t session_export_count_reset() {
+        return session_export_count_.fetch_and_store(0);
     }
 
-    uint32_t flow_export_disable_drops() const {
-        return flow_export_disable_drops_;
+    uint32_t session_export_without_sampling_reset() {
+        return session_export_without_sampling_.fetch_and_store(0);
     }
 
-    uint32_t flow_export_sampling_drops() const {
-        return flow_export_sampling_drops_;
-    }
-
-    uint32_t flow_export_drops() const {
-        return flow_export_drops_;
-    }
-
-    uint32_t deleted_flow_export_drops() const {
-        return deleted_flow_export_drops_;
-    }
-
-    uint64_t flow_sample_exports() const {
-        return flow_sample_exports_;
-    }
-
-    uint64_t flow_msg_exports() const {
-        return flow_msg_exports_;
-    }
-
-    uint64_t flow_exports() const {
-        return flow_exports_;
-    }
+    uint32_t session_export_drops() const { return session_export_drops_; }
 
     uint64_t session_sample_exports() const { return session_sample_exports_; }
     uint64_t session_msg_exports() const { return session_msg_exports_; }
+    uint64_t session_exports() const { return session_exports_; }
+
+    uint64_t session_export_disable_drops() const {
+        return session_export_disable_drops_;
+    }
+    uint32_t session_export_sampling_drops() const {
+        return session_export_sampling_drops_;
+    }
+    void set_sessions_sampled_atleast_once() {
+        sessions_sampled_atleast_once_ = true;
+    }
+
     uint64_t threshold() const { return threshold_;}
     bool delete_short_flow() const {
         return delete_short_flow_;
@@ -183,20 +171,15 @@ public:
     void set_delete_short_flow(bool val) {
         delete_short_flow_ = val;
     }
-    void set_flows_sampled_atleast_once() {
-        flows_sampled_atleast_once_ = true;
-    }
     static void FlowStatsReqHandler(Agent *agent, uint32_t proto,
                                     uint32_t port,
                                     uint64_t protocol);
     void FreeIndex(uint32_t idx);
     uint32_t AllocateIndex();
-    void UpdateFlowExportStats(uint32_t count, bool first_export,
-                               bool sampled_flow);
-    void UpdateFlowSampleExportStats(uint32_t count);
-    void UpdateFlowMsgExportStats(uint32_t count);
     void UpdateSessionSampleExportStats(uint32_t count);
     void UpdateSessionMsgExportStats(uint32_t count);
+    void UpdateSessionExportStats(uint32_t count, bool first_export,
+                                  bool sampled);
 
     void SetProfileData(ProfileData *data);
     friend class AgentUtXmlFlowThreshold;
@@ -204,7 +187,8 @@ public:
 private:
     friend class FlowStatsCollectorReq;
     friend class FlowStatsCollector;
-    bool UpdateFlowThreshold(void);
+    friend class SessionStatsCollector;
+    bool UpdateSessionThreshold(void);
     void UpdateThreshold(uint64_t new_value, bool check_oflow);
     FlowStatsCollectorObject* GetFlowStatsCollectorObject(const FlowEntry *flow)
         const;
@@ -213,22 +197,19 @@ private:
     FlowAgingTableMap flow_aging_table_map_;
     FlowAgingTablePtr default_flow_stats_collector_obj_;
     SessionStatsCollectorPtr session_stats_collector_obj_;
-    tbb::atomic<uint32_t> flow_export_count_;
     uint64_t prev_flow_export_rate_compute_time_;
-    uint32_t flow_export_rate_;
     uint64_t threshold_;
-    tbb::atomic<uint64_t> flow_export_disable_drops_;
-    tbb::atomic<uint64_t> flow_export_sampling_drops_;
-    tbb::atomic<uint32_t> flow_export_without_sampling_;
-    tbb::atomic<uint64_t> flow_export_drops_;
-    tbb::atomic<uint64_t> deleted_flow_export_drops_;
-    tbb::atomic<uint64_t> flow_sample_exports_;
-    tbb::atomic<uint64_t> flow_msg_exports_;
-    tbb::atomic<uint64_t> flow_exports_;
-    tbb::atomic<bool> flows_sampled_atleast_once_;
+    uint32_t prev_cfg_flow_export_rate_;
+    uint32_t session_export_rate_;
+    tbb::atomic<uint32_t> session_export_count_;
     tbb::atomic<uint64_t> session_sample_exports_;
     tbb::atomic<uint64_t> session_msg_exports_;
-    uint32_t prev_cfg_flow_export_rate_;
+    tbb::atomic<uint64_t> session_exports_;
+    tbb::atomic<uint64_t> session_export_disable_drops_;
+    tbb::atomic<uint64_t> session_export_sampling_drops_;
+    tbb::atomic<uint32_t> session_export_without_sampling_;
+    tbb::atomic<uint64_t> session_export_drops_;
+    tbb::atomic<bool> sessions_sampled_atleast_once_;
     Timer* timer_;
     bool delete_short_flow_;
     //Protocol based array for minimal tree comparision

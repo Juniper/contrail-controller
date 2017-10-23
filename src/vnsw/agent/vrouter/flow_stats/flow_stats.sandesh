@@ -56,21 +56,6 @@ response sandesh FlowStatsIntervalResp_InSeconds {
 }
 
 /**
- * @description: Request message to get flow stats collection parameters configured for flow sampling
- * @cli_name: read flowstats params
- */
-request sandesh FlowStatsCollectionParamsReq {
-}
-
-/**
- * Response message for flow stats collection parameters configured for flow sampling
- */
-response sandesh FlowStatsCollectionParamsResp {
-    1: u32 flow_export_rate;
-    2: u32 sampling_threshold;
-}
-
-/**
  * Sandesh definition for flow key based on five tuple consisting of source and destination IP addresses,
  *  ports and the ip protocol
  */

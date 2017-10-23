@@ -835,87 +835,6 @@ void FlowStatsCollector::UpdateStatsEvent(const FlowEntryPtr &flow,
     request_queue_.Enqueue(req);
 }
 
-bool FlowStatsManager::UpdateFlowThreshold() {
-    uint64_t curr_time = FlowStatsCollector::GetCurrentTime();
-    bool export_rate_calculated = false;
-    uint32_t exp_rate_without_sampling = 0;
-
-    /* If flows are not being exported, no need to update threshold */
-    if (!flow_export_count_) {
-        return true;
-    }
-
-    // Calculate Flow Export rate
-    if (prev_flow_export_rate_compute_time_) {
-        uint64_t diff_secs = 0;
-        uint64_t diff_micro_secs = curr_time -
-            prev_flow_export_rate_compute_time_;
-        if (diff_micro_secs) {
-            diff_secs = diff_micro_secs/1000000;
-        }
-        if (diff_secs) {
-            uint32_t flow_export_count = flow_export_count_reset();
-            flow_export_rate_ = flow_export_count/diff_secs;
-            exp_rate_without_sampling =
-                flow_export_without_sampling_reset()/diff_secs;
-            prev_flow_export_rate_compute_time_ = curr_time;
-            export_rate_calculated = true;
-        }
-    } else {
-        prev_flow_export_rate_compute_time_ = curr_time;
-        flow_export_count_ = 0;
-        return true;
-    }
-
-    uint32_t cfg_rate = agent_->oper_db()->global_vrouter()->
-                            flow_export_rate();
-    /* No need to update threshold when flow_export_rate is NOT calculated
-     * and configured flow export rate has not changed */
-    if (!export_rate_calculated &&
-        (cfg_rate == prev_cfg_flow_export_rate_)) {
-        return true;
-    }
-    uint64_t cur_t = threshold(), new_t = 0;
-    // Update sampling threshold based on flow_export_rate_
-    if (flow_export_rate_ < ((double)cfg_rate) * 0.8) {
-        /* There are two reasons why we can be here.
-         * 1. None of the flows were sampled because we never crossed
-         *    80% of configured flow-export-rate.
-         * 2. In scale setups, the threshold was updated to high value because
-         *    of which flow-export-rate has dropped drastically.
-         * Threshold should be updated here depending on which of the above two
-         * situations we are in. */
-        if (!flows_sampled_atleast_once_) {
-            UpdateThreshold(kDefaultFlowSamplingThreshold, false);
-        } else {
-            if (flow_export_rate_ < ((double)cfg_rate) * 0.5) {
-                UpdateThreshold((threshold_ / 4), false);
-            } else {
-                UpdateThreshold((threshold_ / 2), false);
-            }
-        }
-    } else if (flow_export_rate_ > (cfg_rate * 3)) {
-        UpdateThreshold((threshold_ * 4), true);
-    } else if (flow_export_rate_ > (cfg_rate * 2)) {
-        UpdateThreshold((threshold_ * 3), true);
-    } else if (flow_export_rate_ > ((double)cfg_rate) * 1.25) {
-        UpdateThreshold((threshold_ * 2), true);
-    }
-    prev_cfg_flow_export_rate_ = cfg_rate;
-    new_t = threshold();
-    FLOW_EXPORT_STATS_TRACE(flow_export_rate_, exp_rate_without_sampling, cur_t,
-                            new_t);
-    return true;
-}
-
-uint64_t FlowStatsCollector::threshold() const {
-    return flow_stats_manager_->threshold();
-}
-
-uint32_t FlowStatsCollector::flow_export_count() const {
-    return flow_stats_manager_->flow_export_count();
-}
-
 bool FlowStatsCollector::RequestHandlerEntry() {
     current_time_ = GetCurrentTime();
     return true;
@@ -1157,17 +1076,6 @@ void FlowStatsCollector::EvictedFlowStatsUpdate(const FlowEntryPtr &flow,
 /////////////////////////////////////////////////////////////////////////////
 // Introspect routines
 /////////////////////////////////////////////////////////////////////////////
-void FlowStatsCollectionParamsReq::HandleRequest() const {
-    FlowStatsManager *mgr = Agent::GetInstance()->flow_stats_manager();
-    FlowStatsCollectionParamsResp *resp = new FlowStatsCollectionParamsResp();
-    resp->set_flow_export_rate(mgr->flow_export_rate());
-    resp->set_sampling_threshold(mgr->threshold());
-
-    resp->set_context(context());
-    resp->Response();
-    return;
-}
-
 static void KeyToSandeshFlowKey(const FlowKey &key,
                                 SandeshFlowKey &skey) {
     skey.set_nh(key.nh);
