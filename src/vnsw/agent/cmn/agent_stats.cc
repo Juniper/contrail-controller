@@ -65,18 +65,6 @@ void AgentStatsReq::HandleRequest() const {
                 stats->flow_drop_due_to_linklocal_limit());
         flow->set_flow_max_system_flows(agent->flow_table_size());
         flow->set_flow_max_vm_flows(agent->max_vm_flows());
-        flow->set_flow_export_disable_drops(
-                agent->flow_stats_manager()->flow_export_disable_drops());
-        flow->set_flow_export_sampling_drops(
-                agent->flow_stats_manager()->flow_export_sampling_drops());
-        flow->set_flow_export_drops(
-                agent->flow_stats_manager()->flow_export_drops());
-        flow->set_flow_sample_export_count(
-                agent->flow_stats_manager()->flow_sample_exports());
-        flow->set_flow_msg_export_count(
-                agent->flow_stats_manager()->flow_msg_exports());
-        flow->set_flow_export_count(
-                agent->flow_stats_manager()->flow_exports());
         flow->set_context(context());
         flow->set_more(true);
         flow->Response();
@@ -122,6 +110,13 @@ void AgentStatsReq::HandleRequest() const {
                                   session_sample_exports());
     srsp->set_msg_export_count(agent->flow_stats_manager()->
                                session_msg_exports());
+    srsp->set_session_export_disable_drops(agent->flow_stats_manager()->
+                                           session_export_disable_drops());
+    srsp->set_session_export_sampling_drops(agent->flow_stats_manager()->
+                                            session_export_sampling_drops());
+    srsp->set_session_exports(agent->flow_stats_manager()->session_exports());
+    srsp->set_session_export_drops(agent->flow_stats_manager()->
+                                   session_export_drops());
     srsp->set_context(context());
     srsp->set_more(false);
     srsp->Response();

@@ -96,27 +96,6 @@ bool VrouterUveEntry::SendVrouterMsg() {
         stats.set_aged_flows(agent_->stats()->flow_aged());
         prev_stats_.set_aged_flows(agent_->stats()->flow_aged());
     }
-    uint64_t disable_drops =
-        agent_->flow_stats_manager()->flow_export_disable_drops();
-    if ((prev_stats_.get_flow_export_disable_drops() != disable_drops) ||
-        first) {
-        stats.set_flow_export_disable_drops(disable_drops);
-        prev_stats_.set_flow_export_disable_drops(disable_drops);
-    }
-    uint64_t sampling_drops =
-        agent_->flow_stats_manager()->flow_export_sampling_drops();
-    if ((prev_stats_.get_flow_export_sampling_drops() != sampling_drops) ||
-        first) {
-        stats.set_flow_export_sampling_drops(sampling_drops);
-        prev_stats_.set_flow_export_sampling_drops(sampling_drops);
-    }
-    uint64_t flow_drops =
-        agent_->flow_stats_manager()->flow_export_drops();
-    if ((prev_stats_.get_flow_export_drops() != flow_drops) || first) {
-        stats.set_flow_export_drops(flow_drops);
-        prev_stats_.set_flow_export_drops(flow_drops);
-    }
-
     map<string, PhyIfStats> phy_if_list;
     map<string, PhyIfInfo> phy_if_info;
     map<string, AgentDropStats> phy_if_ds;

@@ -117,7 +117,6 @@ public:
     void set_flow_tcp_syn_age_time(uint64_t interval) {
         flow_tcp_syn_age_time_ = interval;
     }
-    uint64_t threshold()  const;
     boost::uuids::uuid rand_gen();
     bool Run();
     bool RunAgeingTask();
@@ -174,7 +173,6 @@ public:
     friend class FlowStatsCollectorObject;
 
 private:
-    uint32_t flow_export_count() const;
     static uint64_t GetCurrentTime();
     uint32_t TimersPerScan();
     void UpdateEntriesToVisit();
