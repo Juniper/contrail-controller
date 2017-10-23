@@ -74,6 +74,8 @@ public:
     const std::string& name() const {
         return name_;
     }
+    UuidList& firewall_policy_list() { return firewall_policy_list_;}
+    UuidList& firewall_rule_list() { return firewall_rule_list_;}
 
 private:
     boost::uuids::uuid uuid_;
