@@ -606,6 +606,10 @@ bool VrfTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
+    if (data->ifmap_node() && vrf->ifmap_node() != data->ifmap_node()) {
+        ret = true;
+    }
+
     bool layer2_control_word = false;
     if (vn) {
         layer2_control_word = vn->layer2_control_word();
@@ -864,6 +868,7 @@ void VrfTable::CreateStaticVrf(const string &name) {
     static_vrf_set_.insert(name);
     CreateVrf(name, nil_uuid(), VrfData::ConfigVrf);
 }
+
 void VrfTable::CreateFabricPolicyVrf(const string &name) {
     static_vrf_set_.insert(name);
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
