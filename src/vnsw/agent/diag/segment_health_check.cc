@@ -100,8 +100,14 @@ void SegmentHealthCheckPkt::SendRequest() {
                            ntohl(dip_.to_v4().to_ulong()),
                            proto_, DEFAULT_IP_ID, DEFAULT_IP_TTL);
         len += sizeof(ether_header);
-        pkt_handler->EthHdr(agent->vhost_interface()->mac(),
-                            agent->vrrp_mac(), ETHERTYPE_IP);
+        InterfaceRef interface = service_->interface();
+        if ((static_cast<VmInterface *>(interface.get()))->is_left_si()) {
+            pkt_handler->EthHdr(agent->LeftSIMac(), agent->RightSIMac(),
+                                ETHERTYPE_IP);
+        } else {
+            pkt_handler->EthHdr(agent->RightSIMac(), agent->LeftSIMac(),
+                                ETHERTYPE_IP);
+        }
     } else {
         //TODO: support for IPv6
         assert(0);

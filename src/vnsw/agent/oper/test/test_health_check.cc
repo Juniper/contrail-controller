@@ -201,6 +201,8 @@ TEST_F(HealthCheckConfigTest, port_tuple) {
     WAIT_FOR(100, 1000, (intf1->si_other_end_vmi() == nil_uuid()));
     WAIT_FOR(100, 1000, (intf2->si_other_end_vmi() == intf3->GetUuid()));
     WAIT_FOR(100, 1000, (intf3->si_other_end_vmi() == intf2->GetUuid()));
+    EXPECT_TRUE(intf2->is_left_si() == true);
+    EXPECT_TRUE(intf3->is_left_si() == false);
 
     DelLink("virtual-machine-interface", "vnet10", "port-tuple", "pt1",
             "port-tuple-interface");
@@ -214,6 +216,8 @@ TEST_F(HealthCheckConfigTest, port_tuple) {
     WAIT_FOR(100, 100, (intf1->si_other_end_vmi() == nil_uuid()));
     WAIT_FOR(100, 100, (intf2->si_other_end_vmi() == nil_uuid()));
     WAIT_FOR(100, 100, (intf3->si_other_end_vmi() == nil_uuid()));
+    EXPECT_TRUE(intf2->is_left_si() == false);
+    EXPECT_TRUE(intf3->is_left_si() == false);
 
     DeleteVmportEnv(input, 3, true);
 

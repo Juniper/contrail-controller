@@ -394,6 +394,8 @@ public:
     static const MacAddress &vrrp_mac() {return vrrp_mac_;}
     static const MacAddress &pkt_interface_mac() {return pkt_interface_mac_;}
     static const std::string &BcastMac() {return bcast_mac_;}
+    static const MacAddress &LeftSIMac() {return left_si_mac_;}
+    static const MacAddress &RightSIMac() {return right_si_mac_;}
     static const std::string &xmpp_dns_server_prefix() {
         return xmpp_dns_server_connection_name_prefix_;
     }
@@ -1417,6 +1419,8 @@ public:
     static const MacAddress vrrp_mac_;
     static const MacAddress pkt_interface_mac_;
     static const std::string bcast_mac_;
+    static const MacAddress left_si_mac_;
+    static const MacAddress right_si_mac_;
     static const std::string xmpp_dns_server_connection_name_prefix_;
     static const std::string xmpp_control_node_connection_name_prefix_;
     static const std::string dpdk_exception_pkt_path_;
