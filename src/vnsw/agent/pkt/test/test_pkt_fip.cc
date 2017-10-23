@@ -405,7 +405,7 @@ static void Setup() {
                                       SecurityGroupList(), TagList(),
                                       CommunityList(), 0,
                                       PathPreference(), Ip4Address(0),
-                                      EcmpLoadBalance(), false, false);
+                                      EcmpLoadBalance(), false, false, false);
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("default-project:vn2:vn2", addr, 32));
 
@@ -1406,7 +1406,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                       vnet[5]->label(), SecurityGroupList(),
                                       TagList(), CommunityList(), 0,
                                       PathPreference(), Ip4Address(0),
-                                      EcmpLoadBalance(), false, false);
+                                      EcmpLoadBalance(), false, false, false);
     client->WaitForIdle();
 
   // HTTP packet from VM to Server

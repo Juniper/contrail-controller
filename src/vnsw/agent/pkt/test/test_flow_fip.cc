@@ -279,6 +279,49 @@ TEST_F(FlowTest, Direction_Egress_1) {
     DeleteRemoteRoute("vrf4", remote_vm3_ip);
 }
 
+TEST_F(FlowTest, UnderlayVmiWithOverlayFip) {
+    CreateRemoteRoute("default-project:vn4:vn4", remote_vm3_ip,
+                      remote_router_ip, 30, "default-project:vn4");
+    AddFloatingIp("fip1", 1, "14.1.1.100", vm1_ip, "egress");
+    client->WaitForIdle();
+
+    // Send packet from fabric to floating-ip of flow0 interface
+    TxIpMplsPacket(eth->id(), "10.1.1.2", router_id_, flow0->label(),
+                   remote_vm3_ip, "14.1.1.100", 1);
+    client->WaitForIdle();
+
+    // Validate flow created with floating-ip translation
+    FlowEntry *fe = FlowGet(0, remote_vm3_ip, "14.1.1.100", IPPROTO_ICMP, 0,
+                            0, flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+    FlowEntry *rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(rfe != NULL);
+
+    EXPECT_TRUE(fe->IsShortFlow());
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::NatFlow));
+    EXPECT_EQ(fe->short_flow_reason(), FlowEntry::SHORT_NO_SRC_ROUTE);
+    FlushFlowTable();
+
+    // Send packet from VM
+    TxIpPacket(flow0->id(), vm1_ip, remote_vm3_ip, 1);
+    client->WaitForIdle();
+
+    // Validate flow created with floating-ip translation
+    fe = FlowGet(0, vm1_ip, remote_vm3_ip, IPPROTO_ICMP, 0, 0,
+                 flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+    rfe = fe->reverse_flow_entry();
+    EXPECT_TRUE(rfe != NULL);
+
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
+    EXPECT_FALSE(fe->IsShortFlow());
+    EXPECT_EQ(fe->short_flow_reason(), 0);
+    FlushFlowTable();
+
+    DeleteRemoteRoute("vrf4", remote_vm3_ip);
+}
+
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

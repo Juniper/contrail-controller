@@ -768,7 +768,7 @@ void AgentXmppChannel::AddFabricVrfRoute(const Ip4Address &prefix_addr,
     table->AddGatewayRoute(bgp_peer_id(), agent_->fabric_vrf_name(),
                            prefix_addr, prefix_len, nh,
                            vn_list, MplsTable::kInvalidExportLabel,
-                           sg_list, tag_list, cl);
+                           sg_list, tag_list, cl, true);
 }
 
 void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
@@ -902,7 +902,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                              InterfaceNHFlags::BRIDGE,
                              sg_list, tag_list, CommunityList(), path_preference,
                              Ip4Address(0), ecmp_load_balance, false, false,
-                             sequence_number(), item->entry.etree_leaf);
+                             sequence_number(), item->entry.etree_leaf,
+                             false);
     } else {
         local_vm_route =
             new LocalVmRoute(intf_key,
@@ -912,7 +913,8 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
                              InterfaceNHFlags::BRIDGE,
                              sg_list, tag_list, CommunityList(), path_preference,
                              Ip4Address(0), ecmp_load_balance, false, false,
-                             sequence_number(), item->entry.etree_leaf);
+                             sequence_number(), item->entry.etree_leaf,
+                             false);
     }
     rt_table->AddLocalVmRouteReq(bgp_peer_id(), vrf_name, mac,
                                  ip_addr, item->entry.nlri.ethernet_tag,
@@ -988,6 +990,11 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
         return;
     }
 
+    bool native_encap = false;
+    if (encap & TunnelType::NativeType()) {
+        native_encap = true;
+    }
+
     MplsLabel *mpls = agent_->mpls_table()->FindMplsLabel(label);
     if (mpls != NULL) {
         const NextHop *nh = mpls->nexthop();
@@ -1016,7 +1023,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                              path_preference,
                              Ip4Address(0),
                              ecmp_load_balance, false, false,
-                             sequence_number(), false);
+                             sequence_number(), false, native_encap);
                 rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
                                              prefix_addr, prefix_len,
                                              static_cast<LocalVmRoute *>(local_vm_route));
@@ -1098,6 +1105,10 @@ template <typename TYPE>
 bool AgentXmppChannel::IsEcmp(const TYPE &nexthops) {
     if (nexthops.size() == 0)
         return false;
+
+    if (nexthops[0].label == MplsTable::kInvalidExportLabel) {
+        return false;
+    }
 
     std::string address = nexthops[0].address;
     for (uint32_t index = 1; index < nexthops.size(); index++) {

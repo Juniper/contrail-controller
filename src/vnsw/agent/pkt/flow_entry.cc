@@ -590,6 +590,12 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
         reset_flags(FlowEntry::AliasIpFlow);
     }
 
+    if (info->underlay_flow) {
+        set_flags(FlowEntry::FabricFlow);
+    } else {
+        reset_flags(FlowEntry::FabricFlow);
+    }
+
     if (IsFabricControlFlow()) {
         set_flags(FlowEntry::FabricControlFlow);
     } else {
@@ -669,6 +675,9 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         set_flags(FlowEntry::Multicast);
     }
 
+    data_.src_policy_vrf = info->src_policy_vrf;
+    data_.dst_policy_vrf = info->dst_policy_vrf;
+
     reset_flags(FlowEntry::UnknownUnicastFlood);
     if (info->flood_unknown_unicast) {
         set_flags(FlowEntry::UnknownUnicastFlood);
@@ -740,6 +749,9 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info, const PktInfo *pkt,
         reset_flags(FlowEntry::EcmpFlow);
     }
     data_.component_nh_idx = CompositeNH::kInvalidComponentNHIdx;
+
+    data_.src_policy_vrf = info->dst_policy_vrf;
+    data_.dst_policy_vrf = info->src_policy_vrf;
 
     reset_flags(FlowEntry::UnknownUnicastFlood);
     if (info->flood_unknown_unicast) {
@@ -1319,39 +1331,24 @@ std::string FlowEntry::DropReasonStr(uint16_t reason) {
 // src-vn and sg-id are used for policy lookup
 // plen is used to track the routes to use by flow_mgmt module
 void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
+    Agent *agent = flow_table()->agent();
+    if (is_flags_set(FlowEntry::FabricFlow)) {
+        const InetUnicastRouteEntry *inet_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(rt);
 
-    if (data_.intf_entry.get()) {
+        const VrfEntry *policy_vrf =
+            static_cast<const VrfEntry *>(agent->
+                        vrf_table()->FindVrfFromId(data_.src_policy_vrf));
+
         //Policy lookup needs to happen in Policy VRF
-        if (data_.intf_entry->vrf() &&
-            data_.intf_entry->vrf()->forwarding_vrf()) {
-
-            data_.src_policy_plen = 0;
-            data_.src_policy_vrf = VrfEntry::kInvalidIndex;
-            VrfEntry *forwarding_vrf = data_.intf_entry->vrf()->forwarding_vrf();
-
-            const InetUnicastRouteEntry *inet_rt =
-                dynamic_cast<const InetUnicastRouteEntry *>(rt);
-            if (inet_rt &&  inet_rt->vrf() == forwarding_vrf) {
-                AgentRoute *new_rt = GetUcRoute(data_.intf_entry->vrf(), 
-                                                inet_rt->addr());
-                if (new_rt) {
-                    rt = new_rt;
-                    inet_rt = dynamic_cast<const InetUnicastRouteEntry *>(new_rt);
-                    data_.src_policy_plen = inet_rt->plen();
-                    data_.src_policy_vrf = inet_rt->vrf()->vrf_id();
-                } else {
-                    if (is_flags_set(FlowEntry::LinkLocalFlow) == false) {
-                        //Check of linklocal flow is done, since link local
-                        //routes wouldnt be found in policy VRF
-                        //Removing this check should be fine as link local
-                        //flow don go thru policy, retaining it to reflect
-                        //old flow behaviour
-                        rt = NULL;
-                    }
-                    data_.src_policy_plen = 0;
-                    data_.src_policy_vrf  = data_.intf_entry->vrf()->vrf_id();
-                }
-            }
+        AgentRoute *new_rt = GetUcRoute(policy_vrf,
+                                        inet_rt->addr());
+        data_.src_policy_plen = 0;
+        if (new_rt) {
+            rt = new_rt;
+            inet_rt = dynamic_cast<const InetUnicastRouteEntry *>(new_rt);
+            data_.src_policy_plen = inet_rt->plen();
+            data_.src_policy_vrf = inet_rt->vrf()->vrf_id();
         }
     }
 
@@ -1378,44 +1375,29 @@ void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
 // dst-vn and sg-id are used for policy lookup
 // plen is used to track the routes to use by flow_mgmt module
 void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
+    Agent *agent = flow_table()->agent();
     const AgentPath *path = NULL;
     if (rt) {
         path = rt->GetActivePath();
     }
 
-    if (data_.intf_entry.get()) {
-        //Policy lookup needs to happen in Policy VRF
-        if (data_.intf_entry->vrf() &&
-            data_.intf_entry->vrf()->forwarding_vrf()) {
+    if (is_flags_set(FlowEntry::FabricFlow)) {
+        data_.dst_policy_plen = 0;
 
-            data_.dst_policy_plen = 0;
-            data_.dst_policy_vrf = VrfEntry::kInvalidIndex;
-            VrfEntry *forwarding_vrf = data_.intf_entry->vrf()->forwarding_vrf();
+        const InetUnicastRouteEntry *inet_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(rt);
 
-            const InetUnicastRouteEntry *inet_rt =
-                dynamic_cast<const InetUnicastRouteEntry *>(rt);
-            if (inet_rt && inet_rt->vrf() == forwarding_vrf) {
-                AgentRoute *new_rt = 
-                    GetUcRoute(data_.intf_entry->vrf(), inet_rt->addr());
-                if (new_rt) {
-                    rt = new_rt;
-                    inet_rt = dynamic_cast<const InetUnicastRouteEntry *>(rt);
-                    data_.dst_policy_plen = inet_rt->plen();
-                    data_.dst_policy_vrf = inet_rt->vrf()->vrf_id();
-                } else {
-                    data_.dst_policy_plen = 0;
-                    data_.dst_policy_vrf  = data_.intf_entry->vrf()->vrf_id();
-                    path = NULL;
-                    if (is_flags_set(FlowEntry::LinkLocalFlow) == false) {
-                        //Check of linklocal flow is done, since link local
-                        //routes wouldnt be found in policy VRF
-                        //Removing this check should be fine as link local
-                        //flow don go thru policy, retaining it to reflect
-                        //old flow behaviour
-                        rt = NULL;
-                    }
-                }
-            }
+        const VrfEntry *policy_vrf =
+            static_cast<const VrfEntry *>(agent->
+                    vrf_table()->FindVrfFromId(data_.dst_policy_vrf));
+
+        AgentRoute *new_rt =
+            GetUcRoute(policy_vrf, inet_rt->addr());
+        if (new_rt) {
+            rt = new_rt;
+            inet_rt = dynamic_cast<const InetUnicastRouteEntry *>(rt);
+            data_.dst_policy_plen = inet_rt->plen();
+            data_.dst_policy_vrf = inet_rt->vrf()->vrf_id();
         }
     }
 
