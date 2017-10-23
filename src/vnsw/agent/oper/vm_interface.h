@@ -1286,6 +1286,7 @@ public:
         return vmi_cfg_uuid_;
     }
 
+    bool is_left_si() const { return is_left_si_; }
     const boost::uuids::uuid &si_other_end_vmi() const {
         return si_other_end_vmi_;
     }
@@ -1491,6 +1492,8 @@ private:
     VrfEntryRef forwarding_vrf_;
     // vhostuser mode
     uint8_t vhostuser_mode_;
+    // indicates if the VMI is the left interface of a service instance
+    bool is_left_si_;
     /* If current interface is SI VMI, then the below field indicates the VMI
      * uuid of the other end of SI. If current VMI is left VMI of SI si1, then
      * below field indicates right VMI of SI si1 and vice versa. This will have
@@ -1675,7 +1678,8 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     bool learning_enabled_;
     UuidList slo_list_;
     uint8_t vhostuser_mode_;
-    boost::uuids::uuid si_other_end_vmi;
+    bool is_left_si_;
+    boost::uuids::uuid si_other_end_vmi_;
     boost::uuids::uuid vmi_cfg_uuid_;
     std::string service_intf_type_;
 };

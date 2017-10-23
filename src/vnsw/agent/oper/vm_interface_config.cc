@@ -739,10 +739,11 @@ static void BuildSiOtherVmi(Agent *agent, VmInterfaceConfigData *data,
             continue;
         }
 
-        data->si_other_end_vmi = nil_uuid();
+        data->is_left_si_ = (interface_to_find == "right") ? true : false;
+        data->si_other_end_vmi_ = nil_uuid();
         autogen::IdPermsType id_perms = cfg->id_perms();
         CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
-                   data->si_other_end_vmi);
+                   data->si_other_end_vmi_);
         /* No further iterations required for setting data->si_other_end_vmi */
         break;
     }
