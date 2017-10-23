@@ -12,6 +12,8 @@
 #include <vrouter/flow_stats/session_stats_collector.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <oper/tag.h>
+#include <oper/security_logging_object.h>
+#include <oper/global_vrouter.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
 
 bool session_debug_ = false;
@@ -58,6 +60,14 @@ uint64_t SessionStatsCollector::GetCurrentTime() {
 void SessionStatsCollector::Shutdown() {
     StatsCollector::Shutdown();
     request_queue_.Shutdown();
+}
+
+void SessionStatsCollector::RegisterDBClients() {
+    if (agent_uve_->agent()->slo_table()) {
+        slo_listener_id_ = agent_uve_->agent()->slo_table()->Register(
+                            boost::bind(&SessionStatsCollector::SloNotify, this,
+                                        _1, _2));
+    }
 }
 
 bool SessionStatsCollector::Run() {
@@ -679,6 +689,234 @@ void SessionStatsCollector::DeleteFlowToSessionMap(FlowEntry *fe) {
     }
 }
 
+void SessionStatsCollector::UpdateSloStateRules(SecurityLoggingObject *slo,
+                                                SessionSloState *state) {
+    vector<autogen::SecurityLoggingObjectRuleEntryType>::const_iterator it;
+    it = slo->rules().begin();
+    while (it != slo->rules().end()) {
+        state->UpdateSessionSloStateRuleEntry(it->rule_uuid, it->rate);
+        it++;
+    }
+
+    UuidList::const_iterator acl_it;
+    acl_it = slo->firewall_policy_list().begin();
+    while (acl_it != slo->firewall_policy_list().end()) {
+        AclKey key(*acl_it);
+        AclDBEntry *acl = static_cast<AclDBEntry *>(agent_uve_->agent()->
+                        acl_table()->FindActiveEntry(&key));
+        if (acl) {
+            int index = 0;
+            const AclEntry *ae = acl->GetAclEntryAtIndex(index);
+            while (ae != NULL) {
+                state->UpdateSessionSloStateRuleEntry(ae->uuid(), slo->rate());
+                index++;
+                ae = acl->GetAclEntryAtIndex(index);
+            }
+        }
+        acl_it++;
+    }
+
+    UuidList::const_iterator fw_rule_it;
+    fw_rule_it = slo->firewall_rule_list().begin();
+    while (fw_rule_it != slo->firewall_rule_list().end()) {
+        state->UpdateSessionSloStateRuleEntry(UuidToString(*fw_rule_it),
+                                           slo->rate());
+        fw_rule_it++;
+    }
+
+}
+
+void SessionStatsCollector::SloNotify(DBTablePartBase *partition,
+                                        DBEntryBase *e) {
+    SecurityLoggingObject *slo = static_cast<SecurityLoggingObject *>(e);
+    SessionSloState *state =
+        static_cast<SessionSloState *>(slo->GetState(partition->parent(),
+                                                     slo_listener_id_));
+    if (slo->IsDeleted()) {
+        if (!state)
+            return;
+        slo->ClearState(partition->parent(), slo_listener_id_);
+        delete state;
+        return;
+    }
+
+    if (!state) {
+        state = new SessionSloState();
+        slo->SetState(slo->get_table(), slo_listener_id_, state);
+    }
+    UpdateSloStateRules(slo, state);
+}
+
+void SessionStatsCollector::AddSessionSloRuleEntry(std::string uuid, int rate,
+                                                   SecurityLoggingObject *slo,
+                                                   SessionSloRuleMap *slo_rule_map) {
+    SessionSloRuleEntry slo_rule_entry(rate, slo->uuid());
+    std::pair<SessionSloRuleMap::iterator, bool> ret;
+    ret = slo_rule_map->insert(make_pair(uuid,
+                                          slo_rule_entry));
+}
+
+void SessionStatsCollector::AddSloRules(
+        const std::vector<autogen::SecurityLoggingObjectRuleEntryType> &list,
+        SecurityLoggingObject *slo,
+        SessionSloRuleMap *slo_rule_map) {
+    vector<autogen::SecurityLoggingObjectRuleEntryType>::const_iterator it;
+    it = list.begin();
+    while (it != list.end()) {
+        AddSessionSloRuleEntry(it->rule_uuid, it->rate, slo, slo_rule_map);
+        it++;
+    }
+}
+
+void SessionStatsCollector::AddSloFirewallPolicies(UuidList &list, int rate,
+                                                   SecurityLoggingObject *slo,
+                                                   SessionSloRuleMap *slo_rule_map) {
+    UuidList::const_iterator acl_it;
+    acl_it = list.begin();
+    while (acl_it != list.end()) {
+        AclKey key(*acl_it);
+        AclDBEntry *acl = static_cast<AclDBEntry *>(agent_uve_->agent()->
+                        acl_table()->FindActiveEntry(&key));
+        if (acl) {
+            int index = 0;
+            const AclEntry *ae = acl->GetAclEntryAtIndex(index);
+            while (ae != NULL) {
+                AddSessionSloRuleEntry(ae->uuid(), rate, slo, slo_rule_map);
+                index++;
+                ae = acl->GetAclEntryAtIndex(index);
+            }
+        }
+        acl_it++;
+    }
+}
+
+void SessionStatsCollector::AddSloFirewallRules(UuidList &list, int rate,
+                                                SecurityLoggingObject *slo,
+                                                SessionSloRuleMap *slo_rule_map) {
+    UuidList::const_iterator it;
+    it = list.begin();
+    while (it != list.end()) {
+        AddSessionSloRuleEntry(UuidToString(*it), rate, slo, slo_rule_map);
+        it++;
+    }
+}
+
+void SessionStatsCollector::AddSloEntryRules(SecurityLoggingObject *slo,
+                                             SessionSloRuleMap *slo_rule_map) {
+    AddSloRules(slo->rules(), slo, slo_rule_map);
+    AddSloFirewallPolicies(slo->firewall_policy_list(), slo->rate(),
+                           slo, slo_rule_map);
+    AddSloFirewallRules(slo->firewall_rule_list(), slo->rate(),
+                        slo, slo_rule_map);
+}
+
+void SessionStatsCollector::AddSloEntry(const boost::uuids::uuid &uuid,
+                                       SessionSloRuleMap *slo_rule_map) {
+    SecurityLoggingObjectKey slo_key(uuid);
+    SecurityLoggingObject *slo = static_cast<SecurityLoggingObject *>
+        (agent_uve_->agent()->slo_table()->FindActiveEntry(&slo_key));
+    if (slo) {
+        AddSloEntryRules(slo, slo_rule_map);
+    }
+}
+
+void SessionStatsCollector::AddSloList(const UuidList &slo_list,
+                                       SessionSloRuleMap *slo_rule_map) {
+    UuidList::const_iterator sit = slo_list.begin();
+    while (sit != slo_list.end()) {
+        AddSloEntry(*sit, slo_rule_map);
+        sit++;
+    }
+}
+void SessionStatsCollector::BuildSloList(SessionFlowStatsInfo &session_flow,
+                                SessionSloRuleMap *global_session_slo_rule_map,
+                                SessionSloRuleMap *vmi_session_slo_rule_map,
+                                SessionSloRuleMap *vn_session_slo_rule_map) {
+    const FlowEntry *fe = session_flow.flow.get();
+    const Interface *itf = fe->intf_entry();
+
+    vmi_session_slo_rule_map->clear();
+    vn_session_slo_rule_map->clear();
+    global_session_slo_rule_map->clear();
+
+    if (agent_uve_->agent()->oper_db()->global_vrouter()->slo_uuid() !=
+                                                                nil_uuid()) {
+        AddSloEntry(
+                agent_uve_->agent()->oper_db()->global_vrouter()->slo_uuid(),
+                global_session_slo_rule_map);
+    }
+
+    if (!itf) {
+        return;
+    }
+
+    if (itf->type() != Interface::VM_INTERFACE) {
+        return;
+    }
+
+    const VmInterface *vmi = static_cast<const VmInterface *>(itf);
+    AddSloList(vmi->slo_list(), vmi_session_slo_rule_map);
+    if (vmi->vn()) {
+        AddSloList(vmi->vn()->slo_list(), vn_session_slo_rule_map);
+    }
+}
+
+void SessionStatsCollector::UpdateSloMatchRuleEntry(boost::uuids::uuid slo_uuid,
+                                                    std::string match_uuid,
+                                                    bool *is_logged) {
+    SecurityLoggingObjectKey slo_key(slo_uuid);
+    SecurityLoggingObject *slo = static_cast<SecurityLoggingObject *>
+        (agent_uve_->agent()->slo_table()->FindActiveEntry(&slo_key));
+    if (slo) {
+        SessionSloState *state =
+            static_cast<SessionSloState *>(slo->GetState(agent_uve_->agent()->slo_table(),
+                                                         slo_listener_id_));
+       state->UpdateSessionSloStateRuleRefCount(match_uuid, is_logged);
+    }
+}
+
+bool SessionStatsCollector::FindSloMatchRule(SessionSloRuleMap &map,
+                                             std::string match_uuid) {
+    SessionSloRuleMap::iterator it;
+    bool is_logged = false;
+    it = map.find(match_uuid);
+    if (it != map.end()) {
+        UpdateSloMatchRuleEntry(it->second.slo_uuid,
+                                match_uuid,
+                                &is_logged);
+    }
+    return is_logged;
+}
+bool SessionStatsCollector::MatchSloForSession(
+        SessionFlowStatsInfo &session_flow,
+        std::string match_uuid) {
+    bool is_vmi_slo_logged, is_vn_slo_logged, is_global_slo_logged;
+    SessionSloRuleMap vmi_session_slo_rule_map;
+    SessionSloRuleMap vn_session_slo_rule_map;
+    SessionSloRuleMap global_session_slo_rule_map;
+
+    /*
+     * Get the list of slos need to be matched for the given flow
+     */
+    BuildSloList(session_flow,
+                 &global_session_slo_rule_map,
+                 &vmi_session_slo_rule_map,
+                 &vn_session_slo_rule_map);
+    /*
+     * Match the policy_match for the given flow against the slo list
+     */
+    is_vmi_slo_logged = FindSloMatchRule(vmi_session_slo_rule_map, match_uuid);
+    is_vn_slo_logged = FindSloMatchRule(vn_session_slo_rule_map, match_uuid);
+    is_global_slo_logged = FindSloMatchRule(global_session_slo_rule_map,
+                                             match_uuid);
+    if ((is_vmi_slo_logged) ||
+        (is_vn_slo_logged) ||
+        (is_global_slo_logged)) {
+        return true;
+    }
+    return false;
+}
+
 uint64_t SessionStatsCollector::GetUpdatedSessionFlowBytes(uint64_t info_bytes,
                                                  uint64_t k_flow_bytes) const {
     uint64_t oflow_bytes = 0xffff000000000000ULL & info_bytes;
@@ -976,6 +1214,21 @@ bool SessionStatsCollector::ProcessSessionEndpoint
         session_map_iter = session_agg_map_iter->second.session_map_.
             lower_bound(session_iteration_key_);
         while (session_map_iter != session_agg_map_iter->second.session_map_.end()) {
+
+            std::string match_policy_uuid = session_map_iter->
+                second.fwd_flow.flow.get()->fw_policy_name_uuid();
+            bool is_fwd_logged = MatchSloForSession(
+                                    session_map_iter->second.fwd_flow,
+                                    match_policy_uuid);
+            match_policy_uuid = session_map_iter->
+                second.rev_flow.flow.get()->fw_policy_name_uuid();
+            bool is_rev_logged = MatchSloForSession(
+                                    session_map_iter->second.rev_flow,
+                                    match_policy_uuid);
+            if (!(is_fwd_logged || is_rev_logged)) {
+                session_map_iter++;
+                continue;
+            }
             FillSessionInfoLocked(session_map_iter, &session_info,
                                   &session_key);
             session_agg_info.sessionMap.insert(make_pair(session_key,
@@ -1175,6 +1428,14 @@ size_t SessionStatsCollectorObject::Size() const {
     return size;
 }
 
+void SessionStatsCollectorObject::RegisterDBClients() {
+    for (int i = 0; i < kMaxSessionCollectors; i++) {
+        if (collectors[i].get()) {
+            collectors[i].get()->RegisterDBClients();
+        }
+    }
+}
+
 FlowEntry* SessionStatsReq::reverse_flow() const {
     FlowEntry *rflow = NULL;
     if (flow_.get()) {
@@ -1198,3 +1459,43 @@ bool FlowToSessionMap::IsEqual(FlowToSessionMap &rhs) {
     }
      return true;
 }
+
+void SessionSloState::DeleteSessionSloStateRuleEntry(std::string uuid) {
+    SessionSloRuleStateMap::iterator  it;
+    it = session_rule_state_map_.find(uuid);
+    if (it != session_rule_state_map_.end()) {
+        session_rule_state_map_.erase(it);
+    }
+}
+
+void SessionSloState::UpdateSessionSloStateRuleEntry(std::string uuid,
+                                                     int rate) {
+    SessionSloRuleStateMap::iterator  it;
+    it = session_rule_state_map_.find(uuid);
+    if (it == session_rule_state_map_.end()) {
+        SessionSloRuleState slo_state_rule_entry = {};
+        slo_state_rule_entry.rate = rate;
+        session_rule_state_map_.insert(make_pair(uuid, slo_state_rule_entry));
+    } else {
+        SessionSloRuleState &prev = it->second;
+        if (prev.rate != rate) {
+            prev.rate = rate;
+            prev.ref_count = 0;
+        }
+    }
+
+}
+
+void SessionSloState::UpdateSessionSloStateRuleRefCount(std::string uuid,
+                                                        bool *is_logged) {
+    SessionSloRuleStateMap::iterator  it;
+    *is_logged = false;
+    it = session_rule_state_map_.find(uuid);
+    if (it != session_rule_state_map_.end()) {
+        it->second.ref_count++;
+        if (it->second.ref_count == it->second.rate) {
+            *is_logged = true;
+        }
+    }
+}
+

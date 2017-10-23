@@ -605,6 +605,7 @@ class FlowEntry {
     }
     const std::string &nw_ace_uuid() const { return nw_ace_uuid_; }
     const std::string fw_policy_name_uuid() const;
+    const std::string fw_policy_uuid() const;
     const std::string RemotePrefix() const;
     const TagList &remote_tagset() const;
     const TagList &local_tagset() const;
