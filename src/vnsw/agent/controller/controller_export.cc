@@ -181,9 +181,9 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
     if (path && !path->is_local()) {
         if (state->Changed(route, path)) {
+            state->Update(route, path);
             VnListType vn_list;
             vn_list.insert(state->vn_);
-            state->Update(route, path);
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRouteAdd(bgp_xmpp_peer, 
                         static_cast<AgentRoute * >(route),
