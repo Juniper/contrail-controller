@@ -63,13 +63,6 @@ static string InetRouteFlowMgmtKeyToString(uint16_t id,
     if (info) {                                                             \
         data.set_stats_bytes(info->bytes());                                \
         data.set_stats_packets(info->packets());                            \
-        data.set_underlay_source_port(info->underlay_source_port());        \
-        data.set_setup_time(                                                \
-            integerToString(UTCUsecToPTime(info->setup_time())));           \
-        data.set_setup_time_utc(info->setup_time());                        \
-        if (fe->is_flags_set(FlowEntry::LocalFlow)) {                       \
-            data.set_egress_uuid(UuidToString(info->egress_uuid()));        \
-        }                                                                   \
     }                                                                       \
     if (fe->is_flags_set(FlowEntry::NatFlow)) {                             \
         data.set_nat("enabled");                                            \
