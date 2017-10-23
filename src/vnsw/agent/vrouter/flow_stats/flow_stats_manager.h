@@ -145,6 +145,28 @@ public:
         return flow_export_without_sampling_.fetch_and_store(0);
     }
 
+    uint32_t session_export_rate() const {
+        return session_export_rate_;
+    }
+
+    uint32_t session_export_count() const {
+        return session_export_count_;
+    }
+
+    void set_session_export_count(uint32_t count) {
+        session_export_count_ = count;
+    }
+
+    uint32_t session_export_count_reset() {
+        return session_export_count_.fetch_and_store(0);
+    }
+
+    uint32_t session_export_without_sampling_reset() {
+        return session_export_without_sampling_.fetch_and_store(0);
+    }
+
+    uint32_t session_export_drops() const { return session_export_drops_; }
+
     uint32_t flow_export_disable_drops() const {
         return flow_export_disable_drops_;
     }
@@ -175,6 +197,18 @@ public:
 
     uint64_t session_sample_exports() const { return session_sample_exports_; }
     uint64_t session_msg_exports() const { return session_msg_exports_; }
+    uint64_t session_exports() const { return session_exports_; }
+
+    uint32_t session_export_disable_drops() const {
+        return session_export_disable_drops_;
+    }
+    uint32_t session_export_sampling_drops() const {
+        return session_export_sampling_drops_;
+    }
+    void set_sessions_sampled_atleast_once() {
+        sessions_sampled_atleast_once_ = true;
+    }
+
     uint64_t threshold() const { return threshold_;}
     bool delete_short_flow() const {
         return delete_short_flow_;
@@ -197,6 +231,8 @@ public:
     void UpdateFlowMsgExportStats(uint32_t count);
     void UpdateSessionSampleExportStats(uint32_t count);
     void UpdateSessionMsgExportStats(uint32_t count);
+    void UpdateSessionExportStats(uint32_t count, bool first_export,
+                                  bool sampled);
 
     void SetProfileData(ProfileData *data);
     friend class AgentUtXmlFlowThreshold;
@@ -204,7 +240,8 @@ public:
 private:
     friend class FlowStatsCollectorReq;
     friend class FlowStatsCollector;
-    bool UpdateFlowThreshold(void);
+    friend class SessionStatsCollector;
+    bool UpdateSessionThreshold(void);
     void UpdateThreshold(uint64_t new_value, bool check_oflow);
     FlowStatsCollectorObject* GetFlowStatsCollectorObject(const FlowEntry *flow)
         const;
@@ -226,9 +263,17 @@ private:
     tbb::atomic<uint64_t> flow_msg_exports_;
     tbb::atomic<uint64_t> flow_exports_;
     tbb::atomic<bool> flows_sampled_atleast_once_;
+    uint32_t prev_cfg_flow_export_rate_;
+    uint32_t session_export_rate_;
+    tbb::atomic<uint32_t> session_export_count_;
     tbb::atomic<uint64_t> session_sample_exports_;
     tbb::atomic<uint64_t> session_msg_exports_;
-    uint32_t prev_cfg_flow_export_rate_;
+    tbb::atomic<uint64_t> session_exports_;
+    tbb::atomic<uint64_t> session_export_disable_drops_;
+    tbb::atomic<uint64_t> session_export_sampling_drops_;
+    tbb::atomic<uint32_t> session_export_without_sampling_;
+    tbb::atomic<uint64_t> session_export_drops_;
+    tbb::atomic<bool> sessions_sampled_atleast_once_;
     Timer* timer_;
     bool delete_short_flow_;
     //Protocol based array for minimal tree comparision

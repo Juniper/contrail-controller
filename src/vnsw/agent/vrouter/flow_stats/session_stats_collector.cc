@@ -13,7 +13,9 @@
 #include <vrouter/flow_stats/session_stats_collector.h>
 #include <vrouter/ksync/ksync_init.h>
 #include <oper/tag.h>
+#include <oper/global_vrouter.h>
 #include <vrouter/flow_stats/flow_stats_collector.h>
+#include <vrouter/flow_stats/flow_stats_types.h>
 
 bool session_debug_ = false;
 SessionStatsCollector::SessionStatsCollector(boost::asio::io_service &io,
@@ -84,6 +86,79 @@ bool SessionStatsCollector::Run() {
     return true;
 }
 
+
+bool FlowStatsManager::UpdateSessionThreshold() {
+    uint64_t curr_time = FlowStatsCollector::GetCurrentTime();
+    bool export_rate_calculated = false;
+    uint32_t exp_rate_without_sampling = 0;
+
+    /* If flows are not being exported, no need to update threshold */
+    if (!session_export_count_) {
+        return true;
+    }
+
+    // Calculate Flow Export rate
+    if (prev_flow_export_rate_compute_time_) {
+        uint64_t diff_secs = 0;
+        uint64_t diff_micro_secs = curr_time -
+            prev_flow_export_rate_compute_time_;
+        if (diff_micro_secs) {
+            diff_secs = diff_micro_secs/1000000;
+        }
+        if (diff_secs) {
+            uint32_t session_export_count = session_export_count_reset();
+            session_export_rate_ = session_export_count/diff_secs;
+            exp_rate_without_sampling =
+                session_export_without_sampling_reset()/diff_secs;
+            prev_flow_export_rate_compute_time_ = curr_time;
+            export_rate_calculated = true;
+        }
+    } else {
+        prev_flow_export_rate_compute_time_ = curr_time;
+        flow_export_count_ = 0;
+        return true;
+    }
+
+    uint32_t cfg_rate = agent_->oper_db()->global_vrouter()->
+                            flow_export_rate();
+    /* No need to update threshold when flow_export_rate is NOT calculated
+     * and configured flow export rate has not changed */
+    if (!export_rate_calculated &&
+        (cfg_rate == prev_cfg_flow_export_rate_)) {
+        return true;
+    }
+    uint64_t cur_t = threshold(), new_t = 0;
+    // Update sampling threshold based on flow_export_rate_
+    if (session_export_rate_ < ((double)cfg_rate) * 0.8) {
+        /* There are two reasons why we can be here.
+         * 1. None of the flows were sampled because we never crossed
+         *    80% of configured flow-export-rate.
+         * 2. In scale setups, the threshold was updated to high value because
+         *    of which flow-export-rate has dropped drastically.
+         * Threshold should be updated here depending on which of the above two
+         * situations we are in. */
+        if (!sessions_sampled_atleast_once_) {
+            UpdateThreshold(kDefaultFlowSamplingThreshold, false);
+        } else {
+            if (session_export_rate_ < ((double)cfg_rate) * 0.5) {
+                UpdateThreshold((threshold_ / 4), false);
+            } else {
+                UpdateThreshold((threshold_ / 2), false);
+            }
+        }
+    } else if (session_export_rate_ > (cfg_rate * 3)) {
+        UpdateThreshold((threshold_ * 4), true);
+    } else if (session_export_rate_ > (cfg_rate * 2)) {
+        UpdateThreshold((threshold_ * 3), true);
+    } else if (session_export_rate_ > ((double)cfg_rate) * 1.25) {
+        UpdateThreshold((threshold_ * 2), true);
+    }
+    prev_cfg_flow_export_rate_ = cfg_rate;
+    new_t = threshold();
+    FLOW_EXPORT_STATS_TRACE(session_export_rate_, exp_rate_without_sampling,
+                            cur_t, new_t);
+    return true;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Utility methods to enqueue events into work-queue
@@ -403,6 +478,8 @@ void SessionStatsCollector::UpdateSessionFlowStatsInfo(FlowEntry *fe,
     session_flow->gen_id= fe->gen_id();
     session_flow->flow_handle = fe->flow_handle();
     session_flow->uuid = fe->uuid();
+    session_flow->total_bytes = 0;
+    session_flow->total_packets = 0;
 }
 
 void SessionStatsCollector::UpdateSessionStatsInfo(FlowEntry* fe,
@@ -410,6 +487,8 @@ void SessionStatsCollector::UpdateSessionStatsInfo(FlowEntry* fe,
     FlowEntry *rfe = fe->reverse_flow_entry();
 
     session->setup_time = setup_time;
+    session->teardown_time = 0;
+    session->exported_atleast_once = false;
     UpdateSessionFlowStatsInfo(fe, &session->fwd_flow);
     UpdateSessionFlowStatsInfo(rfe, &session->rev_flow);
 }
@@ -609,7 +688,9 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
                 session_agg_map_iter->second.session_map_.find(session_db_key);
             if (session_map_iter !=
                     session_agg_map_iter->second.session_map_.end()) {
-                FillSessionInfoUnlocked(session_map_iter, &session_info,
+                SessionStatsParams params;
+                SessionStatsChangedUnlocked(session_map_iter, &params);
+                FillSessionInfoUnlocked(session_map_iter, params, &session_info,
                                         &session_key, NULL, false);
                 /*
                  * update the latest statistics
@@ -705,59 +786,26 @@ uint64_t SessionStatsCollector::GetUpdatedSessionFlowPackets(
 }
 
 void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
+                                                 const SessionFlowStatsParams &stats,
                                                  SessionFlowInfo *flow_info)
                                                  const {
-    FlowEntry *fe = session_flow.flow.get();
-    uint32_t flow_handle = session_flow.flow_handle;
-    uint16_t gen_id = session_flow.gen_id;
-    vr_flow_stats k_stats;
-    KFlowData kinfo;
-    uint64_t k_bytes, bytes, total_bytes, diff_bytes = 0;
-    uint64_t k_packets, total_packets, diff_packets = 0;
-    const vr_flow_entry *k_flow = NULL;
-    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
-        ksync_flow_memory();
-
-    k_flow = ksync_obj->GetKFlowStatsAndInfo(fe->key(),
-                                             flow_handle,
-                                             gen_id, &k_stats, &kinfo);
-    if (!k_flow) {
-        flow_info->set_logged_pkts(diff_packets);
-        flow_info->set_logged_bytes(diff_bytes);
-        flow_info->set_sampled_pkts(diff_packets);
-        flow_info->set_sampled_bytes(diff_bytes);
+    if (!stats.valid) {
         return;
     }
-
-    flow_info->set_tcp_flags(kinfo.tcp_flags);
-    flow_info->set_underlay_source_port(kinfo.underlay_src_port);
-
-    k_bytes = FlowStatsCollector::GetFlowStats(k_stats.flow_bytes_oflow,
-                          k_stats.flow_bytes);
-    k_packets = FlowStatsCollector::GetFlowStats(k_stats.flow_packets_oflow,
-                          k_stats.flow_packets);
-
-    bytes = 0x0000ffffffffffffULL & session_flow.total_bytes;
-
-    if (bytes != k_bytes) {
-        total_bytes = GetUpdatedSessionFlowBytes(session_flow.total_bytes,
-                                                 k_bytes);
-        total_packets = GetUpdatedSessionFlowPackets(session_flow.total_packets,
-                                                     k_packets);
-        diff_bytes = total_bytes - session_flow.total_bytes;
-        diff_packets = total_packets - session_flow.total_packets;
-        session_flow.total_bytes = total_bytes;
-        session_flow.total_packets = total_packets;
-        flow_info->set_logged_pkts(diff_packets);
-        flow_info->set_logged_bytes(diff_bytes);
-        flow_info->set_sampled_pkts(diff_packets);
-        flow_info->set_sampled_bytes(diff_bytes);
-    }
+    session_flow.total_bytes = stats.total_bytes;
+    session_flow.total_packets = stats.total_packets;
+    flow_info->set_tcp_flags(stats.tcp_flags);
+    flow_info->set_underlay_source_port(stats.underlay_src_port);
+    flow_info->set_logged_pkts(stats.diff_packets);
+    flow_info->set_logged_bytes(stats.diff_bytes);
+    flow_info->set_sampled_pkts(stats.diff_packets);
+    flow_info->set_sampled_bytes(stats.diff_bytes);
 }
 
 void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
                                                 uint64_t setup_time,
                                                 uint64_t teardown_time,
+                                                const SessionFlowStatsParams &stats,
                                                 const RevFlowDepParams *params,
                                                 bool read_flow,
                                                 SessionFlowInfo *flow_info)
@@ -765,7 +813,7 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
     FlowEntry *fe = session_flow.flow.get();
     std::string action_str;
 
-    FillSessionFlowStats(session_flow, flow_info);
+    FillSessionFlowStats(session_flow, stats, flow_info);
     flow_info->set_flow_uuid(session_flow.uuid);
     flow_info->set_setup_time(setup_time);
     flow_info->set_teardown_time(teardown_time);
@@ -784,19 +832,78 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
     }
 }
 
+bool SessionStatsCollector::SessionStatsChangedLocked
+    (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+     SessionStatsParams *params) const {
+    FlowEntry *fe = session_map_iter->second.fwd_flow.flow.get();
+    FlowEntry *rfe = session_map_iter->second.rev_flow.flow.get();
+    FLOW_LOCK(fe, rfe, FlowEvent::FLOW_MESSAGE);
+    return SessionStatsChangedUnlocked(session_map_iter, params);
+}
+
+bool SessionStatsCollector::SessionStatsChangedUnlocked
+    (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+     SessionStatsParams *params) const {
+
+    bool fwd_updated = FetchFlowStats(session_map_iter->second.fwd_flow,
+                                      &params->fwd_flow);
+    bool rev_updated = FetchFlowStats(session_map_iter->second.rev_flow,
+                                      &params->rev_flow);
+    return (fwd_updated || rev_updated);
+}
+
+bool SessionStatsCollector::FetchFlowStats
+(const SessionFlowStatsInfo &info, SessionFlowStatsParams *params) const {
+    vr_flow_stats k_stats;
+    KFlowData kinfo;
+    uint64_t k_bytes, bytes, k_packets;
+    const vr_flow_entry *k_flow = NULL;
+    KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
+        ksync_flow_memory();
+
+    k_flow = ksync_obj->GetKFlowStatsAndInfo(info.flow->key(),
+                                             info.flow_handle,
+                                             info.gen_id, &k_stats, &kinfo);
+    if (!k_flow) {
+        return false;
+    }
+
+    k_bytes = FlowStatsCollector::GetFlowStats(k_stats.flow_bytes_oflow,
+                                               k_stats.flow_bytes);
+    k_packets = FlowStatsCollector::GetFlowStats(k_stats.flow_packets_oflow,
+                                                 k_stats.flow_packets);
+
+    bytes = 0x0000ffffffffffffULL & info.total_bytes;
+
+    if (bytes != k_bytes) {
+        params->total_bytes = GetUpdatedSessionFlowBytes(info.total_bytes,
+                                                         k_bytes);
+        params->total_packets = GetUpdatedSessionFlowPackets(info.total_packets,
+                                                             k_packets);
+        params->diff_bytes = params->total_bytes - info.total_bytes;
+        params->diff_packets = params->total_packets - info.total_packets;
+        params->tcp_flags = kinfo.tcp_flags;
+        params->underlay_src_port = kinfo.underlay_src_port;
+        params->valid = true;
+        return true;
+    }
+    return false;
+}
+
 void SessionStatsCollector::FillSessionInfoLocked
     (SessionPreAggInfo::SessionMap::iterator session_map_iter,
-     SessionInfo *session_info,
+     const SessionStatsParams &stats, SessionInfo *session_info,
      SessionIpPort *session_key) const {
     FlowEntry *fe = session_map_iter->second.fwd_flow.flow.get();
     FlowEntry *rfe = session_map_iter->second.rev_flow.flow.get();
     FLOW_LOCK(fe, rfe, FlowEvent::FLOW_MESSAGE);
-    FillSessionInfoUnlocked(session_map_iter, session_info, session_key, NULL,
+    FillSessionInfoUnlocked(session_map_iter, stats, session_info, session_key, NULL,
                             true);
 }
 
 void SessionStatsCollector::FillSessionInfoUnlocked
     (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+     const SessionStatsParams &stats,
      SessionInfo *session_info,
      SessionIpPort *session_key,
      const RevFlowDepParams *params,
@@ -811,11 +918,11 @@ void SessionStatsCollector::FillSessionInfoUnlocked
     session_key->set_port(session_map_iter->first.client_port);
     FillSessionFlowInfo(session_map_iter->second.fwd_flow,
                         session_map_iter->second.setup_time,
-                        session_map_iter->second.teardown_time,
+                        session_map_iter->second.teardown_time, stats.fwd_flow,
                         NULL, read_flow, &session_info->forward_flow_info);
     FillSessionFlowInfo(session_map_iter->second.rev_flow,
                         session_map_iter->second.setup_time,
-                        session_map_iter->second.teardown_time,
+                        session_map_iter->second.teardown_time, stats.rev_flow,
                         params, read_flow, &session_info->reverse_flow_info);
     if (read_flow) {
         session_info->set_vm(fe->data().vm_cfg_name);
@@ -828,6 +935,14 @@ void SessionStatsCollector::FillSessionInfoUnlocked
         }
         session_info->set_underlay_proto(fe->tunnel_type().GetType());
     }
+    bool first_time_export = false;
+    if (!session_map_iter->second.exported_atleast_once) {
+        first_time_export = true;
+        /* Mark the flow as exported */
+        session_map_iter->second.exported_atleast_once = true;
+    }
+    flow_stats_manager_->UpdateSessionExportStats(1, first_time_export,
+                                                  stats.sampled);
 }
 
 void SessionStatsCollector::FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter,
@@ -926,24 +1041,31 @@ void SessionStatsCollector::ProcessSessionDelete
      const SessionPreAggInfo::SessionMap::iterator &session_it,
      const RevFlowDepParams *params, bool read_flow) {
 
-    SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
-    SessionPreAggInfo::SessionMap::iterator session_map_iter;
-
     SessionInfo session_info;
     SessionIpPort session_key;
     SessionAggInfo session_agg_info;
     SessionIpPortProtocol session_agg_key;
 
-    SessionEndpoint &session_ep = session_msg_list_[GetSessionMsgIdx()];
-
-    FillSessionInfoUnlocked(session_it, &session_info, &session_key, params,
-                            read_flow);
+    SessionStatsParams stats;
+    SessionStatsChangedUnlocked(session_it, &stats);
+    bool selected = true;
+    if (IsSamplingEnabled()) {
+        selected = SampleSession(session_it, &stats);
+    }
+    /* Ignore the session export if sampling drops the session */
+    if (!selected) {
+        return;
+    }
+    FillSessionInfoUnlocked(session_it, stats, &session_info, &session_key,
+                            params, read_flow);
     session_agg_info.sessionMap.insert(make_pair(session_key, session_info));
     FillSessionAggInfo(agg_it, &session_agg_info, &session_agg_key,
                        session_info.get_forward_flow_info().get_logged_bytes(),
                        session_info.get_forward_flow_info().get_logged_pkts(),
                        session_info.get_reverse_flow_info().get_logged_bytes(),
                        session_info.get_reverse_flow_info().get_logged_pkts());
+    SessionEndpoint &session_ep = session_msg_list_[GetSessionMsgIdx()];
+
     session_ep.sess_agg_info.insert(make_pair(session_agg_key,
                                               session_agg_info));
     FillSessionEndpoint(ep_it, &session_ep);
@@ -976,7 +1098,22 @@ bool SessionStatsCollector::ProcessSessionEndpoint
         session_map_iter = session_agg_map_iter->second.session_map_.
             lower_bound(session_iteration_key_);
         while (session_map_iter != session_agg_map_iter->second.session_map_.end()) {
-            FillSessionInfoLocked(session_map_iter, &session_info,
+            SessionStatsParams params;
+            bool changed = SessionStatsChangedLocked(session_map_iter, &params);
+            if (!changed && session_map_iter->second.exported_atleast_once) {
+                ++session_map_iter;
+                continue;
+            }
+            bool selected = true;
+            if (IsSamplingEnabled()) {
+                selected = SampleSession(session_map_iter, &params);
+            }
+            /* Ignore the session export if sampling drops the session */
+            if (!selected) {
+                ++session_map_iter;
+                continue;
+            }
+            FillSessionInfoLocked(session_map_iter, params, &session_info,
                                   &session_key);
             session_agg_info.sessionMap.insert(make_pair(session_key,
                                                          session_info));
@@ -988,7 +1125,7 @@ bool SessionStatsCollector::ProcessSessionEndpoint
                 session_info.get_reverse_flow_info().get_logged_bytes();
             total_rev_packets +=
                 session_info.get_reverse_flow_info().get_logged_pkts();
-            session_map_iter++;
+            ++session_map_iter;
             ++session_count;
             if (session_count ==
                 agent_uve_->agent()->params()->max_sessions_per_aggregate()) {
@@ -996,13 +1133,18 @@ bool SessionStatsCollector::ProcessSessionEndpoint
                 break;
             }
         }
-        FillSessionAggInfo(session_agg_map_iter, &session_agg_info, &session_agg_key,
-                           total_fwd_bytes, total_fwd_packets, total_rev_bytes,
-                           total_rev_packets);
-        session_ep.sess_agg_info.insert(make_pair(session_agg_key, session_agg_info));
+        if (session_count) {
+            FillSessionAggInfo(session_agg_map_iter, &session_agg_info,
+                               &session_agg_key, total_fwd_bytes,
+                               total_fwd_packets, total_rev_bytes,
+                               total_rev_packets);
+            session_ep.sess_agg_info.insert(make_pair(session_agg_key,
+                                                      session_agg_info));
+        }
         if (exit) {
             break;
         }
+        session_iteration_key_.Reset();
         session_agg_map_iter++;
         ++session_agg_count;
         if (session_agg_count ==
@@ -1010,8 +1152,11 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             break;
         }
     }
-    FillSessionEndpoint(it, &session_ep);
-    EnqueueSessionMsg();
+    /* Don't export SessionEndpoint if there are 0 aggregates */
+    if (session_ep.sess_agg_info.size()) {
+        FillSessionEndpoint(it, &session_ep);
+        EnqueueSessionMsg();
+    }
 
     if (session_count ==
         agent_uve_->agent()->params()->max_sessions_per_aggregate()) {
@@ -1129,6 +1274,94 @@ void SessionStatsCollector::GetFlowSandeshActionParams
                 static_cast<TrafficAction::Action>(i));
         }
     }
+}
+
+bool SessionStatsCollector::IsSamplingEnabled() const {
+    int32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
+                        flow_export_rate();
+    if (cfg_rate == GlobalVrouter::kDisableSampling) {
+        return false;
+    }
+    return true;
+}
+
+bool SessionStatsCollector::SampleSession
+    (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+     SessionStatsParams *params) const {
+    params->sampled = false;
+    int32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
+                        flow_export_rate();
+    /* If session export is disabled, update stats and return */
+    if (!cfg_rate) {
+        flow_stats_manager_->session_export_disable_drops_++;
+        return false;
+    }
+    /* For session-sampling diff_bytes should consider the diff bytes for both
+     * forward and reverse flow */
+    uint64_t diff_bytes = params->fwd_flow.diff_bytes +
+                          params->rev_flow.diff_bytes;
+    const SessionStatsInfo &info = session_map_iter->second;
+    /* Subject a flow to sampling algorithm only when all of below is met:-
+     * a. actual session-export-rate is >= 80% of configured flow-export-rate.
+     *    This is done only for first time.
+     * b. diff_bytes is lesser than the threshold
+     * c. Flow-sample does not have teardown time or the sample for the flow is
+     *    not exported earlier.
+     */
+    bool subject_flows_to_algorithm = false;
+    if ((diff_bytes < threshold()) &&
+        (!info.teardown_time || !info.exported_atleast_once) &&
+        ((!flow_stats_manager_->sessions_sampled_atleast_once_ &&
+         flow_stats_manager_->session_export_rate() >= ((double)cfg_rate) * 0.8)
+         || flow_stats_manager_->sessions_sampled_atleast_once_)) {
+        subject_flows_to_algorithm = true;
+        flow_stats_manager_->set_sessions_sampled_atleast_once();
+    }
+
+    if (subject_flows_to_algorithm) {
+        params->sampled = true;
+        double probability = diff_bytes/threshold();
+        uint32_t num = rand() % threshold();
+        if (num > diff_bytes) {
+            /* Do not export the flow, if the random number generated is more
+             * than the diff_bytes */
+            flow_stats_manager_->session_export_sampling_drops_++;
+            /* The second part of the if condition below is not required but
+             * added for better readability. It is not required because
+             * exported_atleast_once() will always be false if teardown time is
+             * set. If both teardown_time and exported_atleast_once are true we
+             * will never be here */
+            if (info.teardown_time && !info.exported_atleast_once) {
+                /* This counter indicates the number of sessions that were
+                 * never exported */
+                flow_stats_manager_->session_export_drops_++;
+            }
+            return false;
+        }
+        /* Normalize the diff_bytes and diff_packets reported using the
+         * probability value */
+        if (probability == 0) {
+            params->fwd_flow.diff_bytes = 0;
+            params->fwd_flow.diff_packets = 0;
+            params->rev_flow.diff_bytes = 0;
+            params->rev_flow.diff_packets = 0;
+        } else {
+            params->fwd_flow.diff_bytes = params->fwd_flow.diff_bytes/
+                                                  probability;
+            params->fwd_flow.diff_packets = params->fwd_flow.diff_packets/
+                                                    probability;
+            params->rev_flow.diff_bytes = params->rev_flow.diff_bytes/
+                                                  probability;
+            params->rev_flow.diff_packets = params->rev_flow.diff_packets/
+                                                    probability;
+        }
+    }
+
+    return true;
+}
+
+uint64_t SessionStatsCollector::threshold() const {
+    return flow_stats_manager_->threshold();
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -93,4 +93,12 @@ response sandesh SandeshStatsResp {
 response sandesh SessionEndpointExportStatsResp {
     1: u64 record_export_count;
     2: u64 msg_export_count;
+    /** Dropped because of disable of exports */
+    3: u64 session_export_disable_drops;
+    /** Dropped by sampling algorithm */
+    4: u64 session_export_sampling_drops;
+    /** Number of unique sessions exported */
+    5: u64 session_exports;
+    /** Number of unique sessions never exported */
+    6: u64 session_export_drops;
 }

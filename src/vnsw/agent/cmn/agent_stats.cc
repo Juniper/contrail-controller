@@ -122,6 +122,13 @@ void AgentStatsReq::HandleRequest() const {
                                   session_sample_exports());
     srsp->set_msg_export_count(agent->flow_stats_manager()->
                                session_msg_exports());
+    srsp->set_session_export_disable_drops(agent->flow_stats_manager()->
+                                           session_export_disable_drops());
+    srsp->set_session_export_sampling_drops(agent->flow_stats_manager()->
+                                            session_export_sampling_drops());
+    srsp->set_session_exports(agent->flow_stats_manager()->session_exports());
+    srsp->set_session_export_drops(agent->flow_stats_manager()->
+                                   session_export_drops());
     srsp->set_context(context());
     srsp->set_more(false);
     srsp->Response();
