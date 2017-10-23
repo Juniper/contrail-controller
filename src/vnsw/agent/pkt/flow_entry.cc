@@ -3268,12 +3268,16 @@ void FlowEntry::FillUveFwStatsInfo(FlowUveFwPolicyInfo *info,
     }
 }
 
+const std::string FlowEntry::fw_policy_uuid() const {
+    return data_.match_p.aps_policy.rule_uuid_;
+}
+
 const std::string FlowEntry::fw_policy_name_uuid() const {
     /* If policy-name is empty return only policy UUID. Policy-name will be
      * empty when one of the implicit rules match */
     if (data_.match_p.aps_policy.acl_name_.empty()) {
-        return data_.match_p.aps_policy.rule_uuid_;
+        return fw_policy_uuid();
     }
     return data_.match_p.aps_policy.acl_name_ + ":" +
-        data_.match_p.aps_policy.rule_uuid_;
+        fw_policy_uuid();
 }
