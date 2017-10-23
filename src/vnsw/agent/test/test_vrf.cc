@@ -415,6 +415,22 @@ TEST_F(VrfTest, AddReqonDeletedVrfRouteTable) {
     DeleteBgpPeer(bgp_peer);
 }
 
+TEST_F(VrfTest, NotifyOnConfigAdd) {
+    client->Reset();
+    VrfAddReq("vrf1");
+    EXPECT_TRUE(client->VrfNotifyWait(1));
+    client->WaitForIdle();
+
+    AddVrf("vrf1");
+    client->WaitForIdle();
+    EXPECT_TRUE(client->VrfNotifyWait(2));
+
+    DelVrf("vrf1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VrfFind("vrf1", true) == false);
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, false, true, false);
