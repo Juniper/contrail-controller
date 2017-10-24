@@ -414,12 +414,6 @@ struct VrouterStatsAgent {
     20: optional u64 total_flows; 
     /** Count of flows aged in agent */
     22: optional u64 aged_flows;
-    /** Number of flow samples dropped because of disable of flow exports */
-    47: optional u64 flow_export_disable_drops;
-    /** Number of flow samples dropped after subjecting them to sampling algorithm */
-    48: optional u64 flow_export_sampling_drops;
-    /** Number of flow samples which are never exported */
-    49: optional u64 flow_export_drops;
 
     /** Time at which agent process was started. This is UTC time in
      * microseconds

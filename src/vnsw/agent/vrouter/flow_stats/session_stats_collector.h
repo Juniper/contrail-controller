@@ -71,8 +71,29 @@ struct SessionStatsInfo {
 public:
     uint64_t setup_time;
     uint64_t teardown_time;
+    bool exported_atleast_once;
     SessionFlowStatsInfo fwd_flow;
     SessionFlowStatsInfo rev_flow;
+};
+
+struct SessionFlowStatsParams {
+    uint64_t total_bytes;
+    uint64_t total_packets;
+    uint64_t diff_bytes;
+    uint64_t diff_packets;
+    uint16_t underlay_src_port;
+    uint16_t tcp_flags;
+    bool valid;
+    SessionFlowStatsParams() : total_bytes(0), total_packets(0), diff_bytes(0),
+        diff_packets(0), underlay_src_port(0), tcp_flags(0), valid(false) {
+    }
+};
+
+struct SessionStatsParams {
+    bool sampled;
+    SessionFlowStatsParams fwd_flow;
+    SessionFlowStatsParams rev_flow;
+    SessionStatsParams() : sampled(false), fwd_flow(), rev_flow() {}
 };
 
 struct SessionPreAggInfo {
@@ -140,6 +161,18 @@ public:
 protected:
     virtual void DispatchSessionMsg(const std::vector<SessionEndpoint> &lst);
 private:
+    bool FetchFlowStats(const SessionFlowStatsInfo &info,
+                        SessionFlowStatsParams *params) const;
+    uint64_t threshold() const;
+    bool IsSamplingEnabled() const;
+    bool SampleSession(SessionPreAggInfo::SessionMap::iterator session_map_iter,
+                       SessionStatsParams *params) const;
+    bool SessionStatsChangedLocked
+        (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+         SessionStatsParams *params) const;
+    bool SessionStatsChangedUnlocked
+        (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+         SessionStatsParams *params) const;
     bool ProcessSessionEndpoint(const SessionEndpointMap::iterator &it);
     void ProcessSessionDelete
         (const SessionEndpointMap::iterator &ep_it,
@@ -153,20 +186,22 @@ private:
     uint64_t GetUpdatedSessionFlowPackets(uint64_t info_packets,
                                           uint64_t k_flow_pkts) const;
     void FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
+                              const SessionFlowStatsParams &stats,
                               SessionFlowInfo *flow_info) const;
     void FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
                              uint64_t setup_time,
                              uint64_t teardown_time,
+                             const SessionFlowStatsParams &stats,
                              const RevFlowDepParams *params,
                              bool read_flow,
                              SessionFlowInfo *flow_info) const;
     void FillSessionInfoLocked
         (SessionPreAggInfo::SessionMap::iterator session_map_iter,
-         SessionInfo *session_info,
+         const SessionStatsParams &stats, SessionInfo *session_info,
          SessionIpPort *session_key) const;
     void FillSessionInfoUnlocked
         (SessionPreAggInfo::SessionMap::iterator session_map_iter,
-         SessionInfo *session_info,
+         const SessionStatsParams &stats, SessionInfo *session_info,
          SessionIpPort *session_key,
          const RevFlowDepParams *params,
          bool read_flow) const;
