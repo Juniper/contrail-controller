@@ -121,6 +121,7 @@ public:
     // Get an unresolved reference. 
     // This entry will be added into resolveq_ of unresolved-entry
     virtual KSyncEntry *UnresolvedReference() = 0;
+    virtual bool ShouldReEvalBackReference() const { return true; }
 
     // Returns true if entry is resolved and referring entry can be written
     bool IsResolved();
