@@ -27,9 +27,6 @@ def create_flow_aging_timeout_entry(vnc_lib, protocol, port,
         conf_obj=GlobalVrouterConfig(flow_aging_timeout_list=flow_aging_list)
         result=vnc_lib.global_vrouter_config_create(conf_obj)
         return
-    except:
-        # An exception occurred. Throw it to the caller.
-        raise
 
     # Get currently configured flow aging timeouts.
     current_flow_aging_list = current_config.get_flow_aging_timeout_list()
@@ -49,8 +46,4 @@ def create_flow_aging_timeout_entry(vnc_lib, protocol, port,
     current_config.set_flow_aging_timeout_list(current_flow_aging_list)
 
     # Update API server with new flow-aging service info.
-    try:
-        vnc_lib.global_vrouter_config_update(current_config)
-    except:
-        # Update failed with an exception. Throw it to the caller.
-        raise
+    vnc_lib.global_vrouter_config_update(current_config)

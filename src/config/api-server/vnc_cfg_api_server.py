@@ -3808,9 +3808,6 @@ def main(args_str=None, server=None):
     except KeyboardInterrupt:
         # quietly handle Ctrl-C
         pass
-    except:
-        # dump stack on all other exceptions
-        raise
     finally:
         # always cleanup gracefully
         vnc_api_server.reset()
