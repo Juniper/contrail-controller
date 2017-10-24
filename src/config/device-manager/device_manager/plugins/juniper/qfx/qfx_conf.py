@@ -261,19 +261,19 @@ class QfxConf(JuniperConf):
         for ifd_name, interface_list in ifd_map.items():
             intf = Interface(name=ifd_name)
             interfaces_config.add_interface(intf)
+            intf.set_flexible_vlan_tagging('')
+            intf.set_encapsulation("extended-vlan-bridge")
             if interface_list[0].is_untagged():
                 if (len(interface_list) > 1):
                     self._logger.error(
                         "invalid logical interfaces config for ifd %s" % (
                             ifd_name))
                     continue
-                intf.set_encapsulation("extended-vlan-bridge")
                 intf.add_unit(Unit(name=interface_list[0].unit,
                                    comment=DMUtils.l2_evpn_intf_unit_comment(vn, False),
-                                   family=Family(bridge='')))
+                                   vlan_id="4094"))
+                vlan_conf.add_interface(Interface(name=ifd_name + ".0"))
             else:
-                intf.set_flexible_vlan_tagging('')
-                intf.set_encapsulation("extended-vlan-bridge")
                 for interface in interface_list:
                     intf.add_unit(Unit(name=interface.unit,
                                comment=DMUtils.l2_evpn_intf_unit_comment(vn,
