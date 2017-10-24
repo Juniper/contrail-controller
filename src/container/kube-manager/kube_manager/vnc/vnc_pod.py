@@ -414,7 +414,10 @@ class VncPod(VncCommon):
         # then it is a case of race between delete and ref updates.
         # So explicitly update this entry in config db.
         if not vm.virtual_router:
-            vm.update()
+            try:
+                vm.update()
+            except NoIdError:
+                pass
 
         self._clear_label_to_pod_cache(vm)
 

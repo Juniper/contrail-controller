@@ -3,6 +3,7 @@
 #
 
 import uuid
+from collections import namedtuple
 import ipaddress
 
 from kube_manager.tests.vnc.test_case import KMTestCase
@@ -12,6 +13,7 @@ from kube_manager.vnc.config_db import (
 from kube_manager.kube_manager import NoIdError
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
 
+TestPod = namedtuple('TestPod', ['uuid', 'meta', 'spec'])
 
 class VncPodTest(KMTestCase):
     def setUp(self, extra_config_knobs=None):
@@ -72,12 +74,14 @@ class VncPodTest(KMTestCase):
             ns_meta['annotations']['opencontrail.org/isolation'] = 'true'
 
         NamespaceKM.delete(ns_name)
-        ns = NamespaceKM.locate(ns_name, ns_object)
+        NamespaceKM.delete(ns_uuid)
+        NamespaceKM.locate(ns_name, ns_object)
+        NamespaceKM.locate(ns_uuid, ns_object)
 
         self.enqueue_event(ns_add_event)
         self.wait_for_all_tasks_done()
 
-        return ns.uuid
+        return ns_uuid
 
     def _create_virtual_network(self, proj_obj, vn_name):
         vn_obj = self.create_network(vn_name, proj_obj, '10.32.0.0/12',
@@ -98,12 +102,12 @@ class VncPodTest(KMTestCase):
         pod_add_event['object']['status'] = pod_status
         pod = PodKM.locate(pod_uuid, pod_add_event['object'])
         self.enqueue_event(pod_add_event)
-        return pod.uuid, pod_meta, pod_spec
+        return TestPod(pod.uuid, pod_meta, pod_spec)
 
-    def _delete_pod(self, pod_uuid, pod_spec, pod_meta):
-        pod_del_event = self.create_event('Pod', pod_spec,
-                                          pod_meta, 'DELETED')
-        PodKM.delete(pod_uuid)
+    def _delete_pod(self, testpod):
+        pod_del_event = self.create_event('Pod', testpod.spec,
+                                          testpod.meta, 'DELETED')
+        PodKM.delete(testpod.uuid)
         self.enqueue_event(pod_del_event)
 
     def _assert_virtual_network(self, vn_obj_uuid):
@@ -161,7 +165,7 @@ class VncPodTest(KMTestCase):
 class VncPodTestClusterProjectDefined(VncPodTest):
     def setUp(self, extra_config_knobs=None):
         super(VncPodTestClusterProjectDefined, self).setUp(
-                    extra_config_knobs=extra_config_knobs)
+            extra_config_knobs=extra_config_knobs)
 
     def tearDown(self):
         super(VncPodTestClusterProjectDefined, self).tearDown()
@@ -173,17 +177,17 @@ class VncPodTestClusterProjectDefined(VncPodTest):
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj_uuid = self._create_virtual_network(proj_obj, self.vn_name).uuid
 
-        pod_uuid, pod_meta, pod_spec = self._create_update_pod(self.pod_name,
-                                                               self.ns_name,
-                                                               self.pod_status,
-                                                               None, action)
+        testpod = self._create_update_pod(self.pod_name,
+                                          self.ns_name,
+                                          self.pod_status,
+                                          None, action)
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj_uuid)
-        self._assert_virtual_machine(pod_uuid, self.cluster_project,
+        self._assert_virtual_machine(testpod.uuid, self.cluster_project,
                                      proj_obj, vn_obj_uuid)
 
-        self._delete_pod(pod_uuid, pod_spec, pod_meta)
+        self._delete_pod(testpod)
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj_uuid)
@@ -211,33 +215,33 @@ class VncPodTestClusterProjectDefined(VncPodTest):
 
         vn_obj = self._create_virtual_network(proj_obj, self.vn_name)
 
-        pod_uuid, pod_meta, pod_spec = self._create_update_pod(self.pod_name,
-                                                               self.ns_name,
-                                                               self.pod_status,
-                                                               None, 'ADDED')
+        testpod = self._create_update_pod(self.pod_name,
+                                          self.ns_name,
+                                          self.pod_status,
+                                          None, 'ADDED')
 
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)
-        self._assert_virtual_machine(pod_uuid, self.cluster_project, proj_obj,
-                                     vn_obj.uuid)
+        self._assert_virtual_machine(testpod.uuid, self.cluster_project,
+                                     proj_obj, vn_obj.uuid)
 
         self.kill_kube_manager()
 
-        self._delete_pod(pod_uuid, pod_spec, pod_meta)
-        pod_uuid, pod_meta, pod_spec = self._create_update_pod(self.pod_name,
-                                                               self.ns_name,
-                                                               self.pod_status,
-                                                               None, 'ADDED')
+        self._delete_pod(testpod)
+        testpod = self._create_update_pod(self.pod_name,
+                                          self.ns_name,
+                                          self.pod_status,
+                                          None, 'ADDED')
 
         self.spawn_kube_manager()
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)
-        self._assert_virtual_machine(pod_uuid, self.cluster_project, proj_obj,
-                                     vn_obj.uuid)
+        self._assert_virtual_machine(testpod.uuid, self.cluster_project,
+                                     proj_obj, vn_obj.uuid)
 
-        self._delete_pod(pod_uuid, pod_spec, pod_meta)
+        self._delete_pod(testpod)
         self.wait_for_all_tasks_done()
         vn_obj = VirtualNetworkKM.locate(vn_obj.uuid)
 
@@ -315,19 +319,17 @@ class VncPodTestNamespaceIsolation(VncPodTest):
         vn_obj = self._vnc_lib.virtual_network_read(
             fq_name=['default-domain', self.cluster_project, self.vn_name])
 
-        pod_uuid, pod_meta, pod_spec = self._create_update_pod(self.pod_name,
-                                                               self.ns_name,
-                                                               self.pod_status,
-                                                               None, 'ADDED')
+        testpod = self._create_update_pod(self.pod_name,
+                                          self.ns_name,
+                                          self.pod_status,
+                                          None, 'ADDED')
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)
-        self._assert_virtual_machine(pod_uuid, self.cluster_project, proj_obj,
-                                     vn_obj.uuid)
+        self._assert_virtual_machine(testpod.uuid, self.cluster_project,
+                                     proj_obj, vn_obj.uuid)
 
-        pod_delete_event = self.create_event('Pod', pod_spec,
-                                             pod_meta, 'DELETED')
-        self.enqueue_event(pod_delete_event)
+        self._delete_pod(testpod)
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)
@@ -368,19 +370,17 @@ class VncPodTestCustomNetworkAnnotation(VncPodTest):
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
 
-        pod_uuid, pod_meta, pod_spec = self._create_update_pod(self.pod_name,
-                                                               self.ns_name,
-                                                               self.pod_status,
-                                                               None, 'ADDED')
+        testpod = self._create_update_pod(self.pod_name,
+                                          self.ns_name,
+                                          self.pod_status,
+                                          None, 'ADDED')
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)
-        self._assert_virtual_machine(pod_uuid, self.cluster_project, proj_obj,
-                                     vn_obj.uuid)
+        self._assert_virtual_machine(testpod.uuid, self.cluster_project,
+                                     proj_obj, vn_obj.uuid)
 
-        pod_delete_event = self.create_event('Pod', pod_spec,
-                                             pod_meta, 'DELETED')
-        self.enqueue_event(pod_delete_event)
+        self._delete_pod(testpod)
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)
@@ -402,20 +402,17 @@ class VncPodTestCustomNetworkAnnotation(VncPodTest):
         proj_fq_name = ['default-domain', self.cluster_project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
-        pod_uuid, pod_meta, pod_spec = self._create_update_pod(self.pod_name,
-                                                               self.ns_name,
-                                                               self.pod_status,
-                                                               self.eval_vn_dict,
-                                                               'ADDED')
+        testpod = self._create_update_pod(self.pod_name,
+                                          self.ns_name,
+                                          self.pod_status,
+                                          self.eval_vn_dict, 'ADDED')
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)
-        self._assert_virtual_machine(pod_uuid, self.cluster_project, proj_obj,
-                                     vn_obj.uuid)
+        self._assert_virtual_machine(testpod.uuid, self.cluster_project,
+                                     proj_obj, vn_obj.uuid)
 
-        pod_delete_event = self.create_event('Pod', pod_spec,
-                                             pod_meta, 'DELETED')
-        self.enqueue_event(pod_delete_event)
+        self._delete_pod(testpod)
         self.wait_for_all_tasks_done()
 
         self._assert_virtual_network(vn_obj.uuid)
@@ -428,3 +425,41 @@ class VncPodTestCustomNetworkAnnotation(VncPodTest):
         )
         vn_obj = VirtualNetworkKM.locate(vn_obj.uuid)
         self.assertTrue(len(vn_obj.instance_ips) == 0)
+
+
+class VncPodTestScaling(VncPodTest):
+    def setUp(self, extra_config_knobs=None):
+        super(VncPodTestScaling, self).setUp(
+            extra_config_knobs=extra_config_knobs)
+
+    def tearDown(self):
+        super(VncPodTestScaling, self).tearDown()
+
+    def test_pod_add_scaling(self):
+        scale = 100
+        self._create_namespace(self.ns_name, None)
+
+        proj_fq_name = ['default-domain', self.cluster_project]
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        vn_obj_uuid = self._create_virtual_network(proj_obj, self.vn_name).uuid
+        self._assert_virtual_network(vn_obj_uuid)
+
+        pods = []
+        for i in xrange(scale):
+            testpod = self._create_update_pod(self.pod_name + str(i),
+                                              self.ns_name,
+                                              self.pod_status,
+                                              None, 'ADDED')
+            self.wait_for_all_tasks_done()
+            self._assert_virtual_machine(testpod.uuid, self.cluster_project,
+                                         proj_obj, vn_obj_uuid)
+            pods.append(testpod)
+
+        vn_obj = VirtualNetworkKM.locate(vn_obj_uuid)
+        self.assertTrue(len(vn_obj.instance_ips) == scale)
+
+        for i, pod in enumerate(pods):
+            self._delete_pod(pod)
+            self.wait_for_all_tasks_done()
+            vn_obj = VirtualNetworkKM.locate(vn_obj_uuid)
+            self.assertTrue(len(vn_obj.instance_ips) == scale - 1 - i)
