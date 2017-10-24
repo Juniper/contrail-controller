@@ -309,6 +309,7 @@ class VncCassandraClient(object):
             keyspace = '%s%s' %(self._db_prefix, ks)
             self._cassandra_wait_for_keyspace(keyspace)
 
+        self.pycassa_conn_pool = None
         self._cassandra_init_conn_pools()
     # end _cassandra_init
 
@@ -382,17 +383,22 @@ class VncCassandraClient(object):
         for ks,cf_list in itertools.chain(self._rw_keyspaces.items(),
                                           self._ro_keyspaces.items()):
             keyspace = '%s%s' %(self._db_prefix, ks)
-            pool = pycassa.ConnectionPool(
-                keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
-                prefill=True, pool_size=20, pool_timeout=120,
-                max_retries=30, timeout=5, credentials=self._credential)
+            if not self.pycassa_conn_pool:
+                self.pycassa_conn_pool = pycassa.ConnectionPool(
+                    keyspace, self._server_list, max_overflow=5, use_threadlocal=True,
+                    prefill=True, pool_size=20, pool_timeout=120,
+                    max_retries=30, timeout=5, credentials=self._credential)
+            else:
+                self.pycassa_conn_pool.dispose()
+                self.pycassa_conn_pool.fill()
 
             rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
             wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
 
             for (cf, _) in cf_list:
                 self._cf_dict[cf] = ColumnFamily(
-                    pool, cf, read_consistency_level = rd_consistency,
+                    self.pycassa_conn_pool, cf,
+                    read_consistency_level = rd_consistency,
                     write_consistency_level = wr_consistency)
 
         ConnectionState.update(conn_type = ConnType.DATABASE,

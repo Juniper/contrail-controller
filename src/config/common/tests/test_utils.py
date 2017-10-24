@@ -155,6 +155,14 @@ class FakeConnectionPool(object):
         else:
             self.keyspace = args[2]
     # end __init__
+
+    def dispose(self):
+        pass
+    # end dispose
+
+    def fill(self):
+        pass
+    # end fill
 # end FakeConnectionPool
 
 class FakeCF(object):
