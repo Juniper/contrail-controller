@@ -522,7 +522,7 @@ class ZookeeperClient(object):
         except kazoo.exceptions.NoNodeError:
             pass
         except Exception as e:
-            raise e
+            raise
     # end delete_node
 
     def read_node(self, path, include_timestamp=False):
