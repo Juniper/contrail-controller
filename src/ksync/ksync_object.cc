@@ -1399,7 +1399,8 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     }
 
     entry->SetState(state);
-    if (dep_reval == true && entry->IsResolved()) {
+    if (dep_reval == true && entry->IsResolved() &&
+        entry->ShouldReEvalBackReference()) {
         BackRefReEval(entry);
     }
 
