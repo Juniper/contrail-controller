@@ -99,7 +99,16 @@ StatsSelect::Jsonify(const std::string& table,
             
             string sname("");
             if (it->first.first == QEOpServerProxy::SUM) {
-                sname = string("SUM(") + it->first.second + string(")");
+                if (it->first.second == g_viz_constants.SESSION_FWD_TEARDOWN_BYTES ||
+                    it->first.second == g_viz_constants.SESSION_FWD_TEARDOWN_PKTS ||
+                    it->first.second == g_viz_constants.SESSION_REV_TEARDOWN_BYTES ||
+                    it->first.second == g_viz_constants.SESSION_REV_TEARDOWN_PKTS ||
+                    it->first.second == g_viz_constants.FLOW_TABLE_AGG_PKTS ||
+                    it->first.second == g_viz_constants.FLOW_TABLE_AGG_BYTES) {
+                    sname = it->first.second;
+                } else {
+                    sname = string("SUM(") + it->first.second + string(")");
+                }
             } else if (it->first.first == QEOpServerProxy::COUNT) {
                 if (table == g_viz_constants.SESSION_SERIES_TABLE) {
                     sname = "sample_count";

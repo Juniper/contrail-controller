@@ -21,25 +21,25 @@ std::vector<std::string> session_json_fields = boost::assign::list_of
     ("other_vrouter_ip")
     ("underlay_proto")
     ("forward_flow_uuid")
-    ("forward_flow_setup_time")
-    ("forward_flow_teardown_time")
-    ("forward_flow_action")
-    ("forward_flow_sg_rule_uuid")
-    ("forward_flow_nw_ave_uuid")
-    ("forward_flow_underlay_source_port")
-    ("forward_flow_drop_reason")
-    ("forward_flow_teardown_bytes")
-    ("forward_flow_teardown_pkts")
+    ("forward_setup_time")
+    ("forward_teardown_time")
+    ("forward_action")
+    ("forward_sg_rule_uuid")
+    ("forward_nw_ave_uuid")
+    ("forward_underlay_source_port")
+    ("forward_drop_reason")
+    ("forward_teardown_bytes")
+    ("forward_teardown_pkts")
     ("reverse_flow_uuid")
-    ("reverse_flow_setup_time")
-    ("reverse_flow_teardown_time")
-    ("reverse_flow_action")
-    ("reverse_flow_sg_rule_uuid")
-    ("reverse_flow_nw_ave_uuid")
-    ("reverse_flow_underlay_source_port")
-    ("reverse_flow_drop_reason")
-    ("reverse_flow_teardown_bytes")
-    ("reverse_flow_teardown_pkts")
+    ("reverse_setup_time")
+    ("reverse_teardown_time")
+    ("reverse_action")
+    ("reverse_sg_rule_uuid")
+    ("reverse_nw_ave_uuid")
+    ("reverse_underlay_source_port")
+    ("reverse_drop_reason")
+    ("reverse_teardown_bytes")
+    ("reverse_teardown_pkts")
     ("sourceip")
     ("destip")
     ("dport")
@@ -130,7 +130,14 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 if (field == "reverse_flow_uuid") {
                     reverse_uuid_key_selected = true;
                 }
-                select_column_fields.push_back(field);
+                if (field == g_viz_constants.SESSION_FWD_TEARDOWN_BYTES ||
+                    field == g_viz_constants.SESSION_FWD_TEARDOWN_PKTS ||
+                    field == g_viz_constants.SESSION_REV_TEARDOWN_BYTES ||
+                    field == g_viz_constants.SESSION_REV_TEARDOWN_PKTS) {
+                    select_column_fields.push_back("SUM(" + field + ")");
+                } else {
+                    select_column_fields.push_back(field);
+                }
             }
             if (m_query->is_session_query(m_query->table())) {
                 if (field == g_viz_constants.STAT_TIME_FIELD ||
@@ -262,8 +269,14 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         else {
             QE_INVALIDARG_ERROR(is_valid_select_field(
                         json_select_fields[i].GetString()));
-            select_column_fields.push_back(
-                get_column_name(json_select_fields[i].GetString()));
+            if (json_select_fields[i].GetString() == g_viz_constants.FLOW_TABLE_AGG_PKTS ||
+                json_select_fields[i].GetString() == g_viz_constants.FLOW_TABLE_AGG_BYTES) {
+                std::string field(json_select_fields[i].GetString());
+                select_column_fields.push_back("SUM("+ field +")");
+            } else {
+                select_column_fields.push_back(
+                    get_column_name(json_select_fields[i].GetString()));
+            }
             if (json_select_fields[i].GetString() == g_viz_constants.UUID_KEY)
                 uuid_key_selected = true;
 #ifdef USE_SESSION
