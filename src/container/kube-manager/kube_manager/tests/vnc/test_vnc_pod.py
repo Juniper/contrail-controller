@@ -171,14 +171,15 @@ class VncPodTestClusterProjectDefined(VncPodTest):
         super(VncPodTestClusterProjectDefined, self).tearDown()
 
     def _add_update_pod(self, action):
-        self._create_namespace(self.ns_name, None)
+        ns_name = self.ns_name + '_' + str(uuid.uuid4)
+        self._create_namespace(ns_name, None)
 
         proj_fq_name = ['default-domain', self.cluster_project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj_uuid = self._create_virtual_network(proj_obj, self.vn_name).uuid
 
         testpod = self._create_update_pod(self.pod_name,
-                                          self.ns_name,
+                                          ns_name,
                                           self.pod_status,
                                           None, action)
         self.wait_for_all_tasks_done()
