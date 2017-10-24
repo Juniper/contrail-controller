@@ -4097,7 +4097,7 @@ class DBInterface(object):
                 # Resources are not available
                 for iip_id in created_iip_ids:
                     self._instance_ip_delete(instance_ip_id=iip_id)
-                raise e
+                raise
 
         for stale_ip, stale_id in stale_ip_ids.items():
             self._instance_ip_delete(instance_ip_id=stale_id)

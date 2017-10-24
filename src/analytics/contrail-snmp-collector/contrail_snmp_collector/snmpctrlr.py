@@ -354,8 +354,6 @@ class Controller(object):
             self._logger.error('Exiting on ^C')
         except gevent.GreenletExit:
             self._logger.error('Exiting on gevent-kill')
-        except:
-            raise
         finally:
             self._logger.error('stopping everything!')
             self.stop()
