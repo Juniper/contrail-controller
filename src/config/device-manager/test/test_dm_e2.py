@@ -12,9 +12,15 @@ import xmltodict
 import collections
 import itertools
 import copy
+from netaddr import IPNetwork
 from unittest import skip
 from vnc_api.vnc_api import *
 from test_dm_utils import fake_netconf_connect
+
+def get_ip(ip_w_pfx):
+    """get the default network IP."""
+    return str(IPNetwork(ip_w_pfx).ip)
+# end get_ip
 
 try:
     import device_manager
@@ -476,5 +482,292 @@ class TestE2DM(test_case.DMTestCase):
         #network config will go to UVE
     #end test_dm_network_object
 
+    def test_dm_e2_vrs(self):
+
+        def add_vrs_client(client_info, vrr, peer_list):
+            client = client_info['name']
+            sp = E2ServiceProvider(client)
+            sp.add_physical_router(vrr)
+
+            # Create peer state
+            for peer in peer_list:
+                peer_name = client
+                peer_name += '.as' + str(peer['as_number'])
+                peer_name += '.' + peer['ip']
+
+                # Create peer BGP router
+                peer_br = BgpRouter(peer_name, parent_obj=self._get_e2_ri_obj())
+                params = BgpRouterParams()
+                params.address = get_ip(peer['ip'])
+                params.vendor = 'juniper'
+                params.autonomous_system = peer['as_number']
+                params.identifier = get_ip(peer['ip'])
+                params.address_families = AddressFamilies(['inet', 'inet6'])
+                peer_br.set_bgp_router_parameters(params)
+                self._vnc_lib.bgp_router_create(peer_br)
+
+                # Create peer physical router
+                peer_pr = PhysicalRouter(peer_name)
+                peer_pr.physical_router_management_ip = get_ip(peer['ip'])
+                peer_pr.set_bgp_router(peer_br)
+                self._vnc_lib.physical_router_create(peer_pr)
+
+                sp.add_physical_router(peer_pr)
+
+            # Update the service-provider object
+            sp.set_e2_service_provider_promiscuous(client_info['promiscuous'])
+
+            # Create client
+            self._vnc_lib.e2_service_provider_create(sp)
+
+            # Verify client creation
+            read_sp = self._vnc_lib.e2_service_provider_read(fq_name=[client])
+            self.assertEqual(read_sp.e2_service_provider_promiscuous, True)
+
+            return sp
+        # end add_vrs_client
+
+        def delete_vrs_client(sp_obj):
+            pr_list = []
+            br_list = []
+            policy_list = []
+
+            # Get the physical routers referred to
+            pr_refs = sp_obj.get_physical_router_refs()
+            if pr_refs is not None:
+                for pr_ref in pr_refs:
+                    pr = None
+                    try:
+                        pr = self._vnc_lib.physical_router_read(pr_ref['to'])
+                    except NoIdError:
+                        pass
+                    if pr is not None:
+                        # Exclude the VRR physical router
+                        if pr.physical_router_role == "e2-vrr":
+                            continue
+                        pr_list.append(pr)
+
+                        # Get the BGP routers referred to
+                        bgp_refs = pr.get_bgp_router_refs()
+                        if bgp_refs is not None:
+                            for bgp_ref in bgp_refs:
+                                br = None
+                                try:
+                                    br = self._vnc_lib.bgp_router_read(bgp_ref['to'])
+                                except NoIdError:
+                                    pass
+                                if br is not None:
+                                    br_list.append(br)
+
+            # Get the policy objects referred to
+            policy_refs = sp_obj.get_peering_policy_refs()
+            if policy_refs is not None:
+                for policy_ref in policy_refs:
+                    # Get the policy object
+                    policy_obj = None
+                    try:
+                        policy_obj = self._vnc_lib.peering_policy_read(policy_ref['to'])
+                    except NoIdError:
+                        pass
+                    if policy_obj is not None:
+                        policy_list.append(policy_obj)
+
+            # Delete the service-provider-endpoint object
+            self._vnc_lib.e2_service_provider_delete(sp_obj.get_fq_name())
+
+            # Delete all the physical routers in the list
+            for pr in pr_list:
+                self._vnc_lib.physical_router_delete(pr.get_fq_name())
+
+            # Delete all the BGP routers in the list
+            for br in br_list:
+                self._vnc_lib.bgp_router_delete(br.get_fq_name())
+
+            # Delete all the policy objects in the list
+            for policy_obj in policy_list:
+                # Get all service-providers and disconnect them
+                sp_list = policy_obj.get_e2_service_provider_back_refs()
+
+                if sp_list is not None:
+                    for each_sp in sp_list:
+                        # Get the service-provider object
+                        each_sp_obj = None
+                        try:
+                            each_sp_obj = self._vnc_lib.e2_service_provider_read(id=each_sp['uuid'])
+                        except NoIdError:
+                            pass
+                        if each_sp_obj is not None:
+                            each_sp_obj.del_peering_policy(policy_obj)
+                            self._vnc_lib.e2_service_provider_update(each_sp_obj)
+
+                self._vnc_lib.peering_policy_delete(policy_obj.get_fq_name())
+        # end delete_vrs_client
+
+
+        #
+        # Add VRR
+        #
+        vrr_name = self.id() + '-e2vrr'
+        user_cred_create = UserCredentials(username="test_user",
+                                           password="test_pswd")
+        mgmt_ip = '10.92.36.9'
+        router_id = '100.100.100.100'
+
+        # Create BGP router
+        vrr_br = BgpRouter(vrr_name, parent_obj=self._get_e2_ri_obj())
+        params = BgpRouterParams()
+        params.address = router_id
+        params.vendor = 'juniper'
+        params.address_families = AddressFamilies(['inet', 'inet6'])
+        params.autonomous_system = 100
+        params.identifier = mgmt_ip
+        vrr_br.set_bgp_router_parameters(params)
+        self._vnc_lib.bgp_router_create(vrr_br)
+
+        # Create physical router
+        vrr = PhysicalRouter(vrr_name, physical_router_user_credentials=user_cred_create)
+        vrr.physical_router_management_ip = mgmt_ip
+        vrr.physical_router_vendor_name = 'juniper'
+        vrr.physical_router_product_name = 'mx'
+        vrr.physical_router_vnc_managed = True
+        vrr.physical_router_role = 'e2-vrr'
+        vrr.set_bgp_router(vrr_br)
+        self._vnc_lib.physical_router_create(vrr)
+
+        # Verify VRR creation
+        read_pr = self._vnc_lib.physical_router_read(id=vrr.uuid)
+        read_br = self._vnc_lib.bgp_router_read(id=read_pr.bgp_router_refs[0]['uuid'])
+        self.assertEqual(read_br.bgp_router_parameters.autonomous_system, 100)
+        self.assertEqual(read_br.bgp_router_parameters.identifier, mgmt_ip)
+        self.assertEqual(read_br.bgp_router_parameters.address, router_id)
+        self.assertEqual(read_pr.physical_router_role, 'e2-vrr')
+
+        # Verify VRR config
+        gevent.sleep(2)
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail-e2__</name><snmp><interface>fxp0.0</interface><community><name>public</name><authorization>read-only</authorization></community><community><name>private</name><authorization>read-write</authorization></community></snmp><protocols><lldp><interface><name>all</name></interface></lldp><lldp-med><interface><name>all</name></interface></lldp-med></protocols><system><host-name>test.test_dm_e2.TestE2DM.test_dm_e2_vrs-e2vrr</host-name></system><routing-options><router-id>10.92.36.9</router-id><autonomous-system><as-number>100</as-number></autonomous-system></routing-options><policy-options><policy-statement><name>filter-global-comms</name><term><name>block-all</name><from><community>block-all-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><policy-statement><name>import-from-all-inst</name><term><name>from-any</name><from><instance-any/></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>block-all-comm</name><members>0:100</members></community><community><name>to-all-comm</name><members>100:100</members></community><community><name>to-wildcard-comm</name><members>^1:[0-9]*$</members></community></policy-options></groups><apply-groups insert="first">__contrail-e2__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('10.92.36.9', xml_config_str)
+
+        #
+        # Add first client
+        #
+        client_info = {'name':'Google', \
+                       'promiscuous':True}
+        peer_list = [{'ip':'1.1.1.1', 'as_number':10, 'auth_key':'test_client_1'},\
+                     {'ip':'2.2.2.2', 'as_number':10, 'auth_key':'test_client_1'}]
+        client1 = client_info['name']
+        sp1 = add_vrs_client(client_info, vrr, peer_list)
+
+        #
+        # Update client parameters
+        #
+        sp1.set_e2_service_provider_promiscuous(False)
+        self._vnc_lib.e2_service_provider_update(sp1)
+
+        # Verify client update
+        read_sp = self._vnc_lib.e2_service_provider_read(fq_name=[client1])
+        self.assertEqual(read_sp.e2_service_provider_promiscuous, False)
+
+        #
+        # Add a second client
+        #
+        client_info = {'name':'Oracle', \
+                       'promiscuous':True}
+        peer_list = [{'ip':'3.3.3.3', 'as_number':20, 'auth_key':'test_client_2'},\
+                     {'ip':'4.4.4.4', 'as_number':30, 'auth_key':'test_client_2'}]
+        client2 = client_info['name']
+        sp2 = add_vrs_client(client_info, vrr, peer_list)
+
+        #
+        # Connect the clients
+        #
+        policy_name = 'policy.' + client1 + '.' + client2
+
+        # Create peering policy
+        policy_obj = PeeringPolicy(policy_name)
+        policy_obj.peering_service = 'public-peering'
+        self._vnc_lib.peering_policy_create(policy_obj)
+
+        # Connect the clients to policy object and update
+        sp1.add_peering_policy(policy_obj)
+        self._vnc_lib.e2_service_provider_update(sp1)
+        sp2.add_peering_policy(policy_obj)
+        self._vnc_lib.e2_service_provider_update(sp2)
+
+        # Verify connection status
+        read_policy = self._vnc_lib.peering_policy_read(fq_name=[policy_name])
+        client_list = [client1, client2]
+        read_sp_list = read_policy.get_e2_service_provider_back_refs()
+        if read_sp_list is not None:
+            self.assertEqual(len(read_sp_list), 2)
+            for read_sp in read_sp_list:
+                uclient = read_sp['to'][0]
+                uclient.encode("utf-8")
+                self.assertIn(uclient, client_list)
+
+        # Verify client config
+        gevent.sleep(2)
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail-e2__</name><snmp><interface>fxp0.0</interface><community><name>public</name><authorization>read-only</authorization></community><community><name>private</name><authorization>read-write</authorization></community></snmp><protocols><lldp><interface><name>all</name></interface></lldp><lldp-med><interface><name>all</name></interface></lldp-med></protocols><system><host-name>test.test_dm_e2.TestE2DM.test_dm_e2_vrs-e2vrr</host-name></system><routing-options><router-id>10.92.36.9</router-id><autonomous-system><as-number>100</as-number></autonomous-system></routing-options><policy-options><policy-statement><name>filter-global-comms</name><term><name>block-all</name><from><community>block-all-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><policy-statement><name>import-from-all-inst</name><term><name>from-any</name><from><instance-any/></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>block-all-comm</name><members>0:100</members></community><community><name>to-all-comm</name><members>100:100</members></community><community><name>to-wildcard-comm</name><members>^1:[0-9]*$</members></community><policy-statement><name>filter-Oracle-as-20-comms</name><term><name>block-this-rib</name><from><community>block-Oracle-as-20-comm</community></from><then><reject/></then></term><term><name>to-this-rib</name><from><community>to-Oracle-as-20-comm</community></from><then><next>policy</next></then></term><term><name>to-all</name><from><community>to-all-comm</community></from><then><next>policy</next></then></term><term><name>to-any-specific-rib</name><from><community>to-wildcard-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><community><name>block-Oracle-as-20-comm</name><members>0:20</members></community><community><name>to-Oracle-as-20-comm</name><members>100:20</members></community><policy-statement><name>filter-Oracle-as-30-comms</name><term><name>block-this-rib</name><from><community>block-Oracle-as-30-comm</community></from><then><reject/></then></term><term><name>to-this-rib</name><from><community>to-Oracle-as-30-comm</community></from><then><next>policy</next></then></term><term><name>to-all</name><from><community>to-all-comm</community></from><then><next>policy</next></then></term><term><name>to-any-specific-rib</name><from><community>to-wildcard-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><community><name>block-Oracle-as-30-comm</name><members>0:30</members></community><community><name>to-Oracle-as-30-comm</name><members>100:30</members></community><policy-statement><name>filter-Google-as-10-comms</name><term><name>block-this-rib</name><from><community>block-Google-as-10-comm</community></from><then><reject/></then></term><term><name>to-this-rib</name><from><community>to-Google-as-10-comm</community></from><then><next>policy</next></then></term><term><name>to-all</name><from><community>to-all-comm</community></from><then><next>policy</next></then></term><term><name>to-any-specific-rib</name><from><community>to-wildcard-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><community><name>block-Google-as-10-comm</name><members>0:10</members></community><community><name>to-Google-as-10-comm</name><members>100:10</members></community></policy-options><routing-instances><instance><name>Oracle-as-20</name><instance-type>no-forwarding</instance-type><routing-options><router-id>10.92.36.9</router-id><instance-import>filter-global-comms</instance-import><instance-import>filter-Oracle-as-20-comms</instance-import><instance-import>import-from-all-inst</instance-import></routing-options><protocols><bgp><peer-as>20</peer-as><group><name>bgp-as-20</name><type>external</type><route-server-client/><mtu-discovery/><family><inet><unicast/></inet></family></group></bgp></protocols></instance><instance><name>Oracle-as-30</name><instance-type>no-forwarding</instance-type><routing-options><router-id>10.92.36.9</router-id><instance-import>filter-global-comms</instance-import><instance-import>filter-Oracle-as-30-comms</instance-import><instance-import>import-from-all-inst</instance-import></routing-options><protocols><bgp><peer-as>30</peer-as><group><name>bgp-as-30</name><type>external</type><route-server-client/><mtu-discovery/><family><inet><unicast/></inet></family></group></bgp></protocols></instance><instance><name>Oracle-as-20</name><protocols><bgp><group><name>bgp-as-20</name><neighbor><name>3.3.3.3</name><forwarding-context>master</forwarding-context></neighbor></group></bgp></protocols></instance><instance><name>Oracle-as-30</name><protocols><bgp><group><name>bgp-as-30</name><neighbor><name>4.4.4.4</name><forwarding-context>master</forwarding-context></neighbor></group></bgp></protocols></instance><instance><name>Google-as-10</name><instance-type>no-forwarding</instance-type><routing-options><router-id>10.92.36.9</router-id><instance-import>filter-global-comms</instance-import><instance-import>filter-Google-as-10-comms</instance-import></routing-options><protocols><bgp><peer-as>10</peer-as><group><name>bgp-as-10</name><type>external</type><route-server-client/><mtu-discovery/><family><inet><unicast/></inet></family></group></bgp></protocols></instance><instance><name>Google-as-10</name><protocols><bgp><group><name>bgp-as-10</name><neighbor><name>1.1.1.1</name><forwarding-context>master</forwarding-context></neighbor></group></bgp></protocols></instance><instance><name>Google-as-10</name><protocols><bgp><group><name>bgp-as-10</name><neighbor><name>2.2.2.2</name><forwarding-context>master</forwarding-context></neighbor></group></bgp></protocols></instance></routing-instances></groups><apply-groups insert="first">__contrail-e2__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('10.92.36.9', xml_config_str)
+
+        #
+        # Disconnect the clients
+        #
+        sp1.del_peering_policy(policy_obj)
+        self._vnc_lib.e2_service_provider_update(sp1)
+        sp2.del_peering_policy(policy_obj)
+        self._vnc_lib.e2_service_provider_update(sp2)
+
+        # Verify dis-connect
+        read_policy = self._vnc_lib.peering_policy_read(fq_name=[policy_name])
+        read_sp_list = read_policy.get_e2_service_provider_back_refs()
+        self.assertEqual(read_sp_list, None)
+
+        # Delete policy
+        self._vnc_lib.peering_policy_delete(policy_obj.get_fq_name())
+
+        #
+        # Connect the clients again
+        # This time we will cleanup using delete client
+        #
+        policy_name = 'policy.' + client1 + '.' + client2
+
+        # Create peering policy
+        policy_obj = PeeringPolicy(policy_name)
+        policy_obj.peering_service = 'public-peering'
+        self._vnc_lib.peering_policy_create(policy_obj)
+
+        # Connect the clients to policy object and update
+        sp1.add_peering_policy(policy_obj)
+        self._vnc_lib.e2_service_provider_update(sp1)
+        sp2.add_peering_policy(policy_obj)
+        self._vnc_lib.e2_service_provider_update(sp2)
+
+        #
+        # Delete the first client
+        #
+        delete_vrs_client(sp1)
+
+        # Verify if first client state is cleaned-up
+        gevent.sleep(2)
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail-e2__</name><snmp><interface>fxp0.0</interface><community><name>public</name><authorization>read-only</authorization></community><community><name>private</name><authorization>read-write</authorization></community></snmp><protocols><lldp><interface><name>all</name></interface></lldp><lldp-med><interface><name>all</name></interface></lldp-med></protocols><system><host-name>test.test_dm_e2.TestE2DM.test_dm_e2_vrs-e2vrr</host-name></system><routing-options><router-id>10.92.36.9</router-id><autonomous-system><as-number>100</as-number></autonomous-system></routing-options><policy-options><policy-statement><name>filter-global-comms</name><term><name>block-all</name><from><community>block-all-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><policy-statement><name>import-from-all-inst</name><term><name>from-any</name><from><instance-any/></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>block-all-comm</name><members>0:100</members></community><community><name>to-all-comm</name><members>100:100</members></community><community><name>to-wildcard-comm</name><members>^1:[0-9]*$</members></community><policy-statement><name>filter-Oracle-as-20-comms</name><term><name>block-this-rib</name><from><community>block-Oracle-as-20-comm</community></from><then><reject/></then></term><term><name>to-this-rib</name><from><community>to-Oracle-as-20-comm</community></from><then><next>policy</next></then></term><term><name>to-all</name><from><community>to-all-comm</community></from><then><next>policy</next></then></term><term><name>to-any-specific-rib</name><from><community>to-wildcard-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><community><name>block-Oracle-as-20-comm</name><members>0:20</members></community><community><name>to-Oracle-as-20-comm</name><members>100:20</members></community><policy-statement><name>filter-Oracle-as-30-comms</name><term><name>block-this-rib</name><from><community>block-Oracle-as-30-comm</community></from><then><reject/></then></term><term><name>to-this-rib</name><from><community>to-Oracle-as-30-comm</community></from><then><next>policy</next></then></term><term><name>to-all</name><from><community>to-all-comm</community></from><then><next>policy</next></then></term><term><name>to-any-specific-rib</name><from><community>to-wildcard-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><community><name>block-Oracle-as-30-comm</name><members>0:30</members></community><community><name>to-Oracle-as-30-comm</name><members>100:30</members></community></policy-options><routing-instances><instance><name>Oracle-as-20</name><instance-type>no-forwarding</instance-type><routing-options><router-id>10.92.36.9</router-id><instance-import>filter-global-comms</instance-import><instance-import>filter-Oracle-as-20-comms</instance-import><instance-import>import-from-all-inst</instance-import></routing-options><protocols><bgp><peer-as>20</peer-as><group><name>bgp-as-20</name><type>external</type><route-server-client/><mtu-discovery/><family><inet><unicast/></inet></family></group></bgp></protocols></instance><instance><name>Oracle-as-30</name><instance-type>no-forwarding</instance-type><routing-options><router-id>10.92.36.9</router-id><instance-import>filter-global-comms</instance-import><instance-import>filter-Oracle-as-30-comms</instance-import><instance-import>import-from-all-inst</instance-import></routing-options><protocols><bgp><peer-as>30</peer-as><group><name>bgp-as-30</name><type>external</type><route-server-client/><mtu-discovery/><family><inet><unicast/></inet></family></group></bgp></protocols></instance><instance><name>Oracle-as-20</name><protocols><bgp><group><name>bgp-as-20</name><neighbor><name>3.3.3.3</name><forwarding-context>master</forwarding-context></neighbor></group></bgp></protocols></instance><instance><name>Oracle-as-30</name><protocols><bgp><group><name>bgp-as-30</name><neighbor><name>4.4.4.4</name><forwarding-context>master</forwarding-context></neighbor></group></bgp></protocols></instance></routing-instances></groups><apply-groups insert="first">__contrail-e2__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('10.92.36.9', xml_config_str)
+
+        #
+        # Delete the second client
+        #
+        delete_vrs_client(sp2)
+
+        # Verify if second client state is cleaned-up
+        gevent.sleep(2)
+        xml_config_str = '<config xmlns:xc="urn:ietf:params:xml:ns:netconf:base:1.0"><configuration><groups operation="replace"><name>__contrail-e2__</name><snmp><interface>fxp0.0</interface><community><name>public</name><authorization>read-only</authorization></community><community><name>private</name><authorization>read-write</authorization></community></snmp><protocols><lldp><interface><name>all</name></interface></lldp><lldp-med><interface><name>all</name></interface></lldp-med></protocols><system><host-name>test.test_dm_e2.TestE2DM.test_dm_e2_vrs-e2vrr</host-name></system><routing-options><router-id>10.92.36.9</router-id><autonomous-system><as-number>100</as-number></autonomous-system></routing-options><policy-options><policy-statement><name>filter-global-comms</name><term><name>block-all</name><from><community>block-all-comm</community></from><then><reject/></then></term><then><next>policy</next></then></policy-statement><policy-statement><name>import-from-all-inst</name><term><name>from-any</name><from><instance-any/></from><then><accept/></then></term><then><reject/></then></policy-statement><community><name>block-all-comm</name><members>0:100</members></community><community><name>to-all-comm</name><members>100:100</members></community><community><name>to-wildcard-comm</name><members>^1:[0-9]*$</members></community></policy-options></groups><apply-groups insert="first">__contrail-e2__</apply-groups></configuration></config>'
+        self.check_netconf_config_mesg('10.92.36.9', xml_config_str)
+
+        #
+        # Delete the VRR
+        #
+        self._vnc_lib.physical_router_delete(id=vrr.uuid)
+        self._vnc_lib.bgp_router_delete(id=vrr_br.uuid)
+
+    # end test_dm_e2_vrs
 
 #end
