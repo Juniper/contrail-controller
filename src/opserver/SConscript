@@ -73,6 +73,7 @@ alarmgen_pkg = OpEnv.SandeshGenPy('alarmgen_ctrl.sandesh', 'opserver/sandesh/', 
 alarm_sandesh_base_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', 'opserver/sandesh/alarmgen_ctrl/', False)
 derived_stats_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/derived_stats_results.sandesh', 'opserver/sandesh/analytics/', False)
 database_pkg = OpEnv.SandeshGenPy('#controller/src/database/gendb.sandesh', 'opserver/sandesh/viz/', False)
+analytics_api_info_pkg = OpEnv.SandeshGenPy('analytics_api_info.sandesh', 'opserver/sandesh/', False)
 OpEnv.Depends(alarm_sandesh_base_pkg, alarmgen_pkg)
 OpEnv.Depends(derived_stats_pkg, analytics_pkg)
 
@@ -81,7 +82,7 @@ sdist_depends = [setup_sources_rules, local_sources_rules,
                  process_info_pkg, analytics_database_pkg,
                  alarmgen_pkg, database_pkg, alarm_sandesh_base_pkg,
                  derived_stats_pkg, nodeinfo_pkg, cpuinfo_pkg2,
-                 process_info_pkg2]
+                 process_info_pkg2, analytics_api_info_pkg]
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_gen = OpEnv.Command('dist/opserver-0.1dev.tar.gz', 'setup.py',
@@ -94,6 +95,7 @@ opserver_doc_files = []
 opserver_doc_files += OpEnv['BASE_DOC_FILES']
 opserver_doc_files += OpEnv['ANALYTICS_DOC_FILES']
 opserver_doc_files += OpEnv.SandeshGenDoc('analytics_database.sandesh')
+opserver_doc_files += OpEnv.SandeshGenDoc('analytics_api_info.sandesh')
 
 alarmgen_doc_files = []
 alarmgen_doc_files += OpEnv['BASE_DOC_FILES']
