@@ -156,6 +156,8 @@ class Collector(object):
             '--DEFAULT.log_level', 'SYS_DEBUG',
             '--DEFAULT.log_file', self._log_file,
             '--DATABASE.enable_message_keyword_writes']
+        if self.analytics_fixture.cassandra_port == 0:
+            args.append('--DATABASE.disable_all_writes')
         if self.redis_password:
             args.append('--REDIS.password')
             args.append(self.redis_password)
