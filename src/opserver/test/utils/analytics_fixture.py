@@ -1343,7 +1343,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              start_time=str(generator_obj.session_start_time),
                              end_time=str(generator_obj.session_end_time),
                              select_fields=[
-                                 'UuidKey', 'agg-packets', 'agg-bytes'])
+                                 'UuidKey', 'SUM(agg-packets)', 'SUM(agg-bytes)'])
         self.logger.info("FlowRecordTable result:%s" % str(res))
         assert(len(res) == 2*(generator_obj.flow_cnt**2))
 
@@ -1621,8 +1621,10 @@ class AnalyticsFixture(fixtures.Fixture):
                         select_fields=[
                             'forward_flow_uuid',
                             'reverse_flow_uuid',
-                            'forward_teardown_bytes',
-                            'reverse_teardown_bytes'],
+                            'client_port',
+                            'server_port',
+                            'SUM(forward_teardown_bytes)',
+                            'SUM(reverse_teardown_bytes)'],
                         session_type="client")
         self.logger.info("SessionRecordTable result:%s" % str(res))
         assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
@@ -2105,6 +2107,24 @@ class AnalyticsFixture(fixtures.Fixture):
                 assert(False)
             assert(r['SUM(forward_sampled_bytes)'] == stats['sum_fwd_bytes'])
             assert(r['SUM(reverse_sampled_pkts)'] == stats['sum_rev_pkts'])
+
+        # 10. tuple + stats (filter by action)
+        self.logger.info('SessionSeriesTable: [server_port, forward_action, \
+                                                SUM(forward_sampled_bytes), \
+                                                SUM(reverse_sampled_pkts)]')
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (30 * 1000 * 1000))
+        action = 'drop'
+        res = vns.post_query(
+                'SessionSeriesTable',
+                start_time = st, end_time = et,
+                select_fields=['server_port', 'forward_action',
+                                'SUM(forward_sampled_bytes)',
+                                'SUM(reverse_sampled_pkts)'],
+                session_type="client",
+                filter='forward_action=%s'%action)
+        self.logger.info("results: %s" % str(res))
+        assert(len(res) == 3)
 
         return True
     # end verify_session_series_aggregation_binning
