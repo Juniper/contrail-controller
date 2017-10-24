@@ -31,6 +31,7 @@ class VncServiceTest(KMTestCase):
         super(VncServiceTest, self).__init__(*args, **kwargs)
         self.namespace = 'guestbook'
         self.external_ip = '10.0.0.54'
+        self.external_cidr = '10.0.0.0/24'
 
     def setUp(self, extra_config_knobs=None):
         super(VncServiceTest, self).setUp()
@@ -317,6 +318,41 @@ class VncServiceTest(KMTestCase):
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
+    def test_service_add_scaling(self):
+        ServiceData = namedtuple(
+            'ServiceData', ['uuids', 'uuid', 'name', 'ports', 'meta'])
+        scale = 50
+        cluster_project = self._set_cluster_project()
+        namespace_name, namespace_uuid = self._enqueue_add_namespace()
+        network_uuid = self._create_virtual_network(cluster_project)
+        self.wait_for_all_tasks_done()
+
+        srvs_data = []
+        first_ip = self.external_ip
+        for i in xrange(scale):
+            srv_name = namespace_name + str(i)
+            self.external_ip = (IPAddress(first_ip) + i).format()
+            ports, srv_meta, srv_uuid = \
+                self._enqueue_add_service(namespace_name, srv_name=srv_name)
+            self.wait_for_all_tasks_done()
+
+            uuids = self._assert_all_is_up(ports, srv_uuid,
+                                           expected_vn_uuid=network_uuid)
+            srvs_data.append(
+                ServiceData(uuids, srv_uuid, srv_name, ports, srv_meta ))
+
+        for i, srv_data in enumerate(srvs_data):
+            self._enqueue_delete_service(srv_data.ports, srv_data.meta)
+            self.wait_for_all_tasks_done()
+
+            self._assert_all_is_down(srv_data.uuids, True)
+
+        self._enqueue_delete_namespace(namespace_name, namespace_uuid)
+        self.wait_for_all_tasks_done()
+        self._delete_virtual_network(network_uuid)
+        self._delete_project(cluster_project)
+        self.external_ip = first_ip
+
     def _assert_all_is_up(self, ports, srv_uuid, expected_vn_uuid=None):
         """
         This method tests existence of these resources:
@@ -366,16 +402,25 @@ class VncServiceTest(KMTestCase):
             self.assertEquals(expected_vn_uuid, vn_uuid)
 
         # instance ip -> virtual network
+        srv_name = lb.name.split('__')[0]
         iips = vn.instance_ip_back_refs
-        self.assertEqual(1, len(iips))
-        iip_uuid = iips[0]['uuid']
+        iip = None
+        for _ in vn.instance_ip_back_refs:
+            _iip = self._vnc_lib.instance_ip_read(
+                id=_['uuid'], fields=['instance-ip-floating-ip'])
+            if _iip.name.split('__')[0] == srv_name:
+                iip = _iip
+                break
+        self.assertIsNotNone(iip)
+
+        iip_uuid = iips[len(iips)-1]['uuid']
         iip = self._vnc_lib.instance_ip_read(
             id=iip_uuid, fields=['instance-ip-floating-ip'])
 
         # floating ip -> instance ip
         fips = iip.get_floating_ips()
         self.assertEqual(1, len(fips))
-        fip_uuid = fips[0]['uuid']
+        fip_uuid = fips[len(fips)-1]['uuid']
         fip = self._vnc_lib.floating_ip_read(id=fip_uuid)
         self.assertIsNotNone(fip.floating_ip_address)
 
@@ -383,10 +428,13 @@ class VncServiceTest(KMTestCase):
         pub_fip_pool = self._vnc_lib.floating_ip_pool_read(
             id=self.pub_fip_pool_uuid, fields=['floating-ip-pool-floating-ip'])
         pub_fips = pub_fip_pool.get_floating_ips()
-        self.assertEqual(1, len(pub_fips))
-        pub_fip_uuid = pub_fips[0]['uuid']
-        pub_fip = self._vnc_lib.floating_ip_read(id=pub_fip_uuid)
-        self.assertEquals(self.external_ip, pub_fip.floating_ip_address)
+        #self.assertEqual(1, len(pub_fips))
+        pub_fip_objs = \
+            [self._vnc_lib.floating_ip_read(id=pub_fips[i]['uuid'])
+             for i in xrange(len(pub_fips))]
+        pub_fip_ips = [ ip.floating_ip_address for ip in pub_fip_objs ]
+        idx = pub_fip_ips.index(self.external_ip)
+        self.assertTrue(idx >= 0)
 
         return Uuids(lb_uuid=lb.uuid,
                      vmi_uuid=vmi.uuid,
@@ -394,7 +442,7 @@ class VncServiceTest(KMTestCase):
                      iip_uuid=iip.uuid,
                      fip_uuid=fip.uuid,
                      lb_listener_uuid=lb_listener.uuid,
-                     pub_fip_uuid=pub_fip.uuid,
+                     pub_fip_uuid=pub_fip_objs[idx].uuid,
                      lb_pool_uuid=lb_pool.uuid)
 
     def _assert_all_is_down(self, uuids, skip_vn=False):
@@ -548,7 +596,7 @@ class VncServiceTest(KMTestCase):
         ipam_fq_name = ['default-domain', 'default-project',
                         'default-network-ipam']
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-        subnet_data = self._create_subnet_data('10.0.0.0/24')
+        subnet_data = self._create_subnet_data(self.external_cidr)
         vn_obj.add_network_ipam(ipam_obj, subnet_data)
         return self._vnc_lib.virtual_network_create(vn_obj)
 
