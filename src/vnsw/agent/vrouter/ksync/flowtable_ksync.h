@@ -77,6 +77,11 @@ public:
     virtual uint32_t GetTableIndex() const;
     virtual bool Sync();
     virtual KSyncEntry *UnresolvedReference();
+    virtual bool ShouldReEvalBackReference() const {
+        // no need to re-eval unresolved reference for flow entries, as they
+        // do not depend on anything
+        return false;
+    }
     bool AllowDeleteStateComp() {return false;}
     virtual void ErrorHandler(int, uint32_t, KSyncEvent) const;
     virtual std::string VrouterError(uint32_t error) const;
