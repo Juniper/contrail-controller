@@ -498,7 +498,7 @@ std::size_t boost::hash_value(const StatsSelect::StatVal& sv) {
     return boost::hash_value(ostr.str());
 }
 
-bool StatsSelect::LoadRow(boost::uuids::uuid u,
+bool StatsSelect::LoadRow(const std::string& table, boost::uuids::uuid u,
 		uint64_t timestamp, const vector<StatEntry>& row, MapBufT& output) {
 
 	if (!Status()) return false;
@@ -528,6 +528,13 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
         if (uit!=unik_cols_.end()) {
             uniks.insert(make_pair(it->name, it->value));
         }
+    }
+
+    // For SessionRecordTable, ignore the results without one of the select fields
+    if (table == g_viz_constants.SESSION_RECORD_TABLE
+        && uniks.size() != unik_cols_.size()) {
+        QE_LOG(INFO, "ignore the row as it does not have all the select fields");
+        return true;
     }
 
     // Build sort vector

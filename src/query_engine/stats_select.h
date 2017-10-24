@@ -44,7 +44,7 @@ public:
 
     // The client call this function once with every row from the where result.
     // cols that are not in the SELECT will be silently dropped.
-    bool LoadRow(boost::uuids::uuid u, uint64_t timestamp,
+    bool LoadRow(const std::string& table, boost::uuids::uuid u, uint64_t timestamp,
             const std::vector<StatEntry>& row, MapBufT& output);
 
     bool Status() { return status_; }
