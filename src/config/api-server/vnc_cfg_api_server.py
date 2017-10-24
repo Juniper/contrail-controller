@@ -66,6 +66,7 @@ import utils
 import context
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext
+from context import is_internal_request
 import vnc_cfg_types
 from vnc_db import VncDbClient
 
@@ -594,16 +595,17 @@ class VncApiServer(object):
             get_context().set_state('POST_DBE_CREATE')
             # type-specific hook
             try:
-                ok, err_msg = r_class.post_dbe_create(tenant_name, obj_dict, db_conn)
+                ok, result = r_class.post_dbe_create(tenant_name, obj_dict, db_conn)
             except Exception as e:
                 ok = False
-                err_msg = '%s:%s post_dbe_create had an exception: %s' %(
-                    obj_type, obj_id, str(e))
-                err_msg += cfgm_common.utils.detailed_traceback()
+                msg = ("%s:%s post_dbe_create had an exception: %s\n%s" %
+                       (obj_type, obj_id, str(e),
+                        cfgm_common.utils.detailed_traceback()))
+                result = (None, msg)
 
             if not ok:
                 # Create is done, log to system, no point in informing user
-                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+                self.config_log(result[1], level=SandeshLevel.SYS_ERR)
 
             return True, obj_id
         # end stateful_create
@@ -710,7 +712,7 @@ class VncApiServer(object):
             if 'exclude_children' not in get_request().query:
                 obj_fields |= r_class.children_fields
 
-        (ok, result) = r_class.pre_dbe_read(id, db_conn)
+        (ok, result) = r_class.pre_dbe_read(id, fq_name, db_conn)
         if not ok:
             (code, msg) = result
             raise cfgm_common.exceptions.HttpError(code, msg)
@@ -877,7 +879,6 @@ class VncApiServer(object):
         fq_name = read_result['fq_name']
 
         # fail if non-default children or non-derived backrefs exist
-        default_names = {}
         for child_field in r_class.children_fields:
             child_type, is_derived = r_class.children_field_types[child_field]
             if is_derived:
@@ -885,7 +886,6 @@ class VncApiServer(object):
             child_cls = self.get_resource_class(child_type)
             default_child_name = 'default-%s' %(
                 child_cls(parent_type=obj_type).get_type())
-            default_names[child_type] = default_child_name
             exist_hrefs = []
             for child in read_result.get(child_field, []):
                 if child['to'][-1] == default_child_name:
@@ -952,16 +952,17 @@ class VncApiServer(object):
             # type-specific hook
             get_context().set_state('POST_DBE_DELETE')
             try:
-                ok, err_msg = r_class.post_dbe_delete(id, read_result, db_conn)
+                ok, result = r_class.post_dbe_delete(id, read_result, db_conn)
             except Exception as e:
                 ok = False
-                err_msg = '%s:%s post_dbe_delete had an exception: ' \
-                          %(obj_type, id)
-                err_msg += cfgm_common.utils.detailed_traceback()
+                msg = ("%s:%s post_dbe_delete had an exception: %s\n%s" %
+                       (obj_type, id, str(e),
+                        cfgm_common.utils.detailed_traceback()))
+                result = (None, msg)
 
             if not ok:
                 # Delete is done, log to system, no point in informing user
-                self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
+                self.config_log(result[1], level=SandeshLevel.SYS_ERR)
 
             return (True, '')
         # end stateful_delete
@@ -1170,16 +1171,15 @@ class VncApiServer(object):
         return self._db_conn._zk_db.alloc_tag_value_id(tag_type, name)
 
     def create_default_children(self, object_type, parent_obj):
-        r_class = self.get_resource_class(object_type)
-        for child_fields in r_class.children_fields:
-            # Create a default child only if provisioned for
-            child_res_type, is_derived =\
-                r_class.children_field_types[child_fields]
-            if is_derived:
-                continue
-            if child_res_type not in self._GENERATE_DEFAULT_INSTANCE:
-                continue
-            child_cls = self.get_resource_class(child_res_type)
+        childs = self.get_resource_class(object_type).children_field_types
+        # Create a default child only if provisioned for
+        child_types = {type for _, (type, derivate) in childs.items()
+                       if (not derivate and
+                           type in self._GENERATE_DEFAULT_INSTANCE)}
+        if not child_types:
+            return True, ''
+        for child_type in child_types:
+            child_cls = self.get_resource_class(child_type)
             child_obj_type = child_cls.object_type
             child_obj = child_cls(parent_obj=parent_obj)
             child_dict = child_obj.__dict__
@@ -1199,12 +1199,16 @@ class VncApiServer(object):
                                                     child_dict)
             if not ok:
                 # DB Create failed, log and stop further child creation.
-                err_msg = "DB Create failed creating %s" % child_res_type
+                err_msg = "DB Create failed creating %s" % child_type
                 self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
                 return (ok, result)
 
             # recurse down type hierarchy
-            self.create_default_children(child_obj_type, child_obj)
+            ok, result = self.create_default_children(child_obj_type,
+                                                      child_obj)
+            if not ok:
+                return False, result
+        return True, ''
     # end create_default_children
 
     def delete_default_children(self, resource_type, parent_dict):
@@ -1676,13 +1680,13 @@ class VncApiServer(object):
     def is_auth_disabled(self):
         return self._args.auth is None or self._args.auth.lower() != 'keystone'
 
-    def is_admin_request(self, req=None):
+    def is_admin_request(self):
         if not self.is_auth_needed():
             return True
 
-        curr_context = get_context()
-        if curr_context.internal_req:
+        if is_internal_request():
             return True
+
         env = bottle.request.headers.environ
         roles = []
         for field in ('HTTP_X_API_ROLE', 'HTTP_X_ROLE'):
@@ -1762,86 +1766,76 @@ class VncApiServer(object):
             }
             return result
 
-        if 'HTTP_X_USER_TOKEN' not in get_request().environ:
-            raise cfgm_common.exceptions.HttpError(
-                400, 'User token needed for validation')
-        user_token = get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
         obj_uuid = None
         if 'uuid' in get_request().query:
             obj_uuid = get_request().query.uuid
 
-        # get permissions in internal context
-        try:
-            orig_context = get_context()
-            orig_request = get_request()
-            b_req = bottle.BaseRequest(
-                {
-                 'HTTP_X_AUTH_TOKEN':  user_token,
-                 'REQUEST_METHOD'   : 'GET',
-                 'bottle.app': orig_request.environ['bottle.app'],
-                })
-            i_req = context.ApiInternalRequest(
-                b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
-            set_context(context.ApiContext(internal_req=i_req))
-            token_info = self._auth_svc.validate_user_token(get_request())
+        ok, result = self._auth_svc.validate_user_token()
+        if not ok:
+            code, msg = result
+            self.config_object_error(obj_uuid, None, None,
+                                     'obj_perms_http_get', msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
+        token_info = result
 
-            # roles in result['token_info']['access']['user']['roles']
-            if token_info:
-                result = {'token_info' : token_info}
-                # Handle v2 and v3 responses
-                roles_list = []
-                if 'access' in token_info:
-                    roles_list = [roles['name'] for roles in \
-                        token_info['access']['user']['roles']]
-                elif 'token' in token_info:
-                    roles_list = [roles['name'] for roles in \
-                        token_info['token']['roles']]
-                result['is_cloud_admin_role'] = has_role(\
-                        self.cloud_admin_role, roles_list)
-                result['is_global_read_only_role'] = has_role(\
-                        self.global_read_only_role, roles_list)
-                if obj_uuid:
-                    result['permissions'] = self._permissions.obj_perms(\
-                            get_request(), obj_uuid)
-                if 'token' in token_info.keys():
-                    if 'project' in  token_info['token'].keys():
-                        domain = None
-                        try:
-                            domain = token_info['token']['project']['domain']['id']
-                            domain = str(uuid.UUID(domain))
-                        except ValueError, TypeError:
-                            if domain == 'default':
-                                domain = 'default-domain'
-                            domain = self._db_conn.fq_name_to_uuid('domain', \
-                                    [domain])
-                        if domain:
-                            domain = domain.replace('-','')
-                            token_info['token']['project']['domain']['id'] = domain
-            else:
-                raise cfgm_common.exceptions.HttpError(403, " Permission denied")
-        finally:
-            set_context(orig_context)
+        # roles in result['token_info']['access']['user']['roles']
+        result = {'token_info': token_info}
+        # Handle v2 and v3 responses
+        roles_list = []
+        if 'access' in token_info:
+            roles_list = [roles['name'] for roles in
+                          token_info['access']['user']['roles']]
+        elif 'token' in token_info:
+            roles_list = [roles['name'] for roles in
+                          token_info['token']['roles']]
+        result['is_cloud_admin_role'] = has_role(self.cloud_admin_role,
+                                                 roles_list)
+        result['is_global_read_only_role'] = has_role(
+            self.global_read_only_role, roles_list)
+        if obj_uuid:
+            result['permissions'] = self._permissions.obj_perms(get_request(),
+                                                                obj_uuid)
+        if 'token' in token_info.keys():
+            if 'project' in token_info['token'].keys():
+                domain = None
+                try:
+                    domain = token_info['token']['project']['domain']['id']
+                    domain = str(uuid.UUID(domain))
+                except ValueError, TypeError:
+                    if domain == 'default':
+                        domain = 'default-domain'
+                    domain = self._db_conn.fq_name_to_uuid('domain', [domain])
+                if domain:
+                    domain = domain.replace('-', '')
+                    token_info['token']['project']['domain']['id'] = domain
         return result
-    #end obj_perms_http_get
+    # end obj_perms_http_get
 
     def invalid_uuid(self, uuid):
-        return self.re_uuid.match(uuid) == None
+        return self.re_uuid.match(uuid) is None
+
     def invalid_access(self, access):
-        return type(access) is not int or access not in range(0,8)
+        return type(access) is not int or access not in range(0, 8)
+
     def invalid_share_type(self, share_type):
         return share_type not in cfgm_common.PERMS2_VALID_SHARE_TYPES
 
     # change ownership of an object
     def obj_chown_http_post(self):
-
-        try:
-            obj_uuid = get_request().json['uuid']
-            owner = get_request().json['owner']
-        except Exception as e:
-            raise cfgm_common.exceptions.HttpError(400, str(e))
-        if self.invalid_uuid(obj_uuid) or self.invalid_uuid(owner):
-            raise cfgm_common.exceptions.HttpError(
-                400, "Bad Request, invalid object or owner id")
+        obj_uuid = get_request().json.get('uuid')
+        owner = get_request().json.get('owner')
+        if obj_uuid is None:
+            msg = "Bad Request, no resource UUID provided to chown"
+            raise cfgm_common.exceptions.HttpError(400, msg)
+        if owner is None:
+            msg = "Bad Request, no owner UUID provided to chown"
+            raise cfgm_common.exceptions.HttpError(400, msg)
+        if self.invalid_uuid(obj_uuid):
+            msg = "Bad Request, invalid resource UUID"
+            raise cfgm_common.exceptions.HttpError(400, msg)
+        if self.invalid_uuid(owner):
+            msg = "Bad Request, invalid owner UUID"
+            raise cfgm_common.exceptions.HttpError(400, msg)
 
         try:
             obj_type = self._db_conn.uuid_to_obj_type(obj_uuid)
@@ -2633,33 +2627,34 @@ class VncApiServer(object):
 
         # set ownership of object to creator tenant
         if obj_type == 'project' and 'uuid' in obj_dict:
-            perms2['owner'] = str(obj_dict['uuid']).replace('-','')
+            perms2['owner'] = str(obj_dict['uuid']).replace('-', '')
 
         elif obj_dict.get('perms2') and obj_dict['perms2'].get('owner'):
             perms2['owner'] = obj_dict['perms2']['owner']
 
         elif 'fq_name' in obj_dict and obj_dict['fq_name'][:-1]:
+            if 'parent_type' in obj_dict:
+                parent_type = obj_dict['parent_type'].replace('-', '_')
+            else:
+                r_class = self.get_resource_class(obj_type)
+                if (len(r_class.parent_types) != 1):
+                    msg = ("Ambiguous parent to ensure permissiosn of %s, "
+                           "please choose one parent type: %s" %
+                           (obj_type, pformat(r_class.parent_types)))
+                    raise cfgm_common.exceptions.HttpError(400, msg)
+                parent_type = r_class.parent_types[0].replace('-', '_')
+            parent_fq_name = obj_dict['fq_name'][:-1]
+            parent_uuid = obj_dict.get('parent_uuid')
             try:
-                if 'parent_type' in obj_dict:
-                    parent_type = obj_dict['parent_type'].replace('-', '_')
-                else:
-                    r_class = self.get_resource_class(obj_type)
-                    if (len(r_class.parent_types) != 1):
-                        raise cfgm_common.exceptions.HttpError(404,
-                              '' + 'parent_type needed')
-                    parent_type = r_class.parent_types[0]
-                    parent_type = parent_type.replace('-', '_')
-                parent_fq_name = obj_dict['fq_name'][:-1]
-                parent_uuid = self._db_conn.fq_name_to_uuid(parent_type,
-                                                            parent_fq_name)
-                (ok, parent_obj_dict) = self._db_conn.dbe_read(parent_type,
-                                                       parent_uuid,
-                                                       obj_fields=['perms2'])
+                if parent_uuid is None:
+                    parent_uuid = self._db_conn.fq_name_to_uuid(
+                        parent_type, parent_fq_name)
+                ok, parent_obj_dict = self._db_conn.dbe_read(
+                    parent_type, parent_uuid, obj_fields=['perms2'])
                 perms2['owner'] = parent_obj_dict['perms2']['owner']
-            except:
-                 raise cfgm_common.exceptions.HttpError(404,
-                       '' + parent_type + ' ' + pformat(parent_fq_name) +
-                       ' not present')
+            except NoIdError as e:
+                msg = "Parent %s cannot be found: %s" % (parent_type, str(e))
+                raise cfgm_common.exceptions.HttpError(404, msg)
 
         elif project_id:
             perms2['owner'] = project_id
@@ -2668,13 +2663,13 @@ class VncApiServer(object):
             # Resource creation
             if obj_uuid is None:
                 obj_dict['perms2'] = perms2
-                return (True, "")
+                return
             # Resource already exists
             try:
                 obj_dict['perms2'] = self._db_conn.uuid_to_obj_perms2(obj_uuid)
             except NoIdError:
                 obj_dict['perms2'] = perms2
-            return (True, "")
+            return
 
         # retrieve the previous version of the perms2
         # from the database and update the perms2 with
@@ -2699,11 +2694,17 @@ class VncApiServer(object):
         # ensure is_shared and global_access are consistent
         shared = obj_dict.get('is_shared', None)
         gaccess = obj_dict['perms2'].get('global_access', None)
-        if gaccess is not None and shared is not None and shared != (gaccess != 0):
-            error = "Inconsistent is_shared (%s a) and global_access (%s)" % (shared, gaccess)
-            return (False, (400, error))
-        return (True, "")
-    # end _ensure_perms2_present
+        if (gaccess is not None and shared is not None and
+                shared != (gaccess != 0)):
+            msg = ("Inconsistent is_shared (%s a) and global_access (%s)" %
+                   (shared, gaccess))
+            # NOTE(ethuleau): ignore exception for the moment as it breaks the
+            # Neutron use case where external network have global access but
+            # is property 'is_shared' is False https://review.opencontrail.org/#/q/Id6a0c1a509d7663da8e5bc86f2c7c91c73d420a2
+            # Before patch https://review.opencontrail.org/#q,I9f53c0f21983bf191b4c51318745eb348d48dd86,n,z
+            # error was also ignored as all retruned errors of that method were
+            # not took in account
+            # raise cfgm_common.exceptions.HttpError(400, msg)
 
     def _get_default_perms2(self):
         perms2 = copy.deepcopy(Provision.defaults.perms2)
@@ -2715,25 +2716,43 @@ class VncApiServer(object):
 
     def _db_init_entries(self):
         # create singleton defaults if they don't exist already in db
-        self._create_singleton_entry(GlobalSystemConfig(
+        gsc = self.create_singleton_entry(GlobalSystemConfig(
             autonomous_system=64512, config_version=CONFIG_VERSION))
-        self._create_singleton_entry(Domain())
-        pm_obj = self._create_singleton_entry(PolicyManagement())
-        self._create_singleton_entry(ApplicationPolicySet(
-            'global-application-policy-set', is_global=True,
-            parent_obj=pm_obj))
-        ip_fab_vn = self._create_singleton_entry(
+        gvc = self.create_singleton_entry(GlobalVrouterConfig(
+            parent_obj=gsc))
+        self.create_singleton_entry(Domain())
+
+        # Global and default policy resources
+        pm = self.create_singleton_entry(PolicyManagement())
+        aps = self.create_singleton_entry(ApplicationPolicySet(
+            parent_obj=pm, all_applications=True))
+        ok, result = self._db_conn.ref_update(
+            ApplicationPolicySet.object_type,
+            aps.uuid,
+            GlobalVrouterConfig.object_type,
+            gvc.uuid,
+            {'attr': None},
+            'ADD',
+            None,
+        )
+        if not ok:
+            msg = ("Error while referencing global vrouter config %s with the "
+                   "default global application policy set %s: %s" %
+                   (gvc.uuid, aps.uuid, result[1]))
+            self.config_log(msg, level=SandeshLevel.SYS_ERR)
+
+        ip_fab_vn = self.create_singleton_entry(
             VirtualNetwork(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1]))
-        self._create_singleton_entry(
+        self.create_singleton_entry(
             RoutingInstance(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1], ip_fab_vn,
-                routing_instance_is_default=True))
-        self._create_singleton_entry(
+                            routing_instance_is_default=True))
+        self.create_singleton_entry(
             RoutingInstance('__default__', ip_fab_vn))
-        link_local_vn = self._create_singleton_entry(
+        link_local_vn = self.create_singleton_entry(
             VirtualNetwork(cfgm_common.LINK_LOCAL_VN_FQ_NAME[-1]))
-        self._create_singleton_entry(
+        self.create_singleton_entry(
             RoutingInstance('__link_local__', link_local_vn,
-                routing_instance_is_default=True))
+                            routing_instance_is_default=True))
 
         # specifying alarm kwargs like contrail_alarm.py
         alarm_kwargs = {"alarm_rules":
@@ -2760,33 +2779,32 @@ class VncApiServer(object):
                             ]
                         }
                        }
-        self._create_singleton_entry(Alarm(**alarm_kwargs))
+        self.create_singleton_entry(Alarm(**alarm_kwargs))
         try:
-            self._create_singleton_entry(
+            self.create_singleton_entry(
                 RoutingInstance('default-virtual-network',
-                    routing_instance_is_default=True))
+                                routing_instance_is_default=True))
         except Exception as e:
             self.config_log('error while creating primary routing instance for'
                             'default-virtual-network: ' + str(e),
                             level=SandeshLevel.SYS_NOTICE)
 
-        self._create_singleton_entry(DiscoveryServiceAssignment())
-        self._create_singleton_entry(GlobalQosConfig())
+        self.create_singleton_entry(DiscoveryServiceAssignment())
+        self.create_singleton_entry(GlobalQosConfig())
 
         sc_ipam_subnet_v4 = IpamSubnetType(subnet=SubnetType('0.0.0.0', 8))
         sc_ipam_subnet_v6 = IpamSubnetType(subnet=SubnetType('::ffff', 104))
         sc_ipam_subnets = IpamSubnets([sc_ipam_subnet_v4, sc_ipam_subnet_v6])
         sc_ipam_obj = NetworkIpam('service-chain-flat-ipam',
                 ipam_subnet_method="flat-subnet", ipam_subnets=sc_ipam_subnets)
-        self._create_singleton_entry(sc_ipam_obj)
+        self.create_singleton_entry(sc_ipam_obj)
 
         # Create pre-defined tag-type
         for type_str, type_id in TagTypeNameToId.items():
             type_id_hex = "0x{:04x}".format(type_id)
             tag = TagType(name=type_str, tag_type_id=type_id_hex)
             tag.display_name = type_str
-            # self._create_singleton_entry(tag)
-            self._create_singleton_entry(tag, user_visible=False)
+            self.create_singleton_entry(tag, user_visible=False)
 
         if int(self._args.worker_id) == 0:
             self._db_conn.db_resync()
@@ -2868,7 +2886,7 @@ class VncApiServer(object):
             fq_name=fq_name, api_access_list_entries = rge_dict)
 
         try:
-            self._create_singleton_entry(glb_rbac_cfg)
+            self.create_singleton_entry(glb_rbac_cfg)
         except Exception as e:
             err_msg = 'Error creating default api access list object'
             err_msg += cfgm_common.utils.detailed_traceback()
@@ -2880,7 +2898,7 @@ class VncApiServer(object):
             ext.obj.resync_domains_projects()
     # end _resync_domains_projects
 
-    def _create_singleton_entry(self, singleton_obj, user_visible=True):
+    def create_singleton_entry(self, singleton_obj, user_visible=True):
         s_obj = singleton_obj
         obj_type = s_obj.object_type
         fq_name = s_obj.get_fq_name()
@@ -2900,10 +2918,9 @@ class VncApiServer(object):
             pass
         # TODO backward compat END
 
-
         # create if it doesn't exist yet
         try:
-            id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+            s_obj.uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
             obj_json = json.dumps(s_obj, default=_obj_serializer_all)
             obj_dict = json.loads(obj_json)
@@ -2912,15 +2929,15 @@ class VncApiServer(object):
             obj_dict['perms2'] = self._get_default_perms2()
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
             obj_id = result
+            s_obj.uuid = obj_id
             # For virtual networks, allocate an ID
             if obj_type == 'virtual_network':
                 vn_id = self.alloc_vn_id(s_obj.get_fq_name_str())
                 obj_dict['virtual_network_network_id'] = vn_id
             self._db_conn.dbe_create(obj_type, obj_id, obj_dict)
             self.create_default_children(obj_type, s_obj)
-
         return s_obj
-    # end _create_singleton_entry
+    # end create_singleton_entry
 
     def _validate_page_marker(self, req_page_marker):
         # query params always appears as string
@@ -2959,20 +2976,14 @@ class VncApiServer(object):
 
         is_admin = False
         if 'HTTP_X_USER_TOKEN' in get_request().environ:
-            user_token = get_request().environ['HTTP_X_USER_TOKEN'].encode("ascii")
-            orig_context = get_context()
-            orig_request = get_request()
-            b_req = bottle.BaseRequest(
-                            {
-                            'HTTP_X_AUTH_TOKEN':  user_token,
-                            'REQUEST_METHOD'   : 'GET',
-                            'bottle.app': orig_request.environ['bottle.app'],
-                            })
-            i_req = context.ApiInternalRequest(
-                    b_req.url, b_req.urlparts, b_req.environ, b_req.headers, None, None)
-            set_context(context.ApiContext(internal_req=i_req))
-            token_info = self._auth_svc.validate_user_token(get_request())
-            is_admin = self.is_admin_request(get_request())
+            ok, result = self._auth_svc.validate_user_token()
+            if not ok:
+                code, msg = result
+                self.config_object_error(None, None, obj_type,
+                                         'list_coolection', msg)
+                raise cfgm_common.exceptions.HttpError(code, msg)
+            token_info = self.is_admin_request()
+            is_admin = True
         else:
             is_admin = self.is_admin_request()
 
@@ -3648,8 +3659,12 @@ class VncApiServer(object):
         if aaa_mode not in cfgm_common.AAA_MODE_VALID_VALUES:
             raise ValueError('Invalid aaa-mode %s' % aaa_mode)
 
-        if not self._auth_svc.validate_user_token(get_request()):
-            raise cfgm_common.exceptions.HttpError(403, " Permission denied")
+        ok, result = self._auth_svc.validate_user_token()
+        if not ok:
+            code, msg = result
+            self.config_object_error(None, None, None, 'aaa_mode_http_put',
+                                     msg)
+            raise cfgm_common.exceptions.HttpError(code, msg)
         if not self.is_admin_request():
             raise cfgm_common.exceptions.HttpError(403, " Permission denied")
 
