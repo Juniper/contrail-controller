@@ -648,8 +648,6 @@ class OpServer(object):
         if self._args.dup:
             self._hostname += 'dup'
         self._sandesh = Sandesh()
-        self.disk_usage_percentage = 0
-        self.pending_compaction_tasks = 0
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self)
         self.random_collectors = self._args.collectors
         if self._args.collectors:
@@ -944,8 +942,9 @@ class OpServer(object):
             self._VIRTUAL_TABLES.append(stt)
 
         self._analytics_db = AnalyticsDb(self._logger,
-                                         self._args.redis_query_port,
-                                         self._args.redis_password)
+            self._args.auth_conf_info['admin_port'],
+            self._args.auth_conf_info['admin_user'],
+            self._args.auth_conf_info['admin_password'])
 
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
@@ -2187,40 +2186,42 @@ class OpServer(object):
         return json.dumps(json_links)
     # end tables_process
 
-    def handle_db_info(self,
-                       disk_usage_percentage = None,
-                       pending_compaction_tasks = None):
-        if (disk_usage_percentage != None):
-            self.disk_usage_percentage = disk_usage_percentage
-        if (pending_compaction_tasks != None):
-            self.pending_compaction_tasks = pending_compaction_tasks
-        source = self._hostname
-        module_id = Module.COLLECTOR
-        module = ModuleNames[module_id]
-        node_type = Module2NodeType[module_id]
-        node_type_name = NodeTypeNames[node_type]
-        instance_id_str = INSTANCE_ID_DEFAULT
-        destination = source + ':' + node_type_name + ':' \
+    def monitor_analytics_db(self):
+        while True:
+            gevent.sleep(10*60)
+            db_usage = self._analytics_db.get_dbusage_info()
+            disk_usage_percentage = None
+            if len(db_usage):
+                disk_usage_percentage = int(math.ceil(max(db_usage.values())))
+            pending_compaction_tasks_info = \
+                self._analytics_db.get_pending_compaction_tasks()
+            pending_compaction_tasks = None
+            if len(pending_compaction_tasks_info):
+                pending_compaction_tasks = \
+                    max(pending_compaction_tasks_info.values())
+            if any([disk_usage_percentage, pending_compaction_tasks]):
+                source = self._hostname
+                module_id = Module.COLLECTOR
+                module = ModuleNames[module_id]
+                node_type = Module2NodeType[module_id]
+                node_type_name = NodeTypeNames[node_type]
+                instance_id_str = INSTANCE_ID_DEFAULT
+                destination = source + ':' + node_type_name + ':' \
                       + module + ':' + instance_id_str
-        req = DbInfoSetRequest(disk_usage_percentage, pending_compaction_tasks)
-        if (disk_usage_percentage != None):
-            req.disk_usage_percentage = disk_usage_percentage
-        if (pending_compaction_tasks != None):
-            req.pending_compaction_tasks = pending_compaction_tasks
-
-        if self._state_server.redis_publish(msg_type='db-info',
-                                            destination=destination,
-                                            msg=req):
-            self._logger.info("redis-publish success for db_info usage(%u)"
-                              " pending_compaction_tasks(%u)",
-                              req.disk_usage_percentage,
-                              req.pending_compaction_tasks);
-        else:
-            self._logger.error("redis-publish failure for db_info usage(%u)"
-                               " pending_compaction_tasks(%u)",
-                               req.disk_usage_percentage,
-                               req.pending_compaction_tasks);
-    # end handle_db_info
+                req = DbInfoSetRequest(disk_usage_percentage,
+                        pending_compaction_tasks)
+                if self._state_server.redis_publish(msg_type='db-info',
+                    destination=destination, msg=req):
+                    self._logger.info('redis-publish success for '
+                        'disk_usage (%u%%), pending_compaction_tasks(%u)',
+                        req.disk_usage_percentage,
+                        req.pending_compaction_tasks)
+                else:
+                    self._logger.error('redis-publish failure for '
+                        'disk_usage (%u%%), pending_compaction_tasks(%u)',
+                        req.disk_usage_percentage,
+                        req.pending_compaction_tasks)
+    # end monitor_analytics_db
 
     @validate_user_token
     def _get_analytics_data_start_time(self):
@@ -2428,6 +2429,7 @@ class OpServer(object):
             self._uvedbstream,
             gevent.spawn(self.start_webserver),
             gevent.spawn(self.start_uve_server),
+            gevent.spawn(self.monitor_analytics_db)
             ]
 
         if self._ad is not None:
