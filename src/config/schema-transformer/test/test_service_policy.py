@@ -69,7 +69,17 @@ class VerifyServicePolicy(VerifyPolicy):
         sci = ri.get_service_chain_information()
         if sci is None:
             raise Exception('Service chain info not found for %s' % fq_name)
-        self.assertEqual(sci, expected)
+        expected_attrs = expected.__dict__
+        sci_attrs = expected.__dict__
+        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
+        for attr in expected_attrs.keys():
+            if attr == 'service_chain_address':
+                self.assertEqual(IPNetwork(expected_attrs[attr]),
+                        IPNetwork(sci_attrs[attr]))
+                sca = sci_attrs[attr]
+            else:
+                self.assertEqual(expected_attrs[attr], sci_attrs[attr])
+        return sca
 
     @retries(5)
     def check_v6_service_chain_info(self, fq_name, expected):
@@ -77,7 +87,17 @@ class VerifyServicePolicy(VerifyPolicy):
         sci = ri.get_ipv6_service_chain_information()
         if sci is None:
             raise Exception('Ipv6 service chain info not found for %s' % fq_name)
-        self.assertEqual(sci, expected)
+        expected_attrs = expected.__dict__
+        sci_attrs = expected.__dict__
+        self.assertEqual(expected_attrs.keys(), sci_attrs.keys())
+        for attr in expected_attrs.keys():
+            if attr == 'service_chain_address':
+                self.assertEqual(IPNetwork(expected_attrs[attr]),
+                        IPNetwork(sci_attrs[attr]))
+                sca = sci_attrs[attr]
+            else:
+                self.assertEqual(expected_attrs[attr], sci_attrs[attr])
+        return sca
 
     @retries(5)
     def check_service_chain_is_deleted(self, sc_uuid):
@@ -373,10 +393,12 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
                                service_chain_address = v4_service_chain_address,
                                service_instance = si_name)
-        self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+        v4_service_chain_address = self.check_service_chain_info(
+                self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci.prefix = ['1000::/16']
         sci.service_chain_address = v6_service_chain_address
-        self.check_v6_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+        v6_service_chain_address = self.check_v6_service_chain_info(
+                self.get_ri_name(vn2_obj, sc_ri_name), sci)
         sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
                                service_chain_address = v4_service_chain_address,
@@ -840,14 +862,16 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                    routing_instance = ':'.join(self.get_ri_name(vn1_obj)),
                                    service_chain_address = '0.255.255.%s' % (253-i),
                                    service_instance = si_name)
-            self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+            v4_service_chain_address = self.check_service_chain_info(
+                    self.get_ri_name(vn2_obj, sc_ri_name), sci)
             sci.prefix = ['1000::/16']
             if i == 1:
                 sci.service_chain_address = '::0.255.255.252'
             else:
                 sci.service_chain_address = '::0.255.255.251'
 
-            self.check_v6_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+            v6_service_chain_address = self.check_v6_service_chain_info(
+                    self.get_ri_name(vn2_obj, sc_ri_name), sci)
             sci = ServiceChainInfo(prefix = ['20.0.0.0/24'],
                                    routing_instance = ':'.join(self.get_ri_name(vn2_obj)),
                                    service_chain_address = '0.255.255.%s' % (253-i),
@@ -887,7 +911,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             self.wait_to_get_object(config_db.RouteAggregateST,
                                     ra.get_fq_name_str())
             ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
-            self.assertEqual(ra.get_aggregate_route_nexthop(), '0.255.255.%s' % (253-i))
+            self.assertEqual(ra.get_aggregate_route_nexthop(), v4_service_chain_address)
 
             self.assertTill(self.vnc_db_ident_has_ref,
                     obj=ra, ref_name='routing_instance_refs',
@@ -981,7 +1005,8 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
                                    service_instance = si_name)
             service_chain_address = '1.1.1.%s' % (253-i)
             sci.service_chain_address = service_chain_address
-            self.check_service_chain_info(self.get_ri_name(vn2_obj, sc_ri_name), sci)
+            v4_service_chain_address = self.check_service_chain_info(
+                    self.get_ri_name(vn2_obj, sc_ri_name), sci)
             sci.prefix = ['1000::/16']
             if i == 1:
                 sci.service_chain_address = '1000:ffff:ffff:ffff:ffff:ffff:ffff:fffc'
@@ -1028,7 +1053,7 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
             self.wait_to_get_object(config_db.RouteAggregateST,
                                     ra.get_fq_name_str())
             ra = self._vnc_lib.route_aggregate_read(id=ra.uuid)
-            self.assertEqual(ra.get_aggregate_route_nexthop(), service_chain_address)
+            self.assertEqual(ra.get_aggregate_route_nexthop(), v4_service_chain_address)
 
             self.assertTill(self.vnc_db_ident_has_ref,
                     obj=ra, ref_name='routing_instance_refs',
