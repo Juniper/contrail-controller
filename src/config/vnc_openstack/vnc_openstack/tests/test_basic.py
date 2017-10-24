@@ -1187,6 +1187,50 @@ class TestBasic(test_case.NeutronBackendTestCase):
                 )
                 self.assertEqual(len(router_interfaces), 2)
 
+    def test_fip_owner(self):
+        admin_proj_obj = vnc_api.Project('admin-proj-%s' %(self.id()), vnc_api.Domain())
+        self._vnc_lib.project_create(admin_proj_obj)
+        admin_proj_id = admin_proj_obj.uuid
+        # external network
+        net_q = self.create_resource('network', admin_proj_id,
+                                      extra_res_fields={'router:external':True,
+                                                        'shared': True})
+        subnet_q = self.create_resource('subnet', admin_proj_id,
+                                         extra_res_fields=
+                                         {'network_id': net_q['id'],
+                                          'cidr': '10.2.0.0/24',
+                                          'ip_version': 4})
+
+        proj_obj = vnc_api.Project('proj-%s' %(self.id()), vnc_api.Domain())
+        self._vnc_lib.project_create(proj_obj)
+        proj_id = proj_obj.uuid
+
+        pvt_net_q = self.create_resource(
+            'network', proj_id,
+            extra_res_fields={'port_security_enabled': True},
+        )
+        pvt_subnet_q = self.create_resource('subnet', proj_id,
+                                             extra_res_fields=
+                                             {'network_id': pvt_net_q['id'],
+                                              'cidr': '20.1.0.0/24',
+                                              'ip_version': 4})
+
+        sg_q = self.create_resource('security_group', proj_id)
+        port_q = self.create_resource('port', proj_id,
+                                       extra_res_fields=
+                                       {'network_id':
+                                        pvt_subnet_q['network_id'],
+                                        'security_groups': [sg_q['id']]})
+
+        fip_q = self.create_resource('floatingip', proj_id,
+                                      extra_res_fields=
+                                      {'floating_network_id': net_q['id'],
+                                       'port_id': port_q['id']})
+
+        fip = self._vnc_lib.floating_ip_read(id=fip_q['id'])
+
+        self.assertEqual(fip.perms2.owner, proj_id)
+
     def test_update_any_other_fields_in_fip_doesnt_disassociate(self):
         proj_obj = vnc_api.Project('proj-%s' %(self.id()), vnc_api.Domain())
         self._vnc_lib.project_create(proj_obj)
