@@ -17,6 +17,7 @@ import socket
 import uuid
 import random
 import time
+from copy import deepcopy
 from util import retry
 from pysandesh.sandesh_base import *
 from pysandesh.util import UTCTimestampUsec
@@ -158,8 +159,8 @@ class GeneratorFixture(fixtures.Fixture):
                         ip=netaddr.IPAddress('2001:db8::1:2'),
                         port=cnt*10+32747)
                     session_map[sess_ip_port] = SessionInfo(
-                        forward_flow_info=self.forward_flows[cnt],
-                        reverse_flow_info=self.reverse_flows[cnt])
+                        forward_flow_info=deepcopy(self.forward_flows[cnt]),
+                        reverse_flow_info=deepcopy(self.reverse_flows[cnt]))
                     if (i == self.client_session_cnt - 1):
                         session_map[sess_ip_port].forward_flow_info.action \
                                 = 'drop'
@@ -182,7 +183,7 @@ class GeneratorFixture(fixtures.Fixture):
                     sampled_forward_pkts = (j+1)*6,
                     sampled_reverse_bytes = (j+1)*30,
                     sampled_reverse_pkts = (j+1)*3,
-                    sessionMap = session_map)
+                    sessionMap = deepcopy(session_map))
             client_session = SessionEndpoint(vmi = self.client_vmi,
                 vn='domain1:admin:vn1', deployment='Dep'+str(i),
                 application="App"+str(i), tier='Tier'+str(i),
@@ -190,7 +191,7 @@ class GeneratorFixture(fixtures.Fixture):
                 remote_application='RApp'+str(i), remote_tier='RTier'+str(i),
                 remote_site='RSite'+str(i), remote_vn='domain1:admin:vn2',
                 is_client_session = 1, is_si = 0,
-                sess_agg_info = session_agg_info)
+                sess_agg_info = deepcopy(session_agg_info))
             self._logger.info(str(client_session))
             session_object = SessionEndpointObject(session_data=[client_session],
                 sandesh=self._sandesh_instance)
@@ -209,8 +210,8 @@ class GeneratorFixture(fixtures.Fixture):
                         ip=netaddr.IPAddress('10.10.10.1'),
                         port=cnt*10+32747)
                     session_map[sess_ip_port] = SessionInfo(
-                        forward_flow_info=self.forward_flows[cnt],
-                        reverse_flow_info=self.reverse_flows[cnt])
+                        forward_flow_info=deepcopy(self.forward_flows[cnt]),
+                        reverse_flow_info=deepcopy(self.reverse_flows[cnt]))
                     if (i == self.server_session_cnt - 1):
                         session_map[sess_ip_port].forward_flow_info.action \
                                 = 'drop'
@@ -233,7 +234,7 @@ class GeneratorFixture(fixtures.Fixture):
                     sampled_forward_pkts = (j+1)*6,
                     sampled_reverse_bytes = (j+1)*30,
                     sampled_reverse_pkts = (j+1)*3,
-                    sessionMap = session_map)
+                    sessionMap = deepcopy(session_map))
             server_session = SessionEndpoint(vmi = self.server_vmi,
                 vn='domain1:admin:vn2', deployment='Dep'+str(i),
                 application="App"+str(i), tier='Tier'+str(i),
@@ -241,7 +242,7 @@ class GeneratorFixture(fixtures.Fixture):
                 remote_application='RApp'+str(i), remote_tier='RTier'+str(i),
                 remote_site='RSite'+str(i), remote_vn='domain1:admin:vn1',
                 is_client_session = 0, is_si = 0,
-                sess_agg_info = session_agg_info)
+                sess_agg_info = deepcopy(session_agg_info))
             self._logger.info(str(server_session))
             session_object = SessionEndpointObject(session_data=[server_session],
                 sandesh=self._sandesh_instance)
