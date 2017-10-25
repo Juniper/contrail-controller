@@ -101,10 +101,13 @@ class LoadbalancerAgent(Agent):
                 for sa in sas.service_appliances or []:
                     saobj = ServiceApplianceSM.get(sa)
                     config.set(sas.name, 'device_ip', saobj.ip_address)
-                    config.set(sas.name, 'user',
-                               saobj.user_credential['username'])
-                    config.set(sas.name, 'password',
-                               saobj.user_credential['password'])
+                    if saobj.user_credential:
+                        if 'username' in saobj.user_credential:
+                            config.set(sas.name, 'user',
+                                saobj.user_credential['username'])
+                        if 'password' in saobj.user_credential:
+                            config.set(sas.name, 'password',
+                                saobj.user_credential['password'])
                 self._loadbalancer_driver[sas.name] = \
                     importutils.import_object(sas.driver, sas.name,
                                               self._svc_mon, self._vnc_lib,
