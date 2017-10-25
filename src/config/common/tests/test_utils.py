@@ -125,6 +125,11 @@ class FakeConnectionPool(object):
             self.keyspace = kwargs['keyspace']
         else:
             self.keyspace = args[2]
+    def dispose(self):
+        pass
+
+    def fill(self):
+        pass
     # end __init__
 # end FakeConnectionPool
 
