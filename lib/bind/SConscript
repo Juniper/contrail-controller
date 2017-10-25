@@ -27,21 +27,50 @@ else:
            'mv ' + build_dir + '/sbin/rndc ' + build_dir + '/sbin/contrail-rndc; ' +
            'mv ' + build_dir + '/sbin/rndc-confgen ' + build_dir + '/sbin/contrail-rndc-confgen;)')
 
+include_products = [
+    '#build/include/isc/hmacmd5.h',
+    '#build/include/isc/hmacsha.h',
+    '#build/include/isc/lang.h',
+    '#build/include/isc/md5.h',
+    '#build/include/isc/platform.h',
+    '#build/include/isc/types.h',
+    '#build/include/pk11/pk11.h',
+    '#build/include/isc/sha1.h',
+    '#build/include/isc/sha2.h',
+    '#build/include/isc/bind9.h',
+    '#build/include/isc/boolean.h',
+    '#build/include/isc/int.h',
+    '#build/include/isc/list.h',
+    '#build/include/isc/offset.h',
+    '#build/include/isc/magic.h',
+    '#build/include/pkcs11/cryptoki.h',
+    '#build/include/isc/assertions.h',
+    '#build/include/isc/util.h',
+    '#build/include/pkcs11/pkcs11.h',
+    '#build/include/isc/error.h',
+    '#build/include/isc/msgs.h',
+    '#build/include/isc/result.h',
+    '#build/include/isc/stdio.h',
+    '#build/include/pkcs11/pkcs11f.h',
+    '#build/include/pkcs11/pkcs11t.h',
+    '#build/include/isc/formatcheck.h',
+    '#build/include/isc/lib.h',
+    '#build/include/isc/msgcat.h',
+]
+
 products = [ str(File('#/build/lib/librndc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libisc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libisccc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libisccfg' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libbind9' + env['LIBSUFFIX'])),
-             str(File('#/build/lib/libdns' + env['LIBSUFFIX'])),
-             str(Dir('#build/include/isc'))]
+             str(File('#/build/lib/libdns' + env['LIBSUFFIX'])),]
 binproducts = [ str(File('#/build/sbin/contrail-named')),
                 str(File('#/build/sbin/contrail-rndc')),
                 str(File('#/build/sbin/contrail-rndc-confgen')) ]
 
 confs = [ 'contrail-rndc.conf', 'contrail-named.conf', 'COPYRIGHT' ]
 
-bind_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
-env.SideEffect(products + binproducts, bind_cfg)
+bind_cfg = env.Command([products + binproducts + include_products], str(Dir(vpath)), cmd)
 
 env.Alias('lib/bind:bind', bind_cfg)
 env.Alias('install', env.Install(env['INSTALL_BIN'], binproducts))
