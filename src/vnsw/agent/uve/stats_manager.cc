@@ -274,7 +274,7 @@ void StatsManager::AddFlow(const FlowUveStatsRequest *req) {
     } else {
         FlowRuleMatchInfo &info = it->second;
         bool intf_changed = false;
-        const string &old_itf = info.interface;
+        const string old_itf = info.interface;
         if (req->interface() != info.interface) {
             info.interface = req->interface();
             intf_changed = true;
