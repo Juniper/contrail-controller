@@ -914,7 +914,7 @@ void InterfaceUveTable::UveInterfaceEntry::BuildInterfaceUveSecurityPolicyList
         rep.set_remote_prefix(entry->remote_prefix);
 
         vector<SandeshUveTagInfo> lts;
-        BuildSandeshUveTagList(entry->remote_tagset, &lts);
+        BuildSandeshUveTagList(entry->local_tagset, &lts);
         rep.set_local_tagset(lts);
         vector<SandeshUveTagInfo> rts;
         BuildSandeshUveTagList(entry->remote_tagset, &rts);
