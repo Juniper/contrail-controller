@@ -20,6 +20,7 @@
 #include "bgp/routing-instance/routing_instance.h"
 #include "io/tcp_session.h"
 #include "net/rd.h"
+#include "schema/xmpp_mvpn_types.h"
 #include "tbb/atomic.h"
 #include "xmpp/xmpp_channel.h"
 
@@ -304,7 +305,7 @@ private:
         DBRequest &req);
     void CreateType5MvpnRouteRequest(IpAddress grp_address,
         IpAddress src_address, bool add_change, uint64_t subscription_gen_id,
-        int instance_id, DBRequest &req);
+        int instance_id, DBRequest &req, const autogen::MvpnNextHopType &nh);
     bool ProcessEnetItem(std::string vrf_name,
                          const pugi::xml_node &item, bool add_change);
     void ProcessSubscriptionRequest(std::string rt_instance,

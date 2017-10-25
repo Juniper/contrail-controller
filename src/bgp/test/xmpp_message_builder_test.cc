@@ -138,8 +138,12 @@ protected:
         message_ = ribout_->updates(0)->GetMessage();
 
         BgpAttrNextHop nexthop(0x0a0a0a0a);
+        BgpOListSpec olist_spec(BgpAttribute::OList);
+        BgpOListElem elem(Ip4Address(), 100, vector<string>());
+        olist_spec.elements.push_back(elem);
         BgpAttrSpec spec;
         spec.push_back(&nexthop);
+        spec.push_back(&olist_spec);
         attr_ = bs_x_->attr_db()->Locate(spec);
 
         for (int idx = 0;  idx < kRouteCount; ++idx) {

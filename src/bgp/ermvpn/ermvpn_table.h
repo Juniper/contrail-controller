@@ -14,6 +14,7 @@
 class BgpServer;
 class BgpRoute;
 class McastTreeManager;
+class MvpnProjectManager;
 
 class ErmVpnTable : public BgpTable {
 public:
@@ -39,6 +40,7 @@ public:
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
+    size_t Hash(const Ip4Address &group) const;
     virtual int PartitionCount() const { return kPartitionCount; }
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
@@ -50,12 +52,25 @@ public:
                         UpdateInfoSList &info_slist);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     size_t HashFunction(const ErmVpnPrefix &prefix) const;
+    bool IsGlobalTreeRootRoute(ErmVpnRoute *rt) const;
 
+    const ErmVpnRoute *FindRoute(const ErmVpnPrefix &prefix) const;
+    ErmVpnRoute *FindRoute(const ErmVpnPrefix &prefix);
     void CreateTreeManager();
     void DestroyTreeManager();
     McastTreeManager *GetTreeManager();
     const McastTreeManager *GetTreeManager() const;
     virtual void set_routing_instance(RoutingInstance *rtinstance);
+    const McastTreeManager *tree_manager() const { return tree_manager_; }
+    McastTreeManager *tree_manager() { return tree_manager_; }
+    void CreateMvpnProjectManager();
+    void DestroyMvpnProjectManager();
+    MvpnProjectManager *mvpn_project_manager() { return mvpn_project_manager_; }
+    const MvpnProjectManager *mvpn_project_manager() const {
+        return mvpn_project_manager_;
+    }
+    void GetMvpnSourceAddress(ErmVpnRoute *ermvpn_route,
+                              Ip4Address *address) const;
 
 private:
     friend class BgpMulticastTest;
@@ -63,6 +78,7 @@ private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
     McastTreeManager *tree_manager_;
+    MvpnProjectManager *mvpn_project_manager_;
 
     DISALLOW_COPY_AND_ASSIGN(ErmVpnTable);
 };

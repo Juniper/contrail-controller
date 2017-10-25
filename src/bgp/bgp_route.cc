@@ -616,3 +616,11 @@ void BgpRoute::FillRouteInfo(const BgpTable *table,
     }
     show_route->set_paths(show_route_paths);
 }
+
+void BgpRoute::NotifyOrDelete() {
+    if (!front()) {
+        Delete();
+    } else {
+        Notify();
+    }
+}

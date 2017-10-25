@@ -39,6 +39,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-multicast.xsd">
     <xsd:element name="group" type="xsd:string"/>
     <xsd:element name="source" type="xsd:string"/>
     <xsd:element name="source-label" type="xsd:integer"/>
+    <xsd:element name="source-address" type="xsd:string"/>
 </xsd:complexType>
 
 <xsd:complexType name="McastEntryType">

@@ -56,6 +56,7 @@ public:
             const MacAddress &mac() const { return mac_; }
             uint32_t label() const { return label_; }
             uint32_t l3_label() const { return l3_label_; }
+            const Ip4Address &source_address() const { return source_address_; }
             int origin_vn_index() const { return origin_vn_index_; }
             std::vector<std::string> encap() const { return encap_; }
             std::vector<int> tag_list() const { return tag_list_; }
@@ -70,6 +71,7 @@ public:
             MacAddress mac_;
             uint32_t label_;
             uint32_t l3_label_;
+            Ip4Address source_address_;
             int origin_vn_index_;
             std::vector<std::string> encap_;
             std::vector<int> tag_list_;
@@ -102,6 +104,9 @@ public:
     }
     void set_attr(const BgpTable *table, const BgpAttrPtr &attrp,
         uint32_t label, uint32_t l3_label, bool vrf_originated, bool is_xmpp);
+    void set_source_address(Ip4Address source_address) {
+        source_address_ = source_address;
+    }
 
     void clear() {
         attr_out_.reset();
@@ -113,6 +118,8 @@ public:
     uint32_t l3_label() const {
         return nexthop_list_.empty() ? l3_label_ : nexthop_list_[0].l3_label();
     }
+    const Ip4Address &source_address() const { return source_address_; }
+    Ip4Address *source_address() { return &source_address_; }
     bool is_xmpp() const { return is_xmpp_; }
     bool vrf_originated() const { return vrf_originated_; }
     const std::string &repr() const { return repr_; }
@@ -128,6 +135,7 @@ private:
     NextHopList nexthop_list_;
     uint32_t label_;
     uint32_t l3_label_;
+    Ip4Address source_address_;
     bool is_xmpp_;
     bool vrf_originated_;
     mutable std::string repr_;
