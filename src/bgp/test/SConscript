@@ -219,6 +219,14 @@ bgp_multicast_test = env.UnitTest('bgp_multicast_test',
                                   ['bgp_multicast_test.cc'])
 env.Alias('src/bgp:bgp_multicast_test', bgp_multicast_test)
 
+bgp_mvpn_integration_test = env.UnitTest('bgp_mvpn_integration_test',
+                               ['bgp_mvpn_integration_test.cc'])
+env.Alias('src/bgp:bgp_mvpn_integration_test', bgp_mvpn_integration_test)
+
+bgp_mvpn_test = env.UnitTest('bgp_mvpn_test',
+                               ['bgp_mvpn_test.cc'])
+env.Alias('src/bgp:bgp_mvpn_test', bgp_mvpn_test)
+
 bgp_peer_close_gr_test = except_env.UnitTest('bgp_peer_close_gr_test',
                                           ['bgp_peer_close_gr_test.cc'])
 env.Alias('src/bgp:bgp_peer_close_gr_test', bgp_peer_close_gr_test)
@@ -599,6 +607,8 @@ test_suite = [
     bgp_membership_test,
     bgp_msg_builder_test,
     bgp_multicast_test,
+    bgp_mvpn_integration_test,
+    bgp_mvpn_test,
     bgp_peer_close_gr_test,
     bgp_peer_close_test,
     bgp_peer_test,
@@ -680,19 +690,25 @@ test_suite = [
     xmpp_sess_toggle_test,
 ]
 
+test_suite = [
+    bgp_mvpn_test,
+    bgp_mvpn_integration_test,
+    bgp_xmpp_mvpn_test,
+]
+
 test = env.TestSuite('bgp-test', test_suite)
 
 env.Alias('controller/src/bgp:test', [
     test,
     'controller/src/bgp/ermvpn:test',
     'controller/src/bgp/mvpn:test',
-    'controller/src/bgp/evpn:test',
-    'controller/src/bgp/inet6:test',
-    'controller/src/bgp/inet6vpn:test',
-    'controller/src/bgp/l3vpn:test',
-    'controller/src/bgp/origin-vn:test',
+#   'controller/src/bgp/evpn:test',
+#   'controller/src/bgp/inet6:test',
+#   'controller/src/bgp/inet6vpn:test',
+#   'controller/src/bgp/l3vpn:test',
+#   'controller/src/bgp/origin-vn:test',
     'controller/src/bgp/rtarget:test',
-    'controller/src/bgp/tunnel_encap:test',
+#   'controller/src/bgp/tunnel_encap:test',
 ])
 
 flaky_test_suite = [

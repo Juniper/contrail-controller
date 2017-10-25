@@ -35,6 +35,9 @@ class IRouteAggregator;
 class IServiceChainMgr;
 class IStaticRouteMgr;
 class McastTreeManager;
+class MvpnProjectManager;
+class MvpnManager;
+class MvpnTable;
 class PeerManager;
 class PeerCloseManager;
 class RibOut;
@@ -52,6 +55,7 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N1(BgpObjectFactory, BgpExport, RibOut *);
     FACTORY_TYPE_N1(BgpObjectFactory, EvpnManager, EvpnTable *);
     FACTORY_TYPE_N1(BgpObjectFactory, McastTreeManager, ErmVpnTable *);
+    FACTORY_TYPE_N1(BgpObjectFactory, MvpnProjectManager, ErmVpnTable *);
     FACTORY_TYPE_N1(BgpObjectFactory, PeerCloseManager, IPeerClose *);
     FACTORY_TYPE_N1(BgpObjectFactory, PeerManager, RoutingInstance *);
     FACTORY_TYPE_N1(BgpObjectFactory, RoutingInstanceMgr, BgpServer *);
@@ -59,6 +63,7 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N1(BgpObjectFactory, RTargetGroupMgr, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, StateMachine, BgpPeer *);
     FACTORY_TYPE_N1(BgpObjectFactory, BgpPeerClose, BgpPeer *);
+    FACTORY_TYPE_N2(BgpObjectFactory, MvpnManager, MvpnTable *, ErmVpnTable *);
     FACTORY_TYPE_N2(BgpObjectFactory, BgpLifetimeManager, BgpServer *, int);
     FACTORY_TYPE_N2(BgpObjectFactory, BgpSessionManager,
                     EventManager *, BgpServer *);

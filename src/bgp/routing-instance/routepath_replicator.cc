@@ -543,6 +543,9 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
             }
         }
 
+        // Update with family specific secondary tables.
+        table->UpdateSecondaryTablesForReplication(rt, &secondary_tables);
+
         // Skip if we don't need to replicate the path to any tables.
         if (secondary_tables.empty())
             continue;

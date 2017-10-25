@@ -22,6 +22,13 @@ RouteTarget::RouteTarget(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
+RouteTarget::RouteTarget(const Ip4Address &address, uint16_t num) {
+    data_[0] = 0x1;
+    data_[1] = 0x2;
+    put_value(&data_[2], 4, address.to_ulong());
+    put_value(&data_[6], 2, num);
+}
+
 const uint64_t RouteTarget::GetExtCommunityValue() const {
     return get_value(data_.begin(), 8);
 }
