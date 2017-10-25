@@ -579,7 +579,7 @@ void SessionStatsCollector::AddSession(FlowEntry* fe, uint64_t setup_time) {
                 /*
                  * existing flow should match with the incoming add flow
                  */
-                assert(session.fwd_flow.uuid == fe_fwd->uuid());
+                assert(session_map_iter->second.fwd_flow.uuid == fe_fwd->uuid());
             }
         }
     }
@@ -668,7 +668,7 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
         return;
     }
 
-    if (flow.get()->uuid() != u) {
+    if (flow_session_map_iter->second.uuid() != u) {
         return;
     }
 
@@ -910,6 +910,7 @@ void SessionStatsCollector::FillSessionInfoUnlocked
      bool read_flow) const {
     string rid = agent_uve_->agent()->router_id().to_string();
     FlowEntry *fe = session_map_iter->second.fwd_flow.flow.get();
+    FlowEntry *rfe = session_map_iter->second.rev_flow.flow.get();
     boost::system::error_code ec;
     /*
      * Fill the session Key
@@ -930,6 +931,10 @@ void SessionStatsCollector::FillSessionInfoUnlocked
             session_info->set_other_vrouter_ip(
                     boost::asio::ip::address::from_string(rid, ec));
         } else {
+            /* For Egress flows, pick VM name from reverse flow */
+            if (!fe->IsIngressFlow() && rfe) {
+                session_info->set_vm(rfe->data().vm_cfg_name);
+            }
             session_info->set_other_vrouter_ip(
                 boost::asio::ip::address::from_string(fe->peer_vrouter(), ec));
         }
@@ -1027,7 +1032,9 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
     session_ep->set_remote_vn(it->first.remote_vn);
     session_ep->set_is_client_session(it->first.is_client_session);
     session_ep->set_is_si(it->first.is_si);
-    session_ep->set_remote_prefix(it->first.remote_prefix);
+    if (!it->first.remote_prefix.empty()) {
+        session_ep->set_remote_prefix(it->first.remote_prefix);
+    }
     session_ep->set_security_policy_rule(it->first.match_policy);
     FillSessionTagInfo(it->first.local_tagset, session_ep, false);
     FillSessionTagInfo(it->first.remote_tagset, session_ep, true);
