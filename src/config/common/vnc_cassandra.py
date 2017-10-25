@@ -138,6 +138,7 @@ class VncCassandraClient(VncCassandraClientGen):
             keyspace = '%s%s' %(self._db_prefix, ks)
             self._cassandra_ensure_keyspace(server_list, keyspace, cf_list)
 
+        self.keyspace_conn_pools = {}
         self._cassandra_init_conn_pools()
     # end _cassandra_init
 
@@ -196,20 +197,31 @@ class VncCassandraClient(VncCassandraClientGen):
     # end _cassandra_ensure_keyspace
 
     def _cassandra_init_conn_pools(self):
-        for ks,cf_list in self._keyspaces.items():
-            pool = pycassa.ConnectionPool(
-                ks, self._server_list, max_overflow=-1, use_threadlocal=True,
-                prefill=True, pool_size=20, pool_timeout=120,
-                max_retries=-1, timeout=5)
+        for ks, cf_list in self._keyspaces.items():
+            if not self.keyspace_conn_pools.get(ks, None):
+                self.keyspace_conn_pools[ks] = pycassa.ConnectionPool(
+                    ks, self._server_list, max_overflow=5, use_threadlocal=True,
+                    prefill=True, pool_size=20, pool_timeout=120,
+                    max_retries=30, timeout=5)
+            else:
+                self.keyspace_conn_pools[ks].dispose()
+                self.keyspace_conn_pools[ks].fill()
 
             rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
             wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
-            
-            for (cf, _) in cf_list:
-                self._cf_dict[cf] = ColumnFamily(
-                    pool, cf, read_consistency_level = rd_consistency,
-                    write_consistency_level = wr_consistency)
-    
+
+            for (cf, _) in cf_dict:
+                try:
+                    self._cf_dict[cf] = ColumnFamily(
+                        self.keyspace_conn_pools[ks], cf,
+                        read_consistency_level=rd_consistency,
+                        write_consistency_level=wr_consistency)
+                except pycassa.NotFoundException:
+                    if cf in self._rw_keyspaces.items():
+                        raise
+                    self._cf_dict[cf] = {}
+                    continue
+
         ConnectionState.update(conn_type = ConnectionType.DATABASE,
             name = 'Cassandra', status = ConnectionStatus.UP, message = '',
             server_addrs = self._server_list)
