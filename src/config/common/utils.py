@@ -198,8 +198,6 @@ def get_arg(args, name, default=None):
         try:
            kwarg = {name: args.get('KEYSTONE', name)}
         except (NoOptionError, AttributeError):
-            if default is None:
-                return
             kwarg = {name: default}
 
     return kwarg
@@ -208,7 +206,7 @@ def get_arg(args, name, default=None):
 
 def get_user_domain_kwargs(args):
     user_domain = get_arg(args, 'user_domain_id')
-    if not user_domain:
+    if not user_domain.get('user_domain_id'):
         user_domain = get_arg(args, 'user_domain_name', _DEFAULT_USER_DOMAIN_NAME)
 
     return user_domain
@@ -219,10 +217,10 @@ def get_project_scope_kwargs(args):
     scope_kwargs = {}
     project_domain_name = get_arg(args, 'project_domain_name')
     project_domain_id = get_arg(args, 'project_domain_id')
-    if project_domain_name:
+    if project_domain_name.get('project_domain_name'):
         # use project domain name
         scope_kwargs.update(**project_domain_name)
-    elif project_domain_id:
+    elif project_domain_id.get('project_domain_id'):
         # use project domain id
         scope_kwargs.update(**project_domain_id)
     if scope_kwargs:
@@ -237,10 +235,10 @@ def get_domain_scope_kwargs(args):
     scope_kwargs = {}
     domain_name = get_arg(args, 'domain_name')
     domain_id = get_arg(args, 'domain_id', _DEFAULT_DOMAIN_ID)
-    if domain_name:
+    if domain_name.get('domain_name'):
         # use domain name
         scope_kwargs.update(**domain_name)
-    elif domain_id:
+    elif domain_id.get('domain_id'):
         # use domain id
         scope_kwargs.update(**domain_id)
     return scope_kwargs
