@@ -26,6 +26,14 @@ autogen_sources = [
                  '#controller/src/schema/smi-base.xsd',
                 ]
 
+generated_dependencies = [
+                  env['TOP'] + '/api-lib/vnc_api/gen/__init__.py',
+                  env['TOP'] + '/api-lib/vnc_api/gen/resource_xsd.py',
+                  env['TOP'] + '/api-lib/vnc_api/gen/resource_common.py',
+                  env['TOP'] + '/api-lib/vnc_api/gen/resource_client.py',
+                  env['TOP'] + '/api-lib/vnc_api/gen/vnc_api_client_gen.py',
+                ]
+
 autogen_script = File('#tools/generateds/generateDS.py').path
 autogen_cmd = '%s -f -o %s -g ifmap-frontend' % (autogen_script, Dir('vnc_cfg_api_server/gen/resource').path)
 
@@ -98,7 +106,7 @@ env.Default(sdist_gen)
 
 # generated files depend on autogeneration infra parts
 
-env.Depends(generated_rule, [autogen_infra_sources, autogen_sources])
+env.Depends(generated_rule, [autogen_infra_sources, autogen_sources, generated_dependencies])
 env.Depends(local_sources_rules, autogen_infra_sources)
 
 # install everything before building distribution
