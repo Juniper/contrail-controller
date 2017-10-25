@@ -629,7 +629,10 @@ public:
     }
 
     void AddMvpnRoute(const std::string &network, const std::string &sg,
-            int rt_type=7);
+            const int rt_type=7,
+            const std::string &nexthop = "10.1.1.1",
+            const std::string &label_range = "10-20",
+            const std::string &encap = "");
     void DeleteMvpnRoute(const std::string &network, const std::string &sg,
             int rt_type=7);
 

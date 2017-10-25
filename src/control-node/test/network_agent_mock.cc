@@ -13,6 +13,7 @@
 #include "base/util.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_config.h"
 #include "bgp/extended-community/load_balance.h"
 #include "bgp/ipeer.h"
 #include "bgp/bgp_xmpp_channel.h"
@@ -787,7 +788,7 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
 
 pugi::xml_document *XmppDocumentMock::RouteMvpnAddDeleteXmlDoc(
         const std::string &network, const std::string &sg, bool add,
-	int rt_type) {
+        int rt_type) {
     xdoc_->reset();
     string sg_save(sg.c_str());
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
@@ -799,7 +800,7 @@ pugi::xml_document *XmppDocumentMock::RouteMvpnAddDeleteXmlDoc(
     autogen::MvpnItemType rt_entry;
     rt_entry.Clear();
 
-    char *str = const_cast<char *>(sg.c_str());
+    char *str = const_cast<char *>(sg_save.c_str());
     char *saveptr;
     char *group = strtok_r(str, ",", &saveptr);
     char *source = NULL;
@@ -1263,19 +1264,26 @@ void NetworkAgentMock::AddMcastRoute(const string &network_name,
 }
 
 void NetworkAgentMock::AddMvpnRoute(const string &network_name,
-                                     const string &sg, int rt_type) {
+                                    const string &sg,
+                                    const int rt_type,
+                                    const string &nexthop,
+                                    const string &label_range,
+                                    const string &encap) {
     AgentPeer *peer = GetAgent();
     xml_document *xdoc = impl_->RouteMvpnAddXmlDoc(
             network_name, sg, rt_type);
     peer->SendDocument(xdoc);
     mvpn_route_mgr_->AddOriginated(network_name, sg);
+    if (rt_type == 7)
+        AddMcastRoute(BgpConfigManager::kFabricInstance, sg, nexthop,
+                      label_range, encap);
 }
 
 void NetworkAgentMock::DeleteMvpnRoute(const string &network_name,
                                         const string &sg, int rt_type) {
     AgentPeer *peer = GetAgent();
     xml_document *xdoc = impl_->RouteMvpnDeleteXmlDoc(network_name, sg,
-	    rt_type);
+            rt_type);
     peer->SendDocument(xdoc);
     mvpn_route_mgr_->DeleteOriginated(network_name, sg);
 }
@@ -1448,7 +1456,7 @@ void NetworkAgentMock::InstanceMgr<T>::Unsubscribe(const std::string &network,
             } else if (std::tr1::is_same<T, McastRouteEntry>::value) {
                 xdoc = parent_->impl_->RouteMcastDeleteXmlDoc(network, *iter);
             } else if (std::tr1::is_same<T, MvpnRouteEntry>::value) {
-		// Delete all types of routes
+                // Delete all types of routes
                 xdoc = parent_->impl_->RouteMvpnDeleteXmlDoc(network, *iter, 5);
                 xdoc = parent_->impl_->RouteMvpnDeleteXmlDoc(network, *iter, 7);
             } else {

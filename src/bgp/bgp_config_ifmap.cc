@@ -1101,8 +1101,7 @@ void BgpIfmapInstanceConfig::InsertVitInImportList(
         }
     }
     if (bgp_identifier > 0) {
-        import_list.insert("target:" +
-                 GetVitFromId(ntohl(bgp_identifier)));
+        import_list.insert("target:" + GetVitFromId(ntohl(bgp_identifier)));
     }
 }
 

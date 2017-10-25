@@ -5,11 +5,12 @@
 #ifndef SRC_BGP_MVPN_MVPN_ROUTE_H_
 #define SRC_BGP_MVPN_MVPN_ROUTE_H_
 
-#include <boost/system/error_code.hpp>
 
 #include <set>
 #include <string>
 #include <vector>
+
+#include <boost/system/error_code.hpp>
 
 #include "base/util.h"
 #include "bgp/bgp_attr.h"
@@ -53,8 +54,27 @@ public:
                                const BgpAttr *attr, MvpnPrefix *prefix,
                                BgpAttrPtr *new_attr, uint32_t *label,
                                uint32_t *l3_label);
+    static bool GetTypeFromString(MvpnPrefix& prefix, const std::string &str,
+                                  boost::system::error_code *errorp,
+                                  size_t& pos1);
+    static bool GetRDFromString(MvpnPrefix& prefix, const std::string &str,
+                                size_t pos1,
+                                size_t& pos2, boost::system::error_code *ec);
+    static bool GetOriginatorFromString(MvpnPrefix& prefix, const std::string &str,
+                                        size_t pos1,
+                                        boost::system::error_code *errorp);
+    static bool GetAsnFromString(MvpnPrefix& prefix, const std::string &str,
+                                 size_t pos1, size_t& pos2,
+                                 boost::system::error_code *ec);
+    static bool GetSourceFromString(MvpnPrefix& prefix, const std::string &str,
+                                    size_t pos1, size_t& pos2,
+                                    boost::system::error_code *ec);
+    static bool GetGroupFromString(MvpnPrefix& prefix, const std::string &str,
+                                   size_t pos1, size_t& pos2,
+                                   boost::system::error_code *ec,
+                                   bool last = false);
     static MvpnPrefix FromString(const std::string &str,
-                                   boost::system::error_code *errorp = NULL);
+                                 boost::system::error_code *errorp = NULL);
     void SetRtKeyFromSPMSIADRoute(const MvpnPrefix prefix);
 
     std::string ToString() const;
@@ -68,11 +88,13 @@ public:
     Ip4Address group() const { return group_; }
     Ip4Address source() const { return source_; }
     Ip4Address originator() const { return originator_; }
+    IpAddress groupIpAddress() const { return IpAddress(group_); }
+    IpAddress sourceIpAddress() const { return IpAddress(source_); }
+    IpAddress originatorIpAddress() const { return IpAddress(originator_); }
     void set_originator(const Ip4Address &originator);
     uint32_t asn() const { return asn_; }
     void set_route_distinguisher(const RouteDistinguisher &rd) { rd_ = rd; }
     uint8_t ip_prefix_length() const { return ip_prefixlen_; }
-
     void BuildProtoPrefix(BgpProtoPrefix *prefix) const;
 
 private:
@@ -113,7 +135,6 @@ public:
 
     virtual u_int16_t Afi() const { return BgpAf::IPv4; }
     virtual u_int8_t Safi() const { return BgpAf::MVpn; }
-    virtual u_int8_t XmppSafi() const { return BgpAf::Mcast; }
 
 private:
     MvpnPrefix prefix_;
@@ -122,4 +143,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(MvpnRoute);
 };
 
-#endif  // SRC_BGP_MVPN_ERMVPN_ROUTE_H_
+#endif  // SRC_BGP_MVPN_MVPN_ROUTE_H_

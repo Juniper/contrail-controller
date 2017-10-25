@@ -417,6 +417,10 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
     item.entry.nlri.group = ermvpn_route->GetPrefix().group().to_string();
     item.entry.nlri.source =  ermvpn_route->GetPrefix().source().to_string();
     item.entry.nlri.source_label = roattr->label();
+    if (!roattr->source_address().is_unspecified()) {
+        item.entry.nlri.source_address =
+           roattr->source_address().to_string();
+    }
 
     const BgpOList *olist = roattr->attr()->olist().get();
     assert(olist->olist().subcode == BgpAttribute::OList);
@@ -466,6 +470,17 @@ void BgpXmppMessage::AddMvpnReach(const BgpRoute *route,
     item.entry.nlri.source =  mvpn_route->GetPrefix().source().to_string();
     item.entry.nlri.route_type = mvpn_route->GetPrefix().type();
     assert(item.entry.nlri.route_type == MvpnPrefix::SourceActiveADRoute);
+
+    const BgpOList *olist = roattr->attr()->olist().get();
+    assert(olist->olist().subcode == BgpAttribute::OList);
+    BOOST_FOREACH(const BgpOListElem *elem, olist->elements()) {
+        autogen::MvpnNextHopType nh;
+        nh.af = BgpAf::IPv4;
+        nh.address = elem->address.to_string();
+        nh.label = elem->label;
+        nh.tunnel_encapsulation_list.tunnel_encapsulation = elem->encap;
+        item.entry.olist.next_hop.push_back(nh);
+    }
 
     // Using remove_child instead of reset allows memory pages allocated for
     // the xml_document to be reused during the lifetime of the xml_document.

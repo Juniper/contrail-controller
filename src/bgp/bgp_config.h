@@ -689,6 +689,7 @@ public:
             NeighborMap::const_iterator> NeighborMapRange;
 
     static const char *kMasterInstance;
+    static const char *kFabricInstance;
     static const int kDefaultPort;
     static const uint32_t kDefaultAutonomousSystem;
 

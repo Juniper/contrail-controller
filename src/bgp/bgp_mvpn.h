@@ -25,6 +25,7 @@ class BgpServer;
 class BgpTable;
 class ErmVpnRoute;
 class ErmVpnTable;
+struct MvpnDBState;
 class MvpnManager;
 class MvpnManagerPartition;
 class MvpnPrefix;
@@ -54,21 +55,20 @@ typedef boost::intrusive_ptr<MvpnState> MvpnStatePtr;
 struct MvpnNeighbor {
 public:
     MvpnNeighbor();
-    MvpnNeighbor(const RouteDistinguisher &rd, const IpAddress originator);
+    MvpnNeighbor(const RouteDistinguisher &rd, const IpAddress &originator);
     MvpnNeighbor(const RouteDistinguisher &rd, uint32_t asn);
     std::string ToString() const;
-    RouteDistinguisher &rd() const;
-    uint32_t source_as() const;
+    const RouteDistinguisher &rd() const;
     const IpAddress &originator() const;
+    uint32_t source_as() const;
     bool operator==(const MvpnNeighbor &rhs) const;
 
 private:
     friend class MvpnManagerPartition;
 
     RouteDistinguisher rd_;
-    uint32_t source_as_;
     IpAddress originator_;
-    std::string name_;
+    uint32_t source_as_;
 };
 
 // This class manages Mvpn routes with in a partition of an MvpnTable.
@@ -117,20 +117,19 @@ private:
     const MvpnTable *table() const;
     int listener_id() const;
 
-    bool ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt);
     void ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt);
     void ProcessType4LeafADRoute(MvpnRoute *leaf_ad);
+    void ProcessType5SourceActiveRoute(MvpnRoute *join_rt);
+    void ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt);
 
     MvpnStatePtr GetState(MvpnRoute *route);
     MvpnStatePtr GetState(MvpnRoute *route) const;
     MvpnStatePtr GetState(ErmVpnRoute *route) const;
     MvpnStatePtr GetState(ErmVpnRoute *route);
     MvpnStatePtr LocateState(MvpnRoute *route);
-    void DeleteState(MvpnStatePtr state);
     void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
     bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
-                           Ip4Address *address,
-                           std::vector<std::string> *encap) const;
+            Ip4Address *address, std::vector<std::string> *encap) const;
 
     MvpnManager *manager_;
     int part_id_;
@@ -169,10 +168,9 @@ public:
     };
     typedef std::map<RouteDistinguisher, MvpnNeighbor> NeighborMap;
 
-    explicit MvpnManager(MvpnTable *table);
+    MvpnManager(MvpnTable *table, ErmVpnTable *ermvpn_table);
     virtual ~MvpnManager();
-    bool FindNeighbor(MvpnNeighbor *nbr, const IpAddress &address,
-                      uint16_t vrf_id, bool exact) const;
+    bool FindNeighbor(const RouteDistinguisher &rd, MvpnNeighbor *nbr) const;
     MvpnProjectManager *GetProjectManager();
     const MvpnProjectManager *GetProjectManager() const;
     void ManagedDelete();
@@ -190,9 +188,11 @@ public:
     const LifetimeActor *deleter() const;
     bool deleted() const;
     virtual void Terminate();
-    RouteDistinguisher GetSourceRouteDistinguisher(const BgpPath *path) const;
     virtual void Initialize();
-    const NeighborMap &neighbors() const { return neighbors_; }
+    const NeighborMap neighbors() const;
+    void ReOriginateType1Route(const Ip4Address &old_identifier);
+    void OriginateType1Route();
+    bool MayDelete() const;
     virtual void UpdateSecondaryTablesForReplication(MvpnRoute *rt,
             BgpTable::TableSet *secondary_tables) const;
     static bool IsEnabled() { return enable_; }
@@ -209,9 +209,14 @@ private:
     void NotifyAllRoutes();
     bool FindResolvedNeighbor(const BgpPath *path,
                               MvpnNeighbor *neighbor) const;
+    void SetDBState(MvpnRoute *route, MvpnDBState *mvpn_dbstate);
+    void ClearDBState(MvpnRoute *route);
 
     MvpnTable *table_;
+    ErmVpnTable *ermvpn_table_;
     int listener_id_;
+    int identifier_listener_id_;
+    tbb::atomic<int> db_states_count_;
     PartitionList partitions_;
 
     NeighborMap neighbors_;
@@ -219,6 +224,7 @@ private:
 
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<MvpnManager> table_delete_ref_;
+    LifetimeRef<MvpnManager> ermvpn_table_delete_ref_;
 
     static bool enable_;
 
@@ -287,7 +293,8 @@ public:
     };
 
     typedef std::map<SG, MvpnState *> StatesMap;
-    explicit MvpnState(const SG &sg, StatesMap *states = NULL);
+    MvpnState(const SG &sg, StatesMap *states, MvpnProjectManager *pm);
+
     virtual ~MvpnState();
     const SG &sg() const;
     ErmVpnRoute *global_ermvpn_tree_rt();
@@ -302,6 +309,13 @@ public:
     RoutesMap &leafad_routes_received();
     const StatesMap *states() const { return states_; }
     StatesMap *states() { return states_; }
+    const MvpnRoute *source_active_rt() const;
+    MvpnRoute *source_active_rt();
+    void set_source_active_rt(MvpnRoute *source_active_rt);
+    MvpnProjectManager *project_manager() { return project_manager_; }
+    const MvpnProjectManager *project_manager() const {
+        return project_manager_;
+    }
 
 private:
     friend class MvpnDBState;
@@ -313,37 +327,15 @@ private:
     SG sg_;
     ErmVpnRoute *global_ermvpn_tree_rt_;
     MvpnRoute *spmsi_rt_;
+    MvpnRoute *source_active_rt_;
     RoutesSet spmsi_routes_received_;
     RoutesMap leafad_routes_received_;
     StatesMap *states_;
+    MvpnProjectManager *project_manager_;
     tbb::atomic<int> refcount_;
 
     DISALLOW_COPY_AND_ASSIGN(MvpnState);
 };
-
-// Increment refcont atomically.
-inline void intrusive_ptr_add_ref(MvpnState *mvpn_state) {
-    mvpn_state->refcount_.fetch_and_increment();
-}
-
-// Decrement refcount of an mvpn_state. If the refcount falls to 1, it implies
-// that there is no more reference to this particular state from any other data
-// structure. Hence, it can be deleted from the container map and destroyed as
-// well.
-inline void intrusive_ptr_release(MvpnState *mvpn_state) {
-    int prev = mvpn_state->refcount_.fetch_and_decrement();
-    if (prev > 1)
-        return;
-    if (mvpn_state->states()) {
-        MvpnState::StatesMap::iterator iter =
-            mvpn_state->states()->find(mvpn_state->sg());
-        if (iter != mvpn_state->states()->end()) {
-            assert(iter->second == mvpn_state);
-            mvpn_state->states()->erase(mvpn_state->sg());
-        }
-    }
-    delete mvpn_state;
-}
 
 // This class holds a reference to MvpnState along with associated with route
 // and path pointers. This is stored as DBState inside the table along with the
@@ -400,7 +392,8 @@ public:
     MvpnStatePtr GetState(const SG &sg) const;
     MvpnStatePtr LocateState(const SG &sg);
     MvpnStatePtr CreateState(const SG &sg);
-    void DeleteState(MvpnStatePtr mvpn_state);
+    const MvpnState::StatesMap &states() const { return states_; }
+    MvpnState::StatesMap &states() { return states_; }
 
 private:
     friend class MvpnProjectManager;
@@ -409,13 +402,12 @@ private:
     ErmVpnRoute *GetGlobalTreeRootRoute(ErmVpnRoute *rt) const;
     ErmVpnTable *table();
     const ErmVpnTable *table() const;
-    bool IsUsableGlobalTreeRootRoute(ErmVpnRoute *ermvpn_route) const;
     void RouteListener(DBEntryBase *db_entry);
     int listener_id() const;
     void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
     bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
-                           Ip4Address *address,
-                           std::vector<std::string> *encap) const;
+            Ip4Address *address, std::vector<std::string> *encap) const;
+    bool IsUsableGlobalTreeRootRoute(ErmVpnRoute *ermvpn_route) const;
 
     // Back pointer to the parent MvpnProjectManager
     MvpnProjectManager *manager_;
@@ -441,6 +433,7 @@ private:
 // MvpnTable object in order to ensure orderly cleanup during table deletion.
 class MvpnProjectManager {
 public:
+    class DeleteActor;
     typedef std::vector<MvpnProjectManagerPartition *> PartitionList;
     typedef PartitionList::const_iterator const_iterator;
 
@@ -456,11 +449,17 @@ public:
     virtual void Initialize();
     MvpnStatePtr GetState(MvpnRoute *route) const;
     MvpnStatePtr GetState(MvpnRoute *route);
+    MvpnStatePtr GetState(ErmVpnRoute *route) const;
+    MvpnStatePtr GetState(ErmVpnRoute *route);
     UpdateInfo *GetUpdateInfo(MvpnRoute *route);
+    const PartitionList &partitions() const { return partitions_; }
+    bool MayDelete() const;
+    LifetimeActor *deleter();
+    const LifetimeActor *deleter() const;
+    void GetMvpnSourceAddress(ErmVpnRoute *ermvpn_route,
+                              Ip4Address *address) const;
 
 private:
-    class DeleteActor;
-
     void AllocPartitions();
     void FreePartitions();
     void RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry);
@@ -475,5 +474,34 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(MvpnProjectManager);
 };
+
+// Increment refcont atomically.
+inline void intrusive_ptr_add_ref(MvpnState *mvpn_state) {
+    mvpn_state->refcount_.fetch_and_increment();
+}
+
+// Decrement refcount of an mvpn_state. If the refcount falls to 1, it implies
+// that there is no more reference to this particular state from any other data
+// structure. Hence, it can be deleted from the container map and destroyed as
+// well.
+inline void intrusive_ptr_release(MvpnState *mvpn_state) {
+    int prev = mvpn_state->refcount_.fetch_and_decrement();
+    if (prev > 1)
+        return;
+    if (mvpn_state->states()) {
+        MvpnState::StatesMap::iterator iter =
+            mvpn_state->states()->find(mvpn_state->sg());
+        if (iter != mvpn_state->states()->end()) {
+            assert(iter->second == mvpn_state);
+            mvpn_state->states()->erase(iter);
+
+            // Attempt project manager deletion as it could be held up due to
+            // this map being non-empty so far..
+            if (mvpn_state->project_manager()->deleter()->IsDeleted())
+                mvpn_state->project_manager()->deleter()->RetryDelete();
+        }
+    }
+    delete mvpn_state;
+}
 
 #endif  // SRC_BGP_BGP_MVPN_H_

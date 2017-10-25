@@ -14,6 +14,7 @@
 #include "base/label_block.h"
 #include "base/lifetime.h"
 #include "base/queue_task.h"
+#include "bgp/bgp_ribout.h"
 #include "db/db_entry.h"
 #include "net/address.h"
 #include "net/rd.h"
@@ -110,6 +111,7 @@ public:
     Ip4Address router_id() const { return router_id_; }
 
     bool empty() { return tree_links_.empty(); }
+    ErmVpnRoute *global_tree_route() const { return global_tree_route_; }
 
 private:
     friend class BgpMulticastTest;
@@ -233,6 +235,10 @@ public:
     void clear_on_work_queue() { on_work_queue_ = false; }
 
     bool empty() const;
+    ErmVpnRoute *GetGlobalTreeRootRoute() const;
+    bool GetForestNodePMSI(uint32_t *label, Ip4Address *address,
+                           std::vector<std::string> *encap) const;
+    bool IsTreeBuilder(uint8_t level) const;
 
 private:
     friend class BgpMulticastTest;
@@ -240,7 +246,6 @@ private:
 
     typedef std::set<McastForwarder *, McastForwarderCompare> ForwarderSet;
 
-    bool IsTreeBuilder(uint8_t level) const;
     void UpdateTree(uint8_t level);
     void UpdateRoutes(uint8_t level);
 
@@ -304,7 +309,10 @@ public:
     McastManagerPartition(McastTreeManager *tree_manager, size_t part_id);
     ~McastManagerPartition();
 
-    McastSGEntry *FindSGEntry(Ip4Address group, Ip4Address source);
+    McastSGEntry *FindSGEntry(const Ip4Address &group,
+                              const Ip4Address &source);
+    const McastSGEntry *FindSGEntry(const Ip4Address &group,
+                                    const Ip4Address &source) const;
     McastSGEntry *LocateSGEntry(Ip4Address group, Ip4Address source);
     void EnqueueSGEntry(McastSGEntry *sg_entry);
 
@@ -313,9 +321,14 @@ public:
     BgpServer *server();
     const BgpServer *server() const;
     McastTreeManager *tree_manager() const { return tree_manager_; }
-
     bool empty() const { return sg_list_.empty(); }
     size_t size() const { return sg_list_.size(); }
+    ErmVpnRoute *GetGlobalTreeRootRoute(const Ip4Address &source,
+                                        const Ip4Address &group) const;
+    void NotifyForestNode(const Ip4Address &source, const Ip4Address &group);
+    bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
+                           Ip4Address *address,
+                           std::vector<std::string> *encap) const;
 
 private:
     friend class BgpMulticastTest;
@@ -392,6 +405,7 @@ public:
     virtual void Terminate();
 
     McastManagerPartition *GetPartition(int part_id);
+    const McastManagerPartition *GetPartition(int part_id) const;
 
     virtual UpdateInfo *GetUpdateInfo(ErmVpnRoute *route);
     DBTablePartBase *GetTablePartition(size_t part_id);
@@ -406,6 +420,13 @@ public:
     LifetimeActor *deleter();
     const LifetimeActor *deleter() const;
     bool deleted() const;
+    const ErmVpnRoute *GetGlobalErmVpnTreeMvpnRoute() const;
+    virtual ErmVpnRoute *GetGlobalTreeRootRoute(const Ip4Address &source,
+                                                const Ip4Address &group) const;
+    void NotifyForestNode(int part_id, const Ip4Address &source,
+                          const Ip4Address &group);
+    virtual bool GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
+            Ip4Address *address, std::vector<std::string> *encap) const;
 
 private:
     friend class BgpMulticastTest;

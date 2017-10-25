@@ -56,6 +56,11 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, StateMachine, StateMachine);
 #include "bgp/bgp_multicast.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, McastTreeManager, McastTreeManager);
 
+#include "bgp/bgp_mvpn.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, MvpnManager, MvpnManager);
+FACTORY_STATIC_REGISTER(BgpObjectFactory, MvpnProjectManager,
+                        MvpnProjectManager);
+
 #include "bgp/bgp_message_builder.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpMessageBuilder, BgpMessageBuilder);
 
