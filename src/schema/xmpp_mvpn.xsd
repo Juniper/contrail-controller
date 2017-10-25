@@ -46,6 +46,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-mvpn.xsd">
 <xsd:complexType name="MvpnEntryType">
     <xsd:all>
         <xsd:element name="nlri" type="MvpnNlriType"/>
+        <xsd:element name="next-hop" type="MvpnNextHopType"/>
         <xsd:element name="olist" type="MvpnOlistType"/>
     </xsd:all>
 </xsd:complexType>

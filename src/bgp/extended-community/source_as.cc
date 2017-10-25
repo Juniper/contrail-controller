@@ -21,6 +21,18 @@ SourceAs::SourceAs(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
+uint32_t SourceAs::GetAsn() const {
+    if (data_[0] == BgpExtendedCommunityType::TwoOctetAS) {
+        return get_value(&data_[2], 2);
+    }
+
+    if (data_[0] == BgpExtendedCommunityType::FourOctetAS) {
+        return get_value(&data_[2], 4);
+    }
+
+    return 0;
+}
+
 SourceAs::SourceAs(const uint32_t asn, const uint32_t ri_index) {
     data_[0] = BgpExtendedCommunityType::TwoOctetAS;
     data_[1] = BgpExtendedCommunitySubType::SourceAS;

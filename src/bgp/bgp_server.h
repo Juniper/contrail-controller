@@ -182,6 +182,7 @@ public:
     std::string bgp_identifier_string() const {
         return bgp_identifier_.to_string();
     }
+    void UpdateBgpIdentifier(const Ip4Address &identifier);
     uint32_t hold_time() const { return hold_time_; }
     bool HasSelfConfiguration() const;
 

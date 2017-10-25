@@ -50,6 +50,7 @@ int RibOutAttr::NextHop::CompareTo(const NextHop &rhs) const {
     KEY_COMPARE(mac_, rhs.mac_) ;
     KEY_COMPARE(label_, rhs.label_);
     KEY_COMPARE(l3_label_, rhs.l3_label_);
+    KEY_COMPARE(source_address_, rhs.source_address_);
     KEY_COMPARE(origin_vn_index_, rhs.origin_vn_index_);
     KEY_COMPARE(encap_.size(), rhs.encap_.size());
     for (size_t idx = 0; idx < encap_.size(); ++idx) {
@@ -90,6 +91,7 @@ RibOutAttr::RibOutAttr(const RibOutAttr &rhs) {
     nexthop_list_ = rhs.nexthop_list_;
     label_ = rhs.label_;
     l3_label_ = rhs.l3_label_;
+    source_address_ = rhs.source_address_;
     is_xmpp_ = rhs.is_xmpp_;
     vrf_originated_ = rhs.vrf_originated_;
 }
@@ -185,6 +187,7 @@ RibOutAttr &RibOutAttr::operator=(const RibOutAttr &rhs) {
     nexthop_list_ = rhs.nexthop_list_;
     label_ = rhs.label_;
     l3_label_ = rhs.l3_label_;
+    source_address_ = rhs.source_address_;
     is_xmpp_ = rhs.is_xmpp_;
     vrf_originated_ = rhs.vrf_originated_;
     return *this;
@@ -202,6 +205,7 @@ int RibOutAttr::CompareTo(const RibOutAttr &rhs) const {
     }
     KEY_COMPARE(label_, rhs.label());
     KEY_COMPARE(l3_label_, rhs.l3_label());
+    KEY_COMPARE(source_address_, rhs.source_address());
     KEY_COMPARE(is_xmpp_, rhs.is_xmpp());
     KEY_COMPARE(vrf_originated_, rhs.vrf_originated());
     return 0;

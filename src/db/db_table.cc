@@ -427,12 +427,29 @@ DBTablePartBase *DBTable::GetTablePartition(const int index) {
     return partitions_[index];
 }
 
+const DBTablePartBase *DBTable::GetTablePartition(const int index) const {
+    return partitions_[index];
+}
+
 DBTablePartBase *DBTable::GetTablePartition(const DBRequestKey *key) {
     int id = HashToPartition(Hash(key));
     return GetTablePartition(id);
 }
 
+const DBTablePartBase *DBTable::GetTablePartition(
+        const DBRequestKey *key) const {
+    int id = HashToPartition(Hash(key));
+    return GetTablePartition(id);
+}
+
 DBTablePartBase *DBTable::GetTablePartition(const DBEntryBase *entry) {
+    const DBEntry *gentry = static_cast<const DBEntry *>(entry);
+    size_t id = HashToPartition(Hash(gentry));
+    return GetTablePartition(id);
+}
+
+const DBTablePartBase *DBTable::GetTablePartition(
+        const DBEntryBase *entry) const {
     const DBEntry *gentry = static_cast<const DBEntry *>(entry);
     size_t id = HashToPartition(Hash(gentry));
     return GetTablePartition(id);

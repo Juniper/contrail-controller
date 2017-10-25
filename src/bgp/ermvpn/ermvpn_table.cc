@@ -7,6 +7,7 @@
 #include "bgp/ipeer.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_multicast.h"
+#include "bgp/bgp_mvpn.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/inet/inet_table.h"
@@ -21,7 +22,7 @@ size_t ErmVpnTable::HashFunction(const ErmVpnPrefix &prefix) const {
 }
 
 ErmVpnTable::ErmVpnTable(DB *db, const string &name)
-    : BgpTable(db, name), tree_manager_(NULL) {
+    : BgpTable(db, name), tree_manager_(NULL), mvpn_project_manager_(NULL) {
 }
 
 auto_ptr<DBEntry> ErmVpnTable::AllocEntry(
@@ -42,6 +43,10 @@ size_t ErmVpnTable::Hash(const DBEntry *entry) const {
     const ErmVpnPrefix &ermvpnprefix = rt_entry->GetPrefix();
     size_t value = ErmVpnTable::HashFunction(ermvpnprefix);
     return value % kPartitionCount;
+}
+
+size_t ErmVpnTable::Hash(const Ip4Address &group) const {
+    return boost::hash_value(group.to_ulong()) % kPartitionCount;
 }
 
 size_t ErmVpnTable::Hash(const DBRequestKey *key) const {
@@ -180,7 +185,7 @@ bool ErmVpnTable::Export(RibOut *ribout, Route *route,
 
 void ErmVpnTable::CreateTreeManager() {
     // Don't create the McastTreeManager for the VPN table.
-    if (IsMaster())
+    if (IsMaster() && !MvpnManager::IsEnabled())
         return;
     assert(!tree_manager_);
     tree_manager_ = BgpObjectFactory::Create<McastTreeManager>(this);
@@ -205,10 +210,46 @@ const McastTreeManager *ErmVpnTable::GetTreeManager() const {
 void ErmVpnTable::set_routing_instance(RoutingInstance *rtinstance) {
     BgpTable::set_routing_instance(rtinstance);
     CreateTreeManager();
+    CreateMvpnProjectManager();
+}
+
+void ErmVpnTable::CreateMvpnProjectManager() {
+    // Don't create the MvpnProjectManager for the master table.
+    if (!MvpnManager::IsEnabled() || IsMaster())
+        return;
+    assert(!mvpn_project_manager_);
+    mvpn_project_manager_ = BgpObjectFactory::Create<MvpnProjectManager>(this);
+    mvpn_project_manager_->Initialize();
+}
+
+void ErmVpnTable::DestroyMvpnProjectManager() {
+    assert(mvpn_project_manager_);
+    mvpn_project_manager_->Terminate();
+    delete mvpn_project_manager_;
+    mvpn_project_manager_ = NULL;
 }
 
 bool ErmVpnTable::IsMaster() const {
     return routing_instance()->IsMasterRoutingInstance();
+}
+
+// Find or create the route.
+ErmVpnRoute *ErmVpnTable::FindRoute(const ErmVpnPrefix &prefix) {
+    ErmVpnRoute rt_key(prefix);
+    DBTablePartition *rtp = static_cast<DBTablePartition *>(
+        GetTablePartition(&rt_key));
+    return static_cast<ErmVpnRoute *>(rtp->Find(&rt_key));
+}
+
+const ErmVpnRoute *ErmVpnTable::FindRoute(const ErmVpnPrefix &prefix) const {
+    return const_cast<ErmVpnRoute *>(
+        static_cast<const ErmVpnTable *>(this)->FindRoute(prefix));
+}
+
+void ErmVpnTable::GetMvpnSourceAddress(ErmVpnRoute *ermvpn_rt,
+                                       Ip4Address *address) const {
+    if (mvpn_project_manager_)
+        mvpn_project_manager_->GetMvpnSourceAddress(ermvpn_rt, address);
 }
 
 static void RegisterFactory() {

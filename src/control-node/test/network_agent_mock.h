@@ -316,7 +316,8 @@ public:
     pugi::xml_document *RouteMcastDeleteXmlDoc(const std::string &network,
                                                const std::string &sg);
     pugi::xml_document *RouteMvpnAddXmlDoc(const std::string &network,
-                                           const std::string &sg, int rt_type);
+                                           const std::string &sg, int rt_type,
+                                           const std::string &nexthop = "");
     pugi::xml_document *RouteMvpnDeleteXmlDoc(const std::string &network,
                                               const std::string &sg,
                                               int rt_type);
@@ -353,7 +354,8 @@ private:
             const std::string &label_range = std::string(),
             const std::string &encap = std::string());
     pugi::xml_document *RouteMvpnAddDeleteXmlDoc(const std::string &network,
-            const std::string &sg, bool add, int rt_type=7);
+            const std::string &sg, bool add, int rt_type = 7,
+            const std::string &nh = "");
 
     std::string hostname_;
     int label_alloc_;
@@ -628,8 +630,12 @@ public:
         return mvpn_route_mgr_->Lookup(network, prefix);
     }
 
-    void AddMvpnRoute(const std::string &network, const std::string &sg,
-            int rt_type=7);
+    void AddType5MvpnRoute(const std::string &network, const std::string &sg,
+            const std::string &mvpn_nexthop);
+    void AddType7MvpnRoute(const std::string &network, const std::string &sg,
+            const std::string &nexthop = "10.1.1.1",
+            const std::string &label_range = "10-20",
+            const std::string &encap = "");
     void DeleteMvpnRoute(const std::string &network, const std::string &sg,
             int rt_type=7);
 

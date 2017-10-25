@@ -14,7 +14,9 @@
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_mvpn.h"
 #include "bgp/bgp_server.h"
+#include "bgp/mvpn/mvpn_table.h"
 #include "bgp/routing-instance/iroute_aggregator.h"
 #include "bgp/routing-instance/iservice_chain_mgr.h"
 #include "bgp/routing-instance/istatic_route_mgr.h"
@@ -83,6 +85,7 @@ RoutingInstanceMgr::RoutingInstanceMgr(BgpServer *server) :
 }
 
 RoutingInstanceMgr::~RoutingInstanceMgr() {
+    assert(mvpn_project_managers_.empty());
     assert(virtual_networks_.empty());
     assert(deleted_count_ == 0);
     server_->UnregisterASNUpdateCallback(asn_listener_id_);
@@ -572,6 +575,11 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
     //  Update instance to virtual-network mapping structures.
     CreateVirtualNetworkMapping(rtinstance->GetVirtualNetworkName(),
                                 rtinstance->name());
+
+    // Create MvpnManager for all children mvpn networks.
+    MvpnTable *mvpn_table =
+        dynamic_cast<MvpnTable *>(rtinstance->GetTable(Address::MVPN));
+    mvpn_table->CreateMvpnManagers();
     return rtinstance;
 }
 
@@ -803,7 +811,8 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       virtual_network_pbb_evpn_enable_(false),
       vxlan_id_(0),
       deleter_(new DeleteActor(server, this)),
-      manager_delete_ref_(this, NULL) {
+      manager_delete_ref_(this, NULL),
+      mvpn_project_manager_network_(BgpConfigManager::kFabricInstance) {
     if (mgr) {
         tbb::mutex::scoped_lock lock(mgr->mutex());
         manager_delete_ref_.Reset(mgr->deleter());
@@ -1043,8 +1052,11 @@ void RoutingInstance::ProcessConfig() {
         VrfTableCreate(Address::INET, Address::INETVPN);
         VrfTableCreate(Address::INET6, Address::INET6VPN);
         VrfTableCreate(Address::ERMVPN, Address::ERMVPN);
-        VrfTableCreate(Address::MVPN, Address::MVPN);
         VrfTableCreate(Address::EVPN, Address::EVPN);
+        BgpTable *table = VrfTableCreate(Address::MVPN, Address::MVPN);
+
+        // Create path-resolver in mvpn table.
+        table->LocatePathResolver();
     }
 
     ProcessServiceChainConfig();
