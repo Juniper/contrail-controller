@@ -70,6 +70,7 @@ local_sources = [
            'context.py',
            'db_manage.py',
            'vnc_bottle.py',
+           'auth_context.py',
           ]
 
 local_sources_rules = []
