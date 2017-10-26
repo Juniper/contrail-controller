@@ -142,7 +142,8 @@ void ContrailInitCommon::ProcessComputeAddress(AgentParam *param) {
         rt_table->AddVHostRecvRouteReq(agent()->local_peer(),
                                        agent()->fabric_vrf_name(),
                                        vmi_key, *it, 32,
-                                       agent()->fabric_vn_name(), false);
+                                       agent()->fabric_vn_name(), false,
+                                       true);
         it++;
     }
 

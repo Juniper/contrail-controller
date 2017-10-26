@@ -56,7 +56,8 @@ public:
         flow_entry(NULL),
         flood_unknown_unicast(false), bgp_router_service_flow(false),
         bgp_health_check_configured(false), bgp_health_check_uuid(),
-        alias_ip_flow(false), ttl(0) {
+        alias_ip_flow(false), ttl(0), underlay_flow(false),
+        src_policy_vrf(-1), dst_policy_vrf(-1) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -113,8 +114,16 @@ public:
                                    uint32_t sport,
                                    uint32_t dport,
                                    const Interface *intf);
-    void OverlayForwarding(const VmInterface *intf, const PktInfo *pkt,
-                           PktControlInfo *in, PktControlInfo *out);
+    void ChangeEncap(const VmInterface *intf, const PktInfo *pkt,
+                     PktControlInfo *in, PktControlInfo *out,
+                     bool nat_flow);
+    void ChangeFloatingIpEncap(const PktInfo *pkt,
+                               PktControlInfo *in,
+                               PktControlInfo *out);
+    void ChangeEncapToOverlay(const VmInterface *intf,
+                              const PktInfo *pkt,
+                              PktControlInfo *in,
+                              PktControlInfo *out);
 public:
     void UpdateRoute(const AgentRoute **rt, const VrfEntry *vrf,
                      const IpAddress &addr, const MacAddress &mac,
@@ -201,6 +210,12 @@ public:
     bool                 alias_ip_flow;
     //TTL of nat'd flow especially bgp-service flows
     uint8_t              ttl;
+    //Is it underlay flow
+    bool                 underlay_flow;
+    uint32_t             src_policy_vrf;
+    uint32_t             dst_policy_vrf;
+    const VnListType           *src_vn;
+    const VnListType           *dst_vn;
 };
 
 #endif // __agent_pkt_flow_info_h_

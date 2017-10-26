@@ -42,7 +42,7 @@ void RouteLeakState::AddIndirectRoute(const AgentRoute *route) {
                            MplsTable::kInvalidExportLabel,
                            active_path->sg_list(),
                            active_path->tag_list(),
-                           active_path->communities());
+                           active_path->communities(), true);
 }
 
 void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
@@ -71,7 +71,9 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
             static_cast<const VmInterface *>(intf_nh->GetInterface());
         if (vm_intf->vmi_type() == VmInterface::VHOST) {
             if (uc_rt->addr() == agent_->router_id()) {
-                local_peer_ = false;
+                if (uc_rt->FindLocalVmPortPath() == NULL) {
+                    local_peer_ = true;
+                }
                 AddReceiveRoute(route);
                 return;
             }
@@ -116,7 +118,8 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
                                                 active_path->path_preference(),
                                                 Ip4Address(0),
                                                 EcmpLoadBalance(), false, false,
-                                                intf_nh->GetInterface()->name());
+                                                intf_nh->GetInterface()->name(),
+                                                true);
 }
 
 void RouteLeakState::AddReceiveRoute(const AgentRoute *route) {
@@ -140,7 +143,7 @@ void RouteLeakState::AddReceiveRoute(const AgentRoute *route) {
                              vmi_key,
                              uc_rt->addr(),
                              uc_rt->plen(),
-                             agent_->fabric_vn_name(), false);
+                             agent_->fabric_vn_name(), false, true);
 }
 
 void RouteLeakState::AddRoute(const AgentRoute *route) {
@@ -205,9 +208,29 @@ bool RouteLeakVrfState::WalkCallBack(DBTablePartBase *partition, DBEntryBase *en
     return true;
 }
 
+void RouteLeakVrfState::AddDefaultRoute() {
+    InetUnicastAgentRouteTable *table = source_vrf_->GetInet4UnicastRouteTable();
+
+    VnListType vn_list;
+    vn_list.insert(table->agent()->fabric_vn_name());
+
+    table->AddGatewayRoute(table->agent()->local_peer(),
+                           source_vrf_->GetName(), Ip4Address(0), 0,
+                           table->agent()->vhost_default_gateway(), vn_list,
+                           MplsTable::kInvalidLabel, SecurityGroupList(),
+                           TagList(), CommunityList(), true);
+}
+
+void RouteLeakVrfState::DeleteDefaultRoute() {
+    InetUnicastAgentRouteTable *table = source_vrf_->GetInet4UnicastRouteTable();
+    table->Delete(table->agent()->local_peer(), source_vrf_->GetName(),
+                  Ip4Address(0), 0);
+}
+
 void RouteLeakVrfState::Delete() {
     deleted_ = true;
     source_vrf_->GetInet4UnicastRouteTable()->WalkAgain(walk_ref_);
+    DeleteDefaultRoute();
 }
 
 bool RouteLeakVrfState::Notify(DBTablePartBase *partition, DBEntryBase *entry) {
@@ -255,6 +278,12 @@ void RouteLeakVrfState::SetDestVrf(VrfEntry *vrf) {
     if (dest_vrf_ != vrf) {
         dest_vrf_ = vrf;
         source_vrf_->GetInet4UnicastRouteTable()->WalkAgain(walk_ref_);
+    }
+
+    if (vrf == NULL) {
+        DeleteDefaultRoute();
+    } else {
+        AddDefaultRoute();
     }
 }
 

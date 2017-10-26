@@ -393,7 +393,7 @@ TEST_F(CfgTest, TunnelType_1) {
 
     DeleteTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
                    Ip4Address::from_string("10.1.1.12"), false,
-                   (1 << TunnelType::DefaultType()));
+                   (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
 
     DelEncapList();
@@ -565,7 +565,7 @@ TEST_F(CfgTest, TunnelType_5) {
 
     DeleteTunnelNH(agent_->fabric_vrf_name(), agent_->router_id(),
                    Ip4Address::from_string("10.1.1.12"), false,
-                   (1 << TunnelType::DefaultType()));
+                   (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
 
     DelEncapList();
@@ -976,7 +976,7 @@ TEST_F(CfgTest, EcmpNH_18) {
                 MakeUuid(1), vn_list, vm_intf->label(),
                 SecurityGroupList(), TagList(), CommunityList(),
                 false, PathPreference(),
-                Ip4Address(0), EcmpLoadBalance(), false, false);
+                Ip4Address(0), EcmpLoadBalance(), false, false, false);
     client->WaitForIdle();
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
 

@@ -692,16 +692,9 @@ bool LocalVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         }
     }
 
-    if (vm_port && vm_port->vrf() &&
-        vm_port->vrf()->forwarding_vrf() == agent->fabric_vrf()) {
+    if (native_encap_) {
         tunnel_bmap_ |= (1 << TunnelType::NATIVE);
     }
-
-    if (rt->vrf() &&
-        rt->vrf()->forwarding_vrf() == agent->fabric_vrf()) {
-        tunnel_bmap_ |= (1 << TunnelType::NATIVE);
-    }
-
 
     if (tunnel_bmap_ != path->tunnel_bmap()) {
         path->set_tunnel_bmap(tunnel_bmap_);

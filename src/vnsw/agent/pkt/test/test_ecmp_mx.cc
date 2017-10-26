@@ -261,7 +261,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
                 vm1_label, SecurityGroupList(), TagList(),
                 CommunityList(), false, PathPreference(),
                 Ip4Address(0), EcmpLoadBalance(),
-                false, false);
+                false, false, false);
     client->WaitForIdle();
 
     AddVrfAssignNetworkAcl("Acl", 10, "vn1", "vn2", "pass", "vrf2");

@@ -236,7 +236,7 @@ public:
                              TagList(), CommunityList(),
                              PathPreference(), Ip4Address(0),
                              EcmpLoadBalance(), false, false,
-                             bgp_peer->sequence_number(), false);
+                             bgp_peer->sequence_number(), false, false);
         InetUnicastAgentRouteTable *rt_table =
             agent_->vrf_table()->GetInet4UnicastRouteTable(vrf_name);
 
