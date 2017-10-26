@@ -125,7 +125,8 @@ bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
         ret = true;
     }
 
-    if (peer_ && (peer_->GetType() == Peer::ECMP_PEER) &&
+    if (peer_ && ((peer_->GetType() == Peer::ECMP_PEER) ||
+        (peer_->GetType() == Peer::MULTICAST_PEER)) &&
         (label_ != MplsTable::kInvalidLabel)) {
         if (RebakeLabel(agent->mpls_table(), label_, nh))
             ret = true;
@@ -1042,8 +1043,12 @@ MulticastRoutePath::MulticastRoutePath(const Peer *peer) :
 
 bool MulticastRoutePath::PostChangeNH(Agent *agent, NextHop *nh) {
     bool ret = false;
-    if (RebakeLabel(agent->mpls_table(), label(), nh))
+    if (peer() && ((peer()->GetType() == Peer::ECMP_PEER) ||
+        (peer()->GetType() == Peer::MULTICAST_PEER)) &&
+        (label() != MplsTable::kInvalidLabel)) {
+        if (RebakeLabel(agent->mpls_table(), label(), nh))
         ret = true;
+    }
     return ret;
 }
 
