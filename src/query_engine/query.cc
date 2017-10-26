@@ -1689,6 +1689,15 @@ bool QueryEngine::GetCqlStats(cass::cql::DbStats *stats) const {
     return true;
 }
 
+bool QueryEngine::GetCqlMetrics(cass::cql::Metrics *metrics) const {
+    cass::cql::CqlIf *cql_if(dynamic_cast<cass::cql::CqlIf *>(dbif_.get()));
+    if (cql_if == NULL) {
+        return false;
+    }
+    cql_if->Db_GetCqlMetrics(metrics);
+    return true;
+}
+
 void ShowQEDbStatsReq::HandleRequest() const {
     std::vector<GenDb::DbTableInfo> vdbti, vstats_dbti;
     GenDb::DbErrors dbe;
@@ -1697,9 +1706,12 @@ void ShowQEDbStatsReq::HandleRequest() const {
     assert(qec);
     ShowQEDbStatsResp *resp(new ShowQEDbStatsResp);
     qec->QE()->GetCumulativeStats(&vdbti, &dbe, &vstats_dbti);
+    cass::cql::Metrics cmetrics;
+    qec->QE()->GetCqlMetrics(&cmetrics);
     resp->set_table_info(vdbti);
     resp->set_errors(dbe);
     resp->set_statistics_table_info(vstats_dbti);
+    resp->set_cql_metrics(cmetrics);
     resp->set_context(context());
     resp->Response();
 }
