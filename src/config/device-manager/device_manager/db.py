@@ -986,6 +986,7 @@ class VirtualNetworkDM(DBBaseDM):
             lr_obj = LogicalRouterDM.get(lr_uuid)
             if lr_obj:
                 self.logical_router = lr_obj.uuid
+                lr_obj.virtual_network = self.uuid
     # end set_logical_router
 
     def update(self, obj=None):
