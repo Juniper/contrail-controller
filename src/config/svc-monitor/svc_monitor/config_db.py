@@ -1048,6 +1048,7 @@ class DomainSM(DBBaseSM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
         self.fq_name = obj['fq_name']
     # end update
 
