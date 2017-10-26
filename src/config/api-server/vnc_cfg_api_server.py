@@ -141,6 +141,8 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'obj_chmod_http_post'},
     {'uri': '/aaa-mode', 'link_name': 'aaa-mode',
      'method': 'PUT', 'method_name': 'aaa_mode_http_put'},
+    {'uri': '/obj-cache', 'link_name': 'obj-cache',
+     'method': 'POST', 'method_name': 'dump_cache'},
 ]
 
 
@@ -1807,6 +1809,20 @@ class VncApiServer(object):
 
         return {}
     #end obj_chown_http_post
+
+    def dump_cache(self):
+        try:
+            request = json.loads((get_request().body.buf))
+        except Exception as e:
+            request = {}
+        val = {}
+        if 'uuid' in request:
+            obj_uuid = request['uuid']
+            val  = self._db_conn._cassandra_db._obj_cache_mgr.dump_cache(obj_uuid=obj_uuid)
+        else:
+            count = request.get('count', 10)
+            val  = self._db_conn._cassandra_db._obj_cache_mgr.dump_cache(count=count)
+        return val
 
     # chmod for an object
     def obj_chmod_http_post(self):
