@@ -4,10 +4,12 @@
 
 import time
 import requests
+import bottle
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType,\
     ConnectionStatus
 from vnc_api import vnc_api
+from functools import wraps
 
 class VncCfgApiClient(object):
 
@@ -24,12 +26,20 @@ class VncCfgApiClient(object):
             server_addrs=self._conf_info['api_servers'])
     # end _update_connection_state
 
+    def check_client_presence(func):
+        @wraps(func)
+        def impl(self, *f_args, **f_kwargs):
+            if not self._vnc_api_client:
+                content = 'Not able to connect to VNC API: %s' % \
+                    (' '.join(self._conf_info['api_servers']))
+                raise bottle.HTTPResponse(status = 503, body = content)
+            return func(self, *f_args, **f_kwargs)
+        return impl
+    # end check_client_presence
+
+    @check_client_presence
     def _get_user_token_info(self, user_token, uuid=None):
-        if self._vnc_api_client:
-             return self._vnc_api_client.obj_perms(user_token, uuid)
-        else:
-            self._logger.error('VNC Config API Client NOT FOUND')
-            return None
+        return self._vnc_api_client.obj_perms(user_token, uuid)
     # end _get_user_token_info
 
     def update_api_servers(self, api_servers):
