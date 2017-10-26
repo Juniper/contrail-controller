@@ -31,6 +31,7 @@
 #include <oper/vm.h>
 #include <oper/sg.h>
 #include <oper/qos_config.h>
+#include <oper/global_vrouter.h>
 
 #include <filter/packet_header.h>
 #include <filter/acl.h>
@@ -785,6 +786,10 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
 // - Contrail-Status UVE
 // TODO : Review this
 bool FlowEntry::IsFabricControlFlow() const {
+    if (key_.dst_addr.is_v4() == false) {
+        return false;
+    }
+
     Agent *agent = flow_table()->agent();
     if (key_.protocol == IPPROTO_TCP) {
         if (key_.src_addr == agent->router_id()) {
@@ -795,6 +800,42 @@ bool FlowEntry::IsFabricControlFlow() const {
                 if (key_.dst_port == agent->controller_ifmap_xmpp_port(i)) {
                     return true;
                 }
+            }
+
+            for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
+                if (key_.dst_addr.to_string() !=
+                        agent->dns_server(i))
+                    continue;
+                if (key_.dst_port == 8093) {
+                    return true;
+                }
+
+                if (key_.dst_port == agent->dns_server_port(i)) {
+                    return true;
+                }
+            }
+
+            std::string collector = key_.dst_addr.to_string() + ":" + "8086";
+            std::vector<string>::const_iterator it =
+                agent->GetCollectorlist().begin();
+            for(; it != agent->GetCollectorlist().end(); it++) {
+                if (collector == *it) {
+                    return true;
+                }
+            }
+
+            Ip4Address metadata_ip(0);
+            uint16_t metadata_port = 0;
+            Ip4Address local_ip(0);
+            uint16_t local_port = 0;
+            agent->oper_db()->global_vrouter()->
+                FindLinkLocalService(GlobalVrouter::kMetadataService,
+                                     &local_ip, &local_port,
+                                     &metadata_ip,
+                                     &metadata_port);
+            if (key_.dst_addr.to_v4() == metadata_ip &&
+                key_.dst_port == metadata_port) {
+                return true;
             }
         }
 

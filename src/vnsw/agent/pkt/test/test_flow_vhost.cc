@@ -282,6 +282,52 @@ TEST_F(VhostVmi, FabricFlow) {
                             "10.1.1.1", "127.0.0.1", 6, 1000, 5269);
     EXPECT_TRUE(fe->IsShortFlow() == false);
     EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "10.1.1.10",
+                22, 8085, false, 1, 0);
+    client->WaitForIdle();
+
+    agent_->set_dns_server("127.0.0.1", 0);
+    agent_->set_dns_server_port(53, 0);
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "127.0.0.1",
+               1000, 53, false, 1, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "127.0.0.1", 6, 1000, 53);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "127.0.0.1",
+               1000, 8086, false, 1, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                            "10.1.1.1", "127.0.0.1", 6, 1000, 8086);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    std::string nova_api("128.0.0.1");
+    std::vector<std::string> fabric_ip_list;
+    fabric_ip_list.push_back(nova_api);
+    TestLinkLocalService service = {
+        "metadata", "169.254.169.254", 80, "", fabric_ip_list, 8775
+    };
+    AddLinkLocalConfig(&service, 1);
+    client->WaitForIdle();
+
+    TxTcpPacket(agent_->vhost_interface()->id(), "10.1.1.1", "128.0.0.1",
+                1000, 8775, false, 1, 0);
+    client->WaitForIdle();
+
+    fe = FlowGet(agent_->vhost_interface()->flow_key_nh()->id(),
+                 "10.1.1.1", "128.0.0.1", 6, 1000, 8775);
+    EXPECT_TRUE(fe->IsShortFlow() == false);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::FabricControlFlow));
+
+    DelLinkLocalConfig();
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
