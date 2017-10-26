@@ -32,7 +32,7 @@ public:
 struct SessionAggKey {
 public:
     IpAddress local_ip;
-    uint16_t dst_port;
+    uint16_t server_port;
     uint16_t proto;
     SessionAggKey() { Reset(); }
     void Reset();
@@ -43,7 +43,7 @@ public:
 struct SessionKey {
 public:
     IpAddress remote_ip;
-    uint16_t src_port;
+    uint16_t client_port;
     SessionKey() { Reset(); }
 
     void Reset();
@@ -184,10 +184,9 @@ private:
                             bool is_remote) const;
     static uint64_t GetCurrentTime();
     void UpdateSessionFlowStatsInfo(FlowEntry* fe,
-                                    SessionFlowStatsInfo *session_flow);
-    void UpdateSessionStatsInfo(FlowEntry* fe,
-                                uint64_t setup_time,
-                                SessionStatsInfo &session);
+                                    SessionFlowStatsInfo *session_flow) const;
+    void UpdateSessionStatsInfo(FlowEntry* fe, uint64_t setup_time,
+                                SessionStatsInfo *session) const;
     void AddSession(FlowEntry* fe, uint64_t setup_time);
     void DeleteSession(FlowEntry* fe, uint64_t teardown_time,
                        const RevFlowDepParams *params);

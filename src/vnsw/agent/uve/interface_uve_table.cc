@@ -779,10 +779,16 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
     }
 }
 
+/* Web-UI requires tag-id to returned as hex string. This should start with 0x
+ * and have exactly 8 digits/characters. Zero should be used for filling leading
+ * characters if the tag-id is not 8 digits wide. Web-UI uses this id to do
+ * lookup in API server */
 string InterfaceUveTable::UveSecurityPolicyStats::GetTagIdStr
     (const Agent *agent, uint32_t type) const {
     uint32_t tag = agent->uve()->GetTagOfType(type, remote_tagset);
-    return integerToString(tag);
+    std::stringstream ss;
+    ss << "0x" << setfill('0') << setw(8) << std::hex << (uint32_t)tag;
+    return ss.str();
 }
 
 void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStatsInternal
