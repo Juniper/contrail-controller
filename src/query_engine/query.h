@@ -1042,6 +1042,7 @@ public:
     bool GetDiffStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe, std::vector<GenDb::DbTableInfo> *vstats_dbti);
     bool GetCqlStats(cass::cql::DbStats *stats) const;
+    bool GetCqlMetrics(cass::cql::Metrics *matrics) const;
     GenDbIfPtr GetDbHandler() { return dbif_; }
 
 private:

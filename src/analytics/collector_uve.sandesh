@@ -88,6 +88,13 @@ uve sandesh SandeshModuleServerTrace {
     1: ModuleServerState                   data
 }
 
+struct SessionTableDbInfo {
+    1: double                               writes_per_message;
+    2: u64                                  num_messages;
+    3: double                               sessions_per_db_record;
+    4: double                               json_size_per_write;
+}
+
 /**
  * structure to store generator summary
  */
@@ -123,6 +130,7 @@ struct CollectorDbStats {
     3: optional gendb.DbErrors                 errors (tags="")
     4: optional map<string, gendb.DbTableStat> stats_info (tags=".__key", metric="diff")
     5: optional cql.DbStats                    cql_stats (tags="")
+    6: optional SessionTableDbInfo             session_table_stats (tags="")
 
    10: optional map<string, gendb.DbTableStat_P_>
          table_info_1h   (mstats="60-table_info:DSSum:", hidden="yes") 
