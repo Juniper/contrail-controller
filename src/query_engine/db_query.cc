@@ -215,7 +215,7 @@ query_status_t DbQueryUnit::process_query()
     std::vector<GenDb::DbDataValueVec> keys = populate_row_keys();
 
     /* Create a pipeline to fetch all rows corresponding to keys */
-    int max_tasks = m_query->qe_->max_tasks_;
+    int max_tasks = keys.size();
     std::vector<std::pair<int,int> > tinfo;
     for (uint idx=0; idx<(uint)max_tasks; idx++) {
         tinfo.push_back(make_pair(0, -1));

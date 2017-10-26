@@ -275,6 +275,9 @@ public:
         resp->set_table_info(vdbti);
         resp->set_errors(dbe);
         resp->set_statistics_table_info(vstats_dbti);
+        SessionTableInfo session_table_info;
+        db_handler->GetSessionTableInfo(&session_table_info);
+        resp->set_session_table_info(session_table_info);
         // Send the response
         resp->set_context(req->context());
         resp->Response();

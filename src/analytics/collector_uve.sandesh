@@ -88,6 +88,13 @@ uve sandesh SandeshModuleServerTrace {
     1: ModuleServerState                   data
 }
 
+struct SessionTableInfo {
+    1: double                               writes_per_message;
+    2: u64                                  num_messages;
+    3: double                               sessions_per_db_record;
+    4: double                               json_size_per_write;
+}
+
 /**
  * structure to store generator summary
  */
@@ -191,6 +198,7 @@ response sandesh ShowCollectorServerResp {
     7: optional list<gendb.DbTableInfo>    table_info
     8: optional gendb.DbErrors             errors
     9: optional list<gendb.DbTableInfo>    statistics_table_info
+   10: optional SessionTableInfo           session_table_info
 }
 
 // This struct is part of the CollectorInfo UVE. (key is hostname on which this
