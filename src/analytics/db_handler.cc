@@ -67,7 +67,7 @@ DbHandler::DbHandler(EventManager *evm,
         const VncApiConfig &api_config) :
     dbif_(new cass::cql::CqlIf(evm, cassandra_options.cassandra_ips_,
         cassandra_options.cassandra_ports_[0], cassandra_options.user_,
-        cassandra_options.password_)),
+        cassandra_options.password_, true)),
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     ttl_map_(cassandra_options.ttlmap_),
@@ -353,6 +353,10 @@ bool DbHandler::CreateTables() {
         }
     }
 
+    if (!dbif_->Db_SetTablespace(tablespace_)) {
+        DB_LOG(ERROR, "Set KEYSPACE: " << tablespace_ << " FAILED");
+        return false;
+    }
     GenDb::ColList col_list;
     std::string cfname = g_viz_constants.SYSTEM_OBJECT_TABLE;
     GenDb::DbDataValueVec key;
@@ -612,8 +616,7 @@ bool DbHandler::GetCqlMetrics(cass::cql::Metrics *metrics) const {
     if (cql_if == NULL) {
         return false;
     }
-    cql_if->Db_GetCqlMetrics(metrics);
-    return true;
+    return cql_if->Db_GetCqlMetrics(metrics);
 }
 
 bool DbHandler::GetCqlStats(cass::cql::DbStats *stats) const {
@@ -621,8 +624,7 @@ bool DbHandler::GetCqlStats(cass::cql::DbStats *stats) const {
     if (cql_if == NULL) {
         return false;
     }
-    cql_if->Db_GetCqlStats(stats);
-    return true;
+    return cql_if->Db_GetCqlStats(stats);
 }
 
 bool DbHandler::InsertIntoDb(std::auto_ptr<GenDb::ColList> col_list,

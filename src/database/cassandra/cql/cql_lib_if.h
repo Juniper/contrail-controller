@@ -34,6 +34,8 @@ class CassLibrary {
         CassCluster* cluster, unsigned num_bytes) = 0;
     virtual CassError CassClusterSetWriteBytesLowWaterMark(
         CassCluster* cluster, unsigned num_bytes) = 0;
+    virtual void CassClusterSetWhitelistFiltering(CassCluster* cluster,
+        const char* hosts) = 0;
 
     // CassSession
     virtual CassSession* CassSessionNew() = 0;
@@ -186,6 +188,8 @@ class CassDatastaxLibrary : public CassLibrary {
         CassCluster* cluster, unsigned num_bytes);
     virtual CassError CassClusterSetWriteBytesLowWaterMark(
         CassCluster* cluster, unsigned num_bytes);
+    virtual void CassClusterSetWhitelistFiltering(CassCluster* cluster,
+        const char* hosts);
 
     // CassSession
     virtual CassSession* CassSessionNew();
