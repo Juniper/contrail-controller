@@ -34,6 +34,8 @@ class MockCassLibrary : public interface::CassLibrary {
         CassCluster* cluster, unsigned num_bytes));
     MOCK_METHOD2(CassClusterSetWriteBytesLowWaterMark, CassError (
         CassCluster* cluster, unsigned num_bytes));
+    MOCK_METHOD2(CassClusterSetWhitelistFiltering, void (
+        CassCluster* cluster, const char* hosts));
 
     // CassSession
     MOCK_METHOD0(CassSessionNew, CassSession* ());

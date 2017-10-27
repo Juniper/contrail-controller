@@ -227,6 +227,8 @@ class CqlIfImpl {
         const std::string &replication_factor, CassConsistency consistency);
     bool UseKeyspaceSync(const std::string &keyspace,
         CassConsistency consistency);
+    bool UseKeyspaceSyncOnSchemaSession(const std::string &keyspace,
+        CassConsistency consistency);
 
     bool CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
         const std::string &compaction_strategy, CassConsistency consistency);
@@ -281,24 +283,14 @@ class CqlIfImpl {
         const GenDb::FieldNamesToReadVec &read_vec, CassConsistency consistency,
         cass::cql::impl::CassAsyncQueryCallback cb);
 
-    void ConnectAsync();
     bool ConnectSync();
-    void DisconnectAsync();
+    bool ConnectSchemaSync();
     bool DisconnectSync();
+    bool DisconnectSchemaSync();
 
-    void GetMetrics(Metrics *metrics) const;
+    bool GetMetrics(Metrics *metrics) const;
 
  private:
-    typedef boost::function<void(CassFuture *)> ConnectCbFn;
-    typedef boost::function<void(CassFuture *)> DisconnectCbFn;
-
-    static void ConnectCallback(CassFuture *future, void *data);
-    static void DisconnectCallback(CassFuture *future, void *data);
-    bool ReconnectTimerExpired();
-    void ReconnectTimerErrorHandler(std::string error_name,
-        std::string error_message);
-    void ConnectCallbackProcess(CassFuture *future);
-    void DisconnectCallbackProcess(CassFuture *future);
 
     bool InsertIntoTableInternal(std::auto_ptr<GenDb::ColList> v_columns,
         CassConsistency consistency, bool sync,
@@ -315,14 +307,11 @@ class CqlIfImpl {
     static const char * kQUseKeyspace;
     static const char * kTaskName;
     static const int kTaskInstance = -1;
-    static const int kReconnectInterval = 5 * 1000;
 
     struct SessionState {
         enum type {
             INIT,
-            CONNECT_PENDING,
             CONNECTED,
-            DISCONNECT_PENDING,
             DISCONNECTED,
         };
     };
@@ -331,10 +320,10 @@ class CqlIfImpl {
     interface::CassLibrary *cci_;
     impl::CassClusterPtr cluster_;
     impl::CassSessionPtr session_;
+    impl::CassSessionPtr schema_session_;
     tbb::atomic<SessionState::type> session_state_;
-    Timer *reconnect_timer_;
-    ConnectCbFn connect_cb_;
-    DisconnectCbFn disconnect_cb_;
+    tbb::atomic<SessionState::type> schema_session_state_;
+    std::string schema_contact_point_;
     std::string keyspace_;
     int io_thread_count_;
     typedef boost::unordered_map<std::string, impl::CassPreparedPtr>
