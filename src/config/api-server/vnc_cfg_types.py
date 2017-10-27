@@ -1952,7 +1952,7 @@ class VirtualRouterServer(Resource, VirtualRouter):
 
         ipam_refs = req_vr_dict.get('network_ipam_refs')
         if not ipam_refs:
-            iip_refs = db_dict.get('instance_ip_back_refs')
+            iip_refs = db_vr_dict.get('instance_ip_back_refs')
             if iip_refs:
                 return (False,
                         'Cannot Delete allocation pool,ip address in use')
