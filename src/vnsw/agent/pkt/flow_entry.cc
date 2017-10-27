@@ -963,7 +963,7 @@ void FlowEntry::RevFlowDepInfo(RevFlowDepParams *params) {
     }
 }
 
-static bool ShouldDrop(uint32_t action) {
+bool FlowEntry::ShouldDrop(uint32_t action) {
     if (action & TrafficAction::DROP_FLAGS)
         return true;
 
@@ -2222,6 +2222,9 @@ void FlowEntry::SessionMatch(SessionPolicy *sp, SessionPolicy *rsp,
 //      Out-Network Policy
 //      SG and out-SG from forward flow
 bool FlowEntry::DoPolicy() {
+    if (is_flags_set(FlowEntry::ShortFlow)) {
+        return true;
+    }
     data_.match_p.action_info.Clear();
     data_.match_p.policy_action = 0;
     data_.match_p.out_policy_action = 0;
@@ -3162,6 +3165,8 @@ void FlowEntry::FillUveLocalRevFlowStatsInfo(FlowUveFwPolicyInfo *info,
     } else {
         info->short_flow_ = false;
     }
+    FlowTable::GetFlowSandeshActionParams(data().match_p.action_info,
+                                          info->action_);
     info->is_valid_ = true;
 }
 
@@ -3186,6 +3191,8 @@ void FlowEntry::FillUveFwdFlowStatsInfo(FlowUveFwPolicyInfo *info,
     } else {
         info->short_flow_ = false;
     }
+    FlowTable::GetFlowSandeshActionParams(data().match_p.action_info,
+                                          info->action_);
     info->is_valid_ = true;
 }
 
