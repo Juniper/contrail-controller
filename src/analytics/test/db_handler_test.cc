@@ -1514,13 +1514,13 @@ TEST_F(DbHandlerTest, CanRecordDataForT2Test) {
     ret = WriteToCache(t2+1, fc_entry);
     new_test_cache.insert(fc_entry);
     cache_param = GetDbHandlerCacheParam();
-    EXPECT_EQ(t2_index, cache_param.field_cache_index_);
+    EXPECT_LE(t2_index, cache_param.field_cache_index_);
     EXPECT_THAT(cache_param.field_cache_set_, ::testing::Contains(fc_entry));
     EXPECT_EQ(true, ret);
 
-    // same entry with t2+2 should return false
+    // same entry with t2+1 should return false
     fc_entry="tabname:vn3";
-    ret = WriteToCache(t2+2, fc_entry);
+    ret = WriteToCache(t2+1, fc_entry);
     new_test_cache.insert(fc_entry);
     cache_param = GetDbHandlerCacheParam();
     EXPECT_THAT(cache_param.field_cache_set_, ::testing::Contains(fc_entry));
