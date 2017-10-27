@@ -1357,6 +1357,13 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
     QE_TRACE_NOQID(DEBUG, "Calling final_merge_processing for Stats");
 
     q->selectquery_->stats_->MergeFinal(inputs, output);
+    // apply limit
+    if (q->postprocess_->limit &&
+        output.size() > (size_t)q->postprocess_->limit) {
+            QEOpServerProxy::OutRowMultimapT::iterator it = output.begin();
+            std::advance(it, (size_t)q->postprocess_->limit);
+            output.erase(it, output.end());
+    }
     delete q;
     return true;   
 }
