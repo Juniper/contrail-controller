@@ -98,6 +98,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.service_endpoints = set()
         self.router_mode = None
         self.e2_service_index = 0
+        self.e2_service_providers = set()
         self.nc_q = queue.Queue(maxsize=1)
         self.vn_ip_map = {'irb': {}, 'lo0': {}}
         self.ae_id_map = {}
@@ -144,6 +145,7 @@ class PhysicalRouterDM(DBBaseDM):
         self.logical_interfaces = set([li['uuid'] for li in
                                        obj.get('logical_interfaces', [])])
         self.update_multiple_refs('service_endpoint', obj)
+        self.update_multiple_refs('e2_service_provider', obj)
         plugin_params = {
                 "physical_router": self
             }
@@ -175,6 +177,7 @@ class PhysicalRouterDM(DBBaseDM):
         obj.update_multiple_refs('virtual_network', {})
         obj.update_multiple_refs('logical_router', {})
         obj.update_multiple_refs('service_endpoint', {})
+        obj.update_multiple_refs('e2_service_provider', {})
         del cls._dict[uuid]
     # end delete
 
@@ -1401,7 +1404,7 @@ class NetworkDeviceConfigDM(DBBaseDM):
     # end update
 
     def uve_send(self):
-        mydata = self.config_manager.get_device_config()
+        mydata = self.config_manager.device_get_config()
         if mydata:
             last_timestamp = strftime("%Y-%m-%d %H:%M:%S", gmtime())
             pr_trace = UvePhysicalRouterConfiguration(
@@ -1424,6 +1427,61 @@ class NetworkDeviceConfigDM(DBBaseDM):
         del cls._dict[uuid]
 # end class NetworkDeviceConfigDM
 
+class E2ServiceProviderDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'e2_service_provider'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.promiscuous = None
+        self.physical_routers = set()
+        self.peering_policys = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.promiscuous = obj.get('e2_service_provider_promiscuous')
+        self.update_multiple_refs('physical_router', obj)
+        self.update_multiple_refs('peering_policy', obj)
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('peering_policy', {})
+        obj.update_multiple_refs('physical_router', {})
+        del cls._dict[uuid]
+# end class E2ServiceProviderDM
+
+class PeeringPolicyDM(DBBaseDM):
+    _dict = {}
+    obj_type = 'peering_policy'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.e2_service_providers = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.policy_name = obj.get('name')
+        self.update_multiple_refs('e2_service_provider', obj)
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('e2_service_provider', {})
+        del cls._dict[uuid]
+# end class PeeringPolicyDM
 
 class DMCassandraDB(VncObjectDBClient):
     _KEYSPACE = DEVICE_MANAGER_KEYSPACE_NAME
