@@ -29,6 +29,7 @@ struct EndpointStatsInfo {
     std::string remote_vn;
     TagList remote_tagset;
     std::string remote_prefix;
+    std::string action;
     uint64_t diff_bytes;
     uint64_t diff_pkts;
     /* The following bool field indicates diff_bytes and diff_pkts are
@@ -137,6 +138,7 @@ public:
         std::string remote_prefix;
         std::string remote_vn;
         std::string local_vn;
+        std::string action;
         uint64_t added;
         uint64_t deleted;
         uint64_t active;
@@ -153,12 +155,13 @@ public:
         uint64_t prev_deleted;
         UveSecurityPolicyStats(const TagList &ltset, const TagList &rtset,
                                const std::string &rprefix,
-                               const std::string &rvn, const std::string &lvn) :
+                               const std::string &rvn, const std::string &lvn,
+                               const std::string &action_str) :
             local_tagset(ltset), remote_tagset(rtset), remote_prefix(rprefix),
-            remote_vn(rvn), local_vn(lvn), added(0), deleted(0), active(0),
-            dropped_short(0), in_bytes(0), in_pkts(0), out_bytes(0), out_pkts(0)
-            , prev_in_bytes(0) , prev_in_pkts(0), prev_out_bytes(0),
-            prev_out_pkts(0), prev_added(0), prev_deleted(0) {
+            remote_vn(rvn), local_vn(lvn), action(action_str), added(0),
+            deleted(0), active(0), dropped_short(0), in_bytes(0), in_pkts(0),
+            out_bytes(0), out_pkts(0) , prev_in_bytes(0) , prev_in_pkts(0),
+            prev_out_bytes(0), prev_out_pkts(0), prev_added(0), prev_deleted(0){
         }
         std::string GetTagIdStr(const Agent *agent, uint32_t type) const;
     };
