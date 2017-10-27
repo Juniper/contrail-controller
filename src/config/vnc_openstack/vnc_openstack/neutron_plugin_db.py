@@ -2219,12 +2219,18 @@ class DBInterface(object):
             if ('security_groups' in port_q and
                 port_q['security_groups'].__class__ is not object):
                 if not port_security and port_q['security_groups']:
-                    self._raise_contrail_exception('PortSecurityPortHasSecurityGroup', port_id=port_obj.uuid)
+                    self._raise_contrail_exception(
+                        'PortSecurityPortHasSecurityGroup',
+                        port_id=port_obj.uuid)
 
                 port_obj.set_security_group_list([])
                 for sg_id in port_q.get('security_groups') or []:
-                    # TODO optimize to not read sg (only uuid/fqn needed)
-                    sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                    try:
+                        # TODO optimize to not read sg (only uuid/fqn needed)
+                        sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                    except NoIdError as e:
+                        self._raise_contrail_exception(
+                            'SecurityGroupNotFound', id=sg_id)
                     port_obj.add_security_group(sg_obj)
 
                 # When there is no-security-group for a port,the internal
@@ -2248,23 +2254,32 @@ class DBInterface(object):
                         port_obj.add_security_group(sg_obj)
                     else:
                         for sg_id in port_q.get('security_groups') or []:
-                            # TODO optimize to not read sg (only uuid/fqn needed)
-                            sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                            try:
+                                # TODO optimize to not read sg (only uuid/fqn needed)
+                                sg_obj = self._vnc_lib.security_group_read(id=sg_id)
+                            except NoIdError as e:
+                                self._raise_contrail_exception(
+                                    'SecurityGroupNotFound', id=sg_id)
                             port_obj.add_security_group(sg_obj)
             else:
                 if ('security_groups' in port_q and
                     port_q['security_groups'].__class__ is not object and
                     port_q['security_groups']):
-                    self._raise_contrail_exception('PortSecurityAndIPRequiredForSecurityGroups', port_id=port_obj.uuid)
+                    self._raise_contrail_exception(
+                        'PortSecurityAndIPRequiredForSecurityGroups',
+                        port_id=port_obj.uuid)
                 port_sg_refs = port_obj.get_security_group_refs()
                 if port_sg_refs:
                     if 'security_groups' in port_q and not port_q['security_groups']:
                         # reset all SG on the port
                         port_obj.set_security_group_list([])
-                    elif len(port_sg_refs) == 1 and port_sg_refs[0]['to'] == SG_NO_RULE_FQ_NAME:
+                    elif (len(port_sg_refs) == 1 and
+                          port_sg_refs[0]['to'] == SG_NO_RULE_FQ_NAME):
                         port_obj.set_security_group_list([])
                     else:
-                        self._raise_contrail_exception('PortSecurityPortHasSecurityGroup', port_id=port_obj.uuid)
+                        self._raise_contrail_exception(
+                            'PortSecurityPortHasSecurityGroup',
+                            port_id=port_obj.uuid)
 
         id_perms = port_obj.get_id_perms()
         if 'admin_state_up' in port_q:
