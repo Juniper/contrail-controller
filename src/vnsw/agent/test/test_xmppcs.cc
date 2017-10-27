@@ -387,8 +387,9 @@ TEST_F(AgentXmppUnitTest, Connection) {
     };
 
     //expect subscribe to __default__
-    uint8_t n = 1;
-    uint8_t n_s = 1;
+    //ip_fabric:ip_fabric VRF and vhost route in ip-fabric
+    uint8_t n = 3;
+    uint8_t n_s = 3;
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == n));
     WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == n_s));
 
