@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <base/os.h>
+#include <string>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/assign/list_of.hpp>
@@ -31,6 +32,7 @@
 #include <oper/vm.h>
 #include <oper/sg.h>
 #include <oper/qos_config.h>
+#include <oper/global_vrouter.h>
 
 #include <filter/packet_header.h>
 #include <filter/acl.h>
@@ -797,6 +799,10 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx, uint8_t gen_id) {
 // - Contrail-Status UVE
 // TODO : Review this
 bool FlowEntry::IsFabricControlFlow() const {
+    if (key_.dst_addr.is_v4() == false) {
+        return false;
+    }
+
     Agent *agent = flow_table()->agent();
     if (key_.protocol == IPPROTO_TCP) {
         if (key_.src_addr == agent->router_id()) {
@@ -807,6 +813,44 @@ bool FlowEntry::IsFabricControlFlow() const {
                 if (key_.dst_port == agent->controller_ifmap_xmpp_port(i)) {
                     return true;
                 }
+            }
+
+            for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
+                if (key_.dst_addr.to_string() !=
+                        agent->dns_server(i))
+                    continue;
+                if (key_.dst_port == ContrailPorts::DnsXmpp()) {
+                    return true;
+                }
+
+                if (key_.dst_port == agent->dns_server_port(i)) {
+                    return true;
+                }
+            }
+
+            std::ostringstream collector;
+            collector << key_.dst_addr.to_string() << ":" <<
+                         ContrailPorts::CollectorPort();
+            std::vector<string>::const_iterator it =
+                agent->GetCollectorlist().begin();
+            for(; it != agent->GetCollectorlist().end(); it++) {
+                if (collector.str() == *it) {
+                    return true;
+                }
+            }
+
+            Ip4Address metadata_ip(0);
+            uint16_t metadata_port = 0;
+            Ip4Address local_ip(0);
+            uint16_t local_port = 0;
+            agent->oper_db()->global_vrouter()->
+                FindLinkLocalService(GlobalVrouter::kMetadataService,
+                                     &local_ip, &local_port,
+                                     &metadata_ip,
+                                     &metadata_port);
+            if (key_.dst_addr.to_v4() == metadata_ip &&
+                key_.dst_port == metadata_port) {
+                return true;
             }
         }
 
