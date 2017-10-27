@@ -1058,25 +1058,35 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
                                                 bool is_logging)
                                                 const {
     FlowEntry *fe = session_flow.flow.get();
-    std::string action_str;
+    std::string action_str, drop_reason = "";
 
     FillSessionFlowStats(session_flow, stats, flow_info,
                          is_sampling, is_logging);
     flow_info->set_flow_uuid(session_flow.uuid);
     flow_info->set_setup_time(setup_time);
-    flow_info->set_teardown_time(teardown_time);
+    if (teardown_time) {
+        flow_info->set_teardown_time(teardown_time);
+    }
     if (params) {
-        GetFlowSandeshActionParams(params->action_info_, action_str);
+        FlowTable::GetFlowSandeshActionParams(params->action_info_, action_str);
         flow_info->set_action(action_str);
         flow_info->set_sg_rule_uuid(StringToUuid(params->sg_uuid_));
         flow_info->set_nw_ace_uuid(StringToUuid(params->nw_ace_uuid_));
-        flow_info->set_drop_reason(params->drop_reason_);
+        if (FlowEntry::ShouldDrop(params->action_info_.action)) {
+            drop_reason = FlowEntry::DropReasonStr(params->drop_reason_);
+        }
     } else if (read_flow) {
-        GetFlowSandeshActionParams(fe->data().match_p.action_info, action_str);
+        FlowTable::GetFlowSandeshActionParams(fe->data().match_p.action_info,
+                                              action_str);
         flow_info->set_action(action_str);
         flow_info->set_sg_rule_uuid(StringToUuid(fe->sg_rule_uuid()));
         flow_info->set_nw_ace_uuid(StringToUuid(fe->nw_ace_uuid()));
-        flow_info->set_drop_reason(fe->data().drop_reason);
+        if (FlowEntry::ShouldDrop(fe->data().match_p.action_info.action)) {
+            drop_reason = FlowEntry::DropReasonStr(fe->data().drop_reason);
+        }
+    }
+    if (!drop_reason.empty()) {
+        flow_info->set_drop_reason(drop_reason);
     }
 }
 
@@ -1527,18 +1537,92 @@ bool SessionStatsCollector::SessionTask::Run() {
     return true;
 }
 
-void SessionStatsCollector::GetFlowSandeshActionParams
-    (const FlowAction &action_info, std::string &action_str) const {
-    std::bitset<32> bs(action_info.action);
-    for (unsigned int i = 0; i <= bs.size(); i++) {
-        if (bs[i]) {
-            if (!action_str.empty()) {
-                action_str += "|";
+bool SessionStatsCollector::IsSamplingEnabled() const {
+    int32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
+                        flow_export_rate();
+    if (cfg_rate == GlobalVrouter::kDisableSampling) {
+        return false;
+    }
+    return true;
+}
+
+bool SessionStatsCollector::SampleSession
+    (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+     SessionStatsParams *params) const {
+    params->sampled = false;
+    int32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
+                        flow_export_rate();
+    /* If session export is disabled, update stats and return */
+    if (!cfg_rate) {
+        flow_stats_manager_->session_export_disable_drops_++;
+        return false;
+    }
+    /* For session-sampling diff_bytes should consider the diff bytes for both
+     * forward and reverse flow */
+    uint64_t diff_bytes = params->fwd_flow.diff_bytes +
+                          params->rev_flow.diff_bytes;
+    const SessionStatsInfo &info = session_map_iter->second;
+    /* Subject a flow to sampling algorithm only when all of below is met:-
+     * a. actual session-export-rate is >= 80% of configured flow-export-rate.
+     *    This is done only for first time.
+     * b. diff_bytes is lesser than the threshold
+     * c. Flow-sample does not have teardown time or the sample for the flow is
+     *    not exported earlier.
+     */
+    bool subject_flows_to_algorithm = false;
+    if ((diff_bytes < threshold()) &&
+        (!info.teardown_time || !info.exported_atleast_once) &&
+        ((!flow_stats_manager_->sessions_sampled_atleast_once_ &&
+         flow_stats_manager_->session_export_rate() >= ((double)cfg_rate) * 0.8)
+         || flow_stats_manager_->sessions_sampled_atleast_once_)) {
+        subject_flows_to_algorithm = true;
+        flow_stats_manager_->set_sessions_sampled_atleast_once();
+    }
+
+    if (subject_flows_to_algorithm) {
+        params->sampled = true;
+        double probability = diff_bytes/threshold();
+        uint32_t num = rand() % threshold();
+        if (num > diff_bytes) {
+            /* Do not export the flow, if the random number generated is more
+             * than the diff_bytes */
+            flow_stats_manager_->session_export_sampling_drops_++;
+            /* The second part of the if condition below is not required but
+             * added for better readability. It is not required because
+             * exported_atleast_once() will always be false if teardown time is
+             * set. If both teardown_time and exported_atleast_once are true we
+             * will never be here */
+            if (info.teardown_time && !info.exported_atleast_once) {
+                /* This counter indicates the number of sessions that were
+                 * never exported */
+                flow_stats_manager_->session_export_drops_++;
             }
-            action_str += TrafficAction::ActionToString(
-                static_cast<TrafficAction::Action>(i));
+            return false;
+        }
+        /* Normalize the diff_bytes and diff_packets reported using the
+         * probability value */
+        if (probability == 0) {
+            params->fwd_flow.diff_bytes = 0;
+            params->fwd_flow.diff_packets = 0;
+            params->rev_flow.diff_bytes = 0;
+            params->rev_flow.diff_packets = 0;
+        } else {
+            params->fwd_flow.diff_bytes = params->fwd_flow.diff_bytes/
+                                                  probability;
+            params->fwd_flow.diff_packets = params->fwd_flow.diff_packets/
+                                                    probability;
+            params->rev_flow.diff_bytes = params->rev_flow.diff_bytes/
+                                                  probability;
+            params->rev_flow.diff_packets = params->rev_flow.diff_packets/
+                                                    probability;
         }
     }
+
+    return true;
+}
+
+uint64_t SessionStatsCollector::threshold() const {
+    return flow_stats_manager_->threshold();
 }
 
 bool SessionStatsCollector::IsSamplingEnabled() const {
