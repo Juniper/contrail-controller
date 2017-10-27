@@ -66,16 +66,38 @@ class QuotaHelper(object):
         return (True, result)
 
     @classmethod
+    def get_security_group_rule_count(cls, db_conn, proj_uuid):
+
+        (ok, res_list, _) = db_conn.dbe_list(
+                'security_group', parent_uuids=[proj_uuid], is_detail=True)
+        if not ok:
+            return (False, (500, 'Internal error : Failed to read '
+                            'security_group resource list'))
+        quota_count = 0
+        for sg_dict in res_list:
+            if sg_dict['id_perms'].get('user_visible', True) is not False:
+                sge = sg_dict.get('security_group_entries') or {}
+                quota_count += len(sge.get('policy_rule') or [])
+
+        return True, quota_count
+
+    @classmethod
     def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
 
         if obj_type+'s' in Project.children_fields:
             # Number of resources created under this project.
-            # Resouce is a child ref under project object
+            # Resource is a child ref under project object
             (ok, quota_count) = db_conn.dbe_count_children(
                 'project', proj_uuid, obj_type+'s')
             if not ok:
                 return (False, (500, 'Internal error : Failed to read current '
                                 'resource count'))
+        elif obj_type == 'security_group_rule':
+                ok, result = cls.get_security_group_rule_count(
+                        db_conn, proj_uuid)
+                if not ok:
+                    return (ok, result)
+                quota_count = result
         else:
             (ok, res_list, _) = db_conn.dbe_list(obj_type,
                                               back_ref_uuids=[proj_uuid])
