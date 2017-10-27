@@ -1821,17 +1821,16 @@ CqlIfImpl::CqlIfImpl(EventManager *evm,
     cci_(cci),
     cluster_(cci_->CassClusterNew(), cci_),
     session_(cci_->CassSessionNew(), cci_),
-    reconnect_timer_(TimerManager::CreateTimer(*evm->io_service(),
-        "CqlIfImpl Reconnect Timer",
-        TaskScheduler::GetInstance()->GetTaskId(kTaskName),
-        kTaskInstance)),
-    connect_cb_(NULL),
-    disconnect_cb_(NULL),
+    schema_session_(cci_->CassSessionNew(), cci_),
     keyspace_(),
     io_thread_count_(2) {
     // Set session state to INIT
     session_state_ = SessionState::INIT;
+    schema_session_state_ = SessionState::INIT;
     // Set contact points and port
+    if (cassandra_ips.size() > 0) {
+        schema_contact_point_ = cassandra_ips[0];
+    }
     std::string contact_points(boost::algorithm::join(cassandra_ips, ","));
     cci_->CassClusterSetContactPoints(cluster_.get(), contact_points.c_str());
     cci_->CassClusterSetPort(cluster_.get(), cassandra_port);
@@ -1851,13 +1850,13 @@ CqlIfImpl::CqlIfImpl(EventManager *evm,
 CqlIfImpl::~CqlIfImpl() {
     assert(session_state_ == SessionState::INIT ||
         session_state_ == SessionState::DISCONNECTED);
-    TimerManager::DeleteTimer(reconnect_timer_);
-    reconnect_timer_ = NULL;
+    assert(schema_session_state_ == SessionState::INIT ||
+        schema_session_state_ == SessionState::DISCONNECTED);
 }
 
 bool CqlIfImpl::CreateKeyspaceIfNotExistsSync(const std::string &keyspace,
     const std::string &replication_factor, CassConsistency consistency) {
-    if (session_state_ != SessionState::CONNECTED) {
+    if (schema_session_state_ != SessionState::CONNECTED) {
         return false;
     }
     char buf[512];
@@ -1868,7 +1867,30 @@ bool CqlIfImpl::CreateKeyspaceIfNotExistsSync(const std::string &keyspace,
             keyspace << ", RF: " << replication_factor);
         return false;
     }
-    return impl::ExecuteQuerySync(cci_, session_.get(), buf, consistency);
+    return impl::ExecuteQuerySync(cci_, schema_session_.get(), buf,
+        consistency);
+}
+
+bool CqlIfImpl::UseKeyspaceSyncOnSchemaSession(const std::string &keyspace,
+    CassConsistency consistency) {
+    if (schema_session_state_ != SessionState::CONNECTED) {
+        return false;
+    }
+    char buf[512];
+    int n(snprintf(buf, sizeof(buf), kQUseKeyspace, keyspace.c_str()));
+    if (n < 0 || n >= (int)sizeof(buf)) {
+        CQLIF_ERR_TRACE("FAILED (" << n << "): Keyspace: " <<
+            keyspace);
+        return false;
+    }
+    bool success(impl::ExecuteQuerySync(cci_, schema_session_.get(), buf,
+        consistency));
+    if (!success) {
+        return false;
+    }
+    // Update keyspace
+    keyspace_ = keyspace;
+    return success;
 }
 
 bool CqlIfImpl::UseKeyspaceSync(const std::string &keyspace,
@@ -1895,7 +1917,7 @@ bool CqlIfImpl::UseKeyspaceSync(const std::string &keyspace,
 
 bool CqlIfImpl::CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
     const std::string &compaction_strategy, CassConsistency consistency) {
-    if (session_state_ != SessionState::CONNECTED) {
+    if (schema_session_state_ != SessionState::CONNECTED) {
         return false;
     }
     // There are two types of tables - Static (SQL) and Dynamic (NOSQL)
@@ -1924,16 +1946,19 @@ bool CqlIfImpl::CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
         return false;
       }
     }
-    return impl::ExecuteQuerySync(cci_, session_.get(), query.c_str(),
+    return impl::ExecuteQuerySync(cci_, schema_session_.get(), query.c_str(),
         consistency);
 }
 
 bool CqlIfImpl::CreateIndexIfNotExistsSync(const std::string &cfname,
     const std::string &column, const std::string &indexname,
     CassConsistency consistency, const std::string &mode) {
+    if (schema_session_state_ != SessionState::CONNECTED) {
+        return false;
+    }
     std::string query(impl::CassCreateIndexIfNotExists(cfname, column,
         indexname, mode));
-    return impl::ExecuteQuerySync(cci_, session_.get(), query.c_str(),
+    return impl::ExecuteQuerySync(cci_, schema_session_.get(), query.c_str(),
         consistency);
 }
 
@@ -2178,15 +2203,22 @@ bool CqlIfImpl::SelectFromTableClusteringKeyRangeSync(const std::string &cfname,
         query.c_str(), rk_count, ck_count, consistency, out);
 }
 
-void CqlIfImpl::ConnectAsync() {
-    session_state_ = SessionState::CONNECT_PENDING;
-    impl::CassFuturePtr future(cci_->CassSessionConnect(session_.get(),
+bool CqlIfImpl::ConnectSchemaSync() {
+    // First set the cluster whitelist filtering to just one node
+    cci_->CassClusterSetWhitelistFiltering(cluster_.get(),
+        schema_contact_point_.c_str());
+    impl::CassFuturePtr future(cci_->CassSessionConnect(schema_session_.get(),
         cluster_.get()), cci_);
-    if (connect_cb_.empty()) {
-        connect_cb_ = boost::bind(&CqlIfImpl::ConnectCallbackProcess,
-            this, _1);
+    bool success(impl::SyncFutureWait(cci_, future.get()));
+    if (success) {
+        schema_session_state_ = SessionState::CONNECTED;
+        CQLIF_INFO_TRACE("ConnectSchemaSync Done");
+    } else {
+        CQLIF_ERR_TRACE("ConnectSchemaSync FAILED");
     }
-    cci_->CassFutureSetCallback(future.get(), ConnectCallback, this);
+    // Reset cluster whitelist filtering
+    cci_->CassClusterSetWhitelistFiltering(cluster_.get(), "");
+    return success;
 }
 
 bool CqlIfImpl::ConnectSync() {
@@ -2195,22 +2227,11 @@ bool CqlIfImpl::ConnectSync() {
     bool success(impl::SyncFutureWait(cci_, future.get()));
     if (success) {
         session_state_ = SessionState::CONNECTED;
-        CQLIF_INFO_TRACE( "ConnectSync Done");
+        CQLIF_INFO_TRACE("ConnectSync Done");
     } else {
         CQLIF_ERR_TRACE("ConnectSync FAILED");
     }
     return success;
-}
-
-void CqlIfImpl::DisconnectAsync() {
-    // Close all session and pending queries
-    session_state_ = SessionState::DISCONNECT_PENDING;
-    impl::CassFuturePtr future(cci_->CassSessionClose(session_.get()), cci_);
-    if (disconnect_cb_.empty()) {
-        disconnect_cb_ = boost::bind(&CqlIfImpl::DisconnectCallbackProcess,
-            this, _1);
-    }
-    cci_->CassFutureSetCallback(future.get(), DisconnectCallback, this);
 }
 
 bool CqlIfImpl::DisconnectSync() {
@@ -2219,14 +2240,31 @@ bool CqlIfImpl::DisconnectSync() {
     bool success(impl::SyncFutureWait(cci_, future.get()));
     if (success) {
         session_state_ = SessionState::DISCONNECTED;
-        CQLIF_INFO_TRACE( "DisconnectSync Done");
+        CQLIF_INFO_TRACE("DisconnectSync Done");
     } else {
         CQLIF_ERR_TRACE("DisconnectSync FAILED");
     }
     return success;
 }
 
-void CqlIfImpl::GetMetrics(Metrics *metrics) const {
+bool CqlIfImpl::DisconnectSchemaSync() {
+    // Close the schema session
+    impl::CassFuturePtr future(cci_->CassSessionClose(schema_session_.get()),
+        cci_);
+    bool success(impl::SyncFutureWait(cci_, future.get()));
+    if (success) {
+        schema_session_state_ = SessionState::DISCONNECTED;
+        CQLIF_INFO_TRACE("DisconnectSchemaSync Done");
+    } else {
+        CQLIF_ERR_TRACE("DisconnectSchemaSync FAILED");
+    }
+    return success;
+}
+
+bool CqlIfImpl::GetMetrics(Metrics *metrics) const {
+    if (session_state_ != SessionState::CONNECTED) {
+        return false;
+    }
     CassMetrics cass_metrics;
     cci_->CassSessionGetMetrics(session_.get(), &cass_metrics);
     // Requests
@@ -2268,55 +2306,7 @@ void CqlIfImpl::GetMetrics(Metrics *metrics) const {
         cass_metrics.errors.pending_request_timeouts;
     metrics->errors.request_timeouts =
         cass_metrics.errors.request_timeouts;
-}
-
-void CqlIfImpl::ConnectCallback(CassFuture *future, void *data) {
-    CqlIfImpl *impl_ = (CqlIfImpl *)data;
-    impl_->connect_cb_(future);
-}
-
-void CqlIfImpl::DisconnectCallback(CassFuture *future, void *data) {
-    CqlIfImpl *impl_ = (CqlIfImpl *)data;
-    impl_->disconnect_cb_(future);
-}
-
-bool CqlIfImpl::ReconnectTimerExpired() {
-    ConnectAsync();
-    return false;
-}
-
-void CqlIfImpl::ReconnectTimerErrorHandler(std::string error_name,
-    std::string error_message) {
-    CQLIF_ERR_TRACE("ReconnectTimerError: " << error_name << " " <<
-        error_message);
-}
-
-void CqlIfImpl::ConnectCallbackProcess(CassFuture *future) {
-    CassError code(cci_->CassFutureErrorCode(future));
-    if (code != CASS_OK) {
-        impl::CassString err;
-        cci_->CassFutureErrorMessage(future, &err.data, &err.length);
-        CQLIF_INFO_TRACE("ConnectCallback Error: " <<
-            std::string(err.data, err.length));
-        // Start a timer to reconnect
-        reconnect_timer_->Start(kReconnectInterval,
-            boost::bind(&CqlIfImpl::ReconnectTimerExpired, this),
-            boost::bind(&CqlIfImpl::ReconnectTimerErrorHandler, this,
-                _1, _2));
-        return;
-    }
-    session_state_ = SessionState::CONNECTED;
-}
-
-void CqlIfImpl::DisconnectCallbackProcess(CassFuture *future) {
-    CassError code(cci_->CassFutureErrorCode(future));
-    if (code != CASS_OK) {
-        impl::CassString err;
-        cci_->CassFutureErrorMessage(future, &err.data, &err.length);
-        CQLIF_ERR_TRACE("DisconnectCallback Error: " <<
-            std::string(err.data, err.length));
-    }
-    session_state_ = SessionState::DISCONNECTED;
+    return true;
 }
 
 bool CqlIfImpl::InsertIntoTableInternal(std::auto_ptr<GenDb::ColList> v_columns,
@@ -2343,7 +2333,7 @@ bool CqlIfImpl::InsertIntoTableInternal(std::auto_ptr<GenDb::ColList> v_columns,
 
 bool CqlIfImpl::PrepareInsertIntoTableSync(const GenDb::NewCf &cf,
     impl::CassPreparedPtr *prepared) {
-    if (session_state_ != SessionState::CONNECTED) {
+    if (schema_session_state_ != SessionState::CONNECTED) {
         return false;
     }
     std::string query;
@@ -2367,7 +2357,7 @@ bool CqlIfImpl::PrepareInsertIntoTableSync(const GenDb::NewCf &cf,
         return false;
       }
     }
-    return impl::PrepareSync(cci_, session_.get(), query.c_str(),
+    return impl::PrepareSync(cci_, schema_session_.get(), query.c_str(),
         prepared);
 }
 
@@ -2421,11 +2411,13 @@ CqlIf::CqlIf(EventManager *evm,
              const std::vector<std::string> &cassandra_ips,
              int cassandra_port,
              const std::string &cassandra_user,
-             const std::string &cassandra_password) :
+             const std::string &cassandra_password,
+             bool create_schema) :
     cci_(new interface::CassDatastaxLibrary),
     impl_(new CqlIfImpl(evm, cassandra_ips, cassandra_port,
         cassandra_user, cassandra_password, cci_.get())),
-    use_prepared_for_insert_(true) {
+    use_prepared_for_insert_(true),
+    create_schema_(create_schema) {
     // Setup library logging
     cci_->CassLogSetLevel(impl::Log4Level2CassLogLevel(
         log4cplus::Logger::getRoot().getLogLevel()));
@@ -2448,15 +2440,30 @@ CqlIf::~CqlIf() {
 
 // Init/Uninit
 bool CqlIf::Db_Init() {
+    if (create_schema_) {
+        bool success(impl_->ConnectSchemaSync());
+        if (!success) {
+            return success;
+        }
+    }
     return impl_->ConnectSync();
 }
 
 void CqlIf::Db_Uninit() {
+    if (create_schema_) {
+        impl_->DisconnectSchemaSync();
+    }
     impl_->DisconnectSync();
 }
 
 void CqlIf::Db_SetInitDone(bool init_done) {
     initialized_ = init_done;
+    // No need for schema session if initialization is done
+    if (create_schema_) {
+        if (initialized_) {
+            impl_->DisconnectSchemaSync();
+        }
+    }
 }
 
 // Tablespace
@@ -2468,7 +2475,8 @@ bool CqlIf::Db_AddSetTablespace(const std::string &tablespace,
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_TABLESPACE);
         return success;
     }
-    success = impl_->UseKeyspaceSync(tablespace, CASS_CONSISTENCY_ONE);
+    success = impl_->UseKeyspaceSyncOnSchemaSession(tablespace,
+        CASS_CONSISTENCY_ONE);
     if (!success) {
         IncrementErrors(GenDb::IfErrors::ERR_READ_TABLESPACE);
         return success;
@@ -2863,16 +2871,20 @@ bool CqlIf::Db_GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
     return true;
 }
 
-void CqlIf::Db_GetCqlMetrics(Metrics *metrics) const {
-    impl_->GetMetrics(metrics);
+bool CqlIf::Db_GetCqlMetrics(Metrics *metrics) const {
+    return impl_->GetMetrics(metrics);
 }
 
-void CqlIf::Db_GetCqlStats(DbStats *db_stats) const {
+bool CqlIf::Db_GetCqlStats(DbStats *db_stats) const {
     Metrics metrics;
-    impl_->GetMetrics(&metrics);
+    bool success(impl_->GetMetrics(&metrics));
+    if (!success) {
+        return success;
+    }
     db_stats->requests_one_minute_rate = metrics.requests.one_minute_rate;
     db_stats->stats = metrics.stats;
     db_stats->errors = metrics.errors;
+    return success;
 }
 
 void CqlIf::IncrementTableWriteStats(const std::string &table_name) {
@@ -3001,6 +3013,11 @@ CassError CassDatastaxLibrary::CassClusterSetWriteBytesHighWaterMark(
 CassError CassDatastaxLibrary::CassClusterSetWriteBytesLowWaterMark(
     CassCluster* cluster, unsigned num_bytes) {
     return cass_cluster_set_write_bytes_low_water_mark(cluster, num_bytes);
+}
+
+void CassDatastaxLibrary::CassClusterSetWhitelistFiltering(
+    CassCluster* cluster, const char* hosts) {
+    cass_cluster_set_whitelist_filtering(cluster, hosts);
 }
 
 // CassSession
