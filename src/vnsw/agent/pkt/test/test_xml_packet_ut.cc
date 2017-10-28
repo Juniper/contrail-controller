@@ -50,7 +50,6 @@ public:
         EXPECT_EQ(agent_->pkt()->get_flow_proto()->FlowCount(), 0);
         EXPECT_EQ(agent_->vn_table()->Size(), 0);
         EXPECT_EQ(agent_->interface_table()->Size(), interface_count_);
-        agent_->flow_stats_manager()->set_flow_export_count(0);
         FlowStatsTimerStartStop(agent_, false);
         DelIPAM("vn1");
         client->WaitForIdle();
