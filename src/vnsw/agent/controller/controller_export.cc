@@ -202,6 +202,13 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
         if (path->peer() != table->agent()->fabric_rt_export_peer()) {
             path = NULL;
         }
+
+        //Dont export vhost IP path to control-node
+        const InetUnicastRouteEntry *inet_rt =
+            dynamic_cast<const InetUnicastRouteEntry *>(route);
+        if (inet_rt && inet_rt->addr() == table->agent()->router_id()) {
+            path = NULL;
+        }
     }
 
     if (!state && route->IsDeleted()) {
