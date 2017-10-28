@@ -811,24 +811,34 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
                                                 SessionFlowInfo *flow_info)
                                                 const {
     FlowEntry *fe = session_flow.flow.get();
-    std::string action_str;
+    std::string action_str, drop_reason = "";
 
     FillSessionFlowStats(session_flow, stats, flow_info);
     flow_info->set_flow_uuid(session_flow.uuid);
     flow_info->set_setup_time(setup_time);
-    flow_info->set_teardown_time(teardown_time);
+    if (teardown_time) {
+        flow_info->set_teardown_time(teardown_time);
+    }
     if (params) {
-        GetFlowSandeshActionParams(params->action_info_, action_str);
+        FlowTable::GetFlowSandeshActionParams(params->action_info_, action_str);
         flow_info->set_action(action_str);
         flow_info->set_sg_rule_uuid(StringToUuid(params->sg_uuid_));
         flow_info->set_nw_ace_uuid(StringToUuid(params->nw_ace_uuid_));
-        flow_info->set_drop_reason(params->drop_reason_);
+        if (FlowEntry::ShouldDrop(params->action_info_.action)) {
+            drop_reason = FlowEntry::DropReasonStr(params->drop_reason_);
+        }
     } else if (read_flow) {
-        GetFlowSandeshActionParams(fe->data().match_p.action_info, action_str);
+        FlowTable::GetFlowSandeshActionParams(fe->data().match_p.action_info,
+                                              action_str);
         flow_info->set_action(action_str);
         flow_info->set_sg_rule_uuid(StringToUuid(fe->sg_rule_uuid()));
         flow_info->set_nw_ace_uuid(StringToUuid(fe->nw_ace_uuid()));
-        flow_info->set_drop_reason(fe->data().drop_reason);
+        if (FlowEntry::ShouldDrop(fe->data().match_p.action_info.action)) {
+            drop_reason = FlowEntry::DropReasonStr(fe->data().drop_reason);
+        }
+    }
+    if (!drop_reason.empty()) {
+        flow_info->set_drop_reason(drop_reason);
     }
 }
 
@@ -1260,20 +1270,6 @@ std::string SessionStatsCollector::SessionTask::Description() const {
 bool SessionStatsCollector::SessionTask::Run() {
     ssc_->RunSessionEndpointStats(kSessionsPerTask);
     return true;
-}
-
-void SessionStatsCollector::GetFlowSandeshActionParams
-    (const FlowAction &action_info, std::string &action_str) const {
-    std::bitset<32> bs(action_info.action);
-    for (unsigned int i = 0; i <= bs.size(); i++) {
-        if (bs[i]) {
-            if (!action_str.empty()) {
-                action_str += "|";
-            }
-            action_str += TrafficAction::ActionToString(
-                static_cast<TrafficAction::Action>(i));
-        }
-    }
 }
 
 bool SessionStatsCollector::IsSamplingEnabled() const {

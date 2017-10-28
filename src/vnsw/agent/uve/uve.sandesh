@@ -64,6 +64,8 @@ struct SandeshUveRemoteEndpoint {
     16: u64 prev_out_bytes;
     /** Previous Output packets */
     17: u64 prev_out_pkts;
+    /** Action of the session */
+    18: string action;
 }
 
 /**
