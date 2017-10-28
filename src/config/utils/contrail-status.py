@@ -363,6 +363,31 @@ def check_svc(svc, initd_svc=False, check_return_code=False,
         if show == True:
             print '%-30s%s%s' %(psvc, status, bootstatus)
 
+def get_http_server_port_from_cmdline_options(svc_name, debug):
+    name, instance = svc_name, None
+    name_instance = svc_name.rsplit(':', 1)
+    if len(name_instance) == 2:
+        name, instance = name_instance
+    cmd = 'ps -eaf | grep %s | grep http_server_port' % (name)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    cmdout = p.communicate()[0]
+    processes = cmdout.splitlines()
+    for p in processes:
+        p = p.split()
+        try:
+            if instance:
+                wi = p.index('--worker_id')
+                if instance == p[wi+1]:
+                    pi = p.index('--http_server_port')
+                    return int(p[pi+1])
+            else:
+                pi = p.index('--http_server_port')
+                return int(p[pi+1])
+        except ValueError:
+            continue
+    return -1
+# end get_http_server_port_from_cmdline_options
+
 def _get_http_server_port_from_conf(svc_name, conf_file, debug):
     try:
         fp = open(conf_file)
@@ -430,7 +455,9 @@ def get_default_http_server_port(svc_name, debug):
         return -1
 
 def get_http_server_port(svc_name, debug):
-    http_server_port = get_http_server_port_from_conf(svc_name, debug)
+    http_server_port = get_http_server_port_from_cmdline_options(svc_name, debug)
+    if http_server_port == -1:
+        http_server_port = get_http_server_port_from_conf(svc_name, debug)
     if http_server_port == -1:
         http_server_port = get_default_http_server_port(svc_name, debug)
     return http_server_port
