@@ -231,7 +231,6 @@ vizd = AnalyticsEnv.Program(target = 'vizd',
 AnalyticsEnv.Alias('contrail-collector', vizd)
 AnalyticsEnv.Default(vizd)
 
-AnalyticsEnv.Requires(OpServerProxy_obj, '#/build/include/rapidjson')
 AnalyticsEnv.Requires(vizd, '#/build/include/boost')
 AnalyticsEnv.Requires(vizd, '#/build/include/ipfix.h')
 
