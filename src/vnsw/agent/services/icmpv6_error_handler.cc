@@ -42,7 +42,7 @@ bool Icmpv6ErrorHandler::Run() {
     VmInterface *vm_itf = dynamic_cast<VmInterface *>
         (agent()->interface_table()->FindInterface(GetInterfaceIndex()));
     if (vm_itf == NULL || vm_itf->layer3_forwarding() == false ||
-        vm_itf->vn() == NULL) {
+        vm_itf->IsActive() == false) {
         proto_->increment_interface_errors();
         return true;
     }
@@ -62,12 +62,18 @@ bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
 
     memcpy(data, pkt_info_->ip6, len);
 
+    Ip6Address source_address;
+    boost::system::error_code ec;
     const VnIpam *ipam = intf->vn()->GetIpam(pkt_info_->ip_saddr.to_v6());
-    if (ipam == NULL) {
-        proto_->increment_interface_errors();
-        return true;
+    if (ipam != NULL) {
+        if (ipam->default_gw.is_v6())
+            source_address = ipam->default_gw.to_v6();
     }
-  
+    // If source address is not found, use vhost address mapped v6 address.
+    // vrouter forwards the icmp error packets as part of the original flow.
+    if (source_address.is_unspecified())
+        source_address = Ip6Address::v4_mapped(agent()->router_id());
+
     uint32_t interface = 
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
         pkt_info_->agent_hdr.cmd_param : GetInterfaceIndex();
@@ -79,7 +85,7 @@ bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
 
     pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);
     Ip6Hdr(pkt_info_->ip6, len+ICMP_UNREACH_HDR_LEN, IPV6_ICMP_NEXT_HEADER, 
-           255, ipam->default_gw.to_v6().to_bytes().data(),
+           255, source_address.to_bytes().data(),
            pkt_info_->ip_saddr.to_v6().to_bytes().data());
 
     icmp6_hdr *icmp = pkt_info_->transp.icmp6 = 
@@ -91,7 +97,7 @@ bool Icmpv6ErrorHandler::SendIcmpv6Error(VmInterface *intf) {
     icmp->icmp6_cksum = 0;
     memcpy(buff + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN, data, len);
     icmp->icmp6_cksum =
-        Icmpv6Csum(ipam->default_gw.to_v6().to_bytes().data(),
+        Icmpv6Csum(source_address.to_bytes().data(),
                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
                    icmp, len + ICMP_UNREACH_HDR_LEN);
     pkt_info_->set_len(len + sizeof(ip6_hdr) + eth_len+ICMP_UNREACH_HDR_LEN);
