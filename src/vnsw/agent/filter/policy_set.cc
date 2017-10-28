@@ -105,7 +105,7 @@ bool PolicySet::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     }
 
     apsd.set_firewall_policy_list(acl_list);
-    apsd.set_is_global(global_);
+    apsd.set_all_applications(global_);
 
     std::vector<ApplicationPolicySetSandeshData> &list =
         const_cast<std::vector<ApplicationPolicySetSandeshData>&>(
@@ -156,7 +156,7 @@ static PolicySetData* BuildData(Agent *agent, IFMapNode *node,
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     DBGraph *graph = table->GetGraph();
     FirewallPolicyUuidList list;
-    bool global = ps->is_global();
+    bool global = ps->all_applications();
 
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
             iter != node->end(table->GetGraph()); ++iter) {
