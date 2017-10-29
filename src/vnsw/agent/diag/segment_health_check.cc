@@ -102,10 +102,10 @@ void SegmentHealthCheckPkt::SendRequest() {
         len += sizeof(ether_header);
         InterfaceRef interface = service_->interface();
         if ((static_cast<VmInterface *>(interface.get()))->is_left_si()) {
-            pkt_handler->EthHdr(agent->LeftSIMac(), agent->RightSIMac(),
+            pkt_handler->EthHdr(agent->left_si_mac(), agent->right_si_mac(),
                                 ETHERTYPE_IP);
         } else {
-            pkt_handler->EthHdr(agent->RightSIMac(), agent->LeftSIMac(),
+            pkt_handler->EthHdr(agent->right_si_mac(), agent->left_si_mac(),
                                 ETHERTYPE_IP);
         }
     } else {

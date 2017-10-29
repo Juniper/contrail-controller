@@ -187,6 +187,10 @@ void VrfEntry::PostAdd() {
         (rt_table_db_[Agent::BRIDGE]);
     l2_table->AddBridgeReceiveRoute(agent->local_vm_peer(), name_, 0,
                                     agent->vrrp_mac(), "");
+    l2_table->AddBridgeReceiveRoute(agent->local_peer(), name_,
+                                    agent->left_si_mac(), "", "pkt0", true);
+    l2_table->AddBridgeReceiveRoute(agent->local_peer(), name_,
+                                    agent->right_si_mac(), "", "pkt0", true);
 
     // Add the L2 Receive routes for xconnect interface to vhost
     // Note, vhost is not created when fabric VRF is created. We only need
@@ -677,6 +681,10 @@ bool VrfTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
         (vrf->rt_table_db_[Agent::BRIDGE]);
     l2_table->Delete(agent()->local_vm_peer(), vrf->GetName(),
                      agent()->vrrp_mac(), 0);
+    l2_table->Delete(agent()->local_peer(), vrf->GetName(),
+                     agent()->left_si_mac(), -1);
+    l2_table->Delete(agent()->local_peer(), vrf->GetName(),
+                     agent()->right_si_mac(), -1);
     const VmInterface *vhost = dynamic_cast<const VmInterface *>
         (agent()->vhost_interface());
     if (vhost && vhost->parent()) {
