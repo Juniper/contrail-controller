@@ -436,7 +436,7 @@ TEST_F(KStateTest, RouteDumpTest) {
         TestRouteKState::Init(true, 2, AF_INET6, 3);
         client->WaitForIdle();
         client->KStateResponseWait(1);
-        TestRouteKState::Init(true, 2, AF_BRIDGE, (MAX_TEST_FD) + 3);
+        TestRouteKState::Init(true, 2, AF_BRIDGE, (MAX_TEST_FD) + 5);
         client->WaitForIdle();
         client->KStateResponseWait(1);
         DeletePorts();
