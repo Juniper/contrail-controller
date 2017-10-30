@@ -2011,6 +2011,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
                     case SessionRecordFields::SESSION_REMOTE_TIER:
                     case SessionRecordFields::SESSION_REMOTE_APPLICATION:
                     case SessionRecordFields::SESSION_REMOTE_SITE:
+                    case SessionRecordFields::SESSION_REMOTE_PREFIX:
                     case SessionRecordFields::SESSION_SECURITY_POLICY_RULE:
                     case SessionRecordFields::SESSION_VMI:
                     case SessionRecordFields::SESSION_VN:
