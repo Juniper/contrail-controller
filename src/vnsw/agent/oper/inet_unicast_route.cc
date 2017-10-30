@@ -762,6 +762,10 @@ bool InetUnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
         if (path) {
             PathSandeshData pdata;
             path->SetSandeshData(pdata);
+            if (vrf()->GetName() == Agent::GetInstance()->fabric_vrf_name()
+                && (path->tunnel_bmap() & TunnelType::NativeType())) {
+                pdata.set_active_tunnel_type("Native");
+            }
             data.path_list.push_back(pdata);
         }
     }
