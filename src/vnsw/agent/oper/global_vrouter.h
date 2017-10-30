@@ -120,6 +120,7 @@ public:
     bool IsAddressInUse(const Ip4Address &ip) const;
     bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
     Agent::ForwardingMode forwarding_mode() const {return forwarding_mode_;}
+    boost::uuids::uuid slo_uuid() const {return slo_uuid_;}
 
     uint64_t PendingFabricDnsRequests() const;
     void ResyncRoutes();
