@@ -339,6 +339,7 @@ void VNController::DeleteAgentXmppChannel(uint8_t idx) {
         //needed). BgpPeer destructor will handle deletion of channel.
         AgentXmppChannel::HandleAgentXmppClientChannelEvent(channel,
                                                             xmps::NOT_READY);
+        channel->Unregister();
     }
     //Every delete of channel should delete flow of bgp-as-a-service,
     //which is using this CN.

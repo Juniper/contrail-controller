@@ -76,7 +76,8 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent,
                                    const std::string &xmpp_server,
                                    const std::string &label_range,
                                    uint8_t xs_idx)
-    : channel_(NULL), xmpp_server_(xmpp_server), label_range_(label_range),
+    : channel_(NULL), channel_str_(),
+      xmpp_server_(xmpp_server), label_range_(label_range),
       xs_idx_(xs_idx), agent_(agent) {
     bgp_peer_id_.reset();
 }
@@ -84,8 +85,15 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent,
 AgentXmppChannel::~AgentXmppChannel() {
     BgpPeer *bgp_peer = bgp_peer_id();
     assert(bgp_peer == NULL);
-    channel_->UnRegisterReceive(xmps::BGP);
+}
+
+void AgentXmppChannel::Unregister() {
+    if (bgp_peer_id()) {
+        bgp_peer_id()->StopRouteExports();
+    }
     channel_->UnRegisterWriteReady(xmps::BGP);
+    channel_->UnRegisterReceive(xmps::BGP);
+    channel_ = NULL;
 }
 
 InetUnicastAgentRouteTable *AgentXmppChannel::PrefixToRouteTable
@@ -110,6 +118,7 @@ void AgentXmppChannel::RegisterXmppChannel(XmppChannel *channel) {
         return;
 
     channel_ = channel;
+    channel_str_ = channel_->ToString();
     channel->RegisterReceive(xmps::BGP,
                               boost::bind(&AgentXmppChannel::ReceiveInternal,
                                           this, _1));
@@ -1215,7 +1224,7 @@ void AgentXmppChannel::ReceiveInternal(const XmppStanza::XmppMessage *msg) {
 }
 
 std::string AgentXmppChannel::ToString() const {
-    return channel_->ToString();
+    return channel_str_;
 }
 
 void AgentXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
