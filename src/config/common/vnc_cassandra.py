@@ -1841,4 +1841,25 @@ class ObjectCacheManager(object):
         self.evict(stale_uuids)
         return obj_dicts, list(miss_uuid_set)
     # end read
+    def dump_cache(self, obj_uuid=None, count=10):
+        if obj_uuid:
+            obj = self._cache.get(obj_uuid)
+            obj_json = json.dumps(obj, default=lambda o: dict((k, v)
+                               for k, v in o.__dict__.iteritems()))
+            obj_dict = json.loads(obj_json)
+            return obj_dict
+        else:
+            obj_dicts = {}
+            i = 1
+            for key in self._cache:
+                if i > count:
+                    break
+                obj = self._cache[key]
+                obj_json = json.dumps(obj, default=lambda o: dict((k, v)
+                               for k, v in o.__dict__.iteritems()))
+                obj_dict = json.loads(obj_json)
+                obj_dicts[i] = obj_dict
+                i = i+1
+            return obj_dicts
+
 # end class ObjectCacheManager
