@@ -158,6 +158,8 @@ const string STATS_TABLE_BY_U64_TAG         = "StatsTableByU64TagV3"
 const u16 PARTITION_MIN = 0
 const u16 PARTITION_MAX = 16
 
+const string UNKNOWN = "__UNKNOWN__"
+
 enum SessionType {
     SERVER_SESSION = 0,
     CLIENT_SESSION,
@@ -254,6 +256,9 @@ enum SessionRecordFields {
    SESSION_MAP,
    SESSION_MAX,
 }
+
+const u16 SESSION_MIN = SessionRecordFields.SESSION_PROTOCOL
+const u16 SESSION_MAX = SessionRecordFields.SESSION_MAX
 
 const list<SessionRecordFields> SessionCassTableColumns = [
    SessionRecordFields.SESSION_T2,
