@@ -538,6 +538,37 @@ TEST_F(ForwardingModeTest, default_forwarding_mode_l2_l3_with_none_configure) {
     DeleteSingleVmEnvironment();
 }
 
+TEST_F(ForwardingModeTest, default_forwarding_mode_l2_add_aap) {
+    MacAddress zero_mac;
+    MacAddress mac("0a:0b:0c:0d:0e:0f");
+    Ip4Address ip = Ip4Address::from_string("11.11.11.11");
+
+    SetupSingleVmEnvironment("l2");
+    VerifyL2OnlyMode();
+    /* Adding AAP entry */
+    AddAap("vnet1", 1, ip, mac.ToString());
+    VmInterface *vm_intf = static_cast<VmInterface *>(VmPortGet(1));
+    client->WaitForIdle();
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 1);
+    BridgeRouteEntry* aap_l2_rt = L2RouteGet("vrf1", mac);
+    EXPECT_TRUE(aap_l2_rt != NULL);
+    EvpnRouteEntry *evpn_rt = EvpnRouteGet("vrf1",
+                                           vm_intf->vm_mac(), ip, 0);
+    EXPECT_TRUE(evpn_rt == NULL);
+    DelNode("routing-instance", "vrf1");
+    client->WaitForIdle();
+    aap_l2_rt = L2RouteGet("vrf1", mac);
+    EXPECT_TRUE(aap_l2_rt == NULL);
+    AddNode("routing-instance", "vrf1", 10);
+    AddAap("vnet1", 1, Ip4Address(0), zero_mac.ToString());
+    client->WaitForIdle();
+    aap_l2_rt = L2RouteGet("vrf1", mac);
+    EXPECT_TRUE(aap_l2_rt == NULL);
+    EXPECT_TRUE(vm_intf->allowed_address_pair_list().list_.size() == 0);
+    DeleteSingleVmEnvironment();
+}
+
+
 //With l2_l3 in environment VN gets set with blank forwarding mode.
 //This in turn defaults to l2_l3.
 //This test case explicitly modifies blank forwarding mode
