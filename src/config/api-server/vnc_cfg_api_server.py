@@ -2659,21 +2659,30 @@ class VncApiServer(object):
                            (obj_type, pformat(r_class.parent_types)))
                     raise cfgm_common.exceptions.HttpError(400, msg)
                 parent_type = r_class.parent_types[0].replace('-', '_')
-            parent_fq_name = obj_dict['fq_name'][:-1]
-            parent_uuid = obj_dict.get('parent_uuid')
-            try:
-                if parent_uuid is None:
-                    parent_uuid = self._db_conn.fq_name_to_uuid(
-                        parent_type, parent_fq_name)
-                ok, parent_obj_dict = self._db_conn.dbe_read(
-                    parent_type, parent_uuid, obj_fields=['perms2'])
+
+            if parent_type == 'domain':
+                if project_id:
+                    perms2['owner'] = project_id
+                else:
+                    perms2['owner'] = 'cloud-admin'
+            else:
+                parent_fq_name = obj_dict['fq_name'][:-1]
+                parent_uuid = obj_dict.get('parent_uuid')
+                try:
+                    if parent_uuid is None:
+                        parent_uuid = self._db_conn.fq_name_to_uuid(
+                            parent_type, parent_fq_name)
+                    ok, parent_obj_dict = self._db_conn.dbe_read(
+                        parent_type, parent_uuid, obj_fields=['perms2'])
+                except NoIdError as e:
+                    msg = "Parent %s cannot be found: %s" % (parent_type, str(e))
+                    raise cfgm_common.exceptions.HttpError(404, msg)
                 perms2['owner'] = parent_obj_dict['perms2']['owner']
-            except NoIdError as e:
-                msg = "Parent %s cannot be found: %s" % (parent_type, str(e))
-                raise cfgm_common.exceptions.HttpError(404, msg)
 
         elif project_id:
             perms2['owner'] = project_id
+        else:
+            perms2['owner'] = 'cloud-admin'
 
         if obj_dict.get('perms2') is None:
             # Resource creation
