@@ -115,8 +115,6 @@ libbgp_yaml_config = env.Library('bgp_yaml_config',
 
 test_suite = env.SConscript('ermvpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
-test_suite += env.SConscript('mvpn/SConscript', exports='BuildEnv',
-                             duplicate = 0)
 test_suite += env.SConscript('evpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 test_suite += env.SConscript('inet/SConscript', exports='BuildEnv',
@@ -126,6 +124,8 @@ test_suite += env.SConscript('inet6/SConscript', exports='BuildEnv',
 test_suite += env.SConscript('inet6vpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 test_suite += env.SConscript('l3vpn/SConscript', exports='BuildEnv',
+                             duplicate = 0)
+test_suite += env.SConscript('mvpn/SConscript', exports='BuildEnv',
                              duplicate = 0)
 test_suite += env.SConscript('origin-vn/SConscript', exports='BuildEnv',
                              duplicate = 0)
