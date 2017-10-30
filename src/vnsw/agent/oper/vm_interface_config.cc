@@ -1361,6 +1361,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     data->vmi_cfg_uuid_ = vmi_uuid;
     std::list<IFMapNode *> bgp_as_a_service_node_list;
+    std::list<IFMapNode *> bgp_router_node_list;
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
@@ -1453,6 +1454,10 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
             bgp_as_a_service_node_list.push_back(adj_node);
         }
 
+        if (strcmp(adj_node->table()->Typename(), BGP_ROUTER_CONFIG_NAME) == 0) {
+            bgp_router_node_list.push_back(adj_node);
+        }
+
         if (adj_node->table() == agent_->cfg()->cfg_vm_port_bridge_domain_table()) {
             BuildBridgeDomainTable(agent_, data, adj_node);
         }
@@ -1465,7 +1470,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     }
 
     agent_->oper_db()->bgp_as_a_service()->ProcessConfig
-        (data->vrf_name_, bgp_as_a_service_node_list, u);
+        (data->vrf_name_, bgp_router_node_list, bgp_as_a_service_node_list, u);
     UpdateAttributes(agent_, data);
     BuildFatFlowTable(agent_, data, node);
 
