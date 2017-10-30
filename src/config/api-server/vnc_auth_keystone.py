@@ -29,7 +29,8 @@ from cfgm_common import utils as cfgmutils
 from cfgm_common import vnc_greenlets
 
 #keystone SSL cert bundle
-_DEFAULT_KS_CERT_BUNDLE= "/tmp/keystonecertbundle.pem"
+_DEFAULT_KS_CERT_BUNDLE = "/tmp/keystonecertbundle.pem"
+_DEFAULT_KS_VERSION = "v2.0"
 
 # Open port for access to API server for trouble shooting
 class LocalAuth(object):
@@ -156,9 +157,12 @@ class AuthServiceKeystone(object):
         if args.auth_url:
             auth_url = args.auth_url
         else:
-            auth_url = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
+            auth_url = '%s://%s:%s/%s' % (
+                    args.auth_protocol, args.auth_host, args.auth_port,
+                    _DEFAULT_KS_VERSION)
         if 'v2.0' in auth_url.split('/'):
-            identity_uri = '%s://%s:%s' % (args.auth_protocol, args.auth_host, args.auth_port)
+            identity_uri = '%s://%s:%s' % (
+                    args.auth_protocol, args.auth_host, args.auth_port)
             self._conf_info.update({
                 'auth_host': args.auth_host,
                 'auth_port': args.auth_port,
