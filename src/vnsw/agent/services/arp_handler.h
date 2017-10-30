@@ -23,7 +23,8 @@ public:
     void SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
                  const MacAddress &tmac, const MacAddress &dmac,
                  in_addr_t tip, uint32_t itf, uint32_t vrf);
-    void SendArpRequestByPlen(uint32_t itf, const MacAddress &smac,
+    void SendArpRequestByPlen(const VmInterface *vm_interface,
+                              const MacAddress &smac,
                               const ArpPathPreferenceState *data,
                               const Ip4Address &tpa);
     friend void intrusive_ptr_add_ref(const ArpHandler *p);

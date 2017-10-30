@@ -372,19 +372,19 @@ void ArpHandler::SendArp(uint16_t op, const MacAddress &smac, in_addr_t sip,
     Send(itf, vrf, AgentHdr::TX_SWITCH, PktHandler::ARP);
 }
 
-void ArpHandler::SendArpRequestByPlen(uint32_t itf, const MacAddress &smac,
+void ArpHandler::SendArpRequestByPlen(const VmInterface *vm_interface, const MacAddress &smac,
                                       const ArpPathPreferenceState *data,
                                       const Ip4Address &tpa) {
     if (data->plen() == Address::kMaxV4PrefixLen) {
         SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
-                MacAddress(), MacAddress::BroadcastMac(),
-                data->ip().to_v4().to_ulong(), itf, data->vrf_id());
+                MacAddress(), vm_interface->vm_mac(),
+                data->ip().to_v4().to_ulong(), vm_interface->id(), data->vrf_id());
         agent()->GetArpProto()->IncrementStatsVmArpReq();
     } else {
         if (!tpa.is_unspecified()) {
             SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
-                    MacAddress(), MacAddress::BroadcastMac(), tpa.to_ulong(),
-                    itf, data->vrf_id());
+                    MacAddress(), vm_interface->vm_mac(), tpa.to_ulong(),
+                    vm_interface->id(), data->vrf_id());
             agent()->GetArpProto()->IncrementStatsVmArpReq();
             return;
         }
@@ -411,7 +411,8 @@ void ArpHandler::SendArpRequestByPlen(uint32_t itf, const MacAddress &smac,
         for (uint32_t i = 1; i < (num_addresses - 1); ++i) {
             uint32_t addr = base_addr + i;
             SendArp(ARPOP_REQUEST, smac, data->gw_ip().to_v4().to_ulong(),
-                    MacAddress(), MacAddress::BroadcastMac(), addr, itf,
+                    MacAddress(), vm_interface->vm_mac(), addr,
+                    vm_interface->id(),
                     data->vrf_id());
             agent()->GetArpProto()->IncrementStatsVmArpReq();
         }
