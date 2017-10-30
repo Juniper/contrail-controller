@@ -283,7 +283,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(1, forwarder->route()->count());
 
         boost::scoped_ptr<UpdateInfo> uinfo(forwarder->GetUpdateInfo(table));
-        TASK_UTIL_EXPECT_TRUE(uinfo.get() == NULL);
+        TASK_UTIL_EXPECT_TRUE(uinfo.get() != NULL);
     }
 
     void VerifyForwarderLinks(McastForwarder *forwarder) {
@@ -360,19 +360,19 @@ TEST_F(BgpMulticastTest, Noop) {
 TEST_F(BgpMulticastTest, Basic) {
     peers_[0]->AddRoute(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, 2);
+    VerifyRouteCount(red_table_, 3);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", 1);
 
     peers_[1]->AddRoute(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, 3);
+    VerifyRouteCount(red_table_, 4);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", 2);
 
     peers_[0]->DelRoute(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, 2);
+    VerifyRouteCount(red_table_, 3);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", 1);
 
@@ -386,7 +386,7 @@ TEST_F(BgpMulticastTest, Basic) {
 TEST_F(BgpMulticastTest, SingleGroup) {
     AddRouteAllPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kPeerCount + 1);
+    VerifyRouteCount(red_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
 
@@ -409,13 +409,13 @@ TEST_F(BgpMulticastTest, SingleGroupAddDel) {
 TEST_F(BgpMulticastTest, SingleGroupDuplicateAdd) {
     AddRouteAllPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kPeerCount + 1);
+    VerifyRouteCount(red_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
 
     AddRouteAllPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kPeerCount + 1);
+    VerifyRouteCount(red_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
 
@@ -429,13 +429,13 @@ TEST_F(BgpMulticastTest, SingleGroupDuplicateAdd) {
 TEST_F(BgpMulticastTest, SingleGroupIncrementalAdd) {
     AddRouteEvenPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kEvenPeerCount + 1);
+    VerifyRouteCount(red_table_, kEvenPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kEvenPeerCount);
 
     AddRouteOddPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kPeerCount + 1);
+    VerifyRouteCount(red_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
 
@@ -449,13 +449,13 @@ TEST_F(BgpMulticastTest, SingleGroupIncrementalAdd) {
 TEST_F(BgpMulticastTest, SingleGroupIncrementalDel) {
     AddRouteAllPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kPeerCount + 1);
+    VerifyRouteCount(red_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
 
     DelRouteEvenPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kOddPeerCount + 1);
+    VerifyRouteCount(red_table_, kOddPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kOddPeerCount);
 
@@ -469,32 +469,32 @@ TEST_F(BgpMulticastTest, SingleGroupIncrementalDel) {
 TEST_F(BgpMulticastTest, SingleGroupRepeatedDelAdd) {
     AddRouteAllPeers(red_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kPeerCount + 1);
+    VerifyRouteCount(red_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
 
     for (int idx = 0; idx < 5; idx++) {
         DelRouteEvenPeers(red_table_, "192.168.1.255");
         task_util::WaitForIdle();
-        VerifyRouteCount(red_table_, kOddPeerCount + 1);
+        VerifyRouteCount(red_table_, kOddPeerCount + 2);
         VerifySGCount(red_tm_, 1);
         VerifyForwarderCount(red_tm_, "192.168.1.255", kOddPeerCount);
 
         AddRouteEvenPeers(red_table_, "192.168.1.255");
         task_util::WaitForIdle();
-        VerifyRouteCount(red_table_, kPeerCount + 1);
+        VerifyRouteCount(red_table_, kPeerCount + 2);
         VerifySGCount(red_tm_, 1);
         VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
 
         DelRouteOddPeers(red_table_, "192.168.1.255");
         task_util::WaitForIdle();
-        VerifyRouteCount(red_table_, kEvenPeerCount + 1);
+        VerifyRouteCount(red_table_, kEvenPeerCount + 2);
         VerifySGCount(red_tm_, 1);
         VerifyForwarderCount(red_tm_, "192.168.1.255", kEvenPeerCount);
 
         AddRouteOddPeers(red_table_, "192.168.1.255");
         task_util::WaitForIdle();
-        VerifyRouteCount(red_table_, kPeerCount + 1);
+        VerifyRouteCount(red_table_, kPeerCount + 2);
         VerifySGCount(red_tm_, 1);
         VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
     }
@@ -617,8 +617,8 @@ TEST_F(BgpMulticastTest, MultipleTableSingleGroup) {
     AddRouteAllPeers(red_table_, "192.168.1.255");
     AddRouteAllPeers(green_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, kPeerCount + 1);
-    VerifyRouteCount(green_table_, kPeerCount + 1);
+    VerifyRouteCount(red_table_, kPeerCount + 2);
+    VerifyRouteCount(green_table_, kPeerCount + 2);
     VerifySGCount(red_tm_, 1);
     VerifySGCount(green_tm_, 1);
     VerifyForwarderCount(red_tm_, "192.168.1.255", kPeerCount);
@@ -641,8 +641,8 @@ TEST_F(BgpMulticastTest, MultipleTableMultipleGroup) {
     AddRouteAllPeers(green_table_, "192.168.1.254");
     AddRouteAllPeers(green_table_, "192.168.1.255");
     task_util::WaitForIdle();
-    VerifyRouteCount(red_table_, 2 * (kPeerCount + 1));
-    VerifyRouteCount(green_table_, 2 * (kPeerCount + 1));
+    VerifyRouteCount(red_table_, 2 * (kPeerCount + 2));
+    VerifyRouteCount(green_table_, 2 * (kPeerCount + 2));
     VerifySGCount(red_tm_, 2);
     VerifySGCount(green_tm_, 2);
     VerifyForwarderCount(red_tm_, "192.168.1.254", kPeerCount);

@@ -116,3 +116,12 @@ DBTableBase *DBEntryBase::get_table() const {
 const std::string DBEntryBase::last_change_at_str() const {
     return duration_usecs_to_string(UTCTimestampUsec() - last_change_at_);
 }
+
+void DBEntryBase::Notify() {
+    tpart_->Notify(this);
+}
+
+void DBEntryBase::Delete() {
+    if (!IsDeleted())
+        tpart_->Delete(this);
+}

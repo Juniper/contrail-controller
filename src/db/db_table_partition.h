@@ -100,6 +100,7 @@ public:
 
     // Find DB Entry. Get key from from argument
     DBEntry *Find(const DBEntry *entry);
+    const DBEntry *Find(const DBEntry *entry) const;
     DBEntry *FindNoLock(const DBEntry *entry);
 
     // Find DB Entry. Get key from from argument
@@ -114,8 +115,9 @@ public:
 
 private:
     DBEntry *FindInternal(const DBEntry *entry);
+    const DBEntry *FindInternal(const DBEntry *entry) const;
 
-    tbb::mutex mutex_;
+    mutable tbb::mutex mutex_;
     Tree tree_;
     DISALLOW_COPY_AND_ASSIGN(DBTablePartition);
 };

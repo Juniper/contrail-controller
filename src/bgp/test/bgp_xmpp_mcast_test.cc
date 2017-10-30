@@ -404,7 +404,7 @@ TEST_F(BgpXmppMcastSubscriptionTest, PendingUnsubscribe) {
 
     // Verify number of routes on all agents.
     TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
-    TASK_UTIL_EXPECT_EQ(0, agent_xb_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_xb_->McastRouteCount());
 
     // Delete mcast route for agent b.
     agent_xb_->DeleteMcastRoute("blue", mroute);
@@ -613,8 +613,8 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion1) {
     agent_xc_->AddMcastRoute("blue", mroute_list[1], "10.1.1.3", "30000-30000");
     task_util::WaitForIdle();
 
-    // Verify that all native and local routes got added.
-    TASK_UTIL_EXPECT_EQ(8, GetVrfTableSize(bs_x_, "blue"));
+    // Verify that all native, local and global routes got added.
+    TASK_UTIL_EXPECT_EQ(10, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 1 on agents a and b.
     // Verify that there's no route on agent c.
@@ -673,7 +673,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion2) {
     task_util::WaitForIdle();
 
     // Verify that all native and local routes got added.
-    TASK_UTIL_EXPECT_EQ(8, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(10, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 1 on agents b and c.
     // Verify that there's no route on agent c.
@@ -733,7 +733,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion3) {
 
     // Verify that all native routes got added.
     // There should be a local route for only the first mcast route.
-    TASK_UTIL_EXPECT_EQ(7, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(8, GetVrfTableSize(bs_x_, "blue"));
     task_util::WaitForIdle();
 
     // Verify that there's no route on all agents.
@@ -884,7 +884,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowRoute) {
     Sandesh::set_client_context(&sandesh_context);
 
     // First get all tables - blue.ermvpn.0, bgp.ermvpn.0 and bgp.rtarget.0.
-    std::vector<size_t> result = list_of(4)(1)(3);
+    std::vector<size_t> result = list_of(5)(2)(3);
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     ShowRouteReq *show_req = new ShowRouteReq;
@@ -895,7 +895,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowRoute) {
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
 
     // Now get blue.ermvpn.0.
-    result = list_of(4);
+    result = list_of(5);
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     show_req = new ShowRouteReq;
@@ -907,7 +907,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, ValidateShowRoute) {
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
 
     // Now get bgp.ermvpn.0.
-    result = list_of(1);
+    result = list_of(2);
     Sandesh::set_response_callback(
         boost::bind(ValidateShowRouteResponse, _1, result));
     show_req = new ShowRouteReq;
@@ -1455,8 +1455,8 @@ TEST_F(BgpXmppMcast2ServerTest, SingleAgent) {
     task_util::WaitForIdle();
 
     // Verify number of routes on all agents.
-    TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
-    TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_ya_->McastRouteCount());
 
     // Delete mcast route for agent xa.
     agent_xa_->DeleteMcastRoute("blue", mroute);
@@ -1488,7 +1488,7 @@ TEST_F(BgpXmppMcast2ServerTest, SingleAgentXmppSessionDown) {
 
     // Verify number of routes on all agents.
     TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
-    TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_ya_->McastRouteCount());
 
     // Delete mcast route for agent ya.
     agent_ya_->DeleteMcastRoute("blue", mroute);
@@ -2129,8 +2129,8 @@ TEST_F(BgpXmppMcast2ServerTest2, BgpConnectLater_SingleAgent) {
     task_util::WaitForIdle();
 
     // Verify number of routes on all agents.
-    TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
-    TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_ya_->McastRouteCount());
 
     // Now bring up the bgp session.
     Configure(config_tmpl22);
@@ -2217,8 +2217,8 @@ TEST_F(BgpXmppMcast2ServerTest2, BgpSessionBounce_SingleAgent) {
         Configure(config_tmpl22_bad);
 
         // Verify number of routes on all agents.
-        TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
-        TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
+        TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
+        TASK_UTIL_EXPECT_EQ(1, agent_ya_->McastRouteCount());
     }
 
     // Delete mcast route for all agents.

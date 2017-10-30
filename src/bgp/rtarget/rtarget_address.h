@@ -8,6 +8,9 @@
 #include <boost/array.hpp>
 #include <boost/system/error_code.hpp>
 
+#include "net/address.h"
+
+#include <set>
 #include <string>
 
 class RouteTarget {
@@ -15,9 +18,11 @@ public:
     static const int kSize = 8;
     static RouteTarget null_rtarget;
     typedef boost::array<uint8_t, kSize> bytes_type;
+    typedef std::set<RouteTarget> List;
 
     RouteTarget();
     explicit RouteTarget(const bytes_type &data);
+    RouteTarget(const Ip4Address &address, uint16_t num);
 
     std::string ToString() const;
 

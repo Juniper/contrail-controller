@@ -21,6 +21,8 @@ using std::vector;
 
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
+const char *BgpConfigManager::kFabricInstance =
+        "default-domain:default-project:ip-fabric:ip-fabric";
 const int BgpConfigManager::kDefaultPort = 179;
 const uint32_t BgpConfigManager::kDefaultAutonomousSystem = 64512;
 

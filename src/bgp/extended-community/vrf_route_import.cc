@@ -21,6 +21,14 @@ VrfRouteImport::VrfRouteImport(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
+Ip4Address VrfRouteImport::GetIPv4Address() const {
+    return Ip4Address(get_value(&data_[2], 4));
+}
+
+uint16_t VrfRouteImport::GetNumber() const {
+    return get_value(&data_[6], 2);
+}
+
 VrfRouteImport::VrfRouteImport(const uint32_t bgp_id, const uint32_t ri_index) {
     data_[0] = BgpExtendedCommunityType::IPv4Address;
     data_[1] = BgpExtendedCommunitySubType::VrfRouteImport;
