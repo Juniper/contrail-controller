@@ -44,9 +44,6 @@ def create_link_local_service_entry(vnc_lib, name, service_ip, service_port,
         conf_obj=GlobalVrouterConfig(linklocal_services=linklocal_services_obj)
         result=vnc_lib.global_vrouter_config_create(conf_obj)
         return
-    except:
-        # An exception occurred. Throw it to the caller.
-        raise
 
     # Get currently configured link-local services.
     current_linklocal=current_config.get_linklocal_services()
@@ -81,11 +78,7 @@ def create_link_local_service_entry(vnc_lib, name, service_ip, service_port,
     conf_obj=GlobalVrouterConfig(linklocal_services=obj)
 
     # Update API server with new link-local service info.
-    try:
-        vnc_lib.global_vrouter_config_update(conf_obj)
-    except:
-        # Update failed with an exception. Throw it to the caller.
-        raise
+    vnc_lib.global_vrouter_config_update(conf_obj)
 
 def delete_link_local_service_entry(vnc_lib, name, k8s_ns=None):
     link_local_name = _get_linklocal_entry_name(name, k8s_ns)
@@ -98,9 +91,6 @@ def delete_link_local_service_entry(vnc_lib, name, k8s_ns=None):
     except NoIdError:
         # VRoute config not found. Nothing to delete.
         return
-    except:
-        # An exception occurred while lookup. Throw it to caller.
-        raise
 
     # Get currently configured link-local services.
     current_linklocal=current_config.get_linklocal_services()
@@ -123,8 +113,4 @@ def delete_link_local_service_entry(vnc_lib, name, k8s_ns=None):
     conf_obj=GlobalVrouterConfig(linklocal_services=obj)
 
     # Update API server with new link-local service info.
-    try:
-        vnc_lib.global_vrouter_config_update(conf_obj)
-    except:
-        # Update failed with an exception. Throw it to the caller.
-        raise
+    vnc_lib.global_vrouter_config_update(conf_obj)

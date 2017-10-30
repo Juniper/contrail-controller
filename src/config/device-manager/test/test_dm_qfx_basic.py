@@ -81,10 +81,7 @@ class TestQfxBasicDM(TestCommonDM):
         internal_vn_name = DMUtils.get_lr_internal_vn_name(lr_obj.uuid)
         vn_fq = lr_obj.get_fq_name()[:-1] + [internal_vn_name]
         vn_obj = None
-        try:
-            vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq)
-        except NoIdError:
-            raise
+        vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq)
         vn_obj_properties = vn_obj.get_virtual_network_properties()
         if not vn_obj_properties:
             raise Exception("LR Internal VN properties are not set")

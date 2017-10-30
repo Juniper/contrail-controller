@@ -1933,16 +1933,14 @@ def migrate_from_cassandra(mysql_server='127.0.0.1', mysql_username='root', mysq
 
     for rowkey,columns in obj_uuid_cf.get_range(column_count=100000):
         obj_uuid = rowkey
-        try:
-            obj_type = json.loads(columns['type'])
-            obj_fq_name_json = columns['fq_name']
-            parent_col = [c for c in columns if c.startswith('parent:')]
-            if parent_col:
-                _, parent_type, parent_uuid = parent_col[0].split(':')
-            else:
-                parent_type = parent_uuid = ''
-        except KeyError as e:
-            raise
+
+        obj_type = json.loads(columns['type'])
+        obj_fq_name_json = columns['fq_name']
+        parent_col = [c for c in columns if c.startswith('parent:')]
+        if parent_col:
+            _, parent_type, parent_uuid = parent_col[0].split(':')
+        else:
+            parent_type = parent_uuid = ''
 
 
         now = datetime.utcnow()
