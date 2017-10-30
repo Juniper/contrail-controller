@@ -953,8 +953,8 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
                 colname->push_back(t2 + ":App3");
                 colname->push_back(t2 + ":Site4");
                 colname->push_back("");
-                colname->push_back("");
-                colname->push_back("");
+                colname->push_back(t2 + ":" + g_viz_constants.UNKNOWN);
+                colname->push_back(t2 + ":" + g_viz_constants.UNKNOWN);
                 colname->push_back(t2 + ":" + dit->get_vmi());
                 colname->push_back(t2 + ":1.0.0.1"); //local-ip
                 colname->push_back(t2 + ":" + dit->get_vn());
@@ -1020,8 +1020,8 @@ TEST_F(DbHandlerTest, SessionTableInsertTest) {
                 colname->push_back(t2 + ":App3");
                 colname->push_back(t2 + ":Site4");
                 colname->push_back("");
-                colname->push_back("");
-                colname->push_back("");
+                colname->push_back(t2 + ":" + g_viz_constants.UNKNOWN);
+                colname->push_back(t2 + ":" + g_viz_constants.UNKNOWN);
                 colname->push_back(t2 + ":" + dit->get_vmi());
                 colname->push_back(t2 + ":1.0.0.1"); //local-ip
                 colname->push_back(t2 + ":" + dit->get_vn());
