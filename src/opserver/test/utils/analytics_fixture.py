@@ -3174,7 +3174,7 @@ class AnalyticsFixture(fixtures.Fixture):
       
         pmap = {} 
         for k,v in pipes.iteritems(): 
-            tries = 60
+            tries = 50
             port = None
             pipein , pipe_name = v
             while tries >= 0 and instance.poll() == None:
@@ -3185,7 +3185,7 @@ class AnalyticsFixture(fixtures.Fixture):
                     tries = -1
                 except Exception as e:
                     self.logger.info("No %s_port found for %s" % (k, modname))
-                    gevent.sleep(1)
+                    gevent.sleep(2)
                     tries = tries - 1
             pipein.close()
             os.unlink(pipe_name)
