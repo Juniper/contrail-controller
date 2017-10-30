@@ -466,7 +466,7 @@ class TestPermissions(test_case.ApiServerTestCase):
         logger.info( 'alice: trying to create VN in her project')
         try:
             v=self.alice.vnc_lib.virtual_network_create(vn1)
-            logger.info( 'Created virtual network %s ... test passed!' % vn.get_fq_name())
+            logger.info( 'Created virtual network %s ... test passed!' % vn1.get_fq_name())
             testfail = False
         except PermissionDenied as e:
             logger.info( 'Failed to create VN ... Test failed!')
@@ -480,13 +480,31 @@ class TestPermissions(test_case.ApiServerTestCase):
             (self.alice.name, self.alice.project, self.alice.role))
             # note that collection API is set for create operation
         vnc_aal_add_rule(self.admin.vnc_lib, self.alice.proj_rg,
-                rule_str = 'virtual-network.uuid %s:R' % self.alice.role)
+                rule_str = 'virtual-network.parent_type %s:R' % self.alice.role)
 
         logger.info( '')
-        logger.info( 'alice: trying to create VN in her project')
+        # vn1 has uuid in it.
+        # api_lib, frames request with body as uuid
+        # uuid and fqname are skipped by RBAC
+        # request goes through RBAC, but fqname is not present.
+        # bad request exception is generated.
         try:
             self.alice.vnc_lib.virtual_network_create(vn1)
-            logger.info( 'Created virtual network %s ... test falied!' % vn.get_fq_name())
+            logger.info( 'Created virtual network %s ... test falied!' % vn1.get_fq_name())
+            testfail = True
+        except BadRequest as e:
+            logger.info( 'Failed to create VN ... Test passed!')
+            testfail = False
+        self.assertThat(testfail, Equals(False))
+
+        logger.info('')
+
+
+        logger.info( 'alice: trying to create VN in her project')
+        vn2 = VirtualNetwork('new-vn2', self.alice.project_obj)
+        try:
+            self.alice.vnc_lib.virtual_network_create(vn2)
+            logger.info( 'Created virtual network %s ... test falied!' % vn2.get_fq_name())
             testfail = True
         except PermissionDenied as e:
             logger.info( 'Failed to create VN ... Test passed!')
@@ -497,7 +515,7 @@ class TestPermissions(test_case.ApiServerTestCase):
 
         #Clean up last two rules.
         vnc_aal_del_rule(self.admin.vnc_lib, self.alice.proj_rg,
-                 rule_str = 'virtual-network.uuid %s:R' % self.alice.role)
+                 rule_str = 'virtual-network.parent_type %s:R' % self.alice.role)
         vnc_aal_del_rule(self.admin.vnc_lib, self.alice.proj_rg,
                 rule_str = '* %s:R' % self.alice.role)
         vnc_aal_del_rule(self.admin.vnc_lib, self.alice.proj_rg,
