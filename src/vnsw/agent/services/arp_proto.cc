@@ -194,7 +194,7 @@ bool ArpPathPreferenceState::SendArpRequest(WaitForTrafficIntfMap
         }
         ++data.arp_send_count;
         MacAddress smac = vm_intf->GetVifMac(vrf_state_->agent);
-        arp_handler.SendArpRequestByPlen(it->first, smac, this,
+        arp_handler.SendArpRequestByPlen(vm_intf, smac, this,
                                          data.prev_responded_ip);
 
         // reduce the frequency of ARP requests after some tries
