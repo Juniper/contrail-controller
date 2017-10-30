@@ -1199,6 +1199,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     uint16_t rx_vlan_id = VmInterface::kInvalidVlanId;
     uint16_t tx_vlan_id = VmInterface::kInvalidVlanId;
     std::list<IFMapNode *> bgp_as_a_service_node_list;
+    std::list<IFMapNode *> bgp_router_node_list;
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph()); 
          iter != node->end(table->GetGraph()); ++iter) {
@@ -1271,9 +1272,14 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
         if (strcmp(adj_node->table()->Typename(), BGP_AS_SERVICE_CONFIG_NAME) == 0) {
             bgp_as_a_service_node_list.push_back(adj_node);
         }
+
+        if (strcmp(adj_node->table()->Typename(), BGP_ROUTER_CONFIG_NAME) == 0) {
+            bgp_router_node_list.push_back(adj_node);
+        }
     }
 
     agent_->oper_db()->bgp_as_a_service()->ProcessConfig(data->vrf_name_,
+                                           bgp_router_node_list,
                                            bgp_as_a_service_node_list, u);
     UpdateAttributes(agent_, data);
     BuildFatFlowTable(agent_, data, node);

@@ -122,9 +122,10 @@ static const std::string GetBgpRouterVrfName(const Agent *agent,
 }
 
 void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
-                                           BgpAsAServiceEntryList &new_list,
-                                           const std::string &vm_vrf_name,
-                                           const boost::uuids::uuid &vm_uuid) {
+                                      std::list<IFMapNode *> &bgp_router_nodes,
+                                      BgpAsAServiceEntryList &new_list,
+                                      const std::string &vm_vrf_name,
+                                      const boost::uuids::uuid &vm_uuid) {
     IFMapAgentTable *table =
         static_cast<IFMapAgentTable *>(bgp_as_a_service_node->table());
     autogen::BgpAsAService *bgp_as_a_service =
@@ -139,6 +140,12 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
             continue;
         }
         if (strcmp(adj_node->table()->Typename(), BGP_ROUTER_CONFIG_NAME) == 0) {
+            //Verify that bgp-router object is of use for this VMI.
+            //List of valid bgp-router for vmi is in bgp_router_nodes.
+            if (std::find(bgp_router_nodes.begin(), bgp_router_nodes.end(),
+                          adj_node) == bgp_router_nodes.end()) {
+                continue;
+            }
             autogen::BgpRouter *bgp_router=
                 dynamic_cast<autogen::BgpRouter *>(adj_node->GetObject());
             const std::string &vrf_name =
@@ -198,14 +205,16 @@ void BgpAsAService::BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
 }
 
 void BgpAsAService::ProcessConfig(const std::string &vrf_name,
-                                  std::list<IFMapNode *> &node_map,
-                                  const boost::uuids::uuid &vm_uuid) {
+                           std::list<IFMapNode *> &bgp_router_node_map,
+                           std::list<IFMapNode *> &bgp_as_service_node_map,
+                           const boost::uuids::uuid &vm_uuid) {
     std::list<IFMapNode *>::const_iterator it =
-        node_map.begin();
+        bgp_as_service_node_map.begin();
     BgpAsAServiceEntryList new_bgp_as_a_service_entry_list;
 
-    while (it != node_map.end()) {
-        BuildBgpAsAServiceInfo(*it, new_bgp_as_a_service_entry_list,
+    while (it != bgp_as_service_node_map.end()) {
+        BuildBgpAsAServiceInfo(*it, bgp_router_node_map,
+                               new_bgp_as_a_service_entry_list,
                                vrf_name, vm_uuid);
         it++;
     }
