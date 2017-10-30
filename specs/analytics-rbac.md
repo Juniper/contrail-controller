@@ -2,7 +2,7 @@
 Analytics API RBAC provides ability to access UVE and query information based
 on the permissions of the user for the UVE or queried object.
 
-# 2. Problem statement
+# 2. Problem statementee
 Currently Analytics API supports authenticated access for cloud-admin role.
 However to display network monitoring for tenant pages in the UI, analytics
 API needs to support RBAC similar to config API so that the tenants can only
