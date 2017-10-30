@@ -1916,9 +1916,6 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
     uint32_t T1(timestamp & g_viz_constants.RowTimeInMask);
     session_entry_values[SessionRecordFields::SESSION_T2] = T2;
     session_entry_values[SessionRecordFields::SESSION_T1] = T1;
-    // Partition No
-    uint8_t partition_no = gen_partition_no_();
-    session_entry_values[SessionRecordFields::SESSION_PARTITION_NO] = partition_no;
     // vrouter
     session_entry_values[SessionRecordFields::SESSION_VROUTER] = header.get_Source();
 
@@ -2064,6 +2061,9 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         stringToInteger(ip_port_proto.child(g_flow_constants.PROTOCOL.c_str()).child_value(), val);
         session_entry_values[SessionRecordFields::SESSION_PROTOCOL] = val;
         session_entry_values[SessionRecordFields::SESSION_UUID] = umn_gen_();
+        // Partition No
+        uint8_t partition_no = gen_partition_no_();
+        session_entry_values[SessionRecordFields::SESSION_PARTITION_NO] = partition_no;
         std::ostringstream oss;
         oss << T2 << ":" << ip_port_proto.child(g_flow_constants.IP.c_str()).child_value();
         session_entry_values[SessionRecordFields::SESSION_IP] = oss.str();
