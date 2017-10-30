@@ -36,8 +36,14 @@ class Qfx10kConf(QfxConf):
         return evpn
     # end build_evpn_config
 
+    def is_l2_supported(self, vn):
+        if self.is_spine():
+            return False
+        return True
+    # end is_l2_supported
+
     def is_l3_supported(self, vn):
-        if self.is_spine() and '_lr_internal_vn__' in vn.name:
+        if self.is_spine() and '_lr_internal_vn_' in vn.name:
             return True
         return False
     # end is_l3_supported
