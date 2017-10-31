@@ -43,6 +43,7 @@ public:
         flow_count_ = 0;
         flow_created_ = 0;
         flow_aged_ = 0;
+        hold_flow_count_ = 0;
     }
 
     virtual ~AgentStats() {singleton_ = NULL;}
@@ -89,9 +90,15 @@ public:
         flow_count_--;
     }
 
+    void update_hold_flow_count(uint32_t value) {
+        hold_flow_count_ = value;
+    }
+
     uint64_t flow_created() const {return flow_created_;}
 
     uint64_t max_flow_count() const {return max_flow_count_;}
+
+    uint32_t hold_flow_count() const {return hold_flow_count_;}
 
     void incr_flow_aged() { flow_aged_.fetch_and_increment(); }
     uint64_t flow_aged() const {return flow_aged_;}
@@ -218,6 +225,7 @@ private:
     // Flow stats
     tbb::atomic<uint32_t> flow_count_;
     uint32_t max_flow_count_;
+    tbb::atomic<uint32_t> hold_flow_count_;
     uint64_t flow_drop_due_to_max_limit_;
     uint64_t flow_drop_due_to_linklocal_limit_;
     tbb::atomic<uint64_t> flow_created_;

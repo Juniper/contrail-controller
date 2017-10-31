@@ -60,6 +60,7 @@ KSyncFlowMemory::KSyncFlowMemory(KSync *ksync) :
     audit_interval_(0),
     audit_flow_idx_(0),
     audit_flow_list_() {
+    hold_flow_counter_ = 0;
 }
 
 KSyncFlowMemory::~KSyncFlowMemory() {
@@ -85,6 +86,22 @@ void KSyncFlowMemory::Init() {
 
     audit_timer_->Start(audit_interval_,
                         boost::bind(&KSyncFlowMemory::AuditProcess, this));
+}
+
+void KSyncFlowMemory::DecrementHoldFlowCounter() {
+    hold_flow_counter_--;
+    return;
+}
+
+void KSyncFlowMemory::IncrementHoldFlowCounter() {
+    hold_flow_counter_++;
+    return;
+}
+
+void KSyncFlowMemory::UpdateAgentHoldFlowCounter() {
+    ksync_->agent()->stats()->update_hold_flow_count(hold_flow_counter_);
+    hold_flow_counter_ = 0;
+    return;
 }
 
 // Steps to map flow table entry
@@ -179,7 +196,7 @@ void KSyncFlowMemory::InitTest() {
     memset(flow_table_, 0, kTestFlowTableSize);
     flow_table_entries_count_ = kTestFlowTableSize / sizeof(vr_flow_entry);
     audit_yield_ = flow_table_entries_count_;
-    audit_timeout_ = 10; // timout immediately.
+    audit_timeout_ = 10 * 1000; // timout immediately.
     ksync_->agent()->set_flow_table_size(flow_table_entries_count_);
 }
 
@@ -370,6 +387,7 @@ bool KSyncFlowMemory::AuditProcess() {
                         ntohs(vflow_entry->fe_key.flow_dport));
 
             FlowProto *proto = ksync_->agent()->pkt()->get_flow_proto();
+            DecrementHoldFlowCounter();
             proto->CreateAuditEntry(key, flow_idx, gen_id);
             LOG(DEBUG, "FlowAudit : Converting HOLD entry to short flow " <<
                        "for index " << flow_idx);
@@ -381,6 +399,7 @@ bool KSyncFlowMemory::AuditProcess() {
     while (count < audit_yield_) {
         vflow_entry = GetKernelFlowEntry(audit_flow_idx_, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
+            IncrementHoldFlowCounter();
             audit_flow_list_.push_back(AuditEntry(audit_flow_idx_,
                                                   vflow_entry->fe_gen_id, t));
         }
@@ -388,6 +407,7 @@ bool KSyncFlowMemory::AuditProcess() {
         count++;
         audit_flow_idx_++;
         if (audit_flow_idx_ == flow_table_entries_count_) {
+            UpdateAgentHoldFlowCounter();
             audit_flow_idx_ = 0;
         }
     }

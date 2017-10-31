@@ -76,6 +76,12 @@ public:
         flow_memory->AuditProcess();
     }
 
+    void RunHoldFlowAudit() {
+        KSyncFlowMemory *flow_memory = agent_->ksync()->ksync_flow_memory();
+        flow_memory->AuditProcess();
+        flow_memory->AuditProcess();
+    }
+
     bool KFlowHoldAdd(uint32_t hash_id, int vrf, const char *sip,
                       const char *dip, int proto, int sport, int dport,
                       int nh_id) {
@@ -199,6 +205,24 @@ TEST_F(FlowAuditTest, FlowAudit_2) {
                 fe->short_flow_reason() != FlowEntry::SHORT_AUDIT_ENTRY);
 }
 
+// Validate hold flows
+TEST_F(FlowAuditTest, FlowAudit_3) {
+    uint32_t hold_flow_count;
+    // Create two hold-flows
+    EXPECT_TRUE(KFlowHoldAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
+    EXPECT_TRUE(KFlowHoldAdd(2, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, 0));
+    RunHoldFlowAudit();
+    hold_flow_count  = agent_->stats()->hold_flow_count();
+    EXPECT_TRUE(hold_flow_count>=0);
+
+    EXPECT_TRUE(KFlowHoldAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, 0));
+    EXPECT_TRUE(KFlowHoldAdd(2, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, 0));
+    EXPECT_TRUE(KFlowHoldAdd(3, 1, "3.3.3.3", "4.4.4.4", 1, 0, 0, 0));
+    EXPECT_TRUE(KFlowHoldAdd(4, 1, "4.4.4.4", "5.5.5.5", 1, 0, 0, 0));
+    RunHoldFlowAudit();
+    hold_flow_count  = agent_->stats()->hold_flow_count();
+    EXPECT_TRUE(hold_flow_count>0);
+}
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);

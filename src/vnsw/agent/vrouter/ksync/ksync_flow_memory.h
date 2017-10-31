@@ -63,7 +63,6 @@ public:
     void MapSharedMemory();
     void GetFlowTableSize();
     bool IsEvictionMarked(const vr_flow_entry *entry, uint16_t flags) const;
-
     KSync *ksync() const { return ksync_; }
     void set_major_devid(int id) { major_devid_ = id; }
     void set_flow_table_size(int count) { flow_table_size_ = count; }
@@ -71,7 +70,11 @@ public:
         flow_table_path_ = path;
     }
     uint32_t audit_timeout() const { return audit_timeout_; }
+    void DecrementHoldFlowCounter();
+    void IncrementHoldFlowCounter();
+    void UpdateAgentHoldFlowCounter();    
 private:
+    uint32_t hold_flow_counter_;
     struct AuditEntry {
         AuditEntry(uint32_t flow_idx, uint8_t gen_id,
                    uint64_t t) : audit_flow_idx(flow_idx),
