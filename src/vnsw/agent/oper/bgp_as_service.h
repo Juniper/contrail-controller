@@ -140,7 +140,8 @@ public:
     uint32_t AddBgpVmiServicePortIndex(const uint32_t source_port,
                                        const boost::uuids::uuid vm_uuid);
     void ProcessConfig(const std::string &vrf_name,
-                       std::list<IFMapNode *> &node_list,
+                       std::list<IFMapNode *> &bgp_router_node_list,
+                       std::list<IFMapNode *> &bgp_as_service_node_list,
                        const boost::uuids::uuid &vmi_uuid);
     void DeleteVmInterface(const boost::uuids::uuid &vmi_uuid);
     const BgpAsAService::BgpAsAServiceEntryMap &bgp_as_a_service_map() const;
@@ -165,6 +166,7 @@ private:
                           const BgpAsAServiceEntryList &list);
     void BindBgpAsAServicePorts(const std::vector<uint16_t> &ports);
     void BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
+                                std::list<IFMapNode *> &bgp_router_nodes,
                                 BgpAsAServiceEntryList &new_list,
                                 const std::string &vrf_name,
                                 const boost::uuids::uuid &vm_uuid);
