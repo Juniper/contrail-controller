@@ -1692,8 +1692,7 @@ bool QueryEngine::GetCqlStats(cass::cql::DbStats *stats) const {
     if (cql_if == NULL) {
         return false;
     }
-    cql_if->Db_GetCqlStats(stats);
-    return true;
+    return cql_if->Db_GetCqlStats(stats);
 }
 
 void ShowQEDbStatsReq::HandleRequest() const {

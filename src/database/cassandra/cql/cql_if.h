@@ -26,7 +26,8 @@ class CqlIf : public GenDb::GenDbIf {
         const std::vector<std::string> &cassandra_ips,
         int cassandra_port,
         const std::string &cassandra_user,
-        const std::string &cassandra_password);
+        const std::string &cassandra_password,
+        bool create_schema=false);
     CqlIf();
     virtual ~CqlIf();
     // Init/Uninit
@@ -110,8 +111,8 @@ class CqlIf : public GenDb::GenDbIf {
         GenDb::DbErrors *dbe);
     virtual bool Db_GetCumulativeStats(std::vector<GenDb::DbTableInfo> *vdbti,
         GenDb::DbErrors *dbe) const;
-    virtual void Db_GetCqlMetrics(Metrics *metrics) const;
-    virtual void Db_GetCqlStats(DbStats *db_stats) const;
+    virtual bool Db_GetCqlMetrics(Metrics *metrics) const;
+    virtual bool Db_GetCqlStats(DbStats *db_stats) const;
     // Connection
     virtual std::vector<GenDb::Endpoint> Db_GetEndpoints() const;
 
@@ -151,6 +152,7 @@ class CqlIf : public GenDb::GenDbIf {
     mutable tbb::mutex stats_mutex_;
     GenDb::GenDbIfStats stats_;
     bool use_prepared_for_insert_;
+    bool create_schema_;
 };
 
 } // namespace cql

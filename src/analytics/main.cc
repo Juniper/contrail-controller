@@ -376,7 +376,14 @@ int main(int argc, char *argv[])
     options.set_ttl_map(ttl_map);
 
     std::string zookeeper_server_list(options.zookeeper_server_list());
-    bool use_zookeeper = !zookeeper_server_list.empty() && !options.dup();
+    // Do not use zookeeper locks in tests where we are not starting
+    // cassandra and launching 2 collectors since that will cause
+    // the second collector to not proceed ahead
+    const Options::Cassandra &cass_options(options.get_cassandra_options());
+    bool cassandra_absent(cass_options.cassandra_ports_.size() == 1 &&
+        cass_options.cassandra_ports_[0] == 0);
+    bool use_zookeeper = !zookeeper_server_list.empty() && !(options.dup() &&
+        cassandra_absent);
 
     ConfigClientCollector *config_client =
         new ConfigClientCollector(a_evm, hostname, module_id, options);
