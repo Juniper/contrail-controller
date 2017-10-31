@@ -313,6 +313,53 @@ TEST_F(BgpServiceTest, Test_4) {
     client->WaitForIdle();
 }
 
+TEST_F(BgpServiceTest, Test_5) {
+    client->WaitForIdle();
+
+    std::stringstream bgp_router_name;
+    bgp_router_name << "bgp-router-50500";
+    std::stringstream bgp_as_service_name;
+    bgp_as_service_name << "bgp-router-50000-1.1.1.10";
+    std::stringstream str;
+    str << "<bgp-router-parameters><identifier>100.100.100.100</identifier>"
+        "<address>100.100.100.100</address>"
+        "<source-port>50500</source-port>"
+        "<router-type>bgpaas-client</router-type>"
+        "</bgp-router-parameters>" << endl;
+
+    DelLink("virtual-machine-interface", "vnet1",
+            "bgp-router", bgp_as_service_name.str().c_str());
+    AddNode("bgp-router", bgp_router_name.str().c_str(), 100,
+            str.str().c_str());
+    AddLink("bgp-router", bgp_router_name.str().c_str(),
+            "routing-instance", "vrf1");
+    AddLink("bgp-router", bgp_router_name.str().c_str(),
+            "bgp-as-a-service", bgp_as_service_name.str().c_str());
+    AddLink("virtual-machine-interface", "vnet1",
+            "bgp-router", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(1)->id(), "1.1.1.10", "1.1.1.1", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(1)->flow_key_nh()->id(),
+                            "1.1.1.10", "1.1.1.1", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_port() == 50500);
+
+    //Delete
+    DelLink("virtual-machine-interface", "vnet1",
+            "bgp-router", bgp_router_name.str().c_str());
+    DelLink("bgp-router", bgp_router_name.str().c_str(),
+            "bgp-as-a-service", bgp_as_service_name.str().c_str());
+    DelLink("bgp-router", bgp_router_name.str().c_str(),
+            "routing-instance", "vrf1");
+    DelNode("bgp-router", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;
     BgpPeer *peer;
