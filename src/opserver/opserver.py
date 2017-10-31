@@ -949,8 +949,9 @@ class OpServer(object):
             self._VIRTUAL_TABLES.append(stt)
 
         self._analytics_db = AnalyticsDb(self._logger,
-                                         self._args.redis_query_port,
-                                         self._args.redis_password)
+            self._args.auth_conf_info['admin_port'],
+            self._args.auth_conf_info['admin_user'],
+            self._args.auth_conf_info['admin_password'])
 
         # Register introspect request handlers
         UVEDbCacheTablesRequest.handle_request = \
@@ -2199,12 +2200,29 @@ class OpServer(object):
         return json.dumps(json_links)
     # end tables_process
 
-    def handle_db_info(self,
-                       disk_usage_percentage = None,
-                       pending_compaction_tasks = None):
-        if (disk_usage_percentage != None):
+    def monitor_analytics_db(self):
+        while True:
+            gevent.sleep(10*60)
+            db_usage = self._analytics_db.get_dbusage_info()
+            disk_usage_percentage = None
+            if len(db_usage):
+                disk_usage_percentage = int(math.ceil(max(db_usage.values())))
+            pending_compaction_tasks_info = \
+                self._analytics_db.get_pending_compaction_tasks()
+            pending_compaction_tasks = None
+            if len(pending_compaction_tasks_info):
+                pending_compaction_tasks = \
+                    max(pending_compaction_tasks_info.values())
+            if any([disk_usage_percentage, pending_compaction_tasks]):
+                self.handle_db_info(disk_usage_percentage,
+                                    pending_compaction_tasks)
+    # end monitor_analytics_db
+
+    def handle_db_info(self, disk_usage_percentage=None,
+                       pending_compaction_tasks=None):
+        if disk_usage_percentage is not None:
             self.disk_usage_percentage = disk_usage_percentage
-        if (pending_compaction_tasks != None):
+        if pending_compaction_tasks is not None:
             self.pending_compaction_tasks = pending_compaction_tasks
         source = self._hostname
         module_id = Module.COLLECTOR
@@ -2212,26 +2230,20 @@ class OpServer(object):
         node_type = Module2NodeType[module_id]
         node_type_name = NodeTypeNames[node_type]
         instance_id_str = INSTANCE_ID_DEFAULT
-        destination = source + ':' + node_type_name + ':' \
-                      + module + ':' + instance_id_str
+        destination = source + ':' + node_type_name + ':' + module + ':' + \
+                instance_id_str
         req = DbInfoSetRequest(disk_usage_percentage, pending_compaction_tasks)
-        if (disk_usage_percentage != None):
-            req.disk_usage_percentage = disk_usage_percentage
-        if (pending_compaction_tasks != None):
-            req.pending_compaction_tasks = pending_compaction_tasks
-
         if self._state_server.redis_publish(msg_type='db-info',
-                                            destination=destination,
-                                            msg=req):
-            self._logger.info("redis-publish success for db_info usage(%u)"
-                              " pending_compaction_tasks(%u)",
+                                            destination=destination, msg=req):
+            self._logger.info('redis-publish success for disk_usage (%u%%), '
+                              'pending_compaction_tasks(%u)',
                               req.disk_usage_percentage,
-                              req.pending_compaction_tasks);
+                              req.pending_compaction_tasks)
         else:
-            self._logger.error("redis-publish failure for db_info usage(%u)"
-                               " pending_compaction_tasks(%u)",
+            self._logger.error('redis-publish failure for disk_usage (%u%%), '
+                               'pending_compaction_tasks(%u)',
                                req.disk_usage_percentage,
-                               req.pending_compaction_tasks);
+                               req.pending_compaction_tasks)
     # end handle_db_info
 
     @validate_user_token
@@ -2467,6 +2479,7 @@ class OpServer(object):
             self._uvedbstream,
             gevent.spawn(self.start_webserver),
             gevent.spawn(self.start_uve_server),
+            gevent.spawn(self.monitor_analytics_db)
             ]
 
         if self._ad is not None:
