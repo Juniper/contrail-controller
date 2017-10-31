@@ -88,8 +88,8 @@ VmInterfaceConfigData::VmInterfaceConfigData(Agent *agent, IFMapNode *node) :
     service_health_check_ip_(), service_ip_(0),
     service_ip_ecmp_(false), service_ip6_(), service_ip_ecmp6_(false), 
     qos_config_uuid_(), learning_enabled_(false),
-    vhostuser_mode_(VmInterface::vHostUserClient),
-    si_other_end_vmi(nil_uuid()), vmi_cfg_uuid_(nil_uuid()),
+    vhostuser_mode_(VmInterface::vHostUserClient), is_left_si_(false),
+    si_other_end_vmi_(nil_uuid()), vmi_cfg_uuid_(nil_uuid()),
     service_intf_type_("") {
 }
 
@@ -461,8 +461,13 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
         ret = true;
     }
 
-    if (si_other_end_vmi_ != data->si_other_end_vmi) {
-        si_other_end_vmi_ = data->si_other_end_vmi;
+    if (is_left_si_ != data->is_left_si_) {
+        is_left_si_ = data->is_left_si_;
+        ret = true;
+    }
+
+    if (si_other_end_vmi_ != data->si_other_end_vmi_) {
+        si_other_end_vmi_ = data->si_other_end_vmi_;
         ret = true;
     }
 

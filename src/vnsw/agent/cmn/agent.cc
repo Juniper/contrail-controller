@@ -55,6 +55,9 @@ const std::string Agent::link_local_vn_name_ =
 const std::string Agent::link_local_vrf_name_ =
     "default-domain:default-project:__link_local__:__link_local__";
 const MacAddress Agent::vrrp_mac_(0x00, 0x00, 0x5E, 0x00, 0x01, 0x00);
+// use the following MAC when sending data to left or right SI interfaces
+const MacAddress Agent::left_si_mac_(0x02, 0x00, 0x00, 0x00, 0x00, 0x01);
+const MacAddress Agent::right_si_mac_(0x02, 0x00, 0x00, 0x00, 0x00, 0x02);
 const MacAddress Agent::pkt_interface_mac_(0x00, 0x00, 0x00, 0x00, 0x00, 0x01);
 const std::string Agent::bcast_mac_ = "FF:FF:FF:FF:FF:FF";
 const std::string Agent::config_file_ = "/etc/contrail/contrail-vrouter-agent.conf";
