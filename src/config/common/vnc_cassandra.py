@@ -412,8 +412,14 @@ class VncCassandraClient(object):
             if obj_type == ref_obj_type:
                 bch.remove(old_ref_uuid, columns=[
                            'ref:%s:%s' % (obj_type, obj_uuid)])
-                self.update_last_modified(bch, obj_type, old_ref_uuid)
-                symmetric_ref_updates = [old_ref_uuid]
+                try:
+                    self.update_last_modified(bch, obj_type, old_ref_uuid)
+                    symmetric_ref_updates = [old_ref_uuid]
+                except NoIdError as e:
+                    # old_ref_uuid might have been deleted
+                    # if cache has the link, it will be evicted
+                    # if cache doesn't have, keyerror is caught and continued
+                    pass
             else:
                 bch.remove(old_ref_uuid, columns=[
                            'backref:%s:%s' % (obj_type, obj_uuid)])
@@ -454,8 +460,14 @@ class VncCassandraClient(object):
         if obj_type == ref_obj_type:
             bch.remove(ref_uuid, columns=[
                        'ref:%s:%s' % (obj_type, obj_uuid)])
-            self.update_last_modified(bch, obj_type, ref_uuid)
-            symmetric_ref_updates = [ref_uuid]
+            try:
+                self.update_last_modified(bch, obj_type, ref_uuid)
+                symmetric_ref_updates = [ref_uuid]
+            except NoIdError as e:
+                # ref_uuid might have been deleted
+                # if cache has the link, it will be evicted
+                # if cache doesn't have, keyerror is caught and continued
+                pass
         else:
             bch.remove(ref_uuid, columns=[
                        'backref:%s:%s' % (obj_type, obj_uuid)])
