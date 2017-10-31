@@ -42,7 +42,7 @@ MvpnState::MvpnState(const SG &sg, StatesMap *states, MvpnProjectManager *pm) :
 MvpnState::~MvpnState() {
     assert(!global_ermvpn_tree_rt_);
     assert(spmsi_routes_received_.empty());
-    assert(leafad_routes_received_.empty());
+    assert(leafad_routes_attr_received_.empty());
 }
 
 // MvpnProjectManager is deleted when parent ErmVpnTable is deleted.
@@ -144,6 +144,10 @@ void MvpnProjectManager::ManagedDelete() {
     deleter_->Delete();
 }
 
+bool MvpnProjectManager::deleted() const {
+    return deleter_->IsDeleted();
+}
+
 MvpnStatePtr MvpnProjectManager::GetState(MvpnRoute *route) const {
     MvpnState::SG sg(route->GetPrefix().source(), route->GetPrefix().group());
     return GetPartition(route->get_table_partition()->index())->GetState(sg);
@@ -228,10 +232,15 @@ bool MvpnManager::FindNeighbor(const RouteDistinguisher &rd,
     return false;
 }
 
-// Do not return a reference as the cuncurrent map access is not thread safe.
-const MvpnManager::NeighborMap MvpnManager::neighbors() const {
-    tbb::reader_writer_lock::scoped_lock_read lock(neighbors_mutex_);
+const MvpnManager::NeighborMap &MvpnManager::neighbors() const {
+    // Assert that lock cannot be taken now as it must have been taken already.
+    // assert(!neighbors_mutex_.try_lock_read());
     return neighbors_;
+}
+
+size_t MvpnManager::neighbors_count() const {
+    tbb::reader_writer_lock::scoped_lock_read lock(neighbors_mutex_);
+    return neighbors_.size();
 }
 
 MvpnState::SG::SG(const Ip4Address &source, const Ip4Address &group) :
@@ -271,7 +280,15 @@ ErmVpnRoute *MvpnState::global_ermvpn_tree_rt() {
     return global_ermvpn_tree_rt_;
 }
 
+const ErmVpnRoute *MvpnState::global_ermvpn_tree_rt() const {
+    return global_ermvpn_tree_rt_;
+}
+
 MvpnRoute *MvpnState::spmsi_rt() {
+    return spmsi_rt_;
+}
+
+const MvpnRoute *MvpnState::spmsi_rt() const {
     return spmsi_rt_;
 }
 
@@ -279,8 +296,16 @@ MvpnState::RoutesSet &MvpnState::spmsi_routes_received() {
     return spmsi_routes_received_;
 }
 
-MvpnState::RoutesMap &MvpnState::leafad_routes_received() {
-    return leafad_routes_received_;
+const MvpnState::RoutesSet &MvpnState::spmsi_routes_received() const {
+    return spmsi_routes_received_;
+}
+
+MvpnState::RoutesMap &MvpnState::leafad_routes_attr_received() {
+    return leafad_routes_attr_received_;
+}
+
+const MvpnState::RoutesMap &MvpnState::leafad_routes_attr_received() const {
+    return leafad_routes_attr_received_;
 }
 
 void MvpnState::set_global_ermvpn_tree_rt(ErmVpnRoute *global_ermvpn_tree_rt) {
@@ -292,6 +317,10 @@ void MvpnState::set_spmsi_rt(MvpnRoute *spmsi_rt) {
 }
 
 MvpnRoute *MvpnState::source_active_rt() {
+    return source_active_rt_;
+}
+
+const MvpnRoute *MvpnState::source_active_rt() const {
     return source_active_rt_;
 }
 
@@ -374,6 +403,14 @@ const MvpnTable *MvpnManager::table() const {
 
 int MvpnManager::listener_id() const {
     return listener_id_;
+}
+
+bool MvpnManager::deleted() const {
+    return deleter_->IsDeleted();
+}
+
+const LifetimeActor *MvpnManager::deleter() const {
+    return deleter_.get();
 }
 
 void MvpnManager::Terminate() {
@@ -503,6 +540,10 @@ ErmVpnTable *MvpnProjectManager::table() {
     return table_;
 }
 
+const ErmVpnTable *MvpnProjectManager::table() const {
+    return table_;
+}
+
 ErmVpnTable *MvpnProjectManagerPartition::table() {
     return manager_->table();
 }
@@ -604,7 +645,7 @@ void MvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
 
     // Process Type1 Intra-AS AD route.
     if (route->GetPrefix().type() == MvpnPrefix::IntraASPMSIADRoute) {
-        UpdateNeighbor(route);
+        ProcessType1ADRoute(route);
         return;
     }
 
@@ -639,7 +680,7 @@ void MvpnManager::RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry) {
 //
 // Protect access to neighbors_ map with a mutex as the same be 'read' off other
 // DB tasks in parallel. (Type-1 and Type-2 do not carrry any <S,G> information)
-void MvpnManager::UpdateNeighbor(MvpnRoute *route) {
+void MvpnManager::ProcessType1ADRoute(MvpnRoute *route) {
     RouteDistinguisher rd = route->GetPrefix().route_distinguisher();
 
     // Check if an entry is already present.
@@ -879,7 +920,8 @@ void MvpnManagerPartition::ProcessType4LeafADRoute(MvpnRoute *leaf_ad) {
     if (!is_usable) {
         if (!mvpn_dbstate)
             return;
-        assert(mvpn_dbstate->state()->leafad_routes_received().erase(leaf_ad));
+        assert(mvpn_dbstate->state()->leafad_routes_attr_received().
+                erase(leaf_ad));
         MvpnRoute *sa_active_rt = mvpn_dbstate->state()->source_active_rt();
 
         // Re-evaluate type5 route as secondary type4 leafad route is deleted.
@@ -903,7 +945,7 @@ void MvpnManagerPartition::ProcessType4LeafADRoute(MvpnRoute *leaf_ad) {
     }
 
     pair<MvpnState::RoutesMap::iterator, bool> result =
-        state->leafad_routes_received().insert(make_pair(leaf_ad,
+        state->leafad_routes_attr_received().insert(make_pair(leaf_ad,
                     leaf_ad->BestPath()->GetAttr()));
 
     // Overwrite the entry with new best path attributes if one already exists.
@@ -1116,13 +1158,13 @@ UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
 
     // If there is no imported leaf-ad route, then essentially there is no
     // olist that can be formed. Route can be withdrawn if already advertised.
-    if (!state || state->leafad_routes_received().empty())
+    if (!state || state->leafad_routes_attr_received().empty())
         return NULL;
 
     // Retrieve olist element from each of the imported type-4 leaf-ad route.
     BgpOListSpec olist_spec(BgpAttribute::OList);
     BOOST_FOREACH(MvpnState::RoutesMap::value_type &iter,
-                  state->leafad_routes_received()) {
+                  state->leafad_routes_attr_received()) {
         BgpAttrPtr attr = iter.second;
         const PmsiTunnel *pmsi = attr->pmsi_tunnel();
         if (!pmsi)

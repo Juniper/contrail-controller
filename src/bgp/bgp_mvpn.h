@@ -173,12 +173,17 @@ public:
     int listener_id() const;
     virtual void Terminate();
     virtual void Initialize();
-    const NeighborMap neighbors() const;
+    size_t neighbors_count() const;
+    const NeighborMap &neighbors() const;
     void ReOriginateType1Route(const Ip4Address &old_identifier);
     void OriginateType1Route();
     bool MayDelete() const;
+    const LifetimeActor *deleter() const;
+    bool deleted() const;
+    LifetimeActor *deleter();
     virtual void UpdateSecondaryTablesForReplication(MvpnRoute *rt,
             BgpTable::TableSet *secondary_tables) const;
+    tbb::reader_writer_lock &neighbors_mutex() { return neighbors_mutex_; }
     static bool IsEnabled() { return enable_; }
     static void set_enable(bool enable) { enable_ = enable; }
 
@@ -188,7 +193,7 @@ private:
 
     void AllocPartitions();
     void FreePartitions();
-    void UpdateNeighbor(MvpnRoute *route);
+    void ProcessType1ADRoute(MvpnRoute *route);
     void RouteListener(DBTablePartBase *tpart, DBEntryBase *db_entry);
     bool FindResolvedNeighbor(const BgpPath *path,
                               MvpnNeighbor *neighbor) const;
@@ -242,7 +247,7 @@ private:
 //     when global_ermvpn_tree_rt_ does get updated, all leaf ad routes in this
 //     set are notified and re-evaluated.
 //
-// leafad_routes_received_
+// leafad_routes_attr_received_
 //     This is a map of all type 4 leaf ad routes originated (in response to
 //     received/imported type-3 spmsi routes. For each route, associated path
 //     attributes of the best path are stored as value inside the map. Whenever
@@ -281,19 +286,25 @@ public:
     virtual ~MvpnState();
     const SG &sg() const;
     ErmVpnRoute *global_ermvpn_tree_rt();
+    const ErmVpnRoute *global_ermvpn_tree_rt() const;
     MvpnRoute *spmsi_rt();
+    const MvpnRoute *spmsi_rt() const;
     void set_global_ermvpn_tree_rt(ErmVpnRoute *global_ermvpn_tree_rt);
     void set_spmsi_rt(MvpnRoute *spmsi_rt);
     RoutesSet &spmsi_routes_received();
-    RoutesMap &leafad_routes_received();
+    RoutesMap &leafad_routes_attr_received();
+    const RoutesSet &spmsi_routes_received() const;
+    const RoutesMap &leafad_routes_attr_received() const;
     const StatesMap *states() const { return states_; }
     StatesMap *states() { return states_; }
     MvpnRoute *source_active_rt();
+    const MvpnRoute *source_active_rt() const;
     void set_source_active_rt(MvpnRoute *source_active_rt);
     MvpnProjectManager *project_manager() { return project_manager_; }
     const MvpnProjectManager *project_manager() const {
         return project_manager_;
     }
+    int refcount() const { return refcount_; }
 
 private:
     friend class MvpnDBState;
@@ -307,7 +318,7 @@ private:
     MvpnRoute *spmsi_rt_;
     MvpnRoute *source_active_rt_;
     RoutesSet spmsi_routes_received_;
-    RoutesMap leafad_routes_received_;
+    RoutesMap leafad_routes_attr_received_;
     StatesMap *states_;
     MvpnProjectManager *project_manager_;
     tbb::atomic<int> refcount_;
@@ -417,8 +428,11 @@ public:
     void ManagedDelete();
     virtual void Terminate();
     ErmVpnTable *table();
+    const ErmVpnTable *table() const;
     int listener_id() const;
     const LifetimeActor *deleter() const;
+    LifetimeActor *deleter();
+    bool deleted() const;
     virtual void Initialize();
     MvpnStatePtr GetState(MvpnRoute *route) const;
     MvpnStatePtr GetState(MvpnRoute *route);
@@ -426,7 +440,6 @@ public:
     UpdateInfo *GetUpdateInfo(MvpnRoute *route);
     const PartitionList &partitions() const { return partitions_; }
     bool MayDelete() const;
-    LifetimeActor *deleter();
     void GetMvpnSourceAddress(ErmVpnRoute *ermvpn_route,
                               Ip4Address *address) const;
 

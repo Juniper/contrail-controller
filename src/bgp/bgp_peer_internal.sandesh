@@ -106,6 +106,30 @@ request sandesh ShowMulticastManagerDetailReq {
     1: string name;
 }
 
+request sandesh ShowMvpnManagerReqIterate {
+    1: string iterate_info;
+}
+
+request sandesh ShowMvpnManagerDetailReq {
+    1: string name;
+}
+
+response sandesh ShowMvpnManagerDetailResp {
+    1: list<bgp_peer.ShowMvpnNeighbor> neighbors;
+}
+
+request sandesh ShowMvpnProjectManagerReqIterate {
+    1: string iterate_info;
+}
+
+request sandesh ShowMvpnProjectManagerDetailReq {
+    1: string name;
+}
+
+response sandesh ShowMvpnProjectManagerDetailResp {
+    1: list<bgp_peer.ShowMvpnState> states;
+}
+
 request sandesh ShowBgpInstanceConfigReqIterate {
     1: string iterate_info;
 }

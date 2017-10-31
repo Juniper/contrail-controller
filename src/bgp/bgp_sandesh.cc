@@ -9,16 +9,19 @@
 #include <sandesh/request_pipeline.h>
 
 #include "bgp/bgp_multicast.h"
+#include "bgp/bgp_mvpn.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/inet/inet_table.h"
+#include "bgp/mvpn/mvpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 using boost::assign::list_of;
+using std::ostringstream;
 using std::string;
 using std::vector;
 
@@ -290,6 +293,215 @@ void ShowMulticastManagerDetailReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
+class ShowMvpnManagerDetailHandler {
+public:
+    struct MvpnManagerDetailData : public RequestPipeline::InstData {
+        vector<ShowMvpnNeighbor> neighbors;
+    };
+
+    static RequestPipeline::InstData *CreateData(int stage) {
+        return (new MvpnManagerDetailData);
+    }
+
+    static void FillMvpnNeighborInfo(const MvpnNeighbor *nbr,
+        ShowMvpnNeighbor *snbr) {
+        snbr->set_rd(nbr->rd().ToString());
+        snbr->set_originator(nbr->originator().to_string());
+        snbr->set_source_as(nbr->source_as());
+    }
+
+    static void FillMvpnNeighborsInfo(MvpnManagerDetailData *data,
+            MvpnTable *table, int inst_id) {
+        MvpnManager *tm = table->manager();
+        tbb::reader_writer_lock::scoped_lock_read lock(tm->neighbors_mutex());
+
+        BOOST_FOREACH(const MvpnManager::NeighborMap::value_type &val,
+                      tm->neighbors()) {
+            ShowMvpnNeighbor snbr;
+            FillMvpnNeighborInfo(&val.second, &snbr);
+            data->neighbors.push_back(snbr);
+        }
+    }
+
+    static bool CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps,
+            int stage, int instNum,
+            RequestPipeline::InstData *data) {
+        int inst_id = ps.stages_[stage].instances_[instNum];
+
+        MvpnManagerDetailData *mydata =
+            static_cast<MvpnManagerDetailData *>(data);
+        const ShowMvpnManagerDetailReq *req =
+            static_cast<const ShowMvpnManagerDetailReq *>(
+                ps.snhRequest_.get());
+        BgpSandeshContext *bsc =
+            static_cast<BgpSandeshContext *>(req->client_context());
+        DBTableBase *table =
+            bsc->bgp_server->database()->FindTable(req->get_name());
+        MvpnTable *mvpn_table = dynamic_cast<MvpnTable *>(table);
+        if (mvpn_table && !mvpn_table->IsVpnTable())
+            FillMvpnNeighborsInfo(mydata, mvpn_table, inst_id);
+
+        ShowMvpnManagerDetailResp *resp = new ShowMvpnManagerDetailResp;
+        resp->set_neighbors(mydata->neighbors);
+        resp->set_context(req->context());
+        resp->Response();
+
+        return true;
+    }
+};
+
+void ShowMvpnManagerDetailReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+    RequestPipeline::StageSpec s1, s2;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s1.allocFn_ = ShowMvpnManagerDetailHandler::CreateData;
+    s1.cbFn_ = ShowMvpnManagerDetailHandler::CallbackS1;
+    s1.instances_.push_back(0);
+    ps.stages_ = list_of(s1);
+
+    RequestPipeline rp(ps);
+}
+
+class ShowMvpnProjectManagerDetailHandler {
+public:
+    struct MvpnProjectManagerDetailData : public RequestPipeline::InstData {
+        vector<ShowMvpnState> states;
+    };
+
+    static RequestPipeline::InstData *CreateData(int stage) {
+        return (new MvpnProjectManagerDetailData);
+    }
+
+    static void FillMvpnProjectStateInfo(const MvpnState *state,
+                                         ShowMvpnState *st) {
+        st->set_source(state->sg().source.to_string());
+        st->set_group(state->sg().group.to_string());
+        if (state->global_ermvpn_tree_rt()) {
+            st->set_global_ermvpn_tree_rt(
+                state->global_ermvpn_tree_rt()->ToString());
+        }
+        if (state->spmsi_rt())
+            st->set_spmsi_rt(state->spmsi_rt()->ToString());
+        if (state->source_active_rt())
+            st->set_source_active_rt(state->source_active_rt()->ToString());
+
+        vector<string> spmsi_routes_received;
+        BOOST_FOREACH(MvpnRoute *rt, state->spmsi_routes_received()) {
+            spmsi_routes_received.push_back(rt->ToString());
+        }
+        st->set_spmsi_routes_received(spmsi_routes_received);
+
+        vector<string> leafad_routes_attr_received;
+        BOOST_FOREACH(const MvpnState::RoutesMap::value_type &val,
+                      state->leafad_routes_attr_received()) {
+            ostringstream os;
+            const PmsiTunnel *pmsi = val.second->pmsi_tunnel();
+            os << val.first->ToString();
+            if (pmsi) {
+                os << ", " << pmsi->tunnel_type();
+                os << ", " << pmsi->identifier();
+                os << ", " << pmsi->GetLabel(true);
+            }
+            leafad_routes_attr_received.push_back(os.str());
+        }
+        st->set_leafad_routes_attr_received(leafad_routes_attr_received);
+        st->set_total_states(state->states()->size());
+        st->set_project_manager(state->project_manager()->table()->name());
+        st->set_refcount(state->refcount());
+    }
+
+    static void FillMvpnProjectPartitionInfo(MvpnProjectManagerDetailData *data,
+            ErmVpnTable *table, int inst_id) {
+        MvpnProjectManager *tm = table->mvpn_project_manager();
+        MvpnProjectManagerPartition *partition = tm->GetPartition(inst_id);
+        BOOST_FOREACH(MvpnState::StatesMap::value_type &val,
+                      partition->states()) {
+            ShowMvpnState st;
+            FillMvpnProjectStateInfo(val.second, &st);
+            data->states.push_back(st);
+        }
+    }
+
+    static bool CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps,
+            int stage, int instNum,
+            RequestPipeline::InstData *data) {
+        int inst_id = ps.stages_[stage].instances_[instNum];
+
+        MvpnProjectManagerDetailData *mydata =
+            static_cast<MvpnProjectManagerDetailData *>(data);
+        const ShowMvpnProjectManagerDetailReq *req =
+            static_cast<const ShowMvpnProjectManagerDetailReq *>(
+                ps.snhRequest_.get());
+        BgpSandeshContext *bsc =
+            static_cast<BgpSandeshContext *>(req->client_context());
+        DBTableBase *table =
+            bsc->bgp_server->database()->FindTable(req->get_name());
+        ErmVpnTable *ermvpn_table = dynamic_cast<ErmVpnTable *>(table);
+        if (ermvpn_table && !ermvpn_table->IsVpnTable())
+            FillMvpnProjectPartitionInfo(mydata, ermvpn_table, inst_id);
+
+        return true;
+    }
+
+    static void CombineMvpnProjectPartitionInfo(
+            const RequestPipeline::StageData *sd,
+            vector<ShowMvpnState> *states) {
+        for (size_t idx = 0; idx < sd->size(); idx++) {
+            const MvpnProjectManagerDetailData &data =
+                static_cast<const MvpnProjectManagerDetailData &>(sd->at(idx));
+            states->insert(states->end(),
+                           data.states.begin(), data.states.end());
+        }
+    }
+
+    static bool CallbackS2(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps,
+            int stage, int instNum,
+            RequestPipeline::InstData *data) {
+        const ShowMvpnProjectManagerReq *req =
+            static_cast<const ShowMvpnProjectManagerReq *>(
+                ps.snhRequest_.get());
+        const RequestPipeline::StageData *sd = ps.GetStageData(0);
+        vector<ShowMvpnState> states;
+        CombineMvpnProjectPartitionInfo(sd, &states);
+
+        ShowMvpnProjectManagerDetailResp *resp =
+            new ShowMvpnProjectManagerDetailResp;
+        resp->set_states(states);
+        resp->set_context(req->context());
+        resp->Response();
+        return true;
+    }
+};
+
+
+void ShowMvpnProjectManagerDetailReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+
+    // Request pipeline has 2 stages.
+    // First stage to collect multicast manager stats.
+    // Second stage to fill stats from stage 1 and respond to the request.
+    RequestPipeline::StageSpec s1, s2;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s1.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s1.allocFn_ = ShowMvpnProjectManagerDetailHandler::CreateData;
+    s1.cbFn_ = ShowMvpnProjectManagerDetailHandler::CallbackS1;
+    for (int i = 0; i < ErmVpnTable::kPartitionCount; i++) {
+        s1.instances_.push_back(i);
+    }
+
+    s2.taskId_ = scheduler->GetTaskId("bgp::ShowCommand");
+    s2.cbFn_ = ShowMvpnProjectManagerDetailHandler::CallbackS2;
+    s2.instances_.push_back(0);
+
+    ps.stages_ = list_of(s1)(s2);
+    RequestPipeline rp(ps);
+}
 
 class ShowRouteVrfHandler {
 public:
