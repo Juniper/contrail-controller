@@ -646,6 +646,74 @@ struct ShowMulticastTree {
     4: list<ShowMulticastForwarder> level1_forwarders;
 }
 
+/**
+ * @description: show mvpn managers
+ */
+
+struct ShowMvpnManager {
+    1: string name (link="ShowMvpnManagerDetailReq");
+    2: string project_manager;
+    3: bool deleted;
+    4: string deleted_at;
+}
+
+response sandesh ShowMvpnManagerResp {
+    1: list<ShowMvpnManager> managers;
+    2: optional string next_batch (link="ShowMvpnManagerReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowMvpnManagerReq {
+    /** find mvpn manager matching this string */
+    1: string search_string;
+}
+
+struct ShowMvpnNeighbor {
+    1: string rd;
+    2: string originator;
+    3: u32 source_as;
+}
+
+/**
+ * @description: show mvpn project managers
+ */
+
+struct ShowMvpnProjectManager {
+    1: string name (link="ShowMvpnProjectManagerDetailReq");
+    2: string source;
+    3: string group;
+    4: u32 total_managers;
+    5: bool deleted;
+    6: string deleted_at;
+}
+
+response sandesh ShowMvpnProjectManagerResp {
+    1: list<ShowMvpnProjectManager> managers;
+    2: optional string next_batch (link="ShowMvpnProjectManagerReqIterate",
+                                   link_title="next_batch");
+}
+
+request sandesh ShowMvpnProjectManagerReq {
+    /** find mvpn project manager matching this string */
+    1: string search_string;
+}
+
+struct ShowMvpnState {
+    1: string source;
+    2: string group;
+    3: string global_ermvpn_tree_rt;
+    4: string spmsi_rt;
+    5: string source_active_rt;
+    6: list<string> spmsi_routes_received;
+    7: list<string> leafad_routes_attr_received;
+    8: u64 total_states;
+    9: string project_manager;
+    10: u64 refcount;
+}
+
+/**
+ * @description: show service chain
+ */
 struct ShowBgpServiceChainConfig {
     5: string family;
     1: string routing_instance;

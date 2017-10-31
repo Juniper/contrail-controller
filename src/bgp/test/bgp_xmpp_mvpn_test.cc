@@ -6,6 +6,7 @@
 #include <boost/foreach.hpp>
 
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_mvpn.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_xmpp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
@@ -29,6 +30,102 @@ using namespace test;
 class BgpXmppMvpnTest : public ::testing::Test {
 protected:
     BgpXmppMvpnTest() : thread_(&evm_), xs_x_(NULL) { }
+
+    static void ValidateShowRouteResponse(Sandesh *sandesh,
+        vector<size_t> &result) {
+        ShowRouteResp *resp = dynamic_cast<ShowRouteResp *>(sandesh);
+        EXPECT_NE((ShowRouteResp *)NULL, resp);
+
+        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_tables().size());
+
+        cout << "*******************************************************"<<endl;
+        for (size_t i = 0; i < resp->get_tables().size(); i++) {
+            cout << resp->get_tables()[i].routing_instance << " "
+                 << resp->get_tables()[i].routing_table_name << endl;
+            for (size_t j = 0; j < resp->get_tables()[i].routes.size(); j++) {
+                cout << resp->get_tables()[i].routes[j].prefix << " "
+                        << resp->get_tables()[i].routes[j].paths.size() << endl;
+            }
+            TASK_UTIL_EXPECT_EQ(result[i], resp->get_tables()[i].routes.size());
+        }
+        cout << "*******************************************************"<<endl;
+        validate_done_ = 1;
+    }
+
+    static void ValidateShowManagerMvpnDetailResponse(Sandesh *sandesh,
+        vector<string> &result) {
+        ShowMvpnManagerDetailResp *resp =
+            dynamic_cast<ShowMvpnManagerDetailResp *>(sandesh);
+        EXPECT_NE((ShowMvpnManagerDetailResp *)NULL, resp);
+
+        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_neighbors().size());
+        cout << "*******************************************************"<<endl;
+        for (size_t i = 0; i < resp->get_neighbors().size(); ++i) {
+            cout << resp->get_neighbors()[i].log() << endl;
+            bool found = false;
+            BOOST_FOREACH(const string &rd, result) {
+                if (resp->get_neighbors()[i].get_rd() == rd) {
+                    found = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(found);
+        }
+        cout << "*******************************************************"<<endl;
+        validate_done_ = 1;
+    }
+
+    static void ValidateShowProjectManagerMvpnDetailResponse(Sandesh *sandesh,
+        vector<string> &result) {
+        ShowMvpnProjectManagerDetailResp *resp =
+            dynamic_cast<ShowMvpnProjectManagerDetailResp *>(sandesh);
+        EXPECT_NE((ShowMvpnProjectManagerDetailResp *)NULL, resp);
+
+        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_states().size());
+        cout << "*******************************************************"<<endl;
+        for (size_t i = 0; i < resp->get_states().size(); ++i) {
+            cout << resp->get_states()[i].log() << endl;
+            bool found = false;
+            BOOST_FOREACH(const string &group, result) {
+                if (resp->get_states()[i].get_group() == group) {
+                    found = true;
+                    break;
+                }
+            }
+            EXPECT_TRUE(found);
+        }
+        cout << "*******************************************************"<<endl;
+        validate_done_ = 1;
+    }
+
+    void AddMvpnRoute(BgpTable *table, const string &prefix_str,
+                      const string &target) {
+        MvpnPrefix prefix(MvpnPrefix::FromString(prefix_str));
+        DBRequest add_req;
+        add_req.key.reset(new MvpnTable::RequestKey(prefix, NULL));
+
+        BgpAttrSpec attr_spec;
+        ExtCommunitySpec *commspec(new ExtCommunitySpec());
+        RouteTarget tgt = RouteTarget::FromString(target);
+        commspec->communities.push_back(tgt.GetExtCommunityValue());
+        attr_spec.push_back(commspec);
+
+        BgpAttrPtr attr = bs_x_->attr_db()->Locate(attr_spec);
+        STLDeleteValues(&attr_spec);
+        add_req.data.reset(new MvpnTable::RequestData(attr, 0, 20));
+        add_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        table->Enqueue(&add_req);
+        task_util::WaitForIdle();
+    }
+
+    void DeleteMvpnRoute(BgpTable *table, const string &prefix_str) {
+        DBRequest delete_req;
+        MvpnPrefix prefix(MvpnPrefix::FromString(prefix_str));
+        delete_req.key.reset(new MvpnTable::RequestKey(prefix, NULL));
+        delete_req.oper = DBRequest::DB_ENTRY_DELETE;
+        table->Enqueue(&delete_req);
+        task_util::WaitForIdle();
+    }
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
@@ -94,13 +191,27 @@ protected:
         bs_x_->Configure(config);
     }
 
-    size_t GetVrfTableSize(BgpServerTestPtr server, const string &name) {
+    BgpTable *GetVrfTable(BgpServerTestPtr server, const string &name) {
+        RoutingInstanceMgr *rim = server->routing_instance_mgr();
+        TASK_UTIL_EXPECT_TRUE(rim->GetRoutingInstance(name) != NULL);
+        RoutingInstance *rtinstance = rim->GetRoutingInstance(name);
+        TASK_UTIL_EXPECT_TRUE(rtinstance->GetTable(Address::MVPN) != NULL);
+        BgpTable *table = rtinstance->GetTable(Address::MVPN);
+        return table;
+    }
+
+    const BgpTable *GetVrfTable(BgpServerTestPtr server,
+                                const string &name) const {
         RoutingInstanceMgr *rim = server->routing_instance_mgr();
         TASK_UTIL_EXPECT_TRUE(rim->GetRoutingInstance(name) != NULL);
         const RoutingInstance *rtinstance = rim->GetRoutingInstance(name);
         TASK_UTIL_EXPECT_TRUE(rtinstance->GetTable(Address::MVPN) != NULL);
         const BgpTable *table = rtinstance->GetTable(Address::MVPN);
-        return table->Size();
+        return table;
+    }
+
+    size_t GetVrfTableSize(BgpServerTestPtr server, const string &name) const {
+        return GetVrfTable(server, name)->Size();
     }
 
     EventManager evm_;
@@ -129,7 +240,7 @@ static const char *config_tmpl1 = "\
     </virtual-network>\
     <routing-instance name='default-domain:default-project:ip-fabric:ip-fabric'>\
         <virtual-network>blue</virtual-network>\
-        <vrf-target>target:1:1</vrf-target>\
+        <vrf-target>target:1:100</vrf-target>\
     </routing-instance>\
     <virtual-network name='blue'>\
         <network-id>1</network-id>\
@@ -163,19 +274,12 @@ protected:
 
 TEST_F(BgpXmppMvpnErrorTest, BadGroupAddress) {
     agent_xa_->AddType7MvpnRoute("blue", "225.0.0,90.1.1.1");
-    task_util::WaitForIdle();
-    MvpnTable *blue_table_ = static_cast<MvpnTable *>(
-        bs_x_->database()->FindTable("blue.mvpn.0"));
-    EXPECT_TRUE(blue_table_->Size() == 0);
-    TASK_UTIL_EXPECT_EQ(0, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
 }
 
 TEST_F(BgpXmppMvpnErrorTest, BadSourceAddress) {
     agent_xa_->AddType7MvpnRoute("blue", "225.0.0.1,90.1.1");
-    task_util::WaitForIdle();
-    MvpnTable *blue_table_ = static_cast<MvpnTable *>(
-        bs_x_->database()->FindTable("blue.mvpn.0"));
-    EXPECT_TRUE(blue_table_->Size() == 0);
+    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
 }
 
 class BgpXmppMvpnSubscriptionTest : public BgpXmppMvpnTest {
@@ -205,24 +309,24 @@ TEST_F(BgpXmppMvpnSubscriptionTest, PendingSubscribeType5) {
     agent_xa_->AddType5MvpnRoute("blue", mroute, "20.1.1.11");
 
     // Verify that the route gets added
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
 
     // Add the route again, there should still be only 1 route
     agent_xa_->AddType5MvpnRoute("blue", mroute, "20.1.1.11");
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
 
     // Add another route, there should be 2 routes
     const char *mroute2 = "225.0.0.1,20.1.1.20";
     agent_xa_->AddType5MvpnRoute("blue", mroute2, "20.1.1.12");
-    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(3, GetVrfTableSize(bs_x_, "blue"));
 
     // Delete one mvpn route, there should still be a route
     agent_xa_->DeleteMvpnRoute("blue", mroute2, MvpnPrefix::SourceActiveADRoute);
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
 
     // Delete second route, it should get deleted
     agent_xa_->DeleteMvpnRoute("blue", mroute, MvpnPrefix::SourceActiveADRoute);
-    TASK_UTIL_EXPECT_EQ(0, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
 }
 
 TEST_F(BgpXmppMvpnSubscriptionTest, PendingSubscribeType7) {
@@ -235,23 +339,23 @@ TEST_F(BgpXmppMvpnSubscriptionTest, PendingSubscribeType7) {
     agent_xa_->AddType5MvpnRoute("blue", mroute, "20.1.1.11");
 
     // Verify that the route gets added
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
 
     // Add the route again, there should still be only 1 route
     agent_xb_->MvpnSubscribe("blue", 1);
     agent_xb_->MvpnSubscribe(BgpConfigManager::kFabricInstance, 1000);
     agent_xb_->AddType5MvpnRoute("blue", mroute, "20.1.1.12");
     agent_xa_->AddType5MvpnRoute("blue", mroute, "20.1.1.11");
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
 
     // Delete mvpn route from one agent, there should still be a route
     agent_xa_->DeleteMvpnRoute("blue", mroute, MvpnPrefix::SourceActiveADRoute);
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
 
     // Delete route from second agent, it should get deleted
     agent_xb_->DeleteMvpnRoute("blue", mroute, MvpnPrefix::SourceActiveADRoute);
     // Delete route from second agent, it should get deleted
-    TASK_UTIL_EXPECT_EQ(0, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
 }
 
 TEST_F(BgpXmppMvpnSubscriptionTest, PendingUnsubscribe) {
@@ -267,7 +371,7 @@ TEST_F(BgpXmppMvpnSubscriptionTest, PendingUnsubscribe) {
     agent_xa_->MvpnUnsubscribe(BgpConfigManager::kFabricInstance);
 
     // Verify number of routes.
-    TASK_UTIL_EXPECT_EQ(0, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
 }
 
 TEST_F(BgpXmppMvpnSubscriptionTest, SubsequentSubscribeUnsubscribe) {
@@ -296,7 +400,7 @@ TEST_F(BgpXmppMvpnSubscriptionTest, SubsequentSubscribeUnsubscribe) {
     agent_xa_->AddType7MvpnRoute("blue", mroute);
 
     // Verify number of routes in blue table.
-    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(2, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify that agent a mvpn route was added.
     const char *route = "7-0:0,0,10.1.1.10,225.0.0.1";
@@ -345,7 +449,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, MultipleRoutes) {
     }
 
     // Verify that all routes are added once.
-    TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]),
+    TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]) + 1,
                         GetVrfTableSize(bs_x_, "blue"));
 
     // Delete mvpn route for all agents.
@@ -354,6 +458,214 @@ TEST_F(BgpXmppMvpnMultiAgentTest, MultipleRoutes) {
         agent_xb_->DeleteMvpnRoute("blue", mroute);
         task_util::WaitForIdle();
     }
+};
+
+TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
+    const char *mroute_list[] = {
+        "225.0.0.1,90.1.1.1",
+    };
+
+    // Add mvpn routes for all agents.
+    BOOST_FOREACH(const char *mroute, mroute_list) {
+        agent_xa_->AddType7MvpnRoute("blue", mroute);
+        agent_xb_->AddType7MvpnRoute("blue", mroute);
+        task_util::WaitForIdle();
+    }
+
+    // Verify that all routes are added once.
+    TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]) + 1,
+                        GetVrfTableSize(bs_x_, "blue"));
+
+    // Verify routes via sandesh.
+    BgpSandeshContext sandesh_context;
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
+    sandesh_context.bgp_server = bs_x_.get();
+    sandesh_context.xmpp_peer_manager = bcm_x_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    // First get all tables.
+    // blue.mvpn.0, bgp.ermvpn.0, bgp.mvpn.0, bgp.rtarget.0,
+    // default-domain:default-project:ip-fabric:ip-fabric.ermvpn.0,
+    // default-domain:default-project:ip-fabric:ip-fabric.mvpn.0
+    std::vector<size_t> result = list_of(2)(2)(2)(5)(4)(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteResponse, _1, result));
+    ShowRouteReq *show_req = new ShowRouteReq;
+    validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Now get blue.mvpn.0.
+    result = list_of(2);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteResponse, _1, result));
+    show_req = new ShowRouteReq;
+    show_req->set_routing_table("blue.mvpn.0");
+    validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Now get bgp.mvpn.0.
+    result = list_of(2);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteResponse, _1, result));
+    show_req = new ShowRouteReq;
+    show_req->set_routing_table("bgp.mvpn.0");
+    validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Delete mvpn route for all agents.
+    BOOST_FOREACH(const char *mroute, mroute_list) {
+        agent_xa_->DeleteMvpnRoute("blue", mroute);
+        agent_xb_->DeleteMvpnRoute("blue", mroute);
+        task_util::WaitForIdle();
+    }
+
+    // Verify that all routes are deleted.
+
+    // Get blue.mvpn.0 again.
+    result = list_of(1);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteResponse, _1, result));
+    show_req = new ShowRouteReq;
+    show_req->set_routing_table("blue.mvpn.0");
+    validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Get bgp.mvpn.0 again.
+    result = list_of(2);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowRouteResponse, _1, result));
+    show_req = new ShowRouteReq;
+    show_req->set_routing_table("bgp.mvpn.0");
+    validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+};
+
+TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnManagerDetail) {
+    // Inject Type-1 AD Route directly into the bgp.mvpn.0 table.
+    string prefix = "1-10.1.1.1:65535,9.8.7.6";
+    BgpTable *master = GetVrfTable(bs_x_, BgpConfigManager::kMasterInstance);
+    BgpTable *blue = GetVrfTable(bs_x_, "blue");
+    AddMvpnRoute(master, prefix, "target:1:1");
+
+    // Verify that all routes are added once.
+    TASK_UTIL_EXPECT_EQ(2, blue->Size());
+
+    // Verify multicast manager detail via sandesh.
+    BgpSandeshContext sandesh_context;
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
+    sandesh_context.bgp_server = bs_x_.get();
+    sandesh_context.xmpp_peer_manager = bcm_x_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    vector<string> result = list_of("10.1.1.1:65535");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMvpnDetailResponse, _1, result));
+    ShowMvpnManagerDetailReq *show_req = new ShowMvpnManagerDetailReq;
+    validate_done_ = 0;
+    show_req->set_name("blue.mvpn.0");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    DeleteMvpnRoute(master, prefix);
+    TASK_UTIL_EXPECT_EQ(1, blue->Size());
+    TASK_UTIL_EXPECT_EQ(2, master->Size());
+
+    // Get blue.mvpn.0 again.
+    result.resize(0);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMvpnDetailResponse, _1, result));
+    show_req = new ShowMvpnManagerDetailReq;
+    validate_done_ = 0;
+    show_req->set_name("blue.mvpn.0");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+};
+
+TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnProjectManagerDetail) {
+    BgpTable *master = GetVrfTable(bs_x_, BgpConfigManager::kMasterInstance);
+    BgpTable *blue = GetVrfTable(bs_x_, "blue");
+
+    const char *mroute_list[] = {
+        "225.0.0.1,9.8.7.6",
+    };
+
+    // Add mvpn routes for all agents.
+    BOOST_FOREACH(const char *mroute, mroute_list) {
+        agent_xa_->AddType7MvpnRoute("blue", mroute);
+        agent_xb_->AddType7MvpnRoute("blue", mroute);
+        task_util::WaitForIdle();
+    }
+
+    string prefix = "3-10.1.1.1:65535,9.8.7.6,225.0.0.1,192.168.1.1";
+    AddMvpnRoute(master, prefix, "target:1:1");
+
+    // Verify that all routes are added once.
+    TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]) + 3,
+                        GetVrfTableSize(bs_x_, "blue"));
+
+    // Verify that all routes are added once.
+    TASK_UTIL_EXPECT_EQ(4, master->Size());
+    TASK_UTIL_EXPECT_EQ(4, blue->Size());
+
+    // Verify multicast manager detail via sandesh.
+    BgpSandeshContext sandesh_context;
+    RegisterSandeshShowXmppExtensions(&sandesh_context);
+    sandesh_context.bgp_server = bs_x_.get();
+    sandesh_context.xmpp_peer_manager = bcm_x_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    vector<string> result = list_of("225.0.0.1");
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowProjectManagerMvpnDetailResponse, _1, result));
+    ShowMvpnProjectManagerDetailReq *show_req =
+        new ShowMvpnProjectManagerDetailReq;
+    validate_done_ = 0;
+    show_req->set_name(string(BgpConfigManager::kFabricInstance) + ".ermvpn.0");
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Add mvpn routes for all agents.
+    BOOST_FOREACH(const char *mroute, mroute_list) {
+        agent_xa_->DeleteMvpnRoute("blue", mroute);
+        agent_xb_->DeleteMvpnRoute("blue", mroute);
+        task_util::WaitForIdle();
+    }
+    DeleteMvpnRoute(master, prefix);
+
+    // Verify that only type-1 ad route remains.
+    TASK_UTIL_EXPECT_EQ(1, blue->Size());
+    TASK_UTIL_EXPECT_EQ(2, master->Size());
+
+    result.resize(0);
+    Sandesh::set_response_callback(
+        boost::bind(ValidateShowManagerMvpnDetailResponse, _1, result));
+    ShowMvpnManagerDetailReq *show_pm_req = new ShowMvpnManagerDetailReq;
+    validate_done_ = 0;
+    show_pm_req->set_name(
+        string(BgpConfigManager::kFabricInstance) + ".ermvpn.0");
+    show_pm_req->HandleRequest();
+    show_pm_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
 };
 
 class TestEnvironment : public ::testing::Environment {
@@ -384,6 +696,7 @@ static void TearDown() {
 
 int main(int argc, char **argv) {
     bgp_log_test::init();
+    MvpnManager::set_enable(true);
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::AddGlobalTestEnvironment(new TestEnvironment());
     SetUp();

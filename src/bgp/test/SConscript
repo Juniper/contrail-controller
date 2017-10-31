@@ -276,6 +276,16 @@ bgp_show_multicast_manager_test = env.UnitTest(
 env.Alias('src/bgp:bgp_show_multicast_manager_test',
           bgp_show_multicast_manager_test)
 
+bgp_show_mvpn_manager_test = env.UnitTest(
+    'bgp_show_mvpn_manager_test', ['bgp_show_mvpn_manager_test.cc'])
+env.Alias('src/bgp:bgp_show_mvpn_manager_test', bgp_show_mvpn_manager_test)
+
+bgp_show_mvpn_project_manager_test = env.UnitTest(
+    'bgp_show_mvpn_project_manager_test',
+    ['bgp_show_mvpn_project_manager_test.cc'])
+env.Alias('src/bgp:bgp_show_mvpn_project_manager_test',
+          bgp_show_mvpn_project_manager_test)
+
 bgp_show_neighbor_test = env.UnitTest('bgp_show_neighbor_test',
                                       ['bgp_show_neighbor_test.cc'])
 env.Alias('src/bgp:bgp_show_neighbor_test', bgp_show_neighbor_test)
@@ -620,6 +630,8 @@ test_suite = [
     bgp_show_evpn_table_test,
     bgp_show_instance_config_test,
     bgp_show_multicast_manager_test,
+    bgp_show_mvpn_manager_test,
+    bgp_show_mvpn_project_manager_test,
     bgp_show_neighbor_test,
     bgp_show_route_summary_test,
     bgp_show_routing_instance_test,

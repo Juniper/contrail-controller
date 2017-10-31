@@ -134,6 +134,7 @@ protected:
             string vn_name = string("vn") + integerToString(idx);
             instance_names.push_back(vn_name);
         }
+        instance_names.push_back(BgpConfigManager::kFabricInstance);
         NetworkConfig(instance_names);
         VerifyNetworkConfig(server_.get(), instance_names);
     }
@@ -256,6 +257,7 @@ TYPED_TEST_P(BgpShowInstanceOrTableTest, Request1) {
     Sandesh::set_client_context(&this->sandesh_context_);
     vector<string> names;
     this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kFabricInstance);
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
         this->AddInstanceOrTableName(&names, name);
@@ -284,6 +286,7 @@ TYPED_TEST_P(BgpShowInstanceOrTableTest, Request2) {
     Sandesh::set_client_context(&this->sandesh_context_);
     vector<string> names;
     this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kFabricInstance);
 
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
@@ -302,17 +305,18 @@ TYPED_TEST_P(BgpShowInstanceOrTableTest, Request2) {
 
 //
 // Next instance = empty
-// Page limit = 13 (number of instances)
+// Page limit = 14 (number of instances)
 // Iteration limit = 1024 (default)
 // Should return all instances.
 //
 TYPED_TEST_P(BgpShowInstanceOrTableTest, Request3) {
     typedef typename TypeParam::ReqT ReqT;
 
-    this->sandesh_context_.set_page_limit(13);
+    this->sandesh_context_.set_page_limit(14);
     Sandesh::set_client_context(&this->sandesh_context_);
     vector<string> names;
     this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kFabricInstance);
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
         this->AddInstanceOrTableName(&names, name);
@@ -337,10 +341,11 @@ TYPED_TEST_P(BgpShowInstanceOrTableTest, Request3) {
 TYPED_TEST_P(BgpShowInstanceOrTableTest, Request4) {
     typedef typename TypeParam::ReqT ReqT;
 
-    this->sandesh_context_.set_page_limit(4);
+    this->sandesh_context_.set_page_limit(5);
     Sandesh::set_client_context(&this->sandesh_context_);
     vector<string> names;
     this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kFabricInstance);
     for (int idx = 900; idx < 903; ++idx) {
         string name = string("vn") + integerToString(idx);
         this->AddInstanceOrTableName(&names, name);
@@ -365,11 +370,12 @@ TYPED_TEST_P(BgpShowInstanceOrTableTest, Request4) {
 TYPED_TEST_P(BgpShowInstanceOrTableTest, Request5) {
     typedef typename TypeParam::ReqT ReqT;
 
-    this->sandesh_context_.set_page_limit(4);
+    this->sandesh_context_.set_page_limit(5);
     this->sandesh_context_.set_iter_limit(2);
     Sandesh::set_client_context(&this->sandesh_context_);
     vector<string> names;
     this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kFabricInstance);
     for (int idx = 900; idx < 903; ++idx) {
         string name = string("vn") + integerToString(idx);
         this->AddInstanceOrTableName(&names, name);
@@ -398,6 +404,7 @@ TYPED_TEST_P(BgpShowInstanceOrTableTest, RequestWithSearch0) {
     Sandesh::set_client_context(&this->sandesh_context_);
     vector<string> names;
     this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kFabricInstance);
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
         this->AddInstanceOrTableName(&names, name);
@@ -651,6 +658,7 @@ TYPED_TEST_P(BgpShowInstanceOrTableTest, RequestWithSearch9) {
     Sandesh::set_client_context(&this->sandesh_context_);
     vector<string> names;
     this->AddInstanceOrTableName(&names, BgpConfigManager::kMasterInstance);
+    this->AddInstanceOrTableName(&names, BgpConfigManager::kFabricInstance);
     for (int idx = 900; idx < 912; ++idx) {
         string name = string("vn") + integerToString(idx);
         this->AddInstanceOrTableName(&names, name);
