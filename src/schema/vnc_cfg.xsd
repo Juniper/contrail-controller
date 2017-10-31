@@ -2131,6 +2131,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          <xsd:enumeration value='e2-access'/>
          <xsd:enumeration value='e2-provider'/>
          <xsd:enumeration value='e2-internet'/>
+         <xsd:enumeration value='e2-vrr'/>
      </xsd:restriction>
 </xsd:simpleType>
 

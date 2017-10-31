@@ -96,4 +96,37 @@
      Property('telemetry-info', 'physical-router', 'optional', 'CRUD',
               'Telemetry info of router. Check TelemetryStateInfo') -->
 
+<!-- VRS Schema -->
+
+<xsd:element name="e2-service-provider" type="ifmap:IdentityType"/>
+<xsd:simpleType name="PeeringServiceType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="public-peering"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="peering-policy" type="ifmap:IdentityType"/>
+<xsd:element name="peering-service" type="PeeringServiceType" required="true"
+             description="Peering service type."/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('peering-service', 'peering-policy', 'required', 'CRUD',
+              'Peering policy service type.') -->
+
+<xsd:element name="e2-service-provider-peering-policy"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('e2-service-provider-peering-policy',
+          'e2-service-provider', 'peering-policy', ['ref'], 'optional', 'CRUD',
+          'Links the service provider to a peering policy.') -->
+
+<xsd:element name="e2-service-provider-physical-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('e2-service-provider-physical-router',
+          'e2-service-provider', 'physical-router', ['ref'], 'optional', 'CRUD',
+          'Links the service provider to peer routers.') -->
+
+<xsd:element name="e2-service-provider-promiscuous" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('e2-service-provider-promiscuous', 'e2-service-provider', 'optional', 'CRUD',
+              'This service provider is connected to all other service providers.') -->
+
 </xsd:schema>

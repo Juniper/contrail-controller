@@ -44,7 +44,7 @@ from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
     VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
     GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
     ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
-    NetworkDeviceConfigDM
+    NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM
 from dm_amqp import DMAmqpHandle
 from dm_utils import PushConfigState
 from device_conf import DeviceConf
@@ -65,6 +65,7 @@ class DeviceManager(object):
             'self': ['bgp_router',
                      'physical_interface',
                      'logical_interface',
+                     'e2_service_provider',
                      'service_endpoint'],
             'bgp_router': [],
             'physical_interface': [],
@@ -76,6 +77,7 @@ class DeviceManager(object):
             'service_endpoint': [],
             'service_connection_module': [],
             'service_object': [],
+            'e2_service_provider': [],
         },
         'global_system_config': {
             'self': ['physical_router'],
@@ -181,6 +183,16 @@ class DeviceManager(object):
         },
         'network_device_config': {
             'self': [],
+        },
+        'e2_service_provider': {
+            'self': ['physical_router',
+                     'peering_policy'],
+            'physical_router': [],
+            'peering_policy': [],
+        },
+        'peering_policy': {
+            'self': ['e2_service_provider'],
+            'e2_service_provider': [],
         },
     }
 
@@ -324,6 +336,12 @@ class DeviceManager(object):
 
         for obj in NetworkDeviceConfigDM.list_obj():
             NetworkDeviceConfigDM.locate(obj['uuid'], obj)
+
+        for obj in E2ServiceProviderDM.list_obj():
+            E2ServiceProviderDM.locate(obj['uuid'], obj)
+
+        for obj in PeeringPolicyDM.list_obj():
+            PeeringPolicyDM.locate(obj['uuid'], obj)
 
         for pr in PhysicalRouterDM.values():
             pr.set_config_state()
