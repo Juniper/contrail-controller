@@ -175,6 +175,7 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("virtual-machine-interface", "bgp-as-a-service");
     AddLinkToMetadata("bgp-router", "bgp-as-a-service");
     AddLinkToMetadata("bgp-router", "routing-instance");
+    AddLinkToMetadata("bgp-router", "virtual-machine-interface");
     AddLinkToMetadata("virtual-network", "qos-config");
     AddLinkToMetadata("virtual-machine-interface", "qos-config");
     AddLinkToMetadata("global-qos-config", "qos-config");
@@ -4371,6 +4372,9 @@ void SendBgpServiceConfig(const std::string &ip,
            "<bgpaas-shared>" << is_shared << "</bgpaas-shared>" << endl;
 
     if (deleted) {
+        DelLink("virtual-machine-interface", vmi_name.c_str(),
+                "bgp-router", bgp_router_name.str().c_str());
+        client->WaitForIdle();
         DelLink("bgp-router", bgp_router_name.str().c_str(),
                 "bgp-as-a-service", bgp_router_name.str().c_str());
         client->WaitForIdle();
@@ -4401,6 +4405,9 @@ void SendBgpServiceConfig(const std::string &ip,
     client->WaitForIdle();
     AddLink("virtual-machine-interface", vmi_name.c_str(),
             "bgp-as-a-service", bgp_router_name.str().c_str());
+    client->WaitForIdle();
+    AddLink("virtual-machine-interface", vmi_name.c_str(),
+            "bgp-router", bgp_router_name.str().c_str());
     client->WaitForIdle();
 }
 
