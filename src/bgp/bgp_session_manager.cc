@@ -13,6 +13,10 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 
+using namespace boost::asio::ip;
+
+static const std::string kDefaultBgpSessionIp = "0.0.0.0";
+
 BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
     : TcpServer(evm),
       server_(server),
@@ -21,7 +25,8 @@ BgpSessionManager::BgpSessionManager(EventManager *evm, BgpServer *server)
           boost::bind(&BgpSessionManager::ProcessSession, this, _1)),
       write_ready_queue_(
           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-          boost::bind(&BgpSessionManager::ProcessWriteReady, this, _1)) {
+          boost::bind(&BgpSessionManager::ProcessWriteReady, this, _1)),
+      session_ip_(address::from_string(kDefaultBgpSessionIp)) {
 }
 
 BgpSessionManager::~BgpSessionManager() {
@@ -32,6 +37,15 @@ BgpSessionManager::~BgpSessionManager() {
 //
 bool BgpSessionManager::Initialize(unsigned short port) {
     return TcpServer::Initialize(port);
+}
+
+
+//
+// Start listening at the given ip:port.
+//
+bool BgpSessionManager::Initialize(unsigned short port, const IpAddress& ip) {
+    session_ip_ = ip;
+    return TcpServer::Initialize(port, ip);
 }
 
 //
@@ -132,6 +146,18 @@ TcpSession *BgpSessionManager::CreateSession() {
             "Failed to open bgp socket, error: " << ec.message());
         DeleteSession(session);
         return NULL;
+    }
+
+    if (session_ip_ != address::from_string(kDefaultBgpSessionIp))  {
+        tcp::endpoint localaddr(session_ip_, 0);
+        socket->bind(localaddr, ec);
+        if (ec) {
+            BGP_LOG_WARNING_STR(BgpSocket, BGP_LOG_FLAG_ALL,
+                "Failed to bind bgp socket to:" << session_ip_ <<
+                ", error: " << ec.message());
+            DeleteSession(session);
+            return NULL;
+        }
     }
     return session;
 }
