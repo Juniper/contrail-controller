@@ -102,7 +102,15 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     // Create XmppServer
     XmppServer *xmpp_server;
     xmpp_server = new XmppServer(evm, options->hostname(), xmpp_cfg);
-    if (!xmpp_server->Initialize(options->xmpp_port(), true)) {
+    boost::system::error_code ec;
+    IpAddress xmpp_ip_address = address::from_string(options->host_ip(), ec);
+    if (ec) {
+        LOG(ERROR, "Xmpp IP Address:" <<  options->host_ip() <<
+                   " conversion error:" << ec.message());
+        exit(1);
+    }
+    if (!xmpp_server->Initialize(options->xmpp_port(), true,
+                                 xmpp_ip_address)) {
         return NULL;
     } else {
         return (xmpp_server);
@@ -284,12 +292,21 @@ int main(int argc, char *argv[]) {
     BgpConfigParser parser(&config_db);
     parser.Parse(FileRead(options.bgp_config_file().c_str()));
 
-    // TODO:  Initialize throws an exception (via boost) in case the
-    // user does not have permissions to bind to the port.
-    bgp_server->rtarget_group_mgr()->Initialize();
-    LOG(DEBUG, "Starting Bgp Server at port " << options.bgp_port());
-    if (!bgp_server->session_manager()->Initialize(options.bgp_port()))
+    boost::system::error_code ec;
+    IpAddress bgp_ip_address = address::from_string(options.host_ip(), ec);
+    if (ec) {
+        LOG(ERROR, "Bgp IP Address:" <<  options.host_ip() <<
+                   " conversion error:" << ec.message());
         exit(1);
+    }
+
+    bgp_server->rtarget_group_mgr()->Initialize();
+    LOG(DEBUG, "Starting Bgp Server at " <<
+                options.host_ip() << ":" << options.bgp_port());
+    if (!bgp_server->session_manager()->Initialize(options.bgp_port(),
+                                                   bgp_ip_address)) {
+        exit(1);
+    }
 
     // Create Xmpp Server.
     XmppChannelConfig xmpp_cfg(false);

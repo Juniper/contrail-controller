@@ -9,8 +9,11 @@
 #include "cmn/dns.h"
 #include "agent/agent_xmpp_init.h"
 #include "agent/agent_xmpp_channel.h"
+#include "base/logging.h"
 
 using namespace boost::asio;
+using namespace boost::asio::ip;
+using boost::system::error_code;
 
 bool DnsAgentXmppManager::Init(bool xmpp_auth_enabled,
                                const std::string &xmpp_server_cert,
@@ -31,15 +34,23 @@ bool DnsAgentXmppManager::Init(bool xmpp_auth_enabled,
         xmpp_cfg.path_to_ca_cert = xmpp_ca_cert;
     }
 
+    error_code ec;
+    IpAddress xmpp_ip_address = address::from_string(Dns::GetSelfIp(), ec);
+    if (ec) {
+        LOG(ERROR, "Xmpp IP Address:" << Dns::GetSelfIp() <<
+                   " conversion error:" << ec.message());
+        exit(1);
+    }
+
     // Create XmppServer
     XmppServer *server = new XmppServer(Dns::GetEventManager(),
                                         Dns::GetHostName(), &xmpp_cfg);
-    if (!server->Initialize(port, false)) {
+    if (!server->Initialize(port, false, xmpp_ip_address)) {
         return false;
     }
     Dns::SetXmppServer(server);
 
-    DnsAgentXmppChannelManager *agent_xmpp_mgr = 
+    DnsAgentXmppChannelManager *agent_xmpp_mgr =
                         new DnsAgentXmppChannelManager(server);
     Dns::SetAgentXmppChannelManager(agent_xmpp_mgr);
     return true;
