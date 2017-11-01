@@ -366,6 +366,28 @@ class TestBgp(STTestCase, VerifyBgp):
         self.assertEqual(router1_obj.get_bgp_router_parameters().identifier,
                          '10.0.0.252')
 
+        # verify ref from vmi to bgp-router is created
+        port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
+        self.assertEqual(port_obj_updated.bgp_router_refs[0]['to'],
+                         router1_obj.fq_name)
+
+        # remove bgp-router ref from vmi
+        self._vnc_lib.ref_update(obj_uuid=port_obj_updated.uuid,
+                                 obj_type='virtual_machine_interface',
+                                 ref_uuid=router1_obj.uuid,
+                                 ref_fq_name=router1_obj.fq_name,
+                                 ref_type='bgp-router',
+                                 operation='DELETE')
+        port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
+        self.assertIsNone(port_obj_updated.get_bgp_router_refs())
+
+        # check bgp-router ref in vmi is restored during reinit
+        config_db.BgpAsAServiceST._dict = {}
+        config_db.BgpAsAServiceST.reinit()
+        port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
+        self.assertEqual(port_obj_updated.bgp_router_refs[0]['to'],
+                         router1_obj.fq_name)
+
         self.check_bgp_peering(server_router_obj, router1_obj, 1)
         self.check_v4_bgp_gateway(router1_name, '10.0.0.254')
         self.check_v6_bgp_gateway(router1_name,
