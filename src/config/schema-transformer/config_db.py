@@ -3245,6 +3245,18 @@ class BgpRouterST(DBBaseST):
                         self._vnc_lib.bgp_as_a_service_update(bgpaas.obj)
                     except NoIdError:
                         pass
+                vmis = self.obj.get_virtual_machine_interface_back_refs() or []
+                for vmi in vmis:
+                    try:
+                        # remove bgp-router ref from vmi
+                        self._vnc_lib.ref_update(obj_uuid=vmi['uuid'],
+                                                 obj_type='virtual_machine_interface',
+                                                 ref_uuid=self.obj.uuid,
+                                                 ref_fq_name=self.obj.fq_name,
+                                                 ref_type='bgp-router',
+                                                 operation='DELETE')
+                    except NoIdError:
+                        pass
                 try:
                     self._vnc_lib.bgp_router_delete(id=self.obj.uuid)
                     self.delete(self.name)
@@ -3422,6 +3434,15 @@ class BgpAsAServiceST(DBBaseST):
                 for vmi in self.virtual_machine_interfaces:
                     if vmi.split(':')[-1] == bgpr.obj.name:
                         self.bgpaas_clients[vmi] = bgpr.obj.get_fq_name_str()
+                        vmi_obj = VirtualMachineInterfaceST.get(vmi).obj
+                        # add bgp-router ref in vmi if do not exists
+                        if vmi_obj.get_bgp_router_refs() is None:
+                            self._vnc_lib.ref_update(obj_uuid=vmi_obj.uuid,
+                                                     obj_type='virtual_machine_interface',
+                                                     ref_uuid=bgpr.obj.uuid,
+                                                     ref_type='bgp-router',
+                                                     ref_fq_name=bgpr.obj.fq_name,
+                                                     operation='ADD')
                         break
     # end set_bgp_clients
 
@@ -3512,7 +3533,14 @@ class BgpAsAServiceST(DBBaseST):
             bgp_router.set_bgp_router(server_router, self.peering_attribs)
             update = True
         if create:
-            self._vnc_lib.bgp_router_create(bgp_router)
+            bgp_router_id = self._vnc_lib.bgp_router_create(bgp_router)
+            #add bgp_router ref to vmi
+            self._vnc_lib.ref_update(obj_uuid=vmi.uuid,
+                                     obj_type='virtual_machine_interface',
+                                     ref_uuid=bgp_router_id,
+                                     ref_type='bgp_router',
+                                     ref_fq_name=bgp_router.fq_name,
+                                     operation='ADD')
             self.obj.add_bgp_router(bgp_router)
             self._vnc_lib.bgp_as_a_service_update(self.obj)
             bgpr = BgpRouterST.locate(router_fq_name)
