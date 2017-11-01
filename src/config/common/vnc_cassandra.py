@@ -615,17 +615,13 @@ class VncCassandraClient(object):
 
             for cf_name in cf_dict:
                 cf_kwargs = cf_dict[cf_name].get('cf_args', {})
-                try:
-                    self._cf_dict[cf_name] = ColumnFamily(
-                        pool, cf_name, read_consistency_level=rd_consistency,
-                        write_consistency_level=wr_consistency,
-                        dict_class=dict,
-                        **cf_kwargs)
-                except pycassa.NotFoundException:
-                    if cf_dict in self._rw_keyspaces.values():
-                        raise
-                    self._cf_dict[cf_name] = {}
-                    continue
+                self._cf_dict[cf_name] = ColumnFamily(
+                    pool,
+                    cf_name,
+                    read_consistency_level=rd_consistency,
+                    write_consistency_level=wr_consistency,
+                    dict_class=dict,
+                    **cf_kwargs)
 
         ConnectionState.update(conn_type = ConnType.DATABASE,
             name = 'Cassandra', status = ConnectionStatus.UP, message = '',
