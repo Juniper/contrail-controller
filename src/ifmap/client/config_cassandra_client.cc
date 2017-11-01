@@ -86,7 +86,7 @@ ConfigCassandraClient::~ConfigCassandraClient() {
 }
 
 void ConfigCassandraClient::InitDatabase() {
-    HandleCassandraConnectionStatus(false);
+    HandleCassandraConnectionStatus(false, true);
     while (true) {
         if (!dbif_->Db_Init()) {
             CONFIG_CASS_CLIENT_DEBUG(ConfigCassInitErrorMessage,
@@ -617,9 +617,10 @@ void ConfigCassandraClient::GetConnectionInfo(ConfigDBConnInfo &status) const {
     return;
 }
 
-void ConfigCassandraClient::HandleCassandraConnectionStatus(bool success) {
+void ConfigCassandraClient::HandleCassandraConnectionStatus(bool success,
+                                                            bool force_update) {
     bool previous_status = cassandra_connection_up_.fetch_and_store(success);
-    if (previous_status == success) {
+    if ((previous_status == success) && !force_update) {
         return;
     }
 

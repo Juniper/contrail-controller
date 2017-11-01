@@ -34,11 +34,16 @@ typedef boost::function<void (const std::vector<ConnectionInfo> &,
     ProcessState::type &, std::string &)> ProcessStateFn;
 
 typedef std::pair<std::string, std::string> ConnectionTypeName;
+void FindUnexpectedConnections(
+    const std::vector<ConnectionInfo> &cinfos,
+    const std::vector<ConnectionTypeName> &expected_connections,
+    std::vector<ConnectionInfo> &unexpected_cinfos);
 void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
     ProcessState::type &state, std::string &message,
     const std::vector<ConnectionTypeName> &expected_connections);
 void GetConnectionInfoMessage(const std::vector<ConnectionInfo> &cinfos,
     const std::vector<ConnectionTypeName> &expected_connections,
+    const std::vector<ConnectionInfo> &unexpected_cinfos,
     std::string &message);
 
 // ConnectionState
