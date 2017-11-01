@@ -89,8 +89,8 @@ void Options::Initialize(EventManager &evm,
              opt::value<uint16_t>()->default_value(default_bgp_port),
              "BGP listener port")
         ("DEFAULT.collectors",
-           opt::value<vector<string> >()->default_value(
-               default_collector_server_list_, "127.0.0.1:8086"),
+             opt::value<vector<string> >()->default_value(
+             default_collector_server_list_, "127.0.0.1:8086"),
              "Collector server list")
 
         ("DEFAULT.gr_helper_bgp_disable",

@@ -253,34 +253,37 @@ void BgpPeerTest::BindLocalEndpoint(BgpSession *session) {
     boost::system::error_code err;
     int local_port = 10000;
     ip::tcp::endpoint local_endpoint;
-    local_endpoint.address(ip::address::from_string("127.0.0.1", err));
+    local_endpoint = session->socket()->local_endpoint();
 
-    //
-    // Try random port numbers until we can successfully bind.
-    //
-    while (true) {
-        local_port += 1 + (rand() % 100);
-        local_endpoint.port(local_port);
-        session->socket()->bind(local_endpoint, err);
-        if (!err) break;
-        BGP_DEBUG_UT("Bind failure, will retry with a different port: " <<
-            err.message());
-    }
 
-    if (err) {
-        BGP_WARN_UT("Bind failure: " << err.message());
-        return;
-    } else {
-        BGP_DEBUG_UT("BindLocalEndpoint():bind successful, local port  "
-            << local_port);
+    if (local_endpoint.address() == Ip4Address(0)) {
+        //
+        // Try random port numbers until we can successfully bind.
+        //
+        local_endpoint.address(ip::address::from_string("127.0.0.1", err));
+        while (true) {
+            local_port += 1 + (rand() % 100);
+            local_endpoint.port(local_port);
+            session->socket()->bind(local_endpoint, err);
+            if (!err) break;
+            BGP_DEBUG_UT("Bind failure, will retry with a different port: " <<
+                err.message());
+        }
+
+        if (err) {
+            BGP_WARN_UT("Bind failure: " << err.message());
+            return;
+        } else {
+            BGP_DEBUG_UT("BindLocalEndpoint():bind successful, local port  "
+                << local_port);
+        }
     }
 
     //
     // Using local end of the tcp connection as key, update the global peer
     // map structure, which the server side looks up.
     BgpPeerKey peer_key;
-    peer_key.endpoint.address(
-        ip::address::from_string("127.0.0.1", err));
+    peer_key.endpoint.address(local_endpoint.address());
 
     // Check if we need to map to source-port only lookup (for BGPaas Clients)
     local_port = static_cast<BgpServerTest *>(server())->source_port();
