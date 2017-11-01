@@ -16,12 +16,13 @@
 #include "io/io_log.h"
 #include "io/io_utils.h"
 
+using boost::asio::ip::address;
+using boost::asio::ip::tcp;
 using boost::asio::placeholders::error;
 using boost::asio::socket_base;
 using boost::bind;
 using boost::system::error_code;
 
-using boost::asio::ip::tcp;
 using boost::asio::socket_base;
 using std::ostringstream;
 using std::string;
@@ -55,15 +56,24 @@ void TcpServer::ResetAcceptor() {
 }
 
 bool TcpServer::Initialize(unsigned short port) {
+    tcp::endpoint localaddr(tcp::v4(), port);
+    return InitializeInternal(localaddr);
+}
+
+bool TcpServer::Initialize(unsigned short port, const IpAddress &host_ip) {
+    tcp::endpoint localaddr(host_ip, port);
+    return InitializeInternal(localaddr);
+}
+
+bool TcpServer::InitializeInternal(tcp::endpoint localaddr) {
     acceptor_.reset(new tcp::acceptor(*evm_->io_service()));
     if (!acceptor_) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "Cannot create acceptor");
         return false;
     }
 
-    tcp::endpoint localaddr(tcp::v4(), port);
     error_code ec;
-    acceptor_->open(localaddr.protocol(), ec);
+    acceptor_->open(tcp::v4(), ec);
     if (ec) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP open: " << ec.message());
         ResetAcceptor();
@@ -80,8 +90,8 @@ bool TcpServer::Initialize(unsigned short port) {
 
     acceptor_->bind(localaddr, ec);
     if (ec) {
-        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP bind(" << port << "): "
-                                               << ec.message());
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP bind(" << localaddr.address() << 
+                             ":" << localaddr.port() << "): " << ec.message());
         ResetAcceptor();
         return false;
     }
@@ -101,8 +111,8 @@ bool TcpServer::Initialize(unsigned short port) {
 
     acceptor_->listen(socket_base::max_connections, ec);
     if (ec) {
-        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP listen(" << port << "): "
-                                                   << ec.message());
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP listen(" << localaddr.port() << 
+                             "): " << ec.message());
         ResetAcceptor();
         return false;
     }

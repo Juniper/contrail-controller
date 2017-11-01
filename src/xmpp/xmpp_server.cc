@@ -263,6 +263,11 @@ bool XmppServer::Initialize(short port, bool logUVE) {
     return TcpServer::Initialize(port);
 }
 
+bool XmppServer::Initialize(short port, bool logUVE, const IpAddress& ip) {
+    log_uve_ = logUVE;
+    return TcpServer::Initialize(port, ip);
+}
+
 //
 // Can be removed after Shutdown is renamed to ManagedDelete.
 //
