@@ -51,6 +51,7 @@ public:
     virtual TcpSession *CreateSession();
     virtual bool Initialize(short port);
     virtual bool Initialize(short port, bool logUVE);
+    virtual bool Initialize(short port, bool logUVE, const IpAddress &ip);
     void SessionShutdown();
     bool MayDelete() const;
     void Shutdown();
