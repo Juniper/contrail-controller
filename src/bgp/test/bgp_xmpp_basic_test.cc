@@ -22,6 +22,7 @@
 #include "xmpp/xmpp_server.h"
 #include "xmpp/xmpp_state_machine.h"
 
+using namespace boost::asio::ip;
 using boost::assign::list_of;
 using boost::system::error_code;
 using std::cout;
@@ -109,7 +110,7 @@ protected:
         auth_enabled_(false) {
     }
 
-    virtual void SetUp() {
+    virtual void SetUp(bool xmpp_listener) {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
         bs_x_->session_manager()->Initialize(0);
         LOG(DEBUG, "Created BGP server at port: " <<
@@ -131,9 +132,20 @@ protected:
             xs_x_ = new XmppServer(&evm_,
                         test::XmppDocumentMock::kControlNodeJID);
         }
-        xs_x_->Initialize(0, false);
-        LOG(DEBUG, "Created XMPP server at port: " <<
-            xs_x_->GetPort());
+
+        xs_addr_to_connect_ = "0.0.0.0";
+        if (!xmpp_listener) {
+            xs_x_->Initialize(0, false);
+            LOG(DEBUG, "Created XMPP server at port: " <<
+                xs_x_->GetPort());
+        } else {
+            xs_addr_to_connect_ = "127.0.0.44";
+            error_code ec;
+            IpAddress xmpp_ip_address = address::from_string(xs_addr_to_connect_, ec);
+            xs_x_->Initialize(0, false, xmpp_ip_address);
+            LOG(DEBUG, "Created XMPP server at " << xs_addr_to_connect_ << ": " <<
+                xs_x_->GetPort());
+        }
         xltm_x_ =
             dynamic_cast<XmppLifetimeManagerTest *>(xs_x_->lifetime_manager());
         assert(xltm_x_ != NULL);
@@ -160,15 +172,16 @@ protected:
     }
 
     void CreateAgents() {
+
         agent_a_.reset(
             new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
-                agent_a_addr_, "127.0.0.1", auth_enabled_));
+                agent_a_addr_, xs_addr_to_connect_, auth_enabled_));
         agent_b_.reset(
             new test::NetworkAgentMock(&evm_, "agent-b", xs_x_->GetPort(),
-                agent_b_addr_, "127.0.0.1", auth_enabled_));
+                agent_b_addr_, xs_addr_to_connect_, auth_enabled_));
         agent_c_.reset(
             new test::NetworkAgentMock(&evm_, "agent-c", xs_x_->GetPort(),
-                agent_c_addr_, "127.0.0.1", auth_enabled_));
+                agent_c_addr_, xs_addr_to_connect_, auth_enabled_));
     }
 
     void DestroyAgents() {
@@ -319,6 +332,7 @@ protected:
     XmppServer *xs_x_;
     XmppLifetimeManagerTest *xltm_x_;
     bool auth_enabled_;
+    string xs_addr_to_connect_;
     string agent_a_addr_;
     string agent_b_addr_;
     string agent_c_addr_;
@@ -339,10 +353,11 @@ protected:
 bool BgpXmppBasicTest::validate_done_ = false;
 
 // Parameterize shared vs unique IP for each agent.
-typedef std::tr1::tuple<bool, bool> TestParams2;
+// Parameterize third parameter for xmpp listener ip.
+typedef std::tr1::tuple<bool, bool, bool> TestParams3;
 
 class BgpXmppBasicParamTest : public BgpXmppBasicTest,
-    public ::testing::WithParamInterface<TestParams2> {
+    public ::testing::WithParamInterface<TestParams3> {
 protected:
     virtual void SetUp() {
         bool agent_address_same_ = std::tr1::get<0>(GetParam());
@@ -360,7 +375,7 @@ protected:
             agent_b_addr_ = "127.0.0.12";
             agent_c_addr_ = "127.0.0.13";
         }
-        BgpXmppBasicTest::SetUp();
+        BgpXmppBasicTest::SetUp(std::tr1::get<2>(GetParam()));
     }
 
     virtual void TearDown() {
@@ -1314,13 +1329,13 @@ TEST_P(BgpXmppBasicParamTest, BackToBackOpen) {
                     _2, true));
     agent_a_.reset(
             new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
-            agent_a_addr_, "127.0.0.1", auth_enabled_));
+            agent_a_addr_, xs_addr_to_connect_, auth_enabled_));
     TASK_UTIL_EXPECT_EQ(1, xmpp_state_machines_.size());
     agent_a_->Delete();
 
     agent_a_.reset(
             new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
-            agent_a_addr_, "127.0.0.1", auth_enabled_));
+            agent_a_addr_, xs_addr_to_connect_, auth_enabled_));
     TASK_UTIL_EXPECT_EQ(2, xmpp_state_machines_.size());
     agent_a_->Delete();
 
@@ -1330,7 +1345,7 @@ TEST_P(BgpXmppBasicParamTest, BackToBackOpen) {
 
     agent_a_.reset(
             new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
-            agent_a_addr_, "127.0.0.1", auth_enabled_));
+            agent_a_addr_, xs_addr_to_connect_, auth_enabled_));
     TASK_UTIL_EXPECT_EQ(3, xmpp_state_machines_.size());
 
     // Enable the state machine queue now.
@@ -1348,7 +1363,7 @@ TEST_P(BgpXmppBasicParamTest, BackToBackOpen) {
 // Parameterize shared vs unique IP for each agent.
 
 class BgpXmppBasicParamTest2 : public BgpXmppBasicTest,
-    public ::testing::WithParamInterface<TestParams2> {
+    public ::testing::WithParamInterface<TestParams3> {
 protected:
     virtual void SetUp() {
         agent_address_same_ = std::tr1::get<0>(GetParam());
@@ -1367,7 +1382,7 @@ protected:
             agent_x2_addr_ = "127.0.0.22";
             agent_x3_addr_ = "127.0.0.23";
         }
-        BgpXmppBasicTest::SetUp();
+        BgpXmppBasicTest::SetUp(std::tr1::get<2>(GetParam()));
     }
 
     virtual void TearDown() {
@@ -1377,15 +1392,15 @@ protected:
     void CreateAgents() {
         agent_x1_.reset(
             new test::NetworkAgentMock(&evm_, "agent-x", xs_x_->GetPort(),
-                agent_x1_addr_, "127.0.0.1", auth_enabled_));
+                agent_x1_addr_, xs_addr_to_connect_, auth_enabled_));
         agent_x1_->SessionDown();
         agent_x2_.reset(
             new test::NetworkAgentMock(&evm_, "agent-x", xs_x_->GetPort(),
-                agent_x2_addr_, "127.0.0.1", auth_enabled_));
+                agent_x2_addr_, xs_addr_to_connect_, auth_enabled_));
         agent_x2_->SessionDown();
         agent_x3_.reset(
             new test::NetworkAgentMock(&evm_, "agent-x", xs_x_->GetPort(),
-                agent_x3_addr_, "127.0.0.1", auth_enabled_));
+                agent_x3_addr_, xs_addr_to_connect_, auth_enabled_));
         agent_x3_->SessionDown();
     }
 
@@ -1456,10 +1471,10 @@ TEST_P(BgpXmppBasicParamTest2, DuplicateEndpointName2) {
 }
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpXmppBasicParamTest,
-     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+     ::testing::Combine(::testing::Bool(), ::testing::Bool(), ::testing::Bool()));
 
 INSTANTIATE_TEST_CASE_P(Instance, BgpXmppBasicParamTest2,
-     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
+     ::testing::Combine(::testing::Bool(), ::testing::Bool(), ::testing::Bool()));
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
