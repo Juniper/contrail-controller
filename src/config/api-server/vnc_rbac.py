@@ -141,9 +141,6 @@ class VncRbac(object):
             rules = self.get_rbac_rules_object('project', project_id)
             rule_list.extend(rules)
 
-        rules = self.get_rbac_rules_object('project', project_id)
-        rule_list.extend(rules)
-
         # [{u'rule_object': u'*', u'rule_perms': [{u'role_crud': u'CRUD', u'role_name': u'admin'}], u'rule_field': None}]
 
         # collapse of rules might be needed as same object/field might be present in
