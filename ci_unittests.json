@@ -145,8 +145,8 @@
             "controller/src/schema",
             "controller/src/xml",
             "tools/generateds",
-            "tools/sandesh/compiler",
-            "tools/sandesh/library"
+            "src/contrail-common/sandesh/compiler",
+            "src/contrail-common/sandesh/library"
         ],
         "scons_test_targets" : [
             "controller/src/base:test",
