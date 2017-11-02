@@ -554,7 +554,7 @@ protected:
     static int validate_done_;
 };
 
-TEST_F(BgpMvpnTwoControllerTest, RedSenderGreenReceiver) {
+TEST_F(BgpMvpnTwoControllerTest, RedSenderRedReceiver) {
     // Register agents and add a source active mvpn route
     Subscribe("red", 1);
     Subscribe("green", 2);

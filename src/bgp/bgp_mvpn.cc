@@ -105,6 +105,9 @@ const LifetimeActor *MvpnProjectManager::deleter() const {
 // Create MvpnProjectManagerPartitions and register with the ErmVpnTable to
 // get route change notifications.
 void MvpnProjectManager::Initialize() {
+    if (!MvpnManager::IsEnabled())
+        return;
+
     AllocPartitions();
 
     listener_id_ = table_->Register(
@@ -543,15 +546,15 @@ bool MvpnManagerPartition::GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
 // Initialize MvpnManager by allcating one MvpnManagerPartition for each DB
 // partition, and register a route listener for the MvpnTable.
 void MvpnManager::Initialize() {
+    if (!IsEnabled())
+        return;
+
     assert(!table_->IsMaster());
     AllocPartitions();
 
     listener_id_ = table_->Register(
         boost::bind(&MvpnManager::RouteListener, this, _1, _2),
         "MvpnManager");
-
-    if (!IsEnabled())
-        return;
 
     identifier_listener_id_ =
         table_->server()->RegisterIdentifierUpdateCallback(boost::bind(
