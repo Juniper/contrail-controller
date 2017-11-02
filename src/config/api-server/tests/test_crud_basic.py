@@ -660,6 +660,24 @@ class TestCrud(test_case.ApiServerTestCase):
             data=json.dumps(vn_body))
     # end test_create_using_rest_api
 
+    def test_create_with_invalid_fqname(self):
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+        url = 'http://%s:%s/virtual-networks' % (listen_ip, listen_port)
+        # VN body with invalid fq name
+        vn_body = {
+            'virtual-network': {
+                'fq_name': ['default-domain',
+                            'default-project'],
+                'parent_type': 'project',
+            }}
+        resp = requests.post(
+                url,
+                headers={'Content-type': 'application/json; charset="UTF-8"'},
+                data=json.dumps(vn_body))
+        self.assertEqual(400, resp.status_code)
+    # end test_create_with_invalid_fqname
+
     def test_user_defined_log_statistics_crud(self):
         gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
                                        self._vnc_lib))
