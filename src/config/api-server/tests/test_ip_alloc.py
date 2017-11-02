@@ -2173,6 +2173,19 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         except cfgm_common.exceptions.BadRequest:
             logger.debug('Can not Delete allocation pool, ip-addr in use')
 
+        # try creating another vrouter but with already used allocation-pool
+        # create a vr_ipam_type2 with same allocation pool as in vr_ipam_type1
+        # vrouter create should fail in exception
+        vr1_uuid = vr1.__dict__['_uuid']
+        vr2 = VirtualRouter('vrouter2', global_sys_config)
+        vr_ipam_type2 = VirtualRouterNetworkIpamType(vr_pool_list1, [])
+        vr_ipam_type2.set_allocation_pools(vr_pool_list1)
+        vr2.add_network_ipam(ipam0, vr_ipam_type2)
+        with ExpectedException(cfgm_common.exceptions.BadRequest,
+            'vrouter allocation-pool start:13.1.1.24, end:13.1.1.25 is'
+            ' used in other vrouter:%s' %(vr1_uuid)) as e:
+            self._vnc_lib.virtual_router_create(vr2)
+
         #cleanup
         self._vnc_lib.instance_ip_delete(id=ipv4_id5)
         self._vnc_lib.instance_ip_delete(id=ipv4_id4)
