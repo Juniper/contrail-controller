@@ -3015,18 +3015,7 @@ class VncApiServer(object):
                          exclude_hrefs=False, pagination=None):
         resource_type, r_class = self._validate_resource_type(obj_type)
 
-        is_admin = False
-        if 'HTTP_X_USER_TOKEN' in get_request().environ:
-            ok, result = self._auth_svc.validate_user_token()
-            if not ok:
-                code, msg = result
-                self.config_object_error(None, None, obj_type,
-                                         'list_coolection', msg)
-                raise cfgm_common.exceptions.HttpError(code, msg)
-            token_info = self.is_admin_request()
-            is_admin = True
-        else:
-            is_admin = self.is_admin_request()
+        is_admin = self.is_admin_request()
 
         if is_admin:
             field_names = req_fields
