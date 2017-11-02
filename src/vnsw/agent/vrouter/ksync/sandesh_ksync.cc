@@ -32,6 +32,11 @@ void vr_vrf_stats_req::Process(SandeshContext *context) {
     ioc->VrfStatsMsgHandler(this);
 }
 
+void vr_hugepage_config::Process(SandeshContext *context) {
+    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+    ioc->VrouterHugePageHandler(this);
+}
+
 void vrouter_ops::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->VrouterOpsMsgHandler(this);
@@ -126,6 +131,36 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 
 void KSyncSandeshContext::IfMsgHandler(vr_interface_req *r) {
     context_marker_ = r->get_vifr_idx();
+}
+
+void KSyncSandeshContext::VrouterHugePageHandler(vr_hugepage_config *r) {
+    std::string message;
+
+    switch(r->get_vhp_resp()) {
+        case VR_HPAGE_CFG_RESP_HPAGE_SUCCESS:
+            message = "Huge pages set successfully";
+            break;
+        case VR_HPAGE_CFG_RESP_MEM_FAILURE:
+            message = "ERROR !! Failed to set huge pages and vrouter couldnt allocate memory !!";
+            break;
+        case VR_HPAGE_CFG_RESP_INVALID_ARG_MEM_INITED:
+            message = "Invalid huge pages argument, vrouter using allocated memory (not huge pages)";
+            break;
+        case VR_HPAGE_CFG_RESP_HPAGE_FAILURE_MEM_INITED:
+            message = "Failed to set huge pages, vrouter using allocated memory (not huge pages)";
+            break;
+        case VR_HPAGE_CFG_RESP_MEM_ALREADY_INITED:
+            message = "Failed to set huge pages, vrouter using already allocated memory (not huge pages)";
+            break;
+        case VR_HPAGE_CFG_RESP_HPAGE_PARTIAL_SUCCESS:
+            message = "Not all huge pages are successfully set, vrouter using allocated memory (not huge pages)";
+            break;
+        default:
+            message = "Failed to set huge pages, invalid vrouter response";
+            break;
+    }
+
+    LOG(DEBUG, message);
 }
 
 void KSyncSandeshContext::VrouterOpsMsgHandler(vrouter_ops *r) {
