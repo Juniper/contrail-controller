@@ -1858,6 +1858,11 @@ class DBInterface(object):
             fip_obj.parent_uuid = fip_pool_obj.uuid
 
             proj_obj = self._get_project_obj(fip_q)
+            perms2 = PermType2()
+            perms2.owner = proj_obj.uuid
+            perms2.owner_access = PERMS_RWX
+            fip_obj.set_perms2(perms2)
+
             fip_obj.set_project(proj_obj)
         else:  # UPDATE
             try:
