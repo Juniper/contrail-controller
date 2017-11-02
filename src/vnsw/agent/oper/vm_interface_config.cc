@@ -644,8 +644,7 @@ static void BuildSgList(VmInterfaceConfigData *data, IFMapNode *node) {
         (node->GetObject());
     assert(sg_cfg);
     autogen::IdPermsType id_perms = sg_cfg->id_perms();
-    uint32_t sg_id = SgTable::kInvalidSgId;
-    stringToInteger(sg_cfg->id(), sg_id);
+    uint32_t sg_id = sg_cfg->id();
     if (sg_id != SgTable::kInvalidSgId) {
         uuid sg_uuid = nil_uuid();
         CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,

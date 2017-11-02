@@ -40,7 +40,7 @@ DBEntryBase::KeyPtr SgEntry::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-void SgEntry::SetKey(const DBRequestKey *key) { 
+void SgEntry::SetKey(const DBRequestKey *key) {
     const SgKey *k = static_cast<const SgKey *>(key);
     sg_uuid_ = k->sg_uuid_;
 }
@@ -139,8 +139,7 @@ bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req,
     assert(cfg);
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    uint32_t sg_id;
-    stringToInteger(cfg->id(), sg_id);
+    uint32_t sg_id = cfg->id();
     if (sg_id == SgTable::kInvalidSgId) {
         OPER_TRACE(Sg, "Ignore SG id 0", UuidToString(u));
         return false;
@@ -153,7 +152,7 @@ bool SgTable::ProcessConfig(IFMapNode *node, DBRequest &req,
     uuid ingress_acl_uuid = nil_uuid();
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph()); 
+         node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (agent()->config_manager()->SkipNode(adj_node)) {
@@ -206,7 +205,7 @@ bool SgEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     return false;
 }
 
-void SgEntry::SendObjectLog(SandeshTraceBufferPtr buf, 
+void SgEntry::SendObjectLog(SandeshTraceBufferPtr buf,
                             AgentLogEvent::type event) const {
     SgObjectLogInfo info;
 

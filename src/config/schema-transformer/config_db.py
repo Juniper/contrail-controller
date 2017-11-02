@@ -53,7 +53,6 @@ _PROTO_STR_TO_NUM_IPV6 = {
     'any': 'any',
 }
 
-SGID_MIN_ALLOC = common.SGID_MIN_ALLOC
 RULE_IMPLICIT_ALLOW_UUID = common.RULE_IMPLICIT_ALLOW_UUID
 RULE_IMPLICIT_DENY_UUID = common.RULE_IMPLICIT_DENY_UUID
 
@@ -355,16 +354,7 @@ class VirtualNetworkST(DBBaseST):
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
         self.allow_transit = prop.allow_transit
-        # TODO(ethuleau): We keep the virtual network and security group ID
-        #                 allocation in schema and in the vnc API for one
-        #                 release overlap to prevent any upgrade issue. So the
-        #                 following code need to be remove in release (3.2 + 1)
-        nid = self.obj.get_virtual_network_network_id()
-        if nid is None:
-            nid = prop.network_id or self._object_db.alloc_vn_id(name) + 1
-            self.obj.set_virtual_network_network_id(nid)
-            self._vnc_lib.virtual_network_update(self.obj)
-        elif self.obj.get_fq_name() == common.LINK_LOCAL_VN_FQ_NAME:
+        if self.obj.get_fq_name() == common.LINK_LOCAL_VN_FQ_NAME:
             default_ri_fq_name = common.LINK_LOCAL_RI_FQ_NAME
         else:
             default_ri_fq_name = self.obj.fq_name + [self.obj.name]
@@ -528,17 +518,6 @@ class VirtualNetworkST(DBBaseST):
             self._vnc_lib.access_control_list_delete(id=self.acl.uuid)
         if self.dynamic_acl:
             self._vnc_lib.access_control_list_delete(id=self.dynamic_acl.uuid)
-        # TODO(ethuleau): We keep the virtual network and security group ID
-        #                 allocation in schema and in the vnc API for one
-        #                 release overlap to prevent any upgrade issue. So the
-        #                 following code need to be remove in release (3.2 + 1)
-        nid = self.obj.get_virtual_network_network_id()
-        if nid is None:
-            props = self.obj.get_virtual_network_properties()
-            if props:
-                nid = props.network_id
-        if nid:
-            self._object_db.free_vn_id(nid - 1)
 
         self.update_multiple_refs('route_table', {})
         self.update_multiple_refs('bgpvpn', {})
@@ -1826,13 +1805,6 @@ class SecurityGroupST(DBBaseST):
 
     def update(self, obj=None):
         changed = self.update_vnc_obj(obj)
-        # TODO(ethuleau): We keep the virtual network and security group ID
-        #                 allocation in schema and in the vnc API for one
-        #                 release overlap to prevent any upgrade issue. So the
-        #                 following code need to be remove in release (3.2 + 1)
-        if ('configured_security_group_id' in changed or
-                self.obj.get_security_group_id() is None):
-            self.set_configured_security_group_id()
         if changed:
             self.process_referred_sgs()
         return changed
@@ -1872,58 +1844,11 @@ class SecurityGroupST(DBBaseST):
         self.referred_sgs = sg_refer_set
     # end process_referred_sgs
 
-    # TODO(ethuleau): We keep the virtual network and security group ID
-    #                 allocation in schema and in the vnc API for one
-    #                 release overlap to prevent any upgrade issue. So the
-    #                 following code need to be remove in release (3.2 + 1)
-    def set_configured_security_group_id(self):
-        sg_id = self.obj.get_security_group_id()
-        config_id = self.configured_security_group_id or 0
-        if sg_id is not None:
-            sg_id = int(sg_id)
-        if config_id:
-            if sg_id is not None:
-                if sg_id > SGID_MIN_ALLOC:
-                    self._object_db.free_sg_id(sg_id - SGID_MIN_ALLOC)
-                else:
-                    if self.name == self._object_db.get_sg_from_id(sg_id):
-                        self._object_db.free_sg_id(sg_id)
-            self.obj.set_security_group_id(str(config_id))
-        else:
-            do_alloc = False
-            if sg_id is not None:
-                if sg_id < SGID_MIN_ALLOC:
-                    if self.name == self._object_db.get_sg_from_id(sg_id):
-                        self.obj.set_security_group_id(
-                            str(sg_id + SGID_MIN_ALLOC))
-                    else:
-                        do_alloc = True
-            else:
-                do_alloc = True
-            if do_alloc:
-                sg_id_num = self._object_db.alloc_sg_id(self.name)
-                self.obj.set_security_group_id(str(sg_id_num + SGID_MIN_ALLOC))
-        if sg_id != int(self.obj.get_security_group_id()):
-            self._vnc_lib.security_group_update(self.obj)
-        self.sg_id = self.obj.get_security_group_id()
-        return True
-    # end set_configured_security_group_id
-
     def delete_obj(self):
         if self.ingress_acl:
             self._vnc_lib.access_control_list_delete(id=self.ingress_acl.uuid)
         if self.egress_acl:
             self._vnc_lib.access_control_list_delete(id=self.egress_acl.uuid)
-        # TODO(ethuleau): We keep the virtual network and security group ID
-        #                 allocation in schema and in the vnc API for one
-        #                 release overlap to prevent any upgrade issue. So the
-        #                 following code need to be remove in release (3.2 + 1)
-        sg_id = self.obj.get_security_group_id()
-        if sg_id is not None and not self.configured_security_group_id:
-            if sg_id < SGID_MIN_ALLOC:
-                self._object_db.free_sg_id(sg_id)
-            else:
-                self._object_db.free_sg_id(sg_id-SGID_MIN_ALLOC)
         self.security_group_entries = None
         self.process_referred_sgs()
     # end delete_obj
