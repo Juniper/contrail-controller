@@ -436,6 +436,13 @@ public:
         return restart_restore_audit_timeout_;
     }
 
+    const std::string& huge_page_file_1G(uint16_t index) const {
+        return huge_page_file_1G_[index];
+    }
+    const std::string& huge_page_file_2M(uint16_t index) const {
+        return huge_page_file_2M_[index];
+    }
+
     // pkt0 tx buffer
     uint32_t pkt0_tx_buffer_count() const { return pkt0_tx_buffer_count_; }
     void set_pkt0_tx_buffer_count(uint32_t val) { pkt0_tx_buffer_count_ = val; }
@@ -719,6 +726,9 @@ private:
     bool restart_restore_enable_;
     // Config restore audit timeout in msec
     uint64_t restart_restore_audit_timeout_;
+
+    std::vector<std::string> huge_page_file_1G_;
+    std::vector<std::string> huge_page_file_2M_;
 
     std::string ksync_thread_cpu_pin_policy_;
     // TBB related
