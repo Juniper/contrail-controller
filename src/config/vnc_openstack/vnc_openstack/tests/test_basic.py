@@ -12,7 +12,7 @@ from cfgm_common.exceptions import NoIdError
 from cfgm_common import PERMS_RWX, PERMS_NONE, PERMS_RX
 from test_utils import *
 import test_common
-
+import requests
 import test_case
 
 _IFACE_ROUTE_TABLE_NAME_PREFIX = 'NEUTRON_IFACE_RT'
@@ -1595,3 +1595,61 @@ class TestAuthenticatedAccess(test_case.NeutronBackendTestCase):
         self.assertEqual(self.test_failures, [])
     # end test_post_neutron_checks_auth_token
 # end class TestAuthenticatedAccess
+
+class TestKeystoneCallCount(test_case.NeutronBackendTestCase):
+    test_obj_uuid = None
+    test_failures = []
+    expected_auth_token = ''
+    _api_session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter()
+    _api_session.mount("http://", adapter)
+    _call_count = 0
+    @classmethod
+    def setUpClass(cls):
+        from keystonemiddleware import auth_token
+        class FakeAuthProtocol(object):
+            _test_cls = cls
+            def __init__(self, app, *args, **kwargs):
+                self._app = app
+
+            # end __init__
+            def __call__(self, env, start_response):
+                #Count number of calls made
+                if env.get('HTTP_X_AUTH_TOKEN') == 'abc123':
+                    self._test_cls._call_count = self._test_cls._call_count + 1
+                env['HTTP_X_ROLE'] = 'admin'
+                return self._app(env, start_response)
+            # end __call__
+        # end class FakeAuthProtocol
+        super(TestKeystoneCallCount, cls).setUpClass(
+            extra_config_knobs=[
+                ('DEFAULTS', 'auth', 'keystone'),
+                ('DEFAULTS', 'aaa_mode', 'cloud-admin'),
+                ('KEYSTONE', 'admin_user', 'foo'),
+                ('KEYSTONE', 'admin_password', 'bar'),
+                ('KEYSTONE', 'admin_tenant_name', 'baz'),],
+            extra_mocks=[
+                (auth_token, 'AuthProtocol', FakeAuthProtocol),
+                ])
+    # end setupClass
+
+    def test_keystone_call_count(self):
+        test_obj = self._create_test_object()
+        context = {'operation': 'READ',
+                   'user_id': '',
+                   'roles': ''}
+        data = {'fields': None,
+                'id': test_obj.uuid}
+        body = {'context': context, 'data': data}
+        uri = '/neutron/network'
+        url = "http://%s:%s%s" \
+              % (self._vnc_lib._web_host, self._vnc_lib._web_port, uri)
+        headers=self._vnc_lib._headers
+        headers['X_AUTH_TOKEN'] = 'abc123'
+        header = json.dumps(headers)
+        body = json.dumps(body)
+        # currently OP_GET goes through LocalVncApi.
+        TestKeystoneCallCount._api_session.post(url, data=body, headers=headers, verify=False)
+        self.assertEqual(TestKeystoneCallCount._call_count, 1)
+    # end test_keystone_call_count
+# end class TestKeystoneCallCount

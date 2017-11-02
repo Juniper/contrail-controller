@@ -97,8 +97,7 @@ class LocalVncApi(VncApi):
                 q_str = None
 
             if user_token:
-                auth_hdrs = self.api_server_obj.get_auth_headers_from_token(
-                    get_context().request, user_token)
+                auth_hdrs = vnc_cfg_api_server.auth_context.get_auth_hdrs()
             else:
                 auth_hdrs = {}
 

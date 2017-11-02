@@ -27,6 +27,8 @@ from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from vnc_bottle import get_bottle_server
 from cfgm_common import utils as cfgmutils
 from cfgm_common import vnc_greenlets
+import auth_context
+from auth_context import set_auth_context, use_auth_context
 
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE = "/tmp/keystonecertbundle.pem"
@@ -119,8 +121,10 @@ class AuthPostKeystone(object):
         self.app = app
         self.conf = conf
 
+    @use_auth_context
     def __call__(self, env, start_response):
 
+        set_auth_context(env)
         # if rbac is set, skip old admin based MT
         if self.conf['auth_svc']._mt_rbac:
             return self.app(env, start_response)
