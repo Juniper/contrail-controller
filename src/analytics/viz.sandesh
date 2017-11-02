@@ -142,6 +142,10 @@ const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 const string SESSION_TABLE          = "SessionTable"
 const string SESSION_SERIES_TABLE   = "SessionSeriesTable"
 const string SESSION_RECORD_TABLE   = "SessionRecordTable"
+const string SESSION_FWD_TEARDOWN_BYTES = "forward_teardown_bytes"
+const string SESSION_FWD_TEARDOWN_PKTS = "forward_teardown_pkts"
+const string SESSION_REV_TEARDOWN_BYTES = "reverse_teardown_bytes"
+const string SESSION_REV_TEARDOWN_PKTS = "reverse_teardown_pkts"
 const u16 NUM_SESSION_STATS_FIELDS  = 8
 
 const string OVERLAY_TO_UNDERLAY_FLOW_MAP = "OverlayToUnderlayFlowMap"
