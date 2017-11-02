@@ -545,7 +545,44 @@ class TestFw(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=project.uuid)
         with ExpectedException(NoIdError):
             self._vnc_lib.application_policy_set_read(id=default_aps.uuid)
-# end class TestFw
+
+    def test_cannot_delete_project_if_default_aps_is_in_use(self):
+        project = vnc_api.Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        project = self._vnc_lib.project_read(id=project.uuid)
+        default_aps_uuid = project.get_application_policy_sets()[0]['uuid']
+        default_aps = self._vnc_lib.application_policy_set_read(
+            id=default_aps_uuid)
+        fp = FirewallPolicy('firewall-policy-%s' % self.id(),
+                            parent_obj=project)
+        self._vnc_lib.firewall_policy_create(fp)
+        default_aps.add_firewall_policy(fp, FirewallSequence(sequence='1.0'))
+        self._vnc_lib.application_policy_set_update(default_aps)
+
+        with ExpectedException(RefsExistError):
+            self._vnc_lib.project_delete(id=project.uuid)
+
+    def test_can_delete_project_if_default_aps_already_deleted(self):
+        project = vnc_api.Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        project = self._vnc_lib.project_read(id=project.uuid)
+        default_aps_uuid = project.get_application_policy_sets()[0]['uuid']
+        default_aps = self._vnc_lib.application_policy_set_read(
+            id=default_aps_uuid)
+        project.del_application_policy_set(default_aps)
+        self._vnc_lib.project_update(project)
+        self._api_server._db_conn.dbe_delete(
+            'application_policy_set',
+            default_aps_uuid,
+            {'fq_name': default_aps.fq_name},
+        )
+
+        try:
+            self._vnc_lib.project_delete(id=project.uuid)
+        except Exception as e:
+            self.fail("Cannot delete project %s where default APS already "
+                      "removed: %s" % str(e))
+
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()
