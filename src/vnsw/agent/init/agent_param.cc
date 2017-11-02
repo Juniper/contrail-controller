@@ -679,6 +679,10 @@ void AgentParam::ParseRestartArguments
     GetOptValue<bool>(v, restart_restore_enable_, "RESTART.restore_enable");
     GetOptValue<uint64_t>(v, restart_restore_audit_timeout_,
                           "RESTART.restore_audit_timeout");
+    GetOptValue<string>(v, huge_page_flow_file_,
+                        "RESTART.huge_page_vrouter_flow_file");
+    GetOptValue<string>(v, huge_page_bridge_file_,
+                        "RESTART.huge_page_vrouter_bridge_file");
 }
 
 void AgentParam::ParseLlgrArguments
@@ -1314,6 +1318,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         restart_backup_count_(CFG_BACKUP_COUNT),
         restart_restore_enable_(true),
         restart_restore_audit_timeout_(CFG_RESTORE_AUDIT_TIMEOUT),
+        huge_page_flow_file_("/mnt/huge/vrouter_flow"),
+        huge_page_bridge_file_("/mnt/huge/vrouter_bridge"),
         ksync_thread_cpu_pin_policy_(),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
@@ -1475,7 +1481,13 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("RESTART.restore_enable", opt::bool_switch(&restart_restore_enable_)->default_value(true),
          "Enable restore of config and resources from backup files")
         ("RESTART.restore_audit_timeout", opt::value<uint64_t>()->default_value(CFG_RESTORE_AUDIT_TIMEOUT),
-         "Audit time for config/resource read from file (in milli-sec)");
+         "Audit time for config/resource read from file (in milli-sec)")
+        ("RESTART.huge_page_vrouter_flow_file",
+         opt::value<string>()->default_value("/mnt/huge/vrouter_flow"),
+         "Huge page file to be used for flows")
+        ("RESTART.huge_page_vrouter_bridge_file",
+         opt::value<string>()->default_value("/mnt/huge/vrouter_bridge"),
+         "Huge page file to be used for bridge entries, nexthops and other objects");
     options_.add(restart);
     config_file_options_.add(restart);
 

@@ -102,12 +102,18 @@ protected:
         bridge_route_audit_ksync_obj_;
     boost::scoped_ptr<KSyncBridgeMemory> ksync_bridge_memory_;
     virtual void InitFlowMem();
+    void SetHugePages();
     void ResetVRouter(bool run_sync_mode);
     int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
 private:
     void InitVrouterOps(vrouter_ops *v);
     void NetlinkInit();
     void CreateVhostIntf();
+
+    static const int kHugePages = 2;
+    int huge_fd_[kHugePages];
+    void *huge_pages_[kHugePages];
+
     DISALLOW_COPY_AND_ASSIGN(KSync);
 };
 

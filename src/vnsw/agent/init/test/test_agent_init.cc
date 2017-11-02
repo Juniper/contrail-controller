@@ -83,6 +83,9 @@ TEST_F(AgentParamTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.services_queue_limit(), 8192);
     EXPECT_EQ(param.bgpaas_max_shared_sessions(), 4);
 
+    EXPECT_EQ(param.huge_page_flow_file(), "/mnt/huge/vrouter_flow");
+    EXPECT_EQ(param.huge_page_bridge_file(), "/mnt/huge/vrouter_bridge");
+
     // By default, flow-tracing must be enabled
     EXPECT_TRUE(param.flow_trace_enable());
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 2000);
@@ -132,6 +135,9 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.pkt0_tx_buffer_count(), 1000);
     EXPECT_EQ(param.services_queue_limit(), 1024);
     EXPECT_TRUE(param.sandesh_config().disable_object_logs);
+
+    EXPECT_EQ(param.huge_page_flow_file(), "/var/lib/contrail/vrouter_flow");
+    EXPECT_EQ(param.huge_page_bridge_file(), "/var/lib/contrail/vrouter_bridge");
 
     // Logging parameters
     EXPECT_EQ(param.log_files_count(), 5);
