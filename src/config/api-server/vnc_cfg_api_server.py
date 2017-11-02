@@ -342,6 +342,16 @@ class VncApiServer(object):
         return value
     # end _validate_simple_type
 
+    def _validate_fq_name(self, obj_dict):
+        if len(obj_dict['fq_name']) < 3:
+            return (False,
+                    "Invalid fqname: %s, expected: " +
+                    "['domain_name','parent_name', 'name']" % (
+                        obj_dict['fq_name']))
+
+        return True, ""
+    # end _validate_fq_name
+
     def _validate_props_in_request(self, resource_class, obj_dict):
         for prop_name in resource_class.prop_fields:
             prop_field_types = resource_class.prop_field_types[prop_name]
@@ -454,6 +464,11 @@ class VncApiServer(object):
                       %(obj_type, obj_dict)
             err_msg += cfgm_common.utils.detailed_traceback()
             self.config_log(err_msg, level=SandeshLevel.SYS_NOTICE)
+
+        # fqname validator
+        ok, result = self._validate_fq_name(obj_dict)
+        if not ok:
+            raise cfgm_common.exceptions.HttpError(400, result)
 
         # properties validator
         ok, result = self._validate_props_in_request(r_class, obj_dict)
