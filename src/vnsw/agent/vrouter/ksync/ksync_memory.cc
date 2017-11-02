@@ -192,7 +192,7 @@ bool KSyncMemory::AuditProcess() {
         uint32_t idx = list_entry.audit_idx;
         uint32_t gen_id = list_entry.audit_gen_id;
         audit_list_.pop_front();
-
+        DecrementHoldFlowCounter();
         CreateProtoAuditEntry(idx, gen_id);
     }
 
@@ -201,12 +201,14 @@ bool KSyncMemory::AuditProcess() {
     assert(audit_yield_);
     while (count < audit_yield_) {
         if (IsInactiveEntry(audit_idx_, gen_id)) {
+            IncrementHoldFlowCounter();
             audit_list_.push_back(AuditEntry(audit_idx_, gen_id, t));
         }
 
         count++;
         audit_idx_++;
         if (audit_idx_ == table_entries_count_) {
+            UpdateAgentHoldFlowCounter();
             audit_idx_ = 0;
         }
     }
