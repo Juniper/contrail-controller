@@ -290,8 +290,8 @@ CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('uflow.sandesh')
 CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('sflow.sandesh')
 CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('../database/gendb.sandesh')
 CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('../database/cassandra/cql/cql.sandesh')
-CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('#tools/sandesh/library/common/sandesh_uve.sandesh')
-CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('#tools/sandesh/library/common/derived_stats_results.sandesh')
+CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('#src/contrail-common/sandesh/library/common/sandesh_uve.sandesh')
+CollectorDocFiles += AnalyticsEnv.SandeshGenDoc('#src/contrail-common/sandesh/library/common/derived_stats_results.sandesh')
 
 # Please update sandesh/common/vns.sandesh on process name change
 AnalyticsEnv.Alias('install', AnalyticsEnv.InstallAs(

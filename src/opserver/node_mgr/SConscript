@@ -28,7 +28,7 @@ cpuinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh',
 process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh',
                                          'analytics/', False)
 derived_stats_pkg = OpEnv.SandeshGenPy(
-        '#tools/sandesh/library/common/derived_stats_results.sandesh',
+        '#src/contrail-common/sandesh/library/common/derived_stats_results.sandesh',
         'analytics/', False)
 OpEnv.Depends(cpuinfo_pkg, analytics_pkg)
 OpEnv.Depends(process_info_pkg, analytics_pkg)
