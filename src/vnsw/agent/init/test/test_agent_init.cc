@@ -133,6 +133,11 @@ TEST_F(AgentParamTest, Agent_Conf_file_2) {
     EXPECT_EQ(param.services_queue_limit(), 1024);
     EXPECT_TRUE(param.sandesh_config().disable_object_logs);
 
+    EXPECT_EQ(param.huge_page_file_1G(0), "/var/lib/contrail/vrouter_flow_1G");
+    EXPECT_EQ(param.huge_page_file_1G(1), "/var/lib/contrail/vrouter_bridge_1G");
+    EXPECT_EQ(param.huge_page_file_2M(0), "/var/lib/contrail/vrouter_flow_2M");
+    EXPECT_EQ(param.huge_page_file_2M(1), "/var/lib/contrail/vrouter_bridge_2M");
+
     // Logging parameters
     EXPECT_EQ(param.log_files_count(), 5);
     EXPECT_EQ(param.log_file_size(), 2048);

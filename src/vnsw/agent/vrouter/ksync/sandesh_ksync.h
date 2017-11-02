@@ -59,6 +59,7 @@ public:
     virtual void BridgeTableInfoHandler(vr_bridge_table_data *r);
     virtual void FlowMsgHandler(vr_flow_req *r);
     virtual void FlowResponseHandler(vr_flow_response *r);
+    virtual void VrouterHugePageHandler(vr_hugepage_config *r);
     virtual void VrouterOpsMsgHandler(vrouter_ops *r);
     
     int response_code() const { return response_code_; }

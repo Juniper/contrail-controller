@@ -679,6 +679,20 @@ void AgentParam::ParseRestartArguments
     GetOptValue<bool>(v, restart_restore_enable_, "RESTART.restore_enable");
     GetOptValue<uint64_t>(v, restart_restore_audit_timeout_,
                           "RESTART.restore_audit_timeout");
+    huge_page_file_1G_.clear();
+    GetOptValueIfNotDefaulted< vector<string> >(v, huge_page_file_1G_,
+                                                "RESTART.huge_page_1G");
+    if (huge_page_file_1G_.size() == 1) {
+        boost::split(huge_page_file_1G_, huge_page_file_1G_[0],
+                     boost::is_any_of(" "));
+    }
+    huge_page_file_2M_.clear();
+    GetOptValueIfNotDefaulted< vector<string> >(v, huge_page_file_2M_,
+                                                "RESTART.huge_page_2M");
+    if (huge_page_file_2M_.size() == 1) {
+        boost::split(huge_page_file_2M_, huge_page_file_2M_[0],
+                     boost::is_any_of(" "));
+    }
 }
 
 void AgentParam::ParseLlgrArguments
@@ -1314,6 +1328,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         restart_backup_count_(CFG_BACKUP_COUNT),
         restart_restore_enable_(true),
         restart_restore_audit_timeout_(CFG_RESTORE_AUDIT_TIMEOUT),
+        huge_page_file_1G_(),
+        huge_page_file_2M_(),
         ksync_thread_cpu_pin_policy_(),
         tbb_thread_count_(Agent::kMaxTbbThreads),
         tbb_exec_delay_(0),
@@ -1475,7 +1491,13 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("RESTART.restore_enable", opt::bool_switch(&restart_restore_enable_)->default_value(true),
          "Enable restore of config and resources from backup files")
         ("RESTART.restore_audit_timeout", opt::value<uint64_t>()->default_value(CFG_RESTORE_AUDIT_TIMEOUT),
-         "Audit time for config/resource read from file (in milli-sec)");
+         "Audit time for config/resource read from file (in milli-sec)")
+        ("RESTART.huge_page_1G",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "List of 1G Huge pages to be used by vrouter for flow and bridge entries")
+        ("RESTART.huge_page_2M",
+         opt::value<std::vector<std::string> >()->multitoken(),
+         "List of 2M Huge pages to be used by vrouter");
     options_.add(restart);
     config_file_options_.add(restart);
 
