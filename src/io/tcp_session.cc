@@ -782,6 +782,17 @@ bool TcpSession::IsSocketErrorHard(const error_code &ec) {
     return true;
 }
 
+error_code TcpSession::SetTcpNoDelay() {
+    error_code ec;
+    boost::asio::ip::tcp::no_delay no_delay_option(true);
+    socket()->set_option(no_delay_option, ec);
+    if (ec) {
+        TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
+                "tcp_no_delay set error: " << ec);
+    }
+    return ec;
+}
+
 error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_time,
         int keepalive_intvl, int keepalive_probes, int tcp_user_timeout_val) {
     error_code ec;

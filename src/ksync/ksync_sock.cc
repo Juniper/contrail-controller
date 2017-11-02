@@ -953,6 +953,7 @@ void KSyncSockTcp::OnSessionEvent(TcpSession *session,
         break;
     case TcpSession::CONNECT_COMPLETE:
         connect_complete_ = true;
+        session_->SetTcpNoDelay();
     default:
         break;
     }
