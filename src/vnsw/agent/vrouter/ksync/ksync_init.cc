@@ -17,6 +17,7 @@
 #include "vr_os.h"
 #endif
 
+#include <sys/mman.h>
 #include <net/if.h>
 
 #include <io/event_manager.h>
@@ -66,6 +67,9 @@ KSync::KSync(Agent *agent)
       qos_config_ksync_obj_(new QosConfigKSyncObject(this)),
       bridge_route_audit_ksync_obj_(new BridgeRouteAuditKSyncObject(this)),
       ksync_bridge_memory_(new KSyncBridgeMemory(this, 1)) {
+      for (uint16_t i = 0; i < kHugePages; i++) {
+          huge_fd_[i] = -1;
+      }
       for (uint16_t i = 0; i < agent->flow_thread_count(); i++) {
           FlowTableKSyncObject *obj = new FlowTableKSyncObject(this);
           flow_table_ksync_obj_list_.push_back(obj);
@@ -73,6 +77,10 @@ KSync::KSync(Agent *agent)
 }
 
 KSync::~KSync() {
+      for (uint16_t i = 0; i < kHugePages; i++) {
+          if (huge_fd_[i] != -1)
+              close (huge_fd_[i]);
+      }
     STLDeleteValues(&flow_table_ksync_obj_list_);
 }
 
@@ -93,6 +101,7 @@ void KSync::RegisterDBClients(DB *db) {
 
 void KSync::Init(bool create_vhost) {
     NetlinkInit();
+    SetHugePages();
     InitFlowMem();
     ResetVRouter(true);
     if (create_vhost) {
@@ -224,6 +233,74 @@ void KSync::InitVrouterOps(vrouter_ops *v) {
     v->set_vo_burst_interval(-1);
     v->set_vo_burst_step(-1);
     v->set_vo_memory_alloc_checks(-1);
+}
+
+void KSync::SetHugePages() {
+    vr_hugepage_config encoder;
+    bool fail[kHugePages];
+    std::string filename[kHugePages];
+    uint32_t filesize[kHugePages];
+    uint32_t flags[kHugePages];
+
+    uint16_t i, j;
+    for (i = 0; i < kHugePages / 2; ++i) {
+        filename[i] = agent_->params()->huge_page_file_1G(i);
+        filesize[i] = 1024 * 1024 * 1024;
+        flags[i] = O_RDWR;
+        fail[i] = false;
+    }
+    for (j = i; j < kHugePages; ++j) {
+        filename[j] = agent_->params()->huge_page_file_2M(j - i);
+        filesize[j] = 2 * 1024 * 1024;
+        flags[j] = O_CREAT | O_RDWR;
+        fail[j] = false;
+    }
+
+    for (i = 0; i < kHugePages; ++i) {
+        if (filename[i].empty()) {
+            fail[i] = true;
+            continue;
+        }
+
+        huge_fd_[i] = open(filename[i].c_str(), flags[i], 0755);
+        if (huge_fd_[i] < 0) {
+            fail[i] = true;
+            continue;
+        }
+
+        huge_pages_[i] = (void *) mmap(NULL, filesize[i],
+                                       PROT_READ | PROT_WRITE, MAP_SHARED,
+                                       huge_fd_[i], 0);
+        if (huge_pages_[i] == MAP_FAILED) {
+            fail[i] = true;
+        }
+    }
+
+    encoder.set_vhp_op(sandesh_op::ADD);
+
+    std::vector<uint64_t> huge_mem;
+    std::vector<uint32_t> huge_size;
+    for (uint16_t i = 0; i < kHugePages; ++i) {
+        if (fail[i] == false) {
+            huge_mem.push_back((uint64_t) huge_pages_[i]);
+            huge_size.push_back(filesize[i]);
+        } else {
+            huge_mem.push_back(0);
+            huge_size.push_back(0);
+        }
+    }
+    encoder.set_vhp_mem(huge_mem);
+    encoder.set_vhp_msize(huge_size);
+    encoder.set_vhp_resp(VR_HPAGE_CFG_RESP_HPAGE_SUCCESS);
+
+    uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
+    int len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
+
+    KSyncSock *sock = KSyncSock::Get(0);
+    sock->BlockingSend((char *)msg, len);
+    if (sock->BlockingRecv()) {
+        LOG(ERROR, "Error sending Huge Page configuration to VROUTER. Skipping KSync Start");
+    }
 }
 
 void KSync::ResetVRouter(bool run_sync_mode) {
@@ -428,6 +505,7 @@ KSyncTcp::~KSyncTcp() { }
 
 void KSyncTcp::Init(bool create_vhost) {
     TcpInit();
+    SetHugePages();
     InitFlowMem();
     ResetVRouter(false);
     //Start async read of socket
