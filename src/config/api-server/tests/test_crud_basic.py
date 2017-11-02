@@ -3812,10 +3812,6 @@ class TestDBAudit(test_case.ApiServerTestCase):
         pass # move to schema transformer test
     # test_checker_zk_route_target_extra
 
-    def test_checker_zk_route_target_missing(self):
-        pass # move to schema transformer test
-    # test_checker_zk_route_target_missing
-
     def test_checker_zk_route_target_range_wrong(self):
         pass # move to schema transformer test
     # test_checker_zk_route_target_range_wrong
