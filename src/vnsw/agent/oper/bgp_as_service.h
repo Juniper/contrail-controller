@@ -136,6 +136,14 @@ public:
         service_delete_cb_ = callback;
     }
 
+    bool IsConfigured() {
+        if (bgp_as_a_service_entry_map_.size()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
 private:
     void BindBgpAsAServicePorts(const std::vector<uint16_t> &ports);
     void BuildBgpAsAServiceInfo(IFMapNode *bgp_as_a_service_node,
