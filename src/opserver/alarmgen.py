@@ -2434,7 +2434,7 @@ class Controller(object):
         finally:
             self._logger.error('AlarmGen stopping everything')
             self.stop()
-            exit()
+            exit(2)
 
     def stop(self):
         self._sandesh._client._connection.set_admin_state(down=True)
