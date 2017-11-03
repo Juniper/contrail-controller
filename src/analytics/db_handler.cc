@@ -1754,6 +1754,11 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
     return true;
 }
 
+uint64_t SessionTableDbStats::num_messages = 0;
+uint64_t SessionTableDbStats::num_writes = 0;
+uint64_t SessionTableDbStats::num_samples = 0;
+uint64_t SessionTableDbStats::curr_json_size = 0;
+
 SessionValueArray default_col_values = boost::assign::list_of
     (GenDb::DbDataValue((uint32_t)0))
     (GenDb::DbDataValue((uint8_t)0))
@@ -2074,8 +2079,12 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         for (pugi::xml_node agg_info = sess_agg_info.first_child();
             agg_info; agg_info = agg_info.next_sibling()) {
             if (strcmp(agg_info.attribute("type").value(), "map") == 0) {
+                int16_t samples;
+                stringToInteger(agg_info.child("map").attribute("size").value(), samples);
+                SessionTableDbStats::num_samples += samples;
                 std::string session_map;
                 JsonifySessionMap(agg_info.child("map"), &session_map);
+                SessionTableDbStats::curr_json_size += session_map.size(); 
                 session_entry_values[SessionRecordFields::SESSION_MAP]
                     = session_map;
                 continue;
@@ -2098,6 +2107,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
             db_insert_cb, ttl_map_)) {
                 DB_LOG(ERROR, "Populating SessionRecordTable FAILED");
         }
+        SessionTableDbStats::num_writes++;
     }
 
     int ttl = DbHandler::GetTtlFromMap(ttl_map_, TtlType::FLOWDATA_TTL);
@@ -2112,6 +2122,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         boost::get<std::string>(session_entry_values[
             SessionRecordFields::SESSION_REMOTE_VN]), ttl, db_cb);
 
+    SessionTableDbStats::num_messages++;
     return true;
 }
 
@@ -2202,6 +2213,30 @@ bool DbHandler::SessionTableInsert(const pugi::xml_node &parent,
         }
     } else {
         SessionSampleAdd(session_data.first_child(), header, db_cb);
+    }
+    return true;
+}
+
+bool DbHandler::GetSessionTableDbInfo(SessionTableDbInfo *session_table_info) const {
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        if (SessionTableDbStats::num_messages == 0) {
+            return true;
+        }
+        double writes_per_message = (double)SessionTableDbStats::num_writes /
+                                        SessionTableDbStats::num_messages;
+        double session_per_db_write = (double)SessionTableDbStats::num_samples /
+                                        SessionTableDbStats::num_writes;
+        double json_size_per_write = (double)SessionTableDbStats::curr_json_size /
+                                        SessionTableDbStats::num_writes;
+        session_table_info->set_writes_per_message(writes_per_message);
+        session_table_info->set_sessions_per_db_record(session_per_db_write);
+        session_table_info->set_json_size_per_write(json_size_per_write);
+        session_table_info->set_num_messages(SessionTableDbStats::num_messages);
+        SessionTableDbStats::num_writes = 0;
+        SessionTableDbStats::num_samples = 0;
+        SessionTableDbStats::num_messages = 0;
+        SessionTableDbStats::curr_json_size = 0;
     }
     return true;
 }

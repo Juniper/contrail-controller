@@ -34,6 +34,7 @@
 #include "uflow_types.h"
 #include "viz_constants.h"
 #include <database/cassandra/cql/cql_types.h>
+#include "collector_uve_types.h"
 #include "config_client_collector.h"
 #include "usrdef_counters.h"
 #include "options.h"
@@ -132,6 +133,7 @@ public:
         const;
     void GetSandeshStats(std::string *drop_level,
         std::vector<SandeshStats> *vdropmstats) const;
+    bool GetSessionTableDbInfo(SessionTableDbInfo *session_table_info) const;
     bool GetCqlMetrics(cass::cql::Metrics *metrics) const;
     bool GetCqlStats(cass::cql::DbStats *stats) const;
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
@@ -369,6 +371,17 @@ public:
 
 private:
     T &values_;
+};
+
+/*
+ * Stats for SessionTable
+ */
+class SessionTableDbStats {
+public:
+    static uint64_t num_messages;
+    static uint64_t num_writes;
+    static uint64_t num_samples;
+    static uint64_t curr_json_size;
 };
 
 #endif /* DB_HANDLER_H_ */
