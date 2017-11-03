@@ -523,11 +523,7 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_TimedOut) {
         == xmps::NOT_READY);
 }
 
-<<<<<<< HEAD
 TEST_F(AgentXmppUnitTest, XmppConnection_ApplyDiscovery_OrderedList) {
-=======
-TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
->>>>>>> d256421... Cleanup of stale XMPP connections.
 
     client->Reset();
     client->WaitForIdle();
@@ -543,7 +539,6 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
     resp.ep.port(xs2->GetPort());
     ds_response.push_back(resp);
-<<<<<<< HEAD
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
     resp.ep.port(xs3->GetPort());
     ds_response.push_back(resp);
@@ -630,13 +625,6 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
     client->WaitForIdle();
 
     // Simulate Discovery response for Xmpp Server
-=======
-
-    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
-    //client->WaitForIdle();
-
-    //Discovery indicating new Xmpp Server
->>>>>>> d256421... Cleanup of stale XMPP connections.
     ds_response.clear();
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
     resp.ep.port(xs3->GetPort());
@@ -644,7 +632,6 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.4"));
     resp.ep.port(xs4->GetPort());
     ds_response.push_back(resp);
-<<<<<<< HEAD
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.5"));
     resp.ep.port(xs5->GetPort());
     ds_response.push_back(resp);
@@ -736,18 +723,10 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
         == xmps::READY);
 
     // Simulate Discovery response for Xmpp Server
-=======
-
-    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
-    //client->WaitForIdle();
-
-    //Discovery indicating new Xmpp Server
->>>>>>> d256421... Cleanup of stale XMPP connections.
     ds_response.clear();
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
     resp.ep.port(xs1->GetPort());
     ds_response.push_back(resp);
-<<<<<<< HEAD
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
     resp.ep.port(xs2->GetPort());
     ds_response.push_back(resp);
@@ -757,38 +736,25 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.6"));
     resp.ep.port(xs6->GetPort());
     ds_response.push_back(resp);
-=======
-    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.4"));
-    resp.ep.port(xs4->GetPort());
-    ds_response.push_back(resp);
->>>>>>> d256421... Cleanup of stale XMPP connections.
 
     agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
     client->WaitForIdle();
 
     //wait for connection establishment
-<<<<<<< HEAD
     ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(0).c_str(), "127.0.0.1");
-=======
->>>>>>> d256421... Cleanup of stale XMPP connections.
     EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) ==
                 (uint32_t)xs1->GetPort());
     WAIT_FOR(1000, 10000,
         agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
         == xmps::READY);
 
-<<<<<<< HEAD
     ASSERT_STREQ(agent_->controller_ifmap_xmpp_server(1).c_str(), "127.0.0.2");
     EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) ==
                 (uint32_t)xs2->GetPort());
-=======
-    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == (uint32_t)xs4->GetPort());
->>>>>>> d256421... Cleanup of stale XMPP connections.
     WAIT_FOR(1000, 10000,
         agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
         == xmps::READY);
 
-<<<<<<< HEAD
     // Simulate Discovery response for Xmpp Server
     ds_response.clear();
     resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
@@ -851,27 +817,6 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
     xs3->Shutdown();
     xs4->Shutdown();
     xs5->Shutdown();
-=======
-    //Ensure all older connections are cleaned up.
-    WAIT_FOR(1000, 1000, (Agent::GetInstance()->controller()->
-                 DecommissionedPeerListSize() == 0));
-   
-    xs1->Shutdown();
-    client->WaitForIdle();
-
-    xs2->Shutdown();
-    client->WaitForIdle();
-
-    xs3->Shutdown();
-    client->WaitForIdle();
-
-    xs4->Shutdown();
-    client->WaitForIdle();
-
-    xs5->Shutdown();
-    client->WaitForIdle();
-
->>>>>>> d256421... Cleanup of stale XMPP connections.
     xs6->Shutdown();
     client->WaitForIdle();
 
@@ -885,10 +830,6 @@ TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
         == xmps::NOT_READY);
 }
 
-<<<<<<< HEAD
-=======
 
 
-
->>>>>>> d256421... Cleanup of stale XMPP connections.
 }
