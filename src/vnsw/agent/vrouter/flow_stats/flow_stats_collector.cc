@@ -306,6 +306,8 @@ void FlowStatsCollector::UpdateVmiTagBasedStats(FlowExportInfo *info,
     ep.policy = flow->fw_policy_name_uuid();
     ep.diff_bytes = bytes;
     ep.diff_pkts = pkts;
+    FlowTable::GetFlowSandeshActionParams(flow->data().match_p.action_info,
+                                          ep.action);
     if (flow->is_flags_set(FlowEntry::LocalFlow)) {
         /* When VM A talks to VM B which is in different compute nodes, the
          * following flows are created

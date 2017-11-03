@@ -842,6 +842,19 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
     return true;
 }
 
+void FlowTable::GetFlowSandeshActionParams(const FlowAction &action_info,
+                                           std::string &action_str) {
+    std::bitset<32> bs(action_info.action);
+    for (unsigned int i = 0; i <= bs.size(); i++) {
+        if (bs[i]) {
+            if (!action_str.empty()) {
+                action_str += "|";
+            }
+            action_str += TrafficAction::ActionToString(
+                static_cast<TrafficAction::Action>(i));
+        }
+    }
+}
 /////////////////////////////////////////////////////////////////////////////
 // FlowEntryFreeList implementation
 /////////////////////////////////////////////////////////////////////////////

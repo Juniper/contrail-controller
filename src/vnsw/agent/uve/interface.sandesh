@@ -297,6 +297,8 @@ struct SecurityPolicyFlowStats {
     18: u64    in_pkts;
     /** Outgoing statistics in packets */
     19: u64    out_pkts;
+    /** Action */
+    20: string action;
 }
 
 /**

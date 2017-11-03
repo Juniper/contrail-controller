@@ -16,6 +16,7 @@ struct FlowUveFwPolicyInfo {
     std::string local_vn_;
     bool initiator_;
     bool added_;
+    std::string action_;
     bool short_flow_;
     bool is_valid_;
     FlowUveFwPolicyInfo() : is_valid_(false) {}

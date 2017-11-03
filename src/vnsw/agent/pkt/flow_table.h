@@ -251,6 +251,8 @@ public:
     int flow_ksync_task_id() const { return flow_ksync_task_id_; }
     static void GetMutexSeq(tbb::mutex &mutex1, tbb::mutex &mutex2,
                             tbb::mutex **mutex_ptr_1, tbb::mutex **mutex_ptr_2);
+    static void GetFlowSandeshActionParams(const FlowAction &action_info,
+                                           std::string &action_str);
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
