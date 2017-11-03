@@ -10,18 +10,18 @@ include "database/gendb.sandesh"
 
 const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
 const string COLLECTOR_KEYSPACE_CQL = "ContrailAnalyticsCql"
-const string COLLECTOR_GLOBAL_TABLE = "MessageTable"
-const string COLLECTOR_GLOBAL_TABLE2= "MessageTablev2"
-const string UUID_KEY               = "UuidKey"
+const string MESSAGE_TABLE          = "MessageTable"        // API table name
+const string COLLECTOR_GLOBAL_TABLE = "MessageTablev2"      // CQL table name
+const string UUID                   = "UuidKey"
 const string FORWARD_FLOW_UUID      = "forward_flow_uuid"
 const string REVERSE_FLOW_UUID      = "reverse_flow_uuid"
 const string SOURCE                 = "Source"
-const string KEYWORD                = "Keyword"
 const string NAMESPACE              = "Namespace"
 const string MODULE                 = "ModuleId"
 const string INSTANCE_ID            = "InstanceId"
 const string NODE_TYPE              = "NodeType"
 const string TIMESTAMP              = "MessageTS"
+const string T1                     = "T1"
 const string SANDESH_TYPE           = "Type"
 const string CATEGORY               = "Category"
 const string LEVEL                  = "Level"
@@ -29,7 +29,6 @@ const string IPADDRESS              = "IPAddress"
 const string PID                    = "Pid"
 const string MESSAGE_TYPE           = "Messagetype"
 const string DATA                   = "Xmlmessage"
-const string CONTEXT                = "Context"
 const string SEQUENCE_NUM           = "SequenceNum"
 const string VERSION                = "VersionSig"
 const string MESSAGE_TABLE_SOURCE  = "MessageTableSource"
@@ -40,6 +39,14 @@ const string MESSAGE_TABLE_LEVEL    = "MessageTableLevel"
 const string MESSAGE_TABLE_TIMESTAMP = "MessageTableTimestamp"
 const string MESSAGE_TABLE_KEYWORD = "MessageTableKeyword"
 const string OBJECT_ID              = "ObjectId"
+const string PARTITION              = "Partition"
+const string OBJECT_TYPE_NAME_PFX   = "ObjectTypeName"
+const string OBJECT_TYPE_NAME1      = "ObjectTypeName1"
+const string OBJECT_TYPE_NAME2      = "ObjectTypeName2"
+const string OBJECT_TYPE_NAME3      = "ObjectTypeName3"
+const string OBJECT_TYPE_NAME4      = "ObjectTypeName4"
+const string OBJECT_TYPE_NAME5      = "ObjectTypeName5"
+const string OBJECT_TYPE_NAME6      = "ObjectTypeName6"
 
 const string ROWTIMESTAMP           = "RowTimeStamp"
 
@@ -216,7 +223,6 @@ const list<string> _MSG_TABLES = [
 
 const list<string> _NO_AUTO_PURGE_TABLES  = [
     COLLECTOR_GLOBAL_TABLE,
-    COLLECTOR_GLOBAL_TABLE2,
     FLOW_TABLE,
     SYSTEM_OBJECT_TABLE
 ]
@@ -863,102 +869,6 @@ const string STAT_VT_FIELDNAMES_PREFIX = "StatTable.FieldNames.";
 // -- clustering-columns
 // -- regular columns
 const map<string, table_schema> _VIZD_TABLE_SCHEMA = {
-    MESSAGE_TABLE_SOURCE : {
-        'is_index_table' : true,
-        'columns' : [
-            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-        ]
-    }
-    COLLECTOR_GLOBAL_TABLE : {
-        'is_static' : true,
-        'columns' : [
-            { 'name' : 'key', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
-              'key' : true },
-            { 'name' : CATEGORY, 'datatype' : GenDb.DbDataType.UTF8Type },
-            { 'name' : CONTEXT, 'datatype' : GenDb.DbDataType.UTF8Type },
-            { 'name' : IPADDRESS, 'datatype' : Gendb.DbDataType.UTF8Type },
-            { 'name' : INSTANCE_ID, 'datatype' : Gendb.DbDataType.UTF8Type },
-            { 'name' : LEVEL, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-            { 'name' : TIMESTAMP, 'datatype' : Gendb.DbDataType.Unsigned64Type },
-            { 'name' : MESSAGE_TYPE, 'datatype' : Gendb.DbDataType.UTF8Type },
-            { 'name' : MODULE, 'datatype' : Gendb.DbDataType.UTF8Type },
-            { 'name' : NAMESPACE, 'datatype' : Gendb.DbDataType.UTF8Type },
-            { 'name' : NODE_TYPE, 'datatype' : Gendb.DbDataType.UTF8Type },
-            { 'name' : PID, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-            { 'name' : SEQUENCE_NUM, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-            { 'name' : SOURCE, 'datatype' : Gendb.DbDataType.UTF8Type },
-            { 'name' : SANDESH_TYPE, 'datatype' : Gendb.DbDataType.Unsigned8Type },
-            { 'name' : VERSION, 'datatype' : Gendb.DbDataType.Unsigned32Type },
-            { 'name' : DATA, 'datatype' : Gendb.DbDataType.UTF8Type },
-        ]
-    }
-    MESSAGE_TABLE_MODULE_ID : {
-        'is_index_table' : true,
-        'columns' : [
-            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-        ]
-    }
-    MESSAGE_TABLE_MESSAGE_TYPE : {
-        'is_index_table' : true,
-        'columns' : [
-            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-        ]
-    }
-    MESSAGE_TABLE_CATEGORY : {
-        'is_index_table' : true,
-        'columns' : [
-            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-        ]
-    }
-    MESSAGE_TABLE_TIMESTAMP : {
-        'is_index_table' : true,
-        'columns' : [
-            { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'key2', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'key' : true },
-            { 'name' : 'column1', 'datatype' : GenDb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-        ]
-    }
     OBJECT_VALUE_TABLE : {
         'columns' : [
             { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
@@ -984,37 +894,7 @@ const map<string, table_schema> _VIZD_TABLE_SCHEMA = {
             { 'name' : SYSTEM_OBJECT_STATS_DATA_TTL, 'datatype' : Gendb.DbDataType.Unsigned64Type},
         ]
     }
-    OBJECT_TABLE : {
-        'columns' : [
-            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.UTF8Type,
-              'key' : true},
-            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'value', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-        ]
-    }
-    MESSAGE_TABLE_KEYWORD : {
-        'columns' : [
-            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-        ]
-    }
-    COLLECTOR_GLOBAL_TABLE2 : {
+    COLLECTOR_GLOBAL_TABLE : {
         'columns' : [
             { 'name' : 'key', 'datatype' : GenDb.DbDataType.Unsigned32Type,
               'key' : true },
@@ -1028,9 +908,11 @@ const map<string, table_schema> _VIZD_TABLE_SCHEMA = {
               'index_type' : ColIndexType.CUSTOM_INDEX,
               'index_mode' : ColIndexMode.PREFIX },
             { 'name' : 'column4', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.INDEX },
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
             { 'name' : 'column5', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.INDEX },
+              'index_type' : ColIndexType.CUSTOM_INDEX,
+              'index_mode' : ColIndexMode.PREFIX },
             { 'name' : 'column6', 'datatype' : GenDb.DbDataType.UTF8Type,
               'index_type' : ColIndexType.CUSTOM_INDEX,
               'index_mode' : ColIndexMode.PREFIX },
@@ -1049,64 +931,67 @@ const map<string, table_schema> _VIZD_TABLE_SCHEMA = {
             { 'name' : 'column11', 'datatype' : GenDb.DbDataType.UTF8Type,
               'index_type' : ColIndexType.CUSTOM_INDEX,
               'index_mode' : ColIndexMode.PREFIX },
-            { 'name' : 'column12', 'datatype' : GenDb.DbDataType.UTF8Type },
+            { 'name' : 'column12', 'datatype' : GenDb.DbDataType.InetType },
             { 'name' : 'column13', 'datatype' : GenDb.DbDataType.Unsigned32Type },
             { 'name' : 'column14', 'datatype' : GenDb.DbDataType.UTF8Type },
             { 'name' : 'column15', 'datatype' : GenDb.DbDataType.Unsigned32Type },
             { 'name' : 'column16', 'datatype' : GenDb.DbDataType.UTF8Type },
             { 'name' : 'column17', 'datatype' : GenDb.DbDataType.UTF8Type },
             { 'name' : 'column18', 'datatype' : GenDb.DbDataType.Unsigned32Type },
+            { 'name' : 'column19', 'datatype' : GenDb.DbDataType.Unsigned8Type },
             { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type },
-
         ],
-        'column_to_query_column' : [
-            { 'key'      : 'T2' },
-            { 'key2'     : 'Partition' },
-            { 'column1'  : 'T1' },
-            { 'column2'  : 'UUID' },
-            { 'column3'  : 'Source' },
-            { 'column4'  : 'MessageType' },
-            { 'column5'  : 'Module' },
-            { 'column6'  : 'ObjectName1' },
-            { 'column7'  : 'ObjectName2' },
-            { 'column8'  : 'ObjectName3' },
-            { 'column9'  : 'ObjectName4' },
-            { 'column10' : 'ObjectName5' },
-            { 'column11' : 'ObjectName6' },
-            { 'column12' : 'IpAddress' },
-            { 'column13' : 'Pid' },
-            { 'column14' : 'Category' },
-            { 'column15' : 'Level' },
-            { 'column16' : 'NodeType' },
-            { 'column17' : 'InstanceId' },
-            { 'column18' : 'SequenceNum' },
-            { 'value'    : 'XMLMessage' },
-        ],
-        'query_column_to_column' : [
-            { 'T2'          : 'key'},
-            { 'Partition'   : 'key2'},
-            { 'T1'          : 'column1'},
-            { 'UUID'        : 'column2'},
-            { 'Source'      : 'column3'},
-            { 'MessageType' : 'column4'},
-            { 'Module'      : 'column5'},
-            { 'ObjectName1' : 'column6'},
-            { 'ObjectName2' : 'column7'},
-            { 'ObjectName3' : 'column8'},
-            { 'ObjectName4' : 'column9'},
-            { 'ObjectName5' : 'column10'},
-            { 'ObjectName6' : 'column11'},
-            { 'IpAddress'   : 'column12'},
-            { 'Pid'         : 'column13'},
-            { 'Category'    : 'column14'},
-            { 'Level'       : 'column15'},
-            { 'NodeType'    : 'column16'},
-            { 'InstanceId'  : 'column17'},
-            { 'SequenceNum' : 'column18'},
-            { 'XMLMessage'  : 'value'},
-        ]
+        'column_to_query_column' : {
+            'key'      : TIMESTAMP,
+            'key2'     : PARTITION,
+            'column1'  : T1,
+            'column2'  : UUID,
+            'column3'  : SOURCE,
+            'column4'  : MESSAGE_TYPE,
+            'column5'  : MODULE,
+            'column6'  : OBJECT_TYPE_NAME1,
+            'column7'  : OBJECT_TYPE_NAME2,
+            'column8'  : OBJECT_TYPE_NAME3,
+            'column9'  : OBJECT_TYPE_NAME4,
+            'column10' : OBJECT_TYPE_NAME5,
+            'column11' : OBJECT_TYPE_NAME6,
+            'column12' : IPADDRESS,
+            'column13' : PID,
+            'column14' : CATEGORY,
+            'column15' : LEVEL,
+            'column16' : NODE_TYPE,
+            'column17' : INSTANCE_ID,
+            'column18' : SEQUENCE_NUM,
+            'column19' : SANDESH_TYPE,
+            'value'    : DATA,
+        },
+        'query_column_to_column' : {
+            TIMESTAMP         : 'key',
+            PARTITION         : 'key2',
+            T1                : 'column1',
+            UUID              : 'column2',
+            SOURCE            : 'column3',
+            MESSAGE_TYPE      : 'column4',
+            MODULE            : 'column5',
+            OBJECT_TYPE_NAME1 : 'column6',
+            OBJECT_TYPE_NAME2 : 'column7',
+            OBJECT_TYPE_NAME3 : 'column8',
+            OBJECT_TYPE_NAME4 : 'column9',
+            OBJECT_TYPE_NAME5 : 'column10',
+            OBJECT_TYPE_NAME6 : 'column11',
+            IPADDRESS         : 'column12',
+            PID               : 'column13',
+            CATEGORY          : 'column14',
+            LEVEL             : 'column15',
+            NODE_TYPE         : 'column16',
+            INSTANCE_ID       : 'column17',
+            SEQUENCE_NUM      : 'column18',
+            SANDESH_TYPE      : 'column19',
+            DATA              : 'value',
+        }
     }
 }
+const u16 MSG_TABLE_MAX_OBJECTS_PER_MSG = 6
 
 const map<string, table_schema> _VIZD_FLOW_TABLE_SCHEMA = {
     FLOW_TABLE : {
@@ -5715,22 +5600,20 @@ const list<query_table> _TABLES = [
          'schema' : {
              'type' : 'LOG',
              'columns' :  [
-               { 'name' : 'MessageTS', 'datatype' : 'int', 'index' : false},
+               { 'name' : TIMESTAMP, 'datatype' : 'int', 'index' : false},
                { 'name' : SOURCE, 'datatype' : 'string', 'index' : true },
                { 'name' : MODULE, 'datatype' : 'string', 'index' : true },
-               { 'name' : 'Category', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'Level', 'datatype' : 'int', 'index' : true },
-               { 'name' : 'Type', 'datatype' : 'int', 'index' : false },
-               { 'name' : 'InstanceId', 'datatype' : 'string', 'index' : false },
-               { 'name' : 'NodeType', 'datatype' : 'string', 'index' : false },
-               { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'SequenceNum', 'datatype' : 'int', 'index' : false },
-               { 'name' : 'Context', 'datatype' : 'string', 'index' : false },
-               { 'name' : 'Keyword', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'Xmlmessage', 'datatype' : 'string', 'index' : false },
+               { 'name' : CATEGORY, 'datatype' : 'string', 'index' : false },
+               { 'name' : LEVEL, 'datatype' : 'int', 'index' : false },
+               { 'name' : SANDESH_TYPE, 'datatype' : 'int', 'index' : false },
+               { 'name' : INSTANCE_ID, 'datatype' : 'string', 'index' : false },
+               { 'name' : NODE_TYPE, 'datatype' : 'string', 'index' : false },
+               { 'name' : MESSAGE_TYPE, 'datatype' : 'string', 'index' : true },
+               { 'name' : SEQUENCE_NUM, 'datatype' : 'int', 'index' : false },
+               { 'name' : DATA, 'datatype' : 'string', 'index' : false },
                ]
               },
-          'columnvalues' : [ MODULE, SOURCE, 'Category', 'Level' ],
+          'columnvalues' : [ MODULE, SOURCE, CATEGORY, LEVEL ],
     },
     {
          'name' : FLOW_TABLE,
@@ -5996,14 +5879,14 @@ const query_schema_type _OBJECT_TABLE_SCHEMA =
         {
              'type' : 'OBJECT',
              'columns' :  [
-               { 'name' : 'MessageTS', 'datatype' : 'int', 'index' : false },
+               { 'name' : TIMESTAMP, 'datatype' : 'int', 'index' : false },
                { 'name' : 'ObjectId', 'datatype' : 'string', 'index' : true },
                { 'name' : SOURCE, 'datatype' : 'string', 'index' : true },
                { 'name' : MODULE, 'datatype' : 'string', 'index' : true },
-               { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
+               { 'name' : MESSAGE_TYPE, 'datatype' : 'string', 'index' : true },
                { 'name' : 'ObjectLog', 'datatype' : 'string', 'index' : false },
                { 'name' : 'SystemLog', 'datatype' : 'string', 'index' : false },
                ]
         }
-const list<string> _OBJECT_TABLE_COLUMN_VALUES = [ MODULE, SOURCE, 'Category', 'Level' ]
+const list<string> _OBJECT_TABLE_COLUMN_VALUES = [ MODULE, SOURCE, CATEGORY, LEVEL ]
 

@@ -669,10 +669,12 @@ std::string DynamicCf2CassInsertIntoTable(const GenDb::ColList *v_columns) {
     int cn_size(cnames.size());
     for (int i = 0; i < cn_size; i++) {
         int cnum(i + 1);
-        query << ", column" << cnum;
-        boost::apply_visitor(values_printer, cnames[i]);
-        if (i != cn_size - 1) {
-            values_ss << ", ";
+        if (cnames[i].which() != GenDb::DB_VALUE_BLANK) {
+            query << ", column" << cnum;
+            boost::apply_visitor(values_printer, cnames[i]);
+            if (i != cn_size - 1) {
+                values_ss << ", ";
+            }
         }
     }
     // Column Values
@@ -2100,8 +2102,12 @@ bool CqlIfImpl::InsertIntoTablePrepareAsync(std::auto_ptr<GenDb::ColList> v_colu
         cb);
 }
 
+// COLLECTOR_GLOBAL_TABLE is dynamic table with 6 indexed columns
+// for object-id. Some of these might be blank. This creates tombstones
+// so we dont want to prepare for inserts.
 bool CqlIfImpl::IsInsertIntoTablePrepareSupported(const std::string &table) {
-    return IsTableDynamic(table);
+    return IsTableDynamic(table) &&
+           (table != "MessageTablev2");
 }
 
 bool CqlIfImpl::SelectFromTableSync(const std::string &cfname,
