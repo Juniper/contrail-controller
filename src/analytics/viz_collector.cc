@@ -262,6 +262,10 @@ void VizCollector::SendDbStatistics() {
     cds.set_errors(dbe);
     cds.set_stats_info(msstat);
 
+    SessionTableDbInfo stds;
+    db_handler->GetSessionTableDbInfo(&stds);
+    cds.set_session_table_stats(stds);
+
     cass::cql::DbStats cql_stats;
     if (db_handler->GetCqlStats(&cql_stats)) {
         cds.set_cql_stats(cql_stats);

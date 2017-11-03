@@ -142,6 +142,7 @@ DbHandler::DbHandler(EventManager *evm,
         SetPendingCompactionTasksDropLevel(0,
             db_write_options.get_low_watermark2_message_severity_level());
     }
+    session_table_db_stats_ = SessionTableDbStats();
 }
 
 
@@ -2074,8 +2075,12 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         for (pugi::xml_node agg_info = sess_agg_info.first_child();
             agg_info; agg_info = agg_info.next_sibling()) {
             if (strcmp(agg_info.attribute("type").value(), "map") == 0) {
+                int16_t samples;
+                stringToInteger(agg_info.child("map").attribute("size").value(), samples);
+                session_table_db_stats_.num_samples += samples;
                 std::string session_map;
                 JsonifySessionMap(agg_info.child("map"), &session_map);
+                session_table_db_stats_.curr_json_size += session_map.size();
                 session_entry_values[SessionRecordFields::SESSION_MAP]
                     = session_map;
                 continue;
@@ -2098,6 +2103,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
             db_insert_cb, ttl_map_)) {
                 DB_LOG(ERROR, "Populating SessionRecordTable FAILED");
         }
+        session_table_db_stats_.num_writes++;
     }
 
     int ttl = DbHandler::GetTtlFromMap(ttl_map_, TtlType::FLOWDATA_TTL);
@@ -2112,6 +2118,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         boost::get<std::string>(session_entry_values[
             SessionRecordFields::SESSION_REMOTE_VN]), ttl, db_cb);
 
+    session_table_db_stats_.num_messages++;
     return true;
 }
 
@@ -2202,6 +2209,30 @@ bool DbHandler::SessionTableInsert(const pugi::xml_node &parent,
         }
     } else {
         SessionSampleAdd(session_data.first_child(), header, db_cb);
+    }
+    return true;
+}
+
+bool DbHandler::GetSessionTableDbInfo(SessionTableDbInfo *session_table_info) {
+    {
+        tbb::mutex::scoped_lock lock(smutex_);
+        if (session_table_db_stats_.num_messages == 0) {
+            return true;
+        }
+        double writes_per_message = (double)session_table_db_stats_.num_writes /
+                                        session_table_db_stats_.num_messages;
+        double session_per_db_write = (double)session_table_db_stats_.num_samples /
+                                        session_table_db_stats_.num_writes;
+        double json_size_per_write = (double)session_table_db_stats_.curr_json_size /
+                                        session_table_db_stats_.num_writes;
+        session_table_info->set_writes_per_message(writes_per_message);
+        session_table_info->set_sessions_per_db_record(session_per_db_write);
+        session_table_info->set_json_size_per_write(json_size_per_write);
+        session_table_info->set_num_messages(session_table_db_stats_.num_messages);
+        session_table_db_stats_.num_writes = 0;
+        session_table_db_stats_.num_samples = 0;
+        session_table_db_stats_.num_messages = 0;
+        session_table_db_stats_.curr_json_size = 0;
     }
     return true;
 }

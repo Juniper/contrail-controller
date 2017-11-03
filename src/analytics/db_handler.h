@@ -34,11 +34,29 @@
 #include "uflow_types.h"
 #include "viz_constants.h"
 #include <database/cassandra/cql/cql_types.h>
+#include "collector_uve_types.h"
 #include "config_client_collector.h"
 #include "usrdef_counters.h"
 #include "options.h"
 
 class Options;
+
+/*
+ * Stats for SessionTable
+ */
+class SessionTableDbStats {
+public:
+    SessionTableDbStats() :
+        num_messages(0),
+        num_writes(0),
+        num_samples(0),
+        curr_json_size(0) {}
+    uint64_t num_messages;
+    uint64_t num_writes;
+    uint64_t num_samples;
+    uint64_t curr_json_size;
+};
+
 class DbHandler {
 public:
     static const int DefaultDbTTL = 0;
@@ -132,6 +150,7 @@ public:
         const;
     void GetSandeshStats(std::string *drop_level,
         std::vector<SandeshStats> *vdropmstats) const;
+    bool GetSessionTableDbInfo(SessionTableDbInfo *session_table_info);
     bool GetCqlMetrics(cass::cql::Metrics *metrics) const;
     bool GetCqlStats(cass::cql::DbStats *stats) const;
     void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm,
@@ -267,6 +286,7 @@ private:
     mutable tbb::mutex pending_compaction_tasks_water_mutex_;
     WaterMarkTuple disk_usage_percentage_watermark_tuple_;
     WaterMarkTuple pending_compaction_tasks_watermark_tuple_;
+    SessionTableDbStats session_table_db_stats_;
 
     friend class DbHandlerTest;
     friend class DbHandlerMsgKeywordInsertTest;
@@ -370,5 +390,6 @@ public:
 private:
     T &values_;
 };
+
 
 #endif /* DB_HANDLER_H_ */

@@ -145,4 +145,5 @@ response sandesh ShowQEDbStatsResp {
     1: optional list<gendb.DbTableInfo>    table_info
     2: optional gendb.DbErrors             errors
     3: optional list<gendb.DbTableInfo>    statistics_table_info
+    4: optional cql.Metrics                cql_metrics
 }
