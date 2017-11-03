@@ -932,7 +932,7 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         else:
             assert(len(res) > 0)
-            self.logger.info(str(res))
+            self.logger.info("res %s" % str(res))
             return True
 
     @retry(delay=1, tries=30)
@@ -971,7 +971,7 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         # query for CollectorInfo logs
-        res = vns.post_query('MessageTable',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                              start_time='-10m', end_time='now',
                              select_fields=["ModuleId"],
                              where_clause="Messagetype = CollectorInfo")
@@ -995,7 +995,7 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         # query for CollectorInfo logs
-        res = vns.post_query('MessageTable',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                              start_time='-10m', end_time='now',
                              select_fields=["Level", "Type", "MessageTS", "SequenceNum"],
                              where_clause='')
@@ -1019,15 +1019,17 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         # query for contrail-query-engine logs
-        res_qe = vns.post_query('MessageTable',
+        res_qe = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                                 start_time='-10m', end_time='now',
                                 select_fields=["Type", "Messagetype"],
                                 where_clause="ModuleId = contrail-query-engine")
+        self.logger.info("res_qe %s" % str(res_qe))
         # query for Collector logs
-        res_c = vns.post_query('MessageTable',
+        res_c = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                                start_time='-10m', end_time='now',
                                select_fields=["Type", "Messagetype"],
                                where_clause="ModuleId = contrail-collector")
+        self.logger.info("res_c %s" % str(res_c))
         if (res_qe == []) or (res_c == []):
             return False
         assert(len(res_qe) > 0)
@@ -1042,16 +1044,17 @@ class AnalyticsFixture(fixtures.Fixture):
         where_clause1 = "ModuleId = contrail-query-engine"
         where_clause2 = str("Source =" + socket.gethostname())
         res = vns.post_query(
-            'MessageTable',
+            COLLECTOR_GLOBAL_TABLE,
             start_time='-10m', end_time='now',
             select_fields=["ModuleId"],
             where_clause=str(where_clause1 + " OR  " + where_clause2))
+        self.logger.info("res %s" % str(res))
         if res == []:
             return False
         else:
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
-            self.logger.info(str(moduleids))
+            self.logger.info("moduleids %s" % str(moduleids))
             if ('contrail-collector' in moduleids) and ('contrail-query-engine' in moduleids):
                 return True
             else:
@@ -1065,7 +1068,7 @@ class AnalyticsFixture(fixtures.Fixture):
         where_clause1 = "ModuleId = contrail-query-engine"
         where_clause2 = str("Source =" + socket.gethostname())
         res = vns.post_query(
-            'MessageTable',
+            COLLECTOR_GLOBAL_TABLE,
             start_time='-10m', end_time='now',
             select_fields=["ModuleId"],
             where_clause=str(where_clause1 + " AND  " + where_clause2))
@@ -1074,7 +1077,7 @@ class AnalyticsFixture(fixtures.Fixture):
         else:
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
-            self.logger.info(str(moduleids))
+            self.logger.info("moduleids %s" % str(moduleids))
             if len(moduleids) == 1:  # 1 moduleid: contrail-query-engine
                 return True
             else:
@@ -1089,12 +1092,12 @@ class AnalyticsFixture(fixtures.Fixture):
             'ModuleId': 'contrail-', 'Messagetype': 'Collector'}
         for key, value in prefix_key_value_map.iteritems():
             self.logger.info('verify where_prefix: %s = %s*' % (key, value))
-            res = vns.post_query('MessageTable', start_time='-10m',
+            res = vns.post_query(COLLECTOR_GLOBAL_TABLE, start_time='-10m',
                     end_time='now', select_fields=[key],
                     where_clause='%s = %s*' % (key, value))
             if not len(res):
                 return False
-            self.logger.info(str(res))
+            self.logger.info("res %s" % str(res))
             for r in res:
                 assert(r[key].startswith(value))
         return True
@@ -1107,29 +1110,30 @@ class AnalyticsFixture(fixtures.Fixture):
             self.admin_user, self.admin_password)
         where_clause1 = "ModuleId = contrail-query-engine"
         where_clause2 = str("Source =" + socket.gethostname())
-        res = vns.post_query('MessageTable',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                              start_time='-10m', end_time='now',
                              select_fields=["ModuleId"],
                              where_clause=str(
                                  where_clause1 + " OR  " + where_clause2),
                              filter="ModuleId = contrail-query-engine")
+        self.logger.info("res %s" % str(res))
         if res == []:
             return False
         else:
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
-            self.logger.info(str(moduleids))
+            self.logger.info("moduleids %s" % str(moduleids))
             if len(moduleids) != 1:  # 1 moduleid: contrail-collector
                 return False
 
-        res1 = vns.post_query('MessageTable',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                               start_time='-10m', end_time='now',
                               select_fields=["ModuleId"],
                               where_clause=str(
                                   where_clause1 + " AND  " + where_clause2),
                               filter="ModuleId = contrail-collector")
-        self.logger.info(str(res1))
-        if res1 != []:
+        self.logger.info("res %s" % str(res))
+        if res != []:
             return False
         return True
 
@@ -1138,7 +1142,7 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info("verify_message_table_filter2")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
-        a_query = Query(table="MessageTable",
+        a_query = Query(table=COLLECTOR_GLOBAL_TABLE,
                 start_time='now-10m',
                 end_time='now',
                 select_fields=["ModuleId"],
@@ -1153,20 +1157,24 @@ class AnalyticsFixture(fixtures.Fixture):
             self.logger.info(str(moduleids))
             assert(len(moduleids) == 1 and "contrail-collector" in moduleids)
 
-        a_query = Query(table="MessageTable",
+        a_query = Query(table=COLLECTOR_GLOBAL_TABLE,
                 start_time='now-10m',
                 end_time='now',
                 select_fields=["ModuleId"],
                 filter=[[{"name": "ModuleId", "value": "contrail-collector", "op": 1}], [{"name": "ModuleId", "value": "contrail-analytics-api", "op": 1}]])
         json_qstr = json.dumps(a_query.__dict__)
         res = vns.post_query_json(json_qstr)
+        self.logger.info("res %s" % str(res))
         if res == []:
             return False
         else:
             assert(len(res) > 0)
             moduleids = list(set(x['ModuleId'] for x in res))
             self.logger.info(str(moduleids))
-            assert(len(moduleids) == 2 and "contrail-collector" in moduleids and "contrail-analytics-api" in moduleids)  # 1 moduleid: contrail-collector || contrail-analytics-api
+            # 1 moduleid: contrail-collector || contrail-analytics-api
+            assert(len(moduleids) == 2 and\
+                   "contrail-collector" in moduleids and\
+                   "contrail-analytics-api" in moduleids)  
                 
         return True
 
@@ -1182,7 +1190,7 @@ class AnalyticsFixture(fixtures.Fixture):
                          'contrail-collector', 'contrail-query-engine']
 
         # Ascending sort
-        res = vns.post_query('MessageTable',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                              start_time='-10m', end_time='now',
                              select_fields=["ModuleId"],
                              where_clause=str(
@@ -1196,7 +1204,7 @@ class AnalyticsFixture(fixtures.Fixture):
             for x in res:
                 if x['ModuleId'] not in moduleids:
                     moduleids.append(x['ModuleId'])
-            self.logger.info(str(moduleids))
+            self.logger.info("moduleids %s" % str(moduleids))
             for module in exp_moduleids:
                 if module not in moduleids:
                     return False
@@ -1206,7 +1214,7 @@ class AnalyticsFixture(fixtures.Fixture):
 
         # Descending sort
         self.logger.info("verify_message_table_sort:Descending Sort")
-        res = vns.post_query('MessageTable',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                              start_time='-10m', end_time='now',
                              select_fields=["ModuleId"],
                              where_clause=str(
@@ -1220,7 +1228,7 @@ class AnalyticsFixture(fixtures.Fixture):
             for x in res:
                 if x['ModuleId'] not in moduleids:
                     moduleids.append(x['ModuleId'])
-            self.logger.info(str(moduleids))
+            self.logger.info("moduleids %s" % str(moduleids))
             for module in exp_moduleids:
                 if module not in moduleids:
                     return False
@@ -1230,7 +1238,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 return False
 
         # sort + limit
-        res = vns.post_query('MessageTable',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                              start_time='-10m', end_time='now',
                              select_fields=["ModuleId"],
                              where_clause=str(
@@ -1244,7 +1252,7 @@ class AnalyticsFixture(fixtures.Fixture):
             for x in res:
                 if x['ModuleId'] not in moduleids:
                     moduleids.append(x['ModuleId'])
-            self.logger.info(str(moduleids))
+            self.logger.info("moduleids %s" % str(moduleids))
             if len(moduleids) == 1: 
                 if moduleids[0] != 'contrail-analytics-api':
                     return False
@@ -1256,11 +1264,11 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info("verify_message_table_limit")
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
-        res = vns.post_query('MessageTable',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE,
                              start_time='-10m', end_time='now',
                              select_fields=['ModuleId', 'Messagetype'],
                              where_clause='', limit=1)
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         assert(len(res) == 1)
         return True
     # end verify_message_table_limit
@@ -1275,7 +1283,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              end_time='now',
                              select_fields=['T', 'name', 'UUID','vn_stats.other_vn', 'vn_stats.vrouter', 'vn_stats.in_tpkts'],
                              where_clause=gen_obj.vn_all_rows['whereclause'])
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         if len(res) == gen_obj.vn_all_rows['rows']:
             return True
         return False      
@@ -1290,7 +1298,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              end_time='now',
                              select_fields=gen_obj.vn_sum_rows['select'],
                              where_clause=gen_obj.vn_sum_rows['whereclause'])
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         if len(res) == gen_obj.vn_sum_rows['rows']:
             return True
         return False 
@@ -1392,7 +1400,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              end_time=str(generator_obj.flow_end_time),
                              select_fields=['UuidKey', 'sourcevn', 'sourceip'],
                              where_clause='sourceip=20.1.1.10 AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         assert(len(res) == 0)
         res = vns.post_query(
             'FlowSeriesTable',
@@ -1400,7 +1408,7 @@ class AnalyticsFixture(fixtures.Fixture):
             end_time=str(generator_obj.flow_end_time),
             select_fields=['sourcevn', 'sourceip'],
             where_clause='sourceip=20.1.1.10 AND sourcevn=domain1:admin:vn1 AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         assert(len(res) == 0)
 
         # destvn and destip
@@ -1431,7 +1439,7 @@ class AnalyticsFixture(fixtures.Fixture):
             where_clause='destip=10.10.10.2 AND ' +
             'destvn=default-domain:default-project:default-virtual-network AND' +
             'vrouter=%s'% vrouter)
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         assert(len(res) == 0)
         res = vns.post_query(
             'FlowSeriesTable',
@@ -1439,7 +1447,7 @@ class AnalyticsFixture(fixtures.Fixture):
             end_time=str(generator_obj.flow_end_time),
             select_fields=['destvn', 'destip'],
             where_clause='destip=20.1.1.10 AND destvn=domain1:admin:vn2&> AND vrouter=%s'% vrouter)
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         assert(len(res) == 0)
 
         # sourcevn + sourceip AND destvn + destip [ipv4/ipv6]
@@ -1599,7 +1607,7 @@ class AnalyticsFixture(fixtures.Fixture):
                              select_fields=['UuidKey', 'vmi_uuid'],
                              where_clause='vrouter=%s'% vrouter,
                              filter='vmi_uuid=%s'% str(uuid.uuid1()))
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         assert(len(res) == 0)
 
         # Filter by drop_reason
@@ -2192,7 +2200,7 @@ class AnalyticsFixture(fixtures.Fixture):
             end_time=str(generator_obj.flow_end_time),
             select_fields=['sum(bytes)', 'sum(packets)', 'flow_count'], 
             where_clause='vrouter=%s'% vrouter)
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         assert(len(res) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
         for f in generator_obj.flows:
@@ -2400,7 +2408,7 @@ class AnalyticsFixture(fixtures.Fixture):
             end_time=str(generator_obj.egress_flow_end_time),
             select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
             where_clause='vrouter=%s'% vrouter, dir=0)
-        self.logger.info(str(result))
+        self.logger.info("result %s" % str(result))
         assert(len(result) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
         for f in generator_obj.egress_flows:
@@ -2683,7 +2691,7 @@ class AnalyticsFixture(fixtures.Fixture):
                                 "op": OpServerUtils.MatchOp.EQUAL}]])
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         if not (len(res)>=1):
             return False
         return True
@@ -2837,12 +2845,12 @@ class AnalyticsFixture(fixtures.Fixture):
         where_clause.append('ModuleId = ' + mod)
         where_clause.append('Category = ' + tracebuf)
         where_clause = ' AND '.join(where_clause)
-        res = vns.post_query('MessageTable', start_time='-3m', end_time='now',
+        res = vns.post_query(COLLECTOR_GLOBAL_TABLE, start_time='-3m', end_time='now',
                              select_fields=['MessageTS', 'Type'],
                              where_clause=where_clause, filter='Type=4')
         if not res:
             return False
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         return True
     # end verify_tracebuffer_in_analytics_db
 
@@ -2852,7 +2860,7 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
         try:
-            src_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE, 
+            src_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE,
                                                    SOURCE)
             self.logger.info('src_list: %s' % str(src_list))
             if len(set(src_list).intersection(exp_src_list)) != \
@@ -2965,7 +2973,7 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port,
             self.admin_user, self.admin_password)
 
-        query = Query(table="MessageTable",
+        query = Query(table=COLLECTOR_GLOBAL_TABLE,
                             start_time="now-1h",
                             end_time="now",
                             select_fields=["Xmlmessage","Level"],
@@ -2973,7 +2981,7 @@ class AnalyticsFixture(fixtures.Fixture):
                                 "op": 1}], keywords))
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)
-        self.logger.info(str(res))
+        self.logger.info("res %s" % str(res))
         return len(res)>0
     # end verify_keyword_query
 
@@ -3394,7 +3402,7 @@ class AnalyticsFixture(fixtures.Fixture):
                     tries = -1
                 except Exception as e:
                     self.logger.info("No %s_port found for %s" % (k, modname))
-                    gevent.sleep(2)
+                    gevent.sleep(3)
                     tries = tries - 1
             pipein.close()
             os.unlink(pipe_name)

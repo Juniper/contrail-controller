@@ -290,6 +290,7 @@ struct query_result_unit_t {
     // stats+UUID after database queries for flow-records WHERE queries
     // stats+UUID+8-tuple afer flow-series WHERE query
     // AttribJSON+UUID for StatsTable queries
+    // key,key2,column1-column19,DATA for messagetablev2
     GenDb::DbDataValueVec info;
 
     // Following APIs will be invoked based on the table being queried
@@ -441,6 +442,9 @@ public:
          const boost::shared_ptr<Input> & inp, Output & res);
     void cb(GenDb::DbOpResult::type dresult, std::auto_ptr<GenDb::ColList>
          columns, GetRowInput *get_row_ctx, void *privdata);
+    void message_table_query_get_row(GenDb::DbDataValueVec const &val,
+                                     GenDb::NewColVec::iterator const &res_it,
+                                     query_result_unit_t &result_unit);
     void WPCompleteCb(QEPipeT *wp, bool ret_code);
     std::vector<GenDb::DbDataValueVec> populate_row_keys();
     bool PipelineCb(std::string &, GenDb::DbDataValueVec &,
@@ -493,6 +497,14 @@ public:
     WhereQuery(QueryUnit *mq);
     virtual query_status_t process_query();
     virtual void subquery_processed(QueryUnit *subquery);
+    void handle_object_type_value(AnalyticsQuery *m_query,
+                                  DbQueryUnit *db_query,
+                                  bool object_id_specified);
+    void populate_where_vec(DbQueryUnit *db_query,
+                            const std::string query_col,
+                            match_op op,
+                            const std::string value_prefix,
+                            const std::string value);
 
     // filter list to store filters converted from where cluase
     std::vector<std::vector<filter_match_t> > filter_list_;
@@ -906,7 +918,10 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     }
     
     // validation functions
-    static bool is_object_table_query(const std::string& tname);
+    virtual bool is_object_table_query(const std::string tname);
+    static bool is_message_table_query(const std::string& tname);
+    bool is_message_table_query();
+
     static bool is_stat_table_query(const std::string& tname);
     static bool is_stat_fieldnames_table_query(const std::string& tname);
     static bool is_session_query(const std::string& tname); // either flow-series or flow-records query
