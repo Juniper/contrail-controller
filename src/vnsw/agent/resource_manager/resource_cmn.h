@@ -20,6 +20,7 @@ public:
         QOS_INDEX,
         BGP_AS_SERVICE_INDEX,
         MIRROR_INDEX,
+        NEXTHOP_INDEX,
         MAX
     };
 
