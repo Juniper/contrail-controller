@@ -907,21 +907,26 @@ class VncApi(object):
         if self._curl_logging:
             self._log_curl(op=op, url=url, data=data)
         while True:
+            headers = self._headers
+            user_token = headers.pop('X-USER-TOKEN', None)
+            if user_token:
+                headers = self._headers.copy()
+                headers['X-AUTH-TOKEN'] = user_token
             try:
                 if (op == rest.OP_GET):
                     (status, content) = self._http_get(
-                        url, headers=self._headers, query_params=data)
+                        url, headers=headers, query_params=data)
                     if status == 200:
                         content = json.loads(content)
                 elif (op == rest.OP_POST):
                     (status, content) = self._http_post(
-                            url, body=data, headers=self._headers)
+                            url, body=data, headers=headers)
                 elif (op == rest.OP_DELETE):
                     (status, content) = self._http_delete(
-                            url, body=data, headers=self._headers)
+                            url, body=data, headers=headers)
                 elif (op == rest.OP_PUT):
                     (status, content) = self._http_put(
-                            url, body=data, headers=self._headers)
+                            url, body=data, headers=headers)
                 else:
                     raise ValueError
             except ConnectionError:
@@ -1374,7 +1379,8 @@ class VncApi(object):
         for an object.
         rv {'token_info': <token-info>, 'permissions': 'RWX'}
         """
-        self._headers['X-USER-TOKEN'] = token
+        if token is not None:
+            self._headers['X-USER-TOKEN'] = token
         query = 'uuid=%s' % obj_uuid if obj_uuid else ''
         try:
             rv = self._request_server(rest.OP_GET, "/obj-perms", data=query)
