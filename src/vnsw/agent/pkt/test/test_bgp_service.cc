@@ -10,6 +10,7 @@
 #include "pkt/pkt_handler.h"
 #include <base/task.h>
 #include <base/test/task_test_util.h>
+#include <oper/bgp_as_service.h>
 
 VmInterface *vnet[16];
 InetInterface *vhost;
@@ -97,6 +98,7 @@ public:
                              "vrf6", "bgpaas-client",
                              false, true);
         client->WaitForIdle();
+        EXPECT_TRUE(agent_->oper_db()->bgp_as_a_service()->IsConfigured());
     }
 
     virtual void TearDown() {
@@ -131,6 +133,7 @@ public:
         DeleteVmportEnv(input, 6, true);
         DelBgpaasPortRange();
         client->WaitForIdle();
+        EXPECT_FALSE(agent_->oper_db()->bgp_as_a_service()->IsConfigured());
     }
 
     Agent *agent_;
