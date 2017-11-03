@@ -32,8 +32,23 @@ IpamInfo ipam_info[] = {
 VmInterface *flow0;
 VmInterface *flow1;
 
-void RouterIdDepInit(Agent *agent) {
-}
+class SessionHandleTask : public Task {
+public:
+    SessionHandleTask() :
+        Task((TaskScheduler::GetInstance()->
+              GetTaskId(kTaskSessionStatsCollector)), 0) {
+    }
+    virtual bool Run() {
+        SessionStatsCollectorObject *obj = Agent::GetInstance()->
+            flow_stats_manager()->session_stats_collector_obj();
+        for (int i = 0; i < SessionStatsCollectorObject::kMaxSessionCollectors;
+             i++) {
+            obj->GetCollector(i)->Run();
+        }
+        return true;
+    }
+    std::string Description() const { return "SessionHandleTask"; }
+};
 
 class SessionStatsTest : public ::testing::Test {
 public:
@@ -54,6 +69,12 @@ public:
                            const char *serv, int label, const char *vn) {
         CreateRemoteRoute(vrf, remote_vm, 32, serv, label, vn);
     }
+    void EnqueueSessionTask() {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        SessionHandleTask *task = new SessionHandleTask();
+        scheduler->Enqueue(task);
+    }
+
     void FlowSetup() {
         unsigned int vn_count = 0;
         client->Reset();
@@ -135,7 +156,9 @@ TEST_F(SessionStatsTest, FlowAddVerify) {
     client->WaitForIdle();
     FlowTeardown();
     EXPECT_EQ(0U, flow_proto_->FlowCount());
-    EXPECT_EQ(0U, ssc->Size());
+    EnqueueSessionTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (ssc->Size() == 0));
 }
 
 TEST_F(SessionStatsTest, RemoteFlowAddVerify) {
@@ -187,7 +210,9 @@ TEST_F(SessionStatsTest, RemoteFlowAddVerify) {
     client->WaitForIdle();
     FlowTeardown();
     EXPECT_EQ(0U, flow_proto_->FlowCount());
-    EXPECT_EQ(0U, ssc->Size());
+    EnqueueSessionTask();
+    client->WaitForIdle();
+    WAIT_FOR(1000, 500, (ssc->Size() == 0));
 }
 
 int main(int argc, char *argv[]) {
