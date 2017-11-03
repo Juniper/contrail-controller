@@ -54,7 +54,7 @@ cd_cmd = 'cd ' + Dir('.').path + ' && '
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
 sdist_depends.extend(local_sources_rules)
-sdist_gen = env.Command('dist/kube_cni-0.1dev.tar.gz', 'setup.py',
+sdist_gen = env.Command('dist/cni-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 
 env.Depends(sdist_gen, sdist_depends)
