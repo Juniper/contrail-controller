@@ -157,7 +157,6 @@ class DbDataValuePrinter : public boost::static_visitor<std::string> {
         return value.str();
     }
     std::string operator()(const boost::blank &tblank) const {
-        assert(false && "Empty Db Value");
         return "EMPTY DB VALUE";
     }
 };

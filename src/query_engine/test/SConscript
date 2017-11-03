@@ -54,7 +54,8 @@ options_test = env.UnitTest('options_test', ['../buildinfo.o', '../options.o',
 env.Alias('src/query_engine:options_test', options_test)
 
 utils_test = env.UnitTest('utils_test', ['../utils.o',
-                                             'utils_test.cc'],
+                                         'utils_test.cc',
+                                         '../../analytics/viz_constants.o']
 			    )
 env.Alias('contrail-query-engine:utils_test', utils_test)
 

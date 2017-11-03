@@ -446,7 +446,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             exp_object_values=['vm11&>'])
     # end test_10_verify_object_table_query
 
-    #@unittest.skip('verify syslog query')
+    @unittest.skip('verify syslog query')
     def test_11_verify_syslog_table_query(self):
         '''
         This test verifies the Syslog query.
@@ -615,10 +615,10 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             [{ "st.s1":"samp1", "st.i1":2, "st.d1":2},
              { "st.s1":"samp1", "st.i1":1, "st.d1":1}]);
         # Get the current read stats for MessageTable
-        old_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'MessageTable')
+        old_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'MessageTablev2')
         # read some data from message table and issue thequery again
         assert analytics.verify_message_table_moduleid()
-        new_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'MessageTable')
+        new_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'MessageTablev2')
         assert(old_reads < new_reads)
         # Get the current read stats for stats table
         old_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'StatTestState:st',True)
