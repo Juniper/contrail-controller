@@ -131,13 +131,14 @@ TEST_F(ConnectionInfoTest, Callback) {
     // Expected connection more than conn_info
     GetProcessStateCb(vcinfo, pstate, message2, expected_connections);
     EXPECT_EQ(ProcessState::NON_FUNCTIONAL, pstate);
-    EXPECT_EQ("Number of connections:1, Expected:2 Missing: Test:Test2", message2);
-    // 2 expected connections are more than conn_info
+    EXPECT_EQ("Number of connections:1, Expected:2, Extra:0, Missing:1 "
+    "Missing:- Test:Test2", message2); // 2 expected connections are more than conn_info
     expected_connections.push_back(ConnectionTypeName("Test","Test3"));
     std::string message3;
     GetProcessStateCb(vcinfo, pstate, message3, expected_connections);
     EXPECT_EQ(ProcessState::NON_FUNCTIONAL, pstate);
-    EXPECT_EQ("Number of connections:1, Expected:3 Missing: Test:Test2,Test:Test3", message3);
+    EXPECT_EQ("Number of connections:1, Expected:3, Extra:0, Missing:2 "
+    "Missing:- Test:Test2,Test:Test3", message3);
     expected_connections.pop_back();
     UpdateConnInfo("Test2", ConnectionStatus::DOWN, "Test2 DOWN", &vcinfo);
     std::string message4;
@@ -149,12 +150,22 @@ TEST_F(ConnectionInfoTest, Callback) {
     // More connection in conn_info than expected_connections
     GetProcessStateCb(vcinfo, pstate, message5, expected_connections);
     EXPECT_EQ(ProcessState::NON_FUNCTIONAL, pstate);
-    EXPECT_EQ("Number of connections:3, Expected:2 Extra: Test:Test3", message5);
+    EXPECT_EQ("Number of connections:3, Expected:2, Extra:1, Missing:0 "
+    "Extra:- " "Test:Test3", message5);
     std::string message6;
     expected_connections.push_back(ConnectionTypeName("Test","Test3"));
     GetProcessStateCb(vcinfo, pstate, message6, expected_connections);
     EXPECT_EQ(ProcessState::NON_FUNCTIONAL, pstate);
     EXPECT_EQ("Test:Test2, Test:Test3 connection down", message6);
+    std::string message7;
+    expected_connections.pop_back();
+    UpdateConnInfo("", ConnectionStatus::UP, "Test4 UP", &vcinfo);
+    expected_connections.push_back(ConnectionTypeName("Test","Test5"));
+    expected_connections.push_back(ConnectionTypeName("Test","Test6"));
+    GetProcessStateCb(vcinfo, pstate, message7, expected_connections);
+    EXPECT_EQ("Number of connections:4, Expected:4, Extra:2, Missing:2 "
+    "Extra:- Test:Test3,Test Missing:- Test:Test5,Test:Test6", message7);
+
 }
 
 int main(int argc, char *argv[]) {

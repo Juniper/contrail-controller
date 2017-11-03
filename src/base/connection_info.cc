@@ -130,12 +130,17 @@ std::vector<ConnectionInfo> ConnectionState::GetInfos() const {
 }
 
 void GetProcessStateCb(const std::vector<ConnectionInfo> &cinfos,
-    ProcessState::type &state, std::string &message,
-    const std::vector<ConnectionTypeName> &expected_connections) {
+                       ProcessState::type &state, std::string &message,
+                       const std::vector<ConnectionTypeName> &expected_connections) {
     // Determine if the number of connections is as expected.
     size_t num_connections(cinfos.size());
-    if (num_connections != expected_connections.size()) {
-        GetConnectionInfoMessage(cinfos, expected_connections, message);
+    std::vector<ConnectionInfo> unexpected_cinfos;
+    FindUnexpectedConnections(cinfos, expected_connections, unexpected_cinfos);
+
+    if ((num_connections != expected_connections.size()) ||
+        (unexpected_cinfos.size() != 0)) {
+        GetConnectionInfoMessage(cinfos, expected_connections,
+        unexpected_cinfos, message);
         state = ProcessState::NON_FUNCTIONAL;
         return;
     }
@@ -187,38 +192,60 @@ struct CompareConnections : public std::unary_function<ConnectionTypeName,
     }
 };
 
-void GetConnectionInfoMessage(const std::vector<ConnectionInfo> &cinfos,
+void FindUnexpectedConnections(
+    const std::vector<ConnectionInfo> &cinfos,
     const std::vector<ConnectionTypeName> &expected_connections,
+    std::vector<ConnectionInfo> &unexpected_cinfos) {
+    for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
+         it != cinfos.end(); it++) {
+        const ConnectionInfo &cinfo(*it);
+        ConnectionTypeName con_info(cinfo.get_type(), cinfo.get_name());
+        std::vector<ConnectionTypeName>::const_iterator position;
+        position = std::find(expected_connections.begin(),
+                             expected_connections.end(), con_info);
+        if (position == expected_connections.end()) {
+            unexpected_cinfos.push_back(cinfo);
+        }
+    }
+}
+
+void GetConnectionInfoMessage(
+    const std::vector<ConnectionInfo> &cinfos,
+    const std::vector<ConnectionTypeName> &expected_connections,
+    const std::vector<ConnectionInfo> &unexpected_cinfos,
     std::string &message) {
+
     size_t num_connections(cinfos.size());
+    size_t num_unexpected_connections(unexpected_cinfos.size());
+    size_t num_missing_connections =  expected_connections.size() -
+        (num_connections - num_unexpected_connections);
     message = "Number of connections:" + integerToString(num_connections) +
-              ", Expected:" + integerToString(expected_connections.size());
-    if (num_connections > expected_connections.size()) {
+        ", Expected:" + integerToString(expected_connections.size()) +
+        ", Extra:" + integerToString(num_unexpected_connections) +
+        ", Missing:" + integerToString(num_missing_connections);
+    if (num_unexpected_connections != 0) {
         size_t i = 0;
-        message += " Extra: ";
+        message += " Extra:- ";
         // find the extra connection
-        for (std::vector<ConnectionInfo>::const_iterator it = cinfos.begin();
-            it != cinfos.end(); it++) {
+        for (std::vector<ConnectionInfo>::const_iterator it =
+        unexpected_cinfos.begin();
+            it != unexpected_cinfos.end(); it++) {
+            i++;
             const ConnectionInfo &cinfo(*it);
             ConnectionTypeName con_info(cinfo.get_type(), cinfo.get_name());
-            std::vector<ConnectionTypeName>::const_iterator position;
-            position = std::find(expected_connections.begin(),
-                                 expected_connections.end(), con_info);
-            if (position == expected_connections.end()) {
-                i++;
-                message += con_info.first;
-                if (!con_info.second.empty()) {
-                    message += ":" + con_info.second;
-                }
-                if (i != num_connections-expected_connections.size()) {
-                    message += ",";
-                }
+            message += con_info.first;
+            if (!con_info.second.empty()) {
+                message += ":" + con_info.second;
+            }
+            if (i < num_unexpected_connections) {
+                message += ",";
             }
         }
-    } else {
+    }
+     if (num_missing_connections !=0) {
         // find the missing connection
         size_t i = 0;
-        message += " Missing: ";
+        message += " Missing:- ";
         for (std::vector<ConnectionTypeName>::const_iterator it =
              expected_connections.begin(); it != expected_connections.end();
              it++) {
@@ -233,7 +260,7 @@ void GetConnectionInfoMessage(const std::vector<ConnectionInfo> &cinfos,
                 if (!it->second.empty()) {
                     message += ":" + it->second;
                 }
-                if (i != expected_connections.size() - cinfos.size()) {
+                if (i < num_missing_connections) {
                     message += ",";
                 }
             }
