@@ -93,6 +93,17 @@ RoutingInstanceMgr::~RoutingInstanceMgr() {
     STLDeleteValues(&instance_config_triggers_);
 }
 
+size_t RoutingInstanceMgr::GetMvpnProjectManagerCount(
+            const string &network) const {
+    tbb::mutex::scoped_lock lock(mvpn_mutex_);
+
+    MvpnProjectManagerNetworks::const_iterator iter =
+        mvpn_project_managers_.find(network);
+    if (iter == mvpn_project_managers_.end())
+        return 0;
+    return iter->second.size();
+}
+
 void RoutingInstanceMgr::ManagedDelete() {
     deleter_->Delete();
 }

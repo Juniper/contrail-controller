@@ -4,6 +4,7 @@
 
 #include "bgp/bgp_show_handler.h"
 
+#include <boost/foreach.hpp>
 #include <boost/regex.hpp>
 
 #include "bgp/ermvpn/ermvpn_table.h"
@@ -28,6 +29,14 @@ static void FillMvpnProjectManagerInfo(ShowMvpnProjectManager *smm,
     if (!manager)
         return;
 
+    size_t total_sg_states = 0;
+    BOOST_FOREACH(MvpnProjectManagerPartition *pm_partition,
+                  manager->partitions()) {
+        total_sg_states += pm_partition->states().size();
+    }
+    smm->set_total_sg_states(total_sg_states);
+    smm->set_total_managers(table->routing_instance()->manager()->
+            GetMvpnProjectManagerCount(table->routing_instance()->name()));
     smm->set_deleted(manager->deleted());
     smm->set_deleted_at(
         UTCUsecToString(manager->deleter()->delete_time_stamp_usecs()));
