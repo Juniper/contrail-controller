@@ -878,9 +878,9 @@ SUBCHANNELS=1,2,3
                 physical_interfaces_str)
 
     def disable_nova_compute(self):
-        # Check if nova-compute is allready running
-        # Stop if running on TSN node
-        if local("sudo service nova-compute status | grep running", warn_only=True).succeeded:
+        # Check if nova-compute is present in nova service list
+        # Disable nova-compute on TSN node
+        if local("nova service-list | grep nova-compute", warn_only=True).succeeded:
             # Stop the service
             local("sudo service nova-compute stop", warn_only=True)
             if self.pdist in ['Ubuntu']:
