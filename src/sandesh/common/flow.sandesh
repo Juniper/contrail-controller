@@ -48,7 +48,7 @@ struct SessionFlowInfo {
    12: optional uuid_t sg_rule_uuid;
    13: optional uuid_t nw_ace_uuid;
    14: optional u16 underlay_source_port;
-   15: optional u16 drop_reason;
+   15: optional string drop_reason;
 }
 
 struct SessionInfo {

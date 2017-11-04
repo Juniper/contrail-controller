@@ -692,7 +692,7 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateInterfaceFwPolicyStats
                                          (info.local_tagset_,
                                           info.remote_tagset_,
                                           info.remote_prefix_, info.remote_vn_,
-                                          info.local_vn_));
+                                          info.local_vn_, info.action_));
     if (it != security_policy_stats_map_.end()) {
         EndpointStatsContainer &cont = it->second;
         InterfaceUveTable::SecurityPolicyStatsSet &remote_ep_list =
@@ -758,7 +758,7 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
     UveSecurityPolicyStatsPtr stats(new UveSecurityPolicyStats
                                     (info.local_tagset, info.remote_tagset,
                                      info.remote_prefix, info.remote_vn,
-                                     info.local_vn));
+                                     info.local_vn, info.action));
     SecurityPolicyStatsMap::iterator it =
         security_policy_stats_map_.find(info.policy);
     if (it == security_policy_stats_map_.end()) {
@@ -849,6 +849,7 @@ void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
                                                        TagTable::DEPLOYMENT));
         item.set_remote_vn(entry->remote_vn);
         item.set_local_vn(entry->local_vn);
+        item.set_action(entry->action);
         item.set_added(entry->added - entry->prev_added);
         item.set_deleted(entry->deleted - entry->prev_deleted);
         item.set_active(entry->active);
@@ -937,6 +938,7 @@ void InterfaceUveTable::UveInterfaceEntry::BuildInterfaceUveSecurityPolicyList
         rep.set_prev_in_pkts(entry->prev_in_pkts);
         rep.set_prev_out_bytes(entry->prev_out_bytes);
         rep.set_prev_out_pkts(entry->prev_out_pkts);
+        rep.set_action(entry->action);
 
         olist->push_back(rep);
     }

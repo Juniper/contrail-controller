@@ -559,6 +559,7 @@ class FlowEntry {
         return default_sg_list_;
     }
     static FlowEntry *Allocate(const FlowKey &key, FlowTable *flow_table);
+    static bool ShouldDrop(uint32_t action);
 
     // Flow accessor routines
     int GetRefCount() { return refcount_; }

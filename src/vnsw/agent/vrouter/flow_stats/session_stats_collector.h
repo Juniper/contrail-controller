@@ -182,8 +182,6 @@ private:
          const SessionEndpointInfo::SessionAggMap::iterator &agg_it,
          const SessionPreAggInfo::SessionMap::iterator &session_it,
          const RevFlowDepParams *params, bool read_flow);
-    void GetFlowSandeshActionParams(const FlowAction &action_info,
-                                    std::string &action_str) const;
     uint64_t GetUpdatedSessionFlowBytes(uint64_t info_bytes,
                                         uint64_t k_flow_bytes) const;
     uint64_t GetUpdatedSessionFlowPackets(uint64_t info_packets,
