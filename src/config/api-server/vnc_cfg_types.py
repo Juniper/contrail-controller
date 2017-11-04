@@ -2033,11 +2033,13 @@ class VirtualRouterServer(Resource, VirtualRouter):
         if not ipam_refs:
             return True, ''
 
+        vrouter_uuid = vrouter_dict['uuid']
         ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs]
         (ok, ipam_list, _) = db_conn.dbe_list('network_ipam',
                                 obj_uuids=ipam_uuid_list,
                                 field_names=['ipam_subnet_method',
-                                             'ipam_subnets'])
+                                             'ipam_subnets',
+                                             'virtual_router_back_refs'])
         if not ok:
             return (ok, 400, 'Error in dbe_list: %s' % pformat(ipam_list))
 
@@ -2089,6 +2091,28 @@ class VirtualRouterServer(Resource, VirtualRouter):
                             'vrouter allocation-pool start:%s, end:%s '
                             'not in ipam' %(vr_alloc_pool['start'],
                                             vr_alloc_pool['end']))
+
+            if 'virtual_router_back_refs' not in ipam:
+                continue
+
+            vr_back_refs = ipam['virtual_router_back_refs']
+            for vr_back_ref in vr_back_refs:
+                if vr_back_ref['uuid'] == vrouter_uuid:
+                    continue
+
+                back_ref_ipam_data = vr_back_ref['attr']
+                bref_alloc_pools = back_ref_ipam_data.get('allocation_pools')
+                if not bref_alloc_pools:
+                    continue
+
+                for vr_alloc_pool in vr_alloc_pools:
+                    if vr_alloc_pool in bref_alloc_pools:
+                        return (False,
+                                'vrouter allocation-pool start:%s, end:%s '
+                                'is used in other vrouter:%s'
+                                %(vr_alloc_pool['start'],
+                                  vr_alloc_pool['end'],
+                                  vr_back_ref['uuid']))
 
         return True, ''
 
