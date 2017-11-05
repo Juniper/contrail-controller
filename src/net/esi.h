@@ -2,10 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_esi_h
-#define ctrlplane_esi_h
+#ifndef SRC_NET_ESI_H_
+#define SRC_NET_ESI_H_
 
 #include <boost/system/error_code.hpp>
+#include <string>
+
 #include "base/util.h"
 
 class EthernetSegmentId {
@@ -45,6 +47,9 @@ public:
     bool operator==(const EthernetSegmentId &rhs) const {
         return CompareTo(rhs) == 0;
     }
+    bool operator!=(const EthernetSegmentId &rhs) const {
+        return CompareTo(rhs) != 0;
+    }
     bool operator<(const EthernetSegmentId &rhs) const {
         return CompareTo(rhs) < 0;
     }
@@ -58,4 +63,4 @@ private:
     uint8_t data_[kSize];
 };
 
-#endif
+#endif  // SRC_NET_ESI_H_
