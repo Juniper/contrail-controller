@@ -9,10 +9,6 @@ local db = tonumber(ARGV[5])
 redis.call('select',db)
 local typ = redis.call('smembers',"TYPES:"..sm)
 
-local ism = redis.call('sismember', 'NGENERATORS', ngen_sm)
-if ism == 0 then
-    return false
-end
 redis.call('expire', "NGENERATORS", 40)
 
 local res = {}
