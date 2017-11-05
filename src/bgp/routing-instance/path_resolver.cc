@@ -1071,7 +1071,7 @@ bool ResolverPath::UpdateResolvedPaths() {
         &future_resolved_path_list,
         boost::bind(&ResolverPath::AddResolvedPath, this, _1),
         boost::bind(&ResolverPath::DeleteResolvedPath, this, _1));
-    if (route_->BestPath()) {
+    if (route_->HasPaths()) {
         if (modified) {
             partition_->table_partition()->Notify(route_);
         }

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "bgp/bgp_server.h"
+#include "bgp/extended-community/esi_label.h"
 #include "bgp/extended-community/etree.h"
 #include "bgp/extended-community/mac_mobility.h"
 #include "bgp/extended-community/router_mac.h"
@@ -1043,6 +1044,20 @@ bool BgpAttr::etree_leaf() const {
         }
     }
     return 0;
+}
+
+bool BgpAttr::evpn_single_active() const {
+    if (!ext_community_)
+        return false;
+    for (ExtCommunity::ExtCommunityList::const_iterator it =
+         ext_community_->communities().begin();
+         it != ext_community_->communities().end(); ++it) {
+        if (ExtCommunity::is_esi_label(*it)) {
+            EsiLabel esi_label(*it);
+            return esi_label.single_active();
+        }
+    }
+    return true;
 }
 
 MacAddress BgpAttr::mac_address() const {

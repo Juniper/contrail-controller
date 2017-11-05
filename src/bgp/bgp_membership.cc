@@ -1108,6 +1108,10 @@ bool BgpMembershipManager::Walker::WalkCallback(DBTablePartBase *tpart,
         if (path->IsResolved())
             continue;
 
+        // Skip aliased paths - EvpnManager is responsible for them.
+        if (path->IsAliased())
+            continue;
+
         // Skip secondary paths.
         if (dynamic_cast<BgpSecondaryPath *>(path))
             continue;
