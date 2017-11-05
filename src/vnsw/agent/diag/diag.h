@@ -36,6 +36,7 @@ public:
     bool TimerExpiry(uint32_t seqno);
     void RestartTimer();
     virtual bool IsDone();
+    virtual bool ResendOnTimerExpiry() { return true; }
     DiagKey GetKey() { return key_;};
     uint32_t GetSeqNo() {return seq_no_;};
     uint32_t GetMaxAttempts() {return max_attempts_;};

@@ -33,6 +33,7 @@ public:
          */
         return false;
     }
+    virtual bool ResendOnTimerExpiry() { return false; }
     void set_service(HealthCheckInstanceService *svc) {
         service_ = svc;
     }
