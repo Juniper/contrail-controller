@@ -922,10 +922,12 @@ bool EvpnRoute::IsValid() const {
     const BgpAttr *attr = BestPath()->GetAttr();
     switch (prefix_.type()) {
     case EvpnPrefix::AutoDiscoveryRoute: {
-        return false;
+        if (prefix_.tag() == EvpnPrefix::kMaxTag)
+            return true;
+        break;
     }
     case EvpnPrefix::MacAdvertisementRoute: {
-        return prefix_.mac_addr().IsBroadcast();
+        return true;
     }
     case EvpnPrefix::InclusiveMulticastRoute: {
         const PmsiTunnel *pmsi_tunnel = attr->pmsi_tunnel();

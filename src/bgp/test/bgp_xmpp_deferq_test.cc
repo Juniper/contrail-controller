@@ -401,6 +401,7 @@ class BgpXmppSerializeMembershipReqTest : public BgpXmppUnitTest {
 
     virtual void TearDown() {
         ConcurrencyScope scope("bgp::Config");
+        task_util::WaitForIdle();
         TASK_UTIL_EXPECT_TRUE(a_->IsReadyForDeletion());
         task_util::WaitForIdle();
         agent_a_->SessionDown();

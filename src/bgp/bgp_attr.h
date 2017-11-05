@@ -862,6 +862,7 @@ public:
     uint32_t sequence_number() const;
     bool evpn_sticky_mac() const;
     bool etree_leaf() const;
+    bool evpn_single_active() const;
     MacAddress mac_address() const;
 
 private:

@@ -12,10 +12,20 @@
 #include "base/parse_object.h"
 
 using std::copy;
+using std::fill;
 using std::string;
 
 EsiLabel::EsiLabel(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
+}
+
+EsiLabel::EsiLabel(bool single_active) {
+    fill(data_.begin(), data_.end(), 0);
+    data_[0] = BgpExtendedCommunityType::Evpn;
+    data_[1] = BgpExtendedCommunityEvpnSubType::EsiMplsLabel;
+    if (single_active) {
+        data_[2] |= 0x01;
+    }
 }
 
 string EsiLabel::flags() const {

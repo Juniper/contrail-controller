@@ -141,8 +141,10 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
             return NULL;
     }
 
-    if (evpn_prefix.type() == EvpnPrefix::AutoDiscoveryRoute)
-        return NULL;
+    if (evpn_prefix.type() == EvpnPrefix::AutoDiscoveryRoute) {
+	    if (IsMaster() || evpn_prefix.tag() != EvpnPrefix::kMaxTag)
+	        return NULL;
+    }
     if (evpn_prefix.type() == EvpnPrefix::SegmentRoute)
         return NULL;
     if (evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute &&
@@ -163,7 +165,8 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
                 new_attr.get(), originator_id);
         }
     } else {
-        if (evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute ||
+        if (evpn_prefix.type() == EvpnPrefix::AutoDiscoveryRoute ||
+            evpn_prefix.type() == EvpnPrefix::MacAdvertisementRoute ||
             evpn_prefix.type() == EvpnPrefix::IpPrefixRoute) {
             evpn_prefix.set_route_distinguisher(RouteDistinguisher::kZeroRd);
         }
