@@ -37,10 +37,17 @@ BgpRoute::~BgpRoute() {
 
 //
 // Return the best path for this route.
+// Skip aliased paths.
 //
 const BgpPath *BgpRoute::BestPath() const {
-    const BgpPath *path = static_cast<const BgpPath *>(front());
-    return path;
+    for (Route::PathList::const_iterator it = GetPathList().begin();
+         it != GetPathList().end(); ++it) {
+        const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+        if (path->GetFlags() & BgpPath::AliasedPath)
+            continue;
+        return path;
+    }
+    return NULL;
 }
 
 //
@@ -85,7 +92,7 @@ void BgpRoute::DeletePath(BgpPath *path) {
 
 //
 // Find first path with given path source.
-// Skips secondary paths and resolved paths.
+// Skips secondary, aliased and resolved paths.
 //
 const BgpPath *BgpRoute::FindPath(BgpPath::PathSource src) const {
     for (Route::PathList::const_iterator it = GetPathList().begin();
@@ -96,6 +103,9 @@ const BgpPath *BgpRoute::FindPath(BgpPath::PathSource src) const {
         }
 
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+        if (path->GetFlags() & BgpPath::AliasedPath) {
+            continue;
+        }
         if (path->GetFlags() & BgpPath::ResolvedPath) {
             continue;
         }
@@ -108,13 +118,16 @@ const BgpPath *BgpRoute::FindPath(BgpPath::PathSource src) const {
 
 //
 // Find path added by BGP_XMPP peer.
-// Skips non BGP_XMPP, secondary paths and resolved paths.
+// Skips non BGP_XMPP, secondary, aliased and resolved paths.
 //
 BgpPath *BgpRoute::FindPath(const IPeer *peer) {
     for (Route::PathList::iterator it = GetPathList().begin();
          it != GetPathList().end(); ++it) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
         if (path->GetSource() != BgpPath::BGP_XMPP) {
+            continue;
+        }
+        if (path->GetFlags() & BgpPath::AliasedPath) {
             continue;
         }
         if (path->GetFlags() & BgpPath::ResolvedPath) {
@@ -131,8 +144,35 @@ BgpPath *BgpRoute::FindPath(const IPeer *peer) {
 }
 
 //
+// Find path with given nexthop address.
+// Skips non BGP_XMPP, secondary, aliased and resolved paths.
+//
+BgpPath *BgpRoute::FindPath(const IpAddress &nexthop) {
+    for (Route::PathList::iterator it = GetPathList().begin();
+         it != GetPathList().end(); ++it) {
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->GetSource() != BgpPath::BGP_XMPP) {
+            continue;
+        }
+        if (path->GetFlags() & BgpPath::AliasedPath) {
+            continue;
+        }
+        if (path->GetFlags() & BgpPath::ResolvedPath) {
+            continue;
+        }
+        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) {
+            continue;
+        }
+        if (path->GetAttr()->nexthop() == nexthop) {
+            return path;
+        }
+    }
+    return NULL;
+}
+
+//
 // Find path added by peer with given path id and path source.
-// Skips secondary paths and resolved paths.
+// Skips secondary, aliased and resolved paths.
 //
 BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
                             uint32_t path_id) {
@@ -144,6 +184,9 @@ BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
         }
 
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->GetFlags() & BgpPath::AliasedPath) {
+            continue;
+        }
         if (path->GetFlags() & BgpPath::ResolvedPath) {
             continue;
         }
