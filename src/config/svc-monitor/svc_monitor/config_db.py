@@ -1315,7 +1315,6 @@ class ServiceHealthCheckSM(DBBaseSM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
-        self.virtual_machine_interfaces = set()
         self.service_instances = {}
         self.update(obj_dict)
     # end __init__
@@ -1326,7 +1325,6 @@ class ServiceHealthCheckSM(DBBaseSM):
         self.parent_uuid = obj['parent_uuid']
         self.name = obj['fq_name'][-1]
         self.params = obj.get('service_health_check_properties', None)
-        self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs_with_attr('service_instance', obj)
     # end update
 
@@ -1336,7 +1334,6 @@ class ServiceHealthCheckSM(DBBaseSM):
             return
         obj = cls._dict[uuid]
         obj.update_multiple_refs_with_attr('service_instance', {})
-        obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
     # end delete
 # end ServiceHealthCheckSM
