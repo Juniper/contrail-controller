@@ -1,7 +1,6 @@
 import sys
 reload(sys)
 sys.setdefaultencoding('UTF8')
-import socket
 import re
 import logging
 from cfgm_common import jsonutils as json
@@ -1640,7 +1639,8 @@ class DatabaseHealer(DatabaseManager):
             else:
                 logger.info("Adding missing id %s for %s", zk_path % id_str,
                             fq_name_str)
-                self._zk_client.create(zk_path % id_str, str(fq_name_str))
+                self._zk_client.create(
+                        zk_path % id_str, str(fq_name_str), makepath=True)
 
     @healer
     def heal_subnet_addr_alloc(self):

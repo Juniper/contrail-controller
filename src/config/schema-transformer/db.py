@@ -52,7 +52,7 @@ class SchemaTransformerDB(VncObjectDBClient):
         self._zkclient = zkclient
 
         if self._args.cluster_id:
-            self._zk_path_pfx = self._args.cluster_id + '/'
+            self._zk_path_pfx = self._args.cluster_id
         else:
             self._zk_path_pfx = ''
 
