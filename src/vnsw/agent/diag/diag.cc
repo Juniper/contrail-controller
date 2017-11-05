@@ -30,7 +30,8 @@ DiagEntry::DiagEntry(const std::string &sip, const std::string &dip,
     proto_(proto), sport_(sport), dport_(dport),
     vrf_name_(vrf_name), diag_table_(diag_table), timeout_(timeout),
     timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(), 
-    "DiagTimeoutHandler")), max_attempts_(attempts), seq_no_(0) {
+    "DiagTimeoutHandler", TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0)),
+    max_attempts_(attempts), seq_no_(0) {
 }
 
 DiagEntry::~DiagEntry() {
@@ -65,10 +66,15 @@ bool DiagEntry::TimerExpiry( uint32_t seq_no) {
     RequestTimedOut(seq_no);
     if (IsDone()) {
         op = new DiagEntryOp(DiagEntryOp::DELETE, this);
-    } else {
-        op = new DiagEntryOp(DiagEntryOp::RETRY, this);
+        diag_table_->Enqueue(op);
+        return false;
     }
-    diag_table_->Enqueue(op);
+
+    if (ResendOnTimerExpiry()) {
+        SendRequest();
+        return true;
+    }
+
     return false;
 }
 

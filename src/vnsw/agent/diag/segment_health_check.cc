@@ -20,7 +20,8 @@ SegmentHealthCheckPkt::SegmentHealthCheckPkt(HealthCheckInstanceService *svc,
     delay_msecs_ = GetDelay(svc);
     delay_timer_ = TimerManager::CreateTimer
         (*(diag_table->agent()->event_manager())->io_service(),
-         "SegmentHCDelayTimeoutHandler");
+         "SegmentHCDelayTimeoutHandler",
+         TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0);
 }
 
 
@@ -48,6 +49,7 @@ int SegmentHealthCheckPkt::GetTimeout(const HealthCheckInstanceService *svc)
 }
 
 void SegmentHealthCheckPkt::Retry() {
+    delay_timer_->Cancel();
     delay_timer_->Start(delay_msecs_,
                        boost::bind(&SegmentHealthCheckPkt::RetryHandler, this));
 }
@@ -132,6 +134,7 @@ void SegmentHealthCheckPkt::RequestTimedOut(uint32_t seqno) {
         Notify(FAILURE);
         seq_no_ = 0;
     }
+    Retry();
 }
 
 void SegmentHealthCheckPkt::HandleReply(DiagPktHandler *handler) {
