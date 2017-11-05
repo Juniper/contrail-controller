@@ -498,11 +498,11 @@ bool RoutePathReplicator::RouteListener(TableState *ts,
 
         // Skip if the source peer is down.
         if (!path->IsStale() && !path->IsLlgrStale() && path->GetPeer() &&
-                !path->GetPeer()->IsReady())
+            !path->GetPeer()->IsReady())
             continue;
 
-        // No need to replicate the replicated path.
-        if (path->IsReplicated())
+        // No need to replicate aliased or replicated paths.
+        if (path->IsReplicated() || path->IsAliased())
             continue;
 
         // Do not replicate non-ecmp paths.

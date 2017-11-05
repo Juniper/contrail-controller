@@ -163,7 +163,7 @@ void BgpPath::UpdatePeerRefCount(int count, Address::Family family) const {
     if (!peer_)
         return;
     peer_->UpdateTotalPathCount(count);
-    if (source_ != BGP_XMPP || IsReplicated() || IsResolved())
+    if (source_ != BGP_XMPP || IsReplicated() || IsResolved() || IsAliased())
         return;
     peer_->UpdatePrimaryPathCount(count, family);
 }
@@ -211,6 +211,10 @@ vector<string> BgpPath::GetFlagsStringList() const {
         flags.push_back(RoutingPolicyReject);
     if (flags_ & LlgrStale)
         flags.push_back(LlgrStale);
+    if (flags_ & ClusterListLooped)
+        flags.push_back(ClusterListLooped);
+    if (flags_ & AliasedPath)
+        flags.push_back(AliasedPath);
 
     BOOST_FOREACH(PathFlag flag, flags) {
         switch (flag) {
@@ -243,6 +247,9 @@ vector<string> BgpPath::GetFlagsStringList() const {
             break;
         case ClusterListLooped:
             flag_names.push_back("ClusterListLooped");
+            break;
+        case AliasedPath:
+            flag_names.push_back("AliasedPath");
             break;
         }
     }

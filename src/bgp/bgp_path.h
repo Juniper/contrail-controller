@@ -29,6 +29,7 @@ public:
         RoutingPolicyReject = 1 << 7,
         LlgrStale = 1 << 8,
         ClusterListLooped = 1 << 9,
+        AliasedPath = 1 << 10,
     };
 
     // Ordered in the ascending order of path preference
@@ -91,6 +92,7 @@ public:
         return ((flags_ & (INFEASIBLE_MASK & ~ResolveNexthop)) == 0);
     }
 
+    bool IsAliased() const { return ((flags_ & AliasedPath) != 0); }
     bool IsResolved() const { return ((flags_ & ResolvedPath) != 0); }
     uint32_t GetFlags() const { return flags_; }
     std::vector<std::string> GetFlagsStringList() const;
