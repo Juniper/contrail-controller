@@ -344,23 +344,46 @@ TEST_F(EvpnTableAutoDiscoveryTest, AddDeleteMultipleRoute3) {
 }
 
 //
-// Route is not replicated from VPN.
+// Route is not replicated from VPN if it does not have kMaxTag.
 //
-TEST_F(EvpnTableAutoDiscoveryTest, ReplicateRouteFromVPN) {
-    ostringstream repr;
-    repr << "1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-65536";
-    AddRoute(master_, repr.str(), "target:64512:1");
+TEST_F(EvpnTableAutoDiscoveryTest, ReplicateRouteFromVPN1) {
+    ostringstream repr1, repr2;
+    repr1 << "1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-65536";
+    repr2 << "1-0:0-00:01:02:03:04:05:06:07:08:09-65536";
+    AddRoute(master_, repr1.str(), "target:64512:1");
     task_util::WaitForIdle();
-    VerifyRouteExists(master_, repr.str());
+    VerifyRouteExists(master_, repr1.str());
     TASK_UTIL_EXPECT_EQ(1, master_->Size());
-    VerifyRouteNoExists(blue_, repr.str());
+    VerifyRouteNoExists(blue_, repr2.str());
     TASK_UTIL_EXPECT_EQ(0, blue_->Size());
 
-    DelRoute(master_, repr.str());
+    DelRoute(master_, repr1.str());
     task_util::WaitForIdle();
-    VerifyRouteNoExists(master_, repr.str());
+    VerifyRouteNoExists(master_, repr1.str());
     TASK_UTIL_EXPECT_EQ(0, master_->Size());
-    VerifyRouteNoExists(blue_, repr.str());
+    VerifyRouteNoExists(blue_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(0, blue_->Size());
+}
+
+//
+// Route is replicated from VPN if it has kMaxTag.
+//
+TEST_F(EvpnTableAutoDiscoveryTest, ReplicateRouteFromVPN2) {
+    ostringstream repr1, repr2;
+    repr1 << "1-10.1.1.1:65535-00:01:02:03:04:05:06:07:08:09-4294967295";
+    repr2 << "1-0:0-00:01:02:03:04:05:06:07:08:09-4294967295";
+    AddRoute(master_, repr1.str(), "target:64512:1");
+    task_util::WaitForIdle();
+    VerifyRouteExists(master_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(1, master_->Size());
+    VerifyRouteExists(blue_, repr2.str());
+    TASK_UTIL_EXPECT_EQ(1, blue_->Size());
+
+    DelRoute(master_, repr1.str());
+    task_util::WaitForIdle();
+    VerifyRouteNoExists(master_, repr1.str());
+    TASK_UTIL_EXPECT_EQ(0, master_->Size());
+    VerifyRouteNoExists(blue_, repr2.str());
     TASK_UTIL_EXPECT_EQ(0, blue_->Size());
 }
 
