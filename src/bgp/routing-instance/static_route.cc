@@ -391,7 +391,7 @@ void StaticRoute<T>::RemoveStaticRoute() {
             " in table " << bgp_table()->name());
     }
 
-    if (!static_route->BestPath()) {
+    if (!static_route->HasPaths()) {
         partition->Delete(static_route);
     } else {
         partition->Notify(static_route);

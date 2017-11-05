@@ -500,7 +500,7 @@ void AggregateRoute<T>::RemoveAggregateRoute() {
         "Removed aggregate path " << aggregate_route_->ToString() <<
         " in table " << partition->table()->name());
 
-    if (!aggregate_route->BestPath()) {
+    if (!aggregate_route->HasPaths()) {
         partition->Delete(aggregate_route);
     } else {
         partition->Notify(aggregate_route);
