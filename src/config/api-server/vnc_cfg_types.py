@@ -1191,6 +1191,19 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         return (True, '')
 
     @classmethod
+    def _is_port_bound(cls, obj_dict):
+        """Check whatever port is bound.
+
+        We assume port is bound when it is linked to either VM or Vrouter.
+
+        :param obj_dict: Port dict to check
+        :returns: True if port is bound, False otherwise.
+        """
+
+        return (obj_dict.get('logical_router_back_refs') or
+                obj_dict.get('virtual_machine_refs'))
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         vn_dict = obj_dict['virtual_network_refs'][0]
         vn_uuid = vn_dict.get('uuid')
@@ -1393,8 +1406,10 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         if kvps:
             kvp_dict = cls._kvp_to_dict(kvps)
             new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
-            if (old_vnic_type  != new_vnic_type):
-                return (False, (409, "Vnic_type can not be modified"))
+            if (old_vnic_type != new_vnic_type):
+                if cls._is_port_bound(read_result):
+                    return (False, (409, "Vnic_type can not be modified when "
+                                    "port is linked to Vrouter or VM."))
 
         if old_vnic_type == cls.portbindings['VNIC_TYPE_DIRECT']:
             cls._check_vrouter_link(read_result, kvp_dict, obj_dict, db_conn)
