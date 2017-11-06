@@ -3831,6 +3831,9 @@ class ProjectServer(Resource, Project):
         try:
             default_aps_uuid = db_conn.fq_name_to_uuid(
                 ApplicationPolicySetServer.object_type, defaut_aps_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            return True, ''
+        try:
             cls.server.internal_request_ref_update(
                 cls.resource_type,
                 id,
@@ -3840,8 +3843,9 @@ class ProjectServer(Resource, Project):
             )
             cls.server.internal_request_delete(
                 ApplicationPolicySetServer.resource_type, default_aps_uuid)
-        except cfgm_common.exceptions.NoIdError:
-            return True, ''
+        except cfgm_common.exceptions.HttpError as e:
+            if e.status_code != 404:
+                return False, (e.status_code, e.content)
 
         def undo():
             return cls.ensure_default_application_policy_set(default_aps_uuid,
