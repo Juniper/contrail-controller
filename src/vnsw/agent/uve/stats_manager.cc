@@ -283,7 +283,8 @@ void StatsManager::AddFlow(const FlowUveStatsRequest *req) {
             itable->IncrInterfaceAceStats(req);
             info.sg_rule_uuid = req->sg_rule_uuid();
         }
-        if (intf_changed || !info.IsFwPolicyInfoEqual(fw_info)) {
+        if (intf_changed ||
+            (fw_info.is_valid_ && !info.IsFwPolicyInfoEqual(fw_info))) {
             /* When there is change either in interface-name or key of
              * Endpoint record, treat it as flow-delete.
              * (a) Increment deleted counter for old interface and old key
