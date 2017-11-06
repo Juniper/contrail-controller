@@ -499,6 +499,14 @@ class QfxConf(JuniperConf):
 
     def set_resolve_bgp_route_target_family_config(self):
         """ configure resolution config in global routing options if needed """
+        if self.is_spine():
+            return
+        if not self.global_routing_options_config:
+            self.global_routing_options_config = RoutingOptions(
+                                       comment=DMUtils.routing_options_comment())
+        resolve = Resolution(rib=RIB(name="bgp.rtarget.0",
+                                       resolution_ribs="inet.0"))
+        self.global_routing_options_config.set_resolution(resolve)
     # end set_resolve_bgp_route_target_family_config
 
     def set_chassis_config(self):
