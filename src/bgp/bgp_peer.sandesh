@@ -680,11 +680,10 @@ struct ShowMvpnNeighbor {
 
 struct ShowMvpnProjectManager {
     1: string name (link="ShowMvpnProjectManagerDetailReq");
-    2: string source;
-    3: string group;
-    4: u32 total_managers;
-    5: bool deleted;
-    6: string deleted_at;
+    2: u32 total_managers;
+    3: u32 total_sg_states;
+    4: bool deleted;
+    5: string deleted_at;
 }
 
 response sandesh ShowMvpnProjectManagerResp {

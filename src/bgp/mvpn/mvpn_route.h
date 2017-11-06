@@ -47,6 +47,7 @@ public:
     MvpnPrefix(uint8_t type, const RouteDistinguisher &rd, const uint32_t asn,
                const Ip4Address &group, const Ip4Address &source);
 
+    Ip4Address GetType3OriginatorFromType4Route() const;
     static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
                                MvpnPrefix *prefix);
     static int FromProtoPrefix(BgpServer *server,
@@ -74,7 +75,8 @@ public:
             boost::system::error_code *ec, bool last = false);
     static MvpnPrefix FromString(const std::string &str,
                                  boost::system::error_code *errorp = NULL);
-    void SetRtKeyFromSPMSIADRoute(const MvpnPrefix prefix);
+    void SetRtKeyFromSPMSIADRoute(const MvpnPrefix &prefix);
+    void SetRtKeyFromLeafADRoute(const MvpnPrefix &prefix);
 
     std::string ToString() const;
     std::string ToXmppIdString() const;

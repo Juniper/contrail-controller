@@ -27,6 +27,8 @@ static void FillMvpnManagerInfo(ShowMvpnManager *smm,
     if (!manager)
         return;
 
+    smm->set_project_manager(
+        table->routing_instance()->mvpn_project_manager_network());
     smm->set_deleted(manager->deleted());
     smm->set_deleted_at(
         UTCUsecToString(manager->deleter()->delete_time_stamp_usecs()));

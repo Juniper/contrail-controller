@@ -9,6 +9,7 @@
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_mvpn.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/inet/inet_table.h"
@@ -19,6 +20,8 @@
 #include "io/test/event_manager_test.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
+#include "sandesh/sandesh.h"
+#include "sandesh/sandesh_server.h"
 #include "schema/xmpp_multicast_types.h"
 #include "schema/xmpp_mvpn_types.h"
 #include "xmpp/xmpp_factory.h"
@@ -30,17 +33,33 @@ using namespace boost::assign;
 using namespace std;
 using namespace test;
 
+class SandeshServerTest : public SandeshServer {
+public:
+    SandeshServerTest(EventManager *evm) :
+            SandeshServer(evm, SandeshConfig()) { }
+    virtual ~SandeshServerTest() { }
+    virtual bool ReceiveSandeshMsg(SandeshSession *session,
+                       const SandeshMessage *msg, bool rsc) {
+        return true;
+    }
+
+private:
+};
+
 class BgpMvpnIntegrationTest : public ::testing::Test {
 public:
     BgpMvpnIntegrationTest() : thread_(&evm_), xs_x_(NULL) { }
 
     virtual void SetUp() {
+        SandeshStartup();
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
         xs_x_ = new XmppServer(&evm_, XmppDocumentMock::kControlNodeJID);
         bs_x_->session_manager()->Initialize(0);
         xs_x_->Initialize(0, false);
         bcm_x_.reset(new BgpXmppChannelManager(xs_x_, bs_x_.get()));
 
+        sandesh_context_->bgp_server = bs_x_.get();
+        sandesh_context_->xmpp_peer_manager = bcm_x_.get();
         thread_.Start();
     }
 
@@ -57,6 +76,9 @@ public:
         agent_xb_->Delete();
         agent_xc_->Delete();
 
+        SandeshShutdown();
+        task_util::WaitForIdle();
+        sandesh_context_.reset();
         evm_.Shutdown();
         thread_.Join();
         task_util::WaitForIdle();
@@ -175,6 +197,9 @@ public:
                 source_address, other_agent.get()));
     }
 
+    void SandeshStartup();
+    void SandeshShutdown();
+
     EventManager evm_;
     ServerThread thread_;
     BgpServerTestPtr bs_x_;
@@ -191,9 +216,38 @@ public:
     MvpnTable *fabric_mvpn_;
     InetTable *red_inet_;
     InetTable *green_inet_;
+    SandeshServerTest *sandesh_server_;
+    boost::scoped_ptr<BgpSandeshContext> sandesh_context_;
 
     static int validate_done_;
 };
+
+void BgpMvpnIntegrationTest::SandeshStartup() {
+    sandesh_context_.reset(new BgpSandeshContext());
+    // Initialize SandeshServer.
+    sandesh_server_ = new SandeshServerTest(&evm_);
+    sandesh_server_->Initialize(0);
+
+    boost::system::error_code error;
+    string hostname(boost::asio::ip::host_name(error));
+    Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname,
+                           "BgpTest", "Test", &evm_,
+                            0, sandesh_context_.get());
+    Sandesh::ConnectToCollector("127.0.0.1",
+                                sandesh_server_->GetPort());
+    task_util::WaitForIdle();
+    cout << "Introspect at http://localhost:" << Sandesh::http_port() << endl;
+}
+
+void BgpMvpnIntegrationTest::SandeshShutdown() {
+    Sandesh::Uninit();
+    task_util::WaitForIdle();
+    sandesh_server_->Shutdown();
+    task_util::WaitForIdle();
+    TcpServerManager::DeleteServer(sandesh_server_);
+    sandesh_server_ = NULL;
+    task_util::WaitForIdle();
+}
 
 int BgpMvpnIntegrationTest::validate_done_;
 
@@ -339,7 +393,7 @@ TEST_F(BgpMvpnOneControllerTest, Basic) {
     TASK_UTIL_EXPECT_EQ(1, agent_xa_->MvpnRouteCount()); // Sender
     TASK_UTIL_EXPECT_EQ(0, agent_xb_->MvpnRouteCount());
     VerifyOListAndSource(agent_xa_, "red", mroute, 1, "10.1.1.2",
-	    "192.168.0.101", agent_xb_);
+            "192.168.0.101", agent_xb_);
     TASK_UTIL_EXPECT_EQ(0, CheckGlobalRouteOListSize(agent_xb_, mroute));
 
     // Add a receiver in red
@@ -351,6 +405,31 @@ TEST_F(BgpMvpnOneControllerTest, Basic) {
     VerifyOListAndSource(agent_xa_, "red", mroute, 1, "10.1.1.2",
                          "192.168.0.101", agent_xb_);
 }
+
+static const char *config_tmpl3 = "\
+<config>\
+    <routing-instance name='red'>\
+        <virtual-network>red</virtual-network>\
+        <vrf-target>target:127.0.0.1:1001</vrf-target>\
+        <vrf-target>\
+            target:127.0.0.1:1003\
+            <import-export>import</import-export>\
+        </vrf-target>\
+    </routing-instance>\
+    <routing-instance name='green'>\
+        <virtual-network>green</virtual-network>\
+        <vrf-target>target:127.0.0.1:1003</vrf-target>\
+        <vrf-target>\
+            target:127.0.0.1:1001\
+            <import-export>import</import-export>\
+        </vrf-target>\
+        <vrf-target>\
+            target:127.0.0.1:1002\
+            <import-export>import</import-export>\
+        </vrf-target>\
+    </routing-instance>\
+</config>\
+";
 
 static const char *config_tmpl2 = "\
 <config>\
@@ -554,7 +633,7 @@ protected:
     static int validate_done_;
 };
 
-TEST_F(BgpMvpnTwoControllerTest, RedSenderRedReceiver) {
+TEST_F(BgpMvpnTwoControllerTest, RedSenderRedGreenReceiver) {
     // Register agents and add a source active mvpn route
     Subscribe("red", 1);
     Subscribe("green", 2);
@@ -615,7 +694,19 @@ TEST_F(BgpMvpnTwoControllerTest, RedSenderRedReceiver) {
     TASK_UTIL_EXPECT_EQ(1, agent_xa_->MvpnRouteCount());
     TASK_UTIL_EXPECT_EQ(0, agent_yb_->MvpnRouteCount());
     VerifyOListAndSource(agent_xa_, "red", mroute, 1, "10.1.2.2",
-	    "192.168.0.101", agent_yb_);
+            "192.168.0.101", agent_yb_);
+    TASK_UTIL_EXPECT_EQ(0, CheckGlobalRouteOListSize(agent_yb_, mroute));
+
+    Configure(config_tmpl3);
+    task_util::WaitForIdle();
+    agent_yb_->AddType7MvpnRoute("green", mroute, "10.1.1.3", "50-60");
+    TASK_UTIL_EXPECT_EQ(8, red_->Size());
+    TASK_UTIL_EXPECT_EQ(2, blue_->Size());
+    TASK_UTIL_EXPECT_EQ(8, green_->Size());
+    TASK_UTIL_EXPECT_EQ(12, master_y_->Size());
+    TASK_UTIL_EXPECT_EQ(12, master_->Size());
+    VerifyOListAndSource(agent_xa_, "red", mroute, 1, "10.1.2.2",
+            "192.168.0.101", agent_yb_);
 }
 
 class TestEnvironment : public ::testing::Environment {

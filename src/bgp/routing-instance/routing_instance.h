@@ -361,6 +361,7 @@ public:
     MvpnProjectManagerNetworks &mvpn_project_managers() {
         return mvpn_project_managers_;
     }
+    size_t GetMvpnProjectManagerCount(const std::string &network) const;
     tbb::mutex &mvpn_mutex() { return mvpn_mutex_; }
 
 private:
