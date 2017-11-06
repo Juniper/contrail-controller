@@ -156,3 +156,396 @@ request sandesh IngressDatabaseList {
 response sandesh IngressDatabaseListResp {
     1: list<IngressInstance> ingress;
 }
+
+
+//
+// Loadbalancer Introspect datastructures.
+//
+struct LoadbalancerInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: string external_ip;
+    6: list<string> lb_listeners;
+    7: list<string> selectors;
+    8: list<string> vm_interfaces;
+}
+
+request sandesh LoadbalancerDatabaseList {
+    1: string lb_uuid;
+}
+
+response sandesh LoadbalancerDatabaseListResp {
+    1: list<LoadbalancerInstance> lbs;
+}
+
+
+//
+// LoadbalancerListener Introspect datastructures.
+//
+struct LoadbalancerListenerInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: map<string, string> id_perms;
+    6: string loadbalancer;
+    7: string loadbalancer_pool;
+    8: string port_name;
+    9: string parent_uuid;
+}
+
+request sandesh LoadbalancerListenerDatabaseList {
+    1: string lbl_uuid;
+}
+
+response sandesh LoadbalancerListenerDatabaseListResp {
+    1: list<LoadbalancerListenerInstance> lbls;
+}
+
+
+//
+// LoadbalancerPool Introspect datastructures.
+//
+struct LoadbalancerPoolInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<string> custom_attributes;
+    6: map<string, string> id_perms;
+    7: string loadbalancer_listener;
+    8: list<string> members;
+    9: map<string, string> params;
+    10: string parent_uuid;
+    11: string provider;
+}
+
+request sandesh LoadbalancerPoolDatabaseList {
+    1: string lbp_uuid;
+}
+
+response sandesh LoadbalancerPoolDatabaseListResp {
+    1: list<LoadbalancerPoolInstance> lbps;
+}
+
+
+//
+// LoadbalancerMember Introspect datastructures.
+//
+struct LoadbalancerMemberInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+}
+
+request sandesh LoadbalancerMemberDatabaseList {
+    1: string lbm_uuid;
+}
+
+response sandesh LoadbalancerMemberDatabaseListResp {
+    1: list<LoadbalancerMemberInstance> lbms;
+}
+
+
+//
+// HealthMonitor Introspect datastructures.
+//
+struct HealthMonitorInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+}
+
+request sandesh HealthMonitorDatabaseList {
+    1: string hm_uuid;
+}
+
+response sandesh HealthMonitorDatabaseListResp {
+    1: list<HealthMonitorInstance> hms;
+}
+
+
+
+//
+// VirtualMachine Introspect datastructures.
+//
+struct VirtualMachineInstance {
+    1: string uuid;
+    2: string name;
+    3: map<string, string> annotations;
+    4: string owner;
+    5: string pod_namespace;
+    6: string pod_node;
+    7: map<string, string> pod_labels;
+}
+
+request sandesh VirtualMachineDatabaseList {
+    1: string vm_uuid;
+}
+
+response sandesh VirtualMachineDatabaseListResp {
+    1: list<VirtualMachineInstance> vms;
+}
+
+
+//
+// VirtualRouter Introspect datastructures.
+//
+struct VirtualRouterInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<string> virtual_machines;
+}
+
+request sandesh VirtualRouterDatabaseList {
+    1: string vr_uuid;
+}
+
+response sandesh VirtualRouterDatabaseListResp {
+    1: list<VirtualRouterInstance> vrs;
+}
+
+
+//
+// VirtualMachineInterface Introspect datastructures.
+//
+struct VirtualMachineInterfaceInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<string> floating_ips;
+    6: string host_id;
+    7: list<string> security_groups;
+    8: string virtual_machine;
+    9: list<string> virtual_machine_interfaces;
+    10: string virtual_network;
+}
+
+request sandesh VirtualMachineInterfaceDatabaseList {
+    1: string vmi_uuid;
+}
+
+response sandesh VirtualMachineInterfaceDatabaseListResp {
+    1: list<VirtualMachineInterfaceInstance> vmis;
+}
+
+
+//
+// VirtualNetwork Introspect datastructures.
+//
+struct NetworkIpamSubnetInstance {
+    1: string uuid;
+    2: list<string> fq_name;
+}
+
+struct VirtualNetworkInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<string> virtual_machine_interfaces;
+    6: list<string> instance_ips;
+    7: list<string> network_ipams;
+    8: list<NetworkIpamSubnetInstance> network_ipam_subnets;
+    9: string k8s_namespace;
+    10: bool k8s_namespace_isolated;
+}
+
+request sandesh VirtualNetworkDatabaseList {
+    1: string vn_uuid;
+}
+
+response sandesh VirtualNetworkDatabaseListResp {
+    1: list<VirtualNetworkInstance> vns;
+}
+
+
+//
+// InstanceIp Introspect datastructures.
+//
+struct InstanceIpInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: string address;
+    5: string family;
+    6: list<string> vm_interfaces;
+    7: list<string> virtual_networks;
+    8: list<string> floating_ips;
+}
+
+request sandesh InstanceIpDatabaseList {
+    1: string iip_uuid;
+}
+
+response sandesh InstanceIpDatabaseListResp {
+    1: list<InstanceIpInstance> iips;
+}
+
+
+//
+// Project Introspect datastructures.
+//
+struct ProjectInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: bool k8s_namespace_isolated;
+    6: string k8s_namespace_name;
+    7: string k8s_namespace_uuid;
+    8: map<string, string> ns_labels;
+    9: list<string> security_groups;
+    10: list<string> virtual_networks;
+}
+
+request sandesh ProjectDatabaseList {
+    1: string project_uuid;
+}
+
+response sandesh ProjectDatabaseListResp {
+    1: list<ProjectInstance> projects;
+}
+
+
+//
+// Domain Introspect datastructures.
+//
+struct DomainInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+}
+
+request sandesh DomainDatabaseList {
+    1: string domain_uuid;
+}
+
+response sandesh DomainDatabaseListResp {
+    1: list<DomainInstance> domains;
+}
+
+
+//
+// SecurityGroup Introspect datastructures.
+//
+struct SGAddress {
+    1: string network_policy;
+    2: string security_group;
+    3: string subnet;
+    4: list<string> subnet_list;
+    5: string virtual_network;
+}
+
+struct SGRuleEntry {
+    1: string action_list;
+    2: list<string> application;
+    3: string created;
+    4: string direction;
+    5: list<SGAddress> dst_addresses;
+    6: list<string> dst_ports;
+    7: string ethertype;
+    8: string last_modified;
+    9: string protocol;
+    10: string rule_sequence;
+    11: string rule_uuid;
+    12: list<SGAddress> src_addresses;
+    13: list<string> src_ports;
+}
+
+struct SecurityGroupInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<string> ingress_ns_sgs;
+    6: map<string, string> ingress_pod_selector;
+    7: list<string> ingress_pod_sgs;
+    8: string namespace_name;
+    9: map<string, string> np_pod_selector;
+    10: list<string> np_sgs;
+    11: map<string, string> np_spec;
+    12: string owner;
+    13: string project_uuid;
+    14: list<SGRuleEntry> rule_entries;
+    15: list<string> vm_interfaces;
+}
+
+request sandesh SecurityGroupDatabaseList {
+    1: string sg_uuid;
+}
+
+response sandesh SecurityGroupDatabaseListResp {
+    1: list<SecurityGroupInstance> sgs;
+}
+
+
+//
+// FloatingIpPool Introspect datastructures.
+//
+struct FloatingIpPoolInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: list<string> fip_pool_subnets;
+    6: string virtual_network;
+}
+
+request sandesh FloatingIpPoolDatabaseList {
+    1: string fip_pool_uuid;
+}
+
+response sandesh FloatingIpPoolDatabaseListResp {
+    1: list<FloatingIpPoolInstance> fip_pools;
+}
+
+
+//
+// FloatingIp Introspect datastructures.
+//
+struct FloatingIpInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+    5: string address;
+    6: string parent_uuid;
+    7: string virtual_ip;
+    8: list<string> vm_interfaces;
+}
+
+request sandesh FloatingIpDatabaseList {
+    1: string fip_uuid;
+}
+
+response sandesh FloatingIpDatabaseListResp {
+    1: list<FloatingIpInstance> fips;
+}
+
+
+//
+// NetworkIpam Introspect datastructures.
+//
+struct NetworkIpamInstance {
+    1: string uuid;
+    2: string name;
+    3: list<string> fq_name;
+    4: map<string, string> annotations;
+}
+
+request sandesh NetworkIpamDatabaseList {
+    1: string network_ipam_uuid;
+}
+
+response sandesh NetworkIpamDatabaseListResp {
+    1: list<NetworkIpamInstance> network_ipams;
+}

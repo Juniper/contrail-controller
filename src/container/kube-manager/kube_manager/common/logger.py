@@ -17,6 +17,11 @@ from kube_manager.sandesh.kube_manager import ttypes as sandesh
 from kube_manager.sandesh.kube_introspect import ttypes as introspect
 from kube_manager.common.kube_config_db import (
          PodKM, NamespaceKM, ServiceKM, NetworkPolicyKM, IngressKM)
+from kube_manager.vnc.config_db import (LoadbalancerKM, LoadbalancerListenerKM,
+    LoadbalancerPoolKM, LoadbalancerMemberKM,
+    VirtualMachineKM, VirtualRouterKM, VirtualMachineInterfaceKM,
+    VirtualNetworkKM, InstanceIpKM, ProjectKM, DomainKM, SecurityGroupKM,
+    FloatingIpPoolKM, FloatingIpKM, NetworkIpamKM, HealthMonitorKM)
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.sandesh_base import Sandesh, SandeshSystem
@@ -166,6 +171,71 @@ class KubeManagerLogger(object):
         # Register Ingress DB introspect handler.
         introspect.IngressDatabaseList.handle_request =\
             IngressKM.sandesh_handle_db_list_request
+
+
+        # Register Loadbalancer DB introspect handler.
+        introspect.LoadbalancerDatabaseList.handle_request = \
+            LoadbalancerKM.sandesh_handle_db_list_request
+
+        # Register LoadbalancerListener DB introspect handler.
+        introspect.LoadbalancerListenerDatabaseList.handle_request = \
+            LoadbalancerListenerKM.sandesh_handle_db_list_request
+
+        # Register LoadbalancerPool DB introspect handler.
+        introspect.LoadbalancerPoolDatabaseList.handle_request = \
+            LoadbalancerPoolKM.sandesh_handle_db_list_request
+
+        # Register LoadbalancerMember DB introspect handler.
+        introspect.LoadbalancerMemberDatabaseList.handle_request = \
+            LoadbalancerMemberKM.sandesh_handle_db_list_request
+
+        # Register HealthMonitor DB introspect handler.
+        introspect.HealthMonitorDatabaseList.handle_request = \
+            HealthMonitorKM.sandesh_handle_db_list_request
+
+        # Register Virtual Machine DB introspect handler.
+        introspect.VirtualMachineDatabaseList.handle_request = \
+            VirtualMachineKM.sandesh_handle_db_list_request
+
+        # Register Virtual Router DB introspect handler.
+        introspect.VirtualRouterDatabaseList.handle_request = \
+            VirtualRouterKM.sandesh_handle_db_list_request
+
+        # Register Virtual Machine Interface DB introspect handler.
+        introspect.VirtualMachineInterfaceDatabaseList.handle_request = \
+            VirtualMachineInterfaceKM.sandesh_handle_db_list_request
+
+        # Register Virtual Network DB introspect handler.
+        introspect.VirtualNetworkDatabaseList.handle_request = \
+            VirtualNetworkKM.sandesh_handle_db_list_request
+
+        # Register Instance IP DB introspect handler.
+        introspect.InstanceIpDatabaseList.handle_request = \
+            InstanceIpKM.sandesh_handle_db_list_request
+
+        # Register Project DB introspect handler.
+        introspect.ProjectDatabaseList.handle_request = \
+            ProjectKM.sandesh_handle_db_list_request
+
+        # Register Domain DB introspect handler.
+        introspect.DomainDatabaseList.handle_request = \
+            DomainKM.sandesh_handle_db_list_request
+
+        # Register SecurityGroup DB introspect handler.
+        introspect.SecurityGroupDatabaseList.handle_request = \
+            SecurityGroupKM.sandesh_handle_db_list_request
+
+        # Register FloatingIpPool DB introspect handler.
+        introspect.FloatingIpPoolDatabaseList.handle_request = \
+            FloatingIpPoolKM.sandesh_handle_db_list_request
+
+        # Register FloatingIp DB introspect handler.
+        introspect.FloatingIpDatabaseList.handle_request = \
+            FloatingIpKM.sandesh_handle_db_list_request
+
+        # Register NetworkIpam DB introspect handler.
+        introspect.NetworkIpamDatabaseList.handle_request = \
+            NetworkIpamKM.sandesh_handle_db_list_request
 
     def sandesh_init(self, http_server_port=None):
         """ Init Sandesh """
