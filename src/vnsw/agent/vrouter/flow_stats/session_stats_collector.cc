@@ -247,12 +247,12 @@ bool SessionStatsCollector::RequestHandler(boost::shared_ptr<SessionStatsReq> re
 
     switch (req->event()) {
     case SessionStatsReq::ADD_SESSION: {
-        AddSession(req->flow(), req->time());
+        AddSession(flow, req->time());
         break;
     }
 
     case SessionStatsReq::DELETE_SESSION: {
-        DeleteSession(req->flow(), req->time(), &req->params());
+        DeleteSession(flow, flow->uuid(), req->time(), &req->params());
         break;
     }
 
@@ -373,7 +373,10 @@ bool SessionKey::IsLess(const SessionKey &rhs) const {
     if (remote_ip != rhs.remote_ip) {
         return remote_ip < rhs.remote_ip;
     }
-    return client_port < rhs.client_port;
+    if (client_port != rhs.client_port) {
+        return client_port < rhs.client_port;
+    }
+    return uuid < rhs.uuid;
 }
 
 bool SessionKey::IsEqual(const SessionKey &rhs) const {
@@ -383,12 +386,16 @@ bool SessionKey::IsEqual(const SessionKey &rhs) const {
     if (client_port != rhs.client_port) {
         return false;
     }
+    if (uuid != rhs.uuid) {
+        return false;
+    }
     return true;
 }
 
 void SessionKey::Reset() {
     remote_ip = IpAddress();
     client_port = 0;
+    uuid = nil_uuid();
 }
 
 bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
@@ -478,6 +485,7 @@ bool SessionStatsCollector::GetSessionKey(FlowEntry* fe,
         return false;
     }
     session_agg_key.proto = fe->key().protocol;
+    session_key.uuid = fe->uuid();
     return true;
 }
 
@@ -543,12 +551,12 @@ void SessionStatsCollector::AddSession(FlowEntry* fe, uint64_t setup_time) {
     if (flow_session_map_iter != flow_session_map_.end()) {
 
         FlowToSessionMap &flow_to_session_map = flow_session_map_iter->second;
-        FlowToSessionMap rhs_flow_to_session_map(fe_fwd->uuid(),
-                                                 session_key,
+        FlowToSessionMap rhs_flow_to_session_map(session_key,
                                                  session_agg_key,
                                                  session_endpoint_key);
         if (!(flow_to_session_map.IsEqual(rhs_flow_to_session_map))) {
-            DeleteSession(fe_fwd, GetCurrentTime(), NULL);
+            DeleteSession(fe_fwd, flow_to_session_map.session_key().uuid,
+                          GetCurrentTime(), NULL);
         }
     }
 
@@ -594,17 +602,23 @@ void SessionStatsCollector::AddSession(FlowEntry* fe, uint64_t setup_time) {
     }
 }
 
-void SessionStatsCollector::DeleteSession(FlowEntry* fe, uint64_t teardown_time,
+void SessionStatsCollector::DeleteSession(FlowEntry* fe,
+                                          const boost::uuids::uuid &del_uuid,
+                                          uint64_t teardown_time,
                                           const RevFlowDepParams *params) {
     SessionAggKey session_agg_key;
     SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
     SessionPreAggInfo  session_agg_info;
-    SessionKey    session_key;
+    SessionKey session_key;
     SessionPreAggInfo::SessionMap::iterator session_map_iter;
     SessionEndpointInfo  session_endpoint_info;
     SessionEndpointKey session_endpoint_key;
     SessionEndpointMap::iterator session_endpoint_map_iter;
-    bool read_flow=true;
+    bool read_flow = true;
+
+    if (del_uuid != fe->uuid()) {
+        read_flow = false;
+    }
 
     /*
      * If the given flow uuid is different from the exisiting one
@@ -614,8 +628,18 @@ void SessionStatsCollector::DeleteSession(FlowEntry* fe, uint64_t teardown_time,
 
     flow_session_map_iter = flow_session_map_.find(fe);
     if (flow_session_map_iter != flow_session_map_.end()) {
-        if (fe->uuid() != flow_session_map_iter->second.uuid()) {
+        if (del_uuid != flow_session_map_iter->second.session_key().uuid) {
+            /* We had never seen ADD for del_uuid, ignore delete request. This
+             * can happen when the following events occur
+             * 1. Add with UUID x
+             * 2. Delete with UUID x
+             * 3. Add with UUID y
+             * 4. Delete with UUID y
+             * When events 2 and 3 are suppressed and we receive only 1 and 4
+             * In this case initiated delete for entry with UUID x */
             read_flow = false;
+            /* Reset params because they correspond to entry with UUID y */
+            params = NULL;
         }
         session_endpoint_key = flow_session_map_iter->second.session_endpoint_key();
         session_agg_key = flow_session_map_iter->second.session_agg_key();
@@ -640,19 +664,20 @@ void SessionStatsCollector::DeleteSession(FlowEntry* fe, uint64_t teardown_time,
                  * Process the stats collector
                  */
                 session_map_iter->second.teardown_time = teardown_time;
-                ProcessSessionDelete(session_endpoint_map_iter,
-                                     session_agg_map_iter, session_map_iter,
-                                     params, read_flow);
-
-                DeleteFlowToSessionMap(session_map_iter->second.fwd_flow.flow.get());
-                session_agg_map_iter->second.session_map_.erase(session_map_iter);
-                if (session_agg_map_iter->second.session_map_.size() == 0) {
-                    session_endpoint_map_iter->
-                        second.session_agg_map_.erase(session_agg_map_iter);
-                    if (session_endpoint_map_iter->second.session_agg_map_.size() == 0) {
-                        session_endpoint_map_.erase(session_endpoint_map_iter);
-                    }
+                session_map_iter->second.deleted = true;
+                /* Don't read stats for evicted flow, during delete */
+                if (!session_map_iter->second.evicted) {
+                    SessionStatsChangedUnlocked(session_map_iter,
+                        &session_map_iter->second.del_stats);
                 }
+                if (read_flow) {
+                    CopyFlowInfo(session_map_iter->second, params);
+                }
+
+                assert(session_map_iter->second.fwd_flow.flow.get() == fe);
+                DeleteFlowToSessionMap(fe);
+                session_map_iter->second.fwd_flow.flow = NULL;
+                session_map_iter->second.rev_flow.flow = NULL;
             }
         }
     }
@@ -672,12 +697,14 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
     SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
     SessionPreAggInfo::SessionMap::iterator session_map_iter;
 
+    /* TODO: Evicted msg coming for reverse flow. We currently don't have
+     * mapping from reverse_flow to flow_session_map */
     flow_session_map_iter = flow_session_map_.find(flow.get());
     if (flow_session_map_iter == flow_session_map_.end()) {
         return;
     }
 
-    if (flow_session_map_iter->second.uuid() != u) {
+    if (flow_session_map_iter->second.session_key().uuid != u) {
         return;
     }
 
@@ -685,8 +712,7 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
     SessionAggKey session_db_agg_key = flow_session_map_iter->second.session_agg_key();
     SessionKey session_db_key = flow_session_map_iter->second.session_key();
 
-    session_ep_map_iter = session_endpoint_map_.find(
-                                            session_db_ep_key);
+    session_ep_map_iter = session_endpoint_map_.find(session_db_ep_key);
     if (session_ep_map_iter != session_endpoint_map_.end()) {
         session_agg_map_iter = session_ep_map_iter->
                                         second.session_agg_map_.find(
@@ -697,15 +723,10 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
                 session_agg_map_iter->second.session_map_.find(session_db_key);
             if (session_map_iter !=
                     session_agg_map_iter->second.session_map_.end()) {
-                SessionStatsParams params;
-                SessionStatsChangedUnlocked(session_map_iter, &params);
-                FillSessionInfoUnlocked(session_map_iter, params, &session_info,
-                                        &session_key, NULL, false, true, true);
                 /*
                  * update the latest statistics
                  */
                 SessionFlowStatsInfo &session_flow = session_map_iter->second.fwd_flow;
-                SessionFlowInfo &flow_info = session_info.forward_flow_info;
                 uint64_t k_bytes, total_bytes, diff_bytes = 0;
                 uint64_t k_packets, total_packets, diff_packets = 0;
                 k_bytes = FlowStatsCollector::GetFlowStats((oflow_bytes & 0xFFFF),
@@ -720,31 +741,13 @@ void SessionStatsCollector::EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
                 diff_packets = total_packets - session_flow.total_packets;
                 session_flow.total_bytes = total_bytes;
                 session_flow.total_packets = total_packets;
-                flow_info.set_logged_pkts(diff_packets);
-                flow_info.set_logged_bytes(diff_bytes);
-                flow_info.set_sampled_pkts(diff_packets);
-                flow_info.set_sampled_bytes(diff_bytes);
 
-                /*
-                 * inert to agg map
-                 */
-                session_agg_info.sessionMap.insert(make_pair(session_key, session_info));
-                FillSessionAggInfo(session_agg_map_iter, &session_agg_info, &session_agg_key,
-                                   session_info.get_forward_flow_info().get_logged_bytes(),
-                                   session_info.get_forward_flow_info().get_logged_pkts(),
-                                   session_info.get_reverse_flow_info().get_logged_bytes(),
-                                   session_info.get_reverse_flow_info().get_logged_pkts());
-                /*
-                 * insert to session ep map
-                 */
-                SessionEndpoint &session_ep =  session_msg_list_[GetSessionMsgIdx()];
-                session_ep.sess_agg_info.insert(make_pair(session_agg_key, session_agg_info));
-                FillSessionEndpoint(session_ep_map_iter, &session_ep);
-
-                /*
-                 * export the session ep
-                 */
-                EnqueueSessionMsg();
+                SessionStatsParams &estats = session_map_iter->second.
+                    evict_stats;
+                session_map_iter->second.evicted = true;
+                estats.fwd_flow.valid = true;
+                estats.fwd_flow.diff_bytes = diff_bytes;
+                estats.fwd_flow.diff_packets = diff_packets;
             }
         }
     }
@@ -754,14 +757,13 @@ void SessionStatsCollector::AddFlowToSessionMap(FlowEntry *fe,
                                                 SessionKey session_key,
                                                 SessionAggKey session_agg_key,
                                                 SessionEndpointKey session_endpoint_key) {
-    FlowToSessionMap flow_to_session_map(fe->uuid(), session_key,
-                                         session_agg_key,
+    FlowToSessionMap flow_to_session_map(session_key, session_agg_key,
                                          session_endpoint_key);
     std::pair<FlowSessionMap::iterator, bool> ret =
         flow_session_map_.insert(make_pair(fe, flow_to_session_map));
     if (ret.second == false) {
         FlowToSessionMap &prev = ret.first->second;
-        assert(prev.uuid() == fe->uuid());
+        assert(prev.session_key().uuid == fe->uuid());
     }
 }
 
@@ -919,7 +921,6 @@ void SessionStatsCollector::BuildSloList(
                                 SessionSloRuleMap *vmi_session_slo_rule_map,
                                 SessionSloRuleMap *vn_session_slo_rule_map) {
     const FlowEntry *fe = session_flow.flow.get();
-    const Interface *itf = fe->intf_entry();
 
     vmi_session_slo_rule_map->clear();
     vn_session_slo_rule_map->clear();
@@ -932,6 +933,10 @@ void SessionStatsCollector::BuildSloList(
                 global_session_slo_rule_map);
     }
 
+    if (!fe) {
+        return;
+    }
+    const Interface *itf = fe->intf_entry();
     if (!itf) {
         return;
     }
@@ -973,6 +978,7 @@ bool SessionStatsCollector::FindSloMatchRule(const SessionSloRuleMap &map,
     }
     return is_logged;
 }
+
 bool SessionStatsCollector::MatchSloForSession(
         const SessionFlowStatsInfo &session_flow,
         const std::string &match_uuid) {
@@ -1024,6 +1030,53 @@ uint64_t SessionStatsCollector::GetUpdatedSessionFlowPackets(
     return (oflow_pkts |= k_flow_pkts);
 }
 
+void SessionStatsCollector::CopyFlowInfoInternal(SessionFlowExportInfo *info,
+                                                 FlowEntry *fe) const {
+    FlowTable::GetFlowSandeshActionParams(fe->data().match_p.action_info,
+                                          info->action);
+    info->sg_rule_uuid = fe->sg_rule_uuid();
+    info->nw_ace_uuid = fe->nw_ace_uuid();
+    info->aps_rule_uuid = fe->fw_policy_uuid();
+    if (FlowEntry::ShouldDrop(fe->data().match_p.action_info.action)) {
+        info->drop_reason = FlowEntry::DropReasonStr(fe->data().drop_reason);
+    }
+}
+
+void SessionStatsCollector::CopyFlowInfo(SessionStatsInfo &session,
+                                         const RevFlowDepParams *params) {
+    SessionExportInfo &info = session.export_info;
+    FlowEntry *fe = session.fwd_flow.flow.get();
+    FlowEntry *rfe = session.rev_flow.flow.get();
+    info.valid = true;
+    if (fe->IsIngressFlow()) {
+        info.vm_cfg_name = fe->data().vm_cfg_name;
+    } else if (rfe) {
+        /* TODO: vm_cfg_name should be passed in RevFlowDepParams because rfe
+         * may now point to different UUID altogether */
+        info.vm_cfg_name = rfe->data().vm_cfg_name;
+    }
+    string rid = agent_uve_->agent()->router_id().to_string();
+    if (fe->is_flags_set(FlowEntry::LocalFlow)) {
+        info.other_vrouter = rid;
+    } else {
+        info.other_vrouter = fe->peer_vrouter();
+    }
+    info.underlay_proto = fe->tunnel_type().GetType();
+    CopyFlowInfoInternal(&info.fwd_flow, fe);
+    if (params) {
+        FlowTable::GetFlowSandeshActionParams(params->action_info_,
+                                              info.rev_flow.action);
+        info.rev_flow.sg_rule_uuid = params->sg_uuid_;
+        info.rev_flow.nw_ace_uuid = params->nw_ace_uuid_;
+        if (FlowEntry::ShouldDrop(params->action_info_.action)) {
+            info.rev_flow.drop_reason = FlowEntry::DropReasonStr(params->
+                                                                 drop_reason_);
+        }
+    } else if (rfe) {
+        CopyFlowInfoInternal(&info.rev_flow, rfe);
+    }
+}
+
 void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
                                                  const SessionFlowStatsParams &stats,
                                                  SessionFlowInfo *flow_info,
@@ -1048,34 +1101,35 @@ void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_f
 }
 
 void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
-                                                uint64_t setup_time,
-                                                uint64_t teardown_time,
-                                                const SessionFlowStatsParams &stats,
-                                                const RevFlowDepParams *params,
-                                                bool read_flow,
-                                                SessionFlowInfo *flow_info,
-                                                bool is_sampling,
-                                                bool is_logging)
+                                                const SessionStatsInfo &sinfo,
+                                                const SessionFlowExportInfo &einfo,
+                                                SessionFlowInfo *flow_info)
                                                 const {
     FlowEntry *fe = session_flow.flow.get();
     std::string action_str, drop_reason = "";
 
-    FillSessionFlowStats(session_flow, stats, flow_info,
-                         is_sampling, is_logging);
     flow_info->set_flow_uuid(session_flow.uuid);
-    flow_info->set_setup_time(setup_time);
-    if (teardown_time) {
-        flow_info->set_teardown_time(teardown_time);
+    flow_info->set_setup_time(sinfo.setup_time);
+    if (sinfo.teardown_time) {
+        flow_info->set_teardown_time(sinfo.teardown_time);
     }
-    if (params) {
-        FlowTable::GetFlowSandeshActionParams(params->action_info_, action_str);
-        flow_info->set_action(action_str);
-        flow_info->set_sg_rule_uuid(StringToUuid(params->sg_uuid_));
-        flow_info->set_nw_ace_uuid(StringToUuid(params->nw_ace_uuid_));
-        if (FlowEntry::ShouldDrop(params->action_info_.action)) {
-            drop_reason = FlowEntry::DropReasonStr(params->drop_reason_);
+    if (sinfo.deleted) {
+        if (!sinfo.export_info.valid) {
+            return;
         }
-    } else if (read_flow) {
+        if (!einfo.action.empty()) {
+            flow_info->set_action(einfo.action);
+        }
+        if (!einfo.sg_rule_uuid.empty()) {
+            flow_info->set_sg_rule_uuid(StringToUuid(einfo.sg_rule_uuid));
+        }
+        if (!einfo.nw_ace_uuid.empty()) {
+            flow_info->set_nw_ace_uuid(StringToUuid(einfo.nw_ace_uuid));
+        }
+        if (!einfo.drop_reason.empty()) {
+            flow_info->set_drop_reason(einfo.drop_reason);
+        }
+    } else {
         FlowTable::GetFlowSandeshActionParams(fe->data().match_p.action_info,
                                               action_str);
         flow_info->set_action(action_str);
@@ -1083,10 +1137,8 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
         flow_info->set_nw_ace_uuid(StringToUuid(fe->nw_ace_uuid()));
         if (FlowEntry::ShouldDrop(fe->data().match_p.action_info.action)) {
             drop_reason = FlowEntry::DropReasonStr(fe->data().drop_reason);
+            flow_info->set_drop_reason(drop_reason);
         }
-    }
-    if (!drop_reason.empty()) {
-        flow_info->set_drop_reason(drop_reason);
     }
 }
 
@@ -1159,6 +1211,33 @@ void SessionStatsCollector::FillSessionInfoLocked
                             true, is_sampling, is_logging);
 }
 
+void SessionStatsCollector::FillSessionEvictStats
+    (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+     SessionInfo *session_info, bool is_sampling, bool is_logging) const {
+    const SessionStatsParams &estats = session_map_iter->second.evict_stats;
+    if (!estats.fwd_flow.valid) {
+        return;
+    }
+    if (is_logging) {
+        session_info->forward_flow_info.set_logged_pkts(estats.fwd_flow.
+                                                        diff_packets);
+        session_info->forward_flow_info.set_logged_bytes(estats.fwd_flow.
+                                                         diff_bytes);
+        /* TODO: Evict stats for reverse flow is not supported yet */
+        session_info->reverse_flow_info.set_logged_pkts(0);
+        session_info->reverse_flow_info.set_logged_bytes(0);
+    }
+    if (is_sampling) {
+        session_info->forward_flow_info.set_sampled_pkts(estats.fwd_flow.
+                                                         diff_packets);
+        session_info->forward_flow_info.set_sampled_bytes(estats.fwd_flow.
+                                                          diff_bytes);
+        /* TODO: Evict stats for reverse flow is not supported yet */
+        session_info->reverse_flow_info.set_sampled_pkts(0);
+        session_info->reverse_flow_info.set_sampled_bytes(0);
+    }
+}
+
 void SessionStatsCollector::FillSessionInfoUnlocked
     (SessionPreAggInfo::SessionMap::iterator session_map_iter,
      const SessionStatsParams &stats,
@@ -1176,16 +1255,60 @@ void SessionStatsCollector::FillSessionInfoUnlocked
     session_key->set_ip(session_map_iter->first.remote_ip);
     session_key->set_port(session_map_iter->first.client_port);
     FillSessionFlowInfo(session_map_iter->second.fwd_flow,
-                        session_map_iter->second.setup_time,
-                        session_map_iter->second.teardown_time, stats.fwd_flow,
-                        NULL, read_flow, &session_info->forward_flow_info,
-                        is_sampling, is_logging);
+                        session_map_iter->second,
+                        session_map_iter->second.export_info.fwd_flow,
+                        &session_info->forward_flow_info);
     FillSessionFlowInfo(session_map_iter->second.rev_flow,
-                        session_map_iter->second.setup_time,
-                        session_map_iter->second.teardown_time, stats.rev_flow,
-                        params, read_flow, &session_info->reverse_flow_info,
-                        is_sampling, is_logging);
-    if (read_flow) {
+                        session_map_iter->second,
+                        session_map_iter->second.export_info.rev_flow,
+                        &session_info->reverse_flow_info);
+    bool first_time_export = false;
+    if (!session_map_iter->second.exported_atleast_once) {
+        first_time_export = true;
+        /* Mark the flow as exported */
+        session_map_iter->second.exported_atleast_once = true;
+    }
+
+    const bool &evicted = session_map_iter->second.evicted;
+    const bool &deleted = session_map_iter->second.deleted;
+    if (evicted) {
+        const SessionStatsParams &estats = session_map_iter->second.evict_stats;
+        FillSessionEvictStats(session_map_iter, session_info, is_sampling,
+                              is_logging);
+        flow_stats_manager_->UpdateSessionExportStats(1, first_time_export,
+                                                      estats.sampled);
+    } else {
+        const SessionStatsParams *real_stats = &stats;
+        if (deleted) {
+            real_stats = &session_map_iter->second.del_stats;
+        }
+        FillSessionFlowStats(session_map_iter->second.fwd_flow,
+                             real_stats->fwd_flow,
+                             &session_info->forward_flow_info, is_sampling,
+                             is_logging);
+        FillSessionFlowStats(session_map_iter->second.rev_flow,
+                             real_stats->rev_flow,
+                             &session_info->reverse_flow_info, is_sampling,
+                             is_logging);
+        flow_stats_manager_->UpdateSessionExportStats(1, first_time_export,
+                                                      real_stats->sampled);
+    }
+    if (deleted) {
+        SessionExportInfo &info = session_map_iter->second.export_info;
+        if (info.valid) {
+            if (!info.vm_cfg_name.empty()) {
+                session_info->set_vm(info.vm_cfg_name);
+            }
+            if (!info.other_vrouter.empty()) {
+                session_info->set_other_vrouter_ip(
+                    boost::asio::ip::address::from_string(info.other_vrouter,
+                                                          ec));
+            }
+            if (!info.underlay_proto != 0) {
+                session_info->set_underlay_proto(info.underlay_proto);
+            }
+        }
+    } else {
         session_info->set_vm(fe->data().vm_cfg_name);
         if (fe->is_flags_set(FlowEntry::LocalFlow)) {
             session_info->set_other_vrouter_ip(
@@ -1200,14 +1323,6 @@ void SessionStatsCollector::FillSessionInfoUnlocked
         }
         session_info->set_underlay_proto(fe->tunnel_type().GetType());
     }
-    bool first_time_export = false;
-    if (!session_map_iter->second.exported_atleast_once) {
-        first_time_export = true;
-        /* Mark the flow as exported */
-        session_map_iter->second.exported_atleast_once = true;
-    }
-    flow_stats_manager_->UpdateSessionExportStats(1, first_time_export,
-                                                  stats.sampled);
 }
 
 void SessionStatsCollector::FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter,
@@ -1302,50 +1417,13 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
                     boost::asio::ip::address::from_string(rid, ec));
 }
 
-void SessionStatsCollector::ProcessSessionDelete
-    (const SessionEndpointMap::iterator &ep_it,
-     const SessionEndpointInfo::SessionAggMap::iterator &agg_it,
-     const SessionPreAggInfo::SessionMap::iterator &session_it,
-     const RevFlowDepParams *params, bool read_flow) {
-
-    SessionInfo session_info;
-    SessionIpPort session_key;
-    SessionAggInfo session_agg_info;
-    SessionIpPortProtocol session_agg_key;
-
-    SessionStatsParams stats;
-    SessionStatsChangedUnlocked(session_it, &stats);
-    bool selected = true;
-    if (IsSamplingEnabled()) {
-        selected = SampleSession(session_it, &stats);
-    }
-    /* Ignore the session export if sampling drops the session */
-    if (!selected) {
-        return;
-    }
-    FillSessionInfoUnlocked(session_it, stats, &session_info, &session_key,
-                            params, read_flow, true, true);
-    session_agg_info.sessionMap.insert(make_pair(session_key, session_info));
-    FillSessionAggInfo(agg_it, &session_agg_info, &session_agg_key,
-                       session_info.get_forward_flow_info().get_logged_bytes(),
-                       session_info.get_forward_flow_info().get_logged_pkts(),
-                       session_info.get_reverse_flow_info().get_logged_bytes(),
-                       session_info.get_reverse_flow_info().get_logged_pkts());
-    SessionEndpoint &session_ep = session_msg_list_[GetSessionMsgIdx()];
-
-    session_ep.sess_agg_info.insert(make_pair(session_agg_key,
-                                              session_agg_info));
-    FillSessionEndpoint(ep_it, &session_ep);
-    EnqueueSessionMsg();
-    DispatchPendingSessionMsg();
-}
-
 bool SessionStatsCollector::ProcessSessionEndpoint
     (const SessionEndpointMap::iterator &it) {
     uint64_t total_fwd_bytes, total_rev_bytes;
     uint64_t total_fwd_packets, total_rev_packets;
     SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
-    SessionPreAggInfo::SessionMap::iterator session_map_iter;
+    SessionEndpointInfo::SessionAggMap::iterator prev_agg_iter;
+    SessionPreAggInfo::SessionMap::iterator session_map_iter, prev;
 
     SessionInfo session_info;
     SessionIpPort session_key;
@@ -1365,23 +1443,48 @@ bool SessionStatsCollector::ProcessSessionEndpoint
         session_map_iter = session_agg_map_iter->second.session_map_.
             lower_bound(session_iteration_key_);
         while (session_map_iter != session_agg_map_iter->second.session_map_.end()) {
+            prev = session_map_iter;
             SessionStatsParams params;
-            bool changed = SessionStatsChangedLocked(session_map_iter, &params);
-            if (!changed && session_map_iter->second.exported_atleast_once) {
-                ++session_map_iter;
-                continue;
+            if (!session_map_iter->second.deleted &&
+                !session_map_iter->second.evicted) {
+                bool changed = SessionStatsChangedLocked(session_map_iter,
+                                                         &params);
+                if (!changed && session_map_iter->second.exported_atleast_once) {
+                    ++session_map_iter;
+                    continue;
+                }
             }
 
-            std::string match_policy_uuid = session_map_iter->
-                second.fwd_flow.flow.get()->fw_policy_uuid();
-            bool is_fwd_logged = MatchSloForSession(
+            std::string match_policy_uuid = "";
+            if (session_map_iter->second.fwd_flow.flow.get()) {
+                match_policy_uuid = session_map_iter->
+                    second.fwd_flow.flow.get()->fw_policy_uuid();
+            } else if (session_map_iter->second.deleted) {
+                match_policy_uuid = session_map_iter->second.export_info.
+                    fwd_flow.aps_rule_uuid;
+            }
+            bool is_fwd_logged = false;
+
+            if (!match_policy_uuid.empty()) {
+                is_fwd_logged = MatchSloForSession(
                                     session_map_iter->second.fwd_flow,
                                     match_policy_uuid);
-            match_policy_uuid = session_map_iter->
-                second.rev_flow.flow.get()->fw_policy_uuid();
-            bool is_rev_logged = MatchSloForSession(
+            }
+            match_policy_uuid = "";
+            if (session_map_iter->second.rev_flow.flow.get()) {
+                match_policy_uuid = session_map_iter->
+                    second.rev_flow.flow.get()->fw_policy_uuid();
+            } else if (session_map_iter->second.deleted) {
+                match_policy_uuid = session_map_iter->second.export_info.
+                    rev_flow.aps_rule_uuid;
+            }
+            bool is_rev_logged = false;
+
+            if (!match_policy_uuid.empty()) {
+                is_rev_logged = MatchSloForSession(
                                     session_map_iter->second.rev_flow,
                                     match_policy_uuid);
+            }
 
             bool is_logging = is_fwd_logged || is_rev_logged;
             bool is_sampling = true;
@@ -1392,11 +1495,19 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             /* Ignore session export if sampling & logging drop the session */
             if (!is_sampling && !is_logging) {
                 ++session_map_iter;
+                if (prev->second.deleted) {
+                    session_agg_map_iter->second.session_map_.erase(prev);
+                }
                 continue;
             }
-
-            FillSessionInfoLocked(session_map_iter, params, &session_info,
-                                  &session_key, is_sampling, is_logging);
+            if (session_map_iter->second.deleted) {
+                FillSessionInfoUnlocked(session_map_iter, params, &session_info,
+                                        &session_key, NULL, true, is_sampling,
+                                        is_logging);
+            } else {
+                FillSessionInfoLocked(session_map_iter, params, &session_info,
+                                      &session_key, is_sampling, is_logging);
+            }
             session_agg_info.sessionMap.insert(make_pair(session_key,
                                                          session_info));
             total_fwd_bytes +=
@@ -1409,6 +1520,9 @@ bool SessionStatsCollector::ProcessSessionEndpoint
                 session_info.get_reverse_flow_info().get_logged_pkts();
             ++session_map_iter;
             ++session_count;
+            if (prev->second.deleted) {
+                session_agg_map_iter->second.session_map_.erase(prev);
+            }
             if (session_count ==
                 agent_uve_->agent()->params()->max_sessions_per_aggregate()) {
                 exit = true;
@@ -1427,7 +1541,11 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             break;
         }
         session_iteration_key_.Reset();
+        prev_agg_iter = session_agg_map_iter;
         session_agg_map_iter++;
+        if (prev_agg_iter->second.session_map_.size() == 0) {
+            it->second.session_agg_map_.erase(prev_agg_iter);
+        }
         ++session_agg_count;
         if (session_agg_count ==
             agent_uve_->agent()->params()->max_aggregates_per_session_endpoint()) {
@@ -1446,7 +1564,11 @@ bool SessionStatsCollector::ProcessSessionEndpoint
         session_ep_iteration_key_ = it->first;
         session_agg_iteration_key_ = session_agg_map_iter->first;
         if (session_map_iter == session_agg_map_iter->second.session_map_.end()) {
+            prev_agg_iter = session_agg_map_iter;
             ++session_agg_map_iter;
+            if (prev_agg_iter->second.session_map_.size() == 0) {
+                it->second.session_agg_map_.erase(prev_agg_iter);
+            }
             if (session_agg_map_iter == it->second.session_agg_map_.end()) {
                 /* session_iteration_key_ and session_agg_iteration_key_ are
                  * both reset when ep_completed is returned as true in the
@@ -1500,10 +1622,14 @@ uint32_t SessionStatsCollector::RunSessionEndpointStats(uint32_t max_count) {
         bool ep_completed = ProcessSessionEndpoint(it);
         ++count;
         if (ep_completed) {
+            SessionEndpointMap::iterator prev = it;
             ++it;
             ++session_ep_visited_;
             session_agg_iteration_key_.Reset();
             session_iteration_key_.Reset();
+            if (prev->second.session_agg_map_.size() == 0) {
+                session_endpoint_map_.erase(prev);
+            }
         }
     }
 
@@ -1556,7 +1682,6 @@ bool SessionStatsCollector::IsSamplingEnabled() const {
 bool SessionStatsCollector::SampleSession
     (SessionPreAggInfo::SessionMap::iterator session_map_iter,
      SessionStatsParams *params) const {
-    params->sampled = false;
     int32_t cfg_rate = agent_uve_->agent()->oper_db()->global_vrouter()->
                         flow_export_rate();
     /* If session export is disabled, update stats and return */
@@ -1564,10 +1689,19 @@ bool SessionStatsCollector::SampleSession
         flow_stats_manager_->session_export_disable_drops_++;
         return false;
     }
+    const bool &deleted = session_map_iter->second.deleted;
+    const bool &evicted = session_map_iter->second.evicted;
+    SessionStatsParams *stats = params;
+    if (evicted) {
+        stats = &session_map_iter->second.evict_stats;
+    } else if (deleted) {
+        stats = &session_map_iter->second.del_stats;
+    }
+    stats->sampled = false;
     /* For session-sampling diff_bytes should consider the diff bytes for both
      * forward and reverse flow */
-    uint64_t diff_bytes = params->fwd_flow.diff_bytes +
-                          params->rev_flow.diff_bytes;
+    uint64_t diff_bytes = stats->fwd_flow.diff_bytes +
+                          stats->rev_flow.diff_bytes;
     const SessionStatsInfo &info = session_map_iter->second;
     /* Subject a flow to sampling algorithm only when all of below is met:-
      * a. actual session-export-rate is >= 80% of configured flow-export-rate.
@@ -1587,7 +1721,6 @@ bool SessionStatsCollector::SampleSession
     }
 
     if (subject_flows_to_algorithm) {
-        params->sampled = true;
         double probability = diff_bytes/threshold();
         uint32_t num = rand() % threshold();
         if (num > diff_bytes) {
@@ -1606,22 +1739,23 @@ bool SessionStatsCollector::SampleSession
             }
             return false;
         }
+        stats->sampled = true;
         /* Normalize the diff_bytes and diff_packets reported using the
          * probability value */
         if (probability == 0) {
-            params->fwd_flow.diff_bytes = 0;
-            params->fwd_flow.diff_packets = 0;
-            params->rev_flow.diff_bytes = 0;
-            params->rev_flow.diff_packets = 0;
+            stats->fwd_flow.diff_bytes = 0;
+            stats->fwd_flow.diff_packets = 0;
+            stats->rev_flow.diff_bytes = 0;
+            stats->rev_flow.diff_packets = 0;
         } else {
-            params->fwd_flow.diff_bytes = params->fwd_flow.diff_bytes/
+            stats->fwd_flow.diff_bytes = stats->fwd_flow.diff_bytes/
+                                                probability;
+            stats->fwd_flow.diff_packets = stats->fwd_flow.diff_packets/
                                                   probability;
-            params->fwd_flow.diff_packets = params->fwd_flow.diff_packets/
-                                                    probability;
-            params->rev_flow.diff_bytes = params->rev_flow.diff_bytes/
+            stats->rev_flow.diff_bytes = stats->rev_flow.diff_bytes/
+                                                probability;
+            stats->rev_flow.diff_packets = stats->rev_flow.diff_packets/
                                                   probability;
-            params->rev_flow.diff_packets = params->rev_flow.diff_packets/
-                                                    probability;
         }
     }
 
@@ -1707,9 +1841,6 @@ FlowEntry* SessionStatsReq::reverse_flow() const {
 }
 
 bool FlowToSessionMap::IsEqual(FlowToSessionMap &rhs) {
-    if (uuid_ != rhs.uuid()) {
-        return false;
-    }
     if (!(session_key_.IsEqual(rhs.session_key()))) {
         return false;
     }
@@ -1719,7 +1850,7 @@ bool FlowToSessionMap::IsEqual(FlowToSessionMap &rhs) {
     if (!(session_endpoint_key_.IsEqual(rhs.session_endpoint_key()))) {
         return false;
     }
-     return true;
+    return true;
 }
 
 void SessionSloState::DeleteSessionSloStateRuleEntry(std::string uuid) {

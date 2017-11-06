@@ -46,6 +46,7 @@ struct SessionKey {
 public:
     IpAddress remote_ip;
     uint16_t client_port;
+    boost::uuids::uuid uuid;
     SessionKey() { Reset(); }
 
     void Reset();
@@ -69,13 +70,26 @@ public:
     uint64_t total_packets;
 };
 
-struct SessionStatsInfo {
-public:
-    uint64_t setup_time;
-    uint64_t teardown_time;
-    bool exported_atleast_once;
-    SessionFlowStatsInfo fwd_flow;
-    SessionFlowStatsInfo rev_flow;
+struct SessionFlowExportInfo {
+    std::string sg_rule_uuid;
+    std::string nw_ace_uuid;
+    std::string aps_rule_uuid;
+    std::string action;
+    std::string drop_reason;
+    SessionFlowExportInfo() : sg_rule_uuid(""), nw_ace_uuid(""),
+        aps_rule_uuid(""), action(""), drop_reason("") {
+    }
+};
+
+struct SessionExportInfo {
+    bool valid;
+    std::string vm_cfg_name;
+    std::string other_vrouter;
+    uint16_t underlay_proto;
+    SessionFlowExportInfo fwd_flow;
+    SessionFlowExportInfo rev_flow;
+    SessionExportInfo() : valid(false), vm_cfg_name(""), other_vrouter(""),
+       underlay_proto(0) {}
 };
 
 struct SessionFlowStatsParams {
@@ -96,6 +110,23 @@ struct SessionStatsParams {
     SessionFlowStatsParams fwd_flow;
     SessionFlowStatsParams rev_flow;
     SessionStatsParams() : sampled(false), fwd_flow(), rev_flow() {}
+};
+
+struct SessionStatsInfo {
+public:
+    uint64_t setup_time;
+    uint64_t teardown_time;
+    bool exported_atleast_once;
+    bool deleted;
+    SessionStatsParams del_stats;
+    bool evicted;
+    SessionStatsParams evict_stats;
+    SessionExportInfo export_info;
+    SessionFlowStatsInfo fwd_flow;
+    SessionFlowStatsInfo rev_flow;
+    SessionStatsInfo() : setup_time(0), teardown_time(0),
+        exported_atleast_once(false), deleted(false), del_stats(),
+        evicted(false), evict_stats(), export_info(), fwd_flow(), rev_flow() {}
 };
 
 struct SessionPreAggInfo {
@@ -177,29 +208,25 @@ private:
         (SessionPreAggInfo::SessionMap::iterator session_map_iter,
          SessionStatsParams *params) const;
     bool ProcessSessionEndpoint(const SessionEndpointMap::iterator &it);
-    void ProcessSessionDelete
-        (const SessionEndpointMap::iterator &ep_it,
-         const SessionEndpointInfo::SessionAggMap::iterator &agg_it,
-         const SessionPreAggInfo::SessionMap::iterator &session_it,
-         const RevFlowDepParams *params, bool read_flow);
     uint64_t GetUpdatedSessionFlowBytes(uint64_t info_bytes,
                                         uint64_t k_flow_bytes) const;
     uint64_t GetUpdatedSessionFlowPackets(uint64_t info_packets,
                                           uint64_t k_flow_pkts) const;
+    void FillSessionEvictStats
+        (SessionPreAggInfo::SessionMap::iterator session_map_iter,
+         SessionInfo *session_info, bool is_sampling, bool is_logging) const;
     void FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
                               const SessionFlowStatsParams &stats,
                               SessionFlowInfo *flow_info,
                               bool is_sampling,
                               bool is_logging) const;
     void FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
-                             uint64_t setup_time,
-                             uint64_t teardown_time,
-                             const SessionFlowStatsParams &stats,
-                             const RevFlowDepParams *params,
-                             bool read_flow,
-                             SessionFlowInfo *flow_info,
-                             bool is_sampling,
-                             bool is_logging) const;
+                             const SessionStatsInfo &sinfo,
+                             const SessionFlowExportInfo &einfo,
+                             SessionFlowInfo *flow_info) const;
+    void CopyFlowInfoInternal(SessionFlowExportInfo *info, FlowEntry *fe) const;
+    void CopyFlowInfo(SessionStatsInfo &session,
+                      const RevFlowDepParams *params);
     void FillSessionInfoLocked
         (SessionPreAggInfo::SessionMap::iterator session_map_iter,
          const SessionStatsParams &stats, SessionInfo *session_info,
@@ -228,7 +255,8 @@ private:
     void UpdateSessionStatsInfo(FlowEntry* fe, uint64_t setup_time,
                                 SessionStatsInfo *session) const;
     void AddSession(FlowEntry* fe, uint64_t setup_time);
-    void DeleteSession(FlowEntry* fe, uint64_t teardown_time,
+    void DeleteSession(FlowEntry* fe, const boost::uuids::uuid &del_uuid,
+                       uint64_t teardown_time,
                        const RevFlowDepParams *params);
     void EvictedSessionStatsUpdate(const FlowEntryPtr &flow,
                                    uint32_t bytes,
@@ -381,22 +409,18 @@ private:
 
 class FlowToSessionMap {
 public:
-    FlowToSessionMap(const boost::uuids::uuid &uuid,
-                     SessionKey &session_key,
+    FlowToSessionMap(SessionKey &session_key,
                      SessionAggKey &session_agg_key,
                      SessionEndpointKey &session_endpoint_key) :
-        uuid_(uuid),
         session_key_(session_key),
         session_agg_key_(session_agg_key),
         session_endpoint_key_(session_endpoint_key) {
-        }
+    }
     bool IsEqual(FlowToSessionMap &rhs);
-    boost::uuids::uuid uuid() { return uuid_; }
     SessionKey session_key() { return session_key_; }
     SessionAggKey session_agg_key() { return session_agg_key_; }
     SessionEndpointKey session_endpoint_key() { return session_endpoint_key_; }
 private:
-    boost::uuids::uuid uuid_;
     SessionKey session_key_;
     SessionAggKey session_agg_key_;
     SessionEndpointKey session_endpoint_key_;
