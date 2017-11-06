@@ -259,6 +259,11 @@ void InterfaceUveStatsTable::IncrInterfaceEndpointHits(const string &itf,
 
     if (intf_it != interface_tree_.end()) {
         UveInterfaceEntry *entry = intf_it->second.get();
+        /* We don't send EndpointSecurityStats objectlog for deleted interfaces.
+         * So, there is no need to update stats on deleted interfaces */
+        if (entry->deleted_) {
+            return;
+        }
         entry->UpdateInterfaceFwPolicyStats(info);
     }
 }
