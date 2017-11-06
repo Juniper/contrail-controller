@@ -38,7 +38,7 @@ from pycassa.util import *
 from vnc_api import vnc_api
 from novaclient import exceptions as nc_exc
 
-from cfgm_common.exceptions import ResourceExistsError
+from cfgm_common.exceptions import ResourceExistsError, OverQuota
 
 def stub(*args, **kwargs):
     pass
@@ -1274,7 +1274,11 @@ def fake_zk_counter_value(self):
         return self.value
 
 def fake_zk_counter_change(self, value):
-        self.value = int(self.value + value)
+        data = int(self.value + value)
+        if data > self.max_count:
+            raise OverQuota()
+        else:
+            self.value = data
         return self
 
 class ZookeeperClientMock(object):
