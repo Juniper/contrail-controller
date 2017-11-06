@@ -3611,7 +3611,8 @@ TEST_F(BgpServerUnitTest, BasicAdvertiseWithdraw) {
 }
 
 TEST_F(BgpServerUnitTest, BasicMvpnAdvertiseWithdraw) {
-    MvpnManager::set_enable(true);
+    a_->set_mvpn_ipv4_enable(true);
+    b_->set_mvpn_ipv4_enable(true);
     vector<string> families_a;
     vector<string> families_b;
     families_a.push_back("inet-mvpn");
@@ -3725,7 +3726,6 @@ TEST_F(BgpServerUnitTest, BasicMvpnAdvertiseWithdraw) {
     BGP_VERIFY_ROUTE_ABSENCE(table_b, &key1);
     BGP_VERIFY_ROUTE_ABSENCE(table_b, &key2);
     BGP_VERIFY_ROUTE_ABSENCE(table_b, &key3);
-    MvpnManager::set_enable(false);
 }
 
 class TestEnvironment : public ::testing::Environment {

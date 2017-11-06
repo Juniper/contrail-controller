@@ -259,6 +259,7 @@ int main(int argc, char *argv[]) {
     sandesh_context.set_test_mode(ControlNode::GetTestMode());
     sandesh_context.bgp_server = bgp_server.get();
     bgp_server->set_gr_helper_disable(options.gr_helper_bgp_disable());
+    bgp_server->set_mvpn_ipv4_enable(options.mvpn_ipv4_enable());
 
     ConnectionStateManager::GetInstance();
 
@@ -271,8 +272,8 @@ int main(int argc, char *argv[]) {
     ConfigClientManager *config_client_manager =
         new ConfigClientManager(&evm, options.hostname(),
                                 module_name, options.configdb_options());
-    ConfigJsonParser *json_parser = 
-      static_cast<ConfigJsonParser *>(config_client_manager->config_json_parser());
+    ConfigJsonParser *json_parser = static_cast<ConfigJsonParser *>(
+        config_client_manager->config_json_parser());
     json_parser->ifmap_server_set(&ifmap_server);
     IFMap_Initialize(&ifmap_server, json_parser);
     ifmap_server.set_config_manager(config_client_manager);

@@ -21,11 +21,6 @@
 #include "bgp/rtarget/rtarget_address.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 
-// Static boolean to enable/disable mvpn globally. All older unit tests do not
-// need to run with mvpn enabled.
-// TODO(Ananth) Modify this to configurable at run time.
-bool MvpnManager::enable_;
-
 using std::make_pair;
 using std::ostringstream;
 using std::pair;
@@ -105,7 +100,7 @@ const LifetimeActor *MvpnProjectManager::deleter() const {
 // Create MvpnProjectManagerPartitions and register with the ErmVpnTable to
 // get route change notifications.
 void MvpnProjectManager::Initialize() {
-    if (!MvpnManager::IsEnabled())
+    if (!table_->server()->mvpn_ipv4_enable())
         return;
 
     AllocPartitions();
@@ -587,7 +582,7 @@ bool MvpnManagerPartition::GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
 // Initialize MvpnManager by allcating one MvpnManagerPartition for each DB
 // partition, and register a route listener for the MvpnTable.
 void MvpnManager::Initialize() {
-    if (!IsEnabled())
+    if (!table_->server()->mvpn_ipv4_enable())
         return;
 
     assert(!table_->IsMaster());

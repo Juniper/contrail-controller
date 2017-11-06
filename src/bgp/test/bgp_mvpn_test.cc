@@ -156,6 +156,7 @@ protected:
     virtual void SetUp() {
         evm_.reset(new EventManager());
         server_.reset(new BgpServerTest(evm_.get(), "local"));
+        server_->set_mvpn_ipv4_enable(true);
         thread_.reset(new ServerThread(evm_.get()));
         thread_->Start();
         pm_preconfigured_ = std::tr1::get<0>(GetParam());
@@ -1309,7 +1310,6 @@ INSTANTIATE_TEST_CASE_P(BgpMvpnTestWithParams, BgpMvpnTest,
 
 static void SetUp() {
     bgp_log_test::init();
-    MvpnManager::set_enable(true);
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<McastTreeManager>(

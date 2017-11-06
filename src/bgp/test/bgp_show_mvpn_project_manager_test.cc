@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
 
 #include "bgp/test/bgp_show_instance_or_table_test.h"
@@ -64,7 +64,6 @@ static void TearDown() {
 
 int main(int argc, char **argv) {
     bgp_log_test::init();
-    MvpnManager::set_enable(true);
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::AddGlobalTestEnvironment(new TestEnvironment());
     SetUp();

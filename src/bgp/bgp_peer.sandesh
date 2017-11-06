@@ -663,6 +663,10 @@ response sandesh ShowMvpnManagerResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show mvpn manger information
+ * @cli_name: show mpvn manager
+ */
 request sandesh ShowMvpnManagerReq {
     /** find mvpn manager matching this string */
     1: string search_string;
@@ -692,6 +696,10 @@ response sandesh ShowMvpnProjectManagerResp {
                                    link_title="next_batch");
 }
 
+/**
+ * @description: show mvpn project-manger information
+ * @cli_name: show mvpn project-manager
+ */
 request sandesh ShowMvpnProjectManagerReq {
     /** find mvpn project manager matching this string */
     1: string search_string;
