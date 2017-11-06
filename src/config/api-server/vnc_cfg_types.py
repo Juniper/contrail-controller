@@ -2395,10 +2395,10 @@ class SecurityGroupServer(Resource, SecurityGroup):
                 path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
                 path = path_prefix + "/" + obj_type
                 quota_counter = cls.server.quota_counter
-                quota_counter[path].value -= rules_count
+                quota_counter[path].value -= rule_count
                 def undo():
                     # Revert back quota count
-                    quota_counter[path].value += rules_count
+                    quota_counter[path].value += rule_count
                 get_context().push_undo(undo)
 
         return True, ""
