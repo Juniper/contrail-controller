@@ -450,12 +450,16 @@ HealthCheckService::GetHealthCheckType() const {
 bool HealthCheckService::Copy(HealthCheckTable *table,
                               const HealthCheckServiceData *data) {
     bool ret = false;
-    bool dest_ip_changed = false, service_type_changed = false;
+    bool dest_ip_changed = false;
+    bool service_type_changed = false;
+    bool monitor_type_changed = false;
     bool is_prev_hc_segment = IsSegmentHealthCheckService();
 
-    std::string old_monitor_type = monitor_type_;
+    HealthCheckService::HealthCheckType old_health_check_type =
+                                            GetHealthCheckType();
     if (monitor_type_ != data->monitor_type_) {
         monitor_type_ = data->monitor_type_;
+        monitor_type_changed = true;
         ret = true;
     }
 
@@ -528,8 +532,11 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
          * or vice-versa, remove all the health-check instance objects.
          * Addition of new health-check instances with updated config happens
          * later in this function */
-        if (service_type_changed &&
-            (is_prev_hc_segment != IsSegmentHealthCheckService())) {
+        if ((service_type_changed &&
+             is_prev_hc_segment != IsSegmentHealthCheckService()) ||
+            (monitor_type_changed &&
+             (health_check_type_ == HealthCheckService::BFD ||
+              old_health_check_type == HealthCheckService::BFD))) {
             DeleteInstances();
         } else {
             // stop previously allocated health check instances
