@@ -127,6 +127,8 @@ struct VrouterAgent {  // Agent info
    52: optional agent.VrouterObjectLimits vr_limits;
    /** shows whether currently BGPaaS is enabled or not */
    53: optional bool bgpaas_enabled;
+   /** shows whether currently port mirror is enabled or not*/
+   54: optional bool port_mirror_enabled;
 }
 
 /**

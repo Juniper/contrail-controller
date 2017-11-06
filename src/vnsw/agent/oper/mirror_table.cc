@@ -559,6 +559,16 @@ void MirrorTable::Shutdown() {
     agent()->vrf_table()->Unregister(vrf_listener_id_);
 }
 
+bool MirrorTable::IsConfigured() {
+    VrfMirrorEntryList::iterator it;
+    for (it = resolved_entry_list_.begin(); it != resolved_entry_list_.end(); ++it) {
+        if (it->second.size() > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 uint32_t MirrorEntry::vrf_id() const {
     return vrf_ ? vrf_->vrf_id() : uint32_t(-1);
 }

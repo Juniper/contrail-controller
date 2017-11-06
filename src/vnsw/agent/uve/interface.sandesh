@@ -125,6 +125,8 @@ struct UveVMInterfaceAgent {
    39: optional u16 rx_vlan;
    /** Parent interface name */
    40: optional string parent_interface;
+   /** shows whether interface port mirror is enabled or not*/
+   44: optional bool port_mirror_enabled;
 }
 
 /**
