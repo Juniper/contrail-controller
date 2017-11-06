@@ -397,9 +397,9 @@ protected:
         TASK_UTIL_EXPECT_EQ(masterc + 4, master_->Size());
 
         // Verify that only green has discovered a neighbor from red.
-        TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors().size());
-        TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors().size());
-        TASK_UTIL_EXPECT_EQ(2, green_->manager()->neighbors().size());
+        TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors_count());
+        TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors_count());
+        TASK_UTIL_EXPECT_EQ(2, green_->manager()->neighbors_count());
 
         MvpnNeighbor neighbor;
         error_code err;
@@ -495,9 +495,9 @@ TEST_P(BgpMvpnTest, Type1ADLocalWithIdentifierChanged) {
                         green_->FindType1ADRoute());
 
     // Verify that only green has discovered a neighbor from red.
-    TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(2, green_->manager()->neighbors().size());
+    TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(2, green_->manager()->neighbors_count());
 
     MvpnNeighbor neighbor;
     EXPECT_TRUE(green_->manager()->FindNeighbor(
@@ -540,9 +540,9 @@ TEST_P(BgpMvpnTest, Type1ADLocalWithIdentifierRemoved) {
                         green_->FindType1ADRoute());
 
     // Verify that only green has discovered a neighbor from red.
-    TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(0, green_->manager()->neighbors().size());
+    TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(0, green_->manager()->neighbors_count());
 }
 
 // Add Type1AD route from a mock bgp peer into bgp.mvpn.0 table.
@@ -557,9 +557,9 @@ TEST_P(BgpMvpnTest, Type1AD_Remote) {
     }
     VerifyInitialState();
     // Verify that only green has discovered a neighbor from red.
-    TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(2, green_->manager()->neighbors().size());
+    TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(2, green_->manager()->neighbors_count());
 
     // Inject a Type1 route from a mock peer into bgp.mvpn.0 table with red
     // route-target.
@@ -572,9 +572,9 @@ TEST_P(BgpMvpnTest, Type1AD_Remote) {
     TASK_UTIL_EXPECT_EQ(4, green_->Size()); // 1 local + 1 remote(red)
 
     // Verify that neighbor is detected.
-    TASK_UTIL_EXPECT_EQ(1, red_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(3, green_->manager()->neighbors().size());
+    TASK_UTIL_EXPECT_EQ(1, red_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(3, green_->manager()->neighbors_count());
 
     MvpnNeighbor neighbor;
     error_code err;
@@ -598,9 +598,9 @@ TEST_P(BgpMvpnTest, Type1AD_Remote) {
     TASK_UTIL_EXPECT_EQ(1, red_->Size()); // 1 local
     TASK_UTIL_EXPECT_EQ(1, blue_->Size()); // 1 local
     TASK_UTIL_EXPECT_EQ(3, green_->Size()); // 1 local + 1 red + 1 blue
-    TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors().size());
-    TASK_UTIL_EXPECT_EQ(2, green_->manager()->neighbors().size());
+    TASK_UTIL_EXPECT_EQ(0, red_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(0, blue_->manager()->neighbors_count());
+    TASK_UTIL_EXPECT_EQ(2, green_->manager()->neighbors_count());
 }
 
 // Add Type3 S-PMSI route and verify that Type4 Leaf-AD is not originated if
@@ -1093,7 +1093,7 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_2) {
         TASK_UTIL_EXPECT_EQ(3, green_->Size());
     }
 
-    // Now inject a remote type7 join.
+    // Now inject a remote type5.
     const string t5_prefix = "5-0.0.0.0:65535,224.1.2.3,9.8.7.6";
     AddType5MvpnRoute(red_, t5_prefix, "target:127.0.0.1:1001", "10.1.1.1");
 
