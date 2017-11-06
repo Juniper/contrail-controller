@@ -14,6 +14,7 @@ from db import *
 from dm_utils import DMUtils
 from juniper_conf import JuniperConf
 from e2_services_info import L2cktErrors, L2vpnErrors
+from netaddr import IPNetwork
 
 class MxE2Conf(JuniperConf):
     _products = ['mx', 'vmx', 'vrr']
@@ -896,6 +897,9 @@ class MxE2Conf(JuniperConf):
     # end send_conf
 
     def config_e2_router_config(self):
+        # Skip for VRR
+        if self.physical_router.physical_router_role == 'e2-vrr':
+            return
         snmp = self.physical_router.physical_router_snmp
         lldp = self.physical_router.physical_router_lldp
         self.add_e2_router_config_xml(snmp, lldp)
@@ -1155,6 +1159,8 @@ class MxE2Conf(JuniperConf):
             provider_conf['vrr_ip'] = vrr_conf['vrr_ip']
             provider_conf['vrr_as'] = vrr_conf['vrr_as']
             provider_conf['promiscuous'] = sp.promiscuous
+            provider_conf['v4_present'] = False
+            provider_conf['v6_present'] = False
 
             # Get unique AS list
             prs = sp.physical_routers
@@ -1175,6 +1181,11 @@ class MxE2Conf(JuniperConf):
                             peer['ip_address'] = bgp_entry.params['address']
                             peer['auth_key'] = ' '
                             peer_list.append(peer)
+
+                            if IPNetwork(peer['ip_address']).version == 4:
+                                provider_conf['v4_present'] = True
+                            if IPNetwork(peer['ip_address']).version == 6:
+                                provider_conf['v6_present'] = True
 
             for as_num in as_set:
                 provider_conf['provider_as'] = as_num
@@ -1206,6 +1217,8 @@ class MxE2Conf(JuniperConf):
         self.add_e2_vrs_provider_instance_config_xml(provider_conf['provider_name'], \
                                                      provider_conf['provider_as'], \
                                                      provider_conf['vrr_ip'], \
+                                                     provider_conf['v4_present'], \
+                                                     provider_conf['v6_present'], \
                                                      provider_conf['promiscuous'])
     # end add_e2_vrs_provider_as_config
 
@@ -1220,6 +1233,17 @@ class MxE2Conf(JuniperConf):
         # System config
         system = etree.Element("system")
         etree.SubElement(system, "host-name").text = name
+
+        # Telemetry config
+        services = etree.SubElement(system, "services")
+        ext_services = etree.SubElement(services, "extension-service")
+        req_resp = etree.SubElement(ext_services, "request-response")
+        grpc = etree.SubElement(req_resp, "grpc")
+        etree.SubElement(grpc, "clear-text")
+        etree.SubElement(grpc, "skip-authentication")
+        notification = etree.SubElement(ext_services, "notification")
+        allow_clients = etree.SubElement(notification, "allow-clients")
+        etree.SubElement(allow_clients, "address").text = "0.0.0.0/0"
         self.e2_vrs_system_config = system
 
         # Routing options config
@@ -1340,7 +1364,8 @@ class MxE2Conf(JuniperConf):
         self.e2_vrs_policy_options_config.append(to_provider_comm)
     # end add_e2_vrs_provider_policy_config_xml
 
-    def add_e2_vrs_provider_instance_config_xml(self, name, provider_as, vrr_ip, promiscuous):
+    def add_e2_vrs_provider_instance_config_xml(self, name, provider_as, vrr_ip, \
+                                                v4_yes, v6_yes, promiscuous):
         if self.e2_vrs_provider_ri_config is None:
             self.e2_vrs_provider_ri_config = etree.Element("routing-instances")
 
@@ -1363,14 +1388,28 @@ class MxE2Conf(JuniperConf):
         protocols = etree.SubElement(provider_instance, "protocols")
         bgp = etree.SubElement(protocols, "bgp")
         etree.SubElement(bgp, "peer-as").text = str(provider_as)
-        bgp_group = etree.SubElement(bgp, "group")
-        etree.SubElement(bgp_group, "name").text = "bgp-as-" + str(provider_as)
-        etree.SubElement(bgp_group, "type").text = "external"
-        etree.SubElement(bgp_group, "route-server-client")
-        etree.SubElement(bgp_group, "mtu-discovery")
-        bgp_group_family = etree.SubElement(bgp_group, "family")
-        bgp_group_family_inet = etree.SubElement(bgp_group_family, "inet")
-        bgp_group_family_inet_ucast = etree.SubElement(bgp_group_family_inet, "unicast")
+
+        # IPv4 BGP group
+        if v4_yes is True:
+            bgp_group = etree.SubElement(bgp, "group")
+            etree.SubElement(bgp_group, "name").text = "bgp-v4-as-" + str(provider_as)
+            etree.SubElement(bgp_group, "type").text = "external"
+            etree.SubElement(bgp_group, "route-server-client")
+            etree.SubElement(bgp_group, "mtu-discovery")
+            bgp_group_family = etree.SubElement(bgp_group, "family")
+            bgp_group_family_inet = etree.SubElement(bgp_group_family, "inet")
+            bgp_group_family_inet_ucast = etree.SubElement(bgp_group_family_inet, "unicast")
+
+        # IPv6 BGP group
+        if v6_yes is True:
+            bgp_group = etree.SubElement(bgp, "group")
+            etree.SubElement(bgp_group, "name").text = "bgp-v6-as-" + str(provider_as)
+            etree.SubElement(bgp_group, "type").text = "external"
+            etree.SubElement(bgp_group, "route-server-client")
+            etree.SubElement(bgp_group, "mtu-discovery")
+            bgp_group_family = etree.SubElement(bgp_group, "family")
+            bgp_group_family_inet6 = etree.SubElement(bgp_group_family, "inet6")
+            bgp_group_family_inet6_ucast = etree.SubElement(bgp_group_family_inet6, "unicast")
 
         self.e2_vrs_provider_ri_config.append(provider_instance)
     # end add_e2_vrs_provider_instance_config_xml
@@ -1388,11 +1427,16 @@ class MxE2Conf(JuniperConf):
         protocols = etree.SubElement(provider_instance, "protocols")
         bgp = etree.SubElement(protocols, "bgp")
         bgp_group = etree.SubElement(bgp, "group")
-        etree.SubElement(bgp_group, "name").text = "bgp-as-" + str(provider_as)
-        #etree.SubElement(bgp_group, "authentication-key").text = key
+
+        if IPNetwork(peer_ip).version == 4:
+            etree.SubElement(bgp_group, "name").text = "bgp-v4-as-" + str(provider_as)
+        if IPNetwork(peer_ip).version == 6:
+            etree.SubElement(bgp_group, "name").text = "bgp-v6-as-" + str(provider_as)
         bgp_group_nbr = etree.SubElement(bgp_group, "neighbor")
         etree.SubElement(bgp_group_nbr, "name").text = peer_ip
         etree.SubElement(bgp_group_nbr, "forwarding-context").text = "master"
+        etree.SubElement(bgp_group_nbr, "hold-time").text = str(300)
+        #etree.SubElement(bgp_group, "authentication-key").text = key
 
         self.e2_vrs_provider_ri_config.append(provider_instance)
     # end add_e2_vrs_provider_instance_peer_config_xml
