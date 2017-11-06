@@ -2070,6 +2070,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('autonomous-system', 'bgp-as-a-service', 'required', 'CRUD',
               'Autonomous system number for the BGP peer.') -->
+<xsd:element name="virtual-machine-interface-bgp-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('virtual-machine-interface-bgp-router', 'virtual-machine-interface',
+         'bgp-router', ['ref'], 'required', 'CRUD',
+         'Reference to bgp-router from the virtual machine interface.') -->
 <xsd:element name='bgpaas-shared' type='xsd:boolean' default='false'/>
     <xsd:annotation>
         <xsd:documentation>
