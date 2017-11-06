@@ -129,6 +129,7 @@ protected:
 
     virtual void SetUp() {
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
+        bs_x_->set_mvpn_ipv4_enable(true);
         xs_x_ = new XmppServer(&evm_, test::XmppDocumentMock::kControlNodeJID);
         bs_x_->session_manager()->Initialize(0);
         xs_x_->Initialize(0, false);
@@ -696,7 +697,6 @@ static void TearDown() {
 
 int main(int argc, char **argv) {
     bgp_log_test::init();
-    MvpnManager::set_enable(true);
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::AddGlobalTestEnvironment(new TestEnvironment());
     SetUp();

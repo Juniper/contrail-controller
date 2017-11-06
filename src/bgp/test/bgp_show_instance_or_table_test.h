@@ -80,6 +80,7 @@ protected:
 
     virtual void SetUp() {
         server_.reset(new BgpServerTest(&evm_, "X"));
+        server_->set_mvpn_ipv4_enable(true);
         server_->session_manager()->Initialize(0);
         xmpp_server_ =
             new XmppServerTest(&evm_, test::XmppDocumentMock::kControlNodeJID);

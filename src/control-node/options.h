@@ -37,6 +37,7 @@ public:
     bool log_local() const { return log_local_; }
     bool use_syslog() const { return use_syslog_; }
     std::string syslog_facility() const { return syslog_facility_; }
+    <B>bool mvpn_i</B>pv4_enable() const { return mvpn_ipv4_enable_; }
     bool task_track_run_time() const { return task_track_run_time_; }
     std::string config_db_user() const {
         return configdb_options_.config_db_username;
@@ -117,6 +118,7 @@ private:
     bool log_local_;
     bool use_syslog_;
     std::string syslog_facility_;
+    bool mvpn_ipv4_enable_;
     bool task_track_run_time_;
     ConfigClientOptions configdb_options_;
     uint16_t xmpp_port_;

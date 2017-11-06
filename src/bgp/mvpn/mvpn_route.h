@@ -75,8 +75,8 @@ public:
             boost::system::error_code *ec, bool last = false);
     static MvpnPrefix FromString(const std::string &str,
                                  boost::system::error_code *errorp = NULL);
-    void SetRtKeyFromSPMSIADRoute(const MvpnPrefix &prefix);
-    void SetRtKeyFromLeafADRoute(const MvpnPrefix &prefix);
+    void SetLeafADPrefixFromSPMSIPrefix(const MvpnPrefix &prefix);
+    void SetSPMSIPrefixFromLeafADPrefix(const MvpnPrefix &prefix);
 
     std::string ToString() const;
     std::string ToXmppIdString() const;

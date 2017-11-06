@@ -747,7 +747,7 @@ int MvpnPrefix::CompareTo(const MvpnPrefix &rhs) const {
 }
 
 // Populate LeafADRoute(Type4) rt_key_ from SPMSIADRoute(Type3)
-void MvpnPrefix::SetRtKeyFromSPMSIADRoute(const MvpnPrefix &prefix) {
+void MvpnPrefix::SetLeafADPrefixFromSPMSIPrefix(const MvpnPrefix &prefix) {
     assert(prefix.type() == SPMSIADRoute);
 
     size_t rd_size = RouteDistinguisher::kSize;
@@ -781,7 +781,7 @@ void MvpnPrefix::SetRtKeyFromSPMSIADRoute(const MvpnPrefix &prefix) {
     type_ = LeafADRoute;
 }
 
-void MvpnPrefix::SetRtKeyFromLeafADRoute(const MvpnPrefix &prefix) {
+void MvpnPrefix::SetSPMSIPrefixFromLeafADPrefix(const MvpnPrefix &prefix) {
     assert(prefix.type() == LeafADRoute);
     size_t rd_size = RouteDistinguisher::kSize;
     size_t key_size = 0;
