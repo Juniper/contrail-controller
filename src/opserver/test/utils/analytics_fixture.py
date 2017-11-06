@@ -1738,6 +1738,39 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         assert(len(res) == 5)
 
+        # vrouter and vrouter_ip
+        res = vns.post_query(
+               'SessionRecordTable',
+                start_time=str(generator_obj.session_start_time),
+                end_time=str(generator_obj.session_end_time),
+                select_fields=['forward_flow_uuid', 'reverse_flow_uuid',
+                                'vrouter', 'vrouter_ip'],
+                session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
+        for r in res:
+            assert(r['vrouter'] == generator_obj._hostname)
+            assert(r['vrouter_ip'] == '10.0.0.1')
+        #give non-existent values as filter
+        res = vns.post_query(
+               'SessionRecordTable',
+                start_time=str(generator_obj.session_start_time),
+                end_time=str(generator_obj.session_end_time),
+                select_fields=['forward_flow_uuid', 'reverse_flow_uuid',
+                                'vrouter', 'vrouter_ip'],
+                filter='vrouter=a6s45',
+                session_type="client")
+        assert(len(res) == 0)
+        res = vns.post_query(
+               'SessionRecordTable',
+                start_time=str(generator_obj.session_start_time),
+                end_time=str(generator_obj.session_end_time),
+                select_fields=['forward_flow_uuid', 'reverse_flow_uuid',
+                                'vrouter', 'vrouter_ip'],
+                filter='vrouter_ip=10.0.2.2',
+                session_type="client")
+        assert(len(res) == 0)
+
         return True
     # end verify_session_table
 
@@ -1777,7 +1810,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'SessionSeriesTable',
             start_time=str(generator_obj.session_start_time),
             end_time=str(generator_obj.session_end_time),
-            select_fields=['SUM(forward_sampled_bytes)', 'SUM(reverse_sampled_pkts)', 'sample_count'],
+            select_fields=['SUM(forward_sampled_bytes)', 'SUM(reverse_sampled_pkts)', 'sample_count', 'vrouter'],
             filter='vrouter=%s'% vrouter, session_type="client")
         self.logger.info(str(res))
         assert(len(res) == 1)
@@ -1805,7 +1838,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['deployment', 'tier', 'application', 'site', 
                            'SUM(forward_sampled_bytes)',
                            'SUM(reverse_sampled_pkts)', 'sample_count'],
-            filter='vrouter=%s'% vrouter, session_type="client")
+            session_type="client")
         self.logger.info(str(res))
         assert(len(res) == generator_obj.client_session_cnt)
         for r in res:
@@ -1830,7 +1863,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['vn', 'remote_vn',
                            'SUM(forward_sampled_bytes)',
                            'SUM(reverse_sampled_pkts)', 'sample_count'],
-            filter='vrouter=%s'% vrouter, session_type="server")
+            session_type="server")
         self.logger.info(str(res))
         assert(len(res) == 1)
         sum_fwd_bytes = 0
@@ -1852,7 +1885,7 @@ class AnalyticsFixture(fixtures.Fixture):
             select_fields=['protocol', 'server_port',
                            'SUM(forward_sampled_bytes)',
                            'SUM(reverse_sampled_pkts)'],
-            filter='vrouter=%s'% vrouter, session_type="client",
+            session_type="client",
             sort_fields=['SUM(forward_sampled_bytes)'], sort=1, limit=3)
         self.logger.info(str(res))
         assert(len(res) == 3)
@@ -1876,7 +1909,7 @@ class AnalyticsFixture(fixtures.Fixture):
         res = vns.post_query(
             'SessionSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity), 'SUM(forward_sampled_bytes)',
-                           'SUM(reverse_sampled_pkts)'],
+                           'SUM(reverse_sampled_pkts)', 'vrouter'],
             session_type = "client",
             filter='vrouter=%s' % vrouter)
         diff_t = int(et) - int(st)
@@ -1914,7 +1947,7 @@ class AnalyticsFixture(fixtures.Fixture):
             'SessionSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity), 'protocol',
                             'SUM(forward_sampled_bytes)',
-                            'SUM(reverse_sampled_pkts)'],
+                            'SUM(reverse_sampled_pkts)', 'vrouter'],
             filter='vrouter=%s' % vrouter,
             session_type = "client")
         diff_t = int(et) - int(st)

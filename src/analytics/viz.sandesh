@@ -5840,6 +5840,8 @@ const list<query_table> _TABLES = [
                { 'name' : 'remote_vn', 'datatype': 'string', 'index': true },
                { 'name' : 'remote_prefix', 'datatype': 'string', 'index': true },
                { 'name' : 'security_policy_rule', 'datatype': 'string', 'index': true },
+               { 'name' : 'vrouter', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'vrouter_ip', 'datatype' : 'ipaddr', 'index' : false },
 
                { 'name' : 'local_ip', 'datatype': 'ipaddr', 'index' : true },
                { 'name' : 'protocol', 'datatype': 'int', 'index' : true },
@@ -5941,6 +5943,8 @@ const list<query_table> _TABLES = [
                { 'name' : 'remote_vn', 'datatype' : 'string', 'index' : true },
                { 'name' : 'remote_prefix', 'datatype' : 'string', 'index' : true },
                { 'name' : 'security_policy_rule', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'vrouter', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'vrouter_ip', 'datatype' : 'ipaddr', 'index' : false },
 
                { 'name' : 'local_ip', 'datatype' : 'ipaddr', 'index' : true },
                { 'name' : 'protocol', 'datatype' : 'int', 'index' : true },
