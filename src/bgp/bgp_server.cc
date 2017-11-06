@@ -411,6 +411,7 @@ BgpServer::BgpServer(EventManager *evm)
       deleter_(new DeleteActor(this)),
       destroyed_(false),
       logging_disabled_(false),
+      mvpn_ipv4_enable_(false),
       aspath_db_(new AsPathDB(this)),
       olist_db_(new BgpOListDB(this)),
       cluster_list_db_(new ClusterListDB(this)),

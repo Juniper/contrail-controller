@@ -221,7 +221,7 @@ TEST_F(MvpnPrefixTest, Type4BuildPrefix) {
     EXPECT_EQ("192.168.1.1", prefix.source().to_string());
     Ip4Address type4_originator(Ip4Address::from_string("20.1.1.1"));
     MvpnPrefix type4_prefix(MvpnPrefix::LeafADRoute, type4_originator);
-    type4_prefix.SetRtKeyFromSPMSIADRoute(prefix);
+    type4_prefix.SetLeafADPrefixFromSPMSIPrefix(prefix);
     EXPECT_EQ("4-3-10.1.1.1:65535,192.168.1.1,224.1.2.3,9.8.7.6,20.1.1.1",
             type4_prefix.ToString());
 }

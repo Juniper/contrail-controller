@@ -184,8 +184,6 @@ public:
     virtual void UpdateSecondaryTablesForReplication(MvpnRoute *rt,
             BgpTable::TableSet *secondary_tables) const;
     tbb::reader_writer_lock &neighbors_mutex() { return neighbors_mutex_; }
-    static bool IsEnabled() { return enable_; }
-    static void set_enable(bool enable) { enable_ = enable; }
 
 private:
     friend class MvpnManagerPartition;
@@ -213,8 +211,6 @@ private:
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<MvpnManager> table_delete_ref_;
     LifetimeRef<MvpnManager> ermvpn_table_delete_ref_;
-
-    static bool enable_;
 
     DISALLOW_COPY_AND_ASSIGN(MvpnManager);
 };

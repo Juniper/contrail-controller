@@ -114,10 +114,18 @@ request sandesh ShowMvpnManagerDetailReq {
     1: string name;
 }
 
+/**
+ * @description: show mvpn manger detail
+ * @cli_name: show mpvn manager
+ */
 response sandesh ShowMvpnManagerDetailResp {
     1: list<bgp_peer.ShowMvpnNeighbor> neighbors;
 }
 
+/**
+ * @description: show mvpn project-manger detail
+ * @cli_name: show mpvn manager
+ */
 request sandesh ShowMvpnProjectManagerReqIterate {
     1: string iterate_info;
 }

@@ -397,15 +397,11 @@ public:
         vector<string> leafad_routes_attr_received;
         BOOST_FOREACH(const MvpnState::RoutesMap::value_type &val,
                       state->leafad_routes_attr_received()) {
-            ostringstream os;
             const PmsiTunnel *pmsi = val.second->pmsi_tunnel();
-            os << val.first->ToString();
             if (pmsi) {
-                os << ", " << pmsi->tunnel_type();
-                os << ", " << pmsi->identifier();
-                os << ", " << pmsi->GetLabel(true);
+                leafad_routes_attr_received.push_back(
+                    pmsi->pmsi_tunnel().ToString());
             }
-            leafad_routes_attr_received.push_back(os.str());
         }
         st->set_leafad_routes_attr_received(leafad_routes_attr_received);
         st->set_total_states(state->states()->size());
