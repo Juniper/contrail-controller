@@ -1036,6 +1036,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
+    portbindings['VNIC_TYPE_DIRECT'] = 'baremetal'
     portbindings['PORT_FILTER'] = True
 
     @staticmethod
@@ -1189,17 +1190,35 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         return (True, '')
 
     @classmethod
-    def _is_port_bound(cls, obj_dict):
+    def _is_port_bound(cls, obj_dict, new_kvp_dict):
         """Check whatever port is bound.
 
-        We assume port is bound when it is linked to either VM or Vrouter.
+        For any NON 'baremetal port' we assume port is bound when it is linked
+        to either VM or Vrouter.
+        For any 'baremetal' port we assume it is bound when it has set:
+            * binding:local_link_information
+            * binding:host_id
 
-        :param obj_dict: Port dict to check
+        :param obj_dict: Current port dict to check
+        :param new_kvp_dict: KVP dict of port update.
         :returns: True if port is bound, False otherwise.
         """
+        bindings = obj_dict['virtual_machine_interface_bindings']
+        kvps = bindings['key_value_pair']
+        kvp_dict = cls._kvp_to_dict(kvps)
+        old_vnic_type = kvp_dict.get('vnic_type')
+        new_vnic_type = new_kvp_dict.get('vnic_type')
 
-        return (obj_dict.get('logical_router_back_refs') or
-                obj_dict.get('virtual_machine_refs'))
+        if new_vnic_type == cls.portbindings['VNIC_TYPE_BAREMETAL']:
+            return False
+
+        if old_vnic_type == cls.portbindings['VNIC_TYPE_BAREMETAL']:
+            if (kvp_dict.get('profile', {}).get('local_link_information') and
+                kvp_dict.get('host_id')):
+                return True
+        else:
+            return (obj_dict.get('logical_router_back_refs') or
+                    obj_dict.get('virtual_machine_refs'))
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
