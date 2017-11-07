@@ -90,6 +90,10 @@ const std::map<uint16_t, const char*>
         ((uint16_t)DROP_OUT_SG,              "Flow drop OUT SG")
         ((uint16_t)DROP_REVERSE_SG,          "Flow drop REVERSE SG")
         ((uint16_t)DROP_REVERSE_OUT_SG,      "Flow drop REVERSE OUT SG")
+        ((uint16_t)DROP_FIREWALL_POLICY,     "Flow drop Firewall Policy")
+        ((uint16_t)DROP_OUT_FIREWALL_POLICY, "Flow drop OUT Firewall Policy")
+        ((uint16_t)DROP_REVERSE_FIREWALL_POLICY,     "Flow drop REVERSE Firewall Policy")
+        ((uint16_t)DROP_REVERSE_OUT_FIREWALL_POLICY, "Flow drop REVERSE OUT Firewall Policy")
         ((uint16_t)SHORT_NO_SRC_ROUTE_L2RPF,
          "Short flow No Source route for RPF NH");
 
@@ -2494,16 +2498,24 @@ bool FlowEntry::ActionRecompute() {
             drop_reason = short_flow_reason_;
         } else if (ShouldDrop(data_.match_p.policy_action)) {
             drop_reason = DROP_POLICY;
-        } else if (ShouldDrop(data_.match_p.out_policy_action)){
+        } else if (ShouldDrop(data_.match_p.out_policy_action)) {
             drop_reason = DROP_OUT_POLICY;
-        } else if (ShouldDrop(data_.match_p.sg_policy.action)){
+        } else if (ShouldDrop(data_.match_p.sg_policy.action)) {
             drop_reason = DROP_SG;
-        } else if (ShouldDrop(data_.match_p.sg_policy.out_action)){
+        } else if (ShouldDrop(data_.match_p.sg_policy.out_action)) {
             drop_reason = DROP_OUT_SG;
-        } else if (ShouldDrop(data_.match_p.sg_policy.reverse_action)){
+        } else if (ShouldDrop(data_.match_p.sg_policy.reverse_action)) {
             drop_reason = DROP_REVERSE_SG;
-        } else if (ShouldDrop(data_.match_p.sg_policy.reverse_out_action)){
+        } else if (ShouldDrop(data_.match_p.sg_policy.reverse_out_action)) {
             drop_reason = DROP_REVERSE_OUT_SG;
+        } else if (ShouldDrop(data_.match_p.aps_policy.action)) {
+            drop_reason = DROP_FIREWALL_POLICY;
+        } else if (ShouldDrop(data_.match_p.aps_policy.out_action)) {
+            drop_reason = DROP_OUT_FIREWALL_POLICY;
+        } else if (ShouldDrop(data_.match_p.aps_policy.reverse_action)) {
+            drop_reason = DROP_REVERSE_FIREWALL_POLICY;
+        } else if (ShouldDrop(data_.match_p.aps_policy.reverse_out_action)) {
+            drop_reason = DROP_REVERSE_OUT_FIREWALL_POLICY;
         } else {
             drop_reason = DROP_UNKNOWN;
         }
