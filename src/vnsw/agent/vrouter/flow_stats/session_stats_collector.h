@@ -227,6 +227,9 @@ private:
     void CopyFlowInfoInternal(SessionFlowExportInfo *info, FlowEntry *fe) const;
     void CopyFlowInfo(SessionStatsInfo &session,
                       const RevFlowDepParams *params);
+    void UpdateAggregateStats(const SessionInfo &sinfo,
+                              SessionAggInfo *agg_info,
+                              bool is_sampling, bool is_logging) const;
     void FillSessionInfoLocked
         (SessionPreAggInfo::SessionMap::iterator session_map_iter,
          const SessionStatsParams &stats, SessionInfo *session_info,
@@ -237,13 +240,8 @@ private:
          SessionIpPort *session_key,
          const RevFlowDepParams *params,
          bool read_flow, bool is_sampling, bool is_logging) const;
-    void FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter,
-                            SessionAggInfo *session_agg_info,
-                            SessionIpPortProtocol *session_agg_key,
-                            uint64_t total_fwd_bytes,
-                            uint64_t total_fwd_packets,
-                            uint64_t total_rev_bytes,
-                            uint64_t total_rev_packets) const;
+    void FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator it,
+                            SessionIpPortProtocol *session_agg_key) const;
     void FillSessionEndpoint(SessionEndpointMap::iterator it,
                              SessionEndpoint *session_ep) const;
     void FillSessionTagInfo(const TagList &list,
