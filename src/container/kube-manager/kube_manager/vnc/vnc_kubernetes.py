@@ -194,10 +194,10 @@ class VncKubernetes(VncCommon):
             ipam_uuid = self.vnc_lib.network_ipam_create(ipam_obj)
             ipam_update = True
         except RefsExistError:
-            ipam_obj = self.vnc_lib.network_ipam_read(
+            curr_ipam_obj = self.vnc_lib.network_ipam_read(
                 fq_name=ipam_obj.get_fq_name())
-            ipam_uuid = ipam_obj.get_uuid()
-            if type == 'flat-subnet' and not ipam_obj.get_ipam_subnets():
+            ipam_uuid = curr_ipam_obj.get_uuid()
+            if type == 'flat-subnet' and not curr_ipam_obj.get_ipam_subnets():
                 self.vnc_lib.network_ipam_update(ipam_obj)
                 ipam_update = True
 
