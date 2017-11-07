@@ -91,6 +91,15 @@ const string LOGICAL_IF_TABLE       = "ObjectLogicalInterfaceTable"
 const string STORAGE_CLUSTER_TABLE  = "ObjectStorageClusterTable"
 const string USR_DEF_LOG_STAT_TABLE  = "UserDefinedLogStatTable"
 const string KUBERNETES_MANAGER_TABLE = "ObjectKubernetesManagerNode"
+const string TAG_TABLE = "ObjectTagTable"
+const string PROJECT_TABLE = "ObjectProjectTable"
+const string FIREWALL_POLICY_TABLE = "ObjectFirewallPolicyTable"
+const string FIREWALL_RULE_TABLE = "ObjectFirewallRuleTable"
+const string ADDRESS_GROUP_TABLE = "ObjectAddressGroupTable"
+const string SERVICE_GROUP_TABLE = "ObjectServiceGroupTable"
+const string GLOBAL_APPLICATION_POLICY_SET_TABLE = "ObjectGlobalApplicationPolicySetTable"
+const string LOCAL_APPLICATUON_POLICY_SET_TABLE = "ObjectLocalApplicationPolicySetTable"
+const string APPLICATION_POLICY_SET_TABLE = "ObjectApplicationPolicySetTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -555,7 +564,16 @@ const map<string, string> UVE_MAP = {
     "logical-interface" : LOGICAL_IF_TABLE,
     "storage-cluster" : STORAGE_CLUSTER_TABLE,
     "user-defined-log-statistic" : USR_DEF_LOG_STAT_TABLE,
-    "kubernetes-manager-node" : KUBERNETES_MANAGER_TABLE
+    "kubernetes-manager-node" : KUBERNETES_MANAGER_TABLE,
+    "tag" : TAG_TABLE,
+    "project" : PROJECT_TABLE,
+    "firewall-policy" : FIREWALL_POLICY_TABLE,
+    "firewall-rule" : FIREWALL_RULE_TABLE,
+    "address-group" : ADDRESS_GROUP_TABLE,
+    "service-group" : SERVICE_GROUP_TABLE,
+    "global-application-policy-set" : GLOBAL_APPLICATION_POLICY_SET_TABLE,
+    "local-application-policy-set" : LOCAL_APPLICATUON_POLICY_SET_TABLE,
+    "application-policy-set" : APPLICATION_POLICY_SET_TABLE
 }
 
 struct objtable_info {
