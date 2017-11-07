@@ -1327,28 +1327,41 @@ void SessionStatsCollector::FillSessionInfoUnlocked
     }
 }
 
-void SessionStatsCollector::FillSessionAggInfo(SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter,
-                                               SessionAggInfo *session_agg_info,
-                                               SessionIpPortProtocol *session_agg_key,
-                                               uint64_t total_fwd_bytes,
-                                               uint64_t total_fwd_packets,
-                                               uint64_t total_rev_bytes,
-                                               uint64_t total_rev_packets)
-                                               const {
+void SessionStatsCollector::UpdateAggregateStats(const SessionInfo &sinfo,
+                                                 SessionAggInfo *agg_info,
+                                                 bool is_sampling,
+                                                 bool is_logging) const {
+    if (is_sampling) {
+        agg_info->set_sampled_forward_bytes(agg_info->get_sampled_forward_bytes() +
+            sinfo.get_forward_flow_info().get_sampled_bytes());
+        agg_info->set_sampled_forward_pkts(agg_info->get_sampled_forward_pkts() +
+            sinfo.get_forward_flow_info().get_sampled_pkts());
+        agg_info->set_sampled_reverse_bytes(agg_info->get_sampled_reverse_bytes() +
+            sinfo.get_reverse_flow_info().get_sampled_bytes());
+        agg_info->set_sampled_reverse_pkts(agg_info->get_sampled_reverse_pkts() +
+            sinfo.get_reverse_flow_info().get_sampled_pkts());
+    }
+    if (is_logging) {
+        agg_info->set_logged_forward_bytes(agg_info->get_logged_forward_bytes() +
+            sinfo.get_forward_flow_info().get_logged_bytes());
+        agg_info->set_logged_forward_pkts(agg_info->get_logged_forward_pkts() +
+            sinfo.get_forward_flow_info().get_logged_pkts());
+        agg_info->set_logged_reverse_bytes(agg_info->get_logged_reverse_bytes() +
+            sinfo.get_reverse_flow_info().get_logged_bytes());
+        agg_info->set_logged_reverse_pkts(agg_info->get_logged_reverse_pkts() +
+            sinfo.get_reverse_flow_info().get_logged_pkts());
+    }
+}
+
+void SessionStatsCollector::FillSessionAggInfo
+(SessionEndpointInfo::SessionAggMap::iterator it, SessionIpPortProtocol *key)
+ const {
     /*
      * Fill the session agg key
      */
-    session_agg_key->set_ip(session_agg_map_iter->first.local_ip);
-    session_agg_key->set_port(session_agg_map_iter->first.server_port);
-    session_agg_key->set_protocol(session_agg_map_iter->first.proto);
-    session_agg_info->set_logged_forward_bytes(total_fwd_bytes);
-    session_agg_info->set_logged_forward_pkts(total_fwd_packets);
-    session_agg_info->set_logged_reverse_bytes(total_rev_bytes);
-    session_agg_info->set_logged_reverse_pkts(total_rev_packets);
-    session_agg_info->set_sampled_forward_bytes(total_fwd_bytes);
-    session_agg_info->set_sampled_forward_pkts(total_fwd_packets);
-    session_agg_info->set_sampled_reverse_bytes(total_rev_bytes);
-    session_agg_info->set_sampled_reverse_pkts(total_rev_packets);
+    key->set_ip(it->first.local_ip);
+    key->set_port(it->first.server_port);
+    key->set_protocol(it->first.proto);
 }
 
 void SessionStatsCollector::FillSessionTagInfo(const TagList &list,
@@ -1421,8 +1434,6 @@ void SessionStatsCollector::FillSessionEndpoint(SessionEndpointMap::iterator it,
 
 bool SessionStatsCollector::ProcessSessionEndpoint
     (const SessionEndpointMap::iterator &it) {
-    uint64_t total_fwd_bytes, total_rev_bytes;
-    uint64_t total_fwd_packets, total_rev_packets;
     SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
     SessionEndpointInfo::SessionAggMap::iterator prev_agg_iter;
     SessionPreAggInfo::SessionMap::iterator session_map_iter, prev;
@@ -1439,8 +1450,6 @@ bool SessionStatsCollector::ProcessSessionEndpoint
     session_agg_map_iter = it->second.session_agg_map_.
         lower_bound(session_agg_iteration_key_);
     while (session_agg_map_iter != it->second.session_agg_map_.end()) {
-        total_fwd_bytes = total_rev_bytes = 0;
-        total_fwd_packets = total_rev_packets = 0;
         session_count = 0;
         session_map_iter = session_agg_map_iter->second.session_map_.
             lower_bound(session_iteration_key_);
@@ -1512,14 +1521,8 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             }
             session_agg_info.sessionMap.insert(make_pair(session_key,
                                                          session_info));
-            total_fwd_bytes +=
-                session_info.get_forward_flow_info().get_logged_bytes();
-            total_fwd_packets +=
-                session_info.get_forward_flow_info().get_logged_pkts();
-            total_rev_bytes +=
-                session_info.get_reverse_flow_info().get_logged_bytes();
-            total_rev_packets +=
-                session_info.get_reverse_flow_info().get_logged_pkts();
+            UpdateAggregateStats(session_info, &session_agg_info, is_sampling,
+                                 is_logging);
             ++session_map_iter;
             ++session_count;
             if (prev->second.deleted) {
@@ -1532,10 +1535,7 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             }
         }
         if (session_count) {
-            FillSessionAggInfo(session_agg_map_iter, &session_agg_info,
-                               &session_agg_key, total_fwd_bytes,
-                               total_fwd_packets, total_rev_bytes,
-                               total_rev_packets);
+            FillSessionAggInfo(session_agg_map_iter, &session_agg_key);
             session_ep.sess_agg_info.insert(make_pair(session_agg_key,
                                                       session_agg_info));
         }
