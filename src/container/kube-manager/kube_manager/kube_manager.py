@@ -6,18 +6,19 @@
 Kubernetes network manager
 """
 
-import gevent
 import random
+import os
 import sys
+import time
+
 from gevent.queue import Queue
-from vnc.config_db import *
+import gevent
+
+from vnc.config_db import DBBaseKM
 from vnc.reaction_map import REACTION_MAP
-
-from vnc_api.vnc_api import *
-
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.zkclient import ZookeeperClient
-import common.logger as logger
+import common.logger as common_logger
 import common.args as kube_args
 import vnc.vnc_kubernetes as vnc_kubernetes
 import kube.kube_monitor as kube_monitor
@@ -27,17 +28,17 @@ import kube.service_monitor as service_monitor
 import kube.network_policy_monitor as network_policy_monitor
 import kube.endpoint_monitor as endpoint_monitor
 import kube.ingress_monitor as ingress_monitor
+from sandesh.kube_introspect import ttypes as introspect
+
 
 class KubeNetworkManager(object):
 
     _kube_network_manager = None
 
-    def __init__(self, args=None, logger=None, kube_api_connected=False, queue=None,
-                 vnc_kubernetes_config_dict=None):
-        if queue:
-            self.q = queue
-        else:
-            self.q = Queue()
+    def __init__(self, args=None, logger=None, kube_api_connected=False,
+                 queue=None, vnc_kubernetes_config_dict=None):
+
+        self.q = queue if queue else Queue
         self.args = args
         self.logger = logger
         # All monitors supported by this manager.
@@ -52,27 +53,27 @@ class KubeNetworkManager(object):
                 self.monitors['namespace'] = namespace_monitor.NamespaceMonitor(
                     args=self.args, logger=self.logger, q=self.q)
 
-                self.monitors['pod'] = pod_monitor.PodMonitor(args=self.args,
-                    logger=self.logger, q=self.q)
+                self.monitors['pod'] = pod_monitor.PodMonitor(
+                    args=self.args, logger=self.logger, q=self.q)
 
                 self.monitors['service'] = service_monitor.ServiceMonitor(
                     args=self.args, logger=self.logger, q=self.q)
 
                 self.monitors['network_policy'] =\
-                    network_policy_monitor.NetworkPolicyMonitor(args=self.args,
-                        logger=self.logger, q=self.q)
+                    network_policy_monitor.NetworkPolicyMonitor(
+                        args=self.args, logger=self.logger, q=self.q)
 
                 self.monitors['endpoint'] = \
-                    endpoint_monitor.EndPointMonitor(args=self.args,
-                        logger=self.logger, q=self.q)
+                    endpoint_monitor.EndPointMonitor(
+                        args=self.args, logger=self.logger, q=self.q)
 
                 self.monitors['ingress'] = \
-                    ingress_monitor.IngressMonitor(args=self.args,
-                        logger=self.logger, q=self.q)
+                    ingress_monitor.IngressMonitor(
+                        args=self.args, logger=self.logger, q=self.q)
 
                 kube_api_connected = True
 
-            except Exception as e:
+            except Exception:  # FIXME: Except clause is too broad
                 time.sleep(30)
 
         # Register all the known monitors.
@@ -85,7 +86,7 @@ class KubeNetworkManager(object):
     # end __init__
 
     def _kube_object_cache_enabled(self):
-        return True if self.args.kube_object_cache == 'True' else False;
+        return self.args.kube_object_cache == 'True'
 
     def launch_timer(self):
         if not self.args.kube_timer_interval.isdigit():
@@ -94,13 +95,13 @@ class KubeNetworkManager(object):
                                    example: kube_timer_interval=60")
             sys.exit()
         self.logger.info("KubeNetworkManager - kube_timer_interval(%ss)"
-                          %self.args.kube_timer_interval)
+                         % self.args.kube_timer_interval)
         time.sleep(int(self.args.kube_timer_interval))
         while True:
             gevent.sleep(int(self.args.kube_timer_interval))
             try:
                 self.timer_callback()
-            except Exception:
+            except Exception:  # FIXME: Except clause is too broad
                 pass
 
     def timer_callback(self):
@@ -114,13 +115,14 @@ class KubeNetworkManager(object):
         self.greenlets.append(gevent.spawn(self.launch_timer))
         gevent.joinall(self.greenlets)
 
-    def reset(self):
+    @staticmethod
+    def reset():
         for cls in DBBaseKM.get_obj_type_map().values():
             cls.reset()
 
     @classmethod
     def get_instance(cls):
-        return KubeNetworkManager._kube_network_manager
+        return cls._kube_network_manager
 
     @classmethod
     def destroy_instance(cls):
@@ -136,16 +138,44 @@ class KubeNetworkManager(object):
         inst.q = None
         KubeNetworkManager._kube_network_manager = None
 
+    @classmethod
+    def sandesh_handle_kube_api_connection_status_request(cls, request):
+        statuses = {
+            'endpoint_monitor': False,
+            'ingress_monitor': False,
+            'namespace_monitor': False,
+            'network_policy_monitor': False,
+            'pod_monitor': False,
+            'service_monitor': False
+        }
+
+        kube_manager = cls.get_instance()
+        if kube_manager is not None:
+            for key, value in kube_manager.monitors.items():
+                statuses[key + '_monitor'] = value._is_kube_api_server_alive()
+
+        response = introspect.KubeApiConnectionStatusResp(
+            connections=introspect.KubeApiConnections(**statuses))
+        response.response(request.context())
+
+
 def run_kube_manager(km_logger, args, kube_api_skip, event_queue,
                      vnc_kubernetes_config_dict=None):
     km_logger.notice("Elected master kube-manager node. Initializing...")
     km_logger.introspect_init()
-    kube_nw_mgr = KubeNetworkManager(args, km_logger,
-                                     kube_api_connected=kube_api_skip,
-                                     queue=event_queue,
-                                     vnc_kubernetes_config_dict=vnc_kubernetes_config_dict)
+    kube_nw_mgr = KubeNetworkManager(
+        args, km_logger,
+        kube_api_connected=kube_api_skip,
+        queue=event_queue,
+        vnc_kubernetes_config_dict=vnc_kubernetes_config_dict)
     KubeNetworkManager._kube_network_manager = kube_nw_mgr
+
+    # Register Kubernetes API connection status introspect handler
+    introspect.KubeApiConnectionStatus.handle_request =\
+        KubeNetworkManager.sandesh_handle_kube_api_connection_status_request
+
     kube_nw_mgr.start_tasks()
+
 
 def main(args_str=None, kube_api_skip=False, event_queue=None,
          vnc_kubernetes_config_dict=None):
@@ -166,38 +196,48 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
     args.random_collectors = args.collectors
     if args.collectors:
         args.random_collectors = random.sample(args.collectors,
-                                           len(args.collectors))
+                                               len(args.collectors))
 
-    km_logger = logger.KubeManagerLogger(args, http_server_port=-1)
+    km_logger = common_logger.KubeManagerLogger(args, http_server_port=-1)
 
     if args.nested_mode == '0':
         # Initialize AMQP handler then close it to be sure remain queue of a
         # precedent run is cleaned
         rabbitmq_cfg = kube_args.rabbitmq_args(args)
         try:
-            vnc_amqp = VncAmqpHandle(km_logger._sandesh, km_logger, DBBaseKM,
-                                     REACTION_MAP, 'kube_manager',
-                                     rabbitmq_cfg)
+            vnc_amqp = VncAmqpHandle(
+                km_logger._sandesh,
+                km_logger,
+                DBBaseKM,
+                REACTION_MAP,
+                'kube_manager',
+                rabbitmq_cfg
+            )
             vnc_amqp.establish()
             vnc_amqp.close()
-        except Exception:
+        except Exception: # FIXME: Except clause is too broad
             pass
         finally:
             km_logger.debug("Removed remained AMQP queue")
- 
+
         # Ensure zookeeper is up and running before starting kube-manager
         _zookeeper_client = ZookeeperClient(client_pfx+"kube-manager",
                                             args.zk_server_ip)
 
         km_logger.notice("Waiting to be elected as master...")
-        _zookeeper_client.master_election(zk_path_pfx+"/kube-manager",
-                                          os.getpid(), run_kube_manager,
-                                          km_logger, args, kube_api_skip,
-                                          event_queue, vnc_kubernetes_config_dict)
+        _zookeeper_client.master_election(
+            zk_path_pfx + "/kube-manager",
+            os.getpid(),
+            run_kube_manager,
+            km_logger,
+            args,
+            kube_api_skip,
+            event_queue,
+            vnc_kubernetes_config_dict)
 
-    else: #nested mode, skip zookeeper mastership check
+    else:  # nested mode, skip zookeeper mastership check
         run_kube_manager(km_logger, args, kube_api_skip, event_queue,
                          vnc_kubernetes_config_dict)
- 
+
 if __name__ == '__main__':
     main()
