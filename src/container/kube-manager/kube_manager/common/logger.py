@@ -7,10 +7,7 @@
 Contrail Kube Manager logger
 """
 
-import logging
 import socket
-
-from vnc_api.vnc_api import *
 
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, NodeStatus
 from kube_manager.sandesh.kube_manager import ttypes as sandesh
@@ -24,11 +21,12 @@ from kube_manager.vnc.config_db import (LoadbalancerKM, LoadbalancerListenerKM,
     FloatingIpPoolKM, FloatingIpKM, NetworkIpamKM, HealthMonitorKM)
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from pysandesh.sandesh_base import Sandesh, SandeshSystem
+from pysandesh.sandesh_base import Sandesh
 from pysandesh.sandesh_logger import SandeshLogger
 from sandesh_common.vns.constants import (
         ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT)
 from sandesh_common.vns.ttypes import Module
+
 
 class KubeManagerLogger(object):
 
