@@ -221,7 +221,7 @@ void GetConnectionInfoMessage(
         (num_connections - num_unexpected_connections);
     message = "Number of connections:" + integerToString(num_connections) +
         ", Expected:" + integerToString(expected_connections.size()) +
-        ", Unexpected:" + integerToString(num_unexpected_connections) +
+        ", Extra:" + integerToString(num_unexpected_connections) +
         ", Missing:" + integerToString(num_missing_connections);
     if (num_unexpected_connections != 0) {
         size_t i = 0;
