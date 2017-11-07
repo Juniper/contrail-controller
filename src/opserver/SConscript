@@ -36,6 +36,7 @@ local_sources = [
            'db.py',
            'stats.py',
            'flow.py',
+           'sessions.py',
            'api_log.py',
            'alarmgen.py',
            'alarmgen_cfg.py',
