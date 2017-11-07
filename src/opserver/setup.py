@@ -64,6 +64,7 @@ setup(
             'contrail-logs = opserver.log:main',
             'contrail-stats = opserver.stats:main',
             'contrail-flows = opserver.flow:main',
+            'contrail-sessions = opserver.sessions:main',
             'contrail-logs-api-audit = opserver.api_log:main',
             'contrail-db = opserver.db:main',
             'contrail-alarm-notify = opserver.alarm_notify:main'
