@@ -113,7 +113,8 @@ void Options::Initialize(EventManager &evm,
              "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_disable", opt::bool_switch(&log_disable_),
              "Disable sandesh logging")
-        ("DEFAULT.log_file", opt::value<string>()->default_value("<stdout>"),
+        ("DEFAULT.log_file", opt::value<string>()->default_value(
+             "/var/log/contrail/contrail-control.log"),
              "Filename for the logs to be written to")
         ("DEFAULT.log_property_file", opt::value<string>()->default_value(""),
              "log4cplus property file name")
@@ -125,11 +126,15 @@ void Options::Initialize(EventManager &evm,
              "Maximum size of the log file")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_NOTICE"),
              "Severity level for local logging of sandesh messages")
-        ("DEFAULT.log_local", opt::bool_switch(&log_local_),
+        ("DEFAULT.log_local",
+             opt::bool_switch(&log_local_)->default_value(true),
              "Enable local logging of sandesh messages")
+        ("DEFAULT.mvpn_ipv4_enable", opt::bool_switch(&mvpn_ipv4_enable_),
+             "Enable NGEN Multicast VPN support for IPv4 routes")
         ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
              "Enable logging to syslog")
-        ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
+        ("DEFAULT.syslog_facility",
+             opt::value<string>()->default_value("LOG_LOCAL0"),
              "Syslog facility to receive log lines")
         ("DEFAULT.task_track_run_time", opt::bool_switch(&task_track_run_time_),
              "Enable tracking of run time per task id")

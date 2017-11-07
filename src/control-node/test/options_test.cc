@@ -67,11 +67,12 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.http_server_port(), default_http_server_port);
     EXPECT_EQ(options_.log_category(), "");
     EXPECT_EQ(options_.log_disable(), false);
-    EXPECT_EQ(options_.log_file(), "<stdout>");
+    EXPECT_EQ(options_.log_file(), "/var/log/contrail/contrail-control.log");
     EXPECT_EQ(options_.log_files_count(), 10);
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
-    EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.log_local(), true);
+    EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
@@ -116,6 +117,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
+    EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
@@ -153,6 +155,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
+    EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
@@ -171,16 +174,18 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
 }
 
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
-    int argc = 4;
+    int argc = 5;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=controller/src/control-node/contrail-control.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     char argv_3[] = "--SANDESH.disable_object_logs";
+    char argv_4[] = "--DEFAULT.mvpn_ipv4_enable";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
     argv[3] = argv_3;
+    argv[4] = argv_4;
 
     options_.Parse(evm_, argc, argv);
 
@@ -200,6 +205,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
+    EXPECT_EQ(options_.mvpn_ipv4_enable(), true);
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
@@ -229,11 +235,12 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "http_server_port=800\n"
         "log_category=bgp\n"
         "log_disable=1\n"
-        "log_file=test.log\n"
+        "log_file=<stdout>\n"
         "log_files_count=20\n"
         "log_file_size=1024\n"
         "log_level=SYS_DEBUG\n"
         "log_local=false\n"
+        "mvpn_ipv4_enable=false\n"
         "test_mode=0\n"
         "task_track_run_time=0\n"
         "optimize_snat=1\n"
@@ -287,11 +294,12 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.http_server_port(), 800);
     EXPECT_EQ(options_.log_category(), "bgp");
     EXPECT_EQ(options_.log_disable(), true);
-    EXPECT_EQ(options_.log_file(), "test.log");
+    EXPECT_EQ(options_.log_file(), "<stdout>");
     EXPECT_EQ(options_.log_files_count(), 20);
     EXPECT_EQ(options_.log_file_size(), 1024);
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), false);
+    EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.task_track_run_time(), false);
     EXPECT_EQ(options_.test_mode(), false);
@@ -328,6 +336,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "log_file_size=1024\n"
         "log_level=SYS_DEBUG\n"
         "log_local=0\n"
+        "mvpn_ipv4_enable=0\n"
         "test_mode=1\n"
         "xmpp_server_port=100\n"
         "sandesh_send_rate_limit=5\n"
@@ -347,7 +356,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 11;
+    int argc = 12;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_config_file.conf";
@@ -360,6 +369,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_8[] = "--DEFAULT.gr_helper_bgp_disable";
     char argv_9[] = "--DEFAULT.gr_helper_xmpp_disable";
     char argv_10[] = "--SANDESH.disable_object_logs";
+    char argv_11[] = "--DEFAULT.mvpn_ipv4_enable";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -371,6 +381,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[8] = argv_8;
     argv[9] = argv_9;
     argv[10] = argv_10;
+    argv[11] = argv_11;
 
     options_.Parse(evm_, argc, argv);
 
@@ -396,6 +407,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.log_file_size(), 1024);
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
+    EXPECT_EQ(options_.mvpn_ipv4_enable(), true);
     EXPECT_EQ(options_.config_db_user(), "test-db-user");
     EXPECT_EQ(options_.config_db_password(), "test-db-password");
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");

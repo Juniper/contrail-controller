@@ -116,7 +116,7 @@ void MvpnTable::DestroyManager() {
 }
 
 void MvpnTable::CreateMvpnManagers() {
-    if (!MvpnManager::IsEnabled())
+    if (!server()->mvpn_ipv4_enable())
         return;
     RoutingInstance *rtinstance = routing_instance();
     tbb::mutex::scoped_lock lock(rtinstance->manager()->mvpn_mutex());
@@ -153,7 +153,7 @@ void MvpnTable::CreateMvpnManagers() {
 }
 
 void MvpnTable::DeleteMvpnManager() {
-    if (!MvpnManager::IsEnabled())
+    if (!server()->mvpn_ipv4_enable())
         return;
     if (routing_instance()->mvpn_project_manager_network().empty())
         return;
@@ -241,10 +241,8 @@ void MvpnTable::UpdateSecondaryTablesForReplication(BgpRoute *rt,
 
     // Find Type-3 S-PMSI route from the Type-4 prefix route.
     MvpnPrefix spmsi_prefix;
-    spmsi_prefix.SetRtKeyFromLeafADRoute(mvpn_rt->GetPrefix());
+    spmsi_prefix.SetSPMSIPrefixFromLeafADPrefix(mvpn_rt->GetPrefix());
     const MvpnRoute *spmsi_rt = FindRoute(spmsi_prefix);
-    if (!spmsi_rt)
-        return;
     if (!spmsi_rt || !spmsi_rt->IsUsable())
         return;
     if (!spmsi_rt->BestPath()->IsSecondary())
@@ -293,7 +291,7 @@ MvpnPrefix MvpnTable::CreateType4LeafADRoutePrefix(const MvpnRoute *type3_rt) {
     assert(type3_rt->GetPrefix().type() == MvpnPrefix::SPMSIADRoute);
     const Ip4Address originator_ip(server()->bgp_identifier());
     MvpnPrefix prefix(MvpnPrefix::LeafADRoute, originator_ip);
-    prefix.SetRtKeyFromSPMSIADRoute(type3_rt->GetPrefix());
+    prefix.SetLeafADPrefixFromSPMSIPrefix(type3_rt->GetPrefix());
     return prefix;
 }
 
@@ -378,7 +376,7 @@ BgpRoute *MvpnTable::RouteReplicate(BgpServer *server, BgpTable *stable,
     MvpnRoute *src_rt = dynamic_cast<MvpnRoute *>(rt);
     assert(src_rt);
 
-    if (!MvpnManager::IsEnabled()) {
+    if (!server->mvpn_ipv4_enable()) {
         return ReplicatePath(server, src_rt->GetPrefix(), src_table, src_rt,
                              src_path, community);
     }

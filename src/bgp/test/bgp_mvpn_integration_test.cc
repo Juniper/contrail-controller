@@ -53,6 +53,7 @@ public:
     virtual void SetUp() {
         SandeshStartup();
         bs_x_.reset(new BgpServerTest(&evm_, "X"));
+        bs_x_->set_mvpn_ipv4_enable(true);
         xs_x_ = new XmppServer(&evm_, XmppDocumentMock::kControlNodeJID);
         bs_x_->session_manager()->Initialize(0);
         xs_x_->Initialize(0, false);
@@ -533,6 +534,7 @@ protected:
 
     virtual void SetUp() {
         bs_y_.reset(new BgpServerTest(&evm_, "Y"));
+        bs_y_->set_mvpn_ipv4_enable(true);
         xs_y_ = new XmppServer(&evm_, XmppDocumentMock::kControlNodeJID);
         bs_y_->session_manager()->Initialize(0);
         xs_y_->Initialize(0, false);
@@ -719,7 +721,6 @@ class TestEnvironment : public ::testing::Environment {
 
 static void SetUp() {
     BgpServer::Initialize();
-    MvpnManager::set_enable(true);
     ControlNode::SetDefaultSchedulingPolicy();
     BgpServerTest::GlobalSetUp();
     BgpObjectFactory::Register<StateMachine>(
@@ -738,7 +739,6 @@ static void TearDown() {
 
 int main(int argc, char **argv) {
     bgp_log_test::init();
-    MvpnManager::set_enable(true);
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::AddGlobalTestEnvironment(new TestEnvironment());
     SetUp();
