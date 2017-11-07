@@ -962,7 +962,9 @@ bool SessionStatsCollector::UpdateSloMatchRuleEntry(
         SessionSloState *state =
             static_cast<SessionSloState *>(slo->GetState(agent_uve_->agent()->slo_table(),
                                                          slo_listener_id_));
-       return state->UpdateSessionSloStateRuleRefCount(match_uuid);
+        if (state) {
+            return state->UpdateSessionSloStateRuleRefCount(match_uuid);
+        }
     }
 
     return false;
