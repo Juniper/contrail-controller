@@ -171,7 +171,7 @@ class PortTupleAgent(Agent):
                         break
             if pt_present == False:
                 self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
-                        'service-health-check', health.uuid, None, 'DELETE')
+                        'service-health-check', health_id, None, 'DELETE')
                 vmi.service_health_checks.remove(health_id)
 
         # update health check ip
