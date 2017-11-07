@@ -79,14 +79,18 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         self.check_ri_is_deleted(fq_name=vn1_obj.fq_name+[vn1_obj.name])
     # end test_configured_targets
 
+    @retries(5)
+    def wait_for_route_target(self, ri_obj):
+        return self._vnc_lib.route_target_read(
+                ri_obj.get_route_target_refs()[0]['to'])
+
     def test_db_manage_zk_route_target_missing(self):
         # create  vn
         vn_name = 'vn_' + self.id()
         vn_obj = self.create_virtual_network(vn_name, '10.0.0.0/24')
         ri_obj = self._vnc_lib.routing_instance_read(
                 vn_obj.get_routing_instances()[0]['to'])
-        rt_obj = self._vnc_lib.route_target_read(
-                ri_obj.get_route_target_refs()[0]['to'])
+        rt_obj = self.wait_for_route_target(ri_obj)
         rt_id_str = "%(#)010d" % {
                 '#': int(rt_obj.get_fq_name_str().split(':')[-1])}
         db_checker = db_manage.DatabaseChecker(
