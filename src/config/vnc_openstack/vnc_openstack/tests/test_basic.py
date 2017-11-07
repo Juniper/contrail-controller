@@ -1304,6 +1304,105 @@ class TestBasic(test_case.NeutronBackendTestCase):
         self.delete_resource('network', proj_id, pvt_net_q['id'])
     # end test_update_any_other_fields_in_fip_doesnt_disassociate
 
+    def test_dpdk_compute_port_bindings(self):
+        vn_obj = vnc_api.VirtualNetwork(self.id())
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(
+                         vnc_api.SubnetType('192.168.10.0', 24))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        vr_obj = vnc_api.VirtualRouter("dpdk-host")
+        vr_obj.set_virtual_router_dpdk_enabled(True)
+        vnc_vr_obj = self._vnc_lib.virtual_router_create(vr_obj)
+
+        sg_obj = vnc_api.SecurityGroup('default')
+        try:
+            self._vnc_lib.security_group_create(sg_obj)
+        except vnc_api.RefsExistError:
+            pass
+
+        proj_uuid = self._vnc_lib.fq_name_to_id('project',
+            fq_name=['default-domain', 'default-project'])
+
+        context = {'operation': 'CREATE',
+                   'user_id': '',
+                   'is_admin': True,
+                   'roles': ''}
+        data = {'resource':{'network_id': vn_obj.uuid,
+                            'tenant_id': proj_uuid,
+                            'binding:host_id': 'dpdk-host'}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict = json.loads(resp.text)
+        self.assertNotEqual(
+            port_dict['binding:vif_details'].get('vhostuser_socket'),
+            None)
+
+        # disable dpdk on compute and we should observe the vif
+        # details deleted from port bindings
+
+        vr_obj.set_virtual_router_dpdk_enabled("")
+        vnc_vr_obj = self._vnc_lib.virtual_router_update(vr_obj)
+
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict1 = json.loads(resp.text)
+        self.assertEqual(
+            port_dict1['binding:vif_details'].get('vhostuser_socket'),
+            None)
+
+        self.assertNotEqual(port_dict, port_dict1)
+    # end test_port_bindings
+
+    def test_non_dpdk_compute_port_bindings(self):
+        vn_obj = vnc_api.VirtualNetwork(self.id())
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(
+                         vnc_api.SubnetType('192.168.11.0', 24))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        vr_obj = vnc_api.VirtualRouter("non-dpdk-host")
+        vnc_vr_obj = self._vnc_lib.virtual_router_create(vr_obj)
+
+        sg_obj = vnc_api.SecurityGroup('default')
+        try:
+            self._vnc_lib.security_group_create(sg_obj)
+        except vnc_api.RefsExistError:
+            pass
+
+        proj_uuid = self._vnc_lib.fq_name_to_id('project',
+            fq_name=['default-domain', 'default-project'])
+
+        context = {'operation': 'CREATE',
+                   'user_id': '',
+                   'is_admin': True,
+                   'roles': ''}
+        data = {'resource':{'network_id': vn_obj.uuid,
+                            'tenant_id': proj_uuid,
+                            'binding:host_id': 'non-dpdk-host'}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict = json.loads(resp.text)
+        self.assertEqual(
+            port_dict['binding:vif_details'].get('vhostuser_socket'),
+            None)
+
+        # Enable dpdk on compute and we should observe the vif
+        # details deleted from port bindings
+
+        vr_obj.set_virtual_router_dpdk_enabled(True)
+        vnc_vr_obj = self._vnc_lib.virtual_router_update(vr_obj)
+
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict1 = json.loads(resp.text)
+        self.assertNotEqual(
+            port_dict1['binding:vif_details'].get('vhostuser_socket'),
+            None)
+
+        self.assertNotEqual(port_dict, port_dict1)
+    # end test_port_bindings
+
 # end class TestBasic
 
 class TestExtraFieldsPresenceByKnob(test_case.NeutronBackendTestCase):
