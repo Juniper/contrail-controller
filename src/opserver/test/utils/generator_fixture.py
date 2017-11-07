@@ -190,7 +190,7 @@ class GeneratorFixture(fixtures.Fixture):
                 site='Site'+str(i), remote_deployment='RDep'+str(i),
                 remote_application='RApp'+str(i), remote_tier='RTier'+str(i),
                 remote_site='RSite'+str(i), remote_vn='domain1:admin:vn2',
-                is_client_session = 1, is_si = 0,
+                is_client_session = 1, is_si = 0, vrouter_ip=netaddr.IPAddress('10.0.0.1'),
                 sess_agg_info = deepcopy(session_agg_info))
             self._logger.info(str(client_session))
             session_object = SessionEndpointObject(session_data=[client_session],
@@ -241,7 +241,7 @@ class GeneratorFixture(fixtures.Fixture):
                 site='Site'+str(i), remote_deployment='RDep'+str(i),
                 remote_application='RApp'+str(i), remote_tier='RTier'+str(i),
                 remote_site='RSite'+str(i), remote_vn='domain1:admin:vn1',
-                is_client_session = 0, is_si = 0,
+                is_client_session = 0, is_si = 0, vrouter_ip=netaddr.IPAddress('10.0.0.1'),
                 sess_agg_info = deepcopy(session_agg_info))
             self._logger.info(str(server_session))
             session_object = SessionEndpointObject(session_data=[server_session],
