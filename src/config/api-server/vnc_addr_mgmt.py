@@ -72,7 +72,7 @@ class AddrMgmtSubnetInvalid(AddrMgmtError):
 class AddrMgmtSubnetAbsent(AddrMgmtError):
 
     def __init__(self, vn_fq_name):
-        self.vn_fq_name = vn_fq_name
+        self.vn_fq_name = map(str, vn_fq_name)
     # end __init__
 
     def __str__(self):
@@ -84,8 +84,8 @@ class AddrMgmtSubnetAbsent(AddrMgmtError):
 class AddrMgmtSubnetExhausted(AddrMgmtError):
 
     def __init__(self, vn_fq_name, subnet_val):
-        self.vn_fq_name = vn_fq_name
-        self.subnet_val = subnet_val
+        self.vn_fq_name = map(str, vn_fq_name)
+        self.subnet_val = map(str, subnet_val)
     # end __init__
 
     def __str__(self):
@@ -567,7 +567,7 @@ class AddrMgmt(object):
 
     def _create_subnet_obj_for_ipam_subnet(self, ipam_subnet, fq_name_str, should_persist):
         subnet = ipam_subnet['subnet']
-        subnet_name = subnet['ip_prefix'] + '/' + str(subnet['ip_prefix_len'])
+        subnet_name = str(subnet['ip_prefix']) + '/' + str(subnet['ip_prefix_len'])
         gateway_ip = ipam_subnet.get('default_gateway')
         service_address = ipam_subnet.get('dns_server_address')
         allocation_pools = ipam_subnet.get('allocation_pools')
