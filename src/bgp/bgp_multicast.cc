@@ -9,12 +9,15 @@
 
 #include "base/string_util.h"
 #include "base/task_annotations.h"
+#include "bgp/bgp_log.h"
+#include "bgp/bgp_mvpn.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
-#include "bgp/bgp_mvpn.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/mvpn/mvpn_route.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/routing_instance_analytics_types.h"
+#include "bgp/routing-instance/routing_instance_log.h"
 
 using std::string;
 using std::vector;

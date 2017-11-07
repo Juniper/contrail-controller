@@ -891,3 +891,29 @@ DBEntryBase::KeyPtr MvpnRoute::GetDBRequestKey() const {
     key = new MvpnTable::RequestKey(GetPrefix(), NULL);
     return KeyPtr(key);
 }
+
+const string MvpnPrefix::GetType() const {
+    switch (type_) {
+        case Unspecified:
+            return "Unspecified";
+        case IntraASPMSIADRoute:
+            return "IntraASPMSIADRoute";
+        case InterASPMSIADRoute:
+            return "InterASPMSIADRoute";
+        case SPMSIADRoute:
+            return "SPMSIADRoute";
+        case LeafADRoute:
+            return "LeafADRoute";
+        case SourceActiveADRoute:
+            return "SourceActiveADRoute";
+        case SharedTreeJoinRoute:
+            return "SharedTreeJoinRoute";
+        case SourceTreeJoinRoute:
+            return "SourceTreeJoinRoute";
+    }
+    return "";
+}
+
+const string MvpnRoute::GetType() const {
+    return GetPrefix().GetType();
+}

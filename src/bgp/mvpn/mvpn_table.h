@@ -106,6 +106,7 @@ private:
     BgpRoute *ReplicatePath(BgpServer *server, const MvpnPrefix &mprefix,
         MvpnTable *src_table, MvpnRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr comm);
+    const MvpnTable *table() const { return this; }
 
     MvpnManager *manager_;
 

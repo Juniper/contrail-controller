@@ -21,7 +21,6 @@
 #include "bgp/routing-instance/routing_instance.h"
 
 using boost::assign::list_of;
-using std::ostringstream;
 using std::string;
 using std::vector;
 

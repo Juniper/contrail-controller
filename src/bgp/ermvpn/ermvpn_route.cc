@@ -313,3 +313,21 @@ DBEntryBase::KeyPtr ErmVpnRoute::GetDBRequestKey() const {
     key = new ErmVpnTable::RequestKey(GetPrefix(), NULL);
     return KeyPtr(key);
 }
+
+const std::string ErmVpnPrefix::GetType() const {
+    switch (type_) {
+    case NativeRoute:
+        return "NativeRoute";
+    case LocalTreeRoute:
+        return "LocalTreeRoute";
+    case GlobalTreeRoute:
+        return "GlobalTreeRoute";
+    case Invalid:
+        return "Invalid";
+    }
+    return "";
+}
+
+const std::string ErmVpnRoute::GetType() const {
+    return GetPrefix().GetType();
+}

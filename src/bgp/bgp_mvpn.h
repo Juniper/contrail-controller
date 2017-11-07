@@ -309,6 +309,8 @@ private:
     friend void intrusive_ptr_add_ref(MvpnState *mvpn_state);
     friend void intrusive_ptr_release(MvpnState *mvpn_state);
 
+    const ErmVpnTable *table() const;
+
     SG sg_;
     ErmVpnRoute *global_ermvpn_tree_rt_;
     MvpnRoute *spmsi_rt_;
@@ -483,5 +485,29 @@ inline void intrusive_ptr_release(MvpnState *mvpn_state) {
     }
     delete mvpn_state;
 }
+
+#define MVPN_RT_LOG(rt, ...) \
+    RTINSTANCE_LOG(MvpnRoute, this->table()->routing_instance(), \
+                   SandeshLevel::UT_DEBUG, \
+                   RTINSTANCE_LOG_FLAG_ALL, \
+                   (rt)->GetPrefix().source().to_string(), \
+                   (rt)->GetPrefix().group().to_string(), \
+                   (rt)->GetType(), (rt)->ToString(), ##__VA_ARGS__)
+
+#define MVPN_ERMVPN_RT_LOG(rt, ...) \
+    RTINSTANCE_LOG(MvpnErmVpnRoute, this->table()->routing_instance(), \
+                   SandeshLevel::UT_DEBUG, \
+                   RTINSTANCE_LOG_FLAG_ALL, \
+                   (rt)->GetPrefix().source().to_string(), \
+                   (rt)->GetPrefix().group().to_string(), \
+                   (rt)->GetType(), (rt)->ToString(), ##__VA_ARGS__)
+
+#define MVPN_LOG(type, ...) \
+    RTINSTANCE_LOG(type, this->table()->routing_instance(), \
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL, ##__VA_ARGS__)
+
+#define MVPN_TRACE(type, ...) \
+    RTINSTANCE_LOG(type, this->table()->routing_instance(), \
+        SandeshLevel::UT_DEBUG, RTINSTANCE_LOG_FLAG_ALL, ##__VA_ARGS__)
 
 #endif  // SRC_BGP_BGP_MVPN_H_

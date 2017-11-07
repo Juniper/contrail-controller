@@ -48,6 +48,29 @@ public:
                const Ip4Address &group, const Ip4Address &source);
 
     Ip4Address GetType3OriginatorFromType4Route() const;
+    void SetLeafADPrefixFromSPMSIPrefix(const MvpnPrefix &prefix);
+    void SetSPMSIPrefixFromLeafADPrefix(const MvpnPrefix &prefix);
+
+    std::string ToString() const;
+    std::string ToXmppIdString() const;
+    bool operator==(const MvpnPrefix &rhs) const;
+    int CompareTo(const MvpnPrefix &rhs) const;
+
+    uint8_t type() const { return type_; }
+    const RouteDistinguisher &route_distinguisher() const { return rd_; }
+    Ip4Address group() const { return group_; }
+    Ip4Address source() const { return source_; }
+    Ip4Address originator() const { return originator_; }
+    IpAddress groupIpAddress() const { return IpAddress(group_); }
+    IpAddress sourceIpAddress() const { return IpAddress(source_); }
+    IpAddress originatorIpAddress() const { return IpAddress(originator_); }
+    void set_originator(const Ip4Address &originator);
+    uint32_t asn() const { return asn_; }
+    void set_route_distinguisher(const RouteDistinguisher &rd) { rd_ = rd; }
+    uint8_t ip_prefix_length() const { return ip_prefixlen_; }
+    void BuildProtoPrefix(BgpProtoPrefix *prefix) const;
+    const std::string GetType() const;
+
     static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
                                MvpnPrefix *prefix);
     static int FromProtoPrefix(BgpServer *server,
@@ -75,28 +98,7 @@ public:
             boost::system::error_code *ec, bool last = false);
     static MvpnPrefix FromString(const std::string &str,
                                  boost::system::error_code *errorp = NULL);
-    void SetLeafADPrefixFromSPMSIPrefix(const MvpnPrefix &prefix);
-    void SetSPMSIPrefixFromLeafADPrefix(const MvpnPrefix &prefix);
-
-    std::string ToString() const;
-    std::string ToXmppIdString() const;
     static bool IsValid(uint8_t type);
-    bool operator==(const MvpnPrefix &rhs) const;
-    int CompareTo(const MvpnPrefix &rhs) const;
-
-    uint8_t type() const { return type_; }
-    const RouteDistinguisher &route_distinguisher() const { return rd_; }
-    Ip4Address group() const { return group_; }
-    Ip4Address source() const { return source_; }
-    Ip4Address originator() const { return originator_; }
-    IpAddress groupIpAddress() const { return IpAddress(group_); }
-    IpAddress sourceIpAddress() const { return IpAddress(source_); }
-    IpAddress originatorIpAddress() const { return IpAddress(originator_); }
-    void set_originator(const Ip4Address &originator);
-    uint32_t asn() const { return asn_; }
-    void set_route_distinguisher(const RouteDistinguisher &rd) { rd_ = rd; }
-    uint8_t ip_prefix_length() const { return ip_prefixlen_; }
-    void BuildProtoPrefix(BgpProtoPrefix *prefix) const;
 
 private:
     uint8_t type_;
@@ -136,6 +138,7 @@ public:
 
     virtual u_int16_t Afi() const { return BgpAf::IPv4; }
     virtual u_int8_t Safi() const { return BgpAf::MVpn; }
+    const std::string GetType() const;
 
 private:
     MvpnPrefix prefix_;
