@@ -751,6 +751,15 @@ class VncDbClient(object):
             "service_chain" : ("ServiceChain", False),
             "physical_router" : ("ObjectPRouter", True),
             "bgp_router": ("ObjectBgpRouter", True),
+            "tag" : ("ObjectTagTable", False),
+            "project" : ("ObjectProjectTable", False),
+            "firewall-policy" : ("ObjectFirewallPolicyTable", False),
+            "firewall-rule" : ("ObjectFirewallRuleTable", False),
+            "address-group" : ("ObjectAddressGroupTable", False),
+            "service-group" : ("ObjectServiceGroupTable", False),
+            "global-application-policy-set" : ("ObjectGlobalApplicationPolicySetTable", False),
+            "local-application-policy-set" : ("ObjectLocalApplicationPolicySetTable",False),
+            "application-policy-set" : ("ObjectApplicationPolicySetTable", False),
         }
 
         self._db_resync_done = gevent.event.Event()
