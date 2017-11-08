@@ -32,6 +32,7 @@ import test_logical_router
 import test_ip_alloc
 import test_fc_id
 import test_askip
+import test_quota
 
 class TestFixtures(test_crud_basic.TestFixtures, test_case.ApiServerRDBMSTestCase):
     pass
@@ -759,3 +760,10 @@ class TestForwardingClassId(test_fc_id.TestForwardingClassId, test_case.ApiServe
 
 class TestRequestedIp(test_askip.TestRequestedIp, test_case.ApiServerRDBMSTestCase):
     pass
+
+class TestQuota(test_quota.TestQuota, test_case.ApiServerRDBMSTestCase):
+    pass
+
+class TestGlobalQuota(test_quota.TestGlobalQuota, test_case.ApiServerRDBMSTestCase):
+    pass
+
