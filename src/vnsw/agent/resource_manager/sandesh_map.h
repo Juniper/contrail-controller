@@ -209,6 +209,38 @@ private:
     Map map_;
 };
 
+// nexthop backup resource table to maintains sandesh encoded data for mirro info
+class NextHopBackUpResourceTable : public BackUpResourceTable {
+public:
+    typedef std::map<uint32_t, NextHopResource> Map;
+    typedef Map::iterator MapIter;
+    NextHopBackUpResourceTable(ResourceBackupManager *manager);
+    virtual ~NextHopBackUpResourceTable();
+
+    bool WriteToFile();
+    void ReadFromFile();
+    void RestoreResource();
+    Map& map() {return map_;}
+private:
+    Map map_;
+};
+
+// nexthop backup resource table to maintains sandesh encoded data for mirro info
+class ComposteNHBackUpResourceTable : public BackUpResourceTable {
+public:
+    typedef std::map<uint32_t, CompositeNHIndexResource> Map;
+    typedef Map::iterator MapIter;
+    ComposteNHBackUpResourceTable(ResourceBackupManager *manager);
+    virtual ~ComposteNHBackUpResourceTable();
+
+    bool WriteToFile();
+    void ReadFromFile();
+    void RestoreResource();
+    Map& map() {return map_;}
+private:
+    Map map_;
+};
+
 // Maintians all the Sandesh encoded structures
 class ResourceSandeshMaps {
 public:
@@ -224,6 +256,9 @@ public:
     typedef pair<uint32_t, BgpAsServiceIndexResource>
         BgpAsServiceIndexResourcePair;
     typedef pair<uint32_t, MirrorIndexResource> MirrorIndexResourcePair;
+    typedef pair<uint32_t, NextHopResource> NexthopIndexResourcePair;
+    typedef pair<uint32_t, CompositeNHIndexResource>
+        ComposteNHIndexResourcePair;
     ResourceSandeshMaps(ResourceBackupManager *manager);
     virtual ~ResourceSandeshMaps();
     void ReadFromFile();
@@ -262,6 +297,14 @@ public:
                                 MirrorIndexResource data);
     void DeleteMirrorResourceEntry(uint32_t index);
 
+    void AddNextHopResourceEntry(uint32_t index,
+                                 NextHopResource data);
+    void DeleteNextHopResourceEntry(uint32_t index);
+
+    void AddCompositeNHResourceEntry(uint32_t index, 
+                                     CompositeNHIndexResource data);
+    void DeleteCompositeNHResourceEntry(uint32_t index);
+
     InterfaceMplsBackUpResourceTable& interface_mpls_index_table() {
        return interface_mpls_index_table_;
     }
@@ -298,6 +341,14 @@ public:
         return mirror_index_table_;
     }
 
+    NextHopBackUpResourceTable& nexthop_index_table() {
+        return nexthop_index_table_;
+    }
+
+    ComposteNHBackUpResourceTable& compositenh_index_table() {
+        return compositenh_index_table_; 
+    }
+
 private:
     ResourceBackupManager *backup_manager_;
     Agent *agent_;
@@ -310,6 +361,8 @@ private:
     QosBackUpResourceTable qos_index_table_;
     BgpAsServiceBackUpResourceTable bgp_as_service_index_table_;
     MirrorBackUpResourceTable mirror_index_table_;
+    NextHopBackUpResourceTable nexthop_index_table_;
+    ComposteNHBackUpResourceTable compositenh_index_table_;
     DISALLOW_COPY_AND_ASSIGN(ResourceSandeshMaps);
 };
 #endif

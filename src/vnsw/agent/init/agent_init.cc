@@ -39,9 +39,9 @@ AgentInit::~AgentInit() {
     controller_.reset();
     cfg_.reset();
     oper_.reset();
-    resource_manager_.reset();
     agent_->db()->ClearFactoryRegistry();
     agent_.reset();
+    resource_manager_.reset();
 
     scheduler->Terminate();
 }
