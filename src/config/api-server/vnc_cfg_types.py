@@ -2337,8 +2337,6 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             if not ok:
                 return (ok, 400, result)
 
-        if db_dict is None:
-            db_dict = obj_dict
         (ok, result) = cls.addr_mgmt.net_check_subnet_quota(db_dict, obj_dict,
                                                             db_conn)
 
@@ -2593,7 +2591,21 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         cls.addr_mgmt.net_delete_req(obj_dict)
+        if obj_dict['id_perms'].get('user_visible', True) is not False:
+            (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+                obj_dict['parent_uuid'], db_conn)
+            if not ok:
+                return (False,
+                        (500, 'Bad Project error : ' + pformat(proj_dict)))
+        ok, (subnet_count, counter) = cls.addr_mgmt.get_subnet_quota_counter(
+                obj_dict, proj_dict)
+        if subnet_count:
+            counter.value -= subnet_count
         def undo():
+            ok, (subnet_count, counter) = cls.addr_mgmt.get_subnet_quota_counter(
+                    obj_dict, proj_dict)
+            if subnet_count:
+                counter.value += subnet_count
             cls.addr_mgmt.net_create_req(obj_dict)
         get_context().push_undo(undo)
         return True, ""
