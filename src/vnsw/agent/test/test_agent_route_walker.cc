@@ -324,7 +324,7 @@ TEST_F(Test, walk_all_routes_wih_1_vrf) {
     client->Reset();
     SetupEnvironment(1);
     walker()->StartVrfWalk();
-    VerifyNotifications(26, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
+    VerifyNotifications(28, 3, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 3));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(1);
@@ -334,7 +334,7 @@ TEST_F(Test, walk_all_routes_with_2_vrf) {
     client->Reset();
     SetupEnvironment(2);
     walker()->StartVrfWalk();
-    VerifyNotifications(39, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
+    VerifyNotifications(43, 4, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 4));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(2);
@@ -344,7 +344,7 @@ TEST_F(Test, walk_all_routes_with_3_vrf) {
     client->Reset();
     SetupEnvironment(3);
     walker()->StartVrfWalk();
-    VerifyNotifications(52, 5, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 5));
+    VerifyNotifications(58, 5, 1, ((Agent::ROUTE_TABLE_MAX - 1) * 5));
     EXPECT_TRUE(walker()->walk_task_context_mismatch_ == false);
     walker()->walk_task_context_mismatch_ = true;
     DeleteEnvironment(3);
