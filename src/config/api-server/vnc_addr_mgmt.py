@@ -9,7 +9,8 @@ from netaddr import IPNetwork, IPAddress, IPRange, all_matching_cidrs
 from vnc_quota import QuotaHelper
 from pprint import pformat
 import cfgm_common.exceptions
-import cfgm_common.utils
+from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
+from context import get_context
 try:
     # python2.7
     from collections import OrderedDict
@@ -1049,46 +1050,47 @@ class AddrMgmt(object):
     # end _vn_to_subnets
 
     def net_check_subnet_quota(self, db_vn_dict, req_vn_dict, db_conn):
-        if 'parent_uuid' not in db_vn_dict:
-            proj_fq_name = db_vn_dict['fq_name'][:-1]
-            proj_uuid = db_conn.fq_name_to_uuid('project', proj_fq_name)
+        if db_vn_dict:
+            obj_dict = db_vn_dict
+            db_subnets = self._vn_to_subnets(db_vn_dict) or []
         else:
-            proj_uuid = db_vn_dict['parent_uuid']
-
-        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(proj_uuid,
-                                                                 db_conn)
+            obj_dict = req_vn_dict
+            db_subnets = []
+        if obj_dict['id_perms'].get('user_visible', True) is False:
+            return True, ""
+        (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+            obj_dict['parent_uuid'], db_conn)
         if not ok:
-            return (False, 'Internal error : ' + pformat(proj_dict))
-
+            return (False, (500, 'Bad Project error : ' + pformat(proj_dict)))
+        req_subnet_count = len(self._vn_to_subnets(req_vn_dict) or [])
+        db_subnet_count = len(db_subnets)
+        subnet_count = req_subnet_count - db_subnet_count
         obj_type = 'subnet'
-        if QuotaHelper.get_quota_limit(proj_dict, obj_type) < 0:
-            return True, ""
-        subnets = self._vn_to_subnets(req_vn_dict)
-        if not subnets:
-            return True, ""
+        quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
+        if (subnet_count and quota_limit >= 0):
+            quota_counter = self._server_mgr.quota_counter
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
+            path = path_prefix + "/" + obj_type
+            if not quota_counter.get(path):
+                # Init quota counter for subnet
+                QuotaHelper._zk_quota_counter_init(
+                           path_prefix,
+                           QuotaHelper.default_quota, proj_dict['uuid'],
+                           db_conn, quota_counter)
+            ok, result = QuotaHelper.verify_quota(
+                obj_type, quota_limit, quota_counter[path],
+                count=subnet_count)
+            if not ok:
+                return (False,
+                        pformat(obj_dict['fq_name']) + ' : ' + str(quota_limit))
 
-        field_names = [u'network_ipam_refs']
-        # Read list of virtual networks for the given project
-        (ok, result, _) = db_conn.dbe_list(
-            'virtual_network', [proj_uuid], is_detail=True, field_names=field_names)
-        if not ok:
-            return (False, 'Internal error : Failed to read virtual networks')
-        for net_dict in result:
-            if net_dict['uuid'] == db_vn_dict['uuid']:
-                continue
-            vn_subnets = self._vn_to_subnets(net_dict)
-            if not vn_subnets:
-                continue
-            subnets.extend(vn_subnets)
-
-        quota_count = len(subnets) - 1
-
-        (ok, quota_limit) = QuotaHelper.check_quota_limit(proj_dict, obj_type,
-                                                          quota_count)
-        if not ok:
-            return (False, pformat(db_vn_dict['fq_name']) + ' : ' + quota_limit)
+            def undo():
+                # Revert back quota count
+                quota_counter[path].value -= subnet_count
+            get_context().push_undo(undo)
 
         return True, ""
+    # end net_check_subnet_quota
 
     # check subnets in the given list to make sure that none in the
     # list is in overlap with refs list
