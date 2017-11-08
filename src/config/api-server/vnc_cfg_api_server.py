@@ -464,8 +464,8 @@ class VncApiServer(object):
         (code, msg) = result
         if counter:
             counter = counter + value
-        if self._db_engine == 'cassandra':
-            get_context().invoke_undo(code, msg, self.config_log)
+        #if self._db_engine == 'cassandra':
+        get_context().invoke_undo(code, msg, self.config_log)
 
         failed_stage = get_context().get_state()
         self.config_object_error(
