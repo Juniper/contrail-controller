@@ -319,6 +319,7 @@ def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
     args_str = args_str + "--rdbms_connection sqlite:///%s " % db_file
     args_str = args_str + "--log_local "
     args_str = args_str + "--log_file api_server_%s.log " %(test_id)
+    args_str = args_str + "--cluster_id %s " %(test_id)
     vnc_cgitb.enable(format='text')
     try:
         os.remove(db_file)
