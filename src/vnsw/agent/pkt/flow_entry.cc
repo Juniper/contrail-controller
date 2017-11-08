@@ -2310,7 +2310,7 @@ bool FlowEntry::DoPolicy() {
     }
     data_.match_p.out_policy_action = MatchAcl(hdr, data_.match_p.m_out_acl_l,
                                                true, true, &nw_acl_info);
-    if (ShouldDrop(data_.match_p.policy_action)) {
+    if (ShouldDrop(data_.match_p.out_policy_action)) {
         goto done;
     }
 

@@ -222,6 +222,19 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
                   fe->match_p().aps_policy.m_out_acl_l);
     data.set_out_policy_set(policy);
 
+    SetOneAclInfo(&policy, fe->match_p().aps_policy.reverse_action,
+                  fe->match_p().aps_policy.m_reverse_acl_l);
+    data.set_reverse_policy_set(policy);
+
+    SetOneAclInfo(&policy, fe->match_p().aps_policy.reverse_out_action,
+                  fe->match_p().aps_policy.m_reverse_out_acl_l);
+    data.set_reverse_out_policy_set(policy);
+
+    action_info.action = fe->match_p().aps_policy.action_summary;
+    action_str_l.clear();
+    SetActionStr(action_info, action_str_l);
+    data.set_aps_action_summary(action_str_l);
+
     data.set_sg_rule_uuid(fe->sg_rule_uuid());
     data.set_nw_ace_uuid(fe->nw_ace_uuid());
 }

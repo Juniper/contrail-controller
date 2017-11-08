@@ -110,6 +110,9 @@ struct SandeshFlowData {
     40: FlowAclInfo vrf_assign_acl;
     63: FlowAclInfo policy_set;
     64: FlowAclInfo out_policy_set;
+    71: FlowAclInfo reverse_policy_set;
+    72: FlowAclInfo reverse_out_policy_set;
+    73: list<agent.ActionStr> aps_action_summary;
     41: string fip;
     42: u32 fip_vm_interface_idx;
     43: optional string sg_rule_uuid;
