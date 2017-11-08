@@ -37,7 +37,7 @@ topology_info_pkg = env.SandeshGenPy('topology_info.sandesh', 'contrail_topology
 cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'contrail_topology/sandesh/nodeinfo/', False)
 process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'contrail_topology/sandesh/nodeinfo/', False)
 nodeinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'contrail_topology/sandesh/', False)
-derived_stats_pkg = env.SandeshGenPy('#tools/sandesh/library/common/derived_stats_results.sandesh', 'contrail_topology/sandesh/analytics/', False)
+derived_stats_pkg = env.SandeshGenPy('#src/contrail-common/sandesh/library/common/derived_stats_results.sandesh', 'contrail_topology/sandesh/analytics/', False)
 
 common_sources_rules = [env.Install('contrail_topology', f) for f in common_sources]
 
