@@ -28,7 +28,7 @@ FlowEventQueueBase::FlowEventQueueBase(FlowProto *proto,
     events_processed_(0), latency_limit_(latency_limit) {
     queue_ = new Queue(task_id, task_instance,
                        boost::bind(&FlowEventQueueBase::Handler, this, _1),
-                       Queue::kMaxSize, Queue::kMaxIterations);
+                       Queue::kMaxSize, max_iterations);
     char buff[100];
     sprintf(buff, "%s-%d", name.c_str(), task_instance);
     queue_->set_name(buff);

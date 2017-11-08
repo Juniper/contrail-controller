@@ -34,7 +34,9 @@ public:
                             TunnelType::AllType(), 16, "TestVn",
                             SecurityGroupList(), PathPreference());
         client->WaitForIdle();
+
         EXPECT_EQ(0U, flow_proto_->FlowCount());
+        free_queue_ = flow_proto_->flow_tokenless_queue_[0]->queue();
     }
 
     virtual void TearDown() {
@@ -57,6 +59,7 @@ public:
     char vnet_addr[32];
     Agent *agent_;
     FlowProto *flow_proto_;
+    FlowEventQueue::Queue *free_queue_;
 };
 
 TEST_F(FlowTest, FlowScaling_1) {
@@ -77,6 +80,25 @@ TEST_F(FlowTest, FlowScaling_1) {
     count = count * 2;
     WAIT_FOR(count * 10, 10000,
              (count == flow_count + (int) flow_proto_->FlowCount()));
+}
+
+TEST_F(FlowTest, FlowScaling_2) {
+    char env[100];
+    uint32_t intf_id = VmPortGetId(1);
+    int count = 1000;
+    if (getenv("AGENT_FLOW_SCALE_COUNT")) {
+        strcpy(env, getenv("AGENT_FLOW_SCALE_COUNT"));
+        count = strtoul(env, NULL, 0);
+    }
+
+    for (int i = 0; i < count; i++) {
+        Ip4Address sip(i);
+        TxTcpPacket(intf_id, sip.to_string().c_str(), "33.3.3.3",
+                    10, 15, false);
+    }
+
+    WAIT_FOR(count * 10, 10000, (flow_proto_->FlowCount() == 0));
+    EXPECT_TRUE(free_queue_->max_queue_len() <= (uint32_t)(count/4));
 }
 
 int main(int argc, char *argv[]) {
