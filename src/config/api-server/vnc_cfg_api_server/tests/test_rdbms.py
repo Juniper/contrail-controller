@@ -32,6 +32,7 @@ import test_logical_router
 import test_ip_alloc
 import test_fc_id
 import test_askip
+import test_quota
 
 class TestFixtures(test_crud_basic.TestFixtures, test_case.ApiServerRDBMSTestCase):
     pass
