@@ -10,6 +10,50 @@ from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns.constants import (HttpPortKubeManager,ApiServerPort,\
     DiscoveryServerPort)
+from enum import Enum
+
+class MandatoryArgs(Enum):
+    """
+    Enum of mandatory arguments to kube-manager.
+    Kube-manager arguments will be validated against these arguments to
+    enforce the presence of these mandatory arguments and optionally to
+    enforce the correctness/validity of the supplied value for an argument.
+
+    Each mandatory argument is represented by an enum member and the following
+    info is captured for each argument, as a dictionary:
+    a. arg_str - String which identifies the argument in config file.
+    b. validatefn (optional) - Pointer to function that validates configured
+                               value for an argument.
+
+    A validate function (if specified) can be any custom function that returns
+    a value that evaluates to bool True when validation is successful.
+    It should return bool False if its validation fails.
+
+    Example:
+
+    An argumennt "foo" is configured in the config file as follows:
+
+        foo = foo_value
+
+    It can be enforced as mandatory argument by added the following member to
+    this enum.
+
+        FOO = {"arg_str": "foo", "validatefn": foo_fn()}
+
+    If a validation function is not required then:
+
+        FOO = {"arg_str": "foo"}
+
+    """
+    POD_SUBNET = {
+                     "arg_str": "pod_subnets",
+                     "validatefn": lambda x: x
+                 }
+
+    SERVICE_SUBNET = {
+                         "arg_str": "service_subnets",
+                         "validatefn": lambda x: x
+                      }
 
 def parse_args(args_str=None):
     if not args_str:
@@ -71,8 +115,8 @@ def parse_args(args_str=None):
         'kubernetes_api_port': '8080',
         'kubernetes_api_secure_port': 8443,
         'kubernetes_service_name': 'kubernetes',
-        'service_subnets': '',
-        'pod_subnets': '',
+        MandatoryArgs.SERVICE_SUBNET.value['arg_str']: None,
+        MandatoryArgs.POD_SUBNET.value['arg_str']: None,
         'kubernetes_cluster_owner': 'k8s',
         'kubernetes_cluster_domain' : 'default-domain',
         'cluster_name': None,
@@ -123,4 +167,22 @@ def parse_args(args_str=None):
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
+
+    # Validate input argumnents.
+    validate_mandatory_args(args)
+
     return args
+
+def validate_mandatory_args(args):
+    for mandatory_arg in MandatoryArgs:
+        arg_name = mandatory_arg.value['arg_str']
+        if not hasattr(args, arg_name):
+            print("Mandatory Argument %s not found in config"
+                % arg_name)
+            sys.exit("Mandatory argument [%s] not found in config" % arg_name)
+
+        validatefn = mandatory_arg.value.get('validatefn', None)
+        arg_value = getattr(args, arg_name)
+        if validatefn and not validatefn(arg_value):
+            sys.exit("Validation of mandatory argument [%s] configured with"\
+                " value [%s] failed." % (arg_name, arg_value))
