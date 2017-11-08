@@ -830,4 +830,92 @@ TEST_F(AgentXmppUnitTest, XmppConnection_ApplyDiscovery_OrderedList) {
         == xmps::NOT_READY);
 }
 
+TEST_F(AgentXmppUnitTest, XmppConnection_Discovery_Back2Back) {
+
+    client->Reset();
+    client->WaitForIdle();
+
+    XmppServerConnectionInit();
+
+    // Simulate Discovery response for Xmpp Server
+    std::vector<DSResponse> ds_response;
+    DSResponse resp;
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
+    resp.ep.port(xs1->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.2"));
+    resp.ep.port(xs2->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    //client->WaitForIdle();
+
+    //Discovery indicating new Xmpp Server
+    ds_response.clear();
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.3"));
+    resp.ep.port(xs3->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.4"));
+    resp.ep.port(xs4->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    //client->WaitForIdle();
+
+    //Discovery indicating new Xmpp Server
+    ds_response.clear();
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.1"));
+    resp.ep.port(xs1->GetPort());
+    ds_response.push_back(resp);
+    resp.ep.address(boost::asio::ip::address::from_string("127.0.0.4"));
+    resp.ep.port(xs4->GetPort());
+    ds_response.push_back(resp);
+
+    agent_->controller()->ApplyDiscoveryXmppServices(ds_response);
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(0) ==
+                (uint32_t)xs1->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    EXPECT_TRUE(agent_->controller_ifmap_xmpp_port(1) == (uint32_t)xs4->GetPort());
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::READY);
+
+    //Ensure all older connections are cleaned up.
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->controller()->
+                 DecommissionedPeerListSize() == 0));
+   
+    xs1->Shutdown();
+    client->WaitForIdle();
+
+    xs2->Shutdown();
+    client->WaitForIdle();
+
+    xs3->Shutdown();
+    client->WaitForIdle();
+
+    xs4->Shutdown();
+    client->WaitForIdle();
+
+    xs5->Shutdown();
+    client->WaitForIdle();
+
+    xs6->Shutdown();
+    client->WaitForIdle();
+
+    //wait for connection establishment
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(0)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
+
+    WAIT_FOR(1000, 10000,
+        agent_->controller_xmpp_channel(1)->GetXmppChannel()->GetPeerState()
+        == xmps::NOT_READY);
+}
+
 }
