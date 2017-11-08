@@ -20,7 +20,8 @@ from vnc_api.gen import vnc_api_client_gen
 import cfgm_common.utils
 from cfgm_common.exceptions import NoIdError, DatabaseUnavailableError, \
                                    NoUserAgentKey
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from cfgm_common.exceptions import (ResourceExhaustionError,
+        ResourceExistsError, OverQuota)
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import VNID_MIN_ALLOC
 from sandesh_common.vns import constants
@@ -174,6 +175,7 @@ class RDBMSQuotaCounter(object):
             quota_count = QuotaCount(path=self.path, value=self.default, created=True)
             session.add(quota_count)
             session.commit()
+
     @use_session
     def __add__(self, value):
         session = self.session_ctx
@@ -181,12 +183,15 @@ class RDBMSQuotaCounter(object):
             and_(
                 QuotaCount.path == self.path,
                 QuotaCount.created == True,
-                QuotaCount.value + value < self.max_count
         )).first()
         if query:
-            query.value = query.value + value
+            query_value = int(query.value)
+            if (query_value + value > self.max_count):
+                raise OverQuota()
+            query.value = query_value + value
             session.add(query)
             session.commit()
+        return self
 
     @use_session
     def __sub__(self, value):
@@ -197,9 +202,25 @@ class RDBMSQuotaCounter(object):
                 QuotaCount.created == True
         )).first()
         if query:
-            query.value = query.value - value
+            query.value = int(query.value) - value
             session.add(query)
             session.commit()
+        return self
+
+    @property
+    @use_session
+    def value(self):
+        session = self.session_ctx
+        query = session.query(QuotaCount).filter(
+            and_(
+                QuotaCount.path == self.path,
+                QuotaCount.created == True
+        )).first()
+        if query:
+            return int(query.value)
+        else:
+            return self.default
+
 
 class RDBMSIndexAllocator(object):
     def __init__(self, db, path, size=0, start_idx=0,
