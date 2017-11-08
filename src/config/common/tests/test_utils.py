@@ -1267,18 +1267,18 @@ def fake_zk_counter_init(self, client, path, default=0, *args, **kwargs):
         self.default = default
         self.default_type = type(default)
         self._ensured_path = False
-        self.value = default
+        self._value = default
 
-
+@property
 def fake_zk_counter_value(self):
-        return self.value
+        return self._value
 
 def fake_zk_counter_change(self, value):
-        data = int(self.value + value)
+        data = int(self._value + value)
         if data > self.max_count:
             raise OverQuota()
         else:
-            self.value = data
+            self._value = data
         return self
 
 class ZookeeperClientMock(object):
