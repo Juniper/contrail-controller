@@ -1721,8 +1721,6 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             if not ok:
                 return (ok, 400, result)
 
-        if db_dict is None:
-            db_dict = obj_dict
         (ok, result) = cls.addr_mgmt.net_check_subnet_quota(db_dict, obj_dict,
                                                             db_conn)
 
@@ -1977,6 +1975,23 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
         cls.addr_mgmt.net_delete_req(obj_dict)
+        if obj_dict['id_perms'].get('user_visible', True) is not False:
+            (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+                obj_dict['parent_uuid'], db_conn)
+            if not ok:
+                return (False,
+                        (500, 'Bad Project error : ' + pformat(proj_dict)))
+            ok, (subnet_count, counter) = cls.addr_mgmt.get_subnet_quota_counter(
+                    obj_dict, proj_dict)
+            if subnet_count:
+                counter -= subnet_count
+            def undo_subnet():
+                 ok, (subnet_count, counter) = cls.addr_mgmt.get_subnet_quota_counter(
+                         obj_dict, proj_dict)
+                 if subnet_count:
+                     counter += subnet_count
+            get_context().push_undo(undo_subnet)
+
         def undo():
             cls.addr_mgmt.net_create_req(obj_dict)
         get_context().push_undo(undo)
@@ -2375,7 +2390,7 @@ class ProjectServer(Resource, Project):
     def post_dbe_delete(cls, id, obj_dict, db_conn):
         # Delete the zookeeper counter nodes
         path = _DEFAULT_ZK_COUNTER_PATH_PREFIX + id
-        if db_conn._zk_db._zk_client.exists(path):
+        if db_conn._zk_db.quota_counter_exists(path):
             db_conn._zk_db._zk_client.delete_node(path, recursive=True)
         return True, ""
     # end post_dbe_delete
