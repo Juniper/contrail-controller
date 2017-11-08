@@ -482,7 +482,11 @@ class FlowEntry {
         DROP_SG,
         DROP_OUT_SG,
         DROP_REVERSE_SG,
-        DROP_REVERSE_OUT_SG
+        DROP_REVERSE_OUT_SG,
+        DROP_FIREWALL_POLICY,
+        DROP_OUT_FIREWALL_POLICY,
+        DROP_REVERSE_FIREWALL_POLICY,
+        DROP_REVERSE_OUT_FIREWALL_POLICY,
     };
 
     enum FlowPolicyState {
