@@ -300,7 +300,7 @@ void EndOfRibRxTimer::Start(AgentXmppChannel *agent_xmpp_channel) {
 bool EndOfRibRxTimer::TimerExpirationDone() {
     end_of_rib_rx_time_ = UTCTimestampUsec();
     fallback_ = true;
-    agent_xmpp_channel_->EndOfRibRx();
+    //agent_xmpp_channel_->EndOfRibRx();
     return false;
 }
 
