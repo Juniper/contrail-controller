@@ -125,8 +125,7 @@ bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
         ret = true;
     }
 
-    if (peer_ && ((peer_->GetType() == Peer::ECMP_PEER) ||
-        (peer_->GetType() == Peer::MULTICAST_PEER)) &&
+    if (peer_ && (peer_->GetType() == Peer::ECMP_PEER) &&
         (label_ != MplsTable::kInvalidLabel)) {
         if (RebakeLabel(agent->mpls_table(), label_, nh))
             ret = true;
@@ -1043,12 +1042,27 @@ MulticastRoutePath::MulticastRoutePath(const Peer *peer) :
 
 bool MulticastRoutePath::PostChangeNH(Agent *agent, NextHop *nh) {
     bool ret = false;
-    if (peer() && ((peer()->GetType() == Peer::ECMP_PEER) ||
-        (peer()->GetType() == Peer::MULTICAST_PEER)) &&
-        (label() != MplsTable::kInvalidLabel)) {
-        if (RebakeLabel(agent->mpls_table(), label(), nh))
+
+    if (!peer())
+        return false;
+
+    if (peer()->GetType() != Peer::MULTICAST_PEER)
+        return false;
+
+    //Bake for label in path
+    if (RebakeLabel(agent->mpls_table(), label(), nh))
         ret = true;
-    }
+
+    //If path label is not same as evpn label, then rebake evpn label
+    if ((label() != evpn_label_) &&
+        RebakeLabel(agent->mpls_table(), evpn_label_, nh))
+        ret = true;
+
+    //If path label is not same as fmg label, then rebake fmg label
+    if ((label() != fabric_label_) &&
+        RebakeLabel(agent->mpls_table(), fabric_label_, nh))
+        ret = true;
+
     return ret;
 }
 
