@@ -763,7 +763,7 @@ void ConfigCassandraPartition::HandleObjectDelete(
                 (type_field == ConfigCass2JsonAdapter::map_prop_prefix);
             bool is_propl =
                 (type_field == ConfigCass2JsonAdapter::list_prop_prefix);
-            if (add_change && (is_propm || is_propl)) {
+            if (add_change) {
                 uuid_iter->second->GetFieldDetailMap().erase(it);
             }
         }
