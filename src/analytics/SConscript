@@ -68,7 +68,9 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'config_client_mgr',
         'SimpleAmqpClient',
         'boost_chrono',
-        'rabbitmq'])
+        'rabbitmq',
+        'rdkafka++',
+        'rdkafka'])
 
 (PLATFORM, VERSION, EXTRA) = platform.linux_distribution()
 if PLATFORM.lower() != 'ubuntu' or (PLATFORM.lower() == 'ubuntu' and VERSION.find('16.') == 0):
