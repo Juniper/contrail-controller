@@ -811,6 +811,7 @@ public:
         XmppSession *session = NULL;
         if (parent_->state_machine()) {
             session = parent_->state_machine()->session();
+            parent_->state_machine()->Clear();
             parent_->state_machine()->clear_session();
         }
         if (session) {

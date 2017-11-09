@@ -163,6 +163,8 @@ public:
                                    bool assisted_replication);
     void AddEvpnRoute(const std::string &vrf_name, std::string mac_addr,
                       autogen::EnetItemType *item);
+    void Unregister();
+
 protected:
     virtual void WriteReadyCb(const boost::system::error_code &ec);
 
@@ -224,6 +226,7 @@ private:
                    VnListType *vn_list);
 
     XmppChannel *channel_;
+    std::string channel_str_;
     std::string xmpp_server_;
     std::string label_range_;
     uint8_t xs_idx_;
