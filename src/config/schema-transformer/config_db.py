@@ -3460,12 +3460,13 @@ class BgpAsAServiceST(DBBaseST):
         if create:
             bgp_router_id = self._vnc_lib.bgp_router_create(bgp_router)
             #add bgp_router ref to vmi
-            self._vnc_lib.ref_update(obj_uuid=vmi.uuid,
-                                     obj_type='virtual_machine_interface',
-                                     ref_uuid=bgp_router_id,
-                                     ref_type='bgp_router',
-                                     ref_fq_name=bgp_router.fq_name,
-                                     operation='ADD')
+            if not shared:
+                self._vnc_lib.ref_update(obj_uuid=vmi.uuid,
+                    obj_type='virtual_machine_interface',
+                    ref_uuid=bgp_router_id,
+                    ref_type='bgp_router',
+                    ref_fq_name=bgp_router.fq_name,
+                    operation='ADD')
             self.obj.add_bgp_router(bgp_router)
             self._vnc_lib.bgp_as_a_service_update(self.obj)
             bgpr = BgpRouterST.locate(router_fq_name)
