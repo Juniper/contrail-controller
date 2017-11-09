@@ -370,7 +370,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("subnet-virtual-machine-interface")
                 ("service-port-health-check")
                 ("bgpaas-virtual-machine-interface")
-                ("virtual-machine-interface-qos-config"))
+                ("virtual-machine-interface-qos-config")
+                ("virtual-machine-interface-bgp-router"))
         ("security-group", list_of("security-group-access-control-list"))
         ("physical-router",
          list_of("physical-router-physical-interface")
