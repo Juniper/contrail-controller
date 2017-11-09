@@ -116,6 +116,50 @@ class ConfigJsonParserTest : public ::testing::Test {
         validate_done_ = true;
     }
 
+    void ValidateObjCacheResponseFieldAdded(Sandesh *sandesh,
+            const vector<string> &result, const string &next_batch) {
+        const ConfigDBUUIDCacheResp *resp =
+            dynamic_cast<const ConfigDBUUIDCacheResp *>(sandesh);
+        TASK_UTIL_EXPECT_TRUE(resp != NULL);
+        set<string> setResult;
+        for (size_t i = 0; i < result.size(); i++) {
+            setResult.insert(result[i]);
+        }
+        for (size_t i = 0; i < resp->get_uuid_cache().size(); ++i) {
+            for (size_t j = 0;
+                 j < resp->get_uuid_cache()[i].get_field_list().size(); j++) {
+                string key = resp->get_uuid_cache()[i].get_field_list()[j].field_name;
+                set<string>::iterator it = setResult.find(key);
+                if (it != setResult.end()) {
+                   setResult.erase(it); 
+                }
+            }
+            cout << resp->get_uuid_cache()[i].log() << endl;
+        }
+        TASK_UTIL_EXPECT_TRUE(setResult.empty());
+        validate_done_ = true;
+    }
+
+    void ValidateObjCacheResponseFieldRemoved(Sandesh *sandesh,
+            const vector<string> &result, const string &next_batch) {
+        const ConfigDBUUIDCacheResp *resp =
+            dynamic_cast<const ConfigDBUUIDCacheResp *>(sandesh);
+        TASK_UTIL_EXPECT_TRUE(resp != NULL);
+        set<string> setResult;
+        for (size_t i = 0; i < result.size(); i++) {
+            setResult.insert(result[i]);
+        }
+        for (size_t i = 0; i < resp->get_uuid_cache().size(); ++i) {
+            for (size_t j = 0; 
+                 j < resp->get_uuid_cache()[i].get_field_list().size(); j++) {
+                string key = resp->get_uuid_cache()[i].get_field_list()[j].field_name;
+                set<string>::iterator it = setResult.find(key);
+                TASK_UTIL_EXPECT_TRUE(it==setResult.end());
+            }
+            cout << resp->get_uuid_cache()[i].log() << endl;
+        }
+        validate_done_ = true;
+    }
 
  protected:
     ConfigJsonParserTest() :
@@ -832,7 +876,144 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_ReqIterate_Deleted) {
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
 }
+// Verify introspect for Object cache field (ref, parent, prop) deleted from cache
+TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Filed_Deleted) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+    IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
+    TASK_UTIL_EXPECT_EQ(0, gsctable->Size());
+    ConfigDBUUIDCacheReq *req;
+    vector<string> obj_cache_expected_entries;
+    string next_batch;
 
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test16_p4.json");
+    // feed vm1,vr1,gsc1 and vr1 ref vm1, vr1 parent is gsc1
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, gsctable->Size());
+    usleep(500000);
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    obj_cache_expected_entries =
+        list_of("parent:global_system_config:8c5eeb87-0b08-4b0c-b53f-0a036805575c")(
+                "ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375")(
+                "prop:id_perms");
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponseFieldAdded, this,
+        _1, obj_cache_expected_entries, next_batch));
+    req = new ConfigDBUUIDCacheReq;
+    req->set_search_string("8c5eeb87-0b08-4724-b53f-0a0368055374");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    //feed remove vr1 parent
+    FeedEventsJson();
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    obj_cache_expected_entries =
+        list_of("parent:global_system_config:8c5eeb87-0b08-4b0c-b53f-0a036805575c");
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
+        _1, obj_cache_expected_entries, next_batch));
+    req = new ConfigDBUUIDCacheReq;
+    req->set_search_string("8c5eeb87-0b08-4724-b53f-0a0368055374");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    //feed vr1 update, without ref
+    FeedEventsJson();
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    obj_cache_expected_entries = list_of("ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375");
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
+        _1, obj_cache_expected_entries, next_batch));
+    req = new ConfigDBUUIDCacheReq;
+    req->set_search_string("8c5eeb87-0b08-4724-b53f-0a0368055374");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    //feed vr1 update, without id_perms
+    FeedEventsJson();
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    obj_cache_expected_entries =
+        list_of("prop:id_perms");
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
+        _1, obj_cache_expected_entries, next_batch));
+    req = new ConfigDBUUIDCacheReq;
+    req->set_search_string("8c5eeb87-0b08-4724-b53f-0a0368055374");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_); 
+}
+// Verify introspect for Object cache field (propm, propl) deleted from cache
+TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Propm_PropL_Deleted) {
+    ConfigDBUUIDCacheReq *req;
+    vector<string> obj_cache_expected_entries;
+    string next_batch;
+    IFMapTable *domaintable = IFMapTable::FindTable(&db_, "domain");
+    TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
+    IFMapTable *projecttable = IFMapTable::FindTable(&db_, "project");
+    TASK_UTIL_EXPECT_EQ(0, projecttable->Size());
+    IFMapTable *vmitable = IFMapTable::FindTable(&db_,
+                                                 "virtual-machine-interface");
+    TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/vmi_list_map_prop_p1.json");
+    // feed domain, project vmi
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, domaintable->Size());
+    TASK_UTIL_EXPECT_EQ(1, projecttable->Size());
+    TASK_UTIL_EXPECT_EQ(1, vmitable->Size());
+    usleep(500000);
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    obj_cache_expected_entries =
+        list_of("propm:virtual_machine_interface_bindings:host_id")(
+                "propm:virtual_machine_interface_bindings:vif_type")(
+                "propl:virtual_machine_interface_fat_flow_protocols:1")(
+                "propl:virtual_machine_interface_fat_flow_protocols:2");
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponseFieldAdded, this,
+        _1, obj_cache_expected_entries, next_batch));
+    req = new ConfigDBUUIDCacheReq;
+    req->set_search_string("c4287577-b6af-4cca-a21d-6470a08af68a");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    //remove one propm and one proml
+    FeedEventsJson();
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    obj_cache_expected_entries =
+        list_of("propm:virtual_machine_interface_bindings:vif_type")(
+                "propl:virtual_machine_interface_fat_flow_protocols:2");
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
+        _1, obj_cache_expected_entries, next_batch));
+    req = new ConfigDBUUIDCacheReq;
+    req->set_search_string("c4287577-b6af-4cca-a21d-6470a08af68a");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    FeedEventsJson();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(0, domaintable->Size());
+    TASK_UTIL_EXPECT_EQ(0, projecttable->Size());
+    TASK_UTIL_EXPECT_EQ(0, vmitable->Size());
+}
 // In a multiple messages, adds (vn1, vn2), and vn3.
 TEST_F(ConfigJsonParserTest, ServerParserAddInMultipleShots) {
     ParseEventsJson(
