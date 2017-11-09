@@ -116,6 +116,26 @@ class ConfigJsonParserTest : public ::testing::Test {
         validate_done_ = true;
     }
 
+    void ValidateObjCacheResponseFieldRemoved(Sandesh *sandesh,
+            const vector<string> &result, const string &next_batch) {
+        const ConfigDBUUIDCacheResp *resp =
+            dynamic_cast<const ConfigDBUUIDCacheResp *>(sandesh);
+        TASK_UTIL_EXPECT_TRUE(resp != NULL);
+        set<string> setResult;
+        for (size_t i = 0; i < result.size(); i++) {
+            setResult.insert(result[i]);
+        }
+        for (size_t i = 0; i < resp->get_uuid_cache().size(); ++i) {
+            for (size_t j = 0; 
+                 j < resp->get_uuid_cache()[i].get_field_list().size(); j++) {
+                string key = resp->get_uuid_cache()[i].get_field_list()[j].field_name;
+                set<string>::iterator it = setResult.find(key);
+                TASK_UTIL_EXPECT_TRUE(it==setResult.end());
+            }
+            cout << resp->get_uuid_cache()[i].log() << endl;
+        }
+        validate_done_ = true;
+    }
 
  protected:
     ConfigJsonParserTest() :
@@ -828,6 +848,37 @@ TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_ReqIterate_Deleted) {
         _1, obj_cache_expected_entries, next_batch));
     ConfigDBUUIDCacheReqIterate *req = new ConfigDBUUIDCacheReqIterate;
     req->set_uuid_info("634ae160||000000-0000-0000-0000-000000000001");
+    req->HandleRequest();
+    req->Release();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+}
+
+// Verify introspect for Object cache ref deleted from cache
+// In a single message:
+// 1) create link(vr,vm), then vr-with-properties, then vm-with-properties
+// 2) delete link(vr,vm)
+// Both vr and vm nodes should continue to live
+TEST_F(ConfigJsonParserTest, IntrospectVerify_ObjectCache_Ref_Deleted) {
+    IFMapTable *vrtable = IFMapTable::FindTable(&db_, "virtual-router");
+    TASK_UTIL_EXPECT_EQ(0, vrtable->Size());
+    IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
+    TASK_UTIL_EXPECT_EQ(0, vmtable->Size());
+
+    ParseEventsJson("controller/src/ifmap/testdata/server_parser_test4_p3.json");
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vmtable->Size());
+    FeedEventsJson();
+    TASK_UTIL_EXPECT_EQ(1, vrtable->Size());
+    validate_done_ = false;
+    ifmap_sandesh_context_->set_page_limit(2);
+    vector<string> obj_cache_expected_entries =
+        list_of("ref:virtual_machine:8c5eeb87-0b08-4725-b53f-0a0368055375");
+    string next_batch;
+    Sandesh::set_response_callback(boost::bind(
+        &ConfigJsonParserTest::ValidateObjCacheResponseFieldRemoved, this,
+        _1, obj_cache_expected_entries, next_batch));
+    ConfigDBUUIDCacheReqIterate *req = new ConfigDBUUIDCacheReqIterate;
+    req->set_uuid_info("8c5eeb87||000000-0000-0000-0000-000000000001");
     req->HandleRequest();
     req->Release();
     TASK_UTIL_EXPECT_TRUE(validate_done_);
