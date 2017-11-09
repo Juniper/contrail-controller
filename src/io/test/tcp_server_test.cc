@@ -25,6 +25,7 @@
 #include "io/io_log.h"
 
 using namespace std;
+using namespace boost::asio::ip;
 
 namespace {
 
@@ -98,7 +99,7 @@ class TcpLocalClient {
             close(socket_);
         }
     }
-    bool Connect() {
+    bool Connect(std::string server_ip="") {
         socket_ = socket(AF_INET, SOCK_STREAM, 0);
         assert(socket_ != -1);
         struct sockaddr_in sin;
@@ -107,12 +108,17 @@ class TcpLocalClient {
 #ifdef __APPLE__
         sin.sin_len = sizeof(struct sockaddr_in);
 #endif
-        sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        if (server_ip.empty()) {
+            sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        } else {
+            sin.sin_addr.s_addr = inet_addr(server_ip.c_str());
+        }
         sin.sin_port = htons(dst_port_);
         int res = connect(socket_, (sockaddr *) &sin,
                           sizeof(struct sockaddr_in));
         return (res != -1);
     }
+
     int Send(const u_int8_t *data, size_t len) {
         return send(socket_, data, len, 0);
     }
@@ -209,6 +215,28 @@ TEST_F(EchoServerTest, Basic) {
     TCP_UT_LOG_DEBUG("Server port: " << port);
     TcpLocalClient client(port);
     TASK_UTIL_EXPECT_TRUE(client.Connect());
+    const char msg[] = "Test Message";
+    int len = client.Send((const u_int8_t *) msg, sizeof(msg));
+    TASK_UTIL_EXPECT_EQ((int) sizeof(msg), len);
+
+    u_int8_t data[1024];
+    int rlen = client.Recv(data, sizeof(data));
+    TASK_UTIL_EXPECT_EQ(len, rlen);
+    TASK_UTIL_EXPECT_EQ(0, memcmp(data, msg, rlen));
+
+    client.Close();
+}
+
+TEST_F(EchoServerTest, Basic_InterfaceIp) {
+    std::string server_ip = "127.0.0.2";
+    server_->Initialize(0, address::from_string(server_ip));
+    task_util::WaitForIdle();
+    thread_->Start();		// Must be called after initialization
+    int port = server_->GetPort();
+    ASSERT_LT(0, port);
+    TCP_UT_LOG_DEBUG("Server port: " << port);
+    TcpLocalClient client(port);
+    TASK_UTIL_EXPECT_TRUE(client.Connect(server_ip));
     const char msg[] = "Test Message";
     int len = client.Send((const u_int8_t *) msg, sizeof(msg));
     TASK_UTIL_EXPECT_EQ((int) sizeof(msg), len);

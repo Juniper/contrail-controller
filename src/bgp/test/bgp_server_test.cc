@@ -16,7 +16,9 @@
 #include "io/test/event_manager_test.h"
 
 using namespace boost::asio;
+using namespace boost::asio::ip;
 using namespace std;
+using boost::system::error_code;
 
 class BgpSessionManagerCustom : public BgpSessionManager {
 public:
@@ -54,7 +56,8 @@ struct ConfigUTAuthKeyItem {
     string start_time;
 };
 
-class BgpServerUnitTest : public ::testing::Test {
+class BgpServerUnitTest : public ::testing::Test,
+                          public ::testing::WithParamInterface<bool> {
 public:
     void ASNUpdateCb(BgpServerTest *server, as_t old_asn, as_t old_local_asn) {
         if (server == a_.get()) {
@@ -89,22 +92,42 @@ protected:
     }
 
     virtual void SetUp() {
+
         evm_.reset(new EventManager());
         a_.reset(new BgpServerTest(evm_.get(), "A"));
         b_.reset(new BgpServerTest(evm_.get(), "B"));
         thread_.reset(new ServerThread(evm_.get()));
-
         a_session_manager_ =
             static_cast<BgpSessionManagerCustom *>(a_->session_manager());
-        a_session_manager_->Initialize(0);
-        BGP_DEBUG_UT("Created server at port: " <<
-            a_session_manager_->GetPort());
-
         b_session_manager_ =
             static_cast<BgpSessionManagerCustom *>(b_->session_manager());
-        b_session_manager_->Initialize(0);
-        BGP_DEBUG_UT("Created server at port: " <<
-            b_session_manager_->GetPort());
+
+        if (GetParam()) {
+            bgp_server_ip_a_ = bgp_server_ip_b_ = "127.0.0.1";
+            a_session_manager_->Initialize(0);
+            BGP_DEBUG_UT("Created server at port: " <<
+                a_session_manager_->GetPort());
+
+            b_session_manager_->Initialize(0);
+            BGP_DEBUG_UT("Created server at port: " <<
+                b_session_manager_->GetPort());
+        } else {
+            bgp_server_ip_a_ = "127.0.0.22";
+            error_code ec;
+            IpAddress bgp_ip_a = address::from_string(bgp_server_ip_a_, ec);
+            a_session_manager_->Initialize(0, bgp_ip_a);
+            BGP_DEBUG_UT("Created server at ip:port: " <<
+                bgp_server_ip_a_ << ":" << a_session_manager_->GetPort());
+
+            bgp_server_ip_b_ = "127.0.0.33";
+            b_session_manager_ =
+                static_cast<BgpSessionManagerCustom *>(b_->session_manager());
+            IpAddress bgp_ip_b = address::from_string(bgp_server_ip_b_, ec);
+            b_session_manager_->Initialize(0, bgp_ip_b);
+            BGP_DEBUG_UT("Created server at ip:port: " <<
+                bgp_server_ip_b_ << ":" << b_session_manager_->GetPort());
+        }
+
         thread_->Start();
     }
 
@@ -253,7 +276,10 @@ protected:
     bool gr_enabled_;
     string gr_time_;
     string llgr_time_;
+    std::string bgp_server_ip_a_;
+    std::string bgp_server_ip_b_;
 };
+
 
 bool BgpServerUnitTest::validate_done_;
 
@@ -481,8 +507,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
                                  nbr_passive1, nbr_passive2,
                                  as_num1, as_num2,
                                  local_as_num1, local_as_num2,
-                                 "127.0.0.1",
-                                 "127.0.0.1",
+                                 bgp_server_ip_a_, bgp_server_ip_b_,
                                  "192.168.0.10",
                                  "192.168.0.11",
                                  vector<string>(),
@@ -550,7 +575,7 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
                                  false, false, false, false, false, false,
                                  as_num1, as_num2,
                                  local_as_num1, local_as_num2,
-                                 "127.0.0.1", "127.0.0.1",
+                                 bgp_server_ip_a_, bgp_server_ip_b_,
                                  "192.168.0.10", "192.168.0.11",
                                  vector<string>(), vector<string>(),
                                  StateMachine::kHoldTime,
@@ -617,25 +642,35 @@ static void ResumeDelete(LifetimeActor *actor) {
     TaskScheduler::GetInstance()->Start();
 }
 
-TEST_F(BgpServerUnitTest, Connection) {
+TEST_P(BgpServerUnitTest, Connection) {
     StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
-               b_->session_manager()->GetPort(), true);
-    VerifyPeers(3, 2);
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(3, 0,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
     StateMachineTest::set_keepalive_time_msecs(0);
 }
 
-TEST_F(BgpServerUnitTest, LotsOfKeepAlives) {
+TEST_P(BgpServerUnitTest, LotsOfKeepAlives) {
     StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
-               b_->session_manager()->GetPort(), true);
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
     VerifyPeers(3, 30);
     StateMachineTest::set_keepalive_time_msecs(0);
 }
 
-TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
+TEST_P(BgpServerUnitTest, ChangeAsNumber1) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -643,7 +678,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
@@ -672,7 +707,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem + 1,
                BgpConfigManager::kDefaultAutonomousSystem + 1,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem + 1,
@@ -692,7 +727,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
+TEST_P(BgpServerUnitTest, ChangeAsNumber2) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -700,7 +735,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
@@ -729,7 +764,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem + 1,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
@@ -750,7 +785,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
+TEST_P(BgpServerUnitTest, ChangeAsNumber3) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -758,7 +793,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem + 1,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
@@ -787,7 +822,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
@@ -808,7 +843,7 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ChangeLocalAsNumber1) {
+TEST_P(BgpServerUnitTest, ChangeLocalAsNumber1) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -865,7 +900,7 @@ TEST_F(BgpServerUnitTest, ChangeLocalAsNumber1) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ChangeLocalAsNumber2) {
+TEST_P(BgpServerUnitTest, ChangeLocalAsNumber2) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -922,7 +957,7 @@ TEST_F(BgpServerUnitTest, ChangeLocalAsNumber2) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ChangeLocalAsNumber3) {
+TEST_P(BgpServerUnitTest, ChangeLocalAsNumber3) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -983,7 +1018,7 @@ TEST_F(BgpServerUnitTest, ChangeLocalAsNumber3) {
 // Note that RoutingInstanceMgr already has a callback registered - that will
 // get id 0.
 //
-TEST_F(BgpServerUnitTest, ASNUpdateRegUnreg) {
+TEST_P(BgpServerUnitTest, ASNUpdateRegUnreg) {
     for (int i = 0; i < 1024; i++) {
         int j = a_->RegisterASNUpdateCallback(
           boost::bind(&BgpServerUnitTest::ASNUpdateCb, this, a_.get(), _1, _2));
@@ -998,7 +1033,7 @@ TEST_F(BgpServerUnitTest, ASNUpdateRegUnreg) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ASNUpdateNotification) {
+TEST_P(BgpServerUnitTest, ASNUpdateNotification) {
     int peer_count = 3;
 
     int a_asn_listener_id = a_->RegisterASNUpdateCallback(
@@ -1010,7 +1045,7 @@ TEST_F(BgpServerUnitTest, ASNUpdateNotification) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
@@ -1040,7 +1075,7 @@ TEST_F(BgpServerUnitTest, ASNUpdateNotification) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem + 1,
                BgpConfigManager::kDefaultAutonomousSystem + 1,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem + 1,
@@ -1072,7 +1107,7 @@ TEST_F(BgpServerUnitTest, ASNUpdateNotification) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem + 2,
                BgpConfigManager::kDefaultAutonomousSystem + 2,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem + 2,
@@ -1082,7 +1117,8 @@ TEST_F(BgpServerUnitTest, ASNUpdateNotification) {
     TASK_UTIL_EXPECT_EQ(b_asn_update_notification_cnt_, 0);
 }
 
-TEST_F(BgpServerUnitTest, ChangePeerAddress) {
+TEST_P(BgpServerUnitTest, ChangePeerAddress) {
+    if (!GetParam()) return;
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -1135,7 +1171,7 @@ TEST_F(BgpServerUnitTest, ChangePeerAddress) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ChangeBgpIdentifier) {
+TEST_P(BgpServerUnitTest, ChangeBgpIdentifier) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -1143,7 +1179,7 @@ TEST_F(BgpServerUnitTest, ChangeBgpIdentifier) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -1170,7 +1206,7 @@ TEST_F(BgpServerUnitTest, ChangeBgpIdentifier) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.1.10", "192.168.1.11");
     VerifyPeers(peer_count);
 
@@ -1188,7 +1224,7 @@ TEST_F(BgpServerUnitTest, ChangeBgpIdentifier) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ChangePeerAddressFamilies) {
+TEST_P(BgpServerUnitTest, ChangePeerAddressFamilies) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -1196,7 +1232,7 @@ TEST_F(BgpServerUnitTest, ChangePeerAddressFamilies) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -1227,7 +1263,7 @@ TEST_F(BgpServerUnitTest, ChangePeerAddressFamilies) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -1246,7 +1282,7 @@ TEST_F(BgpServerUnitTest, ChangePeerAddressFamilies) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AdminDown) {
+TEST_P(BgpServerUnitTest, AdminDown) {
     ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
@@ -1255,7 +1291,7 @@ TEST_F(BgpServerUnitTest, AdminDown) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -1324,7 +1360,7 @@ TEST_F(BgpServerUnitTest, AdminDown) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, ConfigAdminDown1) {
+TEST_P(BgpServerUnitTest, ConfigAdminDown1) {
     int peer_count = 3;
     BgpPeerTest::verbose_name(true);
 
@@ -1366,7 +1402,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown1) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, ConfigAdminDown2) {
+TEST_P(BgpServerUnitTest, ConfigAdminDown2) {
     int peer_count = 3;
     BgpPeerTest::verbose_name(true);
 
@@ -1439,7 +1475,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown2) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, ConfigAdminDown3) {
+TEST_P(BgpServerUnitTest, ConfigAdminDown3) {
     int peer_count = 3;
     BgpPeerTest::verbose_name(true);
 
@@ -1512,7 +1548,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown3) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, ConfigAdminDown4) {
+TEST_P(BgpServerUnitTest, ConfigAdminDown4) {
     int peer_count = 3;
     BgpPeerTest::verbose_name(true);
 
@@ -1554,7 +1590,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown4) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, ConfigAdminDown5) {
+TEST_P(BgpServerUnitTest, ConfigAdminDown5) {
     int peer_count = 3;
     BgpPeerTest::verbose_name(true);
 
@@ -1627,7 +1663,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown5) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, ConfigAdminDown6) {
+TEST_P(BgpServerUnitTest, ConfigAdminDown6) {
     int peer_count = 3;
     BgpPeerTest::verbose_name(true);
 
@@ -1701,7 +1737,7 @@ TEST_F(BgpServerUnitTest, ConfigAdminDown6) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, Passive1) {
+TEST_P(BgpServerUnitTest, Passive1) {
     int peer_count = 3;
     BgpPeerTest::verbose_name(true);
 
@@ -1793,7 +1829,7 @@ TEST_F(BgpServerUnitTest, Passive1) {
     }
 }
 
-TEST_F(BgpServerUnitTest, Passive2) {
+TEST_P(BgpServerUnitTest, Passive2) {
     int peer_count = 3;
     BgpPeerTest::verbose_name(true);
 
@@ -1890,7 +1926,7 @@ TEST_F(BgpServerUnitTest, Passive2) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
+TEST_P(BgpServerUnitTest, ResetStatsOnFlap) {
     ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
@@ -1900,7 +1936,7 @@ TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
 
     //
@@ -1942,7 +1978,7 @@ TEST_F(BgpServerUnitTest, ResetStatsOnFlap) {
 //
 // BGP Port change number change is not supported yet
 //
-TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
+TEST_P(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
     int peer_count = 1;
 
     BgpPeerTest::verbose_name(true);
@@ -1950,7 +1986,7 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -1986,7 +2022,7 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b,
                StateMachine::kHoldTime, StateMachine::kHoldTime,
@@ -2006,7 +2042,7 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -2025,7 +2061,7 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AddressFamilyNegotiation1) {
+TEST_P(BgpServerUnitTest, AddressFamilyNegotiation1) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2038,7 +2074,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation1) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -2062,7 +2098,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation1) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AddressFamilyNegotiation2) {
+TEST_P(BgpServerUnitTest, AddressFamilyNegotiation2) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2076,7 +2112,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation2) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -2101,7 +2137,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation2) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AddressFamilyNegotiation3) {
+TEST_P(BgpServerUnitTest, AddressFamilyNegotiation3) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2118,7 +2154,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation3) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -2142,7 +2178,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation3) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AddressFamilyNegotiation4) {
+TEST_P(BgpServerUnitTest, AddressFamilyNegotiation4) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2161,7 +2197,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation4) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -2185,7 +2221,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation4) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AddressFamilyNegotiation5) {
+TEST_P(BgpServerUnitTest, AddressFamilyNegotiation5) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2205,7 +2241,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation5) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -2229,7 +2265,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation5) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AddressFamilyNegotiation6) {
+TEST_P(BgpServerUnitTest, AddressFamilyNegotiation6) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2252,7 +2288,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation6) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -2278,7 +2314,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation6) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AddressFamilyNegotiation7) {
+TEST_P(BgpServerUnitTest, AddressFamilyNegotiation7) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2291,7 +2327,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation7) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
 
@@ -2308,7 +2344,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation7) {
     }
 }
 
-TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
+TEST_P(BgpServerUnitTest, AddressFamilyNegotiation8) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2324,7 +2360,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
 
@@ -2341,7 +2377,7 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
     }
 }
 
-TEST_F(BgpServerUnitTest, HoldTimeChange) {
+TEST_P(BgpServerUnitTest, HoldTimeChange) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2352,7 +2388,7 @@ TEST_F(BgpServerUnitTest, HoldTimeChange) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b,
                10, 10);
@@ -2365,7 +2401,7 @@ TEST_F(BgpServerUnitTest, HoldTimeChange) {
                    b_->session_manager()->GetPort(), false,
                    BgpConfigManager::kDefaultAutonomousSystem,
                    BgpConfigManager::kDefaultAutonomousSystem,
-                   "127.0.0.1", "127.0.0.1",
+                   bgp_server_ip_a_, bgp_server_ip_b_,
                    "192.168.0.10", "192.168.0.11",
                    families_a, families_b,
                    10 * idx, 90);
@@ -2387,7 +2423,7 @@ TEST_F(BgpServerUnitTest, HoldTimeChange) {
     }
 }
 
-TEST_F(BgpServerUnitTest, NeighborHoldTimeChange) {
+TEST_P(BgpServerUnitTest, NeighborHoldTimeChange) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2398,7 +2434,7 @@ TEST_F(BgpServerUnitTest, NeighborHoldTimeChange) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b,
                StateMachine::kHoldTime, StateMachine::kHoldTime,
@@ -2412,7 +2448,7 @@ TEST_F(BgpServerUnitTest, NeighborHoldTimeChange) {
                    b_->session_manager()->GetPort(), false,
                    BgpConfigManager::kDefaultAutonomousSystem,
                    BgpConfigManager::kDefaultAutonomousSystem,
-                   "127.0.0.1", "127.0.0.1",
+                   bgp_server_ip_a_, bgp_server_ip_b_,
                    "192.168.0.10", "192.168.0.11",
                    families_a, families_b,
                    StateMachine::kHoldTime, StateMachine::kHoldTime,
@@ -2437,7 +2473,7 @@ TEST_F(BgpServerUnitTest, NeighborHoldTimeChange) {
 
 // Apply bgp neighbor configuration on only one side of the session and
 // verify that the session does not come up.
-TEST_F(BgpServerUnitTest, MissingPeerConfig) {
+TEST_P(BgpServerUnitTest, MissingPeerConfig) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2450,7 +2486,7 @@ TEST_F(BgpServerUnitTest, MissingPeerConfig) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
 
@@ -2466,14 +2502,18 @@ TEST_F(BgpServerUnitTest, MissingPeerConfig) {
 // Apply bgp neighbor configuration on only one side of the session, disable
 // session queue processing on the other side and verify that the first side
 // gets stuck in OpenSent.
-TEST_F(BgpServerUnitTest, DisableSessionQueue1) {
+TEST_P(BgpServerUnitTest, DisableSessionQueue1) {
     int peer_count = 3;
 
     SetSessionQueueDisable(b_session_manager_, true);
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
-               b_->session_manager()->GetPort(), false);
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
 
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
@@ -2500,7 +2540,7 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue1) {
 // Apply bgp neighbor configuration on only one side of the session, disable
 // session queue processing on the other side, use very small hold timer and
 // verify that the first side sees the hold timer expiring repeatedly.
-TEST_F(BgpServerUnitTest, DisableSessionQueue2) {
+TEST_P(BgpServerUnitTest, DisableSessionQueue2) {
     int peer_count = 3;
 
     SetSessionQueueDisable(b_session_manager_, true);
@@ -2508,7 +2548,11 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue2) {
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
-               b_->session_manager()->GetPort(), false);
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
 
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
@@ -2539,7 +2583,7 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue2) {
 // still non-empty.  Finally, enable session queue processing and make sure
 // that the server gets deleted.
 //
-TEST_F(BgpServerUnitTest, DisableSessionQueue3) {
+TEST_P(BgpServerUnitTest, DisableSessionQueue3) {
     int peer_count = 3;
 
     SetSessionQueueDisable(b_session_manager_, true);
@@ -2547,7 +2591,11 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue3) {
 
     BgpPeerTest::verbose_name(true);
     SetupPeers(a_.get(), peer_count, a_->session_manager()->GetPort(),
-               b_->session_manager()->GetPort(), false);
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
 
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
@@ -2589,7 +2637,7 @@ TEST_F(BgpServerUnitTest, DisableSessionQueue3) {
 // Apply bgp neighbor configuration on only one side of the session, close
 // the listen socket on the other side and verify that the first side gets
 // connect errors.
-TEST_F(BgpServerUnitTest, ConnectError) {
+TEST_P(BgpServerUnitTest, ConnectError) {
     int peer_count = 3;
 
     int port_a = a_->session_manager()->GetPort();
@@ -2597,7 +2645,11 @@ TEST_F(BgpServerUnitTest, ConnectError) {
     b_session_manager_->TcpServer::Shutdown();
 
     BgpPeerTest::verbose_name(true);
-    SetupPeers(a_.get(), peer_count, port_a, port_b, false);
+    SetupPeers(a_.get(), peer_count, port_a, port_b, false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
 
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
@@ -2609,7 +2661,7 @@ TEST_F(BgpServerUnitTest, ConnectError) {
 
 // Apply bgp neighbor configuration on only one side of the session, make
 // it's attempts to connect fail and verify it gets connect timeouts.
-TEST_F(BgpServerUnitTest, ConnectTimerExpired) {
+TEST_P(BgpServerUnitTest, ConnectTimerExpired) {
     int peer_count = 1;
 
     int port_a = a_->session_manager()->GetPort();
@@ -2617,7 +2669,11 @@ TEST_F(BgpServerUnitTest, ConnectTimerExpired) {
     a_session_manager_->set_connect_session_fail(true);
 
     BgpPeerTest::verbose_name(true);
-    SetupPeers(a_.get(), peer_count, port_a, port_b, false);
+    SetupPeers(a_.get(), peer_count, port_a, port_b, false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
 
     for (int j = 0; j < peer_count; j++) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
@@ -2627,7 +2683,7 @@ TEST_F(BgpServerUnitTest, ConnectTimerExpired) {
     }
 }
 
-TEST_F(BgpServerUnitTest, DeleteInProgress) {
+TEST_P(BgpServerUnitTest, DeleteInProgress) {
     int peer_count = 3;
 
     vector<string> families_a;
@@ -2640,7 +2696,7 @@ TEST_F(BgpServerUnitTest, DeleteInProgress) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -2672,7 +2728,7 @@ TEST_F(BgpServerUnitTest, DeleteInProgress) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b, true);
 
@@ -2707,7 +2763,7 @@ void BgpServerUnitTest::GRTestCommon(bool hard_reset,
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(1);
@@ -2801,55 +2857,55 @@ void BgpServerUnitTest::GRTestCommon(bool hard_reset,
     BGP_VERIFY_ROUTE_COUNT(table_b, 0);
 }
 
-TEST_F(BgpServerUnitTest, GR_NonZeroGrTimeAndNonZeroLlgrTime) {
+TEST_P(BgpServerUnitTest, GR_NonZeroGrTimeAndNonZeroLlgrTime) {
     gr_time_ = "1";
     llgr_time_ = "1024";
     GRTestCommon(false, 1, 1);
 }
 
-TEST_F(BgpServerUnitTest, GR_NonZeroGrTimeAndZeroLlgrTime) {
+TEST_P(BgpServerUnitTest, GR_NonZeroGrTimeAndZeroLlgrTime) {
     gr_time_ = "1024";
     llgr_time_ = "0";
     GRTestCommon(false, 1, 0);
 }
 
-TEST_F(BgpServerUnitTest, GR_ZeroGrTimeAndNonZeroLlgrTime) {
+TEST_P(BgpServerUnitTest, GR_ZeroGrTimeAndNonZeroLlgrTime) {
     gr_time_ = "0";
     llgr_time_ = "1024";
     GRTestCommon(false, 1, 1);
 }
 
-TEST_F(BgpServerUnitTest, GR_ZeroGrTimeAndZeroLlgrTime) {
+TEST_P(BgpServerUnitTest, GR_ZeroGrTimeAndZeroLlgrTime) {
     gr_time_ = "0";
     llgr_time_ = "0";
     GRTestCommon(false, 0, 0);
 }
 
-TEST_F(BgpServerUnitTest, GR_NonZeroGrTimeAndNonZeroLlgrTime_HardReset) {
+TEST_P(BgpServerUnitTest, GR_NonZeroGrTimeAndNonZeroLlgrTime_HardReset) {
     gr_time_ = "1";
     llgr_time_ = "1024";
     GRTestCommon(true, 0, 0);
 }
 
-TEST_F(BgpServerUnitTest, GR_NonZeroGrTimeAndZeroLlgrTime_HardReset) {
+TEST_P(BgpServerUnitTest, GR_NonZeroGrTimeAndZeroLlgrTime_HardReset) {
     gr_time_ = "1024";
     llgr_time_ = "0";
     GRTestCommon(true, 0, 0);
 }
 
-TEST_F(BgpServerUnitTest, GR_ZeroGrTimeAndNonZeroLlgrTime_HardReset) {
+TEST_P(BgpServerUnitTest, GR_ZeroGrTimeAndNonZeroLlgrTime_HardReset) {
     gr_time_ = "0";
     llgr_time_ = "1024";
     GRTestCommon(true, 0, 0);
 }
 
-TEST_F(BgpServerUnitTest, GR_ZeroGrTimeAndZeroLlgrTime_HardReset) {
+TEST_P(BgpServerUnitTest, GR_ZeroGrTimeAndZeroLlgrTime_HardReset) {
     gr_time_ = "0";
     llgr_time_ = "0";
     GRTestCommon(true, 0, 0);
 }
 
-TEST_F(BgpServerUnitTest, CloseInProgress) {
+TEST_P(BgpServerUnitTest, CloseInProgress) {
     ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
@@ -2863,7 +2919,7 @@ TEST_F(BgpServerUnitTest, CloseInProgress) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(peer_count);
@@ -2902,7 +2958,7 @@ TEST_F(BgpServerUnitTest, CloseInProgress) {
     ResumePeerRibMembershipManager(a_.get());
 }
 
-TEST_F(BgpServerUnitTest, CloseDeferred) {
+TEST_P(BgpServerUnitTest, CloseDeferred) {
     ConcurrencyScope scope("bgp::Config");
     int peer_count = 3;
 
@@ -2919,7 +2975,7 @@ TEST_F(BgpServerUnitTest, CloseDeferred) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     TASK_UTIL_EXPECT_EQ(3, GetBgpPeerCount(b_.get()));
@@ -2937,7 +2993,7 @@ TEST_F(BgpServerUnitTest, CloseDeferred) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     TASK_UTIL_EXPECT_EQ(3, GetBgpPeerCount(a_.get()));
@@ -3018,7 +3074,7 @@ TEST_F(BgpServerUnitTest, CloseDeferred) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, CreateSessionFail) {
+TEST_P(BgpServerUnitTest, CreateSessionFail) {
     int peer_count = 3;
 
     //
@@ -3032,7 +3088,7 @@ TEST_F(BgpServerUnitTest, CreateSessionFail) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
 
     //
@@ -3062,7 +3118,7 @@ TEST_F(BgpServerUnitTest, CreateSessionFail) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, SocketOpenFail) {
+TEST_P(BgpServerUnitTest, SocketOpenFail) {
     int peer_count = 3;
 
     //
@@ -3076,7 +3132,7 @@ TEST_F(BgpServerUnitTest, SocketOpenFail) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
 
     //
@@ -3106,7 +3162,7 @@ TEST_F(BgpServerUnitTest, SocketOpenFail) {
     VerifyPeers(peer_count);
 }
 
-TEST_F(BgpServerUnitTest, ClearNeighbor1) {
+TEST_P(BgpServerUnitTest, ClearNeighbor1) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -3114,7 +3170,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor1) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -3176,7 +3232,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor1) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ClearNeighbor2) {
+TEST_P(BgpServerUnitTest, ClearNeighbor2) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -3184,7 +3240,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor2) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem + 1,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count, 0,
                 BgpConfigManager::kDefaultAutonomousSystem,
@@ -3250,7 +3306,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor2) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ClearNeighbor3) {
+TEST_P(BgpServerUnitTest, ClearNeighbor3) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -3258,7 +3314,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor3) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -3320,7 +3376,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor3) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ClearNeighbor4) {
+TEST_P(BgpServerUnitTest, ClearNeighbor4) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -3328,7 +3384,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -3385,7 +3441,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor4) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ClearNeighbor5) {
+TEST_P(BgpServerUnitTest, ClearNeighbor5) {
     int peer_count = 3;
 
     BgpPeerTest::verbose_name(true);
@@ -3393,7 +3449,7 @@ TEST_F(BgpServerUnitTest, ClearNeighbor5) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11");
     VerifyPeers(peer_count);
 
@@ -3454,11 +3510,15 @@ TEST_F(BgpServerUnitTest, ClearNeighbor5) {
     }
 }
 
-TEST_F(BgpServerUnitTest, ShowBgpServer) {
+TEST_P(BgpServerUnitTest, ShowBgpServer) {
     StateMachineTest::set_keepalive_time_msecs(100);
     BgpPeerTest::verbose_name(true);
-    SetupPeers(3,a_->session_manager()->GetPort(),
-               b_->session_manager()->GetPort(), true);
+    SetupPeers(3, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), true,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
     VerifyPeers(3, 3);
     StateMachineTest::set_keepalive_time_msecs(0);
 
@@ -3489,9 +3549,13 @@ TEST_F(BgpServerUnitTest, ShowBgpServer) {
     StateMachineTest::set_keepalive_time_msecs(0);
 }
 
-TEST_F(BgpServerUnitTest, BasicAdvertiseWithdraw) {
+TEST_P(BgpServerUnitTest, BasicAdvertiseWithdraw) {
     SetupPeers(1, a_->session_manager()->GetPort(),
-               b_->session_manager()->GetPort(), false);
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               bgp_server_ip_a_, bgp_server_ip_b_,
+               "192.168.0.10", "192.168.0.11");
     VerifyPeers(1);
 
     // Find the inet.0 table in A and B.
@@ -3610,7 +3674,7 @@ TEST_F(BgpServerUnitTest, BasicAdvertiseWithdraw) {
     BGP_VERIFY_ROUTE_ABSENCE(table_b, &key3);
 }
 
-TEST_F(BgpServerUnitTest, BasicMvpnAdvertiseWithdraw) {
+TEST_P(BgpServerUnitTest, BasicMvpnAdvertiseWithdraw) {
     a_->set_mvpn_ipv4_enable(true);
     b_->set_mvpn_ipv4_enable(true);
     vector<string> families_a;
@@ -3621,7 +3685,7 @@ TEST_F(BgpServerUnitTest, BasicMvpnAdvertiseWithdraw) {
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
-               "127.0.0.1", "127.0.0.1",
+               bgp_server_ip_a_, bgp_server_ip_b_,
                "192.168.0.10", "192.168.0.11",
                families_a, families_b);
     VerifyPeers(1);
@@ -3727,6 +3791,8 @@ TEST_F(BgpServerUnitTest, BasicMvpnAdvertiseWithdraw) {
     BGP_VERIFY_ROUTE_ABSENCE(table_b, &key2);
     BGP_VERIFY_ROUTE_ABSENCE(table_b, &key3);
 }
+
+INSTANTIATE_TEST_CASE_P(Instance, BgpServerUnitTest, ::testing::Bool());
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
