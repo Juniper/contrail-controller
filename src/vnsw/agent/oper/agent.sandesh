@@ -1348,7 +1348,7 @@ struct FlowSandeshData {
     /** Destination port used as flow key parameter */
     6: i32 dst_port;
     /** Protocol used as flow key parameter */
-    7: i16 protocol;
+    7: u16 protocol;
 
     /** Boolean field which indicates if this is ingress flow */
     8: bool ingress;
