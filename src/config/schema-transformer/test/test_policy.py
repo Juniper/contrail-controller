@@ -8,6 +8,7 @@ import gevent.monkey
 gevent.monkey.patch_all()
 from testtools.matchers import Contains
 
+from cfgm_common.exceptions import BadRequest
 from vnc_api.vnc_api import (VirtualNetwork, SequenceType,
         VirtualNetworkPolicyType, NoIdError, SecurityLoggingObjectRuleEntryType,
         SecurityLoggingObjectRuleListType, SecurityLoggingObject, SecurityGroup,
@@ -98,6 +99,16 @@ class VerifyPolicy(VerifyCommon):
         raise Exception('prefix %s/%d not found in ACL rules for %s' %
                         (ip_prefix, ip_len, fq_name))
 
+    @retries(2)
+    def check_acl_no_implicit_deny_rule(self, fq_name, src_vn, dst_vn):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        for rule in acl.access_control_list_entries.acl_rule:
+            match_condition = rule.match_condition
+            if (match_condition.src_address.virtual_network == src_vn and
+                   match_condition.dst_address.virtual_network == dst_vn and
+                   rule.action_list.simple_action == 'deny'):
+                raise Exception('Implicit deny ACL rule found')
+
     @retries(5)
     def check_acl_implicit_deny_rule(self, fq_name, src_vn, dst_vn):
         acl = self._vnc_lib.access_control_list_read(fq_name)
@@ -108,6 +119,17 @@ class VerifyPolicy(VerifyCommon):
                    rule.action_list.simple_action == 'deny'):
                 return
         raise Exception('Implicit deny ACL rule not found')
+
+    @retries(2)
+    def check_acl_allow_rule(self, fq_name, src_vn, dst_vn):
+        acl = self._vnc_lib.access_control_list_read(fq_name)
+        for rule in acl.access_control_list_entries.acl_rule:
+            match_condition = rule.match_condition
+            if (match_condition.src_address.virtual_network == src_vn and
+                   match_condition.dst_address.virtual_network == dst_vn and
+                   rule.action_list.simple_action == 'pass'):
+                return
+        raise Exception('Allow ACL rule not found')
 
     @retries(5)
     def check_rt_in_ri(self, ri_name, rt_id, is_present=True, exim=None):
@@ -620,6 +642,254 @@ class TestPolicy(STTestCase, VerifyPolicy):
         # check if vn is deleted
         self.check_vn_is_deleted(uuid=vn1.uuid)
     # end test_security_logging_object_with_policy_and_security_group
+
+    def test_provider_network(self):
+        '''
+        Verify:
+            1. Check creating a non-provider VNs with
+               non-provider VNs connected to it is not allowed
+            2. Check a non provider-VN can not be created
+               with is_provider_network property set to True
+            3. Check is_provider_network property of a
+               provider-VN is True by default
+            4. Check is_provider_network property of a
+               provider-VN can be set as True
+            5. Check is_provider_network property of provider-VN
+               can not be set as False
+            6. Check is_provider_network property of non provider-VN
+               can  not be set as True
+            7. Check is_provider_network property of non provider-VN
+               can be set as False
+            8. Check setting other parameters of a non provider-VN
+               is not affected
+            9. Check db_resync sets is_provider_network property
+               of provider-VN as True (simulating upgrade case)
+            10. Check non provider VNs can be added to
+               provider VN
+            11. Check the provider-VN can be added to a VN
+            12. Check non provider-VN can not be added to a VN
+            13. Check many VNs can be linked to the provider-VN
+            14. Check (provider-vn -> any-VN),DENY acl rule is added to
+               the provider-VN
+            15. Check (VN -> provider-VN),DENY acl rule is added to
+               the VN
+            16. Adding a (VN -> provider-VN),PASS acl rule at VN removes
+               (VN -> provider-VN),DENY acl rule
+        Assumption: ip-fabric VN is the provider-VN
+        '''
+        # create two VNs - vn1, vn2
+        vn1_name = self.id() + '_vn1'
+        vn2_name = self.id() + '_vn2'
+        vn3_name = self.id() + '_vn3'
+        vn4_name = self.id() + '_vn4'
+        vn1_obj1 = VirtualNetwork(vn1_name)
+        vn2_obj1 = VirtualNetwork(vn2_name)
+        vn3_obj1 = VirtualNetwork(vn3_name)
+        vn4_obj1 = VirtualNetwork(vn4_name)
+        self._vnc_lib.virtual_network_create(vn1_obj1)
+        self._vnc_lib.virtual_network_create(vn2_obj1)
+        self._vnc_lib.virtual_network_create(vn3_obj1)
+
+        # try creating non provider_vn with linked
+        # non provider_vn (linked before creating)
+        vn4_obj1.add_virtual_network(vn3_obj1)
+        self.assertRaises(BadRequest,
+                          self._vnc_lib.virtual_network_create,
+                          vn4_obj1)
+
+        vn4_obj1.add_virtual_network(vn2_obj1)
+        self.assertRaises(BadRequest,
+                          self._vnc_lib.virtual_network_create,
+                          vn4_obj1)
+
+        # remove vn3_obj1 and vn2_obj1
+        # as its not allowed
+        vn4_obj1.del_virtual_network(vn3_obj1)
+        vn4_obj1.del_virtual_network(vn2_obj1)
+
+        # set is_provider_network on a non provider-vn
+        # and try creating it
+        vn4_obj1.set_is_provider_network(True)
+        self.assertRaises(BadRequest,
+                          self._vnc_lib.virtual_network_create,
+                          vn4_obj1)
+
+        # set it as False and retry creating it
+        vn4_obj1.set_is_provider_network(False)
+        self._vnc_lib.virtual_network_create(vn4_obj1)
+
+        # Check updating other parameters of a non provider VN
+        # when no provider VN is not connected
+        vn4_obj1.set_mac_aging_time(400)
+        self._vnc_lib.virtual_network_update(vn4_obj1)
+
+        # retrieve provider network, assuming ip-fabric for now
+        provider_fq_name = ['default-domain', 'default-project', 'ip-fabric']
+        provider_vn = self._vnc_lib.virtual_network_read(
+                fq_name=provider_fq_name)
+        self.assertEqual(provider_vn.get_is_provider_network(), True)
+
+        # check is_provider_network of provider_vn
+        # can be set to True (ie only as its default)
+        provider_vn.set_is_provider_network(True)
+        self._vnc_lib.virtual_network_update(provider_vn)
+
+        # check is_provider_network of provider_vn
+        # can not be set to False
+        provider_vn.set_is_provider_network(False)
+        self.assertRaises(BadRequest,
+                          self._vnc_lib.virtual_network_update,
+                          provider_vn)
+
+        # check is_provider_network of non provider_vn
+        # can be set to False
+        vn4_obj1.set_is_provider_network(False)
+        self._vnc_lib.virtual_network_update(vn4_obj1)
+
+        # check is_provider_network of non provider_vn
+        # can not be set to True
+        vn4_obj1.set_is_provider_network(True)
+        self.assertRaises(BadRequest,
+                          self._vnc_lib.virtual_network_update,
+                          vn4_obj1)
+
+        # check db_resync sets is_provider_network property
+        # as True in provider-vn
+        self._api_server._db_conn.db_resync()
+        provider_vn = self._vnc_lib.virtual_network_read(
+                fq_name=provider_fq_name)
+        self.assertEqual(provider_vn.get_is_provider_network(), True)
+
+        # check adding vn3 and vn4 to provider vn
+        provider_vn.add_virtual_network(vn3_obj1)
+        provider_vn.add_virtual_network(vn4_obj1)
+        self._vnc_lib.virtual_network_update(provider_vn)
+        provider_vn = self._vnc_lib.virtual_network_read(
+                fq_name=provider_vn.get_fq_name())
+        self.assertEqual(len(provider_vn.virtual_network_refs), 2)
+        linked_uuids = [ref['uuid'] for ref in
+                        provider_vn.virtual_network_refs]
+        self.assertIn(vn3_obj1.uuid, linked_uuids)
+        self.assertIn(vn4_obj1.uuid, linked_uuids)
+        config_db.VirtualNetworkST._dict = {}
+        config_db.VirtualNetworkST.reinit()
+        provider_vn = self._vnc_lib.virtual_network_read(
+                fq_name=provider_vn.get_fq_name())
+        vn3_obj1 = self._vnc_lib.virtual_network_read(
+                fq_name=vn3_obj1.get_fq_name())
+        self.assertEqual(len(provider_vn.virtual_network_refs), 2)
+        linked_uuids = [ref['uuid'] for ref in
+                        provider_vn.virtual_network_refs]
+        self.assertIn(vn3_obj1.uuid, linked_uuids)
+        self.assertIn(vn4_obj1.uuid, linked_uuids)
+
+        # check adding provider vn to vn1 works
+        vn1_obj1.add_virtual_network(provider_vn)
+        self._vnc_lib.virtual_network_update(vn1_obj1)
+        vn1_obj2 = self._vnc_lib.virtual_network_read(
+                fq_name=vn1_obj1.get_fq_name())
+        self.assertEqual(vn1_obj2.virtual_network_refs[0]['to'],
+                         provider_fq_name)
+
+        # Check updating other parameters of a non provider VN
+        # when a provider VN is connected
+        vn1_obj2.set_mac_aging_time(400)
+        self._vnc_lib.virtual_network_update(vn1_obj2)
+
+        # create a policy to allow icp between vn1 <> vn2
+        # and update vn1
+        vn1_to_vn2_rule = {"protocol": "icmp",
+                           "direction": "<>",
+                           "src": {"type": "vn", "value": vn1_obj2},
+                           "dst": [{"type": "vn", "value": vn2_obj1}],
+                           "action": "pass"}
+        np = self.create_network_policy_with_multiple_rules([vn1_to_vn2_rule])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj2.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj2)
+        vn1_obj3 = self._vnc_lib.virtual_network_read(
+                fq_name=vn1_obj2.get_fq_name())
+
+        # check linking a non provider network is not allowed
+        vn1_obj3.add_virtual_network(vn2_obj1)
+        self.assertRaises(BadRequest,
+                          self._vnc_lib.virtual_network_update,
+                          vn1_obj3)
+        vn1_obj4 = self._vnc_lib.virtual_network_read(
+                fq_name=vn1_obj3.get_fq_name())
+        self.assertEqual(vn1_obj4.virtual_network_refs[0]['to'],
+                         provider_fq_name)
+        self.assertNotEqual(vn1_obj4.virtual_network_refs[0]['to'],
+                            vn2_obj1.get_fq_name())
+
+        # check provider network can be linked to
+        # multiple networks
+        vn2_obj1.add_virtual_network(provider_vn)
+        self._vnc_lib.virtual_network_update(vn2_obj1)
+        vn2_obj2 = self._vnc_lib.virtual_network_read(
+                fq_name=vn2_obj1.get_fq_name())
+        self.assertEqual(vn2_obj2.virtual_network_refs[0]['to'],
+                         provider_fq_name)
+        self.assertEqual(vn1_obj2.virtual_network_refs[0]['to'],
+                         provider_fq_name)
+
+        # check the provider-network got a deny rule to any VN
+        provider_to_vn1_rule = {"protocol": "icmp",
+                                "direction": ">",
+                                "src": {"type": "vn", "value": provider_vn},
+                                "dst": [{"type": "vn", "value": vn1_obj4}],
+                                "action": "pass"}
+        np = self.create_network_policy_with_multiple_rules(
+                [provider_to_vn1_rule])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        provider_vn.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(provider_vn)
+        self.check_acl_implicit_deny_rule(
+                fq_name=self.get_ri_name(provider_vn),
+                src_vn=':'.join(provider_fq_name),
+                dst_vn='any')
+
+        # check the network connected to provider-network
+        # got a deny rule to provider-network
+        self.check_acl_implicit_deny_rule(
+                fq_name=self.get_ri_name(vn1_obj4),
+                src_vn=':'.join(vn1_obj4.get_fq_name()),
+                dst_vn=':'.join(provider_fq_name))
+
+        # add an explicit policy to allow traffic to provider network
+        # and the implicit deny is removed
+        vn1_to_provider_rule = {"protocol": "any",
+                                "direction": ">",
+                                "src": {"type": "vn", "value": vn1_obj4},
+                                "dst": [{"type": "vn", "value": provider_vn}],
+                                "action": "pass"}
+        np = self.create_network_policy_with_multiple_rules(
+                [vn1_to_provider_rule])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+        vn1_obj4.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj4)
+        vn1_obj5 = self._vnc_lib.virtual_network_read(
+                fq_name=vn1_obj4.get_fq_name())
+        self.check_acl_no_implicit_deny_rule(
+                fq_name=self.get_ri_name(vn1_obj5),
+                src_vn=':'.join(vn1_obj5.get_fq_name()),
+                dst_vn=':'.join(provider_fq_name))
+        self.check_acl_allow_rule(
+                fq_name=self.get_ri_name(vn1_obj5),
+                src_vn=':'.join(vn1_obj5.get_fq_name()),
+                dst_vn=':'.join(provider_fq_name))
+
+        # adding explicit policy to allow traffic to provider network
+        # do not change deny rule in provider network
+        self.check_acl_implicit_deny_rule(
+                fq_name=self.get_ri_name(provider_vn),
+                src_vn=':'.join(provider_fq_name),
+                dst_vn='any')
+
+    # end test_provider_network
 
     def test_policy_with_cidr_and_vn(self):
         vn1_name = self.id() + 'vn1'
