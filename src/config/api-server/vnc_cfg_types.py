@@ -2126,6 +2126,53 @@ class VirtualRouterServer(Resource, VirtualRouter):
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
+    def _check_provider_network(cls, obj_dict, db_conn):
+        (ok, vn_obj) = cls.dbe_read(db_conn,
+                           'virtual_network',
+                           obj_dict['uuid'],
+                           obj_fields=['is_provider_network'])
+        if not ok:
+            return (ok,
+                    'Error reading virtual-network '
+                    '(%s)' % obj_dict['uuid'])
+        if 'is_provider_network' in vn_obj and \
+                 vn_obj['is_provider_network']:
+            # this vn is a provider network
+            if 'virtual_network_refs' in obj_dict:
+                for vn_ref in obj_dict['virtual_network_refs']:
+                    (ok, linked_vn_obj) = cls.dbe_read(db_conn,
+                        'virtual_network',
+                        vn_ref.get('uuid'),
+                        obj_fields=['is_provider_network'])
+                    # a provider network can not be linked to
+                    # another provider network
+                    if 'is_provider_network' in linked_vn_obj and \
+                        linked_vn_obj['is_provider_network']:
+                        return (False,
+                                'Can not be linked to another provider '
+                                'network (%s)' % linked_vn_obj.uuid)
+        else:
+            # not linked to a provider network
+            if 'virtual_network_refs' not in obj_dict:
+                return (True, '')
+            # check if connected to a provider network
+            vn_ref = obj_dict['virtual_network_refs']
+            if len(vn_ref) > 1:
+                return (False,
+                        'Has link to two networks.'
+                        'Can connect to only one network, '
+                        'provider network')
+            (ok, provider_vn_obj) = cls.dbe_read(db_conn,
+                'virtual_network',
+                vn_ref[0].get('uuid'),
+                obj_fields=['is_provider_network'])
+            if 'is_provider_network' not in provider_vn_obj or \
+                not provider_vn_obj['is_provider_network']:
+                return (False, 'Connected to a non provider network')
+        return (True, '')
+    # end _check_provider_network
+
+    @classmethod
     def _check_route_targets(cls, obj_dict, db_conn):
         if 'route_target_list' not in obj_dict:
             return (True, '')
@@ -2490,6 +2537,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             return (False, (400, error))
 
         (ok, error) = cls._check_provider_details(obj_dict, db_conn, False)
+        if not ok:
+            return (False, (409, error))
+
+        (ok, error) = cls._check_provider_network(obj_dict, db_conn)
         if not ok:
             return (False, (409, error))
 
