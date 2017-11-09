@@ -792,6 +792,8 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                              label,
                                              tunnel_bmap,
                                              nh, this);
+    (static_cast<MulticastRoutePath *>(multicast_peer_path))->
+        UpdateLabels(evpn_label, label);
 
     return ret;
 }
