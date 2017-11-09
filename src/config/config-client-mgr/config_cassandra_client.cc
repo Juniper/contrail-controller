@@ -758,13 +758,7 @@ void ConfigCassandraPartition::HandleObjectDelete(
 
             needNotify = true;
             cass_data_vec.push_back(it->first);
-            size_t from_front_pos = it->first.key.find(':');
-            string type_field = it->first.key.substr(0, from_front_pos+1);
-            bool is_propm =
-                (type_field == ConfigCass2JsonAdapter::map_prop_prefix);
-            bool is_propl =
-                (type_field == ConfigCass2JsonAdapter::list_prop_prefix);
-            if (add_change && (is_propm || is_propl)) {
+            if (add_change) {
                 uuid_iter->second->GetFieldDetailMap().erase(it);
             }
         }
