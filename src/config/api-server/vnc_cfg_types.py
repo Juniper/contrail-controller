@@ -2133,6 +2133,65 @@ class VirtualRouterServer(Resource, VirtualRouter):
 class VirtualNetworkServer(Resource, VirtualNetwork):
 
     @classmethod
+    def _check_provider_network(cls, obj_dict, db_conn):
+        # no further checks if not linked
+        # to a provider network
+        if not obj_dict.get('virtual_network_refs', None):
+            return (True, '')
+
+        (ok, vn_ref) = cls.dbe_read(db_conn,
+                           'virtual_network',
+                           obj_dict['uuid'],
+                           obj_fields=['is_provider_network'])
+        if not ok:
+            return (ok,
+                    'Error reading virtual-network '
+                    '(%s)' % obj_dict['uuid'])
+
+        is_provider_network = vn_ref.get('is_provider_network')
+        vn_fq_name = vn_ref.get('fq_name')
+        if is_provider_network:
+            # this vn is a provider network
+            if vn_fq_name and vn_fq_name[-1] != 'ip-fabric':
+                return (False,
+                        'is_provider_network of non provider-network is True')
+            if obj_dict.get('virtual_network_refs'):
+                (ok, linked_vn_refs, _) = db_conn.dbe_list('virtual-network',
+                    obj_uuids=obj_dict.get('virtual_network_refs'),
+                    field_names=['is_provider_network'])
+                if not ok:
+                    return (ok, 'Error reading VN refs '
+                                '(%s)' % obj_dict.get('virtual_network_refs'))
+                for linked_vn_ref in linked_vn_refs:
+                    # a provider network can not be linked to
+                    # another provider network
+                    if linked_vn_ref.get('is_provider_network'):
+                        return (False,
+                                'Can not be linked to another provider '
+                                'network (%s)' % linked_vn_obj.uuid)
+        else:
+            # check if connected to a provider network
+            if vn_fq_name and vn_fq_name[-1] == 'ip-fabric':
+                return (False,
+                        'is_provider_network of provider-network is '
+                        'not True')
+            linked_vn_ref = obj_dict.get('virtual_network_refs', list())
+            if len(linked_vn_ref) > 1:
+                return (False,
+                        'Has link to two networks.'
+                        'Can connect to only one network, '
+                        'provider network')
+            if len(linked_vn_ref) != 0:
+                (ok, provider_vn_obj) = cls.dbe_read(db_conn,
+                    'virtual_network',
+                    linked_vn_ref[0].get('uuid'),
+                    obj_fields=['is_provider_network'])
+                if not provider_vn_obj.get('is_provider_network'):
+                    return (False, 'Connected to a non provider network')
+        return (True, '')
+    # end _check_provider_network
+
+    @classmethod
     def _check_route_targets(cls, obj_dict, db_conn):
         if 'route_target_list' not in obj_dict:
             return (True, '')
@@ -2402,6 +2461,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         if not ok:
             return (False, (400, error))
 
+        (ok, error) = cls._check_provider_network(obj_dict, db_conn)
+        if not ok:
+            return (False, (409, error))
+
         # Check if network forwarding mode support BGP VPN types
         ok, result = BgpvpnServer.check_network_supports_vpn_type(
             db_conn, obj_dict)
@@ -2497,6 +2560,10 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             return (False, (400, error))
 
         (ok, error) = cls._check_provider_details(obj_dict, db_conn, False)
+        if not ok:
+            return (False, (409, error))
+
+        (ok, error) = cls._check_provider_network(obj_dict, db_conn)
         if not ok:
             return (False, (409, error))
 
