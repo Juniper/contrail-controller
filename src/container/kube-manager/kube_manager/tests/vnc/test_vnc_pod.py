@@ -31,8 +31,12 @@ class VncPodTest(KMTestCase):
         cls.cluster_project = 'test-project'
         cls.vn_name = 'test-network'
         cls.ns_name = 'test-namespace'
+
         cls.pod_name = 'test-pod'
-        cls.pod_status = {'hostIP': '192.168.0.1', 'phase': 'created'}
+        cls.pod_status = {
+                          'hostIP': cls.get_kubernetes_node_ip(),
+                          'phase': 'created'
+                         }
 
         cn_dict = {'domain': cls.domain,
                    'project': cls.cluster_project,
@@ -45,12 +49,19 @@ class VncPodTest(KMTestCase):
             'cluster_pod_ipam_fq_name'] = \
             ['default-domain', cls.cluster_project, 'pod-ipam']
 
+        # Create Vrouter Object.
+        cls.vrouter_name = 'test-VncPodTest-vrouter'
+        cls.vrouter_obj = cls.create_virtual_router(cls.vrouter_name)
+
     @classmethod
     def tearDownClass(cls):
         for pod in list(PodKM):
             PodKM.delete(pod)
         for namespace in list(NamespaceKM):
             NamespaceKM.delete(namespace)
+
+        # Cleanup the Vrouter object.
+        cls.delete_virtual_router(cls.vrouter_obj.uuid)
 
         super(VncPodTest, cls).tearDownClass()
 
@@ -177,7 +188,6 @@ class VncPodTestClusterProjectDefined(VncPodTest):
         proj_fq_name = ['default-domain', self.cluster_project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj_uuid = self._create_virtual_network(proj_obj, self.vn_name).uuid
-
         testpod = self._create_update_pod(self.pod_name,
                                           ns_name,
                                           self.pod_status,
@@ -299,7 +309,6 @@ class VncPodTestNamespaceIsolation(VncPodTest):
         cls.ns_name = 'test-namespace-isolated'
         cls.cluster_project = cls.ns_name
         cls.vn_name = cls.ns_name + '-vn'
-
         args = {}
         args['domain'] = 'default-domain'
         args['project'] = cls.cluster_project

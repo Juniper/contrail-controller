@@ -73,7 +73,7 @@ class VncApiMock(object):
     @staticmethod
     def update(res_type, obj):
         if not obj.uuid:
-            obj.uuid = VncApiMock.name_to_id(res_type, obj.get_name())
+            obj.uuid = VncApiMock.name_to_id(res_type, obj.name)
         if obj.uuid is None:
             raise NoIdError("Object does not exist.")
         if obj.uuid not in DBMock.get_dict(res_type.replace('-', '_')):
