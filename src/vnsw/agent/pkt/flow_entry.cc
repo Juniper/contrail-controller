@@ -1376,10 +1376,10 @@ std::string FlowEntry::DropReasonStr(uint16_t reason) {
 // plen is used to track the routes to use by flow_mgmt module
 void FlowEntry::GetSourceRouteInfo(const AgentRoute *rt) {
     Agent *agent = flow_table()->agent();
-    if (is_flags_set(FlowEntry::FabricFlow)) {
-        const InetUnicastRouteEntry *inet_rt =
-            dynamic_cast<const InetUnicastRouteEntry *>(rt);
+    const InetUnicastRouteEntry *inet_rt =
+        dynamic_cast<const InetUnicastRouteEntry *>(rt);
 
+    if (inet_rt && is_flags_set(FlowEntry::FabricFlow)) {
         const VrfEntry *policy_vrf =
             static_cast<const VrfEntry *>(agent->
                         vrf_table()->FindVrfFromId(data_.src_policy_vrf));
@@ -1425,12 +1425,10 @@ void FlowEntry::GetDestRouteInfo(const AgentRoute *rt) {
         path = rt->GetActivePath();
     }
 
-    if (is_flags_set(FlowEntry::FabricFlow)) {
-        data_.dst_policy_plen = 0;
-
-        const InetUnicastRouteEntry *inet_rt =
+    const InetUnicastRouteEntry *inet_rt =
             dynamic_cast<const InetUnicastRouteEntry *>(rt);
-
+    if (inet_rt && is_flags_set(FlowEntry::FabricFlow)) {
+        data_.dst_policy_plen = 0;
         const VrfEntry *policy_vrf =
             static_cast<const VrfEntry *>(agent->
                     vrf_table()->FindVrfFromId(data_.dst_policy_vrf));
