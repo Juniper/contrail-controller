@@ -2007,7 +2007,14 @@ class VirtualRouterServer(Resource, VirtualRouter):
             return True, ''
 
         vrouter_uuid = vrouter_dict['uuid']
-        ipam_uuid_list = [(ipam_ref['uuid']) for ipam_ref in ipam_refs]
+        ipam_uuid_list = []
+        for ipam_ref in ipam_refs:
+            if 'uuid' in ipam_ref:
+                ipam_ref_uuid = ipam_ref.get('uuid')
+            else:
+                ipam_fq_name = ipam_ref['to']
+                ipam_ref_uuid = db_conn.fq_name_to_uuid('network_ipam', ipam_fq_name)
+            ipam_uuid_list.append(ipam_ref_uuid)
         (ok, ipam_list, _) = db_conn.dbe_list('network_ipam',
                                 obj_uuids=ipam_uuid_list,
                                 field_names=['ipam_subnet_method',
