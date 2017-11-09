@@ -175,10 +175,10 @@ public:
             if (lhs->remote_vn.compare(rhs->remote_vn) != 0) {
                 return lhs->remote_vn < rhs->remote_vn;
             }
-            if (lhs->local_tagset < rhs->local_tagset) {
+            if (lhs->local_tagset != rhs->local_tagset) {
                 return lhs->local_tagset < rhs->local_tagset;
             }
-            if (lhs->remote_tagset < rhs->remote_tagset) {
+            if (lhs->remote_tagset != rhs->remote_tagset) {
                 return lhs->remote_tagset < rhs->remote_tagset;
             }
             return lhs->remote_prefix < rhs->remote_prefix;
