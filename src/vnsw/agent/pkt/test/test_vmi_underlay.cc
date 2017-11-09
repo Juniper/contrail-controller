@@ -139,6 +139,33 @@ TEST_F(FlowTest, UnderlayFipToFip) {
     FlowTeardown();
 }
 
+TEST_F(FlowTest, OverlayToUnderlayTransition) {
+    TxL2Packet(flow0->id(), "00:00:00:01:01:01",
+               "00:00:00:01:01:02", vm1_ip, vm2_ip, 1);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, vm1_ip, vm2_ip, IPPROTO_ICMP, 0, 0,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
+    EXPECT_FALSE(fe->IsShortFlow());
+
+    AddLink("virtual-network", "vn5", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
+    EXPECT_FALSE(fe->IsShortFlow());
+
+    DelLink("virtual-network", "vn5", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
+    EXPECT_FALSE(fe->IsShortFlow());
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

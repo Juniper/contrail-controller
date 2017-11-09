@@ -1067,6 +1067,10 @@ void PktFlowInfo::ChangeEncapToOverlay(const VmInterface *intf,
                                        PktControlInfo *in,
                                        PktControlInfo *out) {
 
+    if (l3_flow == false) {
+        return;
+    }
+
     if (intf->vrf() && intf->vrf()->forwarding_vrf() == NULL) {
         return;
     }
