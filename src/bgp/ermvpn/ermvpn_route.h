@@ -34,6 +34,7 @@ public:
     ErmVpnPrefix(uint8_t type, const RouteDistinguisher &rd,
                  const Ip4Address &router_id,
                  const Ip4Address &group, const Ip4Address &source);
+    const std::string GetType() const;
 
     static int FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
                                ErmVpnPrefix *prefix);
@@ -96,6 +97,7 @@ public:
     virtual u_int16_t Afi() const { return BgpAf::IPv4; }
     virtual u_int8_t Safi() const { return BgpAf::ErmVpn; }
     virtual u_int8_t XmppSafi() const { return BgpAf::Mcast; }
+    const std::string GetType() const;
 
 private:
     ErmVpnPrefix prefix_;

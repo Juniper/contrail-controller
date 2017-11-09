@@ -12,12 +12,15 @@
 #include "bgp/ermvpn/ermvpn_route.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/extended-community/vrf_route_import.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update.h"
 #include "bgp/mvpn/mvpn_table.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/routing_instance_analytics_types.h"
+#include "bgp/routing-instance/routing_instance_log.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 
@@ -36,8 +39,15 @@ MvpnState::MvpnState(const SG &sg, StatesMap *states, MvpnProjectManager *pm) :
 
 MvpnState::~MvpnState() {
     assert(!global_ermvpn_tree_rt_);
+    assert(!spmsi_rt_);
+    assert(!source_active_rt_);
     assert(spmsi_routes_received_.empty());
     assert(leafad_routes_attr_received_.empty());
+    MVPN_TRACE(MvpnStateCreate, sg_.source.to_string(), sg_.group.to_string());
+}
+
+const ErmVpnTable *MvpnState::table() const {
+    return project_manager_ ? project_manager_->table() : NULL;
 }
 
 // MvpnProjectManager is deleted when parent ErmVpnTable is deleted.
@@ -83,8 +93,12 @@ MvpnProjectManager::~MvpnProjectManager() {
 // are deleted from the map.
 bool MvpnProjectManager::MayDelete() const {
     BOOST_FOREACH(const MvpnProjectManagerPartition *partition, partitions_) {
-        if (!partition->states().empty())
+        if (!partition->states().empty()) {
+            MVPN_LOG(MvpnProjectManagerDelete,
+                "MvpnProjectManager::MayDelete() paused due to pending " +
+                integerToString(partition->states().size()) + " MvpnStates");
             return false;
+        }
     }
     return true;
 }
@@ -108,6 +122,7 @@ void MvpnProjectManager::Initialize() {
     listener_id_ = table_->Register(
         boost::bind(&MvpnProjectManager::RouteListener, this, _1, _2),
         "MvpnProjectManager");
+    MVPN_LOG(MvpnProjectManagerCreate, "Initialized MvpnProjectManager");
 }
 
 void MvpnProjectManager::Terminate() {
@@ -115,6 +130,7 @@ void MvpnProjectManager::Terminate() {
     table_->Unregister(listener_id_);
     listener_id_ = DBTable::kInvalidId;
     FreePartitions();
+    MVPN_LOG(MvpnProjectManagerDelete, "Terminated MvpnProjectManager");
 }
 
 void MvpnProjectManager::AllocPartitions() {
@@ -172,6 +188,7 @@ MvpnProjectManagerPartition::~MvpnProjectManagerPartition() {
 MvpnStatePtr MvpnProjectManagerPartition::CreateState(const SG &sg) {
     MvpnStatePtr state(new MvpnState(sg, &states_, manager_));
     assert(states_.insert(make_pair(sg, state.get())).second);
+    MVPN_TRACE(MvpnStateCreate, sg.source.to_string(), sg.group.to_string());
     return state;
 }
 
@@ -431,6 +448,7 @@ void MvpnManager::Terminate() {
     table_->Unregister(listener_id_);
     listener_id_ = DBTable::kInvalidId;
     FreePartitions();
+    MVPN_LOG(MvpnManagerDelete, "Terminated MvpnManager");
 }
 
 void MvpnManager::ManagedDelete() {
@@ -451,7 +469,12 @@ void MvpnManager::FreePartitions() {
 
 // MvpnManager can be deleted only after all associated DB States are cleared.
 bool MvpnManager::MayDelete() const {
-    return !db_states_count_;
+    if (!db_states_count_)
+        return true;
+    MVPN_LOG(MvpnManagerDelete,
+             "MvpnManager::MayDelete() paused due to pending " +
+             integerToString(db_states_count_) + " MvpnDBStates");
+    return false;
 }
 
 // Set DB State and update count.
@@ -564,17 +587,16 @@ void MvpnManagerPartition::NotifyForestNode(
 }
 
 bool MvpnProjectManagerPartition::GetForestNodePMSI(ErmVpnRoute *rt,
-        uint32_t *label, Ip4Address *address, vector<string> *encap) const {
+        uint32_t *label, Ip4Address *address, vector<string> *enc) const {
     if (!table()->tree_manager())
         return false;
-    return table()->tree_manager()->GetForestNodePMSI(rt, label, address,
-                                                      encap);
+    return table()->tree_manager()->GetForestNodePMSI(rt, label, address, enc);
 }
 
 bool MvpnManagerPartition::GetForestNodePMSI(ErmVpnRoute *rt, uint32_t *label,
         Ip4Address *address, vector<string> *encap) const {
     const MvpnProjectManagerPartition *pm = GetProjectManagerPartition();
-    return pm ?  pm->GetForestNodePMSI(rt, label, address, encap) : false;
+    return pm ? pm->GetForestNodePMSI(rt, label, address, encap) : false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -596,6 +618,8 @@ void MvpnManager::Initialize() {
         table_->server()->RegisterIdentifierUpdateCallback(boost::bind(
             &MvpnManager::ReOriginateType1Route, this, _1));
     OriginateType1Route();
+
+    MVPN_LOG(MvpnManagerCreate, "Initialized MvpnManager");
 }
 
 void MvpnManager::ReOriginateType1Route(const Ip4Address &old_identifier) {
@@ -689,6 +713,9 @@ void MvpnManager::ProcessType1ADRoute(MvpnRoute *route) {
         if (!found)
             return;
         tbb::reader_writer_lock::scoped_lock lock(neighbors_mutex_);
+        MVPN_LOG(MvpnNeighborDelete, old_neighbor.rd().ToString(),
+                 old_neighbor.originator().to_string(),
+                 old_neighbor.source_as());
         neighbors_.erase(rd);
         return;
     }
@@ -708,6 +735,8 @@ void MvpnManager::ProcessType1ADRoute(MvpnRoute *route) {
     if (found)
         neighbors_.erase(rd);
     neighbors_.insert(make_pair(rd, neighbor));
+    MVPN_LOG(MvpnNeighborCreate, neighbor.rd().ToString(),
+             neighbor.originator().to_string(), neighbor.source_as());
 }
 
 // Check whether an ErmVpnRoute is locally originated GlobalTreeRoute.
@@ -760,6 +789,8 @@ void MvpnProjectManagerPartition::RouteListener(DBEntryBase *db_entry) {
             route->Notify();
         }
         ermvpn_route->ClearState(table(), listener_id());
+        MVPN_ERMVPN_RT_LOG(ermvpn_route,
+                           "Processed MVPN GlobalErmVpnRoute deletion");
         delete mvpn_dbstate;
         return;
     }
@@ -782,6 +813,9 @@ void MvpnProjectManagerPartition::RouteListener(DBEntryBase *db_entry) {
     BOOST_FOREACH(MvpnRoute *route, mvpn_state->spmsi_routes_received()) {
         route->Notify();
     }
+
+    MVPN_ERMVPN_RT_LOG(ermvpn_route,
+                       "Processed MVPN GlobalErmVpnRoute creation");
 }
 
 // Process change to MVPN Type-5 SourceActive route.
@@ -810,6 +844,7 @@ void MvpnManagerPartition::ProcessType5SourceActiveRoute(MvpnRoute *rt) {
         if (spmsi_rt)
             spmsi_rt->NotifyOrDelete();
         manager_->ClearDBState(rt);
+        MVPN_RT_LOG(rt, "Processed MVPN Source Active route deletion");
         delete mvpn_dbstate;
         return;
     }
@@ -843,6 +878,7 @@ void MvpnManagerPartition::ProcessType5SourceActiveRoute(MvpnRoute *rt) {
             mvpn_dbstate->set_route(NULL);
             BgpPath *path = spmsi_rt->FindPath(BgpPath::Local, 0);
             if (path) {
+                MVPN_RT_LOG(spmsi_rt, "Deleted already originated SPMSI path");
                 spmsi_rt->DeletePath(path);
                 spmsi_rt->NotifyOrDelete();
             }
@@ -872,6 +908,7 @@ void MvpnManagerPartition::ProcessType5SourceActiveRoute(MvpnRoute *rt) {
                                     rt->BestPath()->GetAttr(), 0, 0, 0);
     spmsi_rt->InsertPath(new_path);
     spmsi_rt->Notify();
+    MVPN_RT_LOG(rt, "Processed MVPN Source Active route creation");
 }
 
 void MvpnManagerPartition::ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt) {
@@ -890,6 +927,7 @@ void MvpnManagerPartition::ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt) {
         if (mvpn_dbstate->state()->source_active_rt())
             mvpn_dbstate->state()->source_active_rt()->Notify();
         manager_->ClearDBState(join_rt);
+        MVPN_RT_LOG(join_rt, "Processed Type 7 Join route deletion");
         delete mvpn_dbstate;
         return;
     }
@@ -906,8 +944,13 @@ void MvpnManagerPartition::ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt) {
 
     // A join has been received or updated at the sender. Re-evaluate the
     // type5 source active, if one such route is present.
-    if (state->source_active_rt())
+    if (state->source_active_rt()) {
         state->source_active_rt()->Notify();
+        MVPN_RT_LOG(join_rt, "Processed Type 7 Join route creation and "
+                    "notified Source Active route");
+    } else {
+        MVPN_RT_LOG(join_rt, "Processed Type 7 Join route creation");
+    }
 }
 
 void MvpnManagerPartition::ProcessType4LeafADRoute(MvpnRoute *leaf_ad) {
@@ -924,8 +967,13 @@ void MvpnManagerPartition::ProcessType4LeafADRoute(MvpnRoute *leaf_ad) {
 
         // Re-evaluate type5 route as secondary type4 leafad route is deleted.
         // olist needs to be updated and sent to the sender route agent.
-        if (sa_active_rt && sa_active_rt->IsUsable())
+        if (sa_active_rt && sa_active_rt->IsUsable()) {
             sa_active_rt->Notify();
+            MVPN_RT_LOG(leaf_ad, "Processed Type 4 LeafAD route deletion"
+                                 " and notified type5 source active route");
+        } else {
+            MVPN_RT_LOG(leaf_ad, "Processed Type 4 LeafAD route deletion");
+        }
         manager_->ClearDBState(leaf_ad);
         delete mvpn_dbstate;
         return;
@@ -956,8 +1004,13 @@ void MvpnManagerPartition::ProcessType4LeafADRoute(MvpnRoute *leaf_ad) {
 
     // Update the sender source-active route to update the olist.
     MvpnRoute *sa_active_rt = mvpn_dbstate->state()->source_active_rt();
-    if (sa_active_rt && sa_active_rt->IsUsable())
+    if (sa_active_rt && sa_active_rt->IsUsable()) {
         sa_active_rt->Notify();
+        MVPN_RT_LOG(sa_active_rt, "Processed Type 4 Leaf AD route creation"
+                    " and Type-5 source active route was notified");
+    } else {
+        MVPN_RT_LOG(sa_active_rt, "Processed Type 4 Leaf AD route creation");
+    }
 }
 
 // Process changes to Type3 S-PMSI routes by originating or deleting Type4 Leaf
@@ -996,6 +1049,10 @@ void MvpnManagerPartition::ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt) {
             // address if advertised before.
             NotifyForestNode(spmsi_rt->GetPrefix().source(),
                              spmsi_rt->GetPrefix().group());
+            MVPN_RT_LOG(spmsi_rt, "Processed Type 3 S-PMSI route deletion"
+                        " and notified local ForestNode");
+        } else {
+            MVPN_RT_LOG(spmsi_rt, "Processed Type 3 S-PMSI route deletion");
         }
         return;
     }
@@ -1037,6 +1094,8 @@ void MvpnManagerPartition::ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt) {
             leaf_ad_route->NotifyOrDelete();
             NotifyForestNode(spmsi_rt->GetPrefix().source(),
                              spmsi_rt->GetPrefix().group());
+            MVPN_RT_LOG(spmsi_rt, "Processed Type 3 S-PMSI route as deletion"
+                        " and notified local ForestNode due to missing PMSI");
         }
         return;
     }
@@ -1093,6 +1152,7 @@ void MvpnManagerPartition::ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt) {
     leaf_ad_route->NotifyOrDelete();
     NotifyForestNode(spmsi_rt->GetPrefix().source(),
                      spmsi_rt->GetPrefix().group());
+    MVPN_RT_LOG(spmsi_rt, "Processed Type 3 S-PMSI route creation");
 }
 
 void MvpnManager::UpdateSecondaryTablesForReplication(MvpnRoute *mvpn_rt,
@@ -1120,12 +1180,14 @@ void MvpnManager::UpdateSecondaryTablesForReplication(MvpnRoute *mvpn_rt,
     // route. This was originated as the 'Sender' since receiver joined to
     // the <C-S,G> group.
     secondary_tables->insert(table);
+    MVPN_RT_LOG(mvpn_rt, "Updated tables for replication with table " +
+                table->name());
 }
 
 // Return source_address of the type-3 s-pmsi route used for rpf check in the
 // forest node.
 void MvpnProjectManager::GetMvpnSourceAddress(ErmVpnRoute *ermvpn_route,
-                                              Ip4Address *address) const {
+                                              Ip4Address *addrp) const {
     // Bail if project manager is deleted.
     if (deleter_->IsDeleted())
         return;
@@ -1146,8 +1208,10 @@ void MvpnProjectManager::GetMvpnSourceAddress(ErmVpnRoute *ermvpn_route,
         return;
 
     // Use mvpn type3 spmsi route originator address as the source address.
-    *address =
-        (*(state->spmsi_routes_received().begin()))->GetPrefix().originator();
+    *addrp = (*(state->spmsi_routes_received().begin()))->
+                GetPrefix().originator();
+    MVPN_ERMVPN_RT_LOG(ermvpn_route, "Found Source Address for RPF Check " +
+                       addrp->to_string());
 }
 
 UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
@@ -1176,6 +1240,7 @@ UpdateInfo *MvpnProjectManager::GetUpdateInfo(MvpnRoute *route) {
         BgpOListElem elem(pmsi->identifier(), label,
             extcomm ? extcomm->GetTunnelEncap() : vector<string>());
         olist_spec.elements.push_back(elem);
+        MVPN_RT_LOG(route, "Encoded olist " + pmsi->pmsi_tunnel().ToString());
     }
 
     if (olist_spec.elements.empty())

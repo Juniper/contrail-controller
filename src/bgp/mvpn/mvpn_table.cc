@@ -12,6 +12,7 @@
 #include "bgp/extended-community/source_as.h"
 #include "bgp/ipeer.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_mvpn.h"
 #include "bgp/bgp_server.h"
@@ -20,6 +21,8 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/routing_instance_analytics_types.h"
+#include "bgp/routing-instance/routing_instance_log.h"
 
 using std::auto_ptr;
 using std::pair;
@@ -399,7 +402,6 @@ BgpRoute *MvpnTable::RouteReplicate(BgpServer *server, BgpTable *stable,
                     !mvpn_state->spmsi_rt()->IsUsable()) {
                 return NULL;
             }
-
             if (mvpn_state->spmsi_rt()->table() != this)
                 return NULL;
         }
@@ -431,8 +433,11 @@ BgpRoute *MvpnTable::ReplicateType7SourceTreeJoin(BgpServer *server,
             }
         }
 
-        if (!vit_found)
+        if (!vit_found) {
+            MVPN_RT_LOG(src_rt, "Route was not replicated as rt-import "
+                        "extended-community was not found");
             return NULL;
+        }
     }
 
     // If replicating from Master table, no special checks are required.
@@ -454,8 +459,10 @@ BgpRoute *MvpnTable::ReplicateType7SourceTreeJoin(BgpServer *server,
         return NULL;
 
     // Do not resplicate if the source is not resolvable.
-    if (attr->source_rd().IsZero())
+    if (attr->source_rd().IsZero()) {
+        MVPN_RT_LOG(src_rt, "Route was not replicated as source_rd is zero");
         return NULL;
+    }
 
     // Find source-as extended-community. If not present, do not replicate
     bool source_as_found = false;
@@ -469,8 +476,10 @@ BgpRoute *MvpnTable::ReplicateType7SourceTreeJoin(BgpServer *server,
         }
     }
 
-    if (!source_as_found)
+    if (!source_as_found) {
+        MVPN_RT_LOG(src_rt, "Route was not replicated as source_as is zero");
         return NULL;
+    }
 
     // No need to send SourceAS with this mvpn route. This is only sent along
     // with the unicast routes.
@@ -511,11 +520,11 @@ BgpRoute *MvpnTable::ReplicatePath(BgpServer *server, const MvpnPrefix &mprefix,
     if (src_rt->GetPrefix().type() == MvpnPrefix::LeafADRoute) {
         ExtCommunity::ExtCommunityList rtarget;
         Ip4Address ip = src_rt->GetPrefix().GetType3OriginatorFromType4Route();
-        RouteTarget rt(ip, 0);
+        RouteTarget leaf_ad_rtarget(ip, 0);
         BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &value,
                       comm->communities()) {
             if (ExtCommunity::is_route_target(value)) {
-                if (rt == RouteTarget(value)) {
+                if (leaf_ad_rtarget == RouteTarget(value)) {
                     rtarget.push_back(value);
                     break;
                 }
@@ -527,6 +536,9 @@ BgpRoute *MvpnTable::ReplicatePath(BgpServer *server, const MvpnPrefix &mprefix,
                 ReplaceRTargetAndLocate(new_attr->ext_community(), rtarget);
             new_attr = server->attr_db()->ReplaceExtCommunityAndLocate(
                 src_path->GetAttr(), ext_community.get());
+        } else {
+            MVPN_RT_LOG(src_rt,
+                        "Could not find <originator>:0 route-target community");
         }
     }
 
@@ -554,7 +566,7 @@ BgpRoute *MvpnTable::ReplicatePath(BgpServer *server, const MvpnPrefix &mprefix,
     replicated_path->SetReplicateInfo(src_table, src_rt);
     dest_route->InsertPath(replicated_path);
     rtp->Notify(dest_route);
-
+    MVPN_RT_LOG(src_rt, "Route was successfully replicated");
     return dest_route;
 }
 
@@ -572,8 +584,11 @@ bool MvpnTable::Export(RibOut *ribout, Route *route,
     BgpRoute *bgp_route = static_cast<BgpRoute *> (route);
 
     UpdateInfo *uinfo = GetUpdateInfo(ribout, bgp_route, peerset);
-    if (!uinfo)
+    if (!uinfo) {
+        MVPN_RT_LOG(mvpn_route, "Route was exported as update_info could not "
+                    "be computed");
         return false;
+    }
     uinfo_slist->push_front(*uinfo);
     return true;
 }
@@ -590,8 +605,11 @@ UpdateInfo *MvpnTable::GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
         return NULL;
 
     MvpnProjectManager *pm = GetProjectManager();
-    if (!pm)
+    if (!pm) {
+        MVPN_RT_LOG(route, "Route was exported as ProjectManager was "
+                    "not found");
         return NULL;
+    }
 
     RibPeerSet new_peerset;
     RibOut::PeerIterator iter(ribout, peerset);
