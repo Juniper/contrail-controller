@@ -1358,6 +1358,34 @@ class VirtualNetworkST(DBBaseST):
                         acl_list.append(acl)
                 # end for rule
 
+                # Add provider-network to any vn deny
+                if self.obj.get_is_provider_network():
+                    provider_to_any_acl = self.add_acl_rule(
+                        AddressType(virtual_network=self.name),
+                        PortType(),
+                        AddressType(virtual_network="any"),
+                        PortType(),
+                        "any",
+                        RULE_IMPLICIT_DENY_UUID,
+                        ActionListType("deny"),
+                        '<>')
+                    acl_list.append(provider_to_any_acl)
+                else:
+                    linked_vns = self.obj.get_virtual_network_refs() or []
+                    for linked_vn in linked_vns:
+                        provider_vn = ':'.join(linked_vn['to'])
+                        # add this vn to provider-network deny
+                        this_vn_to_provider_acl = self.add_acl_rule(
+                            AddressType(virtual_network=self.name),
+                            PortType(),
+                            AddressType(virtual_network=provider_vn),
+                            PortType(),
+                            "any",
+                            RULE_IMPLICIT_DENY_UUID,
+                            ActionListType("deny"),
+                            '<>')
+                        acl_list.append(this_vn_to_provider_acl)
+
                 # Create any-vn to any-vn allow
                 match = MatchConditionType(
                     "any", AddressType(virtual_network="any"), PortType(),
