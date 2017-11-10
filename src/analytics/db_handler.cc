@@ -486,7 +486,13 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
-void DbHandler::UnInit() {
+void DbHandler::UnInit(bool success) {
+    if (!success) {
+        if (!dbif_->Db_DropTablespace()) {
+            DB_LOG(ERROR, "Drop Keyspace failed");
+            VIZD_ASSERT(0);
+        }
+    }
     dbif_->Db_Uninit();
     dbif_->Db_SetInitDone(false);
 }
@@ -2417,6 +2423,6 @@ void DbHandlerInitializer::StartInitTimer() {
 }
 
 void DbHandlerInitializer::ScheduleInit() {
-    db_handler_->UnInit();
+    db_handler_->UnInit(false);
     StartInitTimer();
 }
