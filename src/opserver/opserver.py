@@ -441,6 +441,7 @@ class OpServer(object):
                             headers = self._reject_auth_headers())
                     else:
                         bottle.request.is_role_cloud_admin = is_cloud_admin
+                        bottle.request.user_token = user_token
                         bottle.request.user_token_info = user_token_info
                         if only_cloud_admin and not is_cloud_admin:
                             raise bottle.HTTPResponse(status = 401,
@@ -470,6 +471,12 @@ class OpServer(object):
         return None
     # end get_user_token_info
 
+    def get_user_token(self):
+        if self._args.auth_conf_info.get('aaa_auth_enabled') and \
+                bottle.request.app == bottle.app():
+            return bottle.request.user_token
+    # end get_user_token
+
     """
     returns the list of resources for which user has permissions
     returns None if user is cloud-admin or if mode is no-auth
@@ -493,7 +500,7 @@ class OpServer(object):
         if self._args.aaa_mode == AAA_MODE_RBAC and \
                 bottle.request.app == bottle.app():
             res_list = self._vnc_api_client.get_resource_list(obj_type,\
-                    user_token)
+                    self.get_user_token())
             if res_list is None:
                 return None
             user_accessible_resources = set()
