@@ -120,7 +120,7 @@ public:
             TtlType::type type);
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial);
-    void UnInit();
+    void UnInit(bool success = true);
     void GetRuleMap(RuleMap& rulemap);
 
     virtual void MessageTableInsert(const VizMsg *vmsgp,
@@ -287,6 +287,8 @@ private:
     WaterMarkTuple disk_usage_percentage_watermark_tuple_;
     WaterMarkTuple pending_compaction_tasks_watermark_tuple_;
     SessionTableDbStats session_table_db_stats_;
+    bool cassandra_absent_;
+    bool cassandra_connected_;
 
     friend class DbHandlerTest;
     friend class DbHandlerMsgKeywordInsertTest;

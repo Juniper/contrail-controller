@@ -288,6 +288,9 @@ class CqlIfImpl {
     bool DisconnectSync();
     bool DisconnectSchemaSync();
 
+    bool DropKeyspace(CassConsistency consistency);
+    void SetRequestTimeout(uint32_t timeout_ms);
+
     bool GetMetrics(Metrics *metrics) const;
 
  private:

@@ -80,7 +80,10 @@ DbHandler::DbHandler(EventManager *evm,
     disable_messages_writes_(cassandra_options.disable_db_messages_writes_),
     disable_messages_keyword_writes_(cassandra_options.disable_db_messages_keyword_writes_),
     config_client_(config_client),
-    use_db_write_options_(use_db_write_options) {
+    use_db_write_options_(use_db_write_options),
+    cassandra_absent_(cassandra_options.cassandra_ports_.size() == 1 &&
+        cassandra_options.cassandra_ports_[0] == 0),
+    cassandra_connected_(false) {
     udc_.reset(new UserDefinedCounters());
     if (config_client) {
         config_client->RegisterConfigReceive("udc",
@@ -486,7 +489,15 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
-void DbHandler::UnInit() {
+void DbHandler::UnInit(bool success) {
+    // If Initialization is not successful and cassandra is present and not
+    // connected then only drop the keyspace
+    if (!success && !cassandra_absent_ && cassandra_connected_) {
+        if (!dbif_->Db_DropTablespace()) {
+            DB_LOG(ERROR, "Drop Keyspace failed");
+            VIZD_ASSERT(0);
+        }
+    }
     dbif_->Db_Uninit();
     dbif_->Db_SetInitDone(false);
 }
@@ -507,9 +518,11 @@ bool DbHandler::Initialize() {
     init_vizd_tables();
 
     if (!dbif_->Db_Init()) {
+        cassandra_connected_ = false;;
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
+    cassandra_connected_ = false;;
 
     if (!dbif_->Db_AddSetTablespace(tablespace_, "2")) {
         DB_LOG(ERROR, "Create/Set KEYSPACE: " << tablespace_ << " FAILED");
@@ -2417,6 +2430,6 @@ void DbHandlerInitializer::StartInitTimer() {
 }
 
 void DbHandlerInitializer::ScheduleInit() {
-    db_handler_->UnInit();
+    db_handler_->UnInit(false);
     StartInitTimer();
 }
