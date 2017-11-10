@@ -37,7 +37,7 @@ BgpAsAService::BgpAsAService(const Agent *agent) :
     agent_(agent),
     bgp_as_a_service_entry_map_(),
     bgp_as_a_service_port_map_(),
-    service_delete_cb_() {
+    service_delete_cb_list_() {
 }
 
 BgpAsAService::~BgpAsAService() {
@@ -237,7 +237,7 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
             new BgpAsAServiceList(new_bgp_as_a_service_entry_list);
     }
 
-    if (changed && !service_delete_cb_.empty()) {
+    if (changed && !service_delete_cb_list_.empty()) {
         //Enqueue flow handler request.
         BgpAsAServiceEntryListIterator deleted_list_iter =
             old_bgp_as_a_service_entry_list_iter->second->list_.begin();
@@ -245,7 +245,12 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
                old_bgp_as_a_service_entry_list_iter->second->list_.end()) {
             BgpAsAServiceEntryListIterator prev = deleted_list_iter++;
             if (prev->del_pending_) {
-                service_delete_cb_(vm_uuid, prev->source_port_);
+                std::vector<ServiceDeleteCb>::iterator scb_it =
+                    service_delete_cb_list_.begin();
+                while (scb_it != service_delete_cb_list_.end()) {
+                    (*scb_it)(vm_uuid, prev->source_port_);
+                    scb_it++;
+                }
                 if (prev->is_shared_) {
                     FreeBgpVmiServicePortIndex(prev->source_port_);
                 }
@@ -256,7 +261,7 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
 }
 
 void BgpAsAService::DeleteVmInterface(const boost::uuids::uuid &vm_uuid) {
-    if (service_delete_cb_.empty())
+    if (service_delete_cb_list_.empty())
         return;
 
     BgpAsAServiceEntryMapIterator iter =
@@ -267,7 +272,12 @@ void BgpAsAService::DeleteVmInterface(const boost::uuids::uuid &vm_uuid) {
     BgpAsAServiceEntryList list = iter->second->list_;
     BgpAsAServiceEntryListIterator list_iter = list.begin();
     while (list_iter != list.end()) {
-        service_delete_cb_(vm_uuid, (*list_iter).source_port_);
+        std::vector<ServiceDeleteCb>::iterator scb_it =
+            service_delete_cb_list_.begin();
+        while (scb_it != service_delete_cb_list_.end()) {
+            (*scb_it)(vm_uuid, (*list_iter).source_port_);
+            scb_it++;
+        }
         if ((*list_iter).is_shared_) {
             FreeBgpVmiServicePortIndex((*list_iter).source_port_);
         }
