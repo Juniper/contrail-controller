@@ -191,7 +191,7 @@ public:
         cassandra_options_.ttlmap_ = ttl_map;
         cassandra_options_.disable_all_db_writes_ = false;
         cassandra_options_.disable_db_messages_keyword_writes_ = true;
-        db_handler_.reset(new DbHandler(evm_.get(), boost::bind(&DbHandler::UnInit, db_handler_.get()),
+        db_handler_.reset(new DbHandler(evm_.get(), boost::bind(&DbHandler::UnInit, db_handler_.get(), true),
                                      "localhost",
                                      cassandra_options_,
                                      false,

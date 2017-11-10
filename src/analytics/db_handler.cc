@@ -80,7 +80,10 @@ DbHandler::DbHandler(EventManager *evm,
     disable_messages_writes_(cassandra_options.disable_db_messages_writes_),
     disable_messages_keyword_writes_(cassandra_options.disable_db_messages_keyword_writes_),
     config_client_(config_client),
-    use_db_write_options_(use_db_write_options) {
+    use_db_write_options_(use_db_write_options),
+    cassandra_absent_(cassandra_options.cassandra_ports_.size() == 1 &&
+        cassandra_options.cassandra_ports_[0] == 0),
+    cassandra_connected_(false) {
     udc_.reset(new UserDefinedCounters());
     if (config_client) {
         config_client->RegisterConfigReceive("udc",
@@ -142,6 +145,7 @@ DbHandler::DbHandler(EventManager *evm,
         SetPendingCompactionTasksDropLevel(0,
             db_write_options.get_low_watermark2_message_severity_level());
     }
+    session_table_db_stats_ = SessionTableDbStats();
 }
 
 
@@ -485,7 +489,15 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
-void DbHandler::UnInit() {
+void DbHandler::UnInit(bool success) {
+    // If Initialization is not successful and cassandra is present and not
+    // connected then only drop the keyspace
+    if (!success && !cassandra_absent_ && cassandra_connected_) {
+        if (!dbif_->Db_DropTablespace()) {
+            DB_LOG(ERROR, "Drop Keyspace failed");
+            VIZD_ASSERT(0);
+        }
+    }
     dbif_->Db_Uninit();
     dbif_->Db_SetInitDone(false);
 }
@@ -506,9 +518,11 @@ bool DbHandler::Initialize() {
     init_vizd_tables();
 
     if (!dbif_->Db_Init()) {
+        cassandra_connected_ = false;;
         DB_LOG(ERROR, "Connection to DB FAILED");
         return false;
     }
+    cassandra_connected_ = false;;
 
     if (!dbif_->Db_AddSetTablespace(tablespace_, "2")) {
         DB_LOG(ERROR, "Create/Set KEYSPACE: " << tablespace_ << " FAILED");
@@ -1754,11 +1768,6 @@ bool FlowLogDataObjectWalker<T>::for_each(pugi::xml_node& node) {
     return true;
 }
 
-uint64_t SessionTableDbStats::num_messages = 0;
-uint64_t SessionTableDbStats::num_writes = 0;
-uint64_t SessionTableDbStats::num_samples = 0;
-uint64_t SessionTableDbStats::curr_json_size = 0;
-
 SessionValueArray default_col_values = boost::assign::list_of
     (GenDb::DbDataValue((uint32_t)0))
     (GenDb::DbDataValue((uint8_t)0))
@@ -2081,10 +2090,10 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
             if (strcmp(agg_info.attribute("type").value(), "map") == 0) {
                 int16_t samples;
                 stringToInteger(agg_info.child("map").attribute("size").value(), samples);
-                SessionTableDbStats::num_samples += samples;
+                session_table_db_stats_.num_samples += samples;
                 std::string session_map;
                 JsonifySessionMap(agg_info.child("map"), &session_map);
-                SessionTableDbStats::curr_json_size += session_map.size(); 
+                session_table_db_stats_.curr_json_size += session_map.size(); 
                 session_entry_values[SessionRecordFields::SESSION_MAP]
                     = session_map;
                 continue;
@@ -2107,7 +2116,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
             db_insert_cb, ttl_map_)) {
                 DB_LOG(ERROR, "Populating SessionRecordTable FAILED");
         }
-        SessionTableDbStats::num_writes++;
+        session_table_db_stats_.num_writes++;
     }
 
     int ttl = DbHandler::GetTtlFromMap(ttl_map_, TtlType::FLOWDATA_TTL);
@@ -2122,7 +2131,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         boost::get<std::string>(session_entry_values[
             SessionRecordFields::SESSION_REMOTE_VN]), ttl, db_cb);
 
-    SessionTableDbStats::num_messages++;
+    session_table_db_stats_.num_messages++;
     return true;
 }
 
@@ -2217,26 +2226,26 @@ bool DbHandler::SessionTableInsert(const pugi::xml_node &parent,
     return true;
 }
 
-bool DbHandler::GetSessionTableDbInfo(SessionTableDbInfo *session_table_info) const {
+bool DbHandler::GetSessionTableDbInfo(SessionTableDbInfo *session_table_info) {
     {
         tbb::mutex::scoped_lock lock(smutex_);
-        if (SessionTableDbStats::num_messages == 0) {
+        if (session_table_db_stats_.num_messages == 0) {
             return true;
         }
-        double writes_per_message = (double)SessionTableDbStats::num_writes /
-                                        SessionTableDbStats::num_messages;
-        double session_per_db_write = (double)SessionTableDbStats::num_samples /
-                                        SessionTableDbStats::num_writes;
-        double json_size_per_write = (double)SessionTableDbStats::curr_json_size /
-                                        SessionTableDbStats::num_writes;
+        double writes_per_message = (double)session_table_db_stats_.num_writes /
+                                        session_table_db_stats_.num_messages;
+        double session_per_db_write = (double)session_table_db_stats_.num_samples /
+                                        session_table_db_stats_.num_writes;
+        double json_size_per_write = (double)session_table_db_stats_.curr_json_size /
+                                        session_table_db_stats_.num_writes;
         session_table_info->set_writes_per_message(writes_per_message);
         session_table_info->set_sessions_per_db_record(session_per_db_write);
         session_table_info->set_json_size_per_write(json_size_per_write);
-        session_table_info->set_num_messages(SessionTableDbStats::num_messages);
-        SessionTableDbStats::num_writes = 0;
-        SessionTableDbStats::num_samples = 0;
-        SessionTableDbStats::num_messages = 0;
-        SessionTableDbStats::curr_json_size = 0;
+        session_table_info->set_num_messages(session_table_db_stats_.num_messages);
+        session_table_db_stats_.num_writes = 0;
+        session_table_db_stats_.num_samples = 0;
+        session_table_db_stats_.num_messages = 0;
+        session_table_db_stats_.curr_json_size = 0;
     }
     return true;
 }
@@ -2421,6 +2430,6 @@ void DbHandlerInitializer::StartInitTimer() {
 }
 
 void DbHandlerInitializer::ScheduleInit() {
-    db_handler_->UnInit();
+    db_handler_->UnInit(false);
     StartInitTimer();
 }
