@@ -133,7 +133,7 @@ public:
     const BgpAsAService::BgpAsAServiceEntryMap &bgp_as_a_service_map() const;
     const BgpAsAService::BgpAsAServicePortMap &bgp_as_a_service_port_map() const;
     void RegisterServiceDeleteCb(ServiceDeleteCb callback) {
-        service_delete_cb_ = callback;
+        service_delete_cb_list_.push_back(callback);
     }
 
     bool IsConfigured() {
@@ -155,7 +155,7 @@ private:
     const Agent *agent_;
     BgpAsAServiceEntryMap bgp_as_a_service_entry_map_;
     BgpAsAServicePortMap  bgp_as_a_service_port_map_;
-    ServiceDeleteCb service_delete_cb_;
+    std::vector<ServiceDeleteCb> service_delete_cb_list_;
     DISALLOW_COPY_AND_ASSIGN(BgpAsAService);
 };
 #endif
