@@ -36,6 +36,8 @@ class CassLibrary {
         CassCluster* cluster, unsigned num_bytes) = 0;
     virtual void CassClusterSetWhitelistFiltering(CassCluster* cluster,
         const char* hosts) = 0;
+    virtual void CassClusterSetRequestTimeout(CassCluster* cluster,
+        unsigned timeout_ms) = 0;
 
     // CassSession
     virtual CassSession* CassSessionNew() = 0;
@@ -190,6 +192,8 @@ class CassDatastaxLibrary : public CassLibrary {
         CassCluster* cluster, unsigned num_bytes);
     virtual void CassClusterSetWhitelistFiltering(CassCluster* cluster,
         const char* hosts);
+    virtual void CassClusterSetRequestTimeout(CassCluster* cluster,
+        unsigned timeout_ms);
 
     // CassSession
     virtual CassSession* CassSessionNew();
