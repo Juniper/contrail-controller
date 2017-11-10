@@ -73,8 +73,8 @@ nodeinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh
 redis_pkg = OpEnv.SandeshGenPy('#controller/src/analytics/redis.sandesh', 'opserver/sandesh/', False)
 analytics_database_pkg = OpEnv.SandeshGenPy('analytics_database.sandesh', 'opserver/sandesh/', False)
 alarmgen_pkg = OpEnv.SandeshGenPy('alarmgen_ctrl.sandesh', 'opserver/sandesh/', False)
-alarm_sandesh_base_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', 'opserver/sandesh/alarmgen_ctrl/', False)
-derived_stats_pkg = OpEnv.SandeshGenPy('#tools/sandesh/library/common/derived_stats_results.sandesh', 'opserver/sandesh/analytics/', False)
+alarm_sandesh_base_pkg = OpEnv.SandeshGenPy('#src/contrail-common/sandesh/library/common/sandesh_alarm_base.sandesh', 'opserver/sandesh/alarmgen_ctrl/', False)
+derived_stats_pkg = OpEnv.SandeshGenPy('#src/contrail-common/sandesh/library/common/derived_stats_results.sandesh', 'opserver/sandesh/analytics/', False)
 database_pkg = OpEnv.SandeshGenPy('#controller/src/database/gendb.sandesh', 'opserver/sandesh/viz/', False)
 analytics_api_info_pkg = OpEnv.SandeshGenPy('analytics_api_info.sandesh', 'opserver/sandesh/', False)
 OpEnv.Depends(alarm_sandesh_base_pkg, alarmgen_pkg)
@@ -104,7 +104,7 @@ alarmgen_doc_files = []
 alarmgen_doc_files += OpEnv['BASE_DOC_FILES']
 alarmgen_doc_files += OpEnv['ANALYTICS_DOC_FILES']
 alarmgen_doc_files += OpEnv.SandeshGenDoc('alarmgen_ctrl.sandesh')
-alarmgen_doc_files += OpEnv.SandeshGenDoc('#tools/sandesh/library/common/sandesh_alarm_base.sandesh', OpEnv['TOP'] + '/opserver/')
+alarmgen_doc_files += OpEnv.SandeshGenDoc('#src/contrail-common/sandesh/library/common/sandesh_alarm_base.sandesh', OpEnv['TOP'] + '/opserver/')
 
 if 'install' in BUILD_TARGETS:
     install_cmd = OpEnv.Command(None,
