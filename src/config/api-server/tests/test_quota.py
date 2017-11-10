@@ -222,9 +222,41 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is not incremented
         self.assertEqual(sgr_quota_counter.value, 4)
 
-        #for sg_rule in sg_rules:
-        #    self._security_group_rule_remove(sg_obj, sg_rule)
-        logger.info("Test#4: Update sg with one rule to reach quota limit.")
+        logger.info("Test#4: Error during SG update with rule.")
+        api_server = self._server_info['api_server']
+        orig_dbe_update = api_server._db_conn.dbe_update
+        try:
+            def err_dbe_update(*args, **kwargs):
+                return False, (501, "Fake Not Implemented")
+            api_server._db_conn.dbe_update = err_dbe_update
+            # Read the latest sb obj
+            sg_obj = self._vnc_lib.security_group_read(
+                    ["default-domain", "default-project", sg_name])
+            port = self.global_quotas['security_group_rule']
+            rule = {'port_min': port,
+                    'port_max': port,
+                    'direction': 'egress',
+                    'ip_prefix': None,
+                    'protocol': 'any',
+                    'ether_type': 'IPv4'}
+            last_sg_rule = self._security_group_rule_build(
+                    rule, "default-domain:default-project:%s" % sg_name)
+            self._security_group_rule_append(sg_obj, last_sg_rule)
+            self._vnc_lib.security_group_update(sg_obj)
+        except Exception as e:
+            # Make sure expected fake return code is received
+            self.assertEqual(e.status_code, 501)
+        finally:
+            api_server._db_conn.dbe_update = orig_dbe_update
+        # make sure expected number of rules are present
+        new_sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", sg_name])
+        self.assertEqual(3,
+                len(new_sg_obj.get_security_group_entries().get_policy_rule()))
+        # make sure sgr quota counter is unchanged
+        self.assertEqual(sgr_quota_counter.value, 4)
+
+        logger.info("Test#5: Update sg with one rule to reach quota limit.")
         # Read the latest sb obj
         sg_obj = self._vnc_lib.security_group_read(
                 ["default-domain", "default-project", sg_name])
@@ -247,7 +279,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is incremented
         self.assertEqual(sgr_quota_counter.value, 5)
 
-        logger.info("Test#5: Try updating sg with one rule more than quota limit.")
+        logger.info("Test#6: Try updating sg with one rule more than quota limit.")
         with ExpectedException(OverQuota) as e:
             port = self.global_quotas['security_group_rule'] + 1
             rule = {'port_min': port,
@@ -263,7 +295,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is not incremented
         self.assertEqual(sgr_quota_counter.value, 5)
 
-        logger.info("Test#6: Creating one more security group object with rule entries.")
+        logger.info("Test#7: Creating one more security group object with rule entries.")
         new_sg_name = '%s-one_more_sg' % self.id()
         new_sg_obj = SecurityGroup(new_sg_name)
         with ExpectedException(OverQuota) as e:
@@ -295,7 +327,27 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is decremented
         self.assertEqual(sgr_quota_counter.value, 4)
 
-        logger.info("Test#8: Create new SG with one rule.")
+        logger.info("Test#8: Error during SG create with rule.")
+        api_server = self._server_info['api_server']
+        orig_dbe_create = api_server._db_conn.dbe_create
+        try:
+            def err_dbe_create(*args, **kwargs):
+                return False, (501, "Fake Not Implemented")
+            api_server._db_conn.dbe_create = err_dbe_create
+            self._vnc_lib.security_group_create(new_sg_obj)
+        except Exception as e:
+            # Make sure expected fake return code is received
+            self.assertEqual(e.status_code, 501)
+        finally:
+            api_server._db_conn.dbe_create = orig_dbe_create
+        # make sure SG is not created
+        with ExpectedException(NoIdError) as e:
+            self._vnc_lib.security_group_read(
+                    ["default-domain", "default-project", new_sg_name])
+        # make sure sgr quota counter is unchanged
+        self.assertEqual(sgr_quota_counter.value, 4)
+
+        logger.info("Test9: Create new SG with one rule.")
         self._vnc_lib.security_group_create(new_sg_obj)
         # make sure expected number of rules are present
         new_sg_obj = self._vnc_lib.security_group_read(
@@ -305,6 +357,25 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is incremented
         self.assertEqual(sgr_quota_counter.value, 5)
 
-
-
+        logger.info("Test#10: Error during SG delete with rule.")
+        api_server = self._server_info['api_server']
+        orig_dbe_delete = api_server._db_conn.dbe_delete
+        try:
+            def err_dbe_delete(*args, **kwargs):
+                return False, (501, "Fake Not Implemented")
+            api_server._db_conn.dbe_delete = err_dbe_delete
+            self._vnc_lib.security_group_delete(
+                     ["default-domain", "default-project", new_sg_name])
+        except Exception as e:
+            # Make sure expected fake return code is received
+            self.assertEqual(e.status_code, 501)
+        finally:
+            api_server._db_conn.dbe_delete = orig_dbe_delete
+        # make sure expected number of rules are present
+        new_sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", new_sg_name])
+        self.assertEqual(1,
+                len(new_sg_obj.get_security_group_entries().get_policy_rule()))
+        # make sure sgr quota counter is unchanged
+        self.assertEqual(sgr_quota_counter.value, 5)
     #end TestGlobalQuota
