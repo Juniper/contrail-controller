@@ -382,7 +382,8 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                 ("virtual-machine-interface-security-logging-object")
                 ("project-virtual-machine-interface")
                 ("port-tuple-interface")
-                ("virtual-machine-interface-tag"))
+                ("virtual-machine-interface-tag")
+                ("virtual-machine-interface-bgp-router"))
         ("virtual-machine-interface-bridge-domain",
          list_of("virtual-machine-interface-bridge-domain"))
         ("security-group", list_of("security-group-access-control-list"))
