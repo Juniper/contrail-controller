@@ -703,6 +703,12 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateInterfaceFwPolicyStats
             UpdateCounters(info, entry.get());
             return;
         } else {
+            /* Ignore delete counter increment request when the entry itself is
+             * absent
+             */
+            if (!info.added_) {
+                return;
+            }
             UpdateCounters(info, ep_key.get());
             remote_ep_list.insert(ep_key);
         }
