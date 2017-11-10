@@ -797,10 +797,15 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             else:
                 return True, False
 
-        vrouter_fq_name = ['default-global-system-config',host_id]
+        if '.' in host_id: 
+            vrouter_fq_name = ['default-global-system-config',host_id.split('.')[0]]
+        else:
+            vrouter_fq_name = ['default-global-system-config',host_id]
         try:
             vrouter_id = db_conn.fq_name_to_uuid('virtual_router', vrouter_fq_name)
         except cfgm_common.exceptions.NoIdError:
+            msg = 'Internal error : Physical router ' + \
+                   ":".join(vrouter_fq_name) + ' not found'
             return (False, (400, msg))
 
         (ok, result) = cls.dbe_read(db_conn, 'virtual_router', vrouter_id)
