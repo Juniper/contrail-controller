@@ -36,12 +36,6 @@ class Qfx10kConf(QfxConf):
         return evpn
     # end build_evpn_config
 
-    def is_l2_supported(self, vn):
-        if self.is_spine():
-            return False
-        return True
-    # end is_l2_supported
-
     def is_l3_supported(self, vn):
         if self.is_spine() and '_lr_internal_vn_' in vn.name:
             return True
@@ -50,11 +44,8 @@ class Qfx10kConf(QfxConf):
 
     def add_dynamic_tunnels(self, tunnel_source_ip,
                              ip_fabric_nets, bgp_router_ips):
-        if self.is_spine():
-            super(Qfx10kConf, self).add_dynamic_tunnels(tunnel_source_ip,
-                                              ip_fabric_nets,bgp_router_ips)
+        pass
     # end add_dynamic_tunnels
-
 
     def add_ibgp_export_policy(self, params, bgp_group):
         if self.is_spine():
