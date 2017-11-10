@@ -156,10 +156,18 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         }
 
         if (session_class_selected) {
+            if (select_column_fields.empty()) {
+                QE_INVALIDARG_ERROR(false &&
+                    "session_class_id is not supposed to be queried alone");
+            }
             select_column_fields.push_back("CLASS(" +
                                            select_column_fields[0] + ")");
         }
         if (session_count_selected) {
+            if (select_column_fields.empty()) {
+                QE_INVALIDARG_ERROR(false &&
+                    "sample_count is not supposed to be queried alone");
+            }
             select_column_fields.push_back("COUNT(" +
                                            select_column_fields[0] + ")");
         }
