@@ -34,8 +34,8 @@ for file in setup_sources:
 
 # Generate the sandesh UVE source files
 control_node_pkg  = env.SandeshGenPy('sandesh/control_node.sandesh', 'control_node/', False)
-cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'control_node/control_node/', False)
-process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'control_node/control_node/', False)
+cpuinfo_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/cpuinfo.sandesh', 'control_node/control_node/', False)
+process_info_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/process_info.sandesh', 'control_node/control_node/', False)
 ifmap_pkg = env.SandeshGenPy('#controller/src/ifmap/ifmap_server_show.sandesh', 'control_node/control_node/', False)
 env.Depends(ifmap_pkg, control_node_pkg)
 env.Depends(cpuinfo_pkg, control_node_pkg)

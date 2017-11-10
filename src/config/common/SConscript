@@ -81,9 +81,9 @@ pkg = [env.SandeshGenPy('#controller/src/config/uve/service_instance.sandesh', '
 ]
 
 # Generate the sandesh cpuinfo from base
-nodeinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'cfgm_common/uve/', False)
-cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/nodeinfo/', False)
-process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'cfgm_common/uve/nodeinfo/', False)
+nodeinfo_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/nodeinfo.sandesh', 'cfgm_common/uve/', False)
+cpuinfo_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/cpuinfo.sandesh', 'cfgm_common/uve/nodeinfo/', False)
+process_info_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/process_info.sandesh', 'cfgm_common/uve/nodeinfo/', False)
 env.Depends(nodeinfo_pkg, pkg)
 env.Depends(cpuinfo_pkg, pkg)
 env.Depends(process_info_pkg, pkg)

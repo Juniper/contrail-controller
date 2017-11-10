@@ -26,9 +26,9 @@ for file in local_sources:
     local_sources_rules.append(DatabaseEnv.Install("database", file))
 
 database_pkg = DatabaseEnv.SandeshGenPy('#controller/src/analytics/database/database.sandesh', 'database/sandesh/', False)
-cpuinfo_pkg  = DatabaseEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'database/sandesh/database/', False)
+cpuinfo_pkg  = DatabaseEnv.SandeshGenPy('#src/contrail-common/base/sandesh/cpuinfo.sandesh', 'database/sandesh/database/', False)
 DatabaseEnv.Depends(cpuinfo_pkg, database_pkg)
-process_info_pkg = DatabaseEnv.SandeshGenPy('#/controller/src/base/sandesh/process_info.sandesh', 'database/sandesh/database/', False)
+process_info_pkg = DatabaseEnv.SandeshGenPy('#src/contrail-common/base/sandesh/process_info.sandesh', 'database/sandesh/database/', False)
 DatabaseEnv.Depends(process_info_pkg, database_pkg)
 
 sdist_depends = [setup_sources_rules, local_sources_rules, database_pkg, cpuinfo_pkg, process_info_pkg]

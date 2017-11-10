@@ -64,7 +64,6 @@ test_vhost_vmi = AgentEnv.MakeTestCmd(env, 'test_vhost_vmi', oper_test_suite)
 test_vrouter = AgentEnv.MakeTestCmd(env, 'test_vrouter', oper_test_suite)
 
 env.Append(LIBPATH = [
-        '../../../../base/test',
         '../../../../db/test',
         '../../../../ifmap/test',
 ])

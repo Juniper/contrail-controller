@@ -8,10 +8,7 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 
-env.Append(LIBPATH = ['#/' + Dir('..').path,
-                      '../../base',
-		      '../../io',
-		      ])
+env.Append(LIBPATH = ['#/' + Dir('..').path,])
 
 env.Prepend(LIBS = ['base', 'gunit', 'pugixml'])
 env.Prepend(LIBS = ['xml'])

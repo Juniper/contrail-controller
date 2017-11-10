@@ -11,7 +11,6 @@ import platform
 subdirs = [
            'analytics',
            'api-lib',
-           'base',
            'bfd',
            'bgp',
            'config',
@@ -21,7 +20,6 @@ subdirs = [
            'dns',
            'database',
            'http',
-           'io',
            'ifmap',
            'net',
            'query_engine',
@@ -42,7 +40,7 @@ subdirs = [
 if sys.platform != 'darwin':
     subdirs += ['ksync']
 
-include = ['#/controller/src', '#/build/include', '#controller/lib']
+include = ['#/controller/src', '#/build/include', '#src/contrail-common', '#controller/lib']
 
 libpath = ['#/build/lib']
 
@@ -84,14 +82,15 @@ if sys.platform.startswith('freebsd'):
 # base
 base_doc_files = []
 base_doc_target = BuildEnv['TOP'] + '/base/sandesh/'
-base_doc_files += BuildEnv.SandeshGenDoc('#controller/src/base/sandesh/cpuinfo.sandesh', base_doc_target)
-base_doc_files += BuildEnv.SandeshGenDoc('#controller/src/base/sandesh/process_info.sandesh', base_doc_target)
+base_doc_files += BuildEnv.SandeshGenDoc('#src/contrail-common/base/sandesh/cpuinfo.sandesh', base_doc_target)
+base_doc_files += BuildEnv.SandeshGenDoc('#src/contrail-common/base/sandesh/process_info.sandesh', base_doc_target)
 BuildEnv['BASE_DOC_FILES'] = base_doc_files
+
 
 # IO
 io_doc_files = []
 io_doc_target = BuildEnv['TOP'] + '/io/'
-io_doc_files += BuildEnv.SandeshGenDoc('#controller/src/io/io.sandesh', io_doc_target)
+io_doc_files += BuildEnv.SandeshGenDoc('#src/contrail-common/io/io.sandesh', io_doc_target)
 BuildEnv['IO_DOC_FILES'] = io_doc_files
 
 # DB
