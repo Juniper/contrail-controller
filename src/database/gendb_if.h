@@ -264,6 +264,7 @@ public:
     virtual bool Db_SetTablespace(const std::string& tablespace) = 0;
     virtual bool Db_AddSetTablespace(const std::string& tablespace,
         const std::string& replication_factor="1") = 0;
+    virtual bool Db_DropTablespace() = 0;
     // Column family
     virtual bool Db_AddColumnfamily(const NewCf& cf,
         const std::string &compaction_strategy) = 0;
