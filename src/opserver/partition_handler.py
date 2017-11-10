@@ -735,7 +735,9 @@ class PartitionHandler(gevent.Greenlet):
                     self._failed = True
                     raise RuntimeError(messag)
 
-                self._logger.error("Starting %s" % self._topic)
+                self._logger.error("Starting %s at %d" % \
+                        (self._topic,
+                         consumer.position(common.TopicPartition(self._topic,0))))
 
                 if self._limit:
                     raise gevent.GreenletExit
