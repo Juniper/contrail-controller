@@ -8,7 +8,6 @@ env = DefaultEnvironment()
 env.Alias('controller/test', [
     'controller/src/agent:test',
     'controller/src/analytics:test',
-    'controller/src/base:test',
     'controller/src/bfd:test',
     'controller/src/bgp:test',
     'controller/src/control-node:test',
@@ -16,7 +15,6 @@ env.Alias('controller/test', [
     'controller/src/dns:test',
     'controller/src/database/gendb:test',
     'controller/src/ifmap:test',
-    'controller/src/io:test',
     'controller/src/net:test',
     'controller/src/opserver:test',
     'controller/src/query_engine:test',
@@ -31,7 +29,6 @@ env.Alias('controller/test', [
 env.Alias('controller/flaky-test', [
     'controller/src/agent:flaky-test',
     'controller/src/analytics:flaky-test',
-    'controller/src/base:flaky-test',
     'controller/src/bfd:flaky-test',
     'controller/src/bgp:flaky-test',
     #'controller/src/config:test',
@@ -40,7 +37,6 @@ env.Alias('controller/flaky-test', [
     'controller/src/database/gendb:flaky-test',
     'controller/src/database/cassandra/thrift:flaky-test',
     'controller/src/ifmap:flaky-test',
-    'controller/src/io:flaky-test',
     'controller/src/xmpp:flaky-test',
     'controller/src/config/device-manager:flaky-test',
 ])

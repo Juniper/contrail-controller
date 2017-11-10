@@ -22,7 +22,6 @@ env.Library('control_node_mock', 'control_node_mock.cc');
 env.Library('agent_test_buildinfo', 'test_buildinfo.cc')
 
 env.Append(LIBPATH = [
-        '../../../base/test',
         '../../../db/test',
 ])
 
@@ -136,7 +135,7 @@ flaky_test = env.TestSuite('agent-flaky-test', flaky_agent_suite)
 env.Alias('controller/src/vnsw/agent:flaky_test', flaky_test)
 
 env.Prepend(LIBS = [ 'dbtest', 'task_test' ])
-env.Prepend(LIBPATH = [ '../../../db/test', '../../../base/test' ])
+env.Prepend(LIBPATH = [ '../../../db/test'])
 test = env.TestSuite('agent-test', agent_suite)
 env.Alias('agent:agent_test', test)
 env.Alias('controller/src/vnsw/agent:test', test)

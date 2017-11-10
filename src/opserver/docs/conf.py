@@ -50,7 +50,7 @@ copyright = u'2013, Contrail Team'
 # The short X.Y version.
 data = '0.99'
 try:
-    with open ("../../../src/base/version.info", "r") as myfile:
+    with open ("../../../../src/contrail-common/base/version.info", "r") as myfile:
         data=myfile.read().replace('\n', '')
 except:
     pass

@@ -39,9 +39,9 @@ mibs = Glob('mibs/*')
 
 prouter_pkg = env.SandeshGenPy('prouter.sandesh', 'contrail_snmp_collector/sandesh/', False)
 snmp_collector_info_pkg = env.SandeshGenPy('snmp_collector_info.sandesh', 'contrail_snmp_collector/sandesh/', False)
-nodeinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'contrail_snmp_collector/sandesh/', False)
-cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'contrail_snmp_collector/sandesh/nodeinfo/', False)
-process_info_pkg = env.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'contrail_snmp_collector/sandesh/nodeinfo/', False)
+nodeinfo_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/nodeinfo.sandesh', 'contrail_snmp_collector/sandesh/', False)
+cpuinfo_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/cpuinfo.sandesh', 'contrail_snmp_collector/sandesh/nodeinfo/', False)
+process_info_pkg = env.SandeshGenPy('#src/contrail-common/base/sandesh/process_info.sandesh', 'contrail_snmp_collector/sandesh/nodeinfo/', False)
 
 common_sources_rules = [env.Install('contrail_snmp_collector', f) for f in common_sources]
 

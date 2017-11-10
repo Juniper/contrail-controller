@@ -84,9 +84,9 @@ for file in common_sources:
     common_sources_rules.append(OpEnv.Install(Dir("nodemgr/common"), file))
 
 supervisor_events_pkg = OpEnv.SandeshGenPy('#controller/src/nodemgr/sandesh/supervisor_events.sandesh', 'nodemgr/common/sandesh/', False)
-cpuinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
-process_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/process_info.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
-nodeinfo_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/nodeinfo.sandesh', 'nodemgr/common/sandesh/', False)
+cpuinfo_pkg = OpEnv.SandeshGenPy('#src/contrail-common/base/sandesh/cpuinfo.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
+process_info_pkg = OpEnv.SandeshGenPy('#src/contrail-common/base/sandesh/process_info.sandesh', 'nodemgr/common/sandesh/nodeinfo/', False)
+nodeinfo_pkg = OpEnv.SandeshGenPy('#src/contrail-common/base/sandesh/nodeinfo.sandesh', 'nodemgr/common/sandesh/', False)
 
 
 rel_path = Dir('nodemgr/common').path

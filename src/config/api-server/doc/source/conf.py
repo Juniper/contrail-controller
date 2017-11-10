@@ -55,7 +55,7 @@ copyright = u'2013, Juniper Networks Inc.'
 # The short X.Y version.
 data = '0.99'
 try:
-    with open("../../../../../controller/src/base/version.info", "r") as f:
+    with open("../../../../../../src/contrail-common/base/version.info", "r") as f:
         data=f.read().replace('\n', '')
 except:
     pass
