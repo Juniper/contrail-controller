@@ -481,6 +481,7 @@ class VirtualMachineKM(DBBaseKM):
         super(VirtualMachineKM, cls).delete(uuid)
         del cls._dict[uuid]
 
+
 class VirtualRouterKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_router'

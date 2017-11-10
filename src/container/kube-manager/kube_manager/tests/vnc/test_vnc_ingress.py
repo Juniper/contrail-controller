@@ -724,6 +724,7 @@ class VncIngressTest(KMTestCase):
 
     def _create_vrouter_for_vm(self, vmi, vm):
         vrouter_obj = VirtualRouter('phys-host-1' + vmi.uuid)
+        vrouter_obj.set_virtual_router_ip_address('0.0.0.0')  # whatever
         self._vnc_lib.virtual_router_create(vrouter_obj)
         vrouter_obj.set_virtual_machine(vm)
         self._vnc_lib.virtual_router_update(vrouter_obj)
