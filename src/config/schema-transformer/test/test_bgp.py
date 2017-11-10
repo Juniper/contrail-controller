@@ -8,8 +8,10 @@ from testtools.matchers import Contains, Not
 
 try:
     import config_db
+    import to_bgp
 except ImportError:
     from schema_transformer import config_db
+    from schema_transformer import to_bgp
 from vnc_api.vnc_api import (BgpRouterParams, VirtualMachineInterface,
         BgpRouter, LogicalRouter, RouteTargetList, InstanceIp, BgpAsAService,
         NoIdError)
@@ -283,12 +285,12 @@ class TestBgp(STTestCase, VerifyBgp):
 
         router1_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + bgpaas_name
         router2_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + 'bgpaas-server'
-        
+
         # Check for two BGP routers - one with the BGPaaS name and not with Port name
         self.wait_to_get_object(config_db.BgpRouterST, router1_name)
         self.wait_to_get_object(config_db.BgpRouterST, router2_name)
 
-        # check whether shared IP address is assigned to the BGP rotuer 
+        # check whether shared IP address is assigned to the BGP rotuer
         self.check_bgp_router_ip(router1_name, '1.1.1.1')
 
         # Add a new VMI to the BGPaaS. This should not create a new BGP router
@@ -304,6 +306,16 @@ class TestBgp(STTestCase, VerifyBgp):
             print 'Second BGP Router not created for second port - PASS'
         else:
             assert(True)
+
+        # Check vmi->bgp-router link exists
+        for i in range(3):
+            port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj2.uuid)
+            refs = port_obj_updated.get_bgp_router_refs()
+            if refs:
+                break
+            gevent.sleep(1)
+        self.assertEqual(port_obj_updated.bgp_router_refs[0]['to'],
+                         router1_name.split(':'))
 
         bgpaas.del_virtual_machine_interface(port_obj1)
         bgpaas.del_virtual_machine_interface(port_obj2)
@@ -354,17 +366,24 @@ class TestBgp(STTestCase, VerifyBgp):
         self.wait_to_get_object(config_db.BgpRouterST, server_fq_name)
         server_router_obj = self._vnc_lib.bgp_router_read(fq_name_str=server_fq_name)
 
+        router1_name = vn1_obj.get_fq_name_str() + ':' + vn1_name + ':' + port_name
         mx_bgp_router = self.create_bgp_router("mx-bgp-router", "contrail")
         mx_bgp_router_name = mx_bgp_router.get_fq_name_str()
         self.wait_to_get_object(config_db.BgpRouterST, mx_bgp_router_name)
         mx_bgp_router = self._vnc_lib.bgp_router_read(fq_name_str=mx_bgp_router_name)
         self.check_bgp_no_peering(server_router_obj, mx_bgp_router)
 
-        router1_obj = self._vnc_lib.bgp_router_read(fq_name_str=router1_name)
-        self.assertEqual(router1_obj.get_bgp_router_parameters().address,
-                         '10.0.0.252')
-        self.assertEqual(router1_obj.get_bgp_router_parameters().identifier,
-                         '10.0.0.252')
+        for i in range(5):
+            router1_obj = self._vnc_lib.bgp_router_read(fq_name_str=router1_name)
+            params = router1_obj.get_bgp_router_parameters()
+            if not params:
+                gevent.sleep(1)
+                continue
+            self.assertEqual(router1_obj.get_bgp_router_parameters().address,
+                             '10.0.0.252')
+            self.assertEqual(router1_obj.get_bgp_router_parameters().identifier,
+                             '10.0.0.252')
+        self.assertNotEqual(params, None)
 
         # verify ref from vmi to bgp-router is created
         port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
@@ -382,11 +401,50 @@ class TestBgp(STTestCase, VerifyBgp):
         self.assertIsNone(port_obj_updated.get_bgp_router_refs())
 
         # check bgp-router ref in vmi is restored during reinit
+        config_db.VirtualMachineST._dict = {}
+        config_db.BgpRouterST._dict = {}
         config_db.BgpAsAServiceST._dict = {}
-        config_db.BgpAsAServiceST.reinit()
+        to_bgp.transformer.reinit()
         port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
-        self.assertEqual(port_obj_updated.bgp_router_refs[0]['to'],
-                         router1_obj.fq_name)
+        refs = port_obj_updated.get_bgp_router_refs()
+        self.assertNotEqual(refs, None)
+        self.assertEqual(refs[0]['to'], router1_obj.fq_name)
+
+        # remove VMI from bgpaas and ensure
+        bgpaas = self._vnc_lib.bgp_as_a_service_read(fq_name=bgpaas.fq_name)
+        port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
+        bgpaas.del_virtual_machine_interface(port_obj_updated)
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        bgpaas = self._vnc_lib.bgp_as_a_service_read(fq_name=bgpaas.fq_name)
+        port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
+
+        #   ensure vmi is not attached to bpgaas
+        self.assertEqual(bgpaas.get_virtual_machine_interface_refs(), None)
+        #   vmi loses vmi->bgp-router ref
+        self.assertEqual(port_obj_updated.get_bgp_router_refs(), None)
+        #   ensure VMI has no bgpaas ref
+        self.assertEqual(port_obj_updated.get_bgp_as_a_service_back_refs(), None)
+
+        # add VMI back to bgpaas
+        bgpaas = self._vnc_lib.bgp_as_a_service_read(fq_name=bgpaas.fq_name)
+        port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
+        bgpaas.add_virtual_machine_interface(port_obj_updated)
+        self._vnc_lib.bgp_as_a_service_update(bgpaas)
+        bgpaas = self._vnc_lib.bgp_as_a_service_read(fq_name=bgpaas.fq_name)
+        port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
+
+        #   ensure vmi is attached to bgpaas
+        self.assertNotEqual(bgpaas.get_virtual_machine_interface_refs(), None)
+        #   VMI has bgpaas ref
+        self.assertNotEqual(port_obj_updated.get_bgp_as_a_service_back_refs(), None)
+        #   vmi got vmi->bgp-router ref
+        for i in range(10):
+            port_obj_updated = self._vnc_lib.virtual_machine_interface_read(id=port_obj.uuid)
+            if not port_obj_updated.get_bgp_router_refs():
+                gevent.sleep(1)
+                print 'retrying...'
+        self.assertNotEqual(port_obj_updated.get_bgp_router_refs(), None,
+                            msg="vmi did not get ref to bgp-router")
 
         self.check_bgp_peering(server_router_obj, router1_obj, 1)
         self.check_v4_bgp_gateway(router1_name, '10.0.0.254')
