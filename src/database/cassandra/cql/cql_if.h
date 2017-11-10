@@ -38,6 +38,7 @@ class CqlIf : public GenDb::GenDbIf {
     virtual bool Db_SetTablespace(const std::string &tablespace);
     virtual bool Db_AddSetTablespace(const std::string &tablespace,
         const std::string &replication_factor = "1");
+    virtual bool Db_DropTablespace();
     // Column family
     virtual bool Db_AddColumnfamily(const GenDb::NewCf &cf,
         const std::string &compaction_strategy);

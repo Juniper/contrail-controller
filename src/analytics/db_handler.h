@@ -103,7 +103,7 @@ public:
             TtlType::type type);
     bool DropMessage(const SandeshHeader &header, const VizMsg *vmsg);
     bool Init(bool initial);
-    void UnInit();
+    void UnInit(bool success = true);
     void GetRuleMap(RuleMap& rulemap);
 
     virtual void MessageTableInsert(const VizMsg *vmsgp,
