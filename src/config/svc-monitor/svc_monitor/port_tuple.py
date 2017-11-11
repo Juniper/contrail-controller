@@ -157,6 +157,7 @@ class PortTupleAgent(Agent):
                 continue
             self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                 'service-health-check', health_id, None, 'ADD')
+            self._vnc_lib.ref_relax_for_delete(vmi.uuid, health_id)
             vmi.update()
         # handle deletes
         for health_id in list(vmi.service_health_checks):

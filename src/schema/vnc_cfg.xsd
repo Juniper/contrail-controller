@@ -2704,7 +2704,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="service-port-health-check"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('service-port-health-check',
-          'virtual-machine-interface', 'service-health-check', ['ref', 'derived'], 'optional', 'CRUD',
+          'virtual-machine-interface', 'service-health-check', ['ref'], 'optional', 'CRUD',
           'Reference to health check object attached to this interface.') -->
 
 <xsd:element name="bgpaas-health-check"/>
