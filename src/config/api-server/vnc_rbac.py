@@ -168,8 +168,6 @@ class VncRbac(object):
                         role_to_crud_dict[role_name] = role_crud
                 # update perms in existing rule
                 rule_dict[o_f]['rule_perms'] = [{'role_crud': rc, 'role_name':rn} for rn,rc in role_to_crud_dict.items()]
-                # remove duplicate rule from list
-                rule_list.remove(rule)
 
         return rule_dict.values()
     # end
