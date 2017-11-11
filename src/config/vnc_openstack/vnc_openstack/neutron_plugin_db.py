@@ -157,6 +157,11 @@ class LocalVncApi(VncApi):
                 pass
 
             return ret_val
+
+        except PermissionDenied as e:
+            exc_info = {'exception': 'NotAuthorized'}
+            exc_info.update(msg=str(e))
+            bottle.abort(400, json.dumps(exc_info))
         finally:
             if had_user_token:
                 self._headers['X-AUTH-TOKEN'] = orig_user_token
@@ -351,7 +356,7 @@ class DBInterface(object):
 
         try:
             self._vnc_lib.security_group_update(sg_vnc)
-        except (BadRequest, PermissionDenied) as e:
+        except BadRequest as e:
             self._raise_contrail_exception('BadRequest',
                 resource='security_group_rule', msg=str(e))
         except OverQuota as e:
@@ -431,7 +436,7 @@ class DBInterface(object):
                 obj.name += '-' + obj.uuid
                 obj.fq_name[-1] += '-' + obj.uuid
                 obj_uuid = create_method(obj)
-        except (PermissionDenied, BadRequest) as e:
+        except BadRequest as e:
             self._raise_contrail_exception('BadRequest',
                 resource=resource_type, msg=str(e))
         except OverQuota as e:
@@ -450,7 +455,7 @@ class DBInterface(object):
     def _virtual_network_update(self, net_obj):
         try:
             self._vnc_lib.virtual_network_update(net_obj)
-        except (PermissionDenied, RefsExistError) as e:
+        except RefsExistError as e:
             self._raise_contrail_exception('BadRequest',
                 resource='network', msg=str(e))
     # end _virtual_network_update
