@@ -834,7 +834,18 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
         try:
             vrouter_id = db_conn.fq_name_to_uuid('virtual_router', vrouter_fq_name)
         except cfgm_common.exceptions.NoIdError:
-            return (False, (400, msg))
+            if '.' in host_id:
+                try: 
+                    vrouter_fq_name = ['default-global-system-config',host_id.split('.')[0]]
+                    vrouter_id = db_conn.fq_name_to_uuid('virtual_router', vrouter_fq_name)
+                except cfgm_common.exceptions.NoIdError:
+                    msg = 'Internal error : virtual router ' + \
+                          ":".join(vrouter_fq_name) + ' not found'
+                    return (False, (400, msg))
+            else:
+                msg = 'Internal error : virtual router ' + \
+                      ":".join(vrouter_fq_name) + ' not found'
+                return (False, (400, msg))
 
         (ok, result) = cls.dbe_read(db_conn, 'virtual_router', vrouter_id)
         if not ok:
