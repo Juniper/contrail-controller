@@ -717,9 +717,10 @@ class PartitionHandler(gevent.Greenlet):
                 self._logger.error("Newer KafkaClient %s" % self._topic)
                 self._failed = False
                 try:
-                    consumer = KafkaConsumer(self._topic,
-                        bootstrap_servers=self._brokers.split(','),
-                        group_id=None)
+                    consumer = KafkaConsumer(
+                         bootstrap_servers=self._brokers.split(','),
+                         group_id=None)
+                    consumer.assign([common.TopicPartition(self._topic,0)])
                 except Exception as ex:
                     self.part_cur_time = time.time()
                     if slef.part_prev_time == 0 or self.part_cur_time - self.part_prev_time > 60:
@@ -735,7 +736,8 @@ class PartitionHandler(gevent.Greenlet):
                     self._failed = True
                     raise RuntimeError(messag)
 
-                self._logger.error("Starting %s" % self._topic)
+                self._logger.error("Starting %s at position %d" % \
+                        (self._topic, consumer.position(common.TopicPartition(self._topic,0))))
 
                 if self._limit:
                     raise gevent.GreenletExit
