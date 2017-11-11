@@ -117,7 +117,7 @@
     <xsd:element name='vendor' type='xsd:string' required='optional' operations='CRUD'
          description='Vendor name for this BGP router, contrail, juniper or cisco etc.'/>
     <xsd:element name='autonomous-system' type='xsd:integer' required='true' operations='CUR'
-         description='Autonomous System number for this BGP router. Currently only 16 bit AS number is supported. For contrail control nodes this has to be equal to global AS number.'/>
+         description='Autonomous System number for this BGP router. For contrail control nodes this has to be equal to global AS number.'/>
     <xsd:element name='identifier' type='smi:IpAddress' required='true' operations='CUR'
          description='Router ID for this BGP router. Dotted ip notation. For contrail control-nodes System will automatically assign value of address field.'/>
     <xsd:element name='address' type='smi:IpAddress' required='true' operations='CR'
@@ -133,7 +133,7 @@
     <xsd:element name='auth-data' type='AuthenticationData' required='optional' operations='CRUD'
          description='Authentication related configuration like type, keys etc.'/>
     <xsd:element name='local-autonomous-system' type='xsd:integer' required='optional' operations='CRUD'
-         description='Only for contrail control nodes, Autonomous System number if different then global AS number. Used when clusters of control nodes in same contrail system are in different locations. Currently only 16 bit AS number is supported.'/>
+         description='Only for contrail control nodes, Autonomous System number if different then global AS number. Used when clusters of control nodes in same contrail system are in different locations.'/>
     <xsd:element name='router-type' type='BgpRouterType' required='optional' operations='CRUD'
          description='BGP router type.'/>
     <xsd:element name='gateway-address' type='smi:IpAddress' required='optional' operations='CRUD'

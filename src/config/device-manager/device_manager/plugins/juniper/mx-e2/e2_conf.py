@@ -1301,6 +1301,33 @@ class MxE2Conf(JuniperConf):
         etree.SubElement(to_wildcard_comm, "name").text = "to-wildcard-comm"
         etree.SubElement(to_wildcard_comm, "members").text = "^1:[0-9]*$"
         self.e2_vrs_policy_options_config.append(to_wildcard_comm)
+
+        # Statement: ipv4-only
+        ipv4_only_stmt = etree.Element("policy-statement")
+        etree.SubElement(ipv4_only_stmt, "name").text = "ipv4-only"
+        ipv4_only_term = etree.SubElement(ipv4_only_stmt, "term")
+        etree.SubElement(ipv4_only_term, "name").text = "is-ipv4"
+        ipv4_only_fam = etree.SubElement(ipv4_only_term, "from")
+        etree.SubElement(ipv4_only_fam, "family").text = "inet"
+        ipv4_only_action = etree.SubElement(ipv4_only_term, "then")
+        etree.SubElement(ipv4_only_action, "next").text = "policy"
+        ipv4_only_next = etree.SubElement(ipv4_only_stmt, "then")
+        etree.SubElement(ipv4_only_next, "reject")
+        self.e2_vrs_policy_options_config.append(ipv4_only_stmt)
+
+        # Statement: ipv6-only
+        ipv6_only_stmt = etree.Element("policy-statement")
+        etree.SubElement(ipv6_only_stmt, "name").text = "ipv6-only"
+        ipv6_only_term = etree.SubElement(ipv6_only_stmt, "term")
+        etree.SubElement(ipv6_only_term, "name").text = "is-ipv6"
+        ipv6_only_fam = etree.SubElement(ipv6_only_term, "from")
+        etree.SubElement(ipv6_only_fam, "family").text = "inet6"
+        ipv6_only_action = etree.SubElement(ipv6_only_term, "then")
+        etree.SubElement(ipv6_only_action, "next").text = "policy"
+        ipv6_only_next = etree.SubElement(ipv6_only_stmt, "then")
+        etree.SubElement(ipv6_only_next, "reject")
+        self.e2_vrs_policy_options_config.append(ipv6_only_stmt)
+
     # end add_e2_vrs_global_policy_config_xml
 
     def add_e2_vrs_provider_policy_config_xml(self, name, provider_as, vrr_as):
@@ -1354,13 +1381,23 @@ class MxE2Conf(JuniperConf):
         # Community: block-provider-as-comm
         block_provider_comm = etree.Element("community")
         etree.SubElement(block_provider_comm, "name").text = block_rib_name
-        etree.SubElement(block_provider_comm, "members").text = "0:" + str(provider_as)
+        if provider_as > 65535:
+            provider_comm_str = "large:0:" + str(provider_as/65536) + ":" + \
+                                 str(provider_as%65536)
+        else:
+            provider_comm_str = "0:" + str(provider_as)
+        etree.SubElement(block_provider_comm, "members").text = provider_comm_str
         self.e2_vrs_policy_options_config.append(block_provider_comm)
 
         # Community: to-all-comm
         to_provider_comm = etree.Element("community")
         etree.SubElement(to_provider_comm, "name").text = to_rib_name
-        etree.SubElement(to_provider_comm, "members").text = str(vrr_as) + ":" + str(provider_as)
+        if provider_as > 65535:
+            provider_comm_str = "large:" + str(vrr_as) + ":" + str(provider_as/65536) + \
+                                ":" + str(provider_as%65536)
+        else:
+            provider_comm_str = str(vrr_as) + ":" + str(provider_as)
+        etree.SubElement(to_provider_comm, "members").text = provider_comm_str
         self.e2_vrs_policy_options_config.append(to_provider_comm)
     # end add_e2_vrs_provider_policy_config_xml
 
@@ -1379,6 +1416,13 @@ class MxE2Conf(JuniperConf):
         # Instance routing-options
         routing_options = etree.SubElement(provider_instance, "routing-options")
         etree.SubElement(routing_options, "router-id").text = vrr_ip
+
+        if v4_yes is True:
+            if v6_yes is False:
+                etree.SubElement(routing_options, "instance-import").text = "ipv4-only"
+        else:
+            if v6_yes is True:
+                etree.SubElement(routing_options, "instance-import").text = "ipv6-only"
         etree.SubElement(routing_options, "instance-import").text = "filter-global-comms"
         etree.SubElement(routing_options, "instance-import").text = filter_name
         if promiscuous is True:
