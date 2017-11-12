@@ -24,6 +24,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // Policy for bgp::Config Task.
     TaskPolicy config_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::EvpnSegment")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
@@ -49,6 +50,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     // is not exclusive with db::IFMapTable and ifmap::StateMachine.
     TaskPolicy config_helper_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::EvpnSegment")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
@@ -142,6 +144,14 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::SendReadyTask"),
         send_ready_policy);
+
+    // Policy for bgp::EvpnSegment Task.
+    TaskPolicy evpn_segment_policy = boost::assign::list_of
+        (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("db::DBTable")));
+    scheduler->SetPolicy(scheduler->GetTaskId("bgp::EvpnSegment"),
+        evpn_segment_policy);
 
     // Policy for bgp::RTFilter Task.
     TaskPolicy rtfilter_policy = boost::assign::list_of

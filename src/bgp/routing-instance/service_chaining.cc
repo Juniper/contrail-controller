@@ -357,7 +357,7 @@ void ServiceChain<T>::RemoveServiceChainRoute(PrefixT prefix, bool aggregate) {
             " in table " << bgptable->name());
     }
 
-    if (!service_chain_route->BestPath()) {
+    if (!service_chain_route->HasPaths()) {
         partition->Delete(service_chain_route);
     } else {
         partition->Notify(service_chain_route);
@@ -605,7 +605,7 @@ void ServiceChain<T>::AddServiceChainRoute(PrefixT prefix,
     }
 
     // Delete the route if there's no paths.
-    if (!service_chain_route->BestPath())
+    if (!service_chain_route->HasPaths())
         partition->Delete(service_chain_route);
 }
 
