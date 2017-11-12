@@ -24,6 +24,7 @@ public:
 
     virtual TcpSession *CreateSession();
     virtual bool Initialize(unsigned short port);
+    virtual bool Initialize(unsigned short port, const IpAddress &ip);
     void Shutdown();
     void Terminate();
     bool MayDelete() const;
@@ -49,6 +50,8 @@ private:
     BgpServer *server_;
     WorkQueue<BgpSession *> session_queue_;
     WorkQueue<TcpSessionPtr> write_ready_queue_;
+
+    IpAddress session_ip_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpSessionManager);
 };

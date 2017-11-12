@@ -226,6 +226,7 @@ int main(int argc, char *argv[]) {
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(options.config_file()));
 
+    Dns::SetSelfIp(options.host_ip());
     if (!DnsAgentXmppManager::Init(options.xmpp_auth_enabled(),
                                    options.xmpp_server_cert(),
                                    options.xmpp_server_key(),
