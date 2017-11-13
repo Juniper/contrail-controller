@@ -1318,6 +1318,51 @@ TEST_F(BgpRouteTest, PathCompareLlgrStale6) {
     EXPECT_EQ(0, path2.PathCompare(path1, false));
 }
 
+//
+// Non-aliased paths are preferred if all other attributes are the same.
+// The aliased flag is ignored for ECMP comparison.
+//
+TEST_F(BgpRouteTest, PathCompareAliased1) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec;
+    BgpAttrPtr attr = db->Locate(spec);
+    PeerMock peer(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    uint32_t flags1 = 0;
+    BgpPath path1(&peer, BgpPath::BGP_XMPP, attr, flags1, 0);
+    uint32_t flags2 = BgpPath::AliasedPath;
+    BgpPath path2(&peer, BgpPath::BGP_XMPP, attr, flags2, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
+//
+// Peer identifier is compared before we look at the aliased flag.
+// The aliased flag is ignored for ECMP comparison.
+//
+TEST_F(BgpRouteTest, PathCompareAliased2) {
+    boost::system::error_code ec;
+    BgpAttrDB *db = server_.attr_db();
+
+    BgpAttrSpec spec;
+    BgpAttrPtr attr = db->Locate(spec);
+    PeerMock peer1(BgpProto::IBGP, Ip4Address::from_string("10.1.1.1", ec));
+    uint32_t flags1 = BgpPath::AliasedPath;
+    BgpPath path1(&peer1, BgpPath::BGP_XMPP, attr, flags1, 0);
+    PeerMock peer2(BgpProto::IBGP, Ip4Address::from_string("10.1.1.2", ec));
+    uint32_t flags2 = 0;
+    BgpPath path2(&peer2, BgpPath::BGP_XMPP, attr, flags2, 0);
+
+    EXPECT_EQ(-1, path1.PathCompare(path2, false));
+    EXPECT_EQ(1, path2.PathCompare(path1, false));
+    EXPECT_EQ(0, path1.PathCompare(path2, true));
+    EXPECT_EQ(0, path2.PathCompare(path1, true));
+}
+
 static void SetUp() {
     bgp_log_test::init();
     ControlNode::SetDefaultSchedulingPolicy();
