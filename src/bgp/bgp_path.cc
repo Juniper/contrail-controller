@@ -147,6 +147,9 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
         KEY_COMPARE(lpeer->peer_key(), rpeer->peer_key());
     }
 
+    // Prefer non-aliased paths.
+    BOOL_COMPARE(rhs.IsAliased(), IsAliased());
+
     return 0;
 }
 
