@@ -1849,7 +1849,7 @@ void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
 }
 
 void BgpPeer::RegisterToVpnTables() {
-    CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter");
+    CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter", "bgp::Config");
 
     if (vpn_tables_registered_)
         return;

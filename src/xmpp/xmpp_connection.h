@@ -232,6 +232,9 @@ public:
     static const char *kAuthTypeNil;
     static const char *kAuthTypeTls;
     std::string GetXmppAuthenticationType() const;
+    void SwapContents(XmppConnection *other);
+    boost::asio::ip::tcp::endpoint &endpoint() { return endpoint_; }
+    const Timer *keepalive_timer() const { return keepalive_timer_; }
 
 protected:
     TcpServer *server_;
