@@ -105,6 +105,9 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
          i++) {
         protocol_list_[i] = NULL;
     }
+    SessionStatsCollectorPtr session_obj(new SessionStatsCollectorObject(agent,
+                                                                        this));
+    session_stats_collector_obj_ = session_obj;
 }
 
 FlowStatsManager::~FlowStatsManager() {
@@ -366,13 +369,16 @@ void FlowStatsManager::FlowStatsReqHandler(Agent *agent,
     }
 }
 
+void FlowStatsManager::RegisterDBClients() {
+    session_stats_collector_obj_->RegisterDBClients();
+    return;
+}
+
+
 void FlowStatsManager::Init(uint64_t flow_stats_interval,
                            uint64_t flow_cache_timeout) {
     Add(FlowAgingTableKey(kCatchAllProto, 0),
         flow_stats_interval, flow_cache_timeout);
-    SessionStatsCollectorPtr session_obj(new SessionStatsCollectorObject(agent(),
-                                                                        this));
-    session_stats_collector_obj_ = session_obj;
 
     if (agent_->tsn_enabled()) {
         /* In TSN mode, we don't support add/delete of FlowStatsCollector
