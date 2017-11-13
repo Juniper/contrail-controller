@@ -358,11 +358,17 @@ size_t XmppServer::ConnectionEventCount() const {
     return connection_event_map_.size();
 }
 
+size_t XmppServer::ConnectionMapSize() const {
+    tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
+    return connection_map_.size();
+}
+
 size_t XmppServer::ConnectionCount() const {
-    return connection_map_.size() + deleted_connection_set_.size();
+    return ConnectionMapSize() + deleted_connection_set_.size();
 }
 
 XmppServerConnection *XmppServer::FindConnection(Endpoint remote_endpoint) {
+    tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
     ConnectionMap::iterator loc = connection_map_.find(remote_endpoint);
     if (loc != connection_map_.end()) {
         return loc->second;
@@ -371,6 +377,7 @@ XmppServerConnection *XmppServer::FindConnection(Endpoint remote_endpoint) {
 }
 
 XmppServerConnection *XmppServer::FindConnection(const string &address) {
+    tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
     BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
         if (value.second->ToString() == address)
             return value.second;
@@ -379,6 +386,7 @@ XmppServerConnection *XmppServer::FindConnection(const string &address) {
 }
 
 bool XmppServer::ClearConnection(const string &hostname) {
+    tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
     BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
         if (value.second->GetComputeHostName() == hostname) {
             value.second->Clear();
@@ -389,6 +397,7 @@ bool XmppServer::ClearConnection(const string &hostname) {
 }
 
 void XmppServer::ClearAllConnections() {
+    tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
     BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
         value.second->Clear();
     }
@@ -461,9 +470,23 @@ void XmppServer::RemoveConnection(XmppServerConnection *connection) {
 
     assert(connection->IsDeleted());
     Endpoint endpoint = connection->endpoint();
+    tbb::reader_writer_lock::scoped_lock lock(connection_map_mutex_);
     ConnectionMap::iterator loc = connection_map_.find(endpoint);
     assert(loc != connection_map_.end() && loc->second == connection);
     connection_map_.erase(loc);
+}
+
+void XmppServer::SwapXmppConnectionMapEntries(
+        XmppConnection *connection1, XmppConnection *connection2) {
+    tbb::reader_writer_lock::scoped_lock lock(connection_map_mutex_);
+    ConnectionMap::iterator loc1 =
+        connection_map_.find(connection1->endpoint());
+    assert(loc1 != connection_map_.end());
+    ConnectionMap::iterator loc2 =
+        connection_map_.find(connection2->endpoint());
+    assert(loc2 != connection_map_.end());
+    swap(loc1->second, loc2->second);
+    swap(loc1->second->endpoint(), loc2->second->endpoint());
 }
 
 //
@@ -477,6 +500,7 @@ void XmppServer::InsertConnection(XmppServerConnection *connection) {
     Endpoint endpoint = connection->endpoint();
     ConnectionMap::iterator loc;
     bool result;
+    tbb::reader_writer_lock::scoped_lock lock(connection_map_mutex_);
     tie(loc, result) = connection_map_.insert(make_pair(endpoint, connection));
     assert(result);
     max_connections_ = max(max_connections_, connection_map_.size());
@@ -508,6 +532,7 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
 }
 
 void XmppServer::SetDscpValue(uint8_t value) {
+    tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
     dscp_value_ = value;
     BOOST_FOREACH(ConnectionMap::value_type &value, connection_map_) {
         XmppServerConnection *connection = value.second;
@@ -654,6 +679,7 @@ void XmppServer::ReleaseConnectionEndpoint(XmppServerConnection *connection) {
 
 void XmppServer::FillShowConnections(
     vector<ShowXmppConnection> *show_connection_list) const {
+    tbb::reader_writer_lock::scoped_lock_read lock(connection_map_mutex_);
     BOOST_FOREACH(const ConnectionMap::value_type &value, connection_map_) {
         const XmppServerConnection *connection = value.second;
         ShowXmppConnection show_connection;
@@ -674,7 +700,7 @@ void XmppServer::FillShowServer(ShowXmppServerResp *resp) const {
     resp->set_rx_socket_stats(peer_socket_stats);
     GetTxSocketStats(&peer_socket_stats);
     resp->set_tx_socket_stats(peer_socket_stats);
-    resp->set_current_connections(connection_map_.size());
+    resp->set_current_connections(ConnectionMapSize());
     resp->set_max_connections(max_connections_);
 }
 

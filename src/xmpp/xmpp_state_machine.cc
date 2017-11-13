@@ -376,7 +376,11 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         }
 
         XmppSession *session = state_machine->session();
-        state_machine->ResurrectOldConnection(connection, session);
+        if (!state_machine->IsAuthEnabled())
+            state_machine->ResurrectOldConnection(connection, session);
+
+        // Get the possibly updated XmppConnection information.
+        connection = state_machine->connection();
         state_machine->CancelOpenTimer();
         if (!connection->SendOpenConfirm(session)) {
             connection->SendClose(session);
@@ -894,6 +898,9 @@ struct OpenConfirm : public sc::state<OpenConfirm, XmppStateMachine> {
                 state_machine->SendConnectionInfo(&info, event.Name(), "Idle");
                 return transit<Idle>();
             } else {
+                if (state_machine->IsAuthEnabled())
+                    state_machine->ResurrectOldConnection(connection, session);
+                connection = state_machine->connection();
                 connection->StartKeepAliveTimer();
                 state_machine->StartHoldTimer();
                 state_machine->SendConnectionInfo(&info, event.Name(),
@@ -1748,4 +1755,9 @@ void XmppStateMachine::ResurrectOldConnection(XmppConnection *new_connection,
     // Trigger deletion of the new connection which now is associated wth the
     // the old_state_machine
     new_connection->Shutdown();
+}
+
+void XmppStateMachine::SwapXmppConnection(XmppStateMachine *other) {
+    swap(connection_, other->connection_);
+    connection_->SwapContents(other->connection_);
 }
