@@ -55,10 +55,12 @@ public:
     }
 
     bool AddVhostRcvRoute() {
+        VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(), "vhost0");
         Agent::GetInstance()->fabric_inet4_unicast_table()->
             AddVHostRecvRoute(Agent::GetInstance()->local_peer(),
                               Agent::GetInstance()->fabric_vrf_name(),
-                              "vhost0", vhost_rcv_route_, 32, "", false, true);
+                              vmi_key, vhost_rcv_route_, 32, "", false,
+                              true);
         return true;
     }
 
@@ -210,7 +212,7 @@ public:
                           ip, MacAddress(),
                           Agent::GetInstance()->fabric_vrf_name(),
                           *Agent::GetInstance()->GetArpProto()->ip_fabric_interface(),
-                          false, 32, false, vn_list, SecurityGroupList());
+                          false, 32, false, vn_list, SecurityGroupList(), TagList());
     }
 
     void TunnelNH(DBRequest::DBOperation op, uint32_t saddr, uint32_t daddr) {
@@ -1089,6 +1091,58 @@ TEST_F(ArpTest, IntfArpReqTest_2) {
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 }
+
+TEST_F(ArpTest, ArpReqOnVmInterface) {
+    Agent *agent = Agent::GetInstance();
+    agent->GetArpProto()->ClearStats();
+    client->WaitForIdle();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:00:00:01", 1, 2}
+    };
+    CreateVmportEnv(input, 2);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_garp_req == 0);
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+
+    Ip4Address ip(0x01010103);
+    TunnelType::TypeBmap bmap = 0;
+    MacAddress mac(0, 0, 0, 0, 0, 3);
+    BridgeTunnelRouteAdd(bgp_peer_, "vrf1", bmap, ip,
+                         1, mac, ip, 32, 0, false);
+    client->WaitForIdle();
+
+    AddVn(agent->fabric_vn_name().c_str(), 2);
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_garp_req == 4));
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_garp_req == 8));
+
+    EvpnAgentRouteTable::DeleteReq(bgp_peer_, "vrf1", mac, ip,
+                                   32, NULL);
+
+    client->WaitForIdle();
+    DelIPAM("vn1", "vdns1");
+    DeleteVmportEnv(input, 2, true);
+    DelNode("virtual-network", agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
+}
+
 void RouterIdDepInit(Agent *agent) {
 }
 
@@ -1099,6 +1153,9 @@ int main(int argc, char *argv[]) {
     usleep(100000);
     client->WaitForIdle();
 
+    boost::system::error_code ec;
+    bgp_peer_ = CreateBgpPeer(Ip4Address::from_string("0.0.0.1", ec),
+                              "xmpp channel");
     if (Agent::GetInstance()->router_id_configured()) {
         src_ip = Agent::GetInstance()->router_id().to_ulong();
         gw_ip = Agent::GetInstance()->vhost_default_gateway().to_ulong();
@@ -1115,6 +1172,7 @@ int main(int argc, char *argv[]) {
     Agent::GetInstance()->GetArpProto()->set_aging_timeout(50);
 
     int ret = RUN_ALL_TESTS();
+    DeleteBgpPeer(bgp_peer_);
     TestShutdown();
     delete client;
     return ret;

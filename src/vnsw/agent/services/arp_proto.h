@@ -60,7 +60,7 @@ public:
             arp_req = arp_replies = arp_gratuitous = 
             resolved = max_retries_exceeded = errors = 0;
             arp_invalid_packets = arp_invalid_interface = arp_invalid_vrf =
-                arp_invalid_address = vm_arp_req = 0;
+                arp_invalid_address = vm_arp_req = vm_garp_req = 0;
         }
 
         uint32_t arp_req;
@@ -74,6 +74,7 @@ public:
         uint32_t arp_invalid_vrf;
         uint32_t arp_invalid_address;
         uint32_t vm_arp_req;
+        uint32_t vm_garp_req;
     };
 
     struct InterfaceArpInfo {
@@ -126,6 +127,7 @@ public:
     void IncrementStatsResolved() { arp_stats_.resolved++; }
     void IncrementStatsMaxRetries() { arp_stats_.max_retries_exceeded++; }
     void IncrementStatsErrors() { arp_stats_.errors++; }
+    void IncrementStatsVmGarpReq() { arp_stats_.vm_garp_req++; }
     void IncrementStatsVmArpReq() { arp_stats_.vm_arp_req++; }
     void IncrementStatsInvalidPackets() {
         IncrementStatsErrors();
@@ -387,5 +389,21 @@ private:
     bool resolve_route_;
     VnListType vn_list_;
     ArpPathPreferenceStatePtr arp_path_preference_state_;
+};
+
+class ArpInterfaceState : public DBState {
+public:
+    ArpInterfaceState(Interface *intf);
+    ~ArpInterfaceState();
+    void SetVrf(VrfEntry *vrf, VrfEntry *fabric_vrf);
+
+private:
+    void WalkDone(DBTableBase *part);
+    bool WalkNotify(DBTablePartBase *partition, DBEntryBase *entry);
+
+    InterfaceRef intf_;
+    VrfEntryRef vrf_;
+    VrfEntryRef fabric_vrf_;
+    DBTable::DBTableWalkRef walk_ref_;
 };
 #endif // vnsw_agent_arp_proto_hpp
