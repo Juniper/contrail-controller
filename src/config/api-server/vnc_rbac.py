@@ -237,7 +237,7 @@ class VncRbac(object):
         # API operation create, read, update or delete
         api_op = self.op_str[request.method]
 
-        if ((api_op == 'C') and (obj_type[-1:] == 's') and
+        if ((obj_type[-1:] == 's') and
             (obj_type not in (all_resource_types)) and
             (obj_type[:-1] in (all_resource_types))):
             obj_key = obj_type[:-1]
