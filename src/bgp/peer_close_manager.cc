@@ -46,7 +46,7 @@
 // Create an instance of PeerCloseManager with back reference to parent IPeer
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
                                    boost::asio::io_service *io_service) :
-        peer_close_(peer_close), stale_timer_(NULL),
+        peer_close_(peer_close), gr_timer_(NULL),
         event_queue_(new WorkQueue<Event *>(
                      TaskScheduler::GetInstance()->GetTaskId(
                          peer_close_->GetTaskName()),
@@ -56,13 +56,13 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close,
         llgr_elapsed_(0), membership_state_(MEMBERSHIP_NONE) {
     stats_.init++;
     membership_req_pending_ = 0;
-    stale_timer_ = TimerManager::CreateTimer(*io_service,
-                                             "Graceful Restart StaleTimer");
+    gr_timer_ = TimerManager::CreateTimer(*io_service,
+                                          "Graceful Restart Timer");
 }
 
 // Create an instance of PeerCloseManager with back reference to parent IPeer
 PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
-        peer_close_(peer_close), stale_timer_(NULL),
+        peer_close_(peer_close), gr_timer_(NULL),
         event_queue_(new WorkQueue<Event *>(
                      TaskScheduler::GetInstance()->GetTaskId(
                          peer_close_->GetTaskName()),
@@ -73,15 +73,15 @@ PeerCloseManager::PeerCloseManager(IPeerClose *peer_close) :
     stats_.init++;
     membership_req_pending_ = 0;
     if (peer_close->peer() && peer_close->peer()->server()) {
-        stale_timer_ =
+        gr_timer_ =
            TimerManager::CreateTimer(*peer_close->peer()->server()->ioservice(),
-                                     "Graceful Restart StaleTimer");
+                                     "Graceful Restart Timer");
     }
 }
 
 PeerCloseManager::~PeerCloseManager() {
     event_queue_->Shutdown();
-    TimerManager::DeleteTimer(stale_timer_);
+    TimerManager::DeleteTimer(gr_timer_);
 }
 
 std::string PeerCloseManager::GetStateName(State state) const {
@@ -214,7 +214,7 @@ void PeerCloseManager::CloseInternal() {
         PEER_CLOSE_MANAGER_LOG("Nested close: Restart GR");
         close_again_ = true;
         stats_.nested++;
-        gr_elapsed_ += stale_timer_->GetElapsedTime();
+        gr_elapsed_ += gr_timer_->GetElapsedTime();
         CloseComplete();
         break;
 
@@ -222,7 +222,7 @@ void PeerCloseManager::CloseInternal() {
         PEER_CLOSE_MANAGER_LOG("Nested close: Restart LLGR");
         close_again_ = true;
         stats_.nested++;
-        llgr_elapsed_ += stale_timer_->GetElapsedTime();
+        llgr_elapsed_ += gr_timer_->GetElapsedTime();
         CloseComplete();
         break;
 
@@ -255,13 +255,12 @@ void PeerCloseManager::ProcessEORMarkerReceived(Event *event) {
     }
 }
 
-// Process RibIn staling related activities during peer closure
-// Return true if at least ome time is started, false otherwise
+// Process RibIn during peer closure.
 void PeerCloseManager::StartRestartTimer(int time) {
-    stale_timer_->Cancel();
-    PEER_CLOSE_MANAGER_LOG("GR Timer started to fire after " << time <<
+    gr_timer_->Cancel();
+    PEER_CLOSE_MANAGER_LOG("GR Timer started to fire after " << time/1000 <<
                            " seconds");
-    stale_timer_->Start(time,
+    gr_timer_->Start(time,
         boost::bind(&PeerCloseManager::RestartTimerCallback, this));
 }
 
@@ -353,7 +352,7 @@ void PeerCloseManager::ProcessClosure() {
 
 void PeerCloseManager::CloseComplete() {
     MOVE_TO_STATE(NONE);
-    stale_timer_->Cancel();
+    gr_timer_->Cancel();
     families_.clear();
     stats_.init++;
 
