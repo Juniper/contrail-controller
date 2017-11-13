@@ -316,7 +316,8 @@ protected:
                const GenDb::ColList &col_list, ObjTypeUUIDList &uuid_list,
                std::string *last_column);
 
-    void HandleCassandraConnectionStatus(bool success);
+    void HandleCassandraConnectionStatus(bool success,
+                                         bool force_update = false);
     void FillFQNameCacheInfo(const std::string &uuid,
       FQNameCacheMap::const_iterator it, ConfigDBFQNameCacheEntry *entry) const;
 
