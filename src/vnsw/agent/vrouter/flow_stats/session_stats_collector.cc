@@ -621,7 +621,7 @@ void SessionStatsCollector::DeleteSession(FlowEntry* fe,
     }
 
     /*
-     * If the given flow uuid is different from the exisiting one
+     * If the given flow uuid is different from the existing one
      * then ignore the read from flow
      */
     FlowSessionMap::iterator flow_session_map_iter;
@@ -1157,25 +1157,33 @@ bool SessionStatsCollector::SessionStatsChangedUnlocked
     (SessionPreAggInfo::SessionMap::iterator session_map_iter,
      SessionStatsParams *params) const {
 
-    bool fwd_updated = FetchFlowStats(session_map_iter->second.fwd_flow,
+    bool fwd_updated = FetchFlowStats(&session_map_iter->second.fwd_flow,
                                       &params->fwd_flow);
-    bool rev_updated = FetchFlowStats(session_map_iter->second.rev_flow,
+    bool rev_updated = FetchFlowStats(&session_map_iter->second.rev_flow,
                                       &params->rev_flow);
     return (fwd_updated || rev_updated);
 }
 
 bool SessionStatsCollector::FetchFlowStats
-(const SessionFlowStatsInfo &info, SessionFlowStatsParams *params) const {
+(SessionFlowStatsInfo *info, SessionFlowStatsParams *params) const {
     vr_flow_stats k_stats;
     KFlowData kinfo;
     uint64_t k_bytes, bytes, k_packets;
     const vr_flow_entry *k_flow = NULL;
     KSyncFlowMemory *ksync_obj = agent_uve_->agent()->ksync()->
         ksync_flow_memory();
+    /* Update gen-id and flow-handle before reading stats using them. For
+     * reverse-flow, it is possible that flow-handle is not set yet
+     */
+    FlowEntry *fe = info->flow.get();
+    if (fe && (info->uuid == fe->uuid())) {
+        info->flow_handle = fe->flow_handle();
+        info->gen_id = fe->gen_id();
+    }
 
-    k_flow = ksync_obj->GetKFlowStatsAndInfo(info.flow->key(),
-                                             info.flow_handle,
-                                             info.gen_id, &k_stats, &kinfo);
+    k_flow = ksync_obj->GetKFlowStatsAndInfo(info->flow->key(),
+                                             info->flow_handle,
+                                             info->gen_id, &k_stats, &kinfo);
     if (!k_flow) {
         return false;
     }
@@ -1185,15 +1193,15 @@ bool SessionStatsCollector::FetchFlowStats
     k_packets = FlowStatsCollector::GetFlowStats(k_stats.flow_packets_oflow,
                                                  k_stats.flow_packets);
 
-    bytes = 0x0000ffffffffffffULL & info.total_bytes;
+    bytes = 0x0000ffffffffffffULL & info->total_bytes;
 
     if (bytes != k_bytes) {
-        params->total_bytes = GetUpdatedSessionFlowBytes(info.total_bytes,
+        params->total_bytes = GetUpdatedSessionFlowBytes(info->total_bytes,
                                                          k_bytes);
-        params->total_packets = GetUpdatedSessionFlowPackets(info.total_packets,
+        params->total_packets = GetUpdatedSessionFlowPackets(info->total_packets,
                                                              k_packets);
-        params->diff_bytes = params->total_bytes - info.total_bytes;
-        params->diff_packets = params->total_packets - info.total_packets;
+        params->diff_bytes = params->total_bytes - info->total_bytes;
+        params->diff_packets = params->total_packets - info->total_packets;
         params->tcp_flags = kinfo.tcp_flags;
         params->underlay_src_port = kinfo.underlay_src_port;
         params->valid = true;
@@ -1301,14 +1309,9 @@ void SessionStatsCollector::FillSessionInfoUnlocked
             if (!info.vm_cfg_name.empty()) {
                 session_info->set_vm(info.vm_cfg_name);
             }
-            if (!info.other_vrouter.empty()) {
-                session_info->set_other_vrouter_ip(
-                    boost::asio::ip::address::from_string(info.other_vrouter,
-                                                          ec));
-            }
-            if (!info.underlay_proto != 0) {
-                session_info->set_underlay_proto(info.underlay_proto);
-            }
+            session_info->set_other_vrouter_ip(
+                boost::asio::ip::address::from_string(info.other_vrouter, ec));
+            session_info->set_underlay_proto(info.underlay_proto);
         }
     } else {
         session_info->set_vm(fe->data().vm_cfg_name);

@@ -195,7 +195,7 @@ public:
 protected:
     virtual void DispatchSessionMsg(const std::vector<SessionEndpoint> &lst);
 private:
-    bool FetchFlowStats(const SessionFlowStatsInfo &info,
+    bool FetchFlowStats(SessionFlowStatsInfo *info,
                         SessionFlowStatsParams *params) const;
     uint64_t threshold() const;
     bool IsSamplingEnabled() const;
