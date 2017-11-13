@@ -130,11 +130,7 @@ public:
     void set_connection(const XmppConnection *connection) {
         connection_ = const_cast<XmppConnection *>(connection);
     }
-    void SwapXmppConnection(XmppStateMachine *other) {
-        XmppConnection *tmp = connection_;
-        connection_ = other->connection_;
-        other->connection_ = tmp;
-    }
+    void SwapXmppConnection(XmppStateMachine *other);
     bool IsActiveChannel();
     bool logUVE();
     const char *ChannelType();
