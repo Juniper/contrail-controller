@@ -272,7 +272,7 @@ void McastForwarder::DeleteGlobalTreeRoute() {
         static_cast<DBTablePartition *>(partition->GetTablePartition());
     global_tree_route_->RemovePath(BgpPath::Local);
 
-    if (!global_tree_route_->BestPath()) {
+    if (!global_tree_route_->HasPaths()) {
         tbl_partition->Delete(global_tree_route_);
     } else {
         tbl_partition->Notify(global_tree_route_);
@@ -534,7 +534,7 @@ void McastSGEntry::DeleteLocalTreeRoute() {
     DBTablePartition *tbl_partition =
         static_cast<DBTablePartition *>(partition_->GetTablePartition());
     local_tree_route_->RemovePath(BgpPath::Local);
-    if (!local_tree_route_->BestPath()) {
+    if (!local_tree_route_->HasPaths()) {
         tbl_partition->Delete(local_tree_route_);
     } else {
         tbl_partition->Notify(local_tree_route_);

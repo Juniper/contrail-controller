@@ -1326,7 +1326,7 @@ void RoutingInstance::DeleteRTargetRoute(as4_t asn,
 
     BGP_LOG_ROUTE(table, static_cast<IPeer *>(NULL),
         route, "Delete Local path with path id " << index_);
-    if (!route->BestPath()) {
+    if (!route->HasPaths()) {
         tbl_partition->Delete(route);
     } else {
         tbl_partition->Notify(route);

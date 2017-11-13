@@ -360,6 +360,7 @@ bool BgpServer::IsReadyForDeletion() {
     CHECK_CONCURRENCY("bgp::Config");
 
     static TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    static int db_table_task_id = scheduler->GetTaskId("db::DBTable");
     static int resolver_path_task_id =
         scheduler->GetTaskId("bgp::ResolverPath");
     static int resolver_nexthop_task_id =
@@ -393,6 +394,13 @@ bool BgpServer::IsReadyForDeletion() {
     // This is done to ensure that the InterestedPeerList of RtargetGroup gets
     // updated before allowing the peer to get deleted.
     if (!rtarget_group_mgr_->IsRTargetRoutesProcessed()) {
+        return false;
+    }
+
+    // Check if any db::DBTable task is active.
+    // Need to ensure that there's no pending deletes of BgpPaths added by
+    // the Evpn aliasing module since they hold pointers to IPeer.
+    if (!scheduler->IsTaskGroupEmpty(db_table_task_id)) {
         return false;
     }
 
