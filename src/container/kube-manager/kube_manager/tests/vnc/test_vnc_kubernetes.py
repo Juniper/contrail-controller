@@ -175,6 +175,10 @@ class VncKubernetesTest(unittest.TestCase):
         ipam_uuid = api.network_ipam_create(NetworkIpam("pod-ipam", proj))
         ipam = api.network_ipam_read(id=ipam_uuid)
         net = VirtualNetwork("cluster-network", proj)
+
+        # No subnets are associated with IPAM at this point.
+        # Subnets will be updated in the IPAM, when cluster is created.
         net.add_network_ipam(ipam, VnSubnetsType([]))
+
         api.virtual_network_create(net)
         vnc_kubernetes.VncKubernetes(self.args, Mock())
