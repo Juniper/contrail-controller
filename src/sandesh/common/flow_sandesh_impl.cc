@@ -154,6 +154,9 @@ void SessionEndpointObject::LogUnrolled(std::string category,
              local_ep_iter != sep_iter->sess_agg_info.end(); ++local_ep_iter++) {
             std::map<SessionIpPort, SessionInfo>::const_iterator sessions_iter;
             std::string local_ep_info = local_ep_iter->first.log();
+            // rename the ip and port field name in local_ep_info
+            local_ep_info.replace(local_ep_info.find("ip"), 2, "local_ip");
+            local_ep_info.replace(local_ep_info.find("port"), 4, "service_port");
             std::string sess_agg_data = SessionAggInfoLog(local_ep_iter->second);
             // for each of the individual session
             for (sessions_iter = local_ep_iter->second.sessionMap.begin();
