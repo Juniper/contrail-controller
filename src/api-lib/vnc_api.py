@@ -912,6 +912,7 @@ class VncApi(object):
             if user_token:
                 headers = self._headers.copy()
                 headers['X-AUTH-TOKEN'] = user_token
+                retry_after_authn = True
             try:
                 if (op == rest.OP_GET):
                     (status, content) = self._http_get(
