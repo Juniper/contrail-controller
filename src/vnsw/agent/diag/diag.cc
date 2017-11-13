@@ -30,7 +30,9 @@ DiagEntry::DiagEntry(const std::string &sip, const std::string &dip,
     proto_(proto), sport_(sport), dport_(dport),
     vrf_name_(vrf_name), diag_table_(diag_table), timeout_(timeout),
     timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(), 
-    "DiagTimeoutHandler", TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0)),
+                         "DiagTimeoutHandler",
+                         TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"),
+                         PktHandler::DIAG)),
     max_attempts_(attempts), seq_no_(0) {
 }
 
@@ -114,7 +116,8 @@ DiagTable::DiagTable(Agent *agent):agent_(agent) {
     diag_proto_.reset(
         new DiagProto(agent, *(agent->event_manager())->io_service()));
     entry_op_queue_ = new WorkQueue<DiagEntryOp *>
-                    (TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0,
+                    (TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"),
+                     PktHandler::DIAG,
                      boost::bind(&DiagTable::Process, this, _1));
     entry_op_queue_->set_name("Diagnostics Table");
     index_ = 1;

@@ -21,7 +21,8 @@ SegmentHealthCheckPkt::SegmentHealthCheckPkt(HealthCheckInstanceService *svc,
     delay_timer_ = TimerManager::CreateTimer
         (*(diag_table->agent()->event_manager())->io_service(),
          "SegmentHCDelayTimeoutHandler",
-         TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0);
+         TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"),
+         PktHandler::DIAG);
 }
 
 
