@@ -30,6 +30,9 @@ from cfgm_common import vnc_greenlets
 from context import get_request, get_context, set_context, use_context
 from context import ApiContext, ApiInternalRequest
 
+import auth_context
+from auth_context import set_auth_context, use_auth_context
+
 #keystone SSL cert bundle
 _DEFAULT_KS_CERT_BUNDLE="/tmp/keystonecertbundle.pem"
 _DEFAULT_KS_VERSION = "v2.0"
@@ -123,10 +126,12 @@ class AuthPostKeystone(object):
         self.app = app
         self.conf = conf
 
+    @use_auth_context
     def __call__(self, env, start_response):
 
         get_context().set_proc_time('POST_KEYSTONE_REQ')
 
+        set_auth_context(env)
         # if rbac is set, skip old admin based MT
         if self.conf['auth_svc']._mt_rbac:
             return self.app(env, start_response)
