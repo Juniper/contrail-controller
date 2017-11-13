@@ -7,6 +7,7 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <tbb/reader_writer_lock.h>
 
 #include "base/lifetime.h"
 #include "base/queue_task.h"
@@ -61,6 +62,8 @@ public:
     virtual XmppServerConnection *FindConnection(const std::string &address);
     virtual void InsertConnection(XmppServerConnection *connection);
     virtual void RemoveConnection(XmppServerConnection *connection);
+    void SwapXmppConnectionMapEntries(XmppConnection *connection1,
+                                      XmppConnection *connection2);
 
     virtual void InsertDeletedConnection(XmppServerConnection *connection);
     virtual void RemoveDeletedConnection(XmppServerConnection *connection);
@@ -98,6 +101,7 @@ protected:
     virtual SslSession *AllocSession(SslSocket *socket);
     virtual bool AcceptSession(TcpSession *session);
 
+    mutable tbb::reader_writer_lock connection_map_mutex_;
     typedef std::map<Endpoint, XmppServerConnection *> ConnectionMap;
     ConnectionMap connection_map_;
 
@@ -115,6 +119,7 @@ private:
     size_t GetConnectionQueueSize() const;
     void SetConnectionQueueDisable(bool disabled);
     void WorkQueueExitCallback(bool done);
+    size_t ConnectionMapSize() const;
 
     ConnectionSet deleted_connection_set_;
     size_t max_connections_;
