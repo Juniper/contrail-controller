@@ -3,13 +3,23 @@
  */
 
 #include <cstdlib>
-#include <limits> 
+#include <limits>
+#include <string>
+#include <sstream>
+#include <boost/foreach.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 #include "rapidjson/document.h"
 #include <boost/foreach.hpp>
 #include "query.h"
 #include "json_parse.h"
+#include <base/string_util.h>
+#include <database/gendb_constants.h>
+#include <database/gendb_if.h>
+#include "utils.h"
+#include "query.h"
 #include "stats_query.h"
-#include <boost/algorithm/string/case_conv.hpp>
+
+using std::string;
 
 static std::string ToString(const contrail_rapidjson::Value& value_value) {
     std::string svalue;
@@ -440,8 +450,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
         DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
 
         //TBD not sure if this will work for Message table or Object Log
-        if (m_query->table() == g_viz_constants.COLLECTOR_GLOBAL_TABLE) {
-            db_query->cfname = g_viz_constants.MESSAGE_TABLE_TIMESTAMP;
+        if (m_query->is_message_table_query()) {
+            db_query->cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
             db_query->t_only_col = true;
             db_query->t_only_row = true;
         } else if 
@@ -499,16 +509,14 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
             db_query->cr.finish_.push_back((uint16_t)0xffff);
 
         } else if (m_query->is_object_table_query(m_query->table())) {
-            // These values will encompass all possible ascii strings in their range
-            GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
+            db_query->cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
+            db_query->t_only_col = true;
+            db_query->t_only_row = true;
+            bool object_id_specified = false;
 
-            db_query->cfname = g_viz_constants.OBJECT_TABLE;
-            db_query->row_key_suffix.push_back(m_query->table());
-
-            // Added object id to column
-            db_query->cr.start_.push_back(value);
-            db_query->cr.finish_.push_back(value2);
-
+            // handling where * for object table is similar to 
+            // and subset of object-id=X handling
+            handle_object_type_value(m_query, db_query, object_id_specified);
             QE_TRACE(DEBUG, "where * for object table" << m_query->table());
 
         }
@@ -562,16 +570,29 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
         GenDb::WhereIndexInfoVec where_vec;
         std::vector<filter_match_t> filter_and;
 
+        // All where parameters in subquery are AND.
+        // So they are in the same msg_table_db_query object.
+        // If there are no where-params, this would result in no-op.
+        DbQueryUnit *msg_table_db_query = NULL;
+        if (m_query->is_message_table_query() ||
+            m_query->is_object_table_query(m_query->table())) {
+
+            msg_table_db_query = new DbQueryUnit(this, main_query);
+            msg_table_db_query->cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
+            msg_table_db_query->t_only_row = true;
+            msg_table_db_query->t_only_col = true;
+        }
+
         for (contrail_rapidjson::SizeType j = 0; j < json_or_node.Size(); j++)
         {
             QE_PARSE_ERROR((json_or_node[j].HasMember(WHERE_MATCH_NAME) &&
                 json_or_node[j].HasMember(WHERE_MATCH_VALUE) &&
                 json_or_node[j].HasMember(WHERE_MATCH_OP)));
-            const contrail_rapidjson::Value& name_value = 
+            const contrail_rapidjson::Value& name_value =
                 json_or_node[j][WHERE_MATCH_NAME];
-            const contrail_rapidjson::Value&  value_value = 
+            const contrail_rapidjson::Value&  value_value =
                 json_or_node[j][WHERE_MATCH_VALUE];
-            const contrail_rapidjson::Value& op_value = 
+            const contrail_rapidjson::Value& op_value =
                 json_or_node[j][WHERE_MATCH_OP];
 
             // do some validation checks
@@ -619,7 +640,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
             if (op == IN_RANGE)
             {
                 QE_PARSE_ERROR(json_or_node[j].HasMember(WHERE_MATCH_VALUE2));
-                const contrail_rapidjson::Value&  value_value2 = 
+                const contrail_rapidjson::Value&  value_value2 =
                 json_or_node[j][WHERE_MATCH_VALUE2];
 
                 // extract value2 after type conversion
@@ -650,65 +671,18 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
             bool isStat = m_query->is_stat_table_query(m_query->table());
             if ((name == g_viz_constants.SOURCE) && (!isStat))
             {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-
-                db_query->cfname = g_viz_constants.MESSAGE_TABLE_SOURCE;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
+                populate_where_vec(msg_table_db_query, name, op,
+                                   std::string(""), value);
                 QE_TRACE(DEBUG, "where match term for source " << value);
             }
 
-            if ((name == g_viz_constants.KEYWORD) && (!isStat))
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-
-                db_query->cfname = g_viz_constants.MESSAGE_TABLE_KEYWORD;
-                db_query->t_only_col = true;
-
-                boost::algorithm::to_lower(value);
-
-                // only EQUAL & Prefix op supported currently
-                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
-                QE_TRACE(DEBUG, "where match term for source " << value);
-            }
 
             if ((name == g_viz_constants.MODULE) && (!isStat))
             {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-                db_query->cfname = g_viz_constants.MESSAGE_TABLE_MODULE_ID;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
+                populate_where_vec(msg_table_db_query, name, op,
+                                   std::string(""), value);
 
                 // dont filter query engine logs if the query is about query
                 // engine
@@ -717,72 +691,29 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
 
                 QE_TRACE(DEBUG, "where match term for module " << value);
             }
- 
+
             if ((name == g_viz_constants.MESSAGE_TYPE) && (!isStat))
             {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-                db_query->cfname = 
-                    g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
-
-                QE_TRACE(DEBUG, "where match term for msg-type " << value);
-            }
-  
-            if ((name == g_viz_constants.CATEGORY) && (!isStat))
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-                db_query->cfname = 
-                    g_viz_constants.MESSAGE_TABLE_CATEGORY;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-
-                // string encoding
-                db_query->cr.start_.push_back(value);
-                if (op == PREFIX) {
-                    value2 = value + "\x7f";
-                    db_query->cr.finish_.push_back(value2);
-                } else {
-                    db_query->cr.finish_.push_back(value);
-                }
-
+                populate_where_vec(msg_table_db_query, name, op,
+                                   std::string(""), value);
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }
 
             if (name == OBJECTID)
             {
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-                GenDb::DbDataValue value2 = value;
-
-                db_query->cfname = g_viz_constants.OBJECT_TABLE;
-                db_query->row_key_suffix.push_back(m_query->table());
-
-                // only EQUAL or PREFIX op supported currently 
                 QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
-                if (op == PREFIX)
-                {
-                    value2 = value + "\x7f";
-                }
 
-                // Added object id to column
-                db_query->cr.start_.push_back(value);
-                db_query->cr.finish_.push_back(value2);
-
-                QE_TRACE(DEBUG, "where match term for objectid " << value);
+                // Object-id is saved in column[6..11] in MessageTablev2 in the format
+                // T2:ObjectType:ObjectId
+                // T2: is prefixed later, we need to prefix ObjectType: here.
+                std::string value_prefix = m_query->table();
+                value_prefix.append(":");
+                std::string col_name = g_viz_constants.OBJECT_TYPE_NAME1;
+                populate_where_vec(msg_table_db_query, col_name, op,
+                                   value_prefix, value);
                 object_id_specified = true;
+                QE_TRACE(DEBUG, "where match term for objectid " << value);
             }
 
             if (m_query->is_session_query(m_query->table())) {
@@ -1132,6 +1063,13 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                 StatTermProcess(json_or_node[j], this, main_query);
                 object_id_specified = true;
             }
+        }
+
+        // common handling similar to object table where * case
+        if (m_query->is_message_table_query() ||
+            m_query->is_object_table_query(m_query->table())) {
+            handle_object_type_value(m_query, msg_table_db_query,
+                                     object_id_specified);
         }
 
 #ifndef USE_SESSION
@@ -1565,22 +1503,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
             }
         }
 #endif
-        if (m_query->is_object_table_query(m_query->table()))
-        {
-            // object id table query
-            if (!object_id_specified)
-            {
-                GenDb::DbDataValue value = "\x1b", value2 = "\x7f";
-                DbQueryUnit *db_query = new DbQueryUnit(this, main_query);
-
-                db_query->cfname = g_viz_constants.OBJECT_TABLE;
-                db_query->row_key_suffix.push_back(m_query->table());
-                db_query->cr.start_.push_back(value);
-                db_query->cr.finish_.push_back(value2);
-
-                QE_TRACE(DEBUG, "where * for object table" << m_query->table());
-            }
-        }
     }
 }
 
@@ -1608,17 +1530,18 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
             where_query_cb_(m_query->handle_, m_query->qperf_, where_result_);
             return;
         }
+        if (m_query->is_message_table_query()
+            || m_query->is_object_table_query(m_query->table())
 #ifdef USE_SESSION
-        if (m_query->is_flow_query(m_query->table())) {
+            || m_query->is_flow_query(m_query->table())
+#endif
+            ) {
             SetOperationUnit::op_or(((AnalyticsQuery *)(this->main_query))->query_id,
                 *where_result_, inp);
         } else {
-#endif
             SetOperationUnit::op_and(((AnalyticsQuery *)(this->main_query))->query_id,
                 *where_result_, inp);
-#ifdef USE_SESSION
         }
-#endif
         m_query->query_status = query_status;
 
         QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
@@ -1693,4 +1616,85 @@ query_status_t WhereQuery::process_query()
         }
     }
     return query_status;
+}
+
+// We need to cover 2 cases here in MessageTablev2
+// (a) --object-type is specified without any --object-id
+// (b) --object-type and --object-id are specified
+
+// (a) ObjectTypeValue fields are stored in following format
+//  T2:ObjectType:ObjectId
+//  We need to query for T2:ObjectType*
+// (b) We have 6 columns to save OBJECTID.
+// Any OBJECTID could be in any of the 6 columns.
+// For OBJECTID query, we need to check each of the 6 columns.
+// Since its an OR operation, we need to create 6 queries, one
+// for each column.
+// Combining (a) & (b) we end up creating 6 queries 1 for each
+// ObjectTypeValue[1..6] column.
+void WhereQuery::handle_object_type_value(
+                                    AnalyticsQuery *m_query,
+                                    DbQueryUnit *db_query,
+                                    bool object_id_specified)
+{
+    if (m_query->is_object_table_query(m_query->table())) {
+        QE_TRACE(DEBUG, "object-type-value handling");
+        std::string column1 = MsgTableQueryColumnToColumn(
+                                        g_viz_constants.OBJECT_TYPE_NAME1);
+        if (object_id_specified == false) {
+            // create db_query entry for OBJECT_TYPE_NAME1
+            // as done for OBJECTID case above.
+            // rest falls in place as with --object-id case.
+            match_op op = PREFIX;
+            std::string value_prefix = m_query->table();
+            value_prefix.append(":");
+            std::string col_name = g_viz_constants.OBJECT_TYPE_NAME1;
+            populate_where_vec(db_query, col_name, op,
+                               value_prefix, std::string(""));
+        }
+
+        // regular --object-id processing from here
+        int index = 0;
+        BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, db_query->where_vec) {
+            if (column1 == where_info.get<0>()) {
+                break;
+            }
+            index++;
+        }
+
+        // OBJECT_TYPE_NAME1 is already done above
+        for (int i = 2;
+             i <= g_viz_constants.MSG_TABLE_MAX_OBJECTS_PER_MSG;
+             i++) {
+            DbQueryUnit *msg_table_db_query2 = new DbQueryUnit(this, main_query);
+            msg_table_db_query2->cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
+            msg_table_db_query2->t_only_row = true;
+            msg_table_db_query2->t_only_col = true;
+            msg_table_db_query2->where_vec = db_query->where_vec;
+
+            GenDb::WhereIndexInfo *where_info2 = &msg_table_db_query2->where_vec[index];
+            std::string col_name = g_viz_constants.OBJECT_TYPE_NAME_PFX;
+            col_name.append(integerToString(i));
+
+            std::string columnN = MsgTableQueryColumnToColumn(col_name);
+            where_info2->get<0>() = columnN;
+        }
+    }
+}
+
+void WhereQuery::populate_where_vec(DbQueryUnit *db_query,
+                                    const std::string query_col,
+                                    match_op op,
+                                    const std::string value_prefix,
+                                    const std::string value)
+{
+    std::string value2 = value_prefix;
+    value2.append(value);
+    if (op == PREFIX) {
+        value2.append("%");
+    }
+    std::string columnN = MsgTableQueryColumnToColumn(query_col);
+    GenDb::WhereIndexInfo where_info =
+            boost::make_tuple(columnN, get_gendb_op_from_op(op), value2);
+    db_query->where_vec.push_back(where_info);
 }

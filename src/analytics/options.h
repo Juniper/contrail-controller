@@ -93,8 +93,7 @@ public:
             flow_tables_compaction_strategy_(),
             disable_all_db_writes_(false),
             disable_db_stats_writes_(false),
-            disable_db_messages_writes_(false),
-            disable_db_messages_keyword_writes_(true)
+            disable_db_messages_writes_(false)
         {
         }
 
@@ -109,7 +108,6 @@ public:
         bool disable_all_db_writes_;
         bool disable_db_stats_writes_;
         bool disable_db_messages_writes_;
-        bool disable_db_messages_keyword_writes_;
     };
 
     Options();
@@ -217,12 +215,6 @@ public:
     const bool disable_all_db_writes() const { return cassandra_options_.disable_all_db_writes_; }
     const bool disable_db_statistics_writes() const { return cassandra_options_.disable_db_stats_writes_; }
     const bool disable_db_messages_writes() const { return cassandra_options_.disable_db_messages_writes_; }
-    const bool enable_db_messages_keyword_writes() const {
-        return enable_db_messages_keyword_writes_;
-    }
-    void disable_db_messages_keyword_writes() {
-        cassandra_options_.disable_db_messages_keyword_writes_ = !enable_db_messages_keyword_writes_;
-    }
     const std::string cluster_id() const { return cassandra_options_.cluster_id_; }
     const std::string auth_host() const { return ks_server_; }
     const uint16_t auth_port() const { return ks_port_; }
@@ -304,7 +296,6 @@ private:
     uint16_t partitions_;
     uint32_t sandesh_ratelimit_;
     bool disable_flow_collection_;
-    bool enable_db_messages_keyword_writes_;
     std::string ks_server_;
     uint16_t    ks_port_;
     std::string ks_protocol_;
