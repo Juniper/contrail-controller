@@ -182,6 +182,7 @@ public:
                                   bool sampled);
 
     void SetProfileData(ProfileData *data);
+    virtual void RegisterDBClients();
     friend class AgentUtXmlFlowThreshold;
     friend class AgentUtXmlFlowThresholdValidate;
 private:
