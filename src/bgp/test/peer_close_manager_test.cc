@@ -104,7 +104,7 @@ public:
     ~PeerCloseManagerTest() {
     }
 
-    Timer *stale_timer() const { return stale_timer_; }
+    Timer *stale_timer() const { return gr_timer_; }
     virtual bool CanUseMembershipManager() const {
         return can_use_membership_manager_;
     }
