@@ -284,7 +284,7 @@ public:
     BgpXmppChannel *channel_;
 };
 
-typedef std::tr1::tuple<int, int, int, int, int> TestParams;
+typedef std::tr1::tuple<int, int, int, int, int, bool> TestParams;
 
 class SandeshServerTest : public SandeshServer {
 public:
@@ -446,6 +446,7 @@ protected:
     std::vector<BgpPeerTest *> n_down_from_peers_;
     std::vector<int> instances_to_delete_before_gr_;
     std::vector<int> instances_to_delete_during_gr_;
+    bool xmpp_auth_enabled_;
 };
 
 static int d_wait_for_idle_ = 30; // Seconds
@@ -474,7 +475,14 @@ void GracefulRestartTest::SetUp() {
     for (int i = 0; i <= n_peers_; i++) {
         bgp_servers_.push_back(new BgpServerTest(&evm_,
                     "RTR" + boost::lexical_cast<string>(i)));
-        xmpp_servers_.push_back(new XmppServerTest(&evm_, XMPP_CONTROL_SERV));
+        XmppChannelConfig xs_cfg(false);
+        xs_cfg.auth_enabled = xmpp_auth_enabled_;
+        xs_cfg.path_to_server_cert =
+            "controller/src/xmpp/testdata/server-build02.pem";
+        xs_cfg.path_to_server_priv_key =
+            "controller/src/xmpp/testdata/server-build02.key";
+        xmpp_servers_.push_back(new XmppServerTest(&evm_, XMPP_CONTROL_SERV,
+                                                   &xs_cfg));
         channel_managers_.push_back(new BgpXmppChannelManagerMock(
                                         xmpp_servers_[i], bgp_servers_[i]));
 
@@ -767,6 +775,14 @@ void GracefulRestartTest::WaitForAgentToBeEstablished(
     TASK_UTIL_EXPECT_TRUE(agent->IsChannelReady());
     TASK_UTIL_EXPECT_TRUE(agent->IsEstablished());
     TASK_UTIL_EXPECT_TRUE(bgp_xmpp_channels_[agent->id()]->Peer()->IsReady());
+
+    // Make sure that keep-alive and hold timers are running.
+    const Timer *timer = bgp_xmpp_channels_[agent->id()]->channel()->
+        connection()->keepalive_timer();
+    TASK_UTIL_EXPECT_TRUE(timer->running());
+    timer = bgp_xmpp_channels_[agent->id()]->channel()->connection()->
+        state_machine()->hold_timer();
+    TASK_UTIL_EXPECT_TRUE(timer->running());
 }
 
 void GracefulRestartTest::WaitForPeerToBeEstablished(BgpPeerTest *peer) {
@@ -820,7 +836,8 @@ void GracefulRestartTest::CreateAgents() {
         test::NetworkAgentMock *agent = new test::NetworkAgentMock(&evm_,
             "agent" + boost::lexical_cast<string>(i) +
                 "@vnsw.contrailsystems.com",
-            xmpp_server_->GetPort(), prefix.ip4_addr().to_string());
+            xmpp_server_->GetPort(), prefix.ip4_addr().to_string(),
+            "127.0.0.1", xmpp_auth_enabled_);
         agent->set_id(i);
         xmpp_agents_.push_back(agent);
         WaitForIdle();
@@ -842,7 +859,8 @@ void GracefulRestartTest::CreateAgents() {
             test::NetworkAgentMock *agent = new test::NetworkAgentMock(&evm_,
                 "dummy_agent" + boost::lexical_cast<string>(i) +
                 "@vnsw.contrailsystems.com",
-                xmpp_servers_[j]->GetPort(), prefix.ip4_addr().to_string());
+                xmpp_servers_[j]->GetPort(), prefix.ip4_addr().to_string(),
+                "127.0.0.1", xmpp_auth_enabled_);
             xmpp_server_agents_[xmpp_servers_[j]].push_back(agent);
             prefix = task_util::Ip4PrefixIncrement(prefix);
         }
@@ -1249,6 +1267,7 @@ void GracefulRestartTest::InitParams() {
     n_agents_    = ::std::tr1::get<2>(GetParam());
     n_peers_     = ::std::tr1::get<3>(GetParam());
     n_targets_   = ::std::tr1::get<4>(GetParam());
+    xmpp_auth_enabled_ = ::std::tr1::get<5>(GetParam());
 }
 
 // Bring up n_agents_ in n_instances_ and advertise
@@ -1385,7 +1404,8 @@ void GracefulRestartTest::ProcessFlippingAgents(int &total_routes,
         if (gr_test_param.should_send_eor() && agent->IsEstablished()) {
             agent->SendEorMarker();
         } else {
-            PeerCloseManager *pc = bgp_xmpp_channels_[agent->id()]->close_manager();
+            PeerCloseManager *pc =
+                bgp_xmpp_channels_[agent->id()]->close_manager();
 
             // If the session is down and TCP down event was meant to be skipped
             // then we do not expect control-node to be unaware of it. Hold
@@ -1775,7 +1795,8 @@ void GracefulRestartTest::GracefulRestartTestRun () {
             ValuesIn(GetRouteParameters()),                         \
             ValuesIn(GetAgentParameters()),                         \
             ValuesIn(GetPeerParameters()),                          \
-            ValuesIn(GetTargetParameters()))                        \
+            ValuesIn(GetTargetParameters()),                        \
+            ::testing::Bool())
 
 
 INSTANTIATE_TEST_CASE_P(GracefulRestartTestWithParams, GracefulRestartTest,

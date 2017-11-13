@@ -390,22 +390,25 @@ bgp_xmpp_wready_test = env.UnitTest('bgp_xmpp_wready_test',
                              ['bgp_xmpp_wready_test.cc'])
 env.Alias('src/bgp:bgp_xmpp_wready_test', bgp_xmpp_wready_test)
 
-graceful_restart_flap_all_test = except_env.UnitTest(
-    'graceful_restart_flap_all_test', ['graceful_restart_flap_all_test.cc'])
-env.Alias('src/bgp:graceful_restart_flap_all_test',
-          graceful_restart_flap_all_test)
+graceful_restart_tests = [ ]
+for i in range(1, 12):
+    gr_test = except_env.UnitTest("graceful_restart_flap_all_test" + str(i),
+        ["graceful_restart_flap_all_test" + str(i) + ".cc"])
+    graceful_restart_tests.append(gr_test)
+    env.Alias("src/bgp:graceful_restart_flap_all_test" + str(i), gr_test)
 
-graceful_restart_flap_some_test = except_env.UnitTest(
-    'graceful_restart_flap_some_test',
-    ['graceful_restart_flap_some_test.cc'])
-env.Alias('src/bgp:graceful_restart_flap_some_test',
-           graceful_restart_flap_some_test)
+for i in range(1, 11):
+    gr_test = except_env.UnitTest("graceful_restart_flap_some_test" + str(i),
+        ["graceful_restart_flap_some_test" + str(i) + ".cc"])
+    graceful_restart_tests.append(gr_test)
+    env.Alias("src/bgp:graceful_restart_flap_some_test" + str(i), gr_test)
 
-graceful_restart_instance_config_test = except_env.UnitTest(
-    'graceful_restart_instance_config_test',
-    ['graceful_restart_instance_config_test.cc'])
-env.Alias('src/bgp:graceful_restart_instance_config_test',
-          graceful_restart_instance_config_test)
+for i in range(1, 8):
+    gr_test = except_env.UnitTest("graceful_restart_instance_config_test" +
+                                  str(i),
+        ["graceful_restart_instance_config_test" + str(i) + ".cc"])
+    graceful_restart_tests.append(gr_test)
+    env.Alias("src/bgp:graceful_restart_instance_config_test" + str(i), gr_test)
 
 path_resolver_test = env.UnitTest('path_resolver_test',
                                   ['path_resolver_test.cc'])
@@ -664,9 +667,6 @@ test_suite = [
     bgp_xmpp_rtarget_manager_test,
     bgp_xmpp_test,
     bgp_xmpp_wready_test,
-    graceful_restart_flap_all_test,
-    graceful_restart_flap_some_test,
-    graceful_restart_instance_config_test,
     path_resolver_test1,
     path_resolver_test2,
     peer_close_manager_test,
@@ -706,6 +706,8 @@ test_suite = [
     xmpp_message_builder_test,
     xmpp_sess_toggle_test,
 ]
+
+test_suite += graceful_restart_tests
 
 test = env.TestSuite('bgp-test', test_suite)
 
