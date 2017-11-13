@@ -48,15 +48,6 @@ class Qfx5kConf(QfxConf):
         pass
     # end add_ibgp_export_policy
 
-    def set_resolve_bgp_route_target_family_config(self):
-        if not self.global_routing_options_config:
-            self.global_routing_options_config = RoutingOptions(
-                                       comment=DMUtils.routing_options_comment())
-        resolve = Resolution(rib=RIB(name="bgp.rtarget.0",
-                                       resolution_ribs="inet.0"))
-        self.global_routing_options_config.set_resolution(resolve)
-    # end set_resolve_bgp_route_target_family_config
-
     def push_conf(self, is_delete=False):
         if not self.physical_router:
             return 0
