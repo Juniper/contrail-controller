@@ -183,7 +183,8 @@ class KSyncRouteWalker;
 class VrfKSyncObject {
 public:
     // Table to maintain IP - MAC binding. Used to stitch MAC to inet routes
-    typedef std::map<IpAddress, MacBinding> IpToMacBinding;
+    typedef std::pair<IpAddress, uint32_t> IpToMacBindingKey;
+    typedef std::map<IpToMacBindingKey, MacBinding> IpToMacBinding;
 
     struct VrfState : DBState {
         VrfState(Agent *agent);
@@ -211,10 +212,11 @@ public:
                                           VrfState *state);
     void AddIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                          const MacAddress &mac,
+                         uint32_t ethernet_tag,
                          uint32_t pref,
                          bool wait_for_traffic);
     void DelIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
-                         const MacAddress &mac);
+                         const MacAddress &mac, uint32_t ethernet_tag);
     MacAddress GetIpMacBinding(VrfEntry *vrf, const IpAddress &ip,
                                const InetUnicastRouteEntry *rt) const;
     bool GetIpMacWaitForTraffic(VrfEntry *vrf,
