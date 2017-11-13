@@ -1888,6 +1888,7 @@ bool SessionSloState::UpdateSessionSloStateRuleRefCount(
         it->second.ref_count++;
         if (it->second.ref_count == it->second.rate) {
             is_logged = true;
+            it->second.ref_count = 0;
         }
     }
     return is_logged;

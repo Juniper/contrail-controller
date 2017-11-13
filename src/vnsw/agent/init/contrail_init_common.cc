@@ -24,6 +24,7 @@
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
+#include <vrouter/flow_stats/flow_stats_manager.h>
 
 #include "contrail_init_common.h"
 
@@ -85,6 +86,10 @@ void ContrailInitCommon::RegisterDBClients() {
     if (agent()->vgw()) {
         agent()->vgw()->RegisterDBClients();
     }
+
+    if (agent()->flow_stats_manager()) {
+        agent()->flow_stats_manager()->RegisterDBClients();
+    }
 }
 
 void ContrailInitCommon::InitModules() {
@@ -106,6 +111,11 @@ void ContrailInitCommon::InitModules() {
 
     if (agent()->mac_learning_module()) {
         agent()->mac_learning_module()->Init();
+    }
+
+    if (agent()->flow_stats_manager()) {
+        agent()->flow_stats_manager()->Init(agent()->params()->flow_stats_interval(),
+                                    agent()->params()->flow_cache_timeout());
     }
 }
 
