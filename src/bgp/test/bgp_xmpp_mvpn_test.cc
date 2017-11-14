@@ -179,9 +179,9 @@ protected:
         agent_xa_->MvpnSubscribe(net, id);
         agent_xb_->MvpnSubscribe(net, id);
         agent_xc_->MvpnSubscribe(net, id);
-        agent_xa_->MvpnSubscribe(BgpConfigManager::kFabricInstance, 1000);
-        agent_xb_->MvpnSubscribe(BgpConfigManager::kFabricInstance, 1000);
-        agent_xc_->MvpnSubscribe(BgpConfigManager::kFabricInstance, 1000);
+        agent_xa_->McastSubscribe(BgpConfigManager::kFabricInstance, 1000);
+        agent_xb_->McastSubscribe(BgpConfigManager::kFabricInstance, 1000);
+        agent_xc_->McastSubscribe(BgpConfigManager::kFabricInstance, 1000);
         task_util::WaitForIdle();
     }
 
@@ -192,27 +192,30 @@ protected:
         bs_x_->Configure(config);
     }
 
-    BgpTable *GetVrfTable(BgpServerTestPtr server, const string &name) {
+    BgpTable *GetVrfTable(BgpServerTestPtr server, const string &name,
+                          Address::Family family = Address::MVPN) {
         RoutingInstanceMgr *rim = server->routing_instance_mgr();
         TASK_UTIL_EXPECT_TRUE(rim->GetRoutingInstance(name) != NULL);
         RoutingInstance *rtinstance = rim->GetRoutingInstance(name);
-        TASK_UTIL_EXPECT_TRUE(rtinstance->GetTable(Address::MVPN) != NULL);
-        BgpTable *table = rtinstance->GetTable(Address::MVPN);
+        TASK_UTIL_EXPECT_TRUE(rtinstance->GetTable(family) != NULL);
+        BgpTable *table = rtinstance->GetTable(family);
         return table;
     }
 
     const BgpTable *GetVrfTable(BgpServerTestPtr server,
-                                const string &name) const {
+                                const string &name,
+                                Address::Family family = Address::MVPN) const {
         RoutingInstanceMgr *rim = server->routing_instance_mgr();
         TASK_UTIL_EXPECT_TRUE(rim->GetRoutingInstance(name) != NULL);
         const RoutingInstance *rtinstance = rim->GetRoutingInstance(name);
-        TASK_UTIL_EXPECT_TRUE(rtinstance->GetTable(Address::MVPN) != NULL);
-        const BgpTable *table = rtinstance->GetTable(Address::MVPN);
+        TASK_UTIL_EXPECT_TRUE(rtinstance->GetTable(family) != NULL);
+        const BgpTable *table = rtinstance->GetTable(family);
         return table;
     }
 
-    size_t GetVrfTableSize(BgpServerTestPtr server, const string &name) const {
-        return GetVrfTable(server, name)->Size();
+    size_t GetVrfTableSize(BgpServerTestPtr server, const string &name,
+                           Address::Family family = Address::MVPN) const {
+        return GetVrfTable(server, name, family)->Size();
     }
 
     EventManager evm_;
@@ -263,7 +266,6 @@ protected:
 
         BgpXmppMvpnTest::SessionUp();
         BgpXmppMvpnTest::Subscribe("blue", 1);
-        BgpXmppMvpnTest::Subscribe(BgpConfigManager::kFabricInstance, 1000);
         task_util::WaitForIdle();
     }
 
@@ -476,6 +478,8 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     // Verify that all routes are added once.
     TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]) + 1,
                         GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(4, GetVrfTableSize(bs_x_,
+                        BgpConfigManager::kFabricInstance, Address::ERMVPN));
 
     // Verify routes via sandesh.
     BgpSandeshContext sandesh_context;
@@ -530,6 +534,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowRoute) {
     }
 
     // Verify that all routes are deleted.
+    TASK_UTIL_EXPECT_EQ(1, GetVrfTableSize(bs_x_, "blue"));
 
     // Get blue.mvpn.0 again.
     result = list_of(1);
