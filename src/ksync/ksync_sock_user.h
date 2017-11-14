@@ -442,7 +442,7 @@ public:
              * rtr_index is configured while doing add of AF_BRIDGE entry. When
              * delete of AF_BRIDGE arrives, we do lookup of vr_route_req from
              * our tree to figure out the rtr_index */
-            if ((req->get_h_op() == sandesh_op::DELETE) &&
+            if ((req->get_h_op() == sandesh_op::DEL) &&
                 (req->get_rtr_family() == AF_BRIDGE)) {
                 KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
                 KSyncSockTypeMap::ksync_rt_tree::iterator it =
@@ -452,7 +452,7 @@ public:
                 req_ = new vr_route_req(tmp_req);
                 /* Change the operation to DELETE after picking request from
                  * our tree */
-                req_->set_h_op(sandesh_op::DELETE);
+                req_->set_h_op(sandesh_op::DEL);
             } else {
                 req_ = new vr_route_req(*req);
             }

@@ -609,7 +609,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     uint32_t flags = 0;
     encoder.set_h_op(op);
-    if (op == sandesh_op::DELETE) {
+    if (op == sandesh_op::DEL) {
         encoder.set_vifr_idx(interface_id_);
         int error = 0;
         encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
@@ -944,9 +944,9 @@ int InterfaceKSyncEntry::AddMsg(char *buf, int buf_len) {
 
 int InterfaceKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncIntfInfo info;
-    FillObjectLog(sandesh_op::DELETE, info);
+    FillObjectLog(sandesh_op::DEL, info);
     KSYNC_TRACE(Intf, GetObject(), info);
-    return Encode(sandesh_op::DELETE, buf, buf_len);
+    return Encode(sandesh_op::DEL, buf, buf_len);
 }
 
 int InterfaceKSyncEntry::ChangeMsg(char *buf, int buf_len) {

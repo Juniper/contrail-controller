@@ -765,7 +765,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     encoder.set_h_op(op);
     encoder.set_nhr_id(nh_id());
-    if (op == sandesh_op::DELETE) {
+    if (op == sandesh_op::DEL) {
         /* For delete only NH-index is required by vrouter */
         int error = 0;
         encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
@@ -1149,10 +1149,10 @@ int NHKSyncEntry::ChangeMsg(char *buf, int buf_len){
 
 int NHKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncNhInfo info;
-    FillObjectLog(sandesh_op::DELETE, info);
+    FillObjectLog(sandesh_op::DEL, info);
     KSYNC_TRACE(NH, GetObject(), info);
 
-    return Encode(sandesh_op::DELETE, buf, buf_len);
+    return Encode(sandesh_op::DEL, buf, buf_len);
 }
 
 KSyncEntry *NHKSyncEntry::UnresolvedReference() {

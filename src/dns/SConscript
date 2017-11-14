@@ -29,9 +29,9 @@ env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'config_cl
                   'cpuinfo', 'process_info', 'nodeinfo',
                   'boost_regex', 'boost_chrono', 'boost_program_options',
                   'crypto', 'ssl',
-                  'boost_filesystem', 'bgp_schema'])
+                  'bgp_schema'])
 env.Prepend(LIBS=['dns_cfg', 'cmn', 'mgr', 'agent_xmpp', 'bind_interface', 'dns_uve'])
-env.Append(LIBS=['sandesh', 'http', 'http_parser'])
+env.Append(LIBS=['sandesh', 'http', 'http_parser', 'boost_filesystem'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])
