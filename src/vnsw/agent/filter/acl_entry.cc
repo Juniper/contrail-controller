@@ -429,6 +429,10 @@ bool AddressMatch::TagsMatch(const TagList &pkt_tag_list) const {
 
 static bool SubnetMatch(const std::vector<AclAddressInfo> &list,
                         const IpAddress &data) {
+    if (list.size() == 0) {
+        return true;
+    }
+
     std::vector<AclAddressInfo>::const_iterator it = list.begin();
     while (it != list.end()) {
         IpAddress ip = it->ip_addr;
