@@ -83,9 +83,9 @@ TEST_F(FlowTest, UnderlayFipToInstanceIp) {
             client->agent()->fabric_vn_name().c_str());
     client->WaitForIdle();
 
-    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
-    EXPECT_FALSE(fe->IsShortFlow());
-    EXPECT_TRUE(fe->is_flags_set(FlowEntry::NatFlow));
+    fe = FlowGet(0, vm1_ip, vm5_ip, IPPROTO_ICMP, 0, 0,
+            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe == NULL);
 
     DelLink("floating-ip", "fip1", "virtual-machine-interface", "flow0");
     client->WaitForIdle();

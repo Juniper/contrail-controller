@@ -53,6 +53,11 @@ void FlowMgmtDbClient::DeleteEvent(const DBEntry *entry, FlowMgmtState *state) {
     mgr_->DeleteDBEntryEvent(entry, state->gen_id_);
 }
 
+void FlowMgmtDbClient::DeleteAllFlow(const DBEntry *entry,
+                                     FlowMgmtState *state) {
+    mgr_->DeleteDBEntryEvent(entry, state->gen_id_);
+}
+
 void FlowMgmtDbClient::ChangeEvent(const DBEntry *entry, FlowMgmtState *state) {
     mgr_->ChangeDBEntryEvent(entry, state->gen_id_);
 }
@@ -176,6 +181,7 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
 
         if (state->forwarding_vrf_id_ != forwarding_vrf_id) {
             state->forwarding_vrf_id_ = forwarding_vrf_id;
+            DeleteAllFlow(vm_port, state);
             changed = true;
         }
     }

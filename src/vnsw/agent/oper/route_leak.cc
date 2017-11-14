@@ -193,8 +193,8 @@ RouteLeakVrfState::RouteLeakVrfState(VrfEntry *source_vrf,
 }
 
 RouteLeakVrfState::~RouteLeakVrfState() {
+    source_vrf_->GetInet4UnicastRouteTable()->ReleaseWalker(walk_ref_);
     source_vrf_->GetInet4UnicastRouteTable()->Unregister(route_listener_id_);
-    walk_ref_.reset();
 }
 
 void RouteLeakVrfState::WalkDoneInternal(DBTableBase *part) {

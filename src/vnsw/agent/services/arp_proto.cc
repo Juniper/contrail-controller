@@ -563,8 +563,19 @@ ArpVrfState::~ArpVrfState() {
 }
 
 void ArpProto::InterfaceNotify(DBEntryBase *entry) {
+    Interface *intf = static_cast<Interface *>(entry);
+    ArpInterfaceState *state = static_cast<ArpInterfaceState *>
+        (entry->GetState(entry->get_table_partition()->parent(),
+                       interface_table_listener_id_));
+
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
+        if (state) {
+            intf->ClearState(intf->get_table_partition()->parent(),
+                             interface_table_listener_id_);
+            delete state;
+        }
+
         InterfaceArpMap::iterator it = interface_arp_map_.find(itf->id());
         if (it != interface_arp_map_.end()) {
             InterfaceArpInfo &intf_entry = it->second;
@@ -599,6 +610,12 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
             set_ip_fabric_interface_index(-1);
         }
     } else {
+        if (state == NULL) {
+            state = new ArpInterfaceState(intf);
+            intf->SetState(entry->get_table_partition()->parent(),
+                           interface_table_listener_id_, state);
+        }
+
         if (itf->type() == Interface::PHYSICAL &&
             itf->name() == agent_->fabric_interface_name()) {
             set_ip_fabric_interface(itf);
@@ -608,6 +625,16 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
             } else {
                 set_ip_fabric_interface_mac(MacAddress());
             }
+        }
+
+        if (itf->type() == Interface::VM_INTERFACE) {
+            const VmInterface *vm_intf =
+                static_cast<const VmInterface *>(itf);
+            VrfEntry *forwarding_vrf = NULL;
+            if (vm_intf->vrf()) {
+                forwarding_vrf = vm_intf->vrf()->forwarding_vrf();
+            }
+            state->SetVrf(vm_intf->vrf(), forwarding_vrf);
         }
     }
 }
@@ -890,4 +917,84 @@ void ArpProto::HandlePathPreferenceArpReply(const VrfEntry *vrf, uint32_t itf,
         return;
     }
     pstate->HandleArpReply(sip, itf);
+}
+
+ArpInterfaceState::ArpInterfaceState(Interface *intf):
+    intf_(intf), vrf_(NULL), fabric_vrf_(NULL), walk_ref_(NULL) {
+}
+
+ArpInterfaceState::~ArpInterfaceState() {
+    if (walk_ref_.get() && vrf_) {
+        vrf_->GetEvpnRouteTable()->ReleaseWalker(walk_ref_);
+    }
+}
+
+void ArpInterfaceState::SetVrf(VrfEntry *vrf, VrfEntry *fabric_vrf) {
+    bool walk = false;
+
+    if (vrf_ != vrf) {
+        if (walk_ref_.get() && vrf_) {
+            vrf_->GetEvpnRouteTable()->ReleaseWalker(walk_ref_);
+        }
+        vrf_ = vrf;
+    }
+
+    if (fabric_vrf_ != fabric_vrf) {
+        fabric_vrf_ = fabric_vrf;
+        walk = true;
+    }
+
+    if (vrf_ == NULL) {
+        return;
+    }
+
+    if (walk && walk_ref_.get() == NULL) {
+        walk_ref_ = vrf_->GetEvpnRouteTable()->AllocWalker(
+                boost::bind(&ArpInterfaceState::WalkNotify, this, _1, _2),
+                boost::bind(&ArpInterfaceState::WalkDone, this, _2));
+    }
+
+    if (walk) {
+        vrf_->GetEvpnRouteTable()->WalkAgain(walk_ref_);
+    }
+}
+
+void ArpInterfaceState::WalkDone(DBTableBase *part) {
+}
+
+bool ArpInterfaceState::WalkNotify(DBTablePartBase *partition,
+                                   DBEntryBase *e) {
+    const EvpnRouteEntry *evpn = static_cast<const EvpnRouteEntry *>(e);
+
+    if (evpn->ip_addr().is_v4() == false) {
+        return true;
+    }
+
+    if (evpn->ip_addr() == Ip4Address(0)) {
+        return true;
+    }
+
+    const InterfaceNH *nh =
+        dynamic_cast<const InterfaceNH *>(evpn->GetActiveNextHop());
+    if (nh && nh->GetInterface() == intf_) {
+        return true;
+    }
+
+    EvpnAgentRouteTable *table = static_cast<EvpnAgentRouteTable *>(evpn->get_table());
+    const VmInterface *vmi = static_cast<const VmInterface *>(intf_.get());
+    Agent *agent = table->agent();
+    boost::shared_ptr<PktInfo> pkt(new PktInfo(agent, ARP_TX_BUFF_LEN,
+                                   PktHandler::ARP, 0));
+    ArpHandler arp_handler(agent, pkt, *(agent->event_manager()->io_service()));
+
+    MacAddress smac = vmi->GetVifMac(agent);
+    if (vrf_->forwarding_vrf() == NULL) {
+        smac = evpn->mac();
+    }
+
+    agent->GetArpProto()->IncrementStatsVmGarpReq();
+    arp_handler.SendArp(ARPOP_REQUEST, smac, evpn->ip_addr().to_v4().to_ulong(),
+                        smac, vmi->vm_mac(), evpn->ip_addr().to_v4().to_ulong(),
+                        intf_->id(), intf_->vrf()->vrf_id());
+    return true;
 }
