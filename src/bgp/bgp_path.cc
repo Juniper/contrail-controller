@@ -172,10 +172,6 @@ string BgpPath::ToString() const {
     return peer_ ? peer_->ToString() : "Nil";
 }
 
-bool BgpPath::IsSecondary() const {
-    return dynamic_cast<const BgpSecondaryPath *>(this) != NULL;
-}
-
 RouteDistinguisher BgpPath::GetSourceRouteDistinguisher() const {
     if (!attr_->source_rd().IsZero())
         return attr_->source_rd();
