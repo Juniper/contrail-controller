@@ -145,7 +145,7 @@ BgpPath *BgpRoute::FindPath(const IPeer *peer) {
 
 //
 // Find path with given nexthop address.
-// Skips non BGP_XMPP, secondary, aliased and resolved paths.
+// Skips non BGP_XMPP, aliased and resolved paths.
 //
 BgpPath *BgpRoute::FindPath(const IpAddress &nexthop) {
     for (Route::PathList::iterator it = GetPathList().begin();
@@ -154,13 +154,7 @@ BgpPath *BgpRoute::FindPath(const IpAddress &nexthop) {
         if (path->GetSource() != BgpPath::BGP_XMPP) {
             continue;
         }
-        if (path->GetFlags() & BgpPath::AliasedPath) {
-            continue;
-        }
-        if (path->GetFlags() & BgpPath::ResolvedPath) {
-            continue;
-        }
-        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) {
+        if (path->IsResolved() || path->IsAliased()) {
             continue;
         }
         if (path->GetAttr()->nexthop() == nexthop) {
