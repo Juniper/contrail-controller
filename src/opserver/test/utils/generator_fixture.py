@@ -176,8 +176,8 @@ class GeneratorFixture(fixtures.Fixture):
                                 = 3*(((i/3)+1)*1)
                     cnt += 1
                 sess_ip_port_proto = SessionIpPortProtocol(
-                    ip=netaddr.IPAddress('10.10.10.1'),
-                    port=j+100, protocol=j/2)
+                    local_ip=netaddr.IPAddress('10.10.10.1'),
+                    service_port=j+100, protocol=j/2)
                 session_agg_info[sess_ip_port_proto] = SessionAggInfo(
                     sampled_forward_bytes = (j+1)*60,
                     sampled_forward_pkts = (j+1)*6,
@@ -227,8 +227,8 @@ class GeneratorFixture(fixtures.Fixture):
                                 = 3*(((i/3)+1)*1)
                     cnt += 1
                 sess_ip_port_proto = SessionIpPortProtocol(
-                    ip=netaddr.IPAddress('2001:db8::1:2'),
-                    port=j+100, protocol=j/2)
+                    local_ip=netaddr.IPAddress('2001:db8::1:2'),
+                    service_port=j+100, protocol=j/2)
                 session_agg_info[sess_ip_port_proto] = SessionAggInfo(
                     sampled_forward_bytes = (j+1)*60,
                     sampled_forward_pkts = (j+1)*6,

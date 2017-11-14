@@ -11,6 +11,8 @@
 const string IP       = "ip";
 const string PORT     = "port";
 const string PROTOCOL = "protocol";
+const string LOCAL_IP       = "local_ip";
+const string SERVICE_PORT     = "service_port";
 
 const map<string, bool> SessionFlowInfoField2Type = {
     "sampled_bytes" : 1,
@@ -83,8 +85,8 @@ struct SessionAggInfo {
 }
 
 struct SessionIpPortProtocol {
-    1: ipaddr ip;
-    2: u16    port;
+    1: ipaddr local_ip;
+    2: u16    service_port;
     3: u16    protocol;
 }
 
