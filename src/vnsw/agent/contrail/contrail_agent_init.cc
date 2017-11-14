@@ -83,8 +83,6 @@ void ContrailAgentInit::CreateModules() {
         agent()->set_stats_collector(stats_collector_.get());
     }
     flow_stats_manager_.reset(new FlowStatsManager(agent()));
-    flow_stats_manager_->Init(agent()->params()->flow_stats_interval(),
-                              agent()->params()->flow_cache_timeout());
     agent()->set_flow_stats_manager(flow_stats_manager_.get());
 
     ksync_.reset(AgentObjectFactory::Create<KSync>(agent()));

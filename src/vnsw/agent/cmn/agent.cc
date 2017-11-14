@@ -758,6 +758,7 @@ Agent::Agent() :
 
 Agent::~Agent() {
     uve_ = NULL;
+    flow_stats_manager_ = NULL;
 
     agent_signal_->Terminate();
     agent_signal_.reset();
