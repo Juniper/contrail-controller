@@ -116,6 +116,7 @@ private:
     friend class FlowMgmtRouteTest;
     void AddEvent(const DBEntry *entry, FlowMgmtState *state);
     void DeleteEvent(const DBEntry *entry, FlowMgmtState *state);
+    void DeleteAllFlow(const DBEntry *entry, FlowMgmtState *state);
     void ChangeEvent(const DBEntry *entry, FlowMgmtState *state);
     void RouteNHChangeEvent(const DBEntry *entry, FlowMgmtState *state);
 
