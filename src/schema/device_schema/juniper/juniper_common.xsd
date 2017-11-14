@@ -363,7 +363,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
 <xsd:complexType name="CommunityType">
     <xsd:all>
         <xsd:element name="name" type="xsd:string"/>
-        <xsd:element name="members" type="xsd:string"/>
+        <xsd:element name="members" type="xsd:string" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
