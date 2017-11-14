@@ -2042,7 +2042,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 session = session_obj.session_data[0]
                 if (r['T'] == session_obj._timestamp):
                     for key, agg_info in session.sess_agg_info.iteritems():
-                        if(key.port == server_port):
+                        if(key.service_port == server_port):
                             assert(r['forward_sampled_bytes'] ==
                                 agg_info.sampled_forward_bytes)
                             assert(r['reverse_sampled_pkts'] ==
@@ -2073,7 +2073,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 session = session_obj.session_data[0]
                 if (r['T'] == session_obj._timestamp):
                     for key, agg_info in session.sess_agg_info.iteritems():
-                        if (key.port == server_port and key.protocol == proto):
+                        if (key.service_ort == server_port and key.protocol == proto):
                             assert(r['forward_sampled_bytes'] ==
                                 agg_info.sampled_forward_bytes)
                             assert(r['reverse_sampled_pkts'] ==
@@ -2098,7 +2098,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 session = session_obj.session_data[0]
                 if (r['T'] == session_obj._timestamp):
                     for key, agg_info in session.sess_agg_info.iteritems():
-                        if (key.port == r['server_port']):
+                        if (key.service_port == r['server_port']):
                             assert(r['protocol'] == key.protocol)
                             assert(r['deployment'] == session.deployment)
                             found = 1
@@ -2337,13 +2337,13 @@ class AnalyticsFixture(fixtures.Fixture):
         server_session = generator_obj.server_sessions[0].session_data[0]
         for key, value in server_session.sess_agg_info.iteritems():
             for key2, value2 in value.sessionMap.iteritems():
-                if not key.port in exp_result:
-                    exp_result[key.port] = {'protocol':key.protocol,
+                if not key.service_port in exp_result:
+                    exp_result[key.service_port] = {'protocol':key.protocol,
                                              'SUM(bytes)':value2.reverse_flow_info.sampled_bytes,
                                              'SUM(packets)':value2.reverse_flow_info.sampled_pkts}
                 else:
-                    exp_result[key.port]['SUM(bytes)'] += value2.reverse_flow_info.sampled_bytes
-                    exp_result[key.port]['SUM(packets)'] += value2.reverse_flow_info.sampled_pkts
+                    exp_result[key.service_port]['SUM(bytes)'] += value2.reverse_flow_info.sampled_bytes
+                    exp_result[key.service_port]['SUM(packets)'] += value2.reverse_flow_info.sampled_pkts
 
         self.logger.info('exp_result: %s' % str(exp_result))
         self.logger.info('res: %s' % str(res))
@@ -2421,7 +2421,7 @@ class AnalyticsFixture(fixtures.Fixture):
                                        'sourcevn':client_session.vn,
                                        'destvn':client_session.remote_vn,
                                        'sport':key2.port,
-                                       'dport':key.port,
+                                       'dport':key.service_port,
                                        'T=':t,
                                        'vrouter':vrouter})
             for key, value in server_session.sess_agg_info.iteritems():
@@ -2429,7 +2429,7 @@ class AnalyticsFixture(fixtures.Fixture):
                     exp_result.append({'protocol':key.protocol,
                                        'sourcevn':server_session.vn,
                                        'destvn':server_session.remote_vn,
-                                       'sport':key.port,
+                                       'sport':key.service_port,
                                        'dport':key2.port,
                                        'T=':t,
                                        'vrouter':vrouter})
@@ -2476,14 +2476,14 @@ class AnalyticsFixture(fixtures.Fixture):
         for key, value in session.sess_agg_info.iteritems():
             for key2, value2 in value.sessionMap.iteritems():
                 dict = {'protocol':key.protocol, 'sport':key2.port,
-                        'dport':key.port,
+                        'dport':key.service_port,
                         'bytes':value2.forward_flow_info.sampled_bytes,
                         'packets':value2.forward_flow_info.sampled_pkts}
                 exp_result.append(dict)
         session = generator_obj.server_sessions[0].session_data[0]
         for key, value in session.sess_agg_info.iteritems():
             for key2, value2 in value.sessionMap.iteritems():
-                dict = {'protocol':key.protocol, 'sport':key.port,
+                dict = {'protocol':key.protocol, 'sport':key.service_port,
                         'dport':key2.port,
                         'bytes':value2.reverse_flow_info.sampled_bytes,
                         'packets':value2.reverse_flow_info.sampled_pkts}
