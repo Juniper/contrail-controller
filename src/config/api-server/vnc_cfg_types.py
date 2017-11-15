@@ -1728,7 +1728,34 @@ class TagServer(Resource, Tag):
 class FirewallRuleServer(Resource, FirewallRule):
 
     @classmethod
-    def _check_endpoint(cls, ep, db_conn):
+    def _validate_endpoint(cls, ep):
+        # TODO(ethuleau): Authorize only one condition per endpoint for the
+        #                 moment. If more than onefilter provided, priority is:
+        #                 tags then addres group then virtual network then
+        #                 subnet.
+        tags = ep.get('tags')
+        address_group = ep.get('address_group')
+        virtual_network = ep.get('virtual_network')
+        subnet = ep.get('subnet')
+        ep['any'] = False
+        if tags:
+            ep.pop('address_group', None)
+            ep.pop('virtual_network', None)
+            ep.pop('subnet', None)
+        elif address_group:
+            ep.pop('tags', None)
+            ep.pop('virtual_network', None)
+            ep.pop('subnet', None)
+        elif virtual_network:
+            ep.pop('tags', None)
+            ep.pop('address_group', None)
+            ep.pop('subnet', None)
+        elif subnet:
+            ep.pop('tags', None)
+            ep.pop('address_group', None)
+            ep.pop('virtual_network', None)
+        else:
+            ep['any'] = True
         # check no ids present
         # check endpoints exclusivity clause
         # validate VN name in endpoints
@@ -1862,9 +1889,7 @@ class FirewallRuleServer(Resource, FirewallRule):
             ep = obj_dict.get(ep_name)
             if ep is None:
                 continue
-            elif cls._check_endpoint(ep, db_conn):
-                msg = "Invalid endpoint specification"
-                return (False, (400, msg))
+            cls._validate_endpoint(ep)
             ok = True
             if 'tags' in ep and len(ep['tags']):
                 ok, result = cls._frs_fix_endpoint_tag(obj_dict, ep, db_conn)
@@ -1902,9 +1927,8 @@ class FirewallRuleServer(Resource, FirewallRule):
                     if ep is None:
                         continue
                     obj_dict[ep_name] = ep
-                if cls._check_endpoint(ep, db_conn):
-                    msg = "Invalid endpoint specification"
-                    return (False, (400, msg))
+                else:
+                    cls._validate_endpoint(ep)
                 ok = True
                 if 'tags' in ep and len(ep['tags']):
                     ok, result = cls._frs_fix_endpoint_tag(obj_dict, ep, db_conn)

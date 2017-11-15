@@ -237,6 +237,43 @@ class TestFw(test_case.ApiServerTestCase):
         self._vnc_lib.firewall_rule_delete(id=rule_obj.uuid)
     # end test_firewall_rule_match_tags
 
+    def test_firewal_rule_endpoint_match_limited_to_one(self):
+        project = Project('%s-project' % self.id())
+        self._vnc_lib.project_create(project)
+        type = 'type-%s' % self.id()
+        value = 'value-%s' % self.id()
+        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        self._vnc_lib.tag_create(tag)
+        ag = AddressGroup(
+            address_group_prefix=SubnetListType(
+                subnet=[SubnetType('1.1.1.0', 24)]),
+            parent_obj=project,
+        )
+        self._vnc_lib.address_group_create(ag)
+        vn = VirtualNetwork('vn-%s' % self.id(), parent_obj=project)
+        self._vnc_lib.virtual_network_create(vn)
+        ep = FirewallRuleEndpointType(
+            tags=['%s=%s' % (type.lower(), value)],
+            address_group=ag.get_fq_name_str(),
+            virtual_network=vn.get_fq_name_str(),
+            subnet=SubnetType('1.1.1.0', 24),
+        )
+
+        fr = FirewallRule(
+            parent_obj=project,
+            name='rule-%s' % self.id(),
+            action_list=ActionListType(simple_action='pass'),
+            endpoint_1=ep,
+            endpoint_2=FirewallRuleEndpointType(any=True),
+            direction='<>',
+        )
+        self._vnc_lib.firewall_rule_create(fr)
+        fr = self._vnc_lib.firewall_rule_read(id=fr.uuid)
+        self.assertEqual(fr.endpoint_1.tags, ['%s=%s' % (type.lower(), value)])
+        self.assertIsNone(fr.endpoint_1.address_group)
+        self.assertIsNone(fr.endpoint_1.virtual_network)
+        self.assertIsNone(fr.endpoint_1.subnet)
+
     def test_firewall_service(self):
         pobj = Project('%s-project' %(self.id()))
         self._vnc_lib.project_create(pobj)
