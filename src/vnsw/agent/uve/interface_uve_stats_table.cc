@@ -250,10 +250,10 @@ void InterfaceUveStatsTable::IncrInterfaceAceStats
     }
 }
 
-void InterfaceUveStatsTable::IncrInterfaceEndpointHits(const string &itf,
+bool InterfaceUveStatsTable::IncrInterfaceEndpointHits(const string &itf,
     const FlowUveFwPolicyInfo &info) {
     if (!info.is_valid_) {
-        return;
+        return false;
     }
     InterfaceMap::iterator intf_it = interface_tree_.find(itf);
 
@@ -262,10 +262,12 @@ void InterfaceUveStatsTable::IncrInterfaceEndpointHits(const string &itf,
         /* We don't send EndpointSecurityStats objectlog for deleted interfaces.
          * So, there is no need to update stats on deleted interfaces */
         if (entry->deleted_) {
-            return;
+            return false;
         }
         entry->UpdateInterfaceFwPolicyStats(info);
+        return true;
     }
+    return false;
 }
 
 void InterfaceUveStatsTable::SendInterfaceAceStats(const string &name,
