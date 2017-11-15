@@ -1701,11 +1701,24 @@ class TagServer(Resource, Tag):
 class FirewallRuleServer(Resource, FirewallRule):
 
     @classmethod
-    def _check_endpoint(cls, ep, db_conn):
+    def _check_endpoint(cls, ep):
+        # TODO(ethuleau): Authorize only one condition per endpoint for the
+        #                 moment.
+        filters = [
+            ep.get('tags'),
+            ep.get('address_group'),
+            ep.get('virtual_network'),
+            ep.get('subnet'),
+            ep.get('any'),
+        ]
+        filters = [f for f in filters if f]
+        if len(filters) > 1:
+            msg = "Endpoint is limited to only one filter together"
+            return False, (400, msg)
         # check no ids present
         # check endpoints exclusivity clause
         # validate VN name in endpoints
-        return False
+        return True, ''
 
     @classmethod
     def _frs_fix_service_protocol(cls, obj_dict):
@@ -1835,9 +1848,9 @@ class FirewallRuleServer(Resource, FirewallRule):
             ep = obj_dict.get(ep_name)
             if ep is None:
                 continue
-            elif cls._check_endpoint(ep, db_conn):
-                msg = "Invalid endpoint specification"
-                return (False, (400, msg))
+            ok, result = cls._check_endpoint(ep)
+            if not ok:
+                return False, result
             ok = True
             if 'tags' in ep and len(ep['tags']):
                 ok, result = cls._frs_fix_endpoint_tag(obj_dict, ep, db_conn)
@@ -1875,9 +1888,9 @@ class FirewallRuleServer(Resource, FirewallRule):
                     if ep is None:
                         continue
                     obj_dict[ep_name] = ep
-                if cls._check_endpoint(ep, db_conn):
-                    msg = "Invalid endpoint specification"
-                    return (False, (400, msg))
+                ok, result = cls._check_endpoint(ep)
+                if not ok:
+                    return False, result
                 ok = True
                 if 'tags' in ep and len(ep['tags']):
                     ok, result = cls._frs_fix_endpoint_tag(obj_dict, ep, db_conn)
