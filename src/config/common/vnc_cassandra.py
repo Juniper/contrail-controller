@@ -2,6 +2,8 @@
 # Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
 #
 
+import copy
+
 import pycassa
 from pycassa import ColumnFamily
 from pycassa.batch import Mutator
@@ -1365,7 +1367,7 @@ class VncCassandraClient(object):
 
     def uuid_to_fq_name(self, id):
         try:
-            return self._cache_uuid_to_fq_name[id][0]
+            return copy.copy(self._cache_uuid_to_fq_name[id][0])
         except KeyError:
             obj = self.get(self._OBJ_UUID_CF_NAME, id,
                            columns=['fq_name', 'type'])
@@ -1374,7 +1376,7 @@ class VncCassandraClient(object):
             fq_name = obj['fq_name']
             obj_type = obj['type']
             self.cache_uuid_to_fq_name_add(id, fq_name, obj_type)
-            return fq_name
+            return copy.copy(fq_name)
     # end uuid_to_fq_name
 
     def uuid_to_obj_type(self, id):
