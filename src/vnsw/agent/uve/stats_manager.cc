@@ -259,18 +259,20 @@ void StatsManager::AddFlow(const FlowUveStatsRequest *req) {
     InterfaceUveStatsTable *itable = static_cast<InterfaceUveStatsTable *>
         (uve->interface_uve_table());
     VnUveTable *vtable = static_cast<VnUveTable *>(uve->vn_uve_table());
-    const FlowUveFwPolicyInfo &fw_info = req->fw_policy_info();
+    FlowUveFwPolicyInfo fw_info = req->fw_policy_info();
     if (fw_info.is_valid_) {
         assert(fw_info.added_);
     }
     if (it == flow_ace_tree_.end()) {
         InterfaceStats stats;
-        FlowRuleMatchInfo info(req->interface(), req->sg_rule_uuid(),
-                               req->fw_policy_info(), req->vn_ace_info());
-        flow_ace_tree_.insert(FlowAcePair(req->uuid(), info));
         itable->IncrInterfaceAceStats(req);
-        itable->IncrInterfaceEndpointHits(req->interface(), fw_info);
+        bool fw_valid = itable->IncrInterfaceEndpointHits(req->interface(),
+                                                          fw_info);
+        fw_info.is_valid_ = fw_valid;
         vtable->IncrVnAceStats(req->vn_ace_info());
+        FlowRuleMatchInfo info(req->interface(), req->sg_rule_uuid(), fw_info,
+                               req->vn_ace_info());
+        flow_ace_tree_.insert(FlowAcePair(req->uuid(), info));
     } else {
         FlowRuleMatchInfo &info = it->second;
         bool intf_changed = false;
@@ -293,8 +295,9 @@ void StatsManager::AddFlow(const FlowUveStatsRequest *req) {
             FlowUveFwPolicyInfo old_info = info.fw_policy_info;
             old_info.added_ = false;
             itable->IncrInterfaceEndpointHits(old_itf, old_info);
-            itable->IncrInterfaceEndpointHits(req->interface(), fw_info);
-            info.fw_policy_info = req->fw_policy_info();
+            if (itable->IncrInterfaceEndpointHits(req->interface(), fw_info)) {
+                info.fw_policy_info = fw_info;
+            }
         }
         if (!info.IsVnAceInfoEqual(req->vn_ace_info())) {
             vtable->IncrVnAceStats(req->vn_ace_info());
