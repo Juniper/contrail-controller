@@ -630,3 +630,13 @@ class TestTag(TestTagBase):
 
         vn = self._vnc_lib.virtual_network_read(id=vn_uuid)
         self.assertIsNone(vn.get_tag_refs())
+
+    def test_associate_scoped_tag_to_project(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        type = 'fake_type-%s' % self.id()
+        value = 'fake_value-%s' % self.id()
+        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        self.api.tag_create(tag)
+
+        self.api.set_tag(project, type, value)
