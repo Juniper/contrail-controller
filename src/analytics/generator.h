@@ -13,6 +13,7 @@
 
 #include <sandesh/sandesh_state_machine.h>
 #include "collector_uve_types.h"
+#include "sdwan_uve_types.h"
 #include "syslog_collector.h"
 
 class DbHandler;
