@@ -752,6 +752,7 @@ TEST_F(BgpEvpnAliasingTest, AddDeleteAutoDiscovery5) {
 TEST_F(BgpEvpnAliasingTest, AddDeleteAutoDiscovery6a) {
     DisableSegmentUpdateProcessing();
     AddMacRoute(bgp_peers_[1], "aa:bb:cc:dd:ee:01", esi1_);
+    VerifySegmentExists(esi1_);
     AddAutoDiscoveryRoute(bgp_peers_[1], esi1_, false);
     DelMacRoute(bgp_peers_[1], "aa:bb:cc:dd:ee:01");
     EnableSegmentUpdateProcessing();
@@ -768,6 +769,7 @@ TEST_F(BgpEvpnAliasingTest, AddDeleteAutoDiscovery6a) {
 TEST_F(BgpEvpnAliasingTest, AddDeleteAutoDiscovery6b) {
     DisableSegmentUpdateProcessing();
     AddMacRoute(bgp_peers_[1], "aa:bb:cc:dd:ee:01", esi1_);
+    VerifySegmentExists(esi1_);
     DelMacRoute(bgp_peers_[1], "aa:bb:cc:dd:ee:01");
     AddAutoDiscoveryRoute(bgp_peers_[1], esi1_, false);
     EnableSegmentUpdateProcessing();
