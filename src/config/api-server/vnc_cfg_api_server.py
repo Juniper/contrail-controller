@@ -3759,7 +3759,10 @@ class VncApiServer(object):
                 fq_name = [name]
             else:
                 fq_name = copy.deepcopy(obj_dict['fq_name'])
-                fq_name[-1] = name
+                if obj_type == 'project':
+                    fq_name.append(name)
+                else:
+                    fq_name[-1] = name
 
             # lookup (validate) tag
             try:
