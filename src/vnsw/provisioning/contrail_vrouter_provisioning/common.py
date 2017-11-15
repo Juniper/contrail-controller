@@ -537,6 +537,22 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 insert_line_to_file(pattern=pattern, line=line,
                                     file_name='/etc/modules')
 
+            if not self._args.dpdk:
+                self.setup_vrouter_kmod_hugepages()
+
+            vrouter_kmod_1G_page = ''
+            vrouter_kmod_2M_page = ''
+            if self._args.vrouter_1G_hugepages != '0':
+                if (os.path.isfile('/mnt/hugepage_1G/vrouter_1G_mem_0')):
+                    vrouter_kmod_1G_page = '/mnt/hugepage_1G/vrouter_1G_mem_0'
+                if (os.path.isfile('/mnt/hugepage_1G/vrouter_1G_mem_1')):
+                    vrouter_kmod_1G_page = vrouter_kmod_1G_page + ' /mnt/hugepage_1G/vrouter_1G_mem_1'
+            if self._args.vrouter_2M_hugepages != '0':
+                if (os.path.isfile('/mnt/hugepage_2M/vrouter_2M_mem_0')):
+                    vrouter_kmod_2M_page = '/mnt/hugepage_2M/vrouter_2M_mem_0'
+                if (os.path.isfile('/mnt/hugepage_2M/vrouter_2M_mem_1')):
+                    vrouter_kmod_2M_page = vrouter_kmod_2M_page + ' /mnt/hugepage_2M/vrouter_2M_mem_1'
+
             control_servers = ' '.join('%s:%s' % (server, '5269')
                                        for server in self._args.control_nodes)
             dns_servers = ' '.join('%s:%s' % (server, '53')
@@ -589,6 +605,9 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                                                  else ''),
                     'metadata_client_key': ('/etc/contrail/ssl/private/server-privkey.pem'
                                             if self._args.metadata_use_ssl else '')},
+                'RESTART': {
+                    'huge_page_2M': vrouter_kmod_2M_page,
+                    'huge_page_1G': vrouter_kmod_1G_page,},
             }
 
             # VGW configs
@@ -960,6 +979,84 @@ SUBCHANNELS=1,2,3
                 local(
                     "echo %s > %s" %
                     (cmd, '/etc/modprobe.d/vrouter.conf'), warn_only=True)
+
+    def setup_vrouter_kmod_hugepages(self):
+        """Setup 1G and 2M hugepages for vrouter"""
+
+        no_of_pages = 2
+        # Update vrouter kernel mode hugepage config
+        self.setup_vrouter_kmod_hugepage_grub()
+
+        # Delete vrouter kernel mode 1G hugepage config
+        if os.path.isfile('/etc/fstab'):
+           pattern = "hugepage_1G"
+           line = ""
+           insert_line_to_file(pattern=pattern, line=line,
+                            file_name='/etc/fstab')
+        pattern = "vrouter_kmod_1G_hugepages"
+        line = "vrouter_kmod_1G_hugepages=0"
+        insert_line_to_file(pattern=pattern, line=line,
+                            file_name='/etc/contrail/agent_param')
+
+        # Delete vrouter kernel mode 2M hugepage config
+        if os.path.isfile('/etc/fstab'):
+            pattern = "hugepage_2M"
+            line = ""
+            insert_line_to_file(pattern=pattern, line=line,
+                                file_name='/etc/fstab')
+
+        pattern = "vrouter_kmod_2M_hugepages"
+        line = "vrouter_kmod_2M_hugepages=0"
+        insert_line_to_file(pattern=pattern, line=line,
+                            file_name='/etc/contrail/agent_param')
+
+        # Configure vrouter kernel mode 1G hugepages
+        if self._args.vrouter_1G_hugepages != '0':
+            if int(self._args.vrouter_1G_hugepages) > 0 and int(self._args.vrouter_1G_hugepages) <= 2:
+                no_of_pages = int(self._args.vrouter_1G_hugepages)
+            mounted = local("sudo mount | grep hugepage_1G | cut -d' ' -f 3",
+                            capture=True, warn_only=False)
+            if (mounted != ""):
+                print "hugepages already mounted on %s" % mounted
+            else:
+                local("sudo mkdir -p /mnt/hugepage_1G", warn_only=False)
+                local("sudo mount -t hugetlbfs -o pagesize=1G none /mnt/hugepage_1G", warn_only=False)
+                if os.path.isdir('/mnt/hugepage_1G'):
+                    for i in range(no_of_pages):
+                        local("sudo touch /mnt/hugepage_1G/vrouter_1G_mem_%s " % i, warn_only=False)
+            pattern = "hugepage_1G"
+            line = "hugetlbfs    "\
+                   "/mnt/hugepage_1G    hugetlbfs defaults,pagesize=1G      0       0"
+            insert_line_to_file(pattern=pattern, line=line,
+                                file_name='/etc/fstab')
+            pattern = "vrouter_kmod_1G_hugepages"
+            line = "vrouter_kmod_1G_hugepages=%s" % no_of_pages
+            insert_line_to_file(pattern=pattern, line=line,
+                                file_name='/etc/contrail/agent_param')
+
+        # Configure vrouter kernel mode 2M hugepages
+        if self._args.vrouter_2M_hugepages != '0' and self._args.vrouter_1G_hugepages != '0':
+            if int(self._args.vrouter_2M_hugepages) >= 0 and int(self._args.vrouter_2M_hugepages) <= 2:
+                no_of_pages = int(self._args.vrouter_2M_hugepages)
+            mounted = local("sudo mount | grep hugepage_2M | cut -d' ' -f 3",
+                            capture=True, warn_only=False)
+            if (mounted != ""):
+                print "hugepages already mounted on %s" % mounted
+            else:
+                local("sudo mkdir -p /mnt/hugepage_2M", warn_only=False)
+                local("sudo mount -t hugetlbfs -o pagesize=2M none /mnt/hugepage_2M", warn_only=False)
+                if os.path.isdir('/mnt/hugepage_2M'):
+                    for i in range(no_of_pages):
+                        local("sudo touch /mnt/hugepage_2M/vrouter_2M_mem_%s " % i, warn_only=False)
+            pattern = "hugepage_2M"
+            line = "hugetlbfs    "\
+                   "/mnt/hugepage_2M    hugetlbfs defaults,pagesize=2M      0       0"
+            insert_line_to_file(pattern=pattern, line=line,
+                                file_name='/etc/fstab')
+            pattern = "vrouter_kmod_2M_hugepages"
+            line = "vrouter_kmod_2M_hugepages=%s" % no_of_pages
+            insert_line_to_file(pattern=pattern, line=line,
+                                file_name='/etc/contrail/agent_param')
 
     def setup(self):
         self.disable_selinux()
