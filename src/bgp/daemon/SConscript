@@ -67,9 +67,7 @@ libpath = [
     '../rtarget',
     '../security_group',
     '../tunnel_encap',
-    '../../base',
     '../../db',
-    '../../io',
     '../../net',
     '../../route',
 ]

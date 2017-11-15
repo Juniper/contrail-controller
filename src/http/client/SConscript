@@ -27,8 +27,6 @@ httpc_include = env['TOP_INCLUDE']
 env.Prepend(CPPPATH=httpc_include)
 
 env.Append(LIBPATH = ['#/' + Dir('..').path,
-                      '../../base',
-                      '../../base/test',
                       '../../debug/httpc',
                       '../../debug/curl'
                      ])

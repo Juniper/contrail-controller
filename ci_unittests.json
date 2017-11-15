@@ -131,13 +131,11 @@
     },
     "contrail-libs" : {
         "source_directories" : [
-            "controller/src/base",
             "controller/src/db",
             "controller/src/discovery",
             "controller/src/database",
             "controller/src/zookeeper",
             "controller/src/http",
-            "controller/src/io",
             "controller/src/net",
             "controller/src/route",
             "controller/src/routing-policy",
@@ -149,12 +147,10 @@
             "src/contrail-common/sandesh/library"
         ],
         "scons_test_targets" : [
-            "controller/src/base:test",
             "controller/src/db:test",
             "controller/src/database/gendb:test",
             "controller/src/database/cassandra/cql:test",
             "controller/src/zookeeper:test",
-            "controller/src/io:test",
             "controller/src/net:test",
             "controller/src/schema:test",
             "sandesh:test"
