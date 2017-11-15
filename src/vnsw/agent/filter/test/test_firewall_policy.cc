@@ -633,6 +633,86 @@ TEST_F(FirewallPolicy, Test10) {
     client->WaitForIdle();
 }
 
+TEST_F(FirewallPolicy, Test11) {
+    std::vector<std::string> match;
+
+    AddFirewall("rule1", 1, "SrcAg", "DstAg", "pass");
+    client->WaitForIdle();
+
+    AddNode("firewall-policy", "app1", 1);
+    client->WaitForIdle();
+
+    struct TestIp4Prefix src_prefix[] = {
+    };
+
+    AddAddressGroup("SrcAg", 1, src_prefix, 0);
+    AddAddressGroup("DstAg", 2, src_prefix, 0);
+    client->WaitForIdle();
+
+    AddLink("firewall-rule", "rule1", "address-group", "SrcAg");
+    AddLink("firewall-rule", "rule1", "address-group", "DstAg");
+    client->WaitForIdle();
+
+    AddFwRuleTagLink("rule1", label, 1);
+    AddFirewallPolicyRuleLink("fpfr1", "app1", "rule1", "abc");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(AclFind(1));
+    AclDBEntry *acl = AclGet(1);
+
+    const AddressMatch *am = dynamic_cast<const AddressMatch *>(
+            acl->GetAclEntryAtIndex(0)->Get(0));
+    EXPECT_EQ(am->tags().size(), 0);
+    EXPECT_EQ(am->ip_list_size(), 0);
+
+    am = dynamic_cast<const AddressMatch *>(
+            acl->GetAclEntryAtIndex(0)->Get(1));
+    EXPECT_EQ(am->tags().size(), 0);
+    EXPECT_EQ(am->ip_list_size(), 0);
+
+    client->Reset();
+    AddLink("address-group", "SrcAg", "tag", "label1");
+    AddLink("address-group", "DstAg", "tag", "label1");
+    client->WaitForIdle();
+    EXPECT_GE(client->acl_notify(), 1);
+
+    am = dynamic_cast<const AddressMatch *>(
+            acl->GetAclEntryAtIndex(0)->Get(0));
+    EXPECT_EQ(am->tags().size(), 1);
+    EXPECT_EQ(am->ip_list_size(), 0);
+
+    am = dynamic_cast<const AddressMatch *>(
+            acl->GetAclEntryAtIndex(0)->Get(1));
+    EXPECT_EQ(am->tags().size(), 1);
+    EXPECT_EQ(am->ip_list_size(), 0);
+
+    PacketHeader *packet1 = new PacketHeader();
+    packet1->src_tags_.push_back(100);
+    packet1->dst_tags_.push_back(100);
+    MatchAclParams m_acl;
+    EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
+
+    packet1->src_ip = Ip4Address::from_string("16.1.1.1");
+    packet1->dst_ip = Ip4Address::from_string("8.8.8.8");
+    EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
+
+    packet1->src_tags_.clear();
+    packet1->dst_tags_.clear();
+    EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
+
+    DelNode("firewall-policy", "app1");
+    DelNode("firewall-rule", "rule1");
+    DelNode("address-group", "SrcAg");
+    DelNode("address-group", "DstAg");
+    DelFirewallPolicyRuleLink("fpfr1", "app1", "rule1");
+    DelFwRuleTagLink("rule1", label, 1);
+    DelLink("firewall-rule", "rule1", "address-group", "SrcAg");
+    DelLink("firewall-rule", "rule1", "address-group", "DstAg");
+    DelLink("address-group", "SrcAg", "tag", "label1");
+    DelLink("address-group", "DstAg", "tag", "label1");
+    delete packet1;
+    client->WaitForIdle();
+}
 int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
