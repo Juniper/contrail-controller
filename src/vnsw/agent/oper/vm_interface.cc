@@ -1918,7 +1918,11 @@ bool VmInterface::StaticRoute::IsLess(const StaticRoute *rhs) const {
 
 void VmInterface::StaticRoute::Copy(const Agent *agent,
                                     const VmInterface *vmi) const {
-    vrf_ = vmi->forwarding_vrf();
+    if (vmi->vmi_type() == VmInterface::VHOST) {
+        vrf_ = vmi->forwarding_vrf();
+    } else {
+        vrf_ = vmi->vrf();
+    }
 }
 
 VmInterfaceState::Op VmInterface::StaticRoute::GetOpL3

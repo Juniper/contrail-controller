@@ -55,8 +55,17 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
         return;
     }
 
+    if (uc_rt->IsHostRoute() &&
+        uc_rt->addr() == agent_->router_id()) {
+        //Dont overwrite vhost IP in default VRF
+        if (intf_nh->GetInterface() != agent_->vhost_interface()) {
+            local_peer_ = true;
+            return;
+        }
+    }
+
     if (intf_nh->GetInterface()->type() == Interface::PACKET) {
-        local_peer_ = false;
+        local_peer_ = true;
         InetUnicastAgentRouteTable *table = 
             static_cast<InetUnicastAgentRouteTable *>
             (dest_vrf_->GetInet4UnicastRouteTable());
@@ -89,7 +98,7 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
 
     /* Don't export /32 routes on fabric-vrf, if they are part of vrouter's
      * subnet list. To disable export, use local_peer */
-    if ((uc_rt->plen() == 32) &&
+    if ((uc_rt->IsHostRoute()) &&
         dest_vrf_->GetName() == agent_->fabric_vrf_name()) {
         if (agent_->oper_db()->vrouter()->IsSubnetMember(uc_rt->addr())) {
             peer = agent_->local_peer();
@@ -102,7 +111,6 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
     }
 
     local_peer_ = local_peer;
-    installed_ = true;
     SecurityGroupList sg_list;
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer,
                                                 dest_vrf_->GetName(),
@@ -146,19 +154,60 @@ void RouteLeakState::AddReceiveRoute(const AgentRoute *route) {
                              agent_->fabric_vn_name(), false, true);
 }
 
+bool RouteLeakState::CanAdd(const InetUnicastRouteEntry *rt) {
+    //Never replace resolve route and default route
+    InetUnicastAgentRouteTable *table =
+        agent_->fabric_vrf()->GetInet4UnicastRouteTable();
+
+    if (rt->addr() == Ip4Address(0) && rt->plen() == 0) {
+        return false;
+    }
+
+    InetUnicastRouteEntry *rsl_rt = table->FindResolveRoute(rt->addr().to_v4());
+    if (rsl_rt && rt->addr() == rsl_rt->addr() &&
+        rt->plen() == rsl_rt->plen()) {
+        //Dont overwrite resolve route
+        return false;
+    }
+
+    if (rt->IsHostRoute() &&
+        rt->addr() == agent_->vhost_default_gateway()) {
+        return false;
+    }
+
+    //Always add gateway and DNS routes
+    const InterfaceNH *nh =
+        dynamic_cast<const InterfaceNH *>(rt->GetActiveNextHop());
+    if (nh && nh->GetInterface()->type() == Interface::PACKET) {
+        return true;
+    }
+
+    if ((rt->GetActivePath()->tunnel_bmap() & TunnelType::NativeType()) == 0) {
+        return false;
+    }
+
+    return true;
+}
+
 void RouteLeakState::AddRoute(const AgentRoute *route) {
     const InetUnicastRouteEntry *uc_rt = 
         static_cast<const InetUnicastRouteEntry *>(route);
+
+    if (CanAdd(uc_rt) == false) {
+        DeleteRoute(route);
+        return;
+    }
 
     if (uc_rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL) {
         AddIndirectRoute(route);
     } else if (uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE) {
         AddInterfaceRoute(route);
     }
+    installed_ = true;
 }
 
 void RouteLeakState::DeleteRoute(const AgentRoute *route) {
-    if (dest_vrf_ == NULL) {
+    if (dest_vrf_ == NULL || installed_ == false) {
         return;
     }
 
@@ -172,6 +221,7 @@ void RouteLeakState::DeleteRoute(const AgentRoute *route) {
                                                    dest_vrf_->GetName(),
                                                    uc_rt->addr(),
                                                    uc_rt->plen());
+    installed_ = false;
 }
 
 RouteLeakVrfState::RouteLeakVrfState(VrfEntry *source_vrf, 

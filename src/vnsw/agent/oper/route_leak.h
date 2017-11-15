@@ -24,6 +24,7 @@ private:
     void AddIndirectRoute(const AgentRoute *route);
     void AddInterfaceRoute(const AgentRoute *route);
     void AddReceiveRoute(const AgentRoute *route);
+    bool CanAdd(const InetUnicastRouteEntry *route);
     Agent *agent_;
     VrfEntryRef dest_vrf_;
     bool local_peer_;

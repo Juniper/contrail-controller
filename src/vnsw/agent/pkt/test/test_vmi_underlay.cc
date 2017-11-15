@@ -166,6 +166,37 @@ TEST_F(FlowTest, OverlayToUnderlayTransition) {
     EXPECT_FALSE(fe->IsShortFlow());
 }
 
+TEST_F(FlowTest, OverlayIpToUnderlayIp) {
+    AddLink("virtual-network", "vn5", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    CreateLocalRoute("vrf5", vm4_ip, flow3, 19);
+    CreateLocalRoute("vrf3", vm1_ip, flow0, 16);
+    client->WaitForIdle();
+
+    TxIpPacket(flow3->id(), vm4_ip, vm1_ip, 1);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, vm4_ip, vm1_ip, IPPROTO_ICMP, 0, 0,
+                            flow3->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
+    EXPECT_FALSE(fe->IsShortFlow());
+    EXPECT_TRUE(fe->data().dest_vrf == 0);
+    EXPECT_TRUE(fe->reverse_flow_entry()->data().dest_vrf ==
+                flow3->vrf()->vrf_id());
+
+    DelLink("virtual-network", "default-project:vn4", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    DeleteRoute("vrf5", vm4_ip);
+    DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
+
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

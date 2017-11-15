@@ -54,7 +54,8 @@ using namespace boost::assign;
 
 IpamInfo ipam_info[] = {
     {"1.1.1.0", 24, "1.1.1.10"},
-    {"2.2.2.0", 24, "2.2.2.10"}
+    {"2.2.2.0", 24, "2.2.2.10"},
+    {"10.1.1.0", 24, "10.1.1.10"}
 };
 
 class FabricVmiTest : public ::testing::Test {
@@ -106,7 +107,8 @@ TEST_F(FabricVmiTest, basic_1) {
     Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
 
     PathPreference path_preference(1, PathPreference::LOW, false, false);
-    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE |
+                                 1 << TunnelType::NATIVE);
     Inet4TunnelRouteAdd(peer_, 
                         agent->fabric_policy_vrf_name().c_str(),
                         ip, 32, server_ip, bmap, 16, "vn1",
@@ -236,7 +238,8 @@ TEST_F(FabricVmiTest, GatewayRoute) {
     Ip4Address server_ip = Ip4Address::from_string("10.1.1.254");
 
     PathPreference path_preference(1, PathPreference::LOW, false, false);
-    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE |
+                                 1 << TunnelType::NATIVE);
     Inet4TunnelRouteAdd(peer_,
                         agent->fabric_policy_vrf_name().c_str(),
                         ip, 32, ip, bmap, 16, "vn1",
@@ -387,7 +390,7 @@ TEST_F(FabricVmiTest, v6) {
     InetUnicastRouteEntry* rt = RouteGetV6("vrf1", addr, 128);
     EXPECT_TRUE(rt != NULL);
     EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
-                TunnelType::NativeType()) == 0);
+                 TunnelType::NativeType()) == 0);
 
     DeleteVmportEnv(input, 1, 1, 0, NULL, NULL, true, true);
     client->WaitForIdle();
@@ -424,6 +427,182 @@ TEST_F(FabricVmiTest, DefaultRoute) {
     EXPECT_TRUE(rt == NULL);
 
     DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+}
+
+TEST_F(FabricVmiTest, NonOverlayRoute) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    Ip4Address server_ip = Ip4Address::from_string("10.1.1.3");
+
+    PathPreference path_preference(1, PathPreference::LOW, false, false);
+    TunnelType::TypeBmap bmap = (1 << TunnelType::MPLS_GRE);
+    Inet4TunnelRouteAdd(peer_,
+                        agent->fabric_policy_vrf_name().c_str(),
+                        ip, 32, server_ip, bmap, 16, "vn1",
+                        SecurityGroupList(), TagList(), path_preference);
+    client->WaitForIdle();
+
+    //Route should be leaked to fabric VRF
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+
+    bmap = (1 << TunnelType::MPLS_GRE | 1 << TunnelType::NATIVE);
+    Inet4TunnelRouteAdd(peer_, agent->fabric_policy_vrf_name().c_str(),
+                       ip, 32, server_ip, bmap, 16, "vn1",
+                       SecurityGroupList(), TagList(), path_preference);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    //Verify that nexthop is ARP nexthop fpr server_ip
+    InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+    EXPECT_TRUE(rt->GetActivePath()->gw_ip() == server_ip);
+
+    bmap = (1 << TunnelType::MPLS_GRE);
+    Inet4TunnelRouteAdd(peer_, agent->fabric_policy_vrf_name().c_str(),
+                        ip, 32, server_ip, bmap, 16, "vn1",
+                        SecurityGroupList(), TagList(), path_preference);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+
+    DeleteRoute(agent->fabric_policy_vrf_name().c_str(), "1.1.1.1", 32,
+                peer_);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    DelVrf(agent->fabric_policy_vrf_name().c_str());
+    client->WaitForIdle();
+}
+
+//Subnet and default route in fabric VRF should not be
+//overwritten
+TEST_F(FabricVmiTest, IntfStaticRoute) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("0.0.0.0"), 0},
+       { Ip4Address::from_string("10.1.1.0"), 24},
+   };
+
+   AddInterfaceRouteTable("static_route", 1, static_route, 2);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+
+   InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(),
+                                        static_route[0].addr_,
+                                        static_route[0].plen_);
+   EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+
+   rt = RouteGet(agent->fabric_vrf_name(),
+                 static_route[1].addr_,
+                 static_route[1].plen_);
+   EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
+
+   //Delete the link between interface and route table
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+
+   rt = RouteGet(agent->fabric_vrf_name(),
+                 static_route[0].addr_,
+                 static_route[0].plen_);
+   EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::ARP);
+
+   rt = RouteGet(agent->fabric_vrf_name(),
+           static_route[1].addr_,
+           static_route[1].plen_);
+   EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE);
+
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+
+   EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(),
+                         static_route[0].addr_,
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind(agent->fabric_vrf_name(),
+                         static_route[1].addr_,
+                         static_route[1].plen_));
+   EXPECT_FALSE(VmPortFind(1));
+}
+
+TEST_F(FabricVmiTest, GwRoute) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 2);
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    Ip4Address addr = Ip4Address::from_string("1.1.1.10", ec);
+    InetUnicastRouteEntry* rt = RouteGet(agent->fabric_vrf_name(), addr, 32);
+    EXPECT_TRUE(rt != NULL);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+
+    rt = RouteGet(agent->fabric_vrf_name(), addr, 32);
+    EXPECT_TRUE(rt == NULL);
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+}
+
+TEST_F(FabricVmiTest, VmWithVhostIp) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "10.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    boost::system::error_code ec;
+    Ip4Address addr = Ip4Address::from_string("10.1.1.1", ec);
+    InetUnicastRouteEntry* rt = RouteGet(agent->fabric_vrf_name(), addr, 32);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+
+    rt = RouteGet(agent->fabric_vrf_name(), addr, 32);
+    EXPECT_TRUE(rt != NULL);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::RECEIVE);
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
     client->WaitForIdle();
 }
 
