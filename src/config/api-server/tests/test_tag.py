@@ -123,6 +123,16 @@ class TestTagType(TestTagBase):
 
 
 class TestTag(TestTagBase):
+    STALE_LOCK_SECS = '0.2'
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestTag, cls).setUpClass(
+            extra_config_knobs=[
+                ('DEFAULTS', 'stale_lock_seconds', cls.STALE_LOCK_SECS),
+            ]
+        )
+
     def test_tag_name_is_composed_with_type_and_value(self):
         name = 'fake-name-%s' % self.id()
         type = 'fake_type-%s' % self.id()
@@ -138,6 +148,26 @@ class TestTag(TestTagBase):
         self.assertEqual(tag.display_name, '%s=%s' % (type, value))
         self.assertEqual(tag.tag_type_name, type)
         self.assertEqual(tag.tag_value, value)
+
+    def test_tag_is_unique(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        type = 'fake_type-%s' % self.id()
+        value = 'fake_value-%s' % self.id()
+        tag1 = Tag(tag_type_name=type, tag_value=value)
+        self.api.tag_create(tag1)
+        scoped_tag1 = Tag(tag_type_name=type, tag_value=value,
+                          parent_obj=project)
+        self.api.tag_create(scoped_tag1)
+        gevent.sleep(float(self.STALE_LOCK_SECS))
+
+        tag2 = Tag(tag_type_name=type, tag_value=value)
+        with ExpectedException(exceptions.RefsExistError):
+            self.api.tag_create(tag2)
+        scoped_tag2 = Tag(tag_type_name=type, tag_value=value,
+                          parent_obj=project)
+        with ExpectedException(exceptions.RefsExistError):
+            self.api.tag_create(scoped_tag2)
 
     def test_tag_type_is_mandatory(self):
         value = 'fake_value-%s' % self.id()
@@ -301,15 +331,6 @@ class TestTag(TestTagBase):
                                    return_value=True):
                 tag_type = self.api.tag_type_read(id=tag_type_uuid)
             self.assertEqual(tag_type_uuid, tag_type.uuid)
-
-    def test_tag_is_unique_in_same_scope(self):
-        type = 'fake_type-%s' % self.id()
-        value = 'fake_value-%s' % self.id()
-        tag = Tag(tag_type_name=type, tag_value=value)
-        self.api.tag_create(tag)
-        with ExpectedException(exceptions.RefsExistError):
-            new_tag = Tag(tag_type_name=type, tag_value=value)
-            self.api.tag_create(new_tag)
 
     def test_tag_type_is_allocated(self):
         type = 'fake_type-%s' % self.id()
