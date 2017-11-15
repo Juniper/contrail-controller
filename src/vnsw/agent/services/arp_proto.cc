@@ -954,8 +954,10 @@ void ArpInterfaceState::SetVrf(VrfEntry *vrf, VrfEntry *fabric_vrf) {
                 boost::bind(&ArpInterfaceState::WalkDone, this, _2));
     }
 
-    if (walk) {
-        vrf_->GetEvpnRouteTable()->WalkAgain(walk_ref_);
+    if (vrf_->vn() && vrf_->vn()->bridging()) {
+        if (walk) {
+            vrf_->GetEvpnRouteTable()->WalkAgain(walk_ref_);
+        }
     }
 }
 
