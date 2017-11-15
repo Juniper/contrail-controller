@@ -156,6 +156,9 @@ class StatsManager {
             vn_ace_info(nw_ace_info) {
         }
         bool IsFwPolicyInfoEqual(const FlowUveFwPolicyInfo &info) const {
+            if (fw_policy_info.is_valid_ != info.is_valid_) {
+                return false;
+            }
             if (fw_policy_info.local_tagset_ != info.local_tagset_) {
                 return false;
             }
