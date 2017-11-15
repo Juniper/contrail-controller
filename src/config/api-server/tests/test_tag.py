@@ -9,10 +9,12 @@ from testtools import ExpectedException
 
 from cfgm_common import exceptions
 from sandesh_common.vns import constants
+from vnc_api.vnc_api import PermType2
 from vnc_api.vnc_api import Project
 from vnc_api.vnc_api import Tag
 from vnc_api.vnc_api import TagType
 from vnc_api.vnc_api import VirtualNetwork
+from vnc_api.vnc_api import VirtualMachine
 
 import test_case
 
@@ -630,3 +632,33 @@ class TestTag(TestTagBase):
 
         vn = self._vnc_lib.virtual_network_read(id=vn_uuid)
         self.assertIsNone(vn.get_tag_refs())
+
+    def test_associate_scoped_tag_to_project(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        type = 'fake_type-%s' % self.id()
+        value = 'fake_value-%s' % self.id()
+        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        self.api.tag_create(tag)
+
+        self.api.set_tag(project, type, value)
+
+    def test_associate_scoped_tag_to_virtual_machine(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        vm = VirtualMachine('vm-%s' % self.id())
+        vm_uuid = self.api.virtual_machine_create(vm)
+        vm = self.api.virtual_machine_read(id=vm_uuid)
+        type = 'fake_type-%s' % self.id()
+        value = 'fake_value-%s' % self.id()
+        tag = Tag(tag_type_name=type, tag_value=value, parent_obj=project)
+        self.api.tag_create(tag)
+
+        with ExpectedException(exceptions.NoIdError):
+            self.api.set_tag(vm, type, value)
+
+        perms2 = PermType2()
+        perms2.owner = project.uuid.replace('-', '')
+        vm.set_perms2(perms2)
+        self.api.virtual_machine_update(vm)
+        self.api.set_tag(vm, type, value)
