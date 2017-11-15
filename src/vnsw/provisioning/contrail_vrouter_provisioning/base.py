@@ -182,6 +182,62 @@ class ContrailSetup(object):
                 sed = 'sudo sed -i \'/^\s*exit/i ' + str + '\' /etc/rc.local'
                 local(sed, warn_only=True)
 
+    def setup_vrouter_kmod_hugepage_grub(self):
+        if self.pdist != 'Ubuntu':
+            log.info("Not configuring vrouter kmod hugepages Grub changes for %s distribution",
+                     self.pdist)
+            return
+
+        with open('/etc/default/grub', 'r') as f:
+            gcnf = f.read()
+            p = re.compile('\s*GRUB_CMDLINE_LINUX_DEFAULT')
+            el = gcnf.split('\n')
+            for i, x in enumerate(el):
+                if not p.match(x):
+                    continue
+                exec(el[i])
+                el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s "' % (
+                        ' '.join(filter(lambda x: not (x.startswith(
+                              'default_hugepagesz') or x.startswith('hugepagesz')
+                              or x.startswith('hugepages')),
+                              GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                exec(el[i])
+                if self._args.vrouter_1G_hugepages:
+                    el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s default_hugepagesz=1G"' % (
+                            ' '.join(filter(lambda x: not x.startswith(
+                                'default_hugepagesz='),
+                                GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                    exec(el[i])
+                    el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s hugepagesz=1G"' % (
+                            ' '.join(filter(lambda x: not x.startswith(
+                                'hugepagesz=1'), GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                    exec(el[i])
+                    el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s hugepages=%s"' % (
+                            ' '.join(filter(lambda x: not x.startswith(
+                                'hugepages='),
+                                GRUB_CMDLINE_LINUX_DEFAULT.split())), self._args.vrouter_1G_hugepages)
+                    exec(el[i])
+                if self._args.vrouter_2M_hugepages:
+                    el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s hugepagesz=2M"' % (
+                            ' '.join(filter(lambda x: not x.startswith(
+                                'hugepagesz=2'),
+                                GRUB_CMDLINE_LINUX_DEFAULT.split())))
+                    exec(el[i])
+                    el[i] = 'GRUB_CMDLINE_LINUX_DEFAULT="%s hugepages_2M=%s"' % (
+                            ' '.join(filter(lambda x: not x.startswith(
+                                'hugepages_2M'),
+                                GRUB_CMDLINE_LINUX_DEFAULT.split())), self._args.vrouter_2M_hugepages)
+                    el[i] = el[i].replace('hugepages_2M', 'hugepages')
+                    exec(el[i])
+
+                with open('%s/grub' % self._temp_dir_name, 'w') as f:
+                    f.write('\n'.join(el))
+                    f.flush()
+                local('sudo mv %s/grub /etc/default/grub' %
+                      self._temp_dir_name)
+                local('sudo /usr/sbin/update-grub')
+                break
+
     def disable_iptables(self):
         # Disable iptables
         if self.pdist not in ['Ubuntu']:
