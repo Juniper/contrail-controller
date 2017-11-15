@@ -694,8 +694,8 @@ class MxConf(JuniperConf):
         if self.policy_config is None:
             self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
         for route_target in self.route_targets:
-            comm = CommunityType(name=DMUtils.make_community_name(route_target),
-                                 members=route_target)
+            comm = CommunityType(name=DMUtils.make_community_name(route_target))
+            comm.add_members(route_target)
             self.policy_config.add_community(comm)
     # end set_route_targets_config
 

@@ -492,6 +492,21 @@ class DMUtils(object):
     # end get_switch_policy_name
 
     @classmethod
+    def switch_export_policy_comment(cls):
+        return "L2 Switch Global Export Policy"
+    # end switch_export_policy_comment
+
+    @classmethod
+    def get_switch_export_policy_name(cls):
+        return "_contrail_switch_export_policy_"
+    # end get_switch_export_policy_name
+
+    @classmethod
+    def get_switch_export_community_name(cls):
+        return "_contrail_switch_export_community_"
+    # end get_switch_export_community_name
+
+    @classmethod
     def get_switch_vrf_import(cls, asn):
         return "target:" + str(asn) + ":1"
     # end get_switch_vrf_import

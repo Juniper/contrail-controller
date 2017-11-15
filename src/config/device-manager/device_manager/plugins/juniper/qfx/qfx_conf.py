@@ -373,7 +373,30 @@ class QfxConf(JuniperConf):
         self.global_switch_options_config.add_vrf_target(VniTarget(auto=''))
         switch_options_community = DMUtils.get_switch_vrf_import(self.get_asn())
         self.global_switch_options_config.add_vrf_target(VniTarget(community=switch_options_community))
+        self.set_global_export_policy()
     # end init_global_switch_opts
+
+    def set_global_export_policy(self):
+        if self.is_spine():
+            return
+
+        export_policy = DMUtils.get_switch_export_policy_name()
+        ps = PolicyStatement(name=export_policy)
+        ps.set_comment(DMUtils.switch_export_policy_comment())
+
+        export_community = DMUtils.get_switch_export_community_name()
+        then = Then()
+        comm = Community(add='', community_name=export_community)
+        then.add_community(comm)
+        ps.add_term(Term(name="t1", then=then))
+
+        if not self.policy_config:
+            self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
+        self.policy_config.add_policy_statement(ps)
+        if not self.global_switch_options_config:
+            self.global_switch_options_config = SwitchOptions(comment=DMUtils.switch_options_comment())
+        self.global_switch_options_config.add_vrf_export(export_policy)
+    # end set_global_export_policy
 
     def add_to_global_switch_opts(self, policy, is_import):
         if not self.global_switch_options_config:
@@ -387,13 +410,18 @@ class QfxConf(JuniperConf):
     def set_route_targets_config(self):
         if self.policy_config is None:
             self.policy_config = PolicyOptions(comment=DMUtils.policy_options_comment())
+        # add export community
+        export_comm = CommunityType(name=DMUtils.get_switch_export_community_name())
+        self.policy_config.add_community(export_comm)
         for route_target in self.route_targets:
-            comm = CommunityType(name=DMUtils.make_community_name(route_target),
-                                 members=route_target)
+            comm = CommunityType(name=DMUtils.make_community_name(route_target))
+            comm.add_members(route_target)
             self.policy_config.add_community(comm)
+            # add route-targets to export community
+            export_comm.add_members(route_target)
         # add community for switch options
-        comm = CommunityType(name=DMUtils.get_switch_policy_name(),
-                                 members=DMUtils.get_switch_vrf_import(self.get_asn()))
+        comm = CommunityType(name=DMUtils.get_switch_policy_name())
+        comm.add_members(DMUtils.get_switch_vrf_import(self.get_asn()))
         self.policy_config.add_community(comm)
     # end set_route_targets_config
 
