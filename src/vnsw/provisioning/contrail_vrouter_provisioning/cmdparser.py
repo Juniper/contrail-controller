@@ -88,6 +88,8 @@ class ComputeArgsParser(object):
             'metadata_secret': '',
             'tsn_evpn_mode': False,
             'tsn_servers': None,
+            'vrouter_1G_hugepages': None,
+            'vrouter_2M_hugepages': None,
         }
 
         self.parse_args(args_str)
@@ -333,6 +335,14 @@ class ComputeArgsParser(object):
                 help="List of tsn nodes working in active/backup mode \
                       when agent runs in tsn-no-forwarding mode.",
                 nargs='+', type=str)
+        parser.add_argument(
+                "--vrouter_1G_hugepages",
+                help="Number of 1G hugepages for vrouter kernel mode",
+                type=str)
+        parser.add_argument(
+                "--vrouter_2M_hugepages",
+                help="Number of 2M hugepages for vrouter kernel mode",
+                type=str)
 
         parser.set_defaults(**self.global_defaults)
         self._args = parser.parse_args(args_str)
