@@ -412,9 +412,9 @@ int ConfigManager::Run() {
     count += bridge_domain_list_->Process(max_count - count);
     count += policy_set_list_->Process(max_count - count);
     count += logical_interface_list_->Process(max_count - count);
+    count += hc_list_->Process(max_count - count);
     count += vmi_list_->Process(max_count - count);
     count += device_list_->Process(max_count - count);
-    count += hc_list_->Process(max_count - count);
     count += device_vn_list_->Process(max_count - count);
     count += slo_list_->Process(max_count - count);
     return count;
