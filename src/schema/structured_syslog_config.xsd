@@ -51,6 +51,18 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:complexType name="StructuredSyslogLinkType">
+    <xsd:all>
+        <xsd:element name="overlay" type="xsd:string"/>
+        <xsd:element name="underlay" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="StructuredSyslogLinkmap">
+    <xsd:all>
+        <xsd:element name="links" type="StructuredSyslogLinkType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
 
 <xsd:element name="structured-syslog-message" type="ifmap:IdentityType"
      description="structured syslog messages to be handled"/>
@@ -123,6 +135,16 @@
 <!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-device',
                                   'structured-syslog-hostname-record',
                                   'optional', 'CRUD', 'device id') -->
+<xsd:element name="structured-syslog-hostname-tags" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-hostname-tags',
+                                  'structured-syslog-hostname-record',
+                                  'optional', 'CRUD', 'tags
+                                   corresponding to the host') -->
+<xsd:element name="structured-syslog-linkmap" type="StructuredSyslogLinkmap" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-linkmap',
+                                  'structured-syslog-hostname-record',
+                                  'optional', 'CRUD', 'overlay to
+                                   underlay mapping') -->
 
 <xsd:element name="structured-syslog-application-record"
                     type="ifmap:IdentityType"
@@ -160,6 +182,24 @@
                                   'structured-syslog-application-record',
                                   'optional', 'CRUD', 'service-tags
                                    corresponding to applications') -->
+
+<xsd:element name="structured-syslog-sla-profile"
+                    type="ifmap:IdentityType"
+                    description="mapping sla-profile to sla params"/>
+<xsd:element name="structured-syslog-config-structured-syslog-sla-profile"
+                    description="mapping sla-profile to sla params"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('structured-syslog-config-structured-syslog-sla-profile',
+         'structured-syslog-config', 'structured-syslog-sla-profile',
+         ['has'], 'optional', 'CRUD', 'List of
+         structured-syslog-sla-profile that are applicable to objects
+         anchored under structured-syslog-config.')-->
+<xsd:element name="structured-syslog-sla-params" type="xsd:string" />
+<!--#IFMAP-SEMANTICS-IDL Property('structured-syslog-sla-params',
+                                  'structured-syslog-sla-profile',
+                                  'required', 'CRUD', 'The sla
+                                   params like sampling %age and
+                                   traffic type') -->
 
 </xsd:schema>
 
