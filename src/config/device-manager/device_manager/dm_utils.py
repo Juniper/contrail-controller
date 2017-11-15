@@ -520,11 +520,17 @@ class DMIndexer(object):
     # end __init__
 
     def reserve_index(self, index):
-        self.index_allocator[index] = 1
+        if self.allocation_order == self.ALLOC_DECREMENT:
+            self.index_allocator[self.max_count - 1 - index] = 1
+        else:
+            self.index_allocator[index] = 1
     # end reserve_index
 
     def free_index(self, index):
-        self.index_allocator[index] = 0
+        if self.allocation_order == self.ALLOC_DECREMENT:
+            self.index_allocator[self.max_count - 1 - index] = 1
+        else:
+            self.index_allocator[index] = 0
     # end free_index
 
     def find_next_available_index(self):
