@@ -1688,6 +1688,68 @@ class TestAuthenticatedAccess(test_case.NeutronBackendTestCase):
     # end test_post_neutron_checks_auth_token
 # end class TestAuthenticatedAccess
 
+class TestRBACPerms(test_case.NeutronBackendTestCase):
+    domain_name = 'default-domain'
+    fqdn = [domain_name]
+    _api_session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter()
+    _api_session.mount("http://", adapter)
+
+    @classmethod
+    def setUpClass(cls):
+        from keystonemiddleware import auth_token
+        class FakeAuthProtocol(object):
+            _test_cls = cls
+            def __init__(self, app, *args, **kwargs):
+                self._app = app
+
+            # end __init__
+            def __call__(self, env, start_response):
+                #Count number of calls made
+                if env.get('HTTP_X_AUTH_TOKEN') == 'test123':
+                    env['HTTP_X_ROLE'] = 'test'
+                else:
+                    env['HTTP_X_ROLE'] = 'cloud-admin'
+                return self._app(env, start_response)
+            # end __call__
+        # end class FakeAuthProtocol
+
+        extra_mocks = [(auth_token, 'AuthProtocol',
+                            FakeAuthProtocol)]
+        extra_config_knobs = [
+            ('DEFAULTS', 'aaa_mode', 'rbac'),
+            ('DEFAULTS', 'cloud_admin_role', 'cloud-admin'),
+            ('DEFAULTS', 'global_read_only_role', 'read-only-role'),
+            ('DEFAULTS', 'auth', 'keystone'),
+        ]
+        super(TestRBACPerms, cls).setUpClass(extra_mocks=extra_mocks,
+            extra_config_knobs=extra_config_knobs)
+
+    def test_neutron_perms(self):
+        test_obj = self._create_test_object()
+        proj_obj = self._vnc_lib.project_read(
+            fq_name=['default-domain', 'default-project'])
+        context = {'operation': 'CREATE',
+                   'user_id': '',
+                   'is_admin': False,
+                   'roles': '',
+                   'tenant_id': proj_obj.uuid}
+
+        data = {'resource': {'name': 'test_network',
+                             'tenant_id': proj_obj.uuid}}
+        body = {'context': context, 'data': data}
+        uri = '/neutron/network'
+        url = "http://%s:%s%s" \
+              % (self._vnc_lib._web_host, self._vnc_lib._web_port, uri)
+        headers=self._vnc_lib._headers
+        headers['X_AUTH_TOKEN'] = 'test123'
+        header = json.dumps(headers)
+        body = json.dumps(body)
+        test_pass = False
+        val = TestRBACPerms._api_session.post(url, data=body, headers=headers, verify=False)
+        self.assertIn('NotAuthorized', val._content)
+# end class TestRBACPerms 
+
 class TestKeystoneCallCount(test_case.NeutronBackendTestCase):
     test_obj_uuid = None
     test_failures = []
