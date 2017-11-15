@@ -25,7 +25,7 @@ public:
     void UpdatePortBitmap
     (const string &name, uint8_t proto, uint16_t sport, uint16_t dport);
     void IncrInterfaceAceStats(const FlowUveStatsRequest *req);
-    void IncrInterfaceEndpointHits(const std::string &itf,
+    bool IncrInterfaceEndpointHits(const std::string &itf,
                                    const FlowUveFwPolicyInfo &info);
     void SendInterfaceAceStats(const string &name, UveInterfaceEntry *entry);
     void UpdateVmiTagBasedStats(const EndpointStatsInfo &info);
