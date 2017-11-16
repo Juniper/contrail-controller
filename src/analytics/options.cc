@@ -252,10 +252,6 @@ void Options::Initialize(EventManager &evm,
         ("DATABASE.disable_message_writes",
             opt::bool_switch(&cassandra_options_.disable_db_messages_writes_),
             "Disable message writes to the database")
-        ("DATABASE.enable_message_keyword_writes",
-            opt::bool_switch(&enable_db_messages_keyword_writes_)->
-                default_value(false),
-            "Enable message keyword writes to the database")
         ;
 
     // Command line and config file options.
