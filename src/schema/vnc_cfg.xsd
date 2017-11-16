@@ -659,6 +659,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 <!-- domain limits type end -->
 
+<xsd:simpleType name="AutonomousSystemType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="65534"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:simpleType name="AccessType">
      <xsd:restriction base="xsd:integer" required='true'
           description_1="Three bits representing rwx."
@@ -939,10 +946,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('config-root-global-system-config',
              'config-root', 'global-system-config', ['has'], 'required', 'R',
              'Global system config is object where all global system configuration is present.') -->
-<xsd:element name="autonomous-system" type="xsd:integer"/>
-<!--#IFMAP-SEMANTICS-IDL 
+<xsd:element name="autonomous-system" type="AutonomousSystemType"/>
+<!--#IFMAP-SEMANTICS-IDL
      Property('autonomous-system', 'global-system-config', 'required', 'CRUD',
-              '32 bit BGP Autonomous System number for the cluster.') -->
+              '16 bit BGP Autonomous System number for the cluster.') -->
 <xsd:element name="config-version" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('config-version', 'global-system-config', 'system-only', 'R',
