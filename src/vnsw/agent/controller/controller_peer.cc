@@ -740,12 +740,22 @@ void AgentXmppChannel::AddFabricVrfRoute(const Ip4Address &prefix_addr,
                                          const VnListType &vn_list,
                                          const SecurityGroupList &sg_list,
                                          const TagList &tag_list) {
-    if (addr == agent_->router_id()) {
+    InetUnicastAgentRouteTable *table =
+        agent_->fabric_vrf()->GetInet4UnicastRouteTable();
+
+    if (prefix_addr == agent_->router_id() && prefix_len == 32) {
         return;
     }
 
-    InetUnicastAgentRouteTable *table =
-        agent_->fabric_vrf()->GetInet4UnicastRouteTable();
+    if (addr == agent_->router_id()) {
+        ClonedLocalPath *data =
+            new ClonedLocalPath(MplsTable::kInvalidExportLabel,
+                                vn_list, sg_list, tag_list, sequence_number());
+        table->AddClonedLocalPathReq(bgp_peer_id(), agent_->fabric_vrf_name(),
+                                     prefix_addr, prefix_len, data);
+        return;
+    }
+
     Ip4Address nh = addr;
 
     if (table->FindResolveRoute(addr) == NULL) {

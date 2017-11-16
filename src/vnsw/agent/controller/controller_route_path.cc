@@ -192,6 +192,11 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
         }
     }
 
+    if (item->entry.next_hops.next_hop.size()) {
+        tunnel_bmap_ = agent_->controller()->GetTypeBitmap
+            (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
+    }
+
     // Build the NH request and then create route data to be passed
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new CompositeNHKey(Composite::ECMP, comp_nh_policy,
@@ -370,23 +375,29 @@ bool ClonedLocalPath::AddChangePathExtended(Agent *agent, AgentPath *path,
                                             const AgentRoute *rt) {
     bool ret = false;
 
-    MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(mpls_label_);
-    if (!mpls) {
-        return ret;
+    AgentPath *local_path = NULL;
+    if (mpls_label_ == MplsTable::kInvalidExportLabel) {
+        local_path = rt->FindPath(agent->fabric_rt_export_peer());
+    } else {
+        MplsLabel *mpls = agent->mpls_table()->FindMplsLabel(mpls_label_);
+        if (!mpls) {
+            return ret;
+        }
+
+        assert(mpls->nexthop()->GetType() == NextHop::VRF);
+        const VrfNH *vrf_nh = static_cast<const VrfNH *>(mpls->nexthop());
+        const InetUnicastRouteEntry *uc_rt =
+            static_cast<const InetUnicastRouteEntry *>(rt);
+        const AgentRoute *mpls_vrf_uc_rt =
+            vrf_nh->GetVrf()->GetUcRoute(uc_rt->addr());
+        if (mpls_vrf_uc_rt == NULL) {
+            return ret;
+        }
+        local_path = mpls_vrf_uc_rt->FindLocalVmPortPath();
     }
 
-    //Do a route lookup in native VRF
     path->set_peer_sequence_number(sequence_number_);
-    assert(mpls->nexthop()->GetType() == NextHop::VRF);
-    const VrfNH *vrf_nh = static_cast<const VrfNH *>(mpls->nexthop());
-    const InetUnicastRouteEntry *uc_rt =
-        static_cast<const InetUnicastRouteEntry *>(rt);
-    const AgentRoute *mpls_vrf_uc_rt =
-        vrf_nh->GetVrf()->GetUcRoute(uc_rt->addr());
-    if (mpls_vrf_uc_rt == NULL) {
-        return ret;
-    }
-    AgentPath *local_path = mpls_vrf_uc_rt->FindLocalVmPortPath();
+
     if (!local_path) {
         return ret;
     }
