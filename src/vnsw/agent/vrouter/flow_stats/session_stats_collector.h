@@ -86,6 +86,8 @@ struct SessionExportInfo {
     std::string vm_cfg_name;
     std::string other_vrouter;
     uint16_t underlay_proto;
+    UuidList vmi_slo_list;
+    UuidList vn_slo_list;
     SessionFlowExportInfo fwd_flow;
     SessionFlowExportInfo rev_flow;
     SessionExportInfo() : valid(false), vm_cfg_name(""), other_vrouter(""),
@@ -289,12 +291,17 @@ private:
                                  const std::string &match_uuid);
     bool FindSloMatchRule(const SessionSloRuleMap &map,
                           const std::string &match_uuid);
-    bool MatchSloForSession(const SessionFlowStatsInfo &session_flow,
+    bool MatchSloForSession(const SessionStatsInfo &stats_info,
+                            const FlowEntry *fe,
                             const std::string &match_uuid);
-    void BuildSloList(const SessionFlowStatsInfo &session_flow,
-                      SessionSloRuleMap *global_session_slo_rule_map,
-                      SessionSloRuleMap *vmi_session_slo_rule_map,
-                      SessionSloRuleMap *vn_session_slo_rule_map);
+    void BuildSloList(const SessionStatsInfo &stats_info,
+                        const FlowEntry *fe,
+                        SessionSloRuleMap *global_session_slo_rule_map,
+                        SessionSloRuleMap *vmi_session_slo_rule_map,
+                        SessionSloRuleMap *vn_session_slo_rule_map);
+    void MakeSloList(const FlowEntry *fe,
+                        SessionSloRuleMap *vmi_session_slo_rule_map,
+                        SessionSloRuleMap *vn_session_slo_rule_map);
     void AddSloList(const UuidList &slo_list, SessionSloRuleMap *slo_rule_map);
     void AddSloEntry(const boost::uuids::uuid &uuid,
                      SessionSloRuleMap *slo_rule_map);
