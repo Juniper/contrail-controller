@@ -382,10 +382,7 @@ class JuniperConf(DeviceConf):
             if family in self._FAMILY_MAP:
                 getattr(family_etree, "set_" + fam)(self._FAMILY_MAP[family])
             else:
-                try:
-                    getattr(family_etree, "set_" + fam)('')
-                except AttributeError:
-                    self._logger.info("DM does not support address family: %s" % fam)
+                self._logger.info("DM does not support address family: %s" % fam)
     # end add_families
 
     def add_ibgp_export_policy(self, params, bgp_group):
