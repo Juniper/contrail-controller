@@ -257,8 +257,6 @@ bool HealthCheckInstanceService::DestroyInstanceTask() {
     }
 
     HEALTH_CHECK_TRACE(Trace, "Deleting " + this->to_string());
-    assert(service_->health_check_type() == HealthCheckService::SEGMENT ||
-           service_->health_check_type() == HealthCheckService::BFD);
     service_->table()->health_check_service_callback
                        (service_->health_check_type())
                        (HealthCheckTable::DELETE_SERVICE, this);
@@ -278,8 +276,6 @@ bool HealthCheckInstanceService::RunInstanceTask() {
 
 bool HealthCheckInstanceService::StopInstanceTask() {
     HEALTH_CHECK_TRACE(Trace, "Stop Instance " + this->to_string());
-    assert(service_->health_check_type() == HealthCheckService::SEGMENT ||
-           service_->health_check_type() == HealthCheckService::BFD);
     return service_->table()->health_check_service_callback
                               (service_->health_check_type())
                               (HealthCheckTable::STOP_SERVICE, this);
