@@ -320,8 +320,8 @@ private:
                                 uint16_t port = mgen_->kPorts[protoIdx];
                                 uint16_t proto = mgen_->kProtocols[protoIdx];
                                 SessionIpPortProtocol sess_ip_port_proto;
-                                sess_ip_port_proto.set_ip(ipaddr);
-                                sess_ip_port_proto.set_port(port);
+                                sess_ip_port_proto.set_local_ip(ipaddr);
+                                sess_ip_port_proto.set_service_port(port);
                                 sess_ip_port_proto.set_protocol(proto);
                                 SessionAggInfo place_holder;
                                 sess_agg_map[sess_ip_port_proto];

@@ -5,11 +5,11 @@
 #include <sandesh/common/flow_types.h>
 
 bool SessionIpPortProtocol::operator < (const SessionIpPortProtocol &rhs) const {
-    if (port < rhs.port) {
+    if (service_port < rhs.service_port) {
         return true;
-    } else if (port == rhs.port && protocol < rhs.protocol) {
+    } else if (service_port == rhs.service_port && protocol < rhs.protocol) {
         return true;
-    } else if (port == rhs.port && protocol == rhs.protocol && ip < rhs.ip) {
+    } else if (service_port == rhs.service_port && protocol == rhs.protocol && local_ip < rhs.local_ip) {
         return true;
     } else {
         return false;
