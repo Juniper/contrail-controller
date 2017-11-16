@@ -1002,6 +1002,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
+    underlay_flow = false;
     if (VrfTranslate(pkt, in, out, fip_it->floating_ip_, true) == false) {
         return;
     }
