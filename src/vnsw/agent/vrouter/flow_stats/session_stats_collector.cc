@@ -675,9 +675,6 @@ void SessionStatsCollector::DeleteSession(FlowEntry* fe,
                 }
 
                 assert(session_map_iter->second.fwd_flow.flow.get() == fe);
-                DeleteFlowToSessionMap(fe);
-                session_map_iter->second.fwd_flow.flow = NULL;
-                session_map_iter->second.rev_flow.flow = NULL;
             }
         }
     }
@@ -1510,6 +1507,9 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             if (!is_sampling && !is_logging) {
                 ++session_map_iter;
                 if (prev->second.deleted) {
+                    DeleteFlowToSessionMap(prev->second.fwd_flow.flow.get());
+                    prev->second.fwd_flow.flow = NULL;
+                    prev->second.rev_flow.flow = NULL;
                     session_agg_map_iter->second.session_map_.erase(prev);
                 }
                 continue;
@@ -1529,6 +1529,9 @@ bool SessionStatsCollector::ProcessSessionEndpoint
             ++session_map_iter;
             ++session_count;
             if (prev->second.deleted) {
+                DeleteFlowToSessionMap(prev->second.fwd_flow.flow.get());
+                prev->second.fwd_flow.flow = NULL;
+                prev->second.rev_flow.flow = NULL;
                 session_agg_map_iter->second.session_map_.erase(prev);
             }
             if (session_count ==
