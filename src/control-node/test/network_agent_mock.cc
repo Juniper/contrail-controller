@@ -881,8 +881,6 @@ NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
                                    string server_address,
                                    bool xmpp_auth_enabled)
     : impl_(new XmppDocumentMock(hostname)),
-      work_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0,
-                boost::bind(&NetworkAgentMock::ProcessRequest, this, _1)),
       server_address_(server_address), local_address_(local_address),
       server_port_(server_port), skip_updates_processing_(false), down_(false),
       xmpp_auth_enabled_(xmpp_auth_enabled), id_(0) {
@@ -1056,63 +1054,38 @@ uint32_t NetworkAgentMock::flap_count() {
     return (connection ? connection->flap_count() : 0);
 }
 
-//
-//
-// Process requests and run them off bgp::Config exclusive task
-//
-bool NetworkAgentMock::ProcessRequest(Request *request) {
+bool NetworkAgentMock::IsSessionEstablished(bool *is_established) {
     CHECK_CONCURRENCY("bgp::Config");
-    switch (request->type) {
-        case IS_ESTABLISHED:
-            request->result = IsSessionEstablished();
-            break;
-        case IS_CHANNEL_READY:
-            request->result = IsReady();
-            break;
-    }
-
-    // Notify waiting caller with the result
-    tbb::mutex::scoped_lock lock(work_mutex_);
-    cond_var_.notify_all();
-    return true;
-}
-
-bool NetworkAgentMock::IsSessionEstablished() {
     XmppChannel *channel = client_->FindChannel(
             XmppDocumentMock::kControlNodeJID);
-    return (channel != NULL && channel->GetPeerState() == xmps::READY);
+    bool est = (channel != NULL && channel->GetPeerState() == xmps::READY);
+    if (is_established)
+        *is_established = est;
+    return est;
 }
 
 bool NetworkAgentMock::IsEstablished() {
-    tbb::interface5::unique_lock<tbb::mutex> lock(work_mutex_);
-
-    Request request;
-    request.type = IS_ESTABLISHED;
-    work_queue_.Enqueue(&request);
-
-    // Wait for the request to get processed.
-    cond_var_.wait(lock);
-
-    return request.result;
+    bool is_established;
+    task_util::TaskFire(boost::bind(&NetworkAgentMock::IsSessionEstablished,
+        this, &is_established), "bgp::Config");
+    return is_established;
 }
 
-bool NetworkAgentMock::IsChannelReady() {
+bool NetworkAgentMock::IsChannelReady(bool *is_ready) {
+    CHECK_CONCURRENCY("bgp::Config");
     AgentPeer *peer = GetAgent();
-    return (peer != NULL && peer->channel() != NULL &&
-            peer->channel()->GetPeerState() == xmps::READY);
+    bool ready = (peer != NULL && peer->channel() != NULL &&
+                  peer->channel()->GetPeerState() == xmps::READY);
+    if (is_ready)
+        *is_ready = ready;
+    return ready;
 }
 
 bool NetworkAgentMock::IsReady() {
-    tbb::interface5::unique_lock<tbb::mutex> lock(work_mutex_);
-
-    Request request;
-    request.type = IS_CHANNEL_READY;
-    work_queue_.Enqueue(&request);
-
-    // Wait for the request to get processed.
-    cond_var_.wait(lock);
-
-    return request.result;
+    bool is_ready;
+    task_util::TaskFire(boost::bind(&NetworkAgentMock::IsChannelReady,
+        this, &is_ready), "bgp::Config");
+    return is_ready;
 }
 
 void NetworkAgentMock::SendEorMarker() {
