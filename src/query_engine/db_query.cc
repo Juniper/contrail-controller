@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/tuple/tuple.hpp>
+#include <boost/foreach.hpp>
 #include "query.h"
 #include "base/work_pipeline.h"
 
@@ -59,13 +61,13 @@ bool DbQueryUnit::PipelineCb(std::string &cfname, GenDb::DbDataValueVec &rowkey,
                            GenDb::WhereIndexInfoVec &where_vec,
                            GetRowInput * ip_ctx, void *privdata) {
 
+    // prepend T2: to value in each tuple in where_vec
+    std::string T2_string = GenDb::DbDataValueToString(rowkey.at(0));
     BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, where_vec) {
-        std::string columnN = where_info.get<0>();
-        std::ostringstream where_oss;
-        where_oss << GenDb::DbDataValueToString(rowkey.at(0))
-                  << ":"
-                  << GenDb::DbDataValueToString(where_info.get<2>());
-        where_info.get<2>() = where_oss.str();
+        std::string tempstr(T2_string);
+        tempstr.append(":");
+        tempstr.append(GenDb::DbDataValueToString(where_info.get<2>()));
+        where_info.get<2>() = tempstr;
     }
     /*
      *  Call GetRowAsync, with args prepopulated
@@ -124,9 +126,7 @@ std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
         GenDb::DbDataValueVec rowkey;
 
         rowkey.push_back(t2);
-        if (m_query->is_stat_table_query(m_query->table()) ||
-                (m_query->is_object_table_query(m_query->table()) && 
-                 cfname == g_viz_constants.OBJECT_TABLE)) {
+        if (m_query->is_stat_table_query(m_query->table())) {
             uint8_t partition_no = 0;
             rowkey.push_back(partition_no);
         }
@@ -172,7 +172,8 @@ std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
                 }
             }
 
-            // If querying message_index_tables, partion_no is an additional row_key
+            // If querying message_index_tables, partition_no is an
+            // additional row_key
             // It spans values 0..15
             if (t_only_col) {
                 for (uint8_t part_no = (uint8_t)g_viz_constants.PARTITION_MIN;
@@ -209,6 +210,7 @@ query_status_t DbQueryUnit::process_query()
             << t2_start
             << " T2_end:" << t2_end
             << " cf:" << cfname
+            << " where_vec size:" << where_vec.size()
             << " column_start size:" << cr.start_.size()
             << " column_end size:" << cr.finish_.size()
             << " where_vec size:" << where_vec.size());
@@ -250,7 +252,7 @@ void DbQueryUnit::WPCompleteCb(QEPipeT *wp, bool ret_code) {
     //copy pipeline output to DbQueryUnit query_output
     query_result = (res->query_result);
     int size = res->query_result->size();
-    QE_TRACE(DEBUG,  " Database query completed with Async"
+    QE_TRACE(DEBUG,  " Database query completed with Async "
             << size << " rows");
     // Have the result ready and processing is done
     // sort the result before returning
@@ -436,26 +438,10 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
                 // If message index table uuid is not the value, but
                 // column name
                 if (t_only_col) {
-                    GenDb::DbDataValueVec uuid_val;
-                    uuid_val.push_back(i->name->at(i->name->size() - 1));
-                    result_unit.info = uuid_val;
+                    GenDb::DbDataValueVec val = gri.get()->rowkey;
+                    message_table_query_get_row(val, i, result_unit);
                 } else {
-                    if (m_query->is_object_table_query(m_query->table())) {
-                        boost::uuids::uuid uuid;
-                        try {
-                            uuid = boost::get<boost::uuids::uuid>
-                                   (i->value->at(0));
-                        } catch (boost::bad_get& ex) {
-                            QE_ASSERT(0);
-                        }
-                        GenDb::DbDataValueVec uuid_obj_id_val;
-                        uuid_obj_id_val.push_back(uuid);
-                        // should correspond to object_id
-                        uuid_obj_id_val.push_back(i->name->at(0));
-                        result_unit.info = uuid_obj_id_val;
-                    } else {
-                        result_unit.info = *i->value;
-                    }
+                    result_unit.info = *i->value;
                 }
             }
             q_result_ptr->push_back(result_unit);
@@ -468,4 +454,56 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
         rpi->Response(q_result_ptr);
     }
 
+}
+
+void DbQueryUnit::message_table_query_get_row(
+                                GenDb::DbDataValueVec const &val,
+                                GenDb::NewColVec::iterator const &res_it,
+                                query_result_unit_t &result_unit) {
+    // cassandra returns fields in the ascending order by column-name.
+    // pushing fields in order as per schema.
+    // key      = rowkey[0]     T2
+    // key2     = rowkey[1]     partition
+    // column1  = name[0]       T1
+    // column2  = name[1]       UUID
+    // column3  = value[10]     T2:Source
+    // column4  = value[11]     T2:Messagetype
+    // column5  = value[12]     T2:ModuleId
+    // column6  = value[13]     T2:<object-type1>:<object-value1>)
+    // column7  = value[14]
+    // column8  = value[15]
+    // column9  = value[16]
+    // column10 = value[0]
+    // column11 = value[1]
+    // column12 = value[2]
+    // column13 = value[3]
+    // column14 = value[4]
+    // column15 = value[5]
+    // column16 = value[6]
+    // column17 = value[7]
+    // column18 = value[8]
+    // column19 = value[9]
+    // DATA     = value[17]
+    result_unit.info.push_back(val.at(0));
+    result_unit.info.push_back(val.at(1));
+    result_unit.info.push_back(res_it->name->at(0));
+    result_unit.info.push_back(res_it->name->at(1));
+    result_unit.info.push_back(res_it->value->at(10));
+    result_unit.info.push_back(res_it->value->at(11));
+    result_unit.info.push_back(res_it->value->at(12));
+    result_unit.info.push_back(res_it->value->at(13));
+    result_unit.info.push_back(res_it->value->at(14));
+    result_unit.info.push_back(res_it->value->at(15));
+    result_unit.info.push_back(res_it->value->at(16));
+    result_unit.info.push_back(res_it->value->at(0));
+    result_unit.info.push_back(res_it->value->at(1));
+    result_unit.info.push_back(res_it->value->at(2));
+    result_unit.info.push_back(res_it->value->at(3));
+    result_unit.info.push_back(res_it->value->at(4));
+    result_unit.info.push_back(res_it->value->at(5));
+    result_unit.info.push_back(res_it->value->at(6));
+    result_unit.info.push_back(res_it->value->at(7));
+    result_unit.info.push_back(res_it->value->at(8));
+    result_unit.info.push_back(res_it->value->at(9));
+    result_unit.info.push_back(res_it->value->at(17));
 }

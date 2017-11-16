@@ -57,8 +57,6 @@ class UserDefinedCounters {
         void GetUDCConfig(std::vector<LogStatisticConfigInfo> *config_info);
     private:
         Cfg_t config_;
-
-    friend class DbHandlerMsgKeywordInsertTest;
 };
 
 
