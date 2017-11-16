@@ -132,7 +132,6 @@ public:
     // Select one path over other
     int PathCompare(const BgpPath &rhs, bool allow_ecmp) const;
     bool PathSameNeighborAs(const BgpPath &rhs) const;
-    bool IsSecondary() const;
 
 private:
     const IPeer *peer_;

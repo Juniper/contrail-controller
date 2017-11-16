@@ -248,7 +248,7 @@ void MvpnTable::UpdateSecondaryTablesForReplication(BgpRoute *rt,
     const MvpnRoute *spmsi_rt = FindRoute(spmsi_prefix);
     if (!spmsi_rt || !spmsi_rt->IsUsable())
         return;
-    if (!spmsi_rt->BestPath()->IsSecondary())
+    if (!spmsi_rt->BestPath()->IsReplicated())
         return;
 
     const BgpTable *table = dynamic_cast<const BgpSecondaryPath *>(
@@ -601,7 +601,7 @@ UpdateInfo *MvpnTable::GetMvpnUpdateInfo(RibOut *ribout, MvpnRoute *route,
         return NULL;
 
     // Reflect Type-5 primary path back only to the sender agent.
-    if (route->BestPath()->IsSecondary())
+    if (route->BestPath()->IsReplicated())
         return NULL;
 
     MvpnProjectManager *pm = GetProjectManager();

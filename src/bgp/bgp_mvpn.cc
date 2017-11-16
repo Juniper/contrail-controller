@@ -721,7 +721,7 @@ void MvpnManager::ProcessType1ADRoute(MvpnRoute *route) {
     }
 
     // Ignore primary paths.
-    if (!route->BestPath()->IsSecondary())
+    if (!route->BestPath()->IsReplicated())
         return;
 
     MvpnNeighbor neighbor(route->GetPrefix().route_distinguisher(),
@@ -851,7 +851,7 @@ void MvpnManagerPartition::ProcessType5SourceActiveRoute(MvpnRoute *rt) {
 
     const BgpPath *path = rt->BestPath();
     // Here in the sender side, we only care about changes to the primary path.
-    if (path->IsSecondary())
+    if (path->IsReplicated())
         return;
 
     MvpnStatePtr state = LocateState(rt);
@@ -869,7 +869,7 @@ void MvpnManagerPartition::ProcessType5SourceActiveRoute(MvpnRoute *rt) {
     // route reached the sender)
     const MvpnRoute *join_rt = table()->FindType7SourceTreeJoinRoute(rt);
     if (!join_rt || !join_rt->IsUsable() ||
-            !join_rt->BestPath()->IsSecondary()) {
+            !join_rt->BestPath()->IsReplicated()) {
         // Remove any type-3 spmsi path originated before.
         MvpnRoute *spmsi_rt = mvpn_dbstate->route();
         if (spmsi_rt) {
@@ -933,7 +933,7 @@ void MvpnManagerPartition::ProcessType7SourceTreeJoinRoute(MvpnRoute *join_rt) {
     }
 
     // We care only for imported secondary type-7 joins (at the sender).
-    if (!join_rt->BestPath()->IsSecondary())
+    if (!join_rt->BestPath()->IsReplicated())
         return;
 
     MvpnStatePtr state = LocateState(join_rt);
@@ -980,7 +980,7 @@ void MvpnManagerPartition::ProcessType4LeafADRoute(MvpnRoute *leaf_ad) {
     }
 
     const BgpPath *path = leaf_ad->BestPath();
-    if (!path->IsSecondary())
+    if (!path->IsReplicated())
         return;
 
     // Secondary leaft-ad path has been imported.
@@ -1058,7 +1058,7 @@ void MvpnManagerPartition::ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt) {
     }
 
     // Ignore notifications of primary S-PMSI paths.
-    if (!spmsi_rt->BestPath()->IsSecondary())
+    if (!spmsi_rt->BestPath()->IsReplicated())
         return;
 
     // A valid S-PMSI path has been imported to a table. Originate a new
