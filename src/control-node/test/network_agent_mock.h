@@ -634,9 +634,7 @@ public:
             int rt_type=7);
 
     bool IsEstablished();
-    bool IsSessionEstablished();
     bool IsReady();
-    bool IsChannelReady();
     void ClearInstances();
 
     const std::string &hostname() const { return impl_->hostname(); }
@@ -654,17 +652,6 @@ public:
 
     const std::string local_address() const { return local_address_; }
     void DisableRead(bool disable_read);
-
-    enum RequestType {
-        IS_ESTABLISHED,
-        IS_CHANNEL_READY,
-    };
-    struct Request {
-        RequestType type;
-        bool result;
-    };
-
-    bool ProcessRequest(Request *request);
 
     size_t get_sm_connect_attempts();
     size_t get_sm_keepalive_count();
@@ -685,22 +672,19 @@ private:
     AgentPeer *GetAgent();
     XmppChannelConfig *CreateXmppConfig();
     bool ConnectionDestroyed() const;
+    bool IsSessionEstablished(bool *is_established);
+    bool IsChannelReady(bool *is_ready);
 
     XmppClient *client_;
     std::auto_ptr<AgentPeer> peer_;
     boost::scoped_ptr<XmppDocumentMock> impl_;
 
-    WorkQueue<Request *> work_queue_;
     std::string server_address_;
     std::string local_address_;
     int server_port_;
     bool skip_updates_processing_;
     bool down_;
     tbb::mutex mutex_;
-    tbb::mutex work_mutex_;
-
-    tbb::interface5::condition_variable cond_var_;
-
     bool xmpp_auth_enabled_;
     int id_;
 };
