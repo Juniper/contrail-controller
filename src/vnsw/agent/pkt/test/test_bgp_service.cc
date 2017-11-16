@@ -30,6 +30,7 @@ struct PortInfo input[] = {
     {"vnet4", 4, "4.4.4.40", "00:00:04:04:04:04", 4, 4},
     {"vnet5", 5, "5.5.5.50", "00:00:05:05:05:05", 5, 5},
     {"vnet6", 6, "6.6.6.60", "00:00:06:06:06:06", 6, 6},
+    {"vnet7", 7, "1.1.1.11", "00:00:01:01:01:02", 1, 7},
 };
 
 IpamInfo ipam_info[] = {
@@ -71,7 +72,7 @@ public:
         AddBgpaasPortRange(50000, 50512);
         client->WaitForIdle();
         EXPECT_EQ(0U, flow_proto_->FlowCount());
-        CreateVmportEnv(input, 6);
+        CreateVmportEnv(input, 7);
         AddIPAM("vn1", &ipam_info[0], 1);
         AddIPAM("vn2", &ipam_info[1], 1);
         AddIPAM("vn3", &ipam_info[2], 1);
@@ -96,6 +97,9 @@ public:
                              false, true);
         SendBgpServiceConfig("6.6.6.60", 50001, 6, "vnet6",
                              "vrf6", "bgpaas-client",
+                             false, true);
+        SendBgpServiceConfig("1.1.1.11", 50000, 7, "vnet7",
+                             "vrf1", "bgpaas-client",
                              false, true);
         client->WaitForIdle();
         EXPECT_TRUE(agent_->oper_db()->bgp_as_a_service()->IsConfigured());
@@ -124,13 +128,16 @@ public:
         SendBgpServiceConfig("6.6.6.60", 50001, 6, "vnet6",
                              "vrf6", "bgpaas-client",
                              true, true);
+        SendBgpServiceConfig("1.1.1.11", 50000, 7, "vnet7",
+                             "vrf1", "bgpaas-server",
+                             true, true);
         DelIPAM("vn1");
         DelIPAM("vn2");
         DelIPAM("vn3");
         DelIPAM("vn4");
         DelIPAM("vn5");
         DelIPAM("vn6");
-        DeleteVmportEnv(input, 6, true);
+        DeleteVmportEnv(input, 7, true);
         DelBgpaasPortRange();
         client->WaitForIdle();
         EXPECT_FALSE(agent_->oper_db()->bgp_as_a_service()->IsConfigured());
@@ -360,6 +367,39 @@ TEST_F(BgpServiceTest, Test_5) {
     client->WaitForIdle();
 }
 
+TEST_F(BgpServiceTest, Test_6) {
+    AddAap("vnet1", 1, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:01");
+    AddAap("vnet7", 7, Ip4Address::from_string("10.10.10.10"), "00:00:01:01:01:02");
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(7)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(7)->flow_key_nh()->id(),
+                            "10.10.10.10", "1.1.1.1", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe->bgp_as_a_service_port() == 53078);
+    //DelBgpaasPortRange();
+    AddBgpaasPortRange(50000, 52000);
+    client->WaitForIdle();
+    FlowEntry *fe1 = FlowGet(VmInterfaceGet(7)->flow_key_nh()->id(),
+                            "10.10.10.10", "1.1.1.1", 6, 10000, 179);
+    EXPECT_TRUE(fe1 == NULL);
+    TxTcpPacket(VmInterfaceGet(7)->id(), "10.10.10.10", "1.1.1.1", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe2 = FlowGet(VmInterfaceGet(7)->flow_key_nh()->id(),
+                            "10.10.10.10", "1.1.1.1", 6, 10000, 179);
+    EXPECT_TRUE(fe2 != NULL);
+    EXPECT_TRUE(fe2->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe2->is_flags_set(FlowEntry::BgpRouterService));
+    // expected value: 50000+ 6*2001
+    EXPECT_TRUE(fe2->bgp_as_a_service_port() == 62006);
+ 
+    client->WaitForIdle();
+}
 int main(int argc, char *argv[]) {
     int ret = 0;
     BgpPeer *peer;
