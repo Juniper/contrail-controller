@@ -916,11 +916,18 @@ void SessionStatsCollector::AddSloList(const UuidList &slo_list,
     }
 }
 void SessionStatsCollector::BuildSloList(
-                                const SessionFlowStatsInfo &session_flow,
+                                const SessionStatsInfo    &stats_info,
+                                bool flow_type,
                                 SessionSloRuleMap *global_session_slo_rule_map,
                                 SessionSloRuleMap *vmi_session_slo_rule_map,
                                 SessionSloRuleMap *vn_session_slo_rule_map) {
-    const FlowEntry *fe = session_flow.flow.get();
+    const FlowEntry *fe ;
+    if (flow_type) {
+        fe  = stats_info.fwd_flow.flow.get();
+    } else {
+        fe  = stats_info.rev_flow.flow.get();
+    }
+
 
     vmi_session_slo_rule_map->clear();
     vn_session_slo_rule_map->clear();
@@ -933,22 +940,26 @@ void SessionStatsCollector::BuildSloList(
                 global_session_slo_rule_map);
     }
 
-    if (!fe) {
+    if (stats_info.deleted) {
+        AddSloList(stats_info.export_info.vmi_slo_list, vmi_session_slo_rule_map);
+        AddSloList(stats_info.export_info.vn_slo_list, vn_session_slo_rule_map);
+    } else if (!fe) {
         return;
-    }
-    const Interface *itf = fe->intf_entry();
-    if (!itf) {
-        return;
-    }
+    } else {
+        const Interface *itf = fe->intf_entry();
+        if (!itf) {
+            return;
+        }
 
-    if (itf->type() != Interface::VM_INTERFACE) {
-        return;
-    }
+        if (itf->type() != Interface::VM_INTERFACE) {
+            return;
+        }
 
-    const VmInterface *vmi = static_cast<const VmInterface *>(itf);
-    AddSloList(vmi->slo_list(), vmi_session_slo_rule_map);
-    if (vmi->vn()) {
-        AddSloList(vmi->vn()->slo_list(), vn_session_slo_rule_map);
+        const VmInterface *vmi = static_cast<const VmInterface *>(itf);
+        AddSloList(vmi->slo_list(), vmi_session_slo_rule_map);
+        if (vmi->vn()) {
+            AddSloList(vmi->vn()->slo_list(), vn_session_slo_rule_map);
+        }
     }
 }
 
@@ -982,7 +993,8 @@ bool SessionStatsCollector::FindSloMatchRule(const SessionSloRuleMap &map,
 }
 
 bool SessionStatsCollector::MatchSloForSession(
-        const SessionFlowStatsInfo &session_flow,
+        const SessionStatsInfo    &stats_info,
+        bool flow_type,
         const std::string &match_uuid) {
     bool is_vmi_slo_logged, is_vn_slo_logged, is_global_slo_logged;
     SessionSloRuleMap vmi_session_slo_rule_map;
@@ -992,7 +1004,7 @@ bool SessionStatsCollector::MatchSloForSession(
     /*
      * Get the list of slos need to be matched for the given flow
      */
-    BuildSloList(session_flow,
+    BuildSloList(stats_info, flow_type,
                  &global_session_slo_rule_map,
                  &vmi_session_slo_rule_map,
                  &vn_session_slo_rule_map);
@@ -1050,6 +1062,16 @@ void SessionStatsCollector::CopyFlowInfo(SessionStatsInfo &session,
     FlowEntry *fe = session.fwd_flow.flow.get();
     FlowEntry *rfe = session.rev_flow.flow.get();
     info.valid = true;
+
+    const Interface *itf = fe->intf_entry();
+    assert(itf !=  NULL);
+    assert(itf->type() == Interface::VM_INTERFACE);
+    const VmInterface *vmi = static_cast<const VmInterface *>(itf);
+    info.vmi_slo_list = vmi->slo_list();
+    if (vmi->vn()) {
+        info.vn_slo_list = vmi->vn()->slo_list();
+    }
+
     if (fe->IsIngressFlow()) {
         info.vm_cfg_name = fe->data().vm_cfg_name;
     } else if (rfe) {
@@ -1481,7 +1503,8 @@ bool SessionStatsCollector::ProcessSessionEndpoint
 
             if (!match_policy_uuid.empty()) {
                 is_fwd_logged = MatchSloForSession(
-                                    session_map_iter->second.fwd_flow,
+                                    session_map_iter->second,
+                                    true,
                                     match_policy_uuid);
             }
             match_policy_uuid = "";
@@ -1496,7 +1519,8 @@ bool SessionStatsCollector::ProcessSessionEndpoint
 
             if (!match_policy_uuid.empty()) {
                 is_rev_logged = MatchSloForSession(
-                                    session_map_iter->second.rev_flow,
+                                    session_map_iter->second,
+                                    false,
                                     match_policy_uuid);
             }
 
