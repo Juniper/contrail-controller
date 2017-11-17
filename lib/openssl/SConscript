@@ -1,0 +1,13 @@
+env = DefaultEnvironment()
+
+vpath = '#/third_party/openssl-1.0.2k'
+str_vpath = str(Dir(vpath).abspath)
+
+config_opts = '--prefix=' + str(Dir('#/build').abspath)
+
+cmd = ('cd ' + str_vpath + ' & ' +
+       'perl Configure debug-VC-WIN64A ' + config_opts + ' & ' +
+       r'ms\do_win64a & nmake -f ms\nt.mak & nmake -f ms\nt.mak install')
+
+products = [File('#/build/lib/libeay32.lib'), File('#/build/lib/ssleay32.lib'), Dir('#/build/include/openssl')]
+env.Command(products, vpath, cmd)
