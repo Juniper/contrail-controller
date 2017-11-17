@@ -120,7 +120,7 @@ bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
                                &ControllerRouteWalker::RouteWalkDoneForVrf,
                                this, _1));
         }
-        StartRouteWalk(vrf);
+        StartRouteWalk(vrf, associate_, type_);
         return true;
     }
     return false;
@@ -146,7 +146,7 @@ bool ControllerRouteWalker::VrfDelStale(DBTablePartBase *partition,
                                &ControllerRouteWalker::RouteWalkDoneForVrf,
                                this, _1));
         }
-        StartRouteWalk(vrf);
+        StartRouteWalk(vrf, associate_, type_);
         return true;
     }
     return false;
@@ -175,7 +175,7 @@ bool ControllerRouteWalker::VrfNotifyInternal(DBTablePartBase *partition,
             static_cast<VrfExport::State *>(vrf->GetState(partition->parent(), 
                                                           id)); 
         if (state) {
-            StartRouteWalk(vrf);
+            StartRouteWalk(vrf, associate_, type_);
         }
 
         return true;
@@ -335,6 +335,13 @@ void ControllerRouteWalker::Start(Type type, bool associate,
     WalkDoneCallback(walk_done_cb);
 
     StartVrfWalk();
+}
+
+void ControllerRouteWalker::StartRouteWalk(VrfEntry *vrf, bool associate,
+                                           Type type) {
+    associate_ = associate;
+    type_ = type;
+    AgentRouteWalker::StartRouteWalk(vrf);
 }
 
 bool ControllerRouteWalker::IsDeleteWalk() const {

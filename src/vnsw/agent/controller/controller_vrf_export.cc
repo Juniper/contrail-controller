@@ -114,7 +114,8 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
 
             state->exported_ = true; 
             if (state->force_chg_ == true) {
-                bgp_peer->route_walker()->StartRouteWalk(vrf);
+                bgp_peer->route_walker()->StartRouteWalk(vrf, true,
+                                          ControllerRouteWalker::NOTIFYALL);
                 state->force_chg_ = false;
             }
             return;
