@@ -70,6 +70,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     rx_vlan_id_(entry->rx_vlan_id_),
     tx_vlan_id_(entry->tx_vlan_id_),
     vrf_id_(entry->vrf_id_),
+    multicast_vrf_id_(entry->multicast_vrf_id_),
     persistent_(entry->persistent_),
     subtype_(entry->subtype_),
     xconnect_(entry->xconnect_),
@@ -120,6 +121,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     rx_vlan_id_(VmInterface::kInvalidVlanId),
     tx_vlan_id_(VmInterface::kInvalidVlanId),
     vrf_id_(intf->vrf_id()),
+    multicast_vrf_id_(VrfEntry::kInvalidIndex),
     persistent_(false),
     subtype_(PhysicalInterface::INVALID),
     xconnect_(NULL),
@@ -350,6 +352,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     }
 
     uint32_t vrf_id = VIF_VRF_INVALID;
+    uint32_t multicast_vrf_id = VIF_VRF_INVALID;
     bool policy_enabled = false;
     std::string analyzer_name;
     Interface::MirrorDirection mirror_direction = Interface::UNKNOWN;
@@ -365,6 +368,14 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
             if (vm_port->forwarding_vrf()) {
                 vrf_id = vm_port->forwarding_vrf()->vrf_id();
             }
+
+            if (vmi_type_ != VmInterface::VHOST) {
+                multicast_vrf_id = intf->vrf_id();
+                if (multicast_vrf_id == VrfEntry::kInvalidIndex) {
+                    multicast_vrf_id = VIF_VRF_INVALID;
+                }
+            }
+
             has_service_vlan = vm_port->HasServiceVlan();
             policy_enabled = vm_port->policy_enabled();
             analyzer_name = vm_port->GetAnalyzer();
@@ -414,6 +425,11 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
 
     if (vrf_id != vrf_id_) {
         vrf_id_ = vrf_id;
+        ret = true;
+    }
+
+    if (multicast_vrf_id_ != multicast_vrf_id) {
+        multicast_vrf_id_ = multicast_vrf_id;
         ret = true;
     }
 
@@ -883,6 +899,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_vifr_flags(flags);
 
     encoder.set_vifr_vrf(vrf_id);
+    encoder.set_vifr_mcast_vrf(multicast_vrf_id_);
     encoder.set_vifr_idx(interface_id_);
     encoder.set_vifr_rid(0);
     encoder.set_vifr_os_idx(os_index_);
