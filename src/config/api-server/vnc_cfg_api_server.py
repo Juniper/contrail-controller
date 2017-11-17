@@ -41,6 +41,7 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import has_role
 from cfgm_common import _obj_serializer_all
 from cfgm_common.utils import _DEFAULT_ZK_COUNTER_PATH_PREFIX
+from cfgm_common import is_uuid_like
 
 from cfgm_common.uve.vnc_api.ttypes import VncApiLatencyStats, VncApiLatencyStatsLog
 logger = logging.getLogger(__name__)
@@ -3725,8 +3726,11 @@ class VncApiServer(object):
             msg = "Object type and UUID must be specified"
             raise cfgm_common.exceptions.HttpError(400, msg)
 
-        ok, result = self._db_conn.dbe_read(obj_type, obj_uuid,
-                                            obj_fields=['tag_refs'])
+        ok, result = self._db_conn.dbe_read(
+            obj_type,
+            obj_uuid,
+            obj_fields=['parent_type', 'perms2', 'tag_refs'],
+        )
         if not ok:
             raise cfgm_common.exceptions.HttpError(*result)
         obj_dict = result
@@ -3738,16 +3742,34 @@ class VncApiServer(object):
                 fq_name = [name]
             else:
                 fq_name = copy.deepcopy(obj_dict['fq_name'])
-                fq_name[-1] = name
+                if obj_type == 'project':
+                    fq_name.append(name)
+                elif ('parent_type' in obj_dict and
+                        obj_dict['parent_type'] == 'project'):
+                    fq_name[-1] = name
+                elif ('perms2' in obj_dict and
+                        is_uuid_like(obj_dict['perms2']['owner'])):
+                    parent_uuid = str(uuid.UUID(obj_dict['perms2']['owner']))
+                    try:
+                        fq_name = self._db_conn.uuid_to_fq_name(parent_uuid)
+                    except NoIdError:
+                        msg = ("Cannot find %s %s owner" %
+                               (obj_type, obj_dict['uuid']))
+                        raise cfgm_common.exceptions.HttpError(404, msg)
+                    fq_name.append(name)
+                else:
+                    msg = ("Not able to determine the scope of the tag '%s'" %
+                           name)
+                    raise cfgm_common.exceptions.HttpError(404, msg)
 
             # lookup (validate) tag
             try:
-                uuid = self._db_conn.fq_name_to_uuid('tag', fq_name)
+                tag_uuid = self._db_conn.fq_name_to_uuid('tag', fq_name)
             except NoIdError:
                 msg = "Tag with FQName %s not found" % pformat(fq_name)
                 raise cfgm_common.exceptions.HttpError(404, msg)
 
-            return fq_name, uuid
+            return fq_name, tag_uuid
 
         refs_per_type = {}
         for ref in obj_dict.get('tag_refs', []):

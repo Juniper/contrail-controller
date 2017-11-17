@@ -4,6 +4,7 @@
 
 import re
 import sys
+import uuid
 
 IP_FABRIC_VN_FQ_NAME = ['default-domain', 'default-project', 'ip-fabric']
 IP_FABRIC_RI_FQ_NAME = IP_FABRIC_VN_FQ_NAME + ['__default__']
@@ -80,6 +81,28 @@ HEX_ELEM = '[0-9A-Fa-f]'
 UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
                          HEX_ELEM + '{4}', HEX_ELEM + '{4}',
                          HEX_ELEM + '{12}'])
+
+
+def _format_uuid_string(string):
+    return (string.replace('urn:', '')
+                  .replace('uuid:', '')
+                  .strip('{}')
+                  .replace('-', '')
+                  .lower())
+
+
+def is_uuid_like(val):
+    """Returns validation of a value as a UUID.
+
+    :param val: Value to verify
+    :type val: string
+    :returns: bool
+    """
+    try:
+        return str(uuid.UUID(val)).replace('-', '') == _format_uuid_string(val)
+    except (TypeError, ValueError, AttributeError):
+        return False
+
 
 def has_role(role, roles):
     """ Check if the a role is contained in a role list
