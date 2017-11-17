@@ -1,0 +1,84 @@
+import os
+import subprocess
+import sys
+import glob
+from distutils.dir_util import copy_tree
+from shutil import copyfile, copy
+
+print 'installing thrift'
+vpath = '#/third_party/thrift-0.8.0'
+env = DefaultEnvironment()
+
+abs_vpath = Dir(vpath).abspath
+include_path = os.path.join(env.Dir(env['TOP_INCLUDE']).abspath, r'thrift')
+
+msbuild = os.environ['MSBUILD']
+if env['OPT'] == 'debug':
+    configuration = 'Debug'
+elif env['OPT'] == 'production':
+    configuration = 'Release'
+
+def build_thrift_exe_for_windows(target,source,env):
+    copy_tree(os.path.join( Dir('.').srcnode().abspath, r'controller\lib\thrift\msvc15\compiler'), os.path.join(abs_vpath, 'compiler'))
+    subprocess.call([msbuild, 'compiler.vcxproj', '/p:Configuration=' + configuration, '/p:Platform=x64', '/p:PlatformToolset=v140'], cwd=os.path.join(abs_vpath, r'compiler\cpp'))
+    copyfile(os.path.join(abs_vpath, r'compiler\cpp\x64\\' + configuration + r'\thrift.exe'), os.path.join(env.Dir(env['TOP_BIN']).abspath, r'thrift.exe'))
+
+def build_thrift_libs_for_windows(target,source,env):
+    copy_tree(os.path.join( Dir('.').srcnode().abspath, r'controller\lib\thrift\msvc15\lib'), os.path.join(abs_vpath, 'lib'))
+    subprocess.call([msbuild, 'thrift.sln', '/p:Configuration=' + configuration, '/p:Platform=x64', '/p:PlatformToolset=v140'], cwd=os.path.join(abs_vpath, r'lib\cpp'))
+    copyfile(os.path.join(abs_vpath, r'lib\cpp\x64\\' + configuration + r'\libthrift.lib'), os.path.join(env.Dir(env['TOP_LIB']).abspath, r'thrift.lib'))
+    copyfile(os.path.join(abs_vpath, r'lib\cpp\x64\\' + configuration + r'\libthriftnb.lib'), os.path.join(env.Dir(env['TOP_LIB']).abspath, r'thriftnb.lib'))
+    files = glob.iglob(os.path.join(abs_vpath, r'lib\cpp\src\*.h'))
+    if not os.path.exists(include_path):
+        os.makedirs(include_path)
+    for file in files:
+        copy(file, include_path)
+
+
+thrift_exe = '#/build/bin/thrift.exe'
+thrift_libs = ['#/build/lib/thrift.lib', '#build/lib/thriftnb.lib']
+
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\protocol\*.h')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift/protocol', hf)
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\protocol\*.tcc')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift/protocol', hf)
+
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\windows\*.h')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift/windows', hf)
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\transport\*.h')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift/transport', hf)
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\async\*.h')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift/async', hf)
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\concurrency\*.h')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift/concurrency', hf)
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\processor\*.h')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift/processor', hf)
+
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\server\*.h')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift/server', hf)
+
+headerfiles =  glob.glob(abs_vpath + r'\lib\cpp\src\*.h')
+for hf in headerfiles:
+    env.Install('#/build/include/thrift', hf)
+
+env.Command(thrift_exe, str(Dir(vpath)) , build_thrift_exe_for_windows)
+env.Command(thrift_libs, str(Dir(vpath)) , build_thrift_libs_for_windows)
+
+#Default(thrift_exe)
+#Default(thrift_libs)

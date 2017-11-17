@@ -1,0 +1,2 @@
+env = DefaultEnvironment()
+env.Command('#/build/include/dirent.h', '#/third_party/dirent/include/dirent.h', Copy("$TARGET", "$SOURCE"))

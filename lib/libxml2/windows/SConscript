@@ -1,0 +1,26 @@
+# -*- mode: python; -*-
+import sys
+import os
+import subprocess
+
+env = DefaultEnvironment().Clone()
+
+
+vpath = '#/third_party/libxml2-2.9.4'
+vpath_win32 = os.path.join(Dir(vpath).abspath, 'win32')
+
+output_lib = File('#/build/lib/xml2.lib')
+
+def build(target, source, env):
+    configure = ['cscript', 'configure.js', 'iconv=no', 'prefix=' + Dir('#/build').abspath]
+    make = ['nmake', '/f', 'Makefile.msvc']
+    make_install = ['nmake', '/f', 'Makefile.msvc', 'install']
+
+    subprocess.call(configure, cwd=vpath_win32)
+    subprocess.call(make, cwd=vpath_win32)
+    subprocess.call(make_install, cwd=vpath_win32)
+    
+    os.rename(File('#/build/lib/libxml2.lib').abspath, output_lib.abspath)
+
+products = [output_lib, Dir('#/build/include/libxml2')]
+env.Command(products, vpath, build)
