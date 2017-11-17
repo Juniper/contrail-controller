@@ -502,6 +502,13 @@ class VncApiServer(object):
             result = 'Bad reference in create: ' + result
             raise cfgm_common.exceptions.HttpError(400, result)
 
+        get_context().set_state('PRE_DBE_ALLOC')
+        # type-specific hook
+        (ok, result) = r_class.pre_dbe_alloc(obj_type, obj_dict)
+        if not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+
         # common handling for all resource create
         (ok, result) = self._post_common(obj_type, obj_dict)
         if not ok:
@@ -557,12 +564,6 @@ class VncApiServer(object):
         quota_counter = []
 
         def stateful_create():
-            get_context().set_state('PRE_DBE_ALLOC')
-            # type-specific hook
-            (ok, result) = r_class.pre_dbe_alloc(obj_type, obj_dict)
-            if not ok:
-                return (ok, result)
-
             get_context().set_state('DBE_ALLOC')
             # Alloc and Store id-mappings before creating entry on pubsub store.
             # Else a subscriber can ask for an id mapping before we have stored it

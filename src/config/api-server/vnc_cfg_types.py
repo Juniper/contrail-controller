@@ -3496,16 +3496,6 @@ class SecurityGroupServer(Resource, SecurityGroup):
             if not ok:
                 return ok, result
 
-        # TODO(ethuleau): As we keep the virtual network ID allocation in
-        #                 schema and in the vnc API for one release overlap to
-        #                 prevent any upgrade issue, we still authorize to
-        #                 set or update the virtual network ID until release
-        #                 (3.2 + 1)
-        # # Does not authorize to set the security group ID as it's allocated
-        # # by the vnc server
-        # if obj_dict.get('security_group_id') is not None:
-        #     return (False, (403, "Cannot set the security group ID"))
-
         # Allocate security group ID if necessary
         return cls._set_configured_security_group_id(obj_dict)
     # end pre_dbe_create
