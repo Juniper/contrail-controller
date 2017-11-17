@@ -161,6 +161,7 @@ protected:
         ip::tcp::endpoint remote_endpoint;
         remote_endpoint.port(0);
         session_ = static_cast<XmppSession *>(server_->CreateSession());
+        connection_->state_machine()->set_session(session_);
         connection_->AcceptSession(session_);
     }
     // Note EvTcpPassiveOpen() sets AsyncRead which will detect
