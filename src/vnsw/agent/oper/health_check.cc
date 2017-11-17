@@ -245,7 +245,6 @@ bool HealthCheckInstanceService::CreateInstanceTask() {
                            (service_->health_check_type())
                            (HealthCheckTable::CREATE_SERVICE, this) == false) {
         HEALTH_CHECK_TRACE(Trace, "Failed to start  " + this->to_string());
-        service_ = NULL;
         return false;
     }
     return true;
@@ -289,9 +288,13 @@ bool HealthCheckInstanceService::UpdateInstanceTask() {
     HEALTH_CHECK_TRACE(Trace, "Updating " + this->to_string());
     assert(service_->health_check_type() == HealthCheckService::SEGMENT ||
            service_->health_check_type() == HealthCheckService::BFD);
-    return service_->table()->health_check_service_callback
+    bool success = service_->table()->health_check_service_callback
                               (service_->health_check_type())
                               (HealthCheckTable::UPDATE_SERVICE, this);
+    if (!success) {
+        HEALTH_CHECK_TRACE(Trace, "Failed to Update " + this->to_string());
+    }
+    return success;
 }
 
 void HealthCheckInstanceService::ResyncInterface(const HealthCheckService

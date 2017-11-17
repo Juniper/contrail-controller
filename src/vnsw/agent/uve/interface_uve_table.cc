@@ -177,12 +177,16 @@ bool InterfaceUveTable::UveInterfaceEntry::FrameInterfaceMsg(const string &name,
         hc_list.begin();
     while (hc_it != hc_list.end()) {
         HealthCheckInstanceBase *inst = (*hc_it);
+        hc_it++;
+        HealthCheckService *svc = inst->service();
+        if (!svc) {
+            continue;
+        }
         VmHealthCheckInstance uve_inst;
-        uve_inst.set_name(inst->service()->name());
-        uve_inst.set_uuid(to_string(inst->service()->uuid()));
+        uve_inst.set_name(svc->name());
+        uve_inst.set_uuid(to_string(svc->uuid()));
         uve_inst.set_status(inst->active() ? "Active" : "InActive");
         uve_inst.set_is_running(inst->IsRunning());
-        hc_it++;
         uve_hc_list.push_back(uve_inst);
     }
     s_intf->set_health_check_instance_list(uve_hc_list);
