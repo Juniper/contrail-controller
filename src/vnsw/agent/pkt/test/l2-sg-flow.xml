@@ -22,14 +22,14 @@
     <acl name="ingress-access-control-list-acl1" uuid="1">
       <ace src-sg="1" dst-sg="1" sport="0:65535" dport="0:65535"
        action="pass"/>
-      <ace src-ip="1.1.1.0/24" dst-sg="1.1.1.0/24" sport="0:65535"
-       dport="0:65535" action="pass"/>
+      <ace src-ip="1.1.1.0" src-plen = "24" dst-ip="1.1.1.0" dst-plen = "24" sport="0:65535"
+       dport="0:65535" action="deny"/>
     </acl>
     <acl name="egress-access-control-list-acl1" uuid="2">
       <ace src-sg="1" dst-sg="1" sport="0:65535" dport="0:65535"
        action="pass"/>
-      <ace src-ip="1.1.1.0/24" dst-sg="1.1.1.0/24" sport="0:65535"
-       dport="0:65535" action="pass"/>
+      <ace src-ip="1.1.1.0" src-plen="24" dst-ip="1.1.1.0" dst-plen="24" sport="0:65535"
+       dport="0:65535" action="deny"/>
     </acl>
     <sg name="sg1" uuid="1" sg_id="1" ingress="acl1" egress="acl1" />
     <link left="virtual-machine-interface" left-name="tap1"
