@@ -93,15 +93,13 @@ struct SessionExportInfo {
 };
 
 struct SessionFlowStatsParams {
-    uint64_t total_bytes;
-    uint64_t total_packets;
     uint64_t diff_bytes;
     uint64_t diff_packets;
     uint16_t underlay_src_port;
     uint16_t tcp_flags;
     bool valid;
-    SessionFlowStatsParams() : total_bytes(0), total_packets(0), diff_bytes(0),
-        diff_packets(0), underlay_src_port(0), tcp_flags(0), valid(false) {
+    SessionFlowStatsParams() : diff_bytes(0), diff_packets(0),
+        underlay_src_port(0), tcp_flags(0), valid(false) {
     }
 };
 
@@ -215,12 +213,11 @@ private:
     void FillSessionEvictStats
         (SessionPreAggInfo::SessionMap::iterator session_map_iter,
          SessionInfo *session_info, bool is_sampling, bool is_logging) const;
-    void FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
-                              const SessionFlowStatsParams &stats,
+    void FillSessionFlowStats(const SessionFlowStatsParams &stats,
                               SessionFlowInfo *flow_info,
                               bool is_sampling,
                               bool is_logging) const;
-    void FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
+    void FillSessionFlowInfo(const SessionFlowStatsInfo &session_flow,
                              const SessionStatsInfo &sinfo,
                              const SessionFlowExportInfo &einfo,
                              SessionFlowInfo *flow_info) const;

@@ -1079,17 +1079,12 @@ void SessionStatsCollector::CopyFlowInfo(SessionStatsInfo &session,
     }
 }
 
-void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_flow,
-                                                 const SessionFlowStatsParams &stats,
-                                                 SessionFlowInfo *flow_info,
-                                                 bool is_sampling,
-                                                 bool is_logging)
-                                                 const {
+void SessionStatsCollector::FillSessionFlowStats
+(const SessionFlowStatsParams &stats, SessionFlowInfo *flow_info,
+ bool is_sampling, bool is_logging) const {
     if (!stats.valid) {
         return;
     }
-    session_flow.total_bytes = stats.total_bytes;
-    session_flow.total_packets = stats.total_packets;
     flow_info->set_tcp_flags(stats.tcp_flags);
     flow_info->set_underlay_source_port(stats.underlay_src_port);
     if (is_sampling) {
@@ -1102,11 +1097,9 @@ void SessionStatsCollector::FillSessionFlowStats(SessionFlowStatsInfo &session_f
     }
 }
 
-void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_flow,
-                                                const SessionStatsInfo &sinfo,
-                                                const SessionFlowExportInfo &einfo,
-                                                SessionFlowInfo *flow_info)
-                                                const {
+void SessionStatsCollector::FillSessionFlowInfo
+(const SessionFlowStatsInfo &session_flow, const SessionStatsInfo &sinfo,
+ const SessionFlowExportInfo &einfo, SessionFlowInfo *flow_info) const {
     FlowEntry *fe = session_flow.flow.get();
     std::string action_str, drop_reason = "";
 
@@ -1114,6 +1107,8 @@ void SessionStatsCollector::FillSessionFlowInfo(SessionFlowStatsInfo &session_fl
     flow_info->set_setup_time(sinfo.setup_time);
     if (sinfo.teardown_time) {
         flow_info->set_teardown_time(sinfo.teardown_time);
+        flow_info->set_teardown_bytes(session_flow.total_bytes);
+        flow_info->set_teardown_pkts(session_flow.total_packets);
     }
     if (sinfo.deleted) {
         if (!sinfo.export_info.valid) {
@@ -1196,12 +1191,14 @@ bool SessionStatsCollector::FetchFlowStats
     bytes = 0x0000ffffffffffffULL & info->total_bytes;
 
     if (bytes != k_bytes) {
-        params->total_bytes = GetUpdatedSessionFlowBytes(info->total_bytes,
-                                                         k_bytes);
-        params->total_packets = GetUpdatedSessionFlowPackets(info->total_packets,
-                                                             k_packets);
-        params->diff_bytes = params->total_bytes - info->total_bytes;
-        params->diff_packets = params->total_packets - info->total_packets;
+        uint64_t total_bytes = GetUpdatedSessionFlowBytes(info->total_bytes,
+                                                          k_bytes);
+        uint64_t total_packets = GetUpdatedSessionFlowPackets
+            (info->total_packets, k_packets);
+        params->diff_bytes = total_bytes - info->total_bytes;
+        params->diff_packets = total_packets - info->total_packets;
+        info->total_bytes = total_bytes;
+        info->total_packets = total_packets;
         params->tcp_flags = kinfo.tcp_flags;
         params->underlay_src_port = kinfo.underlay_src_port;
         params->valid = true;
@@ -1292,12 +1289,10 @@ void SessionStatsCollector::FillSessionInfoUnlocked
         if (deleted) {
             real_stats = &session_map_iter->second.del_stats;
         }
-        FillSessionFlowStats(session_map_iter->second.fwd_flow,
-                             real_stats->fwd_flow,
+        FillSessionFlowStats(real_stats->fwd_flow,
                              &session_info->forward_flow_info, is_sampling,
                              is_logging);
-        FillSessionFlowStats(session_map_iter->second.rev_flow,
-                             real_stats->rev_flow,
+        FillSessionFlowStats(real_stats->rev_flow,
                              &session_info->reverse_flow_info, is_sampling,
                              is_logging);
         flow_stats_manager_->UpdateSessionExportStats(1, first_time_export,
