@@ -1071,7 +1071,26 @@ void PktFlowInfo::ChangeEncapToOverlay(const VmInterface *intf,
         return;
     }
 
-    if (intf->vrf() && intf->vrf()->forwarding_vrf() == NULL) {
+    bool can_be_underlay_flow = false;
+    if (intf->vrf() && intf->vrf()->forwarding_vrf()) {
+        can_be_underlay_flow = true;
+    }
+
+    //Route needs to be check because out interface might
+    //not be populated, if destination uses native forwarding
+    //then also we need to do vrf translate
+    if (out->rt_) {
+        const InterfaceNH *intf_nh =
+            dynamic_cast<const InterfaceNH *>(out->rt_->GetActiveNextHop());
+        if (intf_nh) {
+            const Interface *out_itf = intf_nh->GetInterface();
+            if (out_itf->vrf() && out_itf->vrf()->forwarding_vrf()) {
+                can_be_underlay_flow = true;
+            }
+        }
+    }
+
+    if (can_be_underlay_flow == false) {
         return;
     }
 
