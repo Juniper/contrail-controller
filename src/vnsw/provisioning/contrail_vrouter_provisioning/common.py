@@ -497,6 +497,10 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 elif os.path.isfile(systemd_vrouter_file):
                     self.vrouter_file = systemd_vrouter_file
                     self.command_key = "ExecStart"
+                    systemd_agent_file = ('/lib/systemd/system/' +
+                                            'contrail-vrouter-agent.service')
+                    systemd_nodemgr_file = ('/lib/systemd/system/' +
+                                            'contrail-vrouter-nodemgr.service')
                 else:
                     raise RuntimeError("Vrouter Supervisor/Systemd not found.")
 
@@ -504,6 +508,11 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                 self.setup_coremask_node(dpdk_args)
                 self.setup_vm_coremask_node(False, dpdk_args)
                 self.setup_uio_driver(dpdk_args)
+                if os.path.isfile(systemd_vrouter_file):
+                    self.search_and_replace("BindsTo", "contrail-vrouter-dpdk.service",
+                                                     "Begin", systemd_agent_file)
+                    self.search_and_replace("BindsTo", "contrail-vrouter-dpdk.service",
+                                                     "Begin", systemd_nodemgr_file)
 
             if self._args.dpdk and not self.reprov:
                 iface = self.dev

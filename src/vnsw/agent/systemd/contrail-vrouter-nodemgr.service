@@ -1,5 +1,6 @@
 [Unit]
 Description=Contrail vrouter nodemanager
+BindsTo=
 After=network.target
 
 [Service]
