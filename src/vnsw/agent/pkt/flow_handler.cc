@@ -36,7 +36,7 @@ bool FlowHandler::IsL3ModeFlow() const {
     if (intf->type() == Interface::VM_INTERFACE) {
         const VmInterface *vm_intf =
             static_cast<const VmInterface *>(intf);
-        if (vm_intf->forwarding_vrf() == agent_->fabric_vrf()) {
+        if (vm_intf == agent_->vhost_interface()) {
             return true;
         }
     }
