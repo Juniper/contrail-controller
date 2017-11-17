@@ -321,7 +321,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         SM_LOG(state_machine, "EvTcpPassiveOpen in (Active) State");
         event.session->AsyncReadStart();
-        state_machine->set_session(event.session);
+        assert(state_machine->session() == event.session);
         event.session->set_observer(
             boost::bind(&XmppStateMachine::OnSessionEvent,
                         state_machine, _1, _2));

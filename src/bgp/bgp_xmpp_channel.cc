@@ -520,6 +520,7 @@ BgpXmppChannel::~BgpXmppChannel() {
     TimerManager::DeleteTimer(eor_send_timer_);
     BGP_LOG_PEER(Event, peer_.get(), SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
         BGP_PEER_DIR_NA, "Deleted");
+    channel_->UnRegisterWriteReady(xmps::BGP);
     channel_->UnRegisterReceive(peer_id_);
 }
 
