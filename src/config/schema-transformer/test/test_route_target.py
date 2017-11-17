@@ -94,9 +94,9 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         rt_id_str = "%(#)010d" % {
                 '#': int(rt_obj.get_fq_name_str().split(':')[-1])}
         db_checker = db_manage.DatabaseChecker(
-            '--cluster_id %s' % self._cluster_id)
+            *db_manage._parse_args('--cluster_id %s' % self._cluster_id))
         db_healer = db_manage.DatabaseHealer(
-            '--cluster_id %s --execute' % self._cluster_id)
+            *db_manage._parse_args('--cluster_id %s --execute' % self._cluster_id))
         path = '%s%s/%s' % (
                 self._cluster_id, db_checker.BASE_RTGT_ID_ZK_PATH, rt_id_str)
         print "make sure node exists in zk"
