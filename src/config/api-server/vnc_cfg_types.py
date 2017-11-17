@@ -1226,7 +1226,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 kvps = bindings['key_value_pair']
                 kvp_dict = cls._kvp_to_dict(kvps)
                 host_id = kvp_dict.get('host_id')
-                if not host_id or host_id == 'null':
+                if not host_id:
                     return True, False
             else:
                 return True, False
@@ -1537,8 +1537,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             kvps_port = bindings_port.get('key_value_pair') or []
             kvp_dict_port = cls._kvp_to_dict(kvps_port)
             kvp_dict = cls._kvp_to_dict(kvps)
-            if (kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL'] and
-                    kvp_dict.get('host_id') != 'null'):
+            if (kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL']:
                 (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn, kvp_dict.get('host_id'))
                 if not ok:
                     return ok, result
@@ -1564,7 +1563,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 vif_details = {'key': 'vif_details', 'value': {}}
                 if obj_dict and 'vif_details' in kvp_dict_port:
                     cls._kvps_update(kvps, vif_type, vif_details)
-                elif kvp_dict.get('host_id') == 'null':
+                else:
                     vif_details_prop = {'field': 'virtual_machine_interface_bindings',
                                         'operation': 'set', 'value': vif_details, 'position': 'vif_details'}
                     vif_type_prop = {'field': 'virtual_machine_interface_bindings',

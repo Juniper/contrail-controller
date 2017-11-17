@@ -2174,7 +2174,7 @@ class DBInterface(object):
         vmi_binding_kvps = dict((k.replace('binding:',''), v)
             for k,v in port_q.items() if k.startswith('binding:'))
         for k,v in vmi_binding_kvps.items():
-            if isinstance(v, basestring):
+            if v is None or isinstance(v, basestring):
                 continue
             vmi_binding_kvps[k] = json.dumps(v)
 
