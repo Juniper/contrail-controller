@@ -3589,7 +3589,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             from vnc_cfg_api_server import db_manage
             test_obj = self._create_test_object()
             self.assertTill(self.vnc_db_has_ident, obj=test_obj)
-            db_manage.db_check('--cluster_id %s' %(self._cluster_id))
+            db_manage.db_check(*db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
     # end test_checker
 
     def test_checker_missing_mandatory_fields(self):
@@ -3607,7 +3607,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             with uuid_cf.patch_row(
                 test_obj.uuid, wrong_col_val_ts):
                 db_checker = db_manage.DatabaseChecker(
-                    '--cluster_id %s' %(self._cluster_id))
+                    *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
                 errors = db_checker.check_obj_mandatory_fields()
                 self.assertIn(db_manage.MandatoryFieldsMissingError,
                     [type(x) for x in errors])
@@ -3629,7 +3629,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             with uuid_cf.patch_row(
                 test_obj.uuid, wrong_col_val_ts):
                 db_checker = db_manage.DatabaseChecker(
-                    '--cluster_id %s' %(self._cluster_id))
+                    *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
                 errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNMismatchError, error_types)
@@ -3645,7 +3645,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             uuid_cf = self.get_cf('config_db_uuid','obj_uuid_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
                 db_checker = db_manage.DatabaseChecker(
-                    '--cluster_id %s' %(self._cluster_id))
+                    *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
                 errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
@@ -3667,7 +3667,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
                 if ':'.join(test_obj.fq_name) not in k)
             with fq_name_cf.patch_row(test_obj_type, new_columns=wrong_col_val_ts):
                 db_checker = db_manage.DatabaseChecker(
-                    '--cluster_id %s' %(self._cluster_id))
+                    *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
                 errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
@@ -3683,7 +3683,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
             uuid_cf = self.get_cf('config_db_uuid','obj_uuid_table')
             with uuid_cf.patch_row(test_obj.uuid, new_columns=None):
                 db_checker = db_manage.DatabaseChecker(
-                    '--cluster_id %s' %(self._cluster_id))
+                    *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
                 errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNStaleIndexError, error_types)
@@ -3700,7 +3700,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
                                  'fq_name':json.dumps(''),
                                  'prop:id_perms':json.dumps('')}):
                 db_checker = db_manage.DatabaseChecker(
-                    '--cluster_id %s' %(self._cluster_id))
+                    *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
                 errors = db_checker.check_fq_name_uuid_match()
                 error_types = [type(x) for x in errors]
                 self.assertIn(db_manage.FQNIndexMissingError, error_types)
@@ -3741,7 +3741,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_checker = db_manage.DatabaseChecker(
-                '--cluster_id %s' %(self._cluster_id))
+                *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
             # verify catch of extra ZK VN when name index is mocked
             with fq_name_cf.patch_row('virtual_network',
                 new_columns=wrong_col_val_ts):
@@ -3755,7 +3755,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_checker = db_manage.DatabaseChecker(
-                '--cluster_id %s' %(self._cluster_id))
+                *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
 
             with db_checker._zk_client.patch_path(
                 '%s%s/%s' %(self._cluster_id,
@@ -3772,7 +3772,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_checker = db_manage.DatabaseChecker(
-                '--cluster_id %s' %(self._cluster_id))
+                *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
 
             # verify catch of zk extra ip when iip is mocked absent
             iip_obj = vnc_api.InstanceIp(self.id())
@@ -3791,7 +3791,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_checker = db_manage.DatabaseChecker(
-                '--cluster_id %s' %(self._cluster_id))
+                *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
 
             iip_obj = vnc_api.InstanceIp(self.id())
             iip_obj.add_virtual_network(vn_obj)
@@ -3832,7 +3832,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_checker = db_manage.DatabaseChecker(
-                '--cluster_id %s' %(self._cluster_id))
+                *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
             with uuid_cf.patch_column(
                     vn_obj.uuid,
                     'prop:virtual_network_network_id',
@@ -3852,7 +3852,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_checker = db_manage.DatabaseChecker(
-                '--cluster_id %s' %(self._cluster_id))
+                *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
             with uuid_cf.patch_column(
                     vn2_obj.uuid,
                     'prop:virtual_network_network_id',
@@ -3870,7 +3870,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_checker = db_manage.DatabaseChecker(
-                '--cluster_id %s' %(self._cluster_id))
+                *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
             with uuid_cf.patch_column(
                     sg_obj.uuid,
                     'prop:security_group_id',
@@ -3890,7 +3890,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_checker = db_manage.DatabaseChecker(
-                '--cluster_id %s' %(self._cluster_id))
+                *db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
             with uuid_cf.patch_column(
                     sg2_obj.uuid,
                     'prop:security_group_id',
@@ -3908,7 +3908,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
     def test_cleaner(self):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_manage.db_clean('--cluster_id %s' %(self._cluster_id))
+            db_manage.db_clean(*db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
     # end test_cleaner
 
     def test_cleaner_zk_virtual_network_id(self):
@@ -3943,7 +3943,8 @@ class TestDBAudit(test_case.ApiServerTestCase):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
             db_cleaner = db_manage.DatabaseHealer(
-                '--execute --cluster_id %s' %(self._cluster_id))
+                    *db_manage._parse_args('--execute --cluster_id %s' % (
+                        self._cluster_id)))
             fake_id = 42
             with uuid_cf.patch_column(
                     vn_obj.uuid,
@@ -4021,7 +4022,7 @@ class TestDBAudit(test_case.ApiServerTestCase):
     def test_healer(self):
         with self.audit_mocks():
             from vnc_cfg_api_server import db_manage
-            db_manage.db_heal('--cluster_id %s' %(self._cluster_id))
+            db_manage.db_heal(*db_manage._parse_args('--cluster_id %s' %(self._cluster_id)))
     # end test_healer
 
     def test_heal_fq_name_index(self):
