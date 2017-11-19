@@ -86,41 +86,31 @@ class BgpProvisioner(object):
         bgp_router_obj = BgpRouter(router_name, rt_inst_obj,
                                    bgp_router_parameters=router_params)
 
-        # Return early with a log if it already exists
         try:
-            fq_name = bgp_router_obj.get_fq_name()
-            existing_obj = vnc_lib.bgp_router_read(fq_name=fq_name)
-            if md5:
-                bgp_params = existing_obj.get_bgp_router_parameters()
-                # set md5
-                print "Setting md5 on the existing uuid"
-                md5 = {'key_items': [ { 'key': md5 ,"key_id":0 } ], "key_type":"md5"}
-                bgp_params.set_auth_data(md5)
-                existing_obj.set_bgp_router_parameters(bgp_params)
-                vnc_lib.bgp_router_update(existing_obj)
-            print ("BGP Router " + pformat(fq_name) +
-                   " already exists with uuid " + existing_obj.uuid)
-            return
-        except NoIdError:
-            pass
+            cur_id = vnc_lib.bgp_router_create(bgp_router_obj)
+            cur_obj = vnc_lib.bgp_router_read(id=cur_id)
 
-        cur_id = vnc_lib.bgp_router_create(bgp_router_obj)
-        cur_obj = vnc_lib.bgp_router_read(id=cur_id)
+            # full-mesh with existing bgp routers
+            fq_name = rt_inst_obj.get_fq_name()
+            bgp_router_list = vnc_lib.bgp_routers_list(parent_fq_name=fq_name)
+            bgp_router_ids = [bgp_dict['uuid']
+                              for bgp_dict in bgp_router_list['bgp-routers']]
+            bgp_router_objs = []
+            for id in bgp_router_ids:
+                bgp_router_objs.append(vnc_lib.bgp_router_read(id=id))
 
-        # full-mesh with existing bgp routers
-        fq_name = rt_inst_obj.get_fq_name()
-        bgp_router_list = vnc_lib.bgp_routers_list(parent_fq_name=fq_name)
-        bgp_router_ids = [bgp_dict['uuid']
-                          for bgp_dict in bgp_router_list['bgp-routers']]
-        bgp_router_objs = []
-        for id in bgp_router_ids:
-            bgp_router_objs.append(vnc_lib.bgp_router_read(id=id))
-
-        for other_obj in bgp_router_objs:
-            if other_obj.uuid == cur_id:
-                continue
+            for other_obj in bgp_router_objs:
+                if other_obj.uuid == cur_id:
+                    continue
 
             cur_obj.add_bgp_router(other_obj, bgp_peering_attrs)
+        except RefsExistError:
+            fq_name=bgp_router_obj.get_fq_name()
+            cur_obj = vnc_lib.bgp_router_read(fq_name=fq_name)
+            cur_id = cur_obj.uuid
+            print ("BGP Router " + pformat(fq_name) +
+                   " already exists with uuid " + cur_id)
+
         if md5:
             md5 = {'key_items': [ { 'key': md5 ,"key_id":0 } ], "key_type":"md5"}
             rparams = cur_obj.bgp_router_parameters
