@@ -453,7 +453,9 @@ class TestQfxBasicDM(TestCommonDM):
         if not interfaces:
             raise Exception("Interface Config not generated(native vlan check) : " + intf_name)
         if_config = interfaces[0]
-        if if_config.get_unit()[0].get_name() != '0' or if_config.get_unit()[0].get_vlan_id() != '4094':
+        if if_config.get_unit()[0].get_name() != '0' or \
+              if_config.get_unit()[0].get_vlan_id() != '4094' or \
+              if_config.get_native_vlan_id() != '4094':
             raise Exception ("Native vlan config properly generated for intf: " + intf_name)
         for vlan in vlans:
             if vlan.get_name() == vlan_name:
