@@ -311,7 +311,7 @@ class VncPod(VncCommon):
         self._vnc_lib.ref_update('virtual-router', vrouter_obj.uuid,
             'virtual-machine', vm_obj.uuid, None, 'ADD')
         if vm:
-            vm.virtual_router = vr_obj.uuid
+            vm.virtual_router = vrouter_obj.uuid
 
     def _check_pod_uuid_change(self, pod_uuid, pod_name):
         vm_fq_name = [pod_name]
