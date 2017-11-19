@@ -859,10 +859,12 @@ EvpnManager::EvpnManager(EvpnTable *table)
       listener_id_(DBTable::kInvalidId),
       segment_delete_trigger_(new TaskTrigger(
           boost::bind(&EvpnManager::ProcessSegmentDeleteSet, this),
-          TaskScheduler::GetInstance()->GetTaskId("bgp::EvpnSegment"), 0)),
+          TaskScheduler::GetInstance()->GetTaskId("bgp::EvpnSegment"),
+          table->routing_instance()->index())),
       segment_update_trigger_(new TaskTrigger(
           boost::bind(&EvpnManager::ProcessSegmentUpdateSet, this),
-          TaskScheduler::GetInstance()->GetTaskId("bgp::EvpnSegment"), 0)),
+          TaskScheduler::GetInstance()->GetTaskId("bgp::EvpnSegment"),
+          table->routing_instance()->index())),
       table_delete_ref_(this, table->deleter()) {
     deleter_.reset(new DeleteActor(this));
 }
