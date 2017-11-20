@@ -583,6 +583,94 @@ class TestFw(test_case.ApiServerTestCase):
             self.fail("Cannot delete project %s where default APS already "
                       "removed: %s" % str(e))
 
+    def test_cannot_associate_scoped_firewall_rule_to_a_global_aps(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        pm = PolicyManagement('pm-%s' % self.id())
+        self._vnc_lib.policy_management_create(pm)
+        scoped_fp = FirewallPolicy('scoped-fp-%s' % self.id(),
+                                   parent_obj=project)
+        self._vnc_lib.firewall_policy_create(scoped_fp)
+
+        global_aps = ApplicationPolicySet('global-aps-%s' % self.id(),
+                                          parent_obj=pm)
+        global_aps.add_firewall_policy(scoped_fp,
+                                       FirewallSequence(sequence='1.0'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.application_policy_set_create(global_aps)
+
+        global_aps = ApplicationPolicySet('global-aps-%s' % self.id(),
+                                  parent_obj=pm)
+        self._vnc_lib.application_policy_set_create(global_aps)
+        global_aps.add_firewall_policy(scoped_fp,
+                                       FirewallSequence(sequence='1.0'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.application_policy_set_update(global_aps)
+
+    def test_cannot_associate_scoped_fr_to_a_global_fp(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        pm = PolicyManagement('pm-%s' % self.id())
+        self._vnc_lib.policy_management_create(pm)
+        scoped_fr = FirewallRule(name='scoped-fr-%s' % self.id(),
+                                 parent_obj=project)
+        self._vnc_lib.firewall_rule_create(scoped_fr)
+
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=pm)
+        global_fp.add_firewall_rule(scoped_fr,
+                                    FirewallSequence(sequence='1.0'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_create(global_fp)
+
+        global_fp = FirewallPolicy('global-fp-%s' % self.id(),
+                                   parent_obj=pm)
+        self._vnc_lib.firewall_policy_create(global_fp)
+        global_fp.add_firewall_rule(scoped_fr,
+                                    FirewallSequence(sequence='1.0'))
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_policy_update(global_fp)
+
+    def _cannot_associate_scoped_resource_to_a_global_firewall_rule(
+            self, r_class):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        pm = PolicyManagement('pm-%s' % self.id())
+        self._vnc_lib.policy_management_create(pm)
+        scoped_r = r_class(
+            name='scoped-%s-%s' % (r_class.resource_type, self.id()),
+            parent_obj=project,
+        )
+        getattr(self._vnc_lib, '%s_create' % r_class.object_type)(scoped_r)
+
+        global_fr = FirewallRule('global-firewall-rule-%s' % self.id(),
+                                 parent_obj=pm)
+        getattr(global_fr, 'add_%s' % r_class.object_type)(scoped_r)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_rule_create(global_fr)
+
+        global_fr = FirewallRule('global-firewall-rule-%s' % self.id(),
+                                 parent_obj=pm)
+        self._vnc_lib.firewall_rule_create(global_fr)
+        getattr(global_fr, 'add_%s' % r_class.object_type)(scoped_r)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_rule_update(global_fr)
+
+    def test_cannot_associate_scoped_address_group_to_a_global_fr(self):
+        self._cannot_associate_scoped_resource_to_a_global_firewall_rule(
+            AddressGroup,
+        )
+
+    def test_cannot_associate_scoped_service_group_to_a_global_fr(self):
+        self._cannot_associate_scoped_resource_to_a_global_firewall_rule(
+            ServiceGroup,
+        )
+
+    def test_cannot_associate_scoped_virtual_network_to_a_global_fr(self):
+        self._cannot_associate_scoped_resource_to_a_global_firewall_rule(
+            VirtualNetwork
+        )
+
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()
