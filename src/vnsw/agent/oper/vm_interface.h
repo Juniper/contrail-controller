@@ -1260,6 +1260,7 @@ public:
     bool GetIpamDhcpOptions(
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     IpAddress GetServiceIp(const IpAddress &ip) const;
+    IpAddress GetGatewayIp(const IpAddress &ip) const;
 
     bool NeedDevice() const;
     bool IsActive() const;

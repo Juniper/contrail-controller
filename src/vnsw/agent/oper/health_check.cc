@@ -574,6 +574,7 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                 // of dependent config Health-Check-Service in this case to
                 // handle creation of interface later
                 if (intf != NULL) {
+                    IpAddress source_ip;
                     IpAddress destination_ip = dest_ip_;
                     VmInterface *paired_vmi = NULL;
                     if (IsSegmentHealthCheckService()) {
@@ -589,8 +590,10 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                             continue;
                         }
                     }
+                    if (health_check_type_ == HealthCheckService::BFD)
+                        source_ip = intf->GetGatewayIp(intf->primary_ip_addr());
                     HealthCheckInstanceBase *inst =
-                        StartHealthCheckService(intf, paired_vmi, IpAddress(),
+                        StartHealthCheckService(intf, paired_vmi, source_ip,
                                                 destination_ip, false, false);
                     intf_list_.insert(std::pair<boost::uuids::uuid,
                             HealthCheckInstanceBase *>(*(it_cfg), inst));
