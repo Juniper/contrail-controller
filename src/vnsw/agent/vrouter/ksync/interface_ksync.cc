@@ -30,7 +30,6 @@
 #include "pkt/pkt_handler.h"
 #include "vrouter/ksync/nexthop_ksync.h"
 #include "vrouter/ksync/mirror_ksync.h"
-#include "vnswif_listener.h"
 #include "vrouter/ksync/ksync_init.h"
 
 // Name of clone device for creating tap interface
@@ -83,7 +82,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     isid_(entry->isid_), pbb_cmac_vrf_(entry->pbb_cmac_vrf_),
     etree_leaf_(entry->etree_leaf_),
     pbb_interface_(entry->pbb_interface_),
-    vhostuser_mode_(entry->vhostuser_mode_) {
+    vhostuser_mode_(entry->vhostuser_mode_),
+    os_guid_(entry->os_guid_) {
 }
 
 InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
@@ -129,7 +129,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     flood_unknown_unicast_(false), qos_config_(NULL),
     learning_enabled_(false), isid_(VmInterface::kInvalidIsid),
     pbb_cmac_vrf_(VrfEntry::kInvalidIndex), etree_leaf_(false),
-    pbb_interface_(false), vhostuser_mode_(VmInterface::vHostUserClient) {
+    pbb_interface_(false), vhostuser_mode_(VmInterface::vHostUserClient),
+    os_guid_(intf->os_guid()) {
 
     if (intf->flow_key_nh()) {
         flow_key_nh_id_ = intf->flow_key_nh()->id();
@@ -544,6 +545,12 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         transport_ = intf->transport();
         ret = true;
     }
+
+    if (os_guid_ != intf->os_guid()) {
+        os_guid_ = intf->os_guid();
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -892,6 +899,16 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     }
     encoder.set_vifr_ip(htonl(ip_));
     encoder.set_vifr_nh_id(flow_key_nh_id_);
+
+    // GUIDs are used as interface identifiers on Windows
+    if (os_guid_) {
+        Interface::IfGuid& os_guid = os_guid_.get();
+
+        std::vector<int8_t> raw_guid(os_guid.size(), 0);
+        memcpy(raw_guid.data(), &os_guid, os_guid.size());
+
+        encoder.set_vifr_if_guid(raw_guid);
+    }
 
     int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);

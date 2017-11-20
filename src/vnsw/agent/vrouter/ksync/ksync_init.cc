@@ -58,7 +58,9 @@ KSync::KSync(Agent *agent)
       vrf_ksync_obj_(new VrfKSyncObject(this)),
       vxlan_ksync_obj_(new VxLanKSyncObject(this)),
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
+#ifndef _WIN32
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
+#endif
       ksync_flow_memory_(new KSyncFlowMemory(this, 0)),
       ksync_flow_index_manager_(new KSyncFlowIndexManager(this)),
       qos_queue_ksync_obj_(new QosQueueKSyncObject(this)),
@@ -95,9 +97,14 @@ void KSync::Init(bool create_vhost) {
     NetlinkInit();
     InitFlowMem();
     ResetVRouter(true);
+
+// On Windows, vhost interface is created when Hyper-V switch is created.
+#ifndef _WIN32
     if (create_vhost) {
         CreateVhostIntf();
     }
+#endif
+
     interface_ksync_obj_.get()->Init();
     for (uint16_t i = 0; i < flow_table_ksync_obj_list_.size(); i++) {
         FlowTable *flow_table = agent_->pkt()->get_flow_proto()->GetTable(i);
@@ -264,9 +271,11 @@ void KSync::ResetVRouter(bool run_sync_mode) {
     KSyncSock::Start(run_sync_mode);
 }
 
+#ifndef _WIN32
 void KSync::VnswInterfaceListenerInit() {
     vnsw_interface_listner_->Init();
 }
+#endif
 
 void KSync::CreateVhostIntf() {
 #if defined(__linux__)
@@ -360,8 +369,10 @@ void KSync::UpdateVhostMac() {
 }
 
 void KSync::Shutdown() {
+#ifndef _WIN32
     vnsw_interface_listner_->Shutdown();
     vnsw_interface_listner_.reset(NULL);
+#endif
     interface_ksync_obj_.reset(NULL);
     vrf_ksync_obj_.get()->Shutdown();
     vrf_ksync_obj_.reset(NULL);
@@ -381,6 +392,9 @@ void KSync::Shutdown() {
 }
 
 void GenericNetlinkInit() {
+#ifdef _WIN32
+    KSyncSock::SetNetlinkFamilyId(FAKE_NETLINK_FAMILY);
+#else
     struct nl_client    *cl;
     int    family;
 
@@ -392,9 +406,10 @@ void GenericNetlinkInit() {
     LOG(DEBUG, "Vrouter family is " << family);
     KSyncSock::SetNetlinkFamilyId(family);
     nl_free_client(cl);
-    return;
+#endif
 }
 
+#ifndef _WIN32
 KSyncTcp::KSyncTcp(Agent *agent): KSync(agent) {
 }
 
@@ -440,3 +455,4 @@ void KSyncTcp::Init(bool create_vhost) {
     ksync_flow_memory_.get()->Init();
     ksync_bridge_memory_.get()->Init();
 }
+#endif
