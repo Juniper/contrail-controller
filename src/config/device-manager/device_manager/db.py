@@ -127,8 +127,8 @@ class PhysicalRouterDM(DBBaseDM):
         self.management_ip = obj.get('physical_router_management_ip')
         self.loopback_ip = obj.get('physical_router_loopback_ip', '')
         self.dataplane_ip = obj.get('physical_router_dataplane_ip') or self.loopback_ip
-        self.vendor = obj.get('physical_router_vendor_name', '')
-        self.product = obj.get('physical_router_product_name', '')
+        self.vendor = obj.get('physical_router_vendor_name') or ''
+        self.product = obj.get('physical_router_product_name') or ''
         self.vnc_managed = obj.get('physical_router_vnc_managed')
         self.physical_router_role = obj.get('physical_router_role')
         self.user_credentials = obj.get('physical_router_user_credentials')
