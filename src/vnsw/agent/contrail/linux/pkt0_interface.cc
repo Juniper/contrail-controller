@@ -144,6 +144,14 @@ void Pkt0Interface::InitControlInterface() {
     AsyncRead();
 }
 
+void Pkt0Interface::SendImpl(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt,
+                             buffer_list& buff_list) {
+    input_.async_write_some(buff_list,
+                            boost::bind(&Pkt0Interface::WriteHandler, this,
+                                        boost::asio::placeholders::error,
+                                        boost::asio::placeholders::bytes_transferred, pkt, buff));
+}
+
 void Pkt0RawInterface::InitControlInterface() {
     pkt_handler()->agent()->set_pkt_interface_name(name_);
 

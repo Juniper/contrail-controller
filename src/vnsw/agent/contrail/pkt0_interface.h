@@ -15,6 +15,8 @@
 // pkt0 interface implementation of VrouterControlInterface
 class Pkt0Interface: public VrouterControlInterface {
 public:
+    typedef std::vector<boost::asio::const_buffer> buffer_list;
+
     Pkt0Interface(const std::string &name, boost::asio::io_service *io);
     virtual ~Pkt0Interface();
     
@@ -26,6 +28,10 @@ public:
     int Send(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt);
     const unsigned char *mac_address() const { return mac_address_; }
 protected:
+    // Implements system specific send for Pkt0Interface
+    void SendImpl(uint8_t *buff, uint16_t buff_len, const PacketBufferPtr &pkt,
+                  buffer_list& buff_list);
+
     void AsyncRead();
     void ReadHandler(const boost::system::error_code &err, std::size_t length);
     void WriteHandler(const boost::system::error_code &error,
@@ -34,8 +40,13 @@ protected:
     std::string name_;
     int tap_fd_;
     unsigned char mac_address_[ETHER_ADDR_LEN];
+
+#ifdef _WIN32
+    boost::asio::windows::stream_handle input_;
+#else
     boost::asio::posix::stream_descriptor input_;
-    
+#endif
+
     uint8_t *read_buff_;
     PktHandler *pkt_handler_;
     DISALLOW_COPY_AND_ASSIGN(Pkt0Interface);
@@ -77,7 +88,11 @@ private:
     void StartConnectTimer();
     bool OnTimeout();
     bool connected_;
+
+#ifndef _WIN32
     boost::asio::local::datagram_protocol::socket socket_;
+#endif
+
     boost::scoped_ptr<Timer> timer_;
     uint8_t *read_buff_;
     PktHandler *pkt_handler_;
