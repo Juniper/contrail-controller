@@ -16,6 +16,7 @@
 #include "base/lifetime.h"
 #include "base/task_trigger.h"
 #include "bgp/bgp_attr.h"
+#include "bgp/bgp_path.h"
 #include "db/db_entry.h"
 #include "net/address.h"
 
@@ -168,15 +169,15 @@ public:
 
     class RemotePe {
     public:
-        RemotePe(bool single_active, const IpAddress &address)
-          : esi_valid(true),
-            single_active(single_active),
-            address(address) {
-        }
+        RemotePe(const BgpPath *path);
+        bool operator==(const RemotePe &rhs) const;
 
         bool esi_valid;
         bool single_active;
-        IpAddress address;
+        const IPeer *peer;
+        BgpAttrPtr attr;
+        uint32_t flags;
+        BgpPath::PathSource src;
     };
 
     typedef std::list<RemotePe> RemotePeList;
@@ -244,7 +245,7 @@ private:
 
     void AddAliasedPath(AliasedPathList::const_iterator it);
     void DeleteAliasedPath(AliasedPathList::const_iterator it);
-    BgpPath *LocateAliasedPath(const BgpPath *orig_path, const BgpAttr *attr,
+    BgpPath *LocateAliasedPath(const EvpnSegment::RemotePe *remote_pe,
         uint32_t label);
 
     EvpnManager *evpn_manager_;

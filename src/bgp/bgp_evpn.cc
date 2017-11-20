@@ -403,36 +403,33 @@ bool EvpnSegment::UpdatePeList() {
         if (!extcomm || !extcomm->ContainsTunnelEncapVxlan())
             continue;
 
-        // Go through existing pe list and try to find an entry.
+        // Go through existing pe list and try to find the RemotePe.
         bool found = false;
-        bool single_active = attr->evpn_single_active();
+        RemotePe remote_pe(path);
         for (RemotePeList::iterator it = pe_list_.begin();
             it != pe_list_.end(); ++it) {
             // Skip if the nexthop doesn't match.
-            if (it->address != attr->nexthop())
+            if (it->attr->nexthop() != remote_pe.attr->nexthop())
                 continue;
 
-            // We're done if there are multiple paths with the same nexthop
+            // We're done if there are multiple paths for the same remote PE
             // e.g. when a pair of route reflectors is being used.
             if (it->esi_valid) {
                 found = true;
-                continue;
+                break;
             }
 
-            // Update the single active flag based on the current path.
-            if (it->single_active != single_active)
-                changed = true;
-            it->single_active = single_active;
-
-            // We've found and updated an existing remote PE.
-            it->esi_valid = true;
-            found = true;
-            break;
+            // Check if we have a match.
+            if (*it == remote_pe) {
+                it->esi_valid = true;
+                found = true;
+                break;
+            }
         }
 
-        // Add a new entry to the pe list if we didn't find an existing one.
+        // Add a new entry to the pe list if we didn't find the RemotePe.
         if (!found) {
-            pe_list_.push_back(RemotePe(single_active, attr->nexthop()));
+            pe_list_.push_back(remote_pe);
             changed = true;
         }
     }
@@ -480,10 +477,39 @@ bool EvpnSegment::MayDelete() const {
 }
 
 //
+// Constructor for EvpnSegment::RemotePe.
+//
+EvpnSegment::RemotePe::RemotePe(const BgpPath *path)
+  : esi_valid(true),
+    single_active(path->GetAttr()->evpn_single_active()),
+    peer(path->GetPeer()),
+    attr(path->GetAttr()),
+    flags(path->GetFlags()),
+    src(path->GetSource()) {
+}
+
+//
+// Equality operator for EvpnSegment::RemotePe.
+// Do not compare esi_valid and single_active fields since they are
+// derived.
+//
+bool EvpnSegment::RemotePe::operator==(const RemotePe &rhs) const {
+    if (peer != rhs.peer)
+        return false;
+    if (attr != rhs.attr)
+        return false;
+    if (flags != rhs.flags)
+        return false;
+    if (src != rhs.src)
+        return false;
+    return true;
+}
+
+//
 // Constructor for EvpnMacState.
 //
 EvpnMacState::EvpnMacState(EvpnManager *evpn_manager, EvpnRoute *route)
-: evpn_manager_(evpn_manager), route_(route), segment_(NULL) {
+  : evpn_manager_(evpn_manager), route_(route), segment_(NULL) {
 }
 
 //
@@ -531,10 +557,12 @@ void EvpnMacState::DeleteAliasedPath(AliasedPathList::const_iterator it) {
 //
 // Find or create the matching aliased BgpPath.
 //
-BgpPath *EvpnMacState::LocateAliasedPath(const BgpPath *orig_path,
-    const BgpAttr *attr, uint32_t label) {
-    const IPeer *peer = orig_path->GetPeer();
-    uint32_t flags = orig_path->GetFlags() | BgpPath::AliasedPath;
+BgpPath *EvpnMacState::LocateAliasedPath(
+    const EvpnSegment::RemotePe *remote_pe, uint32_t label) {
+    const IPeer *peer = remote_pe->peer;
+    const BgpAttr *attr = remote_pe->attr.get();
+    uint32_t flags = remote_pe->flags | BgpPath::AliasedPath;
+    BgpPath::PathSource src = remote_pe->src;
     for (AliasedPathList::iterator it = aliased_path_list_.begin();
         it != aliased_path_list_.end(); ++it) {
         BgpPath *path = *it;
@@ -546,7 +574,6 @@ BgpPath *EvpnMacState::LocateAliasedPath(const BgpPath *orig_path,
         }
     }
 
-    BgpPath::PathSource src = orig_path->GetSource();
     return (new BgpPath(peer, src, attr, flags, label));
 }
 
@@ -558,7 +585,6 @@ BgpPath *EvpnMacState::LocateAliasedPath(const BgpPath *orig_path,
 bool EvpnMacState::ProcessMacRouteAliasing() {
     CHECK_CONCURRENCY("db::DBTable");
 
-    BgpAttrDB *attr_db = evpn_manager_->server()->attr_db();
     const BgpPath *path = route_->BestPath();
 
     // Find the remote PE entry that corresponds to the primary path.
@@ -568,7 +594,7 @@ bool EvpnMacState::ProcessMacRouteAliasing() {
         it = segment_->begin();
     for (; path && segment_ && !segment_->single_active() &&
          it != segment_->end(); ++it) {
-        if (path->GetAttr()->nexthop() != it->address)
+        if (path->GetAttr()->nexthop() != it->attr->nexthop())
             continue;
         found_primary_pe = true;
         break;
@@ -581,20 +607,14 @@ bool EvpnMacState::ProcessMacRouteAliasing() {
         it = segment_->begin();
     for (; found_primary_pe && path && segment_ &&
          !segment_->single_active() && it != segment_->end(); ++it) {
-        if (!found_primary_pe && path->GetAttr()->nexthop() == it->address)
-            found_primary_pe = true;
-
         // Skip if there's a BGP_XMPP path with the remote PE as nexthop.
-        if (route_->FindPath(it->address))
+        if (route_->FindPath(it->attr->nexthop()))
             continue;
 
-        // Use nexthop address from the remote PE.
-        BgpAttrPtr attr(path->GetAttr());
-        attr = attr_db->ReplaceNexthopAndLocate(attr.get(), it->address);
-
-        // Locate the aliased path.
+        // Locate the aliased path using attributes for the remote PE and
+        // label from the primary path.
         BgpPath *aliased_path =
-            LocateAliasedPath(path, attr.get(), path->GetLabel());
+            LocateAliasedPath(it.operator->(), path->GetLabel());
         future_aliased_path_list.insert(aliased_path);
     }
 
