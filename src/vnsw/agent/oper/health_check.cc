@@ -238,11 +238,12 @@ HealthCheckInstanceService::~HealthCheckInstanceService() {
 
 bool HealthCheckInstanceService::CreateInstanceTask() {
     deleted_ = false;
+    HealthCheckService::HealthCheckType type = service_->health_check_type();
     HEALTH_CHECK_TRACE(Trace, "Starting " + this->to_string());
-    assert(service_->health_check_type() == HealthCheckService::SEGMENT ||
-           service_->health_check_type() == HealthCheckService::BFD);
-    if (service_->table()->health_check_service_callback
-                           (service_->health_check_type())
+    assert(type == HealthCheckService::SEGMENT ||
+           type == HealthCheckService::BFD);
+    if (service_->table()->health_check_service_callback(type).empty() ||
+        service_->table()->health_check_service_callback(type)
                            (HealthCheckTable::CREATE_SERVICE, this) == false) {
         HEALTH_CHECK_TRACE(Trace, "Failed to start  " + this->to_string());
         return false;
@@ -255,38 +256,50 @@ bool HealthCheckInstanceService::DestroyInstanceTask() {
         return true;
     }
 
-    HEALTH_CHECK_TRACE(Trace, "Deleting " + this->to_string());
-    service_->table()->health_check_service_callback
-                       (service_->health_check_type())
-                       (HealthCheckTable::DELETE_SERVICE, this);
+    HealthCheckService::HealthCheckType type = service_->health_check_type();
+    if (!service_->table()->health_check_service_callback(type).empty()) {
+        HEALTH_CHECK_TRACE(Trace, "Deleting " + this->to_string());
+        service_->table()->health_check_service_callback(type)
+                           (HealthCheckTable::DELETE_SERVICE, this);
+    }
 
     deleted_ = true;
     return false;
 }
 
 bool HealthCheckInstanceService::RunInstanceTask() {
-    HEALTH_CHECK_TRACE(Trace, "Run Instance " + this->to_string());
-    assert(service_->health_check_type() == HealthCheckService::SEGMENT ||
-           service_->health_check_type() == HealthCheckService::BFD);
-    return service_->table()->health_check_service_callback
-                              (service_->health_check_type())
-                              (HealthCheckTable::RUN_SERVICE, this);
+    HealthCheckService::HealthCheckType type = service_->health_check_type();
+    if (!service_->table()->health_check_service_callback(type).empty()) {
+        HEALTH_CHECK_TRACE(Trace, "Run Instance " + this->to_string());
+        assert(type == HealthCheckService::SEGMENT ||
+               type == HealthCheckService::BFD);
+        return service_->table()->health_check_service_callback(type)
+                                  (HealthCheckTable::RUN_SERVICE, this);
+    }
+    HEALTH_CHECK_TRACE(Trace, "Run Instance failed " + this->to_string());
+    return false;
 }
 
 bool HealthCheckInstanceService::StopInstanceTask() {
-    HEALTH_CHECK_TRACE(Trace, "Stop Instance " + this->to_string());
-    return service_->table()->health_check_service_callback
-                              (service_->health_check_type())
-                              (HealthCheckTable::STOP_SERVICE, this);
+    HealthCheckService::HealthCheckType type = service_->health_check_type();
+    if (!service_->table()->health_check_service_callback(type).empty()) {
+        HEALTH_CHECK_TRACE(Trace, "Stop Instance " + this->to_string());
+        return service_->table()->health_check_service_callback(type)
+                                  (HealthCheckTable::STOP_SERVICE, this);
+    }
+    return false;
 }
 
 bool HealthCheckInstanceService::UpdateInstanceTask() {
-    HEALTH_CHECK_TRACE(Trace, "Updating " + this->to_string());
-    assert(service_->health_check_type() == HealthCheckService::SEGMENT ||
-           service_->health_check_type() == HealthCheckService::BFD);
-    bool success = service_->table()->health_check_service_callback
-                              (service_->health_check_type())
-                              (HealthCheckTable::UPDATE_SERVICE, this);
+    bool success = false;
+    HealthCheckService::HealthCheckType type = service_->health_check_type();
+    if (!service_->table()->health_check_service_callback(type).empty()) {
+        HEALTH_CHECK_TRACE(Trace, "Updating " + this->to_string());
+        assert(type == HealthCheckService::SEGMENT ||
+               type == HealthCheckService::BFD);
+        success = service_->table()->health_check_service_callback(type)
+                                  (HealthCheckTable::UPDATE_SERVICE, this);
+    }
     if (!success) {
         HEALTH_CHECK_TRACE(Trace, "Failed to Update " + this->to_string());
     }
@@ -525,8 +538,6 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
     }
 
     if (ret) {
-        health_check_type_ = GetHealthCheckType();
-
         /* If service-type of health-check changes from segment to non-segment
          * or vice-versa, remove all the health-check instance objects.
          * Addition of new health-check instances with updated config happens
@@ -534,7 +545,7 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
         if ((service_type_changed &&
              is_prev_hc_segment != IsSegmentHealthCheckService()) ||
             (monitor_type_changed &&
-             (health_check_type_ == HealthCheckService::BFD ||
+             (GetHealthCheckType() == HealthCheckService::BFD ||
               old_health_check_type == HealthCheckService::BFD))) {
             DeleteInstances();
         } else {
@@ -546,6 +557,8 @@ bool HealthCheckService::Copy(HealthCheckTable *table,
                 it++;
             }
         }
+        // update type after deleting the previous instance
+        health_check_type_ = GetHealthCheckType();
     }
 
     if (name_ != data->name_) {
