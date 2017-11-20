@@ -34,7 +34,6 @@
 #include "vrouter/ksync/mirror_ksync.h"
 #include "vrouter/ksync/vrf_assign_ksync.h"
 #include "vrouter/ksync/vxlan_ksync.h"
-#include "vnswif_listener.h"
 #include "vrouter/ksync/sandesh_ksync.h"
 #include "vrouter/ksync/test/ksync_test.h"
 
