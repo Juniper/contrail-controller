@@ -293,6 +293,7 @@ EndOfRibRxTimer::EndOfRibRxTimer(Agent *agent) :
 }
 
 void EndOfRibRxTimer::Start(AgentXmppChannel *agent_xmpp_channel) {
+    Reset();
     agent_xmpp_channel_ = agent_xmpp_channel;
     ControllerTimer::Start(agent_xmpp_channel);
 }
@@ -318,8 +319,8 @@ uint32_t EndOfRibRxTimer::GetTimerInterval() const {
 
 void EndOfRibRxTimer::GresEnabled(bool enable) {
     if (enable) {
-        end_of_rib_rx_fallback_time_ = agent_->oper_db()->
-            global_system_config()->gres_parameters().end_of_rib_time();
+        end_of_rib_rx_fallback_time_ = SECS_TO_MSECS(agent_->oper_db()->
+            global_system_config()->gres_parameters().end_of_rib_time());
         if (end_of_rib_rx_fallback_time_ == 0) {
             end_of_rib_rx_fallback_time_ = SECS_TO_MSECS(agent_->params()->
                                    llgr_params().end_of_rib_rx_fallback_time());
