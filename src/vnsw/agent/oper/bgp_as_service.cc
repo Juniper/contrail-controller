@@ -31,6 +31,7 @@
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>
 #include <resource_manager/bgp_as_service_index.h>
+#include "pkt/flow_table.h"
 
 using namespace std;
 SandeshTraceBufferPtr BgpAsAServiceTraceBuf(SandeshTraceBufferCreate
@@ -40,7 +41,7 @@ BgpAsAService::BgpAsAService(const Agent *agent) :
     agent_(agent),
     bgp_as_a_service_entry_map_(),
     bgp_as_a_service_port_map_(),
-    service_delete_cb_(), health_check_cb_() {
+    service_delete_cb_list_(), health_check_cb_list_() {
 }
 
 BgpAsAService::~BgpAsAService() {
@@ -137,9 +138,9 @@ void BgpAsAService::StartHealthCheck(const boost::uuids::uuid &vm_uuid,
                                      const BgpAsAServiceEntryList &list) {
     for (BgpAsAServiceEntryListConstIterator iter = list.begin();
          iter != list.end(); ++iter) {
-        if (!health_check_cb_.empty() && iter->new_health_check_add_ &&
+        if (!health_check_cb_list_.empty() && iter->new_health_check_add_ &&
             iter->health_check_uuid_ != nil_uuid()) {
-            health_check_cb_(vm_uuid, iter->source_port_,
+            health_check_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, iter->source_port_,
                              iter->health_check_uuid_, true);
         }
         iter->new_health_check_add_ = false;
@@ -309,7 +310,7 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
         StartHealthCheck(vm_uuid, new_bgp_as_a_service_entry_list);
     }
 
-    if (changed && !service_delete_cb_.empty()) {
+    if (changed && !service_delete_cb_list_.empty()) {
         //Enqueue flow handler request.
         BgpAsAServiceEntryListIterator iter =
             old_bgp_as_a_service_entry_list_iter->second->list_.begin();
@@ -317,7 +318,7 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
                old_bgp_as_a_service_entry_list_iter->second->list_.end()) {
             BgpAsAServiceEntryListIterator prev = iter++;
             if (prev->del_pending_) {
-                service_delete_cb_(vm_uuid, prev->source_port_);
+                service_delete_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, prev->source_port_);
                 if (prev->is_shared_) {
                     FreeBgpVmiServicePortIndex(prev->source_port_);
                 }
@@ -325,18 +326,18 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
                 continue;
             }
             if (prev->old_health_check_delete_) {
-                if (!health_check_cb_.empty() &&
+                if (!health_check_cb_list_.empty() &&
                     prev->old_health_check_uuid_ != nil_uuid()) {
-                    health_check_cb_(vm_uuid, prev->source_port_,
+                    health_check_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, prev->source_port_,
                                      prev->old_health_check_uuid_, false);
                 }
                 prev->old_health_check_delete_ = false;
                 prev->old_health_check_uuid_ = nil_uuid();
             }
             if (prev->new_health_check_add_) {
-                if (!health_check_cb_.empty() &&
+                if (!health_check_cb_list_.empty() &&
                     prev->health_check_uuid_ != nil_uuid()) {
-                    health_check_cb_(vm_uuid, prev->source_port_,
+                    health_check_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, prev->source_port_,
                                      prev->health_check_uuid_, true);
                 }
                 prev->new_health_check_add_ = false;
@@ -346,7 +347,7 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
 }
 
 void BgpAsAService::DeleteVmInterface(const boost::uuids::uuid &vm_uuid) {
-    if (service_delete_cb_.empty())
+    if (service_delete_cb_list_.empty())
         return;
 
     BgpAsAServiceEntryMapIterator iter =
@@ -357,7 +358,7 @@ void BgpAsAService::DeleteVmInterface(const boost::uuids::uuid &vm_uuid) {
     BgpAsAServiceEntryList list = iter->second->list_;
     BgpAsAServiceEntryListIterator list_iter = list.begin();
     while (list_iter != list.end()) {
-        service_delete_cb_(vm_uuid, (*list_iter).source_port_);
+        service_delete_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, (*list_iter).source_port_);
         if ((*list_iter).is_shared_) {
             FreeBgpVmiServicePortIndex((*list_iter).source_port_);
         }
