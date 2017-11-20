@@ -638,6 +638,28 @@ IpAddress VmInterface::GetServiceIp(const IpAddress &vm_ip) const {
     return ip;
 }
 
+IpAddress VmInterface::GetGatewayIp(const IpAddress &vm_ip) const {
+    IpAddress ip;
+    if (vn_.get() == NULL) {
+        return ip;
+    }
+
+    const VnIpam *ipam = NULL;
+    if (subnet_.is_unspecified()) {
+        ipam = vn_->GetIpam(vm_ip);
+    } else {
+        ipam = vn_->GetIpam(subnet_);
+    }
+
+    if (ipam) {
+        if ((vm_ip.is_v4() && ipam->default_gw.is_v4()) ||
+            (vm_ip.is_v6() && ipam->default_gw.is_v6())) {
+            return ipam->default_gw;
+        }
+    }
+    return ip;
+}
+
 // Copy the SG List for VM Interface. Used to add route for interface
 void VmInterface::CopySgIdList(SecurityGroupList *sg_id_list) const {
     SecurityGroupEntrySet::const_iterator it;
