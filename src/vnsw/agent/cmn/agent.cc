@@ -961,6 +961,10 @@ bool Agent::vrouter_on_host_dpdk() const {
     return params_->vrouter_on_host_dpdk();
 }
 
+bool Agent::vrouter_on_windows() const {
+    return params_->vrouter_on_windows();
+}
+
 bool Agent::vrouter_on_host() const {
     return params_->vrouter_on_host();
 }

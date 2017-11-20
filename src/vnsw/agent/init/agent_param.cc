@@ -648,6 +648,8 @@ void AgentParam::ParsePlatformArguments
                 physical_interface_mac_addr_ =
                 var_map["DEFAULT.physical_interface_mac"].as<string>();
             }
+        } else if (var_map["DEFAULT.platform"].as<string>() == "windows") {
+            platform_ = AgentParam::VROUTER_ON_WINDOWS;
         } else {
             platform_ = AgentParam::VROUTER_ON_HOST;
         }
@@ -1231,6 +1233,8 @@ void AgentParam::PostValidateLogConfig() const {
         LOG(DEBUG, "Platform mode           : Vrouter on NIC");
     } else if (platform_ == VROUTER_ON_HOST_DPDK) {
         LOG(DEBUG, "Platform mode           : Vrouter on DPDK");
+    } else if (platform_ == VROUTER_ON_WINDOWS) {
+        LOG(DEBUG, "Platform mode           : Vrouter on Windows");
     } else {
         LOG(DEBUG, "Platform mode           : Vrouter on host linux kernel ");
     }

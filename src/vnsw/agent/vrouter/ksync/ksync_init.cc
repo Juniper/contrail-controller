@@ -59,7 +59,9 @@ KSync::KSync(Agent *agent)
       vrf_ksync_obj_(new VrfKSyncObject(this)),
       vxlan_ksync_obj_(new VxLanKSyncObject(this)),
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
+#ifndef _WIN32
       vnsw_interface_listner_(new VnswInterfaceListener(agent)),
+#endif
       ksync_flow_memory_(new KSyncFlowMemory(this, 0)),
       ksync_flow_index_manager_(new KSyncFlowIndexManager(this)),
       qos_queue_ksync_obj_(new QosQueueKSyncObject(this)),
@@ -138,11 +140,17 @@ void KSync::InitFlowMem() {
 
 void KSync::NetlinkInit() {
     EventManager *event_mgr;
+    bool use_work_queue = false;
 
     event_mgr = agent_->event_manager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    KSyncSockNetlink::Init(io, NETLINK_GENERIC,
+    if (agent_->vrouter_on_windows()) {
+        // Windows doesn't support event_fd mechanism, so use (slower) work_queue
+        // See comment in ksync_tx_queue for more info
+        use_work_queue = true;
+    }
+    KSyncSockNetlink::Init(io, NETLINK_GENERIC, use_work_queue,
                            agent_->params()->ksync_thread_cpu_pin_policy());
     for (int i = 0; i < KSyncSock::kRxWorkQueueCount; i++) {
         KSyncSock::SetAgentSandeshContext
@@ -338,9 +346,11 @@ void KSync::ResetVRouter(bool run_sync_mode) {
     KSyncSock::Start(run_sync_mode);
 }
 
+#ifndef _WIN32
 void KSync::VnswInterfaceListenerInit() {
     vnsw_interface_listner_->Init();
 }
+#endif
 
 void KSync::CreateVhostIntf() {
 #if defined(__linux__)
@@ -434,8 +444,10 @@ void KSync::UpdateVhostMac() {
 }
 
 void KSync::Shutdown() {
+#ifndef _WIN32
     vnsw_interface_listner_->Shutdown();
     vnsw_interface_listner_.reset(NULL);
+#endif
     interface_ksync_obj_.reset(NULL);
     vrf_ksync_obj_.get()->Shutdown();
     vrf_ksync_obj_.reset(NULL);
@@ -455,6 +467,9 @@ void KSync::Shutdown() {
 }
 
 void GenericNetlinkInit() {
+#ifdef _WIN32
+    KSyncSock::SetNetlinkFamilyId(FAKE_NETLINK_FAMILY);
+#else
     struct nl_client    *cl;
     int    family;
 
@@ -466,9 +481,10 @@ void GenericNetlinkInit() {
     LOG(DEBUG, "Vrouter family is " << family);
     KSyncSock::SetNetlinkFamilyId(family);
     nl_free_client(cl);
-    return;
+#endif
 }
 
+#ifndef _WIN32
 KSyncTcp::KSyncTcp(Agent *agent): KSync(agent) {
 }
 
@@ -515,3 +531,4 @@ void KSyncTcp::Init(bool create_vhost) {
     ksync_flow_memory_.get()->Init();
     ksync_bridge_memory_.get()->Init();
 }
+#endif

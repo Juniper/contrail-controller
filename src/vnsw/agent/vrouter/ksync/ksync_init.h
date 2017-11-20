@@ -18,7 +18,10 @@
 #include <vrouter/ksync/forwarding_class_ksync.h>
 #include <vrouter/ksync/qos_config_ksync.h>
 #include <vrouter/ksync/ksync_bridge_table.h>
+
+#ifndef _WIN32
 #include "vnswif_listener.h"
+#endif
 
 class KSyncFlowMemory;
 class FlowTableKSyncObject;
@@ -52,9 +55,11 @@ public:
     FlowTableKSyncObject *flow_table_ksync_obj(uint16_t index) const {
         return flow_table_ksync_obj_list_[index];
     }
+#ifndef _WIN32
     VnswInterfaceListener *vnsw_interface_listner() const  {
         return vnsw_interface_listner_.get();
     }
+#endif
     KSyncFlowMemory *ksync_flow_memory() const  {
         return ksync_flow_memory_.get();
     }
@@ -92,7 +97,9 @@ protected:
     boost::scoped_ptr<VrfKSyncObject> vrf_ksync_obj_;
     boost::scoped_ptr<VxLanKSyncObject> vxlan_ksync_obj_;
     boost::scoped_ptr<VrfAssignKSyncObject> vrf_assign_ksync_obj_;
+#ifndef _WIN32
     boost::scoped_ptr<VnswInterfaceListener> vnsw_interface_listner_;
+#endif
     boost::scoped_ptr<KSyncFlowMemory> ksync_flow_memory_;
     boost::scoped_ptr<KSyncFlowIndexManager> ksync_flow_index_manager_;
     boost::scoped_ptr<QosQueueKSyncObject> qos_queue_ksync_obj_;
