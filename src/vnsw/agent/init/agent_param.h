@@ -138,6 +138,7 @@ public:
     enum Platform {
         VROUTER_ON_HOST,
         VROUTER_ON_HOST_DPDK,
+        VROUTER_ON_WINDOWS,
         VROUTER_ON_NIC
     };
 
@@ -307,6 +308,9 @@ public:
     }
     bool vrouter_on_host_dpdk() const {
         return platform_ == VROUTER_ON_HOST_DPDK;
+    }
+    bool vrouter_on_windows() const {
+        return platform_ == VROUTER_ON_WINDOWS;
     }
     bool vrouter_on_host() const {
         return platform_ == VROUTER_ON_HOST;

@@ -295,12 +295,7 @@ public:
     const static unsigned kBufLen = (4*1024);
 
     // Number of messages that can be bunched together
-    // TODO(WINDOWS): Windows implementation currently supports singular message transfers
-#ifdef _WIN32
-    const static unsigned kMaxBulkMsgCount = 1;
-#else
     const static unsigned kMaxBulkMsgCount = 16;
-#endif
     // Max size of buffer that can be bunched together
     const static unsigned kMaxBulkMsgSize = (4*1024);
     // Sequence number to denote invalid builk-context
@@ -490,7 +485,7 @@ public:
 
     static void NetlinkDecoder(char *data, SandeshContext *ctxt);
     static void NetlinkBulkDecoder(char *data, SandeshContext *ctxt, bool more);
-    static void Init(boost::asio::io_service &ios, int protocol,
+    static void Init(boost::asio::io_service &ios, int protocol, bool use_work_queue,
                      const std::string &cpu_pin_policy);
 private:
 #ifdef _WIN32

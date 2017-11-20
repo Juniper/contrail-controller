@@ -616,9 +616,9 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
 /////////////////////////////////////////////////////////////////////////////
 #ifdef _WIN32
 KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol) : pipe_(ios) {
-    DWORD access_flags = GENERIC_READ | GENERIC_WRITE;
-    DWORD attrs = OPEN_EXISTING;
-    DWORD config_flags = FILE_FLAG_OVERLAPPED;
+    const DWORD access_flags = GENERIC_READ | GENERIC_WRITE;
+    const DWORD attrs = OPEN_EXISTING;
+    const DWORD config_flags = FILE_FLAG_OVERLAPPED;
 
     nl_client_->cl_win_pipe = CreateFile(KSYNC_PATH, access_flags, 0, NULL,
                                          attrs, config_flags, NULL);
@@ -633,6 +633,9 @@ KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol) :
         LOG(ERROR, "Error while assigning KSync pipe: " << ec);
         assert(0);
     }
+
+    // TODO(WINDOWS): Windows implementation currently supports only singular message transfers
+    max_bulk_msg_count_ = 1;
 }
 #else
 KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol)
@@ -664,16 +667,9 @@ KSyncSockNetlink::~KSyncSockNetlink() {
 #endif
 }
 
-void KSyncSockNetlink::Init(io_service &ios, int protocol,
+void KSyncSockNetlink::Init(io_service &ios, int protocol, bool use_work_queue,
                             const std::string &cpu_pin_policy) {
     KSyncSock::SetSockTableEntry(new KSyncSockNetlink(ios, protocol));
-#ifdef _WIN32
-    // Windows doesn't support event_fd mechanism, so use (slower) work_queue.
-    // See comment in ksync_tx_queue for more info.
-    const bool use_work_queue = true;
-#else
-    const bool use_work_queue = false;
-#endif
     KSyncSock::Init(use_work_queue, cpu_pin_policy);
 }
 
