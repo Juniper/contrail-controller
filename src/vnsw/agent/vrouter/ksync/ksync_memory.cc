@@ -40,6 +40,10 @@
 #include "ksync_flow_memory.h"
 #include "sandesh_ksync.h"
 
+#ifdef _WIN32
+#include <windows_flow_ioctl.h>
+#endif
+
 using namespace boost::asio::ip;
 static const int kTestFlowTableSize = 131072 * sizeof(vr_flow_entry);
 
@@ -85,8 +89,8 @@ void KSyncMemory::Init() {
 }
 
 void KSyncMemory::Mmap(bool unlink_node) {
+#ifdef __linux__
     // Remove the existing /dev/ file first. We will add it again below
-#if !defined(__FreeBSD__)
     if (unlink_node) {
         if (unlink(table_path_.c_str()) != 0) {
             if (errno != ENOENT) {
@@ -111,6 +115,24 @@ void KSyncMemory::Mmap(bool unlink_node) {
     }
 #endif
 
+#ifdef _WIN32
+    PVOID pBuffer;
+    DWORD bRetur;
+
+    HANDLE hPipe = CreateFile(FLOW_PATH, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    if (!hPipe) {
+        LOG(DEBUG, "Error opening flow pipe.");
+        assert(0);
+    }
+
+    BOOL result = DeviceIoControl(hPipe, IOCTL_FLOW_GET_ADDRESS, NULL, 0, &pBuffer, sizeof(pBuffer), &bRetur, NULL);
+    if (!result) {
+        LOG(DEBUG, "Error - DeviceIoControl failed.");
+        assert(0);
+    }
+
+    table_ = reinterpret_cast<vr_flow_entry*>(pBuffer);
+#else
     int fd;
     if ((fd = open(table_path_.c_str(), O_RDONLY | O_SYNC)) < 0) {
         LOG(DEBUG, "Error opening device </dev/>. Error <" << errno
@@ -125,6 +147,7 @@ void KSyncMemory::Mmap(bool unlink_node) {
             << "> : " << strerror(errno));
         assert(0);
     }
+#endif
 
     table_entries_count_ = table_size_ / get_entry_size();
     SetTableSize();
@@ -141,8 +164,16 @@ void KSyncMemory::InitMem() {
     int encode_len, ret;
 
     assert((cl = nl_register_client()) != NULL);
+
+#ifdef _WIN32
+    cl->cl_win_pipe = CreateFile(KSYNC_PATH, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    assert(cl->cl_win_pipe != INVALID_HANDLE_VALUE);
+    cl->cl_recvmsg = win_nl_client_recvmsg;
+#else
     assert(nl_socket(cl, AF_NETLINK, SOCK_DGRAM, NETLINK_GENERIC) > 0);
     assert(nl_connect(cl, 0, 0) == 0);
+#endif
+
     assert(vrouter_get_family_id(cl) > 0);
 
     assert(nl_build_nlh(cl, cl->cl_genl_family_id, NLM_F_REQUEST) == 0);
@@ -215,6 +246,7 @@ bool KSyncMemory::AuditProcess() {
     return true;
 }
 
+#ifndef _WIN32
 void KSyncMemory::GetTableSize() {
     struct nl_client *cl;
     int attr_len;
@@ -269,3 +301,4 @@ void KSyncMemory::MapSharedMemory() {
     GetTableSize();
     Mmap(false);
 }
+#endif
