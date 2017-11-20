@@ -286,11 +286,14 @@ private:
 
     bool UpdateSloMatchRuleEntry(const boost::uuids::uuid &slo_uuid,
                                  const std::string &match_uuid);
+    bool CheckPolicyMatch(const SessionSloRuleMap &map,
+                          const std::string &policy_uuid);
     bool FindSloMatchRule(const SessionSloRuleMap &map,
-                          const std::string &match_uuid);
-    bool MatchSloForSession(const SessionStatsInfo &stats_info,
-                            const FlowEntry *fe,
-                            const std::string &match_uuid);
+                          const std::string &fw_policy_uuid,
+                          const std::string &nw_policy_uuid,
+                          const std::string &sg_policy_uuid);
+    bool MatchSloForFlow(const SessionStatsInfo &stats_info,
+                         const FlowEntry *fe);
     void BuildSloList(const SessionStatsInfo &stats_info,
                       const FlowEntry *fe,
                       SessionSloRuleMap *global_session_slo_rule_map,
@@ -299,6 +302,7 @@ private:
     void MakeSloList(const FlowEntry *fe,
                      SessionSloRuleMap *vmi_session_slo_rule_map,
                      SessionSloRuleMap *vn_session_slo_rule_map);
+    bool CheckSessionLogging(const SessionStatsInfo &stats_info);
     void AddSloList(const UuidList &slo_list, SessionSloRuleMap *slo_rule_map);
     void AddSloEntry(const boost::uuids::uuid &uuid,
                      SessionSloRuleMap *slo_rule_map);

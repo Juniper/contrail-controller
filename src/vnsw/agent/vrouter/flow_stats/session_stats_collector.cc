@@ -981,22 +981,41 @@ bool SessionStatsCollector::UpdateSloMatchRuleEntry(
     return false;
 }
 
-bool SessionStatsCollector::FindSloMatchRule(const SessionSloRuleMap &map,
-                                             const std::string &match_uuid) {
+bool SessionStatsCollector::CheckPolicyMatch(const SessionSloRuleMap &map,
+                                             const std::string &policy_uuid) {
     SessionSloRuleMap::const_iterator it;
-    bool is_logged = false;
-    it = map.find(match_uuid);
-    if (it != map.end()) {
-        is_logged = UpdateSloMatchRuleEntry(it->second.slo_uuid, match_uuid);
+    if (!policy_uuid.empty()) {
+        it = map.find(policy_uuid);
+        if (it != map.end()) {
+            return UpdateSloMatchRuleEntry(it->second.slo_uuid, policy_uuid);
+        }
     }
-    return is_logged;
+    return false;
 }
 
-bool SessionStatsCollector::MatchSloForSession(
+bool SessionStatsCollector::FindSloMatchRule(const SessionSloRuleMap &map,
+                                             const std::string &fw_policy_uuid,
+                                             const std::string &nw_policy_uuid,
+                                             const std::string &sg_policy_uuid) {
+    SessionSloRuleMap::const_iterator it;
+    bool fw_logged = false, nw_logged = false, sg_logged = false;
+
+    fw_logged = CheckPolicyMatch(map, fw_policy_uuid);
+    nw_logged = CheckPolicyMatch(map, nw_policy_uuid);
+    sg_logged = CheckPolicyMatch(map, sg_policy_uuid);
+
+    if (fw_logged || nw_logged || sg_logged) {
+        return true;
+    }
+    return false;
+}
+
+bool SessionStatsCollector::MatchSloForFlow(
         const SessionStatsInfo    &stats_info,
-        const FlowEntry *fe,
-        const std::string &match_uuid) {
+        const FlowEntry *fe) {
+
     bool is_vmi_slo_logged, is_vn_slo_logged, is_global_slo_logged;
+    std::string fw_policy_uuid = "", nw_policy_uuid = "", sg_policy_uuid = "";
     SessionSloRuleMap vmi_session_slo_rule_map;
     SessionSloRuleMap vn_session_slo_rule_map;
     SessionSloRuleMap global_session_slo_rule_map;
@@ -1011,13 +1030,53 @@ bool SessionStatsCollector::MatchSloForSession(
     /*
      * Match the policy_match for the given flow against the slo list
      */
-    is_vmi_slo_logged = FindSloMatchRule(vmi_session_slo_rule_map, match_uuid);
-    is_vn_slo_logged = FindSloMatchRule(vn_session_slo_rule_map, match_uuid);
+    if (fe) {
+        fw_policy_uuid = fe->fw_policy_uuid();
+        sg_policy_uuid = fe->sg_rule_uuid();
+        nw_policy_uuid = fe->nw_ace_uuid();
+    } else if (stats_info.deleted) {
+        fw_policy_uuid = stats_info.export_info.fwd_flow.aps_rule_uuid;
+        sg_policy_uuid = stats_info.export_info.fwd_flow.sg_rule_uuid;
+        nw_policy_uuid = stats_info.export_info.fwd_flow.nw_ace_uuid;
+    }
+
+    is_vmi_slo_logged = FindSloMatchRule(vmi_session_slo_rule_map, 
+                                         fw_policy_uuid,
+                                         nw_policy_uuid,
+                                         sg_policy_uuid);
+
+    is_vn_slo_logged = FindSloMatchRule(vn_session_slo_rule_map,
+                                        fw_policy_uuid,
+                                        nw_policy_uuid,
+                                        sg_policy_uuid);
+
     is_global_slo_logged = FindSloMatchRule(global_session_slo_rule_map,
-                                             match_uuid);
+                                            fw_policy_uuid,
+                                            nw_policy_uuid,
+                                            sg_policy_uuid);
+                        
     if ((is_vmi_slo_logged) ||
         (is_vn_slo_logged) ||
         (is_global_slo_logged)) {
+        return true;
+    }
+    return false;
+}
+
+bool SessionStatsCollector::CheckSessionLogging(
+                    const SessionStatsInfo    &stats_info) {
+
+    bool fwd_logged = false, rev_logged = false;
+
+    fwd_logged = MatchSloForFlow(
+                            stats_info,
+                            stats_info.fwd_flow.flow.get());
+
+    rev_logged = MatchSloForFlow(
+                            stats_info,
+                            stats_info.rev_flow.flow.get());
+
+    if (fwd_logged || rev_logged) {
         return true;
     }
     return false;
@@ -1488,44 +1547,11 @@ bool SessionStatsCollector::ProcessSessionEndpoint
                 }
             }
 
-            std::string match_policy_uuid = "";
-            if (session_map_iter->second.fwd_flow.flow.get()) {
-                match_policy_uuid = session_map_iter->
-                    second.fwd_flow.flow.get()->fw_policy_uuid();
-            } else if (session_map_iter->second.deleted) {
-                match_policy_uuid = session_map_iter->second.export_info.
-                    fwd_flow.aps_rule_uuid;
-            }
-            bool is_fwd_logged = false;
-
-            if (!match_policy_uuid.empty()) {
-                is_fwd_logged = MatchSloForSession(
-                                    session_map_iter->second,
-                                    session_map_iter->second.fwd_flow.flow.get(),
-                                    match_policy_uuid);
-            }
-            match_policy_uuid = "";
-            if (session_map_iter->second.rev_flow.flow.get()) {
-                match_policy_uuid = session_map_iter->
-                    second.rev_flow.flow.get()->fw_policy_uuid();
-            } else if (session_map_iter->second.deleted) {
-                match_policy_uuid = session_map_iter->second.export_info.
-                    rev_flow.aps_rule_uuid;
-            }
-            bool is_rev_logged = false;
-
-            if (!match_policy_uuid.empty()) {
-                is_rev_logged = MatchSloForSession(
-                                    session_map_iter->second,
-                                    session_map_iter->second.rev_flow.flow.get(),
-                                    match_policy_uuid);
-            }
-
-            bool is_logging = is_fwd_logged || is_rev_logged;
             bool is_sampling = true;
             if (IsSamplingEnabled()) {
                 is_sampling = SampleSession(session_map_iter, &params);
             }
+            bool is_logging = CheckSessionLogging(session_map_iter->second);
 
             /* Ignore session export if sampling & logging drop the session */
             if (!is_sampling && !is_logging) {
