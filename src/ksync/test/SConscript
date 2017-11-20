@@ -27,7 +27,10 @@ env.Prepend(LIBS=['thrift','xmpp', 'peer_sandesh',
                   'cpuinfo', 'pugixml'])
 
 if sys.platform != 'darwin':
-    env.Append(LIBS=['rt'])
+    if sys.platform.startswith('win'):
+        env.Append(LIBS=['windowsstubs'])
+    else:
+        env.Append(LIBS=['rt'])
     env.Prepend(LIBS=['ksync', 'ksyncnl'])
 
 libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',

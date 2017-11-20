@@ -37,9 +37,11 @@
 
 using namespace boost::asio;
 
+#ifndef _WIN32
 /* Note SO_RCVBUFFORCE is supported only for linux version 2.6.14 and above */
 typedef boost::asio::detail::socket_option::integer<SOL_SOCKET,
         SO_RCVBUFFORCE> ReceiveBuffForceSize;
+#endif
 
 int KSyncSock::vnsw_netlink_family_id_;
 AgentSandeshContext *KSyncSock::agent_sandesh_ctx_[kRxWorkQueueCount];
@@ -209,7 +211,7 @@ KSyncSock::KSyncSock() :
     }
 
     nl_client_ = (nl_client *)malloc(sizeof(nl_client));
-    bzero(nl_client_, sizeof(nl_client));
+    memset(nl_client_, 0, sizeof(nl_client));
     rx_buff_ = NULL;
     seqno_ = 0;
     uve_seqno_ = 0;
@@ -612,7 +614,28 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
 /////////////////////////////////////////////////////////////////////////////
 // KSyncSockNetlink routines
 /////////////////////////////////////////////////////////////////////////////
-KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol) 
+#ifdef _WIN32
+KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol) : pipe_(ios) {
+    DWORD access_flags = GENERIC_READ | GENERIC_WRITE;
+    DWORD attrs = OPEN_EXISTING;
+    DWORD config_flags = FILE_FLAG_OVERLAPPED;
+
+    nl_client_->cl_win_pipe = CreateFile(KSYNC_PATH, access_flags, 0, NULL,
+                                         attrs, config_flags, NULL);
+    if (nl_client_->cl_win_pipe == INVALID_HANDLE_VALUE) {
+        LOG(ERROR, "Error while opening KSync pipe: " << GetFormattedWindowsErrorMsg());
+        assert(0);
+    }
+
+    boost::system::error_code ec;
+    pipe_.assign(nl_client_->cl_win_pipe, ec);
+    if (ec) {
+        LOG(ERROR, "Error while assigning KSync pipe: " << ec);
+        assert(0);
+    }
+}
+#else
+KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol)
     : sock_(ios, protocol) {
     ReceiveBuffForceSize set_rcv_buf;
     set_rcv_buf = KSYNC_SOCK_RECV_BUFF_SIZE;
@@ -628,14 +651,30 @@ KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol)
     sock_.get_option(rcv_buf_size, ec);
     LOG(INFO, "Current receive sock buffer size is " << rcv_buf_size.value());
 }
+#endif
 
 KSyncSockNetlink::~KSyncSockNetlink() {
+#ifdef _WIN32
+    boost::system::error_code ec;
+    pipe_.close(ec);
+    if (ec) {
+        LOG(ERROR, "Error closing KSync pipe: " << ec);
+        assert(0);
+    }
+#endif
 }
 
 void KSyncSockNetlink::Init(io_service &ios, int protocol,
                             const std::string &cpu_pin_policy) {
     KSyncSock::SetSockTableEntry(new KSyncSockNetlink(ios, protocol));
-    KSyncSock::Init(false, cpu_pin_policy);
+#ifdef _WIN32
+    // Windows doesn't support event_fd mechanism, so use (slower) work_queue.
+    // See comment in ksync_tx_queue for more info.
+    const bool use_work_queue = true;
+#else
+    const bool use_work_queue = false;
+#endif
+    KSyncSock::Init(use_work_queue, cpu_pin_policy);
 }
 
 uint32_t KSyncSockNetlink::GetSeqno(char *data) {
@@ -659,8 +698,12 @@ void KSyncSockNetlink::AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
                              nl_client_->cl_buf_offset));
     UpdateNetlink(nl_client_, bulk_buf_size_, seq_no);
 
+#ifdef _WIN32
+    boost::asio::async_write(pipe_, *iovec, cb);
+#else
     boost::asio::netlink::raw::endpoint ep;
     sock_.async_send_to(*iovec, ep, cb);
+#endif
 }
 
 size_t KSyncSockNetlink::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
@@ -670,8 +713,12 @@ size_t KSyncSockNetlink::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
                              nl_client_->cl_buf_offset));
     UpdateNetlink(nl_client_, bulk_buf_size_, seq_no);
 
+#ifdef _WIN32
+    return boost::asio::write(pipe_, *iovec);
+#else
     boost::asio::netlink::raw::endpoint ep;
     return sock_.send_to(*iovec, ep);
+#endif
 }
 
 // Static method to decode non-bulk message
@@ -710,10 +757,17 @@ bool KSyncSockNetlink::BulkDecoder(char *data,
 }
 
 void KSyncSockNetlink::AsyncReceive(mutable_buffers_1 buf, HandlerCb cb) {
+#ifdef _WIN32
+    pipe_.async_read_some(buf, cb);
+#else
     sock_.async_receive(buf, cb);
+#endif
 }
 
 void KSyncSockNetlink::Receive(mutable_buffers_1 buf) {
+#ifdef _WIN32
+    pipe_.read_some(buf);
+#else
     sock_.receive(buf);
     struct nlmsghdr *nlh = buffer_cast<struct nlmsghdr *>(buf);
     if (nlh->nlmsg_type == NLMSG_ERROR) {
@@ -721,6 +775,7 @@ void KSyncSockNetlink::Receive(mutable_buffers_1 buf) {
                 << " len " << nlh->nlmsg_len);
         assert(0);
     }
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -751,6 +806,7 @@ bool KSyncSockUdp::IsMoreData(char *data) {
 // We dont expect any non-bulk operation on UDP
 bool KSyncSockUdp::Decoder(char *data, AgentSandeshContext *context) {
     assert(0);
+    return false;
 }
 
 bool KSyncSockUdp::BulkDecoder(char *data,
@@ -842,11 +898,12 @@ size_t KSyncSockTcp::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
     iovec->insert(it, buffer((char *)nl_client_->cl_buf, offset));
 
     uint32_t alloc_len = IoVectorLength(iovec);
-    char msg[alloc_len];
+    char* msg = new char[alloc_len];
 
     uint32_t len = IoVectorToData(msg, iovec);
 
     session_->Send((const uint8_t *)(msg), len, NULL);
+    delete[] msg;
     return nl_client_->cl_buf_offset;
 }
 

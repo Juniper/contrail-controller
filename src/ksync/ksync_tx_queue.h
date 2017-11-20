@@ -28,6 +28,8 @@
 // WaitForIdle() APIs to continue with validations. Using Event-FD based
 // implementations cannot rely on WaitForIdle()
 //
+// This is the only way to run it on Windows, as event_fd is Linux specific.
+//
 // Event-FD based
 // --------------
 // This implementation is based on event_fd. The producer will add the entry
