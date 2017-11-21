@@ -403,7 +403,7 @@ bool BgpAsAService::IsBgpService(const VmInterface *vm_intf,
 
 void BgpAsAService::FreeBgpVmiServicePortIndex(const uint32_t sport) {
     BGPaaServiceParameters:: BGPaaServicePortRangePair ports =
-                agent_->oper_db()->global_system_config()->bgpaas_port_range();
+                        bgpaas_port_range();
     BGPaaSUtils::BgpAsServicePortIndexPair portinfo =
                     BGPaaSUtils::DecodeBgpaasServicePort(sport,
                         ports.first, ports.second);
@@ -443,7 +443,7 @@ size_t BgpAsAService::AllocateBgpVmiServicePortIndex(const uint32_t sport,
 uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port,
                                             const boost::uuids::uuid vm_uuid) {
     BGPaaServiceParameters:: BGPaaServicePortRangePair ports =
-                agent_->oper_db()->global_system_config()->bgpaas_port_range();
+                        bgpaas_port_range();
 
     size_t vmi_service_port_index = AllocateBgpVmiServicePortIndex(source_port,
                                                                    vm_uuid);
@@ -520,6 +520,57 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
     return false;
 }
 
+void BgpAsAService::UpdateBgpAsAServiceSessionInfo() {
+    if (service_delete_cb_list_.empty())
+        return;
+    // iterate through bgpaasmap and delete the shared sessions
+    int source_port = 0;
+    BgpAsAServiceEntryMapIterator iter =
+       bgp_as_a_service_entry_map_.begin();
+    while (iter != bgp_as_a_service_entry_map_.end()) {
+        BgpAsAServiceEntryList list = iter->second->list_;
+        BgpAsAServiceEntryListIterator list_iter = list.begin();
+        while (list_iter != list.end()) {
+            if (list_iter->is_shared_) {
+                service_delete_cb_list_[FlowTable::kPortNatFlowTableInstance](iter->first, list_iter->source_port_);
+                FreeBgpVmiServicePortIndex(list_iter->source_port_);
+            }
+            list_iter++;
+        }
+        iter++;
+    }
+    BGPaaServiceParameters:: BGPaaServicePortRangePair old_ports =
+             bgpaas_port_range();
+    BGPaaServiceParameters:: BGPaaServicePortRangePair new_ports =
+             agent_->oper_db()->global_system_config()->bgpaas_port_range();
+    //update BgpaaS port range
+    std::pair<BgpAsAServiceEntryListIterator, bool> ret;
+    bgpaas_parameters_.port_start = new_ports.first;
+    bgpaas_parameters_.port_end = new_ports.second;
+    iter = bgp_as_a_service_entry_map_.begin();
+    while (iter != bgp_as_a_service_entry_map_.end()) {
+        BgpAsAServiceEntryList list = iter->second->list_;
+        BgpAsAServiceEntryListIterator list_iter = list.begin();
+        while (list_iter != list.end()) {
+            if (list_iter->is_shared_) {
+                BGPaaSUtils::BgpAsServicePortIndexPair portinfo =
+                    BGPaaSUtils::DecodeBgpaasServicePort(list_iter->source_port_,
+                        old_ports.first, old_ports.second);
+                source_port = portinfo.first;
+                // encode source port with new port range
+                source_port = AddBgpVmiServicePortIndex(source_port, iter->first);
+                BgpAsAServiceEntry temp(list_iter->local_peer_ip_, source_port,
+                                    list_iter->health_check_configured_,
+                                    list_iter->health_check_uuid_,
+                                    list_iter->is_shared_);
+                iter->second->list_.erase(*list_iter);
+                ret = iter->second->list_.insert(temp);
+            }
+            list_iter++;
+        }
+        iter++;
+    }
+}
 ////////////////////////////////////////////////////////////////////////////
 // BGP as a service routines.
 ////////////////////////////////////////////////////////////////////////////
