@@ -2787,7 +2787,8 @@ class VncApiServer(object):
             self.config_log(msg, level=SandeshLevel.SYS_ERR)
 
         ip_fab_vn = self.create_singleton_entry(
-            VirtualNetwork(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1]))
+            VirtualNetwork(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1],
+                           is_provider_network=True))
         self.create_singleton_entry(
             RoutingInstance(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1], ip_fab_vn,
                             routing_instance_is_default=True))

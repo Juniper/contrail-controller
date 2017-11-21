@@ -982,18 +982,24 @@ class VncDbClient(object):
                                                        obj_uuid,
                                                        'logical_router',
                                                        router['uuid'])
+                    do_update = False
                     if 'network_ipam_refs' in obj_dict:
                         ipam_refs = obj_dict['network_ipam_refs']
-                        do_update = False
                         for ipam in ipam_refs:
                             vnsn = ipam['attr']
                             ipam_subnets = vnsn['ipam_subnets']
                             if (self.update_subnet_uuid(ipam_subnets)):
                                 if not do_update:
                                     do_update = True
-                        if do_update:
-                            self.cassandra_db.object_update(
-                                'virtual_network', obj_uuid, obj_dict)
+                    # set is_provider_network property as True
+                    # for ip-fabric network
+                    if obj_dict['fq_name'][-1] == 'ip-fabric' and \
+                        not obj_dict.get('is_provider_network', False):
+                        do_update = True
+                        obj_dict['is_provider_network'] = True
+                    if do_update:
+                        self._object_db.object_update(
+                            'virtual_network', obj_uuid, obj_dict)
 
                 elif obj_type == 'virtual_machine_interface':
                     device_owner = obj_dict.get('virtual_machine_interface_device_owner')
