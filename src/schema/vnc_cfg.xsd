@@ -3051,6 +3051,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Userdefined Counter Config -->
 <xsd:include schemaLocation='usr_def_cntr.xsd'/>
 
+<!-- Userdefined syslog pattern Config -->
+<xsd:include schemaLocation='usr_def_syslog_parser.xsd'/>
+
 <!-- Firewall policy -->
 <xsd:include schemaLocation='firewall_policy.xsd'/>
 
