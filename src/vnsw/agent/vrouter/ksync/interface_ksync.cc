@@ -628,6 +628,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                            (const int8_t *)(*it) + (*it).size());
             }
             encoder.set_vifr_src_mac(mac);
+            flags |= VIF_FLAG_MIRROR_NOTAG;
         }
 
         // Disable fat-flow when health-check status is inactive
