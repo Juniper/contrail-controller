@@ -407,10 +407,7 @@ int main(int argc, char *argv[])
             use_zookeeper,
             options.get_db_write_options(),
             options.sandesh_config(),
-            config_client,
-            options.use_grok(),
-            options.grok_key_list(),
-            options.grok_attrib_list());
+            config_client);
 
     config_client->Init();
     analytics->Init();
