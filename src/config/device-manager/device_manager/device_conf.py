@@ -54,6 +54,12 @@ class DeviceConf(object):
     @classmethod
     def plugin(cls, vendor, product, params, logger):
         pr = params.get("physical_router")
+        if not vendor or not product:
+            name = str(vendor) + ":" + str(product)
+            logger.warning("No plugin pr=%s, vendor/product=%s"%(pr.uuid, name))
+            return None
+        vendor = vendor.lower()
+        product = product.lower()
         pconfs = DeviceConf._plugins.get(vendor)
         for pconf in pconfs or []:
             inst_cls = pconf.get('class')
@@ -66,7 +72,11 @@ class DeviceConf(object):
 
     # validate plugin name
     def verify_plugin(self, vendor, product, role):
-        if vendor.lower() == self._vendor.lower() and \
+        if not vendor or not product:
+            return False
+        vendor = vendor.lower()
+        product = product.lower()
+        if vendor == self._vendor.lower() and \
         self.is_product_supported(product, role):
             return True
         return False
@@ -106,7 +116,7 @@ class DeviceConf(object):
         if not all (k in plugin_info for k in ("vendor", "products")):
             raise DeviceConf.PluginError(plugin_info)
         name = plugin_info['vendor']
-        DeviceConf._plugins.setdefault(name, []).append(plugin_info)
+        DeviceConf._plugins.setdefault(name.lower(), []).append(plugin_info)
     # end register
 
     @classmethod
