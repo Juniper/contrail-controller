@@ -61,10 +61,14 @@ bool DbQueryUnit::PipelineCb(std::string &cfname, GenDb::DbDataValueVec &rowkey,
 
     BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, where_vec) {
         std::string columnN = where_info.get<0>();
+        std::string value = GenDb::DbDataValueToString(where_info.get<2>());
+        if (boost::starts_with(value, "%")) {
+            continue;
+        }
         std::ostringstream where_oss;
         where_oss << GenDb::DbDataValueToString(rowkey.at(0))
                   << ":"
-                  << GenDb::DbDataValueToString(where_info.get<2>());
+                  << value;
         where_info.get<2>() = where_oss.str();
     }
     /*

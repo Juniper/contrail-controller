@@ -1772,12 +1772,14 @@ SessionValueArray default_col_values = boost::assign::list_of
     (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue("__UNKNOWN__"))
-    (GenDb::DbDataValue(""))
     (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue("__UNKNOWN__"))
-    (GenDb::DbDataValue(""))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
+    (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue("__UNKNOWN__"))
     (GenDb::DbDataValue("__UNKNOWN__"))
@@ -1813,10 +1815,8 @@ static bool PopulateSessionTable(uint32_t t2, SessionValueArray& svalues,
     for (int sfield = g_viz_constants.SESSION_MIN;
             sfield != g_viz_constants.SESSION_MAX - 1; sfield++) {
         if (svalues[sfield].which() == GenDb::DB_VALUE_BLANK) {
-            if (sfield >= SessionRecordFields::SESSION_DEPLOYMENT &&
-                sfield <= SessionRecordFields::SESSION_REMOTE_VN &&
-                sfield != SessionRecordFields::SESSION_LABELS &&
-                sfield != SessionRecordFields::SESSION_REMOTE_LABELS) {
+            if (sfield >= g_viz_constants.SESSION_INDEX_MIN &&
+                sfield <= g_viz_constants.SESSION_INDEX_MAX) {
                 cnames->push_back(integerToString(t2) + ":" + g_viz_constants.UNKNOWN);
             } else {
                 cnames->push_back(default_col_values[sfield]);
@@ -1940,6 +1940,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
             if (col_type == "set") {
                 pugi::xml_node set = sfield.child("set");
                 std::ostringstream set_value;
+                set_value << T2 << ":";
                 int i = 0;
                 for (pugi::xml_node set_elem = set.first_child(); set_elem;
                         set_elem = set_elem.next_sibling()) {
