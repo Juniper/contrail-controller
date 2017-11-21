@@ -51,10 +51,7 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             bool use_zookeeper,
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
-            ConfigClientCollector *config_client,
-            bool grok_enabled,
-            const std::vector<std::string> &grok_key_list,
-            const std::vector<std::string> &grok_attrib_list) :
+            ConfigClientCollector *config_client) :
     db_initializer_(new DbHandlerInitializer(evm, DbGlobalName(dup),
         std::string("collector:DbIf"),
         boost::bind(&VizCollector::DbInitializeCb, this),
@@ -86,23 +83,18 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             protobuf_listen_port, protobuf_schema_file_directory,
             db_initializer_->GetDbHandler()));
     }
-    if (grok_enabled) {
-        gp_.reset(new GrokParser());
-        gp_.get()->init();
-        gp_.get()->msg_type_add("APPTRACK_SESSION_CLOSE");
-        gp_.get()->set_key_list(grok_key_list);
-        gp_.get()->set_attrib_list(grok_attrib_list);
-    }
-    else {
-        gp_.reset();
-    }
+
+    udsp_.reset(new UserDefineSyslogParser(evm, syslog_listener_));
+    config_client->RegisterConfigReceive("UDSP",
+              boost::bind(&VizCollector::RxUserDefineSyslogConfig, this, _1, _2));
+
     if (structured_syslog_collector_enabled) {
         structured_syslog_collector_.reset(new StructuredSyslogCollector(evm,
             structured_syslog_listen_port, structured_syslog_tcp_forward_dst,
             structured_syslog_kafka_broker,
             structured_syslog_kafka_topic,
             structured_syslog_kafka_partitions,
-            db_initializer_->GetDbHandler(), gp_.get(), grok_enabled));
+            db_initializer_->GetDbHandler()));
     }
 }
 

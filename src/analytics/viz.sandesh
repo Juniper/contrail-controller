@@ -91,6 +91,7 @@ const string LOGICAL_IF_TABLE       = "ObjectLogicalInterfaceTable"
 const string STORAGE_CLUSTER_TABLE  = "ObjectStorageClusterTable"
 const string USR_DEF_LOG_STAT_TABLE  = "UserDefinedLogStatTable"
 const string KUBERNETES_MANAGER_TABLE = "ObjectKubernetesManagerNode"
+const string GENERIC_STATS_TABLE = "ObjectGenericStatsTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
