@@ -236,7 +236,7 @@ class ContrailSetup(object):
                     f.flush()
                 local('sudo mv %s/grub /etc/default/grub' %
                       self._temp_dir_name)
-                local('sudo /usr/sbin/update-grub')
+                local('sudo /usr/sbin/update-grub', warn_only=True)
                 break
 
     def disable_iptables(self):
