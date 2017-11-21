@@ -87,7 +87,7 @@ DbHandler::DbHandler(EventManager *evm,
     udc_.reset(new UserDefinedCounters());
     if (config_client) {
         config_client->RegisterConfigReceive("udc",
-                             boost::bind(&DbHandler::ReceiveConfig, this, _1, _2));
+                             boost::bind(&DbHandler::RxUDCConfig, this, _1, _2));
     }
     error_code error;
     col_name_ = boost::asio::ip::host_name(error);

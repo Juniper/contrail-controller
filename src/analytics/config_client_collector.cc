@@ -90,8 +90,8 @@ void ConfigJsonParserCollector::SetupSchemaWrapperPropertyInfo() {
     // for user defined log stats
     AddWrapperField("global_system_config:user_defined_log_statistics",
                                                             "statlist");
-    AddWrapperField("global_system_config:user_defined_syslog_patterns", 
-                                                         "patternlist");
+    AddWrapperField("global_system_config:user_defined_syslog_parsers", 
+                                                         "parserlist");
 }
 
 void ConfigJsonParserCollector::SetupGraphFilter() {
