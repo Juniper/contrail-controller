@@ -13,6 +13,7 @@
 
 typedef boost::function<bool(const VizMsg*, bool,
     DbHandler *, GenDb::GenDbIf::DbAddColumnCb)> VizCallback;
+typedef boost::function<void(std::string, std::string)> UserParserCb;
 
 class SyslogParser;
 class SyslogGenerator;
@@ -68,12 +69,19 @@ class SyslogUDPListener: public UdpServer
 class SyslogListeners
 {
     public:
+      typedef std::map<std::string, UserParserCb> UserParserCbList;
       static const int kDefaultSyslogPort = 514;
       SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandlerPtr db_handler, std::string ipaddress,
         int port=kDefaultSyslogPort);
       SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandlerPtr db_handler, int port=kDefaultSyslogPort);
+      void RegistUserParserCb(string key, UserParserCb cb) {
+          user_cb_list_[key] = cb;
+      }
+      void UnRegistUserParserCb(string key) {
+          user_cb_list_.erase(key);
+      }
       virtual void Start ();
       virtual void Shutdown ();
       bool IsRunning ();
@@ -82,6 +90,12 @@ class SyslogListeners
       SandeshMessageBuilder *GetBuilder () const { return builder_; }
       int GetTcpPort();
       int GetUdpPort();
+      void UserParserCall(string ip, string strin) {
+          UserParserCbList::iterator it = user_cb_list_.begin();
+          for(; it != user_cb_list_.end(); it++) {
+              it->second(ip, strin);
+          }
+      }
     private:
       boost::scoped_ptr<SyslogParser> parser_;
       SyslogUDPListener *udp_listener_;
@@ -90,6 +104,7 @@ class SyslogListeners
       std::string   ipaddress_;
       bool          inited_;
       VizCallback   cb_;
+      UserParserCbList  user_cb_list_;
       DbHandlerPtr    db_handler_;
       SandeshMessageBuilder *builder_;
 };

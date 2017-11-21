@@ -67,6 +67,8 @@ void ConfigJsonParserCollector::SetupObjectFilter() {
     AddObjectType("global_analytics_config");
     AddObjectType("global_system_config");
     AddObjectType("structured_syslog_message");
+    // for syslog parser
+    AddObjectType("syslog_parser");
 }
 void ConfigJsonParserCollector::SetupSchemaGraphFilter() {
     // for structed system log
@@ -90,8 +92,12 @@ void ConfigJsonParserCollector::SetupSchemaWrapperPropertyInfo() {
     // for user defined log stats
     AddWrapperField("global_system_config:user_defined_log_statistics",
                                                             "statlist");
-    AddWrapperField("global_system_config:user_defined_syslog_patterns", 
-                                                         "patternlist");
+    AddWrapperField("global_system_config:user_defined_syslog_parsers", 
+                                                         "parserlist");
+    //for syslog parser
+    AddWrapperField("syslog_parser:patterns", "pattern");
+    AddWrapperField("syslog_parser:query_tags", "query_tag");
+    AddWrapperField("syslog_parser:metrics", "metric");
 }
 
 void ConfigJsonParserCollector::SetupGraphFilter() {

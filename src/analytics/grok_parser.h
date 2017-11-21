@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
@@ -14,7 +15,7 @@ extern "C" {
 #include <set>
 #include <vector>
 
-typedef std::map<std::string, grok_t> GrokMap;
+typedef std::map<std::string, grok_t*> GrokMap;
 
 class GrokParser {
 
@@ -24,37 +25,31 @@ public:
 
     /* Load Base Pattern */
     void init();
+    /*create grok instance*/
+    void create_grok_instance(std::string name);
 
-    /* Add to base pattern */
-    void add_base_pattern(std::string pattern);
+    /* Add pattern to grok instance*/
+    void add_pattern(std::string name, std::string pattern);
 
-    /* Create grok with syntax s */
-    bool msg_type_add(std::string s);
+    /* compile grok instance pattern */
+    bool compile_pattern(std::string name);
 
-    /* Delete grok with syntax s */
-    bool msg_type_del(std::string s);
+    /* Delete grok instance */
+    bool del_grok_instance(std::string name);
 
     /* Match strin with all groks in grok_list */
-    bool match(std::string strin, std::map<std::string, std::string>* m);
+    bool match(std::string name, std::string strin, std::map<std::string, std::string>* m);
 
     /* Set/Unset named_capture boolean property */
     void set_named_capture_only(bool b);
 
-    /* Create and send GenericStats Objectlog */
-    void send_generic_stat(std::map<std::string, std::string> &m_in);
-
-    /* Set key list for GenericStats */
-    void set_key_list(const std::vector<std::string> &key);
-
-    /* Set attrib list for GenericStats */
-    void set_attrib_list(const std::vector<std::string> &attrib);
-
+    /*Get pre install pattern*/
+    std::vector<std::string> get_base_pattern();
 private:
     GrokMap grok_list_;
-    grok_t* base_;
     bool named_capture_only_;
-    std::vector<std::string> keys_;
-    std::vector<std::string> attribs_;
+    void install_base_pattern(std::string name);
+    void init_base_pattern();
 };
 
 #endif // SRC_ANALYTICS_GROKPARSER_H_ 

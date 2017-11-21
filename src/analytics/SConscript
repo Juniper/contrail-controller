@@ -68,6 +68,7 @@ AnalyticsEnv.Prepend(LIBS=['cpuinfo',
         'config_client_mgr',
         'SimpleAmqpClient',
         'boost_chrono',
+        'boost_date_time',
         'rabbitmq',
         'rdkafka++',
         'rdkafka'])
@@ -170,8 +171,8 @@ vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc',
                 'sflow_generator.cc', 'sflow_collector.cc',
                 'usrdef_counters.cc',
                 'sflow_parser.cc', 'ipfix_collector.cc',
-                'kafka_processor.cc',
-                'uve_aggregator.cc', 'grok_parser.cc', 'config_client_collector.cc']
+                'kafka_processor.cc', 'uve_aggregator.cc',
+                'grok_parser.cc', 'config_client_collector.cc', "user_define_syslog_parser.cc"]
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')

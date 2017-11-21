@@ -105,6 +105,7 @@ const string FIREWALL_RULE_TABLE = "ObjectFirewallRuleTable"
 const string ADDRESS_GROUP_TABLE = "ObjectAddressGroupTable"
 const string SERVICE_GROUP_TABLE = "ObjectServiceGroupTable"
 const string APPLICATION_POLICY_SET_TABLE = "ObjectApplicationPolicySetTable"
+const string GENERIC_STATS_TABLE = "ObjectGenericStatsTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
