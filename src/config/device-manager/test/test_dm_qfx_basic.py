@@ -274,6 +274,38 @@ class TestQfxBasicDM(TestCommonDM):
         self.assertEqual(vni.get_vrf_target().get_community(), target_id)
     # end check_l2_evpn_vrf_targets
 
+    def check_spine_bogus_lo0_ip(self, int_vn):
+        vrf_name = DMUtils.make_vrf_name(int_vn.fq_name[-1],
+                                  int_vn.virtual_network_network_id, "l3")
+        config = FakeDeviceConnect.get_xml_config()
+        ris = self.get_routing_instances(config, vrf_name)
+        if not ris:
+            raise Exception("No RI Config found for internal vn: " + vrf_name)
+        ri = ris[0]
+        intfs = ri.get_interface()
+        if not intfs:
+            raise Exception("No interfaces Config found for internal vn: " + vrf_name)
+        found = False
+        ifl_num = str(1000 + int(int_vn.virtual_network_network_id))
+        bogus_lo0 = "lo0." + ifl_num
+        for intf in intfs:
+            if intf.name == bogus_lo0:
+                found = True
+                break
+        if not found:
+            raise Exception("No lo0 interface Config found for internal vn: " + vrf_name)
+
+        interfaces = self.get_interfaces(config)
+        if not interfaces:
+            raise Exception("Interface Config not lo0")
+        found = False
+        for intf in interfaces:
+            if intf.name == "lo0" and intf.get_unit() and intf.get_unit()[0].get_name() == ifl_num:
+                found = True
+        if not found:
+            raise Exception("Lo0 Interface unit not found")
+    # end check_spine_bogus_lo0_ip
+
     @retries(5, hook=retry_exc_handler)
     def check_spine_irb_config(self, int_vn, vn_obj):
         vrf_name = DMUtils.make_vrf_name(int_vn.fq_name[-1],
@@ -558,6 +590,8 @@ class TestQfxBasicDM(TestCommonDM):
             self.check_ri_config(int_vn, 'l3', True)
             # check spine internal vn config
             self.check_spine_irb_config(int_vn, vn1_obj)
+            # check bogus lo0 config
+            self.check_spine_bogus_lo0_ip(int_vn)
         else:
             self.check_ri_config(vn1_obj, 'l2', False)
             self.check_ri_config(vn1_obj, 'l3', False)
