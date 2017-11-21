@@ -1,0 +1,39 @@
+<!--
+Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+     -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+<xsd:complexType name="UserDefinedSysLogParser">
+    <xsd:element name="name" type="xsd:string" required="true"
+                                        description="syslog parser name"/>
+    <xsd:element name="hostname" type="xsd:string" default=""/>
+    <xsd:element name="hostname_as_tag" type="xsd:boolean" default="false"/>
+    <xsd:element name="appname" type="xsd:string" default=""/>
+    <xsd:element name="appname_as_tag" type="xsd:boolean" default="false"/>
+    <xsd:element name="appname_as_classfier" type="xsd:boolean" default="false"/>
+    <xsd:element name="procid" type="xsd:boolean" default=""/>
+    <xsd:element name="procid_as_tag" type="xsd:boolean" default="false"/>
+    <xsd:element name="msgid" type="xsd:boolean" default=""/>
+    <xsd:element name="msgid_as_tag" type="xsd:boolean" default="false"/>
+    <xsd:element name="msgid_as_classfier" type="xsd:boolean" default="true"/>
+    <xsd:element name="pattern" type="xsd:string" required="true"/>
+    <xsd:element name="tag_list"  type="xsd:string" required="true"/>
+    <xsd:element name="metric_list" type="xsd:string" required="true"/>
+</xsd:complexType>
+
+<xsd:complexType name="UserDefinedSysLogParserList">
+    <xsd:element name="parserlist" type="UserDefinedSysLogParser" require="true"
+                                                           maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:element name="user-defined-syslog-parsers" type="UserDefinedSysLogParserList"
+    description_1='User will create some user-defined-syslog-parser,'
+    description_2='identified by name a typical expression is like:'
+    description_3='%{PATTERN_NAME:capture_name:data_type}'
+    description_4='keylist and metriclist must be one or more capture_name in pattern'
+    description_5='and metriclist member data_type must be int'
+    description_6='Any match system log will generate uve with keylist and metriclist'/>
+<!--#IFMAP-SEMANTICS-IDL
+    MapProperty('user-defined-syslog-parsers', 'global-system-config', 'name',
+           'optional', 'CRUD') -->
+</xsd:schema>
