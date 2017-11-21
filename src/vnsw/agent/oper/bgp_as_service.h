@@ -131,9 +131,9 @@ public:
                                         const IpAddress &source,
                                         const IpAddress &dest,
                                         IpAddress *nat_server,
-                                        uint32_t *sport,
-                                        bool *health_check_configured,
-                                        boost::uuids::uuid *health_check_uuid) const;
+                                        uint32_t *sport) const;
+    bool GetBgpHealthCheck(const VmInterface *vm_intf,
+                           boost::uuids::uuid *health_check_uuid) const;
     size_t AllocateBgpVmiServicePortIndex(const uint32_t sport,
                                           const boost::uuids::uuid vm_uuid);
     void FreeBgpVmiServicePortIndex(const uint32_t sport);

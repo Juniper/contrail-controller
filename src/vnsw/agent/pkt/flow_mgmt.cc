@@ -939,12 +939,13 @@ void FlowMgmtManager::AddFlowMgmtKey(FlowEntry *flow, FlowEntryInfo *info,
         if (cn_index != BgpAsAServiceFlowMgmtTree::kInvalidCnIndex) {
             bgp_as_a_service_flow_mgmt_tree_[cn_index].get()->Add(key, flow,
                                                   (ret.second)? node : NULL);
-            if (flow->IsBgpHealthCheckService()) {
+            boost::uuids::uuid hc_uuid;
+            if (agent()->oper_db()->bgp_as_a_service()->GetBgpHealthCheck(
+                static_cast<const VmInterface *>(flow->intf_entry()), &hc_uuid)) {
                 FlowMgmtKey *inserted_key = ret.first->first;
                 BgpAsAServiceFlowMgmtKey *bkey =
                     static_cast<BgpAsAServiceFlowMgmtKey *>(inserted_key);
-                bkey->StartHealthCheck(agent(), flow,
-                                       flow->data().bgp_health_check_uuid);
+                bkey->StartHealthCheck(agent(), flow, hc_uuid);
             }
         }
         break;
@@ -1021,8 +1022,12 @@ void BgpAsAServiceFlowMgmtKey::StartHealthCheck(
     if (bgp_health_check_instance_ != NULL)
         return;
     bgp_health_check_service_ = agent->health_check_table()->Find(hc_uuid);
-    if (bgp_health_check_service_ == NULL)
+    if (bgp_health_check_service_ == NULL) {
+        LOG(DEBUG, "Unable to start BFD health check " << hc_uuid << " on flow "
+                   " destination = " << flow->key().dst_addr <<
+                   " source = " << flow->key().src_addr);
         return;
+    }
     const VmInterface *vm_interface =
         static_cast<const VmInterface *>(flow->intf_entry());
     bgp_health_check_instance_ =

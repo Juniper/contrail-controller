@@ -529,10 +529,9 @@ class FlowEntry {
         TcpAckFlow                = 1 << 10,
         UnknownUnicastFlood       = 1 << 11,
         BgpRouterService          = 1 << 12,
-        BgpHealthCheckService     = 1 << 13,
-        AliasIpFlow               = 1 << 14,
-        FabricControlFlow         = 1 << 15,
-        FabricFlow                = 1 << 16
+        AliasIpFlow               = 1 << 13,
+        FabricControlFlow         = 1 << 14,
+        FabricFlow                = 1 << 15
     };
 
     FlowEntry(FlowTable *flow_table);
@@ -654,7 +653,6 @@ class FlowEntry {
     bool IsEcmpFlow() const { return is_flags_set(FlowEntry::EcmpFlow); }
     bool IsNatFlow() const { return is_flags_set(FlowEntry::NatFlow); }
     bool IsIngressFlow() const { return is_flags_set(FlowEntry::IngressDir); }
-    bool IsBgpHealthCheckService() const { return is_flags_set(FlowEntry::BgpHealthCheckService); }
     // Flow action routines
     void ResyncFlow();
     void RpfUpdate();
