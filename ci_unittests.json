@@ -131,6 +131,8 @@
     },
     "contrail-libs" : {
         "source_directories" : [
+            "src/contrail-common/base",
+            "src/contrail-common/io",
             "controller/src/db",
             "controller/src/discovery",
             "controller/src/database",
@@ -147,6 +149,8 @@
             "src/contrail-common/sandesh/library"
         ],
         "scons_test_targets" : [
+            "src/contrail-common/base:test", 
+            "src/contrail-common/io:test", 
             "controller/src/db:test",
             "controller/src/database/gendb:test",
             "controller/src/database/cassandra/cql:test",
