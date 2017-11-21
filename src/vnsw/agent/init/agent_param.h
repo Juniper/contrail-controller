@@ -23,6 +23,7 @@ public:
     static const int kEorTxFallbackTimeOut = 60;
     static const int kEorTxInactivityTime = 15;
     static const int kEorRxFallbackTime = 60;
+    static const int kLlgrStaleTime = 2592000; //One month
 
     LlgrParams();
     virtual ~LlgrParams() { }
@@ -80,6 +81,14 @@ public:
         return end_of_rib_rx_fallback_time_;
     }
 
+    /*
+     * llgr_stale_time_ - Maximum time to wait after CN is not ready to retain
+     * stale routes.
+     */
+    uint32_t llgr_stale_time() const {
+        return llgr_stale_time_;
+    }
+
 private:    
     friend class AgentParam;
 
@@ -95,6 +104,7 @@ private:
     uint16_t end_of_rib_tx_inactivity_time_;
     /** End of rib rx times */
     uint16_t end_of_rib_rx_fallback_time_;
+    uint32_t llgr_stale_time_;
 };
 
 // Class handling agent configuration parameters from config file and 
