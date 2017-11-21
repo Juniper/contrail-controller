@@ -293,7 +293,6 @@ void FlowData::Reset() {
     disable_validation = false;
     vm_cfg_name = "";
     bgp_as_a_service_port = 0;
-    bgp_health_check_uuid = nil_uuid();
     acl_assigned_vrf_index_ = VrfEntry::kInvalidIndex;
     qos_config_idx = AgentQosConfigTable::kInvalidIndex;
     ttl = 0;
@@ -648,14 +647,6 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         if (info->ttl == 1) {
             data_.ttl = BGP_SERVICE_TTL_FWD_FLOW;
         }
-        if (info->bgp_health_check_configured) {
-            set_flags(FlowEntry::BgpHealthCheckService);
-            data_.bgp_health_check_uuid = info->bgp_health_check_uuid;
-        } else {
-            reset_flags(FlowEntry::BgpHealthCheckService);
-        }
-    } else {
-        reset_flags(FlowEntry::BgpHealthCheckService);
     }
 
     data_.flow_source_vrf = info->flow_source_vrf;
