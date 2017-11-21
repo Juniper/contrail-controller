@@ -1,0 +1,69 @@
+<!--
+Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+     -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+<xsd:simpleType name="MetricType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="int"/>
+        <xsd:enumeration value="string"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="syslog_parser" type="ifmap:IdentityType"/>
+<xsd:element name="global_system_config_syslog_parser"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global_system_config_syslog_parser',
+          'global-system-config', 'syslog_parser', ['has'], 'optional', 'CRUD',
+          'List of syslog_parser that are applicable to objects anchored under global-system-config.') -->
+
+<xsd:complexType name="UserDefSyslogHeaderCfg">
+    <xsd:all>
+        <xsd:element name="hostname" type="xsd:string" default=""/>
+        <xsd:element name="hostname_as_tag" type="xsd:boolean" default="false"/>
+        <xsd:element name="appname" type="xsd:string" default=""/>
+        <xsd:element name="appname_as_tag" type="xsd:boolean" default="false"/>
+        <xsd:element name="appname_as_classfier" type="xsd:boolean" default="false"/>
+        <xsd:element name="procid" type="xsd:string" default=""/>
+        <xsd:element name="procid_as_tag" type="xsd:boolean" default="false"/>
+        <xsd:element name="msgid" type="xsd:string" default=""/>
+        <xsd:element name="msgid_as_tag" type="xsd:boolean" default="false"/>
+        <xsd:element name="msgid_as_classfier" type="xsd:boolean" default="true"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:element name="header_configuration" type="UserDefSyslogHeaderCfg"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('header_configuration', 'syslog_parser', 'required', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:complexType name="PatternSuite">
+    <xsd:element name="pattern" type="string" maxOccurs="unbounded"/>
+</xsd:complexType>
+<xsd:element name="patterns" type="PatternSuite"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('patterns', 'syslog_parser', 'required', 'CRUD',
+                  'user can input name pattern pair, and nested them with %{PATTERN_NAME:capture_name:data_type}. At least one name of the suite is same to fq_name of syslog-parser') -->
+
+<xsd:complexType name="QueryTagList">
+    <xsd:element name="query_tag" type="string" maxOccurs="unbounded"/>
+</xsd:complexType>
+<xsd:element name="query_tags" type="QueryTagList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('query_tags', 'syslog_parser', 'required', 'CRUD',
+                  'tag list can be used by user do select and where when query database, it must be one of capture_name') -->
+
+<xsd:complexType name="MetricCfg">
+    <xsd:all>
+        <xsd:element name="name" type="string"/>
+        <xsd:element name="type" type="MetricType"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:complexType name="MetricList">
+    <xsd:element name="metric" type="MetricCfg" maxOccurs="unbounded"/>
+</xsd:complexType>
+<xsd:element name="metrics" type="MetricList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('metrics', 'syslog_parser', 'required', 'CRUD',
+                  'metric list is the object to user to do stats, it must be one of capture_name') -->
+
+</xsd:schema>
