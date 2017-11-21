@@ -44,6 +44,10 @@ if platform.system() == 'FreeBSD':
     subdirs += [
         'icu',
     ]
+elif platform.system() == 'Windows':
+    subdirs += [
+        'winsw',
+    ]
 
 for dir in subdirs:
     SConscript(dirs = dir, variant_dir = '#/build/third_party/' + dir)
