@@ -744,8 +744,7 @@ void RoutingInstanceMgr::ASNUpdateCallback(as_t old_asn, as_t old_local_asn) {
 
 void RoutingInstanceMgr::IdentifierUpdateCallback(Ip4Address old_identifier) {
     for (RoutingInstanceIterator it = begin(); it != end(); ++it) {
-        it->second->FlushAllRTargetRoutes(server_->local_autonomous_system());
-        it->second->InitAllRTargetRoutes(server_->local_autonomous_system());
+        it->second->ProcessIdentifierUpdate(server_->local_autonomous_system());
     }
     RoutingInstance *master = GetDefaultRoutingInstance();
     master->DeleteMvpnRTargetRoute(server_->local_autonomous_system(),
@@ -1352,6 +1351,12 @@ void RoutingInstance::FlushAllRTargetRoutes(as4_t asn) {
     BOOST_FOREACH(RouteTarget rtarget, import_) {
         DeleteRTargetRoute(asn, rtarget);
     }
+}
+
+void RoutingInstance::ProcessIdentifierUpdate(as4_t asn) {
+    FlushAllRTargetRoutes(asn);
+    InitAllRTargetRoutes(asn);
+    rd_.reset(new RouteDistinguisher(server_->bgp_identifier(), index_));
 }
 
 void RoutingInstance::AddRouteTarget(bool import,
