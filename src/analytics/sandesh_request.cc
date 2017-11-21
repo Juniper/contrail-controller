@@ -317,3 +317,31 @@ void LogStatisticConfigInfoGetRequest::HandleRequest() const {
     // Send response
     SendLogStatisticConfigInfoResponse(collector, context());
 }
+
+static void SendLogParserConfigInfoResponse(VizCollector *analytics, std::string context) {
+    LogParserConfigInfoResponse *fcsr(new LogParserConfigInfoResponse);
+    std::vector<LogParserConfigInfo> config_info;
+
+    analytics->GetUserDefineSyslogConfig(&config_info);
+    fcsr->set_config_info(config_info);
+    fcsr->set_context(context);
+    fcsr->Response();
+}
+
+void LogParserConfigInfoGetRequest::HandleRequest() const {
+    VizSandeshContext *vsc =
+            dynamic_cast<VizSandeshContext *>(client_context());
+
+    if (!vsc) {
+        SendCollectorError("Sandesh client context NOT PRESENT",
+            context());
+        return;
+    }
+    VizCollector *analytics = vsc->Analytics();
+    if (analytics == NULL) {
+        return;
+    }
+
+    // Send response
+    SendLogParserConfigInfoResponse(analytics, context());
+}

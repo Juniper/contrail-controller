@@ -33,9 +33,6 @@ namespace structured_syslog {
 
 namespace impl {
 
-bool use_grok;
-GrokParser* gp;
-
 void StructuredSyslogDecorate(SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
                               boost::shared_ptr<std::string> msg);
 void StructuredSyslogPush(SyslogParser::syslog_m_t v, StatWalker::StatTableInsertFn stat_db_callback,
@@ -611,15 +608,7 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
   } else {
     p = data;
   }
-  if (use_grok) {
-    std::string str (p + start, p + len);
-    std::map<std::string, std::string> match_map;
-    if (gp->match(str, &match_map)) {
-        if (match_map["Message Type"] == "APPTRACK_SESSION_CLOSE") {
-            gp->send_generic_stat(match_map);
-        }
-    }
-  }
+
   do {
       SyslogParser::syslog_m_t v;
       end = start + 1;
@@ -882,15 +871,12 @@ StructuredSyslogServer::StructuredSyslogServer(EventManager *evm,
     const std::string &structured_syslog_kafka_topic,
     uint16_t structured_syslog_kafka_partitions,
     ConfigClientCollector *config_client,
-    StatWalker::StatTableInsertFn stat_db_fn,
-    GrokParser* gp, bool use_grok) {
+    StatWalker::StatTableInsertFn stat_db_fn) {
     impl_ = new StructuredSyslogServerImpl(evm, port, structured_syslog_tcp_forward_dst,
                                            structured_syslog_kafka_broker,
                                            structured_syslog_kafka_topic,
                                            structured_syslog_kafka_partitions,
                                            config_client, stat_db_fn);
-    structured_syslog::impl::use_grok = use_grok;
-    structured_syslog::impl::gp = gp;
 }
 
 StructuredSyslogServer::~StructuredSyslogServer() {

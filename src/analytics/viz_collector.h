@@ -20,7 +20,7 @@
 #include "syslog_collector.h"
 #include "db_handler.h"
 #include "options.h"
-#include "grok_parser.h"
+#include "user_define_syslog_parser.h"
 
 class Ruleeng;
 class ProtobufCollector;
@@ -53,10 +53,7 @@ public:
             bool use_zookeeper,
             const DbWriteOptions &db_write_options,
             const SandeshConfig &sandesh_config,
-            ConfigClientCollector *config_client,
-            bool grok_enabled,
-            const std::vector<std::string> &grok_key_list,
-            const std::vector<std::string> &grok_attrib_list);
+            ConfigClientCollector *config_client);
     VizCollector(EventManager *evm, DbHandlerPtr db_handler,
                  Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
@@ -137,6 +134,12 @@ public:
         }
         return std::make_pair(bpart, npart);
     }
+    void GetUserDefineSyslogConfig(std::vector<LogParserConfigInfo> *config_info) {
+        return udsp_->get_config(config_info);
+    }
+    void RxUserDefineSyslogConfig(const contrail_rapidjson::Document &jdoc, bool add_update) {
+        udsp_->rx_config(jdoc, add_update);
+    }
 private:
     std::string DbGlobalName(bool dup=false);
     void DbInitializeCb();
@@ -144,7 +147,7 @@ private:
     boost::scoped_ptr<OpServerProxy> osp_;
     boost::scoped_ptr<Ruleeng> ruleeng_;
     Collector *collector_;
-    boost::scoped_ptr<GrokParser> gp_;
+    boost::scoped_ptr<UserDefineSyslogParser> udsp_;
     SyslogListeners *syslog_listener_;
     SFlowCollector *sflow_collector_;
     IpfixCollector *ipfix_collector_;

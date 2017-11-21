@@ -187,7 +187,7 @@ public:
     void GetUDCConfig(std::vector<LogStatisticConfigInfo> *config_info) {
         udc_->GetUDCConfig(config_info);
     }
-    void ReceiveConfig(const contrail_rapidjson::Document &jdoc, bool add_change) {
+    void RxUDCConfig(const contrail_rapidjson::Document &jdoc, bool add_change) {
         udc_->UDCHandler(jdoc, add_change);
     }
 private:
