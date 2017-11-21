@@ -142,6 +142,29 @@ class QfxConf(JuniperConf):
                     addr.set_virtual_gateway_address(gateway)
     # end add_irb_config
 
+    # lo0 interface in RI for route lookup to happen for Inter VN traffic
+    # qfx10k pfe limitation
+    def add_bogus_lo0(self, ri, network_id, vn):
+        if not self.is_spine():
+            return
+        interfaces_config = self.interfaces_config or \
+                               Interfaces(comment=DMUtils.interfaces_comment())
+        ifl_num = str(1000 + int(network_id))
+        lo_intf = Interface(name="lo0")
+        interfaces_config.add_interface(lo_intf)
+        intf_unit = Unit(name=ifl_num, comment=DMUtils.l3_bogus_lo_intf_comment(vn))
+        lo_intf.add_unit(intf_unit)
+        family = Family()
+        intf_unit.set_family(family)
+        inet = FamilyInet()
+        family.set_inet(inet)
+        addr = Address()
+        inet.add_address(addr)
+        lo_ip = "127.0.0.1/32"
+        addr.set_name(lo_ip)
+        ri.add_interface(Interface(name="lo0." + ifl_num))
+    # end add_bogus_lo0
+
     '''
      ri_name: routing instance name to be configured on mx
      is_l2:  a flag used to indicate routing instance type, i.e : l2 or l3
@@ -203,6 +226,7 @@ class QfxConf(JuniperConf):
 
         if is_internal_vn:
             self.internal_vn_ris.append(ri)
+            self.add_bogus_lo0(ri, network_id, vn)
 
         if self.is_spine() and is_l2_l3:
             self.add_irb_config(ri_conf)
@@ -581,8 +605,6 @@ class QfxConf(JuniperConf):
 
     def set_resolve_bgp_route_target_family_config(self):
         """ configure resolution config in global routing options if needed """
-        if self.is_spine():
-            return
         if not self.global_routing_options_config:
             self.global_routing_options_config = RoutingOptions(
                                        comment=DMUtils.routing_options_comment())
