@@ -111,12 +111,6 @@ response sandesh DbInfoResponse {
     1: DbInfo db_info;
 }
 
-objectlog sandesh GenericStats {
-    1: string name (key="ObjectCollectorInfo");
-    2: string msg_type
-    3: map<string, u64> attrib (tags=".__key");
-}
-
 struct LogStatisticConfigInfo {
     1: string name;
     2: string pattern;
@@ -127,4 +121,29 @@ request sandesh LogStatisticConfigInfoGetRequest {
 
 response sandesh LogStatisticConfigInfoResponse {
     1: list<LogStatisticConfigInfo> config_info;
+}
+
+struct LogPatternConfigInfo {
+    1: string name;
+    2: string pattern;
+    3: list<string> tags;
+    4: list<string> metrics;
+}
+
+struct LogParserConfigInfo {
+    1: string domain_id;
+    2: list<LogPatternConfigInfo> pattern_infos;
+}
+
+struct LogParserPreInstallPatternInfo {
+    1: string name;
+    2: string pattern;
+}
+
+request sandesh LogParserConfigInfoGetRequest {
+}
+
+response sandesh LogParserConfigInfoResponse {
+    1: list<LogParserConfigInfo> config_info;
+    2: list<LogParserPreInstallPatternInfo> preinstall_pattern;
 }
