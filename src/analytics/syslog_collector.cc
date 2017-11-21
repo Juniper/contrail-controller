@@ -546,10 +546,12 @@ bool SyslogParser::ClientParse (SyslogQueueEntry *sqe) {
   }
 #endif
 
-  syslog_m_t v;
   int len = sqe->length;
   while (!*(p + len - 1))
       --len;
+  std::string strin((const char *)p);
+  syslog_->UserParserCall(ip, strin);
+  syslog_m_t v;
   bool r = SyslogParser::parse_syslog (p, p + len, v);
 #ifdef SYSLOG_DEBUG
   LOG(DEBUG, "parsed " << r << ".");

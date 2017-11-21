@@ -105,6 +105,7 @@ const string FIREWALL_RULE_TABLE = "ObjectFirewallRuleTable"
 const string ADDRESS_GROUP_TABLE = "ObjectAddressGroupTable"
 const string SERVICE_GROUP_TABLE = "ObjectServiceGroupTable"
 const string APPLICATION_POLICY_SET_TABLE = "ObjectApplicationPolicySetTable"
+const string GENERIC_STATS_ALARM_TABLE = "ObjectGenericStatsAlarmTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -144,7 +145,7 @@ const string FIREWALL_RULE_DISPLAY_NAME    = "firewall rule"
 const string ADDRESS_GROUP_DISPLAY_NAME    = "address group"
 const string SERVICE_GROUP_DISPLAY_NAME    = "service group"
 const string APPLICATION_POLICY_SET_DISPLAY_NAME = "application policy set"
-
+const string GENERIC_STATS_ALARM_DISPLAY_NAME = "generic stats alarm"
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
 
@@ -827,6 +828,12 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     APPLICATION_POLICY_SET_TABLE: {
         'objtable_display_name' : APPLICATION_POLICY_SET_DISPLAY_NAME
         'log_query_name'        : "application-policy-set"
+        'is_uve'                : true
+        'global_system_object'  : false
+    }
+    GENERIC_STATS_ALARM_TABLE: {
+        'objtable_display_name' : GENERIC_STATS_ALARM_DISPLAY_NAME
+        'log_query_name'        : "generic-stats-alarm"
         'is_uve'                : true
         'global_system_object'  : false
     }
