@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
  */
@@ -35,26 +36,17 @@ public:
     bool msg_type_del(std::string s);
 
     /* Match strin with all groks in grok_list */
-    bool match(std::string strin, std::map<std::string, std::string>* m);
+    bool match(std::string name, std::string strin, std::map<std::string, std::string>* m);
 
     /* Set/Unset named_capture boolean property */
     void set_named_capture_only(bool b);
 
-    /* Create and send GenericStats Objectlog */
-    void send_generic_stat(std::map<std::string, std::string> &m_in);
-
-    /* Set key list for GenericStats */
-    void set_key_list(const std::vector<std::string> &key);
-
-    /* Set attrib list for GenericStats */
-    void set_attrib_list(const std::vector<std::string> &attrib);
-
+     /* get pattern string according to name*/
+    std::string get_base_pattern(std::string name);
 private:
     GrokMap grok_list_;
     grok_t* base_;
     bool named_capture_only_;
-    std::vector<std::string> keys_;
-    std::vector<std::string> attribs_;
 };
 
 #endif // SRC_ANALYTICS_GROKPARSER_H_ 

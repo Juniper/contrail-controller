@@ -1,0 +1,93 @@
+<!--
+Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+     -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+<xsd:element name="syslog_parser" type="ifmap:IdentityType"/>
+<xsd:element name="global_system_config_syslog_parser"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global_system_config_syslog_parsers',
+          'global-system-config', 'syslog-parsers', ['has'], 'optional', 'CRUD',
+          'List of syslog_parser that are applicable to objects anchored under global-system-config.') -->
+
+<xsd:element name="hostname" type="xsd:string" default=""/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('hostname', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="hostname_as_tag" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('hostname_as_tag', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="appname" type="xsd:string" default=""/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('appname', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="appname_as_tag" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('appname_as_tag', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="appname_as_classfier" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('appname_as_classfier', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="procid" type="xsd:boolean" default=""/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('procid', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="procid_as_tag" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('procid_as_tag', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="msgid" type="xsd:boolean" default=""/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('msgid', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="msgid_as_tag" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('msgid_as_tag', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:element name="msgid_as_classfier" type="xsd:boolean" default="true"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('msgid_as_classfier', 'syslog_parser', 'optional', 'CRUD',
+              'Syslog header parser define') -->
+
+<xsd:complexType name="PatternSuite">
+    <xsd:all>
+        <xsd:element name="pattern" type="string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:element name="patterns" type="PatternSuite"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('patterns', 'syslog_parser', 'required', 'CRUD',
+                  'user can input name pattern pair, and nested them with %{PATTERN_NAME:capture_name:data_type}. At least one name of the suite is same to fq_name of syslog-parser') -->
+
+<xsd:complexType name="TagList">
+    <xsd:all>
+        <xsd:element name="tag" type="string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:element name="tags" type="TagList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('tags', 'syslog_parser', 'required', 'CRUD',
+                  'tag list can be used by user do select and where when query database, it must be one of capture_name') -->
+
+<xsd:complexType name="MetricList">
+    <xsd:all>
+        <xsd:element name="metric" type="string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:element name="metrics" type="MetricList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('metrics', 'syslog_parser', 'required', 'CRUD',
+                  'metric list is the object to user to do stats, it must be one of capture_name') -->
+
+</xsd:schema>
