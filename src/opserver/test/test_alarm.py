@@ -67,6 +67,10 @@ class TestChecker(object):
     @retry(delay=1, tries=3)
     def checker_exact(self,expected,actual,match=True):
         result = False
+        for tk in actual:
+            if isinstance(actual[tk],dict):
+                if "__T" in actual[tk]:
+                    del actual[tk]["__T"]
         logging.info("exact exp %s actual %s match %s" % \
             (str(expected), str(actual), str(match)))
         if expected == actual:
@@ -396,7 +400,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         self._ag.libpart_cb([1])
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info))
         self.assertTrue(self.checker_exact(\
-            self._ag.ptab_info[1]["ObjectXX"]["uve1"].values(), {"type1" : {"xx": 0}}))
+            {"type1" : {"xx": 0}},
+            self._ag.ptab_info[1]["ObjectXX"]["uve1"].values()))
 
         # Shutdown partition
         self._ag.libpart_cb([])
@@ -445,7 +450,8 @@ class TestAlarmGen(unittest.TestCase, TestChecker):
         self.assertTrue(self.checker_dict([1, "ObjectXX", "uve1"], self._ag.ptab_info, False))
         self.assertTrue(self.checker_dict([1, "ObjectYY", "uve2"], self._ag.ptab_info))
         self.assertTrue(self.checker_exact(\
-            self._ag.ptab_info[1]["ObjectYY"]["uve2"].values(), {"type2" : {"yy": 1}}))
+            {"type2" : {"yy": 1}},
+            self._ag.ptab_info[1]["ObjectYY"]["uve2"].values()))
 
     @mock.patch('opserver.alarmgen.Controller.reconnect_agg_uve')
     @mock.patch('opserver.alarmgen.Controller.clear_agg_uve')
