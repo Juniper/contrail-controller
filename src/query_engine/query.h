@@ -520,6 +520,13 @@ public:
     typedef boost::function<void(void *, QEOpServerProxy::QPerfInfo,
           std::auto_ptr<WhereResultT> )> WhereQueryCbT;
     WhereQueryCbT where_query_cb_;
+
+    void populate_session_where_vec_list(std::vector<GenDb::WhereIndexInfoVec> *where_vec_list,
+        const GenDb::WhereIndexInfoVec &rest_where_vec,
+        const GenDb::WhereIndexInfoVec &labels_vec,
+        const GenDb::WhereIndexInfoVec &remote_labels_vec,
+        const GenDb::WhereIndexInfoVec &arbitrary_tags_vec,
+        const GenDb::WhereIndexInfoVec &remote_arbitrary_tags_vec);
     
 private:
     tbb::mutex vector_push_mutex_;

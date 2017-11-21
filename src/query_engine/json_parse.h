@@ -23,7 +23,8 @@ enum match_op {
     LEQ = 5, // column value is less than or equal to filter value
     GEQ = 6, // column value is greater than or equal to filter value
     PREFIX = 7, // column value has the "value" field as prefix
-    REGEX_MATCH = 8 // for filters only
+    REGEX_MATCH = 8, // for filters only
+    CONTAINS = 9
 };
 
 enum sort_op {

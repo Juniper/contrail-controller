@@ -190,6 +190,10 @@ class GeneratorFixture(fixtures.Fixture):
                 site='Site'+str(i), remote_deployment='RDep'+str(i),
                 remote_application='RApp'+str(i), remote_tier='RTier'+str(i),
                 remote_site='RSite'+str(i), remote_vn='domain1:admin:vn2',
+                labels=['Label1'+str(i), 'Label2'+str(i)],
+                remote_labels=['Label1'+str(i)],
+                custom_tags=['custom_tag1=ct1'+str(i)],
+                remote_custom_tags=['custom_tag1=ct1'+str(i), 'custom_tag2=ct2'+str(i)],
                 is_client_session = 1, is_si = 0, vrouter_ip=netaddr.IPAddress('10.0.0.1'),
                 sess_agg_info = deepcopy(session_agg_info))
             self._logger.info(str(client_session))
@@ -241,6 +245,10 @@ class GeneratorFixture(fixtures.Fixture):
                 site='Site'+str(i), remote_deployment='RDep'+str(i),
                 remote_application='RApp'+str(i), remote_tier='RTier'+str(i),
                 remote_site='RSite'+str(i), remote_vn='domain1:admin:vn1',
+                labels=['Label1'+str(i), 'Label2'+str(i)],
+                remote_labels=['Label1'+str(i)],
+                custom_tags=['custom_tag1=ct1'+str(i)],
+                remote_custom_tags=['custom_tag1=ct1'+str(i), 'custom_tag2=ct2'+str(i)],
                 is_client_session = 0, is_si = 0, vrouter_ip=netaddr.IPAddress('10.0.0.1'),
                 sess_agg_info = deepcopy(session_agg_info))
             self._logger.info(str(server_session))

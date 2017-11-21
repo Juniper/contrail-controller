@@ -64,10 +64,13 @@ bool DbQueryUnit::PipelineCb(std::string &cfname, GenDb::DbDataValueVec &rowkey,
     // prepend T2: to value in each tuple in where_vec
     std::string T2_string = GenDb::DbDataValueToString(rowkey.at(0));
     BOOST_FOREACH(GenDb::WhereIndexInfo &where_info, where_vec) {
-        std::string tempstr(T2_string);
-        tempstr.append(":");
-        tempstr.append(GenDb::DbDataValueToString(where_info.get<2>()));
-        where_info.get<2>() = tempstr;
+        std::string value = GenDb::DbDataValueToString(where_info.get<2>());
+        if (boost::starts_with(value, "%")) {
+            continue;
+        }
+        std::ostringstream where_oss;
+        where_oss << T2_string << ":" << value;
+        where_info.get<2>() = where_oss.str();
     }
     /*
      *  Call GetRowAsync, with args prepopulated

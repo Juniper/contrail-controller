@@ -126,6 +126,10 @@ void init_vizd_tables() {
         SessionTypeInfo(SessionRecordFields::SESSION_LABELS,
             GenDb::DbDataType::UTF8Type);
     session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_CUSTOM_TAGS]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_CUSTOM_TAGS,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
             SessionRecordFields::SESSION_REMOTE_DEPLOYMENT]] =
         SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_DEPLOYMENT,
             GenDb::DbDataType::UTF8Type);
@@ -144,6 +148,10 @@ void init_vizd_tables() {
     session_msg2type_map[g_viz_constants.SessionRecordNames[
             SessionRecordFields::SESSION_REMOTE_LABELS]] =
         SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_LABELS,
+            GenDb::DbDataType::UTF8Type);
+    session_msg2type_map[g_viz_constants.SessionRecordNames[
+            SessionRecordFields::SESSION_REMOTE_CUSTOM_TAGS]] =
+        SessionTypeInfo(SessionRecordFields::SESSION_REMOTE_CUSTOM_TAGS,
             GenDb::DbDataType::UTF8Type);
     session_msg2type_map[g_viz_constants.SessionRecordNames[
             SessionRecordFields::SESSION_SECURITY_POLICY_RULE]] =

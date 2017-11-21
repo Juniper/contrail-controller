@@ -102,11 +102,13 @@ struct SessionEndpoint {
     5: optional string application;
     6: optional string site;
     7: optional set<string> labels;
+    20: optional set<string> custom_tags;
     8: optional string remote_deployment;
     9: optional string remote_tier;
     10: optional string remote_application;
     11: optional string remote_site;
     12: optional set<string> remote_labels;
+    21: optional set<string> remote_custom_tags;
     13: optional string security_policy_rule;
     14: string remote_vn;
     15: byte is_client_session;

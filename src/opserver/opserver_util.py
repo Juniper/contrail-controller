@@ -990,7 +990,7 @@ class OpServerUtils(object):
                 if match == '':
                     continue
                 match_s = match.strip(' ()')
-                match_e = match_s.split('=', 1)
+                match_e = re.split('CONTAINS|=', match_s, 1)
                 match_e[0] = match_e[0].strip(' ()')
                 match_e[1] = match_e[1].strip(' ()')
 
@@ -1008,7 +1008,11 @@ class OpServerUtils(object):
 
 
                 if len(match_v) is 1:
-                    if match_v[0][-1] is '*':
+                    if 'CONTAINS' in match:
+                        match_elem = OpServerUtils.Match(
+                            name=tname, value=match_v[0],
+                            op=OpServerUtils.MatchOp.CONTAINS)
+                    elif match_v[0][-1] is '*':
                         match_prefix = match_v[0][:(len(match_v[0]) - 1)]
                         print match_prefix
                         match_elem = OpServerUtils.Match(
@@ -1130,7 +1134,8 @@ class OpServerUtils(object):
     # end class Query
 
     MatchOp = enum(EQUAL=1, NOT_EQUAL=2, IN_RANGE=3,
-                   NOT_IN_RANGE=4, LEQ=5, GEQ=6, PREFIX=7, REGEX_MATCH=8)
+                   NOT_IN_RANGE=4, LEQ=5, GEQ=6, PREFIX=7, REGEX_MATCH=8,
+                   CONTAINS=9)
 
     SortOp = enum(ASCENDING=1, DESCENDING=2)
 

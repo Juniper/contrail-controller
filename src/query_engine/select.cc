@@ -450,7 +450,6 @@ class SessionTableAttributeConverter : public boost::static_visitor<> {
             g_viz_constants._VIZD_SESSION_TABLE_SCHEMA.find(
             g_viz_constants.SESSION_TABLE)->second.columns[idx].index_type;
         if (index_type) {
-            //boost::regex expr("^[\\d]+:");
             std::string value(boost::regex_replace(tstring,
                 SessionTableAttributeConverter::t2_expr_, "",
                     boost::match_default | boost::format_all));

@@ -1778,6 +1778,20 @@ class AnalyticsFixture(fixtures.Fixture):
                 session_type="client")
         assert(len(res) == 0)
 
+        # labels and remote_labels
+        res = vns.post_query(
+               'SessionRecordTable',
+                start_time=str(generator_obj.session_start_time),
+                end_time=str(generator_obj.session_end_time),
+                select_fields=['forward_flow_uuid','reverse_flow_uuid',
+                                'local_ip'],
+                where_clause='labels CONTAINS Label1 '
+                             'AND labels CONTAINS Label2 '
+                             'AND remote_labels CONTAINS Label12',
+                session_type="client")
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.flow_cnt*generator_obj.flow_cnt)
+
         return True
     # end verify_session_table
 
@@ -1803,9 +1817,9 @@ class AnalyticsFixture(fixtures.Fixture):
             stats = {'sum_fwd_bytes':0, 'sum_rev_pkts':0}
             for session in sessions:
                 if session._timestamp < start_time:
-                        continue
+                    continue
                 elif session._timestamp > end_time:
-                        break
+                    break
                 s = _aggregate_stats(session, ip, port, protocol)
                 stats['sum_fwd_bytes'] += s['sum_fwd_bytes']
                 stats['sum_rev_pkts'] += s['sum_rev_pkts']
@@ -2174,6 +2188,73 @@ class AnalyticsFixture(fixtures.Fixture):
                 filter='forward_action=%s'%action)
         self.logger.info("results: %s" % str(res))
         assert(len(res) == 3)
+
+        # 11. tuple + stats (labels)
+        self.logger.info('SessionSeriesTable: [protocol, '
+                                                'SUM(forward_sampled_bytes), '
+                                                'SUM(reverse_sampled_pkts)]')
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (30 * 1000 * 1000))
+        res = vns.post_query(
+                'SessionSeriesTable',
+                start_time = st, end_time = et,
+                select_fields=['protocol', 'SUM(forward_sampled_bytes)',
+                                'SUM(reverse_sampled_pkts)'],
+                session_type="client",
+                where_clause='labels CONTAINS Label11 AND '
+                             ' remote_labels CONTAINS Label11')
+        self.logger.info("results: %s" % str(res))
+        assert(len(res) == 2)
+        protos = [0, 1]
+        label_sessions = []
+        for session in generator_obj.client_sessions:
+            if 'Label11' in session.session_data[0].labels and \
+               'Label11' in session.session_data[0].remote_labels:
+                label_sessions.append(session)
+        exp_result = {}
+        for proto in protos:
+            exp_result[proto] = _aggregate_session_stats(label_sessions, int(st), int(et),
+                            protocol=proto)
+        self.logger.info("expected results: %s" % str(exp_result))
+
+        for r in res:
+            assert(r['protocol'] in exp_result)
+            assert(exp_result[r['protocol']]['sum_fwd_bytes'] == r['SUM(forward_sampled_bytes)'])
+            assert(exp_result[r['protocol']]['sum_rev_pkts'] == r['SUM(reverse_sampled_pkts)'])
+
+        # 11. tuple + stats (custom tags)
+        self.logger.info('SessionSeriesTable: [protocol, '
+                                                'SUM(forward_sampled_bytes), '
+                                                'SUM(reverse_sampled_pkts)]')
+        st = str(generator_obj.session_start_time)
+        et = str(generator_obj.session_start_time + (30 * 1000 * 1000))
+        res = vns.post_query(
+                'SessionSeriesTable',
+                start_time = st, end_time = et,
+                select_fields=['protocol', 'SUM(forward_sampled_bytes)',
+                                'SUM(reverse_sampled_pkts)'],
+                session_type="client",
+                where_clause='custom_tags CONTAINS custom_tag1=ct11 AND '
+                             ' remote_custom_tags CONTAINS custom_tag1=ct11')
+        self.logger.info("results: %s" % str(res))
+        assert(len(res) == 2)
+        protos = [0, 1]
+        ct_sessions = []
+        for session in generator_obj.client_sessions:
+            if 'custom_tag1=ct11' in session.session_data[0].custom_tags and \
+               'custom_tag1=ct11' in session.session_data[0].remote_custom_tags:
+                ct_sessions.append(session)
+        exp_result = {}
+        for proto in protos:
+            exp_result[proto] = _aggregate_session_stats(ct_sessions, int(st), int(et),
+                            protocol=proto)
+        self.logger.info("expected results: %s" % str(exp_result))
+
+        for r in res:
+            assert(r['protocol'] in exp_result)
+            assert(exp_result[r['protocol']]['sum_fwd_bytes'] == r['SUM(forward_sampled_bytes)'])
+            assert(exp_result[r['protocol']]['sum_rev_pkts'] == r['SUM(reverse_sampled_pkts)'])
+
 
         return True
     # end verify_session_series_aggregation_binning
