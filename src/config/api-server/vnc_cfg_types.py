@@ -1280,13 +1280,13 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     vrouter_fq_name = ['default-global-system-config',host_id.split('.')[0]]
                     vrouter_id = db_conn.fq_name_to_uuid('virtual_router', vrouter_fq_name)
                 except cfgm_common.exceptions.NoIdError:
-                    msg = 'Internal error : virtual router ' + \
-                          ":".join(vrouter_fq_name) + ' not found'
-                    return (False, (400, msg))
+                    # dropping the NoIdError as its equivalent to VirtualRouterNotFound
+                    # its treated as False, non dpdk case, hack for vcenter plugin
+                    return (True, False)
             else:
-                msg = 'Internal error : virtual router ' + \
-                      ":".join(vrouter_fq_name) + ' not found'
-                return (False, (400, msg))
+                # dropping the NoIdError as its equivalent to VirtualRouterNotFound
+                # its treated as False, non dpdk case, hack for vcenter plugin
+                return (True, False)
 
         (ok, result) = cls.dbe_read(db_conn, 'virtual_router', vrouter_id)
         if not ok:
@@ -1596,12 +1596,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 else:
                     vif_type = {'key': 'vif_type',
                                 'value': cls.portbindings['VIF_TYPE_VROUTER']}
-                    vif_details = {'key': 'vif_details', 'value': {}}
+                    vif_details = {'key': 'vif_details', 'value': json.dumps({})}
                     cls._kvps_prop_update(obj_dict, kvps, prop_collection_updates, vif_type, vif_details)
             else:
                 vif_type = {'key': 'vif_type',
                             'value': cls.portbindings['VIF_TYPE_VROUTER']}
-                vif_details = {'key': 'vif_details', 'value': {}}
+                vif_details = {'key': 'vif_details', 'value': json.dumps({})}
                 if obj_dict and 'vif_details' in kvp_dict_port:
                     cls._kvps_update(kvps, vif_type, vif_details)
                 elif kvp_dict.get('host_id') == 'null':
