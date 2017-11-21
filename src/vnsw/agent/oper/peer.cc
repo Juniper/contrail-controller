@@ -187,6 +187,10 @@ void BgpPeer::ReleaseDeleteStaleWalker() {
 
 void BgpPeer::DelPeerRoutes(WalkDoneCb walk_done_cb,
                             uint64_t sequence_number) {
+    //Since peer is getting deleted no need of seperate walk to delete stale or
+    //non stale paths.
+    ReleaseDeleteStaleWalker();
+
     route_walker_cb_ = walk_done_cb;
     route_walker()->set_sequence_number(sequence_number);
     route_walker()->Start(ControllerRouteWalker::DELPEER, false,
@@ -194,6 +198,11 @@ void BgpPeer::DelPeerRoutes(WalkDoneCb walk_done_cb,
 }
 
 void BgpPeer::DeleteStale() {
+    //If peer is marked for deletion skip. Deletion should take care of removing
+    //routes.
+    if (SkipAddChangeRequest())
+        return;
+
     delete_stale_walker()->set_sequence_number(sequence_number());
     delete_stale_walker()->Start(ControllerRouteWalker::DELSTALE, false,
                                 delete_stale_walker_cb_);

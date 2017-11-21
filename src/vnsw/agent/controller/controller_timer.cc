@@ -328,3 +328,45 @@ void EndOfRibRxTimer::GresEnabled(bool enable) {
         end_of_rib_rx_fallback_time_ = 0;
     }
 }
+
+LlgrStaleTimer::LlgrStaleTimer(Agent *agent) :
+    ControllerTimer(agent, "Llgr stale timer",
+              SECS_TO_MSECS(agent->oper_db()->global_system_config()->
+                            gres_parameters().llgr_stale_time())),
+              agent_xmpp_channel_(NULL) {
+    Reset();
+}
+
+void LlgrStaleTimer::Start(AgentXmppChannel *agent_xmpp_channel) {
+    Reset();
+    agent_xmpp_channel_ = agent_xmpp_channel;
+    ControllerTimer::Start(agent_xmpp_channel);
+}
+
+bool LlgrStaleTimer::TimerExpirationDone() {
+    agent_xmpp_channel_->EndOfRibRx();
+    return false;
+}
+
+void LlgrStaleTimer::Reset() {
+    llgr_stale_time_ = 0;
+    GresEnabled(agent_->oper_db()->global_system_config()->
+                gres_parameters().IsEnabled());
+}
+
+uint32_t LlgrStaleTimer::GetTimerInterval() const {
+    return llgr_stale_time_;
+}
+
+void LlgrStaleTimer::GresEnabled(bool enable) {
+    if (enable) {
+        llgr_stale_time_ = SECS_TO_MSECS(agent_->oper_db()->
+            global_system_config()->gres_parameters().llgr_stale_time());
+        if (llgr_stale_time_ == 0) {
+            llgr_stale_time_ = SECS_TO_MSECS(agent_->params()->
+                                             llgr_params().llgr_stale_time());
+        }
+    } else {
+        llgr_stale_time_ = 0;
+    }
+}

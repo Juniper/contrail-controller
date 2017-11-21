@@ -156,4 +156,26 @@ struct EndOfRibRxTimer : public ControllerTimer {
     uint64_t end_of_rib_rx_fallback_time_;
     bool fallback_;
 };
+
+/*
+ * LlgrStaleTimer
+ *
+ * When CN is down and this timer expires then stales will be cleaned.
+ * It is the maximum time for which stale will be retained after CN is not
+ * ready. This timer has no meaning when CN is ready as end-of-rib rx timer is
+ * responsible for flushing out routes.
+ */
+struct LlgrStaleTimer : public ControllerTimer {
+    LlgrStaleTimer(Agent *agent);
+    virtual ~LlgrStaleTimer() { }
+
+    virtual void Start(AgentXmppChannel *agent_xmpp_channel);
+    virtual uint32_t GetTimerInterval() const;
+    virtual bool TimerExpirationDone();
+    void Reset();
+    void GresEnabled(bool enable);
+
+    AgentXmppChannel *agent_xmpp_channel_;
+    uint64_t llgr_stale_time_;
+};
 #endif
