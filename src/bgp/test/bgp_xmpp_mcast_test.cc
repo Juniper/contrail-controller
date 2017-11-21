@@ -664,7 +664,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion2) {
     // Verify the labels used for route 0 by all agents.
     VerifyLabel(agent_xa_, "blue", mroute_list[0], 10000, 10000);
     VerifyLabel(agent_xb_, "blue", mroute_list[0], 20000, 29999);
-    VerifyLabel(agent_xc_, "blue", mroute_list[0], 30000, 30000);
+    VerifyLabel(agent_xc_, "blue", mroute_list[0], 30000, 39999);
 
     // Add mcast route 1 for all agents.
     agent_xa_->AddMcastRoute("blue", mroute_list[1], "10.1.1.1", "10000-10000");
