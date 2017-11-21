@@ -58,7 +58,7 @@ static int d_agents = 4;
 static int d_peers = 4;
 static int d_targets = 4;
 static int d_http_port_ = 0;
-static bool d_no_sandesh_server_ = false;
+static bool d_sandesh_server_;
 
 static string d_log_category_ = "";
 static string d_log_level_ = "SYS_WARN";
@@ -122,8 +122,8 @@ static void process_command_line_args(int argc, char **argv) {
              "Enable local logging")
         ("log-trace-enable", bool_switch(&d_log_trace_enable_),
              "Enable logging traces")
-        ("no-sandesh-server", bool_switch(&d_no_sandesh_server_),
-             "Do not add multicast routes")
+        ("sandesh-server", bool_switch(&d_sandesh_server_),
+             "Start sandesh server")
         ("nroutes", value<int>()->default_value(d_routes),
              "set number of routes")
         ("nagents", value<int>()->default_value(d_agents),
@@ -516,7 +516,7 @@ void GracefulRestartTest::SetUp() {
 void GracefulRestartTest::SandeshStartup() {
     sandesh_context_.reset(new BgpSandeshContext());
     RegisterSandeshShowXmppExtensions(sandesh_context_.get());
-    if (d_no_sandesh_server_) {
+    if (!d_sandesh_server_) {
         Sandesh::set_client_context(sandesh_context_.get());
         sandesh_server_ = NULL;
         return;
@@ -537,7 +537,7 @@ void GracefulRestartTest::SandeshStartup() {
 }
 
 void GracefulRestartTest::SandeshShutdown() {
-    if (d_no_sandesh_server_)
+    if (!d_sandesh_server_)
         return;
 
     Sandesh::Uninit();
@@ -1430,19 +1430,20 @@ void GracefulRestartTest::BgpPeerDown(BgpPeerTest *peer,
     peer->SetAdminState(true);
     TASK_UTIL_EXPECT_FALSE(peer->IsReady());
 
-    if (event == TcpSession::EVENT_NONE)
+    // Make sure that session did not flip on one side as tcp down
+    // events were meant to be skipped (to simulate cold reboot)
+    if (event == TcpSession::EVENT_NONE) {
         TASK_UTIL_EXPECT_FALSE(server_peer->IsReady());
+    } else {
+        TASK_UTIL_EXPECT_EQ(TcpSession::EVENT_NONE,
+                            state_machine->skip_tcp_event());
+        TASK_UTIL_EXPECT_FALSE(state_machine->skip_bgp_notification_msg());
+        // WaitForPeerToBeEstablished(server_peer);
+    }
 
     // Also delete the routes
     for (int i = 1; i <= n_instances_; i++)
         ProcessVpnRoute(peer, i, n_routes_, false);
-
-    if (event == TcpSession::EVENT_NONE)
-        return;
-
-    TASK_UTIL_EXPECT_EQ(TcpSession::EVENT_NONE,
-                        state_machine->skip_tcp_event());
-    TASK_UTIL_EXPECT_FALSE(state_machine->skip_bgp_notification_msg());
 }
 
 void GracefulRestartTest::ProcessFlippingPeers(int &total_routes,
@@ -1488,12 +1489,6 @@ void GracefulRestartTest::ProcessFlippingPeers(int &total_routes,
             BgpPeerTest *peer = gr_test_param.peer;
             WaitForPeerToBeEstablished(peer);
             BgpPeerDown(peer, gr_test_param.skip_tcp_event);
-
-            // Make sure that session did not flip on one side as tcp down
-            // events were meant to be skipped (to simulate cold reboot)
-            if (gr_test_param.skip_tcp_event != TcpSession::EVENT_NONE)
-                WaitForPeerToBeEstablished(bgp_server_peers_[peer->id()]);
-
             for (size_t i = 0; i < gr_test_param.instance_ids.size(); i++) {
                 int instance_id = gr_test_param.instance_ids[i];
                 if (std::find(instances_to_delete_before_gr_.begin(),
