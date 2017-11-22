@@ -82,6 +82,13 @@ class ComputeNetworkSetup(object):
         try:
             dev = self.get_device_by_ip(ip)
             if dev == "vhost0":
+                log.info("Check Fresh pod install")
+                if (not os.path.isfile(cfg_file)) \
+                   or (not self.has_config(cfg_file,
+                                           "VIRTUAL-HOST-INTERFACE",
+                                           "physical_interface")):
+                   log.info("Fresh pod install")
+                   return (dev.strip(), reprov)
                 dev = self.get_config(cfg_file,
                                       "VIRTUAL-HOST-INTERFACE",
                                       "physical_interface")
