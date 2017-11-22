@@ -91,6 +91,13 @@ const string LOGICAL_IF_TABLE       = "ObjectLogicalInterfaceTable"
 const string STORAGE_CLUSTER_TABLE  = "ObjectStorageClusterTable"
 const string USR_DEF_LOG_STAT_TABLE  = "UserDefinedLogStatTable"
 const string KUBERNETES_MANAGER_TABLE = "ObjectKubernetesManagerNode"
+const string TAG_TABLE = "ObjectTagTable"
+const string PROJECT_TABLE = "ObjectProjectTable"
+const string FIREWALL_POLICY_TABLE = "ObjectFirewallPolicyTable"
+const string FIREWALL_RULE_TABLE = "ObjectFirewallRuleTable"
+const string ADDRESS_GROUP_TABLE = "ObjectAddressGroupTable"
+const string SERVICE_GROUP_TABLE = "ObjectServiceGroupTable"
+const string APPLICATION_POLICY_SET_TABLE = "ObjectApplicationPolicySetTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -123,6 +130,13 @@ const string PHYSICAL_IF_DISPLAY_NAME      = "Physical Interface"
 const string STORAGE_CLUSTER_DISPLAY_NAME  = "Storage Cluster"
 const string USR_DEF_LOG_STAT_DISPLAY_NAME  = "User Defined Log Statistic"
 const string KUBERNETES_MANAGER_NODE_DISPLAY_NAME = "Kubernetes Manager Node"
+const string TAG_DISPLAY_NAME              = "tag"
+const string PROJECT_DISPLAY_NAME          = "project"
+const string FIREWALL_POLICY_DISPLAY_NAME  = "firewall policy"
+const string FIREWALL_RULE_DISPLAY_NAME    = "firewall rule"
+const string ADDRESS_GROUP_DISPLAY_NAME    = "address group"
+const string SERVICE_GROUP_DISPLAY_NAME    = "service group"
+const string APPLICATION_POLICY_SET_DISPLAY_NAME = "application policy set"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -559,7 +573,14 @@ const map<string, string> UVE_MAP = {
     "logical-interface" : LOGICAL_IF_TABLE,
     "storage-cluster" : STORAGE_CLUSTER_TABLE,
     "user-defined-log-statistic" : USR_DEF_LOG_STAT_TABLE,
-    "kubernetes-manager-node" : KUBERNETES_MANAGER_TABLE
+    "kubernetes-manager-node" : KUBERNETES_MANAGER_TABLE,
+    "tag" : TAG_TABLE,
+    "project" : PROJECT_TABLE,
+    "firewall-policy" : FIREWALL_POLICY_TABLE,
+    "firewall-rule" : FIREWALL_RULE_TABLE,
+    "address-group" : ADDRESS_GROUP_TABLE,
+    "service-group" : SERVICE_GROUP_TABLE,
+    "application-policy-set" : APPLICATION_POLICY_SET_TABLE
 }
 
 struct objtable_info {
@@ -760,6 +781,48 @@ const map<string, objtable_info> _OBJECT_TABLES = {
         'log_query_name'        : "kubernetes-manager-node"
         'is_uve'                : true
         'global_system_object'  : true
+    }
+    TAG_TABLE: {
+        'objtable_display_name' : TAG_DISPLAY_NAME
+        'log_query_name'        : "tag"
+        'is_uve'                : true
+        'global_system_object'  : false
+    }
+    PROJECT_TABLE: {
+        'objtable_display_name' : PROJECT_DISPLAY_NAME
+        'log_query_name'        : "project"
+        'is_uve'                : true
+        'global_system_object'  : false
+    }
+    FIREWALL_POLICY_TABLE: {
+        'objtable_display_name' : FIREWALL_POLICY_DISPLAY_NAME
+        'log_query_name'        : "firewall-policy"
+        'is_uve'                : true
+        'global_system_object'  : false
+    }
+    FIREWALL_RULE_TABLE: {
+        'objtable_display_name' : FIREWALL_RULE_DISPLAY_NAME
+        'log_query_name'        : "firewall-rule"
+        'is_uve'                : true
+        'global_system_object'  : false
+    }
+    ADDRESS_GROUP_TABLE: {
+        'objtable_display_name' : ADDRESS_GROUP_DISPLAY_NAME
+        'log_query_name'        : "address-group"
+        'is_uve'                : true
+        'global_system_object'  : false
+    }
+    SERVICE_GROUP_TABLE: {
+        'objtable_display_name' : SERVICE_GROUP_DISPLAY_NAME
+        'log_query_name'        : "service-group"
+        'is_uve'                : true
+        'global_system_object'  : false
+    }
+    APPLICATION_POLICY_SET_TABLE: {
+        'objtable_display_name' : APPLICATION_POLICY_SET_DISPLAY_NAME
+        'log_query_name'        : "application-policy-set"
+        'is_uve'                : true
+        'global_system_object'  : false
     }
 }
 
