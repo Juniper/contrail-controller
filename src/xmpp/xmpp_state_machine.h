@@ -142,6 +142,7 @@ public:
     void clear_session();
     void DeleteSession(XmppSession *session);
     XmppSession *session() { return session_; }
+    void RemoveSession() { session_ = NULL; }
     void set_state(xmsm::XmState state);
     xmsm::XmState get_state() { return state_; }
     void set_openconfirm_state(xmsm::XmOpenConfirmState state);
