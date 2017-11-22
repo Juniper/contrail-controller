@@ -476,7 +476,12 @@ void Icmpv6PathPreferenceState::SendNeighborSolicitForAllIntf
             }
             if (dynamic_cast<const InetUnicastRouteEntry *>(route)) {
                 if (path->subnet_service_ip().is_v6()) {
-                    gw_ip_ = path->subnet_service_ip();
+                    const VmInterface *vm_intf =
+                        static_cast<const VmInterface *>(intf);
+                    if (vm_intf->primary_ip6_addr().is_unspecified() == false) {
+                        gw_ip_ =
+                            vm_intf->GetGatewayIp(vm_intf->primary_ip6_addr());
+                    }
                 }
             }
 
