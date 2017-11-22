@@ -1400,8 +1400,20 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             kvps_port = bindings_port.get('key_value_pair') or []
             kvp_dict_port = cls._kvp_to_dict(kvps_port)
             kvp_dict = cls._kvp_to_dict(kvps)
-            if (kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL'] and
+            if ((kvp_dict_port.get('vnic_type') == cls.portbindings['VNIC_TYPE_NORMAL'] or
+                    kvp_dict_port.get('vnic_type')  is None) and
                     kvp_dict.get('host_id') != 'null'):
+                if kvp_dict_port.get('vnic_type')  is None:
+                    vnic_type = {'key': 'vnic_type',
+                                 'value': cls.portbindings['VNIC_TYPE_NORMAL']}
+                    if 'virtual_machine_interface_bindings' in obj_dict:
+                        kvps.append(vnic_type)
+                    elif vmib:
+                        vnic_type_prop = {'field': 'virtual_machine_interface_bindings',
+                                          'operation': 'set', 'value': vnic_type,
+                                          'position': 'vnic_type'}
+                        prop_collection_updates.append(vnic_type_prop)
+             
                 (ok, result) = cls._is_dpdk_enabled(obj_dict, db_conn, kvp_dict.get('host_id'))
                 if not ok:
                     return ok, result
