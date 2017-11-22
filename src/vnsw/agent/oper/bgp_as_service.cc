@@ -305,9 +305,9 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
              new_bgp_as_a_service_entry_list.begin(),
              new_bgp_as_a_service_entry_list.end());
     } else if (new_bgp_as_a_service_entry_list.size() != 0) {
+        StartHealthCheck(vm_uuid, new_bgp_as_a_service_entry_list);
         bgp_as_a_service_entry_map_[vm_uuid] =
             new BgpAsAServiceList(new_bgp_as_a_service_entry_list);
-        StartHealthCheck(vm_uuid, new_bgp_as_a_service_entry_list);
     }
 
     if (changed && !service_delete_cb_list_.empty()) {
@@ -463,8 +463,7 @@ uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port,
 bool BgpAsAService::GetBgpRouterServiceDestination(
                     const VmInterface *vm_intf, const IpAddress &source_ip,
                     const IpAddress &dest, IpAddress *nat_server,
-                    uint32_t *sport, bool *health_check_configured,
-                    boost::uuids::uuid *health_check_uuid) const {
+                    uint32_t *sport) const {
     const VnEntry *vn = vm_intf->vn();
     if (vn == NULL) return false;
 
@@ -493,8 +492,6 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 return false;
             }
             *sport = it->source_port_;
-            *health_check_configured = it->health_check_configured_;
-            *health_check_uuid = it->health_check_uuid_;
             return true;
         }
         if (dest == dns) {
@@ -511,12 +508,31 @@ bool BgpAsAService::GetBgpRouterServiceDestination(
                 return false;
             }
             *sport = it->source_port_;
-            *health_check_configured = it->health_check_configured_;
-            *health_check_uuid = it->health_check_uuid_;
             return true;
         }
         it++;
     }
+    return false;
+}
+
+bool BgpAsAService::GetBgpHealthCheck(const VmInterface *vm_intf,
+                    boost::uuids::uuid *health_check_uuid) const {
+    BgpAsAServiceEntryMapConstIterator iter =
+       bgp_as_a_service_entry_map_.find(vm_intf->GetUuid());
+
+    while (iter != bgp_as_a_service_entry_map_.end()) {
+        BgpAsAService::BgpAsAServiceEntryListIterator it =
+            iter->second->list_.begin();
+        while (it != iter->second->list_.end()) {
+            if (it->health_check_configured_) {
+                *health_check_uuid = it->health_check_uuid_;
+                return true;
+            }
+            it++;
+        }
+        iter++;
+    }
+
     return false;
 }
 

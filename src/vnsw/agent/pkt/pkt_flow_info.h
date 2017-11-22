@@ -55,7 +55,6 @@ public:
         short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID),
         flow_entry(NULL),
         flood_unknown_unicast(false), bgp_router_service_flow(false),
-        bgp_health_check_configured(false), bgp_health_check_uuid(),
         alias_ip_flow(false), ttl(0), underlay_flow(false),
         src_policy_vrf(-1), dst_policy_vrf(-1) {
     }
@@ -203,8 +202,6 @@ public:
 
     //BGP router service info
     bool                 bgp_router_service_flow;
-    bool                 bgp_health_check_configured;
-    boost::uuids::uuid   bgp_health_check_uuid;
 
     // Alias IP flow
     bool                 alias_ip_flow;
