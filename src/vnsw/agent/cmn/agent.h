@@ -240,6 +240,7 @@ class BfdProto;
 class IcmpProto;
 class Icmpv6Proto;
 class FlowProto;
+class IgmpProto;
 
 class Peer;
 class LifetimeManager;
@@ -872,6 +873,9 @@ public:
     FlowProto *GetFlowProto() const { return flow_proto_; }
     void SetFlowProto(FlowProto *proto) { flow_proto_ = proto; }
 
+    IgmpProto *GetIgmpProto() const { return igmp_proto_; }
+    void SetIgmpProto(IgmpProto *proto) { igmp_proto_ = proto; }
+
     MacLearningProto* mac_learning_proto() const {
         return mac_learning_proto_;
     }
@@ -1317,6 +1321,7 @@ private:
     Dhcpv6Proto *dhcpv6_proto_;
     Icmpv6Proto *icmpv6_proto_;
     FlowProto *flow_proto_;
+    IgmpProto *igmp_proto_;
     MacLearningProto *mac_learning_proto_;
     MacLearningModule *mac_learning_module_;
 

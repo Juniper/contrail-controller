@@ -869,3 +869,12 @@ trace sandesh BfdTrace {
     7: u32 multiplier;
 }
 
+/**
+ * @description: Trace message for igmp
+ * @type: Trace
+ * @severity: DEBUG
+ */
+trace sandesh IgmpTrace {
+    1: string msg;
+}
+
