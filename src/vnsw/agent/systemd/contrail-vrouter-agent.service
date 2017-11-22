@@ -1,5 +1,6 @@
 [Unit]
 Description=Contrail vrouter agent service
+BindsTo=
 After=network.target
 
 [Service]
