@@ -179,3 +179,47 @@ traceobject sandesh FlowExportStatsTrace {
     3: u64 old_threshold;
     4: u64 new_threshold;
 }
+
+/**
+ * Sandesh definition for session
+ */
+struct SessionTraceInfo {
+    1: string vmi;
+    2: string local_vn;
+    3: string remote_vn;
+    4: list<string> local_tagset;
+    5: list<string> remote_tagset;
+    6: string remote_prefix;
+    7: string match_policy;
+    8: bool is_si;
+    9: bool is_client;
+   10: string local_ip;
+   11: u16 server_port;
+   12: u16 protocol;
+   13: string remote_ip;
+   14: u16 client_port;
+   15: string flow_uuid;
+}
+
+/**
+ * @description: Trace message for session add and delete
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh SessionStatsTrace {
+    1: string operation;
+    2: SessionTraceInfo info;
+    3: bool rev_flow_params;
+}
+
+/**
+ * @description: Trace message for session add and delete
+ * @type: Trace
+ * @severity: DEBUG
+ */
+traceobject sandesh SessionStatsErr {
+    1: string msg;
+    2: u32 flow_handle;
+    3: u16 gen_id;
+    4: SandeshFlowKey flow_key;
+}
