@@ -2902,12 +2902,18 @@ struct BgpAsAServiceSandeshList {
    2: i32 vm_nat_source_port;
    /** Uuid of vmi for bgp as a service */
    3: string vmi_uuid (link="ItfReq");
-   /** Boolean to indicate if health check is configured on this object */
-   4: bool health_check_configured;
-   /** Uuid of health check for bgp as a service */
-   5: string health_check_uuid (link="HealthCheckSandeshReq");
    /** Sharing flag to indicate the session is shared or not */
-   6: bool is_shared;
+   4: bool is_shared;
+   /** Boolean to indicate if health check is configured on this object */
+   5: bool health_check_configured;
+   /** Uuid of health check for bgp as a service */
+   6: string health_check_uuid (link="HealthCheckSandeshReq");
+   /** Delay value in usecs configured in health check */
+   7: u64 health_check_delay_usecs;
+   /** Timeout value in usecs configured in health check */
+   8: u64 health_check_timeout_usecs;
+   /** Max retries configured in health check */
+   9: u32 health_check_retries;
 }
 
 /**

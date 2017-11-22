@@ -1019,8 +1019,10 @@ void FlowMgmtManager::DeleteFlowMgmtKey(
 
 void BgpAsAServiceFlowMgmtKey::StartHealthCheck(
         Agent *agent, FlowEntry *flow, const boost::uuids::uuid &hc_uuid) {
-    if (bgp_health_check_instance_ != NULL)
+    if (bgp_health_check_instance_ != NULL) {
+        bgp_health_check_instance_->UpdateInstanceTask();
         return;
+    }
     bgp_health_check_service_ = agent->health_check_table()->Find(hc_uuid);
     if (bgp_health_check_service_ == NULL) {
         LOG(DEBUG, "Unable to start BFD health check " << hc_uuid << " on flow "
