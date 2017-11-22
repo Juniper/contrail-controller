@@ -24,6 +24,7 @@
 #include "analytics/structured_syslog_server.h"
 #include "analytics/structured_syslog_server_impl.h"
 #include "generator.h"
+#include "sdwan_uve_types.h"
 #include "analytics/syslog_collector.h"
 #include "analytics/structured_syslog_config.h"
 
@@ -37,7 +38,7 @@ bool use_grok;
 GrokParser* gp;
 
 void StructuredSyslogDecorate(SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
-                              boost::shared_ptr<std::string> msg);
+                              boost::shared_ptr<std::string> msg, std::vector<std::string> int_fields);
 void StructuredSyslogPush(SyslogParser::syslog_m_t v, StatWalker::StatTableInsertFn stat_db_callback,
     std::vector<std::string> tagged_fields);
 void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user);
@@ -176,7 +177,7 @@ bool StructuredSyslogPostParsing (SyslogParser::syslog_m_t &v, StructuredSyslogC
         msg.reset(new std::string (message, message + message_len));
         hostname.reset(new std::string (SyslogParser::GetMapVals(v, "hostname", "")));
       }
-      StructuredSyslogDecorate(v, config_obj, msg);
+      StructuredSyslogDecorate(v, config_obj, msg, mc->ints());
       if (mc->process_and_summarize() == true) {
         bool syslog_summarize_user = mc->process_and_summarize_user();
         StructuredSyslogUVESummarize(v, syslog_summarize_user);
@@ -336,100 +337,563 @@ StructuredSyslogJsonMessage(SyslogParser::syslog_m_t v) {
     return json_msg;
 }
 
-void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user) {
-    LOG(DEBUG,"UVE: Processing and sending Strucutured syslogs as UVE with flag summarize_user:" << summarize_user);
-    AppTrackRecord apprecord;
+void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize_user) {
+    SDWANMetricsRecord sdwanmetricrecord;
+    SDWANTenantMetricsRecord sdwantenantmetricrecord;
     const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
     const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
-    std::string link1;
-    std::string link2;
-    int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
-    int64_t link2_bytes = SyslogParser::GetMapVal(v, "uplink-rx-bytes", -1);
-    if (link1_bytes == -1)
-        link1_bytes = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
-    if (link2_bytes == -1)
-        link2_bytes = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
-
-    if (boost::equals(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"), "RT_FLOW_NEXTHOP_CHANGE")) {
-        link1 = (SyslogParser::GetMapVals(v, "last-destination-interface-name", "UNKNOWN"));
-        link2 = (SyslogParser::GetMapVals(v, "last-incoming-interface-name", "UNKNOWN"));
-    } else {
-        link1 = (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
-        link2 = (SyslogParser::GetMapVals(v, "uplink-incoming-interface-name", link1));
-    }
     const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
     const std::string app_category(SyslogParser::GetMapVals(v, "app-category", "UNKNOWN"));
-
+    const std::string department(SyslogParser::GetMapVals(v, "source-zone-name", "UNKNOWN"));
+    const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+    const std::string region(SyslogParser::GetMapVals(v, "region", "DEFAULT"));
+    const std::string uvename = tenant + "::" + location + "::" + device_id;
+    const std::string tenantuvename = region + "::" + tenant;
+    const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
+    const std::string nested_appname(SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN"));
+    const std::string appname(SyslogParser::GetMapVals(v, "application", "UNKNOWN"));
+    const std::string tag(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"));
+    const std::string tt_app_dept_info = traffic_type + "(" + nested_appname + ":" + appname
+                                         + "/" + app_category +  ")" + "::" + department + "::";
     //username => syslog.username or syslog.source-address
     std::string username(SyslogParser::GetMapVals(v, "username", "UNKNOWN"));
     if (boost::iequals(username, "unknown")) {
         username = SyslogParser::GetMapVals(v, "source-address", "UNKNOWN");
     }
-    const std::string department(SyslogParser::GetMapVals(v, "source-zone-name", "UNKNOWN"));
-    const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+    bool is_close = boost::equals(tag, "APPTRACK_SESSION_CLOSE");
+    sdwanmetricrecord.set_name(uvename);
+    sdwantenantmetricrecord.set_name(tenantuvename);
+    std::string link1, link2, underlay_link1, underlay_link2;
+    int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
+    int64_t link2_bytes = SyslogParser::GetMapVal(v, "uplink-rx-bytes", -1);
+    int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
+    if (link1_bytes == -1)
+        link1_bytes = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
+    if (link2_bytes == -1)
+        link2_bytes = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
 
-    const std::string uvename= tenant + "::" + location + "::" + device_id;
-    apprecord.set_name(uvename);
-
-    std::string appgroup = SyslogParser::GetMapVals(v, "app-groups", "UNKNOWN");
-    std::string nested_appname = SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN");
-    std::string appname = SyslogParser::GetMapVals(v, "application", "UNKNOWN");
-    std::string app_dept_info;
-    if (boost::iequals(appgroup, "unknown")) {
-        app_dept_info = nested_appname + "(" + appname + "/" + app_category + ")::" + department + "::";
+    if (is_close) {
+        link1 = (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+        link2 = (SyslogParser::GetMapVals(v, "uplink-incoming-interface-name", link1));
+        underlay_link1 = (SyslogParser::GetMapVals(v, "underlay-destination-interface-name", link1));
+        underlay_link2 = (SyslogParser::GetMapVals(v, "underlay-uplink-incoming-interface-name", link2));
+        LOG(DEBUG,"UVE: underlay_link1 :" << underlay_link1);
+        LOG(DEBUG,"UVE: underlay_link2 :" << underlay_link2);
     } else {
-        app_dept_info = appgroup + "(" + nested_appname + ":" + appname + "/" + app_category +  ")" + "::" + department + "::";
+        link1 = (SyslogParser::GetMapVals(v, "last-destination-interface-name", "UNKNOWN"));
+        link2 = (SyslogParser::GetMapVals(v, "last-incoming-interface-name", "UNKNOWN"));
+        underlay_link1 = (SyslogParser::GetMapVals(v, "underlay-last-destination-interface-name", link1));
+        underlay_link2 = (SyslogParser::GetMapVals(v, "underlay-last-incoming-interface-name", link2));
+        LOG(DEBUG,"UVE: underlay_link1 :" << underlay_link1);
+        LOG(DEBUG,"UVE: underlay_link2 :" << underlay_link2);
     }
-    if (boost::equals(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"), "APPTRACK_SESSION_CLOSE")) {
-        AppMetrics appmetric;
-        appmetric.set_total_bytes(SyslogParser::GetMapVal(v, "total-bytes", 0));
-        appmetric.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
-        appmetric.set_session_count(1);
-        // Map 1:  app_metric_sla
-        std::map<std::string, AppMetrics> appmetric_sla;
-        std::string slamap_key(app_dept_info + sla_profile);
-        LOG(DEBUG,"UVE: slamap key :" << slamap_key);
-        appmetric_sla.insert(std::make_pair(slamap_key, appmetric));
-        apprecord.set_app_metrics_sla(appmetric_sla);
-        // Map 3:  app_metric_user: forward only if flag is true
+    SDWANMetrics_diff sdwanmetric;
+    if (is_close) {
+        int64_t output_pkts = SyslogParser::GetMapVal(v, "packets-from-client", 0);
+        int64_t input_pkts = SyslogParser::GetMapVal(v, "packets-from-server", 0);
+        sdwanmetric.set_total_pkts(input_pkts + output_pkts);
+        sdwanmetric.set_input_pkts(input_pkts);
+        sdwanmetric.set_output_pkts(output_pkts);
+        sdwanmetric.set_total_bytes(SyslogParser::GetMapVal(v, "total-bytes", 0));
+        sdwanmetric.set_output_bytes(SyslogParser::GetMapVal(v, "bytes-from-client", 0));
+        sdwanmetric.set_input_bytes(SyslogParser::GetMapVal(v, "bytes-from-server", 0));
+        sdwanmetric.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
+        sdwanmetric.set_session_count(1);
+
+        // Map: app_metrics_diff_sla
+        std::map<std::string, SDWANMetrics_diff> app_metrics_diff_sla;
+        std::string slamap_key(tt_app_dept_info + sla_profile);
+        LOG(DEBUG,"UVE: app_metrics_diff_sla key :" << slamap_key);
+        app_metrics_diff_sla.insert(std::make_pair(slamap_key, sdwanmetric));
+        sdwanmetricrecord.set_app_metrics_diff_sla(app_metrics_diff_sla);
+
+        // Map: app_metrics_diff_user
         if (summarize_user == true) {
-            std::map<std::string, AppMetrics> appmetric_user;
-            std::string usermap_key(app_dept_info + username);
-            LOG(DEBUG,"UVE: usermap key :" << usermap_key);
-            appmetric_user.insert(std::make_pair(usermap_key, appmetric));
-            apprecord.set_app_metrics_user(appmetric_user);
+            std::map<std::string, SDWANMetrics_diff> app_metrics_diff_user;
+            std::string usermap_key(tt_app_dept_info + username);
+            LOG(DEBUG,"UVE: app_metrics_diff_user key :" << usermap_key);
+            app_metrics_diff_user.insert(std::make_pair(usermap_key, sdwanmetric));
+            sdwanmetricrecord.set_app_metrics_diff_user(app_metrics_diff_user);
+        }
+        // Map: tenant_metrics_diff_sla
+        std::map<std::string, SDWANMetrics_diff> tenant_metrics_diff_sla;
+        std::string tenantmetric_key(location + "::" + sla_profile + "::" + traffic_type);
+        LOG(DEBUG,"UVE: tenant_metrics_diff_sla key :" << tenantmetric_key);
+        tenant_metrics_diff_sla.insert(std::make_pair(tenantmetric_key, sdwanmetric));
+        sdwantenantmetricrecord.set_tenant_metrics_diff_sla(tenant_metrics_diff_sla);
+        SDWANTenantMetrics::Send(sdwantenantmetricrecord, "ObjectCPETable");
+    }
+    // Map: app_metrics_diff_link
+    // Map: link_metrics_diff_traffic_type
+    // Map: link_metrics_dial_traffic_type
+    SDWANMetrics_diff sdwanmetric1;
+    SDWANMetrics_diff sdwanmetric2;
+    SDWANMetrics_dial sdwanmetric_dial1;
+    SDWANMetrics_dial sdwanmetric_dial2;
+    std::map<std::string, SDWANMetrics_diff> app_metrics_diff_link;
+    std::map<std::string, SDWANMetrics_diff> link_metrics_diff_traffic_type;
+    std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
+    if (boost::equals(link1, link2)) {
+        sdwanmetric1.set_total_bytes(link1_bytes + link2_bytes);
+        sdwanmetric1.set_input_bytes(link2_bytes);
+        sdwanmetric1.set_output_bytes(link1_bytes);
+        if (sampling_percentage != -1) {
+            sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
+        }
+        if (is_close) {
+            sdwanmetric1.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
+            sdwanmetric1.set_session_count(1);
+        }
+        std::string linkmap_key(tt_app_dept_info + link1);
+        std::string linkmetricmap_key(link1 + "::" + sla_profile + "::" + traffic_type);
+        LOG(DEBUG,"UVE: app_metrics_diff_link key :" << linkmap_key);
+        LOG(DEBUG,"UVE: link_metrics_*_traffic_type key :" << linkmetricmap_key);
+        app_metrics_diff_link.insert(std::make_pair(linkmap_key, sdwanmetric1));
+        link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key, sdwanmetric1));
+        sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
+        sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
+        // Map:  link_metrics_dial_traffic_type
+        std::string linkmetrics_key(link1 + "::" + sla_profile + "::" + traffic_type);
+        link_metrics_dial_traffic_type.insert(std::make_pair(linkmetrics_key, sdwanmetric_dial1));
+        sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+
+        // Update maps for underlay links if needed
+        if (!(boost::equals(link1, underlay_link1))) {
+            std::string linkmap_key(tt_app_dept_info + underlay_link1);
+            std::string linkmetricmap_key(underlay_link1 + "::" + sla_profile + "::" + traffic_type);
+            LOG(DEBUG,"UVE: underlay app_metrics_diff_link key :" << linkmap_key);
+            LOG(DEBUG,"UVE: underlay link_metrics_*_traffic_type key :" << linkmetricmap_key);
+            app_metrics_diff_link.insert(std::make_pair(linkmap_key, sdwanmetric1));
+            link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key, sdwanmetric1));
+            sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
+            sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
+            // Map:  link_metrics_dial_traffic_type
+            link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key, sdwanmetric_dial1));
+            sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+        }
+    } else {
+        sdwanmetric1.set_total_bytes(link1_bytes);
+        sdwanmetric1.set_output_bytes(link1_bytes);
+        sdwanmetric1.set_input_bytes(0);
+        sdwanmetric2.set_total_bytes(link2_bytes);
+        sdwanmetric2.set_output_bytes(0);
+        sdwanmetric2.set_input_bytes(link2_bytes);
+        if (sampling_percentage != -1) {
+            sdwanmetric_dial1.set_sampling_percentage(sampling_percentage);
+            sdwanmetric_dial2.set_sampling_percentage(sampling_percentage);
+        }
+        if (is_close) {
+            sdwanmetric1.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
+            sdwanmetric1.set_session_count(1);
+            sdwanmetric2.set_session_duration(SyslogParser::GetMapVal(v, "elapsed-time", 0));
+            sdwanmetric2.set_session_count(1);
+        }
+        std::string linkmap_key1(tt_app_dept_info + link1);
+        std::string linkmap_key2(tt_app_dept_info + link2);
+        std::string linkmetricmap_key1(link1 + "::" + sla_profile + "::" + traffic_type);
+        std::string linkmetricmap_key2(link2 + "::" + sla_profile + "::" + traffic_type);
+        LOG(DEBUG,"UVE: app_metrics_diff_link key1 :" << linkmap_key1);
+        LOG(DEBUG,"UVE: app_metrics_diff_link key2 :" << linkmap_key2);
+        LOG(DEBUG,"UVE: link_metrics_*_traffic_type key1 :" << linkmetricmap_key1);
+        LOG(DEBUG,"UVE: link_metrics_*_traffic_type key2 :" << linkmetricmap_key2);
+        app_metrics_diff_link.insert(std::make_pair(linkmap_key1, sdwanmetric1));
+        app_metrics_diff_link.insert(std::make_pair(linkmap_key2, sdwanmetric2));
+        link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric1));
+        link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric2));
+        sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
+        sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
+        // Map:  link_metrics_dial_traffic_type
+        link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric_dial1));
+        link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric_dial2));
+        sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+
+        // Update maps for underlay links if needed
+        if ((!(boost::equals(link1, underlay_link1))) ||
+           (!(boost::equals(link2, underlay_link2)))) {
+            if (!(boost::equals(link1, underlay_link1))) {
+                std::string linkmap_key1(tt_app_dept_info + underlay_link1);
+                std::string linkmetricmap_key1(underlay_link1 + "::" + sla_profile + "::" + traffic_type);
+                LOG(DEBUG,"UVE: underlay app_metrics_diff_link key1 :" << linkmap_key1);
+                LOG(DEBUG,"UVE: underlay link_metrics_*_traffic_type key1 :" << linkmetricmap_key1);
+                app_metrics_diff_link.insert(std::make_pair(linkmap_key1, sdwanmetric1));
+                link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric1));
+                link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key1, sdwanmetric_dial1));
+            }
+            if ((!(boost::equals(link2, underlay_link2))) &&
+               (!(boost::equals(underlay_link1, underlay_link2)))) {
+                std::string linkmap_key2(tt_app_dept_info + underlay_link2);
+                std::string linkmetricmap_key2(underlay_link2 + "::" + sla_profile + "::" + traffic_type);
+                LOG(DEBUG,"UVE: underlay app_metrics_diff_link key2 :" << linkmap_key2);
+                LOG(DEBUG,"UVE: underlay link_metrics_*_traffic_type key2 :" << linkmetricmap_key2);
+                app_metrics_diff_link.insert(std::make_pair(linkmap_key2, sdwanmetric2));
+                link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric2));
+                link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key2, sdwanmetric_dial2));
+            }
+            sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
+            sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
+            sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
         }
     }
-    if (boost::equals(link1, link2)) {
-        AppMetrics appmetric;
-        appmetric.set_total_bytes(link1_bytes + link2_bytes);
-        // Map 2:  app_metric_link
-        std::map<std::string, AppMetrics> appmetric_link;
-        std::string linkmap_key(app_dept_info + link1);
-        LOG(DEBUG,"UVE: linkmap key :" << linkmap_key);
-        appmetric_link.insert(std::make_pair(linkmap_key, appmetric));
-        apprecord.set_app_metrics_link(appmetric_link);
-    } else {
-        AppMetrics appmetric1;
-        AppMetrics appmetric2;
-        appmetric1.set_total_bytes(link1_bytes);
-        appmetric2.set_total_bytes(link2_bytes);
-        // Map 2:  app_metric_link
-        std::map<std::string, AppMetrics> appmetric_link;
-        std::string linkmap_key1(app_dept_info + link1);
-        std::string linkmap_key2(app_dept_info + link2);
-        LOG(DEBUG,"UVE: linkmap key1 :" << linkmap_key1);
-        LOG(DEBUG,"UVE: linkmap key2 :" << linkmap_key2);
-        appmetric_link.insert(std::make_pair(linkmap_key1, appmetric1));
-        appmetric_link.insert(std::make_pair(linkmap_key2, appmetric2));
-        apprecord.set_app_metrics_link(appmetric_link);
-    }
-    AppTrack::Send(apprecord, "ObjectCPETable");
+    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
     return;
 }
 
+void StructuredSyslogUVESummarizeAppQoePSMR(SyslogParser::syslog_m_t v, bool summarize_user) {
+    SDWANMetricsRecord sdwanmetricrecord;
+    const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
+    const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
+    const std::string link(SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+    const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
+    const std::string app_category(SyslogParser::GetMapVals(v, "app-category", "UNKNOWN"));
+    const std::string department(SyslogParser::GetMapVals(v, "source-zone-name", "UNKNOWN"));
+    const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+    const std::string uvename = tenant + "::" + location + "::" + device_id;
+    const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
+    const std::string nested_appname(SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN"));
+    const std::string appname(SyslogParser::GetMapVals(v, "application", "UNKNOWN"));
+    const std::string tt_app_dept_info = traffic_type + "(" + nested_appname + ":" + appname
+                                         + "/" + app_category +  ")" + "::" + department + "::";
+    //username => syslog.username or syslog.source-address
+    std::string username(SyslogParser::GetMapVals(v, "username", "UNKNOWN"));
+    if (boost::iequals(username, "unknown")) {
+        username = SyslogParser::GetMapVals(v, "source-address", "UNKNOWN");
+    }
+    sdwanmetricrecord.set_name(uvename);
+    SDWANMetrics_dial sdwanmetric;
+    int64_t pkt_loss = SyslogParser::GetMapVal(v, "pkt-loss", -1);
+    int64_t rtt = SyslogParser::GetMapVal(v, "rtt", -1);
+    int64_t rtt_jitter = SyslogParser::GetMapVal(v, "rtt-jitter", -1);
+    int64_t egress_jitter = SyslogParser::GetMapVal(v, "egress-jitter", -1);
+    int64_t ingress_jitter = SyslogParser::GetMapVal(v, "ingress-jitter", -1);
+    int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
+    if (rtt != -1) {
+        sdwanmetric.set_rtt(rtt);
+    }
+    if (rtt_jitter != -1) {
+        sdwanmetric.set_rtt_jitter(rtt_jitter);
+    }
+    if (egress_jitter != -1) {
+        sdwanmetric.set_egress_jitter(egress_jitter);
+    }
+    if (ingress_jitter != -1) {
+        sdwanmetric.set_ingress_jitter(ingress_jitter);
+    }
+    if (pkt_loss != -1) {
+        sdwanmetric.set_pkt_loss(pkt_loss);
+    }
+    if (sampling_percentage != -1) {
+        sdwanmetric.set_sampling_percentage(sampling_percentage);
+    }
+    // Map:  app_metrics_dial_sla
+    std::map<std::string, SDWANMetrics_dial> app_metrics_dial_sla;
+    std::string slamap_key(tt_app_dept_info + sla_profile);
+    LOG(DEBUG,"UVE: app_metrics_dial_sla key :" << slamap_key);
+    app_metrics_dial_sla.insert(std::make_pair(slamap_key, sdwanmetric));
+    sdwanmetricrecord.set_app_metrics_dial_sla(app_metrics_dial_sla);
+    // Map:  app_metrics_dial_user
+    if (summarize_user == true) {
+        std::map<std::string, SDWANMetrics_dial> app_metrics_dial_user;
+        std::string usermap_key(tt_app_dept_info + username);
+        LOG(DEBUG,"UVE: app_metrics_dial_user key :" << usermap_key);
+        app_metrics_dial_user.insert(std::make_pair(usermap_key, sdwanmetric));
+        sdwanmetricrecord.set_app_metrics_dial_user(app_metrics_dial_user);
+    }
+    // Map:  app_metrics_dial_link
+    std::map<std::string, SDWANMetrics_dial> app_metrics_dial_link;
+    std::string linkmap_key(tt_app_dept_info + link);
+    LOG(DEBUG,"UVE: app_metrics_dial_link key :" << linkmap_key);
+    app_metrics_dial_link.insert(std::make_pair(linkmap_key, sdwanmetric));
+    sdwanmetricrecord.set_app_metrics_dial_link(app_metrics_dial_link);
+
+    // Map:  link_metrics_dial_traffic_type
+    std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
+    std::string linkmetric_key(link + "::" + sla_profile + "::" + traffic_type);
+    LOG(DEBUG,"UVE: link_metrics_dial_traffic_type key :" << linkmetric_key);
+    link_metrics_dial_traffic_type.insert(std::make_pair(linkmetric_key, sdwanmetric));
+    sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+
+    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
+    return;
+}
+
+void StructuredSyslogUVESummarizeAppQoeBPS(SyslogParser::syslog_m_t v, bool summarize_user) {
+    SDWANMetricsRecord sdwanmetricrecord;
+    SDWANTenantMetricsRecord sdwantenantmetricrecord;
+    const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
+    const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
+    const std::string link(SyslogParser::GetMapVals(v, "previous-interface", "UNKNOWN"));
+    const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
+    const std::string app_category(SyslogParser::GetMapVals(v, "app-category", "UNKNOWN"));
+    const std::string department(SyslogParser::GetMapVals(v, "source-zone-name", "UNKNOWN"));
+    const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+    const std::string region(SyslogParser::GetMapVals(v, "region", "DEFAULT"));
+    const std::string uvename = tenant + "::" + location + "::" + device_id;
+    const std::string tenantuvename = region + "::" + tenant;
+    const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
+    const std::string nested_appname(SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN"));
+    const std::string appname(SyslogParser::GetMapVals(v, "application", "UNKNOWN"));
+    const std::string tt_app_dept_info = traffic_type + "(" + nested_appname + ":" + appname
+                                         + "/" + app_category +  ")" + "::" + department + "::";
+    //username => syslog.username or syslog.source-address
+    std::string username(SyslogParser::GetMapVals(v, "username", "UNKNOWN"));
+    if (boost::iequals(username, "unknown")) {
+        username = SyslogParser::GetMapVals(v, "source-address", "UNKNOWN");
+    }
+    sdwanmetricrecord.set_name(uvename);
+    sdwantenantmetricrecord.set_name(tenantuvename);
+
+    SDWANMetrics_diff sdwanmetric;
+    sdwanmetric.set_session_switch_count(1);
+
+    // Map: app_metrics_diff_sla
+    std::map<std::string, SDWANMetrics_diff> app_metrics_diff_sla;
+    std::string slamap_key(tt_app_dept_info + sla_profile);
+    LOG(DEBUG,"UVE: app_metrics_diff_sla key :" << slamap_key);
+    app_metrics_diff_sla.insert(std::make_pair(slamap_key, sdwanmetric));
+    sdwanmetricrecord.set_app_metrics_diff_sla(app_metrics_diff_sla);
+
+    // Map: app_metrics_diff_user
+    if (summarize_user == true) {
+        std::map<std::string, SDWANMetrics_diff> app_metrics_diff_user;
+        std::string usermap_key(tt_app_dept_info + username);
+        LOG(DEBUG,"UVE: app_metrics_diff_user key :" << usermap_key);
+        app_metrics_diff_user.insert(std::make_pair(usermap_key, sdwanmetric));
+        sdwanmetricrecord.set_app_metrics_diff_user(app_metrics_diff_user);
+    }
+
+    // Map: app_metrics_diff_link
+    std::map<std::string, SDWANMetrics_diff> app_metrics_diff_link;
+    std::string linkmap_key(tt_app_dept_info + link);
+    LOG(DEBUG,"UVE: app_metrics_diff_link key :" << linkmap_key);
+    app_metrics_diff_link.insert(std::make_pair(linkmap_key, sdwanmetric));
+    sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
+
+    // Map: tenant_metrics_diff_sla
+    std::map<std::string, SDWANMetrics_diff> tenant_metrics_diff_sla;
+    std::string tenantmetric_key(location + "::" + sla_profile + "::" + traffic_type);
+    LOG(DEBUG,"UVE: tenant_metrics_diff_sla key :" << tenantmetric_key);
+    tenant_metrics_diff_sla.insert(std::make_pair(tenantmetric_key, sdwanmetric));
+    sdwantenantmetricrecord.set_tenant_metrics_diff_sla(tenant_metrics_diff_sla);
+
+    // Map: link_metrics_diff_traffic_type
+    std::map<std::string, SDWANMetrics_diff> link_metrics_diff_traffic_type;
+    std::string linkmetricmap_key(link + "::" + sla_profile + "::" + traffic_type);
+    LOG(DEBUG,"UVE: link_metrics_diff_traffic_type key :" << linkmetricmap_key);
+    link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key, sdwanmetric));
+    sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
+
+    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
+    SDWANTenantMetrics::Send(sdwantenantmetricrecord, "ObjectCPETable");
+
+    return;
+}
+
+void StructuredSyslogUVESummarizeAppQoeSMV(SyslogParser::syslog_m_t v, bool summarize_user) {
+    SDWANMetricsRecord sdwanmetricrecord;
+    SDWANTenantMetricsRecord sdwantenantmetricrecord;
+    const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
+    const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
+    const std::string link(SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+    const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
+    const std::string app_category(SyslogParser::GetMapVals(v, "app-category", "UNKNOWN"));
+    const std::string department(SyslogParser::GetMapVals(v, "source-zone-name", "UNKNOWN"));
+    const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+    const std::string region(SyslogParser::GetMapVals(v, "region", "DEFAULT"));
+    const std::string uvename = tenant + "::" + location + "::" + device_id;
+    const std::string tenantuvename = region + "::" + tenant;
+    const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
+    const std::string nested_appname(SyslogParser::GetMapVals(v, "nested-application", "UNKNOWN"));
+    const std::string appname(SyslogParser::GetMapVals(v, "application", "UNKNOWN"));
+    const std::string tt_app_dept_info = traffic_type + "(" + nested_appname + ":" + appname
+                                         + "/" + app_category +  ")" + "::" + department + "::";
+    //username => syslog.username or syslog.source-address
+    std::string username(SyslogParser::GetMapVals(v, "username", "UNKNOWN"));
+    if (boost::iequals(username, "unknown")) {
+        username = SyslogParser::GetMapVals(v, "source-address", "UNKNOWN");
+    }
+    sdwanmetricrecord.set_name(uvename);
+    sdwantenantmetricrecord.set_name(tenantuvename);
+
+    SDWANMetrics_diff sdwanmetric;
+    SDWANMetrics_dial sdwanmetric_dial;
+    int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
+    if (sampling_percentage != -1) {
+        sdwanmetric_dial.set_sampling_percentage(sampling_percentage);
+    }
+    int64_t violation_reason = SyslogParser::GetMapVal(v, "violation-reason", -1);
+    if (violation_reason > 0) {
+        sdwanmetric.set_sla_violation_count(1);
+        if (SyslogParser::GetMapVal(v, "jitter-violation-count", 0) != 0) {
+            sdwanmetric.set_jitter_violation_count(1);
+        }
+        else if (SyslogParser::GetMapVal(v, "rtt-violation-count", 0) != 0) {
+            sdwanmetric.set_rtt_violation_count(1);
+        }
+        else if (SyslogParser::GetMapVal(v, "pkt-loss-violation-count", 0) != 0) {
+            sdwanmetric.set_pkt_loss_violation_count(1);
+        }
+    }
+    else if (violation_reason == 0) {
+        sdwanmetric.set_sla_violation_duration(SyslogParser::GetMapVal(v, "violation-duration", 0));
+    }
+    else {
+        return;
+    }
+
+    // Map: app_metrics_*_sla
+    std::map<std::string, SDWANMetrics_diff> app_metrics_diff_sla;
+    std::map<std::string, SDWANMetrics_dial> app_metrics_dial_sla;
+    std::string slamap_key(tt_app_dept_info + sla_profile);
+    LOG(DEBUG,"UVE: app_metrics_*_sla key :" << slamap_key);
+    app_metrics_diff_sla.insert(std::make_pair(slamap_key, sdwanmetric));
+    app_metrics_dial_sla.insert(std::make_pair(slamap_key, sdwanmetric_dial));
+    sdwanmetricrecord.set_app_metrics_diff_sla(app_metrics_diff_sla);
+    sdwanmetricrecord.set_app_metrics_dial_sla(app_metrics_dial_sla);
+
+    // Map: app_metrics_*_user
+    if (summarize_user == true) {
+        std::map<std::string, SDWANMetrics_diff> app_metrics_diff_user;
+        std::map<std::string, SDWANMetrics_dial> app_metrics_dial_user;
+        std::string usermap_key(tt_app_dept_info + username);
+        LOG(DEBUG,"UVE: app_metrics_*_user key :" << usermap_key);
+        app_metrics_diff_user.insert(std::make_pair(usermap_key, sdwanmetric));
+        app_metrics_dial_user.insert(std::make_pair(usermap_key, sdwanmetric_dial));
+        sdwanmetricrecord.set_app_metrics_diff_user(app_metrics_diff_user);
+        sdwanmetricrecord.set_app_metrics_dial_user(app_metrics_dial_user);
+    }
+    // Map: app_metrics_*_link
+    std::map<std::string, SDWANMetrics_diff> app_metrics_diff_link;
+    std::map<std::string, SDWANMetrics_dial> app_metrics_dial_link;
+    std::string linkmap_key(tt_app_dept_info + link);
+    LOG(DEBUG,"UVE: app_metrics_*_link key :" << linkmap_key);
+    app_metrics_diff_link.insert(std::make_pair(linkmap_key, sdwanmetric));
+    app_metrics_dial_link.insert(std::make_pair(linkmap_key, sdwanmetric_dial));
+    sdwanmetricrecord.set_app_metrics_diff_link(app_metrics_diff_link);
+    sdwanmetricrecord.set_app_metrics_dial_link(app_metrics_dial_link);
+
+    // Map: tenant_metrics_*_sla
+    std::map<std::string, SDWANMetrics_diff> tenant_metrics_diff_sla;
+    std::map<std::string, SDWANMetrics_dial> tenant_metrics_dial_sla;
+    std::string tenantmetric_key(location + "::" + sla_profile + "::" + traffic_type);
+    LOG(DEBUG,"UVE: tenant_metrics_*_sla key :" << tenantmetric_key);
+    tenant_metrics_diff_sla.insert(std::make_pair(tenantmetric_key, sdwanmetric));
+    tenant_metrics_dial_sla.insert(std::make_pair(tenantmetric_key, sdwanmetric_dial));
+    sdwantenantmetricrecord.set_tenant_metrics_diff_sla(tenant_metrics_diff_sla);
+    sdwantenantmetricrecord.set_tenant_metrics_dial_sla(tenant_metrics_dial_sla);
+
+    // Map: link_metrics_*_traffic_type
+    std::map<std::string, SDWANMetrics_diff> link_metrics_diff_traffic_type;
+    std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
+    std::string linkmetricmap_key(link + "::" + sla_profile + "::" + traffic_type);
+    LOG(DEBUG,"UVE: link_metrics_*_traffic_type key :" << linkmetricmap_key);
+    link_metrics_diff_traffic_type.insert(std::make_pair(linkmetricmap_key, sdwanmetric));
+    link_metrics_dial_traffic_type.insert(std::make_pair(linkmetricmap_key, sdwanmetric_dial));
+    sdwanmetricrecord.set_link_metrics_diff_traffic_type(link_metrics_diff_traffic_type);
+    sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+
+    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
+    SDWANTenantMetrics::Send(sdwantenantmetricrecord, "ObjectCPETable");
+
+    return;
+}
+
+float calculate_link_score(int64_t latency, int64_t packet_loss, int64_t jitter) {
+    float effective_latency, r_factor, mos ;
+    // Step-1: Calculate EffectiveLatency = (AvgLatency + 2*AvgPositiveJitter + 10)
+    effective_latency = (latency + (2*jitter) +10);
+    // Step-2: Calculate Intermediate R-Value
+    if (effective_latency < 160){
+        r_factor = 93.2 - (effective_latency/40);
+    }
+    else {
+        r_factor = 93.2 - (effective_latency -120)/10;
+    }
+    // Step-3: Adjust R-Value for PacketLoss
+    r_factor =  r_factor - (packet_loss*2.5);
+    // Step-4: Calculate MeanOpinionScore
+    if (r_factor< 0 ){
+        mos = 1;
+    }
+    else if ((r_factor > 0) && (r_factor < 100)) {
+        mos = 1 + (0.035) * r_factor + (0.000007) * r_factor * (r_factor-60) * (100-r_factor);
+    }
+    else {
+        mos = 4.5;
+    }
+    LOG(DEBUG, "Calculated Mean Opinion Score (link_score) for sla params is : " << mos);
+    return (mos *20);
+}
+
+void StructuredSyslogUVESummarizeAppQoeASMR(SyslogParser::syslog_m_t v, bool summarize_user) {
+    SDWANMetricsRecord sdwanmetricrecord;
+    const std::string location(SyslogParser::GetMapVals(v, "location", "UNKNOWN"));
+    const std::string tenant(SyslogParser::GetMapVals(v, "tenant", "UNKNOWN"));
+    const std::string link(SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
+    const std::string sla_profile(SyslogParser::GetMapVals(v, "sla-profile", "UNKNOWN"));
+    const std::string device_id(SyslogParser::GetMapVals(v, "device", "UNKNOWN"));
+    const std::string uvename = tenant + "::" + location + "::" + device_id;
+    const std::string traffic_type(SyslogParser::GetMapVals(v, "active-probe-params", "UNKNOWN"));
+    sdwanmetricrecord.set_name(uvename);
+    SDWANMetrics_dial sdwanmetric;
+    int64_t pkt_loss = SyslogParser::GetMapVal(v, "pkt-loss", -1);
+    int64_t rtt = SyslogParser::GetMapVal(v, "rtt", -1);
+    int64_t rtt_jitter = SyslogParser::GetMapVal(v, "rtt-jitter", -1);
+    int64_t egress_jitter = SyslogParser::GetMapVal(v, "egress-jitter", -1);
+    int64_t ingress_jitter = SyslogParser::GetMapVal(v, "ingress-jitter", -1);
+    if (rtt != -1) {
+        sdwanmetric.set_rtt(rtt);
+    }
+    if (rtt_jitter != -1) {
+        sdwanmetric.set_rtt_jitter(rtt_jitter);
+    }
+    if (egress_jitter != -1) {
+        sdwanmetric.set_egress_jitter(egress_jitter);
+    }
+    if (ingress_jitter != -1) {
+        sdwanmetric.set_ingress_jitter(ingress_jitter);
+    }
+    if (pkt_loss != -1) {
+        sdwanmetric.set_pkt_loss(pkt_loss);
+    }
+    if ((rtt != -1) && (rtt_jitter != -1) && (pkt_loss != -1)) {
+        sdwanmetric.set_score((int64_t)calculate_link_score(rtt*2, pkt_loss, rtt_jitter));
+    }
+    // Map:  link_metrics_dial_traffic_type
+    std::map<std::string, SDWANMetrics_dial> link_metrics_dial_traffic_type;
+    std::string linkmap_key(link + "::" + sla_profile + "::" + traffic_type);
+    LOG(DEBUG,"UVE: link_metrics_dial_traffic_type key :" << linkmap_key);
+    link_metrics_dial_traffic_type.insert(std::make_pair(linkmap_key, sdwanmetric));
+    sdwanmetricrecord.set_link_metrics_dial_traffic_type(link_metrics_dial_traffic_type);
+
+    SDWANMetrics::Send(sdwanmetricrecord, "ObjectCPETable");
+    return;
+}
+
+void StructuredSyslogUVESummarize(SyslogParser::syslog_m_t v, bool summarize_user) {
+    const std::string tag(SyslogParser::GetMapVals(v, "tag", "UNKNOWN"));
+    LOG(DEBUG,"UVE: Summarizing " << tag << " as UVE with flag summarize_user:" << summarize_user);
+    if (boost::equals(tag, "APPTRACK_SESSION_CLOSE")) {
+        StructuredSyslogUVESummarizeData(v, summarize_user);
+    }
+    else if (boost::equals(tag, "RT_FLOW_NEXTHOP_CHANGE")) {
+        StructuredSyslogUVESummarizeData(v, summarize_user);
+    }
+    else if (boost::equals(tag, "APPQOE_BEST_PATH_SELECTED")) {
+        StructuredSyslogUVESummarizeAppQoeBPS(v, summarize_user);
+    }
+    else if (boost::equals(tag, "APPQOE_PASSIVE_SLA_METRIC_REPORT")) {
+        StructuredSyslogUVESummarizeAppQoePSMR(v, summarize_user);
+    }
+    else if (boost::equals(tag, "APPQOE_ACTIVE_SLA_METRIC_REPORT")) {
+        StructuredSyslogUVESummarizeAppQoeASMR(v, summarize_user);
+    }
+    else if (boost::equals(tag, "APPQOE_SLA_METRIC_VIOLATION")) {
+        StructuredSyslogUVESummarizeAppQoeSMV(v, summarize_user);
+    }
+}
+
 void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConfig *config_obj,
-                               boost::shared_ptr<std::string> msg) {
+                               boost::shared_ptr<std::string> msg, std::vector<std::string> int_fields) {
 
     int64_t from_client = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
     int64_t from_server = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
@@ -445,6 +909,27 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
     SyslogParser::Holder("location", "UNKNOWN")));
     v.insert(std::pair<std::string, SyslogParser::Holder>("device",
     SyslogParser::Holder("device", "UNKNOWN")));
+    /* get sla-profile from rule-name or sla-rule */
+    /* rule-name="r_apbr_d_ENG_p_Intent-1_s_sla-profile1" */
+    std::string sla_profile = SyslogParser::GetMapVals(v, "sla-rule", "");
+    if (sla_profile.empty()) {
+        std::string rn = SyslogParser::GetMapVals(v, "rule-name", "");
+        if (!rn.empty()) {
+            size_t start = rn.find_last_of('_');
+            if (start != string::npos) {
+                sla_profile = rn.substr(start+1);
+            }
+            else {
+                sla_profile = "DEFAULT";
+            }
+        }
+        else {
+            sla_profile = "DEFAULT";
+        }
+    }
+    v.insert(std::pair<std::string, SyslogParser::Holder>("sla-profile",
+    SyslogParser::Holder("sla-profile", sla_profile)));
+    prev_pos = DecorateMsg(msg, "sla-profile", sla_profile, prev_pos);
 
     if (config_obj != NULL) {
         std::string hn = SyslogParser::GetMapVals(v, "hostname", "");
@@ -491,59 +976,12 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
             v.insert(std::pair<std::string, SyslogParser::Holder>("app-risk",
             SyslogParser::Holder("app-risk", "UNKNOWN")));
 
-            std::string rule = SyslogParser::GetMapVals(v, "rule-name", "None");
-            std::string profile = SyslogParser::GetMapVals(v, "profile-name", "None");
-            std::string rule_ar_name = tenant + '/' + profile + '/' + rule + '/' + device + '/' + an;
             boost::shared_ptr<ApplicationRecord> ar;
-            boost::shared_ptr<TenantApplicationRecord> rar =
-                    config_obj->GetTenantApplicationRecord(rule_ar_name);
-            if (rar == NULL) {
-                rule_ar_name = tenant + '/' + profile + '/' + rule + '/' + device + "/*";
-                rar = config_obj->GetTenantApplicationRecord(rule_ar_name);
+            ar = config_obj->GetApplicationRecord(an);
+            if (ar == NULL) {
+                ar = config_obj->GetApplicationRecord("*");
             }
-            if (rar == NULL) {
-                ar = config_obj->GetApplicationRecord(an);
-                if (ar == NULL) {
-                    ar = config_obj->GetApplicationRecord("*");
-                }
-            }
-            if (rar != NULL) {
-                LOG(DEBUG, "StructuredSyslogDecorate device application record: " << rule_ar_name);
-                const std::string tenant_app_category = rar->tenant_app_category();
-                if (!tenant_app_category.empty()) {
-                    v.erase("app-category");
-                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-category",
-                    SyslogParser::Holder("app-category", tenant_app_category)));
-                    prev_pos = DecorateMsg(msg, "app-category", tenant_app_category, prev_pos);
-                }
-                const std::string tenant_app_subcategory = rar->tenant_app_subcategory();
-                if (!tenant_app_subcategory.empty()) {
-                    v.erase("app-subcategory");
-                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-subcategory",
-                    SyslogParser::Holder("app-subcategory", tenant_app_subcategory)));
-                    prev_pos = DecorateMsg(msg, "app-subcategory", tenant_app_subcategory, prev_pos);
-                }
-                const std::string tenant_app_groups = rar->tenant_app_groups();
-                if (!tenant_app_groups.empty()) {
-                    v.erase("app-groups");
-                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-groups",
-                    SyslogParser::Holder("app-groups", tenant_app_groups)));
-                    prev_pos = DecorateMsg(msg, "app-groups", tenant_app_groups, prev_pos);
-                }
-                const std::string tenant_app_risk = rar->tenant_app_risk();
-                if (!tenant_app_risk.empty()) {
-                    v.erase("app-risk");
-                    v.insert(std::pair<std::string, SyslogParser::Holder>("app-risk",
-                    SyslogParser::Holder("app-risk", tenant_app_risk)));
-                    prev_pos = DecorateMsg(msg, "app-risk", tenant_app_risk, prev_pos);
-                }
-                const std::string tenant_app_service_tags = rar->tenant_app_service_tags();
-                if (!tenant_app_service_tags.empty()) {
-                    std::vector< std::string >  ints;
-                    ParseStructuredPart(&v, tenant_app_service_tags, ints, msg);
-                }
-            }
-            else if (ar != NULL) {
+            if (ar != NULL) {
                 LOG(DEBUG, "StructuredSyslogDecorate application record: " << an);
                 const std::string app_category = ar->app_category();
                 if (!app_category.empty()) {
@@ -575,8 +1013,7 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
                 }
                 const std::string app_service_tags = ar->app_service_tags();
                 if (!app_service_tags.empty()) {
-                    std::vector< std::string >  ints;
-                    ParseStructuredPart(&v, app_service_tags, ints, msg);
+                    ParseStructuredPart(&v, app_service_tags, int_fields, msg);
                 }
             } else {
                 LOG(ERROR, "StructuredSyslogDecorate: Application Record not found for: " << an);
@@ -623,11 +1060,24 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
   do {
       SyslogParser::syslog_m_t v;
       end = start + 1;
-      while ((*(p + end - 1) != ']') && (end < len))
+
+      while ((*(p + end - 1) != ' ') && (end < len))
         ++end;
 
-      if ((end == len) && (sess_buf != NULL)) {
-       sess_buf->append(std::string(p + start, p + end));
+      /* use prepended msg len to find the end of msg, if it exists */
+      if (end != len) {
+          std::string mlenstr = std::string(p + start, p + end);
+          long int mlen = strtol(mlenstr.c_str(), NULL, 10);
+          if (mlen != 0) {
+            end += mlen;
+          } else {
+              while ((*(p + end - 1) != ']') && (end < len))
+                ++end;
+          }
+      }
+
+      if (((end > len) || ((end == len) && (*(p + end - 1) != ']'))) && (sess_buf != NULL)) {
+       sess_buf->append(std::string(p + start, p + len));
        LOG(DEBUG, "structured_syslog next sess_buf: " << *sess_buf);
        return true;
       }
@@ -651,7 +1101,11 @@ bool ProcessStructuredSyslog(const uint8_t *data, size_t len,
           {
             LOG(DEBUG, "structured_syslog not handled");
           }
-          start += message_len;
+          if (message_len == (int)len) {
+            start = end + 1;
+          } else {
+            start += message_len;
+          }
       } else {
           LOG(ERROR, "structured_syslog parse failed for: " << std::string(p + start, p + end));
           start = end;
