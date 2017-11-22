@@ -102,8 +102,8 @@ class BgpProvisioner(object):
             for other_obj in bgp_router_objs:
                 if other_obj.uuid == cur_id:
                     continue
+                cur_obj.add_bgp_router(other_obj, bgp_peering_attrs)
 
-            cur_obj.add_bgp_router(other_obj, bgp_peering_attrs)
         except RefsExistError:
             fq_name=bgp_router_obj.get_fq_name()
             cur_obj = vnc_lib.bgp_router_read(fq_name=fq_name)
