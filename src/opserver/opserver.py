@@ -1549,6 +1549,8 @@ class OpServer(object):
         except redis.exceptions.ConnectionError:
             yield bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
+        except bottle.HTTPResponse:
+            raise
         except Exception as e:
             self._logger.error("Exception: %s" % str(e))
             yield bottle.HTTPError(_ERRORS[errno.EIO],
