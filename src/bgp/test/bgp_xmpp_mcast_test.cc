@@ -593,8 +593,8 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion1) {
     agent_xc_->AddMcastRoute("blue", mroute_list[0], "10.1.1.3", "30000-30000");
     task_util::WaitForIdle();
 
-    // Verify that all native and local routes got added.
-    TASK_UTIL_EXPECT_EQ(4, GetVrfTableSize(bs_x_, "blue"));
+    // Verify that all native, local and global routes got added.
+    TASK_UTIL_EXPECT_EQ(5, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 0 on all agents.
     VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
@@ -653,7 +653,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion2) {
     task_util::WaitForIdle();
 
     // Verify that all native and local routes got added.
-    TASK_UTIL_EXPECT_EQ(4, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(5, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 0 on all agents.
     VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
@@ -712,7 +712,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, LabelExhaustion3) {
     task_util::WaitForIdle();
 
     // Verify that all native and local routes got added.
-    TASK_UTIL_EXPECT_EQ(4, GetVrfTableSize(bs_x_, "blue"));
+    TASK_UTIL_EXPECT_EQ(5, GetVrfTableSize(bs_x_, "blue"));
 
     // Verify all OList elements for route 0 on all agents.
     VerifyOListElem(agent_xa_, "blue", mroute_list[0], 2, "10.1.1.2", agent_xb_);
@@ -1431,7 +1431,7 @@ TEST_F(BgpXmppMcast2ServerTest, SingleAgent) {
     task_util::WaitForIdle();
 
     // Verify number of routes on all agents.
-    TASK_UTIL_EXPECT_EQ(0, agent_xa_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
     TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
 
     // Add mcast route for agent ya.
@@ -1456,7 +1456,7 @@ TEST_F(BgpXmppMcast2ServerTest, SingleAgent) {
 
     // Verify number of routes on all agents.
     TASK_UTIL_EXPECT_EQ(1, agent_xa_->McastRouteCount());
-    TASK_UTIL_EXPECT_EQ(1, agent_ya_->McastRouteCount());
+    TASK_UTIL_EXPECT_EQ(0, agent_ya_->McastRouteCount());
 
     // Delete mcast route for agent xa.
     agent_xa_->DeleteMcastRoute("blue", mroute);
