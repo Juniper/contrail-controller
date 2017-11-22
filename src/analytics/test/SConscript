@@ -28,6 +28,8 @@ env_noWerror_excep.CppEnableExceptions()
 
 collector_uve_request_obj = env.Object('collector_uve_request_skeleton.o',
                                        '../collector_uve_request_skeleton.cpp')
+sdwan_uve_request_obj = env.Object('sdwan_uve_request_skeleton.o',
+                                       '../sdwan_uve_request_skeleton.cpp')
 analytics_request_obj = env.Object('analytics_request_skeleton.o',
                                    '../analytics_request_skeleton.cpp')
 
@@ -140,7 +142,11 @@ structured_syslog_test = structured_syslogEnv.UnitTest('structured_syslog_test',
                                   '../collector_uve_types.o',
                                   '../collector_uve_html.o',
                                   '../collector_uve_constants.o',
+                                  '../sdwan_uve_types.o',
+                                  '../sdwan_uve_html.o',
+                                  '../sdwan_uve_constants.o',
                                   analytics_request_obj,
+                                  sdwan_uve_request_obj,
                                   collector_uve_request_obj])
 structured_syslogEnv.Alias('src/analytics:structured_syslog_test', structured_syslog_test)
 
