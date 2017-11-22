@@ -210,6 +210,25 @@ response sandesh ArpStats {
    12: i32 arp_invalid_address;
 }
 
+struct BfdSandeshStats {
+    1: i32 rx_count;
+    2: i32 tx_count;
+}
+
+/**
+ * Sandesh definition for BfdSandeshSessions
+ */
+struct BfdSandeshSessions {
+    1: string local_address;
+    2: string remote_address;
+    3: string index;
+    4: u32 remote_port;
+    5: string local_status;
+    6: string remote_status;
+    7: BfdSandeshStats stats;
+}
+
+
 /**
  * Response message for BFD stats
  */
@@ -217,6 +236,7 @@ response sandesh BfdStats {
     1: i32 bfd_sent;
     2: i32 bfd_received;
     3: i32 bfd_active_sessions;
+    4: list<BfdSandeshSessions> bfd_sessions;
 }
 
 /**
