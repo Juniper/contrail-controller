@@ -707,6 +707,7 @@ public:
             std::vector<autogen::DhcpOptionType> *options, bool ipv6) const;
     const Peer *peer() const;
     IpAddress GetServiceIp(const IpAddress &ip) const;
+    IpAddress GetGatewayIp(const IpAddress &vm_ip) const;
     void UpdateL2InterfaceRoute(bool old_bridging, bool force_update,
                                 VrfEntry *vrf,
                                 const Ip4Address &old_addr,
