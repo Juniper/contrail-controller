@@ -11,6 +11,7 @@
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/igmp.h>
 
 #include <tbb/atomic.h>
 #include <boost/array.hpp>
@@ -102,7 +103,8 @@ struct PktType {
         ICMPV6,
         NON_IP,
         MESSAGE,
-        SCTP
+        SCTP,
+        IGMP,
     };
 };
 
@@ -229,6 +231,7 @@ public:
         RX_PACKET,
         MAC_LEARNING,
         BFD,
+        IGMP,
         MAX_MODULES
     };
 
@@ -394,6 +397,7 @@ struct PktInfo {
         struct icmp     *icmp;
         struct icmp6_hdr *icmp6;
         struct sctphdr *sctp;
+        struct igmp     *igmp;
     } transp;
 
     PktInfo(Agent *agent, uint32_t buff_len, PktHandler::PktModuleName module,

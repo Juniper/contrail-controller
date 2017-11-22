@@ -51,6 +51,7 @@ private:
     boost::scoped_ptr<Icmpv6Proto> icmpv6_proto_;
     boost::scoped_ptr<IcmpErrorProto> icmp_error_proto_;
     boost::scoped_ptr<Icmpv6ErrorProto> icmpv6_error_proto_;
+    boost::scoped_ptr<IgmpProto> igmp_proto_;
     boost::scoped_ptr<MetadataProxy> metadata_proxy_;
 };
 
@@ -60,5 +61,6 @@ extern SandeshTraceBufferPtr Icmpv6TraceBuf;
 extern SandeshTraceBufferPtr ArpTraceBuf;
 extern SandeshTraceBufferPtr MetadataTraceBuf;
 extern SandeshTraceBufferPtr BfdTraceBuf;
+extern SandeshTraceBufferPtr IgmpTraceBuf;
 
 #endif

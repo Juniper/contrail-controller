@@ -67,6 +67,8 @@ public:
                      uint16_t word1, uint16_t word2);
     void IcmpChecksum(char *buff, uint16_t buf_len);
 
+    void IgmpChecksum(char *buff, uint16_t buf_len);
+
     uint32_t Sum(uint16_t *, std::size_t, uint32_t);
     uint16_t Csum(uint16_t *, std::size_t, uint32_t);
     uint16_t UdpCsum(in_addr_t, in_addr_t, std::size_t, udphdr *);

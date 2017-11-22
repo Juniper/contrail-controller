@@ -29,6 +29,7 @@
 #include "vr_types.h"
 #include "vr_defs.h"
 #include "vr_mpls.h"
+#include "base/logging.h"
 
 #define PKT_TRACE(obj, arg)                                              \
 do {                                                                     \
@@ -49,7 +50,7 @@ PktHandler::PktHandler(Agent *agent, PktModule *pkt_module) :
     work_queue_.set_measure_busy_time(agent_->MeasureQueueDelay());
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (i == PktHandler::DHCP || i == PktHandler::DHCPV6 ||
-            i == PktHandler::DNS)
+            i == PktHandler::DNS || i == PktHandler::IGMP) /* TODO */
             pkt_trace_.at(i).set_pkt_trace_size(512);
         else
             pkt_trace_.at(i).set_pkt_trace_size(128);
@@ -110,7 +111,8 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
     }
 
     uint16_t sport = pkt->sport;
-    if (pkt->ip_proto == IPPROTO_ICMP) {
+    if (pkt->ip_proto == IPPROTO_ICMP ||
+        pkt->ip_proto == IPPROTO_IGMP) {
         sport = 0;
     }
     if (pkt->sport < pkt->dport) {
@@ -266,6 +268,10 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
             return ICMPV6_ERROR;
         }
         return ICMPV6;
+    }
+
+    if (pkt_type == PktType::IGMP) {
+        return IGMP;
     }
 
     if(pkt_info->ip6 && hdr.cmd == AgentHdr::TRAP_HANDLE_DF) {
@@ -524,6 +530,17 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         } else {
             pkt_info->sport = 0;
         }
+        break;
+    }
+
+    case IPPROTO_IGMP: {
+        LOG(DEBUG, "Pkt Handler : igmp packet ");
+        pkt_info->transp.igmp = (struct igmp *) (pkt + len);
+        pkt_type = PktType::IGMP;
+
+        pkt_info->dport = 0;
+        pkt_info->sport = 0;
+        pkt_info->data = (pkt + len);
         break;
     }
 

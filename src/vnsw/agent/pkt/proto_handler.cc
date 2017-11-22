@@ -194,6 +194,11 @@ void ProtoHandler::IcmpChecksum(char *buff, uint16_t buf_len) {
     hdr->icmp_cksum = Csum((uint16_t *)buff, buf_len, 0);
 }
 
+void ProtoHandler::IgmpChecksum(char *buff, uint16_t buf_len) {
+    struct icmp *hdr = ((struct icmp *)buff);
+    hdr->icmp_cksum = Csum((uint16_t *)buff, buf_len, 0);
+}
+
 void ProtoHandler::UdpHdr(udphdr *udp ,uint16_t len, const uint8_t *src,
                           uint16_t src_port, const uint8_t *dest,
                           uint16_t dest_port, uint8_t next_hdr) {
