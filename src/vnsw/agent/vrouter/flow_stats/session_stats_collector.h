@@ -13,6 +13,13 @@ class FlowToSessionMap;
 struct SessionSloRuleEntry;
 class SessionSloState;
 
+extern SandeshTraceBufferPtr SessionStatsTraceBuf;
+
+#define SESSION_STATS_TRACE(obj, ...)\
+do {\
+    SessionStats##obj::TraceMsg(SessionStatsTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
+} while(0);
+
 struct SessionEndpointKey {
 public:
     std::string vmi_cfg_name;
@@ -224,7 +231,9 @@ private:
                              const SessionStatsInfo &sinfo,
                              const SessionFlowExportInfo &einfo,
                              SessionFlowInfo *flow_info) const;
-    void CopyFlowInfoInternal(SessionFlowExportInfo *info, FlowEntry *fe) const;
+    void CopyFlowInfoInternal(SessionFlowExportInfo *info,
+                              const boost::uuids::uuid &u,
+                              FlowEntry *fe) const;
     void CopyFlowInfo(SessionStatsInfo &session,
                       const RevFlowDepParams *params);
     void UpdateAggregateStats(const SessionInfo &sinfo,
