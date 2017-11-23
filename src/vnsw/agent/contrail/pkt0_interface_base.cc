@@ -102,12 +102,9 @@ int Pkt0Interface::Send(uint8_t *buff, uint16_t buff_len,
     buff_list.push_back(boost::asio::buffer(buff, buff_len));
     buff_list.push_back(boost::asio::buffer(pkt->data(), pkt->data_len()));
 
-    input_.async_write_some(buff_list,
-                            boost::bind(&Pkt0Interface::WriteHandler, this,
-                                        boost::asio::placeholders::error,
-                                        boost::asio::placeholders::bytes_transferred,
-                                        pkt, buff));
-    return (buff_len + pkt->data_len());
+    SendImpl(buff, buff_len, pkt, buff_list);
+
+    return buff_len + pkt->data_len();
 }
 
 Pkt0RawInterface::Pkt0RawInterface(const std::string &name,
@@ -120,6 +117,9 @@ Pkt0RawInterface::~Pkt0RawInterface() {
         delete [] read_buff_;
     }
 }
+
+// Pkt0Socket is not supported on Windows
+#ifndef _WIN32
 
 Pkt0Socket::Pkt0Socket(const std::string &name,
     boost::asio::io_service *io):
@@ -258,3 +258,5 @@ void Pkt0Socket::WriteHandler(const boost::system::error_code &error,
     }
     delete [] buff;
 }
+
+#endif // _WIN32
