@@ -105,3 +105,33 @@ void GlobalSystemConfig::ConfigManagerEnqueue(IFMapNode *node) {
 GracefulRestartParameters &GlobalSystemConfig::gres_parameters() {
     return gres_parameters_;
 }
+
+void GlobalSystemConfig::FillSandeshInfo(GlobalSystemConfigResp *resp)
+{
+  BGPaaSSandeshData bgp_params;
+  bgp_params.set_port_start(bgpaas_parameters_.port_start);
+  bgp_params.set_end_port(bgpaas_parameters_.port_end);
+  GracefulRestartSandeshData graceful_restart;
+  graceful_restart.set_enable(gres_parameters_.enable());
+  graceful_restart.set_end_of_rib_time(gres_parameters_.end_of_rib_time());
+  graceful_restart.set_xmpp_helper_enable(gres_parameters_.xmpp_helper_enable());
+  graceful_restart.set_config_seen(gres_parameters_.config_seen());
+  resp->set_bgp_parameters(bgp_params);
+  resp->set_llgr_parameters(graceful_restart);
+}
+
+void GlobalSystemConfigReq::HandleRequest() const {
+    GlobalSystemConfigResp *resp = new GlobalSystemConfigResp();
+    Agent *agent = Agent::GetInstance();
+    GlobalSystemConfig  *global_sys_config = agent->oper_db()->global_system_config();
+    if (!global_sys_config) {
+        resp->set_more(false);
+        resp->Response();
+        return;
+    }
+    resp->set_context(context());
+    global_sys_config->FillSandeshInfo(resp);
+    resp->set_more(false);
+    resp->Response();
+    return;
+}

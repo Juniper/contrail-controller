@@ -60,6 +60,7 @@ public:
     }
     void Reset();
     GracefulRestartParameters &gres_parameters();
+    void FillSandeshInfo(GlobalSystemConfigResp *resp);
 
 private:
     BGPaaServiceParameters bgpaas_parameters_;
