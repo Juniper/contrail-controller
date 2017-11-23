@@ -121,7 +121,11 @@ class STTestCase(test_common.TestCase):
         for addr in addrs:
             if addr["type"] == "vn":
                 vn = addr["value"]
-                rule_kwargs.update({'virtual_network' : vn.get_fq_name_str()})
+                if isinstance(vn, basestring):
+                    rule_kwargs.update({'virtual_network': vn})
+                else:
+                    rule_kwargs.update(
+                            {'virtual_network': vn.get_fq_name_str()})
             elif addr["type"] == "cidr_list":
                 subnets = []
                 for cidr in addr["value"]:

@@ -1430,6 +1430,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 <xsd:element name="virtual-network-network-id" type='VirtualNetworkIdType'/>
+
+<xsd:element name="is-provider-network" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('is-provider-network', 'virtual-network', 'optional', 'R',
+              'provider network status of the virtual-network.') -->
+
+<xsd:element name="virtual-network-network-id" type='xsd:integer'/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-network-network-id', 'virtual-network', 'system-only', 'CR',
               'System assigned unique 32 bit ID for every virtual network.') -->
