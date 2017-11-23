@@ -1,0 +1,179 @@
+/*
+ * Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+ */
+
+/**
+ *  Definitions of structures added by structured syslog collector,
+ *  related to data received in the syslogs from devices
+ */
+
+include "io/io.sandesh"
+include "sandesh/library/common/sandesh_uve.sandesh"
+include "database/gendb.sandesh"
+include "database/cassandra/cql/cql.sandesh"
+include "sandesh/library/common/derived_stats_results.sandesh"
+
+/*
+ * UVE definition for SDWAN metrics from structured syslog messages.
+*/
+
+struct SDWANMetrics_diff {
+      1: optional u64                     session_duration
+      2: optional u64                     session_count
+      3: optional u64                     total_bytes
+      4: optional u64                     input_bytes
+      5: optional u64                     output_bytes
+      6: optional u64                     total_pkts
+      7: optional u64                     input_pkts
+      8: optional u64                     output_pkts
+      9: optional u64                     sla_violation_duration
+     10: optional u64                     sla_violation_count
+     11: optional u64                     session_switch_count
+     12: optional u64                     jitter_violation_count
+     13: optional u64                     rtt_violation_count
+     14: optional u64                     pkt_loss_violation_count
+     15: optional u64                     minor_alarms_raised
+     16: optional u64                     major_alarms_raised
+     17: optional u64                     critical_alarms_raised
+     18: optional u64                     total_alarms_raised
+     19: optional u64                     total_alarms_cleared
+}
+
+struct SDWANMetrics_dial {
+      1: optional u64                     txbps
+      2: optional u64                     rxbps
+      3: optional u64                     rtt
+      4: optional u64                     pkt_loss
+      5: optional u64                     rtt_jitter
+      6: optional u64                     egress_jitter
+      7: optional u64                     ingress_jitter
+      8: optional u64                     sampling_percentage
+      9: optional u64                     score
+}
+
+struct SDWANMetrics_diff_P_ {
+      1: optional SDWANMetrics_diff value (tags="")
+      2: optional SDWANMetrics_diff staging
+}
+
+struct SDWANMetrics_dial_P_ {
+      1: optional SDWANMetrics_dial value (tags="")
+      2: optional SDWANMetrics_dial staging
+}
+
+/*  UVE key -> TENANT::SITE::DEVICE_ID
+*   Eight maps:
+*     1. app_metrics_diff_sla
+*        TRAFFIC-TYPE(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::SLA_PROFILE
+*     2. app_metrics_dial_sla
+*        TRAFFIC-TYPE(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::SLA_PROFILE
+*     3. app_metrics_diff_link
+*        TRAFFIC-TYPE(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::LINK
+*     4. app_metrics_dial_link
+*        TRAFFIC-TYPE(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::LINK
+*     5. app_metrics_diff_user
+*        TRAFFIC-TYPE(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::USER
+*     6. app_metrics_dial_user
+*        TRAFFIC-TYPE(NESTED-APP:APP/APP-CATEGORY)::DEPARTMENT::USER
+*     7. link_metrics_diff_traffic_type
+*        LINK::SLA_PROFILE::TRAFFIC_TYPE
+*     8. link_metrics_dial_traffic_type
+*        LINK::SLA_PROFILE::TRAFFIC_TYPE
+*/
+
+struct SDWANMetricsRecord {
+    1: string                           name (key="ObjectCPETable")
+    2: optional bool                    deleted
+
+    /* app_metrics_diff_sla  */
+    3: optional map<string, SDWANMetrics_diff>      app_metrics_diff_sla (hidden="yes",metric="diff")
+    4: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_sla_3m (mstats="1-app_metrics_diff_sla:DSSum:",tags=".__key")
+    5: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_sla_1h (mstats="20-app_metrics_diff_sla:DSSum:",tags=".__key")
+    6: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_sla_8h (mstats="160-app_metrics_diff_sla:DSSum:",tags=".__key")
+    7: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_sla_1d (mstats="480-app_metrics_diff_sla:DSSum:",tags=".__key")
+
+    /* app_metrics_dial_sla  */
+    8: optional map<string, SDWANMetrics_dial>      app_metrics_dial_sla (hidden="yes",metric="dial")
+    9: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_sla_3m (mstats="1-app_metrics_dial_sla:DSAvg:",tags=".__key")
+   10: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_sla_1h (mstats="20-app_metrics_dial_sla:DSAvg:",tags=".__key")
+   11: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_sla_8h (mstats="160-app_metrics_dial_sla:DSAvg:",tags=".__key")
+   12: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_sla_1d (mstats="480-app_metrics_dial_sla:DSAvg:",tags=".__key")
+
+    /* app_metrics_diff_link  */
+   13: optional map<string, SDWANMetrics_diff>      app_metrics_diff_link (hidden="yes",metric="diff")
+   14: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_link_3m (mstats="1-app_metrics_diff_link:DSSum:",tags=".__key")
+   15: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_link_1h (mstats="20-app_metrics_diff_link:DSSum:",tags=".__key")
+   16: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_link_8h (mstats="160-app_metrics_diff_link:DSSum:",tags=".__key")
+   17: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_link_1d (mstats="480-app_metrics_diff_link:DSSum:",tags=".__key")
+
+    /* app_metrics_dial_link  */
+   18: optional map<string, SDWANMetrics_dial>      app_metrics_dial_link (hidden="yes",metric="dial")
+   19: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_link_3m (mstats="1-app_metrics_dial_link:DSAvg:",tags=".__key")
+   20: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_link_1h (mstats="20-app_metrics_dial_link:DSAvg:",tags=".__key")
+   21: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_link_8h (mstats="160-app_metrics_dial_link:DSAvg:",tags=".__key")
+   22: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_link_1d (mstats="480-app_metrics_dial_link:DSAvg:",tags=".__key")
+
+    /* app_metrics_diff_user  */
+   23: optional map<string, SDWANMetrics_diff>      app_metrics_diff_user (hidden="yes",metric="diff")
+   24: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_user_3m (mstats="1-app_metrics_diff_user:DSSum:",tags=".__key")
+   25: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_user_1h (mstats="20-app_metrics_diff_user:DSSum:",tags=".__key")
+   26: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_user_8h (mstats="160-app_metrics_diff_user:DSSum:",tags=".__key")
+   27: optional map<string, SDWANMetrics_diff_P_>   app_metrics_diff_user_1d (mstats="480-app_metrics_diff_user:DSSum:",tags=".__key")
+
+    /* app_metrics_dial_user  */
+   28: optional map<string, SDWANMetrics_dial>      app_metrics_dial_user (hidden="yes",metric="dial")
+   29: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_user_3m (mstats="1-app_metrics_dial_user:DSAvg:",tags=".__key")
+   30: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_user_1h (mstats="20-app_metrics_dial_user:DSAvg:",tags=".__key")
+   31: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_user_8h (mstats="160-app_metrics_dial_user:DSAvg:",tags=".__key")
+   32: optional map<string, SDWANMetrics_dial_P_>   app_metrics_dial_user_1d (mstats="480-app_metrics_dial_user:DSAvg:",tags=".__key")
+
+    /* link_metrics_diff_traffic_type  */
+   33: optional map<string, SDWANMetrics_diff>      link_metrics_diff_traffic_type (hidden="yes",metric="diff")
+   34: optional map<string, SDWANMetrics_diff_P_>   link_metrics_diff_traffic_type_3m (mstats="1-link_metrics_diff_traffic_type:DSSum:",tags=".__key")
+   35: optional map<string, SDWANMetrics_diff_P_>   link_metrics_diff_traffic_type_1h (mstats="20-link_metrics_diff_traffic_type:DSSum:",tags=".__key")
+   36: optional map<string, SDWANMetrics_diff_P_>   link_metrics_diff_traffic_type_8h (mstats="160-link_metrics_diff_traffic_type:DSSum:",tags=".__key")
+   37: optional map<string, SDWANMetrics_diff_P_>   link_metrics_diff_traffic_type_1d (mstats="480-link_metrics_diff_traffic_type:DSSum:",tags=".__key")
+
+    /* link_metrics_dial_traffic_type  */
+   38: optional map<string, SDWANMetrics_dial>      link_metrics_dial_traffic_type (hidden="yes",metric="dial")
+   39: optional map<string, SDWANMetrics_dial_P_>   link_metrics_dial_traffic_type_3m (mstats="1-link_metrics_dial_traffic_type:DSAvg:",tags=".__key")
+   40: optional map<string, SDWANMetrics_dial_P_>   link_metrics_dial_traffic_type_1h (mstats="20-link_metrics_dial_traffic_type:DSAvg:",tags=".__key")
+   41: optional map<string, SDWANMetrics_dial_P_>   link_metrics_dial_traffic_type_8h (mstats="160-link_metrics_dial_traffic_type:DSAvg:",tags=".__key")
+   42: optional map<string, SDWANMetrics_dial_P_>   link_metrics_dial_traffic_type_1d (mstats="480-link_metrics_dial_traffic_type:DSAvg:",tags=".__key")
+}(period="180")
+
+uve sandesh SDWANMetrics {
+     1: SDWANMetricsRecord              data;
+}
+
+
+/*  UVE key -> REGION::TENANT
+*   Two maps:
+*     1. tenant_metrics_diff_sla
+*         key is => SITE::SLA_PROFILE::TRAFFIC_TYPE
+*     2. tenant_metrics_dial_sla
+*         key is => SITE::SLA_PROFILE::TRAFFIC_TYPE
+*/
+struct SDWANTenantMetricsRecord {
+    1: string                           name (key="ObjectCPETable")
+    2: optional bool                    deleted
+
+    /* tenant_metrics_diff_sla  */
+    3: optional map<string, SDWANMetrics_diff>      tenant_metrics_diff_sla (hidden="yes",metric="diff")
+    4: optional map<string, SDWANMetrics_diff_P_>   tenant_metrics_diff_sla_3m (mstats="1-tenant_metrics_diff_sla:DSSum:",tags=".__key")
+    5: optional map<string, SDWANMetrics_diff_P_>   tenant_metrics_diff_sla_1h (mstats="20-tenant_metrics_diff_sla:DSSum:",tags=".__key")
+    6: optional map<string, SDWANMetrics_diff_P_>   tenant_metrics_diff_sla_8h (mstats="160-tenant_metrics_diff_sla:DSSum:",tags=".__key")
+    7: optional map<string, SDWANMetrics_diff_P_>   tenant_metrics_diff_sla_1d (mstats="480-tenant_metrics_diff_sla:DSSum:",tags=".__key")
+
+    /* tenant_metrics_dial_sla  */
+    8: optional map<string, SDWANMetrics_dial>      tenant_metrics_dial_sla (hidden="yes",metric="dial")
+    9: optional map<string, SDWANMetrics_dial_P_>   tenant_metrics_dial_sla_3m (mstats="1-tenant_metrics_dial_sla:DSAvg:",tags=".__key")
+   10: optional map<string, SDWANMetrics_dial_P_>   tenant_metrics_dial_sla_1h (mstats="20-tenant_metrics_dial_sla:DSAvg:",tags=".__key")
+   11: optional map<string, SDWANMetrics_dial_P_>   tenant_metrics_dial_sla_8h (mstats="160-tenant_metrics_dial_sla:DSAvg:",tags=".__key")
+   12: optional map<string, SDWANMetrics_dial_P_>   tenant_metrics_dial_sla_1d (mstats="480-tenant_metrics_dial_sla:DSAvg:",tags=".__key")
+
+}(period="180")
+
+uve sandesh SDWANTenantMetrics {
+     1: SDWANTenantMetricsRecord          data;
+}
