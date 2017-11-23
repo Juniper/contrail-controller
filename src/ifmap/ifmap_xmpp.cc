@@ -142,6 +142,7 @@ IFMapXmppChannel::IFMapXmppChannel(XmppChannel *channel, IFMapServer *server,
 IFMapXmppChannel::~IFMapXmppChannel() { 
     delete ifmap_client_;
     // Enqueue Unregister and process in the context of bgp::Config task
+    channel_->UnRegisterWriteReady(xmps::CONFIG);
     ifmap_channel_manager_->EnqueueChannelUnregister(channel_);
 }
 
