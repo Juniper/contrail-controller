@@ -90,6 +90,9 @@ class ComputeArgsParser(object):
             'tsn_servers': None,
             'vrouter_1G_hugepages': '0',
             'vrouter_2M_hugepages': '0',
+            'backup_file_count': '3',
+            'backup_idle_timeout': '10000',
+            'restore_audit_timeout': '15000'
         }
 
         self.parse_args(args_str)
@@ -342,6 +345,23 @@ class ComputeArgsParser(object):
         parser.add_argument(
                 "--vrouter_2M_hugepages",
                 help="Number of 2M hugepages for vrouter kernel mode",
+                type=str)
+        parser.add_argument(
+                "--resource_backup_restore",
+                help="Enable/Disable backup of config and resource files",
+                action="store_true")
+        parser.add_argument(
+                "--backup_idle_timeout",
+                help="Agent avoids generating backup file if change is \
+                     detected within this time",
+                type=str)
+        parser.add_argument(
+                "--restore_audit_timeout",
+                help="Audit time for config/resource read from file",
+                type=str)
+        parser.add_argument(
+                "--backup_file_count",
+                help="Number of backup files",
                 type=str)
 
         parser.set_defaults(**self.global_defaults)
