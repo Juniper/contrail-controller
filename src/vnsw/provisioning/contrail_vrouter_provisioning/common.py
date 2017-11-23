@@ -607,7 +607,15 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
                                             if self._args.metadata_use_ssl else '')},
                 'RESTART': {
                     'huge_page_2M': vrouter_kmod_2M_page,
-                    'huge_page_1G': vrouter_kmod_1G_page,},
+                    'huge_page_1G': vrouter_kmod_1G_page,
+                    'backup_enable': (True
+                                    if self._args.resource_backup_restore else False),
+                    'backup_dir': ('/var/lib/contrail/backup'),
+                    'backup_file_count': (self._args.backup_file_count),
+                    'backup_idle_timeout': (self._args.backup_idle_timeout),
+                    'restore_enable': (True
+                                    if self._args.resource_backup_restore else False),
+                    'restore_audit_timeout': (self._args.restore_audit_timeout)},
             }
 
             # VGW configs
