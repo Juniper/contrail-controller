@@ -34,7 +34,8 @@ ControlNodeMock::ControlNodeMock(EventManager *evm, string address) :
 }
 
 ControlNodeMock::~ControlNodeMock() {
-
+    if (channel_)
+        channel_->UnRegisterWriteReady(xmps::BGP);
     for(vector<VrfEntry *>::iterator it = vrf_list_.begin(); it != vrf_list_.end(); ) {
         VrfEntry *ent = *it;
         std::map<std::string, RouteEntry *>::iterator x;
