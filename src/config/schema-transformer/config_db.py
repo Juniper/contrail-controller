@@ -121,6 +121,13 @@ def _access_control_list_update(acl_obj, name, obj, entries):
     return acl_obj
 # end _access_control_list_update
 
+def _pp_json_object(obj):
+    parsed = json.loads(jsonpickle.encode(obj, unpicklable=False))
+    return  json.dumps(parsed, indent=4)
+
+def _create_pprinted_prop_list(name, value):
+    return sandesh.PropList(name, _pp_json_object(value))
+
 
 class DBBaseST(DBBase):
     obj_type = __name__
@@ -161,9 +168,11 @@ class DBBaseST(DBBase):
             if self._get_sandesh_ref_list(field):
                 st_obj.obj_refs.append(self._get_sandesh_ref_list(field))
 
-        st_obj.properties = [sandesh.PropList(field, str(getattr(self, field)))
-                             for field in self.prop_fields
-                             if hasattr(self, field)]
+        st_obj.properties = [
+            sandesh.PropList(field,
+                             _pp_json_object(getattr(self, field)))
+            for field in self.prop_fields
+            if hasattr(self, field)]
         return st_obj
 
     def _get_sandesh_ref_list(self, ref_type):
@@ -1710,7 +1719,7 @@ class NetworkPolicyST(DBBaseST):
             sandesh.RefList('referred_policy', self.referred_policies)
         ]
         resp.properties = [
-            sandesh.PropList('rule', str(rule)) for rule in self.rules
+            _create_pprinted_prop_list('rule', rule) for rule in self.rules
         ]
         return resp
     # end handle_st_object_req
@@ -1787,7 +1796,8 @@ class RouteTableST(DBBaseST):
             self._get_sandesh_ref_list('logical_router'),
         ]
         resp.properties = [
-            sandesh.PropList('route', str(route)) for route in self.routes
+            _create_pprinted_prop_list('route', route)
+            for route in self.routes
         ]
         return resp
     # end handle_st_object_req
@@ -1994,7 +2004,7 @@ class SecurityGroupST(DBBaseST):
         ]
         resp.properties.extend([
             sandesh.PropList('sg_id', str(self.sg_id)),
-        ] + [sandesh.PropList('rule', str(rule))
+        ] + [_create_pprinted_prop_list('rule', rule)
              for rule in self.security_group_entries.get_policy_rule() or []])
         return resp
     # end handle_st_object_req
@@ -4414,7 +4424,7 @@ class ServiceInstanceST(DBBaseST):
         resp.properties.extend([
             sandesh.PropList('left_network', self.left_vn_str),
             sandesh.PropList('right_network', self.right_vn_str),
-            sandesh.PropList('auto_policy', str(self.auto_policy)),
+            _create_pprinted_prop_list('auto_policy', self.auto_policy),
             sandesh.PropList('service_mode', self.get_service_mode()),
             sandesh.PropList('virtualization_type',
                              self.get_virtualization_type()),
@@ -4746,7 +4756,8 @@ class SecurityLoggingObjectST(DBBaseST):
     def handle_st_object_req(self):
         resp = super(SecurityLoggingObjectST, self).handle_st_object_req()
         resp.properties = [
-            sandesh.PropList('rule', str(rule)) for rule in self.security_logging_object_rules
+            _create_pprinted_prop_list('rule', rule)
+            for rule in self.security_logging_object_rules
         ]
         return resp
 # end SecurityLoggingObjectST
