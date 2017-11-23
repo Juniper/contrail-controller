@@ -316,7 +316,7 @@ struct Active : public sc::state<Active, XmppStateMachine> {
     sc::result react(const EvTcpPassiveOpen &event) {
         XmppStateMachine *state_machine = &context<XmppStateMachine>();
         event.session->AsyncReadStart();
-        state_machine->set_session(event.session);
+        assert(state_machine->session() == event.session);
         event.session->set_observer(
             boost::bind(&XmppStateMachine::OnSessionEvent,
                         state_machine, _1, _2));
@@ -1124,31 +1124,18 @@ XmppStateMachine::XmppStateMachine(XmppConnection *connection, bool active,
 }
 
 XmppStateMachine::~XmppStateMachine() {
-    TcpSession *sess = session();
-
     assert(!deleted_);
     deleted_ = true;
-
     work_queue_.Shutdown();
-    //
-    // If there is a session assigned to this state machine, reset the observer
-    // so that tcp does not have a reference to 'this' which is going away
-    //
-    if (sess) {
-        set_session(NULL);
-    }
+    set_session(NULL);
 
-    //
     // Explicitly call the state destructor before the state machine itself.
     // This is needed because some of the destructors access the state machine
     // context.
-    //
     terminate();
 
-    //
     // Delete timer after state machine is terminated so that there is no
     // possible reference to the timers being deleted any more
-    //
     TimerManager::DeleteTimer(connect_timer_);
     TimerManager::DeleteTimer(open_timer_);
     TimerManager::DeleteTimer(hold_timer_);
@@ -1171,6 +1158,8 @@ void XmppStateMachine::clear_session() {
 }
 
 void XmppStateMachine::DeleteSession(XmppSession *session) {
+    // If there is a session assigned to this state machine, reset the observer
+    // so that tcp does not have a reference to 'this' which is going away
     if (session != NULL) {
         session->set_observer(NULL);
         session->ClearConnection();

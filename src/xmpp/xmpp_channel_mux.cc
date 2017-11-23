@@ -21,6 +21,7 @@ XmppChannelMux::XmppChannelMux(XmppConnection *connection)
 }
 
 XmppChannelMux::~XmppChannelMux() {
+    assert(map_.empty());
 }
 
 void XmppChannelMux::Close() {
