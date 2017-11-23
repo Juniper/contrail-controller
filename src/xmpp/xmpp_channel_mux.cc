@@ -78,7 +78,7 @@ void XmppChannelMux::RegisterReceive(xmps::PeerId id, ReceiveCb cb) {
 }
 
 void XmppChannelMux::UnRegisterReceive(xmps::PeerId id) {
-    ReceiveCbMap::iterator it =  rxmap_.find(id);
+    ReceiveCbMap::iterator it = rxmap_.find(id);
     if (it != rxmap_.end()) {
         rxmap_.erase(it);
     }
