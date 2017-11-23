@@ -2031,7 +2031,7 @@ class OpServer(object):
             return json.dumps(uve_links)
     # end dyn_list_http_get
 
-    @validate_user_token
+    @validate_user_token(only_cloud_admin=False)
     def analytics_http_get(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
@@ -2047,7 +2047,7 @@ class OpServer(object):
         return json.dumps(analytics_links)
     # end analytics_http_get
 
-    @validate_user_token
+    @validate_user_token(only_cloud_admin=False)
     def uves_http_get(self):
         # common handling for all resource get
         (ok, result) = self._get_common(bottle.request)
