@@ -82,6 +82,11 @@ public:
     ControlNodeMockBgpXmppPeer() : channel_(NULL), rx_count_(0) {
     }
 
+    ~ControlNodeMockBgpXmppPeer() {
+        if (channel_)
+            channel_->UnRegisterWriteReady(xmps::BGP);
+    }
+
     void HandleXmppChannelEvent(XmppChannel *channel,
                                 xmps::PeerState state) {
         if (state != xmps::READY) {
