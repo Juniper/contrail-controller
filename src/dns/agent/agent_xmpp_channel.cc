@@ -29,6 +29,7 @@ DnsAgentXmppChannel:: DnsAgentXmppChannel(XmppChannel *channel,
 }
 
 DnsAgentXmppChannel::~DnsAgentXmppChannel() {
+    channel_->UnRegisterWriteReady(xmps::DNS);
     channel_->UnRegisterReceive(xmps::DNS);
 }
 
