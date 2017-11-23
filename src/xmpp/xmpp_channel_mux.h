@@ -27,11 +27,14 @@ public:
     virtual bool Send(const uint8_t *, size_t, const std::string *,
                       xmps::PeerId, SendReadyCb);
     virtual int GetTaskInstance() const;
+    virtual void RegisterReferer(xmps::PeerId);
+    virtual void UnRegisterReferer(xmps::PeerId);
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb);
     virtual void UnRegisterReceive(xmps::PeerId);
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb);
     virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb);
     size_t ReceiverCount() const;
+    size_t RefererCount() const;
     std::vector<std::string> GetReceiverList() const;
 
     virtual const std::string &ToString() const;
@@ -81,10 +84,12 @@ private:
 
     typedef std::map<xmps::PeerId, SendReadyCb> WriteReadyCbMap;
     typedef std::map<xmps::PeerId, ReceiveCb> ReceiveCbMap;
+    typedef std::set<xmps::PeerId> RefererSet;
 
     WriteReadyCbMap map_;
     ReceiveCbMap rxmap_;
     SendReadyCb cb_;
+    RefererSet referers_;
     XmppConnection *connection_;
     tbb::mutex mutex_;
     RxMessageTraceCb rx_message_trace_cb_;
