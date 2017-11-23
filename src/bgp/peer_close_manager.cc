@@ -555,7 +555,9 @@ bool PeerCloseManager::MembershipRequestCallback(Event *event) {
     if (close_again_) {
         set_membership_state(MEMBERSHIP_NONE);
         CloseComplete();
-        return result;
+
+        // Nested closure can make membership manager to be in use again.
+        return membership_state_ != MEMBERSHIP_IN_USE;
     }
 
     // If any GR stale timer has to be launched, then to wait for some time
