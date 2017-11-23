@@ -71,6 +71,9 @@ void BgpXmppPeerClose::GracefulRestartSweep() {
 }
 
 bool BgpXmppPeerClose::IsCloseGraceful() const {
+    // Do not close gracefully if connection is already marked for deletion.
+    if (channel_->channel()->connection()->IsDeleted())
+        return false;
     return channel_->manager()->xmpp_server()->IsPeerCloseGraceful();
 }
 
@@ -111,6 +114,7 @@ void BgpXmppPeerClose::CustomClose() {
 }
 
 void BgpXmppPeerClose::CloseComplete() {
+    assert(!channel_->channel()->connection()->IsDeleted());
     channel_->set_peer_closed(false);
 
     // Indicate to Channel that GR Closure is now complete
