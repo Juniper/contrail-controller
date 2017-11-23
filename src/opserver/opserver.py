@@ -588,8 +588,9 @@ class OpServer(object):
                 if and_query['name'] == name:
                     name_where_clause.append((where_clause, and_query))
         new_clause_list = []
-        for obj in obj_list:
-            obj_value = obj if not prefix else prefix + obj
+        if prefix:
+            obj_list = [prefix + obj for obj in obj_list]
+        for obj_value in obj_list:
             new_clause =  [{
                 'name'  : name,
                 'value' : obj_value,
@@ -608,6 +609,10 @@ class OpServer(object):
                                 clause.remove(and_query)
                     elif and_query["name"] == name and and_query["op"] == \
                             OpServerUtils.MatchOp.EQUAL:
+                        if and_query["value"] not in obj_list:
+                            raise bottle.HTTPResponse(status = 401,
+                                    body = 'Authentication required',
+                                    headers = self._reject_auth_headers())
                         if obj_value == and_query["value"]:
                             if new_clause not in new_clause_list:
                                 new_clause_list.append(new_clause)
