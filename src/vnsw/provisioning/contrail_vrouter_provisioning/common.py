@@ -114,6 +114,10 @@ class CommonComputeSetup(ContrailSetup, ComputeNetworkSetup):
         collector_list = ' '.join('%s:%s' % (server, '8086')
                                   for server in self._args.collectors)
         self.set_config(cfgfile, 'COLLECTOR', 'server_list', collector_list)
+        self.set_config(cfgfile, 'SANDESH', 'sandesh_ssl_enable',
+                        self._args.sandesh_ssl_enable)
+        self.set_config(cfgfile, 'SANDESH', 'introspect_ssl_enable',
+                        self._args.introspect_ssl_enable)
 
     def setup_hugepages_node(self, dpdk_args):
         """Setup hugepages on one or list of nodes
