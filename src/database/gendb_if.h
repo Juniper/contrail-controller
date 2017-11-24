@@ -40,6 +40,7 @@ struct DbConsistency {
 
 struct Op {
     enum type {
+        INVALID,
         GE,
         GT,
         LE,

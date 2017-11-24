@@ -149,7 +149,6 @@ static void SendDatabaseWritesStatusResponse(SandeshContext *vscontext, std::str
     dwsr->set_disable_all(dbh->IsAllWritesDisabled());
     dwsr->set_disable_statistics(dbh->IsStatisticsWritesDisabled());
     dwsr->set_disable_messages(dbh->IsMessagesWritesDisabled());
-    dwsr->set_disable_messages_keyword(dbh->IsMessagesKeywordWritesDisabled());
     dwsr->set_disable_flows(Sandesh::IsFlowCollectionDisabled());
     dwsr->set_context(context);
     dwsr->Response();
@@ -165,9 +164,6 @@ void DisableDatabaseWritesRequest::HandleRequest() const {
     }
     if (__isset.disable_messages) {
         dbh->DisableMessagesWrites(get_disable_messages());
-    }
-    if (__isset.disable_messages_keyword) {
-        dbh->DisableMessagesKeywordWrites(get_disable_messages_keyword());
     }
     if (__isset.disable_flows) {
         Sandesh::DisableFlowCollection(get_disable_flows());

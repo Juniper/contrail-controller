@@ -87,6 +87,7 @@ public:
 
     typedef std::map<std::string, Var > AttribMap;
     typedef std::multimap<std::string, std::pair<Var, AttribMap> > TagMap;
+    typedef std::vector<std::string> ObjectNamesVec;
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
         std::string name,
@@ -107,6 +108,7 @@ public:
     void GetRuleMap(RuleMap& rulemap);
 
     virtual void MessageTableInsert(const VizMsg *vmsgp,
+        const ObjectNamesVec &object_names,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     void ObjectTableInsert(const std::string &table, const std::string &rowkey,
         uint64_t &timestamp, const boost::uuids::uuid& unm,
@@ -147,11 +149,9 @@ public:
     bool IsAllWritesDisabled() const;
     bool IsStatisticsWritesDisabled() const;
     bool IsMessagesWritesDisabled() const;
-    bool IsMessagesKeywordWritesDisabled() const;
     void DisableAllWrites(bool disable);
     void DisableStatisticsWrites(bool disable);
     void DisableMessagesWrites(bool disable);
-    void DisableMessagesKeywordWrites(bool disable);
 
     // Disk Usage Percentage
     void SetDiskUsagePercentageDropLevel(size_t count,
@@ -191,8 +191,6 @@ public:
         udc_->UDCHandler(jdoc, add_change);
     }
 private:
-    void MessageTableKeywordInsert(const VizMsg *vmsgp,
-        GenDb::GenDbIf::DbAddColumnCb db_cb);
     void StatTableInsertTtl(uint64_t ts,
         const std::string& statName,
         const std::string& statAttr,
@@ -204,10 +202,7 @@ private:
         const std::string& field_val, int ttl,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     void MessageTableOnlyInsert(const VizMsg *vmsgp,
-        GenDb::GenDbIf::DbAddColumnCb db_cb);
-    bool MessageIndexTableInsert(const std::string& cfname,
-        const SandeshHeader& header, const std::string& message_type,
-        const boost::uuids::uuid& unm, const std::string keyword,
+        const ObjectNamesVec &object_names,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool AllowMessageTableInsert(const SandeshHeader &header);
     bool CreateTables();
@@ -256,7 +251,6 @@ private:
     bool disable_all_writes_;
     bool disable_statistics_writes_;
     bool disable_messages_writes_;
-    bool disable_messages_keyword_writes_;
     ConfigClientCollector *config_client_;
     boost::scoped_ptr<UserDefinedCounters> udc_;
     static const int kUDCPollInterval = 120 * 1000; // in ms
@@ -271,7 +265,6 @@ private:
     WaterMarkTuple pending_compaction_tasks_watermark_tuple_;
 
     friend class DbHandlerTest;
-    friend class DbHandlerMsgKeywordInsertTest;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };
@@ -383,5 +376,9 @@ public:
     static uint64_t num_samples;
     static uint64_t curr_json_size;
 };
+
+std::string PrependT2(uint32_t T2, const std::string &str);
+boost::system::error_code ColIndexModeToString(ColIndexMode::type index_mode,
+                                               std::string &mode);
 
 #endif /* DB_HANDLER_H_ */

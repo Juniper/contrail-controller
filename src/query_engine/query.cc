@@ -123,7 +123,7 @@ PostProcessingQuery::PostProcessingQuery(
             {
                 QE_PARSE_ERROR(json_sort_fields[i].IsString());
                 std::string sort_str(json_sort_fields[i].GetString());
-                QE_TRACE(DEBUG, sort_str);
+                QE_TRACE(DEBUG, "sort field:" << sort_str);
                 std::string datatype(m_query->get_column_field_datatype(sort_str));
                 if (m_query->is_stat_table_query(m_query->table()) &&
                        (m_query->stats().is_stat_table_static())) {
@@ -307,9 +307,8 @@ PostProcessingQuery::PostProcessingQuery(
     }
 
     // add filter to filter query engine logs if requested
-    if ((((AnalyticsQuery *)main_query)->filter_qe_logs) &&
-            (((AnalyticsQuery *)main_query)->table() == 
-             g_viz_constants.COLLECTOR_GLOBAL_TABLE)) {
+    if (((AnalyticsQuery *)main_query)->filter_qe_logs &&
+        ((AnalyticsQuery *)main_query)->is_message_table_query()) {
         QE_TRACE(DEBUG,  " Adding filter for QE logs");
         filter_match_t filter;
         filter.name = g_viz_constants.MODULE;
@@ -534,7 +533,8 @@ void AnalyticsQuery::Init(const std::string& qid,
 
     if (is_stat_fieldnames_table_query(table_)) {
         uint64_t time_period = (end_time_ - from_time_); /* in usec */
-        uint64_t cache_time = (1 << (g_viz_constants.RowTimeInBits + g_viz_constants.CacheTimeInAdditionalBits));
+        uint64_t cache_time = (1 << (g_viz_constants.RowTimeInBits +
+                                     g_viz_constants.CacheTimeInAdditionalBits));
         if (time_period < cache_time) {
             uint64_t diff_time_usec = (cache_time - time_period);
             from_time_ = from_time_ - diff_time_usec;
@@ -1538,10 +1538,20 @@ bool AnalyticsQuery::is_flow_query(const std::string & tname)
 }
 
 // validation functions
-bool AnalyticsQuery::is_object_table_query(const std::string & tname)
+bool AnalyticsQuery::is_message_table_query(const std::string &tname)
+{
+    return (tname == g_viz_constants.MESSAGE_TABLE);
+}
+
+bool AnalyticsQuery::is_message_table_query()
+{
+    return (table_ == g_viz_constants.MESSAGE_TABLE);
+}
+
+bool AnalyticsQuery::is_object_table_query(const std::string &tname)
 {
     return (
-        (tname != g_viz_constants.COLLECTOR_GLOBAL_TABLE) &&
+        (tname != g_viz_constants.MESSAGE_TABLE) &&
         (tname != g_viz_constants.FLOW_TABLE) &&
         (tname != g_viz_constants.FLOW_SERIES_TABLE) &&
         (tname != g_viz_constants.OBJECT_VALUE_TABLE) &&
