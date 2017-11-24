@@ -74,6 +74,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy static_service_chain_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::EvpnSegment")))
         (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
@@ -85,7 +86,6 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         static_service_chain_policy);
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::StaticRoute"),
         static_service_chain_policy);
-
 
     // Policy for bgp::StateMachine and xmpp::StateMachine Tasks.
     // Add policy to provision exclusion between io::Reader and
@@ -109,6 +109,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy peer_membership_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::EvpnSegment")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::SendUpdate")))
@@ -149,6 +150,12 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy evpn_segment_policy = boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::PeerMembership")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::StaticRoute")))
+        (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")));
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::EvpnSegment"),
         evpn_segment_policy);
@@ -169,6 +176,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::EvpnSegment")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
@@ -192,6 +200,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         (TaskExclusion(scheduler->GetTaskId("db::Walker")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ConfigHelper")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::EvpnSegment")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverNexthop")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
@@ -221,6 +230,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
         // Following tasks updates db table partition
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
         (TaskExclusion(scheduler->GetTaskId("db::IFMapTable")))
+        (TaskExclusion(scheduler->GetTaskId("bgp::EvpnSegment")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ResolverPath")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RouteAggregation")))
         (TaskExclusion(scheduler->GetTaskId("bgp::ServiceChain")))
