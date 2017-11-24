@@ -126,6 +126,12 @@ IpAddress HealthCheckInstanceBase::destination_ip() const {
         return ip_->destination_ip();
     return destination_ip_;
 }
+
+void HealthCheckInstanceBase::set_destination_ip(const IpAddress &ip) {
+    ip_->set_destination_ip(ip);
+    destination_ip_ = ip;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 HealthCheckInstanceTask::HealthCheckInstanceTask(HealthCheckService *service,
