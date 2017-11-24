@@ -142,7 +142,7 @@ public:
     bool IsStatusEventIgnored() const { return ignore_status_event_; }
     void set_source_ip(const IpAddress &ip) { source_ip_ = ip; }
     IpAddress source_ip() const;
-    void set_destination_ip(const IpAddress &ip) { destination_ip_ = ip; }
+    void set_destination_ip(const IpAddress &ip);
     IpAddress destination_ip() const;
 
 protected:
