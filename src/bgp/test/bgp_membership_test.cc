@@ -1224,14 +1224,13 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn3DeathTest) {
 // First register is also for ribin.
 //
 TEST_F(BgpMembershipTest, DuplicateRegisterRibIn4DeathTest) {
-    ConcurrencyScope scope("bgp::StateMachine");
     uint64_t blue_walk_count = blue_tbl_->walk_complete_count();
 
     // Disable membership manager.
     SetQueueDisable(true);
 
     // Register for ribin to blue.
-    mgr_->RegisterRibIn(peers_[0], blue_tbl_);
+    RegisterRibIn(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(mgr_->GetRegistrationInfo(peers_[0], blue_tbl_));
     TASK_UTIL_EXPECT_EQ(1, mgr_->GetMembershipCount());
@@ -1245,7 +1244,7 @@ TEST_F(BgpMembershipTest, DuplicateRegisterRibIn4DeathTest) {
     task_util::WaitForIdle();
 
     // Unregister for ribin from blue.
-    mgr_->UnregisterRibIn(peers_[0], blue_tbl_);
+    UnregisterRibIn(peers_[0], blue_tbl_);
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(blue_walk_count + 1, blue_tbl_->walk_complete_count());
 }
