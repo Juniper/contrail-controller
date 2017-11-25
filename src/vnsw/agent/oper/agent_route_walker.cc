@@ -191,7 +191,7 @@ AgentRouteWalker::LocateRouteTableWalkRef(const VrfEntry *vrf,
                    boost::bind(&AgentRouteWalker::RouteWalkNotify,
                                this, _1, _2),
                    boost::bind(&AgentRouteWalker::RouteWalkDoneInternal,
-                               this, _2));
+                               this, _2, walker_ptr));
     }
     return it->second[table_type];
 }
@@ -293,7 +293,8 @@ bool AgentRouteWalker::RouteWalkNotify(DBTablePartBase *partition,
 void AgentRouteWalker::RouteWalkDone(DBTableBase *part) {
 }
 
-void AgentRouteWalker::RouteWalkDoneInternal(DBTableBase *part) {
+void AgentRouteWalker::RouteWalkDoneInternal(DBTableBase *part,
+                                             AgentRouteWalkerPtr ptr) {
     RouteWalkDone(part);
 
     AgentRouteTable *table = static_cast<AgentRouteTable *>(part);

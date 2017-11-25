@@ -143,7 +143,8 @@ public:
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
         walker_ = new AgentRouteWalkerTest("AgentRouteWalkerTest",
                                            Agent::GetInstance());
-        Agent::GetInstance()->oper_db()->agent_route_walk_manager()->
+        agent_ = Agent::GetInstance();
+        agent_->oper_db()->agent_route_walk_manager()->
             RegisterWalker(static_cast<AgentRouteWalker *>(walker_.get()));
     };
     ~Test() { 
@@ -242,9 +243,11 @@ public:
         client->WaitForIdle();
         DelIPAM("vn3");
         client->WaitForIdle();
-        Agent::GetInstance()->oper_db()->agent_route_walk_manager()->
-            ReleaseWalker(walker());
-        walker_.reset(NULL);
+        if (walker_.get()) {
+            agent_->oper_db()->agent_route_walk_manager()->
+                ReleaseWalker(walker());
+            walker_.reset(NULL);
+        }
         client->WaitForIdle();
 
     }
@@ -271,6 +274,7 @@ public:
     Ip4Address  remote_vm_ip_;
     Ip4Address  server_ip_;
     AgentRouteWalkerPtr walker_;
+    Agent *agent_;
     static TunnelType::Type type_;
     friend class SetupTask;
 };
@@ -301,7 +305,13 @@ class SetupTask : public Task {
             } else if (test_name_ ==
                        "walk_on_deleted_vrf_with_deleted_route_table") {
                 test_->walker()->StartVrfWalk();
+            } else if (test_name_ == "ReleaseWalker") {
+                test_->agent_->oper_db()->agent_route_walk_manager()->
+                    ReleaseWalker(test_->walker_.get());
+                test_->walker()->StartRouteWalk(VrfGet("vrf1"));
+                test_->walker_ = NULL;
             }
+
             return true;
         }
     std::string Description() const { return "SetupTask"; }
@@ -401,6 +411,16 @@ TEST_F(Test, walk_on_deleted_vrf_with_deleted_route_table) {
     vrf = NULL;
     DeleteEnvironment(1);
 }
+
+TEST_F(Test, RouteWalkOnDeletedWalker) {
+    client->Reset();
+    SetupEnvironment(1);
+    SetupTask * task = new SetupTask(this, "ReleaseWalker");
+    TaskScheduler::GetInstance()->Enqueue(task);
+    WAIT_FOR(1000, 1000, walker()->IsWalkCompleted() == true);
+    DeleteEnvironment(1);
+}
+
 
 //TODO REMAINING TESTS
 // - based on walktype - unicast/multicast/all
