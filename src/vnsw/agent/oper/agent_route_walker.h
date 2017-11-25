@@ -138,7 +138,7 @@ private:
                    DBTable::DBTableWalkRef &route_table_walk_ref);
     DBTable::DBTableWalkRef AllocateRouteTableReferences(AgentRouteTable *table);
     void VrfWalkDoneInternal(DBTableBase *part);
-    void RouteWalkDoneInternal(DBTableBase *part);
+    void RouteWalkDoneInternal(DBTableBase *part, AgentRouteWalkerPtr ptr);
     DBTable::DBTableWalkRef LocateRouteTableWalkRef(const VrfEntry *vrf,
                                                     RouteWalkerDBState *state,
                                                     AgentRouteTable *table);
