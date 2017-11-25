@@ -206,6 +206,46 @@ class Resource(ResourceDbMixin):
         except cfgm_common.exceptions.NoIdError as e:
             return False, (404, str(e))
         return cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
+
+    @classmethod
+    def check_associated_firewall_resource_in_same_scope(cls, id, fq_name,
+                                                         obj_dict,
+                                                         object_type):
+        ref_name = '%s_refs' % object_type
+        if ref_name not in obj_dict:
+            return True, ''
+
+        if 'parent_type' not in obj_dict:
+            ok, result = cls.dbe_read(cls.db_conn, cls.object_type, id,
+                                      obj_fields=['parent_type'])
+            if not ok:
+                return ok, result
+            parent_type = result['parent_type']
+        else:
+            parent_type = obj_dict['parent_type']
+
+        # Scoped firewall resource can reference global or scoped resources
+        if parent_type == ProjectServer.resource_type:
+            return True, ''
+
+        for r_ref in obj_dict.get(ref_name, []):
+            ok, result = cls.dbe_read(cls.db_conn, object_type, r_ref['uuid'],
+                                      obj_fields=['parent_type'])
+            if not ok:
+                continue
+            r_parent_type = result['parent_type']
+            # Global firewall resource can reference global firewall resources
+            if r_parent_type != ProjectServer.resource_type:
+                continue
+            # Global firewall resource cannot reference scoped resources
+            msg = ("Global %s (%s, %s) cannot reference a scoped %s (%s, %s)" %
+                   (cls.object_type.replace('_', ' ').title(),
+                    ':'.join(fq_name), id,
+                    object_type.replace('_', ' ').title(),
+                    ':'.join(r_ref['to']), r_ref['uuid']))
+            return False, (400, msg)
+
+        return True, ''
 # end class Resource
 
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
@@ -2001,6 +2041,32 @@ class FirewallRuleServer(Resource, FirewallRule):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
+            obj_dict['uuid'],
+            obj_dict['fq_name'],
+            obj_dict,
+            AddressGroup.object_type,
+        )
+        if not ok:
+            return False, result
+
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
+            obj_dict['uuid'],
+            obj_dict['fq_name'],
+            obj_dict,
+            ServiceGroupServer.object_type,
+        )
+        if not ok:
+            return False, result
+
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
+            obj_dict['uuid'],
+            obj_dict['fq_name'],
+            obj_dict,
+            VirtualNetworkServer.object_type,
+        )
+        if not ok:
+            return False, result
 
         obj_dict['tag_refs'] = []
         obj_dict['address_group_refs'] = []
@@ -2041,6 +2107,21 @@ class FirewallRuleServer(Resource, FirewallRule):
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
+            id, fq_name, obj_dict, AddressGroup.object_type)
+        if not ok:
+            return False, result
+
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
+            id, fq_name, obj_dict, ServiceGroupServer.object_type)
+        if not ok:
+            return False, result
+
+        ok, result = cls.check_associated_firewall_resource_in_same_scope(
+            id, fq_name, obj_dict, VirtualNetworkServer.object_type)
+        if not ok:
+            return False, result
+
         ok, read_result = cls.dbe_read(db_conn, 'firewall_rule', id)
         if not ok:
             return ok, read_result
@@ -2080,6 +2161,22 @@ class FirewallRuleServer(Resource, FirewallRule):
 # end class FirewallRuleServer
 
 
+class FirewallPolicyServer(Resource, FirewallPolicy):
+    @classmethod
+    def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        return cls.check_associated_firewall_resource_in_same_scope(
+            obj_dict['uuid'],
+            obj_dict['fq_name'],
+            obj_dict,
+            FirewallRuleServer.object_type,
+        )
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        return cls.check_associated_firewall_resource_in_same_scope(
+            id, fq_name, obj_dict, FirewallRuleServer.object_type)
+
+
 class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
     @staticmethod
     def _check_all_applications_flag(obj_dict):
@@ -2091,11 +2188,25 @@ class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        return cls._check_all_applications_flag(obj_dict)
+        ok, result = cls._check_all_applications_flag(obj_dict)
+        if not ok:
+            return False, result
+
+        return cls.check_associated_firewall_resource_in_same_scope(
+            obj_dict['uuid'],
+            obj_dict['fq_name'],
+            obj_dict,
+            FirewallPolicyServer.object_type,
+        )
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        return cls._check_all_applications_flag(obj_dict)
+        ok, result = cls._check_all_applications_flag(obj_dict)
+        if not ok:
+            return False, result
+
+        return cls.check_associated_firewall_resource_in_same_scope(
+            id, fq_name, obj_dict, FirewallPolicyServer.object_type)
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
