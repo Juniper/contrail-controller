@@ -81,12 +81,14 @@ AgentXmppChannel::AgentXmppChannel(Agent *agent,
     bgp_peer_id_.reset();
     end_of_rib_tx_timer_.reset(new EndOfRibTxTimer(agent));
     end_of_rib_rx_timer_.reset(new EndOfRibRxTimer(agent));
+    llgr_stale_timer_.reset(new LlgrStaleTimer(agent));
     CreateBgpPeer();
 }
 
 AgentXmppChannel::~AgentXmppChannel() {
     end_of_rib_tx_timer_.reset();
     end_of_rib_rx_timer_.reset();
+    llgr_stale_timer_.reset();
 }
 
 void AgentXmppChannel::Unregister() {
@@ -1351,6 +1353,9 @@ void AgentXmppChannel::Ready() {
     //number.
     bgp_peer_id()->incr_sequence_number();
 
+    //Stop LLGR stale timer
+    llgr_stale_timer()->Cancel();
+
     // Switch-over Config Control-node
     if (agent_->ifmap_active_xmpp_server().empty()) {
         AgentXmppChannel::SetConfigPeer(this);
@@ -1405,6 +1410,8 @@ void AgentXmppChannel::NotReady() {
     StopEndOfRibTxWalker();
     //Also stop end-of-rib rx fallback and retain.
     end_of_rib_rx_timer()->Cancel();
+    //State llgr stale timer to clean stales if CN has issues with getting ready.
+    llgr_stale_timer()->Start(this);
 
     // evaluate peer change for config and multicast
     AgentXmppChannel *agent_mcast_builder =
@@ -1523,6 +1530,10 @@ EndOfRibTxTimer *AgentXmppChannel::end_of_rib_tx_timer() {
 
 EndOfRibRxTimer *AgentXmppChannel::end_of_rib_rx_timer() {
     return end_of_rib_rx_timer_.get();
+}
+
+LlgrStaleTimer *AgentXmppChannel::llgr_stale_timer() {
+    return llgr_stale_timer_.get();
 }
 
 void AgentXmppChannel::PeerIsNotConfig() {

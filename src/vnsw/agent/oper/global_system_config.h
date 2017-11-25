@@ -32,6 +32,9 @@ public:
     bool xmpp_helper_enable() const { return xmpp_helper_enable_; }
     bool config_seen() const { return config_seen_; }
     uint32_t end_of_rib_time() { return end_of_rib_time_; }
+    uint32_t long_lived_restart_time() { return long_lived_restart_time_; }
+    uint64_t llgr_stale_time() { return (long_lived_restart_time_ +
+                                         end_of_rib_time_); }
     bool IsEnabled() const {
         return (config_seen_ && enable_ && xmpp_helper_enable_);
     }
@@ -41,6 +44,7 @@ private:
 
     bool enable_;
     uint64_t end_of_rib_time_;
+    uint64_t long_lived_restart_time_;
     bool xmpp_helper_enable_;
     CallbackList callbacks_;
     bool config_seen_;

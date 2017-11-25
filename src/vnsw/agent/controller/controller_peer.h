@@ -29,6 +29,7 @@ class EcmpLoadBalance;
 class ControllerTimer;
 class EndOfRibTxTimer;
 class EndOfRibRxTimer;
+class LlgrStaleTimer;
 class ControllerEcmpRoute;
 
 class AgentXmppChannel {
@@ -179,6 +180,7 @@ public:
     uint64_t route_published_time() const {return route_published_time_;}
     EndOfRibTxTimer *end_of_rib_tx_timer();
     EndOfRibRxTimer *end_of_rib_rx_timer();
+    LlgrStaleTimer *llgr_stale_timer();
     //Sequence number for this channel
     uint64_t sequence_number() const;
     void Unregister();
@@ -271,6 +273,7 @@ private:
     uint64_t route_published_time_;
     boost::scoped_ptr<EndOfRibTxTimer> end_of_rib_tx_timer_;
     boost::scoped_ptr<EndOfRibRxTimer> end_of_rib_rx_timer_;
+    boost::scoped_ptr<LlgrStaleTimer> llgr_stale_timer_;
     Agent *agent_;
 };
 
