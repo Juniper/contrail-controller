@@ -572,6 +572,12 @@ bool XmppServer::DequeueConnection(XmppServerConnection *connection) {
     if (old_connection) {
         XMPP_DEBUG(XmppCreateConnection, session->ToUVEKey(), XMPP_PEER_DIR_IN,
                    "Close duplicate connection " + session->ToString());
+        // Remove reference to the session from StateMachine directly. We don't
+        // go through the entire normal cleanup pipeline for cleaning these
+        // duplicate connections.
+        assert(connection->state_machine()->session());
+        assert(connection->state_machine()->session() == session);
+        connection->state_machine()->RemoveSession();
         DeleteSession(session);
         connection->set_duplicate();
         connection->ManagedDelete();
