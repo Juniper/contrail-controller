@@ -7,11 +7,11 @@ This file contains implementation of data model for kube manager
 """
 import json
 
-from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.vnc_db import DBBase
 from bitstring import BitArray
-from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
-from vnc_api.vnc_api import (KeyValuePair,KeyValuePairs)
+from vnc_api.vnc_api import (KeyValuePair)
+from kube_manager.vnc.vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from kube_manager.sandesh.kube_introspect import ttypes as introspect
 
 INVALID_VLAN_ID = 4096
 MAX_VLAN_ID = 4095
@@ -22,7 +22,7 @@ class DBBaseKM(DBBase):
     _nested_mode = False
 
     # Infra annotations that will be added on objects with custom annotations.
-    ann_fq_name_infra_key = ["project","cluster","owner"]
+    ann_fq_name_infra_key = ["project", "cluster", "owner"]
 
     def __init__(self, uuid, obj_dict=None):
         # By default there are no annotations added on an object.
@@ -43,7 +43,7 @@ class DBBaseKM(DBBase):
 
     @classmethod
     def _get_annotations(cls, vnc_caller, namespace, name, k8s_type,
-            **custom_ann_kwargs):
+                         **custom_ann_kwargs):
         """Get all annotations.
 
         Annotations are aggregated from multiple sources like infra info,
@@ -73,7 +73,7 @@ class DBBaseKM(DBBase):
 
     @classmethod
     def add_annotations(cls, vnc_caller, obj, namespace, name, k8s_type=None,
-            **custom_ann_kwargs):
+                        **custom_ann_kwargs):
         """Add annotations on the input object.
 
         Given an object, this method will add all required and specfied
@@ -81,7 +81,7 @@ class DBBaseKM(DBBase):
         """
         # Construct annotations to be added on the object.
         annotations = cls._get_annotations(vnc_caller, namespace, name,
-                            k8s_type, **custom_ann_kwargs)
+                                           k8s_type, **custom_ann_kwargs)
 
         # Validate that annotations have all the info to construct
         # the annotations-based-fq-name as required by the object's db.
@@ -89,7 +89,7 @@ class DBBaseKM(DBBase):
             if not set(cls.ann_fq_name_key).issubset(annotations):
                 err_msg = "Annotations required to contruct kube_fq_name for"+\
                     " object (%s:%s) was not found in input keyword args." %\
-                    (namespace,name)
+                    (namespace, name)
                 raise Exception(err_msg)
 
         # Annotate the object.
@@ -134,7 +134,7 @@ class DBBaseKM(DBBase):
         fq_name = []
         fq_name_key = cls.ann_fq_name_infra_key + cls.ann_fq_name_key
         for elem in fq_name_key:
-            for key,value in kwargs.iteritems():
+            for key, value in kwargs.iteritems():
                 if key != elem:
                     continue
                 fq_name.append(value)
@@ -143,7 +143,7 @@ class DBBaseKM(DBBase):
 
     @classmethod
     def get_ann_fq_name_to_uuid(cls, vnc_caller, namespace, name,
-            k8s_type=None, **kwargs):
+                                k8s_type=None, **kwargs):
         """Get vnc object uuid corresponding to an annotated-fq-name.
 
         The annotated-fq-name is constructed from the input params given
@@ -151,7 +151,7 @@ class DBBaseKM(DBBase):
         """
         # Construct annotations based on input params.
         annotations = cls._get_annotations(vnc_caller, namespace, name,
-                        k8s_type, **kwargs)
+                                           k8s_type, **kwargs)
 
         # Validate that annoatations has all info required for construction
         # of annotated-fq-name.
@@ -159,7 +159,7 @@ class DBBaseKM(DBBase):
             if not set(cls.ann_fq_name_key).issubset(annotations):
                 err_msg = "Annotations required to contruct kube_fq_name for"+\
                     " object (%s:%s) was not found in input keyword args." %\
-                    (namespace,name)
+                    (namespace, name)
                 raise Exception(err_msg)
 
         # Lookup annnoated-fq-name in annotated-fq-name to uuid table.
@@ -197,12 +197,12 @@ class DBBaseKM(DBBase):
         pass
 
     @staticmethod
-    def is_nested ():
+    def is_nested():
         """Return nested mode enable/disable config value."""
         return DBBaseKM._nested_mode
 
     @staticmethod
-    def set_nested (val):
+    def set_nested(val):
         """Configured nested mode value.
 
         True : Enable nested mode.
@@ -215,21 +215,39 @@ class DBBaseKM(DBBase):
         # Get all vnc objects of this class.
         return cls._dict.values()
 
+    @classmethod
+    def _build_annotation_dict(cls, annotation_dict):
+        annotations = {}
+        if annotation_dict and annotation_dict.get('key_value_pair'):
+            annots = {annot['key']: annot['value']
+                      for annot
+                      in annotation_dict['key_value_pair']}
+            annotations.update(annots)
+        return annotations
+
+    @classmethod
+    def _build_string_dict(cls, src_dict):
+        dst_dict = {}
+        if src_dict:
+            for key, value in src_dict.iteritems():
+                dst_dict[str(key)] = str(value)
+        return dst_dict
+
 class LoadbalancerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer'
-    ann_fq_name_key = ["kind","name"]
+    ann_fq_name_key = ["kind", "name"]
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(LoadbalancerKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.loadbalancer_listeners = set()
         self.selectors = None
         self.annotations = None
         self.external_ip = None
-        super(LoadbalancerKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
     def update(self, obj=None):
@@ -259,6 +277,42 @@ class LoadbalancerKM(DBBaseKM):
         super(LoadbalancerKM, cls).delete(uuid)
         del cls._dict[uuid]
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Loadbalancer DB lookup/introspect request. """
+        lb_resp = introspect.LoadbalancerDatabaseListResp(lbs=[])
+
+        # Iterate through all elements of Loadbalancer DB.
+        for lb in LoadbalancerKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.lb_uuid and req.lb_uuid != lb.uuid:
+                continue
+
+            lb_annotations = cls._build_annotation_dict(lb.annotations)
+
+            selectors = []
+            if lb.selectors:
+                selectors = lb.selectors
+
+            # Construct response for an element.
+            lb_instance = introspect.LoadbalancerInstance(
+                uuid=lb.uuid,
+                name=lb.fq_name[-1],
+                fq_name=lb.fq_name,
+                annotations=lb_annotations,
+                external_ip=lb.external_ip,
+                lb_listeners=list(lb.loadbalancer_listeners),
+                selectors=selectors,
+                vm_interfaces=list(lb.virtual_machine_interfaces))
+
+            # Append the constructed element info to the response.
+            lb_resp.lbs.append(lb_instance)
+
+        # Send the reply out.
+        lb_resp.response(req.context())
+
+
 class LoadbalancerListenerKM(DBBaseKM):
     _dict = {}
     obj_type = 'loadbalancer_listener'
@@ -266,6 +320,7 @@ class LoadbalancerListenerKM(DBBaseKM):
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(LoadbalancerListenerKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.loadbalancer = None
         self.loadbalancer_pool = None
@@ -301,6 +356,39 @@ class LoadbalancerListenerKM(DBBaseKM):
         obj.update_single_ref('loadbalancer_pool', {})
         del cls._dict[uuid]
     # end delete
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to LoadbalancerListener DB lookup/introspect request. """
+        lbl_resp = introspect.LoadbalancerListenerDatabaseListResp(lbls=[])
+
+        # Iterate through all elements of LoadbalancerListener DB.
+        for lbl in LoadbalancerListenerKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.lbl_uuid and req.lbl_uuid != lbl.uuid:
+                continue
+
+            lbl_annotations = cls._build_annotation_dict(lbl.annotations)
+            id_perms = cls._build_string_dict(lbl.id_perms)
+
+            # Construct response for an element.
+            lbl_instance = introspect.LoadbalancerListenerInstance(
+                uuid=lbl.uuid,
+                name=lbl.display_name,
+                fq_name=[lbl.display_name],
+                annotations=lbl_annotations,
+                id_perms=id_perms,
+                loadbalancer=lbl.loadbalancer,
+                loadbalancer_pool=lbl.loadbalancer_pool,
+                port_name=lbl.port_name,
+                parent_uuid=lbl.parent_uuid)
+
+            # Append the constructed element info to the response.
+            lbl_resp.lbls.append(lbl_instance)
+
+        # Send the reply out.
+        lbl_resp.response(req.context())
 # end class LoadbalancerListenerKM
 
 class LoadbalancerPoolKM(DBBaseKM):
@@ -310,6 +398,7 @@ class LoadbalancerPoolKM(DBBaseKM):
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(LoadbalancerPoolKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.members = set()
         self.loadbalancer_listener = None
@@ -345,6 +434,42 @@ class LoadbalancerPoolKM(DBBaseKM):
         obj.update_single_ref('loadbalancer_listener', {})
         del cls._dict[uuid]
     # end delete
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to LoadbalancerPool DB lookup/introspect request. """
+        lbp_resp = introspect.LoadbalancerPoolDatabaseListResp(lbps=[])
+
+        # Iterate through all elements of LoadbalancerPool DB.
+        for lbp in LoadbalancerPoolKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.lbp_uuid and req.lbp_uuid != lbp.uuid:
+                continue
+
+            lbp_annotations = cls._build_annotation_dict(lbp.annotations)
+            id_perms = cls._build_string_dict(lbp.id_perms)
+            params = cls._build_string_dict(lbp.params)
+
+            # Construct response for an element.
+            lbp_instance = introspect.LoadbalancerPoolInstance(
+                uuid=lbp.uuid,
+                name=lbp.fq_name[-1],
+                fq_name=lbp.fq_name,
+                annotations=lbp_annotations,
+                custom_attributes=lbp.custom_attributes,
+                id_perms=id_perms,
+                loadbalancer_listener=lbp.loadbalancer_listener,
+                members=list(lbp.members),
+                params=params,
+                parent_uuid=lbp.parent_uuid,
+                provider=str(lbp.provider))
+
+            # Append the constructed element info to the response.
+            lbp_resp.lbps.append(lbp_instance)
+
+        # Send the reply out.
+        lbp_resp.response(req.context())
 # end class LoadbalancerPoolKM
 
 class LoadbalancerMemberKM(DBBaseKM):
@@ -354,6 +479,7 @@ class LoadbalancerMemberKM(DBBaseKM):
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(LoadbalancerMemberKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.vmi = None
         self.vm = None
@@ -393,6 +519,33 @@ class LoadbalancerMemberKM(DBBaseKM):
             parent.members.discard(obj.uuid)
         del cls._dict[uuid]
     # end delete
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to LoadbalancerMember DB lookup/introspect request. """
+        lbm_resp = introspect.LoadbalancerMemberDatabaseListResp(lbms=[])
+
+        # Iterate through all elements of LoadbalancerMember DB.
+        for lbm in LoadbalancerMemberKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.lbm_uuid and req.lbm_uuid != lbm.uuid:
+                continue
+
+            lbm_annotations = cls._build_annotation_dict(lbm.annotations)
+
+            # Construct response for an element.
+            lbm_instance = introspect.LoadbalancerPoolInstance(
+                uuid=lbm.uuid,
+                name=lbm.fq_name[-1],
+                fq_name=lbm.fq_name,
+                annotations=lbm_annotations)
+
+            # Append the constructed element info to the response.
+            lbm_resp.lbms.append(lbm_instance)
+
+        # Send the reply out.
+        lbm_resp.response(req.context())
 # end class LoadbalancerMemberKM
 
 class HealthMonitorKM(DBBaseKM):
@@ -402,6 +555,7 @@ class HealthMonitorKM(DBBaseKM):
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(HealthMonitorKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.loadbalancer_pools = set()
         self.update(obj_dict)
@@ -428,6 +582,33 @@ class HealthMonitorKM(DBBaseKM):
         obj.update_multiple_refs('loadbalancer_pool', {})
         del cls._dict[uuid]
     # end delete
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to HealthMonitor DB lookup/introspect request. """
+        hm_resp = introspect.HealthMonitorDatabaseListResp(hms=[])
+
+        # Iterate through all elements of HealthMonitor DB.
+        for hm in HealthMonitorKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.hm_uuid and req.hm_uuid != hm.uuid:
+                continue
+
+            hm_annotations = cls._build_annotation_dict(hm.annotations)
+
+            # Construct response for an element.
+            hm_instance = introspect.HealthMonitorInstance(
+                uuid=hm.uuid,
+                name=hm.fq_name[-1],
+                fq_name=hm.fq_name,
+                annotations=hm_annotations)
+
+            # Append the constructed element info to the response.
+            hm_resp.hms.append(hm_instance)
+
+        # Send the reply out.
+        hm_resp.response(req.context())
 # end class HealthMonitorKM
 
 
@@ -435,7 +616,7 @@ class VirtualMachineKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_machine'
     _ann_fq_name_to_uuid = {}
-    ann_fq_name_key = ["kind","name"]
+    ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
@@ -481,6 +662,36 @@ class VirtualMachineKM(DBBaseKM):
         super(VirtualMachineKM, cls).delete(uuid)
         del cls._dict[uuid]
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Virtual Machine DB lookup/introspect request. """
+        vm_resp = introspect.VirtualMachineDatabaseListResp(vms=[])
+
+        # Iterate through all elements of Virtual Machine DB.
+        for vm in VirtualMachineKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.vm_uuid and req.vm_uuid != vm.uuid:
+                continue
+
+            vm_annotations = cls._build_annotation_dict(vm.annotations)
+
+            # Construct response for an element.
+            vm_instance = introspect.VirtualMachineInstance(
+                uuid=vm.uuid,
+                name=vm.name,
+                annotations=vm_annotations,
+                owner=vm.owner,
+                pod_namespace=vm.pod_namespace,
+                pod_node=vm.pod_node,
+                pod_labels=vm.pod_labels)
+
+            # Append the constructed element info to the response.
+            vm_resp.vms.append(vm_instance)
+
+        # Send the reply out.
+        vm_resp.response(req.context())
+
 
 class VirtualRouterKM(DBBaseKM):
     _dict = {}
@@ -490,6 +701,7 @@ class VirtualRouterKM(DBBaseKM):
     _ip_addr_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(VirtualRouterKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_machines = set()
         self.update(obj_dict)
@@ -524,15 +736,44 @@ class VirtualRouterKM(DBBaseKM):
     def get_ip_addr_to_uuid(cls, ip_addr):
         return cls._ip_addr_to_uuid.get(tuple(ip_addr))
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Virtual Router DB lookup/introspect request. """
+        vr_resp = introspect.VirtualRouterDatabaseListResp(vrs=[])
+
+        # Iterate through all elements of Virtual Router DB.
+        for vr in VirtualRouterKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.vr_uuid and req.vr_uuid != vr.uuid:
+                continue
+
+            vr_annotations = cls._build_annotation_dict(vr.annotations)
+
+            # Construct response for an element.
+            vr_instance = introspect.VirtualRouterInstance(
+                uuid=vr.uuid,
+                name=vr.fq_name[-1],
+                fq_name=vr.fq_name,
+                annotations=vr_annotations,
+                virtual_machines=list(vr.virtual_machines))
+
+            # Append the constructed element info to the response.
+            vr_resp.vrs.append(vr_instance)
+
+        # Send the reply out.
+        vr_resp.response(req.context())
+
 
 class VirtualMachineInterfaceKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_machine_interface'
     _ann_fq_name_to_uuid = {}
-    ann_fq_name_key = ["kind","name"]
+    ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(VirtualMachineInterfaceKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.host_id = None
         self.virtual_network = None
@@ -543,7 +784,6 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         self.vlan_id = None
         self.vlan_bit_map = None
         self.security_groups = set()
-        super(VirtualMachineInterfaceKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
 
@@ -596,8 +836,7 @@ class VirtualMachineInterfaceKM(DBBaseKM):
                 # vlan-id space of the parent interface.
                 parent_vmis = self.virtual_machine_interfaces
                 for parent_vmi_id in parent_vmis:
-                    parent_vmi = VirtualMachineInterfaceKM.locate(
-                                     parent_vmi_id)
+                    parent_vmi = VirtualMachineInterfaceKM.locate(parent_vmi_id)
                     if not parent_vmi:
                         continue
                     if self.vlan_id is not None:
@@ -640,21 +879,21 @@ class VirtualMachineInterfaceKM(DBBaseKM):
         obj.remove_from_parent()
         del cls._dict[uuid]
 
-    def set_vlan (self, vlan):
+    def set_vlan(self, vlan):
         if vlan < MIN_VLAN_ID or vlan > MAX_VLAN_ID:
             return
         if not self.vlan_bit_map:
             self.vlan_bit_map = BitArray(MAX_VLAN_ID + 1)
         self.vlan_bit_map[vlan] = 1
 
-    def reset_vlan (self, vlan):
+    def reset_vlan(self, vlan):
         if vlan < MIN_VLAN_ID or vlan > MAX_VLAN_ID:
             return
         if not self.vlan_bit_map:
             return
         self.vlan_bit_map[vlan] = 0
 
-    def alloc_vlan (self):
+    def alloc_vlan(self):
         if not self.vlan_bit_map:
             self.vlan_bit_map = BitArray(MAX_VLAN_ID + 1)
         vid = self.vlan_bit_map.find('0b0', MIN_VLAN_ID)
@@ -663,17 +902,51 @@ class VirtualMachineInterfaceKM(DBBaseKM):
             return vid[0]
         return INVALID_VLAN_ID
 
-    def get_vlan (self):
-        return vlan_id
+    def get_vlan(self):
+        return self.vlan_id
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Virtual Machine Interface DB lookup/introspect request. """
+        vmi_resp = introspect.VirtualMachineInterfaceDatabaseListResp(vmis=[])
+
+        # Iterate through all elements of Virtual Router DB.
+        for vmi in VirtualMachineInterfaceKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.vmi_uuid and req.vmi_uuid != vmi.uuid:
+                continue
+
+            vmi_annotations = cls._build_annotation_dict(vmi.annotations)
+
+            # Construct response for an element.
+            vmi_instance = introspect.VirtualMachineInterfaceInstance(
+                uuid=vmi.uuid,
+                name=vmi.fq_name[-1],
+                fq_name=vmi.fq_name,
+                annotations=vmi_annotations,
+                floating_ips=list(vmi.floating_ips),
+                host_id=vmi.host_id,
+                security_groups=list(vmi.security_groups),
+                virtual_machine=vmi.virtual_machine,
+                virtual_machine_interfaces=list(vmi.virtual_machine_interfaces),
+                virtual_network=vmi.virtual_network)
+
+            # Append the constructed element info to the response.
+            vmi_resp.vmis.append(vmi_instance)
+
+        # Send the reply out.
+        vmi_resp.response(req.context())
 
 class VirtualNetworkKM(DBBaseKM):
     _dict = {}
     obj_type = 'virtual_network'
     _ann_fq_name_to_uuid = {}
     _fq_name_to_uuid = {}
-    ann_fq_name_key = ["kind","name"]
+    ann_fq_name_key = ["kind", "name"]
 
     def __init__(self, uuid, obj_dict=None):
+        super(VirtualNetworkKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.instance_ips = set()
@@ -744,21 +1017,59 @@ class VirtualNetworkKM(DBBaseKM):
     def is_k8s_namespace_isolated(self):
         return self.k8s_namespace_isolated
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Virtual Network DB lookup/introspect request. """
+        vn_resp = introspect.VirtualNetworkDatabaseListResp(vns=[])
+
+        # Iterate through all elements of Virtual Network DB.
+        for vn in VirtualNetworkKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.vn_uuid and req.vn_uuid != vn.uuid:
+                continue
+
+            vn_annotations = cls._build_annotation_dict(vn.annotations)
+
+            ipam_subnets = [introspect.NetworkIpamSubnetInstance(
+                uuid=sub[0], fq_name=sub[1])
+                            for sub
+                            in vn.network_ipam_subnets.iteritems()]
+
+            # Construct response for an element.
+            vn_instance = introspect.VirtualNetworkInstance(
+                uuid=vn.uuid,
+                name=vn.fq_name[-1],
+                fq_name=vn.fq_name,
+                annotations=vn_annotations,
+                virtual_machine_interfaces=list(vn.virtual_machine_interfaces),
+                instance_ips=list(vn.instance_ips),
+                network_ipams=list(vn.network_ipams),
+                network_ipam_subnets=ipam_subnets,
+                k8s_namespace=vn.k8s_namespace,
+                k8s_namespace_isolated=vn.k8s_namespace_isolated)
+
+            # Append the constructed element info to the response.
+            vn_resp.vns.append(vn_instance)
+
+        # Send the reply out.
+        vn_resp.response(req.context())
+
 class InstanceIpKM(DBBaseKM):
     _dict = {}
     obj_type = 'instance_ip'
     _ann_fq_name_to_uuid = {}
-    ann_fq_name_key = ["kind","name"]
+    ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(InstanceIpKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.address = None
         self.family = None
         self.virtual_machine_interfaces = set()
         self.virtual_networks = set()
         self.floating_ips = set()
-        super(InstanceIpKM, self).__init__(uuid, obj_dict)
         self.update(obj_dict)
 
     def update(self, obj=None):
@@ -771,7 +1082,7 @@ class InstanceIpKM(DBBaseKM):
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('virtual_network', obj)
         self.floating_ips = set([fip['uuid']
-                            for fip in obj.get('floating_ips', [])])
+                                 for fip in obj.get('floating_ips', [])])
 
     @classmethod
     def delete(cls, uuid):
@@ -792,6 +1103,35 @@ class InstanceIpKM(DBBaseKM):
                     return iip_obj
         return None
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to InstanceIp DB lookup/introspect request. """
+        iip_resp = introspect.InstanceIpDatabaseListResp(iips=[])
+
+        # Iterate through all elements of InstanceIp DB.
+        for iip in InstanceIpKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.iip_uuid and req.iip_uuid != iip.uuid:
+                continue
+
+            # Construct response for an element.
+            iip_instance = introspect.InstanceIpInstance(
+                uuid=iip.uuid,
+                name=iip.fq_name[-1],
+                fq_name=iip.fq_name,
+                address=str(iip.address),
+                family=iip.family,
+                vm_interfaces=list(iip.virtual_machine_interfaces),
+                virtual_networks=list(iip.virtual_networks),
+                floating_ips=list(iip.floating_ips))
+
+            # Append the constructed element info to the response.
+            iip_resp.iips.append(iip_instance)
+
+        # Send the reply out.
+        iip_resp.response(req.context())
+
 # end class InstanceIpKM
 
 class ProjectKM(DBBaseKM):
@@ -801,6 +1141,7 @@ class ProjectKM(DBBaseKM):
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(ProjectKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.ns_labels = {}
         self.virtual_networks = set()
@@ -839,7 +1180,6 @@ class ProjectKM(DBBaseKM):
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
-        obj = cls._dict[uuid]
         del cls._dict[uuid]
 
     def get_security_groups(self):
@@ -860,6 +1200,42 @@ class ProjectKM(DBBaseKM):
     def remove_security_group(self, sg_uuid):
         self.security_groups.discard(sg_uuid)
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Project DB lookup/introspect request. """
+        project_resp = introspect.ProjectDatabaseListResp(projects=[])
+
+        # Iterate through all elements of Project DB.
+        for project in ProjectKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.project_uuid and req.project_uuid != project.uuid:
+                continue
+
+            project_annotations = cls._build_annotation_dict(
+                project.annotations)
+
+            ns_labels = cls._build_string_dict(project.ns_labels)
+
+            # Construct response for an element.
+            project_instance = introspect.ProjectInstance(
+                uuid=project.uuid,
+                name=project.fq_name[-1],
+                fq_name=project.fq_name,
+                annotations=project_annotations,
+                k8s_namespace_isolated=project.k8s_namespace_isolated,
+                k8s_namespace_name=str(project.k8s_namespace_name),
+                k8s_namespace_uuid=str(project.k8s_namespace_uuid),
+                ns_labels=ns_labels,
+                security_groups=list(project.security_groups),
+                virtual_networks=list(project.virtual_networks))
+
+            # Append the constructed element info to the response.
+            project_resp.projects.append(project_instance)
+
+        # Send the reply out.
+        project_resp.response(req.context())
+
 class DomainKM(DBBaseKM):
     _dict = {}
     obj_type = 'domain'
@@ -867,6 +1243,7 @@ class DomainKM(DBBaseKM):
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(DomainKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.update(obj_dict)
 
@@ -881,8 +1258,35 @@ class DomainKM(DBBaseKM):
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
-        obj = cls._dict[uuid]
         del cls._dict[uuid]
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to Domain DB lookup/introspect request. """
+        domain_resp = introspect.DomainDatabaseListResp(domains=[])
+
+        # Iterate through all elements of Domain DB.
+        for domain in DomainKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.domain_uuid and req.domain_uuid != domain.uuid:
+                continue
+
+            domain_annotations = cls._build_annotation_dict(
+                domain.annotations)
+
+            # Construct response for an element.
+            domain_instance = introspect.DomainInstance(
+                uuid=domain.uuid,
+                name=domain.fq_name[-1],
+                fq_name=domain.fq_name,
+                annotations=domain_annotations)
+
+            # Append the constructed element info to the response.
+            domain_resp.domains.append(domain_instance)
+
+        # Send the reply out.
+        domain_resp.response(req.context())
 
 class SecurityGroupKM(DBBaseKM):
     _dict = {}
@@ -892,6 +1296,7 @@ class SecurityGroupKM(DBBaseKM):
     ann_fq_name_key = ["name"]
 
     def __init__(self, uuid, obj_dict=None):
+        super(SecurityGroupKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.project_uuid = None
         self.virtual_machine_interfaces = set()
@@ -905,7 +1310,6 @@ class SecurityGroupKM(DBBaseKM):
         self.ingress_ns_sgs = set()
         self.np_sgs = set()
         self.rule_entries = None
-        super(SecurityGroupKM, self).__init__(uuid, obj_dict)
         obj_dict = self.update(obj_dict)
 
     def update(self, obj=None):
@@ -963,6 +1367,97 @@ class SecurityGroupKM(DBBaseKM):
         super(SecurityGroupKM, cls).delete(uuid)
         del cls._dict[uuid]
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to SecurityGroup DB lookup/introspect request. """
+        sg_resp = introspect.SecurityGroupDatabaseListResp(sgs=[])
+
+        # Iterate through all elements of SecurityGroup DB.
+        for sg in SecurityGroupKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.sg_uuid and req.sg_uuid != sg.uuid:
+                continue
+
+            sg_annotations = cls._build_annotation_dict(sg.annotations)
+            ingress_pod_selector = cls._build_string_dict(
+                sg.ingress_pod_selector)
+            np_pod_selector = cls._build_string_dict(sg.np_pod_selector)
+            np_spec = cls._build_string_dict(sg.np_spec)
+
+            rule_entries = []
+            sg_rule_entries = sg.rule_entries['policy_rule'] if sg.rule_entries\
+                else []
+
+            for re in sg_rule_entries:
+                dst_addresses = []
+                for addr in re['dst_addresses']:
+                    dst_addr = introspect.SGAddress(
+                        network_policy=str(addr['network_policy']),
+                        security_group=str(addr['security_group']),
+                        subnet=str(addr['subnet']),
+                        subnet_list=addr['subnet_list'],
+                        virtual_network=addr['virtual_network']
+                    )
+                    dst_addresses.append(dst_addr)
+
+                dst_ports = [str(re['dst_ports'][i])
+                             for i in xrange(len(re['dst_ports']))]
+
+                src_addresses = []
+                for addr in re['src_addresses']:
+                    src_addr = introspect.SGAddress(
+                        network_policy=str(addr['network_policy']),
+                        security_group=str(addr['security_group']),
+                        subnet=str(addr['subnet']),
+                        subnet_list=addr['subnet_list'],
+                        virtual_network=addr['virtual_network']
+                    )
+                    src_addresses.append(src_addr)
+
+                src_ports = [str(re['src_ports'][i])
+                             for i in xrange(len(re['src_ports']))]
+
+                sgre = introspect.SGRuleEntry(
+                    action_list=str(re['action_list']),
+                    application=str(re['application']),
+                    created=str(re['created']),
+                    direction=str(re['direction']),
+                    dst_addresses=dst_addresses,
+                    dst_ports=dst_ports,
+                    ethertype=str(re['ethertype']),
+                    last_modified=str(re['last_modified']),
+                    protocol=str(re['protocol']),
+                    rule_sequence=str(re['rule_sequence']),
+                    rule_uuid=str(re['rule_uuid']),
+                    src_addresses=src_addresses,
+                    src_ports=src_ports)
+                rule_entries.append(sgre)
+
+            # Construct response for an element.
+            sg_instance = introspect.SecurityGroupInstance(
+                uuid=sg.uuid,
+                name=sg.fq_name[-1],
+                fq_name=sg.fq_name,
+                annotations=sg_annotations,
+                ingress_ns_sgs=list(sg.ingress_ns_sgs),
+                ingress_pod_selector=ingress_pod_selector,
+                ingress_pod_sgs=list(sg.ingress_pod_sgs),
+                namespace_name=sg.namespace,
+                np_pod_selector=np_pod_selector,
+                np_sgs=list(sg.np_sgs),
+                np_spec=np_spec,
+                owner=sg.owner,
+                project_uuid=sg.project_uuid,
+                rule_entries=rule_entries,
+                vm_interfaces=list(sg.virtual_machine_interfaces))
+
+            # Append the constructed element info to the response.
+            sg_resp.sgs.append(sg_instance)
+
+        # Send the reply out.
+        sg_resp.response(req.context())
+
 class FloatingIpPoolKM(DBBaseKM):
     _dict = {}
     obj_type = 'floating_ip_pool'
@@ -970,6 +1465,7 @@ class FloatingIpPoolKM(DBBaseKM):
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(FloatingIpPoolKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.virtual_network = None
         self.update(obj_dict)
@@ -993,14 +1489,52 @@ class FloatingIpPoolKM(DBBaseKM):
         obj.update_single_ref('virtual_network', None)
         del cls._dict[uuid]
 
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to FloatingIpPool DB lookup/introspect request. """
+        fip_pool_resp = introspect.FloatingIpPoolDatabaseListResp(fip_pools=[])
+
+        # Iterate through all elements of FloatingIpPool DB.
+        for fip_pool in FloatingIpPoolKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.fip_pool_uuid and req.fip_pool_uuid != fip_pool.uuid:
+                continue
+
+            fip_pool_annotations = cls._build_annotation_dict(
+                fip_pool.annotations)
+
+            fip_pool_subnets = []
+            if hasattr(fip_pool, 'floating_ip_pool_subnets') and\
+                fip_pool.floating_ip_pool_subnets and \
+                fip_pool.floating_ip_pool_subnets.get('subnet_uuid'):
+                fip_pool_subnets = fip_pool.floating_ip_pool_subnets[
+                    'subnet_uuid']
+
+            # Construct response for an element.
+            fip_pool_instance = introspect.FloatingIpPoolInstance(
+                uuid=fip_pool.uuid,
+                name=fip_pool.fq_name[-1],
+                fq_name=fip_pool.fq_name,
+                annotations=fip_pool_annotations,
+                fip_pool_subnets=fip_pool_subnets,
+                virtual_network=str(fip_pool.virtual_network))
+
+            # Append the constructed element info to the response.
+            fip_pool_resp.fip_pools.append(fip_pool_instance)
+
+        # Send the reply out.
+        fip_pool_resp.response(req.context())
+
 class FloatingIpKM(DBBaseKM):
     _dict = {}
     obj_type = 'floating_ip'
     _ann_fq_name_to_uuid = {}
-    ann_fq_name_key = ["kind","name"]
+    ann_fq_name_key = ["kind", "name"]
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(FloatingIpKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.address = None
         self.parent_uuid = None
@@ -1033,6 +1567,37 @@ class FloatingIpKM(DBBaseKM):
         obj.update_multiple_refs('virtual_machine_interface', {})
         del cls._dict[uuid]
     # end delete
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to FloatingIp DB lookup/introspect request. """
+        fip_resp = introspect.FloatingIpDatabaseListResp(fips=[])
+
+        # Iterate through all elements of FloatingIp DB.
+        for fip in FloatingIpKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.fip_uuid and req.fip_uuid != fip.uuid:
+                continue
+
+            fip_annotations = cls._build_annotation_dict(fip.annotations)
+
+            # Construct response for an element.
+            fip_instance = introspect.FloatingIpInstance(
+                uuid=fip.uuid,
+                name=fip.fq_name[-1],
+                fq_name=fip.fq_name,
+                annotations=fip_annotations,
+                address=str(fip.address),
+                parent_uuid=str(fip.parent_uuid),
+                virtual_ip=str(fip.virtual_ip),
+                vm_interfaces=list(fip.virtual_machine_interfaces))
+
+            # Append the constructed element info to the response.
+            fip_resp.fips.append(fip_instance)
+
+        # Send the reply out.
+        fip_resp.response(req.context())
 # end class FloatingIpKM
 
 class NetworkIpamKM(DBBaseKM):
@@ -1042,6 +1607,7 @@ class NetworkIpamKM(DBBaseKM):
     _fq_name_to_uuid = {}
 
     def __init__(self, uuid, obj_dict=None):
+        super(NetworkIpamKM, self).__init__(uuid, obj_dict)
         self.uuid = uuid
         self.update(obj_dict)
     # end __init__
@@ -1060,4 +1626,34 @@ class NetworkIpamKM(DBBaseKM):
         if uuid not in cls._dict:
             return
         del cls._dict[uuid]
+
+    @classmethod
+    def sandesh_handle_db_list_request(cls, req):
+        """ Reply to NetworkIpam DB lookup/introspect request. """
+        network_ipam_resp = introspect.NetworkIpamDatabaseListResp(
+            network_ipams=[])
+
+        # Iterate through all elements of NetworkIpam DB.
+        for network_ipam in NetworkIpamKM.objects():
+
+            # If the request is for a specific entry, then locate the entry.
+            if req.network_ipam_uuid \
+                and req.network_ipam_uuid != network_ipam.uuid:
+                continue
+
+            network_ipam_annotations = cls._build_annotation_dict(
+                network_ipam.annotations)
+
+            # Construct response for an element.
+            network_ipam_instance = introspect.NetworkIpamInstance(
+                uuid=network_ipam.uuid,
+                name=network_ipam.fq_name[-1],
+                fq_name=network_ipam.fq_name,
+                annotations=network_ipam_annotations)
+
+            # Append the constructed element info to the response.
+            network_ipam_resp.network_ipams.append(network_ipam_instance)
+
+        # Send the reply out.
+        network_ipam_resp.response(req.context())
 # end class NetworkIpamKM
