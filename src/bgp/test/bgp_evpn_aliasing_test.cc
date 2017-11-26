@@ -309,7 +309,7 @@ protected:
         TASK_UTIL_EXPECT_TRUE(rt->IsDeleted());
     }
 
-    bool CheckRoutePathExists(const string &prefix_str, const string &nh_str,
+    bool CheckRoutePathExists(const string &prefix_str, const IPeer *peer,
         bool aliased) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(prefix_str);
@@ -318,7 +318,9 @@ protected:
         for (Route::PathList::const_iterator it = route->GetPathList().begin();
              it != route->GetPathList().end(); ++it) {
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-            if (path->GetAttr()->nexthop().to_string() != nh_str)
+            if (path->GetPeer() != peer)
+                continue;
+            if (path->GetAttr()->nexthop().to_string() != peer->ToString())
                 continue;
             if (path->IsAliased() == aliased)
                 return true;
@@ -332,11 +334,10 @@ protected:
         bool aliased = false) {
         task_util::WaitForIdle();
         TASK_UTIL_EXPECT_TRUE(
-            CheckRoutePathExists(prefix_str, peer->ToString(), aliased));
+            CheckRoutePathExists(prefix_str, peer, aliased));
     }
 
-    bool CheckRoutePathNoExists(const string &prefix_str,
-        const string &nh_str) {
+    bool CheckRoutePathNoExists(const string &prefix_str, const IPeer *peer) {
         task_util::TaskSchedulerLock lock;
         BgpRoute *route = RouteLookup(prefix_str);
         if (!route)
@@ -344,7 +345,9 @@ protected:
         for (Route::PathList::const_iterator it = route->GetPathList().begin();
              it != route->GetPathList().end(); ++it) {
             const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-            if (path->GetAttr()->nexthop().to_string() == nh_str)
+            if (path->GetPeer() == peer)
+                return false;
+            if (path->GetAttr()->nexthop().to_string() == peer->ToString())
                 return false;
         }
 
@@ -354,8 +357,7 @@ protected:
     void VerifyRoutePathNoExists(const string &prefix_str,
         const PeerMock *peer) {
         task_util::WaitForIdle();
-        TASK_UTIL_EXPECT_TRUE(
-            CheckRoutePathNoExists(prefix_str, peer->ToString()));
+        TASK_UTIL_EXPECT_TRUE(CheckRoutePathNoExists(prefix_str, peer));
     }
 
     bool CheckSegmentExists(const EthernetSegmentId &esi) {
@@ -386,7 +388,7 @@ protected:
             return false;
         for (EvpnSegment::const_iterator it = segment->begin();
              it != segment->end(); ++it) {
-            if (it->address == peer->address() &&
+            if (it->attr->nexthop() == peer->address() &&
                 it->single_active == single_active) {
                 return true;
             }
@@ -407,7 +409,7 @@ protected:
             return true;
         for (EvpnSegment::const_iterator it = segment->begin();
              it != segment->end(); ++it) {
-            if (it->address == peer->address())
+            if (it->attr->nexthop() == peer->address())
                 return false;
         }
         return true;
@@ -419,27 +421,39 @@ protected:
     }
 
 	void DisableSegmentUpdateProcessing() {
-	    blue_manager_->DisableSegmentUpdateProcessing();
+        task_util::TaskFire(
+            boost::bind(&EvpnManager::DisableSegmentUpdateProcessing,
+                blue_manager_), "bgp::Config");
 	}
 
 	void EnableSegmentUpdateProcessing() {
-	    blue_manager_->EnableSegmentUpdateProcessing();
+        task_util::TaskFire(
+            boost::bind(&EvpnManager::EnableSegmentUpdateProcessing,
+                blue_manager_), "bgp::Config");
 	}
 
 	void DisableSegmentDeleteProcessing() {
-	    blue_manager_->DisableSegmentDeleteProcessing();
+        task_util::TaskFire(
+            boost::bind(&EvpnManager::DisableSegmentDeleteProcessing,
+                blue_manager_), "bgp::Config");
 	}
 
 	void EnableSegmentDeleteProcessing() {
-	    blue_manager_->EnableSegmentDeleteProcessing();
+        task_util::TaskFire(
+            boost::bind(&EvpnManager::EnableSegmentDeleteProcessing,
+                blue_manager_), "bgp::Config");
 	}
 
 	void DisableMacUpdateProcessing() {
-	    blue_manager_->DisableMacUpdateProcessing();
+        task_util::TaskFire(
+            boost::bind(&EvpnManager::DisableMacUpdateProcessing,
+                blue_manager_), "bgp::Config");
 	}
 
 	void EnableMacUpdateProcessing() {
-	    blue_manager_->EnableMacUpdateProcessing();
+        task_util::TaskFire(
+            boost::bind(&EvpnManager::EnableMacUpdateProcessing,
+                blue_manager_), "bgp::Config");
 	}
 
     EventManager evm_;
