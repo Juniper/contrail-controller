@@ -30,6 +30,7 @@
 #include <query_engine/buildinfo.h>
 #include <sandesh/sandesh_http.h>
 #include <io/process_signal.h>
+#include <malloc.h>
 
 using std::auto_ptr;
 using std::string;
@@ -51,6 +52,7 @@ using process::Signal;
 // before proceeding.
 // It will make it easier to debug qed during systest
 volatile int gdbhelper = 1;
+int timer_count = 0;
 bool QedVersion(std::string &version) {
     return MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo, version);
 }
@@ -171,6 +173,11 @@ static bool SendQEDbStats(QESandeshContext &ctx) {
     }
     qe_db_stats.set_name(Sandesh::source());
     QEDbStatsUve::Send(qe_db_stats);
+    if (timer_count >5) {
+        timer_count = 0;
+        malloc_trim(0);
+    }
+    timer_count ++;
     qe_dbstats_timer->Cancel();
     qe_dbstats_timer->Start(60*1000, boost::bind(&QEDbStatsTrigger),
                                NULL);
