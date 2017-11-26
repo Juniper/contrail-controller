@@ -58,6 +58,11 @@ public:
                                  this, _1));
     }
 
+    ~ControlNodeMockIFMapXmppPeer() {
+        if (channel_)
+            channel_->UnRegisterWriteReady(xmps::BGP);
+    }
+
     void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         rx_count_++;
     }    

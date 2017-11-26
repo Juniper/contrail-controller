@@ -60,6 +60,8 @@ public:
     virtual int GetTaskInstance() const = 0;
     virtual void RegisterReceive(xmps::PeerId, ReceiveCb) = 0;
     virtual void UnRegisterReceive(xmps::PeerId) = 0;
+    virtual void RegisterReferer(xmps::PeerId) { }
+    virtual void UnRegisterReferer(xmps::PeerId) { }
     virtual void RegisterRxMessageTraceCallback(RxMessageTraceCb cb) = 0;
     virtual void RegisterTxMessageTraceCallback(TxMessageTraceCb cb) = 0;
     virtual void UnRegisterWriteReady(xmps::PeerId id) = 0;
