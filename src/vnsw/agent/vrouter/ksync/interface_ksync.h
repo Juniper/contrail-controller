@@ -113,6 +113,7 @@ private:
     uint16_t rx_vlan_id_;
     uint16_t tx_vlan_id_;
     uint32_t vrf_id_;
+    uint32_t multicast_vrf_id_;
     bool persistent_;
     PhysicalInterface::SubType subtype_;
     KSyncEntryPtr xconnect_;
