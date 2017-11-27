@@ -110,7 +110,8 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
     }
 
     uint16_t sport = pkt->sport;
-    if (pkt->ip_proto == IPPROTO_ICMP) {
+    if (pkt->ip_proto == IPPROTO_ICMP ||
+        pkt->ip_proto == IPPROTO_IGMP) {
         sport = 0;
     }
     if (pkt->sport < pkt->dport) {
@@ -266,6 +267,10 @@ PktHandler::PktModuleName PktHandler::ParsePacket(const AgentHdr &hdr,
             return ICMPV6_ERROR;
         }
         return ICMPV6;
+    }
+
+    if (pkt_type == PktType::IGMP) {
+        return IGMP;
     }
 
     if(pkt_info->ip6 && hdr.cmd == AgentHdr::TRAP_HANDLE_DF) {
@@ -524,6 +529,16 @@ int PktHandler::ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
         } else {
             pkt_info->sport = 0;
         }
+        break;
+    }
+
+    case IPPROTO_IGMP: {
+        pkt_info->transp.igmp = (struct igmp *) (pkt + len);
+        pkt_type = PktType::IGMP;
+
+        pkt_info->dport = 0;
+        pkt_info->sport = 0;
+        pkt_info->data = (pkt + len);
         break;
     }
 
