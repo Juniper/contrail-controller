@@ -92,7 +92,8 @@ void VrfExport::Notify(const Agent *agent, AgentXmppChannel *bgp_xmpp_peer,
             if (state->force_chg_ == true) {
                 if (vrf->GetName().compare(bgp_xmpp_peer->agent()->
                                            fabric_vrf_name()) != 0) {
-                    bgp_peer->route_walker()->StartRouteWalk(vrf);
+                    bgp_peer->route_walker()->StartRouteWalk(vrf, true,
+                                              ControllerRouteWalker::NOTIFYALL);
                 }
                 state->force_chg_ = false;
             }
