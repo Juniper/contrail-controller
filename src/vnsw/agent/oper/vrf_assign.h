@@ -43,8 +43,8 @@ public:
         const std::string vrf_name_;
     };
 
-    VrfAssign(Type type, Interface *interface)
-        : type_(type), interface_(interface), vrf_(NULL, this) { };
+    VrfAssign(Type type, Interface *interface_)
+        : type_(type), interface_(interface_), vrf_(NULL, this) { };
     virtual ~VrfAssign() { };
 
     uint32_t GetRefCount() const {
@@ -75,8 +75,8 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class VlanVrfAssign : public VrfAssign {
 public:
-    VlanVrfAssign(Interface *interface, uint16_t vlan_tag):
-        VrfAssign(VLAN, interface), vlan_tag_(vlan_tag), nh_(NULL) {}
+    VlanVrfAssign(Interface *interface_, uint16_t vlan_tag):
+        VrfAssign(VLAN, interface_), vlan_tag_(vlan_tag), nh_(NULL) {}
     virtual ~VlanVrfAssign() {}
     bool VrfAssignIsLess(const VrfAssign &rhs) const;
 
