@@ -1252,7 +1252,7 @@ static const std::vector<FlowRecordFields::type> FlowRecordTableColumns =
     (FlowRecordFields::FLOWREC_OTHER_VROUTER_IP)
     (FlowRecordFields::FLOWREC_UNDERLAY_PROTO)
     (FlowRecordFields::FLOWREC_UNDERLAY_SPORT)
-    (FlowRecordFields::FLOWREC_VMI_UUID)
+    (FlowRecordFields::FLOWREC_VMI)
     (FlowRecordFields::FLOWREC_DROP_REASON);
 
 boost::uuids::uuid DbHandler::seed_uuid = StringToUuid(std::string("ffffffff-ffff-ffff-ffff-ffffffffffff"));
