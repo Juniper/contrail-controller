@@ -743,7 +743,7 @@ public:
     }
     static void Create(const InterfaceKey *intf, bool policy);
     static void CreateReq(const InterfaceKey *intf, bool policy);
-    const Interface* interface() const { return interface_.get();}
+    const Interface* interfacefunc() const { return interface_.get();}
 
     virtual bool MatchEgressData(const NextHop *nh) const {
         return false;

@@ -126,12 +126,12 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         InterfaceKSyncObject *interface_object =
             ksync_obj_->ksync()->interface_ksync_obj();
         const ResolveNH *rsl_nh = static_cast<const ResolveNH *>(nh);
-        InterfaceKSyncEntry if_ksync(interface_object, rsl_nh->interface());
+        InterfaceKSyncEntry if_ksync(interface_object, rsl_nh->interfacefunc());
         interface_ = interface_object->GetReference(&if_ksync);
-        vrf_id_ = rsl_nh->interface()->vrf_id();
-        if (rsl_nh->interface()->type() == Interface::VM_INTERFACE) {
+        vrf_id_ = rsl_nh->interfacefunc()->vrf_id();
+        if (rsl_nh->interfacefunc()->type() == Interface::VM_INTERFACE) {
             const VmInterface *vm_intf =
-                static_cast<const VmInterface *>(rsl_nh->interface());
+                static_cast<const VmInterface *>(rsl_nh->interfacefunc());
             if (vm_intf->vrf()->forwarding_vrf()) {
                 vrf_id_ = vm_intf->vrf()->forwarding_vrf()->vrf_id();
             }

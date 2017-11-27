@@ -361,8 +361,8 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
     case NextHop::RESOLVE: {
         assert(info->l3_flow == true);
         const ResolveNH *rsl_nh = static_cast<const ResolveNH *>(nh);
-        out->nh_ = rsl_nh->interface()->flow_key_nh()->id();
-        out->intf_ = rsl_nh->interface();
+        out->nh_ = rsl_nh->interfacefunc()->flow_key_nh()->id();
+        out->intf_ = rsl_nh->interfacefunc();
         break;
     }
 

@@ -748,7 +748,7 @@ ArpProto::GratuitousArpEntry(const ArpKey &key, const Interface *intf) {
     for (ArpEntrySet::iterator sit = it->second.begin();
          sit != it->second.end(); sit++) {
         ArpEntry *entry = *sit;
-        if (entry->interface() == intf)
+        if (entry->interfacefunc() == intf)
             return *sit;
     }
 
@@ -795,7 +795,7 @@ bool ArpProto::AddArpEntry(ArpEntry *entry) {
         return false;
 
     bool ret = arp_cache_.insert(ArpCachePair(entry->key(), entry)).second;
-    uint32_t intf_id = entry->interface()->id();
+    uint32_t intf_id = entry->interfacefunc()->id();
     InterfaceArpMap::iterator it = interface_arp_map_.find(intf_id);
     if (it == interface_arp_map_.end()) {
         InterfaceArpInfo intf_entry;

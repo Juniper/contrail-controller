@@ -142,14 +142,14 @@ void Icmpv6Proto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
 }
 
 void Icmpv6Proto::InterfaceNotify(DBEntryBase *entry) {
-    Interface *interface = static_cast<Interface *>(entry);
-    if (interface->type() != Interface::VM_INTERFACE)
+    Interface *interface_ = static_cast<Interface *>(entry);
+    if (interface_->type() != Interface::VM_INTERFACE)
         return;
 
     Icmpv6Stats stats;
     VmInterface *vm_interface = static_cast<VmInterface *>(entry);
     VmInterfaceMap::iterator it = vm_interfaces_.find(vm_interface);
-    if (interface->IsDeleted()) {
+    if (interface_->IsDeleted()) {
         if (it != vm_interfaces_.end()) {
             vm_interfaces_.erase(it);
         }
