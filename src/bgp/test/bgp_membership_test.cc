@@ -220,8 +220,19 @@ protected:
         table->Enqueue(&request);
     }
 
-    void SetQueueDisable(bool value) { mgr_->SetQueueDisable(value); }
-    void SetWalkerDisable(bool value) { walker_->SetQueueDisable(value); }
+    void SetQueueDisable(bool value) {
+        task_util::TaskFire(
+            boost::bind(&BgpMembershipManager::SetQueueDisable, mgr_, value),
+            "bgp::Config");
+    }
+
+    void SetWalkerDisable(bool value) {
+        task_util::TaskFire(
+            boost::bind(&BgpMembershipManager::Walker::SetQueueDisable,
+                walker_, value),
+            "bgp::Config");
+    }
+
     bool IsWalkerQueueEmpty() { return walker_->IsQueueEmpty(); }
     size_t GetWalkerQueueSize() { return walker_->GetQueueSize(); }
     size_t GetWalkerPeerListSize() { return walker_->GetPeerListSize(); }
@@ -229,8 +240,16 @@ protected:
     size_t GetWalkerRibOutStateListSize() {
         return walker_->GetRibOutStateListSize();
     }
-    void WalkerPostponeWalk() { walker_->PostponeWalk(); }
-    void WalkerResumeWalk() { walker_->ResumeWalk(); }
+    void WalkerPostponeWalk() {
+        task_util::TaskFire(
+            boost::bind(&BgpMembershipManager::Walker::PostponeWalk, walker_),
+            "bgp::Config");
+    }
+    void WalkerResumeWalk() {
+        task_util::TaskFire(
+            boost::bind(&BgpMembershipManager::Walker::ResumeWalk, walker_),
+            "bgp::Config");
+    }
 
     BgpMembershipManager *mgr_;
     BgpMembershipManager::Walker *walker_;
