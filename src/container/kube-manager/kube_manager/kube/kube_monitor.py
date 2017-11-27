@@ -1,17 +1,15 @@
 #
 # Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-import sys
-import os
-import time
-import socket
-import select
-import eventlet
+from cStringIO import StringIO
 import json
+import socket
+import time
+
 import requests
 
-from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
+
 
 class KubeMonitor(object):
 
@@ -47,8 +45,9 @@ class KubeMonitor(object):
             header = {'Authorization': "Bearer " + self.token}
             self.headers.update(header)
             self.verify = False
-            self.kubernetes_api_server_port = self.args.kubernetes_api_secure_port
-        else: # kubernetes
+            self.kubernetes_api_server_port = \
+                self.args.kubernetes_api_secure_port
+        else:  # kubernetes
             protocol = "http"
             self.kubernetes_api_server_port = self.args.kubernetes_api_port
 
@@ -57,39 +56,33 @@ class KubeMonitor(object):
                                    self.kubernetes_api_server,
                                    self.kubernetes_api_server_port)
         # URL to the v1-components in api server.
-        self.v1_url = "%s/api/v1" % (self.url)
+        self.v1_url = "%s/api/v1" % self.url
         # URL to v1-beta1 components to api server.
-        self.beta_url = "%s/apis/extensions/v1beta1" % (self.url)
+        self.beta_url = "%s/apis/extensions/v1beta1" % self.url
 
         if not self._is_kube_api_server_alive():
             msg = "kube_api_service is not available"
-            self.logger.error("%s - %s" %(self.name, msg))
+            self.logger.error("%s - %s" % (self.name, msg))
             raise Exception(msg)
 
-        self.logger.info("%s - KubeMonitor init done." %self.name)
+        self.logger.info("%s - KubeMonitor init done." % self.name)
 
     def _is_kube_api_server_alive(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        result = sock.connect_ex((self.kubernetes_api_server, \
+        result = sock.connect_ex((self.kubernetes_api_server,
                                   self.kubernetes_api_server_port))
-        if result == 0:
-            return True
-        else:
-            return False
+        return result == 0
 
     def _get_component_url(self):
         """URL to a component.
         This method return the URL for the component represented by this
         monitor instance.
         """
-        if self.resource_beta == False:
-            base_url = self.v1_url
-        else:
-            base_url = self.beta_url
-        url = "%s/%s" % (base_url, self.resource_name)
-        return url
+        base_url = self.beta_url if self.resource_beta else self.v1_url
+        return "%s/%s" % (base_url, self.resource_name)
 
-    def get_entry_url(self, base_url, entry):
+    @staticmethod
+    def get_entry_url(base_url, entry):
         """URL to an entry of this component.
         This method returns a URL to a specific entry of this component.
         """
@@ -119,7 +112,7 @@ class KubeMonitor(object):
             for entry in initial_entries:
                 entry_url = self.get_entry_url(self.url, entry)
                 try:
-                    resp = requests.get(entry_url, headers=self.headers, \
+                    resp = requests.get(entry_url, headers=self.headers,
                                         verify=self.verify)
                     if resp.status_code != 200:
                         resp.close()
@@ -155,8 +148,8 @@ class KubeMonitor(object):
 
         url = self._get_component_url()
         try:
-            resp = requests.get(url, params={'watch': 'true'}, \
-                                stream=True, headers=self.headers, \
+            resp = requests.get(url, params={'watch': 'true'},
+                                stream=True, headers=self.headers,
                                 verify=self.verify)
             if resp.status_code != 200:
                 resp.close()
@@ -169,13 +162,10 @@ class KubeMonitor(object):
         except requests.exceptions.RequestException as e:
             self.logger.error("%s - %s" % (self.name, e))
 
-    def get_resource(self, resource_type, resource_name, \
+    def get_resource(self, resource_type, resource_name,
                      namespace=None, beta=False):
         json_data = {}
-        if beta == False:
-            base_url = self.v1_url
-        else:
-            base_url = self.beta_url
+        base_url = self.beta_url if beta else self.v1_url
 
         if resource_type == "namespaces":
             url = "%s/%s" % (base_url, resource_type)
@@ -183,7 +173,7 @@ class KubeMonitor(object):
             url = "%s/namespaces/%s/%s/%s" % (base_url, namespace,
                                               resource_type, resource_name)
         try:
-            resp = requests.get(url, stream=True, \
+            resp = requests.get(url, stream=True,
                                 headers=self.headers, verify=self.verify)
             if resp.status_code == 200:
                 json_data = json.loads(resp.raw.read())
@@ -193,12 +183,10 @@ class KubeMonitor(object):
 
         return json_data
 
-    def patch_resource(self, resource_type, resource_name, \
+    def patch_resource(
+            self, resource_type, resource_name,
             merge_patch, namespace=None, beta=False, sub_resource_name=None):
-        if beta == False:
-            base_url = self.v1_url
-        else:
-            base_url = self.beta_url
+        base_url = self.beta_url if beta else self.v1_url
 
         if resource_type == "namespaces":
             url = "%s/%s" % (base_url, resource_type)
@@ -208,19 +196,20 @@ class KubeMonitor(object):
             if sub_resource_name:
                 url = "%s/%s" %(url, sub_resource_name)
 
-        headers = {'Accept': 'application/json', \
+        headers = {'Accept': 'application/json',
                    'Content-Type': 'application/strategic-merge-patch+json'}
         headers.update(self.headers)
 
         try:
-            resp = requests.patch(url, headers=headers, \
-                                  data=json.dumps(merge_patch), \
+            resp = requests.patch(url, headers=headers,
+                                  data=json.dumps(merge_patch),
                                   verify=self.verify)
             if resp.status_code != 200:
                 resp.close()
                 return
         except requests.exceptions.RequestException as e:
             self.logger.error("%s - %s" % (self.name, e))
+            return
 
         return resp.iter_lines(chunk_size=10, delimiter='\n')
 
@@ -228,7 +217,7 @@ class KubeMonitor(object):
         """Process available events."""
         if not self.kube_api_stream_handle:
             self.logger.error("%s - Event handler not found. "
-                              "Cannot process its events." % (self.name))
+                              "Cannot process its events." % self.name)
             return
 
         resp = self.kube_api_resp
@@ -244,18 +233,19 @@ class KubeMonitor(object):
         except StopIteration:
             return
         except requests.exceptions.ChunkedEncodingError as e:
-            self.logger.error("%s - %s" %(self.name, e))
+            self.logger.error("%s - %s" % (self.name, e))
             return
 
         try:
             self.process_event(json.loads(line))
         except ValueError:
-            self.logger.error("Invalid JSON data from response stream:%s" % line)
+            self.logger.error(
+                "Invalid JSON data from response stream:%s" % line)
         except Exception as e:
             string_buf = StringIO()
             cgitb_hook(file=string_buf, format="text")
             err_msg = string_buf.getvalue()
-            self.logger.error("%s - %s" %(self.name, err_msg))
+            self.logger.error("%s - %s" % (self.name, err_msg))
 
     def process_event(self, event):
         """Process an event."""

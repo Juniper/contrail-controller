@@ -549,3 +549,18 @@ request sandesh NetworkIpamDatabaseList {
 response sandesh NetworkIpamDatabaseListResp {
     1: list<NetworkIpamInstance> network_ipams;
 }
+
+struct KubeApiConnections {
+    1: bool endpoint_monitor;
+    2: bool ingress_monitor;
+    3: bool namespace_monitor;
+    4: bool network_policy_monitor;
+    5: bool pod_monitor;
+    6: bool service_monitor;
+}
+
+request sandesh KubeApiConnectionStatus {}
+
+response sandesh KubeApiConnectionStatusResp {
+    1: KubeApiConnections connections;
+}

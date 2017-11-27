@@ -6,14 +6,16 @@ import uuid
 from collections import namedtuple
 import ipaddress
 
+from cfgm_common.exceptions import NoIdError
+
 from kube_manager.tests.vnc.test_case import KMTestCase
 from kube_manager.common.kube_config_db import (NamespaceKM, PodKM)
 from kube_manager.vnc.config_db import (
     VirtualNetworkKM, VirtualMachineKM, VirtualMachineInterfaceKM)
-from kube_manager.kube_manager import NoIdError
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
 
 TestPod = namedtuple('TestPod', ['uuid', 'meta', 'spec'])
+
 
 class VncPodTest(KMTestCase):
     def setUp(self, extra_config_knobs=None):
