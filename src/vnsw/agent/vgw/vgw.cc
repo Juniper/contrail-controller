@@ -147,7 +147,7 @@ void
 VirtualGateway::SubnetUpdate(const VirtualGatewayConfig &vgw,
                              const VirtualGatewayConfig::SubnetList &add_list,
                              const VirtualGatewayConfig::SubnetList &del_list) {
-    if (vgw.interface() && !vgw.interface()->ipv4_active())
+    if (vgw.get_interface() && !vgw.get_interface()->ipv4_active())
         return;
 
     InetUnicastAgentRouteTable *rt_table =
@@ -188,7 +188,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                             const VirtualGatewayConfig::SubnetList &add_list,
                             const VirtualGatewayConfig::SubnetList &del_list,
                             bool add_default_route) {
-    if (vgw.interface() && !vgw.interface()->ipv4_active())
+    if (vgw.get_interface() && !vgw.get_interface()->ipv4_active())
         return;
 
     InetUnicastAgentRouteTable *rt_table =
@@ -216,7 +216,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
         rt_table->AddInetInterfaceRouteReq(agent_->vgw_peer(), vgw.vrf_name(),
                                            Ip4Address(0), 0,
                                            vgw.interface_name(),
-                                           vgw.interface()->label(),
+                                           vgw.get_interface()->label(),
                                            name_list);
     }
     // remove old routes, add new routes
@@ -233,7 +233,7 @@ VirtualGateway::RouteUpdate(const VirtualGatewayConfig &vgw,
                                            vgw.vrf_name(), addr,
                                            add_list[idx].plen_,
                                            vgw.interface_name(),
-                                           vgw.interface()->label(),
+                                           vgw.get_interface()->label(),
                                            name_list);
     }
 }

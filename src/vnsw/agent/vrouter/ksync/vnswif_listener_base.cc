@@ -188,8 +188,8 @@ static void InterfaceResync(Agent *agent, uint32_t id, bool active) {
         return;
     }
     InterfaceTable *table = agent->interface_table();
-    Interface *interface = table->FindInterface(id);
-    if (interface == NULL) {
+    Interface *intrface = table->FindInterface(id);
+    if (intrface == NULL) {
         ostringstream oss;
         oss << "InterfaceResync failed. Interface index " << id <<
             " not found. Active " << active;
@@ -199,10 +199,10 @@ static void InterfaceResync(Agent *agent, uint32_t id, bool active) {
     }
 
     if (agent->test_mode())
-        interface->set_test_oper_state(active);
+        intrface->set_test_oper_state(active);
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, interface->GetUuid(),
-                                     interface->name()));
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intrface->GetUuid(),
+                                     intrface->name()));
     req.data.reset(new VmInterfaceOsOperStateData());
     table->Enqueue(&req);
 }

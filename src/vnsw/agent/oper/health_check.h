@@ -263,10 +263,10 @@ public:
     bool Copy(HealthCheckTable *table, const HealthCheckServiceData *data);
 
     HealthCheckInstanceBase *StartHealthCheckService(
-                             VmInterface *interface, const IpAddress &source_ip,
+                             VmInterface *intrface, const IpAddress &source_ip,
                              const IpAddress &destination_ip) {
         // health check status event is ignored
-        return StartHealthCheckService(interface, NULL, source_ip,
+        return StartHealthCheckService(intrface, NULL, source_ip,
                                        destination_ip, true, true);
     }
     void StopHealthCheckService(HealthCheckInstanceBase *instance);
@@ -296,7 +296,7 @@ private:
     friend class HealthCheckInstanceEvent;
 
     bool IsInstanceTaskBased() const;
-    HealthCheckInstanceBase *StartHealthCheckService(VmInterface *interface,
+    HealthCheckInstanceBase *StartHealthCheckService(VmInterface *intrface,
                                                      VmInterface *paired_vmi,
                                                      const IpAddress &source_ip,
                                                      const IpAddress &destination_ip,

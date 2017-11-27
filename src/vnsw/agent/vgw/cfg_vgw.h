@@ -51,9 +51,9 @@ public:
     uint32_t version() const { return version_; }
     void set_subnets(const SubnetList &subnets) const { subnets_ = subnets; }
     void set_routes(const SubnetList &routes) const { routes_ = routes; }
-    const InetInterface *interface() const { return interface_; }
-    void set_interface(InetInterface *interface) const {
-        interface_ = interface;
+    const InetInterface *get_interface() const { return interface_; }
+    void set_interface(InetInterface *intrface) const {
+        interface_ = intrface;
     }
     void set_version(uint32_t version) const { version_ = version; }
 
@@ -78,12 +78,12 @@ struct VirtualGatewayInfo {
     VirtualGatewayConfig::SubnetList subnets_;
     VirtualGatewayConfig::SubnetList routes_;
 
-    VirtualGatewayInfo(const std::string &interface)
-        : interface_name_(interface) {}
-    VirtualGatewayInfo(const std::string &interface, const std::string &vrf,
+    VirtualGatewayInfo(const std::string &interfacestr)
+        : interface_name_(interfacestr) {}
+    VirtualGatewayInfo(const std::string &interfacestr, const std::string &vrf,
                        VirtualGatewayConfig::SubnetList &subnets,
                        VirtualGatewayConfig::SubnetList &routes)
-        : interface_name_(interface), vrf_name_(vrf) {
+        : interface_name_(interfacestr), vrf_name_(vrf) {
         subnets_.swap(subnets);
         routes_.swap(routes);
     }

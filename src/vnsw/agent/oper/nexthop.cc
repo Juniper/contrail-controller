@@ -416,10 +416,10 @@ bool ArpNH::ChangeEntry(const DBRequest *req) {
         ret =  true;
     }
 
-    Interface *interface = NextHopTable::GetInstance()->FindInterface
+    Interface *pinterface = NextHopTable::GetInstance()->FindInterface
         (*data->intf_key_.get());
-    if (interface_.get() != interface) {
-        interface_ = interface;
+    if (interface_.get() != pinterface) {
+        interface_ = pinterface;
         ret = true;
     }
 
@@ -939,14 +939,14 @@ bool TunnelNH::ChangeEntry(const DBRequest *req) {
 
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
-        std::string nexthop_vrf = nh->interface()->vrf()->GetName();
-        if (nh->interface()->vrf()->forwarding_vrf()) {
-            nexthop_vrf = nh->interface()->vrf()->forwarding_vrf()->GetName();
+        std::string nexthop_vrf = nh->get_interface()->vrf()->GetName();
+        if (nh->get_interface()->vrf()->forwarding_vrf()) {
+            nexthop_vrf = nh->get_interface()->vrf()->forwarding_vrf()->GetName();
         }
 
         InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_,
                                               nexthop_vrf,
-                                              nh->interface(),
+                                              nh->get_interface(),
                                               nh->PolicyEnabled(),
                                               rt->GetActivePath()->dest_vn_list(),
                                               rt->GetActivePath()->sg_list(),
@@ -1118,14 +1118,14 @@ bool MirrorNH::ChangeEntry(const DBRequest *req) {
         
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
-        std::string nexthop_vrf = nh->interface()->vrf()->GetName();
-        if (nh->interface()->vrf()->forwarding_vrf()) {
-            nexthop_vrf = nh->interface()->vrf()->forwarding_vrf()->GetName();
+        std::string nexthop_vrf = nh->get_interface()->vrf()->GetName();
+        if (nh->get_interface()->vrf()->forwarding_vrf()) {
+            nexthop_vrf = nh->get_interface()->vrf()->forwarding_vrf()->GetName();
         }
 
         InetUnicastAgentRouteTable::AddArpReq(GetVrf()->GetName(), dip_.to_v4(),
                                               nexthop_vrf,
-                                              nh->interface(),
+                                              nh->get_interface(),
                                               nh->PolicyEnabled(),
                                               rt->GetActivePath()->dest_vn_list(),
                                               rt->GetActivePath()->sg_list(),

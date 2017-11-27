@@ -44,7 +44,7 @@ class KSyncVxlanPortEntry : public KSyncDBEntry {
 public:
     KSyncVxlanPortEntry(KSyncVxlanPortObject *obj,
                         const KSyncVxlanPortEntry *entry);
-    KSyncVxlanPortEntry(KSyncVxlanPortObject *obj, const Interface *interface);
+    KSyncVxlanPortEntry(KSyncVxlanPortObject *obj, const Interface *intrface);
     virtual ~KSyncVxlanPortEntry();
 
     KSyncDBObject *GetObject() const;
