@@ -61,8 +61,8 @@ class FlowQuerier(object):
             FlowRecordFields.FLOWREC_UNDERLAY_PROTO]
         self._UNDERLAY_SPORT = VizConstants.FlowRecordNames[
             FlowRecordFields.FLOWREC_UNDERLAY_SPORT]
-        self._VMI_UUID = VizConstants.FlowRecordNames[
-            FlowRecordFields.FLOWREC_VMI_UUID]
+        self._VMI = VizConstants.FlowRecordNames[
+            FlowRecordFields.FLOWREC_VMI]
         self._DROP_REASON = VizConstants.FlowRecordNames[
             FlowRecordFields.FLOWREC_DROP_REASON]
     # end __init__
@@ -167,8 +167,8 @@ class FlowQuerier(object):
             help="Flow records to vrouter IP address")
         parser.add_argument("--tunnel-info", action="store_true",
             help="Show flow tunnel information")
-	parser.add_argument("--vmi-uuid",
-            help="Show vmi uuid information")
+	parser.add_argument("--vmi",
+            help="Show vmi information")
         parser.add_argument(
             "--verbose", action="store_true", help="Show internal information")        
         self._args = parser.parse_args(remaining_argv)
@@ -311,10 +311,10 @@ class FlowQuerier(object):
                 op=OpServerUtils.MatchOp.EQUAL)
             filter.append(other_vrouter_ip_match.__dict__)
 
-        if self._args.vmi_uuid is not None:
+        if self._args.vmi is not None:
             vmi_match = OpServerUtils.Match(
-                name=self._VMI_UUID,
-                value=str(uuid.UUID(self._args.vmi_uuid)),
+                name=self._VMI,
+                value=str(self._args.vmi),
                 op=OpServerUtils.MatchOp.EQUAL)
             filter.append(vmi_match.__dict__)
 
@@ -345,7 +345,7 @@ class FlowQuerier(object):
             self._NW_ACE_UUID,
             self._VROUTER_IP,
             self._OTHER_VROUTER_IP,
-            self._VMI_UUID,
+            self._VMI,
             self._DROP_REASON
         ]
         if self._args.tunnel_info:
@@ -391,7 +391,7 @@ class FlowQuerier(object):
         source_vn = output_dict['source_vn']
         source_ip = output_dict['source_ip']
         source_port = output_dict['source_port']
-        src_vmi_uuid = output_dict['src_vmi_uuid']
+        src_vmi = output_dict['src_vmi']
         destination_vn = output_dict['destination_vn']
         destination_ip = output_dict['destination_ip']
         destination_port = output_dict['destination_port']
@@ -408,7 +408,7 @@ class FlowQuerier(object):
                 ' : SG:{18} ACL:{19} {20}{21}'.format(
                vrouter, vrouter_ip, direction, action, drop_reason, setup_ts,
                teardown_ts, protocol, source_vn, source_ip, source_port,
-               src_vmi_uuid, destination_vn, destination_ip, destination_port,
+               src_vmi, destination_vn, destination_ip, destination_port,
                other_vrouter_ip, agg_pkts, agg_bytes, sg_rule_uuid,
                nw_ace_uuid, tunnel_info, flow_uuid)
 
@@ -564,11 +564,11 @@ class FlowQuerier(object):
             else:
                 other_vrouter_ip = ''
 
-            if self._VMI_UUID in flow_dict and (
-                    flow_dict[self._VMI_UUID] is not None):
-                src_vmi_uuid = ' [SRC VMI UUID:' + flow_dict[self._VMI_UUID] + ']'
+            if self._VMI in flow_dict and (
+                    flow_dict[self._VMI] is not None):
+                src_vmi = ' [SRC VMI:' + flow_dict[self._VMI] + ']'
             else:
-                src_vmi_uuid = ' [SRC VMI UUID: None]'
+                src_vmi = ' [SRC VMI: None]'
 
             # Underlay info
             if self._UNDERLAY_PROTO in flow_dict and\
@@ -608,7 +608,7 @@ class FlowQuerier(object):
             output_dict['source_vn'] = source_vn
             output_dict['source_ip'] = source_ip
             output_dict['source_port'] = source_port
-            output_dict['src_vmi_uuid'] = src_vmi_uuid
+            output_dict['src_vmi'] = src_vmi
             output_dict['destination_vn'] = destination_vn
             output_dict['destination_ip'] = destination_ip
             output_dict['destination_port'] = destination_port
