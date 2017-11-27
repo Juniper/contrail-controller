@@ -378,7 +378,5 @@ public:
 };
 
 std::string PrependT2(uint32_t T2, const std::string &str);
-boost::system::error_code ColIndexModeToString(ColIndexMode::type index_mode,
-                                               std::string &mode);
 
 #endif /* DB_HANDLER_H_ */

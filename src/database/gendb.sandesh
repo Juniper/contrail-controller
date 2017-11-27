@@ -60,3 +60,17 @@ struct DbErrors {
     6: u64                                write_batch_column_fails
     7: u64                                read_column_fails
 }
+
+// Secondary/SASI Index
+enum ColIndexType {
+    NONE = 0,
+    INDEX,          // secondary index
+    CUSTOM_INDEX    // sasi index
+}
+
+// SASI Index modes
+enum ColIndexMode {
+    NONE = 0,
+    PREFIX,
+    CONTAINS
+}
