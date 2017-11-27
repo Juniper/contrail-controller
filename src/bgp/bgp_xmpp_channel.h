@@ -407,7 +407,6 @@ public:
                                         xmps::PeerState state);
 
     const XmppChannelMap &channel_map() const { return channel_map_; }
-    bool DeleteExecutor(BgpXmppChannel *bx_channel);
     void Enqueue(BgpXmppChannel *bx_channel) {
         queue_.Enqueue(bx_channel);
     }
@@ -446,6 +445,7 @@ public:
 
 protected:
     virtual BgpXmppChannel *CreateChannel(XmppChannel *channel);
+    virtual bool DeleteChannel(BgpXmppChannel *channel);
 
 private:
     friend class BgpXmppChannelManagerMock;

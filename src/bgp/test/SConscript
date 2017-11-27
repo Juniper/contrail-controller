@@ -709,6 +709,7 @@ test_suite = [
     xmpp_sess_toggle_test,
 ]
 
+env.Alias('src/bgp:gracful_restart_test', graceful_restart_tests)
 test_suite += graceful_restart_tests
 
 test = env.TestSuite('bgp-test', test_suite)
