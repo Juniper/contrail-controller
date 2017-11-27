@@ -14,6 +14,7 @@
 
 #include "base/queue_task.h"
 #include "bgp/extended-community/load_balance.h"
+#include "xmpp/xmpp_channel.h"
 
 namespace autogen {
 struct ItemType;
@@ -616,6 +617,7 @@ private:
     bool ConnectionDestroyed() const;
     bool IsSessionEstablished(bool *is_established);
     bool IsChannelReady(bool *is_ready);
+    void XmppHandleChannelEvent(XmppChannel *channel, xmps::PeerState state);
 
     XmppClient *client_;
     std::auto_ptr<AgentPeer> peer_;
