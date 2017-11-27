@@ -114,7 +114,7 @@ bool ControllerRouteWalker::VrfDelPeer(DBTablePartBase *partition,
         RouteWalkDoneForVrfCallback(boost::bind(
                                     &ControllerRouteWalker::RouteWalkDoneForVrf,
                                     this, _1));
-        StartRouteWalk(vrf);
+        StartRouteWalk(vrf, associate_, type_);
         CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Vrf DelPeer", vrf->GetName(), 
                          peer_->GetName());
         return true;
@@ -152,7 +152,7 @@ bool ControllerRouteWalker::VrfNotifyInternal(DBTablePartBase *partition,
                                                           id)); 
         //TODO check if state is not added for default vrf
         if (state && (vrf->GetName().compare(agent()->fabric_vrf_name()) != 0)) {
-            StartRouteWalk(vrf);
+            StartRouteWalk(vrf, associate_, type_);
         }
 
         return true;
@@ -321,6 +321,13 @@ void ControllerRouteWalker::Start(Type type, bool associate,
 void ControllerRouteWalker::Cancel() {
     CONTROLLER_ROUTE_WALKER_TRACE(Walker, "Cancel Vrf Walk", "", peer_->GetName());
     CancelVrfWalk(); 
+}
+
+void ControllerRouteWalker::StartRouteWalk(VrfEntry *vrf, bool associate,
+                                           Type type) {
+    associate_ = associate;
+    type_ = type;
+    AgentRouteWalker::StartRouteWalk(vrf);
 }
 
 bool ControllerRouteWalker::IgnoreNotify() {
