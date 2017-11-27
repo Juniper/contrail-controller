@@ -844,7 +844,7 @@ public:
 
         void Update(const Agent *agent, VmInterface *vmi,
                     const VmInterface::InstanceIpList *list) const;
-        void SetPrefixForAllocUnitIpam(VmInterface *interface) const;
+        void SetPrefixForAllocUnitIpam(VmInterface *interface_) const;
 
         VmInterfaceState::Op GetOpL3(const Agent *agent,
                                      const VmInterface *vmi) const;

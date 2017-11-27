@@ -35,8 +35,8 @@ KSyncVxlanPortEntry::KSyncVxlanPortEntry(KSyncVxlanPortObject *obj,
 }
 
 KSyncVxlanPortEntry::KSyncVxlanPortEntry(KSyncVxlanPortObject *obj,
-                                         const Interface *interface) :
-    KSyncDBEntry(), type_(interface->type()), port_name_(interface->name()),
+                                         const Interface *interface_) :
+    KSyncDBEntry(), type_(interface_->type()), port_name_(interface_->name()),
     bridge_(NULL), ksync_obj_(obj) {
 }
 

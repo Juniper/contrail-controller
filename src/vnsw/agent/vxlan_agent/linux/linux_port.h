@@ -29,7 +29,7 @@ private:
  **************************************************************************/
 class KSyncLinuxPortEntry : public KSyncVxlanPortEntry {
 public:
-    KSyncLinuxPortEntry(KSyncLinuxPortObject *obj, const Interface *interface);
+    KSyncLinuxPortEntry(KSyncLinuxPortObject *obj, const Interface *interface_);
     KSyncLinuxPortEntry(KSyncVxlanPortObject *obj,
                         const KSyncLinuxPortEntry *entry);
     virtual ~KSyncLinuxPortEntry() { }
