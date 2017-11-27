@@ -20,7 +20,8 @@
 #include <controller/controller_types.h>
 
 RouteExport::State::State() : 
-    DBState(), exported_(false), fabric_multicast_exported_(false),
+    DBState(), exported_(false), ingress_replication_exported_(false),
+    fabric_multicast_exported_(false),
     force_chg_(false), label_(MplsTable::kInvalidLabel), vn_(), sg_list_(),
     tunnel_type_(TunnelType::INVALID), path_preference_(),
     destination_(), source_(), ecmp_load_balance_() {
