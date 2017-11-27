@@ -556,17 +556,31 @@ std::string DynamicCf2CassCreateTableIfNotExists(const GenDb::NewCf &cf,
     return query.str();
 }
 
+static std::string DbColIndexMode2String(
+    const GenDb::ColIndexMode::type index_mode) {
+    switch (index_mode) {
+        case GenDb::ColIndexMode::NONE:
+            return "";
+        case GenDb::ColIndexMode::PREFIX:
+            return "PREFIX";
+        case GenDb::ColIndexMode::CONTAINS:
+            return "CONTAINS";
+        default:
+            assert(false && "INVALID");
+    }
+}
+
 //
 // CassCreateIndexIfNotExists
 //
 
 std::string CassCreateIndexIfNotExists(const std::string &cfname,
     const std::string &column, const std::string &indexname,
-    const std::string &mode) {
+    const GenDb::ColIndexMode::type index_mode) {
     std::ostringstream query;
 
     query << "CREATE ";
-    if (!mode.empty()) {
+    if (index_mode != GenDb::ColIndexMode::NONE) {
         query << "CUSTOM "; // SASI
     }
     // Indexname
@@ -574,9 +588,9 @@ std::string CassCreateIndexIfNotExists(const std::string &cfname,
     // Index Column
     query << "ON " << cfname << "(\""<< column <<"\")";
     // Mode if SASI
-    if (!mode.empty()) {
+    if (index_mode != GenDb::ColIndexMode::NONE) {
         query << " USING \'org.apache.cassandra.index.sasi.SASIIndex\' " <<
-        "WITH OPTIONS = {\'mode\': \'" << mode << "\'}";
+        "WITH OPTIONS = {\'mode\': \'" << DbColIndexMode2String(index_mode) << "\'}";
     }
     query << ";";
     return query.str();
@@ -1954,12 +1968,12 @@ bool CqlIfImpl::CreateTableIfNotExistsSync(const GenDb::NewCf &cf,
 
 bool CqlIfImpl::CreateIndexIfNotExistsSync(const std::string &cfname,
     const std::string &column, const std::string &indexname,
-    CassConsistency consistency, const std::string &mode) {
+    CassConsistency consistency, const GenDb::ColIndexMode::type index_mode) {
     if (schema_session_state_ != SessionState::CONNECTED) {
         return false;
     }
     std::string query(impl::CassCreateIndexIfNotExists(cfname, column,
-        indexname, mode));
+        indexname, index_mode));
     return impl::ExecuteQuerySync(cci_, schema_session_.get(), query.c_str(),
         consistency);
 }
@@ -2106,8 +2120,8 @@ bool CqlIfImpl::InsertIntoTablePrepareAsync(std::auto_ptr<GenDb::ColList> v_colu
 // for object-id. Some of these might be blank. This creates tombstones
 // so we dont want to prepare for inserts.
 bool CqlIfImpl::IsInsertIntoTablePrepareSupported(const std::string &table) {
-    return IsTableDynamic(table) &&
-           table.compare("MessageTablev2");
+    return (IsTableDynamic(table)) &&
+           (table != "MessageTablev2");
 }
 
 bool CqlIfImpl::SelectFromTableSync(const std::string &cfname,
@@ -2541,9 +2555,9 @@ bool CqlIf::Db_UseColumnfamily(const std::string &cfname) {
 // Index
 bool CqlIf::Db_CreateIndex(const std::string &cfname,
         const std::string &column, const std::string &indexname,
-        const std::string &mode) {
+        const GenDb::ColIndexMode::type index_mode) {
     bool success(impl_->CreateIndexIfNotExistsSync(cfname, column, indexname,
-        CASS_CONSISTENCY_QUORUM, mode));
+        CASS_CONSISTENCY_QUORUM, index_mode));
     if (!success) {
         IncrementTableWriteFailStats(cfname);
         IncrementErrors(GenDb::IfErrors::ERR_WRITE_COLUMN_FAMILY);

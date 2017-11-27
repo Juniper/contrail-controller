@@ -335,15 +335,9 @@ bool DbHandler::CreateTables() {
         table_schema cfschema;
         cfschema = g_viz_constants._VIZD_TABLE_SCHEMA.find(it->cfname_)->second;
         BOOST_FOREACH (schema_column column, cfschema.columns) {
-            if (column.index_type) {
-                std::string mode;
-                boost::system::error_code ec;
-                ec = ColIndexModeToString(column.index_mode, mode);
-                if (ec) {
-                    DB_LOG(ERROR, "Invalid Custom Index Mode");
-                    return false;
-                }
-                if (!dbif_->Db_CreateIndex(it->cfname_, column.name, "", mode)) {
+            if (column.index_mode != GenDb::ColIndexMode::NONE) {
+                if (!dbif_->Db_CreateIndex(it->cfname_, column.name, "",
+                                           column.index_mode)) {
                     DB_LOG(ERROR, it->cfname_ << ": CreateIndex FAILED for "
                            << column.name);
                     return false;
@@ -371,32 +365,11 @@ bool DbHandler::CreateTables() {
         table_schema cfschema = g_viz_constants._VIZD_SESSION_TABLE_SCHEMA
                                                     .find(it->cfname_)->second;
         BOOST_FOREACH(schema_column column, cfschema.columns) {
-            if (column.index_type) {
-                std::string mode;
-                switch (column.index_mode) {
-                case ColIndexMode::NONE:
-                    {
-                        mode = "";
-                        break;
-                    }
-                case ColIndexMode::PREFIX:
-                    {
-                        mode = "PREFIX";
-                        break;
-                    }
-                case ColIndexMode::CONTAINS:
-                    {
-                        mode = "CONTAINS";
-                        break;
-                    }
-                default:
-                    {
-                        DB_LOG(ERROR, "Invalid Custom Index Mode");
-                        return false;
-                    }
-                }
-                if (!dbif_->Db_CreateIndex(it->cfname_, column.name, "", mode)) {
-                    DB_LOG(ERROR, it->cfname_ << " FAILED");
+            if (column.index_mode != GenDb::ColIndexMode::NONE) {
+                if (!dbif_->Db_CreateIndex(it->cfname_, column.name, "",
+                                           column.index_mode)) {
+                    DB_LOG(ERROR, it->cfname_ << ": CreateIndex FAILED for "
+                           << column.name);
                     return false;
                 }
             }
@@ -2314,31 +2287,4 @@ std::string PrependT2(uint32_t T2, const std::string &str) {
     tempstr.append(":");
     tempstr.append(str);
     return tempstr;
-}
-
-boost::system::error_code ColIndexModeToString(ColIndexMode::type index_mode,
-                                               std::string &mode) {
-    switch (index_mode) {
-    case ColIndexMode::NONE:
-        {
-            mode = "";
-            break;
-        }
-    case ColIndexMode::PREFIX:
-        {
-            mode = "PREFIX";
-            break;
-        }
-    case ColIndexMode::CONTAINS:
-        {
-            mode = "CONTAINS";
-            break;
-        }
-    default:
-        {
-            mode = "INVALID";
-            return errc::make_error_code(errc::invalid_argument);
-        }
-    }
-    return errc::make_error_code(errc::success);
 }

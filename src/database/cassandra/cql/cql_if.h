@@ -46,7 +46,7 @@ class CqlIf : public GenDb::GenDbIf {
     // Index
     virtual bool Db_CreateIndex(const std::string &cfname,
         const std::string &column, const std::string &indexname,
-        const std::string &mode = "");
+        const GenDb::ColIndexMode::type index_mode = GenDb::ColIndexMode::NONE);
     // Column
     virtual bool Db_AddColumn(std::auto_ptr<GenDb::ColList> cl,
         GenDb::DbConsistency::type dconsistency,

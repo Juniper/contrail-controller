@@ -133,10 +133,29 @@ None
 ## 3.2 API schema changes
 
 ## 3.3 User workflow impact
-- Level, Keyword, Context and Category are not indexed
-- Level is a filter now.
-- Category and Level are present in select options.
-- Context is removed from select options.
+New message-table schema
+{
+    // indexed columns
+    String   Source
+    String   MessageType
+    String   Module
+    String   ObjectId
+
+    // non-indexed columns
+    // available for select, filter
+    String   IpAddress
+    u32      Pid
+    String   Category
+    u32      Level
+    String   NodeType
+    String   InstanceId
+    u32      SequenceNum
+    u8       SandeshType
+}
+
+Following columns are removed
+    String   Context
+    String   Keyword
 
 ## 3.4 UI changes
 
