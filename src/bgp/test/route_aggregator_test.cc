@@ -341,13 +341,19 @@ protected:
     void DisableUnregResolveTask(const string &instance, Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
-        rti->route_aggregator(fmly)->DisableUnregResolveTask();
+        IRouteAggregator *aggregator = rti->route_aggregator(fmly);
+        task_util::TaskFire(
+            boost::bind(&IRouteAggregator::DisableUnregResolveTask, aggregator),
+            "bgp::Config");
     }
 
     void EnableUnregResolveTask(const string &instance, Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
-        rti->route_aggregator(fmly)->EnableUnregResolveTask();
+        IRouteAggregator *aggregator = rti->route_aggregator(fmly);
+        task_util::TaskFire(
+            boost::bind(&IRouteAggregator::EnableUnregResolveTask, aggregator),
+            "bgp::Config");
     }
 
     size_t GetUnregResolveListSize(const string &instance,
@@ -361,14 +367,22 @@ protected:
                                      Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
-        rti->route_aggregator(fmly)->DisableRouteAggregateUpdate();
+        IRouteAggregator *aggregator = rti->route_aggregator(fmly);
+        task_util::TaskFire(
+            boost::bind(&IRouteAggregator::DisableRouteAggregateUpdate,
+                aggregator),
+            "bgp::Config");
     }
 
     void EnableRouteAggregateUpdate(const string &instance,
                                     Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
-        rti->route_aggregator(fmly)->EnableRouteAggregateUpdate();
+        IRouteAggregator *aggregator = rti->route_aggregator(fmly);
+        task_util::TaskFire(
+            boost::bind(&IRouteAggregator::EnableRouteAggregateUpdate,
+                aggregator),
+            "bgp::Config");
     }
 
     size_t GetUpdateAggregateListSize(const string &instance,

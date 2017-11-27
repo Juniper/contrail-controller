@@ -488,11 +488,17 @@ protected:
     }
 
     void DisableRouteTargetProcessing() {
-        bgp_server_->rtarget_group_mgr()->DisableRouteTargetProcessing();
+        RTargetGroupMgr *mgr = bgp_server_->rtarget_group_mgr();
+        task_util::TaskFire(
+            boost::bind(&RTargetGroupMgr::DisableRouteTargetProcessing, mgr),
+            "bgp::Config");
     }
 
     void EnableRouteTargetProcessing() {
-        bgp_server_->rtarget_group_mgr()->EnableRouteTargetProcessing();
+        RTargetGroupMgr *mgr = bgp_server_->rtarget_group_mgr();
+        task_util::TaskFire(
+            boost::bind(&RTargetGroupMgr::EnableRouteTargetProcessing, mgr),
+            "bgp::Config");
     }
 
     const TableState *LookupVpnTableState() {
@@ -539,12 +545,16 @@ protected:
 
     void DisableBulkSync() {
         DBTableWalkMgr *walk_mgr = bgp_server_->database()->GetWalkMgr();
-        walk_mgr->DisableWalkProcessing();
+        task_util::TaskFire(
+            boost::bind(&DBTableWalkMgr::DisableWalkProcessing, walk_mgr),
+            "bgp::Config");
     }
 
     void EnableBulkSync() {
         DBTableWalkMgr *walk_mgr = bgp_server_->database()->GetWalkMgr();
-        walk_mgr->EnableWalkProcessing();
+        task_util::TaskFire(
+            boost::bind(&DBTableWalkMgr::EnableWalkProcessing, walk_mgr),
+            "bgp::Config");
     }
 
     EventManager evm_;

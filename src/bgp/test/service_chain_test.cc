@@ -267,15 +267,24 @@ protected:
         BgpLifetimeManagerTest *ltm = dynamic_cast<BgpLifetimeManagerTest *>(
             bgp_server_->lifetime_manager());
         assert(ltm);
-        ltm->SetQueueDisable(disabled);
+        task_util::TaskFire(
+            boost::bind(&BgpLifetimeManagerTest::SetQueueDisable,
+                ltm, disabled),
+            "bgp::Config");
     }
 
     void DisableResolveTrigger() {
-        service_chain_mgr_->DisableResolveTrigger();
+        task_util::TaskFire(
+            boost::bind(&IServiceChainMgr::DisableResolveTrigger,
+                service_chain_mgr_),
+            "bgp::Config");
     }
 
     void EnableResolveTrigger() {
-        service_chain_mgr_->EnableResolveTrigger();
+        task_util::TaskFire(
+            boost::bind(&IServiceChainMgr::EnableResolveTrigger,
+                service_chain_mgr_),
+            "bgp::Config");
     }
 
     bool IsServiceChainQEmpty() {
@@ -283,11 +292,15 @@ protected:
     }
 
     void DisableServiceChainQ() {
-        service_chain_mgr_->DisableQueue();
+        task_util::TaskFire(
+            boost::bind(&IServiceChainMgr::DisableQueue, service_chain_mgr_),
+            "bgp::Config");
     }
 
     void EnableServiceChainQ() {
-        service_chain_mgr_->EnableQueue();
+        task_util::TaskFire(
+            boost::bind(&IServiceChainMgr::EnableQueue, service_chain_mgr_),
+            "bgp::Config");
     }
 
     size_t ServiceChainPendingQSize() {
@@ -295,11 +308,17 @@ protected:
     }
 
     void DisableServiceChainAggregation() {
-        service_chain_mgr_->set_aggregate_host_route(false);
+        task_util::TaskFire(
+            boost::bind(&IServiceChainMgr::set_aggregate_host_route,
+                service_chain_mgr_, false),
+            "bgp::Config");
     }
 
     void EnableServiceChainAggregation() {
-        service_chain_mgr_->set_aggregate_host_route(true);
+        task_util::TaskFire(
+            boost::bind(&IServiceChainMgr::set_aggregate_host_route,
+                service_chain_mgr_, true),
+            "bgp::Config");
     }
 
     void AddRoute(IPeer *peer, const string &instance_name,

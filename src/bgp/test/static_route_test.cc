@@ -252,20 +252,34 @@ protected:
     void DisableUnregisterTrigger(const string &instance_name) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_name);
-        rtinstance->static_route_mgr(family_)->DisableUnregisterTrigger();
+        if (!rtinstance)
+            return;
+        IStaticRouteMgr *mgr = rtinstance->static_route_mgr(family_);
+        task_util::TaskFire(
+            boost::bind(&IStaticRouteMgr::DisableUnregisterTrigger, mgr),
+            "bgp::Config");
     }
 
     void EnableUnregisterTrigger(const string &instance_name) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_name);
-        if (rtinstance)
-            rtinstance->static_route_mgr(family_)->EnableUnregisterTrigger();
+        if (!rtinstance)
+            return;
+        IStaticRouteMgr *mgr = rtinstance->static_route_mgr(family_);
+        task_util::TaskFire(
+            boost::bind(&IStaticRouteMgr::EnableUnregisterTrigger, mgr),
+            "bgp::Config");
     }
 
     void DisableStaticRouteQ(const string &instance_name) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_name);
-        rtinstance->static_route_mgr(family_)->DisableQueue();
+        if (!rtinstance)
+            return;
+        IStaticRouteMgr *mgr = rtinstance->static_route_mgr(family_);
+        task_util::TaskFire(
+            boost::bind(&IStaticRouteMgr::DisableQueue, mgr),
+            "bgp::Config");
     }
 
     bool IsQueueEmpty(const string &instance_name) {
@@ -277,7 +291,12 @@ protected:
     void EnableStaticRouteQ(const string &instance_name) {
         RoutingInstance *rtinstance =
             ri_mgr_->GetRoutingInstance(instance_name);
-        rtinstance->static_route_mgr(family_)->EnableQueue();
+        if (!rtinstance)
+            return;
+        IStaticRouteMgr *mgr = rtinstance->static_route_mgr(family_);
+        task_util::TaskFire(
+            boost::bind(&IStaticRouteMgr::EnableQueue, mgr),
+            "bgp::Config");
     }
 
     void AddRoute(IPeer *peer, const string &instance_name,
@@ -802,6 +821,24 @@ protected:
     void VerifyRoutingInstanceDestroyed(const string &instance_name) {
         TASK_UTIL_EXPECT_TRUE(
             ri_mgr_->GetRoutingInstance(instance_name) == NULL);
+    }
+
+    void DisableDBQueueProcessing() {
+        for (size_t idx = 0; idx < DB::PartitionCount(); ++idx) {
+            DBPartition *partition = bgp_server_->database()->GetPartition(idx);
+            task_util::TaskFire(
+                boost::bind(&DBPartition::SetQueueDisable, partition, true),
+                "bgp::Config");
+        }
+    }
+
+    void EnableDBQueueProcessing() {
+        for (size_t idx = 0; idx < DB::PartitionCount(); ++idx) {
+            DBPartition *partition = bgp_server_->database()->GetPartition(idx);
+            task_util::TaskFire(
+                boost::bind(&DBPartition::SetQueueDisable, partition, false),
+                "bgp::Config");
+        }
     }
 
     EventManager evm_;
@@ -2071,10 +2108,7 @@ TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
     this->DisableStaticRouteQ("nat-2");
 
     // Disable DBPartition processing on all DBPartition
-    for (int i = 0; i < DB::PartitionCount(); i++) {
-        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
-        partition->SetQueueDisable(true);
-    }
+    this->DisableDBQueueProcessing();
 
     // Add Nexthop Route
     this->AddRoute(NULL, "nat-1", this->BuildPrefix("192.168.1.254", 32), 100,
@@ -2092,10 +2126,7 @@ TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
     }
 
     // Enable static route processing and DBPartition
-    for (int i = 0; i < DB::PartitionCount(); i++) {
-        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
-        partition->SetQueueDisable(false);
-    }
+    this->EnableDBQueueProcessing();
 
     this->EnableStaticRouteQ("nat-1");
     this->EnableStaticRouteQ("nat-2");
@@ -2124,10 +2155,7 @@ TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
     this->DisableStaticRouteQ("nat-2");
 
     // Disable DBPartition processing on all DBPartition
-    for (int i = 0; i < DB::PartitionCount(); i++) {
-        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
-        partition->SetQueueDisable(true);
-    }
+    this->DisableDBQueueProcessing();
 
     // Delete nexthop route
     this->DeleteRoute(NULL, "nat-1", this->BuildPrefix("192.168.1.254", 32));
@@ -2140,10 +2168,8 @@ TYPED_TEST(StaticRouteTest, MultipleVpnRoutes) {
     }
 
     // Enable static route processing and DBPartition
-    for (int i = 0; i < DB::PartitionCount(); i++) {
-        DBPartition *partition = this->bgp_server_->database()->GetPartition(i);
-        partition->SetQueueDisable(false);
-    }
+    this->EnableDBQueueProcessing();
+
     this->EnableStaticRouteQ("nat-1");
     this->EnableStaticRouteQ("nat-2");
 
