@@ -320,6 +320,7 @@ class QfxConf(JuniperConf):
                 intf.add_unit(Unit(name=interface_list[0].unit,
                                    comment=DMUtils.l2_evpn_intf_unit_comment(vn, False),
                                    vlan_id="4094"))
+                intf.set_native_vlan_id("4094")
                 vlan_conf.add_interface(Interface(name=ifd_name + ".0"))
             else:
                 for interface in interface_list:

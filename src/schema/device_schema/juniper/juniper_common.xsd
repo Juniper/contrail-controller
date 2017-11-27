@@ -160,6 +160,7 @@ targetNamespace="http://www.juniper.net/2016/device-config/0">
         <xsd:element name="encapsulation" type="xsd:string"/>
         <xsd:element name="unit" type="Unit" maxOccurs="unbounded"/>
         <xsd:element name="esi" type="Esi"/>
+        <xsd:element name="native-vlan-id" type="xsd:string"/>
         <xsd:element name="gigether-options" type="EtherOptions"/>
         <xsd:element name="aggregated-ether-options" type="AggregatedEtherOptions"/>
     </xsd:all>
