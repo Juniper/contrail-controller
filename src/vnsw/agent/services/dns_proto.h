@@ -120,7 +120,7 @@ public:
         bool IsLess(const DnsFipEntry *rhs) const;
         const VnEntry *vn_;
         Ip4Address floating_ip_;
-        const VmInterface *interface_;
+        const VmInterface *interface__;
         std::string vdns_name_;
         std::string fip_name_;
     };

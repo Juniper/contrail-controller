@@ -225,7 +225,7 @@ void DnsProto::VnNotify(DBEntryBase *entry) {
                 break;
             }
             ++it;
-            UpdateFloatingIp(entry->interface_, entry->vn_,
+            UpdateFloatingIp(entry->interface__, entry->vn_,
                              entry->floating_ip_, true);
         }
         return;
@@ -360,18 +360,18 @@ void DnsProto::CheckForFipUpdate(DnsFipEntry *entry, std::string &vdns_name,
                                  const autogen::VirtualDnsType &vdns_type) {
     if (entry->vdns_name_.empty() && entry->vdns_name_ != vdns_name) {
         std::string fip_name;
-        if (!GetFipName(entry->interface_, vdns_type,
+        if (!GetFipName(entry->interface__, vdns_type,
                         entry->floating_ip_, fip_name))
             vdns_name = "";
         // TODO: update once floating ipv6 support is added
         Ip6Address ip6;
-        if (UpdateDnsEntry(entry->interface_, entry->vn_, fip_name,
+        if (UpdateDnsEntry(entry->interface__, entry->vn_, fip_name,
                            vdns_name, entry->floating_ip_, ip6, true, false)) {
             entry->vdns_name_.assign(vdns_name);
             entry->fip_name_ = fip_name;
         }
     } else if (entry->vdns_name_ != vdns_name) {
-        if (MoveVDnsEntry(entry->interface_, vdns_name, entry->vdns_name_,
+        if (MoveVDnsEntry(entry->interface__, vdns_name, entry->vdns_name_,
                           vdns_type, true)) {
             entry->vdns_name_.assign(vdns_name);
         }
@@ -728,7 +728,7 @@ bool DnsProto::IsVmRequestDuplicate(DnsHandler::QueryKey *key) {
 
 DnsProto::DnsFipEntry::DnsFipEntry(const VnEntry *vn, const Ip4Address &fip,
                                    const VmInterface *itf)
-    : vn_(vn), floating_ip_(fip), interface_(itf) {
+    : vn_(vn), floating_ip_(fip), interface__(itf) {
 }
 
 DnsProto::DnsFipEntry::~DnsFipEntry() {
@@ -746,5 +746,5 @@ bool DnsProto::DnsFipEntry::IsLess(const DnsFipEntry *rhs) const {
     if (floating_ip_ != rhs->floating_ip_) {
         return floating_ip_ < rhs->floating_ip_;
     }
-    return interface_ < rhs->interface_;
+    return interface__ < rhs->interface__;
 }

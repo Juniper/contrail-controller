@@ -31,7 +31,7 @@ public:
 
     VirtualGatewayConfig(const std::string &interface_name) :
         interface_name_(interface_name), vrf_name_(""), subnets_(), routes_(),
-        interface_(), version_(0) {}
+        m_interface(), version_(0) {}
     VirtualGatewayConfig(const std::string &interface_name,
                          const std::string &vrf_name,
                          const SubnetList &subnets,
@@ -51,9 +51,9 @@ public:
     uint32_t version() const { return version_; }
     void set_subnets(const SubnetList &subnets) const { subnets_ = subnets; }
     void set_routes(const SubnetList &routes) const { routes_ = routes; }
-    const InetInterface *interface() const { return interface_; }
-    void set_interface(InetInterface *interface) const {
-        interface_ = interface;
+    const InetInterface *interface_() const { return m_interface; }
+    void set_interface(InetInterface *interface__) const {
+        m_interface = interface__;
     }
     void set_version(uint32_t version) const { version_ = version; }
 
@@ -67,7 +67,7 @@ private:
     // Vector of routes
     mutable SubnetList routes_;
     // Inet interface pointer
-    mutable InetInterface *interface_;
+    mutable InetInterface *m_interface;
     // client version number of the entry
     mutable uint32_t version_;
 };
@@ -78,12 +78,12 @@ struct VirtualGatewayInfo {
     VirtualGatewayConfig::SubnetList subnets_;
     VirtualGatewayConfig::SubnetList routes_;
 
-    VirtualGatewayInfo(const std::string &interface)
-        : interface_name_(interface) {}
-    VirtualGatewayInfo(const std::string &interface, const std::string &vrf,
+    VirtualGatewayInfo(const std::string &interfacestr)
+        : interface_name_(interfacestr) {}
+    VirtualGatewayInfo(const std::string &interfacestr, const std::string &vrf,
                        VirtualGatewayConfig::SubnetList &subnets,
                        VirtualGatewayConfig::SubnetList &routes)
-        : interface_name_(interface), vrf_name_(vrf) {
+        : interface_name_(interfacestr), vrf_name_(vrf) {
         subnets_.swap(subnets);
         routes_.swap(routes);
     }

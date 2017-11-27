@@ -1150,8 +1150,8 @@ bool ArpSandesh::SetArpEntry(const ArpKey &key, const ArpEntry *entry) {
     boost::asio::ip::address_v4 ip(key.ip);
     data.set_ip(ip.to_string());
     data.set_vrf(key.vrf->GetName());
-    if (entry->interface())
-        data.set_interface_name(entry->interface()->name());
+    if (entry->interface_())
+        data.set_interface_name(entry->interface_()->name());
     std::string mac_str;
     ServicesSandesh::MacToString(entry->mac_address(), mac_str);
     data.set_mac(mac_str);

@@ -36,7 +36,7 @@ public:
     const ArpKey &key() const { return key_; }
     State state() const { return state_; }
     const MacAddress &mac_address() const { return mac_address_; }
-    const Interface *interface() const { return interface_.get(); }
+    const Interface *interface_() const { return interface__.get(); }
 
     bool HandleArpRequest();
     void HandleArpReply(const MacAddress &);
@@ -64,7 +64,7 @@ private:
     int retry_count_;
     boost::intrusive_ptr<ArpHandler> handler_;
     Timer *arp_timer_;
-    InterfaceConstRef interface_;
+    InterfaceConstRef interface__;
     DISALLOW_COPY_AND_ASSIGN(ArpEntry);
 };
 

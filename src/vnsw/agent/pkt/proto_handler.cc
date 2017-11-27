@@ -75,12 +75,12 @@ int ProtoHandler::EthHdr(const MacAddress &src, const MacAddress &dest,
                   dest, proto, VmInterface::kInvalidVlanId);
 }
 
-int ProtoHandler::EthHdr(char *buff, uint16_t len, const Interface *interface,
+int ProtoHandler::EthHdr(char *buff, uint16_t len, const Interface *interface_,
                          const MacAddress &src, const MacAddress &dest,
                          const uint16_t proto) {
     uint16_t vlan_id = VmInterface::kInvalidVlanId;
-    if (interface && interface->type() == Interface::VM_INTERFACE) {
-        vlan_id = static_cast<const VmInterface *>(interface)->tx_vlan_id();
+    if (interface_ && interface_->type() == Interface::VM_INTERFACE) {
+        vlan_id = static_cast<const VmInterface *>(interface_)->tx_vlan_id();
     }
 
     return EthHdr(buff, len, src, dest, proto, vlan_id);
