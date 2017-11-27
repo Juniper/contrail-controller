@@ -139,8 +139,8 @@ KSyncEntry *KSyncLinuxBridgeObject::DBToKSyncEntry(const DBEntry *e) {
  * Implementation of KSyncLinuxPortEntry
  ****************************************************************************/
 KSyncLinuxPortEntry::KSyncLinuxPortEntry(KSyncLinuxPortObject *obj,
-                                         const Interface *interface) :
-    KSyncVxlanPortEntry(obj, interface), old_bridge_(NULL) {
+                                         const Interface *intrface) :
+    KSyncVxlanPortEntry(obj, intrface), old_bridge_(NULL) {
 }
 
 KSyncLinuxPortEntry::KSyncLinuxPortEntry(KSyncVxlanPortObject *obj,
@@ -194,18 +194,18 @@ KSyncLinuxPortObject::KSyncLinuxPortObject(KSyncLinuxVxlan *ksync) :
 
 KSyncEntry *KSyncLinuxPortObject::Alloc(const KSyncEntry *entry,
                                         uint32_t index) {
-    const KSyncLinuxPortEntry *interface =
+    const KSyncLinuxPortEntry *intrface =
         static_cast<const KSyncLinuxPortEntry *>(entry);
-    return new KSyncLinuxPortEntry(this, interface);
+    return new KSyncLinuxPortEntry(this, intrface);
 }
 
 KSyncEntry *KSyncLinuxPortObject::DBToKSyncEntry(const DBEntry *e) {
-    const Interface *interface = static_cast<const Interface *>(e);
+    const Interface *intrface = static_cast<const Interface *>(e);
 
     switch (interface->type()) {
     case Interface::PHYSICAL:
     case Interface::VM_INTERFACE:
-        return new KSyncLinuxPortEntry(this, interface);
+        return new KSyncLinuxPortEntry(this, intrface);
         break;
 
     default:

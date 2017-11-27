@@ -36,7 +36,7 @@ public:
     const ArpKey &key() const { return key_; }
     State state() const { return state_; }
     const MacAddress &mac_address() const { return mac_address_; }
-    const Interface *interface() const { return interface_.get(); }
+    const Interface *intrface() const { return interface_.get(); }
 
     bool HandleArpRequest();
     void HandleArpReply(const MacAddress &);

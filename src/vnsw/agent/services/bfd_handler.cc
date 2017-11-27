@@ -49,9 +49,9 @@ void BfdHandler::SendPacket(
          uint32_t interface_id, const boost::asio::mutable_buffer &packet,
          int packet_length) {
 
-    Interface *interface =
+    Interface *intrface =
         agent()->interface_table()->FindInterface(interface_id);
-    if (!interface || interface->type() != Interface::VM_INTERFACE)
+    if (!intrface || intrface->type() != Interface::VM_INTERFACE)
         return;
 
     if (pkt_info_->packet_buffer() == NULL) {

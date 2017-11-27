@@ -223,8 +223,8 @@ void DhcpProto::VnNotify(DBEntryBase *entry) {
     }
 }
 
-DhcpLeaseDb *DhcpProto::GetLeaseDb(Interface *interface) {
-    LeaseManagerMap::iterator it = lease_manager_.find(interface);
+DhcpLeaseDb *DhcpProto::GetLeaseDb(Interface *intrface) {
+    LeaseManagerMap::iterator it = lease_manager_.find(intrface);
     if (it != lease_manager_.end())
         return it->second;
 

@@ -822,8 +822,8 @@ public:
     const Interface *vhost_interface() const {
         return vhost_interface_;
     }
-    void set_vhost_interface(const Interface *interface) {
-        vhost_interface_ = interface;
+    void set_vhost_interface(const Interface *intrface) {
+        vhost_interface_ = intrface;
     }
     process::ConnectionState* connection_state() const {
         return connection_state_;

@@ -156,8 +156,8 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
     client->WaitForIdle();
     EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
 
-    Interface *interface = VrfAssignTable::FindInterface(MakeUuid(1));
-    EXPECT_TRUE(interface != NULL);
+    Interface *intrface = VrfAssignTable::FindInterface(MakeUuid(1));
+    EXPECT_TRUE(intrface != NULL);
     //Verify key
     VrfAssign *vrf_assign = VrfAssignTable::FindVlanReq(MakeUuid(1), 1);
     DBEntryBase::KeyPtr tmp_key = vrf_assign->GetDBRequestKey();

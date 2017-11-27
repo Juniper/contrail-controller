@@ -51,9 +51,9 @@ public:
     uint32_t version() const { return version_; }
     void set_subnets(const SubnetList &subnets) const { subnets_ = subnets; }
     void set_routes(const SubnetList &routes) const { routes_ = routes; }
-    const InetInterface *interface() const { return interface_; }
-    void set_interface(InetInterface *interface) const {
-        interface_ = interface;
+    const InetInterface *intrface() const { return interface_; }
+    void set_interface(InetInterface *intrface) const {
+        interface_ = intrface;
     }
     void set_version(uint32_t version) const { version_ = version; }
 
