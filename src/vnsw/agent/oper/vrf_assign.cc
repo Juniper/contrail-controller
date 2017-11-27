@@ -30,13 +30,13 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
     VrfAssign *assign = NULL;
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, key->intf_uuid_, "");
-    Interface *interface = static_cast<Interface *>
+    Interface *interface_ = static_cast<Interface *>
         (agent()->interface_table()->Find(&intf_key, true));
 
     switch (key->type_) {
     case VrfAssign::VLAN: {
         VlanVrfAssign *vlan_assign = 
-            new VlanVrfAssign(interface, key->vlan_tag_);
+            new VlanVrfAssign(interface_, key->vlan_tag_);
         assign = static_cast<VrfAssign *>(vlan_assign);
     }
     break;

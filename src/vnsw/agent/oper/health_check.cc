@@ -410,7 +410,7 @@ bool HealthCheckService::IsInstanceTaskBased() const {
 }
 
 HealthCheckInstanceBase *
-HealthCheckService::StartHealthCheckService(VmInterface *interface,
+HealthCheckService::StartHealthCheckService(VmInterface *interface_,
                                             VmInterface *paired_vmi,
                                             const IpAddress &source_ip,
                                             const IpAddress &destination_ip,
@@ -420,11 +420,11 @@ HealthCheckService::StartHealthCheckService(VmInterface *interface,
     if (IsInstanceTaskBased()) {
         instance = new HealthCheckInstanceTask(
                        this, table_->agent()->metadata_ip_allocator(),
-                       interface, ignore_status_event);
+                       interface_, ignore_status_event);
     } else {
         instance = new HealthCheckInstanceService(
                        this, table_->agent()->metadata_ip_allocator(),
-                       interface, paired_vmi, ignore_status_event, multi_hop);
+                       interface_, paired_vmi, ignore_status_event, multi_hop);
     }
 
     instance->set_source_ip(source_ip);

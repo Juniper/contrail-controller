@@ -912,7 +912,7 @@ private:
 
 class Inet4UnicastInterfaceRoute : public AgentRouteData {
 public:
-    Inet4UnicastInterfaceRoute(const PhysicalInterface *interface,
+    Inet4UnicastInterfaceRoute(const PhysicalInterface *interface_,
                                const std::string &vn_name);
     virtual ~Inet4UnicastInterfaceRoute() { }
 

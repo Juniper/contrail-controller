@@ -1011,17 +1011,17 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
         switch(nh->GetType()) {
         case NextHop::INTERFACE: {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-            const Interface *interface = intf_nh->GetInterface();
-            if (interface == NULL) {
+            const Interface *interface_ = intf_nh->GetInterface();
+            if (interface_ == NULL) {
                 break;
             }
 
             VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE,
-                                    intf_nh->GetIfUuid(), interface->name());
+                                    intf_nh->GetIfUuid(), interface_->name());
             EcmpLoadBalance ecmp_load_balance;
             GetEcmpHashFieldsToUse(item, ecmp_load_balance);
             BgpPeer *bgp_peer = bgp_peer_id();
-            if (interface->type() == Interface::VM_INTERFACE) {
+            if (interface_->type() == Interface::VM_INTERFACE) {
                 LocalVmRoute *local_vm_route =
                     new LocalVmRoute(intf_key, label,
                              VxLanTable::kInvalidvxlan_id,
@@ -1037,14 +1037,14 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
                 rt_table->AddLocalVmRouteReq(bgp_peer, vrf_name,
                                              prefix_addr, prefix_len,
                                              static_cast<LocalVmRoute *>(local_vm_route));
-            } else if (interface->type() == Interface::INET) {
+            } else if (interface_->type() == Interface::INET) {
 
                 if (!prefix_addr.is_v4()) {
                     CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
                     "MPLS label inet interface type not supported for non IPv4");
                     return;
                 }
-                InetInterfaceKey intf_key(interface->name());
+                InetInterfaceKey intf_key(interface_->name());
                 InetInterfaceRoute *inet_interface_route =
                     new InetInterfaceRoute(intf_key, label,
                                            TunnelType::MplsType(),
