@@ -45,13 +45,13 @@ public:
 
     struct ArpIpc : InterTaskMsg {
         ArpIpc(ArpProto::ArpMsgType msg, ArpKey &akey, InterfaceConstRef itf)
-            : InterTaskMsg(msg), key(akey), interface(itf) {}
+            : InterTaskMsg(msg), key(akey), _interface(itf) {}
         ArpIpc(ArpProto::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf,
                InterfaceConstRef itf) :
-            InterTaskMsg(msg), key(ip, vrf), interface(itf) {}
+            InterTaskMsg(msg), key(ip, vrf), _interface(itf) {}
 
         ArpKey key;
-        InterfaceConstRef interface;
+        InterfaceConstRef _interface;
     };
 
     struct ArpStats {

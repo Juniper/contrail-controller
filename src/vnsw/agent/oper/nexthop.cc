@@ -416,10 +416,10 @@ bool ArpNH::ChangeEntry(const DBRequest *req) {
         ret =  true;
     }
 
-    Interface *interface = NextHopTable::GetInstance()->FindInterface
+    Interface *pinterface = NextHopTable::GetInstance()->FindInterface
         (*data->intf_key_.get());
-    if (interface_.get() != interface) {
-        interface_ = interface;
+    if (interface_.get() != pinterface) {
+        interface_ = pinterface;
         ret = true;
     }
 

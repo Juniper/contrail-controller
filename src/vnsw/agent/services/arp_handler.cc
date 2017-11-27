@@ -247,7 +247,7 @@ bool ArpHandler::HandleMessage() {
             ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
             if (!entry) {
                 entry = new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
-                                     ArpEntry::INITING, ipc->interface.get());
+                                     ArpEntry::INITING, ipc->interface_.get());
                 if (arp_proto->AddArpEntry(entry) == false) {
                     delete entry;
                     break;
@@ -255,7 +255,7 @@ bool ArpHandler::HandleMessage() {
                 ret = false;
             }
             arp_proto->IncrementStatsArpReq();
-            arp_proto->IncrementStatsArpRequest(ipc->interface->id());
+            arp_proto->IncrementStatsArpRequest(ipc->interface_->id());
             entry->HandleArpRequest();
             break;
         }
@@ -264,17 +264,17 @@ bool ArpHandler::HandleMessage() {
             bool key_valid = false;
             ArpProto::GratuitousArpIterator it =
             arp_proto->GratuitousArpEntryIterator(ipc->key, &key_valid);
-            if (key_valid && !ipc->interface->IsDeleted()) {
+            if (key_valid && !ipc->interface_->IsDeleted()) {
                 ArpEntry *entry = NULL;
                 ArpProto::ArpEntrySet::iterator sit = it->second.begin();
                 for (; sit != it->second.end(); sit++) {
                     entry = *sit;
-                    if (entry->interface() == ipc->interface.get())
+                    if (entry->interfacefunc() == ipc->interface_.get())
                         break;
                 }
                 if (sit == it->second.end()) {
                     entry = new ArpEntry(io_, this, ipc->key, ipc->key.vrf,
-                                         ArpEntry::ACTIVE, ipc->interface.get());
+                                         ArpEntry::ACTIVE, ipc->interface_.get());
                     it->second.insert(entry);
                     ret = false;
                 }

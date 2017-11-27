@@ -111,7 +111,7 @@ public:
 
     void CreateLeaseDb(VmInterface *vmi);
     void DeleteLeaseDb(VmInterface *vmi);
-    DhcpLeaseDb *GetLeaseDb(Interface *interface);
+    DhcpLeaseDb *GetLeaseDb(Interface *interface_);
     const LeaseManagerMap &lease_manager() const { return lease_manager_; }
 
 private:

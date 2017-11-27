@@ -2326,7 +2326,7 @@ bool VmInterface::TagEntry::IsLess(const TagEntry *rhs) const {
 }
 
 bool VmInterface::TagEntry::AddL3(const Agent *agent,
-                                  VmInterface *interface) const {
+                                  VmInterface *interface_) const {
     if (tag_.get() && tag_->tag_uuid() == uuid_) {
         return false;
     }
@@ -2339,7 +2339,7 @@ bool VmInterface::TagEntry::AddL3(const Agent *agent,
 }
 
 bool VmInterface::TagEntry::DeleteL3(const Agent *agent,
-                                     VmInterface *interface) const {
+                                     VmInterface *interface_) const {
     tag_.reset();
     return true;
 }
