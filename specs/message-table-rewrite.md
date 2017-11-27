@@ -25,7 +25,7 @@ For a query based on, say Source, we need to do 2 lookups
 - lookup in messagetable with the UUID to get xml-message content.
 In essence, there are 2 reads from cassandra database for an entry.
 
-The transfer of data from/to cassandra database is very expensive. Using secondary index, lot of "filtering" of rows would be done done internally in cassandra database.
+The transfer of data from/to cassandra database is very expensive. Using SASI index, lot of "filtering" of rows would be done done internally in cassandra database.
 
 # 3. Proposed solution
 Desired features
@@ -40,11 +40,11 @@ We achieve the above as follows
 - Create message_timestamp table with TS as PRIMARY key.
 - Keep only 2 columns as clustering columns. Cassandra sorts the entries on these columns while writing.
   column3 and beyond are non-clustering columns.
-- Create SECONDARY keys for the fields - Source, Messagetype, ModuleId.
+- Create SASI keys for the fields - Source, Messagetype, ModuleId.
 - Use "partition" as key2 to avoid hotspot - existing feature for current messagetable.
 - Following non-primary and non-clustering columns are prepended with "T2:" to avoid very wide rows.
   T2 is prefixed with ":" as delimiter.
-  We do indexing on these columns using secondary or SASI index.
+  We do indexing on these columns using SASI index.
   SASI index is specified if prefix search support is required. So it is required for all the columns below except Messagetype and ModuleId.
   But cql query doesnt allow mix of SASI and non-SASI indexes hence all the below columns are SASI indexes.
   - Source
@@ -133,10 +133,29 @@ None
 ## 3.2 API schema changes
 
 ## 3.3 User workflow impact
-- Level, Keyword, Context and Category are not indexed
-- Level is a filter now.
-- Category and Level are present in select options.
-- Context is removed from select options.
+New message-table schema
+
+```
+{
+    { name : MessageTS,   datatype : int,    index: false },
+    { name : Source,      datatype : string, index: true  },
+    { name : ModuleId,    datatype : string, index: true  },
+    { name : Messagetype, datatype : string, index: true  },
+    { name : Category,    datatype : string, index: false },
+    { name : IPAddress,   datatype : ipaddr, index: false },
+    { name : Pid,         datatype : int,    index: false },
+    { name : Level,       datatype : int,    index: false },
+    { name : Type,        datatype : int,    index: false },
+    { name : InstanceId,  datatype : string, index: false },
+    { name : NodeType,    datatype : string, index: false },
+    { name : SequenceNum, datatype : int,    index: false },
+    { name : Xmlmessage,  datatype : string, index: false }
+}
+columns added - IPAddress, Pid
+columns removed - Context, Keyword
+columns changed - Category, Level
+                  Earlier they were indexed, now they are non-indexed columns.
+```
 
 ## 3.4 UI changes
 
@@ -146,20 +165,20 @@ None
 
 # 4. Implementation
 ## 4.1 Analytics
-Query with WHERE option is supported for primary and secondary index. They are also supported for other columns but it wont be efficient.
-We publish the primary and secondary indices so that user can make informed decisions during query.
+Query with WHERE option is supported for primary and SASI index. They are also supported for other columns but it wont be efficient.
+We publish the primary and SASI indices so that user can make informed decisions during query.
 
 
 COLLECTOR
-- Add support for secondary index in the schema
-- Prepend "T2:" to <column{3|4|5|6|7}> while writting to cassandra.
+- Add support for SASI index in the schema
+- Prepend "T2:" to <column{3-11}> while writing to cassandra.
 
 QUERY ENGINE
 - Add support for secondary index.
 - Add support for passing multiple indices in cql query.
-- Prepend "T2:" to <column{3|4|5|6|7}> while quering from cassandra.
-- Remove "T2:" prefix from <column{3|4|5|6|7}> after reading from cassandra.
-- Query will walk through all T2 timestamps range and key2 (Partition range 1-16).
+- Prepend "T2:" to <column{3-11> while quering from cassandra.
+- Remove "T2:" prefix from <column{3-11}> after reading from cassandra.
+- Query will walk through all T2 timestamps range and key2 (Partition range 1-8).
 
 ## 4.2 UI
 No feature to be added. See section "Deprecations" for other changes needed.
