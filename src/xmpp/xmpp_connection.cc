@@ -965,6 +965,5 @@ void XmppConnection::SwapContents(XmppConnection *other) {
     swap(last_msg_, other->last_msg_);
     swap(to_, other->to_);
     swap(from_, other->from_);
-    swap(dscp_value_, other->dscp_value_);
     swap(disable_read_, other->disable_read_);
 }
