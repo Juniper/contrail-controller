@@ -15,7 +15,7 @@
 bool parse_time(const std::string& relative_time, uint64_t *usec_time);
 GenDb::Op::type get_gendb_op_from_op(int op);
 std::string MsgTableIndexToColumn(const int index);
-ColIndexType::type MsgTableIndexToIndexType(const int index);
+GenDb::ColIndexType::type MsgTableIndexToIndexType(const int index);
 std::string MsgTableQueryColumnToColumn(const std::string query_column);
 std::string MsgTableColumnToQueryColumn(const std::string columnN);
 

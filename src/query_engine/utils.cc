@@ -86,28 +86,32 @@ GenDb::Op::type get_gendb_op_from_op(int op) {
     }
 }
 
-// Input params are valid.
-// No need to add extra validity check.
 std::string MsgTableIndexToColumn(const int index) {
     return (g_viz_constants._VIZD_TABLE_SCHEMA.find(
                     g_viz_constants.COLLECTOR_GLOBAL_TABLE))\
                     ->second.columns[index].name;
 }
 
-ColIndexType::type MsgTableIndexToIndexType(const int index) {
+GenDb::ColIndexType::type MsgTableIndexToIndexType(const int index) {
     return (g_viz_constants._VIZD_TABLE_SCHEMA.find(
                     g_viz_constants.COLLECTOR_GLOBAL_TABLE))\
                     ->second.columns[index].index_type;
 }
 
 std::string MsgTableQueryColumnToColumn(const std::string query_column) {
-    return (g_viz_constants._VIZD_TABLE_SCHEMA.find(
-                    g_viz_constants.COLLECTOR_GLOBAL_TABLE))\
-                    ->second.query_column_to_column.find(query_column)->second;
+    table_schema schema = g_viz_constants._VIZD_TABLE_SCHEMA.find(
+                                g_viz_constants.COLLECTOR_GLOBAL_TABLE)->second;
+    std::map<std::string, std::string>::const_iterator it = 
+                schema.query_column_to_column.find(query_column);
+    assert(it != schema.query_column_to_column.end());
+    return it->second;
 }
 
 std::string MsgTableColumnToQueryColumn(const std::string columnN) {
-    return (g_viz_constants._VIZD_TABLE_SCHEMA.find(
-                    g_viz_constants.COLLECTOR_GLOBAL_TABLE))\
-                    ->second.column_to_query_column.find(columnN)->second;
+    table_schema schema = g_viz_constants._VIZD_TABLE_SCHEMA.find(
+                                g_viz_constants.COLLECTOR_GLOBAL_TABLE)->second;
+    std::map<std::string, std::string>::const_iterator it = 
+                schema.column_to_query_column.find(columnN);
+    assert(it != schema.column_to_query_column.end());
+    return it->second;
 }

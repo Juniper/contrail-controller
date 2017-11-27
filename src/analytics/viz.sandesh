@@ -834,20 +834,6 @@ const map<string, objtable_info> _OBJECT_TABLES = {
 
 // Analytics table schema defination
 
-// Secondary/SASI Index
-enum ColIndexType {
-    NONE = 0,
-    INDEX,          // secondary index
-    CUSTOM_INDEX    // sasi index
-}
-
-// SASI Index modes
-enum ColIndexMode {
-    NONE = 0,
-    PREFIX,
-    CONTAINS
-}
-
 // Description of the column
 struct schema_column
 {
@@ -855,8 +841,8 @@ struct schema_column
     2: gendb.DbDataType datatype;
     3: bool      key;           // partition-key
     4: bool      clustering;    // clustering-column
-    5: ColIndexType index_type;
-    6: ColIndexMode index_mode;
+    5: gendb.ColIndexType index_type;
+    6: gendb.ColIndexMode index_mode;
 }
 
 // Description of the column
@@ -968,32 +954,32 @@ const map<string, table_schema> _VIZD_TABLE_SCHEMA = {
             { 'name' : 'column2', 'datatype' : GenDb.DbDataType.LexicalUUIDType,
               'clustering' : true },
             { 'name' : 'column3', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column4', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column5', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column6', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column7', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column8', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column9', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column10', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column11', 'datatype' : GenDb.DbDataType.UTF8Type,
-              'index_type' : ColIndexType.CUSTOM_INDEX,
-              'index_mode' : ColIndexMode.PREFIX },
+              'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+              'index_mode' : GenDb.ColIndexMode.PREFIX },
             { 'name' : 'column12', 'datatype' : GenDb.DbDataType.InetType },
             { 'name' : 'column13', 'datatype' : GenDb.DbDataType.Unsigned32Type },
             { 'name' : 'column14', 'datatype' : GenDb.DbDataType.UTF8Type },
@@ -1209,49 +1195,49 @@ const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
             {'name' : 'column4',
              'datatype': Gendb.DbDataType.LexicalUUIDType, 'clustering': true},
             {'name' : 'column5', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column6', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column7', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column8', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column9', 'datatype': Gendb.DbDataType.UTF8Type},
             {'name' : 'column10', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column11', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX }
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX }
             {'name' : 'column12', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column13', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column14', 'datatype': Gendb.DbDataType.UTF8Type },
             {'name' : 'column15', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column16', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column17', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column18', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column19', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column20', 'datatype': Gendb.DbDataType.UTF8Type,
-             'index_type' : ColIndexType.CUSTOM_INDEX,
-             'index_mode' : ColIndexMode.PREFIX },
+             'index_type' : GenDb.ColIndexType.CUSTOM_INDEX,
+             'index_mode' : GenDb.ColIndexMode.PREFIX },
             {'name' : 'column21', 'datatype': Gendb.DbDataType.AsciiType },
             {'name' : 'column22', 'datatype': Gendb.DbDataType.InetType },
             {'name' : 'column23', 'datatype': Gendb.DbDataType.Unsigned64Type },
@@ -5661,14 +5647,16 @@ const list<query_table> _TABLES = [
              'columns' :  [
                { 'name' : TIMESTAMP, 'datatype' : 'int', 'index' : false},
                { 'name' : SOURCE, 'datatype' : 'string', 'index' : true },
+               { 'name' : MESSAGE_TYPE, 'datatype' : 'string', 'index' : true },
                { 'name' : MODULE, 'datatype' : 'string', 'index' : true },
+               { 'name' : IPADDRESS, 'datatype' : 'ipaddr', 'index' : false },
+               { 'name' : PID, 'datatype' : 'int', 'index' : false },
                { 'name' : CATEGORY, 'datatype' : 'string', 'index' : false },
                { 'name' : LEVEL, 'datatype' : 'int', 'index' : false },
-               { 'name' : SANDESH_TYPE, 'datatype' : 'int', 'index' : false },
-               { 'name' : INSTANCE_ID, 'datatype' : 'string', 'index' : false },
                { 'name' : NODE_TYPE, 'datatype' : 'string', 'index' : false },
-               { 'name' : MESSAGE_TYPE, 'datatype' : 'string', 'index' : true },
+               { 'name' : INSTANCE_ID, 'datatype' : 'string', 'index' : false },
                { 'name' : SEQUENCE_NUM, 'datatype' : 'int', 'index' : false },
+               { 'name' : SANDESH_TYPE, 'datatype' : 'int', 'index' : false },
                { 'name' : DATA, 'datatype' : 'string', 'index' : false },
                ]
               },

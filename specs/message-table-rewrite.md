@@ -133,10 +133,39 @@ None
 ## 3.2 API schema changes
 
 ## 3.3 User workflow impact
-- Level, Keyword, Context and Category are not indexed
-- Level is a filter now.
-- Category and Level are present in select options.
-- Context is removed from select options.
+New message-table schema
+
+```
+{
+    { name : MessageTS,   datatype : int,    index: false },
+    { name : Source,      datatype : string, index: true  },
+    { name : ModuleId,    datatype : string, index: true  },
+    { name : Messagetype, datatype : string, index: true  },
+    { name : Category,    datatype : string, index: false },
+    { name : IPAddress,   datatype : ipaddr, index: false },
+    { name : Pid,         datatype : int,    index: false },
+    { name : Level,       datatype : int,    index: false },
+    { name : Type,        datatype : int,    index: false },
+    { name : InstanceId,  datatype : string, index: false },
+    { name : NodeType,    datatype : string, index: false },
+    { name : SequenceNum, datatype : int,    index: false },
+    { name : Xmlmessage,  datatype : string, index: false }
+}
+2 columns are removed - Context, Keyword
+```
+
+New object-table schema
+```
+{
+   { name : MessageTS,   datatype : int,    index : false },
+   { name : ObjectId,    datatype : string, index : true },
+   { name : Source,      datatype : string, index : true },
+   { name : ModuleId,    datatype : string, index : true },
+   { name : Messagetype, datatype : string, index : true },
+   { name : ObjectLog,   datatype : string, index : false },
+   { name : SystemLog,   datatype : string, index : false }
+}
+```
 
 ## 3.4 UI changes
 
