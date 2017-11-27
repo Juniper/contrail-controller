@@ -202,7 +202,12 @@ PostProcessingQuery::PostProcessingQuery(
                       {
                         if (value_value.IsString())
                           {
-                            filter.value = value_value.GetString();
+                            std::string value(value_value.GetString());
+                            if (filter.name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VMI_UUID]) {
+                                value = "(.*)" + value;
+                                filter.op = REGEX_MATCH;
+                            }
+                            filter.value = value;
                           } else if (value_value.IsInt()){
                               int int_value;
                               std::ostringstream convert;
@@ -264,7 +269,12 @@ PostProcessingQuery::PostProcessingQuery(
 
                         // extract value after type conversion
                         if (value_value.IsString()) {
-                            filter.value = value_value.GetString();
+                            std::string value(value_value.GetString());
+                            if (filter.name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VMI_UUID]) {
+                                value = "(.*)" + value;
+                                filter.op = REGEX_MATCH;
+                            }
+                            filter.value = value;
                         } else if (value_value.IsInt()) {
                             int int_value;
                             std::ostringstream convert;
