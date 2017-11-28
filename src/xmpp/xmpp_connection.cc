@@ -118,7 +118,7 @@ bool XmppConnection::IsDeleted() const {
 }
 
 bool XmppConnection::MayDelete() const {
-    return (mux_->ReceiverCount() == 0);
+    return !mux_->ReceiverCount() && !mux_->RefererCount();
 }
 
 XmppSession *XmppConnection::CreateSession() {

@@ -51,6 +51,7 @@ public:
                         this, _1));
     }
     virtual ~AgentPeer() {
+        channel_->UnRegisterWriteReady(xmps::CONFIG);
         channel_->UnRegisterReceive(xmps::CONFIG);
         set_deleted(true);
         Close();
