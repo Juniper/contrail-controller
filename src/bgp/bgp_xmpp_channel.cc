@@ -2416,7 +2416,7 @@ bool BgpXmppChannel::EndOfRibReceiveTimerExpired() {
             BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_INFO,
                          BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                          "EndOfRib Receive timer rescheduled to fire after " <<
-                         kEndOfRibSendRetryTime << " second(s) ");
+                         kEndOfRibSendRetryTime << " second(s)");
             return true;
         }
     }
@@ -2448,9 +2448,9 @@ bool BgpXmppChannel::EndOfRibSendTimerExpired() {
                 manager()->bgp_server()->IsServerStartingUp()) {
             eor_send_timer_->Reschedule(kEndOfRibSendRetryTime * 1000);
             BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_INFO,
-                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_OUT,
                          "EndOfRib Send timer rescheduled to fire after " <<
-                         kEndOfRibSendRetryTime << "second(s) ");
+                         kEndOfRibSendRetryTime << " second(s)");
             return true;
         }
     }
