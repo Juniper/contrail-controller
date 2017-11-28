@@ -360,6 +360,47 @@ TEST_F(TunnelEncapTest, gre_to_vxlan_udp) {
     client->WaitForIdle();
 }
 
+TEST_F(TunnelEncapTest, EncapChange) {
+	client->Reset();
+	VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoGRE", "MPLSoUDP");
+    AddVn(agent->fabric_vn_name().c_str(), 10);
+    AddVrf(agent->fabric_policy_vrf_name().c_str());
+    AddLink("virtual-network", agent->fabric_vn_name().c_str(), "routing-instance",
+            agent->fabric_policy_vrf_name().c_str());
+    client->WaitForIdle();
+
+	TaskScheduler *scheduler = TaskScheduler::GetInstance();
+	scheduler->Stop();
+
+	agent->mpls_table()->ReserveMulticastLabel(4000, 5000, 0);
+	MulticastHandler *mc_handler = static_cast<MulticastHandler *>(agent->
+			oper_db()->multicast());
+	TunnelOlist olist;
+	olist.push_back(OlistTunnelEntry(nil_uuid(), 10,
+				IpAddress::from_string("8.8.8.8").to_v4(),
+				TunnelType::MplsType()));
+	mc_handler->ModifyFabricMembers(Agent::GetInstance()->
+			multicast_tree_builder_peer(),
+			agent->fabric_policy_vrf_name().c_str(),
+			IpAddress::from_string("255.255.255.255").to_v4(),
+			IpAddress::from_string("0.0.0.0").to_v4(),
+			4100, olist, 1);
+	VxLanNetworkIdentifierMode(true, "VXLAN", "MPLSoUDP", "MPLSoGRE");
+	scheduler->Start();
+    client->WaitForIdle();
+
+    BridgeRouteEntry *mc_route =
+        L2RouteGet(agent->fabric_policy_vrf_name().c_str(),
+                   MacAddress::FromString("ff:ff:ff:ff:ff:ff"));
+    EXPECT_TRUE(GetActiveLabel(4100)->nexthop() ==
+                mc_route->GetActiveNextHop());
+    DelVn(agent->fabric_vn_name().c_str());
+    DelLink("virtual-network", agent->fabric_vn_name().c_str(),
+            "routing-instance", agent->fabric_policy_vrf_name().c_str());
+    DelNode("routing-instance", agent->fabric_policy_vrf_name().c_str());
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
