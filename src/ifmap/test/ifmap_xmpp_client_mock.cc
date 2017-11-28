@@ -38,6 +38,9 @@ IFMapXmppClientMock::IFMapXmppClientMock(EventManager *evm,
 }
 
 IFMapXmppClientMock::~IFMapXmppClientMock() {
+    XmppChannel *channel = FindChannel(xmpp_server_name_);
+    if (channel)
+        channel->UnRegisterWriteReady(xmps::CONFIG);
     fb_.close();
 }
 

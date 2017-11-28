@@ -73,12 +73,20 @@ int XmppChannelMux::GetTaskInstance() const {
     return connection_->GetTaskInstance();
 }
 
+void XmppChannelMux::RegisterReferer(xmps::PeerId id) {
+    referers_.insert(id);
+}
+
+void XmppChannelMux::UnRegisterReferer(xmps::PeerId id) {
+    referers_.erase(id);
+}
+
 void XmppChannelMux::RegisterReceive(xmps::PeerId id, ReceiveCb cb) {
     rxmap_.insert(make_pair(id, cb));
 }
 
 void XmppChannelMux::UnRegisterReceive(xmps::PeerId id) {
-    ReceiveCbMap::iterator it =  rxmap_.find(id);
+    ReceiveCbMap::iterator it = rxmap_.find(id);
     if (it != rxmap_.end()) {
         rxmap_.erase(it);
     }
@@ -98,6 +106,10 @@ void XmppChannelMux::UnRegisterReceive(xmps::PeerId id) {
     }
 
     connection_->RetryDelete();
+}
+
+size_t XmppChannelMux::RefererCount() const {
+    return referers_.size();
 }
 
 size_t XmppChannelMux::ReceiverCount() const {

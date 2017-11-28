@@ -17,6 +17,7 @@ XmppSamplePeer::XmppSamplePeer(XmppChannel *channel)
 
 XmppSamplePeer::~XmppSamplePeer() {
     if (channel_) {
+        channel_->UnRegisterWriteReady(xmps::OTHER);
         channel_->UnRegisterReceive(xmps::OTHER);
         channel_ = NULL;
         LOG(DEBUG, "Unregister Receive and Deleting XmppSamplePeer");
