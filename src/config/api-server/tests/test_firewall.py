@@ -704,6 +704,21 @@ class TestFw(test_case.ApiServerTestCase):
             VirtualNetwork
         )
 
+    def test_create_firewall_rule_with_ref_without_uuid(self):
+        pm = PolicyManagement('pm-%s' % self.id())
+        self._vnc_lib.policy_management_create(pm)
+        ag = AddressGroup('ag-%s' % self.id(), parent_obj=pm)
+        self._vnc_lib.address_group_create(ag)
+        fr = FirewallRule('fr-%s' % self.id(), parent_obj=pm)
+        # Re-create Address Group VNC API object without the UUID for the ref
+        fr.add_address_group(
+            AddressGroup(
+                fq_name=ag.fq_name,
+                parent_type=PolicyManagement.object_type,
+            ),
+        )
+        self._vnc_lib.firewall_rule_create(fr)
+
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()
