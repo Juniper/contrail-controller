@@ -8,7 +8,7 @@ In service-chaining v2, contrail-svc-monitor allocates service-instance ip from 
 In service-chaining v2, Instead of allocating the service-instance ip from the same subnet, allocate from the diffrent subnet.
 
 # 4. Implementation
-"service_instance_subnet" option is given in contrail-svc-monitor.conf to provide subnet value. contrail-svc-monitor allocates service-instance ip from "service_instance_subnet" for service-chain v2.
+Contrail-api creates network-ipam "service-chain-flat-ipam" with subnets "0.0.0.0/8" and "::ffff/104". Contrail-svc-monitor allocates ipv4 and ipv6 addresses from service-chain-flat-ipam for service-chaining.
 
 # 5. Performance and scaling impact
 
