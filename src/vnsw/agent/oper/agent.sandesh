@@ -3295,14 +3295,16 @@ struct SLOSandeshData {
     1: string name;
     /** Uuid of security-logging-object  */
     2: string uuid;
+    /**SLO object status */
+    3: bool status;
     /** Rate of security-logging-object  */
-    3: i32 rate;
+    4: i32 rate;
     /** List of security-logging-object rules */
-    4: list<SLOSandeshRule> rules;
+    5: list<SLOSandeshRule> rules;
     /** List of firewall-policy objects */
-    5: list<PolicyLinkData> firewall_policy_list;
+    6: list<PolicyLinkData> firewall_policy_list;
     /** List of firewall-rule uuids*/
-    6: list<string> firewall_rule_list;
+    7: list<string> firewall_rule_list;
 }
 
 /**

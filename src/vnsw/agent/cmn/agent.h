@@ -1192,6 +1192,13 @@ public:
     VrouterObjectLimits GetVrouterObjectLimits();
     void SetXmppDscp(uint8_t val);
 
+    void SetSloStatus(bool flag) {
+        slo_config_ = flag;
+    }
+
+    bool GetSloStatus() {
+        return slo_config_;
+    }
 private:
 
     uint32_t GenerateHash(std::vector<std::string> &);
@@ -1405,6 +1412,7 @@ private:
     uint32_t task_monitor_timeout_msec_;
     // List of TSN who are alive(Relevant for TSN mode only).
     std::vector<std::string> active_tsn_servers_;
+    bool slo_config_;
     // Constants
 public:
     static const std::string config_file_;
