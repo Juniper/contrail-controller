@@ -749,9 +749,15 @@ public:
     }
     NextHop *UpdateNH(Agent *agent, CompositeNH *cnh,
                       const TsnElector *te);
+    void UpdateLabels(uint32_t evpn_label, uint32_t fabric_label) {
+        evpn_label_ = evpn_label;
+        fabric_label_ = fabric_label;
+    }
 
 private:
     NextHopRef original_nh_;
+    uint32_t evpn_label_;
+    uint32_t fabric_label_;
     DISALLOW_COPY_AND_ASSIGN(MulticastRoutePath);
 };
 
