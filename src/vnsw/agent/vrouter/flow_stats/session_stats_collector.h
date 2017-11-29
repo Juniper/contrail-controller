@@ -292,8 +292,23 @@ private:
                           const std::string &fw_policy_uuid,
                           const std::string &nw_policy_uuid,
                           const std::string &sg_policy_uuid);
+
+    void GetPolicyIdFromFlow(const FlowEntry *fe,
+                             std::string &fw_policy_uuid,
+                             std::string &nw_policy_uuid,
+                             std::string &sg_policy_uuid);
+
+    void GetPolicyIdFromDeletedFlow(const SessionFlowExportInfo& flow_info,
+                                    std::string& fw_policy_uuid,
+                                    std::string& nw_policy_uuid,
+                                    std::string& sg_policy_uuid);
+
     bool MatchSloForFlow(const SessionStatsInfo &stats_info,
-                         const FlowEntry *fe);
+                         const FlowEntry *fe,
+                         const std::string& fw_policy_uuid,
+                         const std::string& nw_policy_uuid,
+                         const std::string& sg_policy_uuid);
+
     void BuildSloList(const SessionStatsInfo &stats_info,
                       const FlowEntry *fe,
                       SessionSloRuleMap *global_session_slo_rule_map,
@@ -302,6 +317,13 @@ private:
     void MakeSloList(const FlowEntry *fe,
                      SessionSloRuleMap *vmi_session_slo_rule_map,
                      SessionSloRuleMap *vn_session_slo_rule_map);
+
+    bool FlowLogging(const SessionStatsInfo    &stats_info,
+                     const FlowEntry *fe);
+
+    bool DeletedFlowLogging(const SessionStatsInfo    &stats_info,
+                            const SessionFlowExportInfo &flow_info);
+
     bool CheckSessionLogging(const SessionStatsInfo &stats_info);
     void AddSloList(const UuidList &slo_list, SessionSloRuleMap *slo_rule_map);
     void AddSloEntry(const boost::uuids::uuid &uuid,

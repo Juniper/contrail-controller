@@ -1011,11 +1011,13 @@ bool SessionStatsCollector::FindSloMatchRule(const SessionSloRuleMap &map,
 }
 
 bool SessionStatsCollector::MatchSloForFlow(
-        const SessionStatsInfo    &stats_info,
-        const FlowEntry *fe) {
+                            const SessionStatsInfo    &stats_info,
+                            const FlowEntry *fe,
+                            const std::string &fw_policy_uuid,
+                            const std::string &nw_policy_uuid,
+                            const std::string &sg_policy_uuid) {
 
     bool is_vmi_slo_logged, is_vn_slo_logged, is_global_slo_logged;
-    std::string fw_policy_uuid = "", nw_policy_uuid = "", sg_policy_uuid = "";
     SessionSloRuleMap vmi_session_slo_rule_map;
     SessionSloRuleMap vn_session_slo_rule_map;
     SessionSloRuleMap global_session_slo_rule_map;
@@ -1028,17 +1030,8 @@ bool SessionStatsCollector::MatchSloForFlow(
                  &vmi_session_slo_rule_map,
                  &vn_session_slo_rule_map);
     /*
-     * Match the policy_match for the given flow against the slo list
+     * Match each type of policy for the given flow against the slo list
      */
-    if (fe) {
-        fw_policy_uuid = fe->fw_policy_uuid();
-        sg_policy_uuid = fe->sg_rule_uuid();
-        nw_policy_uuid = fe->nw_ace_uuid();
-    } else if (stats_info.deleted) {
-        fw_policy_uuid = stats_info.export_info.fwd_flow.aps_rule_uuid;
-        sg_policy_uuid = stats_info.export_info.fwd_flow.sg_rule_uuid;
-        nw_policy_uuid = stats_info.export_info.fwd_flow.nw_ace_uuid;
-    }
 
     is_vmi_slo_logged = FindSloMatchRule(vmi_session_slo_rule_map, 
                                          fw_policy_uuid,
@@ -1054,7 +1047,6 @@ bool SessionStatsCollector::MatchSloForFlow(
                                             fw_policy_uuid,
                                             nw_policy_uuid,
                                             sg_policy_uuid);
-                        
     if ((is_vmi_slo_logged) ||
         (is_vn_slo_logged) ||
         (is_global_slo_logged)) {
@@ -1063,18 +1055,90 @@ bool SessionStatsCollector::MatchSloForFlow(
     return false;
 }
 
+void SessionStatsCollector::GetPolicyIdFromDeletedFlow(
+                            const SessionFlowExportInfo &flow_info,
+                            std::string &fw_policy_uuid,
+                            std::string &nw_policy_uuid,
+                            std::string &sg_policy_uuid) {
+    fw_policy_uuid = flow_info.aps_rule_uuid;
+    sg_policy_uuid = flow_info.sg_rule_uuid;
+    nw_policy_uuid = flow_info.nw_ace_uuid;
+    return;
+}
+
+void SessionStatsCollector::GetPolicyIdFromFlow(
+                            const FlowEntry *fe,
+                            std::string &fw_policy_uuid,
+                            std::string &nw_policy_uuid,
+                            std::string &sg_policy_uuid) {
+    fw_policy_uuid = fe->fw_policy_uuid();
+    sg_policy_uuid = fe->sg_rule_uuid();
+    nw_policy_uuid = fe->nw_ace_uuid();
+    return;
+}
+
+bool SessionStatsCollector::FlowLogging(
+                            const SessionStatsInfo    &stats_info,
+                            const FlowEntry *fe) {
+
+    bool logged = false;
+    std::string fw_policy_uuid = "", nw_policy_uuid = "", sg_policy_uuid = "";
+
+    GetPolicyIdFromFlow(fe,
+                        fw_policy_uuid,
+                        nw_policy_uuid,
+                        sg_policy_uuid);
+
+    logged = MatchSloForFlow(stats_info,
+                             fe,
+                             fw_policy_uuid,
+                             nw_policy_uuid,
+                             sg_policy_uuid);
+
+    return logged;
+}
+
+bool SessionStatsCollector::DeletedFlowLogging(
+                            const SessionStatsInfo    &stats_info,
+                            const SessionFlowExportInfo &flow_info) {
+
+    bool logged = false;
+    std::string fw_policy_uuid = "", nw_policy_uuid = "", sg_policy_uuid = "";
+
+    GetPolicyIdFromDeletedFlow(flow_info,
+                               fw_policy_uuid,
+                               nw_policy_uuid,
+                               sg_policy_uuid);
+
+    logged = MatchSloForFlow(stats_info,
+                             NULL,
+                             fw_policy_uuid,
+                             nw_policy_uuid,
+                             sg_policy_uuid);
+
+    return logged;
+}
+
 bool SessionStatsCollector::CheckSessionLogging(
-                    const SessionStatsInfo    &stats_info) {
+                            const SessionStatsInfo    &stats_info) {
 
     bool fwd_logged = false, rev_logged = false;
+    const SessionExportInfo &info = stats_info.export_info;
 
-    fwd_logged = MatchSloForFlow(
-                            stats_info,
-                            stats_info.fwd_flow.flow.get());
+    if (stats_info.deleted) {
+        fwd_logged = DeletedFlowLogging(stats_info,
+                            info.fwd_flow);
 
-    rev_logged = MatchSloForFlow(
-                            stats_info,
-                            stats_info.rev_flow.flow.get());
+        rev_logged = DeletedFlowLogging(stats_info,
+                            info.rev_flow);
+    }
+    else {
+        fwd_logged = FlowLogging(stats_info,
+                                 stats_info.fwd_flow.flow.get());
+
+        rev_logged = FlowLogging(stats_info,
+                                 stats_info.rev_flow.flow.get());
+    }
 
     if (fwd_logged || rev_logged) {
         return true;
