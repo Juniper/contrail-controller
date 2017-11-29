@@ -1515,7 +1515,11 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
     {
         tbb::mutex::scoped_lock lock(vector_push_mutex_);
         int sub_query_id = ((DbQueryUnit *)subquery)->sub_query_id;
-        inp.push_back((sub_queries[sub_query_id]->query_result.get()));
+        if (((DbQueryUnit *)subquery)->cfname == g_viz_constants.OBJECT_TABLE) {
+           inp.insert(inp.begin(), sub_queries[sub_query_id]->query_result.get());
+        } else {
+           inp.push_back((sub_queries[sub_query_id]->query_result.get()));
+        }
         if (subquery->query_status == QUERY_FAILURE) {
             QE_QUERY_FETCH_ERROR();
         }
