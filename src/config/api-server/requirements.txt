@@ -2,7 +2,7 @@ cfgm_common
 vnc_api
 sandesh
 sandesh-common
-gevent==1.1a2
+gevent
 geventhttpclient==1.0a
 pycassa>=1.7.2
 netaddr>=0.7.5

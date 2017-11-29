@@ -592,7 +592,7 @@ class AddrMgmt(object):
         ipam_fq_name_str = ':'.join(ipam_fq_name)
         subnet_objs = self._subnet_objs.get(ipam_uuid)
         if subnet_objs is None:
-            self._subnet_objs[ipam_uuid] = {}
+            self._subnet_objs[ipam_uuid] = OrderedDict()
             #read ipam to get ipam_subnets and generate subnet_objs
             (ok, ipam_dict) = self._uuid_to_obj_dict('network_ipam',
                                                      ipam_uuid)
@@ -611,8 +611,7 @@ class AddrMgmt(object):
                     subnet['ip_prefix_len'])
                 subnet_obj = self._create_subnet_obj_for_ipam_subnet(
                                  ipam_subnet, ipam_fq_name_str, should_persist)
-                if ipam_uuid not in self._subnet_objs:
-                    self._subnet_objs[ipam_uuid] = {}
+                self._subnet_objs.setdefault(ipam_uuid, OrderedDict())
                 self._subnet_objs[ipam_uuid][subnet_name] = subnet_obj
             subnet_objs = self._subnet_objs[ipam_uuid]
 
@@ -817,7 +816,7 @@ class AddrMgmt(object):
 
     def _create_ipam_subnet_objs(self, ipam_uuid, ipam_dict,
                                  should_persist, alloc_pool_change=[]):
-        self._subnet_objs.setdefault(ipam_uuid, {})
+        self._subnet_objs.setdefault(ipam_uuid, OrderedDict())
         ipam_fq_name_str = ':'.join(ipam_dict['fq_name'])
         ipam_subnets_dict = ipam_dict.get('ipam_subnets')
         if ipam_subnets_dict:
@@ -828,7 +827,7 @@ class AddrMgmt(object):
 
     def _create_net_subnet_objs(self, vn_fq_name_str, vn_uuid, vn_dict,
                                 should_persist, alloc_pool_change=[]):
-        self._subnet_objs.setdefault(vn_uuid, {})
+        self._subnet_objs.setdefault(vn_uuid, OrderedDict())
         # create subnet for each new subnet
         refs = vn_dict.get('network_ipam_refs')
         if refs:
@@ -1502,8 +1501,7 @@ class AddrMgmt(object):
         try:
             subnet_obj = self._subnet_objs[obj_uuid][subnet_name]
         except KeyError:
-            if obj_uuid not in self._subnet_objs:
-                self._subnet_objs[obj_uuid] = {}
+            self._subnet_objs.setdefault(obj_uuid, OrderedDict())
             subnet_obj = Subnet(
                 '%s:%s' % (fq_name_str, subnet_name),
                 subnet_dict['ip_prefix'],
