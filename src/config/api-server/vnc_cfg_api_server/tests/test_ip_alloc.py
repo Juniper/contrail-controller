@@ -681,14 +681,14 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipv4_obj1 = self._vnc_lib.instance_ip_read(id=ipv4_id1)
         ipv4_addr1 = ipv4_obj1.get_instance_ip_address()
         if ipv4_addr1 != '11.1.1.8':
-            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.8')
+            self.fail('Allocation failed, expected v4 IP Address 11.1.1.8')
 
         logger.debug('Allocating an IPV4 address for second VM')
         ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
         ipv4_obj2 = self._vnc_lib.instance_ip_read(id=ipv4_id2)
         ipv4_addr2 = ipv4_obj2.get_instance_ip_address()
         if ipv4_addr2 != '11.1.1.4':
-            logger.debug('Allocation failed, expected v4 IP Address 11.1.1.4')
+            self.fail('Allocation failed, expected v4 IP Address 11.1.1.4')
 
         # try updating ip address vnc_lib should reject ip address update
         ipv4_obj2.set_instance_ip_address('11.1.1.240')
@@ -2055,7 +2055,9 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         ipam0_sn3 = IpamSubnetType(subnet=SubnetType('13.1.1.0', 24),
                                    allocation_pools=sn3_pool_list,
                                    alloc_unit=1)
-        ipam0.set_ipam_subnets(IpamSubnets([ipam0_sn1, ipam0_sn2, ipam0_sn3]))
+        ipam0.set_ipam_subnets(IpamSubnets([]))
+        self._vnc_lib.network_ipam_update(ipam0)
+        ipam0.set_ipam_subnets(IpamSubnets([ipam0_sn3, ipam0_sn1, ipam0_sn2]))
         self._vnc_lib.network_ipam_update(ipam0)
         ipam_obj = self._vnc_lib.network_ipam_read(id=ipam0.uuid)
 

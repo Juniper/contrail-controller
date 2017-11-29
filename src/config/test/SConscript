@@ -19,8 +19,8 @@ local_sources_rules.append(env.Install('', '#/controller/src/config/test/setup.p
 local_dirs = ['utils']
 local_dirs_rules = []
 for dir in local_dirs:
-    files = Glob('#/controller/src/config/test/' + dir + '/*.py')  
-    local_dirs_rules.append(env.Install(dir, files))    
+    files = Glob('#/controller/src/config/test/' + dir + '/*.py')
+    local_dirs_rules.append(env.Install(dir, files))
 
 env.Depends(local_sources_rules, [local_dirs_rules])
 
@@ -34,7 +34,7 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17', 'coverage',
         'psutil>=0.6.0', 'redis==2.7.1', 'xmltodict==0.2', 'thrift==0.8.0',
         'librabbitmq==1.0.3', 'amqp==1.4.1', 'anyjson==0.3.3', 'kombu==3.0.9',
         'python-novaclient==2.13.0', 'flexmock==0.9.7', "bottle",
-        Dir(env['TOP']).abspath + '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/config/api-server/dist/contrail-config-api-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/common/dist/cfgm_common-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz',
@@ -103,6 +103,3 @@ else:
     env.Depends(run_coverage_cmd, test[0].name)
     env.AlwaysBuild(run_coverage_cmd)
     env.Alias('controller/src/config:test', run_coverage_cmd)
-
-
-

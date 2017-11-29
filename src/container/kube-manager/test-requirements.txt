@@ -9,7 +9,7 @@ gevent
 eventlet
 cfgm_common
 vnc_api
-vnc_cfg_api_server
+contrail-api-server
 urllib3
 bitstring
 pycassa>=1.7.2

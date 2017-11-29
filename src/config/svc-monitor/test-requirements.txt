@@ -10,4 +10,4 @@ cfgm_common
 vnc_api
 sandesh
 sandesh-common
-vnc_cfg_api_server
+contrail-api-server

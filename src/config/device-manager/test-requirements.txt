@@ -12,7 +12,7 @@ cfgm_common
 vnc_api
 sandesh
 sandesh_common
-vnc_cfg_api_server
+contrail-api-server
 schema_transformer
 junitxml
 xmltodict

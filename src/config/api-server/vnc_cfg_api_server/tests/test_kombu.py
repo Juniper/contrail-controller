@@ -13,8 +13,6 @@ from vnc_cfg_api_server.vnc_db import VncServerKombuClient
 from distutils.version import LooseVersion
 from vnc_api.vnc_api import VirtualNetwork, NetworkIpam, VnSubnetsType
 
-sys.path.append('../common/tests')
-import test_common
 import test_case
 
 logger = logging.getLogger(__name__)
@@ -49,6 +47,7 @@ class TestVncKombuClient(unittest.TestCase):
         super(TestVncKombuClient, cls).tearDownClass(*args, **kwargs)
 
     def setUp(self):
+        super(TestVncKombuClient, self).setUp()
         self.mock_connect = flexmock(operational = True,
             _info = lambda: "",
             connection_errors = (Exception,),
@@ -108,11 +107,7 @@ class TestVncKombuClient(unittest.TestCase):
         flexmock(self.mock_connect).should_receive("connect").twice()
         flexmock(self.mock_connect).should_receive("ensure_connection").twice()
         flexmock(self.mock_connect).should_receive("channel").twice()
-        flexmock(self.db_client_mgr).should_receive("wait_for_resync_done"). \
-            with_args().once()
         flexmock(self.mock_consumer).should_receive("consume").twice()
-        flexmock(self.mock_consumer).should_receive("close").once()
-        flexmock(self.mock_producer).should_receive("close").once()
 
         _lock = gevent.lock.Semaphore()
         _lock.acquire()
@@ -139,8 +134,6 @@ class TestVncKombuClient(unittest.TestCase):
         flexmock(self.mock_connect).should_receive("connect").twice()
         flexmock(self.mock_connect).should_receive("ensure_connection").twice()
         flexmock(self.mock_connect).should_receive("channel").twice()
-        flexmock(self.db_client_mgr).should_receive("wait_for_resync_done"). \
-            with_args().once()
         flexmock(self.mock_consumer).should_receive("consume").once()
 
         _lock = gevent.lock.Semaphore()
@@ -170,4 +163,3 @@ class TestVncKombuClient(unittest.TestCase):
         # check if message is not missed out by publish error
         self.assertEqual(len(req_id), 2)
         self.assertEqual(len(set(req_id)), 1)
-

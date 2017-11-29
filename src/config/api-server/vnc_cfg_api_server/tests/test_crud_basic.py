@@ -543,7 +543,7 @@ class TestCrud(test_case.ApiServerTestCase):
         self._vnc_lib.virtual_machine_interface_update(vmi)
 
         # Try to delete the VN link with BD ref
-        vmi_temp = vmi
+        vmi_temp = copy.deepcopy(vmi)
         vmi_temp.del_virtual_network(vn1)
         with ExpectedException(BadRequest) as e:
             self._vnc_lib.virtual_machine_interface_update(vmi_temp)
@@ -1122,6 +1122,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         test_obj = self._create_test_object()
         self.assert_vnc_db_has_ident(test_obj)
         self._vnc_lib.virtual_network_delete(id=test_obj.uuid)
+        gevent.sleep(0.05)  # wait traces published
 
         # and validations
         introspect_port = api_server._args.http_server_port
@@ -1979,7 +1980,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
                 return orig_method(*args, **kwargs)
         with test_common.patch(db_client, 'dbe_uve_trace', spy_uve_trace):
             self._delete_test_object(test_obj)
-            gevent.sleep(0.01)
+            gevent.sleep(0.5)
             self.assert_vnc_db_doesnt_have_ident(test_obj)
             self.assertEqual(len(uve_delete_trace_invoked), 1,
                 'uve_trace not invoked on object delete')

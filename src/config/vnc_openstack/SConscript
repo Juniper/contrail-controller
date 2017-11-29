@@ -72,7 +72,7 @@ test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
                 '/api-lib/dist/vnc_api-0.1dev.tar.gz',
                 '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
                 '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
-                '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',]
+                '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',]
 env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
 env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
 

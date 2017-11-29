@@ -1,49 +1,59 @@
+# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
 #
-# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#  Licensed under the Apache License, Version 2.0 (the "License"); you may
+#  not use this file except in compliance with the License. You may obtain
+#  a copy of the License at
 #
-from setuptools import setup, find_packages, Command
-import os, sys, re
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#  WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#  License for the specific language governing permissions and limitations
+#  under the License.
+#
 
-class RunTestsCommand(Command):
-    description = "Test command to run testr in virtualenv"
-    user_options = [
-        ('coverage', 'c',
-         "Generate code coverage report"),
-        ]
-    boolean_options = ['coverage']
-    def initialize_options(self):
-        self.cwd = None
-        self.coverage = False
-    def finalize_options(self):
-        self.cwd = os.getcwd()
-    def run(self):
-        logfname = 'test.log'
-        args = '-V'
-        if self.coverage:
-            logfname = 'coveragetest.log'
-            args += ' -c'
-        rc_sig = os.system('./run_tests.sh %s' % args)
-        if rc_sig >> 8:
-            os._exit(rc_sig>>8)
-        with open(logfname) as f:
-            if not re.search('\nOK', ''.join(f.readlines())):
-                os._exit(1)
+import re
+from setuptools import setup, find_packages
+
+
+def requirements(filename):
+    with open(filename) as f:
+        lines = f.read().splitlines()
+    c = re.compile(r'\s*#.*')
+    return filter(bool, map(lambda y: c.sub('', y).strip(), lines))
+
 
 setup(
-    name='vnc_cfg_api_server',
-    version='0.1dev',
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
-    package_data={'': ['*.html', '*.css', '*.xml']},
-    zip_safe=False,
-    long_description="VNC Configuration API Server Implementation",
-    entry_points = {
-        # Please update sandesh/common/vns.sandesh on process name change
-        'console_scripts' : [
+    name='contrail-api-server',
+    description="Contrail VNC Configuration API Server Implementation",
+    long_description=open('README.md').read(),
+    license='Apache-2',
+    author='OpenContrail',
+    author_email='dev@lists.opencontrail.org',
+    url='http://www.opencontrail.org/documentation/api/r4.0/',
+    version='0.1dev0',
+    classifiers=[
+        'Environment :: OpenContrail',
+        'Intended Audience :: Information Technology',
+        'Intended Audience :: Developers',
+        'Intended Audience :: System Administrators',
+        'License :: OSI Approved :: Apache Software License',
+        'Operating System :: POSIX :: Linux',
+        'Development Status :: 5 - Production/Stable',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+    ],
+    packages=find_packages(),
+    install_requires=requirements('requirements.txt'),
+    tests_require=requirements('test-requirements.txt'),
+    entry_points={
+        'console_scripts': [
             'contrail-api = vnc_cfg_api_server.vnc_cfg_api_server:server_main',
             'contrail-db-check = vnc_cfg_api_server.db_manage:db_check',
         ],
     },
-    cmdclass={
-       'run_tests': RunTestsCommand,
-    },
+    keywords='contrail vnc api server',
+    test_suite="vnc_cfg_api_server.tests"
 )
