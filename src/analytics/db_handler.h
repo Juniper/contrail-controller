@@ -121,8 +121,6 @@ public:
             GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool SessionTableInsert(const pugi::xml_node& parent,
         const SandeshHeader &header, GenDb::GenDbIf::DbAddColumnCb db_cb);
-    bool FlowTableInsert(const pugi::xml_node& parent,
-        const SandeshHeader &header, GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool UnderlayFlowSampleInsert(const UFlowData& flow_data,
         uint64_t timestamp, GenDb::GenDbIf::DbAddColumnCb db_cb);
 
@@ -218,9 +216,6 @@ private:
         const std::string& jsonline, int ttl,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     bool SessionSampleAdd(const pugi::xml_node& sessiondata,
-        const SandeshHeader& header,
-        GenDb::GenDbIf::DbAddColumnCb db_cb);
-    bool FlowSampleAdd(const pugi::xml_node& flowdata,
         const SandeshHeader& header,
         GenDb::GenDbIf::DbAddColumnCb db_cb);
     uint64_t GetTtl(TtlType::type type) {
@@ -336,34 +331,6 @@ class DbHandlerInitializer {
     bool zoo_locked_;
     boost::scoped_ptr<zookeeper::client::ZookeeperClient> zoo_client_;
     boost::scoped_ptr<zookeeper::client::ZookeeperLock> zoo_mutex_;
-};
-
-/*
- * pugi walker to process flow message
- */
-template <typename T>
-class FlowLogDataObjectWalker : public pugi::xml_tree_walker {
-public:
-    FlowLogDataObjectWalker(T &values) :
-        values_(values) {
-    }
-    ~FlowLogDataObjectWalker() {}
-
-    // Callback that is called when traversal begins
-    virtual bool begin(pugi::xml_node& node) {
-        return true;
-    }
-
-    // Callback that is called for each node traversed
-    virtual bool for_each(pugi::xml_node& node);
-
-    // Callback that is called when traversal ends
-    virtual bool end(pugi::xml_node& node) {
-        return true;
-    }
-
-private:
-    T &values_;
 };
 
 /*
