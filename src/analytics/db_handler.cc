@@ -1947,7 +1947,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
     for (pugi::xml_node ip_port_proto = session_agg_info_node.first_child();
         ip_port_proto; ip_port_proto = ip_port_proto.next_sibling().next_sibling()) {
         uint16_t val;
-        stringToInteger(ip_port_proto.child(g_flow_constants.PORT.c_str()).child_value(), val);
+        stringToInteger(ip_port_proto.child(g_flow_constants.SERVICE_PORT.c_str()).child_value(), val);
         session_entry_values[SessionRecordFields::SESSION_SPORT] = val;
         stringToInteger(ip_port_proto.child(g_flow_constants.PROTOCOL.c_str()).child_value(), val);
         session_entry_values[SessionRecordFields::SESSION_PROTOCOL] = val;
@@ -1956,7 +1956,7 @@ bool DbHandler::SessionSampleAdd(const pugi::xml_node& session_sample,
         uint8_t partition_no = gen_partition_no_();
         session_entry_values[SessionRecordFields::SESSION_PARTITION_NO] = partition_no;
         std::ostringstream oss;
-        oss << T2 << ":" << ip_port_proto.child(g_flow_constants.IP.c_str()).child_value();
+        oss << T2 << ":" << ip_port_proto.child(g_flow_constants.LOCAL_IP.c_str()).child_value();
         session_entry_values[SessionRecordFields::SESSION_IP] = oss.str();
         pugi::xml_node sess_agg_info = ip_port_proto.next_sibling();
         for (pugi::xml_node agg_info = sess_agg_info.first_child();

@@ -1504,8 +1504,8 @@ void SessionStatsCollector::FillSessionAggInfo
     /*
      * Fill the session agg key
      */
-    key->set_ip(it->first.local_ip);
-    key->set_port(it->first.server_port);
+    key->set_local_ip(it->first.local_ip);
+    key->set_service_port(it->first.server_port);
     key->set_protocol(it->first.proto);
 }
 
