@@ -652,7 +652,7 @@ bool BridgeRouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     bool pbb_nh = false;
     uint32_t old_fabric_mpls_label = 0;
     if (multicast_peer_path == NULL) {
-        multicast_peer_path = new AgentPath(agent->multicast_peer(), NULL);
+        multicast_peer_path = new MulticastRoutePath(agent->multicast_peer());
         InsertPath(multicast_peer_path);
     } else {
         //Multicast peer path can have evpn or fabric label.
