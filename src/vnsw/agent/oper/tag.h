@@ -107,7 +107,8 @@ public:
     }
 
     static const std::string& GetTypeStr(uint32_t tag_type);
-    static uint32_t GetTypeVal(const std::string &str);
+    static uint32_t GetTypeVal(const std::string &str,
+                               const std::string &val);
 
 private:
     friend class TagTable;
