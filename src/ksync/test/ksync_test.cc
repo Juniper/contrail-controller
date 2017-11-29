@@ -36,7 +36,7 @@ public:
         INIT,
         ADD,
         CHANGE,
-        DELETE
+        DEL
     };
 
     Vlan(uint16_t tag, uint16_t dep_tag, size_t index) : 
@@ -60,7 +60,7 @@ public:
         if (op_ == TEMP)
             return;
 
-        assert((op_ == DELETE) || (op_ == INIT));
+        assert((op_ == DEL) || (op_ == INIT));
     };
 
     std::string ToString() const {return "VLAN";};
@@ -73,7 +73,7 @@ public:
     virtual bool Change();
 
     virtual bool Delete() {
-        op_ = DELETE;
+        op_ = DEL;
         delete_count_++;
         if (tag_ >= 0xF00 && tag_ < 0xFE0)
             return true;
@@ -367,7 +367,7 @@ TEST_F(TestUT, async_basic) {
 
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
     EXPECT_EQ(Vlan::delete_count_, 1);
 }
@@ -402,7 +402,7 @@ TEST_F(TestUT, async_change) {
 
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
     EXPECT_EQ(Vlan::delete_count_, 1);
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
     EXPECT_EQ(Vlan::free_wait_count_, 1);
@@ -719,7 +719,7 @@ TEST_F(TestUT, temp_del_req) {
 
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
     //Add a reference 
     Vlan *vlan2 = AddVlan(0x2, 0x1, KSyncEntry::ADD_DEFER, Vlan::INIT, 1);
@@ -745,13 +745,13 @@ TEST_F(TestUT, renew_dependency_reval) {
 
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
     //Add a reference  to vlan1
     Vlan *vlan2 = AddVlan(0x2, 0x1, KSyncEntry::ADD_DEFER, Vlan::INIT, 1);
 
     //Request to add vlan1 again
-    ChangeVlan(vlan1, 0x0, KSyncEntry::RENEW_WAIT, Vlan::DELETE);
+    ChangeVlan(vlan1, 0x0, KSyncEntry::RENEW_WAIT, Vlan::DEL);
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::SYNC_WAIT);
 
@@ -780,15 +780,15 @@ TEST_F(TestUT, del_ack_to_renew_to_del_defer) {
 
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
     //Request to add vlan1 again
-    ChangeVlan(vlan1, 0x0, KSyncEntry::RENEW_WAIT, Vlan::DELETE);
+    ChangeVlan(vlan1, 0x0, KSyncEntry::RENEW_WAIT, Vlan::DEL);
 
     vlan1->all_delete_state_comp_ = false;
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_DEFER_DEL_ACK);
-    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
 
@@ -808,14 +808,14 @@ TEST_F(TestUT, del_ack_to_renew_to_del_ack) {
 
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
     //Request to add vlan1 again
-    ChangeVlan(vlan1, 0x0, KSyncEntry::RENEW_WAIT, Vlan::DELETE);
+    ChangeVlan(vlan1, 0x0, KSyncEntry::RENEW_WAIT, Vlan::DEL);
 
     vlan_table_->Delete(vlan1);
     EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
     vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
 
@@ -831,7 +831,7 @@ TEST_F(TestUT, add_defer_to_delete_ack) {
     vlan_table_->Delete(vlan1);
     if (Vlan::free_wait_count_ == 0) {
         EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-        EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+        EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
         vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
     }
@@ -857,7 +857,7 @@ TEST_F(TestUT, add_defer_to_del_ref_pending_to_add) {
     vlan_table_->Delete(vlan1);
     if (Vlan::free_wait_count_ == 0) {
         EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
-        EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+        EXPECT_EQ(vlan1->GetOp(), Vlan::DEL);
 
         vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
     }

@@ -110,7 +110,7 @@ void KSyncTxQueue::Init(bool use_work_queue,
             (boost::bind(&KSyncSock::OnEmptyQueue, sock_, _1));
         return;
     }
-    assert((event_fd_ = eventfd(0, (FD_CLOEXEC | EFD_SEMAPHORE))) >= 0);
+    assert((event_fd_ = eventfd(0, (EFD_CLOEXEC | EFD_SEMAPHORE))) >= 0);
 
     KSyncTxQueueTask *task = new KSyncTxQueueTask(scheduler, this);
     scheduler->Enqueue(task);

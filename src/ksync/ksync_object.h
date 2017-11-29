@@ -271,7 +271,7 @@ struct KSyncObjectEvent {
     enum Event {
         UNKNOWN,
         UNREGISTER,
-        DELETE,
+        DEL,
     };
     KSyncObjectEvent(KSyncObject *obj, Event event) :
         obj_(obj), event_(event) {

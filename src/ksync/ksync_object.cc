@@ -1522,7 +1522,7 @@ bool KSyncObjectManager::Process(KSyncObjectEvent *event) {
             delete event->obj_;
         }
         break;
-    case KSyncObjectEvent::DELETE:
+    case KSyncObjectEvent::DEL:
         {
             int count = 0;
             // hold reference to entry to ensure the pointer sanity
@@ -1620,7 +1620,7 @@ void KSyncObjectManager::Shutdown() {
 
 void KSyncObjectManager::Delete(KSyncObject *object) {
     KSyncObjectEvent *event = new KSyncObjectEvent(object,
-                                      KSyncObjectEvent::DELETE);
+                                      KSyncObjectEvent::DEL);
     Enqueue(event);
 }
 

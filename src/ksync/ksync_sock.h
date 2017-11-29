@@ -16,6 +16,7 @@
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
 #include <io/tcp_session.h>
+#include <nl_util.h>
 #include "vr_types.h"
 #include "ksync_tx_queue.h"
 
@@ -294,7 +295,12 @@ public:
     const static unsigned kBufLen = (4*1024);
 
     // Number of messages that can be bunched together
+    // TODO(WINDOWS): Windows implementation currently supports singular message transfers
+#ifdef _WIN32
+    const static unsigned kMaxBulkMsgCount = 1;
+#else
     const static unsigned kMaxBulkMsgCount = 16;
+#endif
     // Max size of buffer that can be bunched together
     const static unsigned kMaxBulkMsgSize = (4*1024);
     // Sequence number to denote invalid builk-context
@@ -487,7 +493,11 @@ public:
     static void Init(boost::asio::io_service &ios, int protocol,
                      const std::string &cpu_pin_policy);
 private:
+#ifdef _WIN32
+    boost::asio::windows::stream_handle pipe_;
+#else
     boost::asio::netlink::raw::socket sock_;
+#endif
 };
 
 //udp socket class for interacting with user vrouter
