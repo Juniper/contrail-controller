@@ -18,6 +18,9 @@
 #include <vrouter/flow_stats/flow_stats_collector.h>
 #include <vrouter/flow_stats/flow_stats_types.h>
 
+SandeshTraceBufferPtr SessionStatsTraceBuf(SandeshTraceBufferCreate(
+    "SessionStats", 4000));
+
 bool session_debug_ = false;
 SessionStatsCollector::SessionStatsCollector(boost::asio::io_service &io,
                                        AgentUveBase *uve,
@@ -510,6 +513,36 @@ void SessionStatsCollector::UpdateSessionStatsInfo(FlowEntry* fe,
     UpdateSessionFlowStatsInfo(rfe, &session->rev_flow);
 }
 
+static void BuildTraceTagList(const TagList &slist, vector<string> *dlist) {
+    TagList::const_iterator it = slist.begin();
+    while (it != slist.end()) {
+        dlist->push_back(integerToString(*it));
+        ++it;
+    }
+}
+
+static void TraceSession(const string &op, const SessionEndpointKey &ep,
+                         const SessionAggKey &agg, const SessionKey &session,
+                         bool rev_flow_params) {
+    SessionTraceInfo info;
+    info.vmi = ep.vmi_cfg_name;
+    info.local_vn = ep.local_vn;
+    info.remote_vn = ep.remote_vn;
+    BuildTraceTagList(ep.local_tagset, &info.local_tagset);
+    BuildTraceTagList(ep.remote_tagset, &info.remote_tagset);
+    info.remote_prefix = ep.remote_prefix;
+    info.match_policy = ep.match_policy;
+    info.is_si = ep.is_si;
+    info.is_client = ep.is_client_session;
+    info.local_ip = agg.local_ip.to_string();
+    info.server_port = agg.server_port;
+    info.protocol = agg.proto;
+    info.remote_ip = session.remote_ip.to_string();
+    info.client_port = session.client_port;
+    info.flow_uuid = to_string(session.uuid);
+    SESSION_STATS_TRACE(Trace, op, info, rev_flow_params);
+}
+
 void SessionStatsCollector::AddSession(FlowEntry* fe, uint64_t setup_time) {
     SessionAggKey session_agg_key;
     SessionEndpointInfo::SessionAggMap::iterator session_agg_map_iter;
@@ -560,6 +593,8 @@ void SessionStatsCollector::AddSession(FlowEntry* fe, uint64_t setup_time) {
         }
     }
 
+    TraceSession("Add", session_endpoint_key, session_agg_key, session_key,
+                 false);
     UpdateSessionStatsInfo(fe_fwd, setup_time, &session);
 
     session_endpoint_map_iter = session_endpoint_map_.find(
@@ -647,7 +682,17 @@ void SessionStatsCollector::DeleteSession(FlowEntry* fe,
     } else {
         return;
     }
+    if (params && params->action_info_.action == 0) {
+        params = NULL;
+    }
 
+    bool params_valid = true;
+    if (params == NULL) {
+        params_valid = false;
+    }
+
+    TraceSession("Del", session_endpoint_key, session_agg_key, session_key,
+                 params_valid);
     session_endpoint_map_iter = session_endpoint_map_.find(
                                             session_endpoint_key);
     if (session_endpoint_map_iter != session_endpoint_map_.end()) {
@@ -1168,7 +1213,11 @@ uint64_t SessionStatsCollector::GetUpdatedSessionFlowPackets(
 }
 
 void SessionStatsCollector::CopyFlowInfoInternal(SessionFlowExportInfo *info,
+                                                 const boost::uuids::uuid &u,
                                                  FlowEntry *fe) const {
+    if (fe->uuid() != u) {
+        return;
+    }
     FlowTable::GetFlowSandeshActionParams(fe->data().match_p.action_info,
                                           info->action);
     info->sg_rule_uuid = fe->sg_rule_uuid();
@@ -1211,7 +1260,7 @@ void SessionStatsCollector::CopyFlowInfo(SessionStatsInfo &session,
         info.other_vrouter = fe->peer_vrouter();
     }
     info.underlay_proto = fe->tunnel_type().GetType();
-    CopyFlowInfoInternal(&info.fwd_flow, fe);
+    CopyFlowInfoInternal(&info.fwd_flow, session.fwd_flow.uuid, fe);
     if (params) {
         FlowTable::GetFlowSandeshActionParams(params->action_info_,
                                               info.rev_flow.action);
@@ -1222,7 +1271,7 @@ void SessionStatsCollector::CopyFlowInfo(SessionStatsInfo &session,
                                                                  drop_reason_);
         }
     } else if (rfe) {
-        CopyFlowInfoInternal(&info.rev_flow, rfe);
+        CopyFlowInfoInternal(&info.rev_flow, session.rev_flow.uuid, rfe);
     }
 }
 
@@ -1327,6 +1376,15 @@ bool SessionStatsCollector::FetchFlowStats
                                              info->flow_handle,
                                              info->gen_id, &k_stats, &kinfo);
     if (!k_flow) {
+        SandeshFlowKey skey;
+        skey.set_nh(info->flow->key().nh);
+        skey.set_sip(info->flow->key().src_addr.to_string());
+        skey.set_dip(info->flow->key().dst_addr.to_string());
+        skey.set_src_port(info->flow->key().src_port);
+        skey.set_dst_port(info->flow->key().dst_port);
+        skey.set_protocol(info->flow->key().protocol);
+        SESSION_STATS_TRACE(Err, "Fetching stats failed", info->flow_handle,
+                            info->gen_id, skey);
         return false;
     }
 
