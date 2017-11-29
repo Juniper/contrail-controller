@@ -1532,44 +1532,44 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         assert(len(res) == 2 * (generator_obj.flow_cnt**2))
 
-        # verify vmi_uuid field
+        # verify vmi field
         res = vns.post_query('FlowRecordTable',
                              start_time=str(generator_obj.session_start_time),
                              end_time=str(generator_obj.session_end_time),
-                             select_fields=['UuidKey', 'vmi_uuid'],
+                             select_fields=['UuidKey', 'vmi'],
                              where_clause='vrouter=%s AND sourceip=10.10.10.1'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt**2)
         for r in res:
-            assert(r['vmi_uuid'] == generator_obj.client_vmi)
+            assert(r['vmi'] == generator_obj.client_vmi)
         res = vns.post_query('FlowRecordTable',
                              start_time=str(generator_obj.session_start_time),
                              end_time=str(generator_obj.session_end_time),
-                             select_fields=['UuidKey', 'vmi_uuid'],
+                             select_fields=['UuidKey', 'vmi'],
                              where_clause='vrouter=%s AND sourceip=2001:db8::1:2'% vrouter)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt**2)
         for r in res:
-            assert(r['vmi_uuid'] == generator_obj.server_vmi)
+            assert(r['vmi'] == generator_obj.server_vmi)
 
-        # verify vmi_uuid with filter
+        # verify vmi with filter
         res = vns.post_query('FlowRecordTable',
                              start_time=str(generator_obj.session_start_time),
                              end_time=str(generator_obj.session_end_time),
-                             select_fields=['UuidKey', 'vmi_uuid'],
+                             select_fields=['UuidKey', 'vmi'],
                              where_clause='vrouter=%s'% vrouter,
-                             filter='vmi_uuid=%s'% generator_obj.client_vmi)
+                             filter='vmi=%s'% generator_obj.client_vmi)
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt**2)
         for r in res:
-            assert(r['vmi_uuid'] == generator_obj.client_vmi)
+            assert(r['vmi'] == generator_obj.client_vmi)
 
         res = vns.post_query('FlowRecordTable',
                              start_time=str(generator_obj.session_start_time),
                              end_time=str(generator_obj.session_end_time),
-                             select_fields=['UuidKey', 'vmi_uuid'],
+                             select_fields=['UuidKey', 'vmi'],
                              where_clause='vrouter=%s'% vrouter,
-                             filter='vmi_uuid=%s'% str(uuid.uuid1()))
+                             filter='vmi=%s'% str(uuid.uuid1()))
         self.logger.info(str(res))
         assert(len(res) == 0)
 
