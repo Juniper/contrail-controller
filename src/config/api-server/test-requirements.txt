@@ -1,6 +1,4 @@
-ipdb
 lxml>=2.3.3
-python-subunit
 testrepository
 flexmock
 coverage
@@ -10,3 +8,4 @@ keystonemiddleware!=4.19.0
 junitxml
 pyOpenSSL
 mock
+gevent==1.1a2
