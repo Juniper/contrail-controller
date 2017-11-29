@@ -88,7 +88,7 @@ protected:
         for (tag_it = vm_intf->tag_list().list_.begin();
              tag_it != vm_intf->tag_list().list_.end(); tag_it++) {
 
-            if (tag_it->type_ == TagEntry::GetTypeVal(type)) {
+            if (tag_it->type_ == TagEntry::GetTypeVal(type, "")) {
                 if (id == tag_it->tag_->tag_id()) {
                     return true;
                 }
@@ -677,6 +677,44 @@ TEST_F(TagTest, MultiAps2) {
     DelPolicySetFirewallPolicyLink("link2", "aps1", "fp2");
     DelPolicySetFirewallPolicyLink("link3", "aps2", "fp1");
     DelPolicySetFirewallPolicyLink("link4", "aps2", "fp2");
+    client->WaitForIdle();
+}
+
+TEST_F(TagTest, CustomTag) {
+    AddTag("tag1", 1, 0xF0001);
+    client->WaitForIdle();
+
+    TagKey key(MakeUuid(1));
+    TagEntry* t =
+        static_cast<TagEntry *>(agent->tag_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(t->tag_id() == 0xF0001);
+    EXPECT_TRUE(t->tag_type() == 0xF);
+
+    DelNode("tag", "tag1");
+    client->WaitForIdle();
+}
+
+TEST_F(TagTest, VmiWithCustomTag) {
+    AddTag("tag1", 1, 0xF0001);
+    AddTag("tag2", 2, 0xF10001);
+    client->WaitForIdle();
+
+    const VmInterface* vm_intf =
+        static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vm_intf->tag_list().list_.size() == 0);
+
+    AddLink("virtual-machine-interface", "intf1", "tag", "tag1");
+    AddLink("virtual-machine-interface", "intf1", "tag", "tag2");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vm_intf->tag_list().list_.size() == 2);
+
+    DelLink("virtual-machine-interface", "intf1", "tag", "tag1");
+    DelLink("virtual-machine-interface", "intf1", "tag", "tag2");
+    client->WaitForIdle();
+
+    DelNode("tag", "tag1");
+    DelNode("tag", "tag2");
     client->WaitForIdle();
 }
 

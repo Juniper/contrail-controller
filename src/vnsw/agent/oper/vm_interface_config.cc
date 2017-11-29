@@ -635,7 +635,8 @@ static void BuildTagList(VmInterface::TagEntryList *tag_list, IFMapNode *node) {
     autogen::IdPermsType id_perms = tag_cfg->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
                tag_uuid);
-    uint32_t tag_type = TagEntry::GetTypeVal(tag_cfg->type_name());
+    uint32_t tag_type = TagEntry::GetTypeVal(tag_cfg->type_name(),
+                                             tag_cfg->id());
     tag_list->list_.insert(VmInterface::TagEntry(tag_type, tag_uuid));
 }
 
