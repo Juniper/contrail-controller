@@ -22,7 +22,7 @@ testscenarios
 kazoo
 cfgm_common
 vnc_api
-vnc_cfg_api_server
+contrail-api-server
 sandesh
 sandesh-common
 pyOpenSSL

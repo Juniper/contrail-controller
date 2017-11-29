@@ -1,12 +1,10 @@
-ipdb
 lxml>=2.3.3
-python-subunit
 testrepository
 flexmock
 coverage
 webtest
 pyaml
-keystonemiddleware
+keystonemiddleware<=4.18.0
 junitxml
 pyOpenSSL
 mock

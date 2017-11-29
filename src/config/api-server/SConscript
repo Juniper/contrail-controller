@@ -34,6 +34,26 @@ generated_dependencies = [
                   env['TOP'] + '/api-lib/vnc_api/gen/vnc_api_client_gen.py',
                 ]
 
+setup_sources = [
+    '.coveragerc',
+    '.pylintrc',
+    '.testr.conf',
+    'MANIFEST.in',
+    'README.md',
+    'requirements.txt',
+    'setup.py',
+    'setup.cfg',
+    'test-requirements.txt',
+    'tox.ini',
+    'vnc_cfg_api_server',
+    'doc',
+]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        env.Install(Dir('.'), "#controller/src/config/api-server/" + file))
+
 autogen_script = File('#tools/generateds/generateDS.py').path
 autogen_cmd = '%s -f -o %s -g ifmap-frontend' % (autogen_script, Dir('vnc_cfg_api_server/gen/resource').path)
 
@@ -44,47 +64,6 @@ generated_rule = env.Command(generated_files,
                              '#/controller/src/schema/all_cfg.xsd',
                              autogen_cmd + ' $SOURCE')
 
-setup_sources = [
-           'setup.py',
-           'MANIFEST.in',
-           'run_tests.sh',
-           'requirements.txt',
-           'test-requirements.txt',
-           '.testr.conf',
-           '.coveragerc',
-           'tests',
-          ]
-
-setup_sources_rules = []
-for file in setup_sources:
-    setup_sources_rules.append(
-       env.Install(Dir('.'), "#controller/src/config/api-server/" + file))
-
-local_sources = [
-           '__init__.py',
-           'vnc_cfg_api_server.py',
-           'vnc_db.py',
-           'vnc_cfg_types.py',
-           'vnc_auth.py',
-           'vnc_auth_keystone.py',
-           'vnc_perms.py',
-           'vnc_rbac.py',
-           'vnc_addr_mgmt.py',
-           'vnc_quota.py',
-           'vnc_rdbms.py',
-           'provision_defaults.py',
-           'utils.py',
-           'context.py',
-           'db_manage.py',
-           'vnc_bottle.py',
-           'auth_context.py',
-          ]
-
-local_sources_rules = []
-for file in local_sources:
-    local_sources_rules.append(
-        env.Install("vnc_cfg_api_server", "#controller/src/config/api-server/" + file))
-
 generateds_rule = env.Install("vnc_cfg_api_server/gen", "../common/generatedssuper.py")
 cfixture_rule = env.Install("vnc_cfg_api_server/gen", "../common/cfixture.py")
 
@@ -94,13 +73,12 @@ sandesh_trace_pkg = env.SandeshGenPy('traces.sandesh', 'vnc_cfg_api_server/sande
 
 sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
 sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(doc_sources_rules)
 sdist_depends.extend(sandesh_trace_pkg)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
 # TODO: deprecate
-sdist_gen = env.Command('dist/vnc_cfg_api_server-0.1dev.tar.gz', 'setup.py',
+sdist_gen = env.Command('dist/contrail-api-server-0.1dev.tar.gz', 'setup.py',
                         cd_cmd + 'python setup.py sdist')
 
 env.Default(sdist_gen)
@@ -108,7 +86,6 @@ env.Default(sdist_gen)
 # generated files depend on autogeneration infra parts
 
 env.Depends(generated_rule, [autogen_infra_sources, autogen_sources, generated_dependencies])
-env.Depends(local_sources_rules, autogen_infra_sources)
 
 # install everything before building distribution
 env.Depends(sdist_gen, sdist_depends)
@@ -151,10 +128,10 @@ else:
     top_dir = Dir('.')
 
 cov_cmd = env.Command('coveragetest.log', sdist_gen,
-                      'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log"')
+                      'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && tox -e cover 2>&1 | tee coveragetest.log"')
 
 test_cmd = env.Command('test.log', sdist_gen,
-                      'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log"')
+                       'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && tox 2>&1 | tee test.log"')
 
 test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
                 '/api-lib/dist/vnc_api-0.1dev.tar.gz',
