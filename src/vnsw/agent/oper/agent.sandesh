@@ -3303,6 +3303,8 @@ struct SLOSandeshData {
     5: list<PolicyLinkData> firewall_policy_list;
     /** List of firewall-rule uuids*/
     6: list<string> firewall_rule_list;
+    /**SLO object status */
+    7: bool status;
 }
 
 /**

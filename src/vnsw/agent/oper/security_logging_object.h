@@ -31,11 +31,12 @@ struct SecurityLoggingObjectData : public AgentOperDBData {
 public:
     SecurityLoggingObjectData(const Agent *agent, IFMapNode *node,
               const std::vector<autogen::SecurityLoggingObjectRuleEntryType> &lst,
-              const int &rate, const std::string &name):
-    AgentOperDBData(agent, node), rules_(lst), rate_(rate), name_(name),
+              const int &rate, const bool status, const std::string &name):
+    AgentOperDBData(agent, node), rules_(lst), status_(status), rate_(rate), name_(name),
         firewall_policy_list_(), firewall_rule_list_() {}
 
     std::vector<autogen::SecurityLoggingObjectRuleEntryType> rules_;
+    bool status_;
     int rate_;
     std::string name_;
     UuidList firewall_policy_list_;
@@ -63,6 +64,9 @@ public:
         return AgentRefCount<SecurityLoggingObject>::GetRefCount();
     }
 
+    bool Status() {
+        return status_;
+    }
     const boost::uuids::uuid& uuid() const {
         return uuid_;
     }
@@ -78,6 +82,7 @@ public:
     UuidList& firewall_rule_list() { return firewall_rule_list_;}
 
 private:
+    bool status_;
     boost::uuids::uuid uuid_;
     std::vector<autogen::SecurityLoggingObjectRuleEntryType> rules_;
     int rate_;

@@ -117,6 +117,10 @@ void AgentStatsReq::HandleRequest() const {
     srsp->set_session_exports(agent->flow_stats_manager()->session_exports());
     srsp->set_session_export_drops(agent->flow_stats_manager()->
                                    session_export_drops());
+    srsp->set_session_global_slo_logging_drop(agent->flow_stats_manager()->
+                                            session_global_slo_logging_drop());
+    srsp->set_session_slo_logging_drop(agent->flow_stats_manager()->
+                                            session_slo_logging_drop());
     srsp->set_context(context());
     srsp->set_more(false);
     srsp->Response();
