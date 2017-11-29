@@ -26,7 +26,7 @@ def setup_venv(build_top="../../../../build"):
                 "../../svc-monitor/dist/svc_monitor-0.1dev.tar.gz")
             local(
                 "pip install --upgrade "
-                "../../api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz")
+                "../../api-server/dist/contrail-config-api-0.1dev.tar.gz")
             local(
                 "pip install --upgrade "
                 "../../../api-lib/dist/vnc_api-0.1dev.tar.gz")

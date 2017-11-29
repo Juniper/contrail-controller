@@ -308,7 +308,7 @@ def launch_api_server(test_id, listen_ip, listen_port, http_server_port,
 
 def launch_api_server_rdbms(test_id, listen_ip, listen_port, http_server_port,
                       admin_port, conf_sections):
-    db_file = "./test_db_%s.db" % test_id
+    db_file = "./test_db_%s_%d.db" % (test_id, os.getpid())
 
     args_str = ""
     args_str = args_str + "--listen_ip_addr %s " % (listen_ip)
