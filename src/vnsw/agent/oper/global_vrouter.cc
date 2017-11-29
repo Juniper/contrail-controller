@@ -555,6 +555,9 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
 
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
+
+        agent()->set_global_slo_status(cfg->enable_security_logging());
+
         resync_route =
             TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
         if (cfg->vxlan_network_identifier_mode() == "configured") {
