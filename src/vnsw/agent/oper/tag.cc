@@ -122,7 +122,8 @@ const std::string& TagEntry::GetTypeStr(uint32_t type) {
     return Agent::NullString();
 }
 
-uint32_t TagEntry::GetTypeVal(const std::string &name) {
+uint32_t TagEntry::GetTypeVal(const std::string &name,
+                              const std::string &val) {
     std::map<uint32_t, std::string>::const_iterator it =
         TagTypeStr.begin();
     for (;it != TagTypeStr.end(); it++) {
@@ -131,7 +132,12 @@ uint32_t TagEntry::GetTypeVal(const std::string &name) {
         }
     }
 
-    return INVALID;
+    uint32_t tag_val = 0;
+    std::stringstream ss;
+    ss << val;
+    ss >> std::hex >> tag_val;
+
+    return (tag_val >> kTagTypeBitShift);
 }
 std::auto_ptr<DBEntry> TagTable::AllocEntry(const DBRequestKey *k) const {
     const TagKey *key = static_cast<const TagKey *>(k);
@@ -255,7 +261,7 @@ TagData* TagTable::BuildData(Agent *agent, IFMapNode *node) {
                                        prj_policy_set.begin(),
                                        prj_policy_set.end());
     data->name_ = node->name();
-    data->tag_type_ = TagEntry::GetTypeVal(cfg->type_name());
+    data->tag_type_ = TagEntry::GetTypeVal(cfg->type_name(), cfg->id());
     data->tag_value_ = cfg->value();
     return data;
 }

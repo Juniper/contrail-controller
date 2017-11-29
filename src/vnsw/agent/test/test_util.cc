@@ -5007,7 +5007,7 @@ void AddFirewall(const std::string &name, uint32_t id,
         std::vector<std::string>::const_iterator it = match.begin();
         for(; it != match.end(); it++) {
             str << "<tag-type>";
-            str << TagEntry::GetTypeVal(*it);
+            str << TagEntry::GetTypeVal(*it, "");
             str << "</tag-type>";
         }
         str << "</match-tag-types>";
