@@ -2921,6 +2921,8 @@ struct BgpAsAServiceSandeshList {
  * @cli_name: read oper bgp service list
  */
 request sandesh BgpAsAServiceSandeshReq {
+    /** Uuid of vmi */
+    1: string vmi_uuid;
 }
 
 /**
