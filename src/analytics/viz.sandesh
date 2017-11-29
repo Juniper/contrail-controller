@@ -152,11 +152,6 @@ const string FLOW_TABLE             = "FlowRecordTable"
 const string FLOW_TABLE_VN2VN       = "FlowTableVNtoVN"
 const string FLOW_TABLE_VN          = "FlowTableVN"
 const string FLOW_TABLE_VN_AND_IP   = "FlowTableVNandIP"
-const string FLOW_TABLE_SVN_SIP     = "FlowTableSvnSipVer2"
-const string FLOW_TABLE_DVN_DIP     = "FlowTableDvnDipVer2"
-const string FLOW_TABLE_PROT_SP     = "FlowTableProtSpVer2"
-const string FLOW_TABLE_PROT_DP     = "FlowTableProtDpVer2"
-const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
@@ -205,14 +200,6 @@ const map<TtlType, u64> TtlValuesDefault = {
     TtlType.CONFIGAUDIT_TTL : 2160,
     TtlType.GLOBAL_TTL : 48,
 }
-
-const list<string> _FLOW_TABLES = [
-    FLOW_TABLE_SVN_SIP,
-    FLOW_TABLE_DVN_DIP,
-    FLOW_TABLE_PROT_SP,
-    FLOW_TABLE_PROT_DP,
-    FLOW_TABLE_VROUTER,
-]
 
 const list<string> _STATS_TABLES = [
     STATS_TABLE_BY_STR_STR_TAG,
@@ -1055,143 +1042,6 @@ const map<string, table_schema> _VIZD_TABLE_SCHEMA = {
     }
 }
 const u16 MSG_TABLE_MAX_OBJECTS_PER_MSG = 6
-
-const map<string, table_schema> _VIZD_FLOW_TABLE_SCHEMA = {
-    FLOW_TABLE : {
-        'is_static' : true,
-        'columns' : [
-            { 'name' : 'key', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
-              'key' : true},
-            { 'name' : "vrouter", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "direction_ing", 'datatype' : Gendb.DbDataType.Unsigned8Type},
-            { 'name' : "sourcevn", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "sourceip", 'datatype' : Gendb.DbDataType.InetType},
-            { 'name' : "destvn", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "destip", 'datatype' : Gendb.DbDataType.InetType},
-            { 'name' : "protocol", 'datatype' : Gendb.DbDataType.Unsigned8Type},
-            { 'name' : "sport", 'datatype' : Gendb.DbDataType.Unsigned16Type},
-            { 'name' : "dport", 'datatype' : Gendb.DbDataType.Unsigned16Type},
-            { 'name' : "tos", 'datatype' : Gendb.DbDataType.Unsigned8Type},
-            { 'name' : "tcp_flags", 'datatype' : Gendb.DbDataType.Unsigned8Type},
-            { 'name' : "vm", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "input_interface", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "output_interface", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "mpls_label", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-            { 'name' : "reverse_uuid", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "setup_time", 'datatype' : Gendb.DbDataType.Unsigned64Type},
-            { 'name' : "teardown_time", 'datatype' : Gendb.DbDataType.Unsigned64Type},
-            { 'name' : "min_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-            { 'name' : "max_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-            { 'name' : "mean_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-            { 'name' : "stddev_interarrival", 'datatype' : Gendb.DbDataType.Unsigned32Type},
-            { 'name' : "bytes", 'datatype' : Gendb.DbDataType.Unsigned64Type},
-            { 'name' : "packets", 'datatype' : Gendb.DbDataType.Unsigned64Type},
-            { 'name' : "data_sample", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "action", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "sg_rule_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-            { 'name' : "nw_ace_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-            { 'name' : "vrouter_ip", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "other_vrouter_ip", 'datatype' : Gendb.DbDataType.UTF8Type},
-            { 'name' : "underlay_proto", 'datatype' : Gendb.DbDataType.Unsigned16Type},
-            { 'name' : "underlay_source_port", 'datatype' : Gendb.DbDataType.Unsigned16Type},
-            { 'name' : "vmi_uuid", 'datatype' : Gendb.DbDataType.LexicalUUIDType},
-            { 'name' : "drop_reason", 'datatype' : Gendb.DbDataType.UTF8Type},
-        ]
-    }
-    FLOW_TABLE_SVN_SIP : {
-        'columns' : [
-            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.InetType,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-        ]
-    }
-    FLOW_TABLE_DVN_DIP : {
-        'columns' : [
-            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.InetType,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-        ]
-    }
-    FLOW_TABLE_PROT_SP : {
-        'columns' : [
-            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned16Type,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-        ]
-    }
-    FLOW_TABLE_PROT_DP : {
-        'columns' : [
-            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned16Type,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column4', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-        ]
-    }
-    FLOW_TABLE_VROUTER : {
-        'columns' : [
-            { 'name' : 'key', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'key' : true},
-            { 'name' : 'key2', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'key3', 'datatype' : Gendb.DbDataType.Unsigned8Type,
-              'key' : true},
-            { 'name' : 'column1', 'datatype' : Gendb.DbDataType.UTF8Type,
-              'clustering' : true },
-            { 'name' : 'column2', 'datatype' : Gendb.DbDataType.Unsigned32Type,
-              'clustering' : true },
-            { 'name' : 'column3', 'datatype' : Gendb.DbDataType.LexicalUUIDType,
-              'clustering' : true },
-            { 'name' : 'value', 'datatype' : Gendb.DbDataType.UTF8Type},
-        ]
-    }
-}
 
 const map<string, table_schema> _VIZD_SESSION_TABLE_SCHEMA = {
     SESSION_TABLE : {
