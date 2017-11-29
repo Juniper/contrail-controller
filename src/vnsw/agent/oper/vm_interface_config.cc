@@ -837,6 +837,10 @@ static void BuildVn(VmInterfaceConfigData *data,
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vn_uuid_);
 
+    if (node->name() == agent->fabric_vn_name()) {
+        data->proxy_arp_mode_ = VmInterface::PROXY_ARP_UNRESTRICTED;
+    }
+
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
             node->begin(table->GetGraph());
