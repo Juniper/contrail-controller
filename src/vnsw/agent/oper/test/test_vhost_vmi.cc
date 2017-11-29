@@ -102,6 +102,7 @@ TEST_F(FabricVmiTest, CrossConnect) {
     EXPECT_TRUE(vm_intf->parent()->name() == "vnet0");
     EXPECT_TRUE(vm_intf->vmi_type() == VmInterface::VHOST);
     EXPECT_TRUE(vm_intf->bridging() == false);
+    EXPECT_TRUE(vm_intf->proxy_arp_mode() == VmInterface::PROXY_ARP_NONE);
 }
 
 TEST_F(FabricVmiTest, VerifyReceiveRoute) {
