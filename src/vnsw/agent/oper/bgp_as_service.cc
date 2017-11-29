@@ -701,9 +701,17 @@ void BgpAsAServiceSandeshReq::HandleRequest() const {
    BgpAsAService::BgpAsAServiceEntryMapIterator map_it =
        map_entry.begin();
    std::vector<BgpAsAServiceSandeshList> bgpaas_map;
+   std::string vmi_uuid_str = get_uuid();
    while (map_it != map_entry.end()) {
        BgpAsAService::BgpAsAServiceEntryListIterator it =
-           map_it->second->list_.begin();
+            map_it->second->list_.begin();
+            if (vmi_uuid_str.empty() == false) {
+                boost::uuids::uuid vmi_uuid = StringToUuid(vmi_uuid_str);
+                if (vmi_uuid != map_it->first) {
+                    map_it++;
+                    continue;
+                }
+            }
        while (it != map_it->second->list_.end()) {
            BgpAsAServiceSandeshList entry;
            entry.set_vm_bgp_peer_ip((*it).local_peer_ip_.to_string());
