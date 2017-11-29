@@ -948,7 +948,9 @@ void SessionStatsCollector::AddSloEntry(const boost::uuids::uuid &uuid,
     SecurityLoggingObject *slo = static_cast<SecurityLoggingObject *>
         (agent_uve_->agent()->slo_table()->FindActiveEntry(&slo_key));
     if (slo) {
-        AddSloEntryRules(slo, slo_rule_map);
+        if (slo->Status()) {
+            AddSloEntryRules(slo, slo_rule_map);
+        }
     }
 }
 
@@ -1170,6 +1172,12 @@ bool SessionStatsCollector::CheckSessionLogging(
     bool fwd_logged = false, rev_logged = false;
     const SessionExportInfo &info = stats_info.export_info;
 
+    if (!agent_uve_->agent()->GetGlobalSloStatus()) {
+        /* SLO is not enabled */
+        flow_stats_manager_->session_global_slo_logging_drop_++;
+        return false;
+    }
+
     if (stats_info.deleted) {
         fwd_logged = DeletedFlowLogging(stats_info,
                             info.fwd_flow);
@@ -1188,6 +1196,7 @@ bool SessionStatsCollector::CheckSessionLogging(
     if (fwd_logged || rev_logged) {
         return true;
     }
+    flow_stats_manager_->session_slo_logging_drop_++;
     return false;
 }
 

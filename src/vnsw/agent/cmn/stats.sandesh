@@ -95,4 +95,8 @@ response sandesh SessionEndpointExportStatsResp {
     5: u64 session_exports;
     /** Number of unique sessions never exported */
     6: u64 session_export_drops;
+    /** Session logging dropped due to global slo config */
+    7: u64 session_global_slo_logging_drop;
+    /** Dropping session logging -  no matching SLO policy */
+    8: u64 session_slo_logging_drop;
 }

@@ -86,7 +86,8 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     session_export_count_(), session_sample_exports_(), session_msg_exports_(),
     session_exports_(), session_export_disable_drops_(),
     session_export_sampling_drops_(), session_export_without_sampling_(),
-    session_export_drops_(),
+    session_export_drops_(), session_global_slo_logging_drop_(),
+    session_slo_logging_drop_(),
     timer_(TimerManager::CreateTimer(*(agent_->event_manager())->io_service(),
            "FlowThresholdTimer",
            TaskScheduler::GetInstance()->GetTaskId("Agent::FlowStatsManager"), 0)),
@@ -100,6 +101,8 @@ FlowStatsManager::FlowStatsManager(Agent *agent) : agent_(agent),
     session_export_without_sampling_ = 0;
     session_export_drops_ = 0;
     sessions_sampled_atleast_once_ = false;
+    session_global_slo_logging_drop_ = 0;
+    session_slo_logging_drop_ = 0;
     request_queue_.set_measure_busy_time(agent->MeasureQueueDelay());
     for (uint16_t i = 0; i < sizeof(protocol_list_)/sizeof(protocol_list_[0]);
          i++) {

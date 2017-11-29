@@ -46,6 +46,7 @@ bool SecurityLoggingObject::DBEntrySandesh(Sandesh *sresp, std::string &name)
     data.set_name(name_);
     data.set_uuid(to_string(uuid_));
     data.set_rate(rate_);
+    data.set_status(status_);
     vector<autogen::SecurityLoggingObjectRuleEntryType>::const_iterator it =
         rules_.begin();
     while (it != rules_.end()) {
@@ -115,6 +116,10 @@ bool SecurityLoggingObject::Change(const DBRequest *req) {
     bool ret = false;
     const SecurityLoggingObjectData *data =
         static_cast<const SecurityLoggingObjectData *>(req->data.get());
+
+    if (status_ != data->status_) {
+        status_ = data->status_;
+    }
 
     if (rate_ != data->rate_) {
         rate_ = data->rate_;
@@ -242,9 +247,11 @@ SecurityLoggingObjectTable::BuildData(IFMapNode *node) const {
     autogen::SecurityLoggingObject *data =
         static_cast<autogen::SecurityLoggingObject *>(node->GetObject());
 
+    autogen::IdPermsType id_perms = data->id_perms();
     SecurityLoggingObjectData *slo_data =
         new SecurityLoggingObjectData(agent(), node, data->rules(),
-                                      data->rate(), node->name());
+                                      data->rate(),
+                                      id_perms.enable, node->name());
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph());
