@@ -159,6 +159,12 @@ public:
     uint32_t session_export_sampling_drops() const {
         return session_export_sampling_drops_;
     }
+    uint64_t session_global_slo_logging_drops() const {
+        return session_global_slo_logging_drops_;
+    }
+    uint64_t session_slo_logging_drops() const {
+        return session_slo_logging_drops_;
+    }
     void set_sessions_sampled_atleast_once() {
         sessions_sampled_atleast_once_ = true;
     }
@@ -211,6 +217,8 @@ private:
     tbb::atomic<uint32_t> session_export_without_sampling_;
     tbb::atomic<uint64_t> session_export_drops_;
     tbb::atomic<bool> sessions_sampled_atleast_once_;
+    tbb::atomic<uint64_t> session_global_slo_logging_drops_;
+    tbb::atomic<uint64_t> session_slo_logging_drops_;
     Timer* timer_;
     bool delete_short_flow_;
     //Protocol based array for minimal tree comparision
