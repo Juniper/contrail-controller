@@ -85,20 +85,20 @@ public:
         CreateVmportEnv(input1, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
-        VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        VmInterface *intrface = static_cast<VmInterface *>(VmPortGet(1));
         MacAddress mac;
-        VlanNH::CreateReq(interface->GetUuid(), 1, "vrf1", mac, mac);
+        VlanNH::CreateReq(intrface->GetUuid(), 1, "vrf1", mac, mac);
         client->WaitForIdle();
-        VlanNHKey key(interface->GetUuid(), 1);
+        VlanNHKey key(intrface->GetUuid(), 1);
         vlan_nh_ = static_cast<NextHop *>(agent_->nexthop_table()->
                        FindActiveEntry(&key));
     }
 
     virtual void TearDown() {
-        VmInterface *interface = static_cast<VmInterface *>(VmPortGet(1));
+        VmInterface *intrface = static_cast<VmInterface *>(VmPortGet(1));
         trigger_.Set();
         client->WaitForIdle();
-        VlanNH::DeleteReq(interface->GetUuid(), 1);
+        VlanNH::DeleteReq(intrface->GetUuid(), 1);
         DeleteVmportEnv(input1, 1, true);
         client->WaitForIdle();
         EXPECT_FALSE(VmPortActive(1));
@@ -156,8 +156,8 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
     client->WaitForIdle();
     EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
 
-    Interface *interface = VrfAssignTable::FindInterface(MakeUuid(1));
-    EXPECT_TRUE(interface != NULL);
+    Interface *intrface = VrfAssignTable::FindInterface(MakeUuid(1));
+    EXPECT_TRUE(intrface != NULL);
     //Verify key
     VrfAssign *vrf_assign = VrfAssignTable::FindVlanReq(MakeUuid(1), 1);
     DBEntryBase::KeyPtr tmp_key = vrf_assign->GetDBRequestKey();

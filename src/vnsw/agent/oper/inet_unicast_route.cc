@@ -586,13 +586,13 @@ bool Inet4UnicastGatewayRoute::AddChangePathExtended(Agent *agent, AgentPath *pa
         const ResolveNH *nh =
             static_cast<const ResolveNH *>(rt->GetActiveNextHop());
         path->set_unresolved(true);
-        std::string nexthop_vrf = nh->interface()->vrf()->GetName();
-        if (nh->interface()->vrf()->forwarding_vrf()) {
-            nexthop_vrf = nh->interface()->vrf()->forwarding_vrf()->GetName();
+        std::string nexthop_vrf = nh->get_interface()->vrf()->GetName();
+        if (nh->get_interface()->vrf()->forwarding_vrf()) {
+            nexthop_vrf = nh->get_interface()->vrf()->forwarding_vrf()->GetName();
         }
         InetUnicastAgentRouteTable::AddArpReq(vrf_name_, gw_ip_.to_v4(),
                                               nexthop_vrf,
-                                              nh->interface(), nh->PolicyEnabled(),
+                                              nh->get_interface(), nh->PolicyEnabled(),
                                               vn_list_, sg_list_, tag_list_);
     } else {
         path->set_unresolved(false);
@@ -709,9 +709,9 @@ bool InetEvpnRouteData::AddChangePathExtended(Agent *agent,
 }
 
 Inet4UnicastInterfaceRoute::Inet4UnicastInterfaceRoute
-(const PhysicalInterface *interface, const std::string &vn_name) :
+(const PhysicalInterface *intrface, const std::string &vn_name) :
         AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
-        interface_key_(new PhysicalInterfaceKey(interface->name())),
+        interface_key_(new PhysicalInterfaceKey(intrface->name())),
         vn_name_(vn_name) {
 }
 
@@ -1469,15 +1469,15 @@ InetUnicastAgentRouteTable::AddInterfaceRouteReq(Agent *agent, const Peer *peer,
                                                  const string &vrf_name,
                                                  const Ip4Address &ip,
                                                  uint8_t plen,
-                                                 const Interface *interface,
+                                                 const Interface  *intrface,
                                                  const string &vn_name) {
 
-    assert(interface->type() == Interface::PHYSICAL);
+    assert(intrface->type() == Interface::PHYSICAL);
     DBRequest  rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     rt_req.key.reset(new InetUnicastRouteKey(agent->local_peer(),
                                               vrf_name, ip, plen));
     const PhysicalInterface *phy_intf = static_cast<const PhysicalInterface *>
-        (interface);
+        (intrface);
     rt_req.data.reset(new Inet4UnicastInterfaceRoute(phy_intf, vn_name));
     Inet4UnicastTableEnqueue(agent, &rt_req);
 }

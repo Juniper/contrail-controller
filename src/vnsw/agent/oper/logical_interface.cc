@@ -83,10 +83,10 @@ bool LogicalInterface::OnChange(const InterfaceTable *table,
     }
 
     VmInterfaceKey vmi_key(AgentKey::ADD_DEL_CHANGE, data->vm_interface_, "");
-    Interface *interface = static_cast<Interface *>
+    Interface *intrface = static_cast<Interface *>
         (table->agent()->interface_table()->FindActiveEntry(&vmi_key));
-    if (interface != vm_interface_.get()) {
-        vm_interface_.reset(interface);
+    if (intrface != vm_interface_.get()) {
+        vm_interface_.reset(intrface);
         ret = true;
     }
 

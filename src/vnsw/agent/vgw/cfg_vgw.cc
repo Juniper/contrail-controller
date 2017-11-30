@@ -38,7 +38,7 @@ void VirtualGatewayConfigTable::InitFromConfig
             continue;
         }
         string vrf = "";
-        string interface = "";
+        string interfacestr = "";
         VirtualGatewayConfig::SubnetList subnets;
         VirtualGatewayConfig::SubnetList routes;
         BOOST_FOREACH(const ptree::value_type &key, section.second) {
@@ -46,7 +46,7 @@ void VirtualGatewayConfigTable::InitFromConfig
                 vrf = key.second.get_value<string>();
             }
             if (key.first.compare("interface") == 0) {
-                interface = key.second.get_value<string>();
+                interfacestr = key.second.get_value<string>();
             }
             if (key.first.compare("ip_blocks") == 0) {
                 BuildSubnetList(key.second.get_value<string>(), subnets);
@@ -55,7 +55,7 @@ void VirtualGatewayConfigTable::InitFromConfig
                 BuildSubnetList(key.second.get_value<string>(), routes);
             }
         }
-        if (vrf == "" || interface == "" || subnets.size() == 0) {
+        if (vrf == "" || interfacestr == "" || subnets.size() == 0) {
             LOG(ERROR, "Error in config file. Invalid/incomplete gateway "
                 "section" << section.first);
             continue;
@@ -63,7 +63,7 @@ void VirtualGatewayConfigTable::InitFromConfig
 
         std::sort(subnets.begin(), subnets.end());
         std::sort(routes.begin(), routes.end());
-        table_.insert(VirtualGatewayConfig(interface, vrf,
+        table_.insert(VirtualGatewayConfig(interfacestr, vrf,
                                            subnets, routes, (uint32_t) -1));
     }
     return;

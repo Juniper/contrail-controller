@@ -139,13 +139,13 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
 }
 
 bool PktHandler::IsBFDHealthCheckPacket(const PktInfo *pkt_info,
-                                        const Interface *interface) {
-    if (interface->type() == Interface::VM_INTERFACE &&
+                                        const Interface *intrface) {
+    if (intrface->type() == Interface::VM_INTERFACE &&
         pkt_info->ip_proto == IPPROTO_UDP &&
         (pkt_info->dport == BFD_SINGLEHOP_CONTROL_PORT ||
          pkt_info->dport == BFD_MULTIHOP_CONTROL_PORT ||
          pkt_info->dport == BFD_ECHO_PORT)) {
-        const VmInterface *vm_intf = static_cast<const VmInterface *>(interface);
+        const VmInterface *vm_intf = static_cast<const VmInterface *>(intrface);
         if (vm_intf->IsHealthCheckEnabled()) {
             return true;
         }
@@ -155,8 +155,8 @@ bool PktHandler::IsBFDHealthCheckPacket(const PktInfo *pkt_info,
 }
 
 bool PktHandler::IsSegmentHealthCheckPacket(const PktInfo *pkt_info,
-                                        const Interface *interface) {
-    if (interface->type() == Interface::VM_INTERFACE &&
+                                        const Interface *intrface) {
+    if (intrface->type() == Interface::VM_INTERFACE &&
         pkt_info->ip_proto == IPPROTO_ICMP) {
         if (pkt_info->icmp_chksum == 0xffff) {
             return true;
@@ -1031,7 +1031,7 @@ bool PktHandler::IsGwPacket(const Interface *intf, const IpAddress &dst_ip) {
     return false;
 }
 
-bool PktHandler::IsValidInterface(uint32_t ifindex, Interface **interface) {
+bool PktHandler::IsValidInterface(uint32_t ifindex, Interface **intrface) {
     Interface *intf = agent_->interface_table()->FindInterface(ifindex);
     if (intf == NULL) {
         PKT_TRACE(Err, "Invalid interface index <" << ifindex << ">");
@@ -1039,7 +1039,7 @@ bool PktHandler::IsValidInterface(uint32_t ifindex, Interface **interface) {
         return false;
     }
 
-    *interface = intf;
+    *intrface = intf;
     return true;
 }
 
