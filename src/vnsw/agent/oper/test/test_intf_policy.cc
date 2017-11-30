@@ -1116,6 +1116,68 @@ TEST_F(PolicyTest, AapRouteWithMac) {
     WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
 }
 
+TEST_F(PolicyTest, VxlanPolicyChange) {
+    bgp_peer_ = CreateBgpPeer(Ip4Address(1), "BgpPeer1");
+    VxLanNetworkIdentifierMode(false, "VXLAN", "MPLSoGRE", "MPLSoUDP");
+    client->WaitForIdle();
+
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.10"},
+    };
+
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    //Verify that interface has policy enabled
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->policy_enabled());
+
+    MacAddress mac(intf->vm_mac());
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    //Add bgp peer route
+    VnListType vn_list;
+    agent_->fabric_evpn_table()->
+        AddLocalVmRouteReq(bgp_peer_, "vrf1", mac, intf, ip, 10, "",
+                           SecurityGroupList(), TagList(), PathPreference(),
+                           1, false);
+    agent_->fabric_evpn_table()->
+        AddLocalVmRouteReq(bgp_peer_, "vrf1", mac, intf, Ip4Address(0), 10, "",
+                SecurityGroupList(), TagList(), PathPreference(),
+                1, false);
+    client->WaitForIdle();
+
+    const NextHop *nh = L2RouteToNextHop("vrf1", mac);
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(nh->PolicyEnabled());
+
+    SetPolicyDisabledStatus(input, true);
+    client->WaitForIdle();
+
+    //Verify that policy is disabled on interface
+    EXPECT_FALSE(intf->policy_enabled());
+
+    //Verify that interface's L2 route points to policy-disabled NH
+    nh = L2RouteToNextHop("vrf1", mac);
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_FALSE(nh->PolicyEnabled());
+
+    DelEncapList();
+    DeleteVmportEnv(input, 1, true, 1);
+    client->WaitForIdle();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+    DeleteBgpPeer(bgp_peer_);
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
