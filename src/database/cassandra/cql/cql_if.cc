@@ -2209,6 +2209,11 @@ bool CqlIfImpl::SelectFromTableClusteringKeyRangeSync(const std::string &cfname,
         query.c_str(), rk_count, ck_count, consistency, out);
 }
 
+void CqlIfImpl::SetRequestTimeout(uint32_t timeout_ms) {
+    CQLIF_DEBUG_TRACE("request timeout set to " << timeout_ms);
+    cci_->CassClusterSetRequestTimeout(cluster_.get(), timeout_ms);
+}
+
 bool CqlIfImpl::ConnectSchemaSync() {
     // First set the cluster whitelist filtering to just one node
     cci_->CassClusterSetWhitelistFiltering(cluster_.get(),
@@ -2447,6 +2452,7 @@ CqlIf::~CqlIf() {
 // Init/Uninit
 bool CqlIf::Db_Init() {
     if (create_schema_) {
+        impl_->SetRequestTimeout(GenDb::g_gendb_constants.SCHEMA_REQUEST_TIMEOUT);
         bool success(impl_->ConnectSchemaSync());
         if (!success) {
             return success;
@@ -2467,6 +2473,7 @@ void CqlIf::Db_SetInitDone(bool init_done) {
     // No need for schema session if initialization is done
     if (create_schema_) {
         if (initialized_) {
+            impl_->SetRequestTimeout(GenDb::g_gendb_constants.DEFAULT_REQUEST_TIMEOUT);
             impl_->DisconnectSchemaSync();
         }
     }
@@ -3033,6 +3040,11 @@ CassSession* CassDatastaxLibrary::CassSessionNew() {
 
 void CassDatastaxLibrary::CassSessionFree(CassSession* session) {
     cass_session_free(session);
+}
+
+void CassDatastaxLibrary::CassClusterSetRequestTimeout(CassCluster* cluster,
+    unsigned timeout_ms) {
+    return cass_cluster_set_request_timeout(cluster, timeout_ms);
 }
 
 CassFuture* CassDatastaxLibrary::CassSessionConnect(CassSession* session,
