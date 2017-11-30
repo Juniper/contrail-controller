@@ -288,14 +288,19 @@ void StatsManager::AddFlow(const FlowUveStatsRequest *req) {
         if (intf_changed ||
             (fw_info.is_valid_ && !info.IsFwPolicyInfoEqual(fw_info))) {
             /* When there is change either in interface-name or key of
-             * Endpoint record, treat it as flow-delete.
-             * (a) Increment deleted counter for old interface and old key
-             * (b) Increment added counter for new interface and new key
+             * Endpoint record, treat it as delete for old key and add for new
+             * key.
+             * (a) Increment added counter for new interface and new key
+             * (b) Increment deleted counter for old interface and old key
+             * (c) Update flow to point to new key
              */
-            FlowUveFwPolicyInfo old_info = info.fw_policy_info;
-            old_info.added_ = false;
-            itable->IncrInterfaceEndpointHits(old_itf, old_info);
             if (itable->IncrInterfaceEndpointHits(req->interface(), fw_info)) {
+                /* Increment deleted counter for old interface and old key */
+                FlowUveFwPolicyInfo old_info = info.fw_policy_info;
+                old_info.added_ = false;
+                itable->IncrInterfaceEndpointHits(old_itf, old_info);
+                /* Update the flow with new key of endpoint after delete
+                 * counter is incremented */
                 info.fw_policy_info = fw_info;
             }
         }
@@ -311,13 +316,16 @@ void StatsManager::DeleteFlow(const FlowUveStatsRequest *req) {
     if (it == flow_ace_tree_.end()) {
         return;
     }
-    AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
-    InterfaceUveStatsTable *itable = static_cast<InterfaceUveStatsTable *>
-        (uve->interface_uve_table());
-    const FlowUveFwPolicyInfo &fw_info = req->fw_policy_info();
-    if (fw_info.is_valid_) {
-        assert(!fw_info.added_);
-        itable->IncrInterfaceEndpointHits(req->interface(), fw_info);
+    FlowRuleMatchInfo &old_fw_info = it->second;
+    const FlowUveFwPolicyInfo &new_fw_info = req->fw_policy_info();
+    /* Increment deleted counter only if add counter was incremented earlier
+     * for this. This is determined by checking whether old and new keys are
+     * equal */
+    if (old_fw_info.IsFwPolicyInfoEqual(new_fw_info)) {
+        AgentUveStats *uve = static_cast<AgentUveStats *>(agent_->uve());
+        InterfaceUveStatsTable *itable = static_cast<InterfaceUveStatsTable *>
+            (uve->interface_uve_table());
+        itable->IncrInterfaceEndpointHits(req->interface(), new_fw_info);
     }
     flow_ace_tree_.erase(it);
 }

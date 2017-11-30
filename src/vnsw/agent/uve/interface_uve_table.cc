@@ -676,8 +676,9 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateCounters
     } else {
         ++obj->deleted;
     }
-    assert(obj->added >= obj->deleted);
-    obj->active = obj->added - obj->deleted;
+    if (obj->added >= obj->deleted) {
+        obj->active = obj->added - obj->deleted;
+    }
 }
 
 void InterfaceUveTable::UveInterfaceEntry::UpdateInterfaceFwPolicyStats
