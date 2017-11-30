@@ -48,6 +48,7 @@ void RouterIdDepInit(Agent *agent) {
 
 struct PortInfo input[] = {
     {"intf1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd10::2"},
+    {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 1, "fd10::2"},
 };
 IpamInfo ipam_info[] = {
     {"1.1.1.0", 24, "1.1.1.10"},
@@ -57,7 +58,7 @@ class TagTest : public ::testing::Test {
 
     virtual void SetUp() {
         agent = Agent::GetInstance();
-        CreateVmportEnv(input, 1);
+        CreateVmportEnv(input, 2);
         AddIPAM("vn1", ipam_info, 1);
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(1));
@@ -68,7 +69,7 @@ class TagTest : public ::testing::Test {
     }
 
     virtual void TearDown() {
-        DeleteVmportEnv(input, 1, true);
+        DeleteVmportEnv(input, 2, true);
         client->WaitForIdle();
         DelIPAM("vn1");
         client->WaitForIdle();
@@ -83,6 +84,23 @@ protected:
     bool VmiCheckTagValue(const std::string &type, uint32_t id) {
         const VmInterface* vm_intf =
             static_cast<const VmInterface *>(VmPortGet(1));
+
+        VmInterface::TagEntrySet::const_iterator tag_it;
+        for (tag_it = vm_intf->tag_list().list_.begin();
+             tag_it != vm_intf->tag_list().list_.end(); tag_it++) {
+
+            if (tag_it->type_ == TagEntry::GetTypeVal(type, "")) {
+                if (id == tag_it->tag_->tag_id()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+    bool VmiCheckTagValue(int intf_id, const std::string &type, uint32_t id) {
+        const VmInterface* vm_intf =
+            static_cast<const VmInterface *>(VmPortGet(intf_id));
 
         VmInterface::TagEntrySet::const_iterator tag_it;
         for (tag_it = vm_intf->tag_list().list_.begin();
@@ -718,6 +736,38 @@ TEST_F(TagTest, VmiWithCustomTag) {
     client->WaitForIdle();
 }
 
+TEST_F(TagTest, InheritanceSubInterface) {
+    AddTag("VmTag1", 1, 1, "application");
+    client->WaitForIdle();
+
+
+    AddLink("virtual-machine", "vm1", "tag", "VmTag1");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmiCheckTagValue(1, "application", 1));
+
+    AddVlan("intf2", 2, 100);
+    AddLink("virtual-machine-interface", "intf1",
+            "virtual-machine-interface", "intf2");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmiCheckTagValue(2, "application", 1));
+    
+
+    DelLink("virtual-machine", "vm1", "tag", "VmTag1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmiCheckTagValue(2, "application", 1));
+
+
+    AddTag("VmTag2", 2, 2, "application");
+    AddLink("virtual-machine", "vm1", "tag", "VmTag2");
+    client->WaitForIdle();
+    EXPECT_TRUE(VmiCheckTagValue(2, "application", 2));
+    client->WaitForIdle();
+    DelLink("virtual-machine", "vm1", "tag", "VmTag2");
+    client->WaitForIdle();
+    DelNode("tag", "VmTag1");
+    DelNode("tag", "VmTag2");
+    client->WaitForIdle();
+}
 int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

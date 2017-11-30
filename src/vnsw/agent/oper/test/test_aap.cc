@@ -64,19 +64,6 @@ public:
         DeleteBgpPeer(peer_);
     }
 
-    void AddVlan(std::string intf_name, int intf_id, uint32_t vlan) {
-        std::ostringstream buf;
-        buf << "<virtual-machine-interface-properties>";
-        buf << "<sub-interface-vlan-tag>";
-        buf << vlan;
-        buf << "</sub-interface-vlan-tag>";
-        buf << "</virtual-machine-interface-properties>";
-        char cbuf[10000];
-        strcpy(cbuf, buf.str().c_str());
-        AddNode("virtual-machine-interface", intf_name.c_str(),
-                intf_id, cbuf);
-        client->WaitForIdle();
-    }
 
     virtual void SetUp() {
         CreateVmportEnv(input, 2);
