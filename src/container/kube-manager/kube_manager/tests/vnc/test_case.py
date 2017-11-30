@@ -15,13 +15,13 @@ from vnc_api.vnc_api import (
     PolicyEntriesType, IdPermsType, SecurityGroup, VirtualNetwork,
     VirtualNetworkType, NoIdError, VirtualMachine, VirtualMachineInterface,
     InstanceIp, NetworkIpam, IpamSubnets, IpamSubnetType, VnSubnetsType,
-    KeyValuePair, KeyValuePairs, VirtualRouter)
+    VirtualRouter)
 from kube_manager.common import args as kube_args
 from kube_manager.vnc import vnc_kubernetes
 from kube_manager.vnc import vnc_kubernetes_config as vnc_kube_config
 from kube_manager.vnc.config_db import (
-    VirtualMachineInterfaceKM, InstanceIpKM, VirtualMachineKM, DBBaseKM,
-    VirtualRouterKM)
+    VirtualMachineInterfaceKM, InstanceIpKM, VirtualMachineKM, VirtualRouterKM)
+
 
 class KMTestCase(test_common.TestCase):
 
@@ -299,22 +299,23 @@ class KMTestCase(test_common.TestCase):
         return vn_obj
 
     @classmethod
-    def create_virtual_router(self, name, node_ip = None):
-        vrouter_node_ip = node_ip if node_ip else self.get_kubernetes_node_ip()
-        vrouter_obj = VirtualRouter(name,
-            virtual_router_ip_address = vrouter_node_ip)
+    def create_virtual_router(cls, name, node_ip=None):
+        vrouter_node_ip = node_ip if node_ip else cls.get_kubernetes_node_ip()
+        vrouter_obj = VirtualRouter(
+            name,
+            virtual_router_ip_address=vrouter_node_ip)
         try:
-            vrouter_obj = self._vnc_lib.virtual_router_read(
+            vrouter_obj = cls._vnc_lib.virtual_router_read(
                 fq_name=vrouter_obj.get_fq_name())
         except NoIdError:
-            self._vnc_lib.virtual_router_create(vrouter_obj)
+            cls._vnc_lib.virtual_router_create(vrouter_obj)
             VirtualRouterKM.locate(vrouter_obj.uuid)
         return vrouter_obj
 
     @classmethod
-    def delete_virtual_router(self, vrouter_uuid):
+    def delete_virtual_router(cls, vrouter_uuid):
         try:
-            self._vnc_lib.virtual_router_delete(id = vrouter_uuid)
+            cls._vnc_lib.virtual_router_delete(id=vrouter_uuid)
         except NoIdError:
             pass
         VirtualRouterKM.delete(vrouter_uuid)
@@ -328,9 +329,6 @@ class KMTestCase(test_common.TestCase):
             parent_type='virtual-machine', fq_name=[name, '0'])
         vmi.set_virtual_machine(vm)
         vmi.set_virtual_network(vn)
-        if DBBaseKM.is_nested():
-            vmi.set_virtual_machine_interface_bindings(
-                KeyValuePairs([KeyValuePair('host_id', 'WHATEVER')]))
         self._vnc_lib.virtual_machine_interface_create(vmi)
         VirtualMachineInterfaceKM.locate(vmi.uuid)
 

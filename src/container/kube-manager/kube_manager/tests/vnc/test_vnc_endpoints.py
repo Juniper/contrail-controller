@@ -30,6 +30,7 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         super(VncEndpointsTestBase, cls).setUpClass(*args, **kwargs)
         cls.kube_mock = MagicMock()
         VncKubernetes._vnc_kubernetes.endpoints_mgr._kube = cls.kube_mock
+        cls.virtual_router = cls.create_virtual_router('endpoints-test-router')
 
     @classmethod
     def tearDownClass(cls):
