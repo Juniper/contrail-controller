@@ -147,7 +147,8 @@ protected:
         blue_ = static_cast<EvpnTable *>(db->FindTable("blue.evpn.0"));
         blue_manager_ = blue_->GetEvpnManager();
         RibExportPolicy policy(BgpProto::XMPP, RibExportPolicy::XMPP, 0, 0);
-        blue_ribout_ = blue_->RibOutLocate(server_->update_sender(), policy);
+        blue_ribout_.reset(
+            blue_->RibOutLocate(server_->update_sender(), policy));
 
         CreateAllPeers();
 
@@ -462,7 +463,7 @@ protected:
     EvpnTable *blue_;
     EvpnTable *master_;
     EvpnManager *blue_manager_;
-    RibOut *blue_ribout_;
+    boost::scoped_ptr<RibOut> blue_ribout_;
     vector<PeerMock *> bgp_peers_;
     EthernetSegmentId esi_null_, esi1_, esi2_, esi3_;
 };
