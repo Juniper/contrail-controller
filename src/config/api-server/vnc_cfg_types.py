@@ -1453,7 +1453,6 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 elif result:
                     vif_type = {'key': 'vif_type',
                                 'value': cls.portbindings['VIF_TYPE_VHOST_USER']}
-                    cls._kvps_update(kvps, vif_type)
                     vif_params = {cls.portbindings['VHOST_USER_MODE']:
                                   cls.portbindings['VHOST_USER_MODE_CLIENT'],
                                   cls.portbindings['VHOST_USER_SOCKET']:
