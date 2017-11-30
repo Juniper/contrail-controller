@@ -141,13 +141,15 @@ class GeneratorFixture(fixtures.Fixture):
                 sampled_pkts=((i/3)+1)*2,
                 action='pass',
                 sg_rule_uuid=uuid.uuid1(),
-                nw_ace_uuid=uuid.uuid1()))
+                nw_ace_uuid=uuid.uuid1(),
+                underlay_source_port=i/3))
             self.reverse_flows.append(SessionFlowInfo(flow_uuid=uuid.uuid1(),
                 sampled_bytes=((i/3)+1)*10,
                 sampled_pkts=(i/3)+1,
                 action='pass',
                 sg_rule_uuid=uuid.uuid1(),
-                nw_ace_uuid=uuid.uuid1()))
+                nw_ace_uuid=uuid.uuid1(),
+                underlay_source_port=(10 + i/3)))
 
         for i in range(self.client_session_cnt):
             session_agg_info = {}

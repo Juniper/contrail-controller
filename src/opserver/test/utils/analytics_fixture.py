@@ -1590,6 +1590,38 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         assert(len(res) == 6)
 
+        # underlay_source_port
+        res = vns.post_query('FlowRecordTable',
+                  start_time=str(generator_obj.session_start_time),
+                  end_time=str(generator_obj.session_end_time),
+                  select_fields=['UuidKey','underlay_source_port'],
+                  where_clause='vrouter=%s' % vrouter)
+        self.logger.info("res: %s" % str(res))
+        assert(len(res) == 2*(generator_obj.flow_cnt**2))
+        for r in res:
+            assert('underlay_source_port' in r)
+        # verify underlay_source_port with filter
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
+                             select_fields=['UuidKey', 'underlay_source_port'],
+                             where_clause='vrouter=%s'% vrouter,
+                             filter='underlay_source_port=1')
+        self.logger.info("res: %s" % str(res))
+        assert(len(res) == 3)
+        for r in res:
+            assert(r['underlay_source_port'] == 1)
+
+        res = vns.post_query('FlowRecordTable',
+                             start_time=str(generator_obj.session_start_time),
+                             end_time=str(generator_obj.session_end_time),
+                             select_fields=['UuidKey', 'underlay_source_port'],
+                             where_clause='vrouter=%s'% vrouter,
+                             filter='underlay_source_port=5')
+        self.logger.info("res: %s" % str(res))
+        assert(len(res) == 0)
+
+
         return True
     # end verify_flow_table
 
