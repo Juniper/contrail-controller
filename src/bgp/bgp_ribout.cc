@@ -91,6 +91,8 @@ RibOutAttr::RibOutAttr(const BgpTable *table, const BgpAttr *attr,
 RibOutAttr::RibOutAttr(const BgpTable *table, const BgpRoute *route,
     const BgpAttr *attr, uint32_t label, bool include_nh, bool is_xmpp)
     : attr_out_(attr),
+      label_(0),
+      l3_label_(0),
       is_xmpp_(is_xmpp),
       vrf_originated_(route->BestPath()->IsVrfOriginated()) {
     if (attr && include_nh) {
@@ -100,7 +102,8 @@ RibOutAttr::RibOutAttr(const BgpTable *table, const BgpRoute *route,
 }
 
 RibOutAttr::RibOutAttr(const BgpRoute *route, const BgpAttr *attr,
-    bool is_xmpp) : is_xmpp_(is_xmpp), vrf_originated_(false) {
+                       bool is_xmpp) :
+        label_(0), l3_label_(0), is_xmpp_(is_xmpp), vrf_originated_(false) {
     // Attribute should not be set already
     assert(!attr_out_);
 
