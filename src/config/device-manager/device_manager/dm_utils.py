@@ -265,6 +265,10 @@ class DMUtils(object):
         return "/* Contrail Generated Group Config */"
 
     @staticmethod
+    def si_ri_comment(si):
+        return "/* Service Instance: %s, UUID: %s */"%(si.fq_name[-1], si.uuid)
+
+    @staticmethod
     def vn_ri_comment(vn, is_l2, is_l2_l3, is_nat, router_external):
         vrf_type = "L3"
         fwd_mode = "L3"
@@ -295,6 +299,10 @@ class DMUtils(object):
     def vn_ps_comment(vn, target_type):
         return "/* Virtual Network: %s, UUID: %s, Route Targets Type: %s */"%(
                                           vn.fq_name[-1], vn.uuid, target_type)
+    @staticmethod
+    def si_ps_comment(si, target_type):
+        return "/* Service Instance: %s, UUID: %s, Route Targets Type: %s */"%(
+                                          si.fq_name[-1], si.uuid, target_type)
 
     @staticmethod
     def vn_firewall_comment(vn, mode):
