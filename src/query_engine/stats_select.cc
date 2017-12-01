@@ -389,6 +389,10 @@ void StatsSelect::MergeFullRow(
 
 void StatsSelect::MergeAggRow(QEOpServerProxy::AggRowT &arows,
         const QEOpServerProxy::AggRowT &narows) {
+    if (arows.empty()) {
+        arows = narows;
+        return;
+    }
     for (QEOpServerProxy::AggRowT::iterator jt = arows.begin();
             jt!= arows.end(); jt++) {
         QEOpServerProxy::AggRowT::const_iterator kt = narows.find(jt->first);
