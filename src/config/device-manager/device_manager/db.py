@@ -13,6 +13,7 @@ from dm_utils import DMIndexer
 from sandesh.dm_introspect import ttypes as sandesh
 from cfgm_common.vnc_db import DBBase
 from cfgm_common.uve.physical_router.ttypes import *
+from cfgm_common.exceptions import ResourceExistsError
 from vnc_api.vnc_api import *
 import copy
 import socket
