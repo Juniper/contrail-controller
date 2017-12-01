@@ -2945,7 +2945,7 @@ class LogicalInterfaceServer(Resource, LogicalInterface):
                             continue
 
                         peer_li_vmis = {x.get('uuid')
-                                        for x in li_obj.get('virtual_machine_interface_refs')}
+                                        for x in li_obj.get('virtual_machine_interface_refs') or []}
                         if peer_li_vmis != vmis:
                             return (False, (403, "LI should refer to the same set " +
                                                  "of VMIs as peer LIs belonging to the same ESI"))
