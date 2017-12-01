@@ -251,6 +251,10 @@ void AgentRouteTable::AddChangeInput(DBTablePartition *part, VrfEntry *vrf,
 
     AgentPath *path = NULL;
     bool notify = false;
+    const NextHop *nh = NULL;
+    if (rt) {
+        nh = rt->GetActiveNextHop();
+    }
     if (key->sub_op_ == AgentKey::RESYNC) {
         // Process RESYNC only if route present and not-deleted
         if (rt && (rt->IsDeleted() == false))
@@ -278,6 +282,10 @@ void AgentRouteTable::AddChangeInput(DBTablePartition *part, VrfEntry *vrf,
         part->Notify(rt);
         rt->UpdateDependantRoutes();
         rt->ResyncTunnelNextHop();
+        if (rt->GetActiveNextHop() != nh) {
+            active_path_changed = true;
+        }
+
         // Since newly added path became active path, send path with
         // path_changed flag as true. Path can be NULL for resync requests
         active_path_changed |= (path == rt->GetActivePath());
