@@ -230,6 +230,35 @@ void ServicesSandesh::BfdStatsSandesh(std::string ctxt, bool more) {
     bfd->set_bfd_sent(stats.bfd_sent);
     bfd->set_bfd_received(stats.bfd_received);
     bfd->set_bfd_active_sessions(bfd_proto->ActiveSessions());
+
+    std::vector<BfdSandeshSessions> &bfd_list =
+        const_cast<std::vector<BfdSandeshSessions>&>(bfd->get_bfd_sessions());
+    BFD::Server *server = bfd_proto->bfd_communicator().GetServer();
+    BFD::Sessions *sessions = server->GetSessions();
+    BFD::Sessions::iterator it = sessions->begin();
+    while (it != sessions->end()) {
+        BFD::SessionKey key = *it;
+        BfdSandeshSessions session;
+        session.local_address = key.local_address.to_string();
+        session.remote_address = key.remote_address.to_string();
+        session.index = key.index.to_string();
+        session.remote_port = key.remote_port;
+
+        BFD::Session *bfd_session = server->SessionByKey(key);
+        ostringstream ss;
+        ss << bfd_session->local_state();
+        session.local_status = ss.str();
+        ss.clear();
+        ss << bfd_session->remote_state().state;
+        session.remote_status = ss.str();
+
+        session.stats.rx_count = bfd_session->Stats().rx_count;
+        session.stats.tx_count = bfd_session->Stats().tx_count;
+
+        bfd_list.push_back(session);
+        it++;
+    }
+
     bfd->set_context(ctxt);
     bfd->set_more(more);
     bfd->Response();
