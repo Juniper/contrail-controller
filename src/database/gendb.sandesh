@@ -26,7 +26,7 @@ const string DATE_TIERED_COMPACTION_STRATEGY = "DateTieredCompactionStrategy";
 const string LEVELED_COMPACTION_STRATEGY = "LeveledCompactionStrategy";
 const string SIZE_TIERED_COMPACTION_STRATEGY = "SizeTieredCompactionStrategy";
 
-const u32 SCHEMA_REQUEST_TIMEOUT = 40000;
+const u32 SCHEMA_REQUEST_TIMEOUT = 120000;
 const u32 DEFAULT_REQUEST_TIMEOUT = 12000;
 
 struct DbTableInfo {
