@@ -8,7 +8,12 @@
  * - Configuration file
  * - Parameters
  */
-
+#ifdef _WINDOWS
+#include <boost/asio.hpp>
+#include <windows.h>
+ //This is required due to a dependency between boost and winsock that will result in:
+ //fatal error C1189: #error :  WinSock.h has already been included
+#endif
 #include "base/os.h"
 #include <sys/types.h>
 #include <sys/stat.h>

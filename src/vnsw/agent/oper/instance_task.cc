@@ -1,7 +1,12 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All right reserved.
  */
-
+#ifdef _WINDOWS
+#include <boost/asio.hpp>
+#include <windows.h>
+ //This is required due to a dependency between boost and winsock that will result in:
+ //fatal error C1189: #error :  WinSock.h has already been included
+#endif
 #include <tbb/tbb.h>
 #include "oper/instance_task.h"
 #include "base/logging.h"

@@ -1,7 +1,12 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
+#ifdef _WINDOWS
+#include <boost/asio.hpp>
+#include <windows.h>
+ //This is required due to a dependency between boost and winsock that will result in:
+ //fatal error C1189: #error :  WinSock.h has already been included
+#endif
 #include <uve/vn_uve_entry_base.h>
 #include <uve/agent_uve_base.h>
 
