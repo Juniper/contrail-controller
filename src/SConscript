@@ -9,7 +9,7 @@ import sys
 import platform
 
 subdirs = [
-           'analytics',
+#          'analytics',
            'api-lib',
            'bfd',
            'bgp',
@@ -22,8 +22,8 @@ subdirs = [
            'http',
            'ifmap',
            'net',
-           'query_engine',
-           'opserver',
+#           'query_engine',
+#           'opserver',
            'route',
            'sandesh',
            'schema',
@@ -156,12 +156,12 @@ ifmap_client_doc_files += BuildEnv.SandeshGenDoc('#controller/src/ifmap/ifmap_ag
 BuildEnv['IFMAP_CLIENT_DOC_FILES'] = ifmap_client_doc_files
 
 # Analytics
-analytics_doc_files = []
-analytics_doc_target = BuildEnv['TOP'] + '/analytics/'
-analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/analytics.sandesh', analytics_doc_target)
-analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/viz.sandesh', analytics_doc_target)
-analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/redis.sandesh', analytics_doc_target)
-BuildEnv['ANALYTICS_DOC_FILES'] = analytics_doc_files
+#analytics_doc_files = []
+#analytics_doc_target = BuildEnv['TOP'] + '/analytics/'
+#analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/analytics.sandesh', analytics_doc_target)
+#analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/viz.sandesh', analytics_doc_target)
+#analytics_doc_files += BuildEnv.SandeshGenDoc('#controller/src/analytics/redis.sandesh', analytics_doc_target)
+#BuildEnv['ANALYTICS_DOC_FILES'] = analytics_doc_files
 
 BuildEnv['INSTALL_DOC_PKG'] = BuildEnv['INSTALL_DOC'] + '/contrail-docs/html'
 BuildEnv['INSTALL_MESSAGE_DOC'] = BuildEnv['INSTALL_DOC_PKG'] + '/messages'
