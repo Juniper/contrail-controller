@@ -1433,10 +1433,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 vif_type = {'key': 'vif_type',
                             'value': None}
                 vif_details = {'key': 'vif_details', 'value': None}
-                if obj_dict and 'vif_details' in kvp_dict_port:
+                if (obj_dict and 'vif_details' in kvp_dict_port and
+                        kvp_dict_port.get('vnic_type') != cls.portbindings['VNIC_TYPE_DIRECT']):
                     cls._kvps_update(kvps, vif_type)
                     cls._kvps_update(kvps, vif_details)
-                elif kvp_dict.get('host_id') == 'null':
+                elif (kvp_dict.get('host_id') == 'null' and
+                        kvp_dict_port.get('vnic_type') != cls.portbindings['VNIC_TYPE_DIRECT']):
                     vif_details_prop = {'field': 'virtual_machine_interface_bindings',
                                         'operation': 'delete', 'value': vif_details, 'position': 'vif_details'}
                     vif_type_prop = {'field': 'virtual_machine_interface_bindings',
