@@ -10,21 +10,6 @@
 
 using boost::assign::map_list_of;
 
-// compare flow records based on UUID
-bool PostProcessingQuery::flow_record_comparator(
-                            const QEOpServerProxy::ResultRowT& lhs,
-                            const QEOpServerProxy::ResultRowT& rhs) {
-    std::map<std::string, std::string>::const_iterator lhs_it, rhs_it;
-    lhs_it = lhs.first.find(g_viz_constants.UUID_KEY);
-    QE_ASSERT(lhs_it != lhs.first.end());
-    rhs_it = rhs.first.find(g_viz_constants.UUID_KEY);
-    QE_ASSERT(rhs_it != rhs.first.end());
-    if (lhs_it->second < rhs_it->second) return true;
-    if (lhs_it->second > rhs_it->second) return false;
-
-    return false;
-}
-
 bool PostProcessingQuery::sort_field_comparator(
         const QEOpServerProxy::ResultRowT& lhs,
         const QEOpServerProxy::ResultRowT& rhs) {
@@ -52,159 +37,15 @@ bool PostProcessingQuery::sort_field_comparator(
     return false;
 }
 
-bool PostProcessingQuery::flowseries_merge_processing(
-        const QEOpServerProxy::BufferT *raw_result,
-        QEOpServerProxy::BufferT* merged_result, 
-        fcid_rrow_map_t *fcid_rrow_map) {
-    AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
-
-    switch(mquery->selectquery_->flowseries_query_type()) {
-    case SelectQuery::FS_SELECT_STATS:
-        fs_stats_merge_processing(raw_result, merged_result);
-        break;
-    case SelectQuery::FS_SELECT_FLOW_TUPLE_STATS:
-        fs_tuple_stats_merge_processing(raw_result, merged_result, fcid_rrow_map);
-        break;
-    default:
-        return false;
-    }
-
-    return true;
-}
-
-void PostProcessingQuery::fs_merge_stats(
-            const QEOpServerProxy::ResultRowT& input,
-            QEOpServerProxy::ResultRowT& output) {
-    QEOpServerProxy::OutRowT::iterator pit = 
-            output.first.find(SELECT_SUM_PACKETS);
-    if (pit != output.first.end()) {
-        uint64_t sum_pkts = 0;
-        stringToInteger(pit->second, sum_pkts);
-        uint64_t pkts = 0;
-        stringToInteger(input.first.find(SELECT_SUM_PACKETS)->second, pkts);
-        sum_pkts += pkts;
-        pit->second = integerToString(sum_pkts);
-    }
-    QEOpServerProxy::OutRowT::iterator bit = 
-            output.first.find(SELECT_SUM_BYTES);
-    if (bit != output.first.end()) {
-        uint64_t sum_bytes = 0;
-        stringToInteger(bit->second, sum_bytes);
-        uint64_t bytes = 0;
-        stringToInteger(input.first.find(SELECT_SUM_BYTES)->second, bytes);
-        sum_bytes += bytes;
-        bit->second = integerToString(sum_bytes);
-    }
-    if (input.second.get()) {
-        fsMetaData *imetadata = static_cast<fsMetaData*>(input.second.get());
-        fsMetaData *ometadata = static_cast<fsMetaData*>(output.second.get());
-        ometadata->uuids.insert(imetadata->uuids.begin(), 
-                                imetadata->uuids.end());
-    }
-}
-
-void PostProcessingQuery::fs_stats_merge_processing(
-        const QEOpServerProxy::BufferT *raw_result, 
-        QEOpServerProxy::BufferT *merged_result) {
-    if (!raw_result->size()) {
-        return;
-    }
-    if (!merged_result->size()) {
-        merged_result->reserve(raw_result->size());
-        copy(raw_result->begin(), raw_result->end(),
-             std::back_inserter(*merged_result));
-        return;
-    }
-    assert(raw_result->size() == 1);
-    assert(merged_result->size() == 1);
-    QEOpServerProxy::ResultRowT& mresult_row = merged_result->at(0);
-    const QEOpServerProxy::ResultRowT& rresult_row = raw_result->at(0);
-    QE_TRACE(DEBUG, "fs_stats_merge_processing: merge_stats.");
-    fs_merge_stats(rresult_row, mresult_row);
-}
-
-void PostProcessingQuery::fs_tuple_stats_merge_processing(
-        const QEOpServerProxy::BufferT *raw_result, 
-        QEOpServerProxy::BufferT *merged_result,
-        fcid_rrow_map_t *fcid_rrow_map) {
-
-    for (size_t r = 0; r < merged_result->size(); ++r) {
-        const QEOpServerProxy::ResultRowT& rresult_row = merged_result->at(r);
-        const QEOpServerProxy::OutRowT& ro_row = rresult_row.first;
-        QEOpServerProxy::OutRowT::const_iterator rfc_it = 
-            rresult_row.first.find(SELECT_FLOW_CLASS_ID);
-        assert(rfc_it != ro_row.end());
-        uint64_t rfc_id = 0;
-        stringToInteger(rfc_it->second, rfc_id);
-        if (fcid_rrow_map->find(rfc_id) == fcid_rrow_map->end()) {
-            // flow_class_id rfc_id not found, add the result row to the map
-            fcid_rrow_map->insert(std::pair<uint64_t, 
-                QEOpServerProxy::ResultRowT>(rfc_id, rresult_row));
-        } else {
-            // found an existing flow class id in the map
-            QEOpServerProxy::ResultRowT& mresult_row = 
-                (fcid_rrow_map->find(rfc_id))->second;
-            fs_merge_stats(rresult_row, mresult_row);
-        }
-    }
-    for (size_t r = 0; r < raw_result->size(); ++r) {
-        const QEOpServerProxy::ResultRowT& rresult_row = raw_result->at(r);
-        const QEOpServerProxy::OutRowT& ro_row = rresult_row.first;
-        QEOpServerProxy::OutRowT::const_iterator rfc_it = 
-            rresult_row.first.find(SELECT_FLOW_CLASS_ID);
-        assert(rfc_it != ro_row.end());
-        uint64_t rfc_id = 0;
-        stringToInteger(rfc_it->second, rfc_id);
-        if (fcid_rrow_map->find(rfc_id) == fcid_rrow_map->end()) {
-            // flow_class_id rfc_id not found, add the result row to the map
-            fcid_rrow_map->insert(std::pair<uint64_t, 
-                QEOpServerProxy::ResultRowT>(rfc_id, rresult_row));
-        } else {
-            // found an existing flow class id in the map
-            QEOpServerProxy::ResultRowT& mresult_row = 
-                (fcid_rrow_map->find(rfc_id))->second;
-            fs_merge_stats(rresult_row, mresult_row);
-        }
-    }
-}
-
-void PostProcessingQuery::fs_update_flow_count(
-            QEOpServerProxy::ResultRowT& rrow) {
-    QEOpServerProxy::OutRowT::iterator fit = 
-        rrow.first.find(SELECT_FLOW_COUNT);
-    assert(fit != rrow.first.end());
-    assert(rrow.second.get());
-    fsMetaData *mdata = 
-        static_cast<fsMetaData*>(rrow.second.get());
-    fit->second = integerToString(mdata->uuids.size());
-}
-
 bool PostProcessingQuery::merge_processing(
         const QEOpServerProxy::BufferT& input, 
         QEOpServerProxy::BufferT& output)
 {
-    AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
-
     if (status_details != 0)
     {
         QE_TRACE(DEBUG, 
              "No need to process query, as there were errors previously");
         return false;
-    }
-
-
-    if (mquery->table() == g_viz_constants.FLOW_SERIES_TABLE) {
-        fcid_rrow_map_t fcid_rrow_map;
-        if (flowseries_merge_processing(&input, &output, &fcid_rrow_map)) {
-            if (fcid_rrow_map.size() != 0) {
-                output.clear();
-                for(fcid_rrow_map_t::iterator it = fcid_rrow_map.begin(); it != fcid_rrow_map.end(); ++it ) {
-                    output.push_back(it->second);
-                }
-            }
-            status_details = 0;
-            return true;
-        }
     }
 
     // Check if the result has to be sorted
@@ -288,7 +129,6 @@ bool PostProcessingQuery::final_merge_processing(
 const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                         QEOpServerProxy::BufferT& output)
 {
-    AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
     bool merge_done = false;
 
     if (status_details != 0)
@@ -296,61 +136,6 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         QE_TRACE(DEBUG, 
              "No need to process query, as there were errors previously");
         return false;
-    }
-
-    if (mquery->table() == g_viz_constants.FLOW_SERIES_TABLE) {
-        fcid_rrow_map_t fcid_rrow_map;
-        bool status = false;
-        for (size_t i = 0; i < inputs.size(); i++) {
-            status = flowseries_merge_processing(inputs[i].get(), 
-                                    &output, &fcid_rrow_map);
-        }
-        if (status) {
-            bool is_select_flow_count = 
-                mquery->selectquery_->is_present_in_select_column_fields(
-                                                        SELECT_FLOW_COUNT);
-            if (fcid_rrow_map.size() != 0) {
-                for(fcid_rrow_map_t::iterator it = fcid_rrow_map.begin(); 
-                    it != fcid_rrow_map.end(); ++it ) {
-                    if (is_select_flow_count) {
-                        fs_update_flow_count(it->second);
-                    }
-                    output.push_back(it->second);
-                }
-            }
-
-            if (mquery->selectquery_->flowseries_query_type() == 
-                SelectQuery::FS_SELECT_STATS && is_select_flow_count) {
-                if (output.size()) {
-                    fs_update_flow_count(output[0]);
-                }
-            }
-            merge_done = true;
-        }
-    }
-
-    if (mquery->table() == g_viz_constants.FLOW_TABLE)
-    {
-        QE_TRACE(DEBUG, "Final_Merge_Processing: Uniquify flow records");
-        // uniquify the records
-        std::set<QEOpServerProxy::ResultRowT, 
-                 bool(*)(const QEOpServerProxy::ResultRowT&,
-                         const QEOpServerProxy::ResultRowT&)>
-                 result_row_set(&PostProcessingQuery::flow_record_comparator);
-
-        for (size_t i = 0; i < inputs.size(); i++)
-        {
-            QEOpServerProxy::BufferT *raw_result = inputs[i].get();
-            result_row_set.insert(raw_result->begin(), raw_result->end());
-        }
-
-        QEOpServerProxy::BufferT *merged_result = &output;
-        merged_result->reserve(result_row_set.size());
-        copy(result_row_set.begin(), result_row_set.end(), 
-            std::back_inserter(*merged_result));
-
-        QE_TRACE(DEBUG, "Final_Merge_Processing: Done uniquify flow records");
-        merge_done = true;
     }
 
     if (!merge_done) {

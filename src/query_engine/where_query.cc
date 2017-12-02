@@ -457,7 +457,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
         } else if 
         ((m_query->table() == g_viz_constants.FLOW_TABLE)
         || (m_query->table() == g_viz_constants.FLOW_SERIES_TABLE)) {
-#ifdef USE_SESSION
             DbQueryUnit *db_query_client = new DbQueryUnit(this, main_query);
             {
                 db_query->cfname = g_viz_constants.SESSION_TABLE;
@@ -484,17 +483,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                 db_query_client->cr.finish_.push_back((uint16_t)0xffff);
 
             }
-#else
-            db_query->row_key_suffix.push_back((uint8_t)direction_ing);
-            db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_SP;
-
-            // starting value for protocol/port field
-            db_query->cr.start_.push_back((uint8_t)0);
-
-            // ending value for protocol/port field;
-            db_query->cr.finish_.push_back((uint8_t)0xff);
-            db_query->cr.finish_.push_back((uint16_t)0xffff);
-#endif
         } else if (m_query->is_session_query(m_query->table())) {
 
             db_query->row_key_suffix.push_back((uint8_t)is_si);
@@ -765,7 +753,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                             comparator, value);
                     where_vec.push_back(where_info);
                 }
-#ifdef USE_SESSION
             } else if (m_query->is_flow_query(m_query->table())){
                 if (name == g_viz_constants.FlowRecordNames[
                                 FlowRecordFields::FLOWREC_PROTOCOL])
@@ -923,141 +910,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     additional_select_.push_back(filter.name);
                 }
             }
-#else
-            else if (m_query->is_flow_query(m_query->table())) {
-                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
-                {
-                    vr_match = true; vr_op = op;
-                    vr = value;
-                    if (vr_op == PREFIX)
-                    {
-                        vr2 = value + "\x7f";
-                    }
-                    QE_INVALIDARG_ERROR((vr_op == EQUAL)||(vr_op == PREFIX));
-
-                    QE_TRACE(DEBUG, "where match term for vrouter " << value);
-                }
-                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN])
-                {
-                    svn_match = true; svn_op = op;
-                    svn = value;
-                    if (svn_op == PREFIX)
-                    {
-                        svn2 = value + "\x7f";
-                    }
-                    QE_INVALIDARG_ERROR((svn_op == EQUAL)||(svn_op == PREFIX));
-
-                    QE_TRACE(DEBUG, "where match term for sourcevn " << value);
-                }
-
-                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP])
-                {
-                    sip_match = true; sip_op = op;
-                    boost::system::error_code ec;
-                    sip = IpAddress::from_string(value, ec);
-                    QE_INVALIDARG_ERROR(ec == 0);
-                    QE_TRACE(DEBUG, "where match term for sourceip " << value);
-                    if (sip_op == IN_RANGE)
-                    {
-                        boost::system::error_code ec;
-                        sip2 = IpAddress::from_string(value2, ec);
-                        QE_INVALIDARG_ERROR(ec == 0);
-                    } else {
-                        QE_INVALIDARG_ERROR(sip_op == EQUAL);
-                    }
-                }
-
-                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN])
-                {
-                    dvn_match = true; dvn_op = op;
-                    dvn = value;
-                    if (dvn_op == PREFIX)
-                    {
-                        dvn2 = value + "\x7f";
-                    }
-
-                    QE_INVALIDARG_ERROR((dvn_op == EQUAL)||(dvn_op == PREFIX));
-
-                    QE_TRACE(DEBUG, "where match term for destvn " << value);
-                }
-
-                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP])
-                {
-                    dip_match = true; dip_op = op; dip = value;
-                    boost::system::error_code ec;
-                    dip = IpAddress::from_string(value, ec);
-                    QE_INVALIDARG_ERROR(ec == 0);
-                    QE_TRACE(DEBUG, "where match term for destip " << value);
-                    if (dip_op == IN_RANGE)
-                    {
-                        boost::system::error_code ec;
-                        dip2 = IpAddress::from_string(value2, ec);
-                        QE_INVALIDARG_ERROR(ec == 0);
-                    } else {
-                        QE_INVALIDARG_ERROR(dip_op == EQUAL);
-                    }
-
-                }
-
-                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL])
-                {
-                    proto_match = true; proto_op = op;
-
-                    uint16_t proto_value;
-                    std::istringstream(value) >> proto_value;
-                    proto = (uint8_t)proto_value;
-                    if (proto_op == IN_RANGE)
-                    {
-                        uint16_t proto_value2;
-                        std::istringstream(value2) >> proto_value2;
-                        proto2 = (uint8_t)proto_value2;
-                    } else {
-                        QE_INVALIDARG_ERROR(proto_op == EQUAL);
-                    }
-
-                    QE_TRACE(DEBUG, "where match term for proto_value " << value);
-                }
-
-                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT])
-                {
-                    sport_match = true; sport_op = op;
-
-                    uint16_t sport_value;
-                    std::istringstream(value) >> sport_value;
-
-                    sport = sport_value;
-                    if (sport_op == IN_RANGE)
-                    {
-                        uint16_t sport_value2;
-                        std::istringstream(value2) >> sport_value2;
-                        sport2 = sport_value2;
-                    } else {
-                        QE_INVALIDARG_ERROR(sport_op == EQUAL);
-                    }
-
-                    QE_TRACE(DEBUG, "where match term for sport " << value);
-                }
-
-                if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT])
-                {
-                    dport_match = true; dport_op = op;
-
-                    uint16_t dport_value;
-                    std::istringstream(value) >> dport_value;
-                    dport = dport_value;
-                    if (dport_op == IN_RANGE)
-                    {
-                        uint16_t dport_value2;
-                        std::istringstream(value2) >> dport_value2;
-                        dport2 = dport_value2;
-                    } else {
-                        QE_INVALIDARG_ERROR(dport_op == EQUAL);
-                    }
-
-                    QE_TRACE(DEBUG, "where match term for dport " << value);
-                }
-            }
-#endif
             if (isStat)
             {
                 StatTermProcess(json_or_node[j], this, main_query);
@@ -1072,48 +924,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                                      object_id_specified);
         }
 
-#ifndef USE_SESSION
-        if (!isSession) {
-#else
-        if (!isSession && !m_query->is_flow_query(m_query->table())) {
-#endif
-            // do some validation checks
-            if (sip_match && !(svn_match))
-            {
-                // SIP specified without SVN
-                QE_INVALIDARG_ERROR(0);
-            }
-
-            if (dip_match && !(dvn_match))
-            {
-                // DIP specified without DVN
-                QE_INVALIDARG_ERROR(0);
-            }
-
-            if ((sport_match || dport_match) && !(proto_match))
-            {
-                // ports specified without protocol
-                QE_INVALIDARG_ERROR(0);
-            }
-
-            if ((svn_op != EQUAL) && (sip_match))
-            {
-                // can not do range query on svn when sip is specified
-                QE_INVALIDARG_ERROR(0);
-            }
-
-            if ((dvn_op != EQUAL) && (dip_match))
-            {
-                // can not do range query on dvn when dip is specified
-                QE_INVALIDARG_ERROR(0);
-            }
-
-            if ((proto_op != EQUAL) && ((sport_match) || (dport_match)))
-            {
-                // can not do range query on protocol with dport or sport
-                QE_INVALIDARG_ERROR(0);
-            }
-        }
         if (isSession) {
 
             DbQueryUnit *session_db_query = new DbQueryUnit(this, main_query);
@@ -1145,7 +955,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                 session_db_query->cr.finish_.push_back((uint16_t)0xffff);
             }
         }
-#ifdef USE_SESSION
         else if (m_query->is_flow_query(m_query->table())) {
             if (!filter_and.empty()) {
                 filter_list_.push_back(filter_and);
@@ -1339,170 +1148,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                 }
             }
         }
-#endif
-#ifndef USE_SESSION
-        if (!isSession && vr_match)
-        {
-            DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
-            db_query->row_key_suffix.push_back((uint8_t)direction_ing);
-            db_query->cfname = g_viz_constants.FLOW_TABLE_VROUTER;
-            db_query->cr.start_.push_back(vr);
-            if (vr_op == EQUAL) {
-                db_query->cr.finish_.push_back(vr);
-            } else if (vr_op == PREFIX) {
-                db_query->cr.finish_.push_back(vr2);
-            } else {
-                QE_LOG(INFO, "Internal Error:" << __func__ << "Unknown vr_op: " << vr_op);
-                db_query->cr.finish_.push_back(vr);
-            }
-
-            QE_TRACE(DEBUG, "row_key_suffix for vrouter:" << direction_ing);
-            QE_TRACE(DEBUG, "vrouter cr.start len:" << 
-                    db_query->cr.start_.size() << 
-                    " string:" << "TBD");
-        }
-
-        // now create flow related db queries
-        if (!isSession && svn_match)
-        {
-            DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
-            db_query->row_key_suffix.push_back((uint8_t)direction_ing);
-            db_query->cfname = g_viz_constants.FLOW_TABLE_SVN_SIP;
-            db_query->cr.start_.push_back(svn);
-            if (svn_op == EQUAL) {
-                db_query->cr.finish_.push_back(svn);
-            } else if (svn_op == PREFIX) {
-                db_query->cr.finish_.push_back(svn2);
-            } else {
-                QE_LOG(INFO, "Internal Error:" << __func__ << "Unknown svn_op: " << svn_op);
-                db_query->cr.finish_.push_back(svn2);
-            }
-
-            if (sip_match)
-            {
-                db_query->cr.start_.push_back(sip);
-                if (sip_op == IN_RANGE) {
-                    db_query->cr.finish_.push_back(sip2);
-                } else {
-                    db_query->cr.finish_.push_back(sip);
-                }
-            }  else {
-                boost::system::error_code ec;
-                db_query->cr.finish_.push_back(IpAddress::from_string(
-                    "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", ec));
-            }
-
-            QE_TRACE(DEBUG, "row_key_suffix for svn/sip:" << direction_ing);
-            QE_TRACE(DEBUG, "svn/sip cr.start len:" << 
-                    db_query->cr.start_.size() << 
-                    " string:" << "TBD");
-        }
-
-        if (!isSession && dvn_match)
-        {
-            DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
-            db_query->row_key_suffix.push_back((uint8_t)direction_ing);
-            db_query->cfname = g_viz_constants.FLOW_TABLE_DVN_DIP;
-            db_query->cr.start_.push_back(dvn);
-            if (dvn_op == EQUAL)
-                db_query->cr.finish_.push_back(dvn); // only equal op
-            else
-                db_query->cr.finish_.push_back(dvn2); // only equal op
-
-            if (dip_match)
-            {
-                db_query->cr.start_.push_back(dip);
-                if (dip_op == IN_RANGE) {
-                    db_query->cr.finish_.push_back(dip2);
-                } else {
-                    db_query->cr.finish_.push_back(dip);
-                }
-            }  else {
-                boost::system::error_code ec;
-                db_query->cr.finish_.push_back(IpAddress::from_string(
-                    "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", ec));
-            }
-
-            QE_TRACE(DEBUG, "row_key_suffix for dvn/dip:" << direction_ing);
-            QE_TRACE(DEBUG, "dvn/dip cr.start len:" << 
-                    db_query->cr.start_.size() << 
-                    " string:" << "TBD");
-        }
-
-        if (!isSession && proto_match)
-        {
-            if (sport_match)
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
-                db_query->row_key_suffix.push_back((uint8_t)direction_ing);
-                db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_SP;
-
-                if (sport_op == EQUAL) {
-                    db_query->cr.start_.push_back(proto);
-                    db_query->cr.start_.push_back(sport);
-                    db_query->cr.finish_ = db_query->cr.start_; // only equal op
-                } else {
-                    db_query->cr.start_.push_back(proto);
-                    db_query->cr.start_.push_back(sport);
-                    db_query->cr.finish_.push_back(proto);
-                    db_query->cr.finish_.push_back(sport2);
-                }
-
-                QE_TRACE(DEBUG, 
-                        "row_key_suffix for proto/sp:" << direction_ing);
-                QE_TRACE(DEBUG, "proto/sp cr.start len:" << 
-                    db_query->cr.start_.size() << 
-                    " string:" << "TBD");
-            }
-
-            if (dport_match)
-            {
-                DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
-                db_query->row_key_suffix.push_back((uint8_t)direction_ing);
-                db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_DP;
-                if (dport_op == EQUAL) {
-                    db_query->cr.start_.push_back(proto);
-                    db_query->cr.start_.push_back(dport);
-                    db_query->cr.finish_ = db_query->cr.start_; // only equal op
-                } else {
-                    db_query->cr.start_.push_back(proto);
-                    db_query->cr.start_.push_back(dport);
-                    db_query->cr.finish_.push_back(proto);
-                    db_query->cr.finish_.push_back(dport2);
-                }
-
-                QE_TRACE(DEBUG, 
-                        "row_key_suffix for proto/sp:" << direction_ing);
-                QE_TRACE(DEBUG, "proto/sp cr.start len:" << 
-                    db_query->cr.start_.size() << 
-                    " string:" << "TBD");
-            }
-
-            if (!(dport_match) && !(sport_match))
-            {
-                // no port specified, just query for protocol
-                DbQueryUnit *db_query = new DbQueryUnit(this, m_query);
-                db_query->row_key_suffix.push_back((uint8_t)direction_ing);
-                db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_DP;
-                db_query->cr.start_.push_back(proto);
-                // only equal op
-                if (proto_op == EQUAL) {
-                    db_query->cr.finish_.push_back(proto);
-                    db_query->cr.finish_.push_back((uint16_t)0xffff);
-                } else {
-                    db_query->cr.finish_.push_back(proto2);
-                    db_query->cr.finish_.push_back((uint16_t)0xffff);
-                }
-
-                QE_TRACE(DEBUG, 
-                        "row_key_suffix for proto:" << direction_ing);
-                QE_TRACE(DEBUG, "proto/sp cr.start len:" << 
-                    db_query->cr.start_.size() << 
-                    " string:" << "TBD");
-
-            }
-        }
-#endif
     }
 }
 
@@ -1532,9 +1177,7 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
         }
         if (m_query->is_message_table_query()
             || m_query->is_object_table_query(m_query->table())
-#ifdef USE_SESSION
             || m_query->is_flow_query(m_query->table())
-#endif
             ) {
             SetOperationUnit::op_or(((AnalyticsQuery *)(this->main_query))->query_id,
                 *where_result_, inp);
@@ -1546,29 +1189,6 @@ void WhereQuery::subquery_processed(QueryUnit *subquery) {
 
         QE_TRACE(DEBUG, "Set ops returns # of rows:" << where_result_->size());
 
-#ifndef USE_SESSION
-        if (m_query->table() == g_viz_constants.FLOW_TABLE) {
-            // weed out duplicates
-            QE_TRACE(DEBUG,
-                "Weeding out duplicates for the Flow Records Table query");
-            std::vector<query_result_unit_t> uniqued_result;
-            std::map<boost::uuids::uuid, int> uuid_list;
-            // reverse iterate to make sure the latest entries are there
-            for (int i = (int)(where_result_->size() -1); i>=0; i--) {
-                boost::uuids::uuid u; flow_stats stats;
-                where_result_->at(i).get_uuid_stats(u, stats);
-                std::map<boost::uuids::uuid, int>::iterator it;
-                it = uuid_list.find(u);
-                if (it == uuid_list.end()) {
-                    uuid_list.insert(std::pair<boost::uuids::uuid, int>(u, 0));
-                    // this is first instance of the UUID, hence insert in the
-                    // results table
-                    uniqued_result.push_back(where_result_->at(i));
-                }
-            }
-            *where_result_ = uniqued_result;
-        }
-#endif
         // Have the result ready and processing is done
         QE_TRACE(DEBUG, "WHERE processing done row #s:" <<
              where_result_->size());

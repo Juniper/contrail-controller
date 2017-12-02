@@ -209,11 +209,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             granularity = atoi(timestamp_str.c_str() + 
                 + sizeof(TIMESTAMP_GRANULARITY)-1);
             granularity = granularity * kMicrosecInSec;
-#ifndef USE_SESSION
-            select_column_fields.push_back(TIMESTAMP_GRANULARITY);
-#else
             select_column_fields.push_back(json_select_fields[i].GetString());
-#endif
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE ||
                 m_query->is_stat_table_query(m_query->table()));
@@ -222,27 +218,21 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 std::string(SELECT_PACKETS)) {
             agg_stats_t agg_stats_entry = {RAW, PKT_STATS};
             agg_stats.push_back(agg_stats_entry);
-#ifdef USE_SESSION
             select_column_fields.push_back(SELECT_PACKETS);
-#endif
             QE_INVALIDARG_ERROR(m_query->is_flow_query(m_query->table()));
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_BYTES)) {
             agg_stats_t agg_stats_entry = {RAW, BYTE_STATS};
             agg_stats.push_back(agg_stats_entry);
-#ifdef USE_SESSION
             select_column_fields.push_back(SELECT_BYTES);
-#endif
             QE_INVALIDARG_ERROR(m_query->is_flow_query(m_query->table()));
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_SUM_PACKETS)) {
             agg_stats_t agg_stats_entry = {SUM, PKT_STATS};
             agg_stats.push_back(agg_stats_entry);
-#ifdef USE_SESSION
             select_column_fields.push_back(SELECT_SUM_PACKETS);
-#endif
 
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
@@ -251,9 +241,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 std::string(SELECT_SUM_BYTES)) {
             agg_stats_t agg_stats_entry = {SUM, BYTE_STATS};
             agg_stats.push_back(agg_stats_entry);
-#ifdef USE_SESSION
             select_column_fields.push_back(SELECT_SUM_BYTES);
-#endif
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }
@@ -265,11 +253,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_FLOW_COUNT)) {
-#ifndef USE_SESSION
-            select_column_fields.push_back(SELECT_FLOW_COUNT);
-#else
             QE_INVALIDARG_ERROR(0);
-#endif
             QE_INVALIDARG_ERROR(
                 m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }
@@ -287,7 +271,6 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             }
             if (json_select_fields[i].GetString() == g_viz_constants.UUID_KEY)
                 uuid_key_selected = true;
-#ifdef USE_SESSION
             std::vector<std::string>::iterator it =
                 std::find(session_json_fields.begin(),
                             session_json_fields.end(),
@@ -299,7 +282,6 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
                 } else {
                     unroll_needed |= (it != session_json_fields.end());
                 }
-#endif
         }
     }
 
@@ -310,16 +292,12 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     }
 
     if (flow_class_selected) {
-#ifndef USE_SESSION
-        select_column_fields.push_back(SELECT_FLOW_CLASS_ID);
-#else
         try {
             select_column_fields.push_back("CLASS(" +
                                         select_column_fields[0] + ")");
         } catch (std::out_of_range& e) {
             QE_INVALIDARG_ERROR(0);
         }
-#endif
     }
 
     if ((m_query->table() == g_viz_constants.FLOW_TABLE) && !uuid_key_selected) {
@@ -327,7 +305,6 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         unroll_needed = true;
     }
 
-#ifdef USE_SESSION
     if (m_query->is_flow_query(m_query->table())) {
         if (!m_query->wherequery_->additional_select_.empty()) {
             // add additional select fields based on filters
@@ -338,7 +315,6 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         stats_.reset(new StatsSelect(m_query, select_column_fields));
         QE_INVALIDARG_ERROR(stats_->Status());
     }
-#endif
 
 }
 
@@ -617,149 +593,8 @@ query_status_t SelectQuery::process_query() {
         *m_query->where_info_;
     boost::shared_ptr<QueryResultMetaData> nullmetadata;
 
-#ifndef USE_SESSION
-    if (m_query->table() == g_viz_constants.FLOW_SERIES_TABLE) {
-        QE_TRACE(DEBUG, "Flow Series query type: " << fs_query_type_);
-        process_fs_query_cb_map_t::const_iterator query_cb_it = 
-            process_fs_query_cb_map_.find(fs_query_type_);
-        QE_ASSERT(query_cb_it != process_fs_query_cb_map_.end());
-        populate_fs_result_cb_map_t::const_iterator result_cb_it = 
-            populate_fs_result_cb_map_.find(fs_query_type_);
-        QE_ASSERT(result_cb_it != populate_fs_result_cb_map_.end());
-        process_fs_query(query_cb_it->second, result_cb_it->second);
-    } else if (m_query->table() == (g_viz_constants.FLOW_TABLE)) {
-
-        std::vector<GenDb::DbDataValueVec> keys;
-        std::set<boost::uuids::uuid> uuid_list;
-        // can not handle query result of huge size
-        if (query_result.size() > (size_t)query_result_size_limit)
-        {
-            QE_LOG(DEBUG, 
-            "Can not handle query result of size:" << query_result.size());
-            QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-        }
-
-        for (std::vector<query_result_unit_t>::const_iterator it = query_result.begin();
-                it != query_result.end(); it++) {
-            boost::uuids::uuid u;
-            flow_stats stats;
-
-            it->get_uuid_stats(u, stats);
-            GenDb::DbDataValueVec a_key;
-            a_key.push_back(u);
-            keys.push_back(a_key);
-
-            uuid_list.insert(u);
-        }
-
-        GenDb::ColListVec mget_res;
-        if (!m_query->dbif_->Db_GetMultiRow(&mget_res, g_viz_constants.FLOW_TABLE, keys)) {
-            QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-        }
-
-        std::vector<GenDb::NewCf>::const_iterator fit;
-        for (fit = vizd_flow_tables.begin(); fit != vizd_flow_tables.end(); fit++) {
-            if (fit->cfname_ == g_viz_constants.FLOW_TABLE)
-                break;
-        }
-        if (fit == vizd_flow_tables.end())
-            VIZD_ASSERT(0);
-        const GenDb::NewCf::ColumnMap& sql_cols = fit->cfcolumns_;
-        GenDb::NewCf::ColumnMap::const_iterator col_type_it;
-
-        for (GenDb::ColListVec::iterator it = mget_res.begin();
-                it != mget_res.end(); it++) {
-            boost::uuids::uuid u;
-            assert(it->rowkey_.size() > 0);
-            try {
-                u = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
-            } catch (boost::bad_get& ex) {
-                QE_ASSERT(0);
-            }
-            std::map<std::string, GenDb::DbDataValue> col_res_map;
-
-            // extract uuid
-            std::set<boost::uuids::uuid>::const_iterator uuid_list_it;
-            uuid_list_it = uuid_list.find(u);
-            if (uuid_list_it == uuid_list.end())
-            {
-                QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-            }
-
-            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
-                    jt != it->columns_.end(); jt++) {
-                QE_ASSERT(jt->name->size() == 1 &&
-                        jt->value->size() == 1);
-                std::string col_name;
-                try {
-                    col_name = boost::get<std::string>(jt->name->at(0));
-                } catch (boost::bad_get& ex) {
-                    QE_ASSERT(0);
-                }
-
-                col_res_map.insert(std::make_pair(col_name, jt->value->at(0)));
-            }
-            if (!col_res_map.size()) {
-                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(u) <<
-                       " in Analytics db");
-                continue;
-            }
-
-            std::map<std::string, std::string> cmap;
-            for (std::vector<std::string>::iterator jt = select_column_fields.begin();
-                    jt != select_column_fields.end(); jt++) {
-
-                if (*jt == "agg-packets") {
-                    std::string pkts(g_viz_constants.FlowRecordNames[
-                                    FlowRecordFields::FLOWREC_PACKETS]);
-                    std::map<std::string, GenDb::DbDataValue>::const_iterator pt = 
-                        col_res_map.find(pkts);
-                    QE_ASSERT(pt != col_res_map.end());
-                    cmap.insert(std::make_pair("agg-packets", 
-                                integerToString(pt->second)));
-                    continue;
-                }
-                if (*jt == "agg-bytes") {
-                    std::string bytes(g_viz_constants.FlowRecordNames[
-                                    FlowRecordFields::FLOWREC_BYTES]);
-                    std::map<std::string, GenDb::DbDataValue>::const_iterator bt = 
-                        col_res_map.find(bytes);
-                    QE_ASSERT(bt != col_res_map.end());
-                    cmap.insert(std::make_pair("agg-bytes", 
-                                integerToString(bt->second)));
-                    continue;
-                }
-                if (*jt == "UuidKey") {
-                    std::string u_ss = boost::lexical_cast<std::string>(u);
-
-                    cmap.insert(std::make_pair("UuidKey", u_ss));
-                    continue;
-                }
-
-                std::map<std::string, GenDb::DbDataValue>::iterator kt = col_res_map.find(*jt);
-                if (kt == col_res_map.end()) {
-                    // rather than asserting just return empty string
-                    cmap.insert(std::make_pair(*jt, std::string("")));
-                    continue;
-                }
-
-                if ((col_type_it = sql_cols.find(kt->first)) == sql_cols.end()) {
-                    // valid assert, this is a bug
-                    QE_ASSERT(0);
-                }
-
-                const GenDb::DbDataValue &db_value(kt->second);
-                std::string elem_value(GenDb::DbDataValueToString(db_value));
-                cmap.insert(std::make_pair(kt->first, elem_value));
-            }
-            result_->push_back(std::make_pair(cmap, nullmetadata));
-        }
-    }
-    else if (m_query->is_session_query(m_query->table())) {
-#else
     if (m_query->is_session_query(m_query->table())
               || m_query->is_flow_query(m_query->table())) {
-#endif
         QE_ASSERT(stats_.get());
         // can not handle query result of huge size
         if (query_result.size() > (size_t)query_result_size_limit) {

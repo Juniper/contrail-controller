@@ -308,8 +308,6 @@ struct query_result_unit_t {
     // Get UUID and stats
     void get_uuid_stats(boost::uuids::uuid& u, flow_stats& stats) const;
     // Get UUID and stats and 8-tuple
-    void get_uuid_stats_8tuple(boost::uuids::uuid& u,
-            flow_stats& stats, flow_tuple& tuple) const;
     void get_objectid(std::string&) const;
     // for sorting and set operations
     bool operator<(const query_result_unit_t& rhs) const;
@@ -777,32 +775,12 @@ public:
     bool sort_field_comparator(const QEOpServerProxy::ResultRowT& lhs,
                                const QEOpServerProxy::ResultRowT& rhs);
 
-    // compare flow records based on UUID
-    static bool flow_record_comparator(const QEOpServerProxy::ResultRowT& lhs,
-                                       const QEOpServerProxy::ResultRowT& rhs);
-
     bool merge_processing(
         const QEOpServerProxy::BufferT& input, 
         QEOpServerProxy::BufferT& output);
     bool final_merge_processing(
 const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                         QEOpServerProxy::BufferT& output);
-private:
-    typedef std::map<uint64_t, QEOpServerProxy::ResultRowT> fcid_rrow_map_t;
-    bool flowseries_merge_processing(
-                const QEOpServerProxy::BufferT *raw_result,
-                QEOpServerProxy::BufferT *merged_result,
-                fcid_rrow_map_t *fcid_rrow_map = NULL);
-    void fs_merge_stats(const QEOpServerProxy::ResultRowT& input, 
-                        QEOpServerProxy::ResultRowT& output);
-    void fs_stats_merge_processing(
-                const QEOpServerProxy::BufferT *input,
-                QEOpServerProxy::BufferT *output);
-    void fs_tuple_stats_merge_processing(
-                const QEOpServerProxy::BufferT *input,
-                QEOpServerProxy::BufferT* output,
-                fcid_rrow_map_t *fcid_rrow_map = NULL);
-    void fs_update_flow_count(QEOpServerProxy::ResultRowT& rrow);
 };
 
 class StatsQuery;
@@ -1074,8 +1052,5 @@ private:
     TtlMap ttlmap_;
     std::string keyspace_;
 };
-
-void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
-    boost::uuids::uuid *u, flow_stats *stats, flow_tuple *tuple);
 
 #endif

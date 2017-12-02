@@ -398,12 +398,8 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     if (parse_status != 0) return;
     
     if (is_stat_table_query(table_)
-#ifndef USE_SESSION
-        || is_session_query(table_)) {
-#else
         || is_session_query(table_)
         || is_flow_query(table_)) {
-#endif
         is_merge_needed = selectquery_->stats_->IsMergeNeeded();
     } else {
         is_merge_needed = merge_needed;
@@ -414,12 +410,8 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     select = selectquery_->json_string_;
     post = postprocess_->json_string_;
     is_map_output = is_stat_table_query(table_)
-#ifndef USE_SESSION
-                        || is_session_query(table_);
-#else
                         || is_session_query(table_)
                         || is_flow_query(table_);
-#endif
 }
 
 bool AnalyticsQuery::can_parallelize_query() {
@@ -635,12 +627,8 @@ void AnalyticsQuery::Init(const std::string& qid,
     }
 
     if (is_stat_table_query(table_)
-#ifndef USE_SESSION
-        || is_session_query(table_)) {
-#else
         || is_session_query(table_)
         || is_flow_query(table_)) {
-#endif
         selectquery_->stats_->SetSortOrder(postprocess_->sort_fields);
     }
 
@@ -664,26 +652,6 @@ void AnalyticsQuery::Init(const std::string& qid,
         if (time_slice > smax) {
             time_slice = smax;
         }          
-#ifndef USE_SESSION
-        // Adjust the time_slice for Flowseries query, if time granularity is 
-        // specified. Divide the query based on the time granularity.
-        if (selectquery_->provide_timeseries && selectquery_->granularity) {
-            if (selectquery_->granularity >= time_slice) {
-                time_slice = selectquery_->granularity;
-            } else {
-                time_slice = ((time_slice/selectquery_->granularity)+1)*
-                    selectquery_->granularity;
-            }
-        }
-
-        uint8_t fs_query_type = selectquery_->flowseries_query_type();
-        if ((table() == g_viz_constants.FLOW_TABLE) || 
-            (table() == g_viz_constants.FLOW_SERIES_TABLE &&
-             (fs_query_type == SelectQuery::FS_SELECT_STATS || 
-              fs_query_type == SelectQuery::FS_SELECT_FLOW_TUPLE_STATS))) {
-            merge_needed = true;
-        }
-#endif
         QE_TRACE(DEBUG, "time_slice:" << time_slice << " , # of parallel "
                 "batches:" << total_parallel_batches);
 
@@ -740,17 +708,6 @@ void query_result_unit_t::get_uuid(boost::uuids::uuid& u) const
     }
 }
 
-// Get UUID and stats
-void query_result_unit_t::get_uuid_stats(boost::uuids::uuid& u, 
-        flow_stats& stats) const
-{
-    QE_ASSERT(info.size() == 1);
-    const GenDb::DbDataValue &val(info[0]);
-    QE_ASSERT(val.which() == GenDb::DB_VALUE_STRING);
-    std::string jsonline(boost::get<std::string>(val));
-    get_uuid_stats_8tuple_from_json(jsonline, &u, &stats, NULL);
-}
-
 void query_result_unit_t::set_stattable_info(
         const std::string& attribstr,
         const boost::uuids::uuid& uuid) {
@@ -790,129 +747,6 @@ void  query_result_unit_t::get_stattable_info(
         QE_ASSERT(0);
     }
 
-}
-
-static void get_uuid_from_json(const contrail_rapidjson::Document &dd,
-    boost::uuids::uuid *u) {
-    const std::vector<std::string> &frnames(g_viz_constants.FlowRecordNames);
-    // First get UUID
-    const std::string &tfuuid_s(frnames[FlowRecordFields::FLOWREC_FLOWUUID]);
-    if (dd.HasMember(tfuuid_s.c_str())) {
-        QE_ASSERT(dd[tfuuid_s.c_str()].IsString());
-        std::string fuuid_s(dd[tfuuid_s.c_str()].GetString());
-        *u = StringToUuid(fuuid_s);
-    }
-}
-
-static void get_stats_from_json(const contrail_rapidjson::Document &dd,
-    flow_stats *stats) {
-    const std::vector<std::string> &frnames(g_viz_constants.FlowRecordNames);
-    const std::string &tdiff_bytes_s(
-        frnames[FlowRecordFields::FLOWREC_DIFF_BYTES]);
-    if (dd.HasMember(tdiff_bytes_s.c_str())) {
-        QE_ASSERT(dd[tdiff_bytes_s.c_str()].IsUint64());
-        stats->bytes = dd[tdiff_bytes_s.c_str()].GetUint64();
-    }
-    const std::string &tdiff_pkts_s(
-        frnames[FlowRecordFields::FLOWREC_DIFF_PACKETS]);
-    if (dd.HasMember(tdiff_pkts_s.c_str())) {
-        QE_ASSERT(dd[tdiff_pkts_s.c_str()].IsUint64());
-        stats->pkts = dd[tdiff_pkts_s.c_str()].GetUint64();
-    }
-    const std::string &tshort_flow_s(
-        frnames[FlowRecordFields::FLOWREC_SHORT_FLOW]);
-    if (dd.HasMember(tshort_flow_s.c_str())) {
-        QE_ASSERT(dd[tshort_flow_s.c_str()].IsUint());
-        stats->short_flow = dd[tshort_flow_s.c_str()].GetUint() ? true : false;
-    }
-}
-
-static void get_8tuple_from_json(const contrail_rapidjson::Document &dd,
-    flow_tuple *tuple) {
-    const std::vector<std::string> &frnames(g_viz_constants.FlowRecordNames);
-    const std::string &tvrouter_s(
-        frnames[FlowRecordFields::FLOWREC_VROUTER]);
-    if (dd.HasMember(tvrouter_s.c_str())) {
-        QE_ASSERT(dd[tvrouter_s.c_str()].IsString());
-        tuple->vrouter = dd[tvrouter_s.c_str()].GetString();
-    }
-    const std::string &tsource_vn_s(
-        frnames[FlowRecordFields::FLOWREC_SOURCEVN]);
-    if (dd.HasMember(tsource_vn_s.c_str())) {
-        QE_ASSERT(dd[tsource_vn_s.c_str()].IsString());
-        tuple->source_vn = dd[tsource_vn_s.c_str()].GetString();
-    }
-    const std::string &tdest_vn_s(
-        frnames[FlowRecordFields::FLOWREC_DESTVN]);
-    if (dd.HasMember(tdest_vn_s.c_str())) {
-        QE_ASSERT(dd[tdest_vn_s.c_str()].IsString());
-        tuple->dest_vn = dd[tdest_vn_s.c_str()].GetString();
-    }
-    const std::string &tsource_ip_s(
-        frnames[FlowRecordFields::FLOWREC_SOURCEIP]);
-    if (dd.HasMember(tsource_ip_s.c_str())) {
-        QE_ASSERT(dd[tsource_ip_s.c_str()].IsString());
-        std::string ipaddr_s(dd[tsource_ip_s.c_str()].GetString());
-        boost::system::error_code ec;
-        tuple->source_ip = IpAddress::from_string(ipaddr_s, ec);
-        QE_ASSERT(ec == 0);
-    }
-    const std::string &tdest_ip_s(
-        frnames[FlowRecordFields::FLOWREC_DESTIP]);
-    if (dd.HasMember(tdest_ip_s.c_str())) {
-        QE_ASSERT(dd[tdest_ip_s.c_str()].IsString());
-        std::string ipaddr_s(dd[tdest_ip_s.c_str()].GetString());
-        boost::system::error_code ec;
-        tuple->dest_ip = IpAddress::from_string(ipaddr_s, ec);
-        QE_ASSERT(ec == 0);
-    }
-    const std::string &tprotocol_s(
-        frnames[FlowRecordFields::FLOWREC_PROTOCOL]);
-    if (dd.HasMember(tprotocol_s.c_str())) {
-        QE_ASSERT(dd[tprotocol_s.c_str()].IsUint());
-        tuple->protocol = dd[tprotocol_s.c_str()].GetUint();
-    }
-    const std::string &tsport_s(
-        frnames[FlowRecordFields::FLOWREC_SPORT]);
-    if (dd.HasMember(tsport_s.c_str())) {
-        QE_ASSERT(dd[tsport_s.c_str()].IsUint());
-        tuple->source_port = dd[tsport_s.c_str()].GetUint();
-    }
-    const std::string &tdport_s(
-        frnames[FlowRecordFields::FLOWREC_DPORT]);
-    if (dd.HasMember(tdport_s.c_str())) {
-        QE_ASSERT(dd[tdport_s.c_str()].IsUint());
-        tuple->dest_port = dd[tdport_s.c_str()].GetUint();
-    }
-}
-
-void get_uuid_stats_8tuple_from_json(const std::string &jsonline,
-    boost::uuids::uuid *u, flow_stats *stats, flow_tuple *tuple) {
-    contrail_rapidjson::Document dd;
-    dd.Parse<0>(jsonline.c_str());
-    // First get UUID
-    if (u) {
-        get_uuid_from_json(dd, u);
-    }
-    // Next get stats
-    if (stats) {
-        get_stats_from_json(dd, stats);
-    }
-    // Next get 8 tuple
-    if (tuple) {
-        get_8tuple_from_json(dd, tuple);
-    }
-}
-
-// Get UUID and stats and 8-tuple
-void query_result_unit_t::get_uuid_stats_8tuple(boost::uuids::uuid& u,
-       flow_stats& stats, flow_tuple& tuple) const
-{
-    QE_ASSERT(info.size() == 1);
-    const GenDb::DbDataValue &val(info[0]);
-    QE_ASSERT(val.which() == GenDb::DB_VALUE_STRING);
-    std::string jsonline(boost::get<std::string>(val));
-    get_uuid_stats_8tuple_from_json(jsonline, &u, &stats, &tuple);
 }
 
 query_status_t AnalyticsQuery::process_query()
@@ -1345,12 +1179,8 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
                 qp.maxChunks, this);
 
     if (!q->is_stat_table_query(q->table())
-#ifndef USE_SESSION
-        && !q->is_session_query(q->table())) {
-#else
         && !q->is_session_query(q->table())
         && !q->is_flow_query(q->table())) {
-#endif
         QE_TRACE_NOQID(DEBUG, "MultiMap merge_final is for Stats only");
         delete q;
         return false;
@@ -1478,29 +1308,6 @@ std::ostream &operator<<(std::ostream &out, query_result_unit_t& res)
         boost::uuids::uuid tmp_u;
         res.get_uuid(tmp_u);
         out << " UUID:" << tmp_u;
-    } else if (res.info.length() == 48) {
-        boost::uuids::uuid tmp_u; flow_stats tmp_stats; 
-        res.get_uuid_stats(tmp_u, tmp_stats);
-        out << " UUID:" << tmp_u << 
-            " Bytes: " << tmp_stats.bytes <<
-            " Pkts: " << tmp_stats.pkts <<
-            " Short-Flow: " << tmp_stats.short_flow;
-    } else if (res.info.length() > 48) {
-        boost::uuids::uuid tmp_u; flow_stats tmp_stats; 
-            flow_tuple tmp_tuple;
-        res.get_uuid_stats_8tuple(tmp_u, tmp_stats, tmp_tuple);
-        out << " UUID:" << tmp_u << 
-            " SVN: " << tmp_tuple.source_vn <<
-            " DVN: " << tmp_tuple.dest_vn<<
-            " SIP: " << tmp_tuple.source_ip <<
-            " DIP: " << tmp_tuple.dest_ip <<
-            " PROTO: " << tmp_tuple.protocol <<
-            " SPORT: " << tmp_tuple.source_port <<
-            " DPORT: " << tmp_tuple.dest_port <<
-            " DIR: " << tmp_tuple.direction <<
-            " Bytes: " << tmp_stats.bytes <<
-            " Pkts: " << tmp_stats.pkts <<
-            " Short-Flow: " << tmp_stats.short_flow;
     }
 #endif
 
@@ -1677,15 +1484,6 @@ void TraceStatusReq::HandleRequest() const {
     resp->set_context(context());
     resp->set_more(false);
     resp->Response();
-}
-
-std::ostream& operator<<(std::ostream& out, const flow_tuple& ft) {
-    out << ft.vrouter << ":" << ft.source_vn << ":"  
-        << ft.dest_vn << ":" << ft.source_ip << ":"
-        << ft.dest_ip << ":" << ft.protocol << ":"
-        << ft.source_port << ":" << ft.dest_port << ":"
-        << ft.direction;
-    return out;
 }
 
 bool QueryEngine::GetDiffStats(std::vector<GenDb::DbTableInfo> *vdbti,

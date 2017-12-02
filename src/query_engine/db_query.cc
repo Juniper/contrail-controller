@@ -137,7 +137,6 @@ std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
                      part_no++) {
                 GenDb::DbDataValueVec tmp_rowkey(rowkey);
                 tmp_rowkey.push_back(part_no);
-#ifdef USE_SESSION
                 if (m_query->is_flow_query(m_query->table())) {
                     for (uint8_t is_si = 0; is_si < 2; is_si++) {
                         GenDb::DbDataValueVec tmp_rowkey2(tmp_rowkey);
@@ -151,16 +150,13 @@ std::vector<GenDb::DbDataValueVec> DbQueryUnit::populate_row_keys() {
                         }
                     }
                 } else {
-#endif
                     for (GenDb::DbDataValueVec::iterator it =
                             row_key_suffix.begin(); it!=row_key_suffix.end();
                             it++) {
                         tmp_rowkey.push_back(*it);
                     }
                     keys.push_back(tmp_rowkey);
-#ifdef USE_SESSION
                 }
-#endif
             }
         } else {
             if (!t_only_row)
@@ -295,12 +291,8 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
     try {
         GenDb::DbDataValueVec val = gri.get()->rowkey;
         t2 = boost::get<uint32_t>(val.at(0));
-#ifndef USE_SESSION
-        if (m_query->is_session_query(m_query->table())) {
-#else
         if (m_query->is_session_query(m_query->table())
             || m_query->is_flow_query(m_query->table())) {
-#endif
             session_type = boost::get<uint8_t>(val.at(3));
             is_si = boost::get<uint8_t>(val.at(2));
         }
@@ -341,20 +333,8 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
                 } catch (boost::bad_get& ex) {
                     assert(0);
                 }
-#ifndef USE_SESSION
-            } else if (m_query->is_flow_query(m_query->table())) {
-                int ts_at = i->name->size() - 2;
-                assert(ts_at >= 0);
-                try {
-                    t1 = boost::get<uint32_t>(i->name->at(ts_at));
-                } catch (boost::bad_get& ex) {
-                    assert(0);
-                }
-            } else if (m_query->is_session_query(m_query->table())) {
-#else
             } else if (m_query->is_session_query(m_query->table())
                       || m_query->is_flow_query(m_query->table())) {
-#endif
                 int ts_at = 2;
                 try {
                     t1 = boost::get<uint32_t>(i->name->at(ts_at));
@@ -413,12 +393,8 @@ void DbQueryUnit::cb(GenDb::DbOpResult::type dresult,
                 result_unit.set_stattable_info(
                     attribstr,
                     uuid);
-#ifndef USE_SESSION
-            } else if (m_query->is_session_query(m_query->table())) {
-#else
             } else if (m_query->is_session_query(m_query->table())
                       || m_query->is_flow_query(m_query->table())) {
-#endif
                 result_unit.info.clear();
                 result_unit.info.push_back(is_si);
                 result_unit.info.push_back(session_type);

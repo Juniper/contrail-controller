@@ -72,13 +72,8 @@ enum flow_dir_t {
 #define TIMESTAMP_GRANULARITY "T="
 #define SELECT_PACKETS "packets"
 #define SELECT_BYTES "bytes"
-#ifdef USE_SESSION
 #define SELECT_SUM_PACKETS "SUM(packets)"
 #define SELECT_SUM_BYTES "SUM(bytes)"
-#else
-#define SELECT_SUM_PACKETS "sum(packets)"
-#define SELECT_SUM_BYTES "sum(bytes)"
-#endif
 #define SELECT_FLOW_CLASS_ID "flow_class_id"
 #define SELECT_FLOW_COUNT "flow_count"
 #define SELECT_SESSION_CLASS_ID "session_class_id"
