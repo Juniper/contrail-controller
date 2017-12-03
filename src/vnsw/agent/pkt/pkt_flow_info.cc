@@ -109,6 +109,14 @@ bool PktFlowInfo::ComputeDirection(const Interface *intf) {
     return ret;
 }
 
+static bool IsVlanNH(const Agent *agent, uint32_t nh_id) {
+    const NextHop *in_nh = agent->nexthop_table()->FindNextHop(nh_id);
+    if (in_nh && in_nh->GetType() == NextHop::VLAN) {
+        return true;
+    }
+    return false;
+}
+
 // Get VRF corresponding to a NH
 static uint32_t NhToVrf(const NextHop *nh) {
     const VrfEntry *vrf = NULL;
@@ -282,7 +290,9 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
         // Packet going out on tunnel. Assume NH in reverse flow is same as
         // that of forward flow. It can be over-written down if route for
         // source-ip is ECMP
-        out->nh_ = in->nh_;
+        if (!IsVlanNH(agent, in->nh_) || !info->ingress) {
+            out->nh_ = in->nh_;
+        }
 
         // The NH in reverse flow can change only if ECMP-NH is used. There is
         // no ECMP for layer2 flows
@@ -1643,6 +1653,11 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
                           PktControlInfo *out) {
     in->intf_ = agent->interface_table()->FindInterface(pkt->agent_hdr.ifindex);
     out->nh_ = in->nh_ = pkt->agent_hdr.nh;
+    /* If packet is coming on VlanNH, overwrite the out NH to point to
+     * flow_key_nh of ingress interface */
+    if (IsVlanNH(agent, in->nh_)) {
+        out->nh_ = in->intf_->flow_key_nh()->id();
+    }
     in->vrf_ = agent->vrf_table()->FindVrfFromId(pkt->agent_hdr.vrf);
 
     if (ValidateConfig(pkt, in) == false) {

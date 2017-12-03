@@ -311,7 +311,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active,
     /////////////////////////////////////////////////////////////////////////
     // PHASE-1 Updates follows.
     //
-    // Changes independnt of any state
+    // Changes independent of any state
     // NOTE: Dont move updates below across PHASE-1 block
     /////////////////////////////////////////////////////////////////////////
 
@@ -2474,6 +2474,7 @@ void VmInterface::ServiceVlan::Update(const Agent *agent,
     if (label_ == MplsTable::kInvalidLabel) {
         AddCommon(agent, vmi);
     }
+    label_ = ComputeLabel(vmi);
 
     SecurityGroupList sg_id_list;
     vmi->CopySgIdList(&sg_id_list);
@@ -2523,9 +2524,19 @@ void VmInterface::ServiceVlan::DeleteCommon(const VmInterface *vmi) const {
         table->Delete(vmi->peer(), vrf_->GetName(), smac_, 0);
     }
 
-    VrfAssignTable::DeleteVlan(vmi->GetUuid(), tag_);
-    VlanNH::Delete(vmi->GetUuid(), tag_);
+    VrfAssignTable::DeleteVlan(vmi->GetUuid(), true, tag_);
+    VrfAssignTable::DeleteVlan(vmi->GetUuid(), false, tag_);
+    VlanNH::DeleteNH(vmi->GetUuid(), tag_);
+    policy_disabled_nh_ = NULL;
+    policy_enabled_nh_ = NULL;
     label_ = MplsTable::kInvalidLabel;
+}
+
+uint32_t VmInterface::ServiceVlan::ComputeLabel(const VmInterface *vmi) const {
+    if (vmi->policy_enabled()) {
+        return policy_enabled_nh_->mpls_label()->label();
+    }
+    return policy_disabled_nh_->mpls_label()->label();
 }
 
 void VmInterface::ServiceVlan::AddCommon(const Agent *agent,
@@ -2534,13 +2545,19 @@ void VmInterface::ServiceVlan::AddCommon(const Agent *agent,
         return;
 
     assert(vrf_);
-    VlanNH::Create(vmi->GetUuid(), tag_, vrf_name_, smac_, dmac_);
-    VrfAssignTable::CreateVlan(vmi->GetUuid(), vrf_name_, tag_);
+    VlanNH::CreateNH(vmi->GetUuid(), tag_, vrf_name_, smac_, dmac_);
+    VrfAssignTable::CreateVlan(vmi->GetUuid(), true, vrf_name_, tag_);
+    VrfAssignTable::CreateVlan(vmi->GetUuid(), false, vrf_name_, tag_);
     // Assign label_ from vlan NH db entry
-    VlanNHKey key(vmi->GetUuid(), tag_);
-    const NextHop *nh = static_cast<const NextHop *>
+    VlanNHKey key(vmi->GetUuid(), tag_, false);
+    VlanNH *nh = static_cast<VlanNH *>
         (agent->nexthop_table()->FindActiveEntry(&key));
-    label_ = nh->mpls_label()->label();
+    policy_disabled_nh_ = nh;
+
+    VlanNHKey key1(vmi->GetUuid(), tag_, true);
+    nh = static_cast<VlanNH *>
+        (agent->nexthop_table()->FindActiveEntry(&key1));
+    policy_enabled_nh_ = nh;
 
     // With IRB model, add L2 Receive route for SMAC and DMAC to ensure
     // packets from service vm go thru routing

@@ -445,7 +445,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     EXPECT_TRUE(rt != NULL);
     const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
     ComponentNHKeyPtr comp_nh(new ComponentNHKey(rt->GetActiveLabel(),
-        vlan_nh->GetVlanTag(), vlan_nh->GetIfUuid()));
+        vlan_nh->GetVlanTag(), vlan_nh->GetIfUuid(), false));
     uint32_t vlan_label = rt->GetActiveLabel();
     comp_nh_list.push_back(comp_nh);
     AddRemoteEcmpRoute("vrf10", "11.1.1.0", 24, "vn11", 1, comp_nh_list);
@@ -1178,7 +1178,8 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
     ComponentNHKeyList comp_nh_list;
     const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(
-        rt->GetActiveLabel(), vlan_nh->GetVlanTag(), vlan_nh->GetIfUuid()));
+        rt->GetActiveLabel(), vlan_nh->GetVlanTag(), vlan_nh->GetIfUuid(),
+        false));
     comp_nh_list.push_back(comp_nh_data);
 
     //Leak a aggregarate route to service VRF
@@ -1276,7 +1277,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
     ComponentNHKeyPtr comp_nh_data(new ComponentNHKey(
         rt->GetActiveLabel(), vlan_nh->GetVlanTag(),
-        vlan_nh->GetIfUuid()));
+        vlan_nh->GetIfUuid(), false));
     comp_nh_list.push_back(comp_nh_data);
 
     //Leak a aggregarate route to service VRF

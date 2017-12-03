@@ -335,7 +335,8 @@ void VlanMplsBackUpResourceTable::RestoreResource() {
         VlanMplsResource sandesh_key = it->second;
         VlanNHKey *vlan_nh_key = new VlanNHKey(
                                          StringToUuid(sandesh_key.get_uuid()),
-                                         sandesh_key.get_tag());
+                                         sandesh_key.get_tag(),
+                                         sandesh_key.get_policy());
         ResourceManager::KeyPtr key(new NexthopIndexResourceKey(
                                     backup_manager()->resource_manager(),
                                     vlan_nh_key));

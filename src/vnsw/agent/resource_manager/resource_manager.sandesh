@@ -33,6 +33,7 @@ struct VlanMplsResource {
     1: string uuid;
     2: u16 tag;
     3: u64 time_stamp;
+    4: bool policy;
 }
 
 /**

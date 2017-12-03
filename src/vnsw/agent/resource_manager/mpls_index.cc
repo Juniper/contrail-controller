@@ -153,6 +153,7 @@ void NexthopIndexResourceKey::BackupVlanResource(ResourceData *data,
         VlanMplsResource backup_data;
         backup_data.set_uuid(UuidToString(vlan_nh_key->GetUuid()));
         backup_data.set_tag(vlan_nh_key->vlan_tag());
+        backup_data.set_policy(vlan_nh_key->GetPolicy());
         backup_data.set_time_stamp(UTCTimestampUsec());
         rm()->backup_mgr()->sandesh_maps().AddVlanMplsResourceEntry(
                 index_data->index(), backup_data);

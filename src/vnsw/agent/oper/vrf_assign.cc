@@ -30,13 +30,13 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
     VrfAssign *assign = NULL;
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, key->intf_uuid_, "");
-    Interface *intrface = static_cast<Interface *>
+    Interface *interface = static_cast<Interface *>
         (agent()->interface_table()->Find(&intf_key, true));
 
     switch (key->type_) {
     case VrfAssign::VLAN: {
         VlanVrfAssign *vlan_assign = 
-            new VlanVrfAssign(intrface, key->vlan_tag_);
+            new VlanVrfAssign(interface, key->vlan_tag_, key->policy_);
         assign = static_cast<VrfAssign *>(vlan_assign);
     }
     break;
@@ -84,12 +84,12 @@ VrfEntry *VrfAssignTable::FindVrf(const string &name) {
 }
 
 void VrfAssignTable::CreateVlanReq(const boost::uuids::uuid &intf_uuid,
-        const std::string &vrf_name, uint16_t vlan_tag) {
+    bool policy, const std::string &vrf_name, uint16_t vlan_tag) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     VrfAssign::VrfAssignKey *key = new VrfAssign::VrfAssignKey();
-    key->VlanInit(intf_uuid, vlan_tag);
+    key->VlanInit(intf_uuid, vlan_tag, policy);
     req.key.reset(key);
 
     VrfAssign::VrfAssignData *data = new VrfAssign::VrfAssignData(vrf_name);
@@ -100,12 +100,12 @@ void VrfAssignTable::CreateVlanReq(const boost::uuids::uuid &intf_uuid,
 }
 
 void VrfAssignTable::DeleteVlanReq(const boost::uuids::uuid &intf_uuid,
-        uint16_t vlan_tag) {
+    bool policy, uint16_t vlan_tag) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     VrfAssign::VrfAssignKey *key = new VrfAssign::VrfAssignKey();
-    key->VlanInit(intf_uuid, vlan_tag);
+    key->VlanInit(intf_uuid, vlan_tag, policy);
     req.key.reset(key);
 
     req.data.reset(NULL);
@@ -114,12 +114,12 @@ void VrfAssignTable::DeleteVlanReq(const boost::uuids::uuid &intf_uuid,
 }
 
 void VrfAssignTable::CreateVlan(const boost::uuids::uuid &intf_uuid,
-        const std::string &vrf_name, uint16_t vlan_tag) {
+    bool policy, const std::string &vrf_name, uint16_t vlan_tag) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     VrfAssign::VrfAssignKey *key = new VrfAssign::VrfAssignKey();
-    key->VlanInit(intf_uuid, vlan_tag);
+    key->VlanInit(intf_uuid, vlan_tag, policy);
     req.key.reset(key);
 
     VrfAssign::VrfAssignData *data = new VrfAssign::VrfAssignData(vrf_name);
@@ -130,12 +130,12 @@ void VrfAssignTable::CreateVlan(const boost::uuids::uuid &intf_uuid,
 }
 
 void VrfAssignTable::DeleteVlan(const boost::uuids::uuid &intf_uuid,
-        uint16_t vlan_tag) {
+    bool policy, uint16_t vlan_tag) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     VrfAssign::VrfAssignKey *key = new VrfAssign::VrfAssignKey();
-    key->VlanInit(intf_uuid, vlan_tag);
+    key->VlanInit(intf_uuid, vlan_tag, policy);
     req.key.reset(key);
 
     req.data.reset(NULL);
@@ -144,9 +144,9 @@ void VrfAssignTable::DeleteVlan(const boost::uuids::uuid &intf_uuid,
 }
 
 VrfAssign *VrfAssignTable::FindVlanReq(const boost::uuids::uuid &intf_uuid,
-                                       uint16_t vlan_tag) {
+                                       bool policy, uint16_t vlan_tag) {
     VrfAssign::VrfAssignKey key;
-    key.VlanInit(intf_uuid, vlan_tag);
+    key.VlanInit(intf_uuid, vlan_tag, policy);
     return static_cast<VrfAssign *>(vrf_assign_table_->FindActiveEntry(&key));
 }
 
@@ -161,6 +161,10 @@ bool VrfAssign::IsLess(const DBEntry &rhs) const {
 
     if (interface_.get() != vassign.interface_.get()) {
         return interface_.get() < vassign.interface_.get();
+    }
+
+    if (policy_ != vassign.policy_) {
+        return policy_ < vassign.policy_;
     }
 
     return VrfAssignIsLess(vassign);
@@ -188,7 +192,7 @@ bool VlanVrfAssign::VrfAssignChange(const DBRequest *req) {
     bool ret = false;
     const VrfAssign::VrfAssignKey *key =
         static_cast<const VrfAssign::VrfAssignKey *>(req->key.get());
-    VlanNHKey nh_key(key->intf_uuid_, key->vlan_tag_);
+    VlanNHKey nh_key(key->intf_uuid_, key->vlan_tag_, key->policy_);
     Agent *agent = Agent::GetInstance();
     const NextHop *nh =  static_cast<NextHop *>
         (agent->nexthop_table()->FindActiveEntry(&nh_key));
@@ -210,7 +214,12 @@ bool VlanVrfAssign::VrfAssignIsLess(const VrfAssign &rhs) const {
 
 DBEntryBase::KeyPtr VlanVrfAssign::GetDBRequestKey() const {
     VrfAssignKey *key = new VrfAssignKey();
-    key->VlanInit(interface_->GetUuid(), vlan_tag_);
+    bool policy = false;
+    if (interface_->type() == Interface::VM_INTERFACE) {
+        VmInterface *vmi = static_cast<VmInterface *>(interface_.get());
+        policy = vmi->policy_enabled();
+    }
+    key->VlanInit(interface_->GetUuid(), vlan_tag_, policy);
     return DBEntryBase::KeyPtr(key);
 }
 

@@ -87,9 +87,9 @@ public:
         EXPECT_TRUE(VmPortActive(1));
         VmInterface *intrface = static_cast<VmInterface *>(VmPortGet(1));
         MacAddress mac;
-        VlanNH::CreateReq(intrface->GetUuid(), 1, "vrf1", mac, mac);
+        VlanNH::CreateReq(intrface->GetUuid(), 1, false, "vrf1", mac, mac);
         client->WaitForIdle();
-        VlanNHKey key(intrface->GetUuid(), 1);
+        VlanNHKey key(intrface->GetUuid(), 1, false);
         vlan_nh_ = static_cast<NextHop *>(agent_->nexthop_table()->
                        FindActiveEntry(&key));
     }
@@ -98,7 +98,7 @@ public:
         VmInterface *intrface = static_cast<VmInterface *>(VmPortGet(1));
         trigger_.Set();
         client->WaitForIdle();
-        VlanNH::DeleteReq(intrface->GetUuid(), 1);
+        VlanNH::DeleteReq(intrface->GetUuid(), 1, false);
         DeleteVmportEnv(input1, 1, true);
         client->WaitForIdle();
         EXPECT_FALSE(VmPortActive(1));
@@ -112,9 +112,9 @@ public:
 };
 
 TEST_F(VrfAssignTest, basic_1) {
-    VrfAssignTable::CreateVlanReq(MakeUuid(1), "vrf1", 1);
+    VrfAssignTable::CreateVlanReq(MakeUuid(1), false, "vrf1", 1);
     client->WaitForIdle();
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), false, 1) != NULL);
 
     //Check for sandesh request
     VrfAssignReq *vrf_assign_list_req = new VrfAssignReq();
@@ -126,15 +126,15 @@ TEST_F(VrfAssignTest, basic_1) {
     vrf_assign_list_req->Release();
     client->WaitForIdle();
 
-    VrfAssignTable::DeleteVlanReq(MakeUuid(1), 1);
+    VrfAssignTable::DeleteVlanReq(MakeUuid(1), false, 1);
     client->WaitForIdle();
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) == NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), false, 1) == NULL);
 }
 
 TEST_F(VrfAssignTest, basic_1_invalid_vrf) {
-    VrfAssignTable::CreateVlanReq(MakeUuid(1), "vrf2", 1);
+    VrfAssignTable::CreateVlanReq(MakeUuid(1), false, "vrf2", 1);
     client->WaitForIdle();
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), false, 1) != NULL);
 
     //Check for sandesh request
     VrfAssignReq *vrf_assign_list_req = new VrfAssignReq();
@@ -146,20 +146,20 @@ TEST_F(VrfAssignTest, basic_1_invalid_vrf) {
     vrf_assign_list_req->Release();
     client->WaitForIdle();
 
-    VrfAssignTable::DeleteVlanReq(MakeUuid(1), 1);
+    VrfAssignTable::DeleteVlanReq(MakeUuid(1), false, 1);
     client->WaitForIdle();
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) == NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), false, 1) == NULL);
 }
 
 TEST_F(VrfAssignTest, Check_key_manipulations) {
-    VrfAssignTable::CreateVlanReq(MakeUuid(1), "vrf2", 1);
+    VrfAssignTable::CreateVlanReq(MakeUuid(1), false, "vrf2", 1);
     client->WaitForIdle();
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), false, 1) != NULL);
 
     Interface *intrface = VrfAssignTable::FindInterface(MakeUuid(1));
     EXPECT_TRUE(intrface != NULL);
     //Verify key
-    VrfAssign *vrf_assign = VrfAssignTable::FindVlanReq(MakeUuid(1), 1);
+    VrfAssign *vrf_assign = VrfAssignTable::FindVlanReq(MakeUuid(1), false, 1);
     DBEntryBase::KeyPtr tmp_key = vrf_assign->GetDBRequestKey();
     VrfAssign::VrfAssignKey *key = 
         static_cast<VrfAssign::VrfAssignKey *>(tmp_key.get());
@@ -169,15 +169,15 @@ TEST_F(VrfAssignTest, Check_key_manipulations) {
     EXPECT_TRUE(key->intf_uuid_ == MakeUuid(1));
     EXPECT_TRUE(key->type_ == VrfAssign::VLAN);
     std::auto_ptr<VrfAssign::VrfAssignKey> new_key(new VrfAssign::VrfAssignKey());
-    new_key->VlanInit(MakeUuid(1), 2); 
+    new_key->VlanInit(MakeUuid(1), 2, false);
     vlan_vrf_assign->SetKey(new_key.get());
     EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 2);
     vrf_assign->SetKey(key);
     EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 1);
 
-    VrfAssignTable::DeleteVlanReq(MakeUuid(1), 1);
+    VrfAssignTable::DeleteVlanReq(MakeUuid(1), false, 1);
     client->WaitForIdle();
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) == NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), false, 1) == NULL);
 }
 
 TEST_F(VrfAssignTest, AddDelete) {
@@ -206,7 +206,7 @@ TEST_F(VrfAssignTest, AddDelete) {
             "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("service-vrf1", "10.1.1.2", 32));
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 2) != NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), false, 2) != NULL);
 
     DBRequest request2;
     intf_table->VmiProcessConfig(node, request2, u);
@@ -224,7 +224,7 @@ TEST_F(VrfAssignTest, AddDelete) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(1));
     EXPECT_FALSE(RouteFind("service-vrf1", "10.1.1.2", 32));
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 2) == NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), false, 2) == NULL);
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "routing-instance", "service-vrf1");
     DelVmPortVrf("ser1");

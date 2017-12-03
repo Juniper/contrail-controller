@@ -1592,8 +1592,9 @@ bool TunnelNHFind(const Ip4Address &server_ip) {
 }
 
 bool VlanNhFind(int id, uint16_t tag) {
-    VlanNHKey key(MakeUuid(id), tag);
-    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->FindActiveEntry(&key));
+    VlanNHKey key(MakeUuid(id), tag, false);
+    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->nexthop_table()->
+                                         FindActiveEntry(&key));
     return (nh != NULL);
 }
 

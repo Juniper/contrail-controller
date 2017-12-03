@@ -90,7 +90,7 @@ public:
     virtual void TearDown() {
         DoInterfaceSandesh("");
         client->WaitForIdle();
-        WAIT_FOR(100, 1000, (agent->interface_table()->Size() == intf_count));
+        WAIT_FOR(1000, 1000, (agent->interface_table()->Size() == intf_count));
         WAIT_FOR(100, 1000, (agent->vrf_table()->Size() == 2U));
         WAIT_FOR(100, 1000, (agent->vm_table()->Size() == 0U));
         WAIT_FOR(100, 1000, (agent->vn_table()->Size() == 0U));
@@ -2015,10 +2015,13 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_3) {
     service_ip = Ip4Address::from_string("2.2.2.100");
     EXPECT_FALSE(RouteFind("vrf2", service_ip, 32));
 
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(vm_intf != NULL);
+    bool pol = vm_intf->policy_enabled();
     //Verify vrf assign rule and NH are deleted
-    VlanNHKey vlan_nh_key(MakeUuid(1), 10);
+    VlanNHKey vlan_nh_key(MakeUuid(1), 10, pol);
     EXPECT_FALSE(FindNH(&vlan_nh_key));
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 10) == NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), pol, 10) == NULL);
 
     //Activate VM
     AddLink("virtual-network", "vn1", "virtual-machine-interface",
@@ -2028,7 +2031,7 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_3) {
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
     EXPECT_TRUE(FindNH(&vlan_nh_key));
-    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 10) != NULL);
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), pol, 10) != NULL);
 
     //Clean up
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",

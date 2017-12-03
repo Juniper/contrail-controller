@@ -1356,7 +1356,7 @@ bool VlanNH::CanAdd() const {
 NextHop *VlanNHKey::AllocEntry() const {
     Interface *intf = static_cast<Interface *>
         (Agent::GetInstance()->interface_table()->Find(intf_key_.get(), true));
-    return new VlanNH(intf, vlan_tag_);
+    return new VlanNH(intf, vlan_tag_, policy_);
 }
 
 bool VlanNH::NextHopIsLess(const DBEntry &rhs) const {
@@ -1370,7 +1370,7 @@ bool VlanNH::NextHopIsLess(const DBEntry &rhs) const {
 }
 
 VlanNH::KeyPtr VlanNH::GetDBRequestKey() const {
-    VlanNHKey *key = new VlanNHKey(interface_->GetUuid(), vlan_tag_);
+    VlanNHKey *key = new VlanNHKey(interface_->GetUuid(), vlan_tag_, policy_);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -1410,14 +1410,23 @@ const uuid &VlanNH::GetIfUuid() const {
     return interface_->GetUuid();
 }
 
+void VlanNH::CreateNH(const uuid &intf_uuid, uint16_t vlan_tag,
+                      const string &vrf_name, const MacAddress &smac,
+                      const MacAddress &dmac) {
+    //Create policy-enabled NH
+    VlanNH::Create(intf_uuid, vlan_tag, true, vrf_name, smac, dmac);
+    //Create policy-disabled NH
+    VlanNH::Create(intf_uuid, vlan_tag, false, vrf_name, smac, dmac);
+}
+
 // Create VlanNH for a VPort
-void VlanNH::Create(const uuid &intf_uuid, uint16_t vlan_tag,
+void VlanNH::Create(const uuid &intf_uuid, uint16_t vlan_tag, bool policy,
                     const string &vrf_name, const MacAddress &smac,
                     const MacAddress &dmac) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new VlanNHKey(intf_uuid, vlan_tag);
+    NextHopKey *key = new VlanNHKey(intf_uuid, vlan_tag, policy);
     req.key.reset(key);
 
     VlanNHData *data = new VlanNHData(vrf_name, smac, dmac);
@@ -1425,11 +1434,16 @@ void VlanNH::Create(const uuid &intf_uuid, uint16_t vlan_tag,
     NextHopTable::GetInstance()->Process(req);
 }
 
-void VlanNH::Delete(const uuid &intf_uuid, uint16_t vlan_tag) {
+void VlanNH::DeleteNH(const uuid &intf_uuid, uint16_t vlan_tag) {
+    VlanNH::Delete(intf_uuid, vlan_tag, true);
+    VlanNH::Delete(intf_uuid, vlan_tag, false);
+}
+
+void VlanNH::Delete(const uuid &intf_uuid, uint16_t vlan_tag, bool policy) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    NextHopKey *key = new VlanNHKey(intf_uuid, vlan_tag);
+    NextHopKey *key = new VlanNHKey(intf_uuid, vlan_tag, policy);
     req.key.reset(key);
 
     req.data.reset(NULL);
@@ -1437,20 +1451,20 @@ void VlanNH::Delete(const uuid &intf_uuid, uint16_t vlan_tag) {
 }
 
 // Create VlanNH for a VPort
-void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
+void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag, bool policy,
                     const string &vrf_name, const MacAddress &smac,
                     const MacAddress &dmac) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new VlanNHKey(intf_uuid, vlan_tag));
+    req.key.reset(new VlanNHKey(intf_uuid, vlan_tag, policy));
     req.data.reset(new VlanNHData(vrf_name, smac, dmac));
     NextHopTable::GetInstance()->Enqueue(&req);
 }
 
-void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
+void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag, bool policy) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    NextHopKey *key = new VlanNHKey(intf_uuid, vlan_tag);
+    NextHopKey *key = new VlanNHKey(intf_uuid, vlan_tag, policy);
     req.key.reset(key);
 
     req.data.reset(NULL);
@@ -1458,8 +1472,8 @@ void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
 }
 
 
-VlanNH *VlanNH::Find(const uuid &intf_uuid, uint16_t vlan_tag) {
-    VlanNHKey key(intf_uuid, vlan_tag);
+VlanNH *VlanNH::Find(const uuid &intf_uuid, uint16_t vlan_tag, bool policy) {
+    VlanNHKey key(intf_uuid, vlan_tag, policy);
     return static_cast<VlanNH *>(NextHopTable::GetInstance()->FindActiveEntry(&key));
 }
 
@@ -1476,6 +1490,11 @@ void VlanNH::SendObjectLog(const NextHopTable *table,
     FillObjectLogMac(m, info);
 
     info.set_vlan_tag((short int)GetVlanTag());
+    if (policy_) {
+        info.set_policy("enabled");
+    } else {
+        info.set_policy("disabled");
+    }
     OPER_TRACE_ENTRY(NextHop, table, info);
 }
 

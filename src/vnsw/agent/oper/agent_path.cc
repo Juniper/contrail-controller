@@ -175,10 +175,20 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route) {
 }
 
 bool AgentPath::UpdateNHPolicy(Agent *agent) {
-    bool ret = false;
-    if (nh_.get() == NULL || nh_->GetType() != NextHop::INTERFACE) {
-        return ret;
+    if (nh_.get() == NULL) {
+        return false;
     }
+
+    if (nh_->GetType() == NextHop::INTERFACE) {
+        return UpdateInterfaceNHPolicy(agent);
+    } else if (nh_->GetType() == NextHop::VLAN) {
+        return UpdateVlanNHPolicy(agent);
+    }
+    return false;
+}
+
+bool AgentPath::UpdateInterfaceNHPolicy(Agent *agent) {
+    bool ret = false;
 
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh_.get());
     if (intf_nh->GetInterface()->type() != Interface::VM_INTERFACE) {
@@ -206,6 +216,43 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
         if (nh == NULL) {
             LOG(DEBUG, "Interface NH for <" 
                 << boost::lexical_cast<std::string>(vm_port->GetUuid())
+                << " : policy = " << policy);
+            nh = agent->nexthop_table()->discard_nh();
+        }
+        if (ChangeNH(agent, nh) == true) {
+            ret = true;
+        }
+    }
+
+    return ret;
+}
+
+bool AgentPath::UpdateVlanNHPolicy(Agent *agent) {
+    bool ret = false;
+
+    const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh_.get());
+    const Interface *itf = vlan_nh->GetInterface();
+    if (!itf || itf->type() != Interface::VM_INTERFACE) {
+        return ret;
+    }
+
+    const VmInterface *vm_port = static_cast<const VmInterface *>(itf);
+
+    bool policy = vm_port->policy_enabled();
+    if (force_policy_) {
+        policy = true;
+    }
+
+    NextHop *nh = NULL;
+    if (vlan_nh->PolicyEnabled() != policy) {
+        VlanNHKey key(vlan_nh->GetIfUuid(), vlan_nh->GetVlanTag(), policy);
+        nh = static_cast<NextHop *>
+            (agent->nexthop_table()->FindActiveEntry(&key));
+        // If NH is not found, point route to discard NH
+        if (nh == NULL) {
+            LOG(DEBUG, "Vlan NH for <"
+                << boost::lexical_cast<std::string>(vm_port->GetUuid())
+                << " : vlan tag = " << vlan_nh->GetVlanTag()
                 << " : policy = " << policy);
             nh = agent->nexthop_table()->discard_nh();
         }
@@ -897,7 +944,7 @@ bool VlanNhRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     TagList path_tag_list;
 
     assert(intf_.type_ == Interface::VM_INTERFACE);
-    VlanNHKey key(intf_.uuid_, tag_);
+    VlanNHKey key(intf_.uuid_, tag_, false);
 
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     if (nh) {

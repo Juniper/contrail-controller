@@ -27,11 +27,14 @@ public:
         VrfAssign::Type type_;
         boost::uuids::uuid intf_uuid_;
         uint16_t vlan_tag_;
+        bool policy_;
 
-        void VlanInit(const boost::uuids::uuid intf_uuid, uint16_t vlan_tag) {
+        void VlanInit(const boost::uuids::uuid intf_uuid, uint16_t vlan_tag,
+                      bool policy) {
             type_ = VLAN;
             intf_uuid_ = intf_uuid;
             vlan_tag_ = vlan_tag;
+            policy_ = policy;
         };
     };
 
@@ -43,9 +46,10 @@ public:
         const std::string vrf_name_;
     };
 
-    VrfAssign(Type type, Interface *intrface)
-        : type_(type), interface_(intrface), vrf_(NULL, this) { };
-    virtual ~VrfAssign() { };
+    VrfAssign(Type type, Interface *interface, bool policy)
+        : type_(type), interface_(interface), vrf_(NULL, this), policy_(policy)
+    { }
+    virtual ~VrfAssign() { }
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VrfAssign>::GetRefCount();
@@ -56,9 +60,10 @@ public:
     virtual bool VrfAssignIsLess(const VrfAssign &rhs) const = 0;
     virtual bool VrfAssignChange(const DBRequest *req) {return false;};
 
-    const Type GetType() const {return type_;};
-    const Interface *GetInterface() const {return interface_.get();};
-    const VrfEntry *GetVrf() const {return vrf_.get();};
+    const Type GetType() const { return type_; }
+    const Interface *GetInterface() const { return interface_.get(); }
+    const VrfEntry *GetVrf() const { return vrf_.get(); }
+    bool policy() const { return policy_; }
 
 protected:
     friend class VrfAssignTable;
@@ -66,6 +71,7 @@ protected:
     Type type_;
     InterfaceRef interface_;
     VrfEntryRef vrf_;
+    bool policy_;
 private:
     DISALLOW_COPY_AND_ASSIGN(VrfAssign);
 };
@@ -75,8 +81,8 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class VlanVrfAssign : public VrfAssign {
 public:
-    VlanVrfAssign(Interface *intrface, uint16_t vlan_tag):
-        VrfAssign(VLAN, intrface), vlan_tag_(vlan_tag), nh_(NULL) {}
+    VlanVrfAssign(Interface *interface, uint16_t vlan_tag, bool policy):
+        VrfAssign(VLAN, interface, policy), vlan_tag_(vlan_tag), nh_(NULL) {}
     virtual ~VlanVrfAssign() {}
     bool VrfAssignIsLess(const VrfAssign &rhs) const;
 
@@ -119,15 +125,15 @@ public:
     static VrfEntry *FindVrf(const std::string &name);
 
     static void CreateVlanReq(const boost::uuids::uuid &intf_uuid,
-            const std::string &vrf_name, uint16_t vlan_tag);
+        bool policy, const std::string &vrf_name, uint16_t vlan_tag);
     static void DeleteVlanReq(const boost::uuids::uuid &intf_uuid,
-                              uint16_t vlan_tag);
+        bool policy, uint16_t vlan_tag);
     static void CreateVlan(const boost::uuids::uuid &intf_uuid,
-            const std::string &vrf_name, uint16_t vlan_tag);
+        bool policy, const std::string &vrf_name, uint16_t vlan_tag);
     static void DeleteVlan(const boost::uuids::uuid &intf_uuid,
-                           uint16_t vlan_tag);
+        bool policy, uint16_t vlan_tag);
     static VrfAssign *FindVlanReq(const boost::uuids::uuid &intf_uuid,
-                                  uint16_t vlan_tag);
+                                  bool policy, uint16_t vlan_tag);
 
 private:
     static VrfAssignTable *vrf_assign_table_;

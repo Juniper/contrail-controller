@@ -1288,20 +1288,20 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class VlanNHKey : public NextHopKey {
 public:
-    VlanNHKey(const uuid &vm_port_uuid, uint16_t vlan_tag) :
-        NextHopKey(NextHop::VLAN, false), 
+    VlanNHKey(const uuid &vm_port_uuid, uint16_t vlan_tag, bool policy) :
+        NextHopKey(NextHop::VLAN, policy),
         intf_key_(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, vm_port_uuid,
                                      "")),
         vlan_tag_(vlan_tag) {
     }
-    VlanNHKey(InterfaceKey *key, uint16_t vlan_tag) :
-        NextHopKey(NextHop::VLAN, false), intf_key_(key), vlan_tag_(vlan_tag) {
+    VlanNHKey(InterfaceKey *key, uint16_t vlan_tag, bool policy) :
+        NextHopKey(NextHop::VLAN, policy), intf_key_(key), vlan_tag_(vlan_tag) {
     }
     
     virtual ~VlanNHKey() {}
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
-        return new VlanNHKey(intf_key_->Clone(), vlan_tag_);
+        return new VlanNHKey(intf_key_->Clone(), vlan_tag_, policy_);
     }
     virtual bool NextHopKeyIsLess(const NextHopKey &rhs) const {
         const VlanNHKey &key = static_cast<const VlanNHKey &>(rhs);
@@ -1337,8 +1337,8 @@ private:
 
 class VlanNH : public NextHop {
 public:
-    VlanNH(Interface *intf, uint32_t vlan_tag):
-        NextHop(VLAN, true, false), interface_(intf), vlan_tag_(vlan_tag),
+    VlanNH(Interface *intf, uint32_t vlan_tag, bool policy):
+        NextHop(VLAN, true, policy), interface_(intf), vlan_tag_(vlan_tag),
         smac_(), dmac_(), vrf_(NULL, this) { };
     virtual ~VlanNH() { };
 
@@ -1357,16 +1357,21 @@ public:
     const VrfEntry *GetVrf() const {return vrf_.get();};
     const MacAddress &GetSMac() const {return smac_;};
     const MacAddress &GetDMac() const {return dmac_;};
-    static VlanNH *Find(const uuid &intf_uuid, uint16_t vlan_tag);
+    static VlanNH *Find(const uuid &intf_uuid, uint16_t vlan_tag, bool policy);
 
-    static void Create(const uuid &intf_uuid, uint16_t vlan_tag,
+    static void CreateNH(const uuid &intf_uuid, uint16_t vlan_tag,
+                         const std::string &vrf_name, const MacAddress &smac,
+                         const MacAddress &dmac);
+    static void Create(const uuid &intf_uuid, uint16_t vlan_tag, bool policy,
+                       const std::string &vrf_name, const MacAddress &smac,
+                       const MacAddress &dmac);
+    static void DeleteNH(const uuid &intf_uuid, uint16_t vlan_tag);
+    static void Delete(const uuid &intf_uuid, uint16_t vlan_tag, bool policy);
+    static void CreateReq(const uuid &intf_uuid, uint16_t vlan_tag, bool policy,
                           const std::string &vrf_name, const MacAddress &smac,
                           const MacAddress &dmac);
-    static void Delete(const uuid &intf_uuid, uint16_t vlan_tag);
-    static void CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
-                          const std::string &vrf_name, const MacAddress &smac,
-                          const MacAddress &dmac);
-    static void DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag);
+    static void DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag,
+                          bool policy);
 
     virtual bool MatchEgressData(const NextHop *nh) const {
         const VlanNH *vlan_nh = dynamic_cast<const VlanNH *>(nh);
@@ -1463,8 +1468,8 @@ public:
                     new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
                     false, flags, mac)) {
     }
-    ComponentNHKey(int label, uint8_t tag, const uuid &intf_uuid):
-        label_(label), nh_key_(new VlanNHKey(intf_uuid, tag)) {
+    ComponentNHKey(int label, uint8_t tag, const uuid &intf_uuid, bool policy):
+        label_(label), nh_key_(new VlanNHKey(intf_uuid, tag, policy)) {
     }
 
     ComponentNHKey(int label, const string &vrf_name, const Ip4Address &sip,

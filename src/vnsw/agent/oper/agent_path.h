@@ -357,6 +357,9 @@ public:
     void ResetEcmpHashFields();
 
 private:
+    bool UpdateVlanNHPolicy(Agent *agent);
+    bool UpdateInterfaceNHPolicy(Agent *agent);
+
     PeerConstPtr peer_;
     // Nexthop for route. Not used for gateway routes
     NextHopRef nh_;

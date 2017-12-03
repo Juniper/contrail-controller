@@ -707,7 +707,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     //VLAN nh
     MacAddress dst_vlan_mac("00:00:01:01:01:12");
     MacAddress src_vlan_mac("00:00:01:01:01:11");
-    VlanNHKey *vlan_nhkey = new VlanNHKey(MakeUuid(10), 100);
+    VlanNHKey *vlan_nhkey = new VlanNHKey(MakeUuid(10), 100, false);
     VlanNHData *vlan_nhdata = new VlanNHData("vrf10", src_vlan_mac, dst_vlan_mac);
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -728,7 +728,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     VlanNH *vlan_nh = static_cast<VlanNH *>(agent_->
                    nexthop_table()->FindActiveEntry(vlan_rt->
                    GetActivePath()->ComputeNextHop(agent_)->GetDBRequestKey().get()));
-    EXPECT_TRUE(vlan_nh == VlanNH::Find(MakeUuid(10), 100));
+    EXPECT_TRUE(vlan_nh == VlanNH::Find(MakeUuid(10), 100, false));
     vlan_nh->SetKey(vlan_nh->GetDBRequestKey().get());
 
     //Sandesh request
@@ -736,7 +736,7 @@ TEST_F(CfgTest, Nexthop_keys) {
 
     agent_->fabric_inet4_unicast_table()->DeleteReq(agent_->local_peer(),
                           "vrf10", Ip4Address::from_string("2.2.2.0"), 24, NULL);
-    VlanNHKey *del_vlan_nhkey = new VlanNHKey(MakeUuid(10), 100);
+    VlanNHKey *del_vlan_nhkey = new VlanNHKey(MakeUuid(10), 100, false);
     DBRequest del_nh_req;
     del_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
     del_nh_req.key.reset(del_vlan_nhkey);
@@ -873,11 +873,11 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     MacAddress vlan_smac("00:00:01:01:01:10");
     DBRequest vlan_nh_req;
     vlan_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    vlan_nh_req.key.reset(new VlanNHKey(MakeUuid(11), 11));
+    vlan_nh_req.key.reset(new VlanNHKey(MakeUuid(11), 11, false));
     vlan_nh_req.data.reset(new VlanNHData("vrf11", vlan_smac, vlan_dmac));
     agent_->nexthop_table()->Enqueue(&vlan_nh_req);
     client->WaitForIdle();
-    VlanNHKey find_vlan_nh_key(MakeUuid(11), 11);
+    VlanNHKey find_vlan_nh_key(MakeUuid(11), 11, false);
     EXPECT_TRUE(agent_->nexthop_table()->
                 FindActiveEntry(&find_vlan_nh_key) == NULL);
 

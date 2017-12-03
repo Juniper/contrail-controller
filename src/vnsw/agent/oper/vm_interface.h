@@ -136,7 +136,7 @@ class VmInterface;
 // - DEL_ADD :
 //   DEL_ADD operation results if there is change in key for the state
 //   resulting from the attribute. In this case, the old state must be
-//   Delete and then followed by Addd of state
+//   Delete and then followed by Add of state
 //
 // Guildelines for GetOpL2 and GetOpL3:
 // - Compute DEL cases
@@ -591,6 +591,7 @@ public:
                                      const VmInterface *vmi) const;
         bool AddL3(const Agent *agent, VmInterface *vmi) const;
         bool DeleteL3(const Agent *agent, VmInterface *vmi) const;
+        uint32_t ComputeLabel(const VmInterface *vmi) const;
 
         uint16_t tag_;
         mutable std::string vrf_name_;
@@ -602,6 +603,8 @@ public:
         mutable MacAddress dmac_;
         mutable VrfEntryRef vrf_;
         mutable uint32_t label_;
+        mutable NextHopRef policy_enabled_nh_;
+        mutable NextHopRef policy_disabled_nh_;
         mutable bool v4_rt_installed_;
         mutable bool v6_rt_installed_;
         mutable bool del_add_;
