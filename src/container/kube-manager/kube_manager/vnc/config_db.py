@@ -217,7 +217,7 @@ class DBBaseKM(DBBase):
 
     @staticmethod
     def _build_annotation_dict(annotation_dict):
-        return {annot['key']: annot['value']
+        return {str(annot['key']): str(annot['value'])
                       for annot
                       in annotation_dict['key_value_pair']} \
             if annotation_dict and annotation_dict.get('key_value_pair') \
@@ -309,7 +309,7 @@ class LoadbalancerKM(DBBaseKM):
                 name=lb.fq_name[-1],
                 fq_name=lb.fq_name,
                 annotations=lb_annotations,
-                external_ip=lb.external_ip,
+                external_ip=str(lb.external_ip),
                 lb_listeners=lb_listeners,
                 selectors=selectors,
                 vm_interfaces=vmis)
