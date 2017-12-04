@@ -7,7 +7,7 @@ SConscript(dirs=['lib', 'src'])
 env = DefaultEnvironment()
 env.Alias('controller/test', [
     'controller/src/agent:test',
-    'controller/src/analytics:test',
+    'src/contrail-analytics/contrail-collector:test',
     'controller/src/bfd:test',
     'controller/src/bgp:test',
     'controller/src/control-node:test',
@@ -16,8 +16,8 @@ env.Alias('controller/test', [
     'controller/src/database/gendb:test',
     'controller/src/ifmap:test',
     'controller/src/net:test',
-    'controller/src/opserver:test',
-    'controller/src/query_engine:test',
+    'src/contrail-analytics/contrail-opserver:test',
+    'src/contrail-analytics/contrail-query-engine:test',
     'controller/src/schema:test',
     'controller/src/xmpp:test',
     'controller/src/api-lib:test',
@@ -28,7 +28,7 @@ env.Alias('controller/test', [
 
 env.Alias('controller/flaky-test', [
     'controller/src/agent:flaky-test',
-    'controller/src/analytics:flaky-test',
+    'src/contrail-analytics/contrail-collector:flaky-test',
     'controller/src/bfd:flaky-test',
     'controller/src/bgp:flaky-test',
     #'controller/src/config:test',
