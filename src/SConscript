@@ -7,6 +7,8 @@
 
 import sys
 import platform
+Import('genv_base_doc_files')
+Import('genv_io_doc_files')
 
 subdirs = [
            'analytics',
@@ -80,18 +82,11 @@ if sys.platform.startswith('freebsd'):
 #
 
 # base
-base_doc_files = []
-base_doc_target = BuildEnv['TOP'] + '/base/sandesh/'
-base_doc_files += BuildEnv.SandeshGenDoc('#src/contrail-common/base/sandesh/cpuinfo.sandesh', base_doc_target)
-base_doc_files += BuildEnv.SandeshGenDoc('#src/contrail-common/base/sandesh/process_info.sandesh', base_doc_target)
-BuildEnv['BASE_DOC_FILES'] = base_doc_files
+BuildEnv['BASE_DOC_FILES'] = genv_base_doc_files
 
 
 # IO
-io_doc_files = []
-io_doc_target = BuildEnv['TOP'] + '/io/'
-io_doc_files += BuildEnv.SandeshGenDoc('#src/contrail-common/io/io.sandesh', io_doc_target)
-BuildEnv['IO_DOC_FILES'] = io_doc_files
+BuildEnv['IO_DOC_FILES'] = genv_io_doc_files
 
 # DB
 db_doc_files = []
