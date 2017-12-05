@@ -25,6 +25,7 @@ public:
         const ServiceChainConfig &config) = 0;
     virtual void UpdateServiceChain(RoutingInstance *rtinstance,
         bool group_oper_state_up) = 0;
+    virtual void UpdateServiceChainGroup(ServiceChainGroup *group) = 0;
 
     virtual bool ServiceChainIsUp(RoutingInstance *rtinstance) const = 0;
 

@@ -313,6 +313,7 @@ public:
     virtual void StopServiceChain(RoutingInstance *rtinstance);
     virtual void UpdateServiceChain(RoutingInstance *rtinstance,
         bool group_oper_state_up);
+    void UpdateServiceChainGroup(ServiceChainGroup *group);
 
     virtual size_t PendingQueueSize() const { return pending_chains_.size(); }
     virtual size_t ResolvedQueueSize() const { return chain_set_.size(); }
@@ -362,7 +363,6 @@ private:
     ServiceChainGroup *FindServiceChainGroup(RoutingInstance *rtinstance);
     ServiceChainGroup *FindServiceChainGroup(const std::string &group_name);
     ServiceChainGroup *LocateServiceChainGroup(const std::string &group_name);
-    void UpdateServiceChainGroup(ServiceChainGroup *group);
     bool ProcessServiceChainGroups();
 
     bool RequestHandler(ServiceChainRequestT *req);
