@@ -2515,10 +2515,10 @@ void DelEncapList(Agent *agent) {
 
 void AddBgpaasPortRange(const int port_start, const int port_end) {
     std::stringstream str;
-    str << "<bgp-as-service-global-config>" << endl;
+    str << "<bgpaas-parameters>" << endl;
     str << "    <port-start>" << port_start << "</port-start>";
     str << "    <port-end>" << port_end << "</port-end>";
-    str << "</bgp-as-service-global-config>";
+    str << "</bgpaas-parameters>";
 
     AddNode("global-system-config", "system-config", 1, str.str().c_str());
 }
