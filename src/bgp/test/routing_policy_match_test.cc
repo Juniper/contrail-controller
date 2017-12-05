@@ -6,6 +6,7 @@
 #include <boost/assign/list_of.hpp>
 
 #include "base/test/task_test_util.h"
+#include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_server.h"
@@ -872,6 +873,315 @@ TEST_F(MatchProtocolTest, Match2) {
 
     BgpPath path5(BgpPath::Aggregate, attr);
     EXPECT_TRUE(match.Match(NULL, &path5, NULL));
+}
+
+//
+// Template structure to pass to fixture class template. Needed because
+// gtest fixture class template can accept only one template parameter.
+//
+template <typename T1, typename T2, typename T3>
+struct TypeDefinition {
+  typedef T1 PrefixT;
+  typedef T2 RouteT;
+  typedef T3 MatchPrefixT;
+};
+
+// TypeDefinitions that we want to test.
+typedef TypeDefinition<Ip4Prefix, InetRoute, MatchPrefixInet> InetDefinition;
+typedef TypeDefinition<Inet6Prefix, Inet6Route, MatchPrefixInet6> Inet6Definition;
+
+//
+// Fixture class template - instantiated later for each TypeDefinition.
+//
+template <typename T>
+class MatchPrefixTest : public ::testing::Test {
+protected:
+    typedef typename T::PrefixT PrefixT;
+    typedef typename T::RouteT RouteT;
+    typedef typename T::MatchPrefixT MatchPrefixT;
+
+    MatchPrefixTest() : family_(GetFamily()), ipv6_prefix_("::ffff:") {
+    }
+
+    Address::Family GetFamily() const {
+        assert(false);
+        return Address::UNSPEC;
+    }
+
+    string BuildPrefix(const string &ipv4_prefix, uint8_t ipv4_plen) const {
+        if (family_ == Address::INET) {
+            return ipv4_prefix + "/" + integerToString(ipv4_plen);
+        }
+        if (family_ == Address::INET6) {
+            return ipv6_prefix_ + ipv4_prefix + "/" +
+                integerToString(96 + ipv4_plen);
+        }
+        assert(false);
+        return "";
+    }
+
+    void VerifyPrefixMatchListSize(const MatchPrefixT *match, size_t size) {
+        EXPECT_EQ(size, match->match_list_.size());
+    }
+
+    void VerifyPrefixMatchExists(const MatchPrefixT *match_prefix,
+        const string &match_prefix_str, const string &match_type_str) {
+        boost::system::error_code ec;
+        PrefixT prefix = PrefixT::FromString(match_prefix_str, &ec);
+        EXPECT_EQ(0, ec.value());
+        typename MatchPrefixT::MatchType match_type =
+            MatchPrefixT::GetMatchType(match_type_str);
+        typename MatchPrefixT::PrefixMatch prefix_match(prefix, match_type);
+        EXPECT_TRUE(
+            find(match_prefix->match_list_.begin(),
+                match_prefix->match_list_.end(), prefix_match) !=
+                match_prefix->match_list_.end());
+    }
+
+    Address::Family family_;
+    string ipv6_prefix_;
+};
+
+// Specialization of GetFamily for INET.
+template <>
+Address::Family MatchPrefixTest<InetDefinition>::GetFamily() const {
+    return Address::INET;
+}
+
+// Specialization of GetFamily for INET6.
+template <>
+Address::Family MatchPrefixTest<Inet6Definition>::GetFamily() const {
+    return Address::INET6;
+}
+
+// Instantiate fixture class template for each TypeDefinition.
+typedef ::testing::Types<InetDefinition, Inet6Definition> TypeDefinitionList;
+TYPED_TEST_CASE(MatchPrefixTest, TypeDefinitionList);
+
+// Verify that prefixes with same address and match type but different lengths
+// are considered different.
+TYPED_TEST(MatchPrefixTest, Constructor1) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "exact");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 24), "exact");
+    PrefixMatchConfigList cfg_list;
+    cfg_list.push_back(cfg1);
+    cfg_list.push_back(cfg2);
+    cfg_list.push_back(cfg3);
+    typename TestFixture::MatchPrefixT match(cfg_list);
+    this->VerifyPrefixMatchListSize(&match, 3);
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 8), "exact");
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 16), "exact");
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 24), "exact");
+}
+
+// Verify that prefixes with same address and lengths but different match types
+// are considered different.
+TYPED_TEST(MatchPrefixTest, Constructor2) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 16), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "longer");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 16), "orlonger");
+    PrefixMatchConfigList cfg_list;
+    cfg_list.push_back(cfg1);
+    cfg_list.push_back(cfg2);
+    cfg_list.push_back(cfg3);
+    typename TestFixture::MatchPrefixT match(cfg_list);
+    this->VerifyPrefixMatchListSize(&match, 3);
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 16), "exact");
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 16), "longer");
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 16), "orlonger");
+}
+
+// Verify that duplicate prefixes are dropped.
+TYPED_TEST(MatchPrefixTest, Constructor3) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "exact");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg4(this->BuildPrefix("10.0.0.0", 24), "exact");
+    PrefixMatchConfigList cfg_list;
+    cfg_list.push_back(cfg1);
+    cfg_list.push_back(cfg2);
+    cfg_list.push_back(cfg3);
+    cfg_list.push_back(cfg4);
+    typename TestFixture::MatchPrefixT match(cfg_list);
+    this->VerifyPrefixMatchListSize(&match, 3);
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 8), "exact");
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 16), "exact");
+    this->VerifyPrefixMatchExists(
+        &match, this->BuildPrefix("10.0.0.0", 24), "exact");
+}
+
+TYPED_TEST(MatchPrefixTest, IsEqual1) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "exact");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 24), "exact");
+    PrefixMatchConfigList cfg_list1;
+    cfg_list1.push_back(cfg1);
+    cfg_list1.push_back(cfg2);
+    cfg_list1.push_back(cfg3);
+    PrefixMatchConfigList cfg_list2;
+    cfg_list2.push_back(cfg1);
+    cfg_list2.push_back(cfg2);
+    cfg_list2.push_back(cfg3);
+    typename TestFixture::MatchPrefixT match1(cfg_list1);
+    typename TestFixture::MatchPrefixT match2(cfg_list2);
+    EXPECT_TRUE(match1.IsEqual(match2));
+    EXPECT_TRUE(match2.IsEqual(match1));
+}
+
+TYPED_TEST(MatchPrefixTest, IsEqual2) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "exact");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 24), "exact");
+    PrefixMatchConfigList cfg_list1;
+    cfg_list1.push_back(cfg1);
+    cfg_list1.push_back(cfg2);
+    cfg_list1.push_back(cfg3);
+    PrefixMatchConfigList cfg_list2;
+    cfg_list2.push_back(cfg2);
+    cfg_list2.push_back(cfg3);
+    cfg_list2.push_back(cfg1);
+    typename TestFixture::MatchPrefixT match1(cfg_list1);
+    typename TestFixture::MatchPrefixT match2(cfg_list2);
+    EXPECT_TRUE(match1.IsEqual(match2));
+    EXPECT_TRUE(match2.IsEqual(match1));
+}
+
+TYPED_TEST(MatchPrefixTest, IsEqual3) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "exact");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 24), "exact");
+    PrefixMatchConfigList cfg_list1;
+    cfg_list1.push_back(cfg1);
+    cfg_list1.push_back(cfg2);
+    cfg_list1.push_back(cfg3);
+    PrefixMatchConfigList cfg_list2;
+    cfg_list2.push_back(cfg2);
+    cfg_list2.push_back(cfg3);
+    cfg_list2.push_back(cfg1);
+    cfg_list2.push_back(cfg2);
+    typename TestFixture::MatchPrefixT match1(cfg_list1);
+    typename TestFixture::MatchPrefixT match2(cfg_list2);
+    EXPECT_TRUE(match1.IsEqual(match2));
+    EXPECT_TRUE(match2.IsEqual(match1));
+}
+
+TYPED_TEST(MatchPrefixTest, IsEqual4) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "exact");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 24), "exact");
+    PrefixMatchConfig cfg4(this->BuildPrefix("10.0.0.0", 32), "exact");
+    PrefixMatchConfigList cfg_list1;
+    cfg_list1.push_back(cfg1);
+    cfg_list1.push_back(cfg2);
+    cfg_list1.push_back(cfg3);
+    PrefixMatchConfigList cfg_list2;
+    cfg_list2.push_back(cfg1);
+    cfg_list2.push_back(cfg2);
+    cfg_list2.push_back(cfg3);
+    cfg_list2.push_back(cfg4);
+    typename TestFixture::MatchPrefixT match1(cfg_list1);
+    typename TestFixture::MatchPrefixT match2(cfg_list2);
+    EXPECT_FALSE(match1.IsEqual(match2));
+    EXPECT_FALSE(match2.IsEqual(match1));
+}
+
+TYPED_TEST(MatchPrefixTest, ToString1) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "exact");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 24), "exact");
+    PrefixMatchConfigList cfg_list;
+    cfg_list.push_back(cfg1);
+    cfg_list.push_back(cfg2);
+    cfg_list.push_back(cfg3);
+    typename TestFixture::MatchPrefixT match(cfg_list);
+    string result("prefix [ ");
+    result += this->BuildPrefix("10.0.0.0", 8);
+    result += ", ";
+    result += this->BuildPrefix("10.0.0.0", 16);
+    result += ", ";
+    result += this->BuildPrefix("10.0.0.0", 24);
+    result += " ]";
+    EXPECT_EQ(result, match.ToString());
+}
+
+TYPED_TEST(MatchPrefixTest, ToString2) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.0.0.0", 8), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.0.0.0", 16), "longer");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.0.0.0", 24), "orlonger");
+    PrefixMatchConfigList cfg_list;
+    cfg_list.push_back(cfg1);
+    cfg_list.push_back(cfg2);
+    cfg_list.push_back(cfg3);
+    typename TestFixture::MatchPrefixT match(cfg_list);
+    string result("prefix [ ");
+    result += this->BuildPrefix("10.0.0.0", 8);
+    result += ", ";
+    result += this->BuildPrefix("10.0.0.0", 16);
+    result += " longer, ";
+    result += this->BuildPrefix("10.0.0.0", 24);
+    result += " orlonger";
+    result += " ]";
+    EXPECT_EQ(result, match.ToString());
+}
+
+TYPED_TEST(MatchPrefixTest, Match) {
+    PrefixMatchConfig cfg1(this->BuildPrefix("10.1.1.0", 24), "exact");
+    PrefixMatchConfig cfg2(this->BuildPrefix("10.2.0.0", 16), "longer");
+    PrefixMatchConfig cfg3(this->BuildPrefix("10.3.0.0", 16), "orlonger");
+    PrefixMatchConfigList cfg_list;
+    cfg_list.push_back(cfg1);
+    cfg_list.push_back(cfg2);
+    cfg_list.push_back(cfg3);
+    typename TestFixture::MatchPrefixT match(cfg_list);
+
+    typename TestFixture::PrefixT prefix1 =
+        TestFixture::PrefixT::FromString(this->BuildPrefix("10.1.1.0", 24));
+    typename TestFixture::RouteT route1(prefix1);
+    EXPECT_TRUE(match.Match(&route1, NULL, NULL));
+
+    typename TestFixture::PrefixT prefix2 =
+        TestFixture::PrefixT::FromString(this->BuildPrefix("10.1.1.1", 32));
+    typename TestFixture::RouteT route2(prefix2);
+    EXPECT_FALSE(match.Match(&route2, NULL, NULL));
+
+    typename TestFixture::PrefixT prefix3 =
+        TestFixture::PrefixT::FromString(this->BuildPrefix("10.2.0.0", 16));
+    typename TestFixture::RouteT route3(prefix3);
+    EXPECT_FALSE(match.Match(&route3, NULL, NULL));
+
+    typename TestFixture::PrefixT prefix4 =
+        TestFixture::PrefixT::FromString(this->BuildPrefix("10.2.1.0", 24));
+    typename TestFixture::RouteT route4(prefix4);
+    EXPECT_TRUE(match.Match(&route4, NULL, NULL));
+
+    typename TestFixture::PrefixT prefix5 =
+        TestFixture::PrefixT::FromString(this->BuildPrefix("10.3.0.0", 16));
+    typename TestFixture::RouteT route5(prefix5);
+    EXPECT_TRUE(match.Match(&route5, NULL, NULL));
+
+    typename TestFixture::PrefixT prefix6 =
+        TestFixture::PrefixT::FromString(this->BuildPrefix("10.3.1.0", 24));
+    typename TestFixture::RouteT route6(prefix6);
+    EXPECT_TRUE(match.Match(&route6, NULL, NULL));
+
+    typename TestFixture::PrefixT prefix7 =
+        TestFixture::PrefixT::FromString(this->BuildPrefix("10.0.0.0", 8));
+    typename TestFixture::RouteT route7(prefix7);
+    EXPECT_FALSE(match.Match(&route7, NULL, NULL));
+
+    typename TestFixture::PrefixT prefix8 =
+        TestFixture::PrefixT::FromString(this->BuildPrefix("10.1.0.0", 16));
+    typename TestFixture::RouteT route8(prefix8);
+    EXPECT_FALSE(match.Match(&route8, NULL, NULL));
 }
 
 static void SetUp() {

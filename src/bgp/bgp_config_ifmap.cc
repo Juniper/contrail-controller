@@ -1685,10 +1685,9 @@ static void BuildPolicyTermConfig(autogen::PolicyTermType cfg_term,
     term->match.protocols_match = cfg_term.term_match_condition.protocol;
     BOOST_FOREACH(const autogen::PrefixMatchType &prefix_match,
                   cfg_term.term_match_condition.prefix) {
-        PrefixMatchConfig match;
-        match.prefix_to_match = prefix_match.prefix;
-        match.prefix_match_type = prefix_match.prefix_type.empty() ?
-            "exact" : prefix_match.prefix_type;
+        string prefix_type(prefix_match.prefix_type);
+        PrefixMatchConfig match(prefix_match.prefix,
+            prefix_type.empty() ? "exact" : prefix_type);
         term->match.prefixes_to_match.push_back(match);
     }
     term->match.community_match_all =
