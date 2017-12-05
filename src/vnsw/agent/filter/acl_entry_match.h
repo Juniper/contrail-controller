@@ -255,5 +255,6 @@ private:
     bool SGMatch(const SecurityGroupList &sg_l, int id) const;
     bool SGMatch(const SecurityGroupList *sg_l, int id) const;
     bool TagsMatch(const TagList &tags) const;
+    bool AddressGroupMatch(const IpAddress &ip, const TagList &tags) const;
 };
 #endif
