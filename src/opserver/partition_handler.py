@@ -42,6 +42,16 @@ class UveCacheProcessor(object):
         self._typekeys = {}
         self._uvedb = {} 
         self._agp = {}
+        self._agg_redis_map = {}
+
+    def _get_agg_redis_instance(self, ip, port):
+        agg_redis = self._agg_redis_map.get((ip, port))
+        if not agg_redis:
+            agg_redis = StrictRedisWrapper(host=ip, port=port,
+                password=self._rpass, db=7, socket_timeout=30)
+            self._agg_redis_map[(ip, port)] = agg_redis
+        return agg_redis
+    # end _get_agg_redis_instance
 
     def update_agp(self, agp):
         self._agp = agp
@@ -109,11 +119,7 @@ class UveCacheProcessor(object):
         
         for pkey,pvalue in uveparts.iteritems():
             pi = self._agp[pkey]
-            lredis = StrictRedisWrapper(
-                    host=pi.ip_address, 
-                    port=pi.port,
-                    password=self._rpass,
-                    db=7, socket_timeout=30)
+            lredis = self._get_agg_redis_instance(pi.ip_address, pi.port)
             ppe = lredis.pipeline()
             luves = list(uveparts[pkey])
             for elem in luves:
