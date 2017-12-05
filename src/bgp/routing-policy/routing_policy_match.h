@@ -101,15 +101,12 @@ private:
 
 template <typename T1, typename T2>
 struct PrefixMatchBase {
-  typedef T1 RouteT;
-  typedef T2 PrefixT;
+    typedef T1 RouteT;
+    typedef T2 PrefixT;
 };
 
-class InetPrefixMatch : public PrefixMatchBase<InetRoute, Ip4Prefix> {
-};
-
-class Inet6PrefixMatch : public PrefixMatchBase<Inet6Route, Inet6Prefix> {
-};
+typedef PrefixMatchBase<InetRoute, Ip4Prefix> PrefixMatchInet;
+typedef PrefixMatchBase<Inet6Route, Inet6Prefix> PrefixMatchInet6;
 
 template <typename T>
 class MatchPrefix : public RoutingPolicyMatch {
@@ -121,20 +118,42 @@ public:
         LONGER,
         ORLONGER,
     };
-    typedef std::pair<PrefixT, MatchType> PrefixMatch;
-    typedef std::vector<PrefixMatch> PrefixMatchList;
-    explicit MatchPrefix(const PrefixMatchConfigList &list);
+
+    class PrefixMatch {
+    public:
+        PrefixMatch(PrefixT prefix, MatchType match_type)
+          : prefix(prefix), match_type(match_type) {
+        }
+        bool operator==(const PrefixMatch &rhs) const {
+            return (prefix == rhs.prefix && match_type == rhs.match_type);
+        }
+        bool operator<(const PrefixMatch &rhs) const {
+            BOOL_KEY_COMPARE(prefix, rhs.prefix);
+            BOOL_KEY_COMPARE(match_type, rhs.match_type);
+            return false;
+        }
+
+        PrefixT prefix;
+        MatchType match_type;
+    };
+
+    explicit MatchPrefix(const PrefixMatchConfigList &match_config_list);
     virtual ~MatchPrefix();
     virtual bool Match(const BgpRoute *route,
                        const BgpPath *path, const BgpAttr *attr) const;
     virtual std::string ToString() const;
     virtual bool IsEqual(const RoutingPolicyMatch &prefix) const;
 
+    static MatchType GetMatchType(const std::string &match_type_str);
+
 private:
+    template <typename U> friend class MatchPrefixTest;
+    typedef std::vector<PrefixMatch> PrefixMatchList;
+
     PrefixMatchList match_list_;
 };
 
-typedef MatchPrefix<InetPrefixMatch> PrefixMatchInet;
-typedef MatchPrefix<Inet6PrefixMatch> PrefixMatchInet6;
+typedef MatchPrefix<PrefixMatchInet> MatchPrefixInet;
+typedef MatchPrefix<PrefixMatchInet6> MatchPrefixInet6;
 
 #endif  // SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_MATCH_H_
