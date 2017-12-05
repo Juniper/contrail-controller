@@ -471,6 +471,20 @@ static bool SubnetMatch(const std::vector<AclAddressInfo> &list,
     return false;
 }
 
+bool AddressMatch::AddressGroupMatch(const IpAddress &data,
+                                     const TagList &tag_list) const {
+
+    if (TagsMatch(tag_list)) {
+        return true;
+    }
+
+    if (ip_list_.size() && SubnetMatch(ip_list_, data)) {
+        return true;
+    }
+
+    return false;
+}
+
 bool AddressMatch::Match(const PacketHeader *pheader,
                          FlowPolicyInfo *info) const
 {
@@ -498,8 +512,7 @@ bool AddressMatch::Match(const PacketHeader *pheader,
         } else if (addr_type_ == TAGS) {
             return TagsMatch(pheader->src_tags_);
         } else if (addr_type_ == ADDRESS_GROUP) {
-            return (SubnetMatch(ip_list_, pheader->src_ip) &&
-                    TagsMatch(pheader->src_tags_));
+            return AddressGroupMatch(pheader->src_ip, pheader->src_tags_);
         }
     } else { 
         if (addr_type_ == IP_ADDR) {
@@ -522,8 +535,7 @@ bool AddressMatch::Match(const PacketHeader *pheader,
         } else if (addr_type_ == TAGS) {
             return TagsMatch(pheader->dst_tags_);
         } else if (addr_type_ == ADDRESS_GROUP) {
-            return (SubnetMatch(ip_list_, pheader->dst_ip) &&
-                    TagsMatch(pheader->dst_tags_));
+            return AddressGroupMatch(pheader->dst_ip, pheader->dst_tags_);
         }
     }
     return false;
