@@ -93,6 +93,14 @@ static uint16_t GetDropReason(uint16_t dr) {
         return VR_FLOW_DR_REVERSE_SG;
     case FlowEntry::DROP_REVERSE_OUT_SG:
         return VR_FLOW_DR_REVERSE_OUT_SG;
+    case FlowEntry::DROP_FIREWALL_POLICY:
+        return VR_FLOW_DR_FW_POLICY;
+    case FlowEntry::DROP_OUT_FIREWALL_POLICY:
+        return VR_FLOW_DR_OUT_FW_POLICY;
+    case FlowEntry::DROP_REVERSE_FIREWALL_POLICY:
+        return VR_FLOW_DR_REVERSE_FW_POLICY;
+    case FlowEntry::DROP_REVERSE_OUT_FIREWALL_POLICY:
+        return VR_FLOW_DR_REVERSE_OUT_FW_POLICY;
     default:
         break;
     }
