@@ -10,6 +10,7 @@
 #include <forwarding_class.h>
 #include <global_system_config.h>
 #include <config_manager.h>
+#include "oper/bgp_as_service.h"
 
 void BGPaaServiceParameters::Reset() {
     port_start = 0;
@@ -91,8 +92,16 @@ void GlobalSystemConfig::ConfigAddChange(IFMapNode *node) {
     }
 
     //Populate BGP-aas params
-    bgpaas_parameters_.port_start = cfg->bgpaas_parameters().port_start;
-    bgpaas_parameters_.port_end = cfg->bgpaas_parameters().port_end;
+    if ((bgpaas_parameters_.port_start !=
+                    cfg->bgpaas_parameters().port_start) ||
+        (bgpaas_parameters_.port_end !=
+                    cfg->bgpaas_parameters().port_end)) {
+        bgpaas_parameters_.port_start = cfg->bgpaas_parameters().port_start;
+        bgpaas_parameters_.port_end = cfg->bgpaas_parameters().port_end;
+        // update BgpaaS session info
+        agent()->oper_db()->bgp_as_a_service()->
+                                UpdateBgpAsAServiceSessionInfo();
+    }
 
     //Populate gres params
     gres_parameters_.Update(cfg);

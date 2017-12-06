@@ -360,6 +360,35 @@ TEST_F(BgpServiceTest, Test_5) {
     client->WaitForIdle();
 }
 
+TEST_F(BgpServiceTest, Test_6) {
+    AddAap("vnet3", 3, Ip4Address::from_string("30.30.30.30"), "00:00:03:03:03:03");
+    client->WaitForIdle();
+
+    TxTcpPacket(VmInterfaceGet(3)->id(), "30.30.30.30", "3.3.3.3", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe = FlowGet(VmInterfaceGet(3)->flow_key_nh()->id(),
+                            "30.30.30.30", "3.3.3.3", 6, 10000, 179);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::BgpRouterService));
+    //DelBgpaasPortRange();
+    AddBgpaasPortRange(50000, 52000);
+    client->WaitForIdle();
+    FlowEntry *fe1 = FlowGet(VmInterfaceGet(3)->flow_key_nh()->id(),
+                            "30.30.30.30", "3.3.3.3", 6, 10000, 179);
+    EXPECT_TRUE(fe1 == NULL);
+    TxTcpPacket(VmInterfaceGet(3)->id(), "30.30.30.30", "3.3.3.3", 10000, 179,
+                false);
+    client->WaitForIdle();
+    FlowEntry *fe2 = FlowGet(VmInterfaceGet(3)->flow_key_nh()->id(),
+                            "30.30.30.30", "3.3.3.3", 6, 10000, 179);
+    EXPECT_TRUE(fe2 != NULL);
+    EXPECT_TRUE(fe2->reverse_flow_entry() != NULL);
+    EXPECT_TRUE(fe2->is_flags_set(FlowEntry::BgpRouterService));
+    EXPECT_TRUE(fe2->bgp_as_a_service_port() == 54002);
+    client->WaitForIdle();
+}
 int main(int argc, char *argv[]) {
     int ret = 0;
     BgpPeer *peer;
