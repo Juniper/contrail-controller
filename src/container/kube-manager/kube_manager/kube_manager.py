@@ -36,11 +36,12 @@ class KubeNetworkManager(object):
     _kube_network_manager = None
 
     def __init__(self, args=None, logger=None, kube_api_connected=False,
-                 queue=None, vnc_kubernetes_config_dict=None):
+                 queue=None, vnc_kubernetes_config_dict=None, is_master=True):
 
         self.q = queue if queue else Queue
         self.args = args
         self.logger = logger
+        self.is_master = is_master
         # All monitors supported by this manager.
         self.monitors = {}
         self.kube = None
@@ -158,6 +159,13 @@ class KubeNetworkManager(object):
             connections=introspect.KubeApiConnections(**statuses))
         response.response(request.context())
 
+    @classmethod
+    def sandesh_handle_mastership_status_request(cls, request):
+        kube_manager = cls.get_instance()
+        response = introspect.MastershipStatusResp(
+            is_master=(kube_manager.is_master if kube_manager else False))
+        response.response(request.context())
+
 
 def run_kube_manager(km_logger, args, kube_api_skip, event_queue,
                      vnc_kubernetes_config_dict=None):
@@ -167,12 +175,15 @@ def run_kube_manager(km_logger, args, kube_api_skip, event_queue,
         args, km_logger,
         kube_api_connected=kube_api_skip,
         queue=event_queue,
-        vnc_kubernetes_config_dict=vnc_kubernetes_config_dict)
+        vnc_kubernetes_config_dict=vnc_kubernetes_config_dict,
+        is_master=True)
     KubeNetworkManager._kube_network_manager = kube_nw_mgr
 
-    # Register Kubernetes API connection status introspect handler
+    # Register introspect handlers
     introspect.KubeApiConnectionStatus.handle_request =\
         KubeNetworkManager.sandesh_handle_kube_api_connection_status_request
+    introspect.MastershipStatus.handle_request =\
+        KubeNetworkManager.sandesh_handle_mastership_status_request
 
     kube_nw_mgr.start_tasks()
 
@@ -215,7 +226,7 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
             )
             vnc_amqp.establish()
             vnc_amqp.close()
-        except Exception: # FIXME: Except clause is too broad
+        except Exception:  # FIXME: Except clause is too broad
             pass
         finally:
             km_logger.debug("Removed remained AMQP queue")
