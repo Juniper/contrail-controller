@@ -71,7 +71,7 @@ void ContrailAgentInit::CreateModules() {
 
     uve_.reset(AgentObjectFactory::Create<AgentUveBase>
                (agent(), AgentUveBase::kBandwidthInterval,
-                AgentUveBase::kDefaultInterval,
+                agent()->params()->vmi_vm_vn_uve_interval_msecs(),
                 AgentUveBase::kIncrementalInterval));
     agent()->set_uve(uve_.get());
 

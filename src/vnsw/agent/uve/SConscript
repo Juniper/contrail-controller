@@ -86,10 +86,6 @@ StatsSandeshGenFiles = env.SandeshGenCpp('stats_interval.sandesh')
 StatsSandeshGenSrcs = env.ExtractCpp(StatsSandeshGenFiles)
 StatsSandeshGenObjs = env.Object(StatsSandeshGenSrcs)
 
-AgentStatsSandeshGenFiles = env.SandeshGenCpp('agent_stats_interval.sandesh')
-AgentStatsSandeshGenSrcs = env.ExtractCpp(AgentStatsSandeshGenFiles)
-AgentStatsSandeshGenObjs = env.Object(AgentStatsSandeshGenSrcs)
-
 libuve = env.Library('uve',
                      SandeshGenObjs +
                      [

@@ -3,7 +3,7 @@
  */
  
 request sandesh SetAgentStatsInterval_InSeconds {
-    1: byte interval;
+    1: u16 interval;
 }
 
 response sandesh AgentStatsCfgResp {
@@ -18,5 +18,5 @@ request sandesh GetAgentStatsInterval {
 }
 
 response sandesh AgentStatsIntervalResp_InSeconds {
-    1: byte agent_stats_interval;
+    1: u16 agent_stats_interval;
 }

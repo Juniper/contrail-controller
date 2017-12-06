@@ -53,6 +53,7 @@ const std::string Agent::config_file_ = "/etc/contrail/contrail-vrouter-agent.co
 const std::string Agent::log_file_ = "/var/log/contrail/vrouter.log";
 const std::string Agent::xmpp_dns_server_connection_name_prefix_ = "dns-server:";
 const std::string Agent::xmpp_control_node_connection_name_prefix_ = "control-node:";
+const uint16_t Agent::kDefaultVmiVmVnUveInterval = 30; //in seconds
 
 SandeshTraceBufferPtr TaskTraceBuf(SandeshTraceBufferCreate("TaskTrace", 5000));
 Agent *Agent::singleton_;

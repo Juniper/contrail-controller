@@ -146,7 +146,12 @@ public:
     uint16_t http_server_port() const { return http_server_port_; }
     uint32_t discovery_server_port() const { return dss_port_; }
     const std::string &host_name() const { return host_name_; }
-    int agent_stats_interval() const { return agent_stats_interval_; }
+    int agent_stats_interval() const {
+        if (test_mode_) {
+            return agent_stats_interval_;
+        }
+        return vmi_vm_vn_uve_interval_msecs();
+    }
     int flow_stats_interval() const { return flow_stats_interval_; }
     int vrouter_stats_interval() const { return vrouter_stats_interval_; }
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
@@ -224,6 +229,10 @@ public:
         return task_monitor_timeout_msec_;
     }
     uint32_t sandesh_send_rate_limit() { return send_ratelimit_; }
+    uint16_t vmi_vm_vn_uve_interval() const { return vmi_vm_vn_uve_interval_; }
+    uint32_t vmi_vm_vn_uve_interval_msecs() const {
+        return (vmi_vm_vn_uve_interval_ * 1000);
+    }
 
 protected:
     void set_hypervisor_mode(HypervisorMode m) { hypervisor_mode_ = m; }
@@ -424,6 +433,7 @@ private:
     uint32_t task_monitor_timeout_msec_;
 
     uint32_t send_ratelimit_;
+    uint16_t vmi_vm_vn_uve_interval_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

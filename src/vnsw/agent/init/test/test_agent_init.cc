@@ -266,6 +266,7 @@ TEST_F(FlowTest, Default_Cmdline_arg1) {
     EXPECT_STREQ(param.log_level().c_str(), "SYS_ERR");
     EXPECT_TRUE(param.isXenMode());
     EXPECT_EQ(param.agent_mode(), AgentParam::TSN_AGENT);
+    EXPECT_EQ(param.vmi_vm_vn_uve_interval(), Agent::kDefaultVmiVmVnUveInterval);
 }
 
 /* Some command line args have default values. If user has not passed these
@@ -331,6 +332,7 @@ TEST_F(FlowTest, MultitokenVector) {
     collector_server_list.push_back("30.30.30.3:300");
     TASK_UTIL_EXPECT_VECTOR_EQ(param.collector_server_list(),
                      collector_server_list);
+    EXPECT_EQ(param.vmi_vm_vn_uve_interval(), 120);
 }
 
 int main(int argc, char **argv) {

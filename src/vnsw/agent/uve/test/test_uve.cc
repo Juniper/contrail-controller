@@ -22,7 +22,7 @@
 #include <oper/interface_common.h>
 #include <uve/agent_uve.h>
 #include <uve/stats_interval_types.h>
-#include <uve/agent_stats_interval_types.h>
+#include <vrouter/stats_collector/agent_stats_interval_types.h>
 #include <vrouter/flow_stats/flow_stats_interval_types.h>
 #include "vr_types.h"
 
@@ -81,11 +81,11 @@ public:
         uve->VrouterAgentProcessState(infos, pstate, msg);
     }
 
-    void SetAgentStatsIntervalReq(int interval) {
+    void SetAgentStatsIntervalReq(uint16_t intval) {
         SetAgentStatsInterval_InSeconds *req = new SetAgentStatsInterval_InSeconds();
-        req->set_interval(interval);
         Sandesh::set_response_callback(
             boost::bind(&UveTest::SetAgentStatsResponse, this, _1));
+        req->set_interval(intval);
         req->HandleRequest();
         client->WaitForIdle();
         req->Release();
