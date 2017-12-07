@@ -328,7 +328,7 @@ class QfxConf(JuniperConf):
                                comment=DMUtils.l2_evpn_intf_unit_comment(vn,
                                                      True, interface.vlan_tag),
                                vlan_id=str(interface.vlan_tag)))
-                    vlan_conf.add_interface(Interface(name=ifd_name + "." + str(interface.vlan_tag)))
+                    vlan_conf.add_interface(Interface(name=ifd_name + "." + str(interface.unit)))
     # end build_l2_evpn_interface_config
 
     @abc.abstractmethod
@@ -561,7 +561,7 @@ class QfxConf(JuniperConf):
         pi_list = self.get_vn_associated_physical_interfaces()
         esi_map = {}
         for pi in pi_list:
-            if not pi.name.startswith("ae"):
+            if not pi.name.startswith("ae") and pi.esi:
                 esi_map.setdefault(pi.esi, []).append(pi)
         return esi_map
     # end get_ae_alloc_esi_map
