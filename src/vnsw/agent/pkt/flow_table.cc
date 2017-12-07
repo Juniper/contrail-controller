@@ -2633,6 +2633,8 @@ void FlowTable::FlowRecompute(RouteFlowInfo *rt_info,
         if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
             /* for reverse flow trigger a re-eval on its forward flow */
             fe = fe->reverse_flow_entry();
+            if (fe == NULL)
+                continue;
         }
         if (fe->l3_flow() == false) {
             continue;
