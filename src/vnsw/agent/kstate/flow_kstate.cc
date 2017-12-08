@@ -313,16 +313,28 @@ bool FlowKState::Run() {
         }
         if (count == KState::kMaxEntriesPerResponse) {
             if (idx != max_flows) {
-                resp->set_flow_handle(integerToString(idx));
+                if (evicted_) {
+                    resp->set_flow_handle(integerToString(idx) + " evicted_set");
+                } else {
+                    resp->set_flow_handle(integerToString(idx));
+                }
             } else {
-                resp->set_flow_handle(integerToString(0));
+                if (evicted_) {
+                    resp->set_flow_handle(integerToString(0) + " evicted_set");
+                } else {
+                    resp->set_flow_handle(integerToString(0));
+                }
             }
             SendResponse(resp);
             return true;
         }
     }
 
-    resp->set_flow_handle(integerToString(0));
+    if (evicted_) {
+        resp->set_flow_handle(integerToString(0) + " evicted_set");
+    } else {
+        resp->set_flow_handle(integerToString(0));
+    }
     SendResponse(resp);
 
     return true;
