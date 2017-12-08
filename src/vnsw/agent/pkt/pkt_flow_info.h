@@ -53,6 +53,7 @@ public:
         ecmp(false), out_component_nh_idx(-1),
         fip_snat(false), fip_dnat(false), snat_fip(),
         short_flow_reason(0), peer_vrouter(), tunnel_type(TunnelType::INVALID),
+        flow_entry(NULL),
         flood_unknown_unicast(false), bgp_router_service_flow(false),
         alias_ip_flow(false), ttl(0) {
     }
