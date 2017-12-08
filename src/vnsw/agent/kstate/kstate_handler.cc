@@ -124,6 +124,11 @@ void KMplsReq::HandleRequest() const {
 void NextKFlowReq::HandleRequest() const {
     FlowKState *task = new FlowKState(Agent::GetInstance(), context(), 
                                       get_flow_handle());
+    vector<string> tokens;
+    boost::split(tokens, get_flow_handle(), boost::is_any_of(" "));
+    if (tokens.size() == 2) {
+        task->set_evicted_flag(true);
+    }
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
