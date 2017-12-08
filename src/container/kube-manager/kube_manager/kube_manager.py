@@ -38,7 +38,7 @@ class KubeNetworkManager(object):
     def __init__(self, args=None, logger=None, kube_api_connected=False,
                  queue=None, vnc_kubernetes_config_dict=None):
 
-        self.q = queue if queue else Queue
+        self.q = queue if queue else Queue()
         self.args = args
         self.logger = logger
         # All monitors supported by this manager.
