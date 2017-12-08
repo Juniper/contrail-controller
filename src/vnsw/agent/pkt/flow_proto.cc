@@ -43,19 +43,23 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
         uint16_t latency = agent->params()->flow_task_latency_limit();
         flow_event_queue_.push_back
             (new FlowEventQueue(agent, this, flow_table_list_[i],
-                                &add_tokens_, latency, 16));
+                                &add_tokens_, latency,
+                                FlowEventQueue::Queue::kMaxIterations));
 
         flow_tokenless_queue_.push_back
             (new FlowEventQueue(agent, this, flow_table_list_[i],
-                                NULL, latency, 16));
+                                NULL, latency,
+                                2 * FlowEventQueue::Queue::kMaxIterations));
 
         flow_delete_queue_.push_back
             (new DeleteFlowEventQueue(agent, this, flow_table_list_[i],
-                                      &del_tokens_, latency, 16));
+                                      &del_tokens_, latency,
+                                      FlowEventQueue::Queue::kMaxIterations));
 
         flow_ksync_queue_.push_back
             (new KSyncFlowEventQueue(agent, this, flow_table_list_[i],
-                                     &ksync_tokens_, latency, 32));
+                                     &ksync_tokens_, latency,
+                                     FlowEventQueue::Queue::kMaxIterations));
     }
     if (::getenv("USE_VROUTER_HASH") != NULL) {
         string opt = ::getenv("USE_VROUTER_HASH");
