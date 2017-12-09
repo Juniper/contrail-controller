@@ -21,16 +21,15 @@
 # @author: Numan Siddique, eNovance.
 
 
-import os
-import errno
 import urllib
 from collections import OrderedDict
 import sys
 import cStringIO
-import logging
 from ConfigParser import NoOptionError
 
 from cfgm_common import vnc_cgitb
+from vnc_api.utils import (
+    CamelCase, str_to_class, obj_type_to_vnc_class, getCertKeyCaBundle)
 
 
 _DEFAULT_USER_DOMAIN_NAME = 'Default'
@@ -118,57 +117,6 @@ class CacheContainer(object):
         return str(self.dictionary)
 
 
-def CamelCase(input):
-    words = input.replace('_', '-').split('-')
-    name = ''
-    for w in words:
-        name += w.capitalize()
-    return name
-# end CamelCase
-
-
-def str_to_class(class_name, module_name):
-    try:
-        return reduce(getattr, class_name.split("."), sys.modules[module_name])
-    except Exception as e:
-        logger = logging.getLogger(module_name)
-        logger.warn("Exception: %s", str(e))
-        return None
-# end str_to_class
-
-
-def obj_type_to_vnc_class(obj_type, module_name):
-    return str_to_class(CamelCase(obj_type), module_name)
-# end obj_type_to_vnc_class
-
-
-def getCertKeyCaBundle(bundle, certs):
-    if os.path.isfile(bundle):
-        # Check if bundle needs to be replaced if
-        # constituent files were updated
-        bundle_is_stale = False
-        bundle_mod_time = os.path.getmtime(bundle)
-        for cert in certs:
-            if os.path.getmtime(cert) > bundle_mod_time:
-                bundle_is_stale = True
-                break
-        if not bundle_is_stale:
-            return bundle
-
-    try:
-        os.makedirs(os.path.dirname(bundle))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise
-    with open(bundle, 'w') as ofile:
-        for cert in certs:
-            with open(cert) as ifile:
-                for line in ifile:
-                    ofile.write(line)
-    os.chmod(bundle,0o777)
-    return bundle
-# end CreateCertKeyCaBundle
-
 # <uuid> | "tenant-"<uuid> | "domain-"<uuid>
 def shareinfo_from_perms2_tenant(field):
     x = field.split(":")
@@ -177,6 +125,7 @@ def shareinfo_from_perms2_tenant(field):
     return x
 # end
 
+
 def shareinfo_from_perms2(field):
     x = field.split(":")
     if len(x) == 2:
@@ -184,10 +133,13 @@ def shareinfo_from_perms2(field):
     return x
 # end
 
+
 def compare_refs(old_refs, new_refs):
     # compare refs in an object
-    old_ref_dict = dict((':'.join(ref['to']), ref.get('attr')) for ref in old_refs or [])
-    new_ref_dict = dict((':'.join(ref['to']), ref.get('attr')) for ref in new_refs or [])
+    old_ref_dict = dict(
+        (':'.join(ref['to']), ref.get('attr')) for ref in old_refs or [])
+    new_ref_dict = dict(
+        (':'.join(ref['to']), ref.get('attr')) for ref in new_refs or [])
     return old_ref_dict == new_ref_dict
 # end compare_refs
 
@@ -197,7 +149,7 @@ def get_arg(args, name, default=None):
         kwarg = {name: eval('args.%s' % name)}
     except AttributeError:
         try:
-           kwarg = {name: args.get('KEYSTONE', name)}
+            kwarg = {name: args.get('KEYSTONE', name)}
         except (NoOptionError, AttributeError):
             kwarg = {name: default}
 
@@ -208,7 +160,8 @@ def get_arg(args, name, default=None):
 def get_user_domain_kwargs(args):
     user_domain = get_arg(args, 'user_domain_id')
     if not user_domain.get('user_domain_id'):
-        user_domain = get_arg(args, 'user_domain_name', _DEFAULT_USER_DOMAIN_NAME)
+        user_domain = get_arg(args, 'user_domain_name',
+                              _DEFAULT_USER_DOMAIN_NAME)
 
     return user_domain
 # end get_user_domain_kwargs
@@ -225,7 +178,8 @@ def get_project_scope_kwargs(args):
         # use project domain id
         scope_kwargs.update(**project_domain_id)
     if scope_kwargs:
-        admin_tenant_name = get_arg(args, 'admin_tenant_name')['admin_tenant_name']
+        admin_tenant_name = get_arg(args, 'admin_tenant_name')[
+            'admin_tenant_name']
         project_name = get_arg(args, 'project_name', admin_tenant_name)
         scope_kwargs.update(project_name)
     return scope_kwargs

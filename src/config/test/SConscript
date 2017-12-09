@@ -26,6 +26,9 @@ env.Depends(local_sources_rules, [local_dirs_rules])
 
 venv = env.setup_venv ('config_test', 'config_test')
 
+vnc_api_pkg = 'api-lib/dist/vnc_api-%s.tar.gz' % (open(File(
+    '#/controller/src/base/version.info').abspath, 'r').read(
+                 ).strip('\n').strip('\t'))
 #maintain the order
 pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17', 'coverage',
         'testtools==0.9.21', 'fixtures==0.3.12', 'requests==1.1.0','paramiko==1.11.0',
@@ -38,7 +41,7 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17', 'coverage',
         Dir(env['TOP']).abspath + '/config/common/dist/cfgm_common-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
         Dir(env['TOP']).abspath + '/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz',
-        Dir(env['TOP']).abspath + '/api-lib/dist/vnc_api-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/%s' % (vnc_api_pkg),
         Dir(env['TOP']).abspath + '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz']
 
 build_pkgs = [

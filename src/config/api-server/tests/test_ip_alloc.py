@@ -33,6 +33,7 @@ import vnc_api.gen.vnc_api_test_gen
 from vnc_api.gen.resource_test import *
 import cfgm_common
 from cfgm_common import vnc_cgitb
+from cfgm_common import rest
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
