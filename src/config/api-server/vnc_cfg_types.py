@@ -1615,16 +1615,19 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                 vif_type = {'key': 'vif_type',
                             'value': None}
                 vif_details = {'key': 'vif_details', 'value': None}
-                if obj_dict and 'vif_details' in kvp_dict_port:
-                    cls._kvps_update(kvps, vif_type)
-                    cls._kvps_update(kvps, vif_details)
-                elif kvp_dict.get('host_id') == 'null':
-                    vif_details_prop = {'field': 'virtual_machine_interface_bindings',
-                                        'operation': 'delete', 'value': vif_details, 'position': 'vif_details'}
-                    vif_type_prop = {'field': 'virtual_machine_interface_bindings',
-                                     'operation': 'delete', 'value': vif_type, 'position': 'vif_type'}
-                    prop_collection_updates.append(vif_details_prop)
-                    prop_collection_updates.append(vif_type_prop)
+                if kvp_dict_port.get('vnic_type') != cls.portbindings['VNIC_TYPE_DIRECT']:
+                    if obj_dict and 'vif_details' in kvp_dict_port:
+                        cls._kvps_update(kvps, vif_type)
+                        cls._kvps_update(kvps, vif_details)
+                    elif kvp_dict.get('host_id') == 'null':
+                        vif_details_prop = {'field': 'virtual_machine_interface_bindings',
+                                            'operation': 'delete', 'value': vif_details,
+                                            'position': 'vif_details'}
+                        vif_type_prop = {'field': 'virtual_machine_interface_bindings',
+                                         'operation': 'delete', 'value': vif_type,
+                                         'position': 'vif_type'}
+                        prop_collection_updates.append(vif_details_prop)
+                        prop_collection_updates.append(vif_type_prop)
 
         (ok,result) = cls._check_port_security_and_address_pairs(obj_dict,
                                                                  read_result)
