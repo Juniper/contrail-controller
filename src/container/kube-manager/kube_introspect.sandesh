@@ -564,3 +564,9 @@ request sandesh KubeApiConnectionStatus {}
 response sandesh KubeApiConnectionStatusResp {
     1: KubeApiConnections connections;
 }
+
+request sandesh MastershipStatus {}
+
+response sandesh MastershipStatusResp {
+    1: bool is_master;
+}
