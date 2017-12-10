@@ -334,9 +334,9 @@ KSyncSock::KSyncReceiveQueue *KSyncSock::GetReceiveQueue(IoContext::Type type,
 KSyncSock::KSyncReceiveQueue *KSyncSock::GetReceiveQueue(uint32_t seqno) {
     IoContext::Type type;
     if (seqno & KSYNC_DEFAULT_Q_ID_SEQ)
-        type = IoContext::IOC_UVE;
-    else
         type = IoContext::IOC_KSYNC;
+    else
+        type = IoContext::IOC_UVE;
 
     uint32_t instance = (seqno >> 1) % kRxWorkQueueCount;
     return GetReceiveQueue(type, instance);
