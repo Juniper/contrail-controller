@@ -1041,7 +1041,8 @@ bool EvpnManager::ProcessSegmentDeleteSet() {
     BOOST_FOREACH(EvpnSegment *segment, segment_delete_set_) {
         if (segment->MayDelete()) {
             segment_update_set_.erase(segment);
-            segment_map_.erase(segment->esi());
+            EthernetSegmentId esi = segment->esi();
+            segment_map_.erase(esi);
         }
     }
     segment_delete_set_.clear();
