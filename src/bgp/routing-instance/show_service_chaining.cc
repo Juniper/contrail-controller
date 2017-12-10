@@ -34,7 +34,9 @@ static bool FillServiceChainInfo(Address::Family family,
 
     if ((!regex_search(table->name(), search_expr)) &&
         (search_string != "pending" ||
-            !service_chain_mgr->IsPending(rtinstance)) &&
+         !service_chain_mgr->ServiceChainIsPending(rtinstance)) &&
+        (search_string != "down" ||
+         service_chain_mgr->ServiceChainIsUp(rtinstance)) &&
         (search_string != "deleted" || !table->IsDeleted())) {
         return false;
     }
@@ -59,6 +61,7 @@ static bool FillServiceChainInfo(Address::Family family,
         info.set_connected_rt_instance(sc_config->source_routing_instance);
     }
     info.set_service_chain_addr(sc_config->service_chain_address);
+    info.set_service_chain_group(sc_config->service_chain_group);
 
     return service_chain_mgr->FillServiceChainInfo(rtinstance, &info);
 }

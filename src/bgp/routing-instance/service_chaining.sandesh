@@ -36,6 +36,7 @@ struct ShowServicechainInfo {
    13: string service_chain_addr;
    10: string state;
    14: string pending_reason;
+   15: string service_chain_group;
     3: ConnectedRouteInfo connected_route;
     4: list<PrefixToRouteListInfo> more_specifics;
     5: list<ExtConnectRouteInfo> ext_connecting_rt_info_list;
