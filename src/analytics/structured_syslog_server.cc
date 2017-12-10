@@ -367,9 +367,9 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
     int64_t link2_bytes = SyslogParser::GetMapVal(v, "uplink-rx-bytes", -1);
     int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
-    if (link1_bytes < 1)
+    if (link1_bytes == -1)
         link1_bytes = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
-    if (link2_bytes < 1)
+    if (link2_bytes == -1)
         link2_bytes = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
 
     if (is_close) {
@@ -377,6 +377,8 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
         link2 = (SyslogParser::GetMapVals(v, "uplink-incoming-interface-name", "N/A"));
         if (boost::iequals(link2, "N/A")) {
             link2 = link1;
+            link1_bytes = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
+            link2_bytes = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
         }
         underlay_link1 = (SyslogParser::GetMapVals(v, "underlay-destination-interface-name", link1));
         underlay_link2 = (SyslogParser::GetMapVals(v, "underlay-uplink-incoming-interface-name", link2));
