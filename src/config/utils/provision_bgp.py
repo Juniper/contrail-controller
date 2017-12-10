@@ -85,65 +85,32 @@ class BgpProvisioner(object):
 
         bgp_router_obj = BgpRouter(router_name, rt_inst_obj,
                                    bgp_router_parameters=router_params)
-
+        bgp_router_fq_name = bgp_router_obj.get_fq_name()
         try:
-            cur_id = vnc_lib.bgp_router_create(bgp_router_obj)
-            cur_obj = vnc_lib.bgp_router_read(id=cur_id)
-
             # full-mesh with existing bgp routers
             fq_name = rt_inst_obj.get_fq_name()
             bgp_router_list = vnc_lib.bgp_routers_list(parent_fq_name=fq_name)
-            bgp_router_ids = [bgp_dict['uuid']
-                              for bgp_dict in bgp_router_list['bgp-routers']]
-            bgp_router_objs = []
-            for id in bgp_router_ids:
-                bgp_router_objs.append(vnc_lib.bgp_router_read(id=id))
-
-            for other_obj in bgp_router_objs:
-                if other_obj.uuid == cur_id:
-                    continue
-                cur_obj.add_bgp_router(other_obj, bgp_peering_attrs)
-
-        except RefsExistError:
-            fq_name=bgp_router_obj.get_fq_name()
-            cur_obj = vnc_lib.bgp_router_read(fq_name=fq_name)
-            cur_id = cur_obj.uuid
-            print ("BGP Router " + pformat(fq_name) +
-                   " already exists with uuid " + cur_id)
+            bgp_router_names = [bgp_dict['fq_name']
+                                for bgp_dict in bgp_router_list['bgp-routers']]
+            bgp_router_obj.set_bgp_router_list(bgp_router_names, [bgp_peering_attrs]*len(bgp_router_names))
+            vnc_lib.bgp_router_create(bgp_router_obj)
+        except RefsExistError as e:
+            print ("BGP Router " + pformat(bgp_router_fq_name) +
+                   " already exists " + str(e))
 
         if md5:
+            cur_obj = vnc_lib.bgp_router_read(fq_name=bgp_router_fq_name)
             md5 = {'key_items': [ { 'key': md5 ,"key_id":0 } ], "key_type":"md5"}
             rparams = cur_obj.bgp_router_parameters
             rparams.set_auth_data(md5)
             cur_obj.set_bgp_router_parameters(rparams)
-        vnc_lib.bgp_router_update(cur_obj)
+            vnc_lib.bgp_router_update(cur_obj)
     # end add_bgp_router
 
     def del_bgp_router(self, router_name):
-        vnc_lib = self._vnc_lib
-
         rt_inst_obj = self._get_rt_inst_obj()
-
         fq_name = rt_inst_obj.get_fq_name() + [router_name]
-        cur_obj = vnc_lib.bgp_router_read(fq_name=fq_name)
-
-        # remove full-mesh with existing bgp routers
-        fq_name = rt_inst_obj.get_fq_name()
-        bgp_router_list = vnc_lib.bgp_routers_list(parent_fq_name=fq_name)
-        bgp_router_ids = [bgp_dict['uuid']
-                          for bgp_dict in bgp_router_list['bgp-routers']]
-        bgp_router_objs = []
-        for id in bgp_router_ids:
-            bgp_router_objs.append(vnc_lib.bgp_router_read(id=id))
-
-        for other_obj in bgp_router_objs:
-            if other_obj.uuid == cur_obj.uuid:
-                # our refs will be dropped on delete further down
-                continue
-
-            other_obj.del_bgp_router(cur_obj)
-
-        vnc_lib.bgp_router_delete(id=cur_obj.uuid)
+        self._vnc_lib.bgp_router_delete(fq_name=fq_name)
     # end del_bgp_router
 
     def add_route_target(self, rt_inst_fq_name, router_asn,
@@ -182,7 +149,6 @@ class BgpProvisioner(object):
         else:
             net_obj.set_route_target_list(None)
         vnc_lib.virtual_network_update(net_obj)
-
     # end del_route_target
 
 # end class BgpProvisioner
