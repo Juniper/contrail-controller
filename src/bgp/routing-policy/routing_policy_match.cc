@@ -20,7 +20,6 @@
 using boost::regex;
 using boost::regex_match;
 using std::includes;
-using std::make_pair;
 using std::map;
 using std::ostringstream;
 using std::sort;
@@ -169,20 +168,34 @@ bool MatchCommunity::IsEqual(const RoutingPolicyMatch &community) const {
 }
 
 template <typename T>
-MatchPrefix<T>::MatchPrefix(const PrefixMatchConfigList &match_list) {
-    BOOST_FOREACH(const PrefixMatchConfig &match, match_list) {
-        boost::system::error_code ec;
-        PrefixT match_prefix = PrefixT::FromString(match.prefix_to_match, &ec);
-        MatchType match_type = EXACT;
-        if (strcmp(match.prefix_match_type.c_str(), "exact") == 0) {
-            match_type = EXACT;
-        } else if (strcmp(match.prefix_match_type.c_str(), "longer") == 0) {
-            match_type = LONGER;
-        } else if (strcmp(match.prefix_match_type.c_str(), "orlonger") == 0) {
-            match_type = ORLONGER;
-        }
-        match_list_.push_back(make_pair(match_prefix, match_type));
+typename MatchPrefix<T>::MatchType MatchPrefix<T>::GetMatchType(
+    const string &match_type_str) {
+    MatchType match_type = EXACT;
+    if (match_type_str == "exact") {
+        match_type = EXACT;
+    } else if (match_type_str == "longer") {
+        match_type = LONGER;
+    } else if (match_type_str == "orlonger") {
+        match_type = ORLONGER;
     }
+    return match_type;
+}
+
+template <typename T>
+MatchPrefix<T>::MatchPrefix(const PrefixMatchConfigList &match_config_list) {
+    BOOST_FOREACH(const PrefixMatchConfig &match_config, match_config_list) {
+        boost::system::error_code ec;
+        PrefixT prefix = PrefixT::FromString(match_config.prefix_to_match, &ec);
+        MatchType match_type =
+            MatchPrefix<T>::GetMatchType(match_config.prefix_match_type);
+        match_list_.push_back(PrefixMatch(prefix, match_type));
+    }
+
+    // Sort and uniquify the vector of PrefixMatch elements.
+    sort(match_list_.begin(), match_list_.end());
+    typename PrefixMatchList::iterator it =
+        unique(match_list_.begin(), match_list_.end());
+    match_list_.erase(it, match_list_.end());
 }
 
 template <typename T>
@@ -193,16 +206,21 @@ template <typename T>
 bool MatchPrefix<T>::Match(const BgpRoute *route, const BgpPath *path,
                            const BgpAttr *attr) const {
     const RouteT *in_route = dynamic_cast<const RouteT *>(route);
-    if (in_route == NULL) return false;
+    if (in_route == NULL)
+        return false;
     const PrefixT &prefix = in_route->GetPrefix();
-    BOOST_FOREACH(const PrefixMatch &match, match_list_) {
-        if (match.second == EXACT) {
-            if (prefix == match.first) return true;
-        } else if (match.second == LONGER) {
-            if (prefix == match.first) continue;
-            if (prefix.IsMoreSpecific(match.first)) return true;
-        } else if (match.second == ORLONGER) {
-            if (prefix.IsMoreSpecific(match.first)) return true;
+    BOOST_FOREACH(const PrefixMatch &prefix_match, match_list_) {
+        if (prefix_match.match_type == EXACT) {
+            if (prefix == prefix_match.prefix)
+                return true;
+        } else if (prefix_match.match_type == LONGER) {
+            if (prefix == prefix_match.prefix)
+                continue;
+            if (prefix.IsMoreSpecific(prefix_match.prefix))
+                return true;
+        } else if (prefix_match.match_type == ORLONGER) {
+            if (prefix.IsMoreSpecific(prefix_match.prefix))
+                return true;
         }
     }
     return false;
@@ -210,19 +228,21 @@ bool MatchPrefix<T>::Match(const BgpRoute *route, const BgpPath *path,
 
 template <typename T>
 bool MatchPrefix<T>::IsEqual(const RoutingPolicyMatch &prefix) const {
-    const MatchPrefix in_prefix =
-        static_cast<const MatchPrefix&>(prefix);
+    const MatchPrefix in_prefix = static_cast<const MatchPrefix&>(prefix);
     return (in_prefix.match_list_ == match_list_);
 }
 
 template <typename T>
 string MatchPrefix<T>::ToString() const {
     ostringstream oss;
-    oss << "prefix  [";
-    BOOST_FOREACH(const PrefixMatch &match, match_list_) {
-        oss << " " << match.first.ToString();
-        if  (match.second == LONGER) oss << " longer";
-        else if  (match.second == ORLONGER) oss << " orlonger";
+    oss << "prefix [";
+    BOOST_FOREACH(const PrefixMatch &prefix_match, match_list_) {
+        oss << " " << prefix_match.prefix.ToString();
+        if  (prefix_match.match_type == LONGER) {
+            oss << " longer";
+        } else if  (prefix_match.match_type == ORLONGER) {
+            oss << " orlonger";
+        }
         oss << ",";
     }
     oss.seekp(-1, oss.cur);
@@ -230,8 +250,8 @@ string MatchPrefix<T>::ToString() const {
     return oss.str();
 }
 
-template class MatchPrefix<InetPrefixMatch>;
-template class MatchPrefix<Inet6PrefixMatch>;
+template class MatchPrefix<PrefixMatchInet>;
+template class MatchPrefix<PrefixMatchInet6>;
 
 static const map<string, MatchProtocol::MatchProtocolType> fromString
   = boost::assign::map_list_of
@@ -268,7 +288,7 @@ static const string MatchProtocolToString(
 }
 
 static MatchProtocol::MatchProtocolType MatchProtocolFromString(
-                                                const string &protocol) {
+    const string &protocol) {
     map<string, MatchProtocol::MatchProtocolType>::const_iterator it =
         fromString.find(protocol);
     if (it != fromString.end()) {
@@ -278,7 +298,7 @@ static MatchProtocol::MatchProtocolType MatchProtocolFromString(
 }
 
 static BgpPath::PathSource PathSourceFromMatchProtocol(
-                                   MatchProtocol::MatchProtocolType src) {
+    MatchProtocol::MatchProtocolType src) {
     map<MatchProtocol::MatchProtocolType, BgpPath::PathSource>::const_iterator
         it = pathSourceMap.find(src);
     if (it != pathSourceMap.end()) {
@@ -314,8 +334,10 @@ bool MatchProtocol::Match(const BgpRoute *route, const BgpPath *path,
         BgpPath::PathSource mapped_src = PathSourceFromMatchProtocol(protocol);
         if (mapped_src != BgpPath::None) {
             if (mapped_src == path_src) {
-                if (protocol == XMPP && !is_xmpp) continue;
-                if (protocol == BGP && is_xmpp) continue;
+                if (protocol == XMPP && !is_xmpp)
+                    continue;
+                if (protocol == BGP && is_xmpp)
+                    continue;
                 return true;
             }
         }
