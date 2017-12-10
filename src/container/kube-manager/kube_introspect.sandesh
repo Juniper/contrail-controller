@@ -181,6 +181,10 @@ struct VMUuid {
     1: string vm_uuid (link="VirtualMachineDatabaseList");
 }
 
+struct VRUuid {
+    1: string vr_uuid (link="VirtualRouterDatabaseList");
+}
+
 struct VMIUuid {
     1: string vmi_uuid (link="VirtualMachineInterfaceDatabaseList");
 }
@@ -197,14 +201,15 @@ struct SGUuid {
 // Loadbalancer Introspect datastructures.
 //
 struct LoadbalancerInstance {
-    1: string uuid;
-    2: string name;
-    3: list<string> fq_name;
-    4: map<string, string> annotations;
-    5: string external_ip;
-    6: list<LbListenerUuid> lb_listeners;
-    7: list<string> selectors;
-    8: list<VMIUuid> vm_interfaces;
+    1: optional string uuid_to_service (link="ServiceDatabaseList");
+    2: optional string uuid_to_ingress (link="IngressDatabaseList");
+    3: string name;
+    4: list<string> fq_name;
+    5: map<string, string> annotations;
+    6: string external_ip;
+    7: list<LbListenerUuid> lb_listeners;
+    8: list<string> selectors;
+    9: list<VMIUuid> vm_interfaces;
 }
 
 request sandesh LoadbalancerDatabaseList {
@@ -313,9 +318,12 @@ struct VirtualMachineInstance {
     2: string name;
     3: map<string, string> annotations;
     4: string owner;
-    5: string pod_namespace;
-    6: string pod_node;
-    7: map<string, string> pod_labels;
+    5: string node_ip;
+    6: string pod_namespace;
+    7: string pod_node;
+    8: map<string, string> pod_labels;
+    9: list<VMIUuid> vm_interfaces;
+    10: optional VRUuid vrouter_uuid;
 }
 
 request sandesh VirtualMachineDatabaseList {

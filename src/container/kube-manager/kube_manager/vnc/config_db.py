@@ -304,15 +304,26 @@ class LoadbalancerKM(DBBaseKM):
                     introspect.VMIUuid, lb.virtual_machine_interfaces)
 
             # Construct response for an element.
-            lb_instance = introspect.LoadbalancerInstance(
-                uuid=lb.uuid,
-                name=lb.fq_name[-1],
-                fq_name=lb.fq_name,
-                annotations=lb_annotations,
-                external_ip=str(lb.external_ip),
-                lb_listeners=lb_listeners,
-                selectors=selectors,
-                vm_interfaces=vmis)
+            if 'Ingress' in lb.ann_fq_name:
+                lb_instance = introspect.LoadbalancerInstance(
+                    uuid_to_ingress=lb.uuid,
+                    name=lb.fq_name[-1],
+                    fq_name=lb.fq_name,
+                    annotations=lb_annotations,
+                    external_ip=str(lb.external_ip),
+                    lb_listeners=lb_listeners,
+                    selectors=selectors,
+                    vm_interfaces=vmis)
+            else:
+                lb_instance = introspect.LoadbalancerInstance(
+                    uuid_to_service=lb.uuid,
+                    name=lb.fq_name[-1],
+                    fq_name=lb.fq_name,
+                    annotations=lb_annotations,
+                    external_ip=str(lb.external_ip),
+                    lb_listeners=lb_listeners,
+                    selectors=selectors,
+                    vm_interfaces=vmis)
 
             # Append the constructed element info to the response.
             lb_resp.lbs.append(lb_instance)
@@ -684,15 +695,23 @@ class VirtualMachineKM(DBBaseKM):
 
             vm_annotations = cls._build_annotation_dict(vm.annotations)
 
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, vm.virtual_machine_interfaces)
+            vr = introspect.VRUuid(vr_uuid=str(vm.virtual_router)) \
+                if vm.virtual_router else None
+
             # Construct response for an element.
             vm_instance = introspect.VirtualMachineInstance(
                 uuid=vm.uuid,
                 name=vm.name,
                 annotations=vm_annotations,
                 owner=vm.owner,
+                node_ip=str(vm.node_ip),
                 pod_namespace=vm.pod_namespace,
                 pod_node=vm.pod_node,
-                pod_labels=vm.pod_labels)
+                pod_labels=vm.pod_labels,
+                vm_interfaces=vmis,
+                vrouter_uuid=vr)
 
             # Append the constructed element info to the response.
             vm_resp.vms.append(vm_instance)
