@@ -352,11 +352,11 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(
             }
         }
         if (!inet_prefix_list.empty()) {
-            PrefixMatchInet *prefix = new PrefixMatchInet(inet_prefix_list);
+            MatchPrefixInet *prefix = new MatchPrefixInet(inet_prefix_list);
             matches.push_back(prefix);
         }
         if (!inet6_prefix_list.empty()) {
-            PrefixMatchInet6 *prefix = new PrefixMatchInet6(inet6_prefix_list);
+            MatchPrefixInet6 *prefix = new MatchPrefixInet6(inet6_prefix_list);
             matches.push_back(prefix);
         }
     }
