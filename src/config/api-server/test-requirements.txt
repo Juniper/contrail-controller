@@ -6,7 +6,7 @@ flexmock
 coverage
 webtest
 pyaml
-keystonemiddleware
+keystonemiddleware!=4.19.0
 junitxml
 pyOpenSSL
 mock
