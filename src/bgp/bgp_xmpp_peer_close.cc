@@ -116,9 +116,6 @@ void BgpXmppPeerClose::CustomClose() {
 void BgpXmppPeerClose::CloseComplete() {
     assert(!channel_->channel()->connection()->IsDeleted());
     channel_->set_peer_closed(false);
-
-    // Take a reference and indicate to Channel that GR Closure is complete.
-    channel_->channel()->RegisterReferer(xmps::BGP);
     channel_->channel()->UnRegisterReceive(xmps::BGP);
 }
 

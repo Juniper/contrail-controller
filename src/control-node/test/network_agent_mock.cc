@@ -813,7 +813,17 @@ NetworkAgentMock::NetworkAgentMock(EventManager *evm, const string &hostname,
     if (!local_address.empty()) {
         impl_->set_localaddr(local_address);
     }
+    client_->RegisterConnectionEvent(xmps::BGP,
+        boost::bind(&NetworkAgentMock::XmppHandleChannelEvent, this, _1, _2));
     down_ = false;
+}
+
+void NetworkAgentMock::XmppHandleChannelEvent(XmppChannel *channel,
+                                              xmps::PeerState state) {
+    if (state == xmps::READY)
+        return;
+    tbb::mutex::scoped_lock lock(mutex_);
+    ClearInstances();
 }
 
 void NetworkAgentMock::DisableRead(bool disable_read) {
@@ -840,7 +850,6 @@ void NetworkAgentMock::ClearInstances() {
 }
 
 NetworkAgentMock::~NetworkAgentMock() {
-    tbb::mutex::scoped_lock lock(mutex_);
     down_ = true;
     ClearInstances();
     peer_.reset();
@@ -908,7 +917,6 @@ NetworkAgentMock::AgentPeer *NetworkAgentMock::GetAgent() {
 void NetworkAgentMock::SessionDown() {
     tbb::mutex::scoped_lock lock(mutex_);
     down_ = true;
-    ClearInstances();
     XmppConnection *connection =
         client_->FindConnection("network-control@contrailsystems.com");
     if (connection)
