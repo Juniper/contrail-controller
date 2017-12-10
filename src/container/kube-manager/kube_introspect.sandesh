@@ -11,7 +11,7 @@
 // Pod DB Introspect datastructures.
 //
 struct PodInstance {
-    1: string uuid;
+    1: string uuid (link="VirtualMachineDatabaseList");
     2: string name;
     3: string name_space;
     4: map<string,string> labels;
@@ -51,7 +51,7 @@ response sandesh NamespaceDatabaseListResp {
 // Service DB Introspect datastructures.
 //
 struct ServiceInstance {
-    1: string uuid;
+    1: string uuid (link="LoadbalancerDatabaseList");
     2: string name;
     3: string name_space;
     4: map<string,string> labels;
@@ -141,7 +141,7 @@ struct IngressRule {
 }
 
 struct IngressInstance {
-    1: string uuid;
+    1: string uuid  (link="LoadbalancerDatabaseList");
     2: string name;
     3: string name_space;
     4: map<string, string> labels;
@@ -309,7 +309,7 @@ response sandesh HealthMonitorDatabaseListResp {
 // VirtualMachine Introspect datastructures.
 //
 struct VirtualMachineInstance {
-    1: string uuid;
+    1: string uuid (link="PodDatabaseList");
     2: string name;
     3: map<string, string> annotations;
     4: string owner;
