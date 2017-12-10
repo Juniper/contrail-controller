@@ -397,6 +397,11 @@ class DMUtils(object):
                "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
 
     @staticmethod
+    def l3_bogus_lo_intf_comment(vn):
+        return "/* Bogus lo0 interface (PFE limitation), Virtual Network: %s, "\
+               "UUID: %s */"%(vn.fq_name[-1], vn.uuid)
+
+    @staticmethod
     def service_ifd_comment():
         return "/* Service Interface */"
 
