@@ -606,15 +606,19 @@ TEST_F(FirewallPolicy, Test10) {
     EXPECT_EQ(am->ip_list_size(), 3);
 
     PacketHeader *packet1 = new PacketHeader();
+    packet1->src_ip = Ip4Address::from_string("17.1.1.1");
+    packet1->dst_ip = Ip4Address::from_string("1.8.8.8");
     packet1->src_tags_.push_back(100);
     packet1->dst_tags_.push_back(100);
     MatchAclParams m_acl;
-    EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
+    EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
 
     packet1->src_ip = Ip4Address::from_string("16.1.1.1");
     packet1->dst_ip = Ip4Address::from_string("8.8.8.8");
     EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
 
+    packet1->src_ip = Ip4Address::from_string("17.1.1.1");
+    packet1->dst_ip = Ip4Address::from_string("1.8.8.8");
     packet1->src_tags_.clear();
     packet1->dst_tags_.clear();
     EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
