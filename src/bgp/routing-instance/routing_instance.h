@@ -199,6 +199,7 @@ private:
     void DeleteRTargetRoute(as4_t asn, const RouteTarget &rtarget);
     void InitAllRTargetRoutes(as4_t asn);
     void FlushAllRTargetRoutes(as4_t asn);
+    void ProcessIdentifierUpdate(as4_t asn);
 
     void AddRouteTarget(bool import, std::vector<std::string> *change_list,
         RouteTargetList::const_iterator it);

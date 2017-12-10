@@ -342,7 +342,8 @@ MvpnPrefix MvpnTable::CreateType2ADRoutePrefix() {
 
 MvpnPrefix MvpnTable::CreateType1ADRoutePrefix(
         const Ip4Address &originator_ip) {
-    const RouteDistinguisher *rd = routing_instance()->GetRD();
+    const RouteDistinguisher *rd = new RouteDistinguisher(
+	    originator_ip.to_ulong(), routing_instance()->index());
     MvpnPrefix prefix(MvpnPrefix::IntraASPMSIADRoute, *rd, originator_ip);
     return prefix;
 }
@@ -352,8 +353,7 @@ MvpnPrefix MvpnTable::CreateType1ADRoutePrefix() {
 }
 
 MvpnRoute *MvpnTable::LocateType1ADRoute() {
-    MvpnPrefix prefix = CreateType1ADRoutePrefix(
-            Ip4Address(server()->bgp_identifier()));
+    MvpnPrefix prefix = CreateType1ADRoutePrefix();
     return LocateRoute(prefix);
 }
 
