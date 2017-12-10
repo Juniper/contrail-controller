@@ -215,23 +215,27 @@ class DBBaseKM(DBBase):
         # Get all vnc objects of this class.
         return cls._dict.values()
 
-    @classmethod
-    def _build_annotation_dict(cls, annotation_dict):
-        annotations = {}
-        if annotation_dict and annotation_dict.get('key_value_pair'):
-            annots = {annot['key']: annot['value']
+    @staticmethod
+    def _build_annotation_dict(annotation_dict):
+        return {annot['key']: annot['value']
                       for annot
-                      in annotation_dict['key_value_pair']}
-            annotations.update(annots)
-        return annotations
+                      in annotation_dict['key_value_pair']} \
+            if annotation_dict and annotation_dict.get('key_value_pair') \
+            else {}
 
-    @classmethod
-    def _build_string_dict(cls, src_dict):
+    @staticmethod
+    def _build_string_dict(src_dict):
         dst_dict = {}
         if src_dict:
             for key, value in src_dict.iteritems():
                 dst_dict[str(key)] = str(value)
         return dst_dict
+
+    @staticmethod
+    def _build_cls_uuid_list(cls, collection):
+        return [cls(str(list(collection)[i]))
+                   for i in xrange(len(collection))] \
+            if collection else []
 
 class LoadbalancerKM(DBBaseKM):
     _dict = {}
@@ -294,6 +298,10 @@ class LoadbalancerKM(DBBaseKM):
             selectors = []
             if lb.selectors:
                 selectors = lb.selectors
+            lb_listeners = cls._build_cls_uuid_list(
+                    introspect.LbListenerUuid, lb.loadbalancer_listeners)
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, lb.virtual_machine_interfaces)
 
             # Construct response for an element.
             lb_instance = introspect.LoadbalancerInstance(
@@ -302,9 +310,9 @@ class LoadbalancerKM(DBBaseKM):
                 fq_name=lb.fq_name,
                 annotations=lb_annotations,
                 external_ip=lb.external_ip,
-                lb_listeners=list(lb.loadbalancer_listeners),
+                lb_listeners=lb_listeners,
                 selectors=selectors,
-                vm_interfaces=list(lb.virtual_machine_interfaces))
+                vm_interfaces=vmis)
 
             # Append the constructed element info to the response.
             lb_resp.lbs.append(lb_instance)
@@ -750,13 +758,16 @@ class VirtualRouterKM(DBBaseKM):
 
             vr_annotations = cls._build_annotation_dict(vr.annotations)
 
+            vms = cls._build_cls_uuid_list(
+                    introspect.VMUuid, vr.virtual_machines)
+
             # Construct response for an element.
             vr_instance = introspect.VirtualRouterInstance(
                 uuid=vr.uuid,
                 name=vr.fq_name[-1],
                 fq_name=vr.fq_name,
                 annotations=vr_annotations,
-                virtual_machines=list(vr.virtual_machines))
+                virtual_machines=vms)
 
             # Append the constructed element info to the response.
             vr_resp.vrs.append(vr_instance)
@@ -919,18 +930,25 @@ class VirtualMachineInterfaceKM(DBBaseKM):
 
             vmi_annotations = cls._build_annotation_dict(vmi.annotations)
 
+            fips = cls._build_cls_uuid_list(
+                    introspect.FIPUuid, vmi.floating_ips)
+            sgs = cls._build_cls_uuid_list(
+                    introspect.SGUuid, vmi.security_groups)
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, vmi.virtual_machine_interfaces)
+
             # Construct response for an element.
             vmi_instance = introspect.VirtualMachineInterfaceInstance(
                 uuid=vmi.uuid,
                 name=vmi.fq_name[-1],
                 fq_name=vmi.fq_name,
                 annotations=vmi_annotations,
-                floating_ips=list(vmi.floating_ips),
+                floating_ips=fips,
                 host_id=vmi.host_id,
-                security_groups=list(vmi.security_groups),
-                virtual_machine=vmi.virtual_machine,
-                virtual_machine_interfaces=list(vmi.virtual_machine_interfaces),
-                virtual_network=vmi.virtual_network)
+                security_groups=sgs,
+                virtual_machine=str(vmi.virtual_machine),
+                virtual_machine_interfaces=vmis,
+                virtual_network=str(vmi.virtual_network))
 
             # Append the constructed element info to the response.
             vmi_resp.vmis.append(vmi_instance)
@@ -1036,15 +1054,22 @@ class VirtualNetworkKM(DBBaseKM):
                             for sub
                             in vn.network_ipam_subnets.iteritems()]
 
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, vn.virtual_machine_interfaces)
+            iips = cls._build_cls_uuid_list(
+                    introspect.IIPUuid, vn.instance_ips)
+            nipams = cls._build_cls_uuid_list(
+                    introspect.NIPAMUuid, vn.network_ipams)
+
             # Construct response for an element.
             vn_instance = introspect.VirtualNetworkInstance(
                 uuid=vn.uuid,
                 name=vn.fq_name[-1],
                 fq_name=vn.fq_name,
                 annotations=vn_annotations,
-                virtual_machine_interfaces=list(vn.virtual_machine_interfaces),
-                instance_ips=list(vn.instance_ips),
-                network_ipams=list(vn.network_ipams),
+                virtual_machine_interfaces=vmis,
+                instance_ips=iips,
+                network_ipams=nipams,
                 network_ipam_subnets=ipam_subnets,
                 k8s_namespace=vn.k8s_namespace,
                 k8s_namespace_isolated=vn.k8s_namespace_isolated)
@@ -1115,6 +1140,13 @@ class InstanceIpKM(DBBaseKM):
             if req.iip_uuid and req.iip_uuid != iip.uuid:
                 continue
 
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, iip.virtual_machine_interfaces)
+            vns = cls._build_cls_uuid_list(
+                    introspect.VNUuid, iip.virtual_networks)
+            fips = cls._build_cls_uuid_list(
+                    introspect.FIPUuid, iip.floating_ips)
+
             # Construct response for an element.
             iip_instance = introspect.InstanceIpInstance(
                 uuid=iip.uuid,
@@ -1122,9 +1154,9 @@ class InstanceIpKM(DBBaseKM):
                 fq_name=iip.fq_name,
                 address=str(iip.address),
                 family=iip.family,
-                vm_interfaces=list(iip.virtual_machine_interfaces),
-                virtual_networks=list(iip.virtual_networks),
-                floating_ips=list(iip.floating_ips))
+                vm_interfaces=vmis,
+                virtual_networks=vns,
+                floating_ips=fips)
 
             # Append the constructed element info to the response.
             iip_resp.iips.append(iip_instance)
@@ -1217,6 +1249,11 @@ class ProjectKM(DBBaseKM):
 
             ns_labels = cls._build_string_dict(project.ns_labels)
 
+            sgs = cls._build_cls_uuid_list(
+                    introspect.SGUuid, project.security_groups)
+            vns = cls._build_cls_uuid_list(
+                    introspect.VNUuid, project.virtual_networks)
+
             # Construct response for an element.
             project_instance = introspect.ProjectInstance(
                 uuid=project.uuid,
@@ -1227,8 +1264,8 @@ class ProjectKM(DBBaseKM):
                 k8s_namespace_name=str(project.k8s_namespace_name),
                 k8s_namespace_uuid=str(project.k8s_namespace_uuid),
                 ns_labels=ns_labels,
-                security_groups=list(project.security_groups),
-                virtual_networks=list(project.virtual_networks))
+                security_groups=sgs,
+                virtual_networks=vns)
 
             # Append the constructed element info to the response.
             project_resp.projects.append(project_instance)
@@ -1434,6 +1471,9 @@ class SecurityGroupKM(DBBaseKM):
                     src_ports=src_ports)
                 rule_entries.append(sgre)
 
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, sg.virtual_machine_interfaces)
+
             # Construct response for an element.
             sg_instance = introspect.SecurityGroupInstance(
                 uuid=sg.uuid,
@@ -1448,9 +1488,9 @@ class SecurityGroupKM(DBBaseKM):
                 np_sgs=list(sg.np_sgs),
                 np_spec=np_spec,
                 owner=sg.owner,
-                project_uuid=sg.project_uuid,
+                project_uuid=str(sg.project_uuid),
                 rule_entries=rule_entries,
-                vm_interfaces=list(sg.virtual_machine_interfaces))
+                vm_interfaces=vmis)
 
             # Append the constructed element info to the response.
             sg_resp.sgs.append(sg_instance)
@@ -1582,6 +1622,9 @@ class FloatingIpKM(DBBaseKM):
 
             fip_annotations = cls._build_annotation_dict(fip.annotations)
 
+            vmis = cls._build_cls_uuid_list(
+                    introspect.VMIUuid, fip.virtual_machine_interfaces)
+
             # Construct response for an element.
             fip_instance = introspect.FloatingIpInstance(
                 uuid=fip.uuid,
@@ -1591,7 +1634,7 @@ class FloatingIpKM(DBBaseKM):
                 address=str(fip.address),
                 parent_uuid=str(fip.parent_uuid),
                 virtual_ip=str(fip.virtual_ip),
-                vm_interfaces=list(fip.virtual_machine_interfaces))
+                vm_interfaces=vmis)
 
             # Append the constructed element info to the response.
             fip_resp.fips.append(fip_instance)
