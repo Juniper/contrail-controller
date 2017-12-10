@@ -72,23 +72,35 @@ protected:
 
     void DisableRoutingInstanceConfigProcessing() {
         RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
-        mgr->DisableInstanceConfigListProcessing();
+        task_util::TaskFire(
+            boost::bind(
+                &RoutingInstanceMgr::DisableInstanceConfigListProcessing, mgr),
+            "bgp::Config");
     }
 
     void EnableRoutingInstanceConfigProcessing() {
         RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
-        mgr->EnableInstanceConfigListProcessing();
+        task_util::TaskFire(
+            boost::bind(
+                &RoutingInstanceMgr::EnableInstanceConfigListProcessing, mgr),
+            "bgp::Config");
         task_util::WaitForIdle();
     }
 
     void DisableInstanceNeighborConfigProcessing() {
         RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
-        mgr->DisableNeighborConfigListProcessing();
+        task_util::TaskFire(
+            boost::bind(
+                &RoutingInstanceMgr::DisableNeighborConfigListProcessing, mgr),
+            "bgp::Config");
     }
 
     void EnableInstanceNeighborConfigProcessing() {
         RoutingInstanceMgr *mgr = server_.routing_instance_mgr();
-        mgr->EnableNeighborConfigListProcessing();
+        task_util::TaskFire(
+            boost::bind(
+                &RoutingInstanceMgr::EnableNeighborConfigListProcessing, mgr),
+            "bgp::Config");
         task_util::WaitForIdle();
     }
 

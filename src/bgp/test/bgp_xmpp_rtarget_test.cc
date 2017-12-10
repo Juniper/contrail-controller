@@ -578,11 +578,17 @@ protected:
     }
 
     void DisableRTargetRouteProcessing(BgpServerTest *server) {
-        server->rtarget_group_mgr()->DisableRTargetRouteProcessing();
+        RTargetGroupMgr *mgr = server->rtarget_group_mgr();
+        task_util::TaskFire(
+            boost::bind(&RTargetGroupMgr::DisableRTargetRouteProcessing, mgr),
+            "bgp::Config");
     }
 
     void EnableRTargetRouteProcessing(BgpServerTest *server) {
-        server->rtarget_group_mgr()->EnableRTargetRouteProcessing();
+        RTargetGroupMgr *mgr = server->rtarget_group_mgr();
+        task_util::TaskFire(
+            boost::bind(&RTargetGroupMgr::EnableRTargetRouteProcessing, mgr),
+            "bgp::Config");
     }
 
     bool IsRTargetRouteOnList(BgpServer *server, RTargetRoute *rt) const {
@@ -592,12 +598,18 @@ protected:
 
     void DisableRtGroupProcessing(BgpServerTest *server) {
         task_util::WaitForIdle();
-        server->rtarget_group_mgr()->DisableRtGroupProcessing();
+        RTargetGroupMgr *mgr = server->rtarget_group_mgr();
+        task_util::TaskFire(
+            boost::bind(&RTargetGroupMgr::DisableRtGroupProcessing, mgr),
+            "bgp::Config");
     }
 
     void EnableRtGroupProcessing(BgpServerTest *server) {
         task_util::WaitForIdle();
-        server->rtarget_group_mgr()->EnableRtGroupProcessing();
+        RTargetGroupMgr *mgr = server->rtarget_group_mgr();
+        task_util::TaskFire(
+            boost::bind(&RTargetGroupMgr::EnableRtGroupProcessing, mgr),
+            "bgp::Config");
     }
 
     bool IsRtGroupOnList(BgpServer *server, RtGroup *rtgroup) const {
@@ -626,12 +638,18 @@ protected:
 
     void DisableRouteTargetProcessing(BgpServer *server) {
         task_util::WaitForIdle();
-        server->rtarget_group_mgr()->DisableRouteTargetProcessing();
+        RTargetGroupMgr *mgr = server->rtarget_group_mgr();
+        task_util::TaskFire(
+            boost::bind(&RTargetGroupMgr::DisableRouteTargetProcessing, mgr),
+            "bgp::Config");
     }
 
     void EnableRouteTargetProcessing(BgpServer *server) {
         task_util::WaitForIdle();
-        server->rtarget_group_mgr()->EnableRouteTargetProcessing();
+        RTargetGroupMgr *mgr = server->rtarget_group_mgr();
+        task_util::TaskFire(
+            boost::bind(&RTargetGroupMgr::EnableRouteTargetProcessing, mgr),
+            "bgp::Config");
     }
 
     bool IsRouteTargetOnList(BgpServer *server,
