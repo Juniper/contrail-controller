@@ -11,6 +11,7 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_update_sender.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/extended-community/tag.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -397,6 +398,66 @@ static const char *config_2_control_nodes_routing_policy = "\
 </config>\
 ";
 
+static const char *config_1_cluster_seed_1_vn = "\
+<config>\
+    <global-system-config>\
+        <rd-cluster-seed>100</rd-cluster-seed>\
+    </global-system-config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+static const char *config_1_cluster_seed_1_vn_new_seed = "\
+<config>\
+    <global-system-config>\
+        <rd-cluster-seed>101</rd-cluster-seed>\
+    </global-system-config>\
+    <bgp-router name=\'X\'>\
+        <identifier>192.168.0.1</identifier>\
+        <address>127.0.0.1</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
+static const char *config_2_cluster_seed_1_vn = "\
+<config>\
+    <global-system-config>\
+        <rd-cluster-seed>200</rd-cluster-seed>\
+    </global-system-config>\
+    <bgp-router name=\'Y\'>\
+        <identifier>192.168.0.2</identifier>\
+        <address>127.0.0.2</address>\
+        <port>%d</port>\
+    </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
+        <vrf-target>target:1:1</vrf-target>\
+    </routing-instance>\
+</config>\
+";
+
 //
 // Control Nodes X and Y.
 // Agents A and B.
@@ -687,6 +748,26 @@ protected:
     BgpTable *VerifyTableExists(BgpServerTestPtr server, const string &name) {
         TASK_UTIL_EXPECT_TRUE(server->database()->FindTable(name) != NULL);
         return static_cast<BgpTable *>(server->database()->FindTable(name));
+    }
+
+    // Check for a route's existence in l3vpn table.
+    bool CheckL3VPNRouteExists(BgpServerTestPtr server, string prefix) {
+        task_util::TaskSchedulerLock lock;
+        BgpTable *table = static_cast<BgpTable *>(
+            server->database()->FindTable("bgp.l3vpn.0"));
+        if (!table)
+            return false;
+
+        boost::system::error_code error;
+        InetVpnPrefix nlri = InetVpnPrefix::FromString(prefix, &error);
+        EXPECT_FALSE(error);
+        InetVpnTable::RequestKey key(nlri, NULL);
+        BgpRoute *rt = static_cast<BgpRoute *>(table->Find(&key));
+        return(rt != NULL);
+    }
+
+    void VerifyL3VPNRouteExists(BgpServerTestPtr server, string prefix) {
+        TASK_UTIL_EXPECT_TRUE(CheckL3VPNRouteExists(server, prefix));
     }
 
     EventManager evm_;
@@ -3805,6 +3886,78 @@ TEST_F(BgpXmppInetvpn2ControlNodeTest, RoutingPolicy_UpdateLocalPref) {
     // Delete blue path from agent A.
     agent_a_->DeleteRoute("blue", route_a.str());
     agent_b_->DeleteRoute("blue", route_a.str());
+    task_util::WaitForIdle();
+
+    // Close the sessions.
+    agent_a_->SessionDown();
+    agent_b_->SessionDown();
+}
+
+//
+// Two agents connected to two different xmpp/bgp servers: same VN on
+// different CNs. Each CN has a different route distinguisher cluster
+// seed to create unique RD values. Even though the agents advertise
+// the same route, the l3vpn table will store them as two different
+// VPN prefixes.
+//
+TEST_F(BgpXmppInetvpn2ControlNodeTest, ClusterSeedTest) {
+    Configure(bs_x_, config_1_cluster_seed_1_vn);
+    task_util::WaitForIdle();
+    Configure(bs_y_, config_2_cluster_seed_1_vn);
+    task_util::WaitForIdle();
+
+    // Create XMPP Agent A connected to XMPP server X.
+    agent_a_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-a", xs_x_->GetPort(),
+            "127.0.0.1", "127.0.0.1"));
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    // Create XMPP Agent B connected to XMPP server Y.
+    agent_b_.reset(
+        new test::NetworkAgentMock(&evm_, "agent-b", xs_y_->GetPort(),
+            "127.0.0.2", "127.0.0.2"));
+    TASK_UTIL_EXPECT_TRUE(agent_b_->IsEstablished());
+
+    // Register to blue instance
+    agent_a_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+    agent_b_->Subscribe("blue", 1);
+    task_util::WaitForIdle();
+
+    stringstream route_a;
+    route_a << "10.1.1.1/32";
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1");
+
+    agent_b_->AddRoute("blue", route_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_b_, "blue", route_a.str(), "192.168.1.1");
+
+    // Check l3vpn table to verify route with correct RD
+    VerifyL3VPNRouteExists(bs_x_, "0.100.1.1:1:10.1.1.1/32");
+    task_util::WaitForIdle();
+
+    VerifyL3VPNRouteExists(bs_y_, "0.200.1.1:1:10.1.1.1/32");
+    task_util::WaitForIdle();
+
+    Configure(bs_x_, config_1_cluster_seed_1_vn_new_seed);
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(101, bs_x_->global_config()->rd_cluster_seed());
+
+    // Check the agent connection is no longer in Established state.
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+
+    // Check the agent connection is back up.
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
+
+    agent_a_->Subscribe("blue", 1);
+    agent_a_->AddRoute("blue", route_a.str(), "192.168.1.1");
+    task_util::WaitForIdle();
+    VerifyRouteExists(agent_a_, "blue", route_a.str(), "192.168.1.1");
+
+    // Check l3vpn table to verify route with correct RD
+    VerifyL3VPNRouteExists(bs_x_, "0.101.1.1:1:10.1.1.1/32");
     task_util::WaitForIdle();
 
     // Close the sessions.

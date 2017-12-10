@@ -666,6 +666,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:simpleType name="RdClusterSeedType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="65535"/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:simpleType name="AccessType">
      <xsd:restriction base="xsd:integer" required='true'
           description_1="Three bits representing rwx."
@@ -975,6 +982,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('bgp-always-compare-med', 'global-system-config', 'optional', 'CRUD',
               'Always compare MED even if paths are received from different ASes.') -->
+
+<xsd:element name="rd-cluster-seed" type="RdClusterSeedType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('rd-cluster-seed', 'global-system-config', 'optional', 'CRUD',
+              'Used to create collision-free route distinguishers.') -->
 
 <xsd:element name="ip-fabric-subnets" type="SubnetListType"/>
 <!--#IFMAP-SEMANTICS-IDL

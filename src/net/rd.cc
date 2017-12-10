@@ -27,6 +27,14 @@ RouteDistinguisher::RouteDistinguisher(uint32_t address, uint16_t vrf_id) {
     put_value(data_ + 6, 2, vrf_id);
 }
 
+RouteDistinguisher::RouteDistinguisher(uint16_t cluster_seed, uint32_t address,
+                                       uint16_t vrf_id) {
+    put_value(data_, 2, TypeIpAddressBased);
+    put_value(data_ + 2, 2, cluster_seed);
+    put_value(data_ + 4, 2, (address & 0xFFFF));
+    put_value(data_ + 6, 2, vrf_id);
+}
+
 uint16_t RouteDistinguisher::Type() const {
     return get_value(data_, 2);
 }
