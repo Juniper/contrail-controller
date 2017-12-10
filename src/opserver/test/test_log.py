@@ -241,7 +241,7 @@ class LogQuerierTest(unittest.TestCase):
         self._querier.run()
         sys.argv = argv
 
-        expected_result_str = '{"sort": 1, "sort_fields": ["MessageTS"], "select_fields": ["MessageTS", "Source", "ModuleId", "Category", "Messagetype", "SequenceNum", "Xmlmessage", "Type", "Level", "NodeType", "InstanceId"], "table": "MessageTable", "where": [[{"suffix": null, "value2": null, "name": "Source", "value": "a6s45", "op": 1}, {"suffix": null, "value2": null, "name": "Category", "value": "__default__", "op": 1}], [{"suffix": null, "value2": null, "name": "Source", "value": "a6s30", "op": 1}, {"suffix": null, "value2": null, "name": "Category", "value": "__default__", "op": 1}]]}'
+        expected_result_str = '{"sort": 1, "sort_fields": ["MessageTS"], "select_fields": ["MessageTS", "Source", "ModuleId", "Category", "Messagetype", "SequenceNum", "Xmlmessage", "Type", "Level", "NodeType", "InstanceId"], "table": "MessageTable", "where": [[{"suffix": null, "value2": null, "name": "Source", "value": "a6s45", "op": 1}], [{"suffix": null, "value2": null, "name": "Source", "value": "a6s30", "op": 1}]], "filter": [[{"suffix": null, "value2": null, "name": "Category", "value": "__default__", "op": 1}]]}'
         expected_result_dict = json.loads(expected_result_str)
         self.assertEqual(int(query_list[0]['end_time']) - int(query_list[0]['start_time']),10*60*pow(10,6))
         del query_list[0]['start_time']

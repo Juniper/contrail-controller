@@ -446,7 +446,7 @@ class SessionTableAttributeConverter : public boost::static_visitor<> {
         itr = (cass_column2column_name_map_.find(cname));
         QE_ASSERT(itr != cass_column2column_name_map_.end());
         se.name = itr->second;
-        ColIndexType::type index_type =
+        GenDb::ColIndexType::type index_type =
             g_viz_constants._VIZD_SESSION_TABLE_SCHEMA.find(
             g_viz_constants.SESSION_TABLE)->second.columns[idx].index_type;
         if (index_type) {
@@ -1119,7 +1119,7 @@ void SelectQuery::get_query_column_value(const GenDb::DbDataValueVec &info,
 
     if (value->which() != GenDb::DB_VALUE_BLANK) {
         // if T2: was prepended then remove it now
-        ColIndexType::type index_type = MsgTableIndexToIndexType(index);
+        GenDb::ColIndexType::type index_type = MsgTableIndexToIndexType(index);
         if (index_type) {
             std::string value_str(GenDb::DbDataValueToString(*value));
             value_str.erase(value_str.begin(),

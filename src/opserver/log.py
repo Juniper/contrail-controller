@@ -325,21 +325,6 @@ class LogQuerier(object):
                 where_or_list = [where_msg + [module] for where_msg in where_or_list \
                                                       for module in module_list]
 
-        if self._args.category is not None:
-            if self._args.category.endswith('*'):
-                val = self._args.category[:-1]
-                oper = OpServerUtils.MatchOp.PREFIX
-            else:
-                val = self._args.category
-                oper = OpServerUtils.MatchOp.EQUAL
-            category_match = OpServerUtils.Match(
-                name=VizConstants.CATEGORY,
-                value=val, op=oper)
-            if not where_or_list:
-                where_or_list = [[]]
-            for where_msg in where_or_list:
-                where_msg.append(category_match.__dict__)
-
         if self._args.message_type is not None:
             message_type_list = []
             for message_type in self._args.message_type:
@@ -379,6 +364,19 @@ class LogQuerier(object):
                 value=self._args.instance_id,
                 op=OpServerUtils.MatchOp.EQUAL)
             and_filter.append(instance_id_match.__dict__)
+
+        if self._args.category is not None:
+            if self._args.category.endswith('*'):
+                val = self._args.category[:-1]
+                oper = OpServerUtils.MatchOp.PREFIX
+            else:
+                val = self._args.category
+                oper = OpServerUtils.MatchOp.EQUAL
+            category_match = OpServerUtils.Match(
+                name=VizConstants.CATEGORY,
+                value=val,
+                op=oper)
+            and_filter.append(category_match.__dict__)
 
         # Object logs :
         # --object-type <> : All logs for the particular object type
