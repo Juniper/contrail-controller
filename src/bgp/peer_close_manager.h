@@ -204,7 +204,7 @@ private:
     virtual void UnregisterRibIn(BgpTable *table);
 
     IPeerClose *peer_close_;
-    Timer *stale_timer_;
+    Timer *gr_timer_;
     boost::scoped_ptr<WorkQueue<Event *> > event_queue_;
     State state_;
     bool close_again_;

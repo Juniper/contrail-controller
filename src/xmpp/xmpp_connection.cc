@@ -950,3 +950,20 @@ void XmppConnectionEndpoint::reset_connection() {
     assert(connection_);
     connection_ = NULL;
 }
+
+// Swap relavent contents between two XmppConnection objects.
+void XmppConnection::SwapContents(XmppConnection *other) {
+    assert(!IsClient());
+    assert(!other->IsClient());
+    // Update the ConnectionMap in the server as the endpoints are the keys.
+    XmppServer *server = dynamic_cast<XmppServerConnection *>(this)->server();
+    server->SwapXmppConnectionMapEntries(this, other);
+    // Swap all other connection related information.
+    swap(local_endpoint_, other->local_endpoint_);
+    swap(stats_, other->stats_);
+    swap(error_stats_, other->error_stats_);
+    swap(last_msg_, other->last_msg_);
+    swap(to_, other->to_);
+    swap(from_, other->from_);
+    swap(disable_read_, other->disable_read_);
+}
