@@ -269,6 +269,10 @@ struct SecurityPolicyFlowStats {
     3: string site;
     /** Name of deployment */
     4: string deployment;
+    /** semi-colon seperated list of labels */
+    22: string labels;
+    /** semi-colon seperated list of custom_tags */
+    23: string custom_tags;
     /** Remote Application ID */
     5:  string remote_app_id;
     /** Remote Tier ID */
@@ -277,6 +281,10 @@ struct SecurityPolicyFlowStats {
     7:  string remote_site_id;
     /** Remote deployment ID */
     8:  string remote_deployment_id;
+    /** semi-colon seperated list of remote label ids */
+    24: string remote_label_ids;
+    /** semi-colon seperated list of remote custom_tag ids */
+    25: string remote_custom_tag_ids;
     /** Remote prefix when app/tier/site/deployment is missing */
     9:  string remote_prefix;
     /** Remote Virtual network name*/
@@ -308,9 +316,9 @@ struct EndpointStats {
     /** Name of the virtual machine instance to which this VMI belongs */
     1: string workload;
     /** @display_name:Endpoint statistics for client sessions */
-    2: list<SecurityPolicyFlowStats> client (tags=".app,.tier,.site,.deployment,.local_vn,workload")
+    2: list<SecurityPolicyFlowStats> client (tags=".app,.tier,.site,.deployment,.local_vn,.labels,.custom_tags,workload")
     /** @display_name:Endpoint statistics for server sessions */
-    3: list<SecurityPolicyFlowStats> server (tags=".app,.tier,.site,.deployment,.local_vn,workload")
+    3: list<SecurityPolicyFlowStats> server (tags=".app,.tier,.site,.deployment,.local_vn,.labels,.custom_tags,workload")
 }
 
 /**
