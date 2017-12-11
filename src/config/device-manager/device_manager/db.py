@@ -1250,7 +1250,7 @@ class PortTupleDM(DBBaseDM):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         obj = self.update(obj_dict)
-        self.add_to_parent(obj_dict)
+        self.add_to_parent(obj)
     # end __init__
 
     def update(self, obj=None):
@@ -1262,6 +1262,7 @@ class PortTupleDM(DBBaseDM):
             vmi_obj = VirtualMachineInterfaceDM.get(vmi)
             if vmi_obj and not vmi_obj.service_instance:
                 vmi_obj.service_instance = self.parent_uuid
+        return obj
     # end update
 
     @classmethod
