@@ -193,7 +193,7 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
     if (c->err) {
         LOG(ERROR, "No connection for SyncDeleteUVEs : " << generator);
         redisFree(c); 
-        return false;
+        return true;
     }
 
     //Authenticate the context with password
@@ -205,7 +205,7 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
             LOG(ERROR, "Authentication to redis error");
             freeReplyObject(reply);
             redisFree(c);
-            return false;
+            return true;
         }
         freeReplyObject(reply);
     }
