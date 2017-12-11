@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
     <global-system-config>
-        <route-distinguisher-cluster-seed>200</route-distinguisher-cluster-seed>
+        <rd-cluster-seed>200</rd-cluster-seed>
     </global-system-config>
     <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
       <bgp-router name='local'>
