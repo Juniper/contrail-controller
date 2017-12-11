@@ -752,11 +752,9 @@ class VncIngressTest(KMTestCase):
         vrouter_uuids = []
 
         for vm_dict in si.virtual_machine_back_refs:
-            vm = self._vnc_lib.virtual_machine_read(
-                id=vm_dict['uuid'],
-                fields=['virtual_machine_interface_back_refs'])
+            vm = self._vnc_lib.virtual_machine_read(id=vm_dict['uuid'])
             vmi = self._vnc_lib.virtual_machine_interface_read(
-                id=vm.virtual_machine_interface_back_refs[0]['uuid'])
+                id=vm.get_virtual_machine_interface_back_refs()[0]['uuid'])
             vrouter = self._create_vrouter_for_vm(vmi=vmi, vm=vm)
             vrouter_uuids.append(vrouter.uuid)
 
@@ -858,6 +856,9 @@ class VncIngressTest(KMTestCase):
 
         for vn in project.get_virtual_networks() or ():
             self._delete_virtual_network(vn['uuid'])
+
+        for np in project.get_network_policys() or ():
+            self._vnc_lib.network_policy_delete(id=np['uuid'])
 
         self._vnc_lib.project_delete(fq_name=project_fq_name)
         ProjectKM.delete(project.uuid)
