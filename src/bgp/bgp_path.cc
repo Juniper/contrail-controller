@@ -104,6 +104,9 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     if (allow_ecmp)
         return 0;
 
+    // Prefer non-aliased paths.
+    BOOL_COMPARE(rhs.IsAliased(), IsAliased());
+
     // Compare as path length for service chain paths since we bypassed the
     // check previously.
     if (attr_->origin_vn_path() && rattr->origin_vn_path())
@@ -146,9 +149,6 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     if (lpeer != NULL && rpeer != NULL) {
         KEY_COMPARE(lpeer->peer_key(), rpeer->peer_key());
     }
-
-    // Prefer non-aliased paths.
-    BOOL_COMPARE(rhs.IsAliased(), IsAliased());
 
     return 0;
 }
