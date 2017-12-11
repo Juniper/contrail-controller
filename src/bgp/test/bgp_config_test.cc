@@ -2890,7 +2890,7 @@ TEST_F(BgpConfigTest, InstanceCreateUpdate10) {
         TASK_UTIL_EXPECT_TRUE(mgr->GetRoutingInstance(name) != NULL);
         RoutingInstance *rtinstance = mgr->GetRoutingInstance(name);
         TASK_UTIL_EXPECT_EQ(idx, rtinstance->virtual_network_index());
-        TASK_UTIL_EXPECT_FALSE(sc_mgr->IsPending(rtinstance));
+        TASK_UTIL_EXPECT_FALSE(sc_mgr->ServiceChainIsPending(rtinstance));
     }
 
     boost::replace_all(content1, "<config>", "<delete>");
