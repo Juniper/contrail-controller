@@ -228,6 +228,7 @@ TEST_F(DbQueryUnitTest, WhereQueryProcessing) {
 
     DbQueryUnit *mdbq = new DbQueryUnit(&mq,&mq);
     EXPECT_CALL(mq, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
+    EXPECT_CALL(mq, is_object_table_query(_)).Times(AnyNumber()).WillRepeatedly(Return(false));
     WhereQuery *wq= new WhereQuery(mdbq);
     wq->main_query = &mq;
     wq->where_result_.reset(new std::vector<query_result_unit_t>);
@@ -238,6 +239,8 @@ TEST_F(DbQueryUnitTest, WhereQueryProcessing) {
     DbQueryUnit *dbq2 = new DbQueryUnit(wq, q2);
     EXPECT_CALL(*q1, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
     EXPECT_CALL(*q2, table()).Times(AnyNumber()).WillRepeatedly(Return("table1"));
+    EXPECT_CALL(*q1, is_object_table_query(_)).Times(AnyNumber()).WillRepeatedly(Return(false));
+    EXPECT_CALL(*q2, is_object_table_query(_)).Times(AnyNumber()).WillRepeatedly(Return(false));
     dbq1->sub_query_id = 0;
     dbq2->sub_query_id = 1;
     wq->query_status = QUERY_SUCCESS;

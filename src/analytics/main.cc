@@ -246,13 +246,6 @@ int main(int argc, char *argv[])
         options.add_cassandra_port(cassandra_port);
     }
 
-    /*
-     * the option is enable_db_messages_keyword_writes, but the variable
-     * passed along is options.disable_db_messages_keyword_writes
-     * so we need to update it in the options.cassandra_options_
-     */
-    options.disable_db_messages_keyword_writes();
-
     LOG(INFO, "COLLECTOR LISTEN PORT: " << options.collector_port());
     LOG(INFO, "COLLECTOR REDIS UVE PORT: " << options.redis_port());
     ostringstream css;

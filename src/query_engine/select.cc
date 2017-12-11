@@ -6,14 +6,18 @@
 
 #include "boost/uuid/uuid_io.hpp"
 #include "boost/algorithm/string.hpp"
+#include <boost/regex.hpp>
+#include <string>
 #include "base/util.h"
 #include "rapidjson/document.h"
 #include "analytics/viz_types.h"
 #include "analytics/viz_constants.h"
 #include "analytics/vizd_table_desc.h"
+#include "utils.h"
 #include "stats_select.h"
 
 using std::string;
+using namespace boost::algorithm;
 
 std::vector<std::string> session_json_fields = boost::assign::list_of
     ("remote_ip")
@@ -68,11 +72,8 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     mresult_.reset(new MapBufT);
 
     // initialize Cassandra related fields
-    if (
-            (m_query->table() == g_viz_constants.COLLECTOR_GLOBAL_TABLE) ||
-            (m_query->is_object_table_query(m_query->table()))
-       )
-    {
+    if (m_query->is_message_table_query() ||
+        m_query->is_object_table_query(m_query->table())) {
         cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
     } else if ((m_query->table() == (g_viz_constants.FLOW_TABLE)) ||
             (m_query->table() == (g_viz_constants.OBJECT_VALUE_TABLE))) {
@@ -190,8 +191,6 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     for (contrail_rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) 
     {
         QE_PARSE_ERROR(json_select_fields[i].IsString());
-        QE_TRACE(DEBUG, "Select field string: " << 
-                json_select_fields[i].GetString());
 
         // processing "T" or "T=" field
         if (json_select_fields[i].GetString() == 
@@ -608,8 +607,7 @@ query_status_t SelectQuery::process_query() {
      *    a series of rows of
      *     T, <x-tuple>, pkts...
      *    it's expected that aggregation and binning will be done by
-     *bn
-    the next level
+     *    the next level
      *
      *  message related queries
      */
@@ -1034,66 +1032,33 @@ query_status_t SelectQuery::process_query() {
             "Can not handle query result of size:" << query_result.size());
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
+        QE_TRACE(DEBUG, "query_result.size():" << query_result.size());
 
-         /*
-          * In case of objecttable queries, if object_id is also part of
-          * select field, then construct a map between the object_id and
-          * uuid and populate the select field based on this map
-          */
-        std::map<boost::uuids::uuid, std::string> uuid_to_object_id;
         for (std::vector<query_result_unit_t>::const_iterator it = query_result.begin();
                 it != query_result.end(); it++) {
-            boost::uuids::uuid u;
 
-            it->get_uuid(u);
-            if (m_query->is_object_table_query(m_query->table())) {
-                std::string object_id;
-                it->get_objectid(object_id);
-                uuid_to_object_id.insert(std::make_pair(u, object_id));
-            }
-            GenDb::DbDataValueVec a_key;
-            a_key.push_back(u);
-            keys.push_back(a_key);
-        }
-
-        GenDb::ColListVec mget_res;
-        if (!m_query->dbif_->Db_GetMultiRow(&mget_res,
-                    g_viz_constants.COLLECTOR_GLOBAL_TABLE, keys)) {
-            QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-        }
-        for (GenDb::ColListVec::iterator it = mget_res.begin();
-                it != mget_res.end(); it++) {
             std::map<std::string, GenDb::DbDataValue> col_res_map;
-            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
-                    jt != it->columns_.end(); jt++) {
-                std::string col_name;
-                try {
-                    col_name = boost::get<std::string>(jt->name->at(0));
-                } catch (boost::bad_get& ex) {
-                    QE_ASSERT(0);
-                }
+            for (unsigned int i = 0; i < it->info.size(); i++) {
 
-                col_res_map.insert(std::make_pair(col_name, jt->value->at(0)));
+                std::string query_column;
+                GenDb::DbDataValue value;
+                get_query_column_value(it->info, i, &query_column, &value);
+                col_res_map.insert(std::make_pair(query_column, value));
             }
+
+            // if select has object-id we need to make map of uuid->object-id
+            // after T2:ObjectType: has been removed from object-id value.
             boost::uuids::uuid uuid_rkey;
-            if (!col_res_map.size()) {
-                assert(it->rowkey_.size() > 0);
-                try {
-                    uuid_rkey = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
-                } catch (boost::bad_get& ex) {
-                    QE_LOG(ERROR, "Invalid rowkey/uuid");
-                    QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-                }
-                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(uuid_rkey) <<
-                       " in Analytics db");
-                continue;
-            } else {
-                try {
-                    uuid_rkey = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
-                } catch (boost::bad_get& ex) {
-                    QE_LOG(ERROR, "Invalid rowkey/uuid");
-                    QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
-                }
+            std::map<boost::uuids::uuid, std::string> uuid_to_object_id;
+            if (m_query->is_object_table_query(m_query->table())) {
+                std::map<std::string, GenDb::DbDataValue>::iterator uuid_it =
+                                            col_res_map.find(g_viz_constants.UUID_KEY);
+                boost::uuids::uuid u = boost::get<boost::uuids::uuid>(uuid_it->second);
+                uuid_rkey = boost::get<boost::uuids::uuid>(uuid_it->second);
+                std::map<std::string, GenDb::DbDataValue>::iterator objectid_it =
+                                            col_res_map.find(g_viz_constants.OBJECT_TYPE_NAME1);
+                std::string object_id(GenDb::DbDataValueToString(objectid_it->second));
+                uuid_to_object_id.insert(std::make_pair(u, object_id));
             }
 
             std::map<std::string, std::string> cmap;
@@ -1117,9 +1082,8 @@ query_status_t SelectQuery::process_query() {
                 } else if (*jt == g_viz_constants.UUID_KEY) {
 
                     boost::uuids::uuid u;
-                    assert(it->rowkey_.size() > 0);
                     try {
-                        u = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
+                        u = boost::get<boost::uuids::uuid>(kt->second);
                     } catch (boost::bad_get& ex) {
                         QE_ASSERT(0);
                     }
@@ -1141,6 +1105,34 @@ query_status_t SelectQuery::process_query() {
     status_details = 0;
     parent_query->subquery_processed(this);
     return QUERY_SUCCESS;
+}
+
+void SelectQuery::get_query_column_value(const GenDb::DbDataValueVec &info,
+                                         unsigned int index,
+                                         std::string *query_column,
+                                         GenDb::DbDataValue *value) {
+
+    std::string columnN = MsgTableIndexToColumn(index);
+    *query_column = MsgTableColumnToQueryColumn(columnN);
+    *value = info.at(index);
+
+    if (value->which() != GenDb::DB_VALUE_BLANK) {
+        // if T2: was prepended then remove it now
+        ColIndexType::type index_type = MsgTableIndexToIndexType(index);
+        if (index_type) {
+            std::string value_str(GenDb::DbDataValueToString(*value));
+            value_str.erase(value_str.begin(),
+                            value_str.begin() + value_str.find_first_of(":") + 1);
+
+            // Remove "<object-type>:" from OBJECT_TYPE_NAME[1..6] values
+            if (boost::starts_with(*query_column,
+                                   g_viz_constants.OBJECT_TYPE_NAME_PFX)) {
+                value_str.erase(value_str.begin(),
+                                value_str.begin() + value_str.find_first_of(":") + 1);
+            }
+            *value = value_str;
+        }
+    }
 }
 
 bool SelectQuery::process_object_query_specific_select_params(

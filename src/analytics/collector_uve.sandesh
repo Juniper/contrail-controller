@@ -390,7 +390,7 @@ request sandesh DisableDatabaseWritesRequest {
     3: optional bool disable_messages
     /** whether to disable flows only */
     4: optional bool disable_flows
-    /** whether to disable messages keyword only */
+    /** whether to disable messages keyword only - DEPRECATED */
     5: optional bool disable_messages_keyword
 }
 
@@ -406,7 +406,7 @@ response sandesh DatabaseWritesStatusResponse {
     2: bool disable_statistics
     3: bool disable_messages
     4: bool disable_flows
-    5: bool disable_messages_keyword
+    5: bool disable_messages_keyword    /* DEPRECATED */
 }
 
 

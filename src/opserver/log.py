@@ -131,7 +131,6 @@ class LogQuerier(object):
                           --send-syslog
                           --syslog-server 127.0.0.1
                           --syslog-port 514
-                          --keywords comma,seperated,list
         """
         defaults = {
             'analytics_api_ip': '127.0.0.1',
@@ -235,7 +234,6 @@ class LogQuerier(object):
         parser.add_argument("--syslog-port", help="Port to send syslog to",
             type=int, default=514)
         parser.add_argument("--tail","-f", help="Tail logs from now", action="store_true")
-        parser.add_argument("--keywords", help="comma seperated list of keywords")
         parser.add_argument("--message-types", \
          help="Display list of message type", action="store_true")
         parser.add_argument("--output-file", "-o", help="redirect output to file")
@@ -385,7 +383,7 @@ class LogQuerier(object):
         # Object logs :
         # --object-type <> : All logs for the particular object type
         # --object-type <> --object-values : Object-id values for the particular
-        #     object tye
+        #     object type
         # --object-type <> --object-id <> : All logs matching object-id for
         #     particular object type
         if (self._args.object_type is not None or
@@ -467,7 +465,7 @@ class LogQuerier(object):
                 ]
 
         elif self._args.trace is not None:
-            table = VizConstants.COLLECTOR_GLOBAL_TABLE
+            table = VizConstants.MESSAGE_TABLE
             if self._args.source is None:
                 print 'Source is required for trace buffer dump'
                 return -1
@@ -497,7 +495,7 @@ class LogQuerier(object):
             and_filter.append(sandesh_type_filter.__dict__)
         else:
             # Message Table Query
-            table = VizConstants.COLLECTOR_GLOBAL_TABLE
+            table = VizConstants.MESSAGE_TABLE
 
             select_list = [
                 VizConstants.TIMESTAMP,
@@ -518,18 +516,6 @@ class LogQuerier(object):
             filter = [and_filter+[filt] for filt in or_filter]
         elif len(and_filter):
             filter = [and_filter]
-
-        if self._args.keywords is not None:
-            p = re.compile('\s*,\s*|\s+')
-            if not where_or_list:
-                where_or_list = [[]]
-            for kwd in p.split(self._args.keywords):
-                message_type_match = OpServerUtils.Match(
-                    name=VizConstants.KEYWORD,
-                    value=kwd,
-                    op=OpServerUtils.MatchOp.EQUAL)
-                for where_msg in where_or_list:
-                    where_msg.append(message_type_match.__dict__)
 
         if not where_or_list:
             where = None

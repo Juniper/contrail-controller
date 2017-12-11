@@ -24,7 +24,7 @@ class VerificationCollector(IntrospectUtilBase):
         xpath = '/ShowCollectorServerResp/generators'
         p = self.dict_get(path)
         return EtreeToDict(xpath).get_all_entry(p)
-    #end get_collector_connection_status
+    #end get_generators
 
     def get_redis_uve_info(self):
         path = 'Snh_RedisUVERequest'

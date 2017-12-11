@@ -7,7 +7,9 @@
 #include <base/time_util.h>
 #include <base/string_util.h>
 
+#include "json_parse.h"
 #include "utils.h"
+#include "analytics/viz_types.h"
 
 /*
  * time could be in now +/-10m/h/s format.Parse that and return th
@@ -69,3 +71,43 @@ bool parse_time(const std::string& relative_time, uint64_t *usec_time)
     }
 }
 
+GenDb::Op::type get_gendb_op_from_op(int op) {
+    switch(op) {
+        case EQUAL:
+            return GenDb::Op::EQ;
+        case LEQ:
+            return GenDb::Op::LE;
+        case GEQ:
+            return GenDb::Op::GE;
+        case PREFIX:
+            return GenDb::Op::LIKE;
+        default:
+            return GenDb::Op::INVALID;
+    }
+}
+
+// Input params are valid.
+// No need to add extra validity check.
+std::string MsgTableIndexToColumn(const int index) {
+    return (g_viz_constants._VIZD_TABLE_SCHEMA.find(
+                    g_viz_constants.COLLECTOR_GLOBAL_TABLE))\
+                    ->second.columns[index].name;
+}
+
+ColIndexType::type MsgTableIndexToIndexType(const int index) {
+    return (g_viz_constants._VIZD_TABLE_SCHEMA.find(
+                    g_viz_constants.COLLECTOR_GLOBAL_TABLE))\
+                    ->second.columns[index].index_type;
+}
+
+std::string MsgTableQueryColumnToColumn(const std::string query_column) {
+    return (g_viz_constants._VIZD_TABLE_SCHEMA.find(
+                    g_viz_constants.COLLECTOR_GLOBAL_TABLE))\
+                    ->second.query_column_to_column.find(query_column)->second;
+}
+
+std::string MsgTableColumnToQueryColumn(const std::string columnN) {
+    return (g_viz_constants._VIZD_TABLE_SCHEMA.find(
+                    g_viz_constants.COLLECTOR_GLOBAL_TABLE))\
+                    ->second.column_to_query_column.find(columnN)->second;
+}
