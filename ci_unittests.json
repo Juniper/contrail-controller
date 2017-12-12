@@ -1,18 +1,19 @@
 {
     "contrail-collector" : {
         "source_directories" : [
-            "controller/src/analytics",
+            "src/contrail-analytics/contrail-collector",
             "controller/src/bfd",
             "controller/src/database",
-            "controller/src/opserver",
+            "src/contrail-analytics/contrail-opserver",
+            "src/contrail-analytics/contrail-query-engine",
             "controller/src/query_engine",
             "controller/src/zookeeper"
         ],
         "scons_test_targets" : [
-            "controller/src/analytics:test",
-            "controller/src/opserver:test",
+            "src/contrail-analytics/contrail-collector:test",
+            "src/contrail-analytics/contrail-opserver:test",
             "controller/src/bfd:test",
-            "controller/src/query_engine:test",
+            "src/contrail-analytics/contrail-query-engine:test",
             "controller/src/database/gendb:test",
             "controller/src/database/cassandra/cql:test",
             "controller/src/zookeeper:test"
