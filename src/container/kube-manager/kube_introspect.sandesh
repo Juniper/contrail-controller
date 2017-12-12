@@ -593,6 +593,19 @@ response sandesh NetworkIpamDatabaseListResp {
     1: list<NetworkIpamInstance> network_ipams;
 }
 
+
+struct KubeGreenletStackInstance
+{
+    1: list<string> stack;
+}
+
+request sandesh KubeGreenletStackList {
+}
+
+response sandesh KubeGreenletStackListResp {
+    1: list<KubeGreenletStackInstance> greenlets;
+}
+
 struct KubeApiConnections {
     1: bool endpoint_monitor;
     2: bool ingress_monitor;
