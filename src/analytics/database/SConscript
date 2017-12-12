@@ -6,7 +6,8 @@
 
 import sys
 
-Import('AnalyticsEnv')
+Import('BuildEnv')
+AnalyticsEnv = BuildEnv.Clone()
 DatabaseEnv = AnalyticsEnv.Clone()
 
 setup_sources = [
