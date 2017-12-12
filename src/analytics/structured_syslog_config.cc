@@ -33,7 +33,8 @@ StructuredSyslogConfig::HostnameRecordsHandler(const contrail_rapidjson::Documen
                                                bool add_update) {
     if (jdoc.IsObject() && jdoc.HasMember("structured_syslog_hostname_record")) {
         const contrail_rapidjson::Value& hr = jdoc["structured_syslog_hostname_record"];
-        std::string name, hostaddr, tenant, location, device;
+        std::string name, hostaddr, tenant, location, device, tags;
+        std::map< std::string, std::string > linkmap;
 
         if (hr.HasMember("fq_name")) {
             const contrail_rapidjson::Value& fq_name = hr["fq_name"];
@@ -53,10 +54,26 @@ StructuredSyslogConfig::HostnameRecordsHandler(const contrail_rapidjson::Documen
         if (hr.HasMember("structured_syslog_device")) {
             device = hr["structured_syslog_device"].GetString();
         }
+        if (hr.HasMember("structured_syslog_hostname_tags")) {
+            tags = hr["structured_syslog_hostname_tags"].GetString();
+        }
+        if (hr.HasMember("structured_syslog_linkmap")) {
+            const contrail_rapidjson::Value& linkmap_fields = hr["structured_syslog_linkmap"];
+            const contrail_rapidjson::Value& links_array = linkmap_fields["links"];
+            assert(links_array.IsArray());
+            for (contrail_rapidjson::SizeType i = 0; i < links_array.Size(); i++) {
+                linkmap.insert(std::make_pair<std::string,
+                std::string >(links_array[i]["overlay"].GetString(),
+                links_array[i]["underlay"].GetString()));
+                LOG(DEBUG, "Adding HostnameRecord: " << name << " linkmap: "
+                << links_array[i]["overlay"].GetString() << " : "
+                << links_array[i]["underlay"].GetString());
+            }
+        }
         if (add_update) {
             LOG(DEBUG, "Adding HostnameRecord: " << name);
             AddHostnameRecord(name, hostaddr, tenant,
-                                 location, device);
+                                 location, device, tags, linkmap);
         } else {
             Chr_t::iterator cit = hostname_records_.find(name);
             if (cit != hostname_records_.end()) {
@@ -195,10 +212,43 @@ StructuredSyslogConfig::MessageConfigsHandler(const contrail_rapidjson::Document
 }
 
 void
+StructuredSyslogConfig::SlaProfileRecordsHandler(const contrail_rapidjson::Document &jdoc,
+                                                 bool add_update) {
+    if (jdoc.IsObject() && jdoc.HasMember("structured_syslog_sla_profile")) {
+        const contrail_rapidjson::Value& slar = jdoc["structured_syslog_sla_profile"];
+        std::string name, sla_params, tenant_name, slarec_name;
+
+        if (slar.HasMember("fq_name")) {
+            const contrail_rapidjson::Value& fq_name = slar["fq_name"];
+            contrail_rapidjson::SizeType sz = fq_name.Size();
+            name = fq_name[sz-1].GetString();
+            tenant_name = fq_name[1].GetString();
+            slarec_name =  tenant_name + '/' + name;
+            LOG(DEBUG, "NAME got from fq_name: " << name);
+        }
+        if (slar.HasMember("structured_syslog_sla_params")) {
+            sla_params = slar["structured_syslog_sla_params"].GetString();
+        }
+        if (add_update) {
+            LOG(DEBUG, "Adding SlaProfileRecord: " << slarec_name);
+            AddSlaProfileRecord(slarec_name, sla_params);
+        } else {
+            Csr_t::iterator cit = sla_profile_records_.find(slarec_name);
+            if (cit != sla_profile_records_.end()) {
+                LOG(DEBUG, "Erasing SlaProfileRecord: " << cit->second->name());
+                sla_profile_records_.erase(cit);
+            }
+        }
+        return;
+    }
+}
+
+void
 StructuredSyslogConfig::ReceiveConfig(const contrail_rapidjson::Document &jdoc, bool add_change) {
     HostnameRecordsHandler(jdoc, add_change);
     ApplicationRecordsHandler(jdoc, add_change);
     MessageConfigsHandler(jdoc, add_change);
+    SlaProfileRecordsHandler(jdoc, add_change);
 }
 
 boost::shared_ptr<HostnameRecord>
@@ -213,14 +263,15 @@ StructuredSyslogConfig::GetHostnameRecord(const std::string &name) {
 void
 StructuredSyslogConfig::AddHostnameRecord(const std::string &name,
         const std::string &hostaddr, const std::string &tenant,
-        const std::string &location, const std::string &device) {
+        const std::string &location, const std::string &device,
+        const std::string &tags, const std::map< std::string, std::string > &linkmap) {
     Chr_t::iterator it = hostname_records_.find(name);
     if (it  != hostname_records_.end()) {
         it->second->Refresh(name, hostaddr, tenant, location,
-                           device);
+                           device, tags, linkmap);
     } else {
         boost::shared_ptr<HostnameRecord> c(new HostnameRecord(
-                    name, hostaddr, tenant, location, device));
+                    name, hostaddr, tenant, location, device, tags, linkmap));
         hostname_records_.insert(std::make_pair<std::string,
                 boost::shared_ptr<HostnameRecord> >(name, c));
     }
@@ -277,6 +328,29 @@ StructuredSyslogConfig::AddTenantApplicationRecord(const std::string &name,
                     tenant_app_groups, tenant_app_risk, tenant_app_service_tags));
         tenant_application_records_.insert(std::make_pair<std::string,
                 boost::shared_ptr<TenantApplicationRecord> >(name, c));
+    }
+}
+
+boost::shared_ptr<SlaProfileRecord>
+StructuredSyslogConfig::GetSlaProfileRecord(const std::string &name) {
+    Csr_t::iterator it = sla_profile_records_.find(name);
+    if (it  != sla_profile_records_.end()) {
+        return it->second;
+    }
+    return boost::shared_ptr<SlaProfileRecord>();
+}
+
+void
+StructuredSyslogConfig::AddSlaProfileRecord(const std::string &name,
+        const std::string &sla_params) {
+    Csr_t::iterator it = sla_profile_records_.find(name);
+    if (it  != sla_profile_records_.end()) {
+        it->second->Refresh(name, sla_params);
+    } else {
+        boost::shared_ptr<SlaProfileRecord> c(new SlaProfileRecord(
+                    name, sla_params));
+        sla_profile_records_.insert(std::make_pair<std::string,
+                boost::shared_ptr<SlaProfileRecord> >(name, c));
     }
 }
 

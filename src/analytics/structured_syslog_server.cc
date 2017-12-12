@@ -367,14 +367,17 @@ void StructuredSyslogUVESummarizeData(SyslogParser::syslog_m_t v, bool summarize
     int64_t link1_bytes = SyslogParser::GetMapVal(v, "uplink-tx-bytes", -1);
     int64_t link2_bytes = SyslogParser::GetMapVal(v, "uplink-rx-bytes", -1);
     int64_t sampling_percentage = SyslogParser::GetMapVal(v, "sampling-percentage", -1);
-    if (link1_bytes == -1)
+    if (link1_bytes < 1)
         link1_bytes = SyslogParser::GetMapVal(v, "bytes-from-client", 0);
-    if (link2_bytes == -1)
+    if (link2_bytes < 1)
         link2_bytes = SyslogParser::GetMapVal(v, "bytes-from-server", 0);
 
     if (is_close) {
         link1 = (SyslogParser::GetMapVals(v, "destination-interface-name", "UNKNOWN"));
-        link2 = (SyslogParser::GetMapVals(v, "uplink-incoming-interface-name", link1));
+        link2 = (SyslogParser::GetMapVals(v, "uplink-incoming-interface-name", "N/A"));
+        if (boost::iequals(link2, "N/A")) {
+            link2 = link1;
+        }
         underlay_link1 = (SyslogParser::GetMapVals(v, "underlay-destination-interface-name", link1));
         underlay_link2 = (SyslogParser::GetMapVals(v, "underlay-uplink-incoming-interface-name", link2));
         LOG(DEBUG,"UVE: underlay_link1 :" << underlay_link1);
@@ -958,6 +961,26 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
                 SyslogParser::Holder("device", device)));
                 prev_pos = DecorateMsg(msg, "device", device, prev_pos);
             }
+            const std::string hostname_tags = hr->tags();
+            if (!hostname_tags.empty()) {
+                ParseStructuredPart(&v, hostname_tags, int_fields, msg);
+            }
+            std::map< std::string, std::string > linkmap = hr->linkmap();
+            std::string links[4] = { "destination-interface-name", "last-incoming-interface-name",
+                                  "uplink-incoming-interface-name","last-destination-interface-name"};
+            for (int i = 0; i < 4; i++) {
+                std::string overlay_link(SyslogParser::GetMapVals(v, links[i], ""));
+                if (!overlay_link.empty()) {
+                    std::map< std::string, std::string >::iterator it = linkmap.find(overlay_link);
+                    if (it  != linkmap.end()) {
+                        LOG(DEBUG, "StructuredSyslogDecorate: linkmap for " <<links[i] << " :"
+                            << overlay_link << " : " << it->second);
+                        std::string underlay_link_name = "underlay-" + links[i];
+                        v.insert(std::pair<std::string, SyslogParser::Holder>(underlay_link_name,
+                              SyslogParser::Holder(underlay_link_name, it->second)));
+                    }
+                }
+            }
             std::string an = SyslogParser::GetMapVals(v, "nested-application", "unknown");
             if (boost::iequals(an, "unknown")) {
                 an = SyslogParser::GetMapVals(v, "application", "unknown");
@@ -1017,6 +1040,16 @@ void StructuredSyslogDecorate (SyslogParser::syslog_m_t &v, StructuredSyslogConf
                 }
             } else {
                 LOG(ERROR, "StructuredSyslogDecorate: Application Record not found for: " << an);
+            }
+            std::string sla_rec_name = tenant + "/" + device + "/" + sla_profile;
+            boost::shared_ptr<SlaProfileRecord> sla_rec;
+            sla_rec = config_obj->GetSlaProfileRecord(sla_rec_name);
+            if (sla_rec != NULL) {
+                LOG(DEBUG, "StructuredSyslogDecorate sla-profile record: " << sla_rec_name);
+                const std::string sla_params = sla_rec->sla_params();
+                if (!sla_params.empty()) {
+                    ParseStructuredPart(&v, sla_params, int_fields, msg);
+                }
             }
         } else {
             LOG(DEBUG, "StructuredSyslogDecorate: Hostname Record not found for: " << hn);
@@ -1145,18 +1178,6 @@ public:
     }
 
     ~StructuredSyslogServerImpl() {
-        if (hostname_record_poll_timer_) {
-            TimerManager::DeleteTimer(hostname_record_poll_timer_);
-            hostname_record_poll_timer_ = NULL;
-        }
-        if (application_record_poll_timer_) {
-            TimerManager::DeleteTimer(application_record_poll_timer_);
-            application_record_poll_timer_ = NULL;
-        }
-        if (message_config_poll_timer_) {
-            TimerManager::DeleteTimer(message_config_poll_timer_);
-            message_config_poll_timer_ = NULL;
-        }
     }
 
     StructuredSyslogConfig *GetStructuredSyslogConfig() {
@@ -1322,12 +1343,6 @@ private:
     StructuredSyslogTcpServer *tcp_server_;
     boost::shared_ptr<StructuredSyslogForwarder> forwarder_;
     StructuredSyslogConfig *structured_syslog_config_;
-    Timer *hostname_record_poll_timer_;
-    Timer *application_record_poll_timer_;
-    Timer *message_config_poll_timer_;
-    static const int kHostnameRecordPollInterval = 180 * 1000; // in ms
-    static const int kApplicationRecordPollInterval = 120 * 1000; // in ms
-    static const int kMessageConfigPollInterval = 1300 * 1000; // in ms
 };
 
 StructuredSyslogServer::StructuredSyslogServer(EventManager *evm,

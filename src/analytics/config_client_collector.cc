@@ -60,6 +60,7 @@ void ConfigJsonParserCollector::SetupObjectFilter() {
     // for user defined log stats
     AddObjectType("global_system_config");
     // for structured syslog
+    AddObjectType("structured_syslog_sla_profile");
     AddObjectType("structured_syslog_application_record");
     AddObjectType("structured_syslog_hostname_record");
     AddObjectType("structured_syslog_config");
@@ -73,6 +74,9 @@ void ConfigJsonParserCollector::SetupSchemaGraphFilter() {
     AddParentName(make_pair("structured_syslog_config", 
                             "structured_syslog_message"), 
                             "structured-syslog-config-structured-syslog-message");
+    AddParentName(make_pair("structured_syslog_config",
+                            "structured_syslog_sla_profile"),
+                 "structured-syslog-config-structured-syslog-sla-profile");
     AddParentName(make_pair("structured_syslog_config",
                             "structured_syslog_hostname_record"),
                  "structured-syslog-config-structured-syslog-hostname-record");
