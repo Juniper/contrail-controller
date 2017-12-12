@@ -169,6 +169,14 @@ const std::string FlowKState::DropCodeToStr(uint8_t drop_code) const {
     }
 }
 
+void FlowKState::SetFlowHandle(KFlowResp *resp, const uint32_t idx) const {
+    if (evicted_) {
+        resp->set_flow_handle(integerToString(idx) + " evicted_set");
+    } else {
+        resp->set_flow_handle(integerToString(idx));
+    }
+}
+
 void FlowKState::SetFlowData(vector<KFlowInfo> &list, 
                              const vr_flow_entry *k_flow, 
                              const int index) const {
@@ -321,18 +329,16 @@ bool FlowKState::Run() {
         }
         if (count == KState::kMaxEntriesPerResponse) {
             if (idx != max_flows) {
-                resp->set_flow_handle(integerToString(idx));
+                SetFlowHandle(resp, idx);
             } else {
-                resp->set_flow_handle(integerToString(0));
+                SetFlowHandle(resp, 0);
             }
             SendResponse(resp);
             return true;
         }
     }
-
-    resp->set_flow_handle(integerToString(0));
+    SetFlowHandle(resp, 0);
     SendResponse(resp);
 
     return true;
 }
-
