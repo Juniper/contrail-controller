@@ -85,7 +85,7 @@ struct AgentDiagPktData {
 struct DiagEntryOp {
     enum Op {
         ADD = 1,
-        DELETE,
+        DEL,
         RETRY,
         FORCE_DELETE
     };

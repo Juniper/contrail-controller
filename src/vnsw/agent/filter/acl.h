@@ -15,6 +15,7 @@
 #include <filter/acl_entry_match.h>
 #include <filter/acl_entry_spec.h>
 #include <filter/acl_entry.h>
+#include <filter/packet_header.h>
 
 struct FlowKey;
 

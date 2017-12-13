@@ -4,7 +4,7 @@
 #ifndef __AGENT_FLOW_MGMT_DBCLIENT_H__
 #define __AGENT_FLOW_MGMT_DBCLIENT_H__
 
-#include "pkt/flow_mgmt.h"
+#include "pkt/flow_event.h"
 
 class EcmpLoadBalance;
 ////////////////////////////////////////////////////////////////////////////

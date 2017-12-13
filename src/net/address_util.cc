@@ -91,7 +91,7 @@ IpAddress PrefixToIp6Netmask(uint32_t plen) {
         return IpAddress(all_fs);
     }
 
-    boost::array<uint8_t, 16> bytes;
+    Ip6Address::bytes_type bytes;
 
     int index = (int) (plen / 8);
     int remain_mask = plen % 8;
@@ -269,7 +269,7 @@ void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size) {
     if (size != 2)
         return;
 
-    memcpy(b, addr.to_bytes().c_array(), sizeof(b));
+    memcpy(b, addr.to_bytes().data(), sizeof(b));
 
     for (i = 0, j = 0, k = 0; i < 4; i++, j = j+4) {
         ip = 0;

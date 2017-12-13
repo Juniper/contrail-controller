@@ -845,7 +845,7 @@ bool FlowTable::ProcessFlowEvent(const FlowEvent *req, FlowEntry *flow,
 void FlowTable::GetFlowSandeshActionParams(const FlowAction &action_info,
                                            std::string &action_str) {
     std::bitset<32> bs(action_info.action);
-    for (unsigned int i = 0; i <= bs.size(); i++) {
+    for (unsigned int i = 0; i < bs.size(); i++) {
         if (bs[i]) {
             if (!action_str.empty()) {
                 action_str += "|";
