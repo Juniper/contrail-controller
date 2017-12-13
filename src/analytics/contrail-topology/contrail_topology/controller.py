@@ -174,7 +174,8 @@ class Controller(object):
                 if prouter.name in lif_fqname:
                     for vmif in lif.obj.get_virtual_machine_interface_refs():
                         vmi = self._config_handler.\
-                                get_virtual_machine_interface(uuid=vmif.uuid)
+                                get_virtual_machine_interface(fq_name=None,
+                                                              uuid=vmif['uuid'])
                         if not vmi:
                             continue
                         vmi = vmi.obj
