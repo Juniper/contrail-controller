@@ -458,6 +458,10 @@ void AgentParam::ParseDefaultSection() {
                                     "DEFAULT.sandesh_send_rate_limit")) {
         send_ratelimit_ = Sandesh::get_send_rate_limit();
     }
+    if (!GetValueFromTree<uint16_t>(vmi_vm_vn_uve_interval_,
+                                    "DEFAULT.vmi_vm_vn_uve_interval")) {
+        vmi_vm_vn_uve_interval_ = Agent::kDefaultVmiVmVnUveInterval;
+    }
 }
 
 void AgentParam::ParseTaskSection() {
@@ -679,6 +683,8 @@ void AgentParam::ParseDefaultSectionArguments
     GetValueFromTree<int>(tcp_hold_time_, "DEFAULT.tcp_hold_time");
     GetOptValue<uint32_t>(var_map, send_ratelimit_,
                           "DEFAULT.sandesh_send_rate_limit");
+    GetOptValue<uint16_t>(var_map, vmi_vm_vn_uve_interval_,
+                          "DEFAULT.vmi_vm_vn_uve_interval");
 }
 
 void AgentParam::ParseTaskSectionArguments
@@ -1168,7 +1174,8 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
         tbb_schedule_delay_(0),
         tbb_keepawake_timeout_(Agent::kDefaultTbbKeepawakeTimeout),
         task_monitor_timeout_msec_(Agent::kDefaultTaskMonitorTimeout),
-        send_ratelimit_(sandesh_send_rate_limit()) {
+        send_ratelimit_(sandesh_send_rate_limit()),
+        vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval) {
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable(agent));
 
@@ -1230,6 +1237,9 @@ AgentParam::AgentParam(Agent *agent, bool enable_flow_options,
          opt::value<uint32_t>()->default_value(
          Sandesh::get_send_rate_limit()),
          "Sandesh send rate limit in messages/sec")
+        ("DEFAULT.vmi_vm_vn_uve_interval",
+         opt::value<uint16_t>()->default_value(agent->kDefaultVmiVmVnUveInterval),
+         "UVE send interval in seconds")
         ;
     options_.add(generic);
 

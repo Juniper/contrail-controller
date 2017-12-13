@@ -209,6 +209,7 @@ public:
     static const uint32_t kMaxTbbThreads = 8;
     static const uint32_t kDefaultTbbKeepawakeTimeout = (20); //time-millisecs
     static const uint32_t kDefaultTaskMonitorTimeout = (5000); //time-millisecs
+    static const uint16_t kDefaultVmiVmVnUveInterval;
 
     enum ForwardingMode {
         NONE,

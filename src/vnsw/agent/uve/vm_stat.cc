@@ -14,6 +14,7 @@
 #include <net/address.h>
 #include <ifmap/ifmap_agent_parser.h>
 #include <cmn/agent.h>
+#include <init/agent_param.h>
 #include <uve/vrouter_uve_entry.h>
 #include <sstream>
 #include <fstream>
@@ -182,7 +183,8 @@ bool VmStat::TimerExpiry() {
 
 void VmStat::StartTimer() {
     timer_->Cancel();
-    timer_->Start(kTimeout, boost::bind(&VmStat::TimerExpiry, this));
+    timer_->Start(agent_->params()->vmi_vm_vn_uve_interval_msecs(),
+                  boost::bind(&VmStat::TimerExpiry, this));
 }
 
 void VmStat::Start() {
