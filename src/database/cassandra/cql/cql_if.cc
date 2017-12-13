@@ -2017,14 +2017,20 @@ bool CqlIfImpl::IsTablePresent(const std::string &table) {
         table);
 }
 
-bool CqlIfImpl::IsTableStatic(const std::string &table) {
+int CqlIfImpl::IsTableStatic(const std::string &table) {
     if (session_state_ != SessionState::CONNECTED) {
         return false;
     }
     size_t ck_count;
-    assert(impl::GetCassTableClusteringKeyCount(cci_, session_.get(),
-        keyspace_, table, &ck_count));
-    return ck_count == 0;
+    if (!impl::GetCassTableClusteringKeyCount(cci_, session_.get(),
+        keyspace_, table, &ck_count)) {
+        return -1;
+    }
+    if (ck_count == 0) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 bool CqlIfImpl::SelectFromTableAsync(const std::string &cfname,
@@ -2034,10 +2040,10 @@ bool CqlIfImpl::SelectFromTableAsync(const std::string &cfname,
         return false;
     }
     std::string query(impl::PartitionKey2CassSelectFromTable(cfname,rkey));
-    if (IsTableStatic(cfname)) {
+    if (IsTableStatic(cfname) == 1) {
         return impl::StaticCfGetResultAsync(cci_, session_.get(),
             query.c_str(), consistency, cb, cfname.c_str(), rkey);
-    } else {
+    } else if (IsTableStatic(cfname) == 0) {
         size_t rk_count;
         assert(impl::GetCassTablePartitionKeyCount(cci_, session_.get(),
             keyspace_, cfname, &rk_count));
@@ -2047,6 +2053,8 @@ bool CqlIfImpl::SelectFromTableAsync(const std::string &cfname,
         return impl::DynamicCfGetResultAsync(cci_, session_.get(),
             query.c_str(), consistency, cb, rk_count, ck_count,
             cfname, rkey);
+   } else {
+        return false;
    }
 }
 
@@ -2132,10 +2140,10 @@ bool CqlIfImpl::SelectFromTableSync(const std::string &cfname,
     }
     std::string query(impl::PartitionKey2CassSelectFromTable(cfname,
         rkey));
-    if (IsTableStatic(cfname)) {
+    if (IsTableStatic(cfname) == 1) {
         return impl::StaticCfGetResultSync(cci_, session_.get(),
             query.c_str(), consistency, out);
-    } else {
+    } else if (IsTableStatic(cfname) == 0){
         size_t rk_count;
         assert(impl::GetCassTablePartitionKeyCount(cci_, session_.get(),
             keyspace_, cfname, &rk_count));
@@ -2144,6 +2152,8 @@ bool CqlIfImpl::SelectFromTableSync(const std::string &cfname,
             keyspace_, cfname, &ck_count));
         return impl::DynamicCfGetResultSync(cci_, session_.get(),
             query.c_str(), rk_count, ck_count, consistency, out);
+    } else {
+        return false;
     }
 }
 
@@ -2156,15 +2166,17 @@ bool CqlIfImpl::SelectFromTableSync(const std::string &cfname,
     size_t rk_count;
     assert(impl::GetCassTablePartitionKeyCount(cci_, session_.get(),
         keyspace_, cfname, &rk_count));
-    if (IsTableStatic(cfname)) {
+    if (IsTableStatic(cfname) == 1) {
         return impl::StaticCfGetResultSync(cci_, session_.get(),
             query.c_str(), rk_count, consistency, out);
-    } else {
+    } else if (IsTableStatic(cfname) == 0){
         size_t ck_count;
         assert(impl::GetCassTableClusteringKeyCount(cci_, session_.get(),
             keyspace_, cfname, &ck_count));
         return impl::DynamicCfGetResultSync(cci_, session_.get(),
             query.c_str(), rk_count, ck_count, consistency, out);
+    } else {
+        return false;
     }
 }
 
@@ -2341,10 +2353,12 @@ bool CqlIfImpl::InsertIntoTableInternal(std::auto_ptr<GenDb::ColList> v_columns,
         return false;
     }
     std::string query;
-    if (IsTableStatic(v_columns->cfname_)) {
+    if (IsTableStatic(v_columns->cfname_) == 1) {
         query = impl::StaticCf2CassInsertIntoTable(v_columns.get());
-    } else {
+    } else if (IsTableStatic(v_columns->cfname_) == 0){
         query = impl::DynamicCf2CassInsertIntoTable(v_columns.get());
+    } else {
+        return false;
     }
     if (sync) {
         return impl::ExecuteQuerySync(cci_, session_.get(), query.c_str(),
@@ -2402,12 +2416,14 @@ bool CqlIfImpl::InsertIntoTablePrepareInternal(
     }
     impl::CassStatementPtr qstatement(cci_->CassPreparedBind(prepared.get()),
         cci_);
-    if (IsTableStatic(v_columns->cfname_)) {
+    if (IsTableStatic(v_columns->cfname_) == 1) {
         success = impl::StaticCf2CassPrepareBind(cci_, qstatement.get(),
             v_columns.get());
-    } else {
+    } else if (IsTableStatic(v_columns->cfname_) == 0){
         success = impl::DynamicCf2CassPrepareBind(cci_, qstatement.get(),
             v_columns.get());
+    } else {
+        return false;
     }
     if (!success) {
         return false;
