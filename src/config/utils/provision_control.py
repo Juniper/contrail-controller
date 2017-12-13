@@ -32,11 +32,6 @@ class ControlProvisioner(object):
             gsc_obj = self._vnc_lib.global_system_config_read(
                   fq_name=['default-global-system-config'])
             gsc_obj.set_autonomous_system(self._args.router_asn)
-            if self._args.local_autonomous_system is not None:
-                local_asn = int(self._args.local_autonomous_system)
-                if local_asn <= 0 or local_asn > 65535:
-                    raise argparse.ArgumentTypeError("local_asn %s must be in range (1..65535)" % local_asn)
-                gsc_obj.set_local_autonomous_system(local_asn)
             if self._args.ibgp_auto_mesh is not None:
                 gsc_obj.set_ibgp_auto_mesh(self._args.ibgp_auto_mesh)
 
@@ -66,7 +61,7 @@ class ControlProvisioner(object):
         if self._args.oper == 'add':
             bp_obj.add_bgp_router('control-node', self._args.host_name,
                                   self._args.host_ip, self._args.router_asn,
-                                  self._args.address_families, self._args.md5)
+                                  self._args.address_families, self._args.md5, self._args.local_autonomous_system)
         elif self._args.oper == 'del':
             bp_obj.del_bgp_router(self._args.host_name)
         else:
@@ -98,6 +93,7 @@ class ControlProvisioner(object):
                                         --api_server_use_ssl False
                                         --oper <add | del>
                                         --md5 <key value>|None(optional)
+                                        --local_autonomous_system <ASN value>|None(optional)
                                         --graceful_restart_time 100
                                         --long_lived_graceful_restart_time 100
                                         --end_of_rib_timeout 300
