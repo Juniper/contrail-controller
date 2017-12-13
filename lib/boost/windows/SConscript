@@ -1,0 +1,72 @@
+# -*- mode: python; -*-
+# windows reference: http://www.boost.org/doc/libs/1_62_0/more/getting_started/windows.html
+import os
+import sys
+import subprocess
+import shutil
+
+cpu_count = 1
+try:
+    import multiprocessing
+    cpu_count = multiprocessing.cpu_count()
+except ImportError:
+    pass
+    
+vpath = '#/third_party/boost_1_62_0'
+
+env = DefaultEnvironment()
+
+stagedir = Dir('#/build/third_party/boost_1_62_0').abspath
+
+if env['OPT'] == 'debug':
+    build_dir = 'debug'
+    lib_file_flag = '-gd'
+elif env['OPT'] == 'production':
+    build_dir = 'release'
+    lib_file_flag = ''
+
+boostlibdirprefix = '/build/msvc-14.0/' + build_dir + '/address-model-64/link-static/threading-multi/'
+boostcmd = 'b2 -j' + str(cpu_count) + ' toolset=msvc-14.0 --build-type=complete architecture=x86 address-model=64 stage --stagedir=' + stagedir
+buildlibdir = Dir('#build/lib').abspath + '/'
+
+libpath = Dir(vpath).abspath
+if not os.path.exists(libpath):
+    print '%s not present' % libpath
+    sys.exit(1)
+
+def copyboostlib(tofile, fromfile=None):
+    if not os.path.exists(tofile):
+        fromfile = Dir(vpath).abspath + '/bin.v2/libs/' + fromfile + boostlibdirprefix + 'libboost_' + fromfile + '-vc140-mt' + lib_file_flag + '-1_62.lib'
+        print 'copying ' + fromfile + ' to ' + tofile
+        shutil.copyfile(fromfile, tofile)
+
+
+def build_boost_for_windows(target,source,env):
+    assert os.path.isdir(Dir(vpath).abspath)
+    subprocess.call("bootstrap.bat", shell=True, cwd=libpath)
+    subprocess.call(boostcmd, shell=True, cwd=libpath)
+    copyboostlib(buildlibdir+'boost_program_options.lib','program_options')
+    copyboostlib(buildlibdir+'boost_regex.lib','regex')
+    copyboostlib(buildlibdir+'boost_system.lib','system')
+    copyboostlib(buildlibdir+'boost_filesystem.lib','filesystem')
+
+    copyboostlib(buildlibdir + 'libboost_system-vc140-mt' + lib_file_flag + '-1_62.lib', 'system')
+    copyboostlib(buildlibdir + 'libboost_date_time-vc140-mt' + lib_file_flag + '-1_62.lib', 'date_time')
+    copyboostlib(buildlibdir + 'libboost_regex-vc140-mt' + lib_file_flag + '-1_62.lib', 'regex')
+    copyboostlib(buildlibdir + 'libboost_program_options-vc140-mt' + lib_file_flag + '-1_62.lib', 'program_options')
+    copyboostlib(buildlibdir + 'libboost_thread-vc140-mt' + lib_file_flag + '-1_62.lib', 'thread')
+    copyboostlib(buildlibdir + 'libboost_filesystem-vc140-mt' + lib_file_flag + '-1_62.lib', 'filesystem')
+    copyboostlib(buildlibdir + 'libboost_chrono-vc140-mt' + lib_file_flag + '-1_62.lib', 'chrono')
+
+
+srcdir = Dir(vpath +'/boost').abspath
+destdir = Dir('#/build/include/boost').abspath
+
+if not os.path.exists(destdir):
+  print 'copying files to' + destdir
+  shutil.copytree(srcdir, destdir)
+
+products = [File('#build/lib/boost_filesystem.lib'), Dir('#build/include/boost')]
+boost_command = env.Command(products, str(Dir(vpath)), build_boost_for_windows)
+env.Alias('boostbuild', '#build/lib/boost_filesystem.lib')
+env.Depends(boost_command, Dir('#/build/include/openssl'))
