@@ -245,7 +245,9 @@ bool XmppServer::IsPeerCloseGraceful() const {
     if (!IsGRHelperModeEnabled())
         return false;
 
-    return GetGracefulRestartTime() != 0;
+    // Enable GR if either gr-time or llgr-time is configured.
+    return (xmpp_config_updater_->config().gr_time() ||
+            xmpp_config_updater_->config().llgr_time());
 }
 
 XmppServer::~XmppServer() {
