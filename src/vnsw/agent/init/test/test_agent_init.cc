@@ -404,6 +404,7 @@ TEST_F(AgentParamTest, Default_Cmdline_arg1) {
     EXPECT_FALSE(param.use_syslog());
     EXPECT_FALSE(param.log_flow());
     EXPECT_FALSE(param.log_local());
+    EXPECT_EQ(param.vmi_vm_vn_uve_interval(), Agent::kDefaultVmiVmVnUveInterval);
 }
 
 /* Some command line args have default values. If user has not passed these
@@ -485,6 +486,7 @@ TEST_F(AgentParamTest, MultitokenVector) {
     EXPECT_EQ(param.max_sessions_per_aggregate(), 80);
     EXPECT_EQ(param.max_aggregates_per_session_endpoint(), 4);
     EXPECT_EQ(param.max_endpoints_per_session_msg(), 2);
+    EXPECT_EQ(param.vmi_vm_vn_uve_interval(), 120);
 }
 
 TEST_F(AgentParamTest, Restart_1) {
