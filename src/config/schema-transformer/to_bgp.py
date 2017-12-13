@@ -22,6 +22,7 @@ import cgitb
 
 import copy
 import argparse
+import itertools
 import socket
 import uuid
 
@@ -1237,6 +1238,7 @@ class NetworkPolicyST(DictST):
         self.rules = []
         self.analyzer_vn_set = set()
         self.policies = set()
+        self.has_subnet_only_rules = True
     # end __init__
 
     @classmethod
@@ -1244,12 +1246,22 @@ class NetworkPolicyST(DictST):
         if name in cls._dict:
             del cls._dict[name]
     # end delete
-    
+
+    def update_subnet_only_rules(self):
+        for rule in self.rules:
+            for address in itertools.chain(rule.src_addresses,
+                                           rule.dst_addresses):
+                if (address.virtual_network not in (None, 'local') or
+                    address.network_policy):
+                    self.has_subnet_only_rules = False
+    # end update_subnet_only_rules
+
     def add_rules(self, entries):
         network_set = self.networks_back_ref | self.analyzer_vn_set
         if entries is None:
             self.rules = []
         self.rules = entries.policy_rule
+        self.update_subnet_only_rules()
         self.policies = set()
         self.analyzer_vn_set = set()
         for prule in self.rules:
@@ -2959,9 +2971,10 @@ class SchemaTransformer(object):
         if virtual_network:
             del virtual_network.policies[policy_name]
             self.current_network_set.add(network_name)
-        for pol in NetworkPolicyST.values():
-            if policy_name in pol.policies:
-                self.current_network_set |= pol.networks_back_ref
+        if not policy.has_subnet_only_rules:
+            for pol in NetworkPolicyST.values():
+                if policy_name in pol.policies:
+                    self.current_network_set |= pol.networks_back_ref
     # end delete_virtual_network_network_policy
 
     def delete_project_virtual_network(self, idents, meta):
@@ -3087,9 +3100,12 @@ class SchemaTransformer(object):
         virtual_network.add_policy(policy_name, vnp)
         self.current_network_set |= policy.networks_back_ref
         self.current_network_set |= policy.analyzer_vn_set
-        for pol in NetworkPolicyST.values():
-            if policy_name in pol.policies:
-                self.current_network_set |= pol.networks_back_ref
+        if policy.has_subnet_only_rules:
+            self.current_network_set.add(network_name)
+        else:
+            for pol in NetworkPolicyST.values():
+                if policy_name in pol.policies:
+                    self.current_network_set |= pol.networks_back_ref
     # end add_virtual_network_network_policy
 
     def add_virtual_network_network_ipam(self, idents, meta):
