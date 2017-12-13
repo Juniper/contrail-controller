@@ -333,7 +333,6 @@ AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/virtual_network.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/port_bmap.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/interface.sandesh')
 AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/stats_interval.sandesh')
-AgentUveDocFiles += AgentEnv.SandeshGenDoc('uve/agent_stats_interval.sandesh')
 AgentEnv['AGENT_UVE_DOC_FILES'] = AgentUveDocFiles
 
 AgentKsyncDocFiles = []
@@ -346,6 +345,10 @@ AgentFlowDocFiles = []
 AgentFlowDocFiles += AgentEnv.SandeshGenDoc('#controller/src/sandesh/common/flow.sandesh', env['TOP'] + '/sandesh/common/')
 AgentFlowDocFiles += AgentEnv.SandeshGenDoc('vrouter/flow_stats/flow_stats.sandesh')
 AgentEnv['AGENT_FLOW_DOC_FILES'] = AgentFlowDocFiles
+
+AgentStatsCollectorDocFiles = []
+AgentStatsCollectorDocFiles += AgentEnv.SandeshGenDoc('vrouter/stats_collector/agent_stats_interval.sandesh')
+AgentEnv['AGENT_STATS_COLLECTOR_DOC_FILES'] = AgentStatsCollectorDocFiles
 
 AgentCommonDocFiles = []
 AgentCommonDocFiles += AgentEnv.SandeshGenDoc('port_ipc/port_ipc.sandesh')
