@@ -14,4 +14,4 @@ vnc_api
 discoveryclient
 sandesh
 sandesh-common
-keystonemiddleware
+keystonemiddleware!=4.19.0
