@@ -61,7 +61,7 @@ class ControlProvisioner(object):
         if self._args.oper == 'add':
             bp_obj.add_bgp_router('control-node', self._args.host_name,
                                   self._args.host_ip, self._args.router_asn,
-                                  self._args.address_families, self._args.md5)
+                                  self._args.address_families, self._args.md5, self._args.local_autonomous_system)
         elif self._args.oper == 'del':
             bp_obj.del_bgp_router(self._args.host_name)
         else:
@@ -93,6 +93,7 @@ class ControlProvisioner(object):
                                         --api_server_use_ssl False
                                         --oper <add | del>
                                         --md5 <key value>|None(optional)
+                                        --local_autonomous_system <ASN value>|None(optional)
                                         --graceful_restart_time 100
                                         --long_lived_graceful_restart_time 100
                                         --end_of_rib_timeout 300
@@ -113,6 +114,7 @@ class ControlProvisioner(object):
 
         defaults = {
             'router_asn': '64512',
+            'local_autonomous_system': None,
             'ibgp_auto_mesh': None,
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
@@ -153,6 +155,8 @@ class ControlProvisioner(object):
         parser.add_argument("--host_ip", help="IP address of control-node")
         parser.add_argument(
             "--router_asn", help="AS Number the control-node is in", required=True)
+        parser.add_argument(
+            "--local_autonomous_system", help="Local autonomous-system number used to peer contrail-control bgp speakers across different geographic locations")
         parser.add_argument(
             "--address_families", help="Address family list",
             choices=["route-target", "inet-vpn", "e-vpn", "erm-vpn", "inet6-vpn"],
