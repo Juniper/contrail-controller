@@ -746,6 +746,7 @@ ServiceChainGroup::~ServiceChainGroup() {
 void ServiceChainGroup::AddRoutingInstance(RoutingInstance *rtinstance) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     chain_set_.insert(rtinstance);
+    manager_->UpdateServiceChainGroup(this);
 }
 
 //
@@ -756,6 +757,7 @@ void ServiceChainGroup::AddRoutingInstance(RoutingInstance *rtinstance) {
 void ServiceChainGroup::DeleteRoutingInstance(RoutingInstance *rtinstance) {
     CHECK_CONCURRENCY("bgp::Config", "bgp::ConfigHelper");
     chain_set_.erase(rtinstance);
+    manager_->UpdateServiceChainGroup(this);
 }
 
 //
@@ -1161,7 +1163,6 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
         ServiceChainGroup *group = chain->group();
         if (group) {
             group->DeleteRoutingInstance(rtinstance);
-            UpdateServiceChainGroup(group);
             chain->clear_group();
         }
 
@@ -1174,7 +1175,6 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
         } else {
             group = LocateServiceChainGroup(config.service_chain_group);
             group->AddRoutingInstance(rtinstance);
-            UpdateServiceChainGroup(group);
         }
         string reason = "Waiting for deletion of previous incarnation";
         AddPendingServiceChain(rtinstance, group, reason);
@@ -1195,10 +1195,8 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
 
     // Dissociate from the old ServiceChainGroup.
     ServiceChainGroup *group = FindServiceChainGroup(rtinstance);
-    if (group) {
+    if (group)
         group->DeleteRoutingInstance(rtinstance);
-        UpdateServiceChainGroup(group);
-    }
 
     // Delete from the pending list. The instance would already have been
     // removed from the pending list if this method is called when trying
@@ -1213,7 +1211,6 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     } else {
         group = LocateServiceChainGroup(config.service_chain_group);
         group->AddRoutingInstance(rtinstance);
-        UpdateServiceChainGroup(group);
     }
 
     // Destination routing instance does not exist.
@@ -1327,10 +1324,8 @@ bool ServiceChainMgr<T>::ResolvePendingServiceChain() {
         ++next;
         RoutingInstance *rtinstance = it->first;
         ServiceChainGroup *group = it->second.group;
-        if (group) {
+        if (group)
             group->DeleteRoutingInstance(rtinstance);
-            UpdateServiceChainGroup(group);
-        }
         pending_chains_.erase(it);
         const ServiceChainConfig *sc_config =
             rtinstance->config()->service_chain_info(GetFamily());
@@ -1373,10 +1368,8 @@ void ServiceChainMgr<T>::StopServiceChain(RoutingInstance *rtinstance) {
     tbb::mutex::scoped_lock lock(mutex_);
     if (ServiceChainIsPending(rtinstance)) {
         ServiceChainGroup *group = FindServiceChainGroup(rtinstance);
-        if (group) {
+        if (group)
             group->DeleteRoutingInstance(rtinstance);
-            UpdateServiceChainGroup(group);
-        }
         DeletePendingServiceChain(rtinstance);
         RetryDelete();
     }
@@ -1388,7 +1381,6 @@ void ServiceChainMgr<T>::StopServiceChain(RoutingInstance *rtinstance) {
     ServiceChainGroup *group = chain->group();
     if (group) {
         group->DeleteRoutingInstance(rtinstance);
-        UpdateServiceChainGroup(group);
         chain->clear_group();
     }
 
