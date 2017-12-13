@@ -229,6 +229,12 @@ class Resource(ResourceDbMixin):
             return True, ''
 
         for r_ref in obj_dict.get(ref_name, []):
+            if 'uuid' not in r_ref:
+                try:
+                    r_ref['uuid'] = cls.db_conn.fq_name_to_uuid(object_type,
+                                                                r_ref['to'])
+                except cfgm_common.exceptions.NoIdError as e:
+                    return False, (404, str(e))
             ok, result = cls.dbe_read(cls.db_conn, object_type, r_ref['uuid'],
                                       obj_fields=['parent_type'])
             if not ok:
