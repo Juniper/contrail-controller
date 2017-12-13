@@ -47,7 +47,7 @@ class BgpProvisioner(object):
     # end _get_rt_inst_obj
 
     def add_bgp_router(self, router_type, router_name, router_ip,
-                       router_asn, address_families=[], md5=None):
+                       router_asn, address_families=[], md5=None, local_asn=None):
         if not address_families:
             address_families = ['route-target', 'inet-vpn', 'e-vpn', 'erm-vpn',
                                 'inet6-vpn']
@@ -104,7 +104,16 @@ class BgpProvisioner(object):
             rparams = cur_obj.bgp_router_parameters
             rparams.set_auth_data(md5)
             cur_obj.set_bgp_router_parameters(rparams)
-            vnc_lib.bgp_router_update(cur_obj)
+
+        if local_asn:
+            local_asn = int(local_asn)
+            if local_asn <= 0 or local_asn > 65535:
+                raise argparse.ArgumentTypeError("local_asn %s must be in range (1..65535)" % local_asn)
+            rparams = cur_obj.bgp_router_parameters
+            rparams.set_local_autonomous_system(local_asn)
+            cur_obj.set_bgp_router_parameters(rparams)
+
+        vnc_lib.bgp_router_update(cur_obj)
     # end add_bgp_router
 
     def del_bgp_router(self, router_name):
