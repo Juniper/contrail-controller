@@ -4,7 +4,7 @@ flexmock
 coverage
 pyaml
 python-keystoneclient
-keystonemiddleware
+keystonemiddleware!=4.19.0
 webtest
 kazoo
 jsonpickle
