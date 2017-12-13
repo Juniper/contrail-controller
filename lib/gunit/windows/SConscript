@@ -1,0 +1,30 @@
+# -*- mode: python; -*-
+
+import platform
+
+default = DefaultEnvironment()
+env = default.Clone()
+
+(distname, version, _) = platform.dist()
+gtest_path = '#/third_party/googletest-release-1.8.0/googletest'
+gmock_path = '#/third_party/googletest-release-1.8.0/googlemock'
+
+gtest_dir = env.Install('#/build/include', gtest_path + '/include/gtest')
+gmock_dir = env.Install('#/build/include', gmock_path + '/include/gmock')
+gunit_h = env.Install('#/build/include/testing', 'gunit.h')
+env.Depends(gunit_h, [gtest_dir, gmock_dir])
+
+include = [
+    gtest_path, gtest_path + '/include',
+    gmock_path, gmock_path + '/include'
+]
+
+env.VariantDir(Dir('.').abspath + '/gtest', gtest_path + '/src')
+env.VariantDir(Dir('.').abspath + '/gmock', gmock_path + '/src')
+env.Append(CPPPATH = include)
+
+lib = env.Library('gunit',
+                  [Dir('.').abspath + '/gtest/gtest-all.cc',
+                   Dir('.').abspath + '/gmock/gmock-all.cc'])
+
+env.Install('#/build/lib', lib)
