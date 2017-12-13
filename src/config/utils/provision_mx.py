@@ -104,7 +104,8 @@ class MxProvisioner(object):
             "--admin_tenant_name", help="Tenamt name for keystone admin user")
         group = parser.add_mutually_exclusive_group()
         group.add_argument(
-            "--api_server_ip", help="IP address of api server")
+            "--api_server_ip", help="IP address of api server",
+            nargs='+', type=str)
         group.add_argument("--use_admin_api",
                             default=False,
                             help = "Connect to local api-server on admin port",
