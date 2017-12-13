@@ -14,8 +14,10 @@
 #endif
 #endif
 #include <boost/uuid/random_generator.hpp>
-#if defined(__GNUC__) && __GNUC_PREREQ(4, 6)
+#if defined(__GNUC__)
+#if __GNUC_PREREQ(4, 6)
 #pragma GCC diagnostic pop
+#endif
 #endif
 
 #include <boost/uuid/uuid_io.hpp>

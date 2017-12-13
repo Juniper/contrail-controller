@@ -299,7 +299,7 @@ Ip6Address Address::GetIp6SubnetAddress(const Ip6Address &prefix, uint16_t plen)
         ip6[i] = htons(in_ip6[i]);
     }
     memcpy(bytes, ip6, sizeof(ip6));
-    boost::array<uint8_t, 16> to_bytes;
+    Ip6Address::bytes_type to_bytes;
     for (int i = 0; i < 16; ++i) {
         to_bytes.at(i) = bytes[i];
     }

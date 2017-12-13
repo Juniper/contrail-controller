@@ -30,10 +30,10 @@ AclEntry::ActionList AclEntry::kEmptyActionList;
 AclEntry::~AclEntry() {
     // Clean up Matches
     std::vector<AclEntryMatch *>::iterator it;
-    for (it = matches_.begin(); it != matches_.end();) {
+    for (it = matches_.begin(); it != matches_.end(); it++) {
         delete(*it);
-        matches_.erase(it);
     }
+    matches_.clear();
     
     // Clean up Actions
     ActionList::iterator ial;
@@ -448,12 +448,12 @@ static bool SubnetMatch(const std::vector<AclAddressInfo> &list,
             const Ip6Address &ip6 = ip.to_v6();
             const Ip6Address &data6 = data.to_v6();
             const Ip6Address &mask6 = mask.to_v6();
-            boost::array<uint8_t, 16> ip6_bytes = ip6.to_bytes();
-            boost::array<uint8_t, 16> data6_bytes = data6.to_bytes();
-            boost::array<uint8_t, 16> mask6_bytes = mask6.to_bytes();
-            const uint32_t *ip6_words = (uint32_t *)ip6_bytes.c_array();
-            const uint32_t *data6_words = (uint32_t *)data6_bytes.c_array();
-            const uint32_t *mask6_words = (uint32_t *)mask6_bytes.c_array();
+            Ip6Address::bytes_type ip6_bytes = ip6.to_bytes();
+            Ip6Address::bytes_type data6_bytes = data6.to_bytes();
+            Ip6Address::bytes_type mask6_bytes = mask6.to_bytes();
+            const uint32_t *ip6_words = (const uint32_t *)ip6_bytes.data();
+            const uint32_t *data6_words = (const uint32_t *)data6_bytes.data();
+            const uint32_t *mask6_words = (const uint32_t *)mask6_bytes.data();
             bool matched = true;
             for (int i = 0; i < 4; i++) {
                 if ((data6_words[i] & mask6_words[i]) != ip6_words[i]) {

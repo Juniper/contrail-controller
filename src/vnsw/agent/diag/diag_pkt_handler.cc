@@ -130,10 +130,10 @@ void DiagPktHandler::SendTimeExceededPacket() {
     uint16_t icmp_len = pkt_info_->ip->ip_hl * 4 + 128;
     if (ntohs(pkt_info_->ip->ip_len) < icmp_len)
         icmp_len = ntohs(pkt_info_->ip->ip_len);
-    uint8_t icmp_payload[icmp_len];
-    memcpy(icmp_payload, pkt_info_->ip, icmp_len);
+    boost::scoped_array<uint8_t> icmp_payload(new uint8_t[icmp_len]);
+    memcpy(icmp_payload.get(), pkt_info_->ip, icmp_len);
     DiagEntry::DiagKey key = -1;
-    if (!ParseIcmpData(icmp_payload, icmp_len, (uint16_t *)&key, true))
+    if (!ParseIcmpData(icmp_payload.get(), icmp_len, (uint16_t *)&key, true))
         return;
 
     char *ptr = (char *)pkt_info_->pkt;
@@ -173,7 +173,7 @@ void DiagPktHandler::SendTimeExceededPacket() {
     memset((uint8_t *)hdr, 0, 8);
     hdr->icmp_type = ICMP_TIME_EXCEEDED;
     hdr->icmp_code = ICMP_EXC_TTL;
-    memcpy(ptr + len + 8, icmp_payload, icmp_len);
+    memcpy(ptr + len + 8, icmp_payload.get(), icmp_len);
     IcmpChecksum((char *)hdr, 8 + icmp_len);
     len += 8 + icmp_len;
 
@@ -271,7 +271,7 @@ bool DiagPktHandler::HandleTraceRouteResponse() {
 
     DiagEntryOp *op;
     if (IsDone()) {
-        op = new DiagEntryOp(DiagEntryOp::DELETE, entry);
+        op = new DiagEntryOp(DiagEntryOp::DEL, entry);
     } else {
         op = new DiagEntryOp(DiagEntryOp::RETRY, entry);
     }
@@ -427,7 +427,7 @@ bool DiagPktHandler::Run() {
 
     if (entry->GetSeqNo() == entry->GetMaxAttempts()) {
         DiagEntryOp *op;
-        op = new DiagEntryOp(DiagEntryOp::DELETE, entry);
+        op = new DiagEntryOp(DiagEntryOp::DEL, entry);
         entry->diag_table()->Enqueue(op);
     } else {
         entry->Retry();

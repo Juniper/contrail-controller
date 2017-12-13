@@ -396,15 +396,6 @@ static void AclObjectTrace(AgentLogEvent::type event, AclSpec &acl_spec)
     } else if (event == AgentLogEvent::DELETE) {
         ACL_TRACE(AclTrace, "Delete", UuidToString(acl_spec.acl_id), acl);
     }
-    switch (event) {
-        case AgentLogEvent::ADD:
-        case AgentLogEvent::CHANGE:
-            break;
-        case AgentLogEvent::DELETE:
-            break;
-        default:
-            break;
-    }
 }
 
 bool AclTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
