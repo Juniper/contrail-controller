@@ -29,5 +29,6 @@ private:
     const std::string FlagToStr(unsigned int flag) const;
     const std::string TcpFlagToStr(unsigned int flag) const;
     const std::string DropCodeToStr(uint8_t drop_code) const;
+    void SetFlowHandle(KFlowResp *resp, const uint32_t idx) const;
 };
 #endif

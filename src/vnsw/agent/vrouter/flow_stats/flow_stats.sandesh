@@ -65,7 +65,7 @@ struct SandeshFlowKey {
     3: string dip;
     4: u32 src_port;
     5: u32 dst_port;
-    6: byte protocol;
+    6: u16 protocol;
 }
 
 /**
