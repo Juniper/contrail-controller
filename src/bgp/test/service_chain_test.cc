@@ -267,24 +267,15 @@ protected:
         BgpLifetimeManagerTest *ltm = dynamic_cast<BgpLifetimeManagerTest *>(
             bgp_server_->lifetime_manager());
         assert(ltm);
-        task_util::TaskFire(
-            boost::bind(&BgpLifetimeManagerTest::SetQueueDisable,
-                ltm, disabled),
-            "bgp::Config");
+        ltm->SetQueueDisable(disabled);
     }
 
     void DisableResolveTrigger() {
-        task_util::TaskFire(
-            boost::bind(&IServiceChainMgr::DisableResolveTrigger,
-                service_chain_mgr_),
-            "bgp::Config");
+        service_chain_mgr_->DisableResolveTrigger();
     }
 
     void EnableResolveTrigger() {
-        task_util::TaskFire(
-            boost::bind(&IServiceChainMgr::EnableResolveTrigger,
-                service_chain_mgr_),
-            "bgp::Config");
+        service_chain_mgr_->EnableResolveTrigger();
     }
 
     bool IsServiceChainQEmpty() {
@@ -292,15 +283,11 @@ protected:
     }
 
     void DisableServiceChainQ() {
-        task_util::TaskFire(
-            boost::bind(&IServiceChainMgr::DisableQueue, service_chain_mgr_),
-            "bgp::Config");
+        service_chain_mgr_->DisableQueue();
     }
 
     void EnableServiceChainQ() {
-        task_util::TaskFire(
-            boost::bind(&IServiceChainMgr::EnableQueue, service_chain_mgr_),
-            "bgp::Config");
+        service_chain_mgr_->EnableQueue();
     }
 
     size_t ServiceChainPendingQSize() {
@@ -308,17 +295,11 @@ protected:
     }
 
     void DisableServiceChainAggregation() {
-        task_util::TaskFire(
-            boost::bind(&IServiceChainMgr::set_aggregate_host_route,
-                service_chain_mgr_, false),
-            "bgp::Config");
+        service_chain_mgr_->set_aggregate_host_route(false);
     }
 
     void EnableServiceChainAggregation() {
-        task_util::TaskFire(
-            boost::bind(&IServiceChainMgr::set_aggregate_host_route,
-                service_chain_mgr_, true),
-            "bgp::Config");
+        service_chain_mgr_->set_aggregate_host_route(true);
     }
 
     void AddRoute(IPeer *peer, const string &instance_name,

@@ -341,19 +341,13 @@ protected:
     void DisableUnregResolveTask(const string &instance, Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
-        IRouteAggregator *aggregator = rti->route_aggregator(fmly);
-        task_util::TaskFire(
-            boost::bind(&IRouteAggregator::DisableUnregResolveTask, aggregator),
-            "bgp::Config");
+        rti->route_aggregator(fmly)->DisableUnregResolveTask();
     }
 
     void EnableUnregResolveTask(const string &instance, Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
-        IRouteAggregator *aggregator = rti->route_aggregator(fmly);
-        task_util::TaskFire(
-            boost::bind(&IRouteAggregator::EnableUnregResolveTask, aggregator),
-            "bgp::Config");
+        rti->route_aggregator(fmly)->EnableUnregResolveTask();
     }
 
     size_t GetUnregResolveListSize(const string &instance,
@@ -367,22 +361,14 @@ protected:
                                      Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
-        IRouteAggregator *aggregator = rti->route_aggregator(fmly);
-        task_util::TaskFire(
-            boost::bind(&IRouteAggregator::DisableRouteAggregateUpdate,
-                aggregator),
-            "bgp::Config");
+        rti->route_aggregator(fmly)->DisableRouteAggregateUpdate();
     }
 
     void EnableRouteAggregateUpdate(const string &instance,
                                     Address::Family fmly) {
         RoutingInstance *rti =
             bgp_server_->routing_instance_mgr()->GetRoutingInstance(instance);
-        IRouteAggregator *aggregator = rti->route_aggregator(fmly);
-        task_util::TaskFire(
-            boost::bind(&IRouteAggregator::EnableRouteAggregateUpdate,
-                aggregator),
-            "bgp::Config");
+        rti->route_aggregator(fmly)->EnableRouteAggregateUpdate();
     }
 
     size_t GetUpdateAggregateListSize(const string &instance,

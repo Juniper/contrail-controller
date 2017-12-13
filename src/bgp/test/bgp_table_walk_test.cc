@@ -184,7 +184,7 @@ public:
         walk_done_count_++;
         // Disable the walk done processing to validate new walk is done in serial
         // manner
-        DisableWalkProcessingInline();
+        DisableWalkProcessing();
     }
 
     void ResetWalkStats() {
@@ -209,42 +209,24 @@ public:
            boost::bind(&DBTable::WalkAgain, table, walk_ref), "bgp::Config");
     }
 
-    void DisableWalkProcessingInline() {
+    void DisableWalkProcessing() {
         DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
         walk_mgr->DisableWalkProcessing();
     }
 
-    void EnableWalkProcessingInline() {
+    void EnableWalkProcessing() {
         DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
         walk_mgr->EnableWalkProcessing();
     }
 
-    void DisableWalkProcessing() {
-        DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
-        task_util::TaskFire(
-            boost::bind(&DBTableWalkMgr::DisableWalkProcessing, walk_mgr),
-            "bgp::Config");
-    }
-
-    void EnableWalkProcessing() {
-        DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
-        task_util::TaskFire(
-            boost::bind(&DBTableWalkMgr::EnableWalkProcessing, walk_mgr),
-            "bgp::Config");
-    }
-
     void DisableWalkDoneProcessing() {
         DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
-        task_util::TaskFire(
-            boost::bind(&DBTableWalkMgr::DisableWalkDoneTrigger, walk_mgr),
-            "bgp::Config");
+        walk_mgr->DisableWalkDoneTrigger();
     }
 
     void EnableWalkDoneProcessing() {
         DBTableWalkMgr *walk_mgr = server_.database()->GetWalkMgr();
-        task_util::TaskFire(
-            boost::bind(&DBTableWalkMgr::EnableWalkDoneTrigger, walk_mgr),
-            "bgp::Config");
+        walk_mgr->EnableWalkDoneTrigger();
     }
 
     void PauseTableWalk() {
@@ -652,10 +634,10 @@ TEST_F(BgpTableWalkTest, StopWalk_2) {
     TaskScheduler::GetInstance()->Enqueue(task);
 
     // Disable the Walk trigger to ensure that new walks are not started
-    DisableWalkProcessingInline();
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref),
                         "bgp::RTFilter");
-    EnableWalkProcessingInline();
+    EnableWalkProcessing();
 
     // Walk started?
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
@@ -716,12 +698,12 @@ TEST_F(BgpTableWalkTest, StopWalk_3) {
     TaskScheduler::GetInstance()->Enqueue(task);
 
     // Disable the walk processing and start walk
-    DisableWalkProcessingInline();
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref),
                         "bgp::RTFilter");
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, blue_, walk_ref_1),
                         "bgp::RTFilter");
-    EnableWalkProcessingInline();
+    EnableWalkProcessing();
 
     // Wait till walk has been initiated
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
@@ -781,19 +763,19 @@ TEST_F(BgpTableWalkTest, WalkAgain) {
     TaskScheduler::GetInstance()->Enqueue(task);
 
     // Disable the walk processing and start walk
-    DisableWalkProcessingInline();
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref),
                         "bgp::RTFilter");
-    EnableWalkProcessingInline();
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
 
     // Call WalkAgain() and validate that table is walked mutliple times and
     // walk_done is invoked only once
-    DisableWalkProcessingInline();
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkAgain, red_, walk_ref),
                         "bgp::RTFilter");
-    EnableWalkProcessingInline();
+    EnableWalkProcessing();
 
     // Stop the PauseTask to resume table walk
     ResumeTableWalk();
@@ -970,17 +952,17 @@ TEST_F(BgpTableWalkTest, WalkInprogress) {
     WalkPauseTask *task = new WalkPauseTask(this, pause_task);
     TaskScheduler::GetInstance()->Enqueue(task);
 
-    DisableWalkProcessingInline();
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref),
                         "bgp::RTFilter");
-    EnableWalkProcessingInline();
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
 
-    DisableWalkProcessingInline();
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref_1),
                         "bgp::RTFilter");
-    EnableWalkProcessingInline();
+    EnableWalkProcessing();
 
     // Resume the table walk
     ResumeTableWalk();
@@ -1065,10 +1047,10 @@ TEST_F(BgpTableWalkTest, WalkEmptyTable) {
     WalkPauseTask *task = new WalkPauseTask(this, pause_task);
     TaskScheduler::GetInstance()->Enqueue(task);
 
-    DisableWalkProcessingInline();
+    DisableWalkProcessing();
     task_util::TaskFire(boost::bind(&DBTable::WalkTable, red_, walk_ref),
                         "bgp::RTFilter");
-    EnableWalkProcessingInline();
+    EnableWalkProcessing();
 
     TASK_UTIL_EXPECT_EQ(1, red_->walk_count());
     TASK_UTIL_EXPECT_EQ(1, red_->walk_complete_count());
