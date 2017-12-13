@@ -22,7 +22,7 @@ ipdb
 python-subunit
 webtest
 pyaml
-keystonemiddleware
+keystonemiddleware!=4.19.0
 pyOpenSSL
 python-novaclient
 schema_transformer
