@@ -48,22 +48,85 @@ AgentUveBase::AgentUveBase(Agent *agent, uint64_t intvl,
 AgentUveBase::~AgentUveBase() {
 }
 
-uint32_t AgentUveBase::GetTagOfType(uint32_t tag_type_value,
-                                    const TagList &list) const {
-    TagList::const_iterator it = list.begin();
-    while (it != list.end()) {
-        if (((uint32_t)*it >> TagEntry::kTagTypeBitShift) == tag_type_value) {
-            return *it;
+void AgentUveBase::BuildTagNamesFromList(const TagList &tl, UveTagData *info)
+    const {
+    TagTable *table = agent_->tag_table();
+    TagList::const_iterator it = tl.begin();
+    while (it != tl.end()) {
+        uint32_t type = ((uint32_t)*it >> TagEntry::kTagTypeBitShift);
+        switch (type) {
+        case TagTable::APPLICATION:
+            info->application = table->TagName(*it);
+            break;
+        case TagTable::TIER:
+            info->tier = table->TagName(*it);
+            break;
+        case TagTable::SITE:
+            info->site = table->TagName(*it);
+            break;
+        case TagTable::DEPLOYMENT:
+            info->deployment = table->TagName(*it);
+            break;
+        case TagTable::LABEL:
+            if (!info->labels.empty()) {
+                info->labels += ";";
+            }
+            info->labels.append(table->TagName(*it));
+            break;
+        default:
+            if (!info->custom_tags.empty()) {
+                info->custom_tags += ";";
+            }
+            info->custom_tags.append(table->TagName(*it));
+            break;
         }
         ++it;
     }
-    return 0;
 }
 
-string AgentUveBase::GetTagNameStr(const TagList &tl, uint32_t type) const {
-    uint32_t tag = GetTagOfType(type, tl);
-    TagTable *table = agent_->tag_table();
-    return table->TagName(tag);
+/* Web-UI requires tag-id to returned as hex string. This should start with 0x
+ * and have exactly 8 digits/characters. Zero should be used for filling leading
+ * characters if the tag-id is not 8 digits wide. Web-UI uses this id to do
+ * lookup in API server */
+string AgentUveBase::IntegerToHexString(uint32_t value) const {
+    std::stringstream ss;
+    ss << "0x" << setfill('0') << setw(8) << std::hex << (uint32_t)value;
+    return ss.str();
+}
+
+void AgentUveBase::BuildTagIdsFromList(const TagList &tl, UveTagData *info)
+    const {
+    TagList::const_iterator it = tl.begin();
+    while (it != tl.end()) {
+        uint32_t type = ((uint32_t)*it >> TagEntry::kTagTypeBitShift);
+        switch (type) {
+        case TagTable::APPLICATION:
+            info->application = IntegerToHexString(*it);
+            break;
+        case TagTable::TIER:
+            info->tier = IntegerToHexString(*it);
+            break;
+        case TagTable::SITE:
+            info->site = IntegerToHexString(*it);
+            break;
+        case TagTable::DEPLOYMENT:
+            info->deployment = IntegerToHexString(*it);
+            break;
+        case TagTable::LABEL:
+            if (!info->labels.empty()) {
+                info->labels += ";";
+            }
+            info->labels.append(IntegerToHexString(*it));
+            break;
+        default:
+            if (!info->custom_tags.empty()) {
+                info->custom_tags += ";";
+            }
+            info->custom_tags.append(IntegerToHexString(*it));
+            break;
+        }
+        ++it;
+    }
 }
 
 void AgentUveBase::Shutdown() {
