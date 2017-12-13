@@ -20,6 +20,25 @@
 #include <vnsw/agent/uve/uve_types.h>
 #include <uve/flow_uve_stats_request.h>
 
+/* Structure used to build and carry tags of different types across APIs */
+struct UveTagData {
+    std::string application;
+    std::string tier;
+    std::string site;
+    std::string deployment;
+    /* Semi-colon separated list of labels. This format is imposed by analytics
+     * module as it expects labels in semi-colon separated string */
+    std::string labels;
+    /* Semi-colon separated list of custom-tags. This format is imposed by
+     * analytics module as it expects custom-tags in semi-colon separated
+     * string */
+    std::string custom_tags;
+    void Reset() {
+        application = tier = site = deployment = labels = custom_tags = "";
+    }
+    UveTagData() { Reset(); }
+};
+
 /* Structure used to pass Endpoint data from FlowStatsCollector to UVE module */
 struct EndpointStatsInfo {
     const VmInterface *vmi;
@@ -163,7 +182,6 @@ public:
             out_bytes(0), out_pkts(0) , prev_in_bytes(0) , prev_in_pkts(0),
             prev_out_bytes(0), prev_out_pkts(0), prev_added(0), prev_deleted(0){
         }
-        std::string GetTagIdStr(const Agent *agent, uint32_t type) const;
     };
     typedef boost::shared_ptr<UveSecurityPolicyStats> UveSecurityPolicyStatsPtr;
     struct PolicyCmp {

@@ -238,6 +238,10 @@ struct UveVMInterfaceAgent {
    46: optional string site;
    /** Name of deployment */
    47: optional string deployment;
+   /** semi-colon seperated list of labels */
+   51: string labels;
+   /** semi-colon seperated list of custom_tags */
+   52: string custom_tags;
    /** Firewall policy rules along with its policy set name */
    48: optional list<string> policy_rules;
    /** Vhostuser mode */

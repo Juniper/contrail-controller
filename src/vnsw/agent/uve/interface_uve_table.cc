@@ -790,17 +790,6 @@ void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStats
     }
 }
 
-/* Web-UI requires tag-id to returned as hex string. This should start with 0x
- * and have exactly 8 digits/characters. Zero should be used for filling leading
- * characters if the tag-id is not 8 digits wide. Web-UI uses this id to do
- * lookup in API server */
-string InterfaceUveTable::UveSecurityPolicyStats::GetTagIdStr
-    (const Agent *agent, uint32_t type) const {
-    uint32_t tag = agent->uve()->GetTagOfType(type, remote_tagset);
-    std::stringstream ss;
-    ss << "0x" << setfill('0') << setw(8) << std::hex << (uint32_t)tag;
-    return ss.str();
-}
 
 void InterfaceUveTable::UveInterfaceEntry::UpdateSecurityPolicyStatsInternal
     (const EndpointStatsInfo &info, UveSecurityPolicyStats *stats) {
@@ -842,22 +831,23 @@ void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
     while (sit != ilist.end()) {
         SecurityPolicyFlowStats item;
         UveSecurityPolicyStatsPtr entry(*sit);
-        item.set_app(uve->GetTagNameStr(entry->local_tagset,
-                                   TagTable::APPLICATION));
-        item.set_tier(uve->GetTagNameStr(entry->local_tagset,
-                                    TagTable::TIER));
-        item.set_site(uve->GetTagNameStr(entry->local_tagset,
-                                    TagTable::SITE));
-        item.set_deployment(uve->GetTagNameStr(entry->local_tagset,
-                                      TagTable::DEPLOYMENT));
-        item.set_remote_app_id(entry->GetTagIdStr(agent,
-                                                TagTable::APPLICATION));
-        item.set_remote_tier_id(entry->GetTagIdStr(agent,
-                                                 TagTable::TIER));
-        item.set_remote_site_id(entry->GetTagIdStr(agent,
-                                                 TagTable::SITE));
-        item.set_remote_deployment_id(entry->GetTagIdStr(agent,
-                                                       TagTable::DEPLOYMENT));
+        UveTagData tinfo;
+        uve->BuildTagNamesFromList(entry->local_tagset, &tinfo);
+        item.set_app(tinfo.application);
+        item.set_tier(tinfo.tier);
+        item.set_site(tinfo.site);
+        item.set_deployment(tinfo.deployment);
+        item.set_labels(tinfo.labels);
+        item.set_custom_tags(tinfo.custom_tags);
+        tinfo.Reset();
+        uve->BuildTagIdsFromList(entry->remote_tagset, &tinfo);
+        item.set_remote_app_id(tinfo.application);
+        item.set_remote_tier_id(tinfo.tier);
+        item.set_remote_site_id(tinfo.deployment);
+        item.set_remote_deployment_id(tinfo.site);
+        item.set_remote_label_ids(tinfo.labels);
+        item.set_remote_custom_tag_ids(tinfo.custom_tags);
+
         item.set_remote_vn(entry->remote_vn);
         item.set_local_vn(entry->local_vn);
         item.set_action(entry->action);
@@ -888,11 +878,15 @@ void InterfaceUveTable::UveInterfaceEntry::FillTagSetAndPolicyList
     tbb::mutex::scoped_lock lock(mutex_);
     TagList new_tag_list;
     intf_->CopyTagIdList(&new_tag_list);
-    obj->set_app(uve->GetTagNameStr(new_tag_list, TagTable::APPLICATION));
-    obj->set_tier(uve->GetTagNameStr(new_tag_list, TagTable::TIER));
-    obj->set_site(uve->GetTagNameStr(new_tag_list, TagTable::SITE));
-    obj->set_deployment(uve->GetTagNameStr(new_tag_list,
-                                      TagTable::DEPLOYMENT));
+    UveTagData tinfo;
+    uve->BuildTagNamesFromList(new_tag_list, &tinfo);
+    obj->set_app(tinfo.application);
+    obj->set_tier(tinfo.tier);
+    obj->set_site(tinfo.site);
+    obj->set_deployment(tinfo.deployment);
+    obj->set_labels(tinfo.labels);
+    obj->set_custom_tags(tinfo.custom_tags);
+
     vector<string> rule_list;
     SecurityPolicyStatsMap::const_iterator it =
         security_policy_stats_map_.begin();
