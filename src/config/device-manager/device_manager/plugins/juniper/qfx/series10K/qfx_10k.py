@@ -11,7 +11,7 @@ from qfx_conf import QfxConf
 from device_api.juniper_common_xsd import *
 
 class Qfx10kConf(QfxConf):
-    _products = ['qfx10000', 'qfx10002']
+    _products = ['qfx10000', 'qfx10002', 'vqfx-10000']
 
     def __init__(self, logger, params={}):
         self._logger = logger
