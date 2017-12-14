@@ -11,7 +11,7 @@ env = AgentEnv.Clone()
 except_files = [ 'cfg_vgw.cc' ]
 except_objs = AgentEnv.BuildExceptionCcObj(env, except_files)
 
-libvgw = env.Library('libvgw',
+libvgw = env.Library('vgw',
                       except_objs +
                       [ 'vgw.cc' ])
 

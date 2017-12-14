@@ -36,7 +36,7 @@ env.Prepend(LIBS = ['sandesh', 'http', 'http_parser', 'curl', 'db',
                     'process_info', 'sandeshvns', 'io', 'base', 
                     'ssl', 'crypto', 'gunit', 'pugixml'])
 
-if sys.platform != 'darwin':
+if sys.platform not in ['win32', 'darwin']:
     env.Append(LIBS = ['rt'])
 
 env.Append(CPPPATH = [env['TOP']])
