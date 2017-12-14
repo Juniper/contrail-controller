@@ -1970,15 +1970,16 @@ class OpServer(object):
             alarm_list = self._uve_server.get_alarms(filters)
             alms = {}
             for ak,av in alarm_list.iteritems():
-                res_list = self.get_resource_list_from_uve_type(ak, False)
                 alm_type = ak
                 if ak in _OBJECT_TABLES:
                     alm_type = _OBJECT_TABLES[ak].log_query_name
+                res_list = self.get_resource_list_from_uve_type(alm_type, False)
                 ulist = []
                 for uk, uv in av.iteritems():
                    if res_list is None or uk in res_list:
                        ulist.append({'name':uk, 'value':uv})
-                alms[alm_type ] = ulist
+                if ulist:
+                    alms[alm_type] = ulist
             if self._uvepartitions_state == ConnectionStatus.UP:
                 return json.dumps(alms)
             else:
