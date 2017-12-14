@@ -304,13 +304,21 @@ private:
                                 mgen_->rgen_)]);
                             end_point.set_is_si(mgen_->dClientSession(mgen_->rgen_));
                             std::vector<std::string> labels;
+                            std::vector<std::string> remote_labels;
                             int nlabels(mgen_->dLabels(mgen_->rgen_));
+                            int nremote_labels(mgen_->dLabels(mgen_->rgen_));
                             for (int i = 0; i < nlabels + 1; i++) {
                                 labels.push_back(
                                     mgen_->kLabels[mgen_->dLabels(mgen_->rgen_)]);
                             }
+                            for (int i = 0; i < nremote_labels + 1; i++) {
+                                remote_labels.push_back(
+                                    mgen_->kLabels[mgen_->dLabels(mgen_->rgen_)]);
+                            }
                             end_point.set_labels(
                                 std::set<string>(labels.begin(),labels.end()));
+                            end_point.set_remote_labels(
+                                std::set<string>(remote_labels.begin(),remote_labels.end()));
                             SessionAggMap sess_agg_map;
                             int nsport = mgen_->dNPorts(mgen_->rgen_);
                             for (int i = 0; i < nsport; i++) {
