@@ -5,7 +5,7 @@ coverage
 webtest
 pyaml
 python-keystoneclient>=0.11.0
-keystonemiddleware
+keystonemiddleware!=4.19.0
 lxml>=2.3.3
 neutron_lib
 gevent==1.1a2
