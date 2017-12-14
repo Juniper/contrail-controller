@@ -1,4 +1,0 @@
-{ "Rules": [
-        {"processname": "contrail-query-engine", "process_state": "PROCESS_STATE_FATAL", "action": "service contrail-analytics-api stop"}
-    ]
-}

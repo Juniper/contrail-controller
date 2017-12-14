@@ -1,4 +1,0 @@
-[run]
-branch = True
-concurrency = gevent
-source=contrail_snmp_collector
