@@ -110,6 +110,54 @@ void GlobalVrouter::DeleteFlowAging() {
     flow_aging_timeout_map_.clear();
 }
 
+void GlobalVrouter::UpdatePortConfig(autogen::GlobalVrouterConfig *cfg) {
+    if (agent()->port_config_handler() == NULL) {
+        return;
+    }
+
+    ProtocolPortSet new_protocol_port_set;
+
+    std::vector<autogen::PortTranslationPool>::const_iterator new_list_it =
+        cfg->port_translation_pools().begin();
+    for (;new_list_it != cfg->port_translation_pools().end(); new_list_it++) {
+        int proto = ProtocolToString(new_list_it->protocol);
+        if (proto < 0 || proto > 0xFF) {
+            new_list_it++;
+            continue;
+        }
+
+        if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
+            continue;
+        }
+
+        uint16_t port_count = 0;
+        std::stringstream str(new_list_it->port_count);
+        str >> port_count;
+
+        agent()->port_config_handler()(agent(), proto, port_count,
+                                       new_list_it->port_range.start_port,
+                                       new_list_it->port_range.end_port);
+
+        protocol_port_set_.erase(proto);
+        new_protocol_port_set.insert(proto);
+    }
+
+    ProtocolPortSet::const_iterator old_list_it = protocol_port_set_.begin();
+    for (; old_list_it != protocol_port_set_.end(); old_list_it++) {
+        agent()->port_config_handler()(agent(), *old_list_it, 0, 0, 0);
+    }
+    protocol_port_set_ = new_protocol_port_set;
+}
+
+void GlobalVrouter::DeletePortConfig() {
+    ProtocolPortSet::const_iterator it = protocol_port_set_.begin();
+    for (; it != protocol_port_set_.end(); it++) {
+        agent()->port_config_handler()(agent(), *it, 0, 0, 0);
+    }
+
+    protocol_port_set_.clear();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 // Link local service
@@ -580,6 +628,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
             flow_export_rate_ = kDefaultFlowExportRate;
         }
         UpdateFlowAging(cfg);
+        UpdatePortConfig(cfg);
         EcmpLoadBalance ecmp_load_balance;
         if (cfg->ecmp_hashing_include_fields().hashing_configured) {
             ecmp_load_balance.UpdateFields(cfg->
@@ -595,6 +644,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         resync_route = true;
         flow_export_rate_ = kDefaultFlowExportRate;
         DeleteFlowAging();
+        DeletePortConfig();
     }
 
     if (cfg_vxlan_network_identifier_mode !=                             

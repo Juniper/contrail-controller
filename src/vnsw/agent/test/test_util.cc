@@ -1844,6 +1844,19 @@ void AddVrf(const char *name, int id, bool default_ri) {
     return;
 }
 
+void AddVrfWithSNat(const char *name, int id, bool default_ri, bool snat) {
+    std::stringstream str;
+    str << "    <routing-instance-is-default>" << default_ri << "</routing-instance-is-default>" << endl;
+    str << "    <routing-instance-fabric-snat>" << snat << "</routing-instance-fabric-snat>" << endl;
+    char buff[10240];
+    int len = 0;
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, "routing-instance", name, id, str.str().c_str());
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+    return;
+}
+
 void DelVrf(const char *name) {
     DelNode("routing-instance", name);
 }

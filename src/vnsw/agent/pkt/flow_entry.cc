@@ -48,6 +48,8 @@
 #include <pkt/flow_entry.h>
 #include <uve/flow_uve_stats_request.h>
 
+using namespace boost::asio::ip;
+
 const std::map<FlowEntry::FlowPolicyState, const char*>
     FlowEntry::FlowPolicyStateStr = boost::assign::map_list_of
         (NOT_EVALUATED,            "00000000-0000-0000-0000-000000000000")
@@ -305,6 +307,7 @@ void FlowData::Reset() {
     src_policy_plen = 0;
     dst_policy_vrf = VrfEntry::kInvalidIndex;
     dst_policy_plen = 0;
+    allocated_port_ = 0;
 }
 
 static std::vector<std::string> MakeList(const VnListType &ilist) {
@@ -637,6 +640,10 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     }
     uint32_t intf_in = pkt->GetAgentHdr().ifindex;
     data_.vm_cfg_name = InterfaceIdToVmCfgName(agent, intf_in);
+
+    if (info->port_allocated) {
+        data_.allocated_port_ = info->nat_sport;
+    }
 
     if (info->ingress) {
         set_flags(FlowEntry::IngressDir);
@@ -3286,4 +3293,398 @@ const std::string FlowEntry::fw_policy_name_uuid() const {
     }
     return data_.match_p.aps_policy.acl_name_ + ":" +
         fw_policy_uuid();
+}
+
+TcpPort::~TcpPort() {
+    socket_.close();
+}
+
+uint16_t TcpPort::Bind() {
+    boost::system::error_code ec;
+    socket_.open(tcp::v4());
+    socket_.bind(tcp::endpoint(tcp::v4(), port_), ec);
+    if (ec != 0) {
+        return 0;
+    }
+    port_ = socket_.local_endpoint(ec).port();
+    return port_;
+}
+
+UdpPort::~UdpPort() {
+    socket_.close();
+}
+
+uint16_t UdpPort::Bind() {
+    boost::system::error_code ec;
+    socket_.open(udp::v4());
+    socket_.bind(udp::endpoint(udp::v4(), port_), ec);
+    if (ec != 0) {
+        return 0;
+    }
+    port_ = socket_.local_endpoint(ec).port();
+    return port_;
+}
+
+bool PortCacheEntry::operator<(const PortCacheEntry &rhs) const {
+    return key_.IsLess(rhs.key_);
+}
+
+void PortCacheEntry::MarkDelete() const {
+    stale_ = true;
+    delete_time_ = UTCTimestampUsec();
+}
+
+bool PortCacheEntry::CanBeAged(uint64_t current_time, uint64_t timeout) const {
+    if (stale_ &&
+        current_time - delete_time_ >= timeout) {
+        return true;
+    }
+
+    return false;
+}
+
+PortCacheTable::PortCacheTable(PortTable *table) :
+     port_table_(table),
+     timer_(TimerManager::CreateTimer(
+                     *(table->agent()->event_manager())->io_service(),
+                     "FlowPortBindTimer",
+                     TaskScheduler::GetInstance()->GetTaskId(kTaskFlowMgmt), -1)),
+     hash_(0), timeout_(PortCacheTable::kAgingTimeout) {
+     timer_->Start(kCacheAging,
+                   boost::bind(&PortCacheTable::Age, this));
+}
+
+PortCacheTable::~PortCacheTable() {
+    timer_->Cancel();
+    TimerManager::DeleteTimer(timer_);
+}
+
+bool PortCacheTable::Age() {
+    if (tree_.size() == 0) {
+        return false;
+    }
+
+    tbb::recursive_mutex::scoped_lock lock(port_table_->mutex());
+    uint16_t no_of_entries = tree_.size() / kCacheAging;
+    uint16_t entries_processed = 0;
+    uint64_t current_time = UTCTimestampUsec();
+
+    PortCacheTree::iterator it = tree_.lower_bound(hash_);
+    while (it != tree_.end() && entries_processed <= no_of_entries) {
+        //Go thru each entry in particular hash bucket and identify
+        //if any of them can be released
+        PortCacheEntryList::iterator pcit = it->second.begin();
+        while (pcit != it->second.end() && entries_processed <= no_of_entries) {
+            PortCacheEntryList::iterator saved_pcit = pcit;
+            pcit++;
+            if (saved_pcit->CanBeAged(current_time, timeout_)) {
+                //Release reference to port
+                //check if port is empty, delete the port
+                port_table_->Free(saved_pcit->key(), saved_pcit->port(), true);
+            }
+            entries_processed++;
+        }
+        it++;
+    }
+
+    if (it == tree_.end()) {
+        hash_ = 0;
+    } else {
+        hash_ = it->first;
+        hash_++;
+    }
+
+    return true;
+}
+
+void PortCacheTable::StartTimer() {
+    timer_->Start(kCacheAging,
+                  boost::bind(&PortCacheTable::Age, this));
+}
+
+void PortCacheTable::StopTimer() {
+    timer_->Cancel();
+}
+
+void PortCacheTable::Add(const PortCacheEntry &cache_entry) {
+    uint16_t hash = port_table_->HashFlowKey(cache_entry.key());
+    tree_[hash].insert(cache_entry);
+
+    if (tree_.size() == 1) {
+        StartTimer();
+    }
+}
+
+void PortCacheTable::Delete(const PortCacheEntry &cache_entry) {
+    uint16_t hash = port_table_->HashFlowKey(cache_entry.key());
+    tree_[hash].erase(cache_entry);
+    if (tree_[hash].size() == 0) {
+        tree_.erase(hash);
+    }
+
+    if (tree_.size() == 0) {
+        StopTimer();
+    }
+}
+
+void PortCacheTable::MarkDelete(const PortCacheEntry &cache_entry) {
+    uint16_t hash = port_table_->HashFlowKey(cache_entry.key());
+
+    PortCacheEntryList::iterator it = tree_[hash].find(cache_entry);
+    if (it != tree_[hash].end()) {
+        it->MarkDelete();
+    }
+}
+
+const PortCacheEntry*
+PortCacheTable::Find(const FlowKey &key) const {
+    PortCacheEntry cache_entry(key, 0);
+    uint16_t hash = port_table_->HashFlowKey(cache_entry.key());
+
+    PortCacheTree::const_iterator pct_it = tree_.find(hash);
+    if (pct_it == tree_.end()) {
+        return NULL;
+    }
+
+    PortCacheEntryList::const_iterator it = pct_it->second.find(cache_entry);
+    if (it != pct_it->second.end()) {
+        return &(*it);
+    }
+
+    return NULL;
+}
+
+uint16_t PortTable::HashFlowKey(const FlowKey &key) {
+    std::size_t hash = 0;
+    boost::hash_combine(hash, key.dst_addr.to_v4().to_ulong());
+    boost::hash_combine(hash, key.dst_port);
+
+    return (hash % hash_table_size_);
+}
+
+PortTable::PortTable(Agent *agent, uint32_t hash_table_size, uint8_t protocol):
+    agent_(agent), protocol_(protocol), cache_(this),
+    hash_table_size_(hash_table_size), port_count_(0) {
+    for (uint32_t i = 0; i < hash_table_size; i++) {
+         hash_table_.push_back(PortBitMapPtr(new PortBitMap()));
+    }
+}
+
+uint16_t PortTable::Allocate(const FlowKey &key) {
+    if (key.protocol != IPPROTO_TCP && key.protocol != IPPROTO_UDP) {
+        return key.src_port;
+    }
+
+    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    //Check if the entry is present in flow cache tree
+    const PortCacheEntry *entry = cache_.Find(key);
+    if (entry) {
+        entry->set_stale(false);
+        return entry->port();
+    }
+
+    uint16_t port_hash = HashFlowKey(key);
+    uint16_t port = kInvalidPort;
+
+    PortBitMapPtr bit_map = hash_table_[port_hash];
+
+    //Mark the port as used in bit map of hash
+    uint16_t index = bit_map->Insert(key);
+    if (index >= port_count_) {
+        bit_map->Remove(index);
+        return port;
+    }
+    //Using the index above get the actual port to be used
+    port = port_list_.At(index)->port();
+    PortCacheEntry cache_entry(key, port);
+    //Add to cache tree
+    cache_.Add(cache_entry);
+
+    return port;
+}
+
+PortTable::PortPtr
+PortTable::CreatePortEntry(uint16_t port_no) {
+    switch(protocol_) {
+    case IPPROTO_TCP:
+        return PortPtr(new TcpPort(*(agent_->event_manager()->io_service()),
+                                   port_no));
+
+    case IPPROTO_UDP:
+        return PortPtr(new UdpPort(*(agent_->event_manager()->io_service()),
+                                   port_no));
+    }
+
+    return PortPtr();
+}
+
+void PortTable::Free(const FlowKey &key, uint16_t port, bool release) {
+    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    PortCacheEntry cache_entry(key, kInvalidPort);
+    if (release) {
+        //Delete from cache entry
+        PortCacheEntry cache_entry(key, kInvalidPort);
+        cache_.Delete(cache_entry);
+
+        uint16_t port_hash = HashFlowKey(key);
+        PortBitMapPtr bit_map = hash_table_[port_hash];
+        if (port_to_bit_index_.find(port) != port_to_bit_index_.end()) {
+            //Upon config change all the entries in bit map
+            //are implicitly deleted, hence a duplicate
+            //delete from flow table needs to be handled
+            //after cross check if key matches
+            FlowKey existing_key = bit_map->At(port_to_bit_index_[port]);
+            if (existing_key.IsEqual(key)) {
+                bit_map->Remove(port_to_bit_index_[port]);
+            }
+        }
+    } else {
+        //Mark cache entry for deletion
+        //after aging timeout
+        cache_.MarkDelete(cache_entry);
+    }
+}
+
+void PortTable::AddPort(uint16_t port_no) {
+    //Port number already present
+    if (port_no != kInvalidPort &&
+        port_to_bit_index_.find(port_no) != port_to_bit_index_.end()) {
+        return;
+    }
+
+    PortPtr port_ptr = CreatePortEntry(port_no);
+    if (port_ptr->Bind() || agent_->test_mode()) {
+        size_t index = port_list_.Insert(port_ptr);
+        port_to_bit_index_.insert((PortToBitIndexPair(port_ptr->port(),
+                                                      (uint16_t)index)));
+    }
+}
+
+void PortTable::DeleteAllFlow(uint16_t port_no, uint16_t index) {
+    for (uint16_t i = 0; i < hash_table_size_; i++) {
+        FlowKey key = hash_table_[i]->At((size_t)index);
+        if (key.family == Address::UNSPEC) {
+            return;
+        }
+        hash_table_[i]->Remove(index);
+        Free(key, port_no, true);
+        //Enqueue delete of flow
+        agent_->pkt()->get_flow_proto()->DeleteFlowRequest(key);
+    }
+}
+
+void PortTable::DeletePort(uint16_t port_no) {
+    assert(port_no != kInvalidPort);
+
+    PortToBitIndexMap::const_iterator it = port_to_bit_index_.find(port_no);
+    assert(it != port_to_bit_index_.end());
+    uint16_t index = it->second;
+
+    //Delete all the flow using this port
+    DeleteAllFlow(port_no, index);
+
+    port_list_.Remove(index);
+    port_to_bit_index_.erase(port_no);
+}
+
+bool PortTable::IsValidPort(uint16_t port, uint16_t count) {
+    if (range_start_ != PortTable::kInvalidPort) {
+        if (port >= range_start_ && port <= range_end_) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    return (count < port_count_);
+}
+
+void PortTable::UpdatePortConfig(uint16_t port_count, uint16_t range_start,
+                                 uint16_t range_end) {
+    uint16_t old_port_count = port_count_;
+    tbb::recursive_mutex::scoped_lock lock(mutex_);
+    if (range_start != PortTable::kInvalidPort &&
+        range_end != PortTable::kInvalidPort) {
+        range_start_ = range_start;
+        range_end_ = range_end;
+        port_count_ = (range_end_ - range_start_) + 1;
+    } else {
+        range_start_ = PortTable::kInvalidPort;
+        range_end_ = PortTable::kInvalidPort;
+        port_count_ = port_count;
+    }
+
+    uint16_t count = 0;
+    PortToBitIndexMap::iterator it = port_to_bit_index_.begin();
+
+    for (uint16_t index = 0; index < old_port_count; index++) {
+        PortPtr port = port_list_.At(index);
+        if (port.get() && IsValidPort(port->port(), count) == false) {
+            DeletePort(port->port());
+        } else {
+            count++;
+        }
+    }
+
+    if (range_start) {
+        //Handle range of port
+        for (uint16_t port = range_start_; range_end_ && port <= range_end_; port++) {
+            AddPort(port);
+        }
+    } else {
+        //Handle port count, port_count_ would be set only if range is
+        //not valid
+        for (uint16_t port = count; port < port_count_; port++) {
+            AddPort(0);
+        }
+    }
+}
+
+PortTableManager::PortTableManager(Agent *agent, uint16_t hash_table_size):
+    agent_(agent) {
+    port_table_list_[IPPROTO_TCP] =
+        PortTablePtr(new PortTable(agent, hash_table_size, IPPROTO_TCP));
+    port_table_list_[IPPROTO_UDP] =
+        PortTablePtr(new PortTable(agent, hash_table_size, IPPROTO_UDP));
+    agent_->set_port_config_handler(&(PortTableManager::PortConfigHandler));
+}
+
+PortTableManager::~PortTableManager() {
+    for (uint16_t proto = 0; proto < IPPROTO_MAX; proto++) {
+        port_table_list_[proto].reset();
+    }
+}
+uint16_t PortTableManager::Allocate(const FlowKey &key) {
+    if (key.protocol != IPPROTO_TCP && key.protocol != IPPROTO_UDP) {
+        return key.src_port;
+    }
+
+    return port_table_list_[key.protocol]->Allocate(key);
+}
+
+void PortTableManager::Free(const FlowKey &key, uint16_t port, bool evict) {
+    if (key.protocol != IPPROTO_TCP && key.protocol != IPPROTO_UDP) {
+        return;
+    }
+
+    return port_table_list_[key.protocol]->Free(key, port, evict);
+}
+
+void PortTableManager::UpdatePortConfig(uint8_t protocol, uint16_t port_count,
+                                        uint16_t range_start,
+                                        uint16_t range_end) {
+
+    if (port_table_list_[protocol].get() == NULL) {
+        return;
+    }
+
+    port_table_list_[protocol]->UpdatePortConfig(port_count, range_start, range_end);
+}
+
+void PortTableManager::PortConfigHandler(Agent *agent, uint8_t protocol,
+                                         uint16_t port_count,
+                                         uint16_t range_start,
+                                         uint16_t range_end) {
+    agent->pkt()->get_flow_proto()->port_table_manager()->
+        UpdatePortConfig(protocol, port_count, range_start, range_end);
 }

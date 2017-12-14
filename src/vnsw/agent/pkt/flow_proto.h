@@ -15,6 +15,7 @@
 #include "flow_event.h"
 #include "flow_token.h"
 #include "flow_trace_filter.h"
+#include "flow_entry.h"
 
 class ProfileData;
 
@@ -79,6 +80,7 @@ public:
     void EnqueueFlowEvent(FlowEvent *event);
     void ForceEnqueueFreeFlowReference(FlowEntryPtr &flow);
     void DeleteFlowRequest(FlowEntry *flow);
+    void DeleteFlowRequest(const FlowKey &key);
     void EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle,
                           uint8_t gen_id, uint8_t evict_gen_id);
     void CreateAuditEntry(const FlowKey &key, uint32_t flow_handle,
@@ -120,6 +122,9 @@ public:
     TokenPtr GetToken(FlowEvent::Event event);
     bool TokenCheck(const FlowTokenPool *pool) const;
 
+    PortTableManager* port_table_manager() {
+        return &port_table_manager_;
+    }
 
 private:
     friend class SandeshIPv4FlowFilterRequest;
@@ -149,6 +154,7 @@ private:
     FlowTraceFilter ipv4_trace_filter_;
     FlowTraceFilter ipv6_trace_filter_;
     FlowStats stats_;
+    PortTableManager port_table_manager_;
     Timer *stats_update_timer_;
 };
 

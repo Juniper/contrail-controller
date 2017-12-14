@@ -91,6 +91,9 @@ public:
     typedef std::map<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutMap;
     typedef std::pair<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutPair;
 
+    //Map used to audit for port pool configuration change
+    typedef std::set<uint8_t> ProtocolPortSet;
+
     GlobalVrouter(Agent *agent);
     virtual ~GlobalVrouter();
     void CreateDBClients();
@@ -145,6 +148,9 @@ private:
     void UpdateFlowAging(autogen::GlobalVrouterConfig *cfg);
     void DeleteFlowAging();
 
+    void UpdatePortConfig(autogen::GlobalVrouterConfig *cfg);
+    void DeletePortConfig();
+
     LinkLocalServicesMap linklocal_services_map_;
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;
@@ -152,6 +158,7 @@ private:
     Agent::ForwardingMode forwarding_mode_;
     int32_t flow_export_rate_;
     FlowAgingTimeoutMap flow_aging_timeout_map_;
+    ProtocolPortSet protocol_port_set_;
     EcmpLoadBalance ecmp_load_balance_;
     bool configured_; //true when global-vrouter-config stanza is present
     boost::uuids::uuid slo_uuid_; //SLO associated with global-vrouter

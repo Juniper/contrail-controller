@@ -213,6 +213,7 @@ public:
     uint32_t             dst_policy_vrf;
     const VnListType           *src_vn;
     const VnListType           *dst_vn;
+    bool                 port_allocated;
 };
 
 #endif // __agent_pkt_flow_info_h_

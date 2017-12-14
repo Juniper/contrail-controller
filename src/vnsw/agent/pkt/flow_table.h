@@ -283,6 +283,7 @@ private:
     bool DeleteUnLocked(const FlowKey &key, bool del_reverse_flow);
     bool DeleteUnLocked(bool del_reverse_flow, FlowEntry *flow,
                         FlowEntry *rflow);
+    void ReleasePort(FlowEntry *flow, bool evict);
 
     Agent *agent_;
     boost::uuids::random_generator rand_gen_;

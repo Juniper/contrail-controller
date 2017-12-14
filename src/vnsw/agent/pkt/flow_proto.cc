@@ -15,6 +15,7 @@
 #include "flow_mgmt.h"
 #include "flow_event.h"
 #include <strings.h>
+#include "flow_entry.h"
 
 static void UpdateStats(FlowEvent *event, FlowStats *stats);
 
@@ -28,6 +29,7 @@ FlowProto::FlowProto(Agent *agent, boost::asio::io_service &io) :
                        agent->params()->flow_task_latency_limit(), 16),
     use_vrouter_hash_(false), ipv4_trace_filter_(), ipv6_trace_filter_(),
     stats_(),
+    port_table_manager_(agent, agent->params()->fabric_snat_hash_table_size()),
     stats_update_timer_(TimerManager::CreateTimer
         (*(agent->event_manager())->io_service(), "FlowStatsUpdateTimer",
          TaskScheduler::GetInstance()->GetTaskId(kTaskFlowStatsUpdate), 0)) {
@@ -560,6 +562,14 @@ bool FlowProto::FlowDeleteHandler(FlowEvent *req, FlowTable *table) {
 void FlowProto::DeleteFlowRequest(FlowEntry *flow) {
     EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow));
     return;
+}
+
+void FlowProto::DeleteFlowRequest(const FlowKey &key) {
+    FlowTable *table = GetFlowTable(key, 0);
+    FlowEntry *flow = Find(key, table->table_index());
+    if (flow) {
+        EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow));
+    }
 }
 
 void FlowProto::EvictFlowRequest(FlowEntry *flow, uint32_t flow_handle,

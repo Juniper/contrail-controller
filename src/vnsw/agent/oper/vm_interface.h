@@ -461,7 +461,8 @@ public:
         FloatingIp(const IpAddress &addr, const std::string &vrf,
                    const boost::uuids::uuid &vn_uuid, const IpAddress &ip,
                    Direction direction, bool port_mappng_enabled,
-                   const PortMap &src_port_map, const PortMap &dst_port_map);
+                   const PortMap &src_port_map, const PortMap &dst_port_map,
+                   bool port_nat);
         virtual ~FloatingIp();
 
         bool operator() (const FloatingIp &lhs, const FloatingIp &rhs) const;
@@ -496,6 +497,7 @@ public:
                                      const VmInterface *vmi) const;
         bool AddL2(const Agent *agent, VmInterface *vmi) const;
         bool DeleteL2(const Agent *agent, VmInterface *vmi) const;
+        bool port_nat() const;
 
         IpAddress floating_ip_;
         mutable VnEntryRef vn_;
@@ -508,6 +510,7 @@ public:
         mutable PortMap src_port_map_;
         mutable PortMap dst_port_map_;
         mutable uint32_t ethernet_tag_;
+        mutable bool port_nat_;
     };
     typedef std::set<FloatingIp, FloatingIp> FloatingIpSet;
 
