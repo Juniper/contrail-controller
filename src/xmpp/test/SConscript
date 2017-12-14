@@ -31,7 +31,10 @@ env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh',
                     'cassandra', 'gendb', 'SimpleAmqpClient', 'rabbitmq',
                     'base', 'boost_regex', 'xmpptest', 'db', 'sandesh'])
 
-if sys.platform != 'darwin':
+if sys.platform == 'win32':
+    env.Append(LIBS = ['advapi32', 'gdi32'])
+
+if sys.platform not in ['win32', 'darwin']:
     env.Append(LIBS = ['rt'])
 
 xmpp_server_test = env.UnitTest('xmpp_server_test', ['xmpp_server_test.cc'])
