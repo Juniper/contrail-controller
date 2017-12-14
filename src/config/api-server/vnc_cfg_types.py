@@ -276,12 +276,12 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
                                           obj_dict.get('uuid'))
         if not ok:
             return (ok, global_sys_cfg)
-        cur_bgpaas_ports = global_sys_cfg.get('bgpaas_parameters') or\
-                            {'port_start': 50000, 'port_end': 50512}
-        if (bgpaas_ports['port_start'] > cur_bgpaas_ports['port_start'] or
-           bgpaas_ports['port_end'] < cur_bgpaas_ports['port_end']):
-            return (False, (400, 'BGP Port range cannot be shrunk'))
 
+        cur_bgpaas_ports = global_sys_cfg.get('bgpaas_parameters')
+        if cur_bgpaas_ports:
+            if (bgpaas_ports['port_start'] > cur_bgpaas_ports['port_start'] or
+                bgpaas_ports['port_end'] < cur_bgpaas_ports['port_end']):
+                return (False, (400, 'BGP Port range cannot be shrunk'))
         return (True, '')
     # end _check_bgpaas_ports
 
