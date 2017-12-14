@@ -7,8 +7,8 @@ import docker
 import sys
 import logging
 from docker.errors import APIError
-from vrouter_netns import validate_uuid, NetnsManager
-
+from vrouter_netns import NetnsManager
+from common import validate_uuid
 
 class VRouterDocker(object):
     """
