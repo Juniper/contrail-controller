@@ -255,7 +255,7 @@ static void FloatingIpAdd(VmInterface::FloatingIpList &list, const char *addr,
                       (ip.to_v4(), vrf, MakeUuid(1), tracking_ip,
                        VmInterface::FloatingIp::DIRECTION_BOTH, false,
                        VmInterface::FloatingIp::PortMap(),
-                       VmInterface::FloatingIp::PortMap()));
+                       VmInterface::FloatingIp::PortMap(), false));
 }
 
 struct AnalyzerInfo {

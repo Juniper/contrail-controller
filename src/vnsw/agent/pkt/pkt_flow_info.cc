@@ -1028,6 +1028,23 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         } else {
             nat_sport = map_port;
         }
+    } else if (fip_it->port_nat()) {
+        FlowKey key(in->nh_, pkt->ip_saddr, pkt->ip_daddr, pkt->ip_proto,
+                    pkt->sport, pkt->dport);
+        if (fip_it->floating_ip_ == pkt->ip_daddr) {
+            nat_sport = pkt->sport;
+            nat_ip_saddr = intf->mdata_ip_addr();
+        } else {
+            nat_sport =
+                agent->GetFlowProto()->port_table_manager()->Allocate(key);
+            if (nat_sport == 0) {
+                short_flow = true;
+                short_flow_reason = FlowEntry::SHORT_PORT_MAP_DROP;
+            } else {
+                port_allocated = true;
+            }
+        }
+        out->nh_ = agent->vhost_interface()->flow_key_nh()->id();
     } else {
         nat_sport = pkt->sport;
     }
@@ -1099,7 +1116,7 @@ void PktFlowInfo::ChangeEncapToOverlay(const VmInterface *intf,
                                                      pkt->ip_daddr);
 
     if (src_rt == NULL || dst_rt == NULL) {
-         return;
+        return;
     }
 
     uint32_t src_tunnel_bmap = src_rt->GetActivePath()->tunnel_bmap();

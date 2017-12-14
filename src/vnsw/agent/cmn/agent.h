@@ -360,6 +360,7 @@ public:
     static const uint8_t kMaxSessionEndpoints = 5;
     static const uint8_t kMaxSessionAggs = 8;
     static const uint8_t kMaxSessions = 100;
+    static const uint16_t kFabricSnatTableSize = 4098;
     enum ForwardingMode {
         NONE,
         L2_L3,
@@ -387,6 +388,9 @@ public:
                        uint32_t proto, uint32_t port,
                        uint64_t timeout);
 
+    typedef void (*PortConfigHandler)(Agent *agent,
+                       uint8_t proto, uint16_t port_count,
+                       uint16_t range_start, uint16_t range_end);
     Agent();
     virtual ~Agent();
 
@@ -1188,7 +1192,15 @@ public:
     void set_flow_stats_req_handler(FlowStatsReqHandler req) {
         flow_stats_req_handler_ = req;
     }
- 
+
+    PortConfigHandler& port_config_handler() {
+        return port_config_handler_;
+    }
+
+    void set_port_config_handler(PortConfigHandler handler) {
+        port_config_handler_ = handler;
+    }
+
     void SetMeasureQueueDelay(bool val);
     bool MeasureQueueDelay();
     void TaskTrace(const char *file_name, uint32_t line_no, const Task *task,
@@ -1413,6 +1425,7 @@ private:
     //Priority tagging status
     bool vrouter_priority_tagging_;
     FlowStatsReqHandler flow_stats_req_handler_;
+    PortConfigHandler port_config_handler_;
 
     uint32_t tbb_keepawake_timeout_;
     // Monitor task library and assert if inactivity detected

@@ -588,6 +588,8 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.max_aggregates_per_session_endpoint");
     GetOptValue<uint16_t>(var_map, max_endpoints_per_session_msg_,
                           "FLOWS.max_endpoints_per_session_msg");
+    GetOptValue<uint16_t>(var_map, fabric_snat_hash_table_size_,
+                          "FLOWS.fabric_snat_hash_table_size");
 }
 
 void AgentParam::ParseDhcpRelayModeArguments
@@ -1170,6 +1172,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Maximum sessions            : " << max_sessions_per_aggregate_);
     LOG(DEBUG, "Maximum session aggregates  : " << max_aggregates_per_session_endpoint_);
     LOG(DEBUG, "Maximum session endpoints   : " << max_endpoints_per_session_msg_);
+    LOG(DEBUG, "Fabric SNAT hash table size : " << fabric_snat_hash_table_size_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1357,7 +1360,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         mac_learning_update_tokens_(Agent::kMacLearningDefaultTokens),
         mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens),
         min_aap_prefix_len_(Agent::kMinAapPrefixLen),
-        vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval) {
+        vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval),
+        fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize) {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;

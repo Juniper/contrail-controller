@@ -432,6 +432,10 @@ public:
         return (vmi_vm_vn_uve_interval_ * 1000);
     }
 
+    uint16_t fabric_snat_hash_table_size() const {
+        return fabric_snat_hash_table_size_;
+    }
+
     // Restart parameters
     bool restart_backup_enable() const { return restart_backup_enable_; }
     void set_restart_backup_enable(bool val) {
@@ -769,6 +773,7 @@ private:
     uint32_t mac_learning_delete_tokens_;
     uint16_t min_aap_prefix_len_;
     uint16_t vmi_vm_vn_uve_interval_;
+    uint16_t fabric_snat_hash_table_size_;
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };
 
