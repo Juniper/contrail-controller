@@ -4,6 +4,7 @@
 
 
 import json
+import traceback
 
 from cfgm_common.vnc_amqp import VncAmqpHandle
 from cfgm_common.vnc_object_db import VncObjectDBClient
@@ -40,9 +41,15 @@ class ConfigHandler(object):
         }
         if not all(cassandra_credential.values()):
             cassandra_credential = None
-        self._vnc_db = VncObjectDBClient(self._cassandra_cfg['servers'],
-            self._cassandra_cfg['cluster_id'], logger=self._logger.log,
-            credential=cassandra_credential)
+        try:
+            self._vnc_db = VncObjectDBClient(self._cassandra_cfg['servers'],
+                self._cassandra_cfg['cluster_id'], logger=self._logger.log,
+                credential=cassandra_credential)
+        except Exception as e:
+            template = 'Exception {0} connecting to Config DB. Arguments:\n{1!r}'
+            msg = template.format(type(e).__name__, e.args)
+            self._logger.error('%s: %s' % (msg, traceback.format_exc()))
+            exit()
         self._db_cls.init(self, self._logger, self._vnc_db)
         self._sync_config_db()
     # end start
