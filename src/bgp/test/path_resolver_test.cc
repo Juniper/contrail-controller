@@ -561,6 +561,16 @@ protected:
             "bgp::Config");
     }
 
+    void DisableResolverPathUpdateProcessingInline(const string &instance) {
+        PathResolver *resolver = GetTable(instance)->path_resolver();
+        resolver->DisableResolverPathUpdateProcessing();
+    }
+
+    void EnableResolverPathUpdateProcessingInline(const string &instance) {
+        PathResolver *resolver = GetTable(instance)->path_resolver();
+        resolver->EnableResolverPathUpdateProcessing();
+    }
+
     void PauseResolverPathUpdateProcessing(const string &instance) {
         BgpTable *table = GetTable(instance);
         table->path_resolver()->PauseResolverPathUpdateProcessing();
@@ -574,22 +584,6 @@ protected:
     size_t ResolverPathUpdateListSize(const string &instance) {
         BgpTable *table = GetTable(instance);
         return table->path_resolver()->GetResolverPathUpdateListSize();
-    }
-
-    void DisableTaskGroup(const string &task_name) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        int task_id = scheduler->GetTaskId(task_name);
-        task_util::TaskFire(
-            boost::bind(&TaskScheduler::DisableTaskGroup, scheduler, task_id),
-            "bgp::Config");
-    }
-
-    void EnableTaskGroup(const string &task_name) {
-        TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        int task_id = scheduler->GetTaskId(task_name);
-        task_util::TaskFire(
-            boost::bind(&TaskScheduler::EnableTaskGroup, scheduler, task_id),
-            "bgp::Config");
     }
 
     BgpRoute *RouteLookup(const string &instance_name, const string &prefix) {
@@ -2585,7 +2579,7 @@ TYPED_TEST(PathResolverTest, Shutdown3) {
         this->BuildHostAddress(bgp_peer2->ToString()));
 
     task_util::WaitForIdle();
-    this->DisableResolverPathUpdateProcessing("blue");
+    this->DisableResolverPathUpdateProcessingInline("blue");
 
     this->DeleteBgpPath(bgp_peer1, "blue", this->BuildPrefix(1));
     this->DeleteBgpPath(bgp_peer2, "blue", this->BuildPrefix(1));
@@ -2601,9 +2595,9 @@ TYPED_TEST(PathResolverTest, Shutdown3) {
     // creation of bgp::Config task, which in turn destroys PathResolver.
     // If this sequence happens before all the bgp::ResolverPath tasks
     // are created, then we would be accessing freed memory.
-    this->DisableTaskGroup("bgp::ResolverPath");
-    this->EnableResolverPathUpdateProcessing("blue");
-    this->EnableTaskGroup("bgp::ResolverPath");
+    TaskScheduler::GetInstance()->Stop();
+    this->EnableResolverPathUpdateProcessingInline("blue");
+    TaskScheduler::GetInstance()->Start();
 
     TASK_UTIL_EXPECT_EQ(0, bgp_server->routing_instance_mgr()->count());
 }
