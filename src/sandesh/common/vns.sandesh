@@ -262,12 +262,14 @@ const map<byte, string> VrouterAgentTypeMap = {
 enum VrouterAgentPlatformType {
     VROUTER_AGENT_ON_NIC,
     VROUTER_AGENT_ON_HOST_DPDK,
+    VROUTER_AGENT_ON_WINDOWS,
     VROUTER_AGENT_ON_HOST
 }
 
 const map<byte, string> VrouterAgentPlatformTypeMap = {
     VrouterAgentPlatformType.VROUTER_AGENT_ON_NIC        : 'NIC',
     VrouterAgentPlatformType.VROUTER_AGENT_ON_HOST_DPDK  : 'HOST_DPDK',
+    VrouterAgentPlatformType.VROUTER_AGENT_ON_WINDOWS    : 'WINDOWS',
     VrouterAgentPlatformType.VROUTER_AGENT_ON_HOST       : 'HOST'
 }
 

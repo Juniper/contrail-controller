@@ -624,6 +624,11 @@ bool VrouterUveEntryBase::SendVrouterMsg() {
                                        VrouterAgentPlatformTypeMap.at
                                        (VrouterAgentPlatformType::
                                         VROUTER_AGENT_ON_HOST_DPDK));
+        } else if (agent_->vrouter_on_windows()) {
+            vrouter_agent.set_platform(vnsVrouterType.
+                                       VrouterAgentPlatformTypeMap.at
+                                       (VrouterAgentPlatformType::
+                                        VROUTER_AGENT_ON_WINDOWS));
         } else if (agent_->vrouter_on_host()) {
             vrouter_agent.set_platform(vnsVrouterType.
                                        VrouterAgentPlatformTypeMap.at
