@@ -1,0 +1,23 @@
+# -*- mode: python; -*-
+import os
+import subprocess
+from distutils.dir_util import copy_tree
+from shutil import copyfile
+
+# path to the sources
+vpath = '#/third_party/curl-7.52.0'
+env = DefaultEnvironment().Clone()
+
+binaries_path = 'builds/libcurl-vc-x64-release-dll-ipv6-sspi-winssl/'
+
+VariantDir(vpath + '/src', '#/' + Dir('.').path + '/src')
+
+make_products = ['#/build/lib/curl.lib', '#/build/include/curl/curl.h']
+
+
+def build_curl_for_windows(target,source,env):
+    subprocess.call(['nmake', '/f', 'Makefile.vc', 'mode=dll', 'MACHINE=x64'], cwd=os.path.join(Dir(vpath).abspath, 'winbuild'))
+    copy_tree(Dir(os.path.join(vpath,binaries_path)).abspath, Dir('#/build').abspath)
+    os.rename(File('#/build/lib/libcurl.lib').abspath, File('#/build/lib/curl.lib').abspath)
+
+env.Command(make_products, Dir(vpath), build_curl_for_windows)
