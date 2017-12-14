@@ -1044,6 +1044,10 @@ query_status_t SelectQuery::process_query() {
                 std::string query_column;
                 GenDb::DbDataValue value;
                 get_query_column_value(it->info, i, &query_column, &value);
+                // timestamp has T2+T1 already calculated
+                if (query_column == g_viz_constants.TIMESTAMP) {
+                    value = it->timestamp;
+                }
                 col_res_map.insert(std::make_pair(query_column, value));
             }
 
