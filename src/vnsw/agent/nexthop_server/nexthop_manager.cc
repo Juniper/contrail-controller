@@ -14,9 +14,11 @@
 #include <sys/wait.h>
 
 NexthopManager::NexthopManager(EventManager *evm, const std::string &endpoint)
-  : evm_(evm), nh_table_(NULL), nh_listener_(DBTableBase::kInvalidId),
-    nh_server_(new NexthopDBServer(*(evm->io_service()), endpoint))
+  : evm_(evm), nh_table_(NULL), nh_listener_(DBTableBase::kInvalidId)
 {
+#ifndef _WIN32
+    nh_server_.reset(new NexthopDBServer(*(evm->io_service()), endpoint))
+#endif
 }
 
 NexthopManager::~NexthopManager()
@@ -42,6 +44,7 @@ NexthopManager::Terminate()
 void
 NexthopManager::EventObserver(DBTablePartBase *db_part, DBEntryBase *entry)
 {
+#ifndef _WIN32
     NextHop *nh = static_cast <NextHop *>(entry);
     if (nh->GetType () == NextHop::TUNNEL) {
         TunnelNH *tnh = (TunnelNH *) nh;
@@ -51,4 +54,5 @@ NexthopManager::EventObserver(DBTablePartBase *db_part, DBEntryBase *entry)
             nh_server_->FindOrCreateNexthop(tnh->GetDip()->to_string());
         }
     }
+#endif
 }

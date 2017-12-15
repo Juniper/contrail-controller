@@ -5,8 +5,10 @@ Import('AgentEnv')
 env = AgentEnv.Clone()
 env.CppEnableExceptions()
 
-vnswnhserver_sources = ['nexthop_client.cc', 'nexthop_server.cc',
-                        'nexthop_manager.cc']
+vnswnhserver_sources = ['nexthop_manager.cc']
+
+if sys.platform != 'win32':
+    vnswnhserver_sources.append(['nexthop_client.cc', 'nexthop_server.cc'])
 
 vnswnhserver = env.Library('vnswnhserver', vnswnhserver_sources)
 
