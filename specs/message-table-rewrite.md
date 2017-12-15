@@ -191,14 +191,15 @@ None
 None
 
 # 6. Upgrade
-None
+Since "SASI index" has been introduced in Cassandra 3.4, Cassandra
+cluster must be upgraded to at least 3.4 release.
 
 # 7. Deprecations
 Earlier MessageTable was indexed on the following fields too - Level, Keyword. These index tables will be removed.
 Backward compatibility NOT supported for queries on the above fields.
 
 # 8. Dependencies
-None
+The Cassandra release must be greater or equal to 3.4.
 
 # 9. Testing
 ## 9.1 Unit tests
