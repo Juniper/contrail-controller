@@ -1082,7 +1082,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
-    portbindings['VNIC_TYPE_DIRECT'] = 'baremetal'
+    portbindings['VNIC_TYPE_BAREMETAL'] = 'baremetal'
     portbindings['PORT_FILTER'] = True
     portbindings['VIF_TYPE_VHOST_USER'] = 'vhostuser'
     portbindings['VHOST_USER_MODE'] = 'vhostuser_mode'
