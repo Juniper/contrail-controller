@@ -7,6 +7,7 @@
 
 #include "oper/interface_common.h"
 #include <base/index_allocator.h>
+#include "oper/global_system_config.h"
 
 ////////////////////////////////////////////////////////////////////////////
 // BGP as a service
@@ -166,6 +167,12 @@ public:
             return false;
         }
     }
+    BGPaaServiceParameters::BGPaaServicePortRangePair
+                                        bgp_as_a_service_port_range() const {
+        return std::make_pair(bgp_as_a_service_parameters_.port_start,
+                                    bgp_as_a_service_parameters_.port_end);
+    }
+    void UpdateBgpAsAServiceSessionInfo();
 
 private:
     void StartHealthCheck(const boost::uuids::uuid &vm_uuid,
@@ -182,6 +189,7 @@ private:
     BgpAsAServicePortMap  bgp_as_a_service_port_map_;
     std::vector<ServiceDeleteCb> service_delete_cb_list_;
     std::vector<HealthCheckCb> health_check_cb_list_;
+    BGPaaServiceParameters bgp_as_a_service_parameters_;
     DISALLOW_COPY_AND_ASSIGN(BgpAsAService);
 };
 #endif

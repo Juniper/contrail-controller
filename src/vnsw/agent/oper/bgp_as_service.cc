@@ -31,7 +31,6 @@
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>
 #include <resource_manager/bgp_as_service_index.h>
-#include "pkt/flow_table.h"
 
 using namespace std;
 SandeshTraceBufferPtr BgpAsAServiceTraceBuf(SandeshTraceBufferCreate
@@ -151,8 +150,13 @@ void BgpAsAService::StartHealthCheck(const boost::uuids::uuid &vm_uuid,
          iter != list.end(); ++iter) {
         if (!health_check_cb_list_.empty() && iter->new_health_check_add_ &&
             iter->health_check_uuid_ != nil_uuid()) {
-            health_check_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, iter->source_port_,
+            std::vector<HealthCheckCb>::iterator hcb_it =
+                health_check_cb_list_.begin();
+            while (hcb_it != health_check_cb_list_.end()) {
+                (*hcb_it)(vm_uuid, iter->source_port_,
                              iter->health_check_uuid_, true);
+                hcb_it++;
+            }
         }
         iter->new_health_check_add_ = false;
     }
@@ -343,7 +347,12 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
                old_bgp_as_a_service_entry_list_iter->second->list_.end()) {
             BgpAsAServiceEntryListIterator prev = iter++;
             if (prev->del_pending_) {
-                service_delete_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, prev->source_port_);
+                std::vector<ServiceDeleteCb>::iterator scb_it =
+                    service_delete_cb_list_.begin();
+                while (scb_it != service_delete_cb_list_.end()) {
+                    (*scb_it)(vm_uuid, prev->source_port_);
+                    scb_it++;
+                }
                 if (prev->is_shared_) {
                     FreeBgpVmiServicePortIndex(prev->source_port_);
                 }
@@ -353,8 +362,13 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
             if (prev->old_health_check_delete_) {
                 if (!health_check_cb_list_.empty() &&
                     prev->old_health_check_uuid_ != nil_uuid()) {
-                    health_check_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, prev->source_port_,
+                    std::vector<HealthCheckCb>::iterator hcb_it =
+                        health_check_cb_list_.begin();
+                    while (hcb_it != health_check_cb_list_.end()) {
+                        (*hcb_it)(vm_uuid, prev->source_port_,
                                      prev->old_health_check_uuid_, false);
+                        hcb_it++;
+                     }
                 }
                 prev->old_health_check_delete_ = false;
                 prev->old_health_check_uuid_ = nil_uuid();
@@ -362,8 +376,13 @@ void BgpAsAService::ProcessConfig(const std::string &vrf_name,
             if (prev->new_health_check_add_) {
                 if (!health_check_cb_list_.empty() &&
                     prev->health_check_uuid_ != nil_uuid()) {
-                    health_check_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, prev->source_port_,
+                    std::vector<HealthCheckCb>::iterator hcb_it =
+                        health_check_cb_list_.begin();
+                    while (hcb_it != health_check_cb_list_.end()) {
+                        (*hcb_it)(vm_uuid, prev->source_port_,
                                      prev->health_check_uuid_, true);
+                        hcb_it++;
+                     }
                 }
                 prev->new_health_check_add_ = false;
             }
@@ -383,7 +402,12 @@ void BgpAsAService::DeleteVmInterface(const boost::uuids::uuid &vm_uuid) {
     BgpAsAServiceEntryList list = iter->second->list_;
     BgpAsAServiceEntryListIterator list_iter = list.begin();
     while (list_iter != list.end()) {
-        service_delete_cb_list_[FlowTable::kPortNatFlowTableInstance](vm_uuid, (*list_iter).source_port_);
+        std::vector<ServiceDeleteCb>::iterator scb_it =
+            service_delete_cb_list_.begin();
+        while (scb_it != service_delete_cb_list_.end()) {
+            (*scb_it)(vm_uuid, (*list_iter).source_port_);
+            scb_it++;
+        }
         if ((*list_iter).is_shared_) {
             FreeBgpVmiServicePortIndex((*list_iter).source_port_);
         }
@@ -428,7 +452,7 @@ bool BgpAsAService::IsBgpService(const VmInterface *vm_intf,
 
 void BgpAsAService::FreeBgpVmiServicePortIndex(const uint32_t sport) {
     BGPaaServiceParameters:: BGPaaServicePortRangePair ports =
-                agent_->oper_db()->global_system_config()->bgpaas_port_range();
+                        bgp_as_a_service_port_range();
     BGPaaSUtils::BgpAsServicePortIndexPair portinfo =
                     BGPaaSUtils::DecodeBgpaasServicePort(sport,
                         ports.first, ports.second);
@@ -468,7 +492,7 @@ size_t BgpAsAService::AllocateBgpVmiServicePortIndex(const uint32_t sport,
 uint32_t BgpAsAService::AddBgpVmiServicePortIndex(const uint32_t source_port,
                                             const boost::uuids::uuid vm_uuid) {
     BGPaaServiceParameters:: BGPaaServicePortRangePair ports =
-                agent_->oper_db()->global_system_config()->bgpaas_port_range();
+                        bgp_as_a_service_port_range();
 
     size_t vmi_service_port_index = AllocateBgpVmiServicePortIndex(source_port,
                                                                    vm_uuid);
@@ -559,6 +583,65 @@ bool BgpAsAService::GetBgpHealthCheck(const VmInterface *vm_intf,
     }
 
     return false;
+}
+
+void BgpAsAService::UpdateBgpAsAServiceSessionInfo() {
+    if (service_delete_cb_list_.empty())
+        return;
+    unsigned int source_port = 0;
+    unsigned int index = 0;
+    BGPaaServiceParameters:: BGPaaServicePortRangePair old_ports =
+                                bgp_as_a_service_port_range();
+    BGPaaServiceParameters:: BGPaaServicePortRangePair new_ports =
+             agent_->oper_db()->global_system_config()->bgpaas_port_range();
+    std::pair<BgpAsAServiceEntryListIterator, bool> ret;
+    BgpAsAServiceEntryMapIterator iter =
+                bgp_as_a_service_entry_map_.begin();
+    while (iter != bgp_as_a_service_entry_map_.end()) {
+        BgpAsAServiceEntryList list = iter->second->list_;
+        BgpAsAServiceEntryListIterator list_iter = list.begin();
+        while (list_iter != list.end()) {
+            BGPaaSUtils::BgpAsServicePortIndexPair portinfo =
+                BGPaaSUtils::DecodeBgpaasServicePort(
+                                list_iter->source_port_,
+                                old_ports.first,
+                                old_ports.second);
+            source_port = portinfo.first;
+            index = portinfo.second;
+            // encode source port with new port range
+            source_port =
+                BGPaaSUtils::EncodeBgpaasServicePort(source_port,
+                                                    index,
+                                                    new_ports.first,
+                                                    new_ports.second);
+            // if old source port is not same as new source pott
+            // delte the flow and entry from the list
+            // and then insert the entry with the new source port
+            if (list_iter->source_port_ != source_port) {
+                BgpAsAServiceEntry temp(list_iter->local_peer_ip_,
+                                    source_port,
+                                    list_iter->health_check_configured_,
+                                    list_iter->health_check_uuid_,
+                                    list_iter->is_shared_,
+                                    list_iter->hc_delay_usecs_,
+                                    list_iter->hc_timeout_usecs_,
+                                    list_iter->hc_retries_);
+                std::vector<ServiceDeleteCb>::iterator scb_it =
+                    service_delete_cb_list_.begin();
+                while (scb_it != service_delete_cb_list_.end()) {
+                    (*scb_it)(iter->first, list_iter->source_port_);
+                    scb_it++;
+                }
+                iter->second->list_.erase(*list_iter);
+                iter->second->list_.insert(temp);
+            }
+            list_iter++;
+        }
+        iter++;
+    }
+    //update BgpaaS port range
+    bgp_as_a_service_parameters_.port_start = new_ports.first;
+    bgp_as_a_service_parameters_.port_end = new_ports.second;
 }
 
 ////////////////////////////////////////////////////////////////////////////
