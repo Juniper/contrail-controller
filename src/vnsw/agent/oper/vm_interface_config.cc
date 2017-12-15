@@ -1474,6 +1474,23 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
             }
         }
     }
+    if (parent_vmi_node) {
+        IFMapAgentTable *vmi_table = static_cast<IFMapAgentTable *>
+                                    (parent_vmi_node->table());
+        DBGraph *vmi_graph = vmi_table->GetGraph();
+        //iterate through links for paremt VMI for VM
+        for (DBGraphVertex::adjacency_iterator vmi_iter = parent_vmi_node->begin(vmi_graph);
+             vmi_iter != parent_vmi_node->end(vmi_graph); ++vmi_iter) {
+        
+            IFMapNode *vm_node = static_cast<IFMapNode *>(vmi_iter.operator->());
+            if (agent_->config_manager()->SkipNode(vm_node, agent_->cfg()->cfg_vm_table())) {
+                continue;
+            }
+            BuildVm(data, vm_node, u, &vm_list);
+            break;
+        }
+    }
+
 
     agent_->oper_db()->bgp_as_a_service()->ProcessConfig
         (data->vrf_name_, bgp_router_node_list, bgp_as_a_service_node_list, u);
