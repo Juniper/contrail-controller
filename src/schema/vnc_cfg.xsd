@@ -1799,6 +1799,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="protocol" type="xsd:string"/>
         <xsd:element name="port" type="xsd:integer"/>
+        <xsd:element name='ignore-remote-address' type="xsd:boolean"
+             required='optional' default='false'
+             description='Remote address is ignored while creating flows'/>
     </xsd:all>
 </xsd:complexType>
 
