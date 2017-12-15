@@ -1767,6 +1767,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="protocol" type="xsd:string"/>
         <xsd:element name="port" type="xsd:integer"/>
+        <xsd:element name='ignore-remote-address' type="xsd:boolean"
+             required='optional' default='false'
+             description='remote address is ignored while creating flows'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -1947,6 +1950,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('project-floating-ip-pool',
           'project', 'floating-ip-pool', ['ref'], 'optional', 'CRUD',
           'Reference to floating ip pool in this project.') -->
+<xsd:element name="virtual-network-fat-flow-protocols" type="FatFlowProtocols"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('virtual-network-fat-flow-protocols',
+             'virtual-network', 'optional', 'CRUD',
+             'Fat flow configuration which is a list, will be applied to all the interfaces in the specified virtual-network') -->
 
 
 <xsd:element name="floating-ip" type="ifmap:IdentityType"/>
