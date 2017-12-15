@@ -43,18 +43,19 @@ We achieve the above as follows
 - Create SECONDARY keys for the fields - Source, Messagetype, ModuleId.
 - Use "partition" as key2 to avoid hotspot - existing feature for current messagetable.
 - Following non-primary and non-clustering columns are prepended with "T2:" to avoid very wide rows.
-  T2 is prefixed in hex with ":" as delimiter.
+  T2 is prefixed with ":" as delimiter.
   We do indexing on these columns using secondary or SASI index.
-  SASI index is specified if prefix search support is required.
-  - Source      - SASI index
-  - Messagetype - secondary index
-  - ModuleId    - secondary index
-  - object1     - SASI index
-  - object2     - SASI index
-  - object3     - SASI index
-  - object4     - SASI index
-  - object5     - SASI index
-  - object6     - SASI index
+  SASI index is specified if prefix search support is required. So it is required for all the columns below except Messagetype and ModuleId.
+  But cql query doesnt allow mix of SASI and non-SASI indexes hence all the below columns are SASI indexes.
+  - Source
+  - Messagetype
+  - ModuleId
+  - object1
+  - object2
+  - object3
+  - object4
+  - object5
+  - object6
   Instead of having a single very wide row for one Source in the Source secondary index, we would have (TTL in seconds/8) = (48hrs * 3600)/8 = 21600 rows
 
 
@@ -73,27 +74,18 @@ CREATE TABLE "ContrailAnalyticsCql".messagetablev2 (
     column9 text,   // T2:<object-type4>:<object-value4>)
     column10 text,  // T2:<object-type5>:<object-value5>)
     column11 text,  // T2:<object-type6>:<object-value6>)
-    column12 text,  // IpAddress
+    column12 ipaddr,// IpAddress
     column13 int,   // Pid
     column14 text,  // Category
     column15 int,   // Level
     column16 text,  // NodeType
     column17 text,  // InstanceId
     column18 int,   // SequenceNum
+    column19 int,   // Type
     value   text    // XMLmessage
     PRIMARY KEY ((key, key2), column1, column2)
 )
 
-
-CREATE CUSTOM INDEX messagetable_source_index ON "ContrailAnalyticsCql".messagetablev2 ("column3") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
-CREATE INDEX messagetable_msgtype_index  ON "ContrailAnalyticsCql".messagetablev2 ("column4");
-CREATE INDEX messagetable_moduleid_index ON "ContrailAnalyticsCql".messagetablev2 ("column5");
-CREATE CUSTOM INDEX messagetable_object1_index ON "ContrailAnalyticsCql".messagetablev2 ("column6") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
-CREATE CUSTOM INDEX messagetable_object2_index ON "ContrailAnalyticsCql".messagetablev2 ("column7") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
-CREATE CUSTOM INDEX messagetable_object3_index ON "ContrailAnalyticsCql".messagetablev2 ("column8") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
-CREATE CUSTOM INDEX messagetable_object4_index ON "ContrailAnalyticsCql".messagetablev2 ("column9") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
-CREATE CUSTOM INDEX messagetable_object5_index ON "ContrailAnalyticsCql".messagetablev2 ("column10") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
-CREATE CUSTOM INDEX messagetable_object6_index ON "ContrailAnalyticsCql".messagetablev2 ("column11") USING 'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {'mode': 'PREFIX'};
 ```
 
 We have deprecated the MessageTable which has PRIMARY index key=UUID.
@@ -133,9 +125,7 @@ c) handle old and new tables simultaneously in query-engine
    - New schema logic will be in separate files/functions. At the very beginning of query logic, we decide on which path would be executed.
    - We shall save the timestamp of upgrade. All queries with timestamps before this would query the old tables and the rest would query the new schema tables.
    - Query cannot span across the timestamp when upgrade was done. If it is present in the query, we would return results for the time duration after upgrade.
-
-In conclusion, we will have 1 new table(MessageTablev2) going forward. This is in addition to existing tables maintained for backward compatibility.
-We shall remove support for tables with deprecated schema in future releases.
+Conclusion: We shall support option (a).
 
 ## 3.1 Alternatives considered
 None
@@ -143,7 +133,10 @@ None
 ## 3.2 API schema changes
 
 ## 3.3 User workflow impact
-#### Describe how users will use the feature.
+- Level, Keyword, Context and Category are not indexed
+- Level is a filter now.
+- Category and Level are present in select options.
+- Context is removed from select options.
 
 ## 3.4 UI changes
 
