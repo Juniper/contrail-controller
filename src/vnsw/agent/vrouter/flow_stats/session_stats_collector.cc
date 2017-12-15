@@ -1652,8 +1652,6 @@ bool SessionStatsCollector::ProcessSessionEndpoint
 
     SessionInfo session_info;
     SessionIpPort session_key;
-    SessionAggInfo session_agg_info;
-    SessionIpPortProtocol session_agg_key;
     uint32_t session_count = 0, session_agg_count = 0;
     bool exit = false, ep_completed = true;
 
@@ -1662,6 +1660,8 @@ bool SessionStatsCollector::ProcessSessionEndpoint
     session_agg_map_iter = it->second.session_agg_map_.
         lower_bound(session_agg_iteration_key_);
     while (session_agg_map_iter != it->second.session_agg_map_.end()) {
+        SessionAggInfo session_agg_info;
+        SessionIpPortProtocol session_agg_key;
         session_count = 0;
         session_map_iter = session_agg_map_iter->second.session_map_.
             lower_bound(session_iteration_key_);
