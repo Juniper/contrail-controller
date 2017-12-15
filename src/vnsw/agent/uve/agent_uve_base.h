@@ -60,8 +60,8 @@ public:
     uint8_t ExpectedConnections(uint8_t &num_c_nodes, uint8_t &num_d_servers);
     uint32_t default_interval() const { return default_interval_; }
     uint32_t incremental_interval() const { return incremental_interval_; }
-    uint32_t GetTagOfType(uint32_t tag_type_value, const TagList &list) const;
-    std::string GetTagNameStr(const TagList &tl, uint32_t type) const;
+    void BuildTagNamesFromList(const TagList &tl, UveTagData *info) const;
+    void BuildTagIdsFromList(const TagList &tl, UveTagData *info) const;
 protected:
     boost::scoped_ptr<VnUveTableBase> vn_uve_table_;
     boost::scoped_ptr<VmUveTableBase> vm_uve_table_;
@@ -73,6 +73,7 @@ protected:
     static AgentUveBase *singleton_;
 
 private:
+    std::string IntegerToHexString(uint32_t value) const;
     friend class UveTest;
     void VrouterAgentProcessState(
         const std::vector<process::ConnectionInfo> &c,
