@@ -2483,6 +2483,11 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('Remove token from alarms')
         self._remove_alarm_token(exp_uve_value)
         self._remove_alarm_token(actual_uve_value)
+        self.logger.info('Remove Timestamps from actual')
+        for item in actual_uve_value:
+            for tk in item['value']:
+                if '__T' in item['value'][tk]:
+                    del item['value'][tk]['__T']  
         exp_uve_value.sort()
         actual_uve_value.sort()
         self.logger.info('Expected UVE value: %s' % (str(exp_uve_value)))
@@ -2588,23 +2593,6 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('Actual Alarms: %s' % (str(actual_alarms)))
         return len(actual_alarms) == 0
     # end verify_alarm_list_exclude
-
-    def _verify_alarms(self, exp_alarms, actual_alarms):
-        self.logger.info('Expected Alarms: %s' % (str(exp_alarms)))
-        self.logger.info('Actual Alarms: %s' % (str(actual_alarms)))
-        if actual_alarms is None:
-            return False
-        exp_alarm_value = exp_alarms['value']
-        actual_alarm_value = actual_alarms['value']
-        self.logger.info('Remove token from alarms')
-        self._remove_alarm_token(exp_alarm_value)
-        self._remove_alarm_token(actual_alarm_value)
-        exp_alarm_value.sort()
-        actual_alarm_value.sort()
-        self.logger.info('Expected Alarm value: %s' % (str(exp_alarm_value)))
-        self.logger.info('Actual Alarm value: %s' % (str(actual_alarm_value)))
-        return actual_alarm_value == exp_alarm_value
-    # end _verify_alarms
 
     @retry(delay=1, tries=3)
     def verify_alarm(self, table, key, expected_alarm):
