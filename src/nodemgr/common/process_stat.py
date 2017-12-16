@@ -6,7 +6,7 @@ import socket
 
 
 class ProcessStat(object):
-    def __init__(self, pname, last_cpu = None, last_time = 0):
+    def __init__(self, pname, last_cpu=None, last_time=0):
         self.start_count = 0
         self.stop_count = 0
         self.exit_count = 0
