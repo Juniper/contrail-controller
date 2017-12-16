@@ -788,6 +788,12 @@ class VncApiServer(object):
             return
 
         obj_dict = get_request().json[resource_type]
+
+        if 'perms2' in obj_dict:
+            if 'owner' not in obj_dict['perms2']:
+                raise cfgm_common.exceptions.HttpError(400,
+                                    'owner in perms2 must be present')
+
         try:
             self._extension_mgrs['resourceApi'].map_method(
                 'pre_%s_update' %(obj_type), id, obj_dict)
