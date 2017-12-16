@@ -21,8 +21,7 @@ for file in setup_sources:
 
 local_sources = [
            '__init__.py',
-           'main.py',
-           'utils.py'
+           'main.py'
           ]
 
 local_sources_rules = []
@@ -74,10 +73,11 @@ for file in database_sources:
 
 common_sources = [
            '__init__.py',
+           'common/cassandra_manager.py',
+           'common/cpuinfo.py',
            'common/event_manager.py',
            'common/process_stat.py',
-           'common/cpuinfo.py',
-           'common/cassandra_manager.py',
+           'common/utils.py'
           ]
 common_sources_rules = []
 for file in common_sources:
