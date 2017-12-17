@@ -525,9 +525,8 @@ class LoadbalancerAgent(Agent):
 
         props = health_monitor.params
         for key, mapping in self._loadbalancer_health_type_mapping.iteritems():
-            value = props[key]
-            if value is not None:
-                res[mapping] = value
+            if key in props and props[key]:
+                res[mapping] = props[key]
 
         pool_ids = []
         pool_back_refs = health_monitor.loadbalancer_pools
@@ -564,9 +563,8 @@ class LoadbalancerAgent(Agent):
 
         props = member.params
         for key, mapping in self._loadbalancer_member_type_mapping.iteritems():
-            value = props[key]
-            if value is not None:
-                res[mapping] = value
+            if key in props and props[key]:
+                res[mapping] = props[key]
 
         return res
     # end loadbalancer_member_get_reqdict
@@ -606,9 +604,8 @@ class LoadbalancerAgent(Agent):
 
         props = pool.params
         for key, mapping in self._loadbalancer_pool_type_mapping.iteritems():
-            value = props[key]
-            if value is not None:
-                res[mapping] = value
+            if key in props and props[key]:
+                res[mapping] = props[key]
 
         if 'session_persistence' in props and  props['session_persistence']:
             sp = {'type': props['session_persistence']}
@@ -692,4 +689,3 @@ class LoadbalancerAgent(Agent):
             self._send_lb_config_uve(lb_id, deleted)
         except Exception:
             pass
-
