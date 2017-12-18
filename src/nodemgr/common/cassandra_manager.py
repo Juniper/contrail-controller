@@ -36,15 +36,16 @@ class CassandraManager(object):
         self.cassandra_status_old.thread_pool_stats = []
 
     def status(self):
-        subprocess.Popen(["contrail-cassandra-status",
-                          "--log-file", "/var/log/contrail/cassandra-status.log",
-                          "--debug"], close_fds=True)
+        subprocess.call("contrail-cassandra-status --log-file"
+                        " /var/log/contrail/cassandra-status.log --debug &",
+                        shell=True, close_fds=True)
 
     def repair(self):
-        logdir = self.cassandra_repair_logdir + "repair.log"
-        subprocess.Popen(["contrail-cassandra-repair",
-                          "--log-file", logdir,
-                          "--debug"], close_fds=True)
+        logfile = os.path.abspath(os.path.join(self.cassandra_repair_logdir,
+                                               "repair.log"))
+        subprocess.call("contrail-cassandra-repair --log-file"
+                        " {0} --debug &".format(logfile),
+                        shell=True, close_fds=True)
 
     def _get_cassandra_config_option(self, config):
         (linux_dist, x, y) = platform.linux_distribution()
