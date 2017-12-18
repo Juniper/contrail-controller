@@ -69,6 +69,7 @@ class MxE2Conf(JuniperConf):
         if not self.physical_router:
             return 0
         if is_delete:
+            self.cleanup_e2_services()
             return self.send_conf(is_delete=True)
         self.config_e2_services()
         self.build_e2_router_config()
@@ -87,6 +88,13 @@ class MxE2Conf(JuniperConf):
                                     self._neigbor_id)
         return service_status_obj
     #end get_service_status
+
+    def cleanup_e2_services(self):
+        self.e2_vrs_system_config = None
+        self.e2_vrs_routing_options_config = None
+        self.e2_vrs_policy_options_config = None
+        self.e2_vrs_provider_ri_config = None
+    # end cleanup_e2_services
 
     def config_e2_services(self):
         status = False
@@ -965,7 +973,7 @@ class MxE2Conf(JuniperConf):
             config_list.append(self.e2_vrs_provider_ri_config)
 
         #no element exists, so delete e2 config.
-        if len(config_list) == 1:
+        if len(config_list) == 0:
            return self.device_send([], default_operation="none",
                                        operation="delete")
         return self.device_send(config_list)
@@ -1159,8 +1167,6 @@ class MxE2Conf(JuniperConf):
             provider_conf['vrr_ip'] = vrr_conf['vrr_ip']
             provider_conf['vrr_as'] = vrr_conf['vrr_as']
             provider_conf['promiscuous'] = sp.promiscuous
-            provider_conf['v4_present'] = False
-            provider_conf['v6_present'] = False
 
             # Get unique AS list
             prs = sp.physical_routers
@@ -1179,16 +1185,27 @@ class MxE2Conf(JuniperConf):
                             peer = {}
                             peer['as_number'] = bgp_entry.params['autonomous_system']
                             peer['ip_address'] = bgp_entry.params['address']
-                            peer['auth_key'] = ' '
+                            peer['auth_key'] = None
+
+                            if bgp_entry.params['auth_data'] is not None:
+                                keys = bgp_entry.params['auth_data'].get('key_items', [])
+                                if len(keys) > 0:
+                                    peer['auth_key'] = keys[0].get('key')
                             peer_list.append(peer)
 
-                            if IPNetwork(peer['ip_address']).version == 4:
-                                provider_conf['v4_present'] = True
-                            if IPNetwork(peer['ip_address']).version == 6:
-                                provider_conf['v6_present'] = True
 
             for as_num in as_set:
                 provider_conf['provider_as'] = as_num
+                provider_conf['v4_present'] = False
+                provider_conf['v6_present'] = False
+
+                for peer in peer_list:
+                    if peer['as_number'] == as_num:
+                        if IPNetwork(peer['ip_address']).version == 4:
+                            provider_conf['v4_present'] = True
+                        if IPNetwork(peer['ip_address']).version == 6:
+                            provider_conf['v6_present'] = True
+
                 self.add_e2_vrs_provider_as_config(provider_conf)
 
             for peer in peer_list:
@@ -1252,6 +1269,15 @@ class MxE2Conf(JuniperConf):
         as_cfg = etree.SubElement(routing_options, "autonomous-system")
         etree.SubElement(as_cfg, "as-number").text = str(as_num)
         self.e2_vrs_routing_options_config = routing_options
+
+        # Routing instance globals
+        routing_instances = etree.Element("routing-instances")
+        provider_instance = etree.SubElement(routing_instances, "instance")
+        etree.SubElement(provider_instance, "name").text = '<*>'
+        protocols = etree.SubElement(provider_instance, "protocols")
+        bgp = etree.SubElement(protocols, "bgp")
+        etree.SubElement(bgp, "hold-time").text = str(300)
+        self.e2_vrs_provider_ri_config = routing_instances
     # end add_e2_vrs_vrr_global_config_xml
 
     def add_e2_vrs_global_policy_config_xml(self, as_num):
@@ -1283,6 +1309,15 @@ class MxE2Conf(JuniperConf):
         import_all_next = etree.SubElement(import_all_stmt, "then")
         etree.SubElement(import_all_next, "reject")
         self.e2_vrs_policy_options_config.append(import_all_stmt)
+
+        # Statement: export-none
+        export_none_stmt = etree.Element("policy-statement")
+        etree.SubElement(export_none_stmt, "name").text = "export-none"
+        export_none_term = etree.SubElement(export_none_stmt, "term")
+        etree.SubElement(export_none_term, "name").text = "from-this"
+        export_none_action = etree.SubElement(export_none_term, "then")
+        etree.SubElement(export_none_action, "reject")
+        self.e2_vrs_policy_options_config.append(export_none_stmt)
 
         # Community: block-all-comm
         block_all_comm = etree.Element("community")
@@ -1427,6 +1462,8 @@ class MxE2Conf(JuniperConf):
         etree.SubElement(routing_options, "instance-import").text = filter_name
         if promiscuous is True:
             etree.SubElement(routing_options, "instance-import").text = "import-from-all-inst"
+        else:
+            etree.SubElement(routing_options, "instance-export").text = "export-none"
 
         # Instance protocols
         protocols = etree.SubElement(provider_instance, "protocols")
@@ -1479,8 +1516,8 @@ class MxE2Conf(JuniperConf):
         bgp_group_nbr = etree.SubElement(bgp_group, "neighbor")
         etree.SubElement(bgp_group_nbr, "name").text = peer_ip
         etree.SubElement(bgp_group_nbr, "forwarding-context").text = "master"
-        etree.SubElement(bgp_group_nbr, "hold-time").text = str(300)
-        #etree.SubElement(bgp_group, "authentication-key").text = key
+        if key is not None:
+            etree.SubElement(bgp_group_nbr, "authentication-key").text = key
 
         self.e2_vrs_provider_ri_config.append(provider_instance)
     # end add_e2_vrs_provider_instance_peer_config_xml
