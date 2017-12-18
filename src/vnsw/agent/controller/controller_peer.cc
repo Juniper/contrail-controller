@@ -2513,7 +2513,11 @@ void AgentXmppChannel::UpdateConnectionInfo(xmps::PeerState state) {
     string last_state_name;
     ep.address(boost::asio::ip::address::from_string(agent_->
                 controller_ifmap_xmpp_server(xs_idx_), ec));
-    ep.port(agent_->controller_ifmap_xmpp_port(xs_idx_));
+    uint32_t port = agent_->controller_ifmap_xmpp_port(xs_idx_);
+    if (!port) {
+        port = XMPP_SERVER_PORT;
+    }
+    ep.port(port);
     const string name = agent_->xmpp_control_node_prefix() +
                         ep.address().to_string();
     XmppChannel *xc = GetXmppChannel();
