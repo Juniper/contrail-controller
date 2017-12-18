@@ -511,6 +511,8 @@ class VncNamespace(VncCommon):
                 event['type'] = 'DELETED'
                 event['object'] = dict_object
                 self._queue.put(event)
+                project.k8s_namespace_uuid = None
+                project.k8s_namespace_name = None
 
     def namespace_timer(self):
         self._sync_namespace_project()
