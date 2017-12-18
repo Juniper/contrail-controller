@@ -17,7 +17,6 @@ class VmStatData;
 class VmStat {
 public:
     static const size_t kBufLen = 4098;
-    static const uint32_t kTimeout = 60 * 1000;
     static const uint32_t kRetryCount = 3;
     static const uint16_t kInvalidCpuCount = 0xFFFF;
     typedef boost::function<void(void)> DoneCb;

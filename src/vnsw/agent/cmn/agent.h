@@ -348,6 +348,7 @@ public:
     // Default value for cleanup of stale interface entries
     static const uint32_t kDefaultStaleInterfaceCleanupTimeout = 60;
 
+    static const uint16_t kDefaultVmiVmVnUveInterval;
     static const uint32_t kFlowAddTokens = 50;
     static const uint32_t kFlowKSyncTokens = 25;
     static const uint32_t kFlowDelTokens = 16;
