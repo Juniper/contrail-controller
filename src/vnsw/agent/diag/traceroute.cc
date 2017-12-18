@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <netinet/udp.h>
+#include <netinet/tcp.h>
 #include <netinet/icmp6.h>
 #include "vr_defs.h"
 #include "cmn/agent_cmn.h"

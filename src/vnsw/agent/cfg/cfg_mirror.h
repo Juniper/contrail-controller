@@ -69,7 +69,7 @@ struct MirrorCfgEntry {
 };
 
 struct MirrorCfgKeyCmp {
-    bool operator()(const MirrorCfgKey &lhs, const MirrorCfgKey &rhs) {
+    bool operator()(const MirrorCfgKey &lhs, const MirrorCfgKey &rhs) const {
       return lhs.handle < rhs.handle;
     }
 };

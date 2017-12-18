@@ -67,7 +67,7 @@ bool DiagEntry::TimerExpiry( uint32_t seq_no) {
     DiagEntryOp *op;
     RequestTimedOut(seq_no);
     if (IsDone()) {
-        op = new DiagEntryOp(DiagEntryOp::DELETE, this);
+        op = new DiagEntryOp(DiagEntryOp::DEL, this);
         diag_table_->Enqueue(op);
         return false;
     }
@@ -91,7 +91,7 @@ bool DiagTable::Process(DiagEntryOp *op) {
         Add(op->de_);
         break;
 
-    case DiagEntryOp::DELETE:
+    case DiagEntryOp::DEL:
         if (op->de_->TimerCancel() == true) {
             op->de_->SendSummary();
             delete op->de_;

@@ -1173,7 +1173,7 @@ std::size_t PktInfo::hash(const Agent *agent,
     } else if (family == Address::INET6) {
         if (ecmp_load_balance.is_source_ip_set()) {
             uint32_t words[4];
-            memcpy(words, ip_saddr.to_v6().to_bytes().c_array(), sizeof(words));
+            memcpy(words, ip_saddr.to_v6().to_bytes().data(), sizeof(words));
             boost::hash_combine(seed, words[0]);
             boost::hash_combine(seed, words[1]);
             boost::hash_combine(seed, words[2]);
@@ -1182,7 +1182,7 @@ std::size_t PktInfo::hash(const Agent *agent,
 
         if (ecmp_load_balance.is_destination_ip_set()) {
             uint32_t words[4];
-            memcpy(words, ip_daddr.to_v6().to_bytes().c_array(), sizeof(words));
+            memcpy(words, ip_daddr.to_v6().to_bytes().data(), sizeof(words));
             boost::hash_combine(seed, words[0]);
             boost::hash_combine(seed, words[1]);
             boost::hash_combine(seed, words[2]);

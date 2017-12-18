@@ -7,6 +7,7 @@
 #include <boost/scoped_ptr.hpp>
 #include "pkt/flow_table.h"
 #include "pkt/flow_mgmt_request.h"
+#include "pkt/flow_mgmt_dbclient.h"
 #include "pkt/flow_event.h"
 
 ////////////////////////////////////////////////////////////////////////////
@@ -194,7 +195,6 @@
 // Forward declaration
 class FlowMgmtManager;
 class VrfFlowMgmtTree;
-class FlowMgmtDbClient;
 class HealthCheckInstanceBase;
 
 ////////////////////////////////////////////////////////////////////////////
@@ -314,7 +314,7 @@ private:
 };
 
 struct FlowMgmtKeyCmp {
-    bool operator()(const FlowMgmtKey *l, const FlowMgmtKey *r) {
+    bool operator()(const FlowMgmtKey *l, const FlowMgmtKey *r) const {
         return l->IsLess(r);
     }
 };

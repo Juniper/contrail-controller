@@ -15,8 +15,6 @@
 #include <vrouter/ksync/ksync_init.h>
 #include <vrouter/ksync/ksync_flow_index_manager.h>
 
-using boost::system::error_code;
-
 static string InetRouteFlowMgmtKeyToString(uint16_t id,
                                            InetRouteFlowMgmtKey *key) {
     stringstream ss;
@@ -313,7 +311,7 @@ bool PktSandeshFlow::SetFlowKey(string key) {
     if (getline(ss, item, ch)) {
         dip = item;
     }
-    error_code ec;
+    boost::system::error_code ec;
     flow_iteration_key_.src_addr = IpAddress::from_string(sip.c_str(), ec);
     flow_iteration_key_.dst_addr = IpAddress::from_string(dip.c_str(), ec);
     if (flow_iteration_key_.src_addr.is_v4()) {
@@ -444,7 +442,7 @@ void FetchFlowRecord::HandleRequest() const {
     FlowTable *flow_obj = NULL;
 
     key.nh = get_nh();
-    error_code ec;
+    boost::system::error_code ec;
     key.src_addr = IpAddress::from_string(get_sip(), ec);
     key.dst_addr = IpAddress::from_string(get_dip(), ec);
     if (key.src_addr.is_v4()) {
@@ -735,7 +733,7 @@ static InetRouteFlowMgmtKey* StringToInetRouteFlowMgmtKey(const string &key,
     if (getline(ss, item, ch)) {
         istringstream(item) >> plen;
     }
-    error_code ec;
+    boost::system::error_code ec;
     IpAddress ip = IpAddress::from_string(ip_str.c_str(), ec);
     if (ec) {
         return NULL;

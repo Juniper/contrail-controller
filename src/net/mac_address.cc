@@ -42,7 +42,7 @@ MacAddress::MacAddress(unsigned int a, unsigned int b, unsigned int c,
 
 MacAddress::MacAddress(const std::string &s,
                        boost::system::error_code *errorp) {
-    this->addr_ = FromString(s, errorp);
+    *this = FromString(s, errorp);
 }
 
 string MacAddress::ToString() const {

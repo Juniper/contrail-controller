@@ -176,7 +176,7 @@ uint16_t ProtoHandler::IcmpHdr(char *buff, uint16_t buf_len, uint8_t type,
     if (buf_len < sizeof(hdr))
         return 0;
 
-    bzero(hdr, sizeof(struct icmp));
+    memset(hdr, 0, sizeof(struct icmp));
 
     hdr->icmp_type = type;
     hdr->icmp_code = code;

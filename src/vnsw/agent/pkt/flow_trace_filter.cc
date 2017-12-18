@@ -58,8 +58,8 @@ void FlowTraceFilter::SetFilter(bool enable, Address::Family family,
         src_addr_ = Ip4Address(addr);
     } else {
         src_mask_ = PrefixToIp6Netmask(src_plen);
-        boost::array<uint8_t, 16> addr_bytes = src_addr_.to_v6().to_bytes();
-        boost::array<uint8_t, 16> mask_bytes = src_mask_.to_v6().to_bytes();
+        Ip6Address::bytes_type addr_bytes = src_addr_.to_v6().to_bytes();
+        Ip6Address::bytes_type mask_bytes = src_mask_.to_v6().to_bytes();
         for (int i = 0; i < 16; i++) {
             addr_bytes[i] = addr_bytes[i] & mask_bytes[i];
         }
@@ -74,8 +74,8 @@ void FlowTraceFilter::SetFilter(bool enable, Address::Family family,
         dst_addr_ = Ip4Address(addr);
     } else {
         dst_mask_ = PrefixToIp6Netmask(dst_plen);
-        boost::array<uint8_t, 16> addr_bytes = dst_addr_.to_v6().to_bytes();
-        boost::array<uint8_t, 16> mask_bytes = dst_mask_.to_v6().to_bytes();
+        Ip6Address::bytes_type addr_bytes = dst_addr_.to_v6().to_bytes();
+        Ip6Address::bytes_type mask_bytes = dst_mask_.to_v6().to_bytes();
         for (int i = 0; i < 16; i++) {
             addr_bytes[i] = addr_bytes[i] & mask_bytes[i];
         }
@@ -97,9 +97,9 @@ static bool Ip4Match(const Ip4Address &ip1, const Ip4Address &ip2,
 
 static bool Ip6Match(const Ip6Address &ip1, const Ip6Address &ip2,
                      const Ip6Address &mask) {
-    boost::array<uint8_t, 16> ip1_bytes = ip1.to_bytes();
-    boost::array<uint8_t, 16> ip2_bytes = ip2.to_bytes();
-    boost::array<uint8_t, 16> mask_bytes = mask.to_bytes();
+    Ip6Address::bytes_type ip1_bytes = ip1.to_bytes();
+    Ip6Address::bytes_type ip2_bytes = ip2.to_bytes();
+    Ip6Address::bytes_type mask_bytes = mask.to_bytes();
 
     for (int i = 0; i < 16; i++) {
         if ((ip1_bytes[i] & mask_bytes[i]) != ip2_bytes[i])

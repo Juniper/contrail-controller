@@ -177,7 +177,12 @@ void VmFlowRef::FreeFd() {
     FlowProto *proto = flow_->flow_table()->agent()->pkt()->get_flow_proto();
     proto->update_linklocal_flow_count(-1);
     flow_->flow_table()->DelLinkLocalFlowInfo(fd_);
+#ifdef _WIN32
+    closesocket(fd_);
+#else
     close(fd_);
+#endif
+
     fd_ = kInvalidFd;
     port_ = 0;
 }
@@ -226,12 +231,12 @@ bool VmFlowRef::AllocateFd(Agent *agent, uint8_t l3_proto) {
 
     // allow the socket to be reused upon close
     int optval = 1;
-    setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof(optval));
 
     struct sockaddr_in address;
     memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
-    if (bind(fd_, (struct sockaddr*) &address, sizeof(address)) < 0) {
+    if (::bind(fd_, (struct sockaddr*) &address, sizeof(address)) < 0) {
         FreeFd();
         return false;
     }
@@ -398,7 +403,7 @@ void SessionPolicy::ResetPolicy() {
 /////////////////////////////////////////////////////////////////////////////
 // FlowEventLog constructor/destructor
 /////////////////////////////////////////////////////////////////////////////
-FlowEventLog::FlowEventLog() : time_(0), event_(EVENT_MAX),
+FlowEventLog::FlowEventLog() : time_(0), event_(EVENT_MAXIMUM),
     flow_handle_(FlowEntry::kInvalidFlowHandle), flow_gen_id_(0),
     ksync_entry_(NULL), hash_id_(FlowEntry::kInvalidFlowHandle), gen_id_(0),
     vrouter_flow_handle_(FlowEntry::kInvalidFlowHandle), vrouter_gen_id_(0) {
@@ -2694,7 +2699,7 @@ bool FlowPendingAction::CanRevaluate() {
 void SetActionStr(const FlowAction &action_info,
                   std::vector<ActionStr> &action_str_l) {
     std::bitset<32> bs(action_info.action);
-    for (unsigned int i = 0; i <= bs.size(); i++) {
+    for (unsigned int i = 0; i < bs.size(); i++) {
         if (bs[i]) {
             ActionStr astr;
             astr.action =
