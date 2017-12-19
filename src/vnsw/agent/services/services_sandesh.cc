@@ -660,7 +660,7 @@ void ServicesSandesh::FillDhcpv6Hdr(Dhcpv6Hdr *dhcp, Dhcpv6Header &resp,
                                     int32_t len) {
     resp.type = Dhcpv6MsgType(dhcp->type);
     PktToHexString(dhcp->xid, 3, resp.xid);
-    PktToHexString((uint8_t *)dhcp->options, len - 4, resp.options);
+    PktToHexString((uint8_t *)dhcp + DHCPV6_FIXED_LEN, len - 4, resp.options);
 }
 
 void ServicesSandesh::FillDnsHdr(dnshdr *dns, DnsHdr &resp, int32_t dnslen) {
