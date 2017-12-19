@@ -51,6 +51,8 @@ if sys.platform.startswith('linux'):
     cpppath.append('vnsw/agent/vrouter/ksync/linux')
 elif sys.platform.startswith('freebsd'):
     cpppath.append('vnsw/agent/vrouter/ksync/freebsd')
+elif sys.platform.startswith('win'):
+    cpppath.append('vnsw/agent/vrouter/ksync/windows')
 
 env.Prepend(CPPPATH = AddTopDir(cpppath))
 
@@ -145,8 +147,15 @@ env.Prepend(LIBS = [
     'boost_filesystem',
     'boost_program_options',
     'boost_regex',
-    'rt',
 ])
+
+if sys.platform == 'win32':
+    env.Prepend(LIBS = [
+        'gdi32',
+        'iphlpapi',
+    ])
+else:
+    env.Prepend(LIBS = 'rt')
 
 # Libvirt library
 if GetOption('with_libvirt'):
@@ -182,9 +191,10 @@ env.Prepend(LIBS = AGENT_MULTIPATH_LIBS)
 def MakeLinkCmd(list):
     return map(lambda x: '-l' + x, list)
 
-env.Prepend(LINKFLAGS = [ '-Wl,--whole-archive', '-rdynamic'] + 
-                          MakeLinkCmd(AGENT_MULTIPATH_LIBS) +
-                        ['-Wl,--no-whole-archive'])
+if sys.platform != 'win32':
+    env.Prepend(LINKFLAGS = [ '-Wl,--whole-archive', '-rdynamic'] +
+                              MakeLinkCmd(AGENT_MULTIPATH_LIBS) +
+                            ['-Wl,--no-whole-archive'])
 # Prefer linking against the self-built libraries over the system ones
 env.AppendENVPath('LD_RUN_PATH', '#/build/lib')
 
@@ -206,8 +216,10 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'ksyncnl',
     'kstate',
     'vrutil',
-    'isc',
 ])
+
+if sys.platform != 'win32':
+    AgentEnv.AppendUnique(CONTRAIL_LIBS = 'isc')
 
 # Common libraries for agent test code
 AgentEnv.AppendUnique(TEST_CMN_LIBS_PRE = [
@@ -224,10 +236,14 @@ AgentEnv.AppendUnique(TEST_CMN_LIBPATH = [
     env['TOP'] + '/base/test',
     env['TOP'] + '/vnsw/agent/test',
 ])
-AgentEnv.AppendUnique(TEST_CMN_CCFLAGS = [
-    '-Wno-return-type',
-    '-Wno-unused-function'
-])
+
+if sys.platform == 'win32':
+    AgentEnv['TEST_CMN_CCFLAGS'] = []
+else:
+    AgentEnv.AppendUnique(TEST_CMN_CCFLAGS = [
+        '-Wno-return-type',
+        '-Wno-unused-function'
+    ])
 
 ##########################################################################
 # Utility functions

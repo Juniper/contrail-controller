@@ -10,9 +10,6 @@ env = AgentEnv.Clone()
 
 AgentEnv.MakeTestEnv(env)
 
-if sys.platform == 'win32':
-    env.Append(LIBS = ['Iphlpapi'])
-
 ksync_test_suite = []
 ksync_flaky_test_suite = []
 
