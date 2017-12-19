@@ -423,6 +423,7 @@ void AgentParam::ParseDnsArguments
     GetOptValue<uint16_t>(var_map, dns_client_port_, "DNS.dns_client_port");
     GetOptValue<uint32_t>(var_map, dns_timeout_, "DNS.dns_timeout");
     GetOptValue<uint32_t>(var_map, dns_max_retries_, "DNS.dns_max_retries");
+    GetOptValue<string>(var_map, dns_def_resolv_file_, "DNS.resolv_conf_file");
 }
 
 void AgentParam::ParseNetworksArguments
@@ -1108,6 +1109,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "DNS client port             : " << dns_client_port_);
     LOG(DEBUG, "DNS timeout                 : " << dns_timeout_);
     LOG(DEBUG, "DNS max retries             : " << dns_max_retries_);
+    LOG(DEBUG, "DNS default nameserver file : " << dns_def_resolv_file_);
     LOG(DEBUG, "Xmpp Dns Authentication     : " << xmpp_dns_auth_enable_);
     if (xmpp_dns_auth_enable_) {
         LOG(DEBUG, "Xmpp Server Certificate : " << xmpp_server_cert_);
@@ -1275,7 +1277,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(),
         dns_client_port_(0), dns_timeout_(3000),
-        dns_max_retries_(2), mirror_client_port_(0),
+        dns_max_retries_(2),
+        dns_def_resolv_file_("/etc/resolv.conf"), mirror_client_port_(0),
         mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
         xen_ll_(), tunnel_type_(), metadata_shared_secret_(),
         metadata_proxy_port_(0), metadata_use_ssl_(false),

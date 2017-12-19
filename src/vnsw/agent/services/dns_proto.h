@@ -207,6 +207,8 @@ public:
     uint32_t max_retries() const { return max_retries_; }
     void set_max_retries(uint32_t retries) { max_retries_ = retries; }
 
+    std::string resolv_conf_file() const { return resolv_conf_file_; }
+
     void IncrStatsReq() { stats_.requests++; }
     void IncrStatsRetransmitReq() { stats_.retransmit_reqs++; }
     void IncrStatsRes() { stats_.resolved++; }
@@ -256,6 +258,7 @@ private:
     DnsStats stats_;
     uint32_t timeout_;   // milli seconds
     uint32_t max_retries_;
+    std::string resolv_conf_file_;
     Timer *default_slist_timer_;
 
     VmDataMap all_vms_;
