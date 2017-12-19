@@ -2458,7 +2458,16 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
             vn_ref = {'uuid': obj_dict['uuid'],
                       'is_provider_network': obj_dict.get(
                           'is_provider_network')}
-        uuids = [vn['uuid'] for vn in obj_dict.get('virtual_network_refs')]
+        uuids = []
+        for vn in obj_dict.get('virtual_network_refs'):
+            if 'uuid' not in vn:
+                try:
+                    uuids += [cls.db_conn.fq_name_to_uuid(cls.object_type,
+                                                          vn['to'])]
+                except cfgm_common.exceptions.NoIdError as e:
+                    return (False, str(e))
+            else:
+                uuids += [vn['uuid']]
 
         # if not a provider_vn, not more
         # than one virtual_network_refs is allowed
