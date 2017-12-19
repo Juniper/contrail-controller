@@ -230,6 +230,8 @@ TEST_F(DnsBindTest, Config) {
 }
 #endif
 
+// TODO(WINDOWS): NamedConfig is not used in the Agent
+#ifndef _WIN32
 TEST_F(DnsBindTest, Reordered) {
     string content = FileRead("controller/src/dns/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -799,6 +801,7 @@ TEST_F(DnsBindTest, ReorderedExternalReverseResolutionDisabled) {
         EXPECT_FALSE(FileExists(s1.c_str()));
     }
 }
+#endif
 
 TEST_F(DnsBindTest, DnsClassTest) {
     std::string cl = BindUtil::DnsClass(4);

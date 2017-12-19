@@ -129,7 +129,9 @@ void NamedConfig::DelZone(const Subnet &subnet, const VirtualDnsConfig *vdns) {
 
 void NamedConfig::UpdateNamedConf(const VirtualDnsConfig *updated_vdns) {
     CreateNamedConf(updated_vdns);
+#ifndef _WIN32
     sync();
+#endif
 
     ifstream pyscript("/etc/contrail/dns/applynamedconfig.py");
     if (!pyscript.good()) {

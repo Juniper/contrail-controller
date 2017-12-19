@@ -10,22 +10,33 @@ env = DnsEnv.Clone()
 SandeshGenFiles = env.SandeshGenCpp('dns.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
-buildinfo_dep_libs = ['../../dns/cfg/libdns_cfg.a', '../../dns/mgr/libmgr.a', '../../dns/agent/libagent_xmpp.a', 
-                      '../../dns/bind/libbind_interface.a', 
-                      '../../schema/libifmap_vnc.a', '../../ifmap/libifmap_server.a', '../../ifmap/libifmap_common.a', 
-                      '../../net/libnet.a', '../../../lib/libifmapio.a', '../../xmpp/libxmpp.a', '../../../lib/libsandeshvns.a',
-                      '../../../lib/libsandesh.a', '../../../lib/libhttp.a', '../../../lib/libhttp_parser.a', 
-                      '../../db/libdb.a', '../../io/libio.a', '../../base/libbase.a', 
-                      '../../xml/libxml.a', '../../../lib/libpugixml.a',
-                      '../../dns/uve/libdns_uve.a'
+buildinfo_dep_libs = ['../../dns/cfg/' + env['LIBPREFIX'] + 'dns_cfg' + env['LIBSUFFIX'],
+                      '../../dns/mgr/' + env['LIBPREFIX'] + 'mgr' + env['LIBSUFFIX'],
+                      '../../dns/agent/' + env['LIBPREFIX'] + 'agent_xmpp' + env['LIBSUFFIX'],
+                      '../../dns/bind/' + env['LIBPREFIX'] + 'bind_interface' + env['LIBSUFFIX'],
+                      '../../schema/' + env['LIBPREFIX'] + 'ifmap_vnc' + env['LIBSUFFIX'],
+                      '../../ifmap/' + env['LIBPREFIX'] + 'ifmap_server' + env['LIBSUFFIX'],
+                      '../../ifmap/' + env['LIBPREFIX'] + 'ifmap_common' + env['LIBSUFFIX'],
+                      '../../net/' + env['LIBPREFIX'] + 'net' + env['LIBSUFFIX'],
+                      '../../../lib/' + env['LIBPREFIX'] + 'ifmapio' + env['LIBSUFFIX'],
+                      '../../xmpp/' + env['LIBPREFIX'] + 'xmpp' + env['LIBSUFFIX'],
+                      '../../../lib/' + env['LIBPREFIX'] + 'sandeshvns' + env['LIBSUFFIX'],
+                      '../../../lib/' + env['LIBPREFIX'] + 'sandesh' + env['LIBSUFFIX'],
+                      '../../../lib/' + env['LIBPREFIX'] + 'http' + env['LIBSUFFIX'],
+                      '../../../lib/' + env['LIBPREFIX'] + 'http_parser' + env['LIBSUFFIX'],
+                      '../../db/' + env['LIBPREFIX'] + 'db' + env['LIBSUFFIX'],
+                      '../../io/' + env['LIBPREFIX'] + 'io' + env['LIBSUFFIX'],
+                      '../../base/' + env['LIBPREFIX'] + 'base' + env['LIBSUFFIX'],
+                      '../../xml/' + env['LIBPREFIX'] + 'xml' + env['LIBSUFFIX'],
+                      '../../../lib/' + env['LIBPREFIX'] + 'pugixml' + env['LIBSUFFIX'],
+                      '../../dns/uve/' + env['LIBPREFIX'] + 'dns_uve' + env['LIBSUFFIX']
                   ]
 
 cmn_sources = ['dns.cc', 'dns_options.cc']
 
 env.GenerateBuildInfoCode(
     target = ['buildinfo.h', 'buildinfo.cc'],
-    source = buildinfo_dep_libs +  cmn_sources +
-                 ['../main.cc'],
+    source = buildinfo_dep_libs + ['../main.cc'],
     path = Dir('.').path)
 
 env.Depends('dns.o', 'buildinfo.cc')
