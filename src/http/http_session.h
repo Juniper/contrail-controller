@@ -25,7 +25,7 @@ class HttpSession: public SslSession {
     const std::string get_context() { return context_str_; }
 
     static bool SendSession(std::string const& s,
-            const u_int8_t *data, size_t size, size_t *sent) {
+            const uint8_t *data, size_t size, size_t *sent) {
         HttpSessionPtr hs = GetSession(s);
         if (!hs) return false;
         return hs->Send(data, size, sent);

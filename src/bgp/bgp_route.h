@@ -60,10 +60,10 @@ public:
     const BgpTable *table() const;
 
     // Get AFI and SAFI.
-    virtual u_int16_t Afi() const = 0;
-    virtual u_int8_t Safi() const = 0;
-    virtual u_int8_t XmppSafi() const { return Safi(); }
-    virtual u_int16_t NexthopAfi() const { return Afi(); }
+    virtual uint16_t Afi() const = 0;
+    virtual uint8_t Safi() const = 0;
+    virtual uint8_t XmppSafi() const { return Safi(); }
+    virtual uint16_t NexthopAfi() const { return Afi(); }
 
     virtual std::string ToXmppIdString() const { return ToString(); }
 
