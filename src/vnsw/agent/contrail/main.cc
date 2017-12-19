@@ -80,8 +80,8 @@ int main(int argc, char *argv[]) {
         init_file = var_map["config_file"].as<string>();
         struct stat s;
         if (stat(init_file.c_str(), &s) != 0) {
-            LOG(ERROR, "Error opening config file <" << init_file 
-                << ">. Error number <" << errno << ">");
+            cout << "Error opening config file <" << init_file
+                 << ">. Error number <" << errno << ">";
             exit(EINVAL);
         }
     }
@@ -95,6 +95,10 @@ int main(int argc, char *argv[]) {
 
     // Initialize the agent-init control class
     ContrailAgentInit init;
+    if (params.vrouter_on_windows()) {
+        // On Windows vhost interface is created when Hyper-V switch is created
+        init.set_create_vhost(false);
+    }
 
     string build_info;
     GetBuildInfo(build_info);
