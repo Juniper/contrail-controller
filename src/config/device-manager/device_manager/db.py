@@ -1320,7 +1320,9 @@ class DMCassandraDB(VncCassandraClient):
 
         super(DMCassandraDB, self).__init__(
             cass_server_list, self._args.cluster_id, keyspaces, None,
-            manager.logger.log, credential=cred)
+            manager.logger.log, credential=cred,
+            ssl_enabled=self._args.cassandra_use_ssl,
+            ca_certs=self._args.cassandra_ca_certs)
 
         self.pr_vn_ip_map = {}
         self.init_pr_map()
