@@ -548,12 +548,17 @@ def parse_args(args_str):
                         help="Enabled logical routers")
     parser.add_argument("--acl_direction_comp", type=_bool,
                         help="Acl direction compression")
+    parser.add_argument("--cassandra_use_ssl", action="store_true",
+                        help="Enable TLS for cassandra communication")
+    parser.add_argument("--cassandra_ca_certs",
+                        help="Cassandra CA certs")
 
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
     if type(args.collectors) is str:
         args.collectors = args.collectors.split()
+    args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
 
     return args
 # end parse_args
