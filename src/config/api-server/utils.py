@@ -188,6 +188,12 @@ def parse_args(args_str):
         help="List of cassandra servers in IP Address:Port format",
         nargs='+')
     parser.add_argument(
+        "--cassandra_use_ssl", action="store_true",
+        help="Enable TLS for cassandra connection")
+    parser.add_argument(
+        "--cassandra_ca_certs",
+        help="Cassandra CA certs")
+    parser.add_argument(
         "--disc_server_ip",
         help="IP address of discovery server")
     parser.add_argument(
@@ -354,6 +360,7 @@ def parse_args(args_str):
             args_obj.cassandra_server_list.split()
     if type(args_obj.collectors) is str:
         args_obj.collectors = args_obj.collectors.split()
+    args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
 
     return args_obj, remaining_argv
 # end parse_args
