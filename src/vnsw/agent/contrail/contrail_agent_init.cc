@@ -1,6 +1,12 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+
+// in Boost this macro defaults to 6 but we're using FACTORY_TYPE_N8 so we need to define it manually
+#define BOOST_FUNCTIONAL_FORWARD_ADAPTER_MAX_ARITY 8
+
+#include <boost/functional/forward_adapter.hpp>
+
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_factory.h>
 #include <init/agent_param.h>
@@ -41,26 +47,43 @@ void ContrailAgentInit::ProcessOptions
 void ContrailAgentInit::FactoryInit() {
     if (agent()->tsn_enabled() == false) {
         AgentObjectFactory::Register<AgentUveBase>
-            (boost::factory<AgentUveStats *>());
+            (boost::forward_adapter<boost::factory<AgentUveStats *> >
+                (boost::factory<AgentUveStats *>()));
     } else {
         AgentObjectFactory::Register<AgentUveBase>
-            (boost::factory<AgentUve *>());
+            (boost::forward_adapter<boost::factory<AgentUve *> >(boost::factory<AgentUve *>()));
     }
     if (agent_param()->vrouter_on_nic_mode() || agent_param()->vrouter_on_host_dpdk()) {
-        AgentObjectFactory::Register<KSync>(boost::factory<KSyncTcp *>());
+#ifdef _WIN32
+        LOG(ERROR, "KSyncTcp is not supported on Windows");
+        assert(0);
+#else
+        AgentObjectFactory::Register<KSync>
+            (boost::forward_adapter<boost::factory<KSyncTcp *> >(boost::factory<KSyncTcp *>()));
+#endif
     } else {
-        AgentObjectFactory::Register<KSync>(boost::factory<KSync *>());
+        AgentObjectFactory::Register<KSync>
+            (boost::forward_adapter<boost::factory<KSync *> >(boost::factory<KSync *>()));
     }
-    AgentObjectFactory::Register<FlowStatsCollector>(boost::factory<FlowStatsCollector *>());
-    AgentObjectFactory::Register<SessionStatsCollector>(boost::factory<SessionStatsCollector *>());
+    AgentObjectFactory::Register<FlowStatsCollector>
+        (boost::forward_adapter<boost::factory<FlowStatsCollector *> >
+            (boost::factory<FlowStatsCollector *>()));
+    AgentObjectFactory::Register<SessionStatsCollector>
+        (boost::forward_adapter<boost::factory<SessionStatsCollector *> >
+            (boost::factory<SessionStatsCollector *>()));
 }
 
 void ContrailAgentInit::CreateModules() {
     ContrailInitCommon::CreateModules();
 
     if (agent_param()->vrouter_on_host_dpdk()) {
+#ifdef _WIN32
+        LOG(ERROR, "Pkt0Socket is not supported on Windows");
+        assert(0);
+#else
         pkt0_.reset(new Pkt0Socket("unix",
                     agent()->event_manager()->io_service()));
+#endif
     } else if (agent_param()->vrouter_on_nic_mode()) {
         pkt0_.reset(new Pkt0RawInterface("pkt0",
                     agent()->event_manager()->io_service()));
