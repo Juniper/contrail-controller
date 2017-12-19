@@ -63,7 +63,8 @@ void DnsProto::ConfigInit() {
 DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, "Agent::Services", PktHandler::DNS, io),
     xid_(0), timeout_(agent->params()->dns_timeout()),
-    max_retries_(agent->params()->dns_max_retries()) {
+    max_retries_(agent->params()->dns_max_retries()),
+    resolv_conf_file_(agent->params()->dns_def_resolv_file()) {
     // limit the number of entries in the workqueue
     work_queue_.SetSize(agent->params()->services_queue_limit());
     work_queue_.SetBounded(true);
@@ -110,7 +111,7 @@ void DnsProto::Shutdown() {
 bool DnsProto::BuildDefaultServerList() {
     DefaultServerList ip_list;
     std::ifstream fd;
-    fd.open("/etc/resolv.conf");
+    fd.open(resolv_conf_file_.c_str());
     if (!fd.is_open()) {
         return true;
     }
