@@ -349,7 +349,8 @@ class DiscoveryServer():
                     ['cassandra']['cassandra_password']}
         self._db_conn = DiscoveryCassandraClient("discovery",
             self._args.cassandra_server_list, self.config_log, reset_config,
-            self._args.cluster_id, cred)
+            self._args.cluster_id, cred, ssl_enabled = self._args.cassandra_use_ssl,
+            ca_certs = self._args.cassandra_ca_certs)
     # end _db_connect
 
     def cleanup(self):
@@ -944,7 +945,7 @@ class DiscoveryServer():
         self._debug['lb_%s' % lb_type] += 1
         lb_partial = (lb_type == "partial")
 
-        clients = self._db_conn.get_all_clients(service_type = service_type, 
+        clients = self._db_conn.get_all_clients(service_type = service_type,
                       unique_clients = lb_partial)
         if clients is None:
             return
@@ -1410,6 +1411,12 @@ def parse_args(args_str):
         help="Timeout of request, default %d"
         % (disc_consts._CASSANDRA_TIMEOUT))
     parser.add_argument(
+        "--cassandra_use_ssl", action="store_true",
+        help="Enable ssl for cassandra connection")
+    parser.add_argument(
+        "--cassandra_ca_certs",
+        help="Cassandra CA certs")
+    parser.add_argument(
         "--reset_config", action="store_true",
         help="Warning! Destroy previous configuration and start clean")
     parser.add_argument(
@@ -1484,6 +1491,7 @@ def parse_args(args_str):
     args.service_config = service_config
     args.cassandra_config = cassandra_config
     args.cassandra_opts = cassandra_opts
+    args.cassandra_use_ssl = (str(args.cassandra_use_ssl).lower() == 'true')
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list =\
             args.cassandra_server_list.split()
