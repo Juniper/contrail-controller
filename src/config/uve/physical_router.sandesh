@@ -21,6 +21,8 @@ struct UvePhysicalRouterConfig {
     9: optional string                  last_commit_duration
     10: optional string                 commit_status_message
     11: optional i32                    total_commits_sent_since_up
+    12: optional string                 os_version
+    13: optional string                 serial_num
     // Add additional items here as needed
 }
 
