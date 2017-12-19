@@ -1261,8 +1261,16 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow) {
     if (data_.intf_entry == NULL)
         return;
 
-    if  (data_.intf_entry->type() != Interface::VM_INTERFACE)
+    bool vgw_pass = true;
+    if (data_.intf_entry->type() == Interface::INET) {
+        vgw_pass = false;
+        InetInterface* inet_intf = (InetInterface*)(data_.intf_entry).get();
+        if ((inet_intf != NULL) && (inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY))
+               vgw_pass = true;
+    } 
+    if ((data_.intf_entry->type() != Interface::VM_INTERFACE) && !vgw_pass)
         return;
+
 
     // Get Network policy/mirror cfg policy/mirror policies 
     GetPolicy(vn, rflow);
@@ -1386,6 +1394,10 @@ void FlowEntry::GetVrfAssignAcl() {
 }
 
 void FlowEntry::GetSgList(const Interface *intf) {
+
+    if (intf == NULL)
+        return;
+
     // Dont apply network-policy for linklocal and multicast flows
     if (is_flags_set(FlowEntry::LinkLocalFlow) ||
         is_flags_set(FlowEntry::Multicast) ||
@@ -1400,10 +1412,16 @@ void FlowEntry::GetSgList(const Interface *intf) {
 
     // Get virtual-machine port for forward flow
     const VmInterface *vm_port = NULL;
-    if (intf != NULL) {
-        if (intf->type() == Interface::VM_INTERFACE) {
+    bool vgw_pass = false;
+    if (intf->type() == Interface::INET) {
+        const InetInterface* inet_intf = static_cast<const InetInterface *>(intf);
+        if ((inet_intf != NULL) && (inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY)) {
             vm_port = static_cast<const VmInterface *>(intf);
-         }
+            vgw_pass = true;
+        }
+    } 
+    if ((intf->type() == Interface::VM_INTERFACE) || vgw_pass) {
+        vm_port = static_cast<const VmInterface *>(intf);
     }
 
     if (vm_port == NULL) {
@@ -1472,6 +1490,9 @@ static bool CopySgEntries(const VmInterface *vm_port, bool ingress_acl,
 
 void FlowEntry::GetLocalFlowSgList(const VmInterface *vm_port,
                                    const VmInterface *reverse_vm_port) {
+    if (vm_port == NULL)
+        return;
+
     // Get SG-Rule for the forward flow
     data_.match_p.sg_rule_present = CopySgEntries(vm_port, true,
                                                   data_.match_p.m_sg_acl_l);
