@@ -207,7 +207,7 @@ struct DnsUpdateData {
                 : virtual_dns(vdns), zone(z) {}
 
     struct Compare {
-        bool operator() (DnsUpdateData *const &lhs, DnsUpdateData *const &rhs) {
+        bool operator() (DnsUpdateData *const &lhs, DnsUpdateData *const &rhs) const {
             if (!lhs || !rhs)
                 return false;
             if (lhs->virtual_dns != rhs->virtual_dns)
