@@ -146,7 +146,7 @@ private:
 
     struct WalkRequestCompare {
         bool operator()(const WalkRequestInfo *lhs,
-                        const WalkRequestInfo *rhs) {
+                        const WalkRequestInfo *rhs) const {
             return lhs->table < rhs->table;
         }
     };
