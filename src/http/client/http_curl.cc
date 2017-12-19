@@ -322,7 +322,7 @@ static curl_socket_t opensocket(void *data,
 }
 
 /* CURLOPT_CLOSESOCKETFUNCTION */
-static int closesocket(void *clientp, curl_socket_t item)
+static int close_socket(void *clientp, curl_socket_t item)
 {
   HttpConnection *conn = static_cast<HttpConnection *>(clientp);
   conn->delete_session();
@@ -421,7 +421,7 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
   curl_easy_setopt(conn->easy, CURLOPT_OPENSOCKETDATA, connection);
 
   /* call this function to close a socket */
-  curl_easy_setopt(conn->easy, CURLOPT_CLOSESOCKETFUNCTION, closesocket);
+  curl_easy_setopt(conn->easy, CURLOPT_CLOSESOCKETFUNCTION, close_socket);
   curl_easy_setopt(conn->easy, CURLOPT_CLOSESOCKETDATA, connection);
 
   return conn;
