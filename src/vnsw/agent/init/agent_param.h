@@ -203,6 +203,9 @@ public:
             return 0;
         return dns_client_port_;
     }
+    const std::string &dns_def_resolv_file() const {
+        return dns_def_resolv_file_;
+    }
     const uint32_t dns_timeout() const { return dns_timeout_; }
     const uint32_t dns_max_retries() const { return dns_max_retries_; }
     const uint16_t mirror_client_port() const {
@@ -633,6 +636,7 @@ private:
     uint16_t dns_client_port_;
     uint32_t dns_timeout_;
     uint32_t dns_max_retries_;
+    std::string dns_def_resolv_file_;
     uint16_t mirror_client_port_;
     Ip4Address mgmt_ip_;
     HypervisorMode hypervisor_mode_;
