@@ -41,6 +41,7 @@
 #include <filter/acl.h>
 
 #include <cmn/agent_factory.h>
+#include <net/if.h>
 
 const std::string Agent::null_string_ = "";
 const std::set<std::string> Agent::null_string_list_;

@@ -88,7 +88,7 @@ SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('prouter.sandesh')
 
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
-env.Depends(SandeshGenSrcs,'#/build/lib/libsandesh.a')
+env.Depends(SandeshGenSrcs,'#/build/lib/' + env['LIBPREFIX'] + 'sandesh' + env['LIBSUFFIX'])
 SandeshGenObjs = env.Object(SandeshGenSrcs)
 
 StatsSandeshGenFiles = env.SandeshGenCpp('stats_interval.sandesh')
@@ -112,15 +112,18 @@ libuve = env.Library('uve',
                      'vrouter_uve_entry_base.cc'
                      ])
 
+if sys.platform == 'win32':
+    libstatsuve_os_dependent_src = ['windows/vm_stat_stub.cc']
+else:
+    libstatsuve_os_dependent_src = ['vm_stat.cc', 'vm_stat_kvm.cc', 'vm_stat_docker.cc']
+
 libstatsuve = env.Library('statsuve',
                           StatsSandeshGenObjs +
                          [
                           'agent_uve_stats.cc',
                           'interface_uve_stats_table.cc',
                           'stats_manager.cc',
-                          'vm_stat.cc',
-                          'vm_stat_kvm.cc',
-                          'vm_stat_docker.cc',
+                          libstatsuve_os_dependent_src,
                           'vm_uve_entry.cc',
                           'vm_uve_table.cc',
                           'vn_uve_entry.cc',
