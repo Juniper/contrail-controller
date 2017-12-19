@@ -1261,8 +1261,16 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn, const FlowEntry *rflow) {
     if (data_.intf_entry == NULL)
         return;
 
-    if  (data_.intf_entry->type() != Interface::VM_INTERFACE)
+    int vgw_pass = 1;
+    if(data_.intf_entry->type() == Interface::INET) {
+        vgw_pass = 0;
+        InetInterface* inet_intf = (InetInterface*)(data_.intf_entry).get();
+        if ((inet_intf != NULL) && (inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY))
+               vgw_pass = 1;
+    } 
+    if  ((data_.intf_entry->type() != Interface::VM_INTERFACE) && !vgw_pass)
         return;
+
 
     // Get Network policy/mirror cfg policy/mirror policies 
     GetPolicy(vn, rflow);
@@ -1401,9 +1409,14 @@ void FlowEntry::GetSgList(const Interface *intf) {
     // Get virtual-machine port for forward flow
     const VmInterface *vm_port = NULL;
     if (intf != NULL) {
-        if (intf->type() == Interface::VM_INTERFACE) {
+        if(intf->type() == Interface::INET) {
+            const InetInterface* inet_intf = static_cast<const InetInterface *>(intf);
+            if ((inet_intf != NULL) && (inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY)) {
+                vm_port = static_cast<const VmInterface *>(intf);
+            }
+        } else if (intf->type() == Interface::VM_INTERFACE) {
             vm_port = static_cast<const VmInterface *>(intf);
-         }
+        }
     }
 
     if (vm_port == NULL) {
@@ -1415,7 +1428,14 @@ void FlowEntry::GetSgList(const Interface *intf) {
     const VmInterface *reverse_vm_port = NULL;
     if (rflow != NULL) {
         if (rflow->data().intf_entry.get() != NULL) {
-            if (rflow->data().intf_entry->type() == Interface::VM_INTERFACE) {
+
+            if (rflow->data().intf_entry->type() == Interface::INET) {
+                InetInterface* inet_intf = (InetInterface*)(rflow->data().intf_entry).get();
+                if ((inet_intf!= NULL) && (inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY)) {
+                    reverse_vm_port = static_cast<const VmInterface *>
+                       (rflow->data().intf_entry.get());
+                }
+            } else if (rflow->data().intf_entry->type() == Interface::VM_INTERFACE) {
                 reverse_vm_port = static_cast<const VmInterface *>
                     (rflow->data().intf_entry.get());
             }
