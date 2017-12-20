@@ -30,7 +30,7 @@ void IFMapAgentParser::NodeParse(xml_node &node, DBRequest::DBOperation oper, ui
     if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
         msg_type = UPDATE;
     else
-        msg_type = DELETE;
+        msg_type = DEL;
 
     IFMapTable *table;
     table = IFMapTable::FindTable(db_, name);
@@ -84,7 +84,7 @@ void IFMapAgentParser::LinkParse(xml_node &link, DBRequest::DBOperation oper, ui
     if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
         msg_type = UPDATE;
     else
-        msg_type = DELETE;
+        msg_type = DEL;
 
     link_table = static_cast<IFMapAgentLinkTable *>(
         db_->FindTable(IFMAP_AGENT_LINK_DB_NAME));
@@ -176,7 +176,7 @@ void IFMapAgentParser::ConfigParse(const xml_node config, const uint64_t seq) {
             msg_type = UPDATE;
 	    } else if (strcmp(node.name(), "delete") == 0) { 
             oper = DBRequest::DB_ENTRY_DELETE;
-            msg_type = DELETE;
+            msg_type = DEL;
 	    } else {
             continue;
         }

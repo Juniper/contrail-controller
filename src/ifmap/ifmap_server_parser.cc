@@ -19,7 +19,7 @@ IFMapServerParser::ModuleMap IFMapServerParser::module_map_;
 static const char *NodeName(const xml_node &node) {
     const char *name = node.name();
     // strip namespace
-    const char *dot = index(name, ':');
+    const char *dot = strchr(name, ':');
     if (dot != NULL) {
         name = dot + 1;
     }

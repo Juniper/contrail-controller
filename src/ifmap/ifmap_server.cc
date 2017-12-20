@@ -290,7 +290,7 @@ void IFMapServer::AddClient(IFMapClient *client) {
 void IFMapServer::DeleteClient(IFMapClient *client) {
     // Let ClientWorker() do all the work in the context of the db-task
     QueueEntry entry;
-    entry.op = DELETE;
+    entry.op = DEL;
     entry.client = client;
     work_queue_.Enqueue(entry);
 }
@@ -298,7 +298,7 @@ void IFMapServer::DeleteClient(IFMapClient *client) {
 // To be used only by tests.
 void IFMapServer::SimulateDeleteClient(IFMapClient *client) {
     QueueEntry entry;
-    entry.op = DELETE;
+    entry.op = DEL;
     entry.client = client;
     ClientWorker(entry);
 }

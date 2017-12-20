@@ -62,9 +62,9 @@ void IFMapMessage::EncodeUpdate(const IFMapUpdate *update) {
             assert(0);
         }
     } else {
-        if (op_type_ != DELETE) {
+        if (op_type_ != DEL) {
             op_node_ = config_.append_child("delete");
-            op_type_ = DELETE;
+            op_type_ = DEL;
         }
         if (update->data().type == IFMapObjectPtr::NODE) {
             EncodeNode(update);
