@@ -11,6 +11,7 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/icmp6.h>
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
 
 #include <pkt/pkt_handler.h>
 #include <vr_interface.h>
@@ -23,45 +24,51 @@
 
 #define ARPHRD_ETHER    1
 
+__attribute__packed__open__
 struct icmp_packet {
     struct ether_header eth;
     struct ip ip;
     struct icmp icmp;
-} __attribute__((packed));
+} __attribute__packed__close__;
 
+__attribute__packed__open__
 struct tcp_packet {
     struct ether_header eth;
     struct ip ip;
     struct tcphdr tcp;
     char   payload[TCP_PAYLOAD_SIZE];
-}__attribute__((packed));
+} __attribute__packed__close__;
 
+__attribute__packed__open__
 struct udp_packet {
     struct ether_header eth;
     struct ip ip;
     struct udphdr udp;
     uint8_t payload[];
-}__attribute__((packed));
+} __attribute__packed__close__;
 
+__attribute__packed__open__
 struct icmp6_packet {
     struct ether_header eth;
     struct ip6_hdr  ip;
     struct icmp icmp;
-} __attribute__((packed));
+} __attribute__packed__close__;
 
+__attribute__packed__open__
 struct tcp6_packet {
     struct ether_header eth;
     struct ip6_hdr  ip;
     struct tcphdr tcp;
     char   payload[TCP_PAYLOAD_SIZE];
-}__attribute__((packed));
+} __attribute__packed__close__;
 
+__attribute__packed__open__
 struct udp6_packet {
     struct ether_header eth;
     struct ip6_hdr  ip;
     struct udphdr udp;
     uint8_t payload[];
-}__attribute__((packed));
+} __attribute__packed__close__;
 
 class IpUtils {
 public:
@@ -110,7 +117,7 @@ public:
 
     static void Ip6Init(struct ip6_hdr *ip, uint8_t proto, uint16_t len,
                         uint32_t sip, uint32_t dip) {
-        bzero(ip, sizeof(*ip));
+        memset(ip, 0, sizeof(*ip));
         ip->ip6_src.s6_addr32[0] = htonl(sip);
         ip->ip6_dst.s6_addr32[0] = htonl(dip);
         ip->ip6_ctlun.ip6_un1.ip6_un1_flow = htonl(0x60000000);
@@ -163,7 +170,7 @@ public:
     UdpPacket(uint16_t sp, uint16_t dp, uint32_t sip, uint32_t dip) {
         uint16_t len;
         Init(sp, dp);
-        len = sizeof(pkt.ip) + sizeof(pkt.udp) + sizeof(pkt.payload);
+        len = sizeof(pkt.ip) + sizeof(pkt.udp);
         IpUtils::IpInit(&pkt.ip, IPPROTO_UDP, len, sip, dip);
         IpUtils::EthInit(&pkt.eth, ETHERTYPE_IP);
     }
@@ -172,7 +179,7 @@ private:
     void Init(uint16_t sport, uint16_t dport) {
         pkt.udp.uh_sport = htons(sport);
         pkt.udp.uh_dport = htons(dport);
-        pkt.udp.uh_ulen = htons(sizeof(pkt.payload));
+        pkt.udp.uh_ulen = htons(0);
         pkt.udp.uh_sum = htons(0); //ignoring checksum for now.
     }
     struct udp_packet pkt;
@@ -248,7 +255,7 @@ public:
     Udp6Packet(uint16_t sp, uint16_t dp, uint32_t sip, uint32_t dip) {
         uint16_t len;
         Init(sp, dp);
-        len = sizeof(pkt.ip) + sizeof(pkt.udp) + sizeof(pkt.payload);
+        len = sizeof(pkt.ip) + sizeof(pkt.udp);
         IpUtils::Ip6Init(&pkt.ip, IPPROTO_UDP, len, sip, dip);
         IpUtils::EthInit(&pkt.eth, ETHERTYPE_IPV6);
     }
@@ -257,7 +264,7 @@ private:
     void Init(uint16_t sport, uint16_t dport) {
         pkt.udp.uh_sport = htons(sport);
         pkt.udp.uh_dport = htons(dport);
-        pkt.udp.uh_ulen = htons(sizeof(pkt.payload));
+        pkt.udp.uh_ulen = htons(0);
         pkt.udp.uh_sum = htons(0); //ignoring checksum for now.
 
     }
@@ -328,7 +335,7 @@ public:
 
     void AddIp6Hdr(const char *sip, const char *dip, uint16_t proto) {
         struct ip6_hdr *ip = (struct ip6_hdr *)(buff + len);
-        bzero(ip, sizeof(*ip));
+        memset(ip, 0, sizeof(*ip));
         inet_pton(AF_INET6, sip, ip->ip6_src.s6_addr);
         inet_pton(AF_INET6, dip, ip->ip6_dst.s6_addr);
         ip->ip6_ctlun.ip6_un1.ip6_un1_flow = htonl(0x60000000);
