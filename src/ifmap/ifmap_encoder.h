@@ -31,7 +31,7 @@ private:
     enum Op {
         NONE,
         UPDATE,
-        DELETE
+        DEL
     };
     void Open();
     void EncodeNode(const IFMapUpdate *update);

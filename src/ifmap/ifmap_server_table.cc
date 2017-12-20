@@ -34,7 +34,7 @@ IFMapServerTable::RequestData::RequestData(IFMapOrigin::Origin orig,
 // auto_ptr appears to be generated when needed by an enclosing type.
 // gcc appears to behave differently.
 IFMapServerTable::RequestData::~RequestData() {
-#if defined(__GNUC__) && (__GNUC_PREREQ(4, 2) > 0)
+#if defined(__GNUC__) && __GNUC_PREREQ(4, 2)
     boost::has_virtual_destructor<AutogenProperty>::type has_destructor;
     assert(has_destructor);
 #endif

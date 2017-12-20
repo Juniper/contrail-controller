@@ -31,12 +31,12 @@ std::string IFMapListEntry::queue_insert_ago_str() {
 }
 
 IFMapUpdate::IFMapUpdate(IFMapNode *node, bool positive)
-    : IFMapListEntry(positive ? UPDATE : DELETE),
+    : IFMapListEntry(positive ? UPDATE : DEL),
       data_(node) {
 }
 
 IFMapUpdate::IFMapUpdate(IFMapLink *link, bool positive)
-    : IFMapListEntry(positive ? UPDATE : DELETE),
+    : IFMapListEntry(positive ? UPDATE : DEL),
       data_(link) {
 }
 
