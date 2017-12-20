@@ -217,7 +217,7 @@ template <class ObjectType>
 bool IFMapExporter::UpdateRemove(ObjectType *obj, IFMapState *state,
                                  const BitSet &rm_set) {
     // Remove any bit in "interest" from the delete update.
-    IFMapUpdate *update = state->GetUpdate(IFMapListEntry::DELETE);
+    IFMapUpdate *update = state->GetUpdate(IFMapListEntry::DEL);
     if (update != NULL) {
         update->AdvertiseReset(state->interest());
     }
@@ -258,7 +258,7 @@ void IFMapExporter::EnqueueDelete(ObjectType *obj, IFMapState *state) {
         delete update;        
     }
 
-    update = state->GetUpdate(IFMapListEntry::DELETE);
+    update = state->GetUpdate(IFMapListEntry::DEL);
     if (update != NULL) {
         queue()->Dequeue(update);
     }
@@ -305,7 +305,7 @@ void IFMapExporter::MoveDependentLinks(IFMapNodeState *state) {
 }
 
 void IFMapExporter::MoveAdjacentNode(IFMapNodeState *state) {
-    IFMapUpdate *update = state->GetUpdate(IFMapListEntry::DELETE);
+    IFMapUpdate *update = state->GetUpdate(IFMapListEntry::DEL);
     if (update != NULL) {
         assert(!update->advertise().empty());
         queue()->Dequeue(update);

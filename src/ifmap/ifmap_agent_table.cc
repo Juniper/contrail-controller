@@ -540,6 +540,7 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
 
         std::list<DeferredNode> *right_list = right_defmap_it->second;
         std::list<DeferredNode>::iterator right_it, right_list_entry;
+        bool removed_something = false;
         for(right_it = right_list->begin(); right_it !=
                 right_list->end(); right_it++) {
 
@@ -549,14 +550,14 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
 
             if ((*right_it).node_key.id_type == key->id_type &&
                     (*right_it).node_key.id_name == key->id_name) {
-                RemoveDefListEntry(&link_def_map_, right_defmap_it,
-                               &right_it);
+                RemoveDefListEntry(&link_def_map_, right_defmap_it, &right_it);
+                removed_something = true;
                 break;
             }
         }
 
         //We should have removed something in the above iteration
-        assert(right_it != right_list->end());
+        assert(removed_something);
 
         //Remove from deferred list before enqueing
         auto_ptr <RequestKey> req_key (new RequestKey);
