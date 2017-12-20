@@ -424,8 +424,8 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
 
     // Check that only c3 will receive a delete for blue.
     state = exporter_->NodeStateLookup(blue);
-    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DELETE) != NULL);
-    update = state->GetUpdate(IFMapListEntry::DELETE);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DEL) != NULL);
+    update = state->GetUpdate(IFMapListEntry::DEL);
     ASSERT_TRUE(update != NULL);
     TASK_UTIL_EXPECT_FALSE(update->advertise().test(c1.index()));
     TASK_UTIL_EXPECT_FALSE(update->advertise().test(c2.index()));
@@ -448,8 +448,8 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
 
     // Check that only c2 will receive a delete for red.
     state = exporter_->NodeStateLookup(red);
-    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DELETE) != NULL);
-    update = state->GetUpdate(IFMapListEntry::DELETE);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DEL) != NULL);
+    update = state->GetUpdate(IFMapListEntry::DEL);
     ASSERT_TRUE(update != NULL);
     TASK_UTIL_EXPECT_FALSE(update->advertise().test(c1.index()));
     TASK_UTIL_EXPECT_TRUE(update->advertise().test(c2.index()));
@@ -492,8 +492,8 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     EXPECT_TRUE(update->advertise().test(c4.index()));
 
     state = exporter_->NodeStateLookup(red);
-    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DELETE) != NULL);
-    update = state->GetUpdate(IFMapListEntry::DELETE);
+    TASK_UTIL_EXPECT_TRUE(state->GetUpdate(IFMapListEntry::DEL) != NULL);
+    update = state->GetUpdate(IFMapListEntry::DEL);
     ASSERT_TRUE(update != NULL);
     EXPECT_FALSE(update->advertise().test(c1.index()));
     EXPECT_FALSE(update->advertise().test(c2.index()));
@@ -519,7 +519,7 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     ASSERT_TRUE(state != NULL);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
     EXPECT_TRUE(update == NULL);
-    update = state->GetUpdate(IFMapListEntry::DELETE);
+    update = state->GetUpdate(IFMapListEntry::DEL);
     EXPECT_TRUE(update == NULL);
 
     blue = TableLookup("virtual-network", "blue");
@@ -528,7 +528,7 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     ASSERT_TRUE(state != NULL);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
     EXPECT_TRUE(update == NULL);
-    update = state->GetUpdate(IFMapListEntry::DELETE);
+    update = state->GetUpdate(IFMapListEntry::DEL);
     EXPECT_TRUE(update == NULL);
 }
 
@@ -617,8 +617,8 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
     task_util::WaitForIdle();
 
     state = exporter_->NodeStateLookup(blue);
-    TASK_UTIL_ASSERT_TRUE(state->GetUpdate(IFMapListEntry::DELETE) != NULL);
-    update = state->GetUpdate(IFMapListEntry::DELETE);
+    TASK_UTIL_ASSERT_TRUE(state->GetUpdate(IFMapListEntry::DEL) != NULL);
+    update = state->GetUpdate(IFMapListEntry::DEL);
     ASSERT_TRUE(update != NULL);
     TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
 
@@ -630,7 +630,7 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
             continue;
         }
         IFMapUpdate *update = static_cast<IFMapUpdate *>(iter);
-        EXPECT_TRUE(update->type == IFMapListEntry::DELETE);
+        EXPECT_TRUE(update->type == IFMapListEntry::DEL);
         if (update->data().type == IFMapObjectPtr::NODE) {
             seen.insert(update->data().u.node);
         } else {
@@ -1100,14 +1100,14 @@ TEST_F(IFMapExporterTest, PR1454380) {
 
     // Delete the link between VR-VM but dont process the Q. The delete-update
     // should remain in the state's list.
-    EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::DELETE) == NULL);
+    EXPECT_TRUE(link_state->GetUpdate(IFMapListEntry::DEL) == NULL);
     EXPECT_FALSE(link_state->IsInvalid());
     EXPECT_TRUE(link_state->HasDependency());
     IFMapMsgUnlink("virtual-router", "virtual-machine", "vr-test", "vm_x");
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_TRUE(
-        link_state->GetUpdate(IFMapListEntry::DELETE) != NULL);
-    link_update = link_state->GetUpdate(IFMapListEntry::DELETE);
+        link_state->GetUpdate(IFMapListEntry::DEL) != NULL);
+    link_update = link_state->GetUpdate(IFMapListEntry::DEL);
     ASSERT_TRUE(link_update != NULL);
     TASK_UTIL_EXPECT_TRUE(link_update->advertise().test(c1.index()));
     EXPECT_TRUE(link_state->IsInvalid());
@@ -1125,7 +1125,7 @@ TEST_F(IFMapExporterTest, PR1454380) {
     TASK_UTIL_EXPECT_TRUE(
         link_state->GetUpdate(IFMapListEntry::UPDATE) == NULL);
     TASK_UTIL_EXPECT_TRUE(
-        link_state->GetUpdate(IFMapListEntry::DELETE) == NULL);
+        link_state->GetUpdate(IFMapListEntry::DEL) == NULL);
 }
 
 TEST_F(IFMapExporterTest, ConfigTracker) {
