@@ -40,7 +40,6 @@
 #include <controller/controller_vrf_export.h>
 #include <services/services_init.h>
 #include <vrouter/ksync/ksync_init.h>
-#include "vnswif_listener.h"
 #include <ifmap/ifmap_agent_parser.h>
 #include <ifmap/ifmap_agent_table.h>
 #include <init/agent_param.h>
