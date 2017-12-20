@@ -147,6 +147,7 @@ env.Prepend(LIBS = [
     'boost_filesystem',
     'boost_program_options',
     'boost_regex',
+    'boost_thread',
 ])
 
 if sys.platform == 'win32':
