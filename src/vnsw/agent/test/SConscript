@@ -35,6 +35,8 @@ if sys.platform.startswith('freebsd'):
     platform_dependent = 'freebsd/test_util_tap.cc'
 elif sys.platform.startswith('linux'):
     platform_dependent = 'linux/test_util_tap.cc'
+elif sys.platform.startswith('win'):
+    platform_dependent ='windows/test_util_tap.cc'
 
 test_lib_srcs = ['test_agent_init.cc',
                  'test_init.cc',

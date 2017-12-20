@@ -56,7 +56,7 @@ public:
         memset((char *) &sin, 0, sizeof(sin));
         sin.sin_family = AF_INET;
         sin.sin_addr.s_addr = inet_addr("127.0.0.1");
-        if (bind(pkt0_fd_, (sockaddr *) &sin, sizeof(sin)) == -1) {
+        if (::bind(pkt0_fd_, (sockaddr *) &sin, sizeof(sin)) == -1) {
             LOG(ERROR, "Packet Test Tap Error : Cannot bind to test UDP socket");
             assert(0);
         }
@@ -81,7 +81,7 @@ public:
         memset((char *) &sin, 0, sizeof(sin));
         sin.sin_family = AF_INET;
         sin.sin_addr.s_addr = inet_addr("127.0.0.1");
-        if (bind(pkt0_client_fd_, (sockaddr *) &sin, sizeof(sin)) == -1) {
+        if (::bind(pkt0_client_fd_, (sockaddr *) &sin, sizeof(sin)) == -1) {
             LOG(ERROR, "Packet Test Tap Error : Cannot bind to test UDP socket");
             assert(0);
         }
