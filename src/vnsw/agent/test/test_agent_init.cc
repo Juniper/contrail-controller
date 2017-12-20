@@ -2,6 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+// in Boost this macro defaults to 6 but we're using FACTORY_TYPE_N8,
+// so we need to define it manually
+#define BOOST_FUNCTIONAL_FORWARD_ADAPTER_MAX_ARITY 8
+
+#include <boost/functional/forward_adapter.hpp>
+
 #include <base/test/task_test_util.h>
 
 #include <cmn/agent_cmn.h>
@@ -57,10 +63,18 @@ void TestAgentInit::ProcessComputeAddress(AgentParam *param) {
  * Initialization routines
  ***************************************************************************/
 void TestAgentInit::FactoryInit() {
-    AgentObjectFactory::Register<AgentUveBase>(boost::factory<AgentUveBaseTest *>());
-    AgentObjectFactory::Register<KSync>(boost::factory<KSyncTest *>());
-    AgentObjectFactory::Register<FlowStatsCollector>(boost::factory<FlowStatsCollector *>());
-    AgentObjectFactory::Register<SessionStatsCollector>(boost::factory<SessionStatsCollector *>());
+    AgentObjectFactory::Register<AgentUveBase>(
+        boost::forward_adapter<boost::factory<AgentUveBaseTest *> >(
+            boost::factory<AgentUveBaseTest *>()));
+    AgentObjectFactory::Register<KSync>(
+        boost::forward_adapter<boost::factory<KSyncTest *> >(
+            boost::factory<KSyncTest *>()));
+    AgentObjectFactory::Register<FlowStatsCollector>(
+        boost::forward_adapter<boost::factory<FlowStatsCollector *> >(
+            boost::factory<FlowStatsCollector *>()));
+    AgentObjectFactory::Register<SessionStatsCollector>(
+        boost::forward_adapter<boost::factory<SessionStatsCollector *> >(
+            boost::factory<SessionStatsCollector *>()));
 }
 
 // Create the basic modules for agent operation.
