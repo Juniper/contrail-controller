@@ -121,7 +121,7 @@ public:
     virtual bool ToXml(pugi::xml_node *parent) = 0;
     virtual std::string NodeType() = 0;
     virtual void ToString(std::string *str);
-    virtual bool Run() { assert(0); }
+    virtual bool Run() { assert(0); return false; }
 
     void set_gen_xml(bool val) { gen_xml_ = val; }
     bool gen_xml() const { return gen_xml_; }

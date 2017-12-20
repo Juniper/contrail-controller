@@ -6,6 +6,7 @@
 #include "nh_kstate.h"
 #include "vr_nexthop.h"
 #include <net/ethernet.h>
+#include <netinet/if_ether.h>
 #include <iomanip>
 #include <sstream>
 

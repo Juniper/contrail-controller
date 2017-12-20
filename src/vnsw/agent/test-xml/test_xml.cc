@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <pugixml/pugixml.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/uuid/uuid.hpp>
 
 #include <test/test_cmn_util.h>
@@ -118,6 +119,7 @@ xml_node AddXmlNodeWithValue(xml_node *parent, const char *name,
                              const string &value) {
     xml_node n = parent->append_child(name);
     n.append_child(pugi::node_pcdata).set_value(value.c_str());
+    return n;
 }
 
 xml_node AddXmlNodeWithIntValue(xml_node *parent, const char *name,
@@ -126,6 +128,7 @@ xml_node AddXmlNodeWithIntValue(xml_node *parent, const char *name,
     s << val;
     xml_node n = parent->append_child(name);
     n.append_child(pugi::node_pcdata).set_value(s.str().c_str());
+    return n;
 }
 }
 
@@ -203,36 +206,33 @@ bool AgentUtXmlTest::ReadXml() {
 }
 
 bool AgentUtXmlTest::Load() {
-    struct stat s;
-    if (stat(file_name_.c_str(), &s)) {
-        cout << "Error <" << strerror(errno) << "> opening file "
-            << file_name_ << endl;
+    boost::system::error_code ec;
+    boost::filesystem::path file_path(file_name_);
+    uintmax_t file_size = boost::filesystem::file_size(file_path, ec);
+    if (ec) {
+        cout << "Error <" << ec << "> opening file" << file_name_ << endl;
         return false;
     }
 
-    int fd = open(file_name_.c_str(), O_RDONLY);
-    if (fd < 0) {
-        cout << "Error <" << strerror(errno) << "> opening file "
-            << file_name_ << endl;
+    std::fstream file(file_name_.c_str(), std::ios::binary | std::ios_base::in);
+    if (!file) {
+        cout << "Error <fstream error> opening file" << file_name_ << endl;
         return false;
     }
 
-    char data[s.st_size + 1];
-    if (read(fd, data, s.st_size) < s.st_size) {
-        cout << "Error <" << strerror(errno) << "> reading file "
-            << file_name_ << endl;
-        close(fd);
+    std::vector<char> data(file_size + 1, 0);
+    file.read(data.data(), file_size);
+    if (!file || file.gcount() < file_size) {
+        cout << "Error <fstream::read> reading file" << file_name_ << endl;
         return false;
     }
-    close(fd);
-    data[s.st_size] = '\0';
 
-    xml_parse_result result = doc_.load(data);
+    xml_parse_result result = doc_.load(data.data());
     if (result) {
         cout << "Loaded data file successfully" << endl;
     } else {
         cout << "Error in XML string at offset <: " << result.offset
-            << "> (error at [..." << (data + result.offset) << "])" << endl;
+            << "> (error at [..." << (data.data() + result.offset) << "])" << endl;
         return false;
     }
 

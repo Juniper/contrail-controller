@@ -26,8 +26,8 @@ for src in sandesh_files:
     obj = env.Object(objname, 'sandesh/' + src)
     sandesh_files_.append(obj)
 
-xmpp_session = except_env.Object('xmpp_session.o', 'xmpp_session.cc')
-xmpp_init = except_env.Object('xmpp_init.o', 'xmpp_init.cc')
+xmpp_session = except_env.Object('xmpp_session.cc')
+xmpp_init = except_env.Object('xmpp_init.cc')
 
 libxmpp = env.Library('xmpp',
                      [

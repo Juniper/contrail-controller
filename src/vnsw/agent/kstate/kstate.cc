@@ -233,14 +233,14 @@ const std::string KState::PrefixToString(const std::vector<int8_t> &prefix) {
     int size = prefix.size();
     string str = "unknown";
     if (size <= 4) {
-        boost::array<unsigned char, 4> bytes = { {0, 0, 0, 0} };
+        Ip4Address::bytes_type bytes = { {0, 0, 0, 0} };
         for (int i = 0; i < size; i++) {
             bytes[i] = prefix.at(i);
         }
         Ip4Address addr4(bytes);
         str = addr4.to_string();
     } else {
-        boost::array<unsigned char, 16> bytes =
+        Ip6Address::bytes_type bytes =
         { {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} };
         for (int i = 0; i < size; i++) {
             bytes[i] = prefix.at(i);
