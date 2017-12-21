@@ -820,6 +820,10 @@ class VncApiServer(object):
 
         obj_dict = get_request().json[resource_type]
 
+        if 'perms2' in obj_dict:
+            if 'owner' not in obj_dict['perms2']:
+                raise cfgm_common.exceptions.HttpError(400,
+                                    'owner in perms2 must be present')
 
         try:
             obj_fields = r_class.prop_fields | r_class.ref_fields
