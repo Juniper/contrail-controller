@@ -400,8 +400,6 @@ bool ExtCommunity::ContainsTunnelEncapVxlan() const {
         TunnelEncap encap(*iter);
         if (encap.tunnel_encap() == TunnelEncapType::VXLAN)
             return true;
-        if (encap.tunnel_encap() == TunnelEncapType::VXLAN_CONTRAIL)
-            return true;
     }
     return false;
 }

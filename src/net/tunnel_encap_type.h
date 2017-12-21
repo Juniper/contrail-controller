@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef ctrlplane_tunnelencaptype_h
-#define ctrlplane_tunnelencaptype_h
+#ifndef SRC_NET_TUNNEL_ENCAP_TYPE_H_
+#define SRC_NET_TUNNEL_ENCAP_TYPE_H_
 
 #include <stdint.h>
 #include <string>
@@ -19,9 +19,7 @@ public:
         MPLS_O_GRE = 11,
         VXLAN_GPE = 12,
         MPLS_O_UDP = 13,
-        NATIVE = 16,
-        MPLS_O_UDP_CONTRAIL = 37001,
-        VXLAN_CONTRAIL = 37002
+        NATIVE = 16
     };
 
     TunnelEncapType();
@@ -34,4 +32,4 @@ public:
         TunnelEncapType::Encap encap);
 };
 
-#endif
+#endif  // SRC_NET_TUNNEL_ENCAP_TYPE_H_

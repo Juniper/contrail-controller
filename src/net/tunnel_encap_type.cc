@@ -2,9 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <map>
 #include "net/tunnel_encap_type.h"
+
 #include <boost/assign/list_of.hpp>
+#include <map>
 
 using std::map;
 using std::string;
