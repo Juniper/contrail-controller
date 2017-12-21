@@ -40,14 +40,16 @@ class TestQfxBasicDM(TestCommonDM):
         self.assertEqual(switch_opts.get_vtep_source_interface(), "lo0.0")
         import_name = DMUtils.make_import_name(vrf_name)
         imports = switch_opts.get_vrf_import() or []
-        if (role =='spine' and vn_mode == 'l2') or (role =='leaf' and vn_mode == 'l3'):
+        if (role =='spine' and vn_mode == 'l2' and '_contrail_lr_internal_vn' in vrf_name) or \
+                       (role =='leaf' and vn_mode == 'l3'):
             self.assertNotIn(import_name, imports)
         else:
             self.assertIn(import_name, imports)
         export_name = DMUtils.make_export_name(vrf_name)
         exports = switch_opts.get_vrf_export() or []
         # export policy is applicable only for spine/l3
-        if (role =='spine' and vn_mode == 'l2') or (role =='leaf'):
+        if (role =='spine' and vn_mode == 'l2' and '_contrail_lr_internal_vn' in vrf_name) or \
+                        (role =='leaf'):
             self.assertNotIn(export_name, exports)
         else:
             self.assertIn(export_name, exports)
@@ -83,6 +85,18 @@ class TestQfxBasicDM(TestCommonDM):
                 return
             raise Exception("Policy Options not found")
     # end check_policy_options_config
+
+    @retries(5, hook=retry_exc_handler)
+    def check_ri_config(self, vn_obj, vn_mode='l2', check=True):
+        vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                  vn_obj.virtual_network_network_id, vn_mode)
+        config = FakeDeviceConnect.get_xml_config()
+        ris = self.get_routing_instances(config, vrf_name)
+        if not check and ris:
+            raise Exception("Routing Instances Present for: " + vrf_name)
+        if check and not ris:
+            raise Exception("Routing Instances not Present for: " + vrf_name)
+    # end check_ri_config
 
     @retries(5, hook=retry_exc_handler)
     def check_ri_vlans_config(self, vn_obj, vni, vn_mode='l3', check=True):
@@ -250,6 +264,7 @@ class TestQfxBasicDM(TestCommonDM):
         raise Exception("No Correct EVPN Config generated")
     # end check_l2_evpn_proto_config
 
+    @retries(5, hook=retry_exc_handler)
     def check_l2_evpn_vrf_targets(self, target_id):
         config = FakeDeviceConnect.get_xml_config()
         protocols = config.get_protocols()
@@ -258,6 +273,47 @@ class TestQfxBasicDM(TestCommonDM):
         vni = options.get_vni()[0]
         self.assertEqual(vni.get_vrf_target().get_community(), target_id)
     # end check_l2_evpn_vrf_targets
+
+    @retries(5, hook=retry_exc_handler)
+    def check_spine_irb_config(self, int_vn, vn_obj):
+        vrf_name = DMUtils.make_vrf_name(int_vn.fq_name[-1],
+                                  int_vn.virtual_network_network_id, "l3")
+        config = FakeDeviceConnect.get_xml_config()
+        ris = self.get_routing_instances(config, vrf_name)
+        if not ris:
+            raise Exception("No RI Config found for internal vn: " + vrf_name)
+        ri = ris[0]
+        irb_name = "irb." + str(vn_obj.virtual_network_network_id)
+        # check if irb is attached to internal RI
+        intfs = ri.get_interface()
+        if not intfs:
+            raise Exception("No interfaces Config found for internal vn: " + vrf_name)
+        found = False
+        for intf in intfs:
+            if intf.name == irb_name:
+                found = True
+                break
+        if not found:
+            raise Exception("No IRB interface Config found for internal vn: " + vrf_name)
+        # check client VNs, VLans Config
+        vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1],
+                                  vn_obj.virtual_network_network_id, "l2")
+        vlans = config.get_vlans()
+        self.assertIsNotNone(vlans)
+        vlans = vlans.get_vlan() or []
+        found = False
+        vlan = None
+        # check bridges (vlans) are created for each client VN, and placed irb interface
+        for vl in vlans:
+            if vl.name == vrf_name[1:]:
+                found = True
+                vlan = vl
+                break
+        if not vlan:
+            raise Exception("No VLAN config found for vn: " + vrf_name)
+        if vlan.get_l3_interface() != irb_name:
+            raise Exception("No IRB config attached to VLAN for vn: " + vrf_name)
+    # end check_spine_irb_config
 
     def test_esi_config(self):
         self.product = 'qfx5110'
@@ -493,8 +549,18 @@ class TestQfxBasicDM(TestCommonDM):
         # make sure internal is created
         int_vn = self.check_lr_internal_vn_state(lr)
 
+
         # verify generated switch options config
         self.check_switch_options_config(vn1_obj, "l2", role)
+
+        if role == 'spine':
+            self.check_ri_config(vn1_obj, 'l2', False)
+            self.check_ri_config(int_vn, 'l3', True)
+            # check spine internal vn config
+            self.check_spine_irb_config(int_vn, vn1_obj)
+        else:
+            self.check_ri_config(vn1_obj, 'l2', False)
+            self.check_ri_config(vn1_obj, 'l3', False)
 
         # verify l2 evpns targets
         if 'qfx5' in product:
