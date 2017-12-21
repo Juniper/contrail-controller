@@ -157,13 +157,16 @@ class ConfigHandler(object):
                         (api_server[0], api_server[1]),
                         ConnectionStatus.DOWN, str(e))
                 else:
-                    self._active_api_server = api_server
-                    self._update_apiserver_connection_status('%s:%s' %
-                        (api_server[0], api_server[1]),
-                        ConnectionStatus.UP)
-                    # TODO: Handle error from sync_config
-                    self._sync_config()
-                    break
+                    if self._sync_config():
+                        self._active_api_server = api_server
+                        self._update_apiserver_connection_status('%s:%s' %
+                            (api_server[0], api_server[1]),
+                            ConnectionStatus.UP)
+                        break
+                    else:
+                        self._update_apiserver_connection_status('%s:%s' %
+                            (api_server[0], api_server[1]),
+                            ConnectionStatus.DOWN, 'Config sync failed')
             if not self._active_api_server:
                 gevent.sleep(2)
         self._api_client_connection_task = None
