@@ -32,7 +32,7 @@ struct PhysicalDeviceVnToVmi {
     virtual ~PhysicalDeviceVnToVmi() { }
 
     bool operator() (const PhysicalDeviceVnToVmi &lhs,
-                     const PhysicalDeviceVnToVmi &rhs) {
+                     const PhysicalDeviceVnToVmi &rhs) const {
         if (lhs.dev_ != rhs.dev_)
             return lhs.dev_ < rhs.dev_;
         if (lhs.vn_ != rhs.vn_)
@@ -107,7 +107,7 @@ class PhysicalDeviceVnTable : public AgentDBTable {
  public:
     struct Compare {
         bool operator() (const PhysicalDeviceVnKey &left,
-                         const PhysicalDeviceVnKey &right) {
+                         const PhysicalDeviceVnKey &right) const {
             if (left.device_uuid_ != right.device_uuid_) {
                 return left.device_uuid_ < right.device_uuid_;
             }

@@ -106,7 +106,9 @@ class InstanceTaskExecvp : public InstanceTask {
 
     const std::string name_;
     std::string cmd_;
+#ifndef _WIN32
     boost::asio::posix::stream_descriptor input_;
+#endif
     bool setup_done_; // indicates whether errors_ has a valid descriptor or not
     char rx_buff_[kBufLen];
 

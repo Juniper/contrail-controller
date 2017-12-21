@@ -251,7 +251,7 @@ bool InterfaceTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
 
     if (intf->Delete(req)) {
-        intf->SendTrace(this, Interface::DELETE);
+        intf->SendTrace(this, Interface::DEL);
         ret = true;
     }
     return ret;
@@ -403,7 +403,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     metadata_ip_active_(true), metadata_l2_active_(true),
     l2_active_(true), id_(kInvalidIndex), dhcp_enabled_(true),
     dns_enabled_(true), mac_(), os_index_(kInvalidIndex), os_oper_state_(true),
-    admin_state_(true), test_oper_state_(true), transport_(TRANSPORT_INVALID) {
+    admin_state_(true), test_oper_state_(true), transport_(TRANSPORT_INVALID), os_guid_() {
 }
 
 Interface::~Interface() {
@@ -494,45 +494,7 @@ void Interface::GetOsParams(Agent *agent) {
         return;
     }
 
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
-    strncpy(ifr.ifr_name, name.c_str(), IF_NAMESIZE);
-    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
-    assert(fd >= 0);
-    if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> querying mac-address for interface <" << name << "> " <<
-            "Agent-index <" << id_ << ">");
-        os_oper_state_ = false;
-        close(fd);
-        return;
-    }
-
-
-    if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
-        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
-            "> querying flags for interface <" << name << "> " <<
-            "Agent-index <" << id_ << ">");
-        os_oper_state_ = false;
-        close(fd);
-        return;
-    }
-
-    os_oper_state_ = false;
-    if ((ifr.ifr_flags & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING)) {
-        os_oper_state_ = true;
-    }
-    close(fd);
-
-#if defined(__linux__)
-    mac_ = ifr.ifr_hwaddr;
-#elif defined(__FreeBSD__)
-    mac_ = ifr.ifr_addr;
-#endif
-
-    int idx = if_nametoindex(name.c_str());
-    if (idx)
-        os_index_ = idx;
+    GetOsSpecificParams(agent, name);
 }
 
 void Interface::SetKey(const DBRequestKey *key) {
@@ -654,7 +616,7 @@ void InterfaceTable::DeleteDhcpSnoopEntry(const std::string &ifname) {
         return;
     }
 
-    return dhcp_snoop_map_.erase(it);
+    dhcp_snoop_map_.erase(it);
 }
 
 // Set config_seen_ flag in DHCP Snoop entry.
@@ -1312,7 +1274,7 @@ void Interface::SendTrace(const AgentDBTable *table, Trace event) const {
     case ADD:
         intf_info.set_op("Add");
         break;
-    case DELETE:
+    case DEL:
         intf_info.set_op("Delete");
         break;
     default:

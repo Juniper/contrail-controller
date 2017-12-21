@@ -1005,7 +1005,7 @@ void VmInterface::SendTrace(const AgentDBTable *table, Trace event) const {
     case ADD:
         intf_info.set_op("Add");
         break;
-    case DELETE:
+    case DEL:
         intf_info.set_op("Delete");
         break;
 

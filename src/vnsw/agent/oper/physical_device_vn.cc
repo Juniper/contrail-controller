@@ -142,7 +142,7 @@ void PhysicalDeviceVnTable::Clear() {
 
 bool PhysicalDeviceVnTable::Delete(DBEntry *e, const DBRequest *req) {
     PhysicalDeviceVn *entry = static_cast<PhysicalDeviceVn *>(e);
-    entry->SendObjectLog(AgentLogEvent::DELETE);
+    entry->SendObjectLog(AgentLogEvent::DEL);
     return true;
 }
 
@@ -340,7 +340,7 @@ void PhysicalDeviceVn::SendObjectLog(AgentLogEvent::type event) const {
         case AgentLogEvent::ADD:
             str.assign("Addition ");
             break;
-        case AgentLogEvent::DELETE:
+        case AgentLogEvent::DEL:
             str.assign("Deletion ");
             break;
         case AgentLogEvent::CHANGE:

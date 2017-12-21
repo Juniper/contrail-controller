@@ -6,6 +6,7 @@
 #include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
 
+#include <net/if.h>
 #include <ifmap/ifmap_node.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_listener.h>
@@ -122,6 +123,9 @@ void PhysicalInterface::PostAdd() {
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, interface_name.c_str(), IF_NAMESIZE);
+
+// Not yet supoprted on Windows
+#ifndef _WIN32
     if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
             "> setting promiscuous flag for interface <" << interface_name << ">");
@@ -136,8 +140,13 @@ void PhysicalInterface::PostAdd() {
         close(fd);
         return;
     }
+#endif
 
+#ifdef _WIN32
+    closesocket(fd);
+#else
     close(fd);
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////

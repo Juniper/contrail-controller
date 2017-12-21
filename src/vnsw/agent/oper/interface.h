@@ -13,6 +13,7 @@
 #include <cmn/agent_cmn.h>
 #include <cmn/index_vector.h>
 #include <oper_db.h>
+#include <boost/optional.hpp>
 
 struct InterfaceData;
 class VmInterface;
@@ -20,6 +21,9 @@ class IFMapDependencyManager;
 
 class Interface : AgentRefCount<Interface>, public AgentOperDBEntry {
 public:
+    // Used on Windows as operating system identifier's type
+    typedef boost::uuids::uuid IfGuid;
+
     // Type of interfaces supported
     enum Type {
         INVALID,
@@ -43,7 +47,7 @@ public:
 
     enum Trace {
         ADD,
-        DELETE,
+        DEL,
         ACTIVATED,
         DEACTIVATED,
         FLOATING_IP_CHANGE,
@@ -137,6 +141,8 @@ public:
         return qos_config_.get();
     }
     void UpdateOperStateOfSubIntf(const InterfaceTable *table);
+    boost::optional<IfGuid> os_guid() const { return os_guid_; }
+
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
 
@@ -171,7 +177,12 @@ protected:
     Transport transport_;
     AgentQosConfigConstRef qos_config_;
 
+    // Used on Windows as network interface's identifier
+    boost::optional<IfGuid> os_guid_;
+
 private:
+    void GetOsSpecificParams(Agent *agent, const std::string &name);
+
     friend class InterfaceTable;
     InterfaceTable *table_;
     DISALLOW_COPY_AND_ASSIGN(Interface);
