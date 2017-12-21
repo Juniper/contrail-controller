@@ -106,7 +106,7 @@ protected:
         for (tag_it = vm_intf->tag_list().list_.begin();
              tag_it != vm_intf->tag_list().list_.end(); tag_it++) {
 
-            if (tag_it->type_ == TagEntry::GetTypeVal(type)) {
+            if (tag_it->type_ == TagEntry::GetTypeVal(type, "")) {
                 if (id == tag_it->tag_->tag_id()) {
                     return true;
                 }
@@ -735,7 +735,8 @@ TEST_F(TagTest, VmiWithCustomTag) {
     DelNode("tag", "tag2");
     client->WaitForIdle();
 }
-
+// verify that subinterface inherits VM tags from
+// parent VMI
 TEST_F(TagTest, InheritanceSubInterface) {
     AddTag("VmTag1", 1, 1, "application");
     client->WaitForIdle();
