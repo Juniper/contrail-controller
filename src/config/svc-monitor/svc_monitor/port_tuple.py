@@ -302,9 +302,15 @@ class PortTupleAgent(Agent):
         for health_id in list(vmi.service_health_checks):
             health = ServiceHealthCheckSM.get(health_id)
             if health and health.service_instances and vmi.service_vm == True:
-                self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
+                pt_present = False
+                for pt_id in vmi.port_tuples:
+                    si_uuid = (PortTupleSM.get(pt_id)).parent_uuid
+                    if si_uuid in health.service_instances.keys():
+                        pt_present = True
+                if pt_present == False:
+                    self._vnc_lib.ref_update('virtual-machine-interface', vmi.uuid,
                         'service-health-check', health.uuid, None, 'DELETE')
-                vmi.service_health_checks.remove(health_id)
+                    vmi.service_health_checks.remove(health_id)
 
     def set_port_service_chain_ip(self, si, port, vmi):
         self._allocate_shared_iip(si, port, vmi)
