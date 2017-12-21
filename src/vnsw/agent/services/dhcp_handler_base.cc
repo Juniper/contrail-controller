@@ -16,6 +16,7 @@
 #include "bind/bind_util.h"
 
 #include <boost/assign/list_of.hpp>
+#include <boost/scoped_array.hpp>
 #include <bind/bind_util.h>
 
 using namespace boost::assign;
@@ -355,10 +356,10 @@ uint16_t DhcpHandlerBase::AddByteCompressedNameOption(uint32_t option,
 
 uint16_t DhcpHandlerBase::AddCompressedName(uint16_t opt_len,
                                             const std::string &input) {
-    uint8_t name[input.size() * 2 + 2];
+    boost::scoped_array<uint8_t> name(new uint8_t[input.size() * 2 + 2]);
     uint16_t len = 0;
-    BindUtil::AddName(name, input, 0, 0, len);
-    option_->AppendData(len, name, &opt_len);
+    BindUtil::AddName(name.get(), input, 0, 0, len);
+    option_->AppendData(len, name.get(), &opt_len);
     return opt_len;
 }
 

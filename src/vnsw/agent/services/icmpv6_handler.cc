@@ -16,10 +16,11 @@
 #include <oper/operdb_init.h>
 #include <oper/path_preference.h>
 #include <oper/vn.h>
+#include <boost/scoped_array.hpp>
 
-const boost::array<uint8_t, 16> Icmpv6Handler::kPrefix =
+const Ip6Address::bytes_type Icmpv6Handler::kPrefix =
     { {0xFF, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0xFF, 0, 0, 0} };
-const boost::array<uint8_t, 16> Icmpv6Handler::kSuffix =
+const Ip6Address::bytes_type Icmpv6Handler::kSuffix =
     { {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 0xFF} };
 const Ip6Address Icmpv6Handler::kSolicitedNodeIpPrefix(kPrefix);
 const Ip6Address Icmpv6Handler::kSolicitedNodeIpSuffixMask(kSuffix);
@@ -110,7 +111,7 @@ bool Icmpv6Handler::Run() {
                 icmpv6_proto->IncrementStatsNeighborAdvertUnSolicited(vm_itf);
             }
             if (CheckPacket()) {
-                boost::array<uint8_t, 16> bytes;
+                Ip6Address::bytes_type bytes;
                 for (int i = 0; i < 16; i++) {
                     bytes[i] = icmp->nd_na_target.s6_addr[i];
                 }
@@ -278,14 +279,14 @@ void Icmpv6Handler::SendIcmpv6Response(uint32_t ifindex, uint32_t vrfindex,
 
     char *buff = (char *)pkt_info_->pkt;
     uint16_t buff_len = pkt_info_->packet_buffer()->data_len();
-    char icmpv6_payload[icmp_len_];
-    memcpy(icmpv6_payload,icmp_,icmp_len_);
+    boost::scoped_array<char> icmpv6_payload(new char[icmp_len_]);
+    memcpy(icmpv6_payload.get(),icmp_,icmp_len_);
     uint16_t eth_len = EthHdr(buff, buff_len, ifindex, agent()->vrrp_mac(),
                               dest_mac, ETHERTYPE_IPV6);
 
     pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);
     Ip6Hdr(pkt_info_->ip6, len, IPV6_ICMP_NEXT_HEADER, 255, src_ip, dest_ip);
-    memcpy(buff + sizeof(ip6_hdr) + eth_len, icmpv6_payload, icmp_len_);
+    memcpy(buff + sizeof(ip6_hdr) + eth_len, icmpv6_payload.get(), icmp_len_);
     pkt_info_->set_len(len + sizeof(ip6_hdr) + eth_len);
     uint16_t command =
         (pkt_info_->agent_hdr.cmd == AgentHdr::TRAP_TOR_CONTROL_PKT) ?
