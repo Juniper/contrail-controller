@@ -1,0 +1,35 @@
+# -*- mode: python; -*-
+import os
+import platform
+import subprocess
+from distutils.dir_util import copy_tree
+from shutil import copyfile
+
+vpath = '#/third_party/log4cplus-1.1.1'
+
+env = DefaultEnvironment()
+
+if env['OPT'] == 'debug':
+    configuration = 'Debug'
+    input_lib_basename = 'log4cplusD.lib'
+    dll_basename = 'log4cplusD.dll'
+elif env['OPT'] == 'production':
+    configuration = 'Release'
+    input_lib_basename = 'log4cplus.lib'
+    dll_basename = 'log4cplus.dll'
+
+output_dll = File('#/build/bin/' + dll_basename)
+output_lib = File('#/build/lib/log4cplus.lib')
+
+def build(target, source, env):
+    msbuild = [os.environ['MSBUILD'], 'log4cplus.vcxproj', '/p:PlatformToolset=v140',
+               '/p:Configuration=' + configuration, '/p:Platform=x64']
+    subprocess.call(msbuild, cwd = os.path.join(Dir(vpath).abspath, 'msvc10'))
+    copy_tree(os.path.join(Dir(vpath).abspath, r'include\log4cplus'), Dir('#/build/include/log4cplus').abspath)
+    copyfile(os.path.join(Dir(vpath).abspath, r'msvc10\x64\bin.' + configuration + '\\' + input_lib_basename), output_lib.abspath)
+    copyfile(os.path.join(Dir(vpath).abspath, r'msvc10\x64\bin.' + configuration + '\\' + dll_basename), output_dll.abspath)
+
+products = [output_lib, output_dll, File('#/build/include/log4cplus/logger.h')]
+
+env.Command(products, Dir(vpath), build)
+
