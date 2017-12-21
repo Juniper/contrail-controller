@@ -40,7 +40,9 @@
 #include "cmn/agent_signal.h"
 #include "db/db_entry.h"
 #include "db/db_table.h"
+#ifndef _WIN32
 #include "nexthop_server.h"
+#endif
 #include "oper/nexthop.h"
 #include <queue>
 
@@ -72,8 +74,10 @@ class NexthopManager
     EventManager *evm_;
     DBTableBase *nh_table_;
     DBTableBase::ListenerId nh_listener_;
-    boost::scoped_ptr<NexthopDBServer> nh_server_;
 
+#ifndef _WIN32
+    boost::scoped_ptr<NexthopDBServer> nh_server_;
+#endif
     DISALLOW_COPY_AND_ASSIGN(NexthopManager);
 };
 
