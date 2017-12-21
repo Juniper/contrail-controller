@@ -24,6 +24,11 @@ optional_objs = []
 if GetOption('with_libvirt'):
     optional_objs.append(except_env.Object('libvirt_instance_adapter.cc'))
 
+if sys.platform == 'win32':
+    os_specific_src = ['windows/interface_params.cc', 'windows/instance_task_stub.cc']
+else:
+    os_specific_src = ['nix/interface_params.cc', 'instance_task.cc']
+
 vnswoperdb = env.Library('vnswoperdb',
                          sandesh_objs +
                          optional_objs +
@@ -57,7 +62,6 @@ vnswoperdb = env.Library('vnswoperdb',
                           except_env.Object('instance_manager.cc'),
                           except_env.Object('docker_instance_adapter.cc'),
                           except_env.Object('netns_instance_adapter.cc'),
-                          'instance_task.cc',
                           'nexthop.cc',
                           'operdb_init.cc',
                           'path_preference.cc',
@@ -83,7 +87,8 @@ vnswoperdb = env.Library('vnswoperdb',
                           'vrf.cc',
                           'vrf_assign.cc',
                           'vrouter.cc',
-                          'vxlan.cc'
+                          'vxlan.cc',
+                          os_specific_src,
                          ])
 subdirs = ['test']
 for dir in subdirs:

@@ -6,6 +6,7 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <cmn/agent_cmn.h>
 
+#include <base/os.h>
 #include <base/parse_object.h>
 #include <base/util.h>
 #include <ifmap/ifmap_link.h>
@@ -744,7 +745,7 @@ bool VnTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     vn->ApplyAllIpam(agent(), vn->vrf_.get(), true);
     vn->UpdateVxlan(agent(), true);
     vn->ReleaseWalker();
-    vn->SendObjectLog(AgentLogEvent::DELETE);
+    vn->SendObjectLog(AgentLogEvent::DEL);
     return true;
 }
 
@@ -1201,7 +1202,7 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
         case AgentLogEvent::ADD:
             str.assign("Addition ");
             break;
-        case AgentLogEvent::DELETE:
+        case AgentLogEvent::DEL:
             str.assign("Deletion ");
             info.set_event(str);
             VN_OBJECT_LOG_LOG("AgentVn", SandeshLevel::SYS_INFO, info);
