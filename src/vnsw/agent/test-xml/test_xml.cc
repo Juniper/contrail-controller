@@ -222,7 +222,7 @@ bool AgentUtXmlTest::Load() {
 
     std::vector<char> data(file_size + 1, 0);
     file.read(data.data(), file_size);
-    if (!file || file.gcount() < file_size) {
+    if (!file || file.gcount() < static_cast<std::streamsize>(file_size)) {
         cout << "Error <fstream::read> reading file" << file_name_ << endl;
         return false;
     }
