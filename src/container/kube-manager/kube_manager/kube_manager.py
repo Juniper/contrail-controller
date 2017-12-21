@@ -10,6 +10,9 @@ import random
 import os
 import sys
 import time
+import gc
+import traceback
+import greenlet
 
 from gevent.queue import Queue
 import gevent
@@ -140,6 +143,15 @@ class KubeNetworkManager(object):
         KubeNetworkManager._kube_network_manager = None
 
     @classmethod
+    def sandesh_handle_greenlet_stack_list_request(cls, request):
+        greenlets = [introspect.KubeGreenletStackInstance(stack=stack)
+                     for stack in [traceback.format_stack(ob.gr_frame)
+                                   for ob in gc.get_objects()
+                                   if isinstance(ob, greenlet.greenlet)]]
+        resp = introspect.KubeGreenletStackListResp(greenlets=greenlets)
+        resp.response(request.context())
+
+    @classmethod
     def sandesh_handle_kube_api_connection_status_request(cls, request):
         statuses = {
             'endpoint_monitor': False,
@@ -180,6 +192,8 @@ def run_kube_manager(km_logger, args, kube_api_skip, event_queue,
     KubeNetworkManager._kube_network_manager = kube_nw_mgr
 
     # Register introspect handlers
+    introspect.KubeGreenletStackList.handle_request = \
+        KubeNetworkManager.sandesh_handle_greenlet_stack_list_request
     introspect.KubeApiConnectionStatus.handle_request =\
         KubeNetworkManager.sandesh_handle_kube_api_connection_status_request
     introspect.MastershipStatus.handle_request =\
