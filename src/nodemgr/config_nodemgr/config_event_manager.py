@@ -7,13 +7,14 @@ from gevent import monkey
 monkey.patch_all()
 
 import os
-import subprocess
-import socket
-from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo, \
-    package_installed
-from nodemgr.common.cassandra_manager import CassandraManager
+
 from pysandesh.sandesh_base import sandesh_global
 from sandesh_common.vns.ttypes import Module
+
+from nodemgr.common.cassandra_manager import CassandraManager
+from nodemgr.common.event_manager import EventManager, EventManagerTypeInfo
+from nodemgr.common.utils import package_installed
+
 
 class ConfigEventManager(EventManager):
     def __init__(self, config, rule_file, unit_names):

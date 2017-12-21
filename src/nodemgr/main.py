@@ -32,31 +32,32 @@ Rules files looks like following:
 
 """
 
-
 from gevent import monkey
 monkey.patch_all()
-import os
-import os.path
-import sys
+
 import argparse
-import socket
-import gevent
 import ConfigParser
-import signal
-import random
+import gevent
 import hashlib
-from nodemgr.analytics_nodemgr.analytics_event_manager import AnalyticsEventManager
-from nodemgr.control_nodemgr.control_event_manager import ControlEventManager
-from nodemgr.config_nodemgr.config_event_manager import ConfigEventManager
-from nodemgr.vrouter_nodemgr.vrouter_event_manager import VrouterEventManager
-from nodemgr.database_nodemgr.database_event_manager import DatabaseEventManager
-from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
+import random
+import os
+import signal
+import sys
+
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+from pysandesh.sandesh_base import Sandesh, SandeshConfig
+
+from analytics_nodemgr.analytics_event_manager import AnalyticsEventManager
+from config_nodemgr.config_event_manager import ConfigEventManager
+from control_nodemgr.control_event_manager import ControlEventManager
+from database_nodemgr.database_event_manager import DatabaseEventManager
+from vrouter_nodemgr.vrouter_event_manager import VrouterEventManager
 
 
 def usage():
     print doc
     sys.exit(255)
+
 
 def main(args_str=' '.join(sys.argv[1:])):
     # Parse Arguments
@@ -172,11 +173,10 @@ def main(args_str=' '.join(sys.argv[1:])):
 
     # done parsing arguments
 
-    prog = None
-    if (node_type == 'contrail-analytics'):
+    if node_type == 'contrail-analytics':
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_analytics_files/" + \
-                "contrail-analytics.rules"
+                        "contrail-analytics.rules"
         unit_names = ['contrail-collector.service',
                       'contrail-analytics-api.service',
                       'contrail-snmp-collector.service',
@@ -184,45 +184,45 @@ def main(args_str=' '.join(sys.argv[1:])):
                       'contrail-alarm-gen.service',
                       'contrail-topology.service',
                       'contrail-analytics-nodemgr.service',
-                     ]
+                      ]
         prog = AnalyticsEventManager(_args, rule_file, unit_names)
-    elif (node_type == 'contrail-config'):
+    elif node_type == 'contrail-config':
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_config_files/" + \
-                "contrail-config.rules"
+                        "contrail-config.rules"
         unit_names = ['contrail-api.service',
                       'contrail-schema.service',
                       'contrail-svc-monitor.service',
                       'contrail-device-manager.service',
                       'contrail-config-nodemgr.service',
-                     ]
+                      ]
         prog = ConfigEventManager(_args, rule_file, unit_names)
-    elif (node_type == 'contrail-control'):
+    elif node_type == 'contrail-control':
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_control_files/" + \
-                "contrail-control.rules"
+                        "contrail-control.rules"
         unit_names = ['contrail-control.service',
                       'contrail-dns.service',
                       'contrail-named.service',
                       'contrail-control-nodemgr.service',
-                     ]
+                      ]
         prog = ControlEventManager(_args, rule_file, unit_names)
-    elif (node_type == 'contrail-vrouter'):
+    elif node_type == 'contrail-vrouter':
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_vrouter_files/" + \
-                "contrail-vrouter.rules"
+                        "contrail-vrouter.rules"
         unit_names = ['contrail-vrouter-agent.service',
                       'contrail-vrouter-nodemgr.service',
-                     ]
+                      ]
         prog = VrouterEventManager(_args, rule_file, unit_names)
-    elif (node_type == 'contrail-database'):
+    elif node_type == 'contrail-database':
         if not rule_file:
             rule_file = "/etc/contrail/supervisord_database_files/" + \
-                "contrail-database.rules"
+                        "contrail-database.rules"
         unit_names = ['contrail-database.service',
                       'kafka.service',
                       'contrail-database-nodemgr.service',
-                     ]
+                      ]
         prog = DatabaseEventManager(_args, rule_file, unit_names)
     else:
         sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
@@ -242,6 +242,7 @@ def main(args_str=' '.join(sys.argv[1:])):
 
     gevent.joinall([gevent.spawn(prog.runforever),
         gevent.spawn(prog.run_periodically(prog.do_periodic_events, 60))])
+
 
 if __name__ == '__main__':
     main()

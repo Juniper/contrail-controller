@@ -21,8 +21,7 @@ for file in setup_sources:
 
 local_sources = [
            '__init__.py',
-           'main.py',
-           'utils.py'
+           'main.py'
           ]
 
 local_sources_rules = []
@@ -74,10 +73,17 @@ for file in database_sources:
 
 common_sources = [
            '__init__.py',
-           'common/event_manager.py',
-           'common/process_stat.py',
-           'common/cpuinfo.py',
            'common/cassandra_manager.py',
+           'common/database_event_manager.py',
+           'common/docker_mem_cpu.py',
+           'common/docker_process_manager.py',
+           'common/event_manager.py',
+           'common/process_mem_cpu.py',
+           'common/process_stat.py',
+           'common/supervisor_process_manager.py',
+           'common/sys_mem_cpu.py',
+           'common/systemd_process_manager.py',
+           'common/utils.py',
           ]
 common_sources_rules = []
 for file in common_sources:

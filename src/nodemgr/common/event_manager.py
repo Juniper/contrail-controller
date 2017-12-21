@@ -20,324 +20,40 @@ import random
 import hashlib
 import select
 import copy
-try:
-    import pydbus
-    pydbus_present = True
-except:
-    pydbus_present = False
 
-try:
-    import supervisor.xmlrpc
-    from supervisor import childutils
-    supervisor_event_listener_cls_type = childutils.EventListenerProtocol
-except:
-    supervisor_event_listener_cls_type = object
-
-from functools import partial
-from nodemgr.common.process_stat import ProcessStat
-from nodemgr.common.sandesh.nodeinfo.ttypes import *
-from nodemgr.common.sandesh.supervisor_events.ttypes import *
-from nodemgr.common.sandesh.nodeinfo.cpuinfo.ttypes import *
-from nodemgr.common.sandesh.nodeinfo.process_info.ttypes import ProcessState, \
-    ProcessStatus, ProcessInfo, DiskPartitionUsageStats
-from nodemgr.common.sandesh.nodeinfo.process_info.constants import \
-    ProcessStateNames
-from nodemgr.common.cpuinfo import MemCpuUsageData
-from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT, \
-    ServiceHttpPortMap, ModuleNames, Module2NodeType, NodeTypeNames, \
-    UVENodeTypeNames
 from buildinfo import build_info
+
+from sys_mem_cpu import SysMemCpuUsageData
+
+from process_stat import ProcessStat
+
+from sandesh.nodeinfo.ttypes import *
+from sandesh.supervisor_events.ttypes import *
+from sandesh.nodeinfo.cpuinfo.ttypes import *
+from sandesh.nodeinfo.process_info.ttypes import ProcessState,\
+    ProcessStatus, ProcessInfo, DiskPartitionUsageStats
+from sandesh.nodeinfo.process_info.constants import ProcessStateNames
+
+from sandesh_common.vns.constants import INSTANCE_ID_DEFAULT,\
+    ServiceHttpPortMap, ModuleNames, Module2NodeType, NodeTypeNames,\
+    UVENodeTypeNames
+
 from pysandesh.sandesh_base import Sandesh, SandeshConfig
 from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.connection_info import ConnectionState
-from pysandesh.util import UTCTimestampUsec
-from nodemgr.utils import NodeMgrUtils
 
-class SupervisorEventListener(supervisor_event_listener_cls_type):
-    def __init__(self):
-        self.supervisor_events_ctr = 0
-        self.supervisor_events_timestamp = None
-        self.supervisor_events_error_ctr = 0
-        self.supervisor_events_error_timestamp = None
-
-    def wait(self, stdin=sys.stdin, stdout=sys.stdout):
-        self.ready(stdout)
-        while 1:
-            if select.select([stdin], [], [])[0]:
-                line = stdin.readline()
-                if line is not None:
-                    self.supervisor_events_ctr += 1
-                    self.supervisor_events_timestamp = str(UTCTimestampUsec())
-                    break
-                else:
-                    self.supervisor_events_error_ctr += 1
-                    self.supervisor_events_error_timestamp = str(UTCTimestampUsec)
-        headers = childutils.get_headers(line)
-        payload = stdin.read(int(headers['len']))
-        return headers, payload
-    # end wait
-
-# end class SupervisorEventListenerProtocol
-
-class SupervisorProcessInfoManager(object):
-    def __init__(self, stdin, stdout, server_url, event_handlers,
-            update_process_list = False):
-        self._stdin = stdin
-        self._stdout = stdout
-        # ServerProxy won't allow us to pass in a non-HTTP url,
-        # so we fake the url we pass into it and always use the transport's
-        # 'serverurl' to figure out what to attach to
-        self._proxy = xmlrpclib.ServerProxy('http://127.0.0.1',
-            transport = supervisor.xmlrpc.SupervisorTransport(
-                serverurl = server_url))
-        self._event_listener = SupervisorEventListener()
-        self._event_handlers = event_handlers
-        self._update_process_list = update_process_list
-    # end __init__
-
-    def GetAllProcessInfo(self):
-        """
-            Supervisor XMLRPC API returns an array of per process information:
-            {'name':           'process name',
-             'group':          'group name',
-             'description':    'pid 18806, uptime 0:03:12'
-             'start':          1200361776,
-             'stop':           0,
-             'now':            1200361812,
-             'state':          1,
-             'statename':      'RUNNING',
-             'spawnerr':       '',
-             'exitstatus':     0,
-             'logfile':        '/path/to/stdout-log', # deprecated, b/c only
-             'stdout_logfile': '/path/to/stdout-log',
-             'stderr_logfile': '/path/to/stderr-log',
-             'pid':            1}
-        """
-        process_infos = self._proxy.supervisor.getAllProcessInfo()
-        for process_info in process_infos:
-           process_info['statename'] = 'PROCESS_STATE_' + process_info['statename']
-           if 'start' in process_info:
-               process_info['start'] = process_info['start'] * 1000000
-        return process_infos
-    # end GetAllProcessInfo
-
-    def Run(self, test):
-        while True:
-            # we explicitly use self.stdin, self.stdout, and self.stderr
-            # instead of sys.* so we can unit test this code
-            headers, payload = self._event_listener.wait(
-                self._stdin, self._stdout)
-            pheaders, pdata = childutils.eventdata(payload + '\n')
-            # check for process state change events
-            if headers['eventname'].startswith("PROCESS_STATE"):
-                """
-                    eventname:PROCESS_STATE_STARTING processname:cat groupname:cat from_state:STOPPED tries:0
-                    eventname:PROCESS_STATE_RUNNING processname:cat groupname:cat from_state:STARTING pid:2766
-                    eventname:PROCESS_STATE_BACKOFF processname:cat groupname:cat from_state:STOPPED tries:0
-                    eventname:PROCESS_STATE_STOPPING processname:cat groupname:cat from_state:STARTING pid:2766
-                    eventname:PROCESS_STATE_EXITED processname:cat groupname:cat from_state:RUNNING expected:0 pid:2766
-                    eventname:PROCESS_STATE_STOPPED processname:cat groupname:cat from_state:STOPPING pid:2766
-                    eventname:PROCESS_STATE_FATAL processname:cat groupname:cat from_state:BACKOFF
-                    eventname:PROCESS_STATE_UNKNOWN processname:cat groupname:cat from_state:BACKOFF
-                """
-                process_info = {}
-                process_info['name'] = pheaders['processname']
-                process_info['group'] = pheaders['groupname']
-                process_info['state'] = headers['eventname']
-                if 'pid' in pheaders:
-                    process_info['pid'] = pheaders['pid']
-                if 'expected' in pheaders:
-                    process_info['expected'] = int(pheaders['expected'])
-                self._event_handlers['PROCESS_STATE'](process_info)
-                if self._update_process_list:
-                    self._event_handlers['PROCESS_LIST_UPDATE']()
-            # check for flag value change events
-            if headers['eventname'].startswith("PROCESS_COMMUNICATION"):
-                self._event_handlers['PRCOESS_COMMUNICATION'](pdata)
-            self._event_listener.ok(self._stdout)
-    # end Run
-
-#end class SupervisorProcessInfoManager
-
-class SystemdUtils(object):
-    SERVICE_IFACE = "org.freedesktop.systemd1.Service"
-    UNIT_IFACE = "org.freedesktop.systemd1.Unit"
-
-    PATH_REPLACEMENTS = {
-        ".": "_2e",
-        "-": "_2d",
-        "/": "_2f"
-    }
-
-    SYSTEMD_BUS_NAME = "org.freedesktop.systemd1"
-    UNIT_PATH_PREFIX = "/org/freedesktop/systemd1/unit/"
-
-    @staticmethod
-    def make_path(unit):
-        for from_, to in \
-                SystemdUtils.PATH_REPLACEMENTS.iteritems():
-            unit = unit.replace(from_, to)
-        return unit
-    # end make_path
-
-# end class SystemdUtils
-
-class SystemdActiveState(object):
-    # Convert systemd ActiveState to supervisord ProcessState
-    @staticmethod
-    def GetProcessStateName(active_state):
-        # We do not use the supervisor.states.getProcessStateDescription
-        # method so that we can eliminate supervisor dependency in the
-        # future
-        state_mapping = { 'active' : 'PROCESS_STATE_RUNNING',
-                          'failed' : 'PROCESS_STATE_EXITED',
-                          'activating' : 'PROCESS_STATE_STARTING',
-                          'deactivating' : 'PROCESS_STATE_STOPPING',
-                          'inactive' : 'PROCESS_STATE_STOPPED',
-                          'reloading' : 'PROCESS_STATE_BACKOFF',
-                        }
-        return state_mapping.get(active_state, 'PROCESS_STATE_UNKNOWN')
-    # end GetProcessStateName
-
-# end class SystemdActiveState
-
-class SystemdProcessInfoManager(object):
-
-    def __init__(self, unit_names, event_handlers, update_process_list,
-            poll):
-        self._poll = poll
-        self._unit_paths = { unit_name : \
-            SystemdUtils.UNIT_PATH_PREFIX + \
-            SystemdUtils.make_path(unit_name) for unit_name in unit_names }
-        self._bus = pydbus.SystemBus()
-        self._event_handlers = event_handlers
-        self._update_process_list = update_process_list
-        self._units = {  unit_name : self._bus.get( \
-            SystemdUtils.SYSTEMD_BUS_NAME, \
-            unit_path) for unit_name, unit_path in self._unit_paths.items() }
-        self._cached_process_infos = {}
-    # end __init__
-
-    def GetAllProcessInfo(self):
-       process_infos = []
-       for unit_name, unit in self._units.items():
-           process_info = {}
-           assert unit_name == unit.Id
-           process_name = unit_name.rsplit('.service', 1)[0]
-           process_info['name'] = process_name
-           process_info['group'] = process_name
-           process_info['pid'] = unit.ExecMainPID
-           process_info['start'] = unit.ExecMainStartTimestamp
-           process_info['statename'] = SystemdActiveState.GetProcessStateName(
-               unit.ActiveState)
-           process_infos.append(process_info)
-           cprocess_info = process_info.copy()
-           cprocess_info['state'] = cprocess_info.pop('statename')
-           del cprocess_info['start']
-           if process_name not in self._cached_process_infos:
-               self._cached_process_infos[process_name] = cprocess_info
-       return process_infos
-    # end GetAllProcessInfo
-
-    def _UnitPropertiesChanged(self, iface, changed, invalidated, unit_name):
-        if iface == SystemdUtils.UNIT_IFACE:
-            process_info = {}
-            process_info['name'] = unit_name.rsplit('.service', 1)[0]
-            process_info['group'] = process_info['name']
-            process_info['pid'] = self._units[unit_name].ExecMainPID
-            process_info['state'] = SystemdActiveState.GetProcessStateName(
-                changed['ActiveState'])
-            if process_info['state'] == 'PROCESS_STATE_EXITED':
-                process_info['expected'] = -1
-            self._event_handlers['PROCESS_STATE'](process_info)
-            if self._update_process_list:
-                self._event_handlers['PROCESS_LIST_UPDATE']()
-    # end _UnitPropertiesChanged
-
-    def _GetProcessInfo(self, unit_name, unit):
-        process_info = {}
-        assert unit_name == unit.Id
-        process_name = unit_name.rsplit('.service', 1)[0]
-        process_info['name'] = process_name
-        process_info['group'] = process_name
-        process_info['pid'] = unit.ExecMainPID
-        process_info['state'] = SystemdActiveState.GetProcessStateName(
-                unit.ActiveState)
-        if process_info['state'] == 'PROCESS_STATE_EXITED':
-            process_info['expected'] = -1
-        return process_info
-    # end _GetProcessInfo
-
-    def _DoUpdateCachedProcessInfo(self, process_info):
-        updated = False
-        process_name = process_info['name']
-        if process_name not in self._cached_process_infos:
-            self._cached_process_infos[process_name] = process_info
-            updated = True
-        else:
-            cprocess_info = self._cached_process_infos[process_name]
-            if cprocess_info['name'] != process_info['name'] or \
-                    cprocess_info['group'] != process_info['group'] or \
-                    cprocess_info['pid'] != process_info['pid'] or \
-                    cprocess_info['state'] != process_info['state']:
-                self._cached_process_infos[process_name] = process_info
-                updated = True
-        return updated
-    # end _DoUpdateCachedProcessInfo
-
-    def _PollProcessInfos(self):
-        for unit_name, unit in self._units.items():
-            process_info = self._GetProcessInfo(unit_name, unit)
-            call_handlers = self._DoUpdateCachedProcessInfo(process_info)
-            if call_handlers:
-                self._event_handlers['PROCESS_STATE'](process_info)
-                if self._update_process_list:
-                    self._event_handlers['PROCESS_LIST_UPDATE']()
-    # end _PollProcessInfos
-
-    def Run(self, test):
-        if self._poll:
-            while True:
-                self._PollProcessInfos()
-                gevent.sleep(seconds=5)
-        else:
-            for unit_name, unit in self._units.items():
-                unit_properties_changed_cb = partial(self._UnitPropertiesChanged,
-                    unit_name = unit_name)
-                unit.PropertiesChanged.connect(unit_properties_changed_cb)
-            while True:
-                gevent.sleep(seconds=0.05)
-    # end Run
-
-#end class SystemdProcessInfoManager
-
-def package_installed(pkg):
-    (pdist, _, _) = platform.dist()
-    if pdist == 'Ubuntu':
-        cmd = "dpkg -l " + pkg
-    else:
-        cmd = "rpm -q " + pkg
-    with open(os.devnull, "w") as fnull:
-        return (not subprocess.call(cmd.split(), stdout=fnull, stderr=fnull))
-# end package_installed
-
-def is_systemd_based():
-    (pdist, version, name) = platform.dist()
-    if pdist == 'Ubuntu' and version == '16.04':
-        return True
-    return False
-# end is_systemd_based
-
-def is_running_in_docker():
-    with open('/proc/1/cgroup', 'rt') as ifh:
-        return 'docker' in ifh.read()
-# end is_running_in_docker
+from docker_process_manager import DockerProcessInfoManager
+from supervisor_process_manager import SupervisorProcessInfoManager
+from systemd_process_manager import SystemdProcessInfoManager
+from utils import NodeMgrUtils, is_systemd_based,\
+    is_running_in_docker, is_running_in_kubepod
 
 class EventManagerTypeInfo(object):
     def __init__(self, package_name, module_type, object_table,
-            supervisor_serverurl, third_party_processes = {},
-            sandesh_packages = [], unit_names = []):
+                 supervisor_serverurl, third_party_processes={},
+                 sandesh_packages=[], unit_names=[]):
+
         self._package_name = package_name
         self._module_type = module_type
         self._module_name = ModuleNames[self._module_type]
@@ -351,7 +67,9 @@ class EventManagerTypeInfo(object):
         self._unit_names = unit_names
     # end __init__
 
+
 # end class EventManagerTypeInfo
+
 
 class EventManager(object):
     group_names = []
@@ -371,7 +89,7 @@ class EventManager(object):
         self.stdout = sys.stdout
         self.stderr = sys.stderr
         self.rule_file = rule_file
-        self.rules_data = {'Rules':[]}
+        self.rules_data = {'Rules': []}
         self.max_cores = 4
         self.max_old_cores = 3
         self.max_new_cores = 1
@@ -391,8 +109,7 @@ class EventManager(object):
         SupervisorEventsReq.handle_request = self.sandesh_supervisor_handle_request
         event_handlers = {}
         event_handlers['PROCESS_STATE'] = self.event_process_state
-        event_handlers['PROCESS_COMMUNICATION'] = \
-            self.event_process_communication
+        event_handlers['PROCESS_COMMUNICATION'] = self.event_process_communication
         event_handlers['PROCESS_LIST_UPDATE'] = self.update_current_process
         ConnectionState.init(self.sandesh_instance, socket.gethostname(),
             self.type_info._module_name, self.instance_id,
@@ -413,19 +130,19 @@ class EventManager(object):
             enable_syslog=self.config.use_syslog,
             syslog_facility=self.config.syslog_facility)
         self.logger = self.sandesh_instance.logger()
-        if is_systemd_based():
-            if not pydbus_present:
-                self.msg_log('Node manager cannot run without pydbus', SandeshLevel.SYS_ERR)
-                exit(-1)
-            # In docker, systemd notifications via sd_notify do not
-            # work, hence we will poll the process status
-            self.process_info_manager = SystemdProcessInfoManager(
-                self.type_info._unit_names, event_handlers,
-                update_process_list, is_running_in_docker())
+
+        if is_running_in_docker() or is_running_in_kubepod():
+            self.process_info_manager = DockerProcessInfoManager(self.type_info._unit_names,
+                                                                 event_handlers,
+                                                                 update_process_list)
+        elif is_systemd_based():
+            self.process_info_manager = SystemdProcessInfoManager(self.type_info._unit_names,
+                                                                  event_handlers,
+                                                                  update_process_list)
         else:
-            if not 'SUPERVISOR_SERVER_URL' in os.environ:
+            if 'SUPERVISOR_SERVER_URL' not in os.environ:
                 self.msg_log('Node manager must be run as a supervisor event listener',
-                              SandeshLevel.SYS_ERR)
+                             SandeshLevel.SYS_ERR)
                 exit(-1)
             self.process_info_manager = SupervisorProcessInfoManager(
                 self.stdin, self.stdout, self.type_info._supervisor_serverurl,
@@ -444,12 +161,12 @@ class EventManager(object):
     def sandesh_supervisor_handle_request(self, req):
         supervisor_resp = SupervisorEventsResp()
         if not is_systemd_based():
-            supervisor_resp.supervisor_events = SupervisorEvents( \
-                count = self.process_info_manager._event_listener.supervisor_events_ctr,
-                last_event_timestamp = self.process_info_manager._event_listener.supervisor_events_timestamp)
-            supervisor_resp.supervisor_events_error = SupervisorEvents( \
-                count = self.process_info_manager._event_listener.supervisor_events_error_ctr,
-                last_event_timestamp = self.process_info_manager._event_listener.supervisor_events_error_timestamp)
+            supervisor_resp.supervisor_events = SupervisorEvents(
+                count=self.process_info_manager._event_listener.supervisor_events_ctr,
+                last_event_timestamp=self.process_info_manager._event_listener.supervisor_events_timestamp)
+            supervisor_resp.supervisor_events_error = SupervisorEvents(
+                count=self.process_info_manager._event_listener.supervisor_events_error_ctr,
+                last_event_timestamp=self.process_info_manager._event_listener.supervisor_events_error_timestamp)
         supervisor_resp.response(req.context())
 
     def load_rules_data(self):
@@ -475,7 +192,9 @@ class EventManager(object):
         # Add all current processes to make sure nothing misses the radar
         process_state_db = {}
         # list of all processes on the node is made here
-        for proc_info in self.process_info_manager.GetAllProcessInfo():
+        all_processes = self.process_info_manager.get_all_processes()
+        self.msg_log("DBG: get_current_process: '%s'" % all_processes, SandeshLevel.SYS_DEBUG)
+        for proc_info in all_processes:
             proc_name = self.get_process_name(proc_info)
             proc_pid = int(proc_info['pid'])
 
@@ -501,6 +220,8 @@ class EventManager(object):
     # In case the processes in the Node can change, update current processes
     def update_current_process(self):
         process_state_db = self.get_current_process()
+        msg = ("DBG: update_current_process: process_state_db='%s'" % process_state_db)
+        self.msg_log(msg, SandeshLevel.SYS_DEBUG)
         old_process_set = set(key for group in self.process_state_db for key in self.process_state_db[group])
         new_process_set = set(key for group in process_state_db for key in process_state_db[group])
         common_process_set = new_process_set.intersection(old_process_set)
@@ -587,7 +308,7 @@ class EventManager(object):
             self.msg_log('Failed to get core files: %s' % (str(e)),
                 SandeshLevel.SYS_ERR)
         else:
-            return [self.get_corefile_path()+'/'+core for core in corenames.split()]
+            return [self.get_corefile_path() + '/' + core for core in corenames.split()]
     # end get_corefiles
 
     def remove_corefiles(self, core_files):
@@ -620,12 +341,13 @@ class EventManager(object):
 
         for group in self.process_state_db:
             for key in self.process_state_db[group]:
-                if set(process_state_db_tmp[group][key].core_file_list) != set(self.process_state_db[group][key].core_file_list):
+                if set(process_state_db_tmp[group][key].core_file_list) != set(
+                        self.process_state_db[group][key].core_file_list):
                     self.process_state_db[group][key].core_file_list = process_state_db_tmp[group][key].core_file_list
                     ret_value = True
 
         return ret_value
-    #end update_process_core_file_list
+    # end update_process_core_file_list
 
     def send_process_state_db_base(self, group_names, ProcessInfo):
         name = socket.gethostname()
@@ -645,7 +367,7 @@ class EventManager(object):
                 process_info.last_exit_time = pstat.exit_time
                 process_info.core_file_list = pstat.core_file_list
                 process_infos.append(process_info)
-                #in tor-agent case, we should use tor-agent name as uve key
+                # in tor-agent case, we should use tor-agent name as uve key
                 name = pstat.name
                 if pstat.deleted == False:
                     delete_status = False
@@ -763,7 +485,7 @@ class EventManager(object):
             self.process_state_db[proc_stat.group] = {}
             send_init_uve = True
         self.process_state_db[proc_stat.group][pname] = proc_stat
-        if not(send_uve):
+        if not (send_uve):
             return
 
         if (send_uve):
@@ -796,10 +518,23 @@ class EventManager(object):
             ProcessStateNames, ProcessState, ProcessStatus)
     # end send_nodemgr_process_status
 
+    def _get_package_version(self):
+        installed_package_version = \
+            NodeMgrUtils.get_package_version(self.get_package_name())
+        if installed_package_version is None:
+            # TODO: temp for containers
+            installed_package_version = \
+                NodeMgrUtils.get_package_version('contrail-nodemgr')
+            if installed_package_version is None:
+                self.msg_log('Error getting %s package version' % (
+                    self.get_package_name()), SandeshLevel.SYS_ERR)
+                installed_package_version = "package-version-unknown"
+        return installed_package_version
+
     def send_init_info(self, group_name):
         key = next(key for key in self.process_state_db[group_name])
         # system_cpu_info
-        mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
+        mem_cpu_usage_data = SysMemCpuUsageData(self.last_cpu, self.last_time)
         sys_cpu = SystemCpuInfo()
         sys_cpu.num_socket = mem_cpu_usage_data.get_num_socket()
         sys_cpu.num_cpu = mem_cpu_usage_data.get_num_cpu()
@@ -807,21 +542,15 @@ class EventManager(object):
         sys_cpu.num_thread_per_core = mem_cpu_usage_data.get_num_thread_per_core()
 
         node_status = NodeStatus(
-                        name=self.process_state_db[group_name][key].name,
-                        system_cpu_info=sys_cpu,
-                        build_info = self.get_build_info())
+            name=self.process_state_db[group_name][key].name,
+            system_cpu_info=sys_cpu,
+            build_info=self.get_build_info())
 
         # installed/running package version
-        installed_package_version = \
-            NodeMgrUtils.get_package_version(self.get_package_name())
-        if installed_package_version is None:
-            self.msg_log('Error getting %s package version' % (self.get_package_name()),
-                          SandeshLevel.SYS_ERR)
-            exit(-1)
-        else:
-            self.installed_package_version = installed_package_version
-            node_status.installed_package_version = installed_package_version
-            node_status.running_package_version = installed_package_version
+        installed_package_version = self._get_package_version()
+        self.installed_package_version = installed_package_version
+        node_status.installed_package_version = installed_package_version
+        node_status.running_package_version = installed_package_version
 
         node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                         data=node_status)
@@ -833,7 +562,7 @@ class EventManager(object):
             pstat = self.process_state_db[group_name][key]
             if (pstat.process_state == 'PROCESS_STATE_RUNNING'):
                 try:
-                    mem_cpu_usage_data = MemCpuUsageData(pstat.pid, pstat.last_cpu, pstat.last_time)
+                    mem_cpu_usage_data = self.process_info_manager.get_mem_cpu_usage_data(pstat.pid, pstat.last_cpu, pstat.last_time)
                     process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                 except psutil.NoSuchProcess:
                     self.msg_log('NoSuchProcess: process name: %s pid:%d' % (pstat.pname, pstat.pid),
@@ -847,12 +576,8 @@ class EventManager(object):
         # walk through all processes being monitored by nodemgr,
         # not spawned by supervisord
         for pname, pattern in self.third_party_process_dict.items():
-            cmd = "ps -aux | grep " + pattern + " | awk '{print $2}' | head -n1"
-            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, close_fds=True)
-            stdout, stderr = proc.communicate()
-            if (stdout != ''):
-                pid = int(stdout.strip('\n'))
+            pid = self.process_info_manager.find_pid(pname, pattern)
+            if pid is not None:
                 if pname in self.third_party_process_state_db:
                     pstat = self.third_party_process_state_db[pname]
                 else:
@@ -860,7 +585,7 @@ class EventManager(object):
                     pstat.pid = pid
                     self.third_party_process_state_db[pname] = pstat
                 try:
-                    mem_cpu_usage_data = MemCpuUsageData(pstat.pid, pstat.last_cpu, pstat.last_time)
+                    mem_cpu_usage_data = self.process_info_manager.get_mem_cpu_usage_data(pstat.pid, pstat.last_cpu, pstat.last_time)
                     process_mem_cpu = mem_cpu_usage_data.get_process_mem_cpu_info()
                 except psutil.NoSuchProcess:
                     self.msg_log('NoSuchProcess: process name:%s pid:%d' % (pstat.pname, pstat.pid),
@@ -898,8 +623,8 @@ class EventManager(object):
                     disk_usage_stat.partition_space_used_1k + \
                     disk_usage_stat.partition_space_available_1k
                 disk_usage_stat.percentage_partition_space_used = \
-                    int(round((float(disk_usage_stat.partition_space_used_1k)/ \
-                        float(total_disk_space))*100))
+                    int(round((float(disk_usage_stat.partition_space_used_1k) / \
+                               float(total_disk_space)) * 100))
             except ValueError:
                 self.msg_log('Failed to get local disk space usage', SandeshLevel.SYS_ERR)
             else:
@@ -932,8 +657,8 @@ class EventManager(object):
         return ""
 
     def event_process_state(self, process_info):
-        msg = ("process:" + process_info['name'] + "," + "group:" +
-                process_info['group'] + "," + "state:" + process_info['state'])
+        msg = ("DBG: event_process_state:" + process_info['name'] + "," + "group:" +
+               process_info['group'] + "," + "state:" + process_info['state'])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
         self.send_process_state(process_info)
         for rules in self.rules_data['Rules']:
@@ -960,8 +685,8 @@ class EventManager(object):
 
     def event_process_communication(self, pdata):
         flag_and_value = pdata.partition(":")
-        msg = ("Flag:" + flag_and_value[0] +
-                " Value:" + flag_and_value[2])
+        msg = ("DBG: event_process_communication: Flag:" + flag_and_value[0] +
+               " Value:" + flag_and_value[2])
         self.msg_log(msg, SandeshLevel.SYS_DEBUG)
         for rules in self.rules_data['Rules']:
             if 'flag_name' in rules:
@@ -974,7 +699,7 @@ class EventManager(object):
 
     def event_tick_60(self):
         self.tick_count += 1
-
+        installed_package_version = None
         for group in self.process_state_db:
             key = next(key for key in self.process_state_db[group])
             # get disk usage info periodically
@@ -990,7 +715,7 @@ class EventManager(object):
             process_mem_cpu_usage = self.get_group_processes_mem_cpu_usage(group)
 
             # get system mem/cpu usage
-            system_mem_cpu_usage_data = MemCpuUsageData(os.getpid(), self.last_cpu, self.last_time)
+            system_mem_cpu_usage_data = SysMemCpuUsageData(self.last_cpu, self.last_time)
             system_mem_usage = system_mem_cpu_usage_data.get_sys_mem_info(
                 self.type_info._uve_node_type)
             system_cpu_usage = system_mem_cpu_usage_data.get_sys_cpu_info(
@@ -1010,16 +735,13 @@ class EventManager(object):
             if self.update_all_core_file():
                 node_status.all_core_file_list = self.all_core_file_list
 
-            installed_package_version = \
-                NodeMgrUtils.get_package_version(self.get_package_name())
-            if installed_package_version is None:
-                self.msg_log('Error getting %s package version' % (self.get_package_name()),
-                              SandeshLevel.SYS_ERR)
-                installed_package_version = "package-version-unknown"
+            installed_package_version = self._get_package_version()
             if (installed_package_version != self.installed_package_version):
                 node_status.installed_package_version = installed_package_version
             node_status_uve = NodeStatusUVE(table=self.type_info._object_table,
                                             data=node_status)
+
+            self.msg_log('DBG: event_tick_60: node_status=%s' % node_status, SandeshLevel.SYS_DEBUG)
             node_status_uve.send()
         self.installed_package_version = installed_package_version
 
@@ -1033,18 +755,19 @@ class EventManager(object):
 
             duration = time.time() - before
             if duration < interval:
-                gevent.sleep(interval-duration)
+                gevent.sleep(interval - duration)
             else:
                 self.msg_log('function %s duration exceeded %f interval (took %f)'
                              % (function.__name__, interval, duration), SandeshLevel.SYS_ERR)
     # end run_periodically
 
     def runforever(self, test=False):
-        self.process_info_manager.Run(test)
+        self.process_info_manager.run(test)
     # end runforever
 
     def get_package_name(self):
         return self.type_info._package_name
+
     # end get_package_name
 
     def nodemgr_sighup_handler(self):
