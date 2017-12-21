@@ -17,9 +17,9 @@ class VncNamespaceTest(KMTestCase):
         super(VncNamespaceTest, self).tearDown()
 
     @classmethod
-    def setUpClass(cls, extra_config_knobs=None):
+    def setUpClass(cls, extra_config_knobs=None, kube_args=()):
         super(VncNamespaceTest, cls).setUpClass(
-            extra_config_knobs=extra_config_knobs)
+            extra_config_knobs=extra_config_knobs, kube_args=())
         cls.domain = 'default-domain'
         cls.cluster_project = 'test-project'
         cls.ns_name = 'test-namespace'
@@ -39,6 +39,7 @@ class VncNamespaceTest(KMTestCase):
         ns_add_event = self.create_event('Namespace', spec, ns_meta, 'ADDED')
         if locate:
             NamespaceKM.locate(name, ns_add_event['object'])
+            NamespaceKM.locate(ns_uuid, ns_add_event['object'])
         self.enqueue_event(ns_add_event)
         self.wait_for_all_tasks_done()
         return ns_uuid
@@ -52,7 +53,7 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
         super(VncNamespaceTestClusterProjectDefined, self).tearDown()
 
     def test_add_namespace(self):
-        ns_uuid = self._create_and_add_namespace(self.ns_name, {}, None)
+        ns_uuid = self._create_and_add_namespace(self.ns_name, {}, None, True)
 
         # Check for project
         proj = self._vnc_lib.project_read(fq_name=["default-domain",
@@ -92,9 +93,9 @@ class VncNamespaceTestClusterProjectUndefined(
         super(VncNamespaceTestClusterProjectUndefined, self).tearDown()
 
     @classmethod
-    def setUpClass(cls, extra_config_knobs=None):
+    def setUpClass(cls, extra_config_knobs=None, kube_args=()):
         super(VncNamespaceTestClusterProjectUndefined, cls).setUpClass(
-            extra_config_knobs=extra_config_knobs)
+            extra_config_knobs=extra_config_knobs, kube_args=())
         cls.domain = 'default-domain'
         cls.ns_name = 'test-namespace'
         cls.cluster_project = cls.ns_name
@@ -112,9 +113,9 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTest):
         super(VncNamespaceTestCustomNetwork, self).tearDown()
 
     @classmethod
-    def setUpClass(cls, extra_config_knobs=None):
+    def setUpClass(cls, extra_config_knobs=None, kube_args=()):
         super(VncNamespaceTestCustomNetwork, cls).setUpClass(
-            extra_config_knobs=extra_config_knobs)
+            extra_config_knobs=extra_config_knobs, kube_args=())
         cls.domain = 'default-domain'
         cls.ns_name = 'test-namespace'
         cls.vn_name = 'test-network'
@@ -160,7 +161,7 @@ class VncNamespaceTestScaling(VncNamespaceTest):
 
         for i in xrange(scale):
             ns_uuid = self._create_and_add_namespace(self.ns_name + str(i), {},
-                                                     None)
+                                                     None, True)
             proj = self._vnc_lib.project_read(fq_name=["default-domain",
                                                        self.cluster_project])
             self.assertIsNotNone(proj)
