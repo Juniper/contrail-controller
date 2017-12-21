@@ -64,7 +64,7 @@ class DMTestCase(test_common.TestCase):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
-    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False):
+    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False, role=None):
         bgp_router = BgpRouter(name, parent_obj=self._get_ip_fabric_ri_obj())
         params = BgpRouterParams()
         params.address = mgmt_ip
@@ -82,6 +82,8 @@ class DMTestCase(test_common.TestCase):
         pr.physical_router_vendor_name = vendor
         pr.physical_router_product_name = product
         pr.physical_router_vnc_managed = True
+        if role:
+            pr.physical_router_role = role
         uc = UserCredentials('user', 'pw')
         pr.set_physical_router_user_credentials(uc)
         pr.set_bgp_router(bgp_router)
