@@ -197,7 +197,7 @@ bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
 
 bool VxLanTable::Delete(DBEntry *entry, const DBRequest *req) {
     VxLanId *vxlan_id = static_cast<VxLanId *>(entry);
-    vxlan_id->SendObjectLog(this, AgentLogEvent::DELETE);
+    vxlan_id->SendObjectLog(this, AgentLogEvent::DEL);
     return true;
 }
 
@@ -365,7 +365,7 @@ void VxLanId::SendObjectLog(const AgentDBTable *table,
         case AgentLogEvent::ADD:
             str.assign("Addition ");
             break;
-        case AgentLogEvent::DELETE:
+        case AgentLogEvent::DEL:
             str.assign("Deletion ");
             info.set_event(str);
             OPER_TRACE_ENTRY(VxLan, table, info);

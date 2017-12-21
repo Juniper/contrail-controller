@@ -26,13 +26,15 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <fcntl.h>
+#ifdef _WIN32
+#include <posix_fcntl.h>
+#endif
 #include "net/address_util.h"
 #include "oper/global_system_config.h"
 #include <resource_manager/resource_manager.h>
 #include <resource_manager/resource_table.h>
 #include <resource_manager/bgp_as_service_index.h>
 
-using namespace std;
 SandeshTraceBufferPtr BgpAsAServiceTraceBuf(SandeshTraceBufferCreate
                                             ("BgpAsAService", 500));
 
@@ -71,8 +73,7 @@ void BgpAsAService::BindBgpAsAServicePorts(const std::vector<uint16_t> &ports) {
             ss << port;
             BGPASASERVICETRACE(Trace, ss.str().c_str());
         }
-        setsockopt(port_fd, SOL_SOCKET, SO_REUSEADDR,
-                   &optval, sizeof(optval));
+        setsockopt(port_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&optval, sizeof(optval));
         if (bind(port_fd, (struct sockaddr*) &address,
                  sizeof(sockaddr_in)) < 0) {
             std::stringstream ss;

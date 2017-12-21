@@ -87,7 +87,7 @@ public:
         TASK_EXIT,
         SET_SERVICE,
         STOP_TASK,
-        EVENT_MAX
+        EVENT_MAXIMUM
     };
 
     HealthCheckInstanceEvent(HealthCheckInstanceBase *inst,

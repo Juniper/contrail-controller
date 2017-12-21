@@ -71,7 +71,7 @@ bool MplsLabel::Change(const DBRequest *req) {
 
 void MplsLabel::Delete(const DBRequest *req) {
     const AgentDBTable *table = static_cast<const AgentDBTable *>(get_table());
-    SendObjectLog(table, AgentLogEvent::DELETE);
+    SendObjectLog(table, AgentLogEvent::DEL);
     return;
 }
 
@@ -138,7 +138,7 @@ void MplsLabel::SendObjectLog(const AgentDBTable *table,
     case AgentLogEvent::ADD:
         str.assign("Addition ");
         break;
-    case AgentLogEvent::DELETE:
+    case AgentLogEvent::DEL:
         str.assign("Deletion ");
         info.set_event(str);
         OPER_TRACE_ENTRY(Mpls, table, info);

@@ -14,6 +14,7 @@
 #include "flow_mgmt_dbclient.h"
 #include "flow_mgmt.h"
 #include "flow_event.h"
+#include <strings.h>
 
 static void UpdateStats(FlowEvent *event, FlowStats *stats);
 
