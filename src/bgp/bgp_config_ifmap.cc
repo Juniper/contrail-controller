@@ -1099,7 +1099,7 @@ void BgpIfmapInstanceConfig::InsertVitInImportList(
             if (master_protocol->protocol_config()) {
                 bgp_identifier =
                     master_protocol->protocol_config()->identifier();
-	    }
+            }
         }
     }
     if (bgp_identifier > 0) {
@@ -1759,6 +1759,10 @@ static void BuildPolicyTermConfig(autogen::PolicyTermType cfg_term,
             cfg_term.term_match_condition.community);
     }
 
+    BOOST_FOREACH(uint16_t asn,
+        cfg_term.term_action_list.update.as_path.expand.asn_list) {
+        term->action.update.aspath_expand.push_back(asn);
+    }
     BOOST_FOREACH(const string community,
                   cfg_term.term_action_list.update.community.add.community) {
         term->action.update.community_add.push_back(community);
@@ -1774,11 +1778,14 @@ static void BuildPolicyTermConfig(autogen::PolicyTermType cfg_term,
     term->action.update.local_pref =
         cfg_term.term_action_list.update.local_pref;
     term->action.update.med = cfg_term.term_action_list.update.med;
+
     term->action.action = RoutingPolicyActionConfig::NEXT_TERM;
-    if (strcmp(cfg_term.term_action_list.action.c_str(), "reject") == 0)
+    if (strcmp(cfg_term.term_action_list.action.c_str(), "reject") == 0) {
         term->action.action = RoutingPolicyActionConfig::REJECT;
-    else if (strcmp(cfg_term.term_action_list.action.c_str(), "accept") == 0)
+    } else if (
+        strcmp(cfg_term.term_action_list.action.c_str(), "accept") == 0) {
         term->action.action = RoutingPolicyActionConfig::ACCEPT;
+    }
 }
 
 static void BuildPolicyTermsConfig(BgpRoutingPolicyConfig *policy_cfg,
@@ -2022,7 +2029,6 @@ void BgpIfmapConfigManager::UpdateInstanceConfig(BgpIfmapInstanceConfig *rti,
             import_rt, export_rt,
             rti->virtual_network(), rti->virtual_network_index());
     }
-
 }
 
 //

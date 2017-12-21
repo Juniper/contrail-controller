@@ -77,6 +77,20 @@ public:
     }
 };
 
+class UpdateAsPath : public RoutingPolicyUpdateAction {
+public:
+    UpdateAsPath(const std::vector<uint16_t> &asn_list);
+    virtual ~UpdateAsPath() {}
+
+    virtual void operator()(BgpAttr *out_attr) const;
+    std::string ToString() const;
+    virtual bool IsEqual(const RoutingPolicyAction &as_path) const;
+    const std::vector<uint16_t> &asn_list() const { return asn_list_; }
+
+private:
+    std::vector<uint16_t> asn_list_;
+};
+
 class UpdateCommunity : public RoutingPolicyUpdateAction {
 public:
     typedef std::vector<uint32_t> CommunityList;

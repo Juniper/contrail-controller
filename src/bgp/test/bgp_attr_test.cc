@@ -360,14 +360,14 @@ TEST_F(BgpAttrTest, AsPathCompare_Set) {
 TEST_F(BgpAttrTest, AsPathAdd) {
     AsPathSpec path;
 
-    // Add to an empty path
+    // Add to an empty path.
     AsPathSpec *p2 = path.Add(1000);
     EXPECT_EQ(1, p2->path_segments.size());
     EXPECT_EQ(1, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
 
-    // populate the path with some entries
+    // Populate the path with some entries.
     for (int i = 0; i < 10; i++) {
         AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
         ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
@@ -383,6 +383,7 @@ TEST_F(BgpAttrTest, AsPathAdd) {
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
 
+    // Add to a path whose first segment is of type AS_SET.
     path.path_segments[0]->path_segment_type = AsPathSpec::PathSegment::AS_SET;
     p2 = path.Add(1000);
     EXPECT_EQ(11, p2->path_segments.size());
@@ -390,6 +391,8 @@ TEST_F(BgpAttrTest, AsPathAdd) {
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
     delete p2;
 
+    // Add to a path whose first segment is of type AS_SEQUENCE but the segment
+    // does not have enough room for the entire list.
     path.path_segments[0]->path_segment_type =
         AsPathSpec::PathSegment::AS_SEQUENCE;
     for (int j = 11; j < 256; j++) {
@@ -400,6 +403,60 @@ TEST_F(BgpAttrTest, AsPathAdd) {
     EXPECT_EQ(11, p2->path_segments.size());
     EXPECT_EQ(1, p2->path_segments[0]->path_segment.size());
     EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
+    delete p2;
+}
+
+TEST_F(BgpAttrTest, AsPathAddList) {
+    AsPathSpec path;
+    vector<as_t> asn_list = list_of(1000)(2000);
+
+    // Add to an empty path.
+    AsPathSpec *p2 = path.Add(asn_list);
+    EXPECT_EQ(1, p2->path_segments.size());
+    EXPECT_EQ(2, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
+    EXPECT_EQ(2000, p2->path_segments[0]->path_segment[1]);
+    delete p2;
+
+    // Populate the path with some entries.
+    for (int i = 0; i < 10; i++) {
+        AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+        ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+        for (int j = 0; j < 10; j++) {
+            ps->path_segment.push_back((i << 4) + j);
+        }
+        path.path_segments.push_back(ps);
+    }
+
+    p2 = path.Add(asn_list);
+    EXPECT_EQ(10, p2->path_segments.size());
+    EXPECT_EQ(12, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
+    EXPECT_EQ(2000, p2->path_segments[0]->path_segment[1]);
+    delete p2;
+
+    // Add to a path whose first segment is of type AS_SET.
+    path.path_segments[0]->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    p2 = path.Add(asn_list);
+    EXPECT_EQ(11, p2->path_segments.size());
+    EXPECT_EQ(2, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
+    EXPECT_EQ(2000, p2->path_segments[0]->path_segment[1]);
+    delete p2;
+
+    // Add to a path whose first segment is of type AS_SEQUENCE but the segment
+    // does not have enough room for the entire list.
+    path.path_segments[0]->path_segment_type =
+        AsPathSpec::PathSegment::AS_SEQUENCE;
+    for (int j = 11; j < 255; j++) {
+        path.path_segments[0]->path_segment.push_back(j);
+    }
+
+    p2 = path.Add(asn_list);
+    EXPECT_EQ(11, p2->path_segments.size());
+    EXPECT_EQ(2, p2->path_segments[0]->path_segment.size());
+    EXPECT_EQ(1000, p2->path_segments[0]->path_segment[0]);
+    EXPECT_EQ(2000, p2->path_segments[0]->path_segment[1]);
     delete p2;
 }
 

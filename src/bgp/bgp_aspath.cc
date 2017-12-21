@@ -4,13 +4,16 @@
 
 #include "bgp/bgp_aspath.h"
 
+#include <boost/assign/list_of.hpp>
 #include <sstream>
 
 #include "bgp/bgp_proto.h"
 
+using boost::assign::list_of;
 using std::copy;
 using std::ostringstream;
 using std::string;
+using std::vector;
 
 //
 // Return the left most AS.
@@ -125,18 +128,27 @@ bool AsPathSpec::AsPathLoop(as_t as, uint8_t max_loop_count) const {
 // Create a new AsPathSpec by prepending the given asn at the beginning.
 //
 AsPathSpec *AsPathSpec::Add(as_t asn) const {
+    vector<as_t> asn_list = list_of(asn);
+    return Add(asn_list);
+}
+
+//
+// Create a new AsPathSpec by prepending the given vector of asns at the
+// beginning.
+//
+AsPathSpec *AsPathSpec::Add(const vector<as_t> &asn_list) const {
     AsPathSpec *new_spec = new AsPathSpec;
     PathSegment *ps = new PathSegment;
     ps->path_segment_type = PathSegment::AS_SEQUENCE;
-    ps->path_segment.push_back(asn);
-    int first = 0;
-    int last = path_segments.size();
+    ps->path_segment = asn_list;
+    size_t first = 0;
+    size_t last = path_segments.size();
     if (last &&
         path_segments[0]->path_segment_type == PathSegment::AS_SEQUENCE &&
-        path_segments[0]->path_segment.size() < 255) {
+        path_segments[0]->path_segment.size() + asn_list.size() <= 255) {
         copy(path_segments[0]->path_segment.begin(),
-                path_segments[0]->path_segment.end(),
-                back_inserter(ps->path_segment));
+             path_segments[0]->path_segment.end(),
+             back_inserter(ps->path_segment));
         new_spec->path_segments.push_back(ps);
         first++;
     } else {
@@ -144,9 +156,9 @@ AsPathSpec *AsPathSpec::Add(as_t asn) const {
     }
     if (first == last)
         return new_spec;
-    for (int i = first; i < last; i++) {
+    for (size_t idx = first; idx < last; ++idx) {
         PathSegment *ps = new PathSegment;
-        *ps = *path_segments[i];
+        *ps = *path_segments[idx];
         new_spec->path_segments.push_back(ps);
     }
     return new_spec;

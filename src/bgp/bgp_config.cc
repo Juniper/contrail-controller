@@ -433,6 +433,11 @@ string RoutingPolicyMatchConfig::ToString() const {
     return oss.str();
 }
 
+static void PutAsnList(ostringstream *oss, const AsnList &list) {
+    copy(list.begin(), list.end(), ostream_iterator<uint16_t>(*oss, ","));
+    oss->seekp(-1, oss->cur);
+}
+
 static void PutCommunityList(ostringstream *oss, const CommunityList &list) {
     copy(list.begin(), list.end(), ostream_iterator<string>(*oss, ","));
     oss->seekp(-1, oss->cur);
@@ -441,6 +446,11 @@ static void PutCommunityList(ostringstream *oss, const CommunityList &list) {
 string RoutingPolicyActionConfig::ToString() const {
     ostringstream oss;
     oss << "then {" << endl;
+    if (!update.aspath_expand.empty()) {
+        oss << "    as-path expand [ ";
+        PutAsnList(&oss, update.aspath_expand);
+        oss << " ]" << endl;
+    }
     if (!update.community_set.empty()) {
         oss << "    community set [ ";
         PutCommunityList(&oss, update.community_set);

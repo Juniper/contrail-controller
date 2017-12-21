@@ -17,6 +17,44 @@
 using std::copy;
 using std::ostringstream;
 using std::string;
+using std::vector;
+
+UpdateAsPath::UpdateAsPath(const vector<uint16_t> &asn_list)
+    : asn_list_(asn_list) {
+}
+
+void UpdateAsPath::operator()(BgpAttr *attr) const {
+    if (!attr)
+        return;
+    const AsPath *as_path = attr->as_path();
+    if (as_path) {
+        const AsPathSpec &as_path_spec = as_path->path();
+        AsPathSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
+        attr->set_as_path(as_path_spec_ptr);
+        delete as_path_spec_ptr;
+    } else {
+        AsPathSpec as_path_spec;
+        AsPathSpec *as_path_spec_ptr = as_path_spec.Add(asn_list_);
+        attr->set_as_path(as_path_spec_ptr);
+        delete as_path_spec_ptr;
+    }
+}
+
+string UpdateAsPath::ToString() const {
+    ostringstream oss;
+    oss << "as-path expand [ ";
+    BOOST_FOREACH(uint16_t asn, asn_list_) {
+        oss << asn << ",";
+    }
+    oss.seekp(-1, oss.cur);
+    oss << " ]";
+    return oss.str();
+}
+
+bool UpdateAsPath::IsEqual(const RoutingPolicyAction &as_path) const {
+    const UpdateAsPath in_as_path = static_cast<const UpdateAsPath&>(as_path);
+    return (asn_list_ == in_as_path.asn_list_);
+}
 
 UpdateCommunity::UpdateCommunity(const std::vector<string> communities,
                                  string op) {

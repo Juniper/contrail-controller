@@ -22,6 +22,14 @@
     </xsd:restriction>
 </xsd:simpleType>
 
+<xsd:complexType name='AsListType'>
+    <xsd:element name='asn-list' type='xsd:integer' maxOccurs='unbounded'/>
+</xsd:complexType>
+
+<xsd:complexType name="ActionAsPathType">
+    <xsd:element name='expand'   type='AsListType'/>
+</xsd:complexType>
+
 <xsd:complexType name='CommunityListType'>
     <xsd:element name='community' type='CommunityAttribute' maxOccurs='unbounded'/>
 </xsd:complexType>
@@ -33,6 +41,7 @@
 </xsd:complexType>
 
 <xsd:complexType name="ActionUpdateType">
+    <xsd:element name="as-path"     type="ActionAsPathType"/>
     <xsd:element name="community"   type="ActionCommunityType"/>
     <xsd:element name="local-pref"  type="xsd:integer"/>
     <xsd:element name="med"         type="xsd:integer"/>
