@@ -44,7 +44,7 @@ test_health_check = AgentEnv.MakeTestCmd(env, 'test_health_check', oper_test_sui
 test_oper_xml = AgentEnv.MakeTestCmdSrc(env, 'test_oper_xml',
                                         [
                                          'test_oper_xml.cc',
-                                         '../../pkt/test/test_pkt_util.o'
+                                         '../../pkt/test/test_pkt_util' + env['OBJSUFFIX'],
                                         ],
                                         oper_test_suite)
 test_fip_cfg = AgentEnv.MakeTestCmd(env, 'test_fip_cfg', oper_test_suite)
@@ -106,7 +106,7 @@ test_physical_devices = AgentEnv.MakeTestCmdSrc(env, 'test_physical_devices',
                                                 [
                                                 'test_physical_devices.cc',
                                                 'test_xml_agent_init.cc',
-                                                '../../pkt/test/test_pkt_util.o'
+                                                '../../pkt/test/test_pkt_util' + env['OBJSUFFIX'],
                                                 ],
                                                 oper_test_suite)
 

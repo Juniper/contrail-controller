@@ -50,7 +50,7 @@ class VrfEntry::DeleteActor : public LifetimeActor {
     virtual void Shutdown() {
     }
     virtual void Destroy() {
-        table_->SendObjectLog(AgentLogEvent::DELETE);
+        table_->SendObjectLog(AgentLogEvent::DEL);
         table_ = NULL;
     }
 
@@ -379,7 +379,7 @@ void VrfEntry::SendObjectLog(AgentLogEvent::type event) const {
         case AgentLogEvent::ADD:
             str.assign("Addition ");
             break;
-        case AgentLogEvent::DELETE:
+        case AgentLogEvent::DEL:
             str.assign("Deletion ");
             break;
         case AgentLogEvent::CHANGE:
@@ -522,6 +522,7 @@ public:
     //Override route notification
     bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
         assert(0);
+        return false;
     }
 
     static void WalkDone(VrfDeleteWalker *walker) { 
