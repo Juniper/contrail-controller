@@ -1015,7 +1015,7 @@ public:
 
     enum Trace {
         ADD,
-        DELETE,
+        DEL,
         ACTIVATED_IPV4,
         ACTIVATED_IPV6,
         ACTIVATED_L2,

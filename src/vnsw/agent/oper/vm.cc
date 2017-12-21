@@ -118,7 +118,7 @@ void VmEntry::SendObjectLog(AgentLogEvent::type event) const {
         case AgentLogEvent::ADD:
             str.assign("Addition ");
             break;
-        case AgentLogEvent::DELETE:
+        case AgentLogEvent::DEL:
             str.assign("Deletion ");
             break;
         case AgentLogEvent::CHANGE:
@@ -130,7 +130,7 @@ void VmEntry::SendObjectLog(AgentLogEvent::type event) const {
     }
     info.set_event(str);
     info.set_uuid(str_uuid);
-    if (event != AgentLogEvent::DELETE && sg_list.size()) {
+    if (event != AgentLogEvent::DEL && sg_list.size()) {
         info.set_sg_uuid_list(sg_list);
     }
     info.set_ref_count(GetRefCount());
@@ -161,7 +161,7 @@ bool VmTable::OperDBOnChange(DBEntry *entry, const DBRequest *req) {
 
 bool VmTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     VmEntry *vm = static_cast<VmEntry *>(entry);
-    vm->SendObjectLog(AgentLogEvent::DELETE);
+    vm->SendObjectLog(AgentLogEvent::DEL);
     return true;
 }
 

@@ -84,11 +84,11 @@ struct AgentRouteData : public AgentData {
 };
 
 struct RouteComparator {
-    bool operator() (const AgentRoute *rt1, const AgentRoute *rt2);
+    bool operator() (const AgentRoute *rt1, const AgentRoute *rt2) const;
 };
 
 struct NHComparator {
-    bool operator() (const NextHop *nh1, const NextHop *nh2);
+    bool operator() (const NextHop *nh1, const NextHop *nh2) const;
 };
 
 struct RouteTableWalkerState {
@@ -224,7 +224,7 @@ class AgentRoute : public Route {
 public:
     enum Trace {
         ADD,
-        DELETE,
+        DEL,
         ADD_PATH,
         DELETE_PATH,
         CHANGE_PATH,

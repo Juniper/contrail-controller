@@ -56,12 +56,11 @@ class AgentRouteTable::DeleteActor : public LifetimeActor {
     AgentRouteTable *table_;
 };
 
-bool RouteComparator::operator() (const AgentRoute *rt1,
-                                  const AgentRoute *rt2) {
+bool RouteComparator::operator() (const AgentRoute *rt1, const AgentRoute *rt2) const {
     return rt1->IsLess(*rt2);
 }
 
-bool NHComparator::operator() (const NextHop *nh1, const NextHop *nh2) {
+bool NHComparator::operator() (const NextHop *nh1, const NextHop *nh2) const {
     return nh1->IsLess(*nh2);
 }
 
@@ -630,7 +629,7 @@ void AgentRoute::DeletePathFromPeer(DBTablePartBase *part,
     // Delete route if no more paths
     if (GetActivePath() == NULL) {
         RouteInfo rt_info_del;
-        FillTrace(rt_info_del, AgentRoute::DELETE, NULL);
+        FillTrace(rt_info_del, AgentRoute::DEL, NULL);
         OPER_TRACE_ROUTE_ENTRY(Route, table, rt_info_del);
         DeleteDerivedRoutes(table);
         table->RemoveUnresolvedRoute(this);

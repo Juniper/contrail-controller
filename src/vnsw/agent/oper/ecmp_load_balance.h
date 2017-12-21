@@ -8,7 +8,6 @@
 #include <vnc_cfg_types.h>
 
 using namespace boost::uuids;
-using namespace std;
 
 namespace autogen {
     struct EcmpHashingIncludeFields;

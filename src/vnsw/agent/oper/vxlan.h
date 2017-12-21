@@ -103,7 +103,7 @@ public:
         }
         ConfigKey() : vxlan_id_(0), vn_() { }
 
-        bool operator()(const ConfigKey &lhs, const ConfigKey &rhs) {
+        bool operator()(const ConfigKey &lhs, const ConfigKey &rhs) const {
             if (lhs.vxlan_id_ != rhs.vxlan_id_)
                 return lhs.vxlan_id_ < rhs.vxlan_id_;
 
