@@ -13,7 +13,6 @@
 #include <oper/agent_route_walker.h>
 
 using namespace boost::uuids;
-using namespace std;
 
 class AgentRouteResync;
 

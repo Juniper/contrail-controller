@@ -20,6 +20,7 @@
 
 #include <vector>
 #include <string>
+#include <strings.h>
 #include <multicast_types.h>
 
 using std::string;
@@ -165,7 +166,7 @@ bool PhysicalDeviceTable::OperDBResync(DBEntry *entry, const DBRequest *req) {
 bool PhysicalDeviceTable::OperDBDelete(DBEntry *entry, const DBRequest *req) {
     PhysicalDevice *dev = static_cast<PhysicalDevice *>(entry);
     DeleteIpToDevEntry(dev->ip());
-    dev->SendObjectLog(AgentLogEvent::DELETE);
+    dev->SendObjectLog(AgentLogEvent::DEL);
     return true;
 }
 
@@ -313,7 +314,7 @@ void PhysicalDevice::SendObjectLog(AgentLogEvent::type event) const {
         case AgentLogEvent::ADD:
             str.assign("Addition ");
             break;
-        case AgentLogEvent::DELETE:
+        case AgentLogEvent::DEL:
             str.assign("Deletion ");
             break;
         case AgentLogEvent::CHANGE:

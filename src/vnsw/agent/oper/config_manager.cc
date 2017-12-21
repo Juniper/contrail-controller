@@ -87,7 +87,7 @@ public:
     };
 
     struct NodeCmp {
-        bool operator() (const Node &lhs, const Node &rhs) {
+        bool operator() (const Node &lhs, const Node &rhs) const {
             return lhs.state_.get() < rhs.state_.get();
         }
     };
@@ -183,7 +183,7 @@ public:
     };
 
     struct DeviceVnEntryCmp {
-        bool operator() (const DeviceVnEntry &lhs, const DeviceVnEntry &rhs) {
+        bool operator() (const DeviceVnEntry &lhs, const DeviceVnEntry &rhs) const {
             if (lhs.dev_ != rhs.dev_)
                 return lhs.dev_ < rhs.dev_;
 
