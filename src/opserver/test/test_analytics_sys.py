@@ -438,41 +438,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             exp_object_values=['vm11&>'])
     # end test_10_verify_object_table_query
 
-    @unittest.skip('verify syslog query')
-    def test_11_verify_syslog_table_query(self):
-        '''
-        This test verifies the Syslog query.
-        '''
-        import logging.handlers
-        logging.info('%%% test_11_verify_syslog_table_query %%%')
-
-        if AnalyticsTest._check_skip_test() is True:
-            return True
-
-        vizd_obj = self.useFixture(
-            AnalyticsFixture(logging, builddir,
-                             self.__class__.cassandra_port,
-                             syslog_port = True))
-        assert vizd_obj.verify_on_setup()
-        syslogger = logging.getLogger("SYSLOGER")
-        lh = logging.handlers.SysLogHandler(address=('127.0.0.1',
-                    vizd_obj.collectors[0].get_syslog_port()))
-        lh.setFormatter(logging.Formatter('%(asctime)s %(name)s:%(message)s',
-                    datefmt='%b %d %H:%M:%S'))
-        lh.setLevel(logging.INFO)
-        syslogger.addHandler(lh)
-        line = 'pizza pasta babaghanoush'
-        syslogger.critical(line)
-        assert vizd_obj.verify_keyword_query(line, ['pasta', 'pizza'])
-        assert vizd_obj.verify_keyword_query(line, ['babaghanoush'])
-        # SYSTEMLOG
-        assert vizd_obj.verify_keyword_query(line, ['PROGRESS', 'QueryExec'])
-        # bad charecter (loose?)
-        line = 'football ' + chr(201) + chr(203) + chr(70) + ' and baseball'
-        syslogger.critical(line)
-        assert vizd_obj.verify_keyword_query(line, ['football', 'baseball'])
-    # end test_11_verify_syslog_table_query
-
     #@unittest.skip('verify message non ascii')
     def test_12_verify_message_non_ascii(self):
         '''
@@ -607,10 +572,12 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
             [{ "st.s1":"samp1", "st.i1":2, "st.d1":2},
              { "st.s1":"samp1", "st.i1":1, "st.d1":1}]);
         # Get the current read stats for MessageTable
-        old_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'MessageTablev2')
+        old_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine,
+                                                        COLLECTOR_GLOBAL_TABLE)
         # read some data from message table and issue thequery again
         assert analytics.verify_message_table_moduleid()
-        new_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'MessageTablev2')
+        new_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine,
+                                                        COLLECTOR_GLOBAL_TABLE)
         assert(old_reads < new_reads)
         # Get the current read stats for stats table
         old_reads = analytics.get_db_read_stats_from_qe(analytics.query_engine, 'StatTestState:st',True)

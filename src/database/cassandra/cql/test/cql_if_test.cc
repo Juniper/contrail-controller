@@ -291,7 +291,7 @@ TEST_F(CqlIfTest, CreateIndex) {
     // native secondary index
     std::string actual_qstring(
         cass::cql::impl::CassCreateIndexIfNotExists(index_cf.cfname_,
-            "columnA", "indexcf_columnA_index", ""));
+            "columnA", "indexcf_columnA_index", GenDb::ColIndexMode::NONE));
     std::string expected_qstring(
         "CREATE INDEX IF NOT EXISTS indexcf_columnA_index "
         "ON IndexCf(\"columnA\");");
@@ -300,7 +300,7 @@ TEST_F(CqlIfTest, CreateIndex) {
     // SASI
     std::string actual_qstring1(
         cass::cql::impl::CassCreateIndexIfNotExists(index_cf.cfname_,
-            "columnH", "indexcf_columnH_index", "PREFIX"));
+            "columnH", "indexcf_columnH_index", GenDb::ColIndexMode::PREFIX));
     std::string expected_qstring1(
         "CREATE CUSTOM INDEX IF NOT EXISTS indexcf_columnH_index "
         "ON IndexCf(\"columnH\") "

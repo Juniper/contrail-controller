@@ -273,7 +273,7 @@ public:
     // Index
     virtual bool Db_CreateIndex(const std::string &cfname,
         const std::string &column, const std::string &indexname,
-        const std::string &mode = "") = 0;
+        const GenDb::ColIndexMode::type index_mode = GenDb::ColIndexMode::NONE) = 0;
     // Column
     virtual bool Db_AddColumn(std::auto_ptr<ColList> cl,
         DbConsistency::type dconsistency, DbAddColumnCb cb) = 0;
