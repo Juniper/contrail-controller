@@ -1082,7 +1082,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
     portbindings['VIF_TYPE_HW_VEB'] = 'hw_veb'
     portbindings['VNIC_TYPE_NORMAL'] = 'normal'
     portbindings['VNIC_TYPE_DIRECT'] = 'direct'
-    portbindings['VNIC_TYPE_DIRECT'] = 'baremetal'
+    portbindings['VNIC_TYPE_BAREMETAL'] = 'baremetal'
     portbindings['PORT_FILTER'] = True
     portbindings['VIF_TYPE_VHOST_USER'] = 'vhostuser'
     portbindings['VHOST_USER_MODE'] = 'vhostuser_mode'
@@ -1587,7 +1587,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             kvp_dict = cls._kvp_to_dict(kvps)
             new_vnic_type = kvp_dict.get('vnic_type', old_vnic_type)
             if (old_vnic_type != new_vnic_type):
-                if cls._is_port_bound(read_result):
+                if cls._is_port_bound(read_result, kvp_dict):
                     return (False, (409, "Vnic_type can not be modified when "
                                     "port is linked to Vrouter or VM."))
 
