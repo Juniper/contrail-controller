@@ -209,6 +209,14 @@ class TestInfraDM(TestCommonDM):
         self._vnc_lib.physical_router_update(pr)
         self.check_dm_plugin()
 
+        # product/vendor names can be case in-sensitive
+        FakeDeviceConnect.reset()
+        FakeNetconfManager.set_model('MX480')
+        pr.physical_router_vendor_name = "JunIper"
+        pr.physical_router_product_name = "mX480"
+        self._vnc_lib.physical_router_update(pr)
+        self.check_dm_plugin()
+
         # device connection is down, config should not be pushed
         pr_config = FakeDeviceConnect.params.get("pr_config")
         pr_config._nc_manager.connected = False
