@@ -25,22 +25,26 @@ env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'config_cl
                   'ifmapio', 'xmpp', 'sandeshvns', 'peer_sandesh',
                   'curl', 'process_info',
                   'db', 'io', 'base', 'cassandra_cql', 'SimpleAmqpClient', 'rabbitmq',
-                  'cassandra', 'gendb', 'xml', 'pugixml', 'libxml2',
-                  'cpuinfo', 'process_info', 'nodeinfo',
-                  'boost_regex', 'boost_chrono', 'boost_program_options',
-                  'crypto', 'ssl',
-                  'bgp_schema'])
+                  'cassandra', 'gendb', 'xml', 'pugixml', 'xml2',
+                  'cpuinfo', 'nodeinfo',
+                  'boost_regex', 'boost_program_options','crypto', 'ssl', 'bgp_schema'])
+
+if sys.platform.startswith('win'):
+    env.Prepend(LIBS=['advapi32', 'gdi32', 'version'])
+else:
+    env.Append(LIBS=['boost_chrono'])
+
 env.Prepend(LIBS=['dns_cfg', 'cmn', 'mgr', 'agent_xmpp', 'bind_interface', 'dns_uve'])
 env.Append(LIBS=['sandesh', 'http', 'http_parser', 'boost_filesystem'])
 
-if sys.platform != 'darwin':
+if sys.platform not in ['win32', 'darwin']:
     env.Append(LIBS=['rt'])
 
 libs = MapBuildDir(['base', 'db', 'ifmap', 'io', 'net', 'xml', 'schema', 'xmpp', 'bgp',
                     'dns/bind', 'dns/cfg', 'dns/cmn', 'dns/mgr', 'dns/agent', 'dns/uve'])
 env.Append(LIBPATH=libs)
 
-if sys.platform != 'darwin':
+if sys.platform not in ['win32', 'darwin']:
     env.Prepend(LINKFLAGS =
                      ['-Wl,--whole-archive',
                       '-lbase', '-lifmap_server', '-rdynamic',
