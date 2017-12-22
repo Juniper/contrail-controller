@@ -533,7 +533,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->GetLabel());
         TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
-        TASK_UTIL_EXPECT_EQ(peer->address(), attr->originator_id());
+        TASK_UTIL_EXPECT_TRUE(attr->originator_id().is_unspecified());
         TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);
         vector<string> encap = attr->ext_community()->GetTunnelEncap();
         sort(encap.begin(), encap.end());
@@ -1453,7 +1453,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(peer->label(), pmsi_tunnel->GetLabel());
         TASK_UTIL_EXPECT_EQ(peer->address(), pmsi_tunnel->identifier());
         TASK_UTIL_EXPECT_EQ(peer->address(), attr->nexthop().to_v4());
-        TASK_UTIL_EXPECT_EQ(peer->address(), attr->originator_id());
+        TASK_UTIL_EXPECT_TRUE(attr->originator_id().is_unspecified());
         TASK_UTIL_EXPECT_TRUE(attr->ext_community() != NULL);
         vector<string> encap = attr->ext_community()->GetTunnelEncap();
         sort(encap.begin(), encap.end());
