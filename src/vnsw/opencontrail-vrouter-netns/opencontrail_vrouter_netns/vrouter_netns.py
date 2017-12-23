@@ -38,14 +38,7 @@ import shlex
 
 from linux import ip_lib
 import haproxy_process
-
-
-def validate_uuid(val):
-    try:
-        if str(uuid.UUID(val)) == val:
-            return val
-    except (TypeError, ValueError, AttributeError):
-        raise ValueError('Invalid UUID format')
+from common import validate_uuid
 
 
 class NetnsManager(object):
