@@ -159,6 +159,9 @@ protected:
     autogen::IpamType ipam_type_;
     autogen::VirtualDnsType vdns_type_;
 
+    // siaddr for tftp used for baremetal deployment
+    Ip4Address siaddr_tftp_;
+
     DISALLOW_COPY_AND_ASSIGN(DhcpHandlerBase);
 };
 
