@@ -483,7 +483,7 @@ class QfxConf(JuniperConf):
     # end add_product_specific_config
 
     def set_route_distinguisher_config(self):
-        if not self.routing_instances:
+        if not self.routing_instances or not self.bgp_params.get('identifier'):
             # no vn config then no need to configure route distinguisher
             return
         if self.global_switch_options_config is None:
