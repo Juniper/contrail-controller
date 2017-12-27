@@ -43,9 +43,14 @@ from pysandesh.sandesh_logger import SandeshLogger
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from pysandesh.connection_info import ConnectionState
 
-from docker_process_manager import DockerProcessInfoManager
-from supervisor_process_manager import SupervisorProcessInfoManager
+try:
+    from docker_process_manager import DockerProcessInfoManager
+except Exception:
+    # there is no docker library. assumes that code runs not for containers
+    pass
 from systemd_process_manager import SystemdProcessInfoManager
+from supervisor_process_manager import SupervisorProcessInfoManager
+
 from utils import NodeMgrUtils, is_systemd_based,\
     is_running_in_docker, is_running_in_kubepod
 
@@ -131,7 +136,15 @@ class EventManager(object):
             syslog_facility=self.config.syslog_facility)
         self.logger = self.sandesh_instance.logger()
 
-        if is_running_in_docker() or is_running_in_kubepod():
+        if 'SUPERVISOR_SERVER_URL' in os.environ:
+            self.process_info_manager = SupervisorProcessInfoManager(
+                self.stdin, self.stdout, self.type_info._supervisor_serverurl,
+                event_handlers, update_process_list)
+        elif is_running_in_docker() or is_running_in_kubepod():
+            if not DockerProcessInfoManager:
+                self.msg_log("Node manager was run in container but couldn't find docker library",
+                             SandeshLevel.SYS_ERR)
+                exit(-1)
             self.process_info_manager = DockerProcessInfoManager(self.type_info._unit_names,
                                                                  event_handlers,
                                                                  update_process_list)
@@ -140,13 +153,9 @@ class EventManager(object):
                                                                   event_handlers,
                                                                   update_process_list)
         else:
-            if 'SUPERVISOR_SERVER_URL' not in os.environ:
-                self.msg_log('Node manager must be run as a supervisor event listener',
-                             SandeshLevel.SYS_ERR)
-                exit(-1)
-            self.process_info_manager = SupervisorProcessInfoManager(
-                self.stdin, self.stdout, self.type_info._supervisor_serverurl,
-                event_handlers, update_process_list)
+            self.msg_log('Node manager could not found any process manager',
+                         SandeshLevel.SYS_ERR)
+            exit(-1)
         self.add_current_process()
         for group in self.process_state_db:
             self.send_init_info(group)
