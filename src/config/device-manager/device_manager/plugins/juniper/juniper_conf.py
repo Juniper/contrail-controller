@@ -436,7 +436,7 @@ class JuniperConf(DeviceConf):
     # end set_bgp_config
 
     def _get_bgp_config_xml(self, external=False):
-        if self.bgp_params is None:
+        if self.bgp_params is None or not self.bgp_params.get('address'):
             return None
         bgp_group = BgpGroup()
         bgp_group.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
@@ -494,6 +494,8 @@ class JuniperConf(DeviceConf):
     # end get_asn
 
     def set_as_config(self):
+        if not self.bgp_params.get("identifier"):
+            return
         if self.global_routing_options_config is None:
             self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
         self.global_routing_options_config.set_route_distinguisher_id(self.bgp_params['identifier'])

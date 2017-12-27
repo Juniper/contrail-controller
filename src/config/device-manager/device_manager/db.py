@@ -49,7 +49,7 @@ class BgpRouterDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
-        self.params = obj['bgp_router_parameters']
+        self.params = obj.get('bgp_router_parameters') or {}
         if self.params and self.params.get('autonomous_system') is None:
             self.params[
                 'autonomous_system'] = GlobalSystemConfigDM.get_global_asn()
@@ -71,12 +71,12 @@ class BgpRouterDM(DBBaseDM):
 
     def get_all_bgp_router_ips(self):
         bgp_router_ips = {}
-        if self.params['address'] is not None:
+        if self.params.get('address'):
             bgp_router_ips[self.name] = self.params['address']
 
         for peer_uuid in self.bgp_routers:
             peer = BgpRouterDM.get(peer_uuid)
-            if peer is None or peer.params['address'] is None:
+            if peer is None or not peer.params.get('address'):
                 continue
             bgp_router_ips[peer.name] = peer.params['address']
         return bgp_router_ips
@@ -1342,7 +1342,7 @@ class ServiceObjectDM(DBBaseDM):
                     elif pr is not None:
                         bgp_uuid = pr.bgp_router
                         bgp_entry = BgpRouterDM.get(bgp_uuid)
-                        neigbor_id = bgp_entry.params['address']
+                        neigbor_id = bgp_entry.params.get('address')
                 if found == True:
                     service_params = {
                             "service_type": self.service_type,

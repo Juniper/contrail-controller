@@ -718,6 +718,11 @@ class MxConf(JuniperConf):
             self._logger.info("bgp router not configured for pr: " + \
                                                  self.physical_router.name)
             return 0
+        bgp_router = BgpRouterDM.get(self.physical_router.bgp_router)
+        if not bgp_router.params:
+            self._logger.info("bgp router parameters not configured for pr: " + \
+                                                 bgp_router.name)
+            return 0
         self.build_bgp_config()
         vn_dict = self.get_vn_li_map()
         self.physical_router.evaluate_vn_irb_ip_map(set(vn_dict.keys()), 'l2_l3', 'irb', False)
