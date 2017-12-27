@@ -53,9 +53,7 @@ class Qfx5kConf(QfxConf):
             return 0
         if is_delete:
             return self.send_conf(is_delete=True)
-        if not self.physical_router.bgp_router:
-            self._logger.info("bgp router not configured for pr: " + \
-                                                 self.physical_router.name)
+        if not self.ensure_bgp_config():
             return 0
         self.set_qfx_common_config()
         return self.send_conf()
