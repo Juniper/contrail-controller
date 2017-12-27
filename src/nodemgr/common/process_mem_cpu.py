@@ -19,7 +19,11 @@ class ProcessMemCpuUsageData(object):
         else:
             if not hasattr(self._process, 'get_memory_info'):
                 self._process.get_memory_info = self._process.memory_info
-        self._cpu_count = psutil.cpu_count()
+        if hasattr(psutil, 'cpu_count'):
+            self._cpu_count = psutil.cpu_count()
+        else:
+            # psutil v1.2 has no cpu_count function but has NUM_CPUS instead
+            self._cpu_count = psutil.NUM_CPUS
 
     def _get_process_cpu_share(self):
         last_cpu = self.last_cpu
