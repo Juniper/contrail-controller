@@ -87,6 +87,12 @@
      Property('bgp-router-parameters', 'bgp-router', 'required', 'CRUD',
               'BGP router configuration parameters like ip address, AS number, hold time etc.') -->
 
+<xsd:element name="bgp-router-sub-cluster"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('bgp-router-sub-cluster',
+          'bgp-router', 'sub-cluster', ['ref'], 'optional', 'CRUD',
+          'Reference of bgp-router to sub-cluster .') -->
+
 <xsd:simpleType name='BgpHoldTime'>
     <xsd:annotation>
         <xsd:documentation>
