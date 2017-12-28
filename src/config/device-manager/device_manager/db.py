@@ -853,6 +853,7 @@ class VirtualMachineInterfaceDM(DBBaseDM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.name = None
         self.virtual_network = None
         self.floating_ip = None
         self.instance_ip = None
@@ -868,6 +869,8 @@ class VirtualMachineInterfaceDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
         if obj.get('virtual_machine_interface_properties', None):
             self.params = obj['virtual_machine_interface_properties']
             self.service_interface_type = self.params.get(
@@ -1082,6 +1085,7 @@ class RoutingInstanceDM(DBBaseDM):
 
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
+        self.name = None
         self.virtual_network = None
         self.import_targets = set()
         self.export_targets = set()
@@ -1098,6 +1102,7 @@ class RoutingInstanceDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.fq_name = obj['fq_name']
+        self.name = obj['fq_name'][-1]
         self.virtual_network = self.get_parent_uuid(obj)
         self.import_targets = set()
         self.export_targets = set()
