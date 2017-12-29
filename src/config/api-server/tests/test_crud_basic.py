@@ -4128,7 +4128,8 @@ class TestRefValidation(test_case.ApiServerTestCase):
                                                   'subnet_name': None,
                                                   'subnet_uuid': None}]},
                             'to': ['default-domain',
-                                   'default-project']}]}}
+                                   'default-project',
+                                   'default-network-ipam']}]}}
         status, content = self._http_post('/virtual-networks',
                               body=json.dumps(body_dict))
         self.assertThat(status, Equals(200))
