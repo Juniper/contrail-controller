@@ -265,7 +265,8 @@ class VerifyServicePolicy(VerifyPolicy):
 
     @retries(5)
     def check_acl_action_assign_rules(self, fq_name, vn1_fq_name, vn2_fq_name, sc_ri_fq_name):
-        acl = self._vnc_lib.access_control_list_read(fq_name)
+        acl_fq_name = fq_name + [fq_name[-1]]
+        acl = self._vnc_lib.access_control_list_read(acl_fq_name)
         for rule in acl.access_control_list_entries.acl_rule:
             if (rule.match_condition.src_address.virtual_network == vn1_fq_name and
                 rule.match_condition.dst_address.virtual_network == vn2_fq_name):
@@ -287,7 +288,8 @@ class VerifyServicePolicy(VerifyPolicy):
 
     @retries(5)
     def check_acl_match_subnets(self, fq_name, subnet1, subnet2, sc_ri_fq_name):
-        acl = self._vnc_lib.access_control_list_read(fq_name)
+        acl_fq_name = fq_name + [fq_name[-1]]
+        acl = self._vnc_lib.access_control_list_read(acl_fq_name)
         for rule in acl.access_control_list_entries.acl_rule:
             if (rule.match_condition.src_address.subnet == subnet1 and
                 rule.match_condition.dst_address.subnet == subnet2):
