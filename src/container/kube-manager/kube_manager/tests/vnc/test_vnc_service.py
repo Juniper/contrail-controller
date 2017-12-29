@@ -80,18 +80,18 @@ class VncServiceTest(KMTestCase):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
-        network_uuid = self._create_virtual_network(cluster_project)
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
 
-        uuids = self._assert_all_is_up(ports, srv_uuid,
-                                       expected_vn_uuid=network_uuid)
+        uuids = self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
-        self._delete_virtual_network(network_uuid)
+        # wait till isolated service-network get deleted
+        vn_fq_name = ['default-domain', \
+            cluster_project, namespace_name + '-service-network']
+        self.wait_isolated_service_vn_get_deleted(vn_fq_name)
         self._delete_project(cluster_project)
 
         self._assert_all_is_down(uuids)
@@ -112,7 +112,7 @@ class VncServiceTest(KMTestCase):
         self._assert_all_is_down(uuids, skip_vn=True)
 
     def test_add_delete_service_with_custom_isolated_namespace_with_no_cluster_defined(self):
-        custom_network = 'custom_network'
+        custom_network = 'custom-service-network'
         project = 'default'
         network_uuid = self._create_virtual_network(project,
                                                     network=custom_network)
@@ -134,7 +134,7 @@ class VncServiceTest(KMTestCase):
 
     def test_add_delete_service_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
-        custom_network = 'custom_network'
+        custom_network = 'custom-service-network'
         self.create_project(cluster_project)
         network_uuid = self._create_virtual_network(cluster_project,
                                                     network=custom_network)
@@ -195,19 +195,19 @@ class VncServiceTest(KMTestCase):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
-        network_uuid = self._create_virtual_network(cluster_project)
 
         ports, srv_meta, srv_uuid = \
             self._enqueue_add_loadbalancer(namespace_name)
         self.wait_for_all_tasks_done()
 
-        uuids = self._assert_all_is_up(ports, srv_uuid,
-                                       expected_vn_uuid=network_uuid)
+        uuids = self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
-        self._delete_virtual_network(network_uuid)
+        # wait till isolated service-network get deleted
+        vn_fq_name = ['default-domain', \
+            cluster_project, namespace_name + '-service-network']
+        self.wait_isolated_service_vn_get_deleted(vn_fq_name)
         self._delete_project(cluster_project)
 
         self._assert_all_is_down(uuids)
@@ -229,7 +229,7 @@ class VncServiceTest(KMTestCase):
         self._assert_all_is_down(uuids, skip_vn=True)
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_no_cluster_defined(self):
-        custom_network = 'custom_network'
+        custom_network = 'custom-service-network'
         project = 'default'
         network_uuid = self._create_virtual_network(project,
                                                     network=custom_network)
@@ -252,7 +252,7 @@ class VncServiceTest(KMTestCase):
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
-        custom_network = 'custom_network'
+        custom_network = 'custom-service-network'
         self.create_project(cluster_project)
         network_uuid = self._create_virtual_network(cluster_project,
                                                     network=custom_network)
@@ -521,7 +521,12 @@ class VncServiceTest(KMTestCase):
     @staticmethod
     def _set_default_kube_config():
         kube_config.VncKubernetesConfig.args().cluster_project = '{}'
-        kube_config.VncKubernetesConfig.args().cluster_network = None
+        kube_config.VncKubernetesConfig.args().cluster_service_network = None
+
+    @staticmethod
+    def _set_cluster_service_network(self, service_cn_dict):
+        kube_config.VncKubernetesConfig.args(). \
+            cluster_service_network = repr(service_cn_dict)
 
     def _enqueue_add_namespace(self, isolated=False):
         ns_uuid = str(uuid.uuid4())
@@ -539,7 +544,7 @@ class VncServiceTest(KMTestCase):
                                  'domain': 'default-domain',
                                  'project': project,
                                  'name': network}
-        kube_config.VncKubernetesConfig.args().cluster_network = str(
+        kube_config.VncKubernetesConfig.args().cluster_service_network = str(
             custom_network_config)
         ns_uuid = str(uuid.uuid4())
         namespace_name = 'custom_isolated_namespace'
@@ -597,7 +602,7 @@ class VncServiceTest(KMTestCase):
         self.enqueue_event(srv_del_event)
 
     def _create_virtual_network(self, project='default',
-                                network='cluster-network'):
+                                network='cluster-service-network'):
         proj_fq_name = ['default-domain', project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj = VirtualNetwork(
@@ -630,6 +635,14 @@ class VncServiceTest(KMTestCase):
             )
         subnet_data = VnSubnetsType(subnet_infos)
         return subnet_data
+
+    def wait_isolated_service_vn_get_deleted(self, vn_fq_name):
+        while True:
+            try:
+                self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
+                self.wait_for_all_tasks_done(sleep_interval=5)
+            except NoIdError:
+                break
 
     def _delete_virtual_network(self, nw_uuid):
         self._vnc_lib.virtual_network_delete(id=nw_uuid)

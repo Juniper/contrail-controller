@@ -143,6 +143,9 @@ class VncApiMock(object):
     def chown(self, obj_uuid, owner):
         pass
 
+    def ref_relax_for_delete(self, obj1_uuid, obj2_uuid):
+        pass
+
     @staticmethod
     def object_from_dict(res_type, obj_dict):
         obj_cls = get_object_class(res_type)

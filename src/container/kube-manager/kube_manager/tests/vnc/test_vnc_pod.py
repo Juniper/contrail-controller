@@ -31,7 +31,8 @@ class VncPodTest(KMTestCase):
             extra_config_knobs=extra_config_knobs)
         cls.domain = 'default-domain'
         cls.cluster_project = 'test-project'
-        cls.vn_name = 'test-network'
+        cls.vn_name = 'test-pod-network'
+        cls.service_vn_name = 'test-service-network'
         cls.ns_name = 'test-namespace'
 
         cls.pod_name = 'test-pod'
@@ -45,10 +46,19 @@ class VncPodTest(KMTestCase):
             'project': cls.cluster_project,
             'name': cls.vn_name
         }
+        service_cn_dict = {
+            'domain': cls.domain,
+            'project': cls.cluster_project,
+            'name': cls.service_vn_name
+        }
         cp_dict = {'project': cls.cluster_project}
 
-        kube_config.VncKubernetesConfig.args().cluster_project = repr(cp_dict)
-        kube_config.VncKubernetesConfig.args().cluster_network = repr(cn_dict)
+        kube_config.VncKubernetesConfig.args(). \
+            cluster_project = repr(cp_dict)
+        kube_config.VncKubernetesConfig.args(). \
+            cluster_pod_network = repr(cn_dict)
+        kube_config.VncKubernetesConfig.args(). \
+            cluster_service_network = repr(service_cn_dict)
         kube_config.VncKubernetesConfig.vnc_kubernetes_config[
             'cluster_pod_ipam_fq_name'] = \
             ['default-domain', cls.cluster_project, 'pod-ipam']
@@ -99,9 +109,10 @@ class VncPodTest(KMTestCase):
         return ns_uuid
 
     def _create_virtual_network(self, proj_obj, vn_name):
-        vn_obj = self.create_network(vn_name, proj_obj, '10.32.0.0/12',
-                                     '10.96.0.0/12')
-        return vn_obj
+        pod_vn_obj, service_vn_obj = \
+            self.create_pod_service_network(vn_name, self.service_vn_name, \
+                proj_obj, '10.32.0.0/12', '10.96.0.0/12')
+        return pod_vn_obj
 
     def _create_update_pod(self, pod_name, pod_namespace, pod_status,
                            eval_vn_dict, action):
@@ -313,7 +324,7 @@ class VncPodTestNamespaceIsolation(VncPodTest):
             extra_config_knobs=extra_config_knobs)
         cls.ns_name = 'test-namespace-isolated'
         cls.cluster_project = cls.ns_name
-        cls.vn_name = cls.ns_name + '-vn'
+        cls.vn_name = cls.ns_name + '-pod-network'
         args = {}
         args['domain'] = 'default-domain'
         args['project'] = cls.cluster_project

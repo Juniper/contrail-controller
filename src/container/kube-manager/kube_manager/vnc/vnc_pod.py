@@ -37,7 +37,6 @@ class VncPod(VncCommon):
         self._service_mgr = service_mgr
         self._network_policy_mgr = network_policy_mgr
         self._queue = vnc_kube_config.queue()
-        self._service_fip_pool = vnc_kube_config.service_fip_pool()
         self._args = vnc_kube_config.args()
         self._logger = vnc_kube_config.logger()
 
@@ -102,12 +101,12 @@ class VncPod(VncCommon):
         # network.
         if not vn_fq_name:
             if self._is_pod_network_isolated(pod_namespace):
-                vn_fq_name = ns.get_isolated_network_fq_name()
+                vn_fq_name = ns.get_isolated_pod_network_fq_name()
 
         # Finally, if no network was found, default to the cluster
         # pod network.
         if not vn_fq_name:
-            vn_fq_name = vnc_kube_config.cluster_default_network_fq_name()
+            vn_fq_name = vnc_kube_config.cluster_default_pod_network_fq_name()
 
         vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         return vn_obj
@@ -178,47 +177,6 @@ class VncPod(VncCommon):
                         return vm_vmi
 
         return None
-
-    def _create_cluster_service_fip(self, pod_name, pod_namespace, vmi_uuid):
-        """
-        Isolated Pods in the cluster will be allocated a floating ip
-        from the cluster service network, so that the pods can talk
-        to cluster services.
-        """
-        if not self._service_fip_pool:
-            return
-
-        # Construct parent ref.
-        fip_pool_obj = FloatingIpPool()
-        fip_pool_obj.uuid = self._service_fip_pool.uuid
-        fip_pool_obj.fq_name = self._service_fip_pool.fq_name
-        fip_pool_obj.name = self._service_fip_pool.name
-
-        # Create Floating-Ip object.
-        obj_uuid = str(uuid.uuid1())
-        display_name = VncCommon.make_display_name(pod_namespace, pod_name)
-        name = VncCommon.make_name(pod_name, obj_uuid)
-        fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (name),
-                             parent_obj=fip_pool_obj,
-                             floating_ip_traffic_direction='egress',
-                             display_name=display_name)
-        fip_obj.uuid = obj_uuid
-
-        # Creation of fip requires the vmi vnc object.
-        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_uuid)
-        fip_obj.set_virtual_machine_interface(vmi_obj)
-
-        FloatingIpKM.add_annotations(self, fip_obj, pod_namespace, pod_name)
-
-        try:
-            fip_uuid = self._vnc_lib.floating_ip_create(fip_obj)
-        except RefsExistError:
-            fip_uuid = self._vnc_lib.floating_ip_update(fip_obj)
-
-        # Cached service floating ip.
-        FloatingIpKM.locate(fip_uuid)
-
-        return
 
     @staticmethod
     def _associate_security_groups(vmi_obj, proj_obj, ns):
@@ -367,9 +325,6 @@ class VncPod(VncCommon):
                                      'ADD')
 
         self._create_iip(pod_name, pod_namespace, vn_obj, vmi)
-
-        if self._is_pod_network_isolated(pod_namespace):
-            self._create_cluster_service_fip(pod_name, pod_namespace, vmi_uuid)
 
         if not self._is_pod_nested():
             self._link_vm_to_node(vm_obj, pod_node, node_ip)

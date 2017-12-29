@@ -122,6 +122,9 @@ def parse_args(args_str=None):
         'cluster_name': None,
         'cluster_project' : "{}",
         'cluster_network' : None,
+        'cluster_pod_network' : None,
+        'cluster_service_network' : None,
+        'ip_fabric_forwarding': 'True',
     }
 
     sandesh_opts = SandeshConfig.get_default_options()

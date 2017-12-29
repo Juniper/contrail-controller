@@ -9,7 +9,7 @@ VNC service management for kubernetes
 from vnc_api.vnc_api import *
 from config_db import *
 from loadbalancer import *
-from kube_manager.common.kube_config_db import ServiceKM
+from kube_manager.common.kube_config_db import NamespaceKM, ServiceKM
 from cfgm_common import importutils
 import link_local_manager as ll_mgr
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
@@ -76,13 +76,31 @@ class VncService(VncCommon):
         except NoIdError:
             return None
 
-    def _get_cluster_network(self):
-        vn_fq_name = vnc_kube_config.cluster_default_network_fq_name()
+    @staticmethod
+    def _get_namespace(service_namespace):
+        return NamespaceKM.find_by_name_or_uuid(service_namespace)
+
+    def _get_cluster_service_network(self, service_namespace):
+        ns = self._get_namespace(service_namespace)
+        if ns and ns.is_isolated():
+            vn_fq_name = ns.get_isolated_service_network_fq_name()
+        else:
+            vn_fq_name = vnc_kube_config.cluster_default_service_network_fq_name()
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         except NoIdError:
             return None
         return vn_obj
+
+    def _get_service_ipam_subnet_uuid(self, vn_obj):
+        service_ipam_subnet_uuid = None
+        fq_name = vnc_kube_config.service_ipam_fq_name()
+        vn = VirtualNetworkKM.find_by_name_or_uuid(vn_obj.get_uuid())
+        if vn:
+            service_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(fq_name)
+        if service_ipam_subnet_uuid is None:
+            self.logger.error("%s - %s Not Found" %(self._name, fq_name))
+        return service_ipam_subnet_uuid
 
     def _get_public_fip_pool(self):
         if self._fip_pool_obj:
@@ -194,10 +212,11 @@ class VncService(VncCommon):
     def _vnc_create_lb(self, service_id, service_name,
                        service_namespace, service_ip):
         proj_obj = self._get_project(service_namespace)
-        vn_obj = self._get_cluster_network()
+        vn_obj = self._get_cluster_service_network(service_namespace)
+        service_ipam_subnet_uuid = self._get_service_ipam_subnet_uuid(vn_obj)
         lb_obj = self.service_lb_mgr.create(self._k8s_event_type,
             service_namespace, service_id, service_name, proj_obj,
-            vn_obj, service_ip)
+            vn_obj, service_ip, service_ipam_subnet_uuid)
         return lb_obj
 
     def _lb_create(self, service_id, service_name,
