@@ -35,7 +35,6 @@ class VncIngress(VncCommon):
         self._logger = vnc_kube_config.logger()
         self._kube = vnc_kube_config.kube()
         self._label_cache = vnc_kube_config.label_cache()
-        self._service_fip_pool = vnc_kube_config.service_fip_pool()
         self._ingress_label_cache = {}
         self._default_vn_obj = None
         self._fip_pool_obj = None
@@ -62,11 +61,11 @@ class VncIngress(VncCommon):
     def _get_network(self, ns_name):
         ns = self._get_namespace(ns_name)
         if ns.is_isolated():
-            vn_fq_name = ns.get_isolated_network_fq_name()
+            vn_fq_name = ns.get_isolated_pod_network_fq_name()
         else:
             if self._default_vn_obj:
                 return self._default_vn_obj
-            vn_fq_name = vnc_kube_config.cluster_default_network_fq_name()
+            vn_fq_name = vnc_kube_config.cluster_default_pod_network_fq_name()
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
         except NoIdError:
@@ -84,44 +83,6 @@ class VncIngress(VncCommon):
         if pod_ipam_subnet_uuid is None:
             self._logger.error("%s - %s Not Found" %(self._name, fq_name))
         return pod_ipam_subnet_uuid
-
-    def _get_cluster_service_fip(self, name, ns_name, lb_obj):
-        if not self._service_fip_pool:
-            return None
-
-        fip_pool = FloatingIpPool()
-        fip_pool.uuid = self._service_fip_pool.uuid
-        fip_pool.fq_name = self._service_fip_pool.fq_name
-        fip_pool.name = self._service_fip_pool.name
-
-        fip_uuid = str(uuid.uuid4())
-        fip_name = VncCommon.make_name(name, fip_uuid)
-        display_name=VncCommon.make_display_name(ns_name, name)
-        fip_obj = FloatingIp(name="cluster-svc-fip-%s"% (fip_name),
-                    parent_obj=fip_pool,
-                    floating_ip_traffic_direction='egress',
-                    display_name=display_name)
-        fip_obj.uuid = fip_uuid
-
-        proj_obj = self._get_project(ns_name)
-        fip_obj.set_project(proj_obj)
-
-        vmi_id = lb_obj.virtual_machine_interface_refs[0]['uuid']
-        vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
-        if vmi_obj:
-            fip_obj.set_virtual_machine_interface(vmi_obj)
-
-        FloatingIpKM.add_annotations(self, fip_obj, name, ns_name)
-        try:
-            self._vnc_lib.floating_ip_create(fip_obj)
-            fip = FloatingIpKM.locate(fip_obj.uuid)
-        except Exception as e:
-            string_buf = StringIO()
-            cgitb_hook(file=string_buf, format="text")
-            err_msg = string_buf.getvalue()
-            self._logger.error("%s - %s" %(self._name, err_msg))
-
-        return
 
     def _get_public_fip_pool(self, fip_pool_fq_name):
         if self._fip_pool_obj:
@@ -192,7 +153,7 @@ class VncIngress(VncCommon):
         fip = self._get_floating_ip(name, proj_obj, external_ip, vmi_obj)
         return fip
 
-    def _deallocate_floating_ip(self, lb, delete_svc_fip=True):
+    def _deallocate_floating_ip(self, lb):
         vmi_id = list(lb.virtual_machine_interfaces)[0]
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
         if vmi is None:
@@ -202,9 +163,6 @@ class VncIngress(VncCommon):
         fip_list = vmi.floating_ips.copy()
         for fip_id in fip_list or []:
             fip_obj = self._vnc_lib.floating_ip_read(id=fip_id)
-            if delete_svc_fip == False and \
-               self._service_fip_pool.fq_name == fip_obj.fq_name[:-1]:
-                continue
             fip_obj.set_virtual_machine_interface_list([])
             self._vnc_lib.floating_ip_update(fip_obj)
             self._vnc_lib.floating_ip_delete(id=fip_obj.uuid)
@@ -319,8 +277,6 @@ class VncIngress(VncCommon):
         lb_obj = self.service_lb_mgr.create(self._k8s_event_type, ns_name, uid,
                     name, proj_obj, vn_obj, vip_address, pod_ipam_subnet_uuid)
         if lb_obj:
-            if self._is_network_isolated(ns_name):
-                self._get_cluster_service_fip(name, ns_name, lb_obj)
             external_ip = None
             if annotations and 'externalIP' in annotations:
                 external_ip = annotations['externalIP']
@@ -658,7 +614,7 @@ class VncIngress(VncCommon):
             if annotations and 'externalIP' in annotations:
                 external_ip = annotations['externalIP']
             if external_ip != lb.external_ip:
-                self._deallocate_floating_ip(lb, delete_svc_fip=False)
+                self._deallocate_floating_ip(lb)
                 lb_obj = self._vnc_lib.loadbalancer_read(id=lb.uuid)
                 fip = self._update_floating_ip(name, ns_name,
                             external_ip, lb_obj)

@@ -87,7 +87,9 @@ class VncIngressTest(KMTestCase):
     def test_add_delete_ingress_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
-        network_uuid = self._create_virtual_network(cluster_project)
+        pod_network_uuid = self._create_virtual_network(cluster_project)
+        service_network_uuid = self._create_virtual_network( \
+                cluster_project, 'cluster-service-network')
 
         ports, srv_meta = self._enqueue_add_service(namespace_name)
         self.wait_for_all_tasks_done()
@@ -99,7 +101,7 @@ class VncIngressTest(KMTestCase):
             self._create_vrouters_for_all_service_instances(ingress_uuid)
 
         uuids = self._assert_all_is_up(ingress_uuid,
-                                       expected_vn_uuid=network_uuid)
+                                       expected_vn_uuid=pod_network_uuid)
 
         self._delete_vrouters(vrouter_uuids)
         self._enqueue_delete_ingress(ingress_meta)
@@ -107,7 +109,8 @@ class VncIngressTest(KMTestCase):
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
 
-        self._delete_virtual_network(network_uuid)
+        self._delete_virtual_network(service_network_uuid)
+        self._delete_virtual_network(pod_network_uuid)
         self._delete_project(cluster_project)
 
         self._assert_all_is_down(uuids)
@@ -117,7 +120,6 @@ class VncIngressTest(KMTestCase):
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
         self.wait_for_all_tasks_done()
-        network_uuid = self._create_virtual_network(cluster_project)
         ports, srv_meta = self._enqueue_add_service(namespace_name)
         ingress_meta, ingress_uuid = self._enqueue_add_ingress(namespace_name)
         self.wait_for_all_tasks_done()
@@ -125,14 +127,13 @@ class VncIngressTest(KMTestCase):
         vrouter_uuids = \
             self._create_vrouters_for_all_service_instances(ingress_uuid)
 
-        uuids = self._assert_all_is_up(ingress_uuid, expected_iips_num=1)
+        uuids = self._assert_all_is_up(ingress_uuid)
 
         self._delete_vrouters(vrouter_uuids)
         self._enqueue_delete_ingress(ingress_meta)
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
-        self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
 
         self._assert_all_is_down(uuids)
@@ -148,7 +149,7 @@ class VncIngressTest(KMTestCase):
         vrouter_uuids = \
             self._create_vrouters_for_all_service_instances(ingress_uuid)
 
-        uuids = self._assert_all_is_up(ingress_uuid, expected_iips_num=1)
+        uuids = self._assert_all_is_up(ingress_uuid)
 
         self._delete_vrouters(vrouter_uuids)
         self._enqueue_delete_ingress(ingress_meta)
@@ -159,7 +160,7 @@ class VncIngressTest(KMTestCase):
         self._assert_all_is_down(uuids, skip_vn=True)
 
     def test_add_delete_ingress_with_custom_isolated_namespace_with_no_cluster_defined(self):
-        custom_network = 'custom_network'
+        custom_network = 'custom-pod-network'
         project = 'default'
         network_uuid = self._create_virtual_network(project,
                                                     network=custom_network)
@@ -187,10 +188,12 @@ class VncIngressTest(KMTestCase):
 
     def test_add_delete_ingress_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
-        custom_network = 'custom_network'
+        custom_network = 'custom-pod-network'
         self.create_project(cluster_project)
-        network_uuid = self._create_virtual_network(cluster_project,
+        pod_network_uuid = self._create_virtual_network(cluster_project,
                                                     network=custom_network)
+        service_network_uuid = self._create_virtual_network( \
+                cluster_project, 'cluster-service-network')
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(
                 cluster_project, custom_network)
@@ -203,14 +206,15 @@ class VncIngressTest(KMTestCase):
             self._create_vrouters_for_all_service_instances(ingress_uuid)
 
         uuids = self._assert_all_is_up(ingress_uuid,
-                                       expected_vn_uuid=network_uuid)
+                                       expected_vn_uuid=pod_network_uuid)
 
         self._delete_vrouters(vrouter_uuids)
         self._enqueue_delete_ingress(ingress_meta)
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
-        self._delete_virtual_network(network_uuid)
+        self._delete_virtual_network(pod_network_uuid)
+        self._delete_virtual_network(service_network_uuid)
         self._delete_project(cluster_project)
 
         self._assert_all_is_down(uuids)
@@ -218,7 +222,9 @@ class VncIngressTest(KMTestCase):
     def test_add_delete_loadbalancer_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
-        network_uuid = self._create_virtual_network(cluster_project)
+        pod_network_uuid = self._create_virtual_network(cluster_project)
+        service_network_uuid = self._create_virtual_network( \
+                cluster_project, 'cluster-service-network')
 
         ports, srv_meta = self._enqueue_add_loadbalancer(namespace_name)
         ingress_meta, ingress_uuid = self._enqueue_add_ingress(namespace_name)
@@ -228,14 +234,15 @@ class VncIngressTest(KMTestCase):
             self._create_vrouters_for_all_service_instances(ingress_uuid)
 
         uuids = self._assert_all_is_up(ingress_uuid,
-                                       expected_vn_uuid=network_uuid)
+                                       expected_vn_uuid=pod_network_uuid)
 
         self._delete_vrouters(vrouter_uuids)
         self._enqueue_delete_ingress(ingress_meta)
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
-        self._delete_virtual_network(network_uuid)
+        self._delete_virtual_network(pod_network_uuid)
+        self._delete_virtual_network(service_network_uuid)
         self._delete_project(cluster_project)
 
         self._assert_all_is_down(uuids)
@@ -307,7 +314,7 @@ class VncIngressTest(KMTestCase):
         self._assert_all_is_down(uuids, skip_vn=True)
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_no_cluster_defined(self):
-        custom_network = 'custom_network'
+        custom_network = 'custom-pod-network'
         project = 'default'
         network_uuid = self._create_virtual_network(project,
                                                     network=custom_network)
@@ -335,10 +342,12 @@ class VncIngressTest(KMTestCase):
 
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
-        custom_network = 'custom_network'
+        custom_network = 'custom-pod-network'
         self.create_project(cluster_project)
-        network_uuid = self._create_virtual_network(cluster_project,
+        pod_network_uuid = self._create_virtual_network(cluster_project,
                                                     network=custom_network)
+        service_network_uuid = self._create_virtual_network( \
+                cluster_project, 'cluster-service-network')
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(cluster_project,
                                                         custom_network)
@@ -351,14 +360,15 @@ class VncIngressTest(KMTestCase):
             self._create_vrouters_for_all_service_instances(ingress_uuid)
 
         uuids = self._assert_all_is_up(ingress_uuid,
-                                       expected_vn_uuid=network_uuid)
+                                       expected_vn_uuid=pod_network_uuid)
 
         self._delete_vrouters(vrouter_uuids)
         self._enqueue_delete_ingress(ingress_meta)
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         self.wait_for_all_tasks_done()
-        self._delete_virtual_network(network_uuid)
+        self._delete_virtual_network(pod_network_uuid)
+        self._delete_virtual_network(service_network_uuid)
         self._delete_project(cluster_project)
 
         self._assert_all_is_down(uuids)
@@ -422,7 +432,7 @@ class VncIngressTest(KMTestCase):
         self._assert_all_is_down(uuids, skip_vn=True)
 
     def _assert_all_is_up(self, srv_uuid, expected_vn_uuid=None,
-                          expected_iips_num=2):
+                          expected_iips_num=1):
         """
         This method tests existence of these resources:
         - loadbalancer (lb)
@@ -576,7 +586,7 @@ class VncIngressTest(KMTestCase):
     @staticmethod
     def _set_default_kube_config():
         kube_config.VncKubernetesConfig.args().cluster_project = '{}'
-        kube_config.VncKubernetesConfig.args().cluster_network = None
+        kube_config.VncKubernetesConfig.args().cluster_pod_network = None
 
     def _enqueue_add_namespace(self, isolated=False):
         ns_uuid = str(uuid.uuid4())
@@ -594,7 +604,7 @@ class VncIngressTest(KMTestCase):
                                  'domain': 'default-domain',
                                  'project': project,
                                  'name': network}
-        kube_config.VncKubernetesConfig.args().cluster_network = str(
+        kube_config.VncKubernetesConfig.args().cluster_pod_network = str(
             custom_network_config)
         ns_uuid = str(uuid.uuid4())
         namespace_name = 'custom_isolated_namespace'
@@ -688,7 +698,7 @@ class VncIngressTest(KMTestCase):
         self.enqueue_event(ingress_del_event)
 
     def _create_virtual_network(self, project,
-                                network='cluster-network'):
+                                network='cluster-pod-network'):
         proj_fq_name = ['default-domain', project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj = VirtualNetwork(

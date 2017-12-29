@@ -1719,3 +1719,31 @@ class NetworkIpamKM(DBBaseKM):
         # Send the reply out.
         network_ipam_resp.response(req.context())
 # end class NetworkIpamKM
+
+class NetworkPolicyKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'network_policy'
+    _ann_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        super(NetworkPolicyKM, self).__init__(uuid, obj_dict)
+        self.uuid = uuid
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        del cls._dict[uuid]
+# end class NetworkPolicyKM
