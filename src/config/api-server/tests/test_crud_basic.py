@@ -1712,6 +1712,71 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         self.assertThat(ret_vn.keys(), Contains(back_reference))
     # end test_read_rest_api
 
+    def test_bulk_read_rest_api_with_fqns(self):
+        num_vn = 4
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        vn_objs, _, _, _ = self._create_vn_ri_vmi(num_vn)
+        vn_fqns_str_list = [':'.join(o.fq_name) for o in vn_objs]
+        vn_fqns_str = ','.join(vn_fqns_str_list)
+        self.assertEqual(len(vn_fqns_str_list), 4)
+        url = 'http://%s:%s/virtual-networks?fq_names_str=%s' %(
+            listen_ip, listen_port, vn_fqns_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vns = json.loads(resp.text)['virtual-networks']
+        ret_fqns_str_list = [':'.join(ret['fq_name']) for ret in ret_vns]
+        self.assertEqual(len(ret_fqns_str_list), 4)
+        self.assertEqual(vn_fqns_str_list.sort(), ret_fqns_str_list.sort())
+    #end test_bulk_read_rest_api_with_fqns
+
+    def test_bulk_read_rest_api_with_bad_fqns(self):
+        num_vn = 2
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        vn_objs, _, _, _ = self._create_vn_ri_vmi(num_vn)
+        vn_fqns_str_list = [':'.join(o.fq_name) for o in vn_objs]
+        self.assertEqual(len(vn_fqns_str_list), 2)
+        vn_fqns_str_list.append("bad-fqn")
+        #len(vn_fqns_str_list) = 3 now
+        vn_fqns_str = ','.join(vn_fqns_str_list)
+        url = 'http://%s:%s/virtual-networks?fq_names_str=%s' %(
+            listen_ip, listen_port, vn_fqns_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vns = json.loads(resp.text)['virtual-networks']
+        ret_fqns_str_list = [':'.join(ret['fq_name']) for ret in ret_vns]
+        self.assertEqual(len(ret_fqns_str_list), 2)
+        self.assertEqual(vn_fqns_str_list.sort(), ret_fqns_str_list.sort())
+    #end test_bulk_read_rest_api_with_bad_fqns
+
+    def test_bulk_read_rest_api_with_fqns_objs(self):
+        num_vn = 4
+        listen_ip = self._api_server_ip
+        listen_port = self._api_server._args.listen_port
+
+        vn_objs, _, _, _ = self._create_vn_ri_vmi(num_vn)
+        vn_fqns_str_list = [':'.join(o.fq_name) for o in vn_objs]
+        vn_uuids_list = [o.uuid for o in vn_objs]
+        self.assertEqual(len(vn_fqns_str_list), 4)
+        self.assertEqual(len(vn_uuids_list), 4)
+        vn_fqns_str = ','.join(vn_fqns_str_list[0:2])
+        vn_uuids_str = ','.join(vn_uuids_list[2:])
+        # We are adding 1st two in obj_uuids and last two in fq_names_str
+        url = 'http://%s:%s/virtual-networks?obj_uuids=%s&fq_names_str=%s' %(
+            listen_ip, listen_port, vn_uuids_str, vn_fqns_str)
+        resp = requests.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ret_vns = json.loads(resp.text)['virtual-networks']
+        ret_fqns_str_list = [':'.join(ret['fq_name']) for ret in ret_vns]
+        ret_uuids_str_list = [ret['uuid'] for ret in ret_vns]
+        self.assertEqual(len(ret_fqns_str_list), 4)
+        self.assertEqual(ret_fqns_str_list.sort(), vn_fqns_str_list.sort())
+        self.assertEqual(ret_uuids_str_list.sort(), vn_uuids_list.sort())
+    #end test_bulk_read_rest_api_with_fqns_objs
+
     def test_delete_after_unref(self):
         # 2 policies, 1 VN associate to VN, dissociate, delete policies
         def create_vn_and_policies():
