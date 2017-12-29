@@ -48,6 +48,7 @@ def build_boost_for_windows(target,source,env):
     copyboostlib(buildlibdir+'boost_program_options.lib','program_options')
     copyboostlib(buildlibdir+'boost_regex.lib','regex')
     copyboostlib(buildlibdir+'boost_system.lib','system')
+    copyboostlib(buildlibdir+'boost_thread.lib','thread')
     copyboostlib(buildlibdir+'boost_filesystem.lib','filesystem')
 
     copyboostlib(buildlibdir + 'libboost_system-vc140-mt' + lib_file_flag + '-1_62.lib', 'system')
