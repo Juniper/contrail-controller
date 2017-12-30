@@ -250,11 +250,11 @@ struct BgpMpNlri : public BgpAttribute {
     BgpMpNlri() : BgpAttribute(0, ExtendedLength|kFlags), afi(0), safi(0) {}
     explicit BgpMpNlri(BgpAttribute::Code code) :
             BgpAttribute(code, ExtendedLength|kFlags), afi(0), safi(0) {}
-    explicit BgpMpNlri(BgpAttribute::Code code, u_int16_t afi, u_int8_t safi,
+    explicit BgpMpNlri(BgpAttribute::Code code, uint16_t afi, uint8_t safi,
                        std::vector<uint8_t> nh) :
             BgpAttribute(code, ExtendedLength|kFlags), afi(afi), safi(safi),
                        nexthop(nh) {}
-    explicit BgpMpNlri(BgpAttribute::Code code, u_int16_t afi, u_int8_t safi) :
+    explicit BgpMpNlri(BgpAttribute::Code code, uint16_t afi, uint8_t safi) :
         BgpAttribute(code, ExtendedLength|kFlags), afi(afi), safi(safi) {
         nexthop.clear();
     }

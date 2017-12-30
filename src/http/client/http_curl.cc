@@ -300,7 +300,7 @@ static int prog_cb (void *p, double dltotal, double dlnow, double ult,
 }
 
 /* CURLOPT_OPENSOCKETFUNCTION */
-static curl_socket_t opensocket(void *data,
+static curl_socket_t open_socket(void *data,
                                 curlsocktype purpose,
                                 struct curl_sockaddr *address)
 {
@@ -322,7 +322,7 @@ static curl_socket_t opensocket(void *data,
 }
 
 /* CURLOPT_CLOSESOCKETFUNCTION */
-static int closesocket(void *clientp, curl_socket_t item)
+static int close_socket(void *clientp, curl_socket_t item)
 {
   HttpConnection *conn = static_cast<HttpConnection *>(clientp);
   conn->delete_session();
@@ -417,11 +417,11 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
   curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
 
   /* call this function to get a socket */
-  curl_easy_setopt(conn->easy, CURLOPT_OPENSOCKETFUNCTION, opensocket);
+  curl_easy_setopt(conn->easy, CURLOPT_OPENSOCKETFUNCTION, open_socket);
   curl_easy_setopt(conn->easy, CURLOPT_OPENSOCKETDATA, connection);
 
   /* call this function to close a socket */
-  curl_easy_setopt(conn->easy, CURLOPT_CLOSESOCKETFUNCTION, closesocket);
+  curl_easy_setopt(conn->easy, CURLOPT_CLOSESOCKETFUNCTION, close_socket);
   curl_easy_setopt(conn->easy, CURLOPT_CLOSESOCKETDATA, connection);
 
   return conn;

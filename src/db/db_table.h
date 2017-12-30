@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <vector>
+#include <unistd.h>
 #include <boost/function.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
