@@ -136,7 +136,7 @@ private:
 
     enum QueueOp {
         ADD = 1,
-        DELETE = 2
+        DEL = 2
     };
     struct QueueEntry {
         QueueOp op;
