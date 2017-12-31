@@ -115,7 +115,7 @@ public:
     }
 
     int EncodeAgentHdr(uint8_t *buff, const AgentHdr &hdr) {
-        bzero(buff, sizeof(agent_hdr));
+        memset(buff, 0, sizeof(agent_hdr));
 
         // Add outer ethernet header
         struct ether_header *eth = (struct ether_header *)buff;

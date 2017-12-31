@@ -562,8 +562,8 @@ void MirrorTable::ReadHandler(const boost::system::error_code &ec,
 
     udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)), 
                            boost::bind(&MirrorTable::ReadHandler, this, 
-                                       placeholders::error,
-                                       placeholders::bytes_transferred));
+                                       boost::asio::placeholders::error,
+                                       boost::asio::placeholders::bytes_transferred));
 }
 
 void MirrorTable::MirrorSockInit(void) {
@@ -593,8 +593,8 @@ void MirrorTable::MirrorSockInit(void) {
 
     udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)), 
                              boost::bind(&MirrorTable::ReadHandler, this, 
-                                         placeholders::error,
-                                         placeholders::bytes_transferred));
+                                         boost::asio::placeholders::error,
+                                         boost::asio::placeholders::bytes_transferred));
 }
 
 VrfEntry *MirrorTable::FindVrfEntry(const string &vrf_name) const {

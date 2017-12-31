@@ -194,7 +194,7 @@ void NextHop::FillObjectLog(AgentLogEvent::type event,
         case AgentLogEvent::ADD:
             str.assign("Addition ");
             break;
-        case AgentLogEvent::DELETE:
+        case AgentLogEvent::DEL:
             str.assign("Deletion ");
             break;
         case AgentLogEvent::CHANGE:
@@ -325,7 +325,7 @@ bool NextHopTable::Resync(DBEntry *entry, const DBRequest *req) {
 bool NextHopTable::Delete(DBEntry *entry, const DBRequest *req) {
     NextHop *nh = static_cast<NextHop *>(entry);
     nh->Delete(req);
-    nh->SendObjectLog(this, AgentLogEvent::DELETE);
+    nh->SendObjectLog(this, AgentLogEvent::DEL);
     return true;
 }
 

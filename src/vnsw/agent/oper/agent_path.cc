@@ -1315,7 +1315,7 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
         break;
     }
 
-    case DELETE: {
+    case DEL: {
         rt_info.set_op("DELETE");
         break;
     }
