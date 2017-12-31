@@ -630,11 +630,13 @@ class VncApi(object):
     @check_homepage
     def _objects_list(self, res_type, parent_id=None, parent_fq_name=None,
                       obj_uuids=None, back_ref_id=None, fields=None,
-                      detail=False, count=False, filters=None, shared=False):
+                      detail=False, count=False, filters=None, shared=False,
+                      fq_names=None):
         return self.resource_list(
             res_type, parent_id=parent_id, parent_fq_name=parent_fq_name,
             back_ref_id=back_ref_id, obj_uuids=obj_uuids, fields=fields,
-            detail=detail, count=count, filters=filters, shared=shared)
+            detail=detail, count=count, filters=filters, shared=shared,
+            fq_names=fq_names)
     # end _objects_list
 
     @check_homepage
@@ -1262,7 +1264,7 @@ class VncApi(object):
     def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
                       back_ref_id=None, obj_uuids=None, fields=None,
                       detail=False, count=False, filters=None, shared=False,
-                      token=None):
+                      token=None, fq_names=None):
         if obj_uuids == [] or back_ref_id == []:
             return []
         self._headers['X-USER-TOKEN'] = token
@@ -1299,6 +1301,12 @@ class VncApi(object):
             comma_sep_obj_uuids = ','.join(u for u in obj_uuids)
             query_params['obj_uuids'] = comma_sep_obj_uuids
             if len(obj_uuids) > self.POST_FOR_LIST_THRESHOLD:
+                do_post_for_list = True
+
+        if fq_names:
+            comma_sep_fq_names = ','.join([':'.join(u) for u in fq_names])
+            query_params['fq_names'] = comma_sep_fq_names
+            if len(fq_names) > self.POST_FOR_LIST_THRESHOLD:
                 do_post_for_list = True
 
         if fields:

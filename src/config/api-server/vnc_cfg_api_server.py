@@ -1047,6 +1047,21 @@ class VncApiServer(object):
         if 'obj_uuids' in get_request().query:
             obj_uuids = get_request().query.obj_uuids.split(',')
 
+        if 'fq_names' in get_request().query:
+            obj_fqn_strs = get_request().query.fq_names.split(',')
+            obj_uuid = None
+            for obj_fqn_str in obj_fqn_strs:
+                try:
+                    obj_fqn = obj_fqn_str.split(':')
+                    obj_uuid = self._db_conn.fq_name_to_uuid(obj_type, obj_fqn)
+                    if obj_uuids is None:
+                        obj_uuids = []
+                    obj_uuids.append(obj_uuid)
+                except cfgm_common.exceptions.NoIdError as e:
+                    pass
+            if obj_uuids is None:
+                return {'%ss' %(resource_type): []}
+
         if 'page_marker' in get_request().query:
             pagination['marker'] = self._validate_page_marker(
                                        get_request().query['page_marker'])
