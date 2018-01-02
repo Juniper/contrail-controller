@@ -252,9 +252,8 @@ private:
                             SessionIpPortProtocol *session_agg_key) const;
     void FillSessionEndpoint(SessionEndpointMap::iterator it,
                              SessionEndpoint *session_ep) const;
-    void FillSessionTagInfo(const TagList &list,
-                            SessionEndpoint *session_ep,
-                            bool is_remote) const;
+    void FillSessionTags(const TagList &list, SessionEndpoint *ep) const;
+    void FillSessionRemoteTags(const TagList &list, SessionEndpoint *ep) const;
     static uint64_t GetCurrentTime();
     void UpdateSessionFlowStatsInfo(FlowEntry* fe,
                                     SessionFlowStatsInfo *session_flow) const;
