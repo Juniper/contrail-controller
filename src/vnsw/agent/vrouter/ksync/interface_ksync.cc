@@ -503,7 +503,8 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     // in packet. Store the SMAC for interface
     MacAddress smac;
     if (intf->type() == Interface::VM_INTERFACE &&
-        ksync_obj_->ksync()->agent()->isVmwareVcenterMode()) {
+        (ksync_obj_->ksync()->agent()->isVmwareVcenterMode() ||
+         ksync_obj_->ksync()->agent()->server_gateway_mode())) {
         const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
         smac = MacAddress(vm_intf->vm_mac());
     }
@@ -670,7 +671,9 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                                      (int8_t *)mac + mac.size());
         encoder.set_vifr_mac(intf_mac);
 
-        if (ksync_obj_->ksync()->agent()->isVmwareVcenterMode()) {
+        if (ksync_obj_->ksync()->agent()->isVmwareVcenterMode() ||
+            (ksync_obj_->ksync()->agent()->server_gateway_mode() &&
+             vmi_type_ == VmInterface::REMOTE_VM)) {
             std::vector<int8_t> mac;
             mac.insert(mac.begin(), (const int8_t *)smac(),
                        (const int8_t *)smac() + smac().size());
