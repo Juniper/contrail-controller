@@ -135,6 +135,13 @@ void PktHandler::CalculatePort(PktInfo *pkt) {
         pkt->dport = 0;
         return;
     }
+    /* If Fat-flow port is 0, then both source and destination ports have to
+     * be ignored */
+    if (intf->IsFatFlow(pkt->ip_proto, 0)) {
+        pkt->sport = 0;
+        pkt->dport = 0;
+        return;
+    }
 }
 
 bool PktHandler::IsBFDHealthCheckPacket(const PktInfo *pkt_info,

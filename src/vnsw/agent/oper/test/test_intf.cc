@@ -78,6 +78,15 @@ bool GetNhPolicy(const string &vrf, Ip4Address addr, int plen) {
    return nh->PolicyEnabled();
 }
 
+struct TestFatFlowEntry {
+    std::string protocol;
+    uint16_t port;
+    bool ignore_remote_address;
+    TestFatFlowEntry(string proto, uint16_t num, bool ignore_addr) :
+        protocol(proto), port(num), ignore_remote_address(ignore_addr) {
+    }
+};
+
 class IntfTest : public ::testing::Test {
 public:
     virtual void SetUp() {
@@ -181,6 +190,36 @@ public:
                "</virtual-machine-interface-fat-flow-protocols>";
         AddNode("virtual-machine-interface", input[0].name, input[0].intf_id,
                 str.str().c_str());
+    }
+
+    void DeleteFatFlow(struct PortInfo *input) {
+
+        ostringstream str;
+
+        str << "<virtual-machine-interface-fat-flow-protocols>"
+               "</virtual-machine-interface-fat-flow-protocols>";
+        AddNode("virtual-machine-interface", input[0].name, input[0].intf_id,
+                str.str().c_str());
+    }
+
+    void AddVnFatFlow(int vn_id, vector<TestFatFlowEntry> list) {
+
+        ostringstream str;
+        char vn_name[64];
+        sprintf(vn_name, "vn%d", vn_id);
+
+        str << "<virtual-network-fat-flow-protocols>";
+        vector<TestFatFlowEntry>::iterator it = list.begin();
+        while (it != list.end()) {
+            str << "<fat-flow-protocol>"
+                   "<protocol>" << it->protocol << "</protocol>"
+                   "<port>" << it->port << "</port>"
+                   "<ignore-remote-address>" << it->ignore_remote_address << "</ignore-remote-address>"
+                   "</fat-flow-protocol>";
+            ++it;
+        }
+        str << "</virtual-network-fat-flow-protocols>";
+        AddNode("virtual-network", vn_name, vn_id, str.str().c_str());
     }
 
     unsigned int intf_count;
@@ -4349,6 +4388,173 @@ TEST_F(IntfTest, FatFlowDel) {
     DelNode("virtual-machine-interface", "vnet1");
     client->WaitForIdle();
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+/* Verify that 0 can used for port in fat-flow configuration. This is used to
+ * ignore ports while setting up flows */
+TEST_F(IntfTest, FatFlowPortIgnore) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    AddFatFlow(input, "udp", 0);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 53) == false);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+/* Verify that Fat-flow configured at VN level is available at VMI oper objects
+ */
+TEST_F(IntfTest, VnFatFlow) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+    EXPECT_TRUE(VnFind(input[0].vn_id));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    TestFatFlowEntry e1("udp", 55, false);
+    TestFatFlowEntry e2("tcp", 1234, false);
+    vector<TestFatFlowEntry> list;
+    list.push_back(e1);
+    list.push_back(e2);
+
+
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 2);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234) == true);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+/* When Fat-flow is configured at VMI and VN level, verify the VMI oper object
+ * has the correct set of Fat-flow entries. Also verify that when VN level
+ * fat-flow config is removed, the VMI level config is retained at VMI oper
+ * object. */
+TEST_F(IntfTest, VnVmiFatFlow1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+    EXPECT_TRUE(VnFind(input[0].vn_id));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    TestFatFlowEntry e1("udp", 55, false);
+    TestFatFlowEntry e2("tcp", 1234, false);
+    vector<TestFatFlowEntry> list;
+    list.push_back(e1);
+    list.push_back(e2);
+
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    AddFatFlow(input, "udp", 0);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 3);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0) == true);
+
+    list.clear();
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 1);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55) == false);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234) == false);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0) == true);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+    client->Reset();
+}
+
+/* When Fat-flow is configured at VMI and VN level, verify the VMI oper object
+ * has the correct set of Fat-flow entries. Also verify that when VMI level
+ * fat-flow config is removed, the VN level config is retained at VMI oper
+ * object. */
+TEST_F(IntfTest, VnVmiFatFlow2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFind(1));
+    EXPECT_TRUE(VnFind(input[0].vn_id));
+
+    const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
+    TestFatFlowEntry e1("udp", 55, false);
+    TestFatFlowEntry e2("tcp", 1234, false);
+    vector<TestFatFlowEntry> list;
+    list.push_back(e1);
+    list.push_back(e2);
+
+    AddVnFatFlow(input[0].vn_id, list);
+    client->WaitForIdle();
+    AddFatFlow(input, "udp", 0);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 3);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0) == true);
+
+    DeleteFatFlow(input);
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 2);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 55) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_TCP, 1234) == true);
+    EXPECT_TRUE(intf->IsFatFlow(IPPROTO_UDP, 0) == false);
+
+    DelNode("virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
+
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
