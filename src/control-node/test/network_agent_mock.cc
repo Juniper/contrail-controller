@@ -736,7 +736,7 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
     autogen::McastItemType rt_entry;
     rt_entry.Clear();
 
-    char *str = const_cast<char *>(sg.c_str());
+    char *str = const_cast<char *>(sg_save.c_str());
     char *saveptr;
     char *group = strtok_r(str, ",", &saveptr);
     char *source = NULL;
