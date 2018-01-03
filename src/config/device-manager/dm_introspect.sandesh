@@ -112,3 +112,63 @@ response sandesh BgpRouterListResp {
 request sandesh BgpRouterList {
     1: string name_or_uuid;
 }
+
+struct LogicalRouter {
+    1: string name;
+    2: string uuid;
+    3: list<string> physical_routers;
+    4: list<string> virtual_machine_interfaces;
+    5: string virtual_network (link="VirtualNetworkList");
+}
+
+response sandesh LogicalRouterListResp {
+    1: list<LogicalRouter> logical_routers;
+}
+
+request sandesh LogicalRouterList {
+    1: string name_or_uuid;
+}
+
+struct InstanceIp {
+    1: string name;
+    2: string uuid;
+    3: string instance_ip_address;
+    5: string virtual_machine_interface (link="VirtualMachineInterfaceList");
+}
+
+response sandesh InstanceIpListResp {
+    1: list<InstanceIp> instance_ips;
+}
+
+request sandesh InstanceIpList {
+    1: string name_or_uuid;
+}
+
+struct FloatingIp {
+    1: string name;
+    2: string uuid;
+    3: string floating_ip_address;
+    5: string virtual_machine_interface (link="VirtualMachineInterfaceList");
+}
+
+response sandesh FloatingIpListResp {
+    1: list<FloatingIp> floating_ips;
+}
+
+request sandesh FloatingIpList {
+    1: string name_or_uuid;
+}
+
+struct PortTuple {
+    1: string name;
+    2: string uuid;
+    4: list<string> virtual_machine_interfaces;
+}
+
+response sandesh PortTupleListResp {
+    1: list<PortTuple> port_tuples;
+}
+
+request sandesh PortTupleList {
+    1: string name_or_uuid;
+}

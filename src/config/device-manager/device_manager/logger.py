@@ -12,7 +12,8 @@ from cfgm_common.vnc_logger import ConfigServiceLogger
 
 from db import BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM, \
      LogicalInterfaceDM, VirtualNetworkDM, RoutingInstanceDM, \
-     VirtualMachineInterfaceDM
+     VirtualMachineInterfaceDM, FloatingIpDM, InstanceIpDM, PortTupleDM \
+     LogicalRouterDM
 from sandesh.dm_introspect import ttypes as sandesh
 
 
@@ -45,6 +46,14 @@ class DeviceManagerLogger(ConfigServiceLogger):
             self.sandesh_vmi_handle_request
         sandesh.RoutingInstanceList.handle_request = \
             self.sandesh_ri_handle_request
+        sandesh.LogicalRouterList.handle_request = \
+            self.sandesh_lr_handle_request
+        sandesh.FloatingIpList.handle_request = \
+            self.sandesh_fip_handle_request
+        sandesh.InstanceIpList.handle_request = \
+            self.sandesh_instance_ip_handle_request
+        sandesh.PortTupleList.handle_request = \
+            self.sandesh_port_tuple_handle_request
 
     def sandesh_bgp_build(self, bgp_router):
         return sandesh.BgpRouter(name=bgp_router.name, uuid=bgp_router.uuid,
@@ -186,5 +195,85 @@ class DeviceManagerLogger(ConfigServiceLogger):
                 resp.routing_instances.append(sandesh_ri)
         resp.response(req.context())
     # end sandesh_ri_handle_request
+
+    def sandesh_lr_build(self, lr):
+        return sandesh.LogicalRouter(name=lr.name, uuid=lr.uuid,
+                                 physical_routers=lr.physical_routers,
+                                 virtual_machine_interfaces=lr.virtual_machine_interfaces,
+                                 virtual_network=lr.virtual_network)
+
+    def sandesh_lr_handle_request(self, req):
+        # Return the set of VMIs
+        resp = sandesh.LogicalRouterListResp(logical_routers=[])
+        if req.name_or_uuid is None:
+            for lr in LogicalRouterDM.values():
+                sandesh_lr = self.sandesh_lr_build(lr)
+                resp.logical_routers.append(sandesh_lr)
+        else:
+            lr = LogicalRouterDM.find_by_name_or_uuid(req.name_or_uuid)
+            if lr:
+                sandesh_lr = self.sandesh_lr_build(lr)
+                resp.logical_routers.append(sandesh_lr)
+        resp.response(req.context())
+    # end sandesh_lr_handle_request
+
+    def sandesh_fip_build(self, fip):
+        return sandesh.FloatingIp(name=fip.name, uuid=fip.uuid,
+                                 floating_ip_address=fip.floating_ip_address,
+                                 virtual_machine_interface=fip.virtual_machine_interface)
+
+    def sandesh_fip_handle_request(self, req):
+        # Return the set of FIPs
+        resp = sandesh.FloatingIpListResp(floating_ips=[])
+        if req.name_or_uuid is None:
+            for fip in FloatingIpDM.values():
+                sandesh_fip = self.sandesh_fip_build(fip)
+                resp.floating_ips.append(sandesh_fip)
+        else:
+            fip = FloatingIpDM.find_by_name_or_uuid(req.name_or_uuid)
+            if fip:
+                sandesh_fip = self.sandesh_fip_build(fip)
+                resp.floating_ips.append(sandesh_fip)
+        resp.response(req.context())
+    # end sandesh_fip_handle_request
+
+    def sandesh_instance_ip_build(self, instance_ip):
+        return sandesh.InstanceIp(name=instance_ip.name, uuid=instance_ip.uuid,
+                                 instance_ip_address=instance_ip.instance_ip_address,
+                                 virtual_machine_interface=instance_ip.virtual_machine_interface)
+
+    def sandesh_instance_ip_handle_request(self, req):
+        # Return the set of Instance IPs
+        resp = sandesh.InstanceIpListResp(instance_ips=[])
+        if req.name_or_uuid is None:
+            for instance_ip in InstanceIpDM.values():
+                sandesh_instance_ip = self.sandesh_instance_ip_build(instance_ip)
+                resp.instance_ips.append(sandesh_instance_ip)
+        else:
+            instance_ip = InstanceIpDM.find_by_name_or_uuid(req.name_or_uuid)
+            if instance_ip:
+                sandesh_instance_ip = self.sandesh_instance_ip_build(instance_ip)
+                resp.instance_ips.append(sandesh_instance_ip)
+        resp.response(req.context())
+    # end sandesh_instance_ip_handle_request
+
+    def sandesh_port_tuple_build(self, port_tuple):
+        return sandesh.PortTuple(name=port_tuple.name, uuid=port_tuple.uuid,
+                                 virtual_machine_interfaces=port_tuple.virtual_machine_interfaces)
+
+    def sandesh_port_tuple_handle_request(self, req):
+        # Return the set of Port Tuples
+        resp = sandesh.PortTupleListResp(port_tuples=[])
+        if req.name_or_uuid is None:
+            for port_tuple in PortTupleDM.values():
+                sandesh_port_tuple = self.sandesh_port_tuple_build(port_tuple)
+                resp.port_tuples.append(sandesh_port_tuple)
+        else:
+            port_tuple = PortTupleDM.find_by_name_or_uuid(req.name_or_uuid)
+            if port_tuple:
+                sandesh_port_tuple = self.sandesh_port_tuple_build(port_tuple)
+                resp.port_tuples.append(sandesh_port_tuple)
+        resp.response(req.context())
+    # end sandesh_port_tuple_handle_request
 
 # end DeviceManagerLogger
