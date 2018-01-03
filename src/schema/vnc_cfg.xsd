@@ -925,6 +925,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="PortTranslationPool">
+        <xsd:element name="protocol" type="xsd:string"/>
+        <xsd:element name="port-range"    type="PortType"  required='exclusive'
+             description='Port range to be reserved for per layer 4 protocol for PAT'/>
+        <xsd:element name="port-count"    type="unsignedShort"  required='exclusive'
+             description='Number of ports per layer 4 protocol to be reserved for PAT'/>
+</xsd:complexType>
+
+<xsd:complexType name="PortTranslationPools">
+    <xsd:all>
+        <xsd:element name="port-translation-pool" type="PortTranslationPool" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:element name="display-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL Property('display-name', 'all', 'optional', 'CRUD',
                                   'Display name user configured string(name) that can be updated any time. Used as openstack name.') -->
@@ -1408,6 +1422,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     Property('forwarding-mode', 'global-vrouter-config', 'optional', 'CRUD',
              'Packet forwarding mode for this system L2-only, L3-only OR L2-L3. L2-L3 is default.') -->
 
+<xsd:element name="port-translation-pools" type="PortTranslationPools"/>
+<!--#IFMAP-SEMANTICS-IDL
+         ListProperty('port-translation-pools', 'global-vrouter-config', 'optional', 'CRUD',
+                      'List of Ports to be reserved for providing underlay connectivity via Port translation.') -->
+
 <xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('virtual-network-properties', 'virtual-network', 'optional', 'CRUD',
@@ -1448,6 +1467,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('port-security-enabled', 'virtual-machine-interface', 'optional', 'CRUD',
               'Port security status on the port') -->
+
+<xsd:element name="fabric-snat" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+          Property('fabric-snat', 'virtual-network', 'optional', 'CRUD',
+                   'Provide connectivity to underlay network by port mapping') -->
 
 <xsd:complexType name="RouteTargetList">
     <xsd:all>

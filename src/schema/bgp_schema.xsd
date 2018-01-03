@@ -398,4 +398,10 @@
      Property('static-route-entries', 'routing-instance', 'system-only', 'CRUD',
               'Internal service chaining information, should not be modified.') -->
 
+<xsd:element name="routing-instance-fabric-snat" type="xsd:boolean" default="false"/>
+<!--#IFMAP-SEMANTICS-IDL
+          Property('routing-instance-fabric-snat', 'routing-instance', 'system-only', 'CRUD',
+                   'Provide connectivity to underlay network by port mapping traffic'
+                   'with source IP of compute node') -->
+
 </xsd:schema>
