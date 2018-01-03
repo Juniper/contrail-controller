@@ -1284,11 +1284,18 @@ void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
 }
 
 void VmInterface::FatFlowList::Insert(const FatFlowEntry *rhs) {
-    list_.insert(*rhs);
+    std::pair<FatFlowEntrySet::iterator, bool> ret = list_.insert(*rhs);
+    /* Insertion fails when the entry already exists. In this case update
+     * non-key fields
+     */
+    if (ret.second == false) {
+        ret.first->ignore_remote_address = rhs->ignore_remote_address;
+    }
 }
 
 void VmInterface::FatFlowList::Update(const FatFlowEntry *lhs,
                                       const FatFlowEntry *rhs) {
+    lhs->ignore_remote_address = rhs->ignore_remote_address;
 }
 
 void VmInterface::FatFlowList::Remove(FatFlowEntrySet::iterator &it) {
