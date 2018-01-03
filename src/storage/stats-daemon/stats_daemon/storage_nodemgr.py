@@ -25,6 +25,8 @@ import syslog
 
 global HOME_ENV_PATH
 HOME_ENV_PATH = '/root'
+global collector_addr
+collector_addr = []
 
 
 from stats_daemon.sandesh.storage.ttypes import *
@@ -826,6 +828,7 @@ class EventManager:
             self.send_process_state_db()
 
 def parse_args(args_str):
+    global collector_addr
 
     # Source any specified config/ini file
     # Turn off help, so we show all options in response to -h
@@ -842,6 +845,7 @@ def parse_args(args_str):
         'log_level': 'SYS_NOTICE',
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'collectors': [],
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     sandesh_opts = SandeshConfig.get_default_options()
@@ -852,6 +856,15 @@ def parse_args(args_str):
         if 'DEFAULTS' in config.sections():
             defaults.update(dict(config.items("DEFAULTS")))
         SandeshConfig.update_options(sandesh_opts, config)
+        if 'COLLECTOR' in config.sections():
+            print "collector"
+            try:
+                collector = config.get('COLLECTOR', 'server_list')
+                defaults['collectors'] = collector.split()
+                collector_addr = collector.split()
+            except ConfigParser.NoOptionError as e:
+                pass
+
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -891,7 +904,6 @@ def main(args_str=None):
 
     prog = EventManager(args.node_type)
 
-    collector_addr = []
     if (args.node_type == 'storage-compute' or args.node_type == 'storage-master'):
         #storage node module initialization part
         module = Module.STORAGE_STATS_MGR
