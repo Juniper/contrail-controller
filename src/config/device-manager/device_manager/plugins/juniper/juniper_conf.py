@@ -436,7 +436,7 @@ class JuniperConf(DeviceConf):
     # end set_bgp_config
 
     def _get_bgp_config_xml(self, external=False):
-        if self.bgp_params is None:
+        if self.bgp_params is None or not self.bgp_params.get('address'):
             return None
         bgp_group = BgpGroup()
         bgp_group.set_comment(DMUtils.bgp_group_comment(self.bgp_obj))
@@ -494,6 +494,8 @@ class JuniperConf(DeviceConf):
     # end get_asn
 
     def set_as_config(self):
+        if not self.bgp_params.get("identifier"):
+            return
         if self.global_routing_options_config is None:
             self.global_routing_options_config = RoutingOptions(comment=DMUtils.routing_options_comment())
         self.global_routing_options_config.set_route_distinguisher_id(self.bgp_params['identifier'])
@@ -524,7 +526,7 @@ class JuniperConf(DeviceConf):
         if bgp_router:
             for peer_uuid, attr in bgp_router.bgp_routers.items():
                 peer = BgpRouterDM.get(peer_uuid)
-                if peer is None:
+                if not peer or not peer.params or not peer.params.get('address'):
                     continue
                 local_as = (bgp_router.params.get('local_autonomous_system') or
                                bgp_router.params.get('autonomous_system'))
@@ -550,6 +552,19 @@ class JuniperConf(DeviceConf):
         self.set_as_config()
         self.set_bgp_group_config()
     # end build_bgp_config
+
+    def ensure_bgp_config(self):
+        if not self.physical_router.bgp_router:
+            self._logger.info("bgp router not configured for pr: " + \
+                                                 self.physical_router.name)
+            return False
+        bgp_router = BgpRouterDM.get(self.physical_router.bgp_router)
+        if not bgp_router.params or not bgp_router.params.get("address"):
+            self._logger.info("bgp router parameters not configured for pr: " + \
+                                                 bgp_router.name)
+            return False
+        return True
+    # end ensure_bgp_config
 
 # end JuniperConf
 
