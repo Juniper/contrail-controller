@@ -94,8 +94,8 @@ class ControlProvisioner(object):
                                         --oper <add | del>
                                         --md5 <key value>|None(optional)
                                         --local_autonomous_system <ASN value>|None(optional)
-                                        --graceful_restart_time 100
-                                        --long_lived_graceful_restart_time 100
+                                        --graceful_restart_time 300
+                                        --long_lived_graceful_restart_time 300
                                         --end_of_rib_timeout 300
                                         --set_graceful_restart_parameters False
                                         --graceful_restart_bgp_helper_enable False
@@ -124,7 +124,7 @@ class ControlProvisioner(object):
             'admin_password': None,
             'admin_tenant_name': None,
             'md5' : None,
-            'graceful_restart_time': 60,
+            'graceful_restart_time': 300,
             'long_lived_graceful_restart_time': 300,
             'end_of_rib_timeout': 300,
             'graceful_restart_bgp_helper_enable': False,
@@ -182,7 +182,7 @@ class ControlProvisioner(object):
         parser.add_argument(
             "--graceful_restart_time",
             help="Graceful Restart Time in seconds (0..4095)",
-            type=self.gr_time_type, default=60,
+            type=self.gr_time_type, default=300,
             required=False)
         parser.add_argument(
             "--long_lived_graceful_restart_time",
