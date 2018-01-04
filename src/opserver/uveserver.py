@@ -385,25 +385,22 @@ class UVEServer(object):
                 patterns.add(self.get_uve_regex(filt))
 
         if not sfilter and not mfilter and self._usecache:
-            rsp = self._uvedbcache.get_uve_list([table], filters, patterns, True)
+            rsp = self._uvedbcache.get_uve_list([table], filters, patterns, False)
             if table in rsp:
-                uve_list = rsp[table]
-            else:
-                uve_list = set()
+                for uve_name in rsp[table]:
+                    yield {'name': uve_name, 'value': rsp[table][uve_name]}
         else:
             # get_uve_list cannot handle attribute names very efficiently,
             # so we don't pass them here
             uve_list = self.get_uve_list(table, filters, False)
 
-        for uve_name in uve_list:
-            _,uve_val = self.get_uve(
-                table + ':' + uve_name, flat, filters,  base_url)
-            if uve_val == {}:
-                continue
-            else:
-                uve = {'name': uve_name, 'value': uve_val}
-                yield uve
-
+            for uve_name in uve_list:
+                _,uve_val = self.get_uve(
+                    table + ':' + uve_name, flat, filters,  base_url)
+                if uve_val == {}:
+                    continue
+                else:
+                    yield {'name': uve_name, 'value': uve_val}
     # end multi_uve_get
 
     def get_uve_list(self, table, filters=None, parse_afilter=False):
