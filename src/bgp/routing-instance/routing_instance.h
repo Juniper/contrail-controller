@@ -187,6 +187,9 @@ public:
     std::string &mvpn_project_manager_network() {
         return mvpn_project_manager_network_;
     }
+    void set_mvpn_project_manager_network(std::string network) {
+        mvpn_project_manager_network_ = network;
+    }
 
 private:
     friend class RoutingInstanceMgr;
