@@ -3077,6 +3077,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!-- Tag -->
 <xsd:include schemaLocation='tag.xsd'/>
 
+<!-- Configurable TTL -->
+<xsd:include schemaLocation='configurable_ttl.xsd'/>
+
 <!-- PBB EVPN Configurations -->
 <xsd:simpleType name="MACLimitExceedActionType">
     <xsd:annotation>

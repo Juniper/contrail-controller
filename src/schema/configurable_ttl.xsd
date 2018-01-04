@@ -1,0 +1,28 @@
+<!--
+ Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+     -->
+<xsd:schema
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:element name="configurable-ttls" type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-ttl"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-ttl',
+          'global-system-config', 'configurable-ttls', ['has'], 'optional', 'CRUD',
+          'List of ttls in hours for different analytics tables created in cassandra.') -->
+<xsd:element name="message-table-ttl-in-hours" type="xsd:integer" required='optional' />
+<!--#IFMAP-SEMANTICS-IDL
+     Property('message-table-ttl-in-hours', 'configurable-ttls', 'optional', 'CRUD',
+                  'Ttls in hours for message table') -->
+<xsd:element name="session-table-ttl-in-hours" type="xsd:integer" required='optional' />
+<!--#IFMAP-SEMANTICS-IDL
+     Property('session-table-ttl-in-hours', 'configurable-ttls', 'optional', 'CRUD',
+                  'Ttls in hours for session table') -->
+<xsd:element name="stats-table-ttl-in-hours" type="xsd:integer" required='optional' />
+<!--#IFMAP-SEMANTICS-IDL
+     Property('stats-table-ttl-in-hours', 'configurable-ttls', 'optional', 'CRUD',
+                  'Ttls in hours for stats table') -->
+<xsd:element name="audit-table-ttl-in-hours" type="xsd:integer" required='optional' />
+<!--#IFMAP-SEMANTICS-IDL
+     Property('audit-table-ttl-in-hours', 'configurable-ttls', 'optional', 'CRUD',
+                  'Ttls in hours for Audit entries') -->
+</xsd:schema>
