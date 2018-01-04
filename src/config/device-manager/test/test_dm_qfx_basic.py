@@ -380,7 +380,7 @@ class TestQfxBasicDM(TestCommonDM):
         self._vnc_lib.virtual_machine_interface_create(vmi1)
 
         li1 = LogicalInterface('li1.0', parent_obj = pi1)
-        li1.logical_interface_vlan_tag = 100
+        li1.set_logical_interface_vlan_tag(100)
         li1.set_virtual_machine_interface(vmi1)
         li1_id = self._vnc_lib.logical_interface_create(li1)
 
@@ -392,20 +392,42 @@ class TestQfxBasicDM(TestCommonDM):
         pi2.set_ethernet_segment_identifier(esi_value)
         pi_id = self._vnc_lib.physical_interface_create(pi2)
 
-        fq_name = ['default-domain', 'default-project', 'vmi2-esi' + self.id()]
-        vmi2 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
-        vmi2.set_virtual_network(vn1_obj)
-        self._vnc_lib.virtual_machine_interface_create(vmi2)
-
         li2 = LogicalInterface('li2.0', parent_obj = pi2)
-        li1.logical_interface_vlan_tag = 100
-        li2.set_virtual_machine_interface(vmi2)
+        li2.set_logical_interface_vlan_tag(100)
+        li2.set_virtual_machine_interface(vmi1)
         li2_id = self._vnc_lib.logical_interface_create(li2)
 
         self.check_esi_config('ae127', esi_value)
         self.check_esi_config('pi2-esi', esi_value, False)
 
         self.check_chassis_config()
+        self.check_lacp_config("ae127", esi_value, ["pi1-esi", "pi2-esi"])
+        self.check_l2_evpn_config("ae127", 100)
+
+        pi3 = PhysicalInterface('pi3-esi', parent_obj = pr)
+        esi_value = "44:44:44:44:44:44:44:44:44:44"
+        pi3.set_ethernet_segment_identifier(esi_value)
+        pi_id = self._vnc_lib.physical_interface_create(pi3)
+
+        fq_name = ['default-domain', 'default-project', 'vmi3-esi' + self.id()]
+        vmi3 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
+        vmi3.set_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi3)
+
+        li3 = LogicalInterface('li3.0', parent_obj = pi3)
+        li3.logical_interface_vlan_tag = 200
+        li3.set_virtual_machine_interface(vmi3)
+        li3_id = self._vnc_lib.logical_interface_create(li3)
+
+        self.check_esi_config('ae126', esi_value)
+        self.check_esi_config('pi3-esi', esi_value, False)
+
+        self.check_chassis_config()
+        self.check_lacp_config("ae126", esi_value, ["pi3-esi"])
+        self.check_l2_evpn_config("ae126", 200)
+
+        # check again ae127 state, should not be changed
+        esi_value = "33:33:33:33:33:33:33:33:33:33"
         self.check_lacp_config("ae127", esi_value, ["pi1-esi", "pi2-esi"])
         self.check_l2_evpn_config("ae127", 100)
 
