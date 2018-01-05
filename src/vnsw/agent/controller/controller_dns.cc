@@ -113,7 +113,7 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(AgentDnsXmppChannel *peer
         DiscoveryAgentClient *dac = Agent::GetInstance()->discovery_client();
         if (dac) {
             std::vector<DSResponse> resp =
-                Agent::GetInstance()->GetDiscoveryServerResponseList();
+                Agent::GetInstance()->GetDiscoveryDnsServerResponseList();
             std::vector<DSResponse>::iterator iter;
             for (iter = resp.begin(); iter != resp.end(); iter++) {
                 DSResponse dr = *iter;
