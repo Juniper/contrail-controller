@@ -24,6 +24,8 @@ if GetOption('with_libvirt'):
 # Build CPPPATH
 ##########################################################################
 env.Prepend(CPPPATH = '#/vrouter/include')
+if sys.platform == 'win32':
+    env.Prepend(CPPPATH = '#/vrouter/windows')
 env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 env.Prepend(CPPPATH = env['TOP'] + '/tools/sandesh/library/common')
 
