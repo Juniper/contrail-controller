@@ -10,11 +10,11 @@ subclusters, efficiently.
 # 3. Proposed solution
 The proposed solution is at the remote sites, only control node services are
 spawned, and ibgp meshed among themselves. These control nodes are provisioned
-to BGP peer with SDN gateway, over which routing exchange with primary control
+to BGP peer with SDN gateway, over which route exchange with primary control
 nodes happen.
 
 Compute nodes in the remote site are provisioned to connect to these control
-nodes to receive config and exchange routers. Data communication among 
+nodes to receive config and exchange routes. Data communication among
 workloads between these clusters are communicated via Internet through their
 respective SDN gateways.
 
@@ -90,6 +90,29 @@ subcluser as optional argument to link/delink them with subcluster object.
 be used by new provisioning scripts.
 5) API server changes to handle the above requests and CRUD subcluster object
 with the links and properties defined above.
+
+## 4.1 Remote-site cross connect verification
+
+To catch any cross site connections between compute-node and control-node,
+control-node will verify against the xmlns attribute in XMPP open message to
+accept or reject connections.
+
+<?xml version='1.0'?>
+      <stream:stream
+          from='juliet@im.example.com'
+          to='im.example.com'
+          version='1.0'
+          xml:lang='en'
+          xmlns='sub-cluster-id:asn'
+          xmlns:stream='http://etherx.jabber.org/streams'>
+      </stream:stream>
+</>
+
+Both control-node and compute-node will be configured with sub-cluster string
+parameter in their respective configuration files.
+
+At this point, we do not plan to enchance BGP Open Message to detect cross
+site peering on control-nodes.
 
 # 5. Performance and scaling impact
 ## 5.1 API and control plane
