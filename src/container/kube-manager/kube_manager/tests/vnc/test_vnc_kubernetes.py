@@ -28,6 +28,8 @@ class VncKubernetesTest(unittest.TestCase):
         self.args.auth_token_url = "token"
         self.args.cluster_project = None
         self.args.cluster_network = None
+        self.args.cluster_pod_network = None
+        self.args.cluster_service_network = None
         self.args.pod_subnets = ['10.10.0.0/16']
         self.args.service_subnets = ['192.168.0.0/24']
         self.args.kubernetes_api_secure_port = "8443"
@@ -35,6 +37,22 @@ class VncKubernetesTest(unittest.TestCase):
         self.args.auth_password = "qwerty"
         self.args.auth_tenant = "default"
         self.args.cassandra_server_list = ()
+
+        api = VncApiMock(
+            self.args.auth_user,
+            self.args.auth_password,
+            self.args.auth_tenant,
+            self.args.vnc_endpoint_ip,
+            self.args.vnc_endpoint_port,
+            self.args.auth_token_url
+        )
+        domain_uuid = api.domain_create(Domain("default-domain"))
+        domain = api.domain_read(id=domain_uuid)
+
+        proj_uuid = api.project_create(Project("default-project", parent_obj=domain))
+        proj = api.project_read(id=proj_uuid)
+        net = VirtualNetwork("ip-fabric", proj)
+        api.virtual_network_create(net)
 
     def tearDown(self):
         pass
@@ -80,8 +98,8 @@ class VncKubernetesTest(unittest.TestCase):
         mock_vnc_amqp_handle.establish.assert_called_once_with()
 
         # check if KM dictionaries are synchronized with database
-        self.assertEquals(1, len(vnc_kubernetes.DomainKM.list_obj()))
-        self.assertEquals(4, len(vnc_kubernetes.ProjectKM.list_obj()))
+        self.assertEquals(2, len(vnc_kubernetes.DomainKM.list_obj()))
+        self.assertEquals(5, len(vnc_kubernetes.ProjectKM.list_obj()))
         obj = vnc_kubernetes.DomainKM.get('123')
         self.assertIsNotNone(obj)
         self.assertEquals(['test-domain'], obj.fq_name)
@@ -119,29 +137,13 @@ class VncKubernetesTest(unittest.TestCase):
         self.verify_if_synchronized(vnc_kubernetes.ProjectKM, system_proj)
         self.verify_if_synchronized(vnc_kubernetes.ProjectKM, default_proj)
 
-        # Verify cluster network
+        # Verify cluster pod network
         net = self.verify_if_created(
-            'virtual-network', 'cluster-network', ['default-domain', 'default'])
+            'virtual-network', 'cluster-pod-network', ['default-domain', 'default'])
         self.verify_if_synchronized(vnc_kubernetes.VirtualNetworkKM, net)
         ipam_refs = net.get_network_ipam_refs()
-        self.assertEquals(2, len(ipam_refs))
-        if ipam_refs[0]['to'][2] == 'pod-ipam':
-            pod_ipam_ref = ipam_refs[0]
-            svc_ipam_ref = ipam_refs[1]
-        else:
-            pod_ipam_ref = ipam_refs[1]
-            svc_ipam_ref = ipam_refs[0]
-        self.assertEquals([], pod_ipam_ref['attr'].ipam_subnets)
-        self.assertEquals(1, len(svc_ipam_ref['attr'].ipam_subnets))
-        self.assertEquals(24, svc_ipam_ref['attr'].ipam_subnets[0].get_subnet().get_ip_prefix_len())
-        self.assertEquals('192.168.0.0', svc_ipam_ref['attr'].ipam_subnets[0].get_subnet().get_ip_prefix())
-
-        # Verify service ipam
-        svc_ipam = self.verify_if_created('network-ipam', 'service-ipam',
-                                          ['default-domain', 'default'])
-        self.verify_if_synchronized(vnc_kubernetes.NetworkIpamKM, svc_ipam)
-        self.assertNotEquals('flat-subnet', svc_ipam.get_ipam_subnet_method())
-        self.assertIsNone(svc_ipam.get_ipam_subnets())
+        self.assertEquals(1, len(ipam_refs))
+        self.assertEquals([], ipam_refs[0]['attr'].ipam_subnets)
 
         # Verify pod ipam
         pod_ipam = self.verify_if_created('network-ipam', 'pod-ipam',
@@ -151,10 +153,21 @@ class VncKubernetesTest(unittest.TestCase):
         self.assertEquals(16, pod_ipam.get_ipam_subnets().subnets[0].subnet.get_ip_prefix_len())
         self.assertEquals('10.10.0.0', pod_ipam.get_ipam_subnets().subnets[0].subnet.get_ip_prefix())
 
-        # Verify fip pool
-        fip_pool = self.verify_if_created('floating-ip-pool', 'svc-fip-pool-cluster-network',
-                                          ['default-domain', 'default', 'cluster-network'])
-        self.verify_if_synchronized(vnc_kubernetes.FloatingIpPoolKM, fip_pool)
+        # Verify cluster service network
+        net = self.verify_if_created(
+            'virtual-network', 'cluster-service-network', ['default-domain', 'default'])
+        self.verify_if_synchronized(vnc_kubernetes.VirtualNetworkKM, net)
+        ipam_refs = net.get_network_ipam_refs()
+        self.assertEquals(1, len(ipam_refs))
+        self.assertEquals([], ipam_refs[0]['attr'].ipam_subnets)
+
+        # Verify service ipam
+        service_ipam = self.verify_if_created('network-ipam', 'service-ipam',
+                                          ['default-domain', 'default'])
+        self.verify_if_synchronized(vnc_kubernetes.NetworkIpamKM, service_ipam)
+        self.assertEquals('flat-subnet', pod_ipam.get_ipam_subnet_method())
+        self.assertEquals(24, service_ipam.get_ipam_subnets().subnets[0].subnet.get_ip_prefix_len())
+        self.assertEquals('192.168.0.0', service_ipam.get_ipam_subnets().subnets[0].subnet.get_ip_prefix())
 
     @patch("kube_manager.vnc.db.KubeNetworkManagerDB", new=DBMock)
     @patch("kube_manager.vnc.vnc_kubernetes.VncApi", new=VncApiMock)
@@ -168,17 +181,28 @@ class VncKubernetesTest(unittest.TestCase):
             self.args.vnc_endpoint_port,
             self.args.auth_token_url
         )
-        domain_uuid = api.domain_create(Domain("default-domain"))
-        domain = api.domain_read(id=domain_uuid)
+        domain_fq_name = ['default-domain']
+        domain = api.domain_read(fq_name=domain_fq_name)
+
         proj_uuid = api.project_create(Project("default", parent_obj=domain))
         proj = api.project_read(id=proj_uuid)
+
+        # Create cluster-pod-network
         ipam_uuid = api.network_ipam_create(NetworkIpam("pod-ipam", proj))
         ipam = api.network_ipam_read(id=ipam_uuid)
-        net = VirtualNetwork("cluster-network", proj)
-
+        net = VirtualNetwork("cluster-pod-network", proj)
         # No subnets are associated with IPAM at this point.
         # Subnets will be updated in the IPAM, when cluster is created.
         net.add_network_ipam(ipam, VnSubnetsType([]))
-
         api.virtual_network_create(net)
+
+        # Create cluster-service-network
+        ipam_uuid = api.network_ipam_create(NetworkIpam("service-ipam", proj))
+        ipam = api.network_ipam_read(id=ipam_uuid)
+        net = VirtualNetwork("cluster-service-network", proj)
+        # No subnets are associated with IPAM at this point.
+        # Subnets will be updated in the IPAM, when cluster is created.
+        net.add_network_ipam(ipam, VnSubnetsType([]))
+        api.virtual_network_create(net)
+
         vnc_kubernetes.VncKubernetes(self.args, Mock())

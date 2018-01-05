@@ -52,8 +52,8 @@ class VncKubernetesConfig(object):
         return cls.vnc_kubernetes_config.get("cluster_pod_ipam_fq_name", None)
 
     @classmethod
-    def service_fip_pool(cls):
-        return cls.vnc_kubernetes_config.get("cluster_service_fip_pool", None)
+    def service_ipam_fq_name(cls):
+        return cls.vnc_kubernetes_config.get("cluster_service_ipam_fq_name", None)
 
     @classmethod
     def cluster_owner(cls):
@@ -144,6 +144,46 @@ class VncKubernetesConfig(object):
     def cluster_default_network_fq_name(cls):
         vn_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
                       cls.cluster_default_network_name()]
+        return vn_fq_name
+
+    @classmethod
+    def get_configured_pod_network_name(cls):
+        args = cls.args()
+        if args.cluster_pod_network:
+            return get_vn_name_from_vn_dict_string(args.cluster_pod_network)
+        return None
+
+    @classmethod
+    def cluster_default_pod_network_name(cls):
+        vn_name = cls.get_configured_pod_network_name()
+        if vn_name:
+            return vn_name
+        return "cluster-pod-network"
+
+    @classmethod
+    def cluster_default_pod_network_fq_name(cls):
+        vn_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
+                      cls.cluster_default_pod_network_name()]
+        return vn_fq_name
+
+    @classmethod
+    def get_configured_service_network_name(cls):
+        args = cls.args()
+        if args.cluster_service_network:
+            return get_vn_name_from_vn_dict_string(args.cluster_service_network)
+        return None
+
+    @classmethod
+    def cluster_default_service_network_name(cls):
+        vn_name = cls.get_configured_service_network_name()
+        if vn_name:
+            return vn_name
+        return "cluster-service-network"
+
+    @classmethod
+    def cluster_default_service_network_fq_name(cls):
+        vn_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
+                      cls.cluster_default_service_network_name()]
         return vn_fq_name
 
     @classmethod

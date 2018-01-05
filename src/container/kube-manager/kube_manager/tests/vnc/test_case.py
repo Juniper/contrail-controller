@@ -124,10 +124,10 @@ class KMTestCase(test_common.TestCase):
     def enqueue_event(self, event):
         self.event_queue.put(event)
 
-    def wait_for_all_tasks_done(self):
+    def wait_for_all_tasks_done(self, sleep_interval=1):
         self.enqueue_idle_event()
         while self.event_queue.empty() is False:
-            time.sleep(1)
+            time.sleep(sleep_interval)
 
     def enqueue_idle_event(self):
         idle_event = {'type': None,
@@ -266,7 +266,15 @@ class KMTestCase(test_common.TestCase):
                 vn_obj.add_network_ipam(ipam_obj, VnSubnetsType([ipam_subnet]))
         return ipam_obj
 
-    def create_network(self, name, proj_obj, pod_subnet, service_subnet):
+    def create_pod_service_network(self, pod_vn_name, service_vn_name, \
+            proj_obj, pod_subnet, service_subnet):
+        pod_vn = self.create_network(pod_vn_name, \
+            proj_obj, pod_subnet, 'pod-ipam');
+        service_vn = self.create_network(service_vn_name, \
+            proj_obj, service_subnet, 'service-ipam');
+        return pod_vn, service_vn
+
+    def create_network(self, name, proj_obj, subnet, ipam_name):
         vn = VirtualNetwork(
             name=name, parent_obj=proj_obj,
             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
@@ -280,10 +288,8 @@ class KMTestCase(test_common.TestCase):
             vn_uuid = self._vnc_lib.virtual_network_create(vn)
             vn_obj = self._vnc_lib.virtual_network_read(id=vn_uuid)
 
-        pod_ipam_obj = self._create_network_ipam('pod-ipam', 'flat-subnet',
-                                                 pod_subnet, proj_obj, vn_obj)
-        self._create_network_ipam('service-ipam', '', service_subnet, proj_obj,
-                                  vn_obj)
+        ipam_obj = self._create_network_ipam(ipam_name, 'flat-subnet',
+                                                 subnet, proj_obj, vn_obj)
         try:
             self._vnc_lib.virtual_network_update(vn_obj)
         except Exception as e:
@@ -293,8 +299,8 @@ class KMTestCase(test_common.TestCase):
 
         vn_obj = self._vnc_lib.virtual_network_read(
             fq_name=vn_obj.get_fq_name())
-        kube = vnc_kubernetes.VncKubernetes.get_instance()
-        kube._create_cluster_service_fip_pool(vn_obj, pod_ipam_obj)
+        #kube = vnc_kubernetes.VncKubernetes.get_instance()
+        #kube._create_cluster_service_fip_pool(vn_obj, pod_ipam_obj)
 
         return vn_obj
 

@@ -75,7 +75,8 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
         self.assertIsNotNone(proj)
         self.assertEquals(self.cluster_project, proj.name)
 
-        fqname = ['default-domain', self.cluster_project, self.ns_name+'-vn']
+        fqname = ['default-domain', \
+            self.cluster_project, self.ns_name+'-pod-network']
         vn = self._vnc_lib.virtual_network_read(fq_name=fqname)
         self.assertIsNotNone(vn)
 
@@ -129,7 +130,7 @@ class VncNamespaceTestCustomNetwork(VncNamespaceTest):
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
         self.create_network(self.vn_name, proj_obj, '10.32.0.0/12',
-                            '10.96.0.0/12')
+                            'pod-ipam')
 
         vn_dict = {'domain': self.domain,
                    'project': self.cluster_project,

@@ -4,7 +4,11 @@ from gevent import monkey
 from mock import MagicMock
 monkey.patch_all()
 
+from netaddr import IPNetwork, IPAddress
+
 from vnc_api.vnc_api import KeyValuePair, KeyValuePairs
+from vnc_api.gen.resource_client import VirtualNetwork
+from vnc_api.gen.resource_xsd import IpamSubnetType, SubnetType, VnSubnetsType
 from kube_manager.common.kube_config_db import NamespaceKM, PodKM, ServiceKM
 from kube_manager.tests.vnc import test_case
 from kube_manager.tests.vnc.db_mock import DBBaseKM
@@ -62,6 +66,43 @@ class VncEndpointsTestBase(test_case.KMTestCase):
         NamespaceKM.locate(ns_uid, ns_add_event['object'])
         self.enqueue_event(ns_add_event)
         return namespace_name, ns_uid
+
+    def _delete_cluster_network(self, vn_obj):
+        return self._vnc_lib.virtual_network_delete(id=vn_obj.get_uuid())
+
+    def _create_cluster_network(self):
+        proj_fq_name = ['default-domain', 'default']
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        vn_obj = VirtualNetwork(
+            name='cluster-network',
+            parent_obj=proj_obj,
+            address_allocation_mode='user-defined-subnet-only')
+        ipam_fq_name = ['default-domain', 'default-project',
+                        'default-network-ipam']
+        ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+        subnet_data = self._create_subnet_data('10.32.0.0/24')
+        vn_obj.add_network_ipam(ipam_obj, subnet_data)
+        return self._vnc_lib.virtual_network_create(vn_obj)
+
+    @staticmethod
+    def _create_subnet_data(vn_subnet):
+        subnets = [vn_subnet] if isinstance(vn_subnet,
+                                            basestring) else vn_subnet
+        subnet_infos = []
+        for subnet in subnets:
+            cidr = IPNetwork(subnet)
+            subnet_infos.append(
+                IpamSubnetType(
+                    subnet=SubnetType(
+                        str(cidr.network),
+                        int(cidr.prefixlen),
+                    ),
+                    default_gateway=str(IPAddress(cidr.last - 1)),
+                    subnet_uuid=str(uuid.uuid4()),
+                )
+            )
+        subnet_data = VnSubnetsType(subnet_infos)
+        return subnet_data
 
     def _add_service(self, namespace, srv_name, srv_spec):
         srv_meta = {
@@ -241,7 +282,6 @@ class VncEndpointsTestBase(test_case.KMTestCase):
                     KeyValuePair('vm', vm_uid),
                     KeyValuePair('vmi', vmi_uid)]),
                 member_annotations)
-
 
 class VncEndpointsTest(VncEndpointsTestBase):
 
@@ -452,7 +492,6 @@ class VncEndpointsTest(VncEndpointsTestBase):
         self._delete_endpoints(endpoints)
         # No assertion here. It should just pass without error.
 
-
 class VncEndpointsNestedTest(VncEndpointsTestBase):
 
     @classmethod
@@ -468,12 +507,13 @@ class VncEndpointsNestedTest(VncEndpointsTestBase):
 
     def setUp(self, *args, **kwargs):
         super(VncEndpointsNestedTest, self).setUp(*args, **kwargs)
-        self.default_vn = self._vnc_lib.virtual_network_read(
-            fq_name=VncKubernetesConfig.cluster_default_network_fq_name())
+        vn_uuid = self._create_cluster_network()
+        self.default_vn = self._vnc_lib.virtual_network_read(id=vn_uuid)
 
     def tearDown(self, *args, **kwargs):
         for vm in self._vnc_lib.virtual_machines_list()['virtual-machines']:
             self.delete_virtual_machine(vm_id=vm['uuid'])
+        self._delete_cluster_network(self.default_vn)
         super(VncEndpointsNestedTest, self).tearDown()
 
     def test_endpoints_add(self):
@@ -589,7 +629,6 @@ class VncEndpointsNestedTest(VncEndpointsTestBase):
         self.wait_for_all_tasks_done()
 
         self._check_lb_members()
-
 
 class VncEndpointsTestScaling(VncEndpointsTestBase):
     def test_endpoints_add_scaling(self):
