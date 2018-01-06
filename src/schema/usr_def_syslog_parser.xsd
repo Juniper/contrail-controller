@@ -1,0 +1,80 @@
+<!--
+Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+     -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+<xsd:simpleType name="MetricType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="int"/>
+        <xsd:enumeration value="string"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="syslog_rfc5424" type="ifmap:IdentityType"/>
+<xsd:element name="global_syslog_rfc5424"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global_rfc5424',
+          'global-system-config', 'rfc5424', ['has'], 'optional', 'CRUD',
+          'rfc5424 format config info, fq name should be appname:msgid pair') -->
+
+<xsd:complexType name="RFC5424Cfg">
+    <xsd:all>
+        <xsd:element name="hostname_as_tag" type="xsd:boolean" required='true' default="false"/>
+        <xsd:element name="appname_as_tag" type="xsd:boolean" required='true' default="false"/>
+        <xsd:element name="procid_as_tag" type="xsd:boolean" required='true' default="false"/>
+        <xsd:element name="msgid_as_tag" type="xsd:boolean" required='true' default="false"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="rfc5424_config" type="RFC5424Cfg"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('rfc5424_config', 'rfc5424', 'required', 'CRUD',
+              'rfc 5424 header config info') -->
+
+<xsd:element name="syslog_parser" type="ifmap:IdentityType"/>
+<xsd:element name="global_system_config_syslog_parser"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global_system_config_syslog_parser',
+          'rfc5424', 'syslog_parser', ['has'], 'optional', 'CRUD',
+          'List of syslog_parser that are applicable to objects anchored under global-system-config.') -->
+
+<xsd:complexType name="SubPattern">
+    <xsd:all>
+        <xsd:element name="pattern_name" type="xsd:string"/>
+        <xsd:element name="pattern" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:complexType name="PatternSuite">
+    <xsd:all>
+        <xsd:element name="pattern_string" type="xsd:string" required='true'/>
+        <xsd:element name="sub_patterns" type="SubPattern" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:element name="pattern" type="PatternSuite"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pattern', 'syslog_parser', 'required', 'CRUD',
+                  'user can input pattern, and nested sub-pattern with name sub-pattern pattern') -->
+
+<xsd:complexType name="QueryTagList">
+    <xsd:element name="tag_list" type="xsd:string" required='true' maxOccurs="unbounded"/>
+</xsd:complexType>
+<xsd:element name="query_tags" type="QueryTagList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('query_tags', 'syslog_parser', 'required', 'CRUD',
+                  'querry_tags permit user do 'where', use tag, user can show special tag's info') -->
+
+<xsd:complexType name="MetricCfg">
+    <xsd:all>
+        <xsd:element name="name" required='true' type="string"/>
+        <xsd:element name="data_type" required='true' type="MetricType"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:complexType name="MetricList">
+    <xsd:element name="metric_list" type="MetricCfg" required='true' maxOccurs="unbounded"/>
+</xsd:complexType>
+<xsd:element name="metrics" type="MetricList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('metrics', 'syslog_parser', 'required', 'CRUD',
+                  'metric list is the object which is used to do stats') -->
+
+</xsd:schema>
