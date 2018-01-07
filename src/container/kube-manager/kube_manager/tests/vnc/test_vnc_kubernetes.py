@@ -30,6 +30,7 @@ class VncKubernetesTest(unittest.TestCase):
         self.args.cluster_network = None
         self.args.cluster_pod_network = None
         self.args.cluster_service_network = None
+        self.args.cluster_name= "unittest-cluster"
         self.args.pod_subnets = ['10.10.0.0/16']
         self.args.service_subnets = ['192.168.0.0/24']
         self.args.kubernetes_api_secure_port = "8443"
@@ -37,6 +38,7 @@ class VncKubernetesTest(unittest.TestCase):
         self.args.auth_password = "qwerty"
         self.args.auth_tenant = "default"
         self.args.cassandra_server_list = ()
+        self.args.aps_name="test-aps"
 
         api = VncApiMock(
             self.args.auth_user,
