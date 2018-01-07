@@ -68,14 +68,15 @@ class KMTestCase(test_common.TestCase):
             ('DEFAULTS', 'log_file', 'contrail-kube-manager.log'),
             ('DEFAULTS', 'logger_class',
              test_common.ErrorInterceptingLogger.get_qualified_name()),
+            ('DEFAULTS', 'nested_mode', '0'),
+            ('DEFAULTS', 'kube_timer_interval', '0'),
             ('VNC', 'vnc_endpoint_ip', cls._api_server_ip),
             ('VNC', 'vnc_endpoint_port', cls._api_server_port),
             ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
             ('VNC', 'cluster_id', cls._cluster_id),
-            ('VNC', 'kube_timer_interval', '5'),
             ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
             ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
-            ('KUBERNETES', 'cluster_name', "test-cluster"),
+            ('KUBERNETES', 'cluster_name', cls.cluster_name()),
         ]
         kube_config.extend(extra_args)
         cls._km_greenlet = gevent.spawn(
@@ -364,3 +365,7 @@ class KMTestCase(test_common.TestCase):
     @classmethod
     def get_kubernetes_node_ip(cls):
         return cls.kubernetes_node_ip
+
+    @staticmethod
+    def cluster_name():
+        return "test-cluster"

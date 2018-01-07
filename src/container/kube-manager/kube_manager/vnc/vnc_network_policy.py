@@ -14,6 +14,8 @@ from kube_manager.common.kube_config_db import NamespaceKM
 from kube_manager.common.kube_config_db import NetworkPolicyKM
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
+from vnc_security_policy import VncSecurityPolicy
+from kube_manager.vnc.label_cache import XLabelCache
 
 class VncNetworkPolicy(VncCommon):
 
@@ -24,6 +26,7 @@ class VncNetworkPolicy(VncCommon):
         self._ingress_ns_label_cache = {}
         self._ingress_pod_label_cache = {}
         self._np_pod_label_cache = {}
+        self._labels = XLabelCache('NetworkPolicy')
         self._default_ns_sgs = {}
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
@@ -511,13 +514,39 @@ class VncNetworkPolicy(VncCommon):
             self._update_np_sg(np_sg.namespace, np_sg,
                     ingress_sg_rule_set, **annotations)
 
-    def _get_np_pod_selector(self, spec, namespace):
+    def _get_np_pod_selector(self, spec):
         pod_selector = spec.get('podSelector')
         if not pod_selector or not 'matchLabels' in pod_selector:
-            labels = self._label_cache._get_namespace_label(namespace)
+            labels = {}
         else:
             labels = pod_selector.get('matchLabels')
         return labels
+
+    def _add_labels(self, event, namespace, np_uuid):
+        """
+        Add all labels referenced in the network policy to the label cache.
+        """
+        all_labels =  []
+        spec = event['object']['spec']
+        if spec:
+            # Get pod selector labels.
+            all_labels.append(self._get_np_pod_selector(spec))
+
+            # Get ingress podSelector labels
+            ingress_spec_list = spec.get("ingress", [])
+            for ingress_spec in ingress_spec_list:
+                from_rules = ingress_spec.get('from', [])
+                for from_rule in from_rules:
+                    if 'namespaceSelector' in from_rule:
+                        all_labels.append(
+                            from_rule.get('namespaceSelector').get(
+                                'matchLabels',{}))
+                    if 'podSelector' in from_rule:
+                        all_labels.append(
+                            from_rule.get('podSelector').get('matchLabels',{}))
+
+            # Call label mgmt API.
+            self._labels.process(np_uuid, list_curr_labels_dict=all_labels)
 
     def vnc_network_policy_add(self, event, namespace, name, uid):
         spec = event['object']['spec']
@@ -526,42 +555,8 @@ class VncNetworkPolicy(VncCommon):
                 %(self._name, name, uid))
             return
 
-        np_sg = SecurityGroupKM.get(uid)
-        if np_sg:
-            return
-
-        np_pod_selector = self._get_np_pod_selector(spec, namespace)
-        np_sg = self._create_np_sg(spec, namespace,
-                name, uid, json.dumps(np_pod_selector))
-        if not np_sg:
-            return
-        np_sg.np_pod_selector = np_pod_selector
-        self._update_sg_cache(self._np_pod_label_cache,
-                np_pod_selector, np_sg.uuid)
-
-        ingress_rule_list = \
-            self._get_ingress_rule_list(spec, namespace, np_sg.name, np_sg.uuid)
-
-        ingress_sg_rule_list, ingress_pod_sgs, ingress_ns_sgs = \
-            self._get_ingress_sg_rule_list(namespace, np_sg.name, ingress_rule_list)
-
-        np_sg.ingress_pod_sgs = ingress_pod_sgs
-        np_sg.ingress_ns_sgs = ingress_ns_sgs
-        for ns_sg in ingress_ns_sgs or []:
-            self._update_ns_sg(ns_sg, np_sg.uuid, 'ADD')
-
-        annotations = {}
-        annotations['np_pod_selector'] = json.dumps(np_pod_selector)
-        annotations['ingress_pod_sgs'] = json.dumps(list(ingress_pod_sgs))
-        annotations['ingress_ns_sgs'] = json.dumps(list(ingress_ns_sgs))
-        ingress_sg_rule_set = set(ingress_sg_rule_list)
-        self._update_rule_uuid(ingress_sg_rule_set)
-        self._update_np_sg(namespace, np_sg,
-                ingress_sg_rule_set, **annotations)
-        np_pod_ids = self._find_pods(np_pod_selector)
-        for np_pod_id in np_pod_ids or []:
-            self._update_sg_pod_link(namespace, np_pod_id,
-                    np_sg.uuid, 'ADD', validate_vm=True)
+        fw_policy_uuid = VncSecurityPolicy.create_firewall_policy(name, namespace, spec)
+        VncSecurityPolicy.add_firewall_policy(fw_policy_uuid)
 
     def _vnc_delete_sg(self, sg):
         for vmi_id in list(sg.virtual_machine_interfaces):
@@ -577,28 +572,7 @@ class VncNetworkPolicy(VncCommon):
             self._logger.error("Failed to delete SG %s %s" % (sg.uuid, str(e)))
 
     def vnc_network_policy_delete(self, namespace, name, uuid):
-        np_sg = SecurityGroupKM.get(uuid)
-        if not np_sg:
-            return
-        ingress_ns_sgs = np_sg.ingress_ns_sgs
-        for ns_sg in ingress_ns_sgs or []:
-            self._update_ns_sg(ns_sg, np_sg.uuid, 'DELETE')
-        ingress_pod_sgs = np_sg.ingress_pod_sgs
-        for ingress_pod_sg in ingress_pod_sgs or []:
-            pod_sg = SecurityGroupKM.get(ingress_pod_sg)
-            if not pod_sg:
-                continue
-            ingress_pod_selector = pod_sg.ingress_pod_selector
-            if ingress_pod_selector:
-                self._clear_sg_cache(self._ingress_pod_label_cache,
-                        ingress_pod_selector, ingress_pod_sg)
-            self._vnc_delete_sg(pod_sg)
-        self._clear_sg_cache_uuid(self._ingress_ns_label_cache, np_sg.uuid)
-        np_pod_selector = np_sg.np_pod_selector
-        if np_pod_selector:
-            self._clear_sg_cache(self._np_pod_label_cache,
-                        np_pod_selector, np_sg.uuid)
-        self._vnc_delete_sg(np_sg)
+        VncSecurityPolicy.delete_firewall_policy(name, namespace)
 
     def _create_network_policy_event(self, event_type, np_id):
         event = {}
@@ -636,6 +610,7 @@ class VncNetworkPolicy(VncCommon):
         name = event['object']['metadata'].get('name')
         uid = event['object']['metadata'].get('uid')
 
+
         print("%s - Got %s %s %s:%s:%s"
               %(self._name, event_type, kind, namespace, name, uid))
         self._logger.debug("%s - Got %s %s %s:%s:%s"
@@ -643,12 +618,14 @@ class VncNetworkPolicy(VncCommon):
 
         if event['object'].get('kind') == 'NetworkPolicy':
             if event['type'] == 'ADDED':
+                self._add_labels(event, namespace, uid)
                 self.vnc_network_policy_add(event, namespace, name, uid)
             elif event['type'] == 'MODIFIED':
                 # spec modification is restricted in k8s
                 pass
             elif event['type'] == 'DELETED':
                 self.vnc_network_policy_delete(namespace, name, uid)
+                self._labels.process(uid)
             else:
                 self._logger.warning(
                     'Unknown event type: "{}" Ignoring'.format(event['type']))

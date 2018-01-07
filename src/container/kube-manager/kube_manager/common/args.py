@@ -82,6 +82,9 @@ def parse_args(args_str=None):
         'orchestrator' : 'kubernetes',
         'token' : '',
         'nested_mode': '0',
+        'global_tags': '1',
+        'aps_name': 'default-application-policy-set',
+        'kube_timer_interval': '60'
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
 
