@@ -140,6 +140,8 @@
              description='Weight for load balancing'/>
         <xsd:element name='address' type='IpAddressType' required='required' operations='CR'
              description='Ip address of the member'/>
+        <xsd:element name='subnet-id' type='UuidStringType' required='optional' operation='CR'
+             description='UUID of the subnet from where the members are reachable.'/>
     </xsd:sequence>
 </xsd:complexType>
 

@@ -758,6 +758,8 @@ class VirtualNetworkSM(DBBaseSM):
         self.uuid = uuid
         self.virtual_machine_interfaces = set()
         self.instance_ips = set()
+        self.network_ipams = set()
+        self.subnet_uuids = set()
         obj_dict = self.update(obj_dict)
         self.add_to_parent(obj_dict)
     # end __init__
@@ -769,6 +771,15 @@ class VirtualNetworkSM(DBBaseSM):
         self.fq_name = obj['fq_name']
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('instance_ip', obj)
+        self.update_multiple_refs('network_ipam', obj)
+        if self.network_ipams:
+            network_ipam_refs = obj.get('network_ipam_refs', [])
+            for network_ipam in network_ipam_refs:
+                ipam_subnets = network_ipam.get('attr').get('ipam_subnets', [])
+                for ipam_subnet in ipam_subnets:
+                    subnet_uuid = ipam_subnet.get('subnet_uuid', None)
+                    if subnet_uuid:
+                        self.subnet_uuids.add(subnet_uuid)
         return obj
     # end update
 
@@ -779,6 +790,7 @@ class VirtualNetworkSM(DBBaseSM):
         obj = cls._dict[uuid]
         obj.update_multiple_refs('virtual_machine_interface', {})
         obj.update_multiple_refs('instance_ip', {})
+        obj.update_multiple_refs('network_ipam', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
@@ -1337,3 +1349,31 @@ class ServiceHealthCheckSM(DBBaseSM):
         del cls._dict[uuid]
     # end delete
 # end ServiceHealthCheckSM
+
+class NetworkIpamSM(DBBaseSM):
+    _dict = {}
+    obj_type = 'network_ipam'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.virtual_networks = set()
+        self.update(obj_dict)
+    # end __init__
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.parent_uuid = obj['parent_uuid']
+        self.name = obj['fq_name'][-1]
+        self.update_multiple_refs('virtual_network', obj)
+    # end update
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('virtual_network', {})
+        del cls._dict[uuid]
+    # end delete
+# end NetworkIpamSM
