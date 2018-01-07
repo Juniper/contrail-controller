@@ -550,6 +550,7 @@ class LoadbalancerAgent(Agent):
         'protocol_port': 'protocol_port',
         'weight': 'weight',
         'address': 'address',
+        'subnet_id': 'subnet_id',
     }
 
     def loadbalancer_member_get_reqdict(self, member):

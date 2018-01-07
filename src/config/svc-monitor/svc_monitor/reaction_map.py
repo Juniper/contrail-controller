@@ -111,4 +111,7 @@ REACTION_MAP = {
     "logical_router": {
         'self': [],
     },
+    "network_ipam": {
+        'self': ['virtual_network'],
+    },
 }
