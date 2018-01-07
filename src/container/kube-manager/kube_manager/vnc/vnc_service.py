@@ -29,7 +29,6 @@ class VncService(VncCommon):
         self.logger = vnc_kube_config.logger()
         self._queue = vnc_kube_config.queue()
         self.kube = vnc_kube_config.kube()
-
         self._fip_pool_obj = None
 
         # Cache kubernetes API server params.
@@ -573,10 +572,11 @@ class VncService(VncCommon):
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
             self.vnc_service_add(service_id, service_name,
                 service_namespace, service_ip, selectors, ports,
-                service_type, externalIps, loadBalancerIp)
+                    service_type, externalIps, loadBalancerIp)
         elif event['type'] == 'DELETED':
-            self.vnc_service_delete(service_id, service_name, service_namespace,
-                                    ports)
+            self.vnc_service_delete(service_id, service_name,
+                                    service_namespace, ports)
         else:
             self.logger.warning(
                 'Unknown event type: "{}" Ignoring'.format(event['type']))
+

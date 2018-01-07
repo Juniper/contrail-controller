@@ -189,8 +189,11 @@ class DBBaseKM(DBBase):
             return
         obj = cls._dict[uuid]
         if obj.ann_fq_name:
-            del cls._ann_fq_name_to_uuid[tuple(obj.ann_fq_name)]
-        del cls._fq_name_to_uuid[tuple(obj.fq_name)]
+            if tuple(obj.ann_fq_name) in cls._ann_fq_name_to_uuid:
+                del cls._ann_fq_name_to_uuid[tuple(obj.ann_fq_name)]
+ 
+        if tuple(obj.fq_name) in cls._fq_name_to_uuid:
+            del cls._fq_name_to_uuid[tuple(obj.fq_name)]
 
     def evaluate(self):
         # Implement in the derived class
@@ -252,6 +255,8 @@ class LoadbalancerKM(DBBaseKM):
         self.selectors = None
         self.annotations = None
         self.external_ip = None
+        self.service_name = None
+        self.service_namespace = None
         obj_dict = self.update(obj_dict)
 
     def update(self, obj=None):
@@ -264,11 +269,24 @@ class LoadbalancerKM(DBBaseKM):
         self.build_fq_name_to_uuid(self.uuid, obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.update_multiple_refs('loadbalancer_listener', obj)
+        name = None
+        namespace = None
+        owner = None
         if self.annotations:
             for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'externalIP':
                     self.external_ip = kvp['value']
-                    break
+                elif kvp['key'] == 'name':
+                    name = kvp['value']
+                elif kvp['key'] == 'namespace':
+                    namespace = kvp['value']
+                elif kvp['key'] == 'owner':
+                    owner = kvp['value']
+
+            if owner == 'k8s':
+                self.service_name = name
+                self.service_namespace = namespace
+
         return obj
 
     @classmethod
@@ -1747,3 +1765,206 @@ class NetworkPolicyKM(DBBaseKM):
             return
         del cls._dict[uuid]
 # end class NetworkPolicyKM
+
+class TagKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'tag'
+    _ann_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        super(TagKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref('tag_type', obj)
+        self.build_fq_name_to_uuid(self.uuid, obj)
+        return obj
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('tag_type', {})
+        super(TagKM, cls).delete(uuid)
+        del cls._dict[uuid]
+# end class TagKM
+
+class PolicyManagementKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'policy_management'
+    _ann_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        super(PolicyManagementKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.build_fq_name_to_uuid(self.uuid, obj)
+        return obj
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        super(PolicyManagementKM, cls).delete(uuid)
+        del cls._dict[uuid]
+# end class PolicyManagementKM
+
+class ApplicationPolicySetKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'application_policy_set'
+    _ann_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        super(ApplicationPolicySetKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.parent_uuid = obj.get('parent_uuid', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
+        return obj
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        super(ApplicationPolicySetKM, cls).delete(uuid)
+        del cls._dict[uuid]
+
+    def get_fq_name(self):
+        return self.fq_name
+# end class ApplicationPolicySetKM
+
+class FirewallRuleKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'firewall_rule'
+    _ann_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        super(FirewallRuleKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.action_list = obj['action_list']
+        self.endpoint_1 = obj['endpoint_1']
+        self.endpoint_2 = obj['endpoint_2']
+        self.match_tag_types = obj['match_tag_types']
+        self.service = obj.get('service', None)
+        self.build_fq_name_to_uuid(self.uuid, obj)
+        return obj
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        super(FirewallRuleKM, cls).delete(uuid)
+        del cls._dict[uuid]
+
+    def get_fq_name(self):
+        return self.fq_name
+# end class FirewallRuleKM
+
+class FirewallPolicyKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'firewall_policy'
+    _ann_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.firewall_rules = set()
+        self.deny_all_rule_uuid = None
+
+        # Marker to indicate if this is policy is the beginning of
+        # collection of end/tail policys in an application set. The tail
+        # section of an APS contains policy's that are meant to enforce
+        # deafult behavior in the APS.
+        self.tail = False
+
+        super(FirewallPolicyKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.annotations = obj.get('annotations', None)
+        if self.annotations:
+            for kvp in self.annotations['key_value_pair'] or []:
+                if kvp['key'] == 'tail':
+                    self.tail = kvp['value']
+                elif kvp['key'] == 'deny_all_rule_uuid':
+                    self.deny_all_rule_uuid = kvp['value']
+
+        self.update_multiple_refs('firewall_rule', obj)
+        self.build_fq_name_to_uuid(self.uuid, obj)
+        return obj
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('firewall_rule', ())
+        super(FirewallPolicyKM, cls).delete(uuid)
+        del cls._dict[uuid]
+
+    def get_fq_name(self):
+        return self.fq_name
+# end class FirewallPolicyKM
+
+class AddressGroupKM(DBBaseKM):
+    _dict = {}
+    obj_type = 'address_group'
+    _ann_fq_name_to_uuid = {}
+    _fq_name_to_uuid = {}
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        super(AddressGroupKM, self).__init__(uuid, obj_dict)
+        obj_dict = self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.build_fq_name_to_uuid(self.uuid, obj)
+        return obj
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        super(AddressGroupKM, cls).delete(uuid)
+        del cls._dict[uuid]
+# end class AddressGroupKM

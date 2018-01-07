@@ -45,18 +45,17 @@ class VncServiceTest(KMTestCase):
 
     def test_add_delete_service_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
+        self.create_project(cluster_project)
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         network_uuid = self._create_virtual_network(cluster_project)
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid,
                                        expected_vn_uuid=network_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
         self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
 
@@ -66,23 +65,21 @@ class VncServiceTest(KMTestCase):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
     def test_add_delete_service_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
+        self.create_project(cluster_project)
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid)
 
@@ -101,13 +98,11 @@ class VncServiceTest(KMTestCase):
             isolated=True)
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
@@ -120,14 +115,12 @@ class VncServiceTest(KMTestCase):
             self._enqueue_add_custom_isolated_namespace(project, custom_network)
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid,
                                        expected_vn_uuid=network_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
         self._delete_virtual_network(network_uuid)
 
         self._assert_all_is_down(uuids)
@@ -143,14 +136,12 @@ class VncServiceTest(KMTestCase):
                 cluster_project, custom_network)
 
         ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid,
                                        expected_vn_uuid=network_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
         self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
 
@@ -158,19 +149,18 @@ class VncServiceTest(KMTestCase):
 
     def test_add_delete_loadbalancer_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
+        self.create_project(cluster_project)
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         network_uuid = self._create_virtual_network(cluster_project)
 
         ports, srv_meta, srv_uuid = \
             self._enqueue_add_loadbalancer(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid,
                                        expected_vn_uuid=network_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
         self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
 
@@ -181,24 +171,22 @@ class VncServiceTest(KMTestCase):
 
         ports, srv_meta, srv_uuid = \
             self._enqueue_add_loadbalancer(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
     def test_add_delete_loadbalancer_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
+        self.create_project(cluster_project)
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
 
         ports, srv_meta, srv_uuid = \
             self._enqueue_add_loadbalancer(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid)
 
@@ -218,13 +206,11 @@ class VncServiceTest(KMTestCase):
 
         ports, srv_meta, srv_uuid = \
             self._enqueue_add_loadbalancer(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
@@ -238,14 +224,12 @@ class VncServiceTest(KMTestCase):
 
         ports, srv_meta, srv_uuid = \
             self._enqueue_add_loadbalancer(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid,
                                        expected_vn_uuid=network_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
         self._delete_virtual_network(network_uuid)
 
         self._assert_all_is_down(uuids)
@@ -262,14 +246,12 @@ class VncServiceTest(KMTestCase):
 
         ports, srv_meta, srv_uuid = \
             self._enqueue_add_loadbalancer(namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid,
                                        expected_vn_uuid=network_uuid)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
         self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
 
@@ -280,26 +262,24 @@ class VncServiceTest(KMTestCase):
 
         ports, srv_meta, srv_uuid = self._enqueue_add_kubernetes_service(
             namespace_name)
-        self.wait_for_all_tasks_done()
 
         uuids = self._assert_all_is_up(ports, srv_uuid)
         self._assert_link_local_service(ports)
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
     def test_delete_add_service_after_kube_manager_is_killed(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         ports, srv_meta, _ = self._enqueue_add_service(namespace_name)
-        self.wait_for_all_tasks_done()
 
         self.kill_kube_manager()
 
-        self._enqueue_delete_service(ports, srv_meta)
-        ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name)
+        self._enqueue_delete_service(ports, srv_meta, wait=False)
+        ports, srv_meta, srv_uuid = self._enqueue_add_service(namespace_name,
+                                                              wait=False)
         public_fip_pool_config = str({
             'project': 'default',
             'domain': 'default-domain',
@@ -314,7 +294,6 @@ class VncServiceTest(KMTestCase):
 
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
@@ -323,9 +302,9 @@ class VncServiceTest(KMTestCase):
             'ServiceData', ['uuids', 'uuid', 'name', 'ports', 'meta'])
         scale = 50
         cluster_project = self._set_cluster_project()
+        self.create_project(cluster_project)
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         network_uuid = self._create_virtual_network(cluster_project)
-        self.wait_for_all_tasks_done()
 
         srvs_data = []
         first_ip = self.external_ip
@@ -334,7 +313,6 @@ class VncServiceTest(KMTestCase):
             self.external_ip = (IPAddress(first_ip) + i).format()
             ports, srv_meta, srv_uuid = \
                 self._enqueue_add_service(namespace_name, srv_name=srv_name)
-            self.wait_for_all_tasks_done()
 
             uuids = self._assert_all_is_up(ports, srv_uuid,
                                            expected_vn_uuid=network_uuid)
@@ -343,12 +321,10 @@ class VncServiceTest(KMTestCase):
 
         for i, srv_data in enumerate(srvs_data):
             self._enqueue_delete_service(srv_data.ports, srv_data.meta)
-            self.wait_for_all_tasks_done()
 
             self._assert_all_is_down(srv_data.uuids, True)
 
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
-        self.wait_for_all_tasks_done()
         self._delete_virtual_network(network_uuid)
         self._delete_project(cluster_project)
         self.external_ip = first_ip
@@ -537,6 +513,7 @@ class VncServiceTest(KMTestCase):
             ns_add_event['object']['metadata']['annotations'] = annotations
         NamespaceKM.locate(ns_uuid, ns_add_event['object'])
         self.enqueue_event(ns_add_event)
+        self.wait_for_all_tasks_done()
         return namespace_name, ns_uuid
 
     def _enqueue_add_custom_isolated_namespace(self, project, network):
@@ -556,6 +533,7 @@ class VncServiceTest(KMTestCase):
         ns_add_event['object']['metadata']['annotations'] = annotations
         NamespaceKM.locate(ns_uuid, ns_add_event['object'])
         self.enqueue_event(ns_add_event)
+        self.wait_for_all_tasks_done()
         return namespace_name, ns_uuid
 
     def _enqueue_delete_namespace(self, namespace_name, ns_uuid):
@@ -563,6 +541,7 @@ class VncServiceTest(KMTestCase):
                                                              ns_uuid)
         NamespaceKM.delete(ns_uuid)
         self.enqueue_event(ns_delete_event)
+        self.wait_for_all_tasks_done()
 
     def _enqueue_add_kubernetes_service(self, namespace_name):
         return self._enqueue_add_service(namespace_name, srv_name='kubernetes')
@@ -574,7 +553,7 @@ class VncServiceTest(KMTestCase):
     def _enqueue_add_service(self,
                              namespace_name,
                              srv_name='test-service',
-                             srv_type='ClusterIP'):
+                             srv_type='ClusterIP', wait=True):
         srv_uuid = str(uuid.uuid4())
         srv_meta = {'name': srv_name, 'uid': srv_uuid,
                     'namespace': namespace_name}
@@ -592,14 +571,18 @@ class VncServiceTest(KMTestCase):
                                           'ADDED')
         ServiceKM.locate(srv_uuid, srv_add_event['object'])
         self.enqueue_event(srv_add_event)
+        if wait:
+            self.wait_for_all_tasks_done()
         return ports, srv_meta, srv_uuid
 
-    def _enqueue_delete_service(self, ports, srv_meta):
+    def _enqueue_delete_service(self, ports, srv_meta, wait=True):
         srv_spec = {'type': None, 'ports': ports}
         srv_del_event = self.create_event('Service', srv_spec, srv_meta,
                                           'DELETED')
         ServiceKM.delete(srv_meta['uid'])
         self.enqueue_event(srv_del_event)
+        if wait:
+            self.wait_for_all_tasks_done()
 
     def _create_virtual_network(self, project='default',
                                 network='cluster-service-network'):
@@ -646,6 +629,12 @@ class VncServiceTest(KMTestCase):
 
     def _delete_virtual_network(self, nw_uuid):
         self._vnc_lib.virtual_network_delete(id=nw_uuid)
+        while True:
+            try:
+                self._vnc_lib.virtual_network_read(id=nw_uuid)
+                self.wait_for_all_tasks_done(sleep_interval=5)
+            except NoIdError:
+                break
 
     def _delete_public_network(self, pub_net_uuid, pub_fip_pool_uuid):
         self._vnc_lib.floating_ip_pool_delete(id=pub_fip_pool_uuid)
@@ -653,3 +642,6 @@ class VncServiceTest(KMTestCase):
 
     def _delete_project(self, project_name):
         self._vnc_lib.project_delete(fq_name=['default-domain', project_name])
+
+
+
