@@ -16,6 +16,7 @@ from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.vnc.vnc_kubernetes_config \
     import VncKubernetesConfig as vnc_kube_config
 from vnc_api.vnc_api import NoIdError
+from kube_manager.vnc.label_cache import XLabelCache
 
 
 class VncEndpoints(VncCommon):
@@ -25,6 +26,7 @@ class VncEndpoints(VncCommon):
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self.logger = vnc_kube_config.logger()
         self._kube = vnc_kube_config.kube()
+        self._labels = XLabelCache('Endpoint')
 
         self.service_lb_pool_mgr = importutils.import_object(
             'kube_manager.vnc.loadbalancer.ServiceLbPoolManager')
@@ -131,6 +133,20 @@ class VncEndpoints(VncCommon):
                         % (vm.fq_name, lb.name, port['port']))
                     member_obj = self._vnc_create_member(
                         pool, pod_id, vmi_id, port['port'])
+
+                    try:
+                        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                                      id = vmi_id)
+                    except:
+                        raise
+
+                    # Attach the service label to underlying pod vmi.
+                    self._labels.append(vmi_id,
+                        self._labels.get_service_label(lb.service_name))
+                    # Set tags on the vmi.
+                    self._vnc_lib.set_tags(vmi_obj,
+                        self._labels.get_labels_dict(vmi_id))
+
                     LoadbalancerMemberKM.locate(member_obj.uuid)
 
     def _remove_pod_from_service(self, service_id, pod_id, port=None):
@@ -149,6 +165,23 @@ class VncEndpoints(VncCommon):
                     self.logger.debug(
                         "Delete LB member for Pod/VM: %s from LB: %s"
                         % (pod_id, lb.name))
+
+                    try:
+                        vmi_obj = self._vnc_lib.virtual_machine_interface_read(
+                                      id = member.vmi)
+
+                        # Remove service member label from vmi.
+                        svc_member_label = self._labels.get_service_label(
+                            lb.service_name)
+                        for k,v in svc_member_label.iteritems():
+                            self._vnc_lib.unset_tag(vmi_obj, k)
+
+                    except NoIdError:
+                        # VMI has already been deleted. Nothing to unset/remove.
+                        pass
+                    except:
+                        raise
+
                     self.service_lb_member_mgr.delete(member_id)
                     LoadbalancerMemberKM.delete(member.uuid)
                     break
@@ -187,7 +220,7 @@ class VncEndpoints(VncCommon):
         """
         ports = []
         subsets = event['object'].get('subsets', [])
-        for subset in subsets:
+        for subset in subsets if subsets else []:
             ports = subset.get('ports', [])
             break
         return ports
@@ -200,7 +233,7 @@ class VncEndpoints(VncCommon):
         pods_in_event = set()
 
         subsets = event['object'].get('subsets', [])
-        for subset in subsets:
+        for subset in subsets if subsets else []:
             endpoints = subset.get('addresses', [])
             for endpoint in endpoints:
                 pod = endpoint.get('targetRef')

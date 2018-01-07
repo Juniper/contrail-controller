@@ -7,6 +7,7 @@ from kube_manager.vnc.config_db import *
 import uuid
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
+from kube_manager.vnc.label_cache import XLabelCache
 
 LOG = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class ServiceLbManager(VncCommon):
         super(ServiceLbManager,self).__init__('ServiceLoadBalancer')
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self.logger = vnc_kube_config.logger()
+        self._labels = XLabelCache('ServiceLoadBalancer')
 
     def read(self, id):
         try:
@@ -36,7 +38,7 @@ class ServiceLbManager(VncCommon):
         self._delete_virtual_interface(vmi_ids)
 
     def _create_virtual_interface(self, proj_obj, vn_obj, service_ns,
-            service_name, vip_address=None, subnet_uuid=None):
+            service_name, vip_address=None, subnet_uuid=None, tags=None):
         vmi_uuid = str(uuid.uuid4())
         vmi_name = VncCommon.make_name(service_name, vmi_uuid)
         vmi_display_name = VncCommon.make_display_name(service_ns, service_name)
@@ -90,6 +92,10 @@ class ServiceLbManager(VncCommon):
             self.logger.warning("Read Service VMI failed for"
                 " service (" + service_name + ")" + " with NoIdError for vmi(" + vmi_id + ")")
             return None, None
+
+        # Attach tags on this VMI.
+        if tags:
+            self._vnc_lib.set_tags(vmi_obj, tags)
 
         #Create InstanceIP <--- LB VMI
         iip_uuid = str(uuid.uuid4())
@@ -164,7 +170,7 @@ class ServiceLbManager(VncCommon):
         return sas_obj
 
     def create(self, k8s_event_type, service_ns, service_id, service_name,
-               proj_obj, vn_obj, vip_address=None, subnet_uuid=None):
+               proj_obj, vn_obj, vip_address=None, subnet_uuid=None, tags=None):
         """
         Create a loadbalancer.
         """
@@ -184,7 +190,8 @@ class ServiceLbManager(VncCommon):
             lb_obj.set_service_appliance_set(sas_obj)
 
         vmi_obj, vip_address = self._create_virtual_interface(proj_obj,
-            vn_obj, service_ns, service_name, vip_address, subnet_uuid)
+            vn_obj, service_ns, service_name, vip_address, subnet_uuid,
+            tags=tags)
         if vmi_obj is None:
             return None
         lb_obj.set_virtual_machine_interface(vmi_obj)
