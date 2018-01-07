@@ -75,7 +75,7 @@ class KMTestCase(test_common.TestCase):
             ('VNC', 'kube_timer_interval', '5'),
             ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
             ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
-            ('KUBERNETES', 'cluster_name', "test-cluster"),
+            ('KUBERNETES', 'cluster_name', cls.cluster_name()),
         ]
         kube_config.extend(extra_args)
         cls._km_greenlet = gevent.spawn(
@@ -364,3 +364,7 @@ class KMTestCase(test_common.TestCase):
     @classmethod
     def get_kubernetes_node_ip(cls):
         return cls.kubernetes_node_ip
+
+    @staticmethod
+    def cluster_name():
+        return "test-cluster"

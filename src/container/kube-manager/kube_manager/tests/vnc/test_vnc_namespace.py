@@ -7,6 +7,9 @@ import uuid
 from kube_manager.tests.vnc.test_case import KMTestCase
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
 from kube_manager.vnc.vnc_namespace import NamespaceKM
+from kube_manager.vnc.vnc_tags import VncTags
+from kube_manager.vnc.config_db import TagKM
+from cfgm_common.exceptions import RefsExistError, NoIdError
 
 class VncNamespaceTest(KMTestCase):
     def setUp(self, extra_config_knobs=None):
@@ -30,12 +33,15 @@ class VncNamespaceTest(KMTestCase):
         kube_config.VncKubernetesConfig.args().cluster_network = None
 
     def _create_and_add_namespace(self, name, spec, annotations,
-                                  locate=False):
+                                  labels=None, locate=False):
         ns_uuid = str(uuid.uuid4())
         ns_meta = {'name': name,
                    'uid': ns_uuid}
         if annotations:
             ns_meta['annotations'] = annotations
+        if labels:
+            ns_meta['labels'] = labels
+
         ns_add_event = self.create_event('Namespace', spec, ns_meta, 'ADDED')
         if locate:
             NamespaceKM.locate(name, ns_add_event['object'])
@@ -51,6 +57,28 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
 
     def tearDown(self):
         super(VncNamespaceTestClusterProjectDefined, self).tearDown()
+
+    def _mod_namespace(self, uuid, name, spec, annotations,
+                            labels=None, locate=False):
+        ns_uuid = uuid
+        ns_meta = {'name': name,
+                   'uid': ns_uuid}
+        if annotations:
+            ns_meta['annotations'] = annotations
+        if labels:
+            ns_meta['labels'] = labels
+
+        ns_mod_event = self.create_event('Namespace', spec, ns_meta, 'MODIFIED')
+        if locate:
+            NamespaceKM.locate(name, ns_mod_event['object'])
+        self.enqueue_event(ns_mod_event)
+        self.wait_for_all_tasks_done()
+
+    def _delete_namespace(self, name, uuid):
+        ns_del_event = self.create_delete_namespace_event(name, uuid)
+        self.enqueue_event(ns_del_event)
+        self.wait_for_all_tasks_done()
+
 
     def test_add_namespace(self):
         ns_uuid = self._create_and_add_namespace(self.ns_name, {}, None, True)
@@ -175,3 +203,91 @@ class VncNamespaceTestScaling(VncNamespaceTest):
             if ns:
                 NamespaceKM.delete(ns_uuid)
                 NamespaceKM.delete(ns.name)
+
+class VncNamespaceLabelsTest(VncNamespaceTestClusterProjectDefined):
+    def setUp(self, extra_config_knobs=None):
+        super(VncNamespaceLabelsTest, self).setUp(
+            extra_config_knobs=extra_config_knobs)
+    #end setUp
+
+    def tearDown(self):
+        super(VncNamespaceLabelsTest, self).tearDown()
+    #end tearDown
+
+    @classmethod
+    def setUpClass(cls, extra_config_knobs=None):
+        super(VncNamespaceLabelsTest, cls).setUpClass(
+            extra_config_knobs=extra_config_knobs)
+        cls.domain = 'default-domain'
+        cls.ns_name = 'test-namespace'
+        cls.vn_name = 'test-network'
+        cls.cluster_project = 'default'
+
+        kube_config.VncKubernetesConfig.args().cluster_project = None
+        kube_config.VncKubernetesConfig.args().cluster_network = None
+
+    def _construct_tag_name(self, type, value):
+        return "=".join([type, value])
+
+    def _construct_tag_fq_name(self, type, value, proj_obj = None):
+        if proj_obj:
+            tag_fq_name = proj_obj['fq_name'] + \
+                [self._construct_tag_name(type, value)]
+        else:
+            tag_fq_name = [self._construct_tag_name(type, value)]
+        return tag_fq_name
+
+    def _validate_tags(self, labels, validate_delete=False, proj_obj=None):
+
+        for key, value in labels.iteritems():
+            tag_fq_name = self._construct_tag_fq_name(key, value)
+            try:
+                tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
+            except NoIdError:
+                if not validate_delete:
+                    self.assertTrue(False)
+
+            tag_uuid = TagKM.get_fq_name_to_uuid(tag_fq_name)
+            if validate_delete:
+                self.assertIsNone(tag_uuid)
+            else:
+                self.assertIsNotNone(tag_uuid)
+
+    def test_add_namespace(self):
+        labels = {
+                     'nsname': self.ns_name
+                 }
+        ns_uuid = self._create_and_add_namespace(self.ns_name, {}, None, labels)
+
+        # Validate that tags have been created in VNC.
+        self._validate_tags(labels)
+
+        # Add addition label on the namespace.
+        labels['region'] = "US-WEST"
+
+        self._mod_namespace(ns_uuid, self.ns_name, {}, None, labels)
+
+        # Validate that tags have been created in VNC.
+        self._validate_tags(labels)
+
+        # Remove a label from the namespace and verify mod.
+        removed_label = {}
+        removed_label['region'] = labels.pop('region')
+        self._mod_namespace(ns_uuid, self.ns_name, {}, None, labels)
+        self._validate_tags(labels)
+        self._validate_tags(removed_label, validate_delete=True)
+
+        # Modify existing label on a namespace and verify mod.
+        labels['nsname'] = "new-" + self.ns_name
+        self._mod_namespace(ns_uuid, self.ns_name, {}, None, labels)
+        self._validate_tags(labels)
+
+        # Delete the namespace and validate labels are gone.
+
+        self._delete_namespace(self.ns_name, ns_uuid)
+        self._validate_tags(labels, validate_delete=True)
+        pass
+
+    @unittest.skip('Skipping. Test irrelevant for class.')
+    def test_add_namespace_with_isolation_annotation(self):
+        pass

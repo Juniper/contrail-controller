@@ -7,6 +7,7 @@ from kube_manager.vnc.config_db import *
 import uuid
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
+from kube_manager.vnc.label_cache import XLabelCache
 
 LOG = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class ServiceLbManager(VncCommon):
         super(ServiceLbManager,self).__init__('ServiceLoadBalancer')
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self.logger = vnc_kube_config.logger()
+        self._labels = XLabelCache('ServiceLoadBalancer')
 
     def read(self, id):
         try:
@@ -188,6 +190,9 @@ class ServiceLbManager(VncCommon):
         if vmi_obj is None:
             return None
         lb_obj.set_virtual_machine_interface(vmi_obj)
+
+        # Attach tags on this VMI.
+        self._vnc_lib.set_tags(vmi_obj, self._labels.get_labels_dict(service_id))
 
         id_perms = IdPermsType(enable=True)
         props = LoadbalancerType(provisioning_status='ACTIVE', id_perms=id_perms,

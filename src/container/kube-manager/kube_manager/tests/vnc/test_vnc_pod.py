@@ -5,6 +5,7 @@
 import uuid
 from collections import namedtuple
 import ipaddress
+import unittest
 
 from cfgm_common.exceptions import NoIdError
 
@@ -13,6 +14,8 @@ from kube_manager.common.kube_config_db import (NamespaceKM, PodKM)
 from kube_manager.vnc.config_db import (
     VirtualNetworkKM, VirtualMachineKM, VirtualMachineInterfaceKM)
 from kube_manager.vnc import vnc_kubernetes_config as kube_config
+from kube_manager.vnc.config_db import TagKM
+from kube_manager.vnc.label_cache import XLabelCache
 
 TestPod = namedtuple('TestPod', ['uuid', 'meta', 'spec'])
 
@@ -79,7 +82,19 @@ class VncPodTest(KMTestCase):
 
         super(VncPodTest, cls).tearDownClass()
 
-    def _create_namespace(self, ns_name, ns_eval_vn_dict, is_isolated=False):
+    def _construct_pod_spec(self, nodeName):
+        return {'nodeName': nodeName}
+
+    def _construct_pod_meta(self, name, uuid, namespace, labels={}):
+        meta = {}
+        meta['name'] = name
+        meta['uid'] = uuid
+        meta['namespace'] = namespace
+        if labels:
+            meta['labels'] = labels
+        return meta
+    
+    def _create_namespace(self, ns_name, ns_eval_vn_dict, is_isolated=False, labels={}):
         ns_uuid = str(uuid.uuid4())
         ns_add_event = self.create_add_namespace_event(ns_name, ns_uuid)
         ns_object = ns_add_event['object']
@@ -90,7 +105,7 @@ class VncPodTest(KMTestCase):
         ns_meta['name'] = ns_name
         ns_meta['uid'] = ns_uuid
         ns_meta['namespace'] = ns_name
-        ns_meta['labels'] = {}
+        ns_meta['labels'] = labels
 
         if ns_eval_vn_dict:
             ns_meta['annotations']['opencontrail.org/network'] = \
@@ -115,10 +130,11 @@ class VncPodTest(KMTestCase):
         return pod_vn_obj
 
     def _create_update_pod(self, pod_name, pod_namespace, pod_status,
-                           eval_vn_dict, action):
-        pod_uuid = str(uuid.uuid4())
+                           eval_vn_dict, action, labels={}, req_uuid=None):
+
+        pod_uuid = req_uuid if req_uuid else str(uuid.uuid4())
         pod_spec = {'nodeName': 'test-node'}
-        pod_labels = {}
+        pod_labels = labels
         pod_meta = {'name': pod_name, 'uid': pod_uuid,
                     'namespace': pod_namespace, 'labels': pod_labels}
         if eval_vn_dict:
@@ -178,10 +194,10 @@ class VncPodTest(KMTestCase):
             self.assertEqual(vmi.parent_name, cluster_project)
             self.assertEqual(vmi.parent_uuid, proj_obj.uuid)
             vmi = VirtualMachineInterfaceKM.locate(vmi_id)
-            self.assertTrue(len(vmi.security_groups) > 1)
-            for sg_uuid in list(vmi.security_groups):
-                sg = self._vnc_lib.security_group_read(id=sg_uuid)
-                self.assertIsNotNone(sg)
+#            self.assertTrue(len(vmi.security_groups) > 1)
+#            for sg_uuid in list(vmi.security_groups):
+#                sg = self._vnc_lib.security_group_read(id=sg_uuid)
+#                self.assertIsNotNone(sg)
             self.assertTrue(len(vmi.instance_ips) == 1)
             iip_uuid = list(vmi.instance_ips)[0]
             iip = self._vnc_lib.instance_ip_read(id=iip_uuid)
@@ -489,3 +505,95 @@ class VncPodTestScaling(VncPodTest):
             self.wait_for_all_tasks_done()
             vn_obj = VirtualNetworkKM.locate(vn_obj_uuid)
             self.assertTrue(len(vn_obj.instance_ips) == scale - 1 - i)
+
+class VncPodLabelsTest(VncPodTest):
+
+    def _construct_tag_name(self, type, value):
+        return "=".join([type, value])
+
+    def _construct_tag_fq_name(self, type, value, proj_obj = None):
+        if proj_obj:
+            tag_fq_name = proj_obj['fq_name'] + \
+                [self._construct_tag_name(type, value)]
+        else:
+            tag_fq_name = [self._construct_tag_name(type, value)]
+        return tag_fq_name
+
+    def _validate_tags(self, labels, validate_delete=False, proj_obj=None):
+
+        for key, value in labels.iteritems():
+            tag_fq_name = self._construct_tag_fq_name(key, value)
+            try:
+                tag_obj = self._vnc_lib.tag_read(fq_name=tag_fq_name)
+            except NoIdError:
+                if not validate_delete:
+                    self.assertTrue(False)
+
+            tag_uuid = TagKM.get_fq_name_to_uuid(tag_fq_name)
+            if validate_delete:
+                #import pdb;pdb.set_trace()
+                self.assertIsNone(tag_uuid)
+            else:
+                self.assertIsNotNone(tag_uuid)
+
+            # TBD: validate tags are available on the VM.
+
+    def _validate_label_cache(self, uuid, labels):
+            obj_labels = XLabelCache.get_labels(uuid)
+            for key, value in labels.iteritems():
+                label_key = XLabelCache.get_key(key, value)
+                self.assertIn(label_key, obj_labels)
+
+    def _add_update_pod(self, action, labels={}, uuid=None):
+        self._create_namespace(self.ns_name, None)
+
+        proj_fq_name = ['default-domain', self.cluster_project]
+        proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
+        vn_obj_uuid = self._create_virtual_network(proj_obj, self.vn_name).uuid
+
+
+        pod_uuid, pod_meta, pod_spec = self._create_update_pod(self.pod_name,
+                                                               self.ns_name,
+                                                               self.pod_status,
+                                                               None, action,
+                                                               labels=labels,
+                                                               req_uuid=uuid)
+        self.wait_for_all_tasks_done()
+        self._assert_virtual_network(vn_obj_uuid)
+        self._assert_virtual_machine(pod_uuid, self.cluster_project,
+                                     proj_obj, vn_obj_uuid)
+
+        if labels:
+            self._validate_label_cache(pod_uuid, labels)
+
+        return pod_uuid
+
+    def _delete_pod(self, pod_uuid):
+
+        pod = PodKM.find_by_name_or_uuid(pod_uuid)
+        self.assertIsNotNone(pod)
+
+        pod_spec = self._construct_pod_spec(pod.nodename)
+        pod_meta = self._construct_pod_meta(pod.name, pod_uuid,
+                                            pod.namespace)
+        super(VncPodLabelsTest, self)._delete_pod(pod_uuid, pod_spec, pod_meta)
+        self.wait_for_all_tasks_done()
+
+    def test_pod_add_delete(self):
+
+        labels = {
+                     "testcase": unittest.TestCase.id(self)
+                 }
+        pod_uuid = self._add_update_pod('ADDED', dict(labels))
+        self._validate_tags(labels)
+
+        # Verify that namespace tag is associated with this pod,internally.
+        ns_label = XLabelCache.get_namespace_label(self.ns_name)
+        self._validate_label_cache(pod_uuid, ns_label)
+
+        labels['modify'] = "testing_label_modify"
+        pod_uuid = self._add_update_pod('MODIFIED', dict(labels), pod_uuid)
+        self._validate_tags(labels)
+
+        self._delete_pod(pod_uuid)
+        self._validate_tags(labels, validate_delete=True)

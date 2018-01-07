@@ -24,6 +24,7 @@ import kube_manager.common.args as kube_args
 from config_db import *
 import db
 import label_cache
+from label_cache import XLabelCache
 from reaction_map import REACTION_MAP
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
@@ -38,6 +39,7 @@ from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
+from vnc_security_policy import VncSecurityPolicy
 
 class VncKubernetes(VncCommon):
 
@@ -91,6 +93,14 @@ class VncKubernetes(VncCommon):
         self.rabbit.establish()
         self.rabbit._db_resync_done.set()
 
+        # Register label add and delete callbacks with label management entity.
+        XLabelCache.register_label_add_callback(VncKubernetes.create_tags)
+        XLabelCache.register_label_delete_callback(VncKubernetes.delete_tags)
+
+        # Instantiate and init Security Policy Manager.
+        self.security_policy_mgr = VncSecurityPolicy(self.vnc_lib,
+                                                     VncKubernetes.get_tags)
+
         # provision cluster
         self._provision_cluster()
 
@@ -120,8 +130,17 @@ class VncKubernetes(VncCommon):
             self.network_policy_mgr)
         self.endpoints_mgr = importutils.import_object(
             'kube_manager.vnc.vnc_endpoints.VncEndpoints')
+        self.tags_mgr = importutils.import_object(
+            'kube_manager.vnc.vnc_tags.VncTags')
+
+        # Create system default security policies.
+        VncSecurityPolicy.create_deny_all_security_policy()
+        VncSecurityPolicy.create_allow_all_security_policy()
 
         VncKubernetes._vnc_kubernetes = self
+
+        # Associate cluster with the APS.
+        VncSecurityPolicy.tag_cluster_application_policy_set()
 
     def connection_state_update(self, status, message=None):
         ConnectionState.update(
@@ -287,6 +306,11 @@ class VncKubernetes(VncCommon):
     def _provision_cluster(self):
         proj_obj = self._create_project(\
             vnc_kube_config.cluster_default_project_name())
+
+        # Create application policy set for the cluster project.
+        VncSecurityPolicy.create_application_policy_set(
+            vnc_kube_config.application_policy_set_name())
+
         ip_fabric_fq_name = vnc_kube_config.cluster_ip_fabric_network_fq_name()
         ip_fabric_vn_obj = self.vnc_lib. \
             virtual_network_read(fq_name=ip_fabric_fq_name)
@@ -434,3 +458,19 @@ class VncKubernetes(VncCommon):
         DBBase.clear()
         inst._db = None
         VncKubernetes._vnc_kubernetes = None
+
+    @classmethod
+    def create_tags(cls, type, value):
+        if cls._vnc_kubernetes:
+            cls.get_instance().tags_mgr.create(type, value)
+
+    @classmethod
+    def delete_tags(cls, type, value):
+        if cls._vnc_kubernetes:
+            cls.get_instance().tags_mgr.delete(type, value)
+
+    @classmethod
+    def get_tags(cls, kv_dict, create=False):
+        if cls._vnc_kubernetes:
+            return cls.get_instance().tags_mgr.get_tags_fq_name(kv_dict, create)
+        return None
