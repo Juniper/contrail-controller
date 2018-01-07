@@ -16,10 +16,13 @@ from vnc_api.vnc_api import (
     VirtualNetworkPolicyType, SequenceType)
 from kube_manager.vnc.config_db import (
     NetworkIpamKM, VirtualNetworkKM, ProjectKM, SecurityGroupKM)
-from kube_manager.common.kube_config_db import NamespaceKM
+from kube_manager.common.kube_config_db import NamespaceKM, PodKM
 from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
 from kube_manager.vnc.vnc_common import VncCommon
+from kube_manager.vnc.label_cache import XLabelCache
+from kube_manager.vnc.vnc_pod import VncPod
+from vnc_security_policy import VncSecurityPolicy
 
 class VncNamespace(VncCommon):
 
@@ -34,6 +37,7 @@ class VncNamespace(VncCommon):
         self._args = vnc_kube_config.args()
         self._logger = vnc_kube_config.logger()
         self._queue = vnc_kube_config.queue()
+        self._labels = XLabelCache(self._k8s_event_type)
         ip_fabric_fq_name = vnc_kube_config. \
             cluster_ip_fabric_network_fq_name()
         self._ip_fabric_vn_obj = self._vnc_lib. \
@@ -375,6 +379,7 @@ class VncNamespace(VncCommon):
             proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         project = ProjectKM.locate(proj_obj.uuid)
 
+
         # Validate the presence of annotated virtual network.
         ann_vn_fq_name = self._get_annotated_virtual_network(name)
         if ann_vn_fq_name:
@@ -419,6 +424,11 @@ class VncNamespace(VncCommon):
 
         if project:
             self._update_namespace_label_cache(labels, namespace_id, project)
+
+            proj_obj = self._vnc_lib.project_read(id=project.uuid)
+            self._vnc_lib.set_tags(proj_obj,
+                self._labels.get_labels_dict(VncSecurityPolicy.cluster_aps_uuid))
+
         return project
 
     def vnc_namespace_delete(self, namespace_id, name):
@@ -507,23 +517,84 @@ class VncNamespace(VncCommon):
     def namespace_timer(self):
         self._sync_namespace_project()
 
+    def _get_namespace_firewall_rule_name(self, ns_name):
+        return "-".join([vnc_kube_config.cluster_name(),
+                         self._k8s_event_type, ns_name])
+
+    def add_namespace_security_policy(self, k8s_namespace_uuid):
+        """
+        Create a firwall rule for default behavior on a namespace.
+        """
+        ns = self._get_namespace(k8s_namespace_uuid)
+        if ns and not ns.firewall_rule_uuid:
+            rule_name = self._get_namespace_firewall_rule_name(ns.name)
+
+            # Add custom namespace label on the namespace object.
+            self._labels.append(k8s_namespace_uuid,
+                                self._labels.get_namespace_label(ns.name))
+
+            # Create a rule for default allow behavior on this namespace.
+            ns.firewall_rule_uuid =
+                VncSecurityPolicy.create_firewall_rule_allow_all(rule_name,
+                    self._labels.get_namespace_label(ns.name))
+
+            # Add default allow rule to the "global allow" firewall policy.
+            VncSecurityPolicy.add_firewall_rule(
+                VncSecurityPolicy.allow_all_fw_policy_uuid,
+                ns.firewall_rule_uuid)
+
+    def delete_namespace_security_policy(self, ns_name):
+        """
+        Delete firwall rule created to enforce default behavior on this
+        namespace.
+        """
+        if VncSecurityPolicy.allow_all_fw_policy_uuid:
+            rule_name = self._get_namespace_firewall_rule_name(ns_name)
+            # Dis-associate the rule from namespace policy.
+            rule_uuid = VncSecurityPolicy.get_firewall_rule_uuid(rule_name)
+            # Delete the rule.
+            VncSecurityPolicy.delete_firewall_rule(
+                VncSecurityPolicy.allow_all_fw_policy_uuid, rule_uuid)
+
     def process(self, event):
         event_type = event['type']
         kind = event['object'].get('kind')
         name = event['object']['metadata'].get('name')
         ns_id = event['object']['metadata'].get('uid')
-        labels = event['object']['metadata'].get('labels', {})
+        labels = dict(event['object']['metadata'].get('labels', {}))
         print("%s - Got %s %s %s:%s"
               %(self._name, event_type, kind, name, ns_id))
         self._logger.debug("%s - Got %s %s %s:%s"
                            %(self._name, event_type, kind, name, ns_id))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
+
+            # Process label add.
+            # We implicitly add a namespace label as well.
+            labels['namespace'] = name
+            self._labels.process(ns_id, labels)
+
             self.vnc_namespace_add(ns_id, name, labels)
-            self._network_policy_mgr.update_ns_np(name, ns_id, labels,
-                                                  self._ns_sg[name])
+            self.add_namespace_security_policy(ns_id)
+
+            if event['type'] == 'MODIFIED':
+                # If labels on this namespace has changed, update the pods
+                # on this namespace with current namespace labels.
+                added_labels, removed_labels =
+                    self._get_namespace(name).get_changed_labels()
+                namespace_pods = PodKM.get_namespace_pods(name)
+                if added_labels:
+                    VncPod.add_labels(namespace_pods, added_labels)
+                if removed_labels:
+                    VncPod.remove_labels(namespace_pods, removed_labels)
+
         elif event['type'] == 'DELETED':
+            self.delete_namespace_security_policy(name)
             self.vnc_namespace_delete(ns_id, name)
+            # Delete label deletes for this namespace.
+            self._labels.process(ns_id)
+
         else:
             self._logger.warning(
                 'Unknown event type: "{}" Ignoring'.format(event['type']))
+

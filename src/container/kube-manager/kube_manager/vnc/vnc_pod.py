@@ -18,28 +18,33 @@ from vnc_api.vnc_api import (
     SecurityGroup)
 from kube_manager.vnc.config_db import (
     DBBaseKM, VirtualNetworkKM, VirtualRouterKM, VirtualMachineKM,
-    VirtualMachineInterfaceKM, InstanceIpKM, FloatingIpKM, LoadbalancerKM)
+    VirtualMachineInterfaceKM, InstanceIpKM, FloatingIpKM, LoadbalancerKM,
+    TagKM)
 from kube_manager.vnc.vnc_common import VncCommon
 from kube_manager.common.kube_config_db import (NamespaceKM, PodKM)
 from kube_manager.vnc.vnc_kubernetes_config import (
     VncKubernetesConfig as vnc_kube_config)
+from kube_manager.vnc.label_cache import XLabelCache
 
 from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
 
 class VncPod(VncCommon):
+    vnc_pod_instance = None
 
     def __init__(self, service_mgr, network_policy_mgr):
         super(VncPod, self).__init__('Pod')
         self._name = type(self).__name__
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
+        self._labels = XLabelCache('Pod')
         self._service_mgr = service_mgr
         self._network_policy_mgr = network_policy_mgr
         self._queue = vnc_kube_config.queue()
         self._args = vnc_kube_config.args()
         self._logger = vnc_kube_config.logger()
-
+        if not VncPod.vnc_pod_instance:
+            VncPod.vnc_pod_instance = self
 
     def _set_label_to_pod_cache(self, new_labels, vm):
         namespace_label = self._label_cache. \
@@ -115,6 +120,20 @@ class VncPod(VncCommon):
     def _get_namespace(pod_namespace):
         return NamespaceKM.find_by_name_or_uuid(pod_namespace)
 
+    @staticmethod
+    def _get_namespace_labels(pod_namespace):
+        labels = {}
+
+        # Get the explicit labels on a pod.
+        ns = NamespaceKM.find_by_name_or_uuid(pod_namespace)
+        if ns and ns.labels:
+            labels = dict(ns.labels)
+
+        # Append the implicit namespace tag to a pod.
+        labels['namespace'] = pod_namespace
+
+        return labels
+
     def _is_pod_network_isolated(self, pod_namespace):
         return self._get_namespace(pod_namespace).is_isolated()
 
@@ -188,7 +207,8 @@ class VncPod(VncCommon):
         vmi_obj.add_security_group(sg_obj)
         return
 
-    def _create_vmi(self, pod_name, pod_namespace, vm_obj, vn_obj, parent_vmi):
+    def _create_vmi(self, pod_name, pod_namespace, pod_id, vm_obj, vn_obj,
+                    parent_vmi):
         proj_fq_name = vnc_kube_config.cluster_project_fq_name(pod_namespace)
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
 
@@ -213,7 +233,8 @@ class VncPod(VncCommon):
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
-        self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
+        #TBD: Cleanup after migration to Contrail Security Policy.
+        #self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
         VirtualMachineInterfaceKM.add_annotations(self, vmi_obj, pod_namespace,
                                                   pod_name)
 
@@ -277,6 +298,39 @@ class VncPod(VncCommon):
         if vm_uuid != pod_uuid:
             self.vnc_pod_delete(vm_uuid)
 
+    def _set_tags_on_pod_vmi(self, pod_id, vmi_obj=None):
+        vmi_obj_list = []
+        if not vmi_obj:
+            vm = VirtualMachineKM.get(pod_id)
+            if vm:
+                for vmi_id in list(vm.virtual_machine_interfaces):
+                    vmi_obj_list.append(
+                       self._vnc_lib.virtual_machine_interface_read(id=vmi_id))
+        else:
+                vmi_obj_list.append(vmi_obj)
+
+        for vmi_obj in vmi_obj_list:
+            self._vnc_lib.set_tags(vmi_obj, self._labels.get_labels_dict(pod_id))
+
+    def _unset_tags_on_pod_vmi(self, pod_id, vmi_id=None, labels={}):
+        vmi_obj_list = []
+        if not vmi_id:
+            vm = VirtualMachineKM.get(pod_id)
+            if vm:
+                for vmi_id in list(vm.virtual_machine_interfaces):
+                    vmi_obj_list.append(self._vnc_lib.virtual_machine_interface_read(id=vmi_id))
+        else:
+            vmi_obj = self._vnc_lib.virtual_machine_interface_read(id=vmi_id)
+            vmi_obj_list.append(vmi_obj)
+
+        for vmi_obj in vmi_obj_list:
+            if not labels:
+                for k,v in self._labels.get_labels_dict(pod_id).iteritems():
+                    self._vnc_lib.unset_tag(vmi_obj, k)
+            else:
+                for k,v in labels.iteritems():
+                    self._vnc_lib.unset_tag(vmi_obj, k)
+
     def vnc_pod_add(self, pod_id, pod_name, pod_namespace, pod_node, node_ip, 
             labels, vm_vmi):
         vm = VirtualMachineKM.get(pod_id)
@@ -285,6 +339,10 @@ class VncPod(VncCommon):
             if not vm.virtual_router:
                 self._link_vm_to_node(vm, pod_node, node_ip)
             self._set_label_to_pod_cache(labels, vm)
+
+            # Update tags.
+            self._set_tags_on_pod_vmi(pod_id)
+
             return vm
         else:
             self._check_pod_uuid_change(pod_id, pod_name)
@@ -294,7 +352,7 @@ class VncPod(VncCommon):
             return
 
         vm_obj = self._create_vm(pod_namespace, pod_id, pod_name, labels)
-        vmi_uuid = self._create_vmi(pod_name, pod_namespace, vm_obj, vn_obj,
+        vmi_uuid = self._create_vmi(pod_name, pod_namespace, pod_id, vm_obj, vn_obj,
                                     vm_vmi)
         vmi = VirtualMachineInterfaceKM.get(vmi_uuid)
 
@@ -335,6 +393,7 @@ class VncPod(VncCommon):
             vm.pod_node = pod_node
             vm.node_ip = node_ip
             self._set_label_to_pod_cache(labels, vm)
+            self._set_tags_on_pod_vmi(pod_id)
             return vm
 
     def vnc_pod_update(self, pod_id, pod_name, pod_namespace, pod_node, node_ip, labels,
@@ -350,9 +409,15 @@ class VncPod(VncCommon):
         if not vm.virtual_router:
             self._link_vm_to_node(vm, pod_node, node_ip)
         self._update_label_to_pod_cache(labels, vm)
+
+        self._set_tags_on_pod_vmi(pod_id)
+
         return vm
 
-    def vnc_port_delete(self, vmi_id):
+    def vnc_port_delete(self, vmi_id, pod_id):
+
+        self._unset_tags_on_pod_vmi(pod_id, vmi_id=vmi_id)
+
         vmi = VirtualMachineInterfaceKM.get(vmi_id)
         if not vmi:
             return
@@ -390,13 +455,15 @@ class VncPod(VncCommon):
 
         self._clear_label_to_pod_cache(vm)
 
+        vm_obj = self._vnc_lib.virtual_machine_read(id=vm.uuid)
+
         if vm.virtual_router:
             self._vnc_lib.ref_update('virtual-router', vm.virtual_router,
                                      'virtual-machine', vm.uuid, None,
                                      'DELETE')
 
         for vmi_id in list(vm.virtual_machine_interfaces):
-            self.vnc_port_delete(vmi_id)
+            self.vnc_port_delete(vmi_id, pod_id)
 
         try:
             self._vnc_lib.virtual_machine_delete(id=pod_id)
@@ -473,20 +540,39 @@ class VncPod(VncCommon):
                           self._get_host_ip(pod_name)))
                     return
 
+            # Add implicit namespace labels on this pod.
+            labels.update(self._get_namespace_labels(pod_namespace))
+            self._labels.process(pod_id, labels)
+
             if event['type'] == 'ADDED':
                 vm = self.vnc_pod_add(pod_id, pod_name, pod_namespace,
                                       pod_node, node_ip, labels, vm_vmi)
-                if vm:
-                    self._network_policy_mgr.update_pod_np(pod_namespace,
-                                                           pod_id, labels)
             else:
                 vm = self.vnc_pod_update(pod_id, pod_name,
                     pod_namespace, pod_node, node_ip, labels, vm_vmi)
-                if vm:
-                    self._network_policy_mgr.update_pod_np(pod_namespace,
-                                                           pod_id, labels)
+
         elif event['type'] == 'DELETED':
             self.vnc_pod_delete(pod_id)
+            self._labels.process(pod_id)
         else:
             self._logger.warning(
                 'Unknown event type: "{}" Ignoring'.format(event['type']))
+
+    @classmethod
+    def add_labels(cls, pod_id_list, labels):
+        if not cls.vnc_pod_instance:
+            return
+
+        for pod_id in pod_id_list:
+            cls.vnc_pod_instance._labels.append(pod_id, labels)
+            cls.vnc_pod_instance._set_tags_on_pod_vmi(pod_id)
+
+    @classmethod
+    def remove_labels(cls, pod_id_list, labels):
+        if not cls.vnc_pod_instance:
+            return
+
+        for pod_id in pod_id_list:
+            cls.vnc_pod_instance._unset_tags_on_pod_vmi(pod_id, labels=labels)
+            cls.vnc_pod_instance._labels.remove(pod_id, labels)
+
