@@ -444,10 +444,33 @@ class OpencontrailLoadbalancerDriver(
         pool.lb_floating_ips = []
         pool.member_vmis = {}
 
+    def _get_vmi_uuid(self, member):
+        vmi_uuid = None
+        member_ip_addr = member.params['address']
+        instance_ip_uuid_set = set(InstanceIpSM.keys())
+        for instance_ip_uuid in instance_ip_uuid_set:
+            instance_ip = InstanceIpSM.get(instance_ip_uuid)
+            if instance_ip.address == member_ip_addr:
+                if 'subnet_id' in member.params:
+                    subnet_uuid = member.params['subnet_id']
+                    vn_uuid = list(instance_ip.virtual_networks)[0]
+                    vn = VirtualNetworkSM.get(vn_uuid)
+                    if subnet_uuid not in vn.subnet_uuids:
+                        continue
+                vmi_uuid = list(instance_ip.virtual_machine_interfaces)[0]
+                break
+        return vmi_uuid
+
     def _update_member_props(self, member_id):
         member = LoadbalancerMemberSM.get(member_id)
-        if member is None or member.vmi is None:
+        if member is None:
             return
+
+        if member.vmi is None:
+            vmi_uuid = self._get_vmi_uuid(member)
+            if not vmi_uuid:
+                return
+            member.vmi = vmi_uuid
 
         pool = LoadbalancerPoolSM.get(member.loadbalancer_pool)
         if pool is None:
