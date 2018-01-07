@@ -56,7 +56,8 @@ class LoadbalancerAgent(Agent):
                     break
                 if len(vmi.security_groups):
                     nic['sg-list'] = vmi.security_groups
-                    break
+                if len(vmi.tags):
+                    nic['tags'] = vmi.tags
                 nic['user-visible'] = False
             elif nic['type'] == svc_info.get_left_if_str():
                 nic['user-visible'] = False

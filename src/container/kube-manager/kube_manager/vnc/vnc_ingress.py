@@ -18,9 +18,10 @@ from kube_manager.vnc.loadbalancer import ServiceLbListenerManager
 from kube_manager.vnc.loadbalancer import ServiceLbPoolManager
 from kube_manager.vnc.loadbalancer import ServiceLbMemberManager
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
+from vnc_security_policy import VncSecurityPolicy
 from vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
-
+from kube_manager.vnc.label_cache import XLabelCache
 from cStringIO import StringIO
 from cfgm_common.utils import cgitb_hook
 
@@ -35,6 +36,7 @@ class VncIngress(VncCommon):
         self._logger = vnc_kube_config.logger()
         self._kube = vnc_kube_config.kube()
         self._label_cache = vnc_kube_config.label_cache()
+        self._labels = XLabelCache(self._k8s_event_type)
         self._ingress_label_cache = {}
         self._default_vn_obj = None
         self._fip_pool_obj = None
@@ -275,7 +277,8 @@ class VncIngress(VncCommon):
         vip_address = None
         pod_ipam_subnet_uuid = self._get_pod_ipam_subnet_uuid(vn_obj)
         lb_obj = self.service_lb_mgr.create(self._k8s_event_type, ns_name, uid,
-                    name, proj_obj, vn_obj, vip_address, pod_ipam_subnet_uuid)
+                    name, proj_obj, vn_obj, vip_address, pod_ipam_subnet_uuid,
+                    tags=self._labels.get_labels_dict(uid))
         if lb_obj:
             external_ip = None
             if annotations and 'externalIP' in annotations:
@@ -593,6 +596,13 @@ class VncIngress(VncCommon):
                 new_backend_list = self._get_new_backend_list(ingress.spec, ns_name)
                 for new_backend in new_backend_list[:] or []:
                     if new_backend['member']['serviceName'] == service_name:
+
+                        # Create a firewall rule for ingress to this service.
+                        fw_uuid = VncIngress.add_ingress_to_service_rule(ns_name,
+                                                ingress.name,
+                                                service_name)
+                        lb.add_firewall_rule(fw_uuid)
+
                         self._create_listener_pool_member(
                             ns_name, lb, new_backend)
             else:
@@ -600,6 +610,13 @@ class VncIngress(VncCommon):
                 for old_backend in old_backend_list[:] or []:
                     if old_backend['member']['serviceName'] == service_name:
                         self._delete_listener(old_backend['listener_id'])
+
+                        # Delete rules created for this ingress to service.
+                        deleted_fw_rule_uuid =\
+                            VncIngress.delete_ingress_to_service_rule(ns_name,
+                                                                  ingress.name,
+                                                                  service_name)
+                        lb.remove_firewall_rule(deleted_fw_rule_uuid)
 
     def _create_lb(self, uid, name, ns_name, event):
         annotations = event['object']['metadata'].get('annotations')
@@ -679,8 +696,19 @@ class VncIngress(VncCommon):
         for backend in old_backend_list or []:
             self._delete_listener(backend['listener_id'])
 
+            deleted_fw_rule_uuid =\
+                VncIngress.delete_ingress_to_service_rule(ns_name,
+                    name, backend['member']['serviceName'])
+            lb.remove_firewall_rule(deleted_fw_rule_uuid)
+
         # create the new backends
         for backend in new_backend_list:
+
+            # Create a firewall rule for this member.
+            fw_uuid = VncIngress.add_ingress_to_service_rule(ns_name,
+                    name, backend['member']['serviceName'])
+            lb.add_firewall_rule(fw_uuid)
+
             self._create_listener_pool_member(ns_name, lb, backend)
 
         return lb
@@ -719,6 +747,12 @@ class VncIngress(VncCommon):
         lb = LoadbalancerKM.get(uid)
         if not lb:
             return
+        # Delete rules created for this member.
+        firewall_rules = set(lb.get_firewall_rules())
+        for fw_rule_uuid in firewall_rules:
+            VncIngress.delete_ingress_to_service_rule_by_id(fw_rule_uuid)
+            lb.remove_firewall_rule(fw_rule_uuid)
+
         self._delete_all_listeners(lb)
         self._vnc_delete_lb(lb)
         LoadbalancerKM.delete(uid)
@@ -782,9 +816,99 @@ class VncIngress(VncCommon):
               %(self._name, event_type, kind, ns_name, name, uid))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
+
+            #
+            # Construct and add labels for this ingress.
+            # Following labels are added by infra:
+            #
+            # 1. A label for the ingress object.
+            # 2. A label for the namespace of ingress object.
+            #
+            labels = self._labels.get_ingress_label("-".join([ns_name, name]))
+            labels.update(self._labels.get_namespace_label(ns_name))
+            self._labels.process(uid, labels)
+
             self._update_ingress(name, uid, event)
+
         elif event['type'] == 'DELETED':
             self._delete_ingress(uid)
+
+            # Remove labels added by infra for this ingress.
+            self._labels.process(uid)
         else:
             self._logger.warning(
                 'Unknown event type: "{}" Ignoring'.format(event['type']))
+
+    def create_ingress_security_policy(self):
+        """
+        Create a FW policy to house all ingress-to-service rules.
+        """
+        if not VncSecurityPolicy.ingress_svc_fw_policy_uuid:
+            VncSecurityPolicy.ingress_svc_fw_policy_uuid =\
+              VncSecurityPolicy.create_firewall_policy(
+                "-".join([vnc_kube_config.cluster_name(), self._k8s_event_type]),
+                None, None, is_global=True)
+            VncSecurityPolicy.add_firewall_policy(
+                VncSecurityPolicy.ingress_svc_fw_policy_uuid)
+
+    @classmethod
+    def _get_ingress_firewall_rule_name(cls, ns_name, ingress_name, svc_name):
+        return "-".join([vnc_kube_config.cluster_name(),
+                         "Ingress",
+                         ns_name,
+                         ingress_name,
+                         svc_name])
+
+    @classmethod
+    def add_ingress_to_service_rule(cls, ns_name, ingress_name, service_name):
+        """
+        Add a ingress-to-service allow rule to ingress firewall policy.
+        """
+        if VncSecurityPolicy.ingress_svc_fw_policy_uuid:
+
+            ingress_labels = XLabelCache.get_ingress_label(
+                "-".join([ns_name, ingress_name]))
+            service_labels = XLabelCache.get_service_label(service_name)
+
+            rule_name = VncIngress._get_ingress_firewall_rule_name(
+                ns_name, ingress_name, service_name)
+
+            fw_rule_uuid = VncSecurityPolicy.create_firewall_rule_allow_all(
+                                                              rule_name,
+                                                              service_labels,
+                                                              ingress_labels)
+
+            VncSecurityPolicy.add_firewall_rule(
+                                  VncSecurityPolicy.ingress_svc_fw_policy_uuid,
+                                  fw_rule_uuid)
+
+            return fw_rule_uuid
+
+    @classmethod
+    def delete_ingress_to_service_rule(cls, ns_name, ingress_name,
+                                       service_name):
+        """
+        Delete the ingress-to-service allow rule added to ingress firewall
+        policy.
+        """
+        rule_uuid = None
+        if VncSecurityPolicy.ingress_svc_fw_policy_uuid:
+            rule_name = VncIngress._get_ingress_firewall_rule_name(
+                ns_name, ingress_name, service_name)
+
+            # Get the rule id of the rule to be deleted.
+            rule_uuid = VncSecurityPolicy.get_firewall_rule_uuid(rule_name)
+            if rule_uuid:
+                # Delete the rule.
+                VncSecurityPolicy.delete_firewall_rule(
+                    VncSecurityPolicy.ingress_svc_fw_policy_uuid, rule_uuid)
+
+        return rule_uuid
+
+    @classmethod
+    def delete_ingress_to_service_rule_by_id(cls, rule_uuid):
+        if VncSecurityPolicy.ingress_svc_fw_policy_uuid:
+            # Delete the rule.
+            VncSecurityPolicy.delete_firewall_rule(
+                VncSecurityPolicy.ingress_svc_fw_policy_uuid, rule_uuid)
+

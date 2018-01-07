@@ -198,6 +198,35 @@ class InstanceManager(object):
                 self.logger.error(
                     "Security group attach to loadbalancer ports failed")
 
+    def _link_tags_to_vmi(self, vmi_id, tag_list):
+        vmi = VirtualMachineInterfaceSM.get(vmi_id)
+        if not vmi:
+            return
+
+        # Detach any tags that have been removed the vmi.
+        for tag_id in list(vmi.tags):
+            if tag_id in tag_list:
+                continue
+            try:
+                self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
+                    'tag', tag_id, None, 'DELETE')
+                vmi.tags.remove(tag_id)
+            except Exception as e:
+                self.logger.error(
+                    "Tag [%s] detach from loadbalancer ports failed"%(tag_id))
+
+        # Attach new tags on the vmi.
+        for tag_id in tag_list:
+            if tag_id in vmi.tags:
+                continue
+            try:
+                self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
+                    'tag', tag_id, None, 'ADD')
+                vmi.tags.add(tag_id)
+            except Exception as e:
+                self.logger.error(
+                    "Tag [%s] attach to loadbalancer ports failed"%(tag_id))
+
     def _set_static_routes(self, nic, si):
         static_routes = nic['static-routes']
         if not static_routes:
@@ -663,6 +692,9 @@ class InstanceManager(object):
         # link vmi to sg
         if 'sg-list' in nic:
             self._link_sgs_to_vmi(vmi_obj.uuid, nic['sg-list'])
+        # link vmi to tags
+        if 'tags' in nic:
+            self._link_tags_to_vmi(vmi_obj.uuid, nic['tags'])
 
         return vmi_obj
 

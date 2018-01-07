@@ -93,11 +93,6 @@ class KubeNetworkManager(object):
         return self.args.kube_object_cache == 'True'
 
     def launch_timer(self):
-        if not self.args.kube_timer_interval.isdigit():
-            self.logger.emergency("set seconds for kube_timer_interval "
-                                  "in contrail-kubernetes.conf. \
-                                   example: kube_timer_interval=60")
-            sys.exit()
         self.logger.info("KubeNetworkManager - kube_timer_interval(%ss)"
                          % self.args.kube_timer_interval)
         time.sleep(int(self.args.kube_timer_interval))
@@ -116,7 +111,15 @@ class KubeNetworkManager(object):
         self.greenlets = [gevent.spawn(self.vnc.vnc_process)]
         for monitor in self.monitors.values():
             self.greenlets.append(gevent.spawn(monitor.event_callback))
-        self.greenlets.append(gevent.spawn(self.launch_timer))
+
+        if not self.args.kube_timer_interval.isdigit():
+            self.logger.emergency("set seconds for kube_timer_interval "
+                                  "in contrail-kubernetes.conf. \
+                                   example: kube_timer_interval=60")
+            sys.exit()
+        if int(self.args.kube_timer_interval) > 0:
+            self.greenlets.append(gevent.spawn(self.launch_timer))
+
         gevent.joinall(self.greenlets)
 
     @staticmethod
@@ -207,8 +210,6 @@ def main(args_str=None, kube_api_skip=False, event_queue=None,
     _zookeeper_client = None
 
     args = kube_args.parse_args(args_str)
-    if 'kube_timer_interval' not in args:
-        args.kube_timer_interval = '60'
 
     if args.cluster_id:
         client_pfx = args.cluster_id + '-'
