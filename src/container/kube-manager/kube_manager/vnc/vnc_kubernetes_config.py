@@ -64,6 +64,10 @@ class VncKubernetesConfig(object):
         return cls.args().cluster_name
 
     @classmethod
+    def application_policy_set_name(cls):
+        return cls.args().aps_name
+
+    @classmethod
     def is_cluster_project_configured(cls):
         args = cls.args()
         if args.cluster_project and args.cluster_project != '{}':
@@ -105,14 +109,14 @@ class VncKubernetesConfig(object):
         return None
 
     @classmethod
-    def cluster_project_name(cls, namespace):
+    def cluster_project_name(cls, namespace=None):
         project_name = cls.get_configured_project_name()
         if project_name:
             return project_name
         return namespace
 
     @classmethod
-    def cluster_project_fq_name(cls, namespace):
+    def cluster_project_fq_name(cls, namespace=None):
         return [cls.cluster_domain(), cls.cluster_project_name(namespace)]
 
     @classmethod
@@ -202,3 +206,9 @@ class VncKubernetesConfig(object):
         np_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
                       'ip-fabric-default']
         return np_fq_name
+
+    @classmethod
+    def is_global_tags(cls):
+        if cls.args().global_tags == '1':
+            return True
+        return False

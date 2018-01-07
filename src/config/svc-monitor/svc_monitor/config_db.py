@@ -508,6 +508,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.service_health_checks = set()
         self.security_groups = set()
         self.service_instances = set()
+        self.tags = set()
         self.instance_id = None
         self.physical_interface = None
         self.port_tuples = set()
@@ -551,6 +552,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         self.update_multiple_refs('security_group', obj)
         self.update_multiple_refs('port_tuple', obj)
         self.annotations = obj.get('annotations', None)
+        self.update_multiple_refs('tag', obj)
         if self.annotations:
             for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == '_service_vm_':
@@ -580,6 +582,7 @@ class VirtualMachineInterfaceSM(DBBaseSM):
         obj.update_multiple_refs('service_health_check', {})
         obj.update_multiple_refs('security_group', {})
         obj.update_multiple_refs('port_tuple', {})
+        obj.update_multiple_refs('tag', {})
         obj.remove_from_parent()
         del cls._dict[uuid]
     # end delete
@@ -1377,3 +1380,29 @@ class NetworkIpamSM(DBBaseSM):
         del cls._dict[uuid]
     # end delete
 # end NetworkIpamSM
+
+class TagSM(DBBaseSM):
+    _dict = {}
+    obj_type = 'tag'
+
+    def __init__(self, uuid, obj_dict=None):
+        self.uuid = uuid
+        self.update(obj_dict)
+
+    def update(self, obj=None):
+        if obj is None:
+            obj = self.read_obj(self.uuid)
+        self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
+        self.update_single_ref('tag_type', obj)
+        return obj
+
+    @classmethod
+    def delete(cls, uuid):
+        if uuid not in cls._dict:
+            return
+        obj = cls._dict[uuid]
+        obj.update_single_ref('tag_type', {})
+        super(TagSM, cls).delete(uuid)
+        del cls._dict[uuid]
+# end class TagSM

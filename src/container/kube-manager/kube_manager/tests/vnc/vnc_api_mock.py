@@ -169,3 +169,6 @@ class VncApiMock(object):
             return True
         except TypeError:
             return False
+
+    def set_tags(self, *args):
+        pass

@@ -134,6 +134,15 @@ class PodKM(KubeDBBase):
         """Return virtual-network fq-name annotated on this pod."""
         return self.pod_vn_fq_name
 
+    @classmethod
+    def get_namespace_pods(cls, namespace):
+        """ Return a list of pods from a namespace. """
+        pod_uuids = []
+        for pod_uuid, pod in cls._dict.iteritems():
+            if pod.namespace == namespace:
+                pod_uuids.append(pod_uuid)
+        return pod_uuids
+
 #
 # Kubernetes Namespace Object DB.
 #
@@ -147,6 +156,8 @@ class NamespaceKM(KubeDBBase):
         # Metadata.
         self.name = None
         self.labels = {}
+        self.added_labels = {}
+        self.removed_labels = {}
         self.isolated_vn_fq_name = None
         self.isolated_pod_vn_fq_name = None
         self.isolated_service_vn_fq_name = None
@@ -160,6 +171,7 @@ class NamespaceKM(KubeDBBase):
 
         # Config cache.
         self.isolated = False
+        self.firewall_rule_uuid = None
 
         # If an object is provided, update self with contents of object.
         if obj:
@@ -175,7 +187,7 @@ class NamespaceKM(KubeDBBase):
         if md is None:
             return
         self.name = md.get('name')
-        self.labels = md.get('labels')
+        self.update_labels(md.get('labels'))
 
         # Parse annotations on this namespace.
         self.annotations = md.get('annotations')
@@ -273,6 +285,30 @@ class NamespaceKM(KubeDBBase):
         # Send the reply out.
         ns_resp.response(req.context())
 
+    def update_labels(self, labels):
+        """
+        Update labels.
+        If this update removes or add new labels to a previous list
+        cache the diff for futher processing.
+        """
+        self.added_labels = {}
+        self.removed_labels = {}
+        new_labels = labels if labels else {}
+
+        for k,v in new_labels.iteritems():
+            if k not in self.labels or v != self.labels[k]:
+                self.added_labels[k] = v
+
+        for k,v in self.labels.iteritems():
+            if k not in new_labels or v != new_labels[k]:
+                self.removed_labels[k] = v
+
+        # Finally update this namespace's labels.
+        self.labels = new_labels
+
+    def get_changed_labels(self):
+        """ Return labels changed by the last update. """
+        return self.added_labels, self.removed_labels
 #
 # Kubernetes Service Object DB.
 #
@@ -291,6 +327,11 @@ class ServiceKM(KubeDBBase):
         # Spec.
         self.cluster_ip = None
         self.service_type = None
+
+        #
+        # Run time Config.
+        #
+        self.firewall_rule_uuid = None
 
         # If an object is provided, update self with contents of object.
         if obj:
@@ -354,7 +395,6 @@ class NetworkPolicyKM(KubeDBBase):
 
     def __init__(self, uuid, obj = None):
         self.uuid = uuid
-
         # Metadata.
         self.name = None
         self.namespace = None

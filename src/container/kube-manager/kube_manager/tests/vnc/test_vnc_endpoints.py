@@ -498,7 +498,7 @@ class VncEndpointsNestedTest(VncEndpointsTestBase):
     def setUpClass(cls, extra_config_knobs=None, kube_args=None):
         super(VncEndpointsNestedTest, cls).setUpClass(
             extra_config_knobs=extra_config_knobs,
-            kube_args=(('KUBERNETES', 'nested_mode', '1'),))
+            kube_args=(('DEFAULTS', 'nested_mode', '1'),))
 
     @classmethod
     def tearDownClass(cls):
