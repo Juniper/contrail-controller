@@ -64,9 +64,11 @@
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="bgp"/>
         <xsd:enumeration value="xmpp"/>
-        <xsd:enumeration value="static"/>
+        <xsd:enumeration value="static"/> <!--DEPRECATED-->
         <xsd:enumeration value="service-chain"/>
         <xsd:enumeration value="aggregate"/>
+        <xsd:enumeration value="static-route"/>
+        <xsd:enumeration value="interface-route"/>
     </xsd:restriction>
 </xsd:simpleType>
 
