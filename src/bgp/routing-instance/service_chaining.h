@@ -249,7 +249,7 @@ private:
 // routes for all ServiceChainTs are deleted/withdrawn.
 //
 // A ServiceChainGroup gets created when the ServiceChainMgr processes a
-// ServiceChainConfig with a non-empty service_chain_group. It gets deleted
+// ServiceChainConfig with a non-empty service_chain_id. It gets deleted
 // when there are no more ServiceChainTs or pending chains that belong to
 // the ServiceChainGroup.
 //

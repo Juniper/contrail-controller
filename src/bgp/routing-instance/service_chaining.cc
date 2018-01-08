@@ -134,11 +134,11 @@ bool ServiceChain<T>::CompareServiceChainConfig(
         return false;
     if (service_chain_addr_.to_string() != config.service_chain_address)
         return false;
-    if (!group_ && !config.service_chain_group.empty())
+    if (!group_ && !config.service_chain_id.empty())
         return false;
-    if (group_ && config.service_chain_group.empty())
+    if (group_ && config.service_chain_id.empty())
         return false;
-    if (group_ && group_->name() != config.service_chain_group)
+    if (group_ && group_->name() != config.service_chain_id)
         return false;
 
     if (prefix_to_routelist_map_.size() != config.prefix.size())
@@ -1170,10 +1170,10 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
         // Add the routing instance to pending list so that service chain is
         // created after stop done callback for the current incarnation gets
         // invoked.
-        if (config.service_chain_group.empty()) {
+        if (config.service_chain_id.empty()) {
             group = NULL;
         } else {
-            group = LocateServiceChainGroup(config.service_chain_group);
+            group = LocateServiceChainGroup(config.service_chain_id);
             group->AddRoutingInstance(rtinstance);
         }
         string reason = "Waiting for deletion of previous incarnation";
@@ -1206,10 +1206,10 @@ bool ServiceChainMgr<T>::LocateServiceChain(RoutingInstance *rtinstance,
     DeletePendingServiceChain(rtinstance);
 
     // Locate the new ServiceChainGroup.
-    if (config.service_chain_group.empty()) {
+    if (config.service_chain_id.empty()) {
         group = NULL;
     } else {
-        group = LocateServiceChainGroup(config.service_chain_group);
+        group = LocateServiceChainGroup(config.service_chain_id);
         group->AddRoutingInstance(rtinstance);
     }
 

@@ -324,7 +324,7 @@ struct ServiceChainConfig {
     std::string service_chain_address;
     std::string service_instance;
     std::string source_routing_instance;
-    std::string service_chain_group;
+    std::string service_chain_id;
 };
 
 struct StaticRouteConfig {
