@@ -55,3 +55,7 @@ for sdir in noarch_subdirs:
     CfgmEnv.SConscript('%s/SConscript' % sdir, exports='CfgmEnv',
                        variant_dir='#build/noarch/config/%s' % sdir,
                        duplicate = 1)
+
+BuildEnv.SConscript('ironic-notification-manager/SConscript',
+                    exports='BuildEnv',
+                    duplicate=0)

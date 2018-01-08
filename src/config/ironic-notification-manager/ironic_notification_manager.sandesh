@@ -1,0 +1,56 @@
+//
+// ironic_notification_manager.sandesh
+//
+// Introspect structs for Ironic Notification Manager
+//
+// Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+//
+
+struct IronicNode {
+    1: string uuid
+    2: string provision_state
+    3: string power_state
+    4: string driver
+    5: string instance_uuid
+    6: bool maintenance
+    7: string provision_update_timestamp
+    8: string update_timestamp
+    9: string create_timestamp
+    /** @display_name: Ironic Node Driver Info */
+    10: optional DriverInfo driver_info
+    /** @display_name: Ironic Node Instance Info */
+    11: optional InstanceInfo instance_info
+    /** @display_name: Ironic Node Properties Info */
+    12: optional NodeProperties node_properties
+}
+
+struct IronicNodeList {
+    1: list<IronicNode> ironic_nodes
+}
+
+struct DriverInfo {
+    1: string ipmi_address
+    2: string ipmi_password
+    3: string ipmi_username
+    4: string deploy_kernel
+    5: string deploy_ramdisk
+}
+
+struct InstanceInfo {
+    1: string configdrive
+    2: string image_checksum
+    3: string image_source
+    4: string image_type
+    5: string image_url
+}
+
+struct NodeProperties {
+    1: string cpu_arch
+    2: u32 cpus
+    3: u32 local_gb
+    4: u64 memory_mb
+}
+
+uve sandesh IronicNodeListInfo{
+    1: IronicNodeList             data
+}
