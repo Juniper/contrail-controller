@@ -392,6 +392,12 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     </xsd:all>
 </xsd:complexType>
 
+<xsd:complexType name="DeviceFamilyListType">
+    <xsd:all>
+        <xsd:element name="device-family" type="xsd:string" maxOccurs="unbounded" />
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:simpleType name="IpamMethodType">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="dhcp" required='optional'
@@ -992,6 +998,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('ip-fabric-subnets', 'global-system-config', 'optional', 'CRUD',
               'List of all subnets in which vrouter ip address exist. Used by Device manager to configure dynamic GRE tunnels on the SDN gateway.') -->
+
+<xsd:element name="supported-device-families" type="DeviceFamilyListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('supported-device-families', 'global-system-config', 'optional', 'CRUD',
+              'List of all supported physical router device family names. Used by UI to show pick list.') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -2133,11 +2144,31 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          'physical-router', 'virtual-network', ['ref'], 'optional', 'CRUD',
          'Reference to virtual network, whose VRF is present on this physical router, Applicable when only VRF is present with no physical interfaces from this physical vrouter. Generally used when using device manager and option A+B for this virtual network in L3VPN use case.') -->
 
+<xsd:element name="physical-router-device-image"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('physical-router-device-image', 'physical-router', 'device-image', ['ref'], 'optional', 'CRUD',
+         'Intended device image for this PRouter. Each PRouter can have one and only one device image assigned. If this image is successfully installed on the PRouter, the PRouterUVE.os_version should match the os-version property of the image') -->
+
+<xsd:element name="physical-router-link-aggregation-group"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('physical-router-link-aggregation-group', 'physical-router', 'link-aggregation-group', ['has'], 'optional', 'CRUD',
+         'List of link aggregation groups on this PRouter.') -->
+
 <xsd:element name="physical-interface" type="ifmap:IdentityType"/>
 <xsd:element name="ethernet-segment-identifier" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('ethernet-segment-identifier', 'physical-interface', 'optional', 'CRUD',
               'Ethernet Segment Id configured for the Physical Interface. In a multihomed environment, user should configure the peer Physical interface with the same ESI.') -->
+
+<xsd:element name="physical-interface-type" type="PhysicalInterfaceType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-interface-type', 'physical-interface', 'optional', 'CRUD',
+              'Physical interface type that can be either regular physical interface or LAG interface.') -->
+
+<xsd:element name="physical-interface-mac-addresses" type="MacAddressesType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-interface-mac-addresses', 'physical-interface', 'optional', 'CRUD',
+              'MAC addresses on this physical interface.') -->
 
 <xsd:element name="physical-router-physical-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
@@ -2160,6 +2191,69 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('logical-interface-vlan-tag', 'logical-interface', 'optional', 'CRUD',
               'VLAN tag (.1Q) classifier for this logical interface.') -->
+
+<xsd:complexType name="DevicePlatformListType">
+    <xsd:element name="platform-name" type="xsd:string" maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:element name="device-image" type="ifmap:IdentityType"/>
+<xsd:element name="device-image-vendor-name" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('device-image-vendor-name', 'device-image', 'required', 'CRUD',
+              'Vendor name for device image. It is used by device manager during device image upgrade to match the PRouters vendor name') -->
+
+<xsd:element name="device-image-device-family" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('device-image-device-family', 'device-image', 'required', 'CRUD',
+              'Device family name for device image. It is used by device manager during device image upgrade to match the family name of the PRouter') -->
+
+<xsd:element name="device-image-supported-platforms" type="DevicePlatformListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('device-image-supported-platforms', 'device-image', 'optional', 'CRUD',
+              'List of device platforms that this image can be installed on. It is used by device manager during device image upgrade validate the PRouters product_name property. If this property is not specified, then this image can be installed on all platforms of the device family') -->
+
+<xsd:element name="device-image-os-version" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('device-image-os-version', 'device-image', 'required', 'CRUD',
+              'OS version string on the device where this image is installed. This version string should match the PRouters operational state PRouterUVE.os_version attribute if the image is successfully installed on the PRouter') -->
+
+<xsd:element name="device-image-file-uri" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('device-image-file-uri', 'device-image', 'optional', 'CRUD',
+              'file uri for the device image uploaded to the image server.') -->
+
+<xsd:element name="device-image-size" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('device-image-size', 'device-image', 'optional', 'CRUD',
+              'file size of the device image that was uploaded to the image server.') -->
+
+<xsd:element name="device-image-md5" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('device-image-md5', 'device-image', 'optional', 'CRUD',
+              'md5 checksum of the image file that was uploaded to the image server.') -->
+
+<xsd:element name="device-image-sha1" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('device-image-sha1', 'device-image', 'optional', 'CRUD',
+              'sha1 checksum of the image file that was uploaded to the image server.') -->
+
+<xsd:element name="link-aggregation-group" type="ifmap:IdentityType"/>
+<xsd:element name="link-aggregation-group-lacp-enabled" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('link-aggregation-group-lacp-enabled', 'link-aggregation-group', 'required', 'CRUD',
+              'Flag to turn on or off Link Aggregation Control Protocol (LACP) on this link aggregation group.') -->
+
+<xsd:element name="link-aggregation-group-physical-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+    Link('link-aggregation-group-physical-interface', 'link-aggregation-group', 'physical-interface', ['ref'], 'optional', 'CRUD',
+         'All the interfaces that belongs to the LAG. There should be exact one ref edge that points to the lag interface and two or more ref-edges points to the regular interfaces.') -->
+
+<xsd:simpleType name="PhysicalInterfaceType">
+     <xsd:restriction base='xsd:string'>
+         <xsd:enumeration value='regular'/>
+         <xsd:enumeration value='lag'/>
+     </xsd:restriction>
+</xsd:simpleType>
 
 <xsd:simpleType name="LogicalInterfaceType">
      <xsd:restriction base='xsd:string'>
@@ -2185,6 +2279,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
               ['Logical interface type can be L2 or L3.',
                ' L2 - only L2 service is provided, MAC learning is supported.',
                ' L3 - only L3 service is supported and MAC learning is not supported.']) -->
+
+<xsd:element name="physical-router-device-family" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-device-family', 'physical-router', 'required', 'CRUD',
+              'Device family that this physical router is part of. It is used by the device manager to choose the device family specific Ansible playbooks for device management') -->
 
 <xsd:element name="physical-router-management-ip" type="smi:IpAddress"/>
 <!--#IFMAP-SEMANTICS-IDL
