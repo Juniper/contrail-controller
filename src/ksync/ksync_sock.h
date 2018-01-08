@@ -8,8 +8,12 @@
 #include <vector>
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
+
+#ifndef _WIN32
 #include <boost/asio/netlink_protocol.hpp>
 #include <boost/asio/netlink_endpoint.hpp>
+#endif
+
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
 #include <base/queue_task.h>

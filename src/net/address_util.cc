@@ -3,6 +3,7 @@
  */
 #include "net/address_util.h"
 
+#include <endian.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>

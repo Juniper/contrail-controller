@@ -65,7 +65,7 @@ void BindResolver::SetDscpSocketOption() {
      * before passing it to setsockopt */
     uint8_t value = dscp_value_ << 2;
     int retval = setsockopt(sock_.native_handle(), IPPROTO_IP, IP_TOS,
-                            &value, sizeof(value));
+                            reinterpret_cast<const char *>(&value), sizeof(value));
     if (retval < 0) {
         DNS_BIND_TRACE(DnsBindError, "Setting DSCP bits on socket failed for "
                        << dscp_value_ << " with errno " << strerror(errno));
@@ -81,7 +81,8 @@ uint8_t BindResolver::GetDscpValue() {
     uint8_t dscp = 0;
     unsigned int optlen = sizeof(dscp);
     int retval = getsockopt(sock_.native_handle(), IPPROTO_IP, IP_TOS,
-                            &dscp, &optlen);
+                            reinterpret_cast<char *>(&dscp),
+                            reinterpret_cast<socklen_t *>(&optlen));
     if (retval < 0) {
         DNS_BIND_TRACE(DnsBindError, "Getting DSCP bits on socket failed "
                        "with errno " << strerror(errno));
