@@ -15,8 +15,8 @@ nodes happen.
 
 Compute nodes in the remote site are provisioned to connect to these control
 nodes to receive config and exchange routes. Data communication among
-workloads between these clusters are communicated via Internet through their
-respective SDN gateways.
+workloads between these clusters are communicated through the provider's backbone 
+through their respective SDN gateways.
 
 Both compute nodes are and control nodes are provisioned to push analytics data
 to analytics nodes hosted on primary cluster. 
