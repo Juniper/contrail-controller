@@ -32,7 +32,7 @@ represented as bgp router objects, and an ASN as property. Each of this
 subcluster object represents a remote site. 
 
 ## 3.3 User workflow impact
-None
+None.  
 
 ## 3.4 UI changes
 Option 1:
