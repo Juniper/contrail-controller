@@ -1,0 +1,35 @@
+# -*- mode: python; -*-
+
+import os
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+sources = [
+    'MANIFEST.in',
+    'setup.py'
+    ]
+
+sources += env.SandeshGenPy(
+    'ironic_notification_manager.sandesh',
+    'ironic_notification_manager/', False)
+
+local_sources = [
+	'__init__.py',
+	]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(env.Install(Dir("ironic_notification_manager"), file))
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = env.Command('dist',
+                         sources+local_sources,
+                         cd_cmd + 'python setup.py sdist')
+env.Alias('controller/src/config/ironic_notification_manager:sdist', sdist_gen)
+env.Default(sdist_gen)
+
+if 'install_ironic_notification_manager' in BUILD_TARGETS:
+    env.Alias('install_ironic_notification_manager',
+              env.Command(None, sources+local_sources,
+                          cd_cmd + 'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT']))
