@@ -953,7 +953,9 @@ class VncDbClient(object):
 
         if obj_dict is None:
             try:
-                (ok, obj_dict) = self.dbe_read(type, uuid)
+                obj_class = self._db_client_mgr.get_resource_class(type)
+                fields = list(obj_class.prop_fields) + list(obj_class.ref_fields)
+                (ok, obj_dict) = self.dbe_read(type, uuid, obj_fields=fields)
                 if not ok:
                     return
             except NoIdError:
