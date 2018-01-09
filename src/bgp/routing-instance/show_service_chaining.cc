@@ -61,7 +61,7 @@ static bool FillServiceChainInfo(Address::Family family,
         info.set_connected_rt_instance(sc_config->source_routing_instance);
     }
     info.set_service_chain_addr(sc_config->service_chain_address);
-    info.set_service_chain_group(sc_config->service_chain_group);
+    info.set_service_chain_id(sc_config->service_chain_id);
 
     return service_chain_mgr->FillServiceChainInfo(rtinstance, &info);
 }
