@@ -15,7 +15,7 @@ nodes happen.
 
 Compute nodes in the remote site are provisioned to connect to these control
 nodes to receive config and exchange routes. Data communication among
-workloads between these clusters are communicated via Internet through their
+workloads between these clusters happen through providers backbone through their
 respective SDN gateways.
 
 Both compute nodes are and control nodes are provisioned to push analytics data
@@ -93,6 +93,8 @@ with the links and properties defined above.
 
 ## 4.1 Remote-site cross connect verification
 
+#4.1.1 Cross sub-cluster site verification between compute and control nodes.
+
 To catch any cross site connections between compute-node and control-node,
 control-node will verify against the xmlns attribute in XMPP open message to
 accept or reject connections.
@@ -103,7 +105,7 @@ accept or reject connections.
           to='im.example.com'
           version='1.0'
           xml:lang='en'
-          xmlns='sub-cluster-id:asn'
+          xmlns='sub-cluster-id'
           xmlns:stream='http://etherx.jabber.org/streams'>
       </stream:stream>
 </>
@@ -111,8 +113,10 @@ accept or reject connections.
 Both control-node and compute-node will be configured with sub-cluster string
 parameter in their respective configuration files.
 
-At this point, we do not plan to enchance BGP Open Message to detect cross
-site peering on control-nodes.
+#4.1.2 Cross sub-cluster site verification between BGP peers.
+
+As bgp peers are statically configured, we can verify this while
+processing configuration.
 
 # 5. Performance and scaling impact
 ## 5.1 API and control plane
