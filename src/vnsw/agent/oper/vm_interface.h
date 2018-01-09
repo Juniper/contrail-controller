@@ -836,6 +836,7 @@ public:
     IpAddress GetServiceIp(const IpAddress &ip) const;
 
     bool NeedDevice() const;
+    bool NeedOsStateWithoutDevice() const;
     bool IsActive() const;
     bool InstallBridgeRoutes() const;
     bool IsBareMetal() const {return (vmi_type_ == BAREMETAL);}
@@ -1219,12 +1220,13 @@ struct VmInterfaceIpAddressData : public VmInterfaceData {
 // Structure used when type=OS_OPER_STATE Used to update interface os oper-state
 // The current oper-state is got by querying the device
 struct VmInterfaceOsOperStateData : public VmInterfaceData {
-    VmInterfaceOsOperStateData() :
+    VmInterfaceOsOperStateData(bool status) :
         VmInterfaceData(NULL, NULL, OS_OPER_STATE,
-                        Interface::TRANSPORT_INVALID) { }
+                        Interface::TRANSPORT_INVALID), oper_state_(status) { }
     virtual ~VmInterfaceOsOperStateData() { }
     virtual bool OnResync(const InterfaceTable *table, VmInterface *vmi,
                           bool *force_update) const;
+    bool oper_state_;
 };
 
 // Structure used when type=MIRROR. Used to update IP-Address of VM-Interface

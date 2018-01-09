@@ -855,6 +855,14 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
     bool old_ipv6_active = vmi->ipv6_active_;
 
     vmi->GetOsParams(table->agent());
+    /* In DPDK mode (where we have interfaces of type TRANSPORT_PMD), oper_state
+     * is updated based on Netlink notification received from vrouter */
+    if (vmi->transport_ == Interface::TRANSPORT_PMD) {
+        if (vmi->os_oper_state_ != oper_state_) {
+            vmi->os_oper_state_ = oper_state_;
+            ret = true;
+        }
+    }
     if (vmi->os_index_ != old_os_index)
         ret = true;
 

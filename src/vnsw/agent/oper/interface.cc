@@ -434,6 +434,7 @@ void Interface::GetOsParams(Agent *agent) {
                     "Physical interface MAC not set in DPDK vrouter agent");
             }
         }
+        return;
     }
 
     if (transport_ != TRANSPORT_ETHERNET) {
@@ -826,6 +827,10 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                     common_reason += "no-dev ";
                 }
 
+                if (vintf->os_oper_state() == false) {
+                    common_reason += "os-state-down ";
+                }
+            } else if (vintf->NeedOsStateWithoutDevice()) {
                 if (vintf->os_oper_state() == false) {
                     common_reason += "os-state-down ";
                 }
@@ -1254,7 +1259,7 @@ void Interface::UpdateOperStateOfSubIntf(const InterfaceTable *table) {
            DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
            req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_intf->GetUuid(),
                          vm_intf->name()));
-           req.data.reset(new VmInterfaceOsOperStateData());
+           req.data.reset(new VmInterfaceOsOperStateData(false));
            const_cast<InterfaceTable *>(table)->Enqueue(&req);
         }
     }
