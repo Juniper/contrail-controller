@@ -447,6 +447,34 @@ TEST_F(RoutingPolicyTest, PolicyNoMatchUpdateMed) {
     DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
 }
 
+TEST_F(RoutingPolicyTest, PolicyNoMatchUpdateAsPath) {
+    string content =
+        FileRead("controller/src/bgp/testdata/routing_policy_1c.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    boost::system::error_code ec;
+    peers_.push_back(
+        new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
+
+    AddRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32", 100);
+    task_util::WaitForIdle();
+
+    VERIFY_EQ(1, RouteCount("test.inet.0"));
+    BgpRoute *rt =
+        RouteLookup<InetDefinition>("test.inet.0", "10.0.1.1/32");
+    ASSERT_TRUE(rt != NULL);
+    VERIFY_EQ(peers_[0], rt->BestPath()->GetPeer());
+    const BgpAttr *attr = rt->BestPath()->GetAttr();
+    ASSERT_EQ(1, attr->as_path()->path().path_segments.size());
+    ASSERT_EQ(2, attr->as_path()->path().path_segments[0]->path_segment.size());
+    ASSERT_EQ(1000,
+        attr->as_path()->path().path_segments[0]->path_segment[0]);
+    ASSERT_EQ(2000,
+        attr->as_path()->path().path_segments[0]->path_segment[1]);
+
+    DeleteRoute<InetDefinition>(peers_[0], "test.inet.0", "10.0.1.1/32");
+}
 
 TEST_F(RoutingPolicyTest, PolicyCommunityMatchReject) {
     string content =

@@ -373,6 +373,12 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(
         actions.push_back(action);
     }
 
+    if (!cfg_term.action.update.aspath_expand.empty()) {
+        UpdateAsPath *expand_aspath =
+            new UpdateAsPath(cfg_term.action.update.aspath_expand);
+        actions.push_back(expand_aspath);
+    }
+
     if (!cfg_term.action.update.community_set.empty()) {
         UpdateCommunity *set_comm =
             new UpdateCommunity(cfg_term.action.update.community_set, "set");
@@ -381,7 +387,7 @@ RoutingPolicy::PolicyTermPtr RoutingPolicy::BuildTerm(
 
     if (!cfg_term.action.update.community_remove.empty()) {
         UpdateCommunity *remove_comm =
-         new UpdateCommunity(cfg_term.action.update.community_remove, "remove");
+            new UpdateCommunity(cfg_term.action.update.community_remove, "remove");
         actions.push_back(remove_comm);
     }
 

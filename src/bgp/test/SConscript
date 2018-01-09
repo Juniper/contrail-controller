@@ -445,6 +445,10 @@ routing_instance_test = env.UnitTest('routing_instance_test',
                                      ['routing_instance_test.cc'])
 env.Alias('src/bgp:routing_instance_test', routing_instance_test)
 
+routing_policy_action_test = env.UnitTest('routing_policy_action_test',
+                                          ['routing_policy_action_test.cc'])
+env.Alias('src/bgp:routing_policy_action_test', routing_policy_action_test)
+
 routing_policy_match_test = env.UnitTest('routing_policy_match_test',
                                          ['routing_policy_match_test.cc'])
 env.Alias('src/bgp:routing_policy_match_test', routing_policy_match_test)
@@ -679,6 +683,7 @@ test_suite = [
     routepath_replicator_test,
     routing_instance_mgr_test,
     routing_instance_test,
+    routing_policy_action_test,
     routing_policy_test,
 #   rt_network_attr_test,
     service_chain_test1,
