@@ -3360,7 +3360,7 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_interface->GetUuid(),
                                      vm_interface->name()));
-    req.data.reset(new VmInterfaceOsOperStateData());
+    req.data.reset(new VmInterfaceOsOperStateData(false));
     vm_interface->set_test_oper_state(false);
     Agent::GetInstance()->interface_table()->Enqueue(&req);
     client->WaitForIdle();
@@ -3372,7 +3372,7 @@ TEST_F(IntfTest, Intf_l2mode_deactivate_activat_via_os_state) {
     DBRequest req2(DBRequest::DB_ENTRY_ADD_CHANGE);
     req2.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_interface->GetUuid(),
                                      vm_interface->name()));
-    req2.data.reset(new VmInterfaceOsOperStateData());
+    req2.data.reset(new VmInterfaceOsOperStateData(true));
     vm_interface->set_test_oper_state(true);
     Agent::GetInstance()->interface_table()->Enqueue(&req2);
     client->WaitForIdle();
@@ -3605,7 +3605,7 @@ TEST_F(IntfTest, VrfTranslateAddDelete) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intf->GetUuid(),
                 intf->name()));
-    req.data.reset(new VmInterfaceOsOperStateData());
+    req.data.reset(new VmInterfaceOsOperStateData(false));
     Agent::GetInstance()->interface_table()->Enqueue(&req);
     client->WaitForIdle();
     EXPECT_TRUE(intf->vrf_assign_acl() == NULL);
@@ -3613,7 +3613,7 @@ TEST_F(IntfTest, VrfTranslateAddDelete) {
     intf->set_test_oper_state(true);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, intf->GetUuid(),
                 intf->name()));
-    req.data.reset(new VmInterfaceOsOperStateData());
+    req.data.reset(new VmInterfaceOsOperStateData(true));
     Agent::GetInstance()->interface_table()->Enqueue(&req);
     client->WaitForIdle();
     EXPECT_TRUE(intf->vrf_assign_acl() != NULL);

@@ -87,7 +87,7 @@ public:
 
     struct HostInterfaceEntry {
         HostInterfaceEntry() :
-            addr_(0), plen_(0), link_up_(false), oper_seen_(false),
+            addr_(0), plen_(0), link_up_(true), oper_seen_(false),
             host_seen_(false), oper_id_(Interface::kInvalidIndex) {
         }
 
@@ -144,8 +144,8 @@ protected:
 
     void SetSeen(const std::string &name, bool oper, uint32_t oper_idx);
     void ResetSeen(const std::string &name, bool oper);
-    void Activate(const std::string &name, uint32_t os_id);
-    void DeActivate(const std::string &name, uint32_t os_id);
+    void Activate(const std::string &name, const HostInterfaceEntry *entry);
+    void DeActivate(const std::string &name, const HostInterfaceEntry *entry);
     void SetLinkState(const std::string &name, bool link_up);
     bool IsInterfaceActive(const HostInterfaceEntry *entry);
     void HandleInterfaceEvent(const Event *event);
