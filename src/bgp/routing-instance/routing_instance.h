@@ -25,6 +25,7 @@
 #include "bgp/bgp_common.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "net/address.h"
+#include "sandesh/sandesh_trace.h"
 
 class DBTable;
 class BgpAttr;
@@ -168,6 +169,7 @@ public:
     const RoutingPolicyAttachList &routing_policies() const {
         return routing_policies_;
     }
+    SandeshTraceBufferPtr trace_buffer() const { return trace_buffer_; }
 
     void AddRoutingPolicy(RoutingPolicyPtr policy);
 
@@ -233,6 +235,7 @@ private:
     bool virtual_network_allow_transit_;
     bool virtual_network_pbb_evpn_enable_;
     int vxlan_id_;
+    SandeshTraceBufferPtr trace_buffer_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstance> manager_delete_ref_;
     boost::scoped_ptr<IStaticRouteMgr> inet_static_route_mgr_;

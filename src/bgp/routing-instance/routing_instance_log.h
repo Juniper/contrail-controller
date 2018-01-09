@@ -28,7 +28,21 @@ extern SandeshTraceBufferPtr RoutingInstanceTraceBuf;
 #define RTINSTANCE_LOG_FLAG_ALL    (RTINSTANCE_LOG_FLAG_SYSLOG |               \
                                     RTINSTANCE_LOG_FLAG_TRACE)                 \
 
-#define RTINSTANCE_LOG_INTERNAL(type, server, level, flags, ...)               \
+#define RTINSTANCE_LOG_INTERNAL(type, server, rti, level, flags, ...)          \
+do {                                                                           \
+    if (LoggingDisabled()) break;                                              \
+    if ((flags) & RTINSTANCE_LOG_FLAG_SYSLOG) {                                \
+        bgp_log_test::LogServerName(server);                                   \
+        RoutingInstance##type##Log::Send("RoutingInstance",                    \
+                                    level, __FILE__, __LINE__, ##__VA_ARGS__); \
+    }                                                                          \
+    if ((flags) & RTINSTANCE_LOG_FLAG_TRACE) {                                 \
+        RoutingInstance##type::TraceMsg((rti)->trace_buffer(), __FILE__,       \
+                                        __LINE__, ##__VA_ARGS__);              \
+    }                                                                          \
+} while (false)                                                                \
+
+#define RTINSTANCE_LOG_INTERNAL2(type, server, level, flags, ...)              \
 do {                                                                           \
     if (LoggingDisabled()) break;                                              \
     if ((flags) & RTINSTANCE_LOG_FLAG_SYSLOG) {                                \
@@ -44,26 +58,29 @@ do {                                                                           \
 } while (false)                                                                \
 
 #define RTINSTANCE_LOG(type, rtinstance, level, flags, ...)                    \
-    RTINSTANCE_LOG_INTERNAL(type, (rtinstance)->server(), level, flags,        \
+    RTINSTANCE_LOG_INTERNAL(type, (rtinstance)->server(), rtinstance, level,   \
+                            flags,                                             \
                             (rtinstance)->GetVirtualNetworkName(),             \
                             (rtinstance)->name(), ##__VA_ARGS__);              \
 
 #define RTINSTANCE_LOG_MESSAGE(server, level, flags, ...)                      \
-    RTINSTANCE_LOG_INTERNAL(Message, server, level, flags, ##__VA_ARGS__);     \
+    RTINSTANCE_LOG_INTERNAL2(Message, server, level, flags, ##__VA_ARGS__);    \
 
 #define RTINSTANCE_LOG_WARNING_MESSAGE(server, flags, ...)                     \
-    RTINSTANCE_LOG_INTERNAL(WarningMessage, server, SandeshLevel::SYS_WARN,    \
+    RTINSTANCE_LOG_INTERNAL2(WarningMessage, server, SandeshLevel::SYS_WARN,   \
                             flags, ##__VA_ARGS__);                             \
 
 #define RTINSTANCE_LOG_PEER(type, rtinstance, peer, level, flags, ...)         \
-    RTINSTANCE_LOG_INTERNAL(Peer##type, (rtinstance)->server(), level, flags,  \
+    RTINSTANCE_LOG_INTERNAL(Peer##type, (rtinstance)->server(), rtinstance,    \
+                            level, flags,                                      \
                             (rtinstance)->GetVirtualNetworkName(),             \
                             (rtinstance)->name(),                              \
                             (peer)->peer_key().endpoint.address().to_string(), \
                             ##__VA_ARGS__);                                    \
 
 #define RTINSTANCE_LOG_TABLE(type, rtinstance, table, level, flags, ...)       \
-    RTINSTANCE_LOG_INTERNAL(Table##type, (rtinstance)->server(), level, flags, \
+    RTINSTANCE_LOG_INTERNAL(Table##type, (rtinstance)->server(), rtinstance,   \
+                            level, flags,                                      \
                             (rtinstance)->GetVirtualNetworkName(),             \
                             (rtinstance)->name(), (table)->name(),             \
                             Address::FamilyToString((table)->family()),        \
