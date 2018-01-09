@@ -18,10 +18,14 @@ public:
 
 private:
     bool CheckPacket();
+    bool HandleVmIgmpPacket();
     void SendMessage(VmInterface *vm_intf);
 
     struct igmp *igmp_;
     uint16_t igmp_len_;
+
+    friend class IgmpProto;
+
     DISALLOW_COPY_AND_ASSIGN(IgmpHandler);
 };
 

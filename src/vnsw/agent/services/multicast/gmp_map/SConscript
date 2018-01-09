@@ -1,0 +1,33 @@
+#
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# services directory
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+   cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS=cflags)
+
+env.Append(CPPPATH = '../common')
+env.Append(CPPPATH = '../agent_map')
+env.Append(CPPPATH = '../grpmgmt')
+env.Append(CPPPATH = '../stubs')
+env.Append(CPPPATH = '.')
+
+libgmp_map = env.Library('gmp_map',
+                    [
+                    'gmp_sm.cc',
+                    'gmp_map.cc',
+                    'task_map.cc',
+                     ])
+

@@ -1,0 +1,29 @@
+#
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# multicast directory
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+   cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS=cflags)
+
+subdirs = [
+    'gmp_map',
+    'agent_map',
+    'grpmgmt',
+    ]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv',
+                   duplicate=0)

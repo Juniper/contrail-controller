@@ -22,6 +22,12 @@ SandeshGenFiles = env.SandeshGenCpp('services.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = AgentEnv.BuildExceptionCppObj(env, SandeshGenSrcs)
 
+buildinfo_dep_libs = [
+    '#build/debug/vnsw/agent/services/multicast/gmp_map/libgmp_map.a',
+    '#build/debug/vnsw/agent/services/multicast/agent_map/libagent_map.a',
+    '#build/debug/vnsw/agent/services/multicast/grpmgmt/libgrpmgmt.a',
+]
+
 libservices = env.Library('agent_services',
                      sandesh_objs +
                      [
@@ -54,3 +60,11 @@ libservices = env.Library('agent_services',
                       ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
+
+subdirs = [
+    'multicast',
+    ]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv',
+                   duplicate=0)
