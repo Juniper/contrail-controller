@@ -17,6 +17,8 @@ using std::string;
 
 InetTable::InetTable(DB *db, const string &name)
     : BgpTable(db, name) {
+    family_ = (name.at(name.length()-1) == '3') ?
+        Address::INETMPLS : Address::INET;
 }
 
 size_t InetTable::HashFunction(const Ip4Prefix &prefix) {
@@ -25,12 +27,14 @@ size_t InetTable::HashFunction(const Ip4Prefix &prefix) {
 
 auto_ptr<DBEntry> InetTable::AllocEntry(const DBRequestKey *key) const {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(key);
-    return auto_ptr<DBEntry> (new InetRoute(pfxkey->prefix));
+    return auto_ptr<DBEntry>(new InetRoute(pfxkey->prefix,
+                                 BgpAf::FamilyToSafi(this->family())));
 }
 
 auto_ptr<DBEntry> InetTable::AllocEntryStr(const string &key_str) const {
     Ip4Prefix prefix = Ip4Prefix::FromString(key_str);
-    return auto_ptr<DBEntry> (new InetRoute(prefix));
+    return auto_ptr<DBEntry> (new InetRoute(prefix,
+                                  BgpAf::FamilyToSafi(this->family())));
 }
 
 size_t InetTable::Hash(const DBEntry *entry) const {
@@ -48,7 +52,7 @@ size_t InetTable::Hash(const DBRequestKey *key) const {
 BgpRoute *InetTable::TableFind(DBTablePartition *rtp,
         const DBRequestKey *prefix) {
     const RequestKey *pfxkey = static_cast<const RequestKey *>(prefix);
-    InetRoute rt_key(pfxkey->prefix);
+    InetRoute rt_key(pfxkey->prefix, BgpAf::FamilyToSafi(this->family()));
     return static_cast<BgpRoute *>(rtp->Find(&rt_key));
 }
 
@@ -77,12 +81,13 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
                                   inetvpn->GetPrefix().prefixlen()));
     }
 
-    InetRoute rt_key(*inet_prefix);
+    InetRoute rt_key(*inet_prefix, BgpAf::FamilyToSafi(this->family()));
     DBTablePartition *rtp =
         static_cast<DBTablePartition *>(GetTablePartition(&rt_key));
     BgpRoute *dest_route = static_cast<BgpRoute *>(rtp->Find(&rt_key));
     if (dest_route == NULL) {
-        dest_route = new InetRoute(rt_key.GetPrefix());
+        dest_route = new InetRoute(rt_key.GetPrefix(),
+                                   BgpAf::FamilyToSafi(this->family()));
         rtp->Add(dest_route);
     } else {
         dest_route->ClearDelete();
@@ -181,6 +186,7 @@ PathResolver *InetTable::CreatePathResolver() {
 
 static void RegisterFactory() {
     DB::RegisterFactory("inet.0", &InetTable::CreateTable);
+    DB::RegisterFactory("inet.3", &InetTable::CreateTable);
 }
 
 MODULE_INITIALIZER(RegisterFactory);
