@@ -56,6 +56,9 @@ static inline const char *XmppSafiName(uint8_t safi) {
     case BgpAf::Unicast:
         return "1";
         break;
+    case BgpAf::Mpls:
+        return "4";
+        break;
     case BgpAf::MVpn:
         return "5";
         break;
@@ -187,6 +190,7 @@ void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
     if (item_nexthop.label) {
         vector<string> &encap_list =
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation;
+        // Anything here for INETMPLS?
         if (nexthop.encap().empty()) {
             encap_list.push_back(string("gre"));
         } else {

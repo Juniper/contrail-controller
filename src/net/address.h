@@ -31,6 +31,7 @@ public:
         EVPN = 6,
         ERMVPN = 7,
         MVPN = 8,
+        INETMPLS = 9,
         NUM_FAMILIES
     };
 
@@ -38,7 +39,7 @@ public:
 
     static Family FamilyFromString(const std::string &family);
     static std::string FamilyToString(Family fmly);
-    static Family FamilyFromRoutingTableName(const std::string &name);
+    //static Family FamilyFromRoutingTableName(const std::string &name);
     static std::string FamilyToTableString(Family family);
     static Family VpnFamilyFromFamily(Family family);
     static Ip4Address V4FromV4MappedV6(const Ip6Address &v6_address);
