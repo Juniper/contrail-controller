@@ -173,9 +173,7 @@ AgentRouteWalker::LocateRouteTableWalkRef(const VrfEntry *vrf,
     if (it == state->walker_ref_map_.end()) {
         RouteWalkerDBState::RouteWalkRef route_walk_ref;
         std::pair<RouteWalkerDBState::AgentRouteWalkerRefMapIter, bool> ret;
-        ret = state->walker_ref_map_.insert(std::pair<AgentRouteWalkerPtr,
-                                           RouteWalkerDBState::RouteWalkRef>
-                           (walker_ptr, route_walk_ref));
+        ret = state->walker_ref_map_.insert(std::make_pair(walker_ptr, route_walk_ref));
         if (ret.second == false) {
             AGENT_DBWALK_TRACE(AgentRouteWalkerTrace, name_,
                                "LocateRouteTableWalkRef walker add failed.",

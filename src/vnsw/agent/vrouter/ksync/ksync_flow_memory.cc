@@ -136,8 +136,8 @@ void KSyncFlowMemory::VrFlowToIp(const vr_flow_entry *kflow, IpAddress *sip,
     } else {
         const unsigned char *k_sip = kflow->fe_key.key_u.ip6_key.ip6_sip;
         const unsigned char *k_dip = kflow->fe_key.key_u.ip6_key.ip6_dip;
-        boost::array<unsigned char, 16> sbytes;
-        boost::array<unsigned char, 16> dbytes;
+        Ip6Address::bytes_type sbytes;
+        Ip6Address::bytes_type dbytes;
         for (int i = 0; i < 16; i++) {
             sbytes[i] = k_sip[i];
             dbytes[i] = k_dip[i];

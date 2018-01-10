@@ -74,13 +74,13 @@ void KRouteGetReq::HandleRequest() const {
     if(addr.is_v4()) {
         family_id = AF_INET;
         prefix_size = 4;
-        boost::array<unsigned char, 4> bytes = addr.to_v4().to_bytes();
+        Ip4Address::bytes_type bytes = addr.to_v4().to_bytes();
         std::vector<int8_t> rtr_prefix(bytes.begin(), bytes.end());
         req.set_rtr_prefix(rtr_prefix);
     } else if(addr.is_v6()) {
         family_id = AF_INET6;
         prefix_size = 16;
-        boost::array<unsigned char, 16> bytes = addr.to_v6().to_bytes();
+        Ip6Address::bytes_type bytes = addr.to_v6().to_bytes();
         std::vector<int8_t> rtr_prefix(bytes.begin(), bytes.end());
         req.set_rtr_prefix(rtr_prefix);
     } else {

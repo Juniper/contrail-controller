@@ -248,6 +248,7 @@ void KSync::SetHugePages() {
     uint32_t filesize[kHugePages];
     uint32_t flags[kHugePages];
 
+#ifndef _WIN32
     uint16_t i, j;
     for (i = 0; i < kHugePages / 2; ++i) {
         filename[i] = agent_->params()->huge_page_file_1G(i);
@@ -281,6 +282,7 @@ void KSync::SetHugePages() {
             fail[i] = true;
         }
     }
+#endif
 
     encoder.set_vhp_op(sandesh_op::ADD);
 
