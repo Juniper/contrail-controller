@@ -27,7 +27,9 @@ public:
                                Inet6VpnPrefix *prefix, uint32_t *label);
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
-                               const BgpAttr *attr, Inet6VpnPrefix *prefix,
+                               const BgpAttr *attr,
+                               const Address::Family family,
+                               Inet6VpnPrefix *prefix,
                                BgpAttrPtr *new_attr, uint32_t *label,
                                uint32_t *l3_label);
     static Inet6VpnPrefix FromString(const std::string &str,
@@ -76,8 +78,6 @@ public:
         return (cmp < 0);
     }
 
-    virtual u_int16_t Afi() const { return BgpAf::IPv6; }
-    virtual u_int8_t Safi() const { return BgpAf::Vpn; }
     virtual bool IsMoreSpecific(const std::string &other) const;
     virtual bool IsLessSpecific(const std::string &other) const;
 
