@@ -71,8 +71,8 @@ public:
 
     static int FromProtoPrefix(BgpServer *server,
         const BgpProtoPrefix &proto_prefix, const BgpAttr *attr,
-        EvpnPrefix *evpn_prefix, BgpAttrPtr *new_attr, uint32_t *label,
-        uint32_t *l3_label = NULL);
+        const Address::Family family, EvpnPrefix *evpn_prefix,
+        BgpAttrPtr *new_attr, uint32_t *label, uint32_t *l3_label = NULL);
     static EvpnPrefix FromString(const std::string &str,
         boost::system::error_code *errorp = NULL);
     std::string ToString() const;
@@ -138,10 +138,6 @@ public:
         int cmp = CompareTo(rhs);
         return (cmp < 0);
     }
-
-    virtual u_int16_t Afi() const { return BgpAf::L2Vpn; }
-    virtual u_int8_t Safi() const { return BgpAf::EVpn; }
-    virtual u_int8_t XmppSafi() const { return BgpAf::Enet; }
 
 private:
     EvpnPrefix prefix_;
