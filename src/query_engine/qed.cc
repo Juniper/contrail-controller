@@ -28,6 +28,7 @@
 #include <base/misc_utils.h>
 #include <query_engine/buildinfo.h>
 #include <sandesh/sandesh_http.h>
+#include <malloc.h>
 using std::auto_ptr;
 using std::string;
 using std::vector;
@@ -43,7 +44,7 @@ using process::GetProcessStateCb;
 // before proceeding.
 // It will make it easier to debug qed during systest
 volatile int gdbhelper = 1;
-
+int timer_count = 0;
 TaskTrigger *qe_info_trigger;
 Timer *qe_info_log_timer;
 
@@ -78,6 +79,11 @@ bool QEInfoLogger(const string &hostname) {
     SendCpuInfoStat<AnalyticsCpuStateTrace, AnalyticsCpuState>(hostname,
         cpu_load_info);
 
+    if (timer_count >5) {
+        timer_count = 0;
+        malloc_trim(0);
+    }
+    timer_count ++;
     qe_info_log_timer->Cancel();
     qe_info_log_timer->Start(60*1000, boost::bind(&QEInfoLogTimer),
                                NULL);
