@@ -9,10 +9,13 @@ buildpath = Dir('.').abspath + '/src'
 files = Glob(buildpath + '/misc/*.cc') + [buildpath + '/sys/ioctl.cc',
                                           buildpath + '/sys/time.cc',
                                           buildpath + '/sys/eventfd.cc',
+                                          buildpath + '/sys/wait.cc',
                                           buildpath + '/strings.cc',
                                           buildpath + '/unistd.cc',
+                                          buildpath + '/endian.cc',
                                           buildpath + '/posix_time.cc',
-                                          buildpath + '/posix_stdlib.cc',]
+                                          buildpath + '/posix_stdlib.cc',
+                                          buildpath + '/posix_string.cc',]
 windowsstubs_lib = env.Library('windowsstubs', files)
 env.Install('#/build/lib/', 'windowsstubs.lib')
 env.Alias('windowsstubs', '#/build/lib/windowsstubs.lib')
