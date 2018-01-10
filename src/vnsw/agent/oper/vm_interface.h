@@ -447,7 +447,7 @@ public:
                 protocol_(protocol), port_(port) { }
             ~PortMapKey() { }
 
-            bool operator()(const PortMapKey &lhs, const PortMapKey &rhs) {
+            bool operator()(const PortMapKey &lhs, const PortMapKey &rhs) const {
                 if (lhs.protocol_ != rhs.protocol_)
                     return lhs.protocol_ < rhs.protocol_;
                 return lhs.port_ < rhs.port_;

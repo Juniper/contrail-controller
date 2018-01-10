@@ -79,7 +79,7 @@ void NexthopIndexResourceKey::BackupInterfaceResource(ResourceData *data,
     const InterfaceNHKey *itfnh_key = static_cast<const InterfaceNHKey *>(
                                       GetNhKey());
     string operation;
-    if (op == ResourceBackupReq::DELETE) {
+    if (op == ResourceBackupReq::DEL) {
         rm()->backup_mgr()->
            sandesh_maps().DeleteInterfaceMplsResourceEntry(index_data->index());
         operation = "DELETE";
@@ -117,7 +117,7 @@ void NexthopIndexResourceKey::BackupVrfResource(ResourceData *data,
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
     const VrfNHKey *vrfnh_key = static_cast<const VrfNHKey *>(GetNhKey());
     string operation;
-    if (op == ResourceBackupReq::DELETE) {
+    if (op == ResourceBackupReq::DEL) {
         rm()->backup_mgr()->sandesh_maps().DeleteVrfMplsResourceEntry(
                 index_data->index());
         operation = "DELETE";
@@ -144,7 +144,7 @@ void NexthopIndexResourceKey::BackupVlanResource(ResourceData *data,
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
     const VlanNHKey *vlan_nh_key = static_cast<const VlanNHKey *>(GetNhKey());
     string operation;
-    if (op == ResourceBackupReq::DELETE) {
+    if (op == ResourceBackupReq::DEL) {
         rm()->backup_mgr()->sandesh_maps().DeleteVlanMplsResourceEntry(
                 index_data->index());
         operation = "DELETE";
@@ -193,7 +193,7 @@ bool RouteMplsResourceKey::IsLess(const ResourceKey &rhs) const {
 void RouteMplsResourceKey::Backup(ResourceData *data, uint16_t op) {
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
     string operation;
-    if (op == ResourceBackupReq::DELETE) {
+    if (op == ResourceBackupReq::DEL) {
         rm()->backup_mgr()->sandesh_maps().DeleteRouteMplsResourceEntry(
                 index_data->index());
         operation = "DELETE";
