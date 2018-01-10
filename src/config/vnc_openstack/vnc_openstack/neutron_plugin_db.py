@@ -1425,8 +1425,17 @@ class DBInterface(object):
         return net_obj
     #end _network_neutron_to_vnc
 
+    def _shared_with_tenant(self, context, share_list):
+        if context and context.get('tenant') and len(share_list):
+            _uuid = str(uuid.UUID(context.get('tenant')))
+            for share in share_list:
+                if _uuid == share.tenant:
+                    return True
+        return False
+    #end _shared_with_tenant
+
     @catch_convert_exception
-    def _network_vnc_to_neutron(self, net_obj, oper=READ):
+    def _network_vnc_to_neutron(self, net_obj, oper=READ, context=None):
         net_q_dict = {}
         extra_dict = {}
 
@@ -1444,7 +1453,8 @@ class DBInterface(object):
         net_q_dict['tenant_id'] = net_obj.parent_uuid.replace('-', '')
         net_q_dict['project_id'] = net_obj.parent_uuid.replace('-', '')
         net_q_dict['admin_state_up'] = id_perms.enable
-        if net_obj.is_shared or (net_obj.perms2 and len(net_obj.perms2.share)):
+        if net_obj.is_shared or (net_obj.perms2 and
+                self._shared_with_tenant(context, net_obj.perms2.share)):
             net_q_dict['shared'] = True
         else:
             net_q_dict['shared'] = False
@@ -2873,7 +2883,7 @@ class DBInterface(object):
     # public methods
     # network api handlers
     @wait_for_api_server_connection
-    def network_create(self, network_q):
+    def network_create(self, network_q, context):
         net_obj = self._network_neutron_to_vnc(network_q, CREATE)
         try:
             net_uuid = self._resource_create('virtual_network', net_obj)
@@ -2884,12 +2894,12 @@ class DBInterface(object):
         if net_obj.router_external:
             self._floating_ip_pool_create(net_obj)
 
-        ret_network_q = self._network_vnc_to_neutron(net_obj)
+        ret_network_q = self._network_vnc_to_neutron(net_obj, context=context)
         return ret_network_q
     # end network_create
 
     @wait_for_api_server_connection
-    def network_read(self, net_uuid, fields=None):
+    def network_read(self, net_uuid, fields=None, context=None):
         # see if we can return fast...
         #if fields and (len(fields) == 1) and fields[0] == 'tenant_id':
         #    tenant_id = self._get_obj_tenant_id('network', net_uuid)
@@ -2900,11 +2910,11 @@ class DBInterface(object):
         except NoIdError:
             self._raise_contrail_exception('NetworkNotFound', net_id=net_uuid)
 
-        return self._network_vnc_to_neutron(net_obj)
+        return self._network_vnc_to_neutron(net_obj, context=context)
     # end network_read
 
     @wait_for_api_server_connection
-    def network_update(self, net_id, network_q):
+    def network_update(self, net_id, network_q, context):
         net_obj = self._virtual_network_read(net_id=net_id)
         router_external = net_obj.get_router_external()
         shared = net_obj.get_is_shared()
@@ -2932,12 +2942,12 @@ class DBInterface(object):
                                                    net_id=net_id)
         self._virtual_network_update(net_obj)
 
-        ret_network_q = self._network_vnc_to_neutron(net_obj)
+        ret_network_q = self._network_vnc_to_neutron(net_obj, context=context)
         return ret_network_q
     # end network_update
 
     @wait_for_api_server_connection
-    def network_delete(self, net_id):
+    def network_delete(self, net_id, context):
         try:
             net_obj = self._vnc_lib.virtual_network_read(id=net_id)
         except NoIdError:
@@ -2963,7 +2973,7 @@ class DBInterface(object):
                     net_obj = self._network_read(net_id)
                 except NoIdError:
                     continue
-                net_info = self._network_vnc_to_neutron(net_obj, oper=LIST)
+                net_info = self._network_vnc_to_neutron(net_obj, oper=LIST, context=context)
                 if net_info is None:
                     continue
                 ret_dict[net_id] = net_info
@@ -3027,7 +3037,7 @@ class DBInterface(object):
                 shared = filters['shared'][0]
             nets = self._network_list_filter(shared, router_external)
             for net in nets:
-                net_info = self._network_vnc_to_neutron(net, oper=LIST)
+                net_info = self._network_vnc_to_neutron(net, oper=LIST, context=context)
                 if net_info is None:
                     continue
                 ret_dict[net.uuid] = net_info
@@ -3049,7 +3059,8 @@ class DBInterface(object):
             if net_obj.is_shared is None:
                 is_shared = False
             elif net_obj.is_shared or (
-                             net_obj.perms2 and len(net_obj.perms2.share)):
+                     net_obj.perms2 and
+                     self._shared_with_tenant(context, net_obj.perms2.share)):
                 is_shared = True
             else:
                 is_shared = False
@@ -3057,7 +3068,7 @@ class DBInterface(object):
             if not self._filters_is_present(filters, 'shared',
                                             is_shared):
                 continue
-            net_info = self._network_vnc_to_neutron(net_obj, oper=LIST)
+            net_info = self._network_vnc_to_neutron(net_obj, oper=LIST, context=context)
             if net_info is None:
                 continue
             ret_dict[net_obj.uuid] = net_info
@@ -3093,7 +3104,7 @@ class DBInterface(object):
     # end _resource_count_optimized
 
     @wait_for_api_server_connection
-    def network_count(self, filters=None):
+    def network_count(self, filters=None, context=None):
         count = self._resource_count_optimized("virtual_networks", filters)
         if count is not None:
             return count
