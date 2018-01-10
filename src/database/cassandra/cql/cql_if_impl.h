@@ -223,7 +223,7 @@ class CqlIfImpl {
         const std::string &compaction_strategy, CassConsistency consistency);
     bool LocatePrepareInsertIntoTable(const GenDb::NewCf &cf);
     bool IsTablePresent(const std::string &table);
-    bool IsTableStatic(const std::string &table);
+    int IsTableStatic(const std::string &table);
     bool IsTableDynamic(const std::string &table);
 
     bool InsertIntoTableSync(std::auto_ptr<GenDb::ColList> v_columns,
