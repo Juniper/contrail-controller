@@ -31,6 +31,7 @@ public:
         EVPN = 6,
         ERMVPN = 7,
         MVPN = 8,
+        INETMPLS = 9,
         NUM_FAMILIES
     };
 

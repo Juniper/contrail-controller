@@ -481,6 +481,7 @@ void RoutingInstanceMgr::SetTableStatsUve(Address::Family family,
     case Address::UNSPEC:
         break;
     case Address::INET:
+    case Address::INETMPLS:
         instance_info->set_raw_ipv4_stats(stats_map);
         break;
     case Address::INET6:
@@ -1052,6 +1053,11 @@ void RoutingInstance::ProcessConfig() {
         assert(table_inet);
         AddTable(table_inet);
 
+        BgpTable *table_inetmpls = static_cast<BgpTable *>(
+            server_->database()->CreateTable("inet.3"));
+        assert(table_inetmpls);
+        AddTable(table_inetmpls);
+
         BgpTable *table_inet6 = static_cast<BgpTable *>(
             server_->database()->CreateTable("inet6.0"));
         assert(table_inet6);
@@ -1532,6 +1538,8 @@ string RoutingInstance::GetTableName(string instance_name,
     if (instance_name == BgpConfigManager::kMasterInstance) {
         if ((fmly == Address::INET) || (fmly == Address::INET6)) {
             table_name = Address::FamilyToTableString(fmly) + ".0";
+        } else if (fmly == Address::INETMPLS) {
+            table_name = Address::FamilyToTableString(fmly) + ".3";
         } else {
             table_name = "bgp." + Address::FamilyToTableString(fmly) + ".0";
         }
@@ -1553,7 +1561,7 @@ const BgpTable *RoutingInstance::GetTable(Address::Family fmly) const {
 }
 
 string RoutingInstance::GetVrfFromTableName(const string table) {
-    static set<string> master_tables = list_of("inet.0")("inet6.0");
+    static set<string> master_tables = list_of("inet.0")("inet.3")("inet6.0");
     static set<string> vpn_tables =
         list_of("bgp.l3vpn.0")("bgp.ermvpn.0")("bgp.evpn.0")("bgp.rtarget.0")
                 ("bgp.l3vpn-inet6.0")("bgp.mvpn.0");

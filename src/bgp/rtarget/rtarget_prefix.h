@@ -27,7 +27,9 @@ public:
                                RTargetPrefix *prefix);
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
-                               const BgpAttr *attr, RTargetPrefix *prefix,
+                               const BgpAttr *attr,
+                               const Address::Family &family,
+                               RTargetPrefix *prefix,
                                BgpAttrPtr *new_attr, uint32_t *label,
                                uint32_t *l3_label);
     static RTargetPrefix FromString(const std::string &str,

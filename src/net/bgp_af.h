@@ -23,6 +23,7 @@ public:
     enum Safi {
         UnknownSafi = 0,
         Unicast = 1,
+        Mpls = 4,
         MVpn = 5,
         EVpn = 70,
         Vpn = 128,
