@@ -36,9 +36,10 @@ public:
                                Inet6Prefix *prefix);
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
-                               const BgpAttr *attr, Inet6Prefix *prefix,
-                               BgpAttrPtr *new_attr, uint32_t *label,
-                               uint32_t *l3_label);
+                               const BgpAttr *attr,
+                               const Address::Family family,
+                               Inet6Prefix *prefix, BgpAttrPtr *new_attr,
+                               uint32_t *label, uint32_t *l3_label);
     static Inet6Prefix FromString(const std::string &str,
                                   boost::system::error_code *errorp = NULL);
     std::string ToString() const;
@@ -96,9 +97,6 @@ public:
 
     virtual bool IsMoreSpecific(const std::string &match) const;
     virtual bool IsLessSpecific(const std::string &match) const;
-    virtual u_int16_t Afi() const { return BgpAf::IPv6; }
-    virtual u_int8_t Safi() const { return BgpAf::Unicast; }
-    virtual u_int16_t NexthopAfi() const { return BgpAf::IPv4; }
 
 private:
     Inet6Prefix prefix_;

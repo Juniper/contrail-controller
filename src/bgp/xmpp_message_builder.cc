@@ -56,6 +56,9 @@ static inline const char *XmppSafiName(uint8_t safi) {
     case BgpAf::Unicast:
         return "1";
         break;
+    case BgpAf::Mpls:
+        return "4";
+        break;
     case BgpAf::MVpn:
         return "5";
         break;
@@ -99,6 +102,7 @@ bool BgpXmppMessage::Start(const RibOut *ribout, bool cache_routes,
     table_ = ribout->table();
     is_reachable_ = roattr->IsReachable();
     cache_routes_ = cache_routes;
+    Address::Family family = table_->family();
 
     if (is_reachable_) {
         const BgpAttr *attr = roattr->attr();
@@ -115,9 +119,9 @@ bool BgpXmppMessage::Start(const RibOut *ribout, bool cache_routes,
     // GetData is called.
     repr_ += "\n\t<event xmlns=\"http://jabber.org/protocol/pubsub\">";
     repr_ += "\n\t\t<items node=\"";
-    repr_ += AfiName(route->Afi());
+    repr_ += AfiName(BgpAf::FamilyToAfi(family));
     repr_ += "/";
-    repr_ += XmppSafiName(route->XmppSafi());
+    repr_ += XmppSafiName(BgpAf::FamilyToXmppSafi(family));
     repr_ += "/";
     repr_ += table_->routing_instance()->name();
     repr_ += "\">\n";
@@ -187,6 +191,7 @@ void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
     if (item_nexthop.label) {
         vector<string> &encap_list =
             item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation;
+        // Anything here for INETMPLS?
         if (nexthop.encap().empty()) {
             encap_list.push_back(string("gre"));
         } else {
@@ -203,10 +208,11 @@ void BgpXmppMessage::AddIpReach(const BgpRoute *route,
         repr_ += roattr->repr();
         return;
     }
+    Address::Family family = table_->family();
 
     autogen::ItemType item;
-    item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->XmppSafi();
+    item.entry.nlri.af = BgpAf::FamilyToAfi(family);
+    item.entry.nlri.safi = BgpAf::FamilyToXmppSafi(family);
     item.entry.nlri.address = route->ToString();
     item.entry.version = 1;
     item.entry.virtual_network = GetVirtualNetwork(route, roattr);
@@ -311,10 +317,11 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route,
         repr_ += roattr->repr();
         return;
     }
+    Address::Family family = table_->family();
 
     autogen::EnetItemType item;
-    item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->XmppSafi();
+    item.entry.nlri.af = BgpAf::FamilyToAfi(family);
+    item.entry.nlri.safi = BgpAf::FamilyToXmppSafi(family);
 
     EvpnRoute *evpn_route =
         static_cast<EvpnRoute *>(const_cast<BgpRoute *>(route));
@@ -408,9 +415,10 @@ bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route,
 //
 void BgpXmppMessage::AddMcastReach(const BgpRoute *route,
                                    const RibOutAttr *roattr) {
+    Address::Family family = table_->family();
     autogen::McastItemType item;
-    item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->XmppSafi();
+    item.entry.nlri.af = BgpAf::FamilyToAfi(family);
+    item.entry.nlri.safi = BgpAf::FamilyToXmppSafi(family);
 
     ErmVpnRoute *ermvpn_route =
         static_cast<ErmVpnRoute *>(const_cast<BgpRoute *>(route));
@@ -460,9 +468,10 @@ bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route,
 
 void BgpXmppMessage::AddMvpnReach(const BgpRoute *route,
                                    const RibOutAttr *roattr) {
+    Address::Family family = table_->family();
     autogen::MvpnItemType item;
-    item.entry.nlri.af = route->Afi();
-    item.entry.nlri.safi = route->XmppSafi();
+    item.entry.nlri.af = BgpAf::FamilyToAfi(family);
+    item.entry.nlri.safi = BgpAf::FamilyToXmppSafi(family);
 
     MvpnRoute *mvpn_route =
         static_cast<MvpnRoute *>(const_cast<BgpRoute *>(route));
