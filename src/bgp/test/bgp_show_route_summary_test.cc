@@ -83,7 +83,7 @@ protected:
         TASK_UTIL_EXPECT_EQ(64512, server_->local_autonomous_system());
 
         vector<string> instance_names;
-        for (int idx = 900; idx < 912; ++idx) {
+        for (int idx = 900; idx < 911; ++idx) {
             string vn_name = string("vn") + integerToString(idx);
             instance_names.push_back(vn_name);
         }
@@ -118,6 +118,7 @@ protected:
             table_names->push_back("bgp.mvpn.0");
             table_names->push_back("bgp.rtarget.0");
             table_names->push_back("inet.0");
+            table_names->push_back("inet.3");
             table_names->push_back("inet6.0");
         } else {
             table_names->push_back(name + ".ermvpn.0");
@@ -178,7 +179,7 @@ TEST_P(BgpShowRouteSummaryParamTest, Request1) {
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
-    for (int idx = 900; idx < 912; ++idx) {
+    for (int idx = 900; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -195,7 +196,7 @@ TEST_P(BgpShowRouteSummaryParamTest, Request1) {
 
 //
 // Next instance = empty
-// Page limit = 54 (number of tables)
+// Page limit = 64 (number of tables)
 // Should return all tables.
 //
 TEST_P(BgpShowRouteSummaryParamTest, Request2) {
@@ -203,7 +204,7 @@ TEST_P(BgpShowRouteSummaryParamTest, Request2) {
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
-    for (int idx = 900; idx < 912; ++idx) {
+    for (int idx = 900; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -228,11 +229,11 @@ TEST_P(BgpShowRouteSummaryParamTest, Request3) {
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
-    for (int idx = 900; idx < 903; ++idx) {
+    for (int idx = 900; idx < 902; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
-    string next_batch = "vn903||";
+    string next_batch = "vn902||";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRouteSummaryParamTest::ValidateResponse, this,
         _1, table_names, next_batch));
@@ -279,7 +280,7 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch1) {
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
-    for (int idx = 900; idx < 912; ++idx) {
+    for (int idx = 900; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -305,7 +306,7 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch2) {
     sandesh_context_.set_page_limit(0);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
-    for (int idx = 900; idx < 912; ++idx) {
+    for (int idx = 900; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -323,15 +324,15 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch2) {
 
 //
 // Next instance = empty
-// Page limit = 60 (number of matching tables)
+// Page limit = 59 (number of matching tables)
 // Search string = "vn"
 // Should return all tables with "vn".
 //
 TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch3) {
-    sandesh_context_.set_page_limit(60);
+    sandesh_context_.set_page_limit(59);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
-    for (int idx = 900; idx < 912; ++idx) {
+    for (int idx = 900; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -357,7 +358,7 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch4) {
     sandesh_context_.set_page_limit(60);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
-    for (int idx = 900; idx < 912; ++idx) {
+    for (int idx = 900; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -483,7 +484,7 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch9) {
     task_util::WaitForIdle();
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
-    for (int idx = 900; idx < 912; ++idx) {
+    for (int idx = 900; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -514,11 +515,11 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestWithSearch10) {
     task_util::WaitForIdle();
     vector<string> table_names;
     AddInstanceTables(&table_names, BgpConfigManager::kMasterInstance);
-    for (int idx = 900; idx < 903; ++idx) {
+    for (int idx = 900; idx < 902; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
-    string next_batch = "vn903||deleted";
+    string next_batch = "vn902||deleted";
     Sandesh::set_response_callback(boost::bind(
         &BgpShowRouteSummaryParamTest::ValidateResponse, this,
         _1, table_names, next_batch));
@@ -617,7 +618,7 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterate1) {
     sandesh_context_.set_page_limit(0);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
-    for (int idx = 901; idx < 912; ++idx) {
+    for (int idx = 901; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -642,7 +643,7 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterate2) {
     sandesh_context_.set_page_limit(55);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
-    for (int idx = 901; idx < 912; ++idx) {
+    for (int idx = 901; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }
@@ -667,7 +668,7 @@ TEST_P(BgpShowRouteSummaryParamTest, RequestIterate3) {
     sandesh_context_.set_page_limit(51);
     sandesh_context_.set_iter_limit(GetParam());
     vector<string> table_names;
-    for (int idx = 901; idx < 912; ++idx) {
+    for (int idx = 901; idx < 911; ++idx) {
         string name = string("vn") + integerToString(idx);
         AddInstanceTables(&table_names, name);
     }

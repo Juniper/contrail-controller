@@ -27,7 +27,9 @@ public:
                                InetVpnPrefix *prefix, uint32_t *label);
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
-                               const BgpAttr *attr, InetVpnPrefix *prefix,
+                               const BgpAttr *attr,
+                               const Address::Family family,
+                               InetVpnPrefix *prefix,
                                BgpAttrPtr *new_attr, uint32_t *label,
                                uint32_t *l3_label);
     static InetVpnPrefix FromString(const std::string &str,

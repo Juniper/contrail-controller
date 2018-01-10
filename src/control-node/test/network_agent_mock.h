@@ -291,6 +291,10 @@ public:
         const RouteAttributes &attributes = RouteAttributes());
     pugi::xml_document *RouteDeleteXmlDoc(const std::string &network,
         const std::string &prefix);
+    pugi::xml_document *LabeledInetRouteAddXmlDoc(const std::string &network,
+        const std::string &prefix, const NextHop &nh);
+    pugi::xml_document *LabeledInetRouteDeleteXmlDoc(const std::string &network,
+        const std::string &prefix);
 
     pugi::xml_document *Inet6RouteAddXmlDoc(const std::string &network,
         const std::string &prefix, const NextHop &nh,
@@ -341,6 +345,10 @@ private:
     pugi::xml_document *Inet6RouteAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, Oper oper, const NextHop &nh = NextHop(),
             const RouteAttributes &attributes = RouteAttributes());
+    pugi::xml_document* LabeledInetRouteAddDeleteXmlDoc(
+            const std::string &network,
+            const std::string &prefix, bool add,
+            const NextHop &nh = NextHop());
     pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, bool add,
             const NextHop &nh = NextHop(),
@@ -371,6 +379,9 @@ private:
 public:
     typedef autogen::ItemType RouteEntry;
     typedef std::map<std::string, RouteEntry *> RouteTable;
+
+    typedef autogen::ItemType LabeledInetRouteEntry;
+    typedef std::map<std::string, LabeledInetRouteEntry *> LabeledInetRouteTable;
 
     typedef autogen::ItemType Inet6RouteEntry;
     typedef std::map<std::string, Inet6RouteEntry *> Inet6RouteTable;
@@ -522,6 +533,23 @@ public:
                                   const std::string &prefix) const {
         return route_mgr_->Lookup(network, prefix);
     }
+    void LabeledInetSubscribe(const std::string &network, int id = -1,
+                              bool wait_for_established = true,
+                              bool no_ribout = false) {
+        labeled_inet_route_mgr_->Subscribe(network, id, no_ribout,
+                                           wait_for_established);
+    }
+    void LabeledInetUnsubscribe(const std::string &network, int id = -1,
+                                bool wait_for_established = true) {
+        labeled_inet_route_mgr_->Unsubscribe(network, id, wait_for_established);
+    }
+    int LabeledInetRouteCount(const std::string &network) const;
+    int LabeledInetRouteCount() const;
+    const RouteEntry *LabeledInetRouteLookup(const std::string &network,
+                                             const std::string &prefix) const {
+        return labeled_inet_route_mgr_->Lookup(network, prefix);
+    }
+
 
     void Inet6Subscribe(const std::string &network, int id = -1,
                         bool wait_for_established = true,
@@ -549,7 +577,11 @@ public:
                   const NextHop &nexthop,
                   const RouteAttributes &attributes = RouteAttributes());
     void DeleteRoute(const std::string &network, const std::string &prefix);
-
+    void AddLabeledInetRoute(const std::string &network,
+                             const std::string &prefix,
+                             const std::string nexthop = "");
+    void DeleteLabeledInetRoute(const std::string &network,
+        const std::string &prefix);
     void AddInet6Route(const std::string &network, const std::string &prefix,
         const NextHop &nh = NextHop(),
         const RouteAttributes &attributes = RouteAttributes());
@@ -667,6 +699,8 @@ public:
     uint32_t flap_count();
 
     boost::scoped_ptr<InstanceMgr<RouteEntry> > route_mgr_;
+    boost::scoped_ptr<InstanceMgr<LabeledInetRouteEntry> >
+        labeled_inet_route_mgr_;
     boost::scoped_ptr<InstanceMgr<Inet6RouteEntry> > inet6_route_mgr_;
     boost::scoped_ptr<InstanceMgr<EnetRouteEntry> > enet_route_mgr_;
     boost::scoped_ptr<InstanceMgr<McastRouteEntry> > mcast_route_mgr_;

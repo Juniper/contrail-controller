@@ -23,6 +23,7 @@ public:
     enum Safi {
         UnknownSafi = 0,
         Unicast = 1,
+        Mpls = 4,
         MVpn = 5,
         EVpn = 70,
         Vpn = 128,
@@ -37,6 +38,8 @@ public:
     static std::pair<uint16_t, uint8_t> FamilyToAfiSafi(Address::Family family);
     static Afi FamilyToAfi(Address::Family family);
     static Safi FamilyToSafi(Address::Family family);
+    static u_int8_t FamilyToXmppSafi(Address::Family family);
+
 };
 
 #endif
