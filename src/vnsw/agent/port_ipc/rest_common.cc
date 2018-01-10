@@ -19,7 +19,7 @@ void SendResponse(HttpSession *session,
         "Content-Type: application/json; charset=UTF-8\r\n"
         "Content-Length: " +
         integerToString(msg.length()) + "\r\n" "\r\n" + msg;
-    session->Send((const u_int8_t *)(response.c_str()),
+    session->Send((const uint8_t *)(response.c_str()),
                   response.length(), NULL);
 }
 

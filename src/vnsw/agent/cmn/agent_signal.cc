@@ -16,7 +16,8 @@ void AgentSignal::Terminate() {
     process_signal_.Terminate();
 }
 
-void AgentSignal::RegisterSigHupHandler(
-    process::Signal::SignalHandler handler) {
+void AgentSignal::RegisterSigHupHandler(process::Signal::SignalHandler handler) {
+#ifndef _WIN32
     process_signal_.RegisterHandler(SIGHUP, handler);
+#endif
 }

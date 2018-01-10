@@ -19,7 +19,7 @@ class ResourceBackupReq {
 public:
     enum Op {
         ADD = 1,
-        DELETE,
+        DEL,
     };
 
     ResourceBackupReq(ResourceManager::KeyPtr key,

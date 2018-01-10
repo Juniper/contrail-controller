@@ -105,7 +105,7 @@ void ResourceManager::Release(KeyPtr key) {
     }
 
     if (backup_mgr_.get()) {
-        backup_mgr_->BackupResource(key, data, ResourceBackupReq::DELETE);
+        backup_mgr_->BackupResource(key, data, ResourceBackupReq::DEL);
     }
     resource_table->ReleaseKey(key, data);
 }
