@@ -3,10 +3,10 @@
  */
 #include "net/address_util.h"
 
-#include <endian.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/endian/conversion.hpp>
 #include <boost/foreach.hpp>
 
 /* Returns true if the given IPv4 address is member of the IPv4 subnet
@@ -290,9 +290,8 @@ void Ip6AddressToU64Array(const Ip6Address &addr, uint64_t *arr, int size) {
         }
     }
 
-
-    arr[0] = htobe64(arr[0]);
-    arr[1] = htobe64(arr[1]);
+    arr[0] = boost::endian::native_to_big(arr[0]);
+    arr[1] = boost::endian::native_to_big(arr[1]);
 }
 
 std::string VectorIpv6ToString(const std::vector<signed char> &ipv6) {

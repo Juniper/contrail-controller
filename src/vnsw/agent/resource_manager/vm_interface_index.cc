@@ -22,7 +22,7 @@ VmInterfaceIndexResourceKey::VmInterfaceIndexResourceKey(ResourceManager *rm,
 
 void VmInterfaceIndexResourceKey::Backup(ResourceData *data, uint16_t op){
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
-    if (op == ResourceBackupReq::DELETE) {
+    if (op == ResourceBackupReq::DEL) {
         rm()->backup_mgr()->
            sandesh_maps().DeleteVmInterfaceResourceEntry(index_data->index());
     } else {
