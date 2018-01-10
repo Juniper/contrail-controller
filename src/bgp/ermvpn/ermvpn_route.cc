@@ -83,7 +83,9 @@ int ErmVpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
 
 int ErmVpnPrefix::FromProtoPrefix(BgpServer *server,
                                   const BgpProtoPrefix &proto_prefix,
-                                  const BgpAttr *attr, ErmVpnPrefix *prefix,
+                                  const BgpAttr *attr,
+                                  const Address::Family &family,
+                                  ErmVpnPrefix *prefix,
                                   BgpAttrPtr *new_attr, uint32_t *label,
                                   uint32_t *l3_label) {
     return FromProtoPrefix(proto_prefix, prefix);

@@ -49,6 +49,9 @@ string BgpAf::ToString(uint16_t afi, uint8_t safi) {
         case RTarget:
             out << "RTarget";
             break;
+        case Mpls:
+            out << "Mpls";
+        break;
         default:
             out << "Safi=" << int(safi);
             break;
@@ -59,6 +62,8 @@ string BgpAf::ToString(uint16_t afi, uint8_t safi) {
 Address::Family BgpAf::AfiSafiToFamily(uint16_t afi, uint8_t safi) {
     if (afi == BgpAf::IPv4 && safi == BgpAf::Unicast)
         return Address::INET;
+    if (afi == BgpAf::IPv4 && safi == BgpAf::Mpls)
+        return Address::INETMPLS;
     if (afi == BgpAf::IPv4 && safi == BgpAf::Vpn)
         return Address::INETVPN;
     if (afi == BgpAf::IPv4 && safi == BgpAf::RTarget)
@@ -81,6 +86,8 @@ pair<uint16_t, uint8_t> BgpAf::FamilyToAfiSafi(Address::Family family) {
     switch (family) {
     case Address::INET:
         return make_pair(BgpAf::IPv4, BgpAf::Unicast);
+    case Address::INETMPLS:
+        return make_pair(BgpAf::IPv4, BgpAf::Mpls);
     case Address::INETVPN:
         return make_pair(BgpAf::IPv4, BgpAf::Vpn);
     case Address::RTARGET:
@@ -104,6 +111,8 @@ pair<uint16_t, uint8_t> BgpAf::FamilyToAfiSafi(Address::Family family) {
 BgpAf::Afi BgpAf::FamilyToAfi(Address::Family family) {
     switch (family) {
     case Address::INET:
+        return BgpAf::IPv4;
+    case Address::INETMPLS:
         return BgpAf::IPv4;
     case Address::INETVPN:
         return BgpAf::IPv4;
@@ -129,6 +138,8 @@ BgpAf::Safi BgpAf::FamilyToSafi(Address::Family family) {
     switch (family) {
     case Address::INET:
         return BgpAf::Unicast;
+    case Address::INETMPLS:
+        return BgpAf::Mpls;
     case Address::INETVPN:
         return BgpAf::Vpn;
     case Address::RTARGET:

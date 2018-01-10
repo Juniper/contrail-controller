@@ -44,7 +44,9 @@ int Inet6VpnPrefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
 
 int Inet6VpnPrefix::FromProtoPrefix(BgpServer *server,
                                     const BgpProtoPrefix &proto_prefix,
-                                    const BgpAttr *attr, Inet6VpnPrefix *prefix,
+                                    const BgpAttr *attr,
+                                    const Address::Family &family,
+                                    Inet6VpnPrefix *prefix,
                                     BgpAttrPtr *new_attr, uint32_t *label,
                                     uint32_t *l3_label) {
     return FromProtoPrefix(proto_prefix, prefix, label);
