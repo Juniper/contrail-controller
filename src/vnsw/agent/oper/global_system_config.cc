@@ -9,6 +9,7 @@
 #include <forwarding_class.h>
 #include <global_system_config.h>
 #include <config_manager.h>
+#include "oper/bgp_as_service.h"
 
 GlobalSystemConfig::GlobalSystemConfig(Agent *agent) : OperIFMapTable(agent) {
 }
@@ -27,11 +28,16 @@ void GlobalSystemConfig::ConfigAddChange(IFMapNode *node) {
     autogen::GlobalSystemConfig *cfg =
         static_cast<autogen::GlobalSystemConfig *>(node->GetObject());
     if (cfg ) {
-        bgpaas_parameters_.port_start = cfg->bgpaas_parameters().port_start;
-        bgpaas_parameters_.port_end = cfg->bgpaas_parameters().port_end;
-    } else {
-        bgpaas_parameters_.port_start = 0;
-        bgpaas_parameters_.port_end = 0;
+        if ((bgpaas_parameters_.port_start != cfg->bgpaas_parameters().port_start) ||
+                (bgpaas_parameters_.port_end != cfg->bgpaas_parameters().port_end)) {
+            bgpaas_parameters_.port_start = cfg->bgpaas_parameters().port_start;
+            bgpaas_parameters_.port_end = cfg->bgpaas_parameters().port_end;
+            // update BgpaaS session info
+            oper()->bgp_as_a_service()->UpdateBgpAsAServiceSessionInfo();
+        } else {
+            bgpaas_parameters_.port_start = 0;
+            bgpaas_parameters_.port_end = 0;
+        }
     }
 }
 
