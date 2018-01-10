@@ -15,6 +15,7 @@ from functools import partial
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 
 from process_mem_cpu import ProcessMemCpuUsageData
+from utils import is_running_in_docker
 
 
 class SystemdUtils(object):
@@ -56,8 +57,7 @@ class SystemdActiveState(object):
                          'reloading': 'PROCESS_STATE_BACKOFF',
                          }
         return state_mapping.get(active_state, 'PROCESS_STATE_UNKNOWN')
-        # end GetProcessStateName
-
+    # end GetProcessStateName
 # end class SystemdActiveState
 
 
@@ -67,6 +67,9 @@ class SystemdProcessInfoManager(object):
             self.msg_log('Node manager cannot run without pydbus', SandeshLevel.SYS_ERR)
             exit(-1)
 
+        # In docker, systemd notifications via sd_notify do not
+        # work, hence we will poll the process status
+        self._poll = is_running_in_docker()
         self._unit_paths = {unit_name:
                                 SystemdUtils.UNIT_PATH_PREFIX +
                                 SystemdUtils.make_path(unit_name) for unit_name in unit_names}
@@ -77,7 +80,6 @@ class SystemdProcessInfoManager(object):
             SystemdUtils.SYSTEMD_BUS_NAME,
             unit_path) for unit_name, unit_path in self._unit_paths.items()}
         self._cached_process_infos = {}
-
     # end __init__
 
     def get_all_processes(self):
@@ -101,24 +103,23 @@ class SystemdProcessInfoManager(object):
         return process_infos
 
     def _UnitPropertiesChanged(self, iface, changed, invalidated, unit_name):
-        if iface == SystemdUtils.UNIT_IFACE:
-            process_info = {}
-            process_info['name'] = unit_name.rsplit('.service', 1)[0]
-            process_info['group'] = process_info['name']
-            process_info['pid'] = self._units[unit_name].ExecMainPID
-            process_info['state'] = SystemdActiveState.GetProcessStateName(
-                changed['ActiveState'])
-            if process_info['state'] == 'PROCESS_STATE_EXITED':
-                process_info['expected'] = -1
-            self._event_handlers['PROCESS_STATE'](process_info)
-            if self._update_process_list:
-                self._event_handlers['PROCESS_LIST_UPDATE']()
-
+        if iface != SystemdUtils.UNIT_IFACE:
+            return
+        process_info = {}
+        process_info['name'] = unit_name.rsplit('.service', 1)[0]
+        process_info['group'] = process_info['name']
+        process_info['pid'] = self._units[unit_name].ExecMainPID
+        process_info['state'] = SystemdActiveState.GetProcessStateName(
+            changed['ActiveState'])
+        if process_info['state'] == 'PROCESS_STATE_EXITED':
+            process_info['expected'] = -1
+        self._event_handlers['PROCESS_STATE'](process_info)
+        if self._update_process_list:
+            self._event_handlers['PROCESS_LIST_UPDATE']()
     # end _UnitPropertiesChanged
 
     def _GetProcessInfo(self, unit_name, unit):
         process_info = {}
-        assert unit_name == unit.Id
         process_name = unit_name.rsplit('.service', 1)[0]
         process_info['name'] = process_name
         process_info['group'] = process_name
@@ -128,35 +129,47 @@ class SystemdProcessInfoManager(object):
         if process_info['state'] == 'PROCESS_STATE_EXITED':
             process_info['expected'] = -1
         return process_info
-
     # end _GetProcessInfo
 
     def _DoUpdateCachedProcessInfo(self, process_info):
-        updated = False
         process_name = process_info['name']
         if process_name not in self._cached_process_infos:
             self._cached_process_infos[process_name] = process_info
-            updated = True
-        else:
-            cprocess_info = self._cached_process_infos[process_name]
-            if cprocess_info['name'] != process_info['name'] or \
-                            cprocess_info['group'] != process_info['group'] or \
-                            cprocess_info['pid'] != process_info['pid'] or \
-                            cprocess_info['state'] != process_info['state']:
-                self._cached_process_infos[process_name] = process_info
-                updated = True
-        return updated
-
+            return True
+        cprocess_info = self._cached_process_infos[process_name]
+        if (cprocess_info['name'] != process_info['name'] or
+                cprocess_info['group'] != process_info['group'] or
+                cprocess_info['pid'] != process_info['pid'] or
+                cprocess_info['state'] != process_info['state']):
+            self._cached_process_infos[process_name] = process_info
+            return True
+        return False
     # end _DoUpdateCachedProcessInfo
 
+    def _PollProcessInfos(self):
+        for unit_name, unit in self._units.items():
+            process_info = self._GetProcessInfo(unit_name, unit)
+            updated = self._DoUpdateCachedProcessInfo(process_info)
+            if not updated:
+                continue
+            self._event_handlers['PROCESS_STATE'](process_info)
+            if self._update_process_list:
+                self._event_handlers['PROCESS_LIST_UPDATE']()
+    # end _PollProcessInfos
+
     def run(self, test):
+        if self._poll:
+            while True:
+                self._PollProcessInfos()
+                gevent.sleep(seconds=5)
+
         for unit_name, unit in self._units.items():
             unit_properties_changed_cb = partial(self._UnitPropertiesChanged,
                                                  unit_name=unit_name)
             unit.PropertiesChanged.connect(unit_properties_changed_cb)
         while True:
             gevent.sleep(seconds=0.05)
-            # end Run
+    # end run
 
     def get_mem_cpu_usage_data(self, pid, last_cpu, last_time):
         return ProcessMemCpuUsageData(pid, last_cpu, last_time)
