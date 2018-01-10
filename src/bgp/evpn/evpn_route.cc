@@ -200,8 +200,8 @@ EvpnPrefix::EvpnPrefix(const RouteDistinguisher &rd, uint32_t tag,
 
 int EvpnPrefix::FromProtoPrefix(BgpServer *server,
     const BgpProtoPrefix &proto_prefix, const BgpAttr *attr,
-    EvpnPrefix *prefix, BgpAttrPtr *new_attr, uint32_t *label,
-    uint32_t *l3_label) {
+    const Address::Family family, EvpnPrefix *prefix, BgpAttrPtr *new_attr,
+    uint32_t *label, uint32_t *l3_label) {
     *new_attr = attr;
     *label = 0;
     if (l3_label)
