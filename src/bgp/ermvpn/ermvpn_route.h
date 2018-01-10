@@ -40,9 +40,10 @@ public:
                                ErmVpnPrefix *prefix);
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
-                               const BgpAttr *attr, ErmVpnPrefix *prefix,
-                               BgpAttrPtr *new_attr, uint32_t *label,
-                               uint32_t *l3_label);
+                               const BgpAttr *attr,
+                               const Address::Family family,
+                               ErmVpnPrefix *prefix, BgpAttrPtr *new_attr,
+                               uint32_t *label, uint32_t *l3_label);
     static ErmVpnPrefix FromString(const std::string &str,
                                    boost::system::error_code *errorp = NULL);
 

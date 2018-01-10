@@ -24,11 +24,13 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
                             const BgpRoute *route) {
     BgpProto::Update update;
     const BgpAttr *attr = roattr->attr();
+    Address::Family family = table_->family();
 
     BgpAttrOrigin *origin = new BgpAttrOrigin(attr->origin());
     update.path_attributes.push_back(origin);
 
-    if ((route->Afi() == BgpAf::IPv4) && (route->Safi() == BgpAf::Unicast)) {
+    if ((BgpAf::FamilyToAfi(family) == BgpAf::IPv4) &&
+        (BgpAf::FamilyToSafi(family) == BgpAf::Unicast)) {
         BgpAttrNextHop *nh =
             new BgpAttrNextHop(attr->nexthop().to_v4().to_ulong());
         update.path_attributes.push_back(nh);
@@ -126,7 +128,8 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
     route->BuildBgpProtoNextHop(nh, attr->nexthop());
 
     BgpMpNlri *nlri = new BgpMpNlri(
-        BgpAttribute::MPReachNlri, route->Afi(), route->Safi(), nh);
+        BgpAttribute::MPReachNlri, BgpAf::FamilyToAfi(family), 
+        BgpAf::FamilyToSafi(family), nh);
     update.path_attributes.push_back(nlri);
 
     BgpProtoPrefix *prefix = new BgpProtoPrefix;
@@ -150,9 +153,11 @@ bool BgpMessage::StartReach(const RibOut *ribout, const RibOutAttr *roattr,
 
 bool BgpMessage::StartUnreach(const BgpRoute *route) {
     BgpProto::Update update;
+    Address::Family family = table_->family();
 
     BgpMpNlri *nlri =
-        new BgpMpNlri(BgpAttribute::MPUnreachNlri, route->Afi(), route->Safi());
+        new BgpMpNlri(BgpAttribute::MPUnreachNlri, 
+        BgpAf::FamilyToAfi(family), BgpAf::FamilyToSafi(family));
     update.path_attributes.push_back(nlri);
 
     BgpProtoPrefix *prefix = new BgpProtoPrefix;
@@ -207,10 +212,11 @@ bool BgpMessage::UpdateLength(const char *tag, int size, int delta) {
 bool BgpMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
     uint8_t *data = data_ + datalen_;
     size_t size = sizeof(data_) - datalen_;
+    Address::Family family = table_->family();
 
     BgpMpNlri nlri;
-    nlri.afi = route->Afi();
-    nlri.safi = route->Safi();
+    nlri.afi = BgpAf::FamilyToAfi(family);
+    nlri.safi = BgpAf::FamilyToSafi(family);
     BgpProtoPrefix *prefix = new BgpProtoPrefix;
     if (roattr) {
         route->BuildProtoPrefix(prefix, roattr->attr(), roattr->label());
