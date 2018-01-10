@@ -319,9 +319,9 @@ class VirtualNetworkST(DBBaseST):
     _dict = {}
     obj_type = 'virtual_network'
     ref_fields = ['network_policy', 'virtual_machine_interface', 'route_table',
-                  'bgpvpn', 'network_ipam']
+                  'bgpvpn', 'network_ipam', 'virtual_network']
     prop_fields = ['virtual_network_properties', 'route_target_list',
-                   'multi_policy_service_chains_enabled']
+                   'multi_policy_service_chains_enabled', 'is_provider_network']
 
     def me(self, name):
         return name in (self.name, 'any')
@@ -332,8 +332,10 @@ class VirtualNetworkST(DBBaseST):
         self.virtual_machine_interfaces = set()
         self.connections = set()
         self.routing_instances = set()
+        self.virtual_networks = set()
         self.bgpvpns = set()
         self.acl = None
+        self.is_provider_network = False
         self.dynamic_acl = None
         self.acl_rule_count = 0
         self.multi_policy_service_chains_enabled = None
@@ -1241,6 +1243,11 @@ class VirtualNetworkST(DBBaseST):
 
         static_acl_entries = None
         dynamic_acl_entries = None
+        # add a static acl in case of provider-network
+        if (not self.network_policys and
+            (self.is_provider_network or self.virtual_networks)):
+            static_acl_entries = AclEntriesType(dynamic=False)
+
         for policy_name in self.network_policys:
             timer = self.network_policys[policy_name].get_timer()
             if timer is None:
@@ -1347,7 +1354,7 @@ class VirtualNetworkST(DBBaseST):
                 # end for rule
 
                 # Add provider-network to any vn deny
-                if self.obj.get_is_provider_network():
+                if self.is_provider_network:
                     provider_to_any_acl = self.add_acl_rule(
                         AddressType(virtual_network=self.name),
                         PortType(),
@@ -1359,9 +1366,9 @@ class VirtualNetworkST(DBBaseST):
                         '<>')
                     acl_list.append(provider_to_any_acl)
                 else:
-                    linked_vns = self.obj.get_virtual_network_refs() or []
-                    for linked_vn in linked_vns:
-                        provider_vn = ':'.join(linked_vn['to'])
+                    # If this VN is linked to a provider-network, add
+                    # provider-vn <-> this-VN deny
+                    for provider_vn in self.virtual_networks:
                         # add this vn to provider-network deny
                         this_vn_to_provider_acl = self.add_acl_rule(
                             AddressType(virtual_network=self.name),

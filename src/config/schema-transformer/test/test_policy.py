@@ -760,9 +760,9 @@ class TestPolicy(STTestCase, VerifyPolicy):
                 fq_name=provider_fq_name)
         self.assertEqual(provider_vn.get_is_provider_network(), True)
 
-        # check adding vn3 and vn4 to provider vn
+        # check adding vn3 and vn2 to provider vn
+        provider_vn.add_virtual_network(vn2_obj1)
         provider_vn.add_virtual_network(vn3_obj1)
-        provider_vn.add_virtual_network(vn4_obj1)
         self._vnc_lib.virtual_network_update(provider_vn)
         provider_vn = self._vnc_lib.virtual_network_read(
                 fq_name=provider_vn.get_fq_name())
@@ -770,18 +770,32 @@ class TestPolicy(STTestCase, VerifyPolicy):
         linked_uuids = [ref['uuid'] for ref in
                         provider_vn.virtual_network_refs]
         self.assertIn(vn3_obj1.uuid, linked_uuids)
-        self.assertIn(vn4_obj1.uuid, linked_uuids)
+        self.assertIn(vn2_obj1.uuid, linked_uuids)
         config_db.VirtualNetworkST._dict = {}
         config_db.VirtualNetworkST.reinit()
         provider_vn = self._vnc_lib.virtual_network_read(
                 fq_name=provider_vn.get_fq_name())
         vn3_obj1 = self._vnc_lib.virtual_network_read(
                 fq_name=vn3_obj1.get_fq_name())
+        vn2_obj1 = self._vnc_lib.virtual_network_read(
+                fq_name=vn2_obj1.get_fq_name())
         self.assertEqual(len(provider_vn.virtual_network_refs), 2)
         linked_uuids = [ref['uuid'] for ref in
                         provider_vn.virtual_network_refs]
         self.assertIn(vn3_obj1.uuid, linked_uuids)
-        self.assertIn(vn4_obj1.uuid, linked_uuids)
+        self.assertIn(vn2_obj1.uuid, linked_uuids)
+        self.check_acl_implicit_deny_rule(
+                fq_name=self.get_ri_name(provider_vn),
+                src_vn=':'.join(provider_fq_name),
+                dst_vn='any')
+        self.check_acl_implicit_deny_rule(
+                fq_name=self.get_ri_name(vn2_obj1),
+                src_vn=vn2_obj1.get_fq_name_str(),
+                dst_vn=':'.join(provider_fq_name))
+        self.check_acl_implicit_deny_rule(
+                fq_name=self.get_ri_name(vn3_obj1),
+                src_vn=vn3_obj1.get_fq_name_str(),
+                dst_vn=':'.join(provider_fq_name))
 
         # check adding provider vn to vn1 works
         vn1_obj1.add_virtual_network(provider_vn)
@@ -790,6 +804,10 @@ class TestPolicy(STTestCase, VerifyPolicy):
                 fq_name=vn1_obj1.get_fq_name())
         self.assertEqual(vn1_obj2.virtual_network_refs[0]['to'],
                          provider_fq_name)
+        self.check_acl_implicit_deny_rule(
+                fq_name=self.get_ri_name(vn1_obj2),
+                src_vn=vn1_obj2.get_fq_name_str(),
+                dst_vn=':'.join(provider_fq_name))
 
         # Check updating other parameters of a non provider VN
         # when a provider VN is connected
@@ -822,17 +840,6 @@ class TestPolicy(STTestCase, VerifyPolicy):
                          provider_fq_name)
         self.assertNotEqual(vn1_obj4.virtual_network_refs[0]['to'],
                             vn2_obj1.get_fq_name())
-
-        # check provider network can be linked to
-        # multiple networks
-        vn2_obj1.add_virtual_network(provider_vn)
-        self._vnc_lib.virtual_network_update(vn2_obj1)
-        vn2_obj2 = self._vnc_lib.virtual_network_read(
-                fq_name=vn2_obj1.get_fq_name())
-        self.assertEqual(vn2_obj2.virtual_network_refs[0]['to'],
-                         provider_fq_name)
-        self.assertEqual(vn1_obj2.virtual_network_refs[0]['to'],
-                         provider_fq_name)
 
         # check the provider-network got a deny rule to any VN
         provider_to_vn1_rule = {"protocol": "icmp",
