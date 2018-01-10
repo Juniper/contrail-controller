@@ -30,7 +30,8 @@ public:
                                Ip4Prefix *prefix);
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
-                               const BgpAttr *attr, Ip4Prefix *prefix,
+                               const BgpAttr *attr,
+                               const Address::Family family, Ip4Prefix *prefix,
                                BgpAttrPtr *new_attr, uint32_t *label,
                                uint32_t *l3_label);
     static Ip4Prefix FromString(const std::string &str,
@@ -63,10 +64,10 @@ private:
 
 class InetRoute : public BgpRoute {
 public:
+    explicit InetRoute(const Ip4Prefix &prefix, const BgpAf::Safi &safi);
     explicit InetRoute(const Ip4Prefix &prefix);
     virtual int CompareTo(const Route &rhs) const;
     virtual std::string ToString() const { return prefix_str_; }
-
     const Ip4Prefix &GetPrefix() const { return prefix_; }
 
     virtual KeyPtr GetDBRequestKey() const;
@@ -88,11 +89,12 @@ public:
     virtual bool IsMoreSpecific(const std::string &match) const;
     virtual bool IsLessSpecific(const std::string &match) const;
     virtual uint16_t Afi() const { return BgpAf::IPv4; }
-    virtual uint8_t Safi() const { return BgpAf::Unicast; }
+    virtual uint8_t Safi() const { return safi_; }
 
 private:
     Ip4Prefix prefix_;
     std::string prefix_str_;
+    BgpAf::Safi safi_;
 
     DISALLOW_COPY_AND_ASSIGN(InetRoute);
 };

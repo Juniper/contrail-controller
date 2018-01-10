@@ -82,6 +82,7 @@ TEST_F(NetworkConfigTest, SoapMessage1) {
     SCOPED_TRACE(__FUNCTION__);
     ParseEventsJson("controller/src/bgp/testdata/network_test_1.json");
     FeedEventsJson();
+    task_util::WaitForIdle();
     RoutingInstanceMgr *manager = bgp_server_.routing_instance_mgr();
 
     RouteTarget tgt1 = RouteTarget::FromString("target:1:84");
@@ -121,6 +122,7 @@ TEST_F(NetworkConfigTest, SoapMessage2) {
     SCOPED_TRACE(__FUNCTION__);
     ParseEventsJson("controller/src/bgp/testdata/network_test_2.json");
     FeedEventsJson();
+    task_util::WaitForIdle();
     RoutingInstanceMgr *manager = bgp_server_.routing_instance_mgr();
 
     RouteTarget tgt1 = RouteTarget::FromString("target:1:6");

@@ -68,7 +68,8 @@ TEST_F(EvpnPrefixTest, FromProtoPrefix_Error) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -185,7 +186,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix1) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in2.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr_in2.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -219,7 +221,7 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix2) {
 
         prefix2 = EvpnPrefix::kNullPrefix;
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2.get() == NULL);
@@ -229,7 +231,7 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix2) {
         prefix2 = EvpnPrefix::kNullPrefix;
         label2 = EvpnPrefix::kInvalidLabel;
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2.get() == NULL);
@@ -267,8 +269,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix3) {
         EvpnPrefix prefix2;
         BgpAttrPtr attr_out2;
         uint32_t label2;
-        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -307,7 +309,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix4) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -345,8 +348,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix5) {
         EvpnPrefix prefix2;
         BgpAttrPtr attr_out2;
         uint32_t label2;
-        int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+        int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -385,7 +388,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix6) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -409,7 +413,8 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix_Error1) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -428,7 +433,7 @@ TEST_F(EvpnAutoDiscoveryPrefixTest, FromProtoPrefix_Error2) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix, &attr_out, &label);
+            proto_prefix, NULL, Address::EVPN, &prefix, &attr_out, &label);
         EXPECT_NE(0, result);
     }
 }
@@ -691,7 +696,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix1a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in2.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr_in2.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -732,7 +738,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix1b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr_in2.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr_in2.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -772,7 +779,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix2a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in2.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr_in2.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -813,7 +821,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix2b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr_in2.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr_in2.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -853,7 +862,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix3a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in2.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr_in2.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -894,7 +904,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix3b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr_in2.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr_in2.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -934,7 +945,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix4a) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -973,7 +985,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix4b) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1006,7 +1019,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix4c) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1045,7 +1059,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix5a) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1084,7 +1099,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix5b) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1118,7 +1134,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix5c) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1157,7 +1174,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix6a) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1196,7 +1214,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix6b) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1230,7 +1249,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix6c) {
         int result;
 
         result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix2, &attr_out2, &label2, &l3_label2);
+            proto_prefix, NULL, Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1272,7 +1292,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix7a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1315,7 +1336,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix7b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1356,7 +1378,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix8a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1398,7 +1421,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix8b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1440,7 +1464,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix9a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1483,7 +1508,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix9b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1524,7 +1550,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix10a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1566,7 +1593,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix10b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1608,7 +1636,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix11a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1651,7 +1680,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix11b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1692,7 +1722,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix12a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1734,7 +1765,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix12b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1776,7 +1808,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix13a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1819,7 +1852,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix13b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1861,7 +1895,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix14a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1904,7 +1939,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix14b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1946,7 +1982,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix15a) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -1989,7 +2026,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix15b) {
         uint32_t label2;
         uint32_t l3_label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(), proto_prefix,
-            attr.get(), &prefix2, &attr_out2, &label2, &l3_label2);
+            attr.get(), Address::EVPN, &prefix2, &attr_out2, &label2,
+            &l3_label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(prefix2.esi().IsZero());
@@ -2014,7 +2052,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error1) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2033,7 +2072,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error2) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix, &attr_out, &label);
+            proto_prefix, NULL, Address::EVPN, &prefix, &attr_out, &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2057,7 +2096,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error3) {
         uint32_t label;
         proto_prefix.prefix[mac_len_offset] = mac_len;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2080,7 +2120,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error4) {
         uint32_t label;
         proto_prefix.prefix[mac_len_offset] = mac_len;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix, &attr_out, &label);
+            proto_prefix, NULL, Address::EVPN, &prefix, &attr_out, &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2106,7 +2146,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error5) {
         uint32_t label;
         proto_prefix.prefix[ip_len_offset] = ip_len;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2131,7 +2172,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error6) {
         uint32_t label;
         proto_prefix.prefix[ip_len_offset] = ip_len;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix, &attr_out, &label);
+            proto_prefix, NULL, Address::EVPN, &prefix, &attr_out, &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2156,7 +2197,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error7) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2180,7 +2222,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error8) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix, &attr_out, &label);
+            proto_prefix, NULL, Address::EVPN, &prefix, &attr_out, &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2205,7 +2247,8 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error9) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2229,7 +2272,7 @@ TEST_F(EvpnMacAdvertisementPrefixTest, FromProtoPrefix_Error10) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix, &attr_out, &label);
+            proto_prefix, NULL, Address::EVPN, &prefix, &attr_out, &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2392,7 +2435,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix1) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2432,7 +2476,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix2) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2476,7 +2521,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix3) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2520,7 +2566,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix4) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2565,7 +2612,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix5) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2609,7 +2657,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix6) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2653,7 +2702,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix7) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2698,7 +2748,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix8) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2722,7 +2773,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix_Error1) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2744,7 +2796,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix_Error2) {
         uint32_t label;
         proto_prefix.prefix[ip_len_offset] = ip_len;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2766,7 +2819,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix_Error3) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2788,7 +2842,8 @@ TEST_F(EvpnInclusiveMulticastPrefixTest, FromProtoPrefix_Error4) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -2937,7 +2992,8 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix1) {
     BgpAttrPtr attr_out2;
     uint32_t label2;
     int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-        proto_prefix, attr_in2.get(), &prefix2, &attr_out2, &label2);
+        proto_prefix, attr_in2.get(), Address::EVPN, &prefix2, &attr_out2,
+        &label2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(prefix1, prefix2);
     EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2966,7 +3022,8 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix2) {
     BgpAttrPtr attr_out2;
     uint32_t label2;
     int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-        proto_prefix, attr_in2.get(), &prefix2, &attr_out2, &label2);
+        proto_prefix, attr_in2.get(), Address::EVPN, &prefix2, &attr_out2,
+        &label2);
     EXPECT_EQ(0, result);
     EXPECT_EQ(prefix1, prefix2);
     EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -2989,7 +3046,8 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix_Error1) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3011,7 +3069,8 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix_Error2) {
         uint32_t label;
         proto_prefix.prefix[ip_len_offset] = ip_len;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3033,7 +3092,8 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix_Error3) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3055,7 +3115,8 @@ TEST_F(EvpnSegmentPrefixTest, FromProtoPrefix_Error4) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3329,7 +3390,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix1) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -3368,7 +3430,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix2) {
         BgpAttrPtr attr_out2;
         uint32_t label2;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr.get(), &prefix2, &attr_out2, &label2);
+            proto_prefix, attr.get(), Address::EVPN, &prefix2, &attr_out2,
+            &label2);
         EXPECT_EQ(0, result);
         EXPECT_EQ(prefix1, prefix2);
         EXPECT_TRUE(attr_out2->esi().IsZero());
@@ -3392,7 +3455,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error1) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3418,7 +3482,7 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error2) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix, &attr_out, &label);
+            proto_prefix, NULL, Address::EVPN, &prefix, &attr_out, &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3442,7 +3506,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error3) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3475,7 +3540,7 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error4) {
         BgpAttrPtr attr_out;
         uint32_t label;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, NULL, &prefix, &attr_out, &label);
+            proto_prefix, NULL, Address::EVPN, &prefix, &attr_out, &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3497,7 +3562,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error5) {
         uint32_t label;
         proto_prefix.prefix[ip_plen_offset] = ip_len;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3519,7 +3585,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error6) {
         uint32_t label;
         proto_prefix.prefix[ip_plen_offset] = ip_len;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
     }
 }
@@ -3540,7 +3607,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error7) {
         uint32_t label;
         proto_prefix.prefix[esi_offset + idx] = 0x01;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
         proto_prefix.prefix[esi_offset + idx] = 0x00;
     }
@@ -3562,7 +3630,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error8) {
         uint32_t label;
         proto_prefix.prefix[esi_offset + idx] = 0x01;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
         proto_prefix.prefix[esi_offset + idx] = 0x00;
     }
@@ -3585,7 +3654,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error9) {
         uint32_t label;
         proto_prefix.prefix[gw_offset + idx] = 0x01;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
         proto_prefix.prefix[gw_offset + idx] = 0x00;
     }
@@ -3608,7 +3678,8 @@ TEST_F(EvpnIpPrefixTest, FromProtoPrefix_Error10) {
         uint32_t label;
         proto_prefix.prefix[gw_offset + idx] = 0x01;
         int result = EvpnPrefix::FromProtoPrefix(bs_.get(),
-            proto_prefix, attr_in.get(), &prefix, &attr_out, &label);
+            proto_prefix, attr_in.get(), Address::EVPN, &prefix, &attr_out,
+            &label);
         EXPECT_NE(0, result);
         proto_prefix.prefix[gw_offset + idx] = 0x00;
     }
