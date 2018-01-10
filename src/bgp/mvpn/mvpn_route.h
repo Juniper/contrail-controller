@@ -75,7 +75,9 @@ public:
                                MvpnPrefix *prefix);
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
-                               const BgpAttr *attr, MvpnPrefix *prefix,
+                               const BgpAttr *attr,
+                               const Address::Family family,
+                               MvpnPrefix *prefix,
                                BgpAttrPtr *new_attr, uint32_t *label,
                                uint32_t *l3_label);
     static bool GetTypeFromString(MvpnPrefix *prefix,
@@ -136,8 +138,6 @@ public:
         return (cmp < 0);
     }
 
-    virtual u_int16_t Afi() const { return BgpAf::IPv4; }
-    virtual u_int8_t Safi() const { return BgpAf::MVpn; }
     const std::string GetType() const;
 
 private:

@@ -33,7 +33,7 @@ public:
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
     virtual std::auto_ptr<DBEntry> AllocEntryStr(const std::string &key) const;
 
-    virtual Address::Family family() const { return Address::INET; }
+    virtual Address::Family family() const { return family_; }
 
     virtual size_t Hash(const DBEntry *entry) const;
     virtual size_t Hash(const DBRequestKey *key) const;
@@ -50,11 +50,12 @@ public:
                              ExtCommunityPtr ptr);
 
     virtual bool IsRoutingPolicySupported() const { return true; }
-    virtual bool IsRouteAggregationSupported() const { return true; }
+    virtual bool IsRouteAggregationSupported() const {
+        return((family_ == Address::INETMPLS) ? false : true); }
 private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
                                 const DBRequestKey *prefix);
-
+    Address::Family family_;
     DISALLOW_COPY_AND_ASSIGN(InetTable);
 };
 
