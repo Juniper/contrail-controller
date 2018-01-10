@@ -367,7 +367,7 @@ int main(int argc, char *argv[])
     options.set_ttl_map(ttl_map);
 
     std::string zookeeper_server_list(options.zookeeper_server_list());
-    bool use_zookeeper = !zookeeper_server_list.empty();
+    bool use_zookeeper = !zookeeper_server_list.empty() && !options.dup();
 
     VncApiConfig api_config;
     api_config.api_use_ssl = options.api_server_use_ssl();

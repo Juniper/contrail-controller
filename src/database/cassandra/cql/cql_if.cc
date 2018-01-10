@@ -2311,10 +2311,6 @@ bool CqlIf::Db_Init() {
 }
 
 void CqlIf::Db_Uninit() {
-    Db_UninitUnlocked();
-}
-
-void CqlIf::Db_UninitUnlocked() {
     impl_->DisconnectSync();
 }
 
