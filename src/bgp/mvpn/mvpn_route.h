@@ -75,7 +75,9 @@ public:
                                MvpnPrefix *prefix);
     static int FromProtoPrefix(BgpServer *server,
                                const BgpProtoPrefix &proto_prefix,
-                               const BgpAttr *attr, MvpnPrefix *prefix,
+                               const BgpAttr *attr,
+                               const Address::Family &family,
+                               MvpnPrefix *prefix,
                                BgpAttrPtr *new_attr, uint32_t *label,
                                uint32_t *l3_label);
     static bool GetTypeFromString(MvpnPrefix *prefix,

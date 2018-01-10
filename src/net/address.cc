@@ -15,6 +15,7 @@ static const std::map<string, Address::Family>
     fromString = boost::assign::map_list_of
         ("unspecified", Address::UNSPEC) 
         ("inet", Address::INET) 
+        ("inet-mpls", Address::INETMPLS)
         ("inet6", Address::INET6) 
         ("inet-vpn", Address::INETVPN) 
         ("inet6-vpn", Address::INET6VPN) 
@@ -27,6 +28,7 @@ static const std::map<Address::Family, string>
     toString = boost::assign::map_list_of
         (Address::UNSPEC, "unspecified") 
         (Address::INET, "inet") 
+        (Address::INETMPLS, "inet-mpls")
         (Address::INET6, "inet6") 
         (Address::INETVPN, "inet-vpn") 
         (Address::INET6VPN, "inet6-vpn") 
@@ -39,6 +41,7 @@ static const std::map<string, Address::Family>
     fromTableName = boost::assign::map_list_of
         ("unspecified", Address::UNSPEC)
         ("inet", Address::INET)
+        ("inet-mpls", Address::INETMPLS)
         ("inet6", Address::INET6)
         ("l3vpn", Address::INETVPN)
         ("l3vpn-inet6", Address::INET6VPN)
@@ -51,6 +54,7 @@ static const std::map<Address::Family, string>
     toTableName = boost::assign::map_list_of
         (Address::UNSPEC, "unspecified")
         (Address::INET, "inet")
+        (Address::INETMPLS, "inet-mpls")
         (Address::INET6, "inet6")
         (Address::INETVPN, "l3vpn")
         (Address::INET6VPN, "l3vpn-inet6")

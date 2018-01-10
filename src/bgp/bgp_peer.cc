@@ -1242,7 +1242,7 @@ void BgpPeer::RegisterAllTables() {
         BGP_PEER_DIR_NA, "Established");
 
     vector<Address::Family> family_list = list_of
-        (Address::INET)(Address::INET6);
+        (Address::INET)(Address::INETMPLS)(Address::INET6);
     BOOST_FOREACH(Address::Family family, family_list) {
         if (!IsFamilyNegotiated(family))
             continue;
@@ -1279,6 +1279,7 @@ void BgpPeer::RegisterAllTables() {
 
 const vector<Address::Family> BgpPeer::supported_families_ = list_of
     (Address::INET)
+    (Address::INETMPLS)
     (Address::INETVPN)
     (Address::EVPN)
     (Address::RTARGET)
@@ -1312,6 +1313,8 @@ void BgpPeer::SendOpen(TcpSession *session) {
              BgpAf::FamilyToSafi(supported_families_[6]) },
         { 0, (uint8_t) BgpAf::FamilyToAfi(supported_families_[7]), 0,
              BgpAf::FamilyToSafi(supported_families_[7]) },
+        { 0, (uint8_t) BgpAf::FamilyToAfi(supported_families_[8]), 0,
+             BgpAf::FamilyToSafi(supported_families_[8]) },
     };
 
     static const FamilyToCapabilityMap family_to_cap_map = map_list_of
@@ -1322,7 +1325,8 @@ void BgpPeer::SendOpen(TcpSession *session) {
         (supported_families_[4], cap_mp[4])
         (supported_families_[5], cap_mp[5])
         (supported_families_[6], cap_mp[6])
-        (supported_families_[7], cap_mp[7]);
+        (supported_families_[7], cap_mp[7])
+        (supported_families_[8], cap_mp[8]);
 
     // Add capabilities for configured address families.
     BOOST_FOREACH(const FamilyToCapabilityMap::value_type &val,
@@ -1584,9 +1588,10 @@ void BgpPeer::ProcessNlri(Address::Family family, DBRequest::DBOperation oper,
         BgpAttrPtr new_attr(attr);
         uint32_t label = 0;
         uint32_t l3_label = 0;
-        int result = PrefixT::FromProtoPrefix(server_, **it,
+        int result;
+        result = PrefixT::FromProtoPrefix(server_, **it,
             (oper == DBRequest::DB_ENTRY_ADD_CHANGE ? attr.get() : NULL),
-            &prefix, &new_attr, &label, &l3_label);
+            family, &prefix, &new_attr, &label, &l3_label);
         if (result) {
             BGP_LOG_PEER_WARNING(Message, this,
                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
@@ -1770,6 +1775,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg, size_t msgsize) {
 
         switch (family) {
         case Address::INET:
+        case Address::INETMPLS:
             ProcessNlri<InetTable, Ip4Prefix>(
                 family, oper, nlri, attr, flags);
             break;
@@ -2021,7 +2027,8 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
     IpAddress addr;
 
     if (nlri->afi == BgpAf::IPv4) {
-        if (nlri->safi == BgpAf::Unicast || nlri->safi == BgpAf::RTarget) {
+        if (nlri->safi == BgpAf::Mpls || nlri->safi == BgpAf::Unicast ||
+            nlri->safi == BgpAf::RTarget) {
             Ip4Address::bytes_type bt = { { 0 } };
             copy(nlri->nexthop.begin(),
                 nlri->nexthop.begin() + sizeof(bt), bt.begin());

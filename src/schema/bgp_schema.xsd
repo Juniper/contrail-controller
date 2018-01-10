@@ -294,6 +294,7 @@
 <xsd:simpleType name='AddressFamily'>
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="inet"/>
+        <xsd:enumeration value="inet-mpls"/>
         <xsd:enumeration value="inet-vpn"/>
         <xsd:enumeration value="e-vpn"/>
         <xsd:enumeration value="erm-vpn"/>

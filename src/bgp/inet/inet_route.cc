@@ -25,10 +25,37 @@ int Ip4Prefix::FromProtoPrefix(const BgpProtoPrefix &proto_prefix,
 }
 
 int Ip4Prefix::FromProtoPrefix(BgpServer *server,
-    const BgpProtoPrefix &proto_prefix, const BgpAttr *attr, Ip4Prefix *prefix,
-    BgpAttrPtr *new_attr, uint32_t *label, uint32_t *l3_label) {
-    return FromProtoPrefix(proto_prefix, prefix);
+                               const BgpProtoPrefix &proto_prefix,
+                               const BgpAttr *attr,
+                               const Address::Family &family,
+                               Ip4Prefix *prefix,
+                               BgpAttrPtr *new_attr, uint32_t *label,
+                               uint32_t *l3_label) {
+    if (family == Address::INET) {
+        return FromProtoPrefix(proto_prefix, prefix);
+    }
+    size_t nlri_size = proto_prefix.prefix.size();
+    size_t expected_min_nlri_size =
+        BgpProtoPrefix::kLabelSize;
+
+    if (nlri_size < expected_min_nlri_size)
+        return -1;
+    if (nlri_size > expected_min_nlri_size + Address::kMaxV4Bytes)
+        return -1;
+
+    size_t label_offset = 0;
+    *label = proto_prefix.ReadLabel(label_offset);
+    size_t prefix_offset = label_offset + BgpProtoPrefix::kLabelSize;
+    prefix->prefixlen_ = proto_prefix.prefixlen - prefix_offset * 8;
+    Ip4Address::bytes_type bt = { { 0 } };
+    copy(proto_prefix.prefix.begin() + prefix_offset,
+        proto_prefix.prefix.end(), bt.begin());
+    prefix->ip4_addr_ = Ip4Address(bt);
+
+    return 0;
 }
+
+
 
 string Ip4Prefix::ToString() const {
     string repr(ip4_addr().to_string());
@@ -77,9 +104,15 @@ bool Ip4Prefix::IsMoreSpecific(const Ip4Prefix &rhs) const {
         (rhs.ip4_addr().to_ulong() & mask);
 }
 
+InetRoute::InetRoute(const Ip4Prefix &prefix, const BgpAf::Safi &safi)
+    : prefix_(prefix),
+      prefix_str_(prefix.ToString()), safi_(safi) {
+}
+
 InetRoute::InetRoute(const Ip4Prefix &prefix)
     : prefix_(prefix),
       prefix_str_(prefix.ToString()) {
+    safi_ = BgpAf::Unicast;
 }
 
 int InetRoute::CompareTo(const Route &rhs) const {
@@ -124,14 +157,28 @@ void InetRoute::SetKey(const DBRequestKey *reqkey) {
 
 void InetRoute::BuildProtoPrefix(BgpProtoPrefix *prefix,
                                  const BgpAttr *attr,
-                                 uint32_t label,
+                                 const uint32_t label,
                                  uint32_t l3_label) const {
-    prefix->prefixlen = prefix_.prefixlen();
+    size_t prefix_size;
     prefix->prefix.clear();
-    const Ip4Address::bytes_type &addr_bytes = prefix_.ip4_addr().to_bytes();
-    int num_bytes = (prefix->prefixlen + 7) / 8;
-    copy(addr_bytes.begin(), addr_bytes.begin() + num_bytes,
-         back_inserter(prefix->prefix));
+    if (label) { // Labeled Unicast
+        prefix_size = (prefix_.prefixlen() + 7) / 8;
+        size_t nlri_size = BgpProtoPrefix::kLabelSize + prefix_size;
+        prefix->prefix.resize(nlri_size, 0);
+        size_t label_offset = 0;
+        prefix->WriteLabel(label_offset, label);
+        size_t prefix_offset = label_offset + BgpProtoPrefix::kLabelSize;
+        prefix->prefixlen = prefix_offset * 8 + prefix_.prefixlen();
+        const Ip4Address::bytes_type &addr_bytes = prefix_.ip4_addr().to_bytes();
+        copy(addr_bytes.begin(), addr_bytes.begin() + prefix_size,
+            prefix->prefix.begin() + prefix_offset);
+    } else {
+        prefix->prefixlen = prefix_.prefixlen();
+        const Ip4Address::bytes_type &addr_bytes = prefix_.ip4_addr().to_bytes();
+        prefix_size = (prefix->prefixlen + 7) / 8;
+        copy(addr_bytes.begin(), addr_bytes.begin() + prefix_size,
+             back_inserter(prefix->prefix));
+    }
 }
 
 void InetRoute::BuildBgpProtoNextHop(vector<uint8_t> &nh,
