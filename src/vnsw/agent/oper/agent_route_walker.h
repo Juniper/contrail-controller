@@ -5,6 +5,8 @@
 #ifndef vnsw_agent_route_walker_hpp
 #define vnsw_agent_route_walker_hpp
 
+#include <array>
+
 #include <cmn/agent_cmn.h>
 #include <cmn/agent.h>
 #include <sandesh/sandesh_trace.h>
@@ -78,7 +80,7 @@ void intrusive_ptr_release(AgentRouteWalker *w);
 typedef boost::intrusive_ptr<AgentRouteWalker> AgentRouteWalkerPtr;
 
 struct RouteWalkerDBState : DBState {
-    typedef DBTable::DBTableWalkRef RouteWalkRef[Agent::ROUTE_TABLE_MAX];
+    typedef std::array<DBTable::DBTableWalkRef, Agent::ROUTE_TABLE_MAX> RouteWalkRef;
     typedef std::map<AgentRouteWalkerPtr, RouteWalkRef> AgentRouteWalkerRefMap;
     typedef AgentRouteWalkerRefMap::iterator AgentRouteWalkerRefMapIter;
     typedef AgentRouteWalkerRefMap::const_iterator AgentRouteWalkerRefMapConstIter;
