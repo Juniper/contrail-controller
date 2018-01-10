@@ -79,7 +79,7 @@ typedef boost::intrusive_ptr<AgentRouteWalker> AgentRouteWalkerPtr;
 
 struct RouteWalkerDBState : DBState {
     typedef DBTable::DBTableWalkRef RouteWalkRef[Agent::ROUTE_TABLE_MAX];
-    typedef std::map<AgentRouteWalkerPtr, RouteWalkRef> AgentRouteWalkerRefMap;
+    typedef std::map<AgentRouteWalkerPtr, DBTable::DBTableWalkRef*> AgentRouteWalkerRefMap;
     typedef AgentRouteWalkerRefMap::iterator AgentRouteWalkerRefMapIter;
     typedef AgentRouteWalkerRefMap::const_iterator AgentRouteWalkerRefMapConstIter;
 
