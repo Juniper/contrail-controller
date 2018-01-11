@@ -111,8 +111,18 @@ bool VmInterface::NeedDevice() const {
     return ret;
 }
 
+bool VmInterface::NeedOsStateWithoutDevice() const {
+    /* For TRANSPORT_PMD (in dpdk mode) interfaces, the link state is updated
+     * as part of netlink message sent by vrouter to agent. This state is
+     * updated in os_oper_state_ field */
+    if (transport_ == TRANSPORT_PMD) {
+        return true;
+    }
+    return false;
+}
+
 void VmInterface::GetOsParams(Agent *agent) {
-    if (NeedDevice()) {
+    if (NeedDevice() || NeedOsStateWithoutDevice()) {
         Interface::GetOsParams(agent);
         return;
     }
@@ -165,6 +175,10 @@ bool VmInterface::IsActive()  const {
     }
 
     if (!vn_.get()->admin_state()) {
+        return false;
+    }
+
+    if (NeedOsStateWithoutDevice() && os_oper_state_ == false) {
         return false;
     }
 
