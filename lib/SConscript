@@ -16,8 +16,8 @@ if platform.system() == 'Windows':
         'rapidjson',
         'dirent',
         'thrift/windows',
-        'rabbitmq-c/windows',
-        'SimpleAmqpClient/windows',
+        'rabbitmq-c',
+        'SimpleAmqpClient',
         'winsw',
     ]
 else:
