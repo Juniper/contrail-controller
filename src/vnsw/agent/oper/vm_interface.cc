@@ -2636,6 +2636,14 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
     bool old_ipv6_active = vmi->ipv6_active_;
 
     vmi->GetOsParams(table->agent());
+    /* In DPDK mode (where we have interfaces of type TRANSPORT_PMD), oper_state
+     * is updated based on Netlink notification received from vrouter */
+    if (vmi->transport_ == Interface::TRANSPORT_PMD) {
+        if (vmi->os_oper_state_ != oper_state_) {
+            vmi->os_oper_state_ = oper_state_;
+            ret = true;
+        }
+    }
     if (vmi->os_index_ != old_os_index)
         ret = true;
 
@@ -2744,8 +2752,18 @@ bool VmInterface::NeedDevice() const {
     return ret;
 }
 
+bool VmInterface::NeedOsStateWithoutDevice() const {
+    /* For TRANSPORT_PMD (in dpdk mode) interfaces, the link state is updated
+     * as part of netlink message sent by vrouter to agent. This state is
+     * updated in os_oper_state_ field */
+    if (transport_ == TRANSPORT_PMD) {
+        return true;
+    }
+    return false;
+}
+
 void VmInterface::GetOsParams(Agent *agent) {
-    if (NeedDevice()) {
+    if (NeedDevice() || NeedOsStateWithoutDevice()) {
         Interface::GetOsParams(agent);
         return;
     }
@@ -2798,6 +2816,10 @@ bool VmInterface::IsActive()  const {
     }
 
     if (!vn_.get()->admin_state()) {
+        return false;
+    }
+
+    if (NeedOsStateWithoutDevice() && os_oper_state_ == false) {
         return false;
     }
 

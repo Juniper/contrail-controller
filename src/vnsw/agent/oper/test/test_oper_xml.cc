@@ -102,7 +102,7 @@ TEST_F(TestVrf, vm_sub_if_oper_state) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_interface->GetUuid(),
                   vm_interface->name()));
-    req.data.reset(new VmInterfaceOsOperStateData());
+    req.data.reset(new VmInterfaceOsOperStateData(false));
     vm_interface->set_test_oper_state(false);
     Agent::GetInstance()->interface_table()->Enqueue(&req);
     client->WaitForIdle();
