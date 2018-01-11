@@ -28,7 +28,7 @@ libifmapio = env.Library('ifmapio',
                          ['config_json_parser.cc',
                          ])
 
-env.Requires(libifmapio, '#build/lib/libSimpleAmqpClient.a')
+env.Requires(libifmapio, '#build/lib/' + env['LIBPREFIX'] + 'SimpleAmqpClient' + env['LIBSUFFIX'])
 env.Requires(libifmapio, '#/build/include/rapidjson.h')
 env.Install(env['TOP_LIB'], libifmapio)
 
