@@ -20,6 +20,18 @@ If one or more SIs in a service chain go down, re-origination of routes on both
 sides of the service chain is stopped. This causes routing to automatically
 converge to a backup service chain that is part of another contrail cluster.
 
+The failure of a SI is detected by keeping track of the corresponding connected
+route for the service-chain-address. The connected route is withdrawn by the
+agent if the service health check on the SI interface fails. The connected route
+is also withdrawn implicitly if the agent restarts due to a software failure or
+a compute node reboot.
+
+If an SI is scaled out i.e. contains multiple service VMs, the connected route
+for an SI interface is considered to be down only when *all* associated service
+VM interfaces have failed. It will be possible to implement a future enhancement
+wherein a minimum-instances knob can be supported for each SI, analogous to the
+minimum-links knob in some LAG implementations.
+
 ## 3.1 Alternatives considered
 
 None.
