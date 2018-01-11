@@ -2,52 +2,67 @@
 import platform
 from distutils.version import LooseVersion
 
-subdirs = [
-    'bind',
-    'gunit',
-    'hiredis',
-    'http_parser',
-    'pugixml',
-    'rapidjson',
-    'rabbitmq-c',
-    'SimpleAmqpClient',
-    'thrift',
-    'openvswitch',
-]
-
-(distname, version, _) = platform.dist()
-if distname == 'Ubuntu' and LooseVersion(version) >= LooseVersion('14.04'):
-    pass
-elif (distname == 'debian' or distname == 'raspbian') and LooseVersion(version) >= LooseVersion('8'):
-    pass
-elif distname == 'centos' and LooseVersion(version) >= LooseVersion('7.0'):
-    subdirs += [
-        'gperftools',
-        'log4cplus',
-    ]
-elif distname == 'fedora' and LooseVersion(version) >= LooseVersion('20'):
-    pass
-elif distname == 'SuSE' and LooseVersion(version) >= LooseVersion('12'):
-    subdirs += ['tbb']
-else:
-    subdirs += [
-        'boost',
-        'curl-7.24.0',
-        'gperftools',
-        'libxml2',
-        'log4cplus',
-        'tbb',
-        'icu',
-    ]
-
-if platform.system() == 'FreeBSD':
-    subdirs += [
-        'icu',
-    ]
-elif platform.system() == 'Windows':
-    subdirs += [
+if platform.system() == 'Windows':
+    subdirs = [
+        'boost/windows',
+        'libxml2/windows',
+        'windowsstubs',
+        'log4cplus/windows',
+        'tbb/windows',
+        'openssl',
+        'curl-7.24.0/windows',
+        'http_parser',
+        'pugixml/windows',
+        'rapidjson',
+        'dirent',
+        'thrift/windows',
+        'rabbitmq-c/windows',
+        'SimpleAmqpClient/windows',
         'winsw',
     ]
+else:
+    subdirs = [
+        'bind',
+        'gunit',
+        'hiredis',
+        'http_parser',
+        'pugixml',
+        'rapidjson',
+        'rabbitmq-c',
+        'SimpleAmqpClient',
+        'thrift',
+        'openvswitch',
+    ]
+
+    (distname, version, _) = platform.dist()
+    if distname == 'Ubuntu' and LooseVersion(version) >= LooseVersion('14.04'):
+        pass
+    elif (distname == 'debian' or distname == 'raspbian') and LooseVersion(version) >= LooseVersion('8'):
+        pass
+    elif distname == 'centos' and LooseVersion(version) >= LooseVersion('7.0'):
+        subdirs += [
+            'gperftools',
+            'log4cplus',
+        ]
+    elif distname == 'fedora' and LooseVersion(version) >= LooseVersion('20'):
+        pass
+    elif distname == 'SuSE' and LooseVersion(version) >= LooseVersion('12'):
+        subdirs += ['tbb']
+    else:
+        subdirs += [
+            'boost',
+            'curl-7.24.0',
+            'gperftools',
+            'libxml2',
+            'log4cplus',
+            'tbb',
+            'icu',
+        ]
+
+    if platform.system() == 'FreeBSD':
+        subdirs += [
+            'icu',
+        ]
 
 for dir in subdirs:
     SConscript(dirs = dir, variant_dir = '#/build/third_party/' + dir)
