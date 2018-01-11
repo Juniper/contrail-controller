@@ -210,19 +210,26 @@ void AgentIfMapVmExport::VmiDelete(const ControllerVmiSubscribeData *entry) {
 
     // All interfaces deleted. Remove the VM entry
     vm_map_.erase(entry->vm_uuid_);
-    delete info;
 
     // Unsubscribe from config if we have active channel
     AgentXmppChannel *peer = GetActivePeer(agent_);
-    if (peer == NULL)
+    if (peer == NULL) {
+        delete info;
+        CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(entry->vm_uuid_), "",
+                         "Peer NULL skipped Unsubscribe ");
         return;
+    }
 
     AgentIfMapXmppChannel *ifmap = GetActiveChannel(agent_, info);
-    if (ifmap == NULL)
+    delete info;
+    if (ifmap == NULL) {
+        CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(entry->vm_uuid_), "",
+                         "Channel NULL skipped Unsubscribe ");
         return;
+    }
 
-    CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(entry->vm_uuid_),
-                         "", "Unsubscribe ");
+    CONTROLLER_TRACE(IFMapVmExportTrace, UuidToString(entry->vm_uuid_), "",
+                     "Unsubscribe ");
     AgentXmppChannel::ControllerSendVmCfgSubscribe(peer, entry->vm_uuid_,
                                                    false);
     return;
