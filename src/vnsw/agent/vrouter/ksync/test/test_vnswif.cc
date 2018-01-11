@@ -176,12 +176,10 @@ TEST_F(TestVnswIf, inactive_1) {
 
     EXPECT_TRUE(entry->oper_seen_);
     EXPECT_FALSE(entry->host_seen_);
-    EXPECT_FALSE(entry->link_up_);
+    EXPECT_TRUE(entry->link_up_);
 
     InterfaceEvent(true, "vnet1", 0);
     EXPECT_TRUE(entry->host_seen_);
-
-    InterfaceEvent(true, "vnet1", IFF_UP);
     EXPECT_FALSE(entry->link_up_);
 
     InterfaceEvent(true, "vnet1", (IFF_UP|IFF_RUNNING));
@@ -296,6 +294,14 @@ TEST_F(TestVnswIf, EcmpActivateDeactivate_1) {
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
     EXPECT_TRUE(VmPortActive(input, 2));
+    InterfaceEvent(true, "vnet3", 0);
+    InterfaceEvent(true, "vnet4", 0);
+    InterfaceEvent(true, "vnet5", 0);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortInactive(input, 0));
+    EXPECT_TRUE(VmPortInactive(input, 1));
+    EXPECT_TRUE(VmPortInactive(input, 2));
+
     InterfaceEvent(true, "vnet3", (IFF_UP|IFF_RUNNING));
     InterfaceEvent(true, "vnet4", (IFF_UP|IFF_RUNNING));
     InterfaceEvent(true, "vnet5", (IFF_UP|IFF_RUNNING));
