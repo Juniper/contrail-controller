@@ -154,7 +154,7 @@ class NeutronPluginInterface(object):
         fields = network['fields']
 
         cfgdb = self._get_user_cfgdb(context)
-        net_info = cfgdb.network_read(network['id'], fields)
+        net_info = cfgdb.network_read(network['id'], fields, context)
         return net_info
 
     def plugin_create_network(self, context, network):
@@ -163,7 +163,7 @@ class NeutronPluginInterface(object):
         """
 
         cfgdb = self._get_user_cfgdb(context)
-        net_info = cfgdb.network_create(network['resource'])
+        net_info = cfgdb.network_create(network['resource'], context)
         return net_info
 
     def plugin_update_network(self, context, network):
@@ -173,7 +173,7 @@ class NeutronPluginInterface(object):
 
         cfgdb = self._get_user_cfgdb(context)
         net_info = cfgdb.network_update(network['id'],
-                                        network['resource'])
+                                        network['resource'], context)
         return net_info
 
     def plugin_delete_network(self, context, network):
@@ -182,7 +182,7 @@ class NeutronPluginInterface(object):
         """
 
         cfgdb = self._get_user_cfgdb(context)
-        cfgdb.network_delete(network['id'])
+        cfgdb.network_delete(network['id'], context)
         LOG.debug("plugin_delete_network(): " + pformat(network['id']))
 
     def plugin_get_networks(self, context, network):
@@ -204,7 +204,7 @@ class NeutronPluginInterface(object):
         filters = network['filters']
 
         cfgdb = self._get_user_cfgdb(context)
-        nets_count = cfgdb.network_count(filters)
+        nets_count = cfgdb.network_count(filters, context)
         LOG.debug("plugin_get_networks_count(): filters: "
                   + pformat(filters) + " data: " + str(nets_count))
         return {'count': nets_count}
