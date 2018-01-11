@@ -388,10 +388,12 @@ class DBBase(object):
     def get_parent_uuid(self, obj):
         if 'parent_uuid' in obj:
             return obj['parent_uuid']
-        else:
+        elif 'parent_type' in obj:
             parent_type = obj['parent_type'].replace('-', '_')
             parent_fq_name = obj['fq_name'][:-1]
             return self._object_db.fq_name_to_uuid(parent_type, parent_fq_name)
+        else:
+            return None
     # end get_parent_uuid
 
     @classmethod
