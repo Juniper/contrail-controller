@@ -2311,9 +2311,10 @@ class RoutingInstanceST(DBBaseST):
     # end delete_connection
 
     def fill_service_info(self, service_info, ip_version, remote_vn,
-                          service_instance, address, source_ri):
+                          service_instance, address, source_ri,
+                          service_chain_id):
         if service_info is None:
-            service_info = ServiceChainInfo()
+            service_info = ServiceChainInfo(service_chain_id=service_chain_id)
         if service_instance:
             service_info.set_service_instance(service_instance)
         if address:
@@ -2332,17 +2333,18 @@ class RoutingInstanceST(DBBaseST):
     # fill_service_info
 
     def add_service_info(self, remote_vn, service_instance=None,
-                         v4_address=None, v6_address=None, source_ri=None):
+                         v4_address=None, v6_address=None, source_ri=None,
+                         service_chain_id=None):
         v4_info = self.obj.get_service_chain_information()
         v4_info = self.fill_service_info(v4_info, 4, remote_vn,
                                          service_instance, v4_address,
-                                         source_ri)
+                                         source_ri, service_chain_id)
         self.service_chain_info = v4_info
         self.obj.set_service_chain_information(v4_info)
         v6_info = self.obj.get_ipv6_service_chain_information()
         v6_info = self.fill_service_info(v6_info, 6, remote_vn,
                                          service_instance, v6_address,
-                                         source_ri)
+                                         source_ri, service_chain_id)
         self.v6_service_chain_info = v6_info
         self.obj.set_ipv6_service_chain_information(v6_info)
     # end add_service_info
@@ -2901,11 +2903,13 @@ class ServiceChain(DBBaseST):
                 if v4_address is None and v6_address is None:
                     self.log_error('Cannot allocate service chain ip address')
                     return
-                service_ri1.add_service_info(vn2_obj, service, v4_address,
-                                             v6_address)
+                service_ri1.add_service_info(
+                    vn2_obj, service, v4_address, v6_address,
+                    service_chain_id=self.name)
                 if service_ri2 and self.direction == "<>":
-                    service_ri2.add_service_info(vn1_obj, service, v4_address,
-                                                 v6_address)
+                    service_ri2.add_service_info(
+                        vn1_obj, service, v4_address, v6_address,
+                        service_chain_id=self.name)
 
             for vm_info in si_info[service]['vm_list']:
                 if transparent:
@@ -2978,13 +2982,15 @@ class ServiceChain(DBBaseST):
         service_ri1.add_service_info(
             vn2_obj, service, vm_info['left'].get('v4-address'),
             vm_info['left'].get('v6-address'),
-            vn1_obj.get_primary_routing_instance().get_fq_name_str())
+            vn1_obj.get_primary_routing_instance().get_fq_name_str(),
+            service_chain_id=self.name)
 
         if self.direction == '<>' and not nat_service:
             service_ri2.add_service_info(
                 vn1_obj, service, vm_info['right'].get('v4-address'),
                 vm_info['right'].get('v6-address'),
-                vn2_obj.get_primary_routing_instance().get_fq_name_str())
+                vn2_obj.get_primary_routing_instance().get_fq_name_str(),
+                service_chain_id=self.name)
         return True
     # end process_in_network_service
 
