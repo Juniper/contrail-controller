@@ -183,7 +183,8 @@ bool VnswInterfaceListenerBase::IsInterfaceActive(const HostInterfaceEntry *entr
     return entry->oper_seen_ && entry->host_seen_ && entry->link_up_;
 }
 
-static void InterfaceResync(Agent *agent, uint32_t id, bool active) {
+static void InterfaceResync(Agent *agent, uint32_t id, bool active,
+                            bool link_status) {
     if (id == Interface::kInvalidIndex) {
         return;
     }
@@ -203,7 +204,12 @@ static void InterfaceResync(Agent *agent, uint32_t id, bool active) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, interface->GetUuid(),
                                      interface->name()));
-    req.data.reset(new VmInterfaceOsOperStateData());
+    string link_state_str = link_status? "up" : "down";
+    ostringstream oss;
+    oss << "InterfaceResync for id " << id << " link_state " << link_state_str;
+    string msg = oss.str();
+    VNSWIF_TRACE(msg.c_str());
+    req.data.reset(new VmInterfaceOsOperStateData(link_status));
     table->Enqueue(&req);
 }
 
@@ -216,17 +222,25 @@ VnswInterfaceListenerBase::GetHostInterfaceEntry(const std::string &name) {
 }
 
 // Handle transition from In-Active to Active interface
-void VnswInterfaceListenerBase::Activate(const std::string &name, uint32_t id) {
+void VnswInterfaceListenerBase::Activate(const std::string &name,
+                                         const HostInterfaceEntry *entry) {
     if (name == agent_->vhost_interface_name()) {
         // link-local routes would have been deleted when vhost link was down.
         // Add all routes again on activation
         AddLinkLocalRoutes();
     }
-    InterfaceResync(agent_, id, true);
+    if (entry == NULL) {
+        return;
+    }
+    InterfaceResync(agent_, entry->oper_id_, true, entry->link_up_);
 }
 
-void VnswInterfaceListenerBase::DeActivate(const std::string &name, uint32_t id) {
-    InterfaceResync(agent_, id, false);
+void VnswInterfaceListenerBase::DeActivate(const std::string &name,
+                                           const HostInterfaceEntry *entry) {
+    if (entry == NULL) {
+        return;
+    }
+    InterfaceResync(agent_, entry->oper_id_, false, entry->link_up_);
 }
 
 void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper,
@@ -244,7 +258,7 @@ void VnswInterfaceListenerBase::SetSeen(const std::string &name, bool oper,
         entry->host_seen_ = true;
     }
 
-    Activate(name, entry->oper_id_);
+    Activate(name, entry);
 }
 
 void VnswInterfaceListenerBase::ResetSeen(const std::string &name, bool oper) {
@@ -269,7 +283,7 @@ void VnswInterfaceListenerBase::ResetSeen(const std::string &name, bool oper) {
     if (!oper) {
         /* Send notification to interface only when it is not marked for
          * delete */
-        DeActivate(name, entry->oper_id_);
+        DeActivate(name, entry);
     }
 }
 
@@ -282,9 +296,9 @@ void VnswInterfaceListenerBase::SetLinkState(const std::string &name, bool link_
     entry->link_up_ = link_up;
 
     if (old_active)
-        DeActivate(name, entry->oper_id_);
+        DeActivate(name, entry);
     else
-        Activate(name, entry->oper_id_);
+        Activate(name, entry);
 }
 
 void VnswInterfaceListenerBase::HandleInterfaceEvent(const Event *event) {
