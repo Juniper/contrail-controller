@@ -1,34 +1,74 @@
-# -*- mode: python; -*-
+#
+# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+#
+
 import os
-vpath = '#/third_party/SimpleAmqpClient'
+import sys
+import subprocess
+from distutils.dir_util import copy_tree
+from distutils.file_util import copy_file
 
 env = DefaultEnvironment()
-SimpleAmqpClient_path = '#/third_party/SimpleAmqpClient'
 
-def Symlink(target, source):
-    parent = os.path.dirname(target[0].abspath)
-    if not os.path.exists(parent):
-        os.makedirs(parent)
+vpath = '#/third_party/SimpleAmqpClient'
+output_dir = Dir('.').abspath
 
-    if not os.path.exists(target[0].abspath):
-        os.symlink(source[0].abspath, target[0].abspath)
+if sys.platform == 'win32':
+    librabbitmq = 'librabbitmq.4.lib'
+    shared_libs_mode = 'ON'
+    target_file = 'SimpleAmqpClient.sln'
+    products = [File('#build/lib/SimpleAmqpClient.lib'), File('#build/lib/SimpleAmqpClient.2.lib')]
+else:
+    librabbitmq = 'librabbitmq.a'
+    shared_libs_mode = 'OFF'
+    target_file = 'Makefile'
+    products = [File('#build/lib/libSimpleAmqpClient.a')]
 
-cmd = ('(cd ' + Dir('.').abspath + ';' +
-         'cmake -DENABLE_SSL_SUPPORT=ON' +
-         ' -DRabbitmqc_INCLUDE_DIR=' + Dir('#/build/include').abspath +
-         ' -DRabbitmqc_LIBRARY=' + Dir('#/build/lib').abspath + '/librabbitmq.a' +
-         ' -DBUILD_SHARED_LIBS=OFF' +
-         ' -DCMAKE_INSTALL_PREFIX=' + Dir('#build').abspath +  ' ' + Dir(vpath).abspath + ';' +
-         'cmake --build . --target install)')
+make_flags = [
+    '-DCMAKE_INSTALL_PREFIX=' + Dir('#build').abspath,
+    '-DRabbitmqc_INCLUDE_DIR=' + Dir('#build/include').abspath,
+    '-DRabbitmqc_LIBRARY=' + File('#build/lib/' + librabbitmq).abspath,
+    '-DENABLE_SSL_SUPPORT=ON',
+    '-DBUILD_SHARED_LIBS=' + shared_libs_mode,
+]
 
-products = [str(File('#build/lib/libSimpleAmqpClient.a'))]
+if sys.platform == 'win32':
+    if env['OPT'] == 'production':
+        build_type = 'Release'
+    elif env['OPT'] == 'debug':
+        build_type = 'Debug'
 
-libSimpleAmqpClient = env.Command('Makefile', str(Dir(vpath)), cmd)
+    libraries = ' '.join([
+        File('#/build/lib/ssleay32.lib').abspath,
+        File('#/build/lib/libeay32.lib').abspath,
+        'ws2_32.lib',
+        'crypt32.lib',
+        'advapi32.lib',
+        'user32.lib',
+        'gdi32.lib',
+    ])
+
+    make_flags.extend([
+        '-DCMAKE_GENERATOR_PLATFORM=x64',
+        '-DCMAKE_BUILD_TYPE=' + build_type,
+        '-DBoost_USE_STATIC_LIBS=ON',
+        '-DCMAKE_CXX_STANDARD_LIBRARIES=' + libraries,
+    ])
+
+def build_simple_amqp_client(target, source, env):
+    subprocess.call(['cmake'] + make_flags + [Dir(vpath).abspath], cwd=output_dir)
+    subprocess.call(['cmake', '--build', '.', '--target', 'install'], cwd=output_dir)
+
+    copy_tree(Dir(vpath + '/src/SimpleAmqpClient').abspath,
+              Dir('#/build/include/SimpleAmqpClient').abspath)
+
+    if sys.platform == 'win32':
+        copy_file(File('#/build/lib/SimpleAmqpClient.2.lib').abspath,
+                  File('#/build/lib/SimpleAmqpClient.lib').abspath)
+
+libSimpleAmqpClient = env.Command(target_file, Dir(vpath), build_simple_amqp_client)
 
 env.SideEffect(products, libSimpleAmqpClient)
 
 env.Requires(libSimpleAmqpClient, '#/build/include/boost')
-env.Requires(libSimpleAmqpClient, '#/build/lib/librabbitmq.a')
-
-Symlink([Dir('#/build/include/SimpleAmqpClient')],
-        [Dir(SimpleAmqpClient_path + '/src/SimpleAmqpClient')])
+env.Requires(libSimpleAmqpClient, '#/build/lib/' + librabbitmq)
