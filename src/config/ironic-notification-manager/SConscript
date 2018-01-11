@@ -1,0 +1,37 @@
+# -*- mode: python; -*-
+
+import os
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+setup_sources = [
+    'MANIFEST.in',
+    'setup.py'
+    ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        env.Install(Dir('.'), "#controller/src/config/ironic-notification-manager/" + file))
+
+setup_sources += env.SandeshGenPy(
+    'ironic_notification_manager.sandesh',
+    'sandesh/', False)
+
+local_sources = [
+	'__init__.py',
+	]
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_gen = env.Command('dist',
+                         setup_sources + local_sources,
+                         cd_cmd + 'python setup.py sdist')
+env.Alias('controller/src/config/ironic-notification-manager:sdist', sdist_gen)
+env.Default(sdist_gen)
+
+if 'install_ironic_notification_manager' in BUILD_TARGETS:
+    env.Alias('install_ironic_notification_manager',
+              env.Command(None, setup_sources+local_sources,
+                          cd_cmd + 'python setup.py install %s' %
+                          env['PYTHON_INSTALL_OPT']))
