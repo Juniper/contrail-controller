@@ -808,6 +808,8 @@ class FloatingIpDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
         self.floating_ip_address = obj.get("floating_ip_address")
         self.public_network = self.get_pool_public_network(
             self.get_parent_uuid(obj))
@@ -847,6 +849,8 @@ class InstanceIpDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
         self.instance_ip_address = obj.get("instance_ip_address")
         self.update_single_ref('virtual_machine_interface', obj)
     # end update
@@ -956,6 +960,7 @@ class LogicalRouterDM(DBBaseDM):
         self.update_multiple_refs('physical_router', obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
     # end update
 
     def get_internal_vn_name(self):
@@ -1198,6 +1203,8 @@ class PortTupleDM(DBBaseDM):
     def update(self, obj=None):
         if obj is None:
             obj = self.read_obj(self.uuid)
+        self.fq_name = obj['fq_name']
+        self.name = self.fq_name[-1]
         self.parent_uuid = self.get_parent_uuid(obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         for vmi in self.virtual_machine_interfaces:
