@@ -83,7 +83,8 @@ class VRouterScheduler(object):
             except Exception as e:
                 self._logger.error(str(e))
                 continue
-
+        if len(az_vr_list) == 0 :
+            self._logger.error("No vrouters found in availability zone")
         return az_vr_list
 
     def get_analytics_client(self):
@@ -106,8 +107,11 @@ class VRouterScheduler(object):
         path = "/analytics/uves/vrouter/"
         response_dict = {}
         try:
-            response = self._analytics.request(path, filter_string,
-                user_token=self._vnc_lib.get_auth_token())
+            user_token=self._vnc_lib.get_auth_token()
+        except Exception as e:
+            self.logger.error(str(e))
+        try:
+            response = self._analytics.request(path, filter_string, user_token)
             for values in response['value']:
                 response_dict[values['name']] = values['value']
         except Exception as e:
@@ -185,6 +189,8 @@ class VRouterScheduler(object):
                     vr_list.remove(vr.uuid)
                 except ValueError:
                     pass
+        if len(vr_list) == 0 :
+            self._logger.error("No vrouters are available for scheduling")
         return vr_list
 
 class RandomScheduler(VRouterScheduler):
