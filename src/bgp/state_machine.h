@@ -183,6 +183,7 @@ public:
     bool HoldTimerExpired();
     virtual bool IsCloseGraceful() const;
     virtual bool IsRouterTypeBGPaaS() const;
+    virtual bool IsPeerCloseInProgress() const;
 
 protected:
     virtual void OnNotificationMessage(BgpSession *session,
