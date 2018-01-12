@@ -68,7 +68,8 @@ class SchemaTransformer(object):
             'bgp_as_a_service': [],
         },
         'virtual_network': {
-            'self': ['network_policy', 'route_table'],
+            'self': ['network_policy', 'route_table', 'virtual_network'],
+            'virtual_network': [],
             'routing_instance': ['network_policy'],
             'network_policy': [],
             'virtual_machine_interface': [],
