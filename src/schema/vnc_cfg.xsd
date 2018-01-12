@@ -2477,6 +2477,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('virtual-router-ip-address', 'virtual-router' , 'required', 'CRUD',
               'Ip address of the virtual router.') -->
 
+<xsd:element name="virtual-router-sub-cluster"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-router-sub-cluster',
+          'virtual-router', 'sub-cluster', ['ref'], 'optional', 'CRUD',
+          'Reference of vrouter to sub-cluster.') -->
+
+
+<xsd:element name="sub-cluster" type="ifmap:IdentityType"/>
+
+<xsd:element name="sub-cluster-asn" type="AutonomousSystemType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('sub-cluster-asn', 'sub-cluster' , 'required', 'CRUD',
+              'AS number of that cluster.') -->
+
 <xsd:element name="virtual-router-virtual-machine"/>
 <!--#IFMAP-SEMANTICS-IDL
     Link('virtual-router-virtual-machine',
