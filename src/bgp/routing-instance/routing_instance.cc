@@ -820,6 +820,8 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       virtual_network_allow_transit_(false),
       virtual_network_pbb_evpn_enable_(false),
       vxlan_id_(0),
+      trace_buffer_(SandeshTraceBufferCreate(name + RTINSTANCE_TRACE_BUF,
+                                             1000)),
       deleter_(new DeleteActor(server, this)),
       manager_delete_ref_(this, NULL),
       mvpn_project_manager_network_(BgpConfigManager::kFabricInstance) {

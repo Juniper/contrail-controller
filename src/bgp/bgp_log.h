@@ -52,7 +52,6 @@ do {                                                                       \
         if (bgp_log_test::unit_test()) break;                              \
     }                                                                      \
     if ((flags) & BGP_LOG_FLAG_TRACE) {                                    \
-        const std::string __trace_buf(BGP_TRACE_BUF);                      \
         obj##Trace::TraceMsg(BgpTraceBuf, __FILE__, __LINE__,              \
                              ##__VA_ARGS__);                               \
     }                                                                      \
@@ -265,7 +264,6 @@ do {                                                                           \
                                    __FILE__, __LINE__, ##__VA_ARGS__);         \
     }                                                                          \
     if ((flags) & BGP_LOG_FLAG_TRACE) {                                        \
-        const std::string __trace_buf(BGP_TRACE_BUF);                          \
         BgpConfig##type##Trace::TraceMsg(BgpTraceBuf,                          \
                                          __FILE__, __LINE__, ##__VA_ARGS__);   \
     }                                                                          \
