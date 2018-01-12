@@ -25,52 +25,24 @@ import pprint
 
 from neutronclient.client import HTTPClient
 
-"""
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
-    NodeTypeNames, INSTANCE_ID_DEFAULT
+    NodeTypeNames, INSTANCE_ID_DEFAULT, ServiceHttpPortMap
+from sandesh_common.vns.constants import *
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from cfgm_common.exceptions import ResourceExhaustionError
-from cfgm_common.exceptions import NoIdError
-from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
-    ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
-    VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
-    ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
-    NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM
-from dm_amqp import DMAmqpHandle
-from dm_utils import PushConfigState
-from device_conf import DeviceConf
-from cfgm_common.dependency_tracker import DependencyTracker
-from cfgm_common import vnc_cgitb
-from cfgm_common.utils import cgitb_hook
-from cfgm_common.vnc_logger import ConfigServiceLogger
-from logger import DeviceManagerLogger
 
-"""
-
-
-
-"""
-from contrail_sm_monitoring.monitoring.ttypes import *
-from pysandesh.sandesh_base import *
-from sandesh_common.vns.ttypes import Module, NodeType
-from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
-    Module2NodeType, INSTANCE_ID_DEFAULT
-from sandesh_common.vns.constants import *
-"""
+from sandesh.ironic_notification_manager.ttypes import *
 
 from ironic_kombu import IronicKombuClient
+
 
 class IronicNotificationManager(object):
 
@@ -83,21 +55,22 @@ class IronicNotificationManager(object):
         IronicNotificationManager._ironic_notification_manager = self
     # end __init__
 
-    def sync_with_ironic(self, auth_server, auth_port,
-        auth_protocol, auth_version,
-        admin_user, admin_password, admin_tenant_name,
-        ironic_server_ip, ironic_server_port):
+    def sync_with_ironic(self):
 
-        auth_url = '%s://%s:%s/%s' % (auth_protocol, auth_server, auth_port, auth_version)
-
+        auth_url = '%s://%s:%s/%s' % (self._args.auth_protocol,
+                                      self._args.auth_server,
+                                      self._args.auth_port,
+                                      self._args.auth_version)
         print auth_url
 
-        httpclient = HTTPClient(username=admin_user, project_name=admin_tenant_name,
-            password=admin_password, auth_url=auth_url)
+        httpclient = HTTPClient(username=self._args.admin_user,
+                                project_name=self._args.admin_tenant_name,
+                                password=self._args.admin_password,
+                                auth_url=auth_url)
 
         httpclient.authenticate()
-
-        ironic_url = 'http://%s:%s/v1/nodes/detail' % (ironic_server_ip, ironic_server_port)
+        ironic_url = 'http://%s:%s/v1/nodes/detail' % (self._args.ironic_server_ip,
+                                                       self._args.ironic_server_port)
         auth_token = httpclient.auth_token
         headers = {'X-Auth-Token': str(auth_token)}
 
@@ -107,6 +80,48 @@ class IronicNotificationManager(object):
         node_dict_list = resp_dict["nodes"]
         self.process_ironic_node_info(node_dict_list)
 
+
+    def sandesh_init(self):
+        # Inventory node module initialization part
+        try:
+            __import__('sandesh.ironic_notification_manager')
+            module = Module.IRONIC_NOTIF_MANAGER
+        except ImportError as e:
+            raise e
+
+        try:
+            module_name = ModuleNames[module]
+            node_type = Module2NodeType[module]
+            node_type_name = NodeTypeNames[node_type]
+            instance_id = INSTANCE_ID_DEFAULT
+            sandesh_package_list = ['sandesh.ironic_notification_manager']
+
+            # In case of multiple collectors, use a randomly chosen one
+            self.random_collectors = self._args.collectors
+            if self._args.collectors:
+                self._chksum = hashlib.md5("".join(self._args.collectors)).hexdigest()
+                self.random_collectors = random.sample(self._args.collectors, \
+                                                       len(self._args.collectors))
+            sandesh_global.init_generator(
+                module_name,
+                socket.gethostname(),
+                node_type_name,
+                instance_id,
+                self.random_collectors,
+                module_name,
+                self._args.introspect_port,
+                sandesh_package_list)
+            sandesh_global.set_logging_params(
+                enable_local_log=self._args.log_local,
+                category=self._args.log_category,
+                level=self._args.log_level,
+                file=self._args.log_file,
+                enable_syslog=self._args.use_syslog,
+                syslog_facility=self._args.syslog_facility)
+            self._sandesh_logger = sandesh_global._logger
+        except Exception as e:
+            raise e
+
     def process_ironic_node_info(self, node_dict_list):
 
         for node_dict in node_dict_list:
@@ -114,13 +129,14 @@ class IronicNotificationManager(object):
             DriverInfoDict = dict()
             InstanceInfoDict = dict()
             NodePropertiesDict = dict()
+
             IronicNodeDictKeyMap = {
-                'uuid': 'uuid',
+                'uuid': 'name',
                 'provision_state': 'provision_state',
                 'power_state': 'power_state',
                 'driver': 'driver',
                 'instance_uuid': 'instance_uuid',
-                'name': 'name',
+                'name': 'host_name',
                 'network_interface': 'network_interface',
                 'event_type': 'event_type',
                 'publisher_id': 'publisher_id',
@@ -132,7 +148,14 @@ class IronicNotificationManager(object):
                 'instance_info': 'instance_info',
                 'properties': 'properties'}
             sub_dict_list = ['driver_info', 'instance_info', 'properties']
-
+            SubDictKeyMap = {
+                'driver_info': ['ipmi_address', 'ipmi_password', 'ipmi_username',
+                                'ipmi_terminal_port', 'deploy_kernel', 'deploy_ramdisk'],
+                'instance_info': ['display_name', 'nova_host_id', 'configdrive',
+                                  'root_gb', 'memory_mb', 'vcpus', 'local_gb',
+                                  'image_checksum', 'image_source', 'image_type', 'image_url'],
+                'properties': ['cpu_arch', 'cpus', 'local_gb', 'memory_mb', 'capabilities']
+            }
             for key in IronicNodeDictKeyMap.keys():
                 if key in node_dict and key not in sub_dict_list:
                     IronicNodeDict[IronicNodeDictKeyMap[key]] = node_dict[key]
@@ -141,25 +164,37 @@ class IronicNotificationManager(object):
                 IronicNodeDict[sub_dict] = {}
                 if sub_dict in node_dict.keys():
                     for key in node_dict[sub_dict]:
-                        IronicNodeDict[sub_dict][key] = node_dict[sub_dict][key]
+                        if key in SubDictKeyMap[sub_dict]:
+                            IronicNodeDict[sub_dict][key] = node_dict[sub_dict][key]
 
             DriverInfoDict = IronicNodeDict.pop("driver_info",{})
-            InstanceInfoDict = IronicNodeDict.pop("instance_info",{}) 
+            InstanceInfoDict = IronicNodeDict.pop("instance_info",{})
             NodePropertiesDict = IronicNodeDict.pop("properties",{})
 
-            pp = pprint.PrettyPrinter(indent=4)
-            print "\nIronic Node Info:"
-            pp.pprint(IronicNodeDict)
-            print "\nIronic Driver Info:"
-            pp.pprint(DriverInfoDict)
-            print "\nIronic Instance Info:"
-            pp.pprint(InstanceInfoDict)
-            print "\nNode Properties Info:"
-            pp.pprint(NodePropertiesDict)
+            driver_info = DriverInfo(**DriverInfoDict)
+            instance_info = InstanceInfo(**InstanceInfoDict)
+            node_properties = NodeProperties(**NodePropertiesDict)
+            ironic_node_sandesh = IronicNode(**IronicNodeDict)
+            ironic_node_sandesh.driver_info = driver_info
+            ironic_node_sandesh.instance_info = instance_info
+            ironic_node_sandesh.node_properties = node_properties
+            ironic_node_sandesh.name = node_dict["uuid"]
+
+            self._sandesh_logger.info('\nIronic Node Info: %s' %
+                                     IronicNodeDict)
+            self._sandesh_logger.info('\nIronic Driver Info: %s' %
+                                     DriverInfoDict)
+            self._sandesh_logger.info('\nIronic Instance Info: %s' %
+                                     InstanceInfoDict)
+            self._sandesh_logger.info('\nNode Properties: %s' %
+                                     NodePropertiesDict)
+
+            ironic_sandesh_object = IronicNodeInfo(data=ironic_node_sandesh)
+            ironic_sandesh_object.send()
 
 def parse_args(args_str):
     '''
-    Eg. python ironic_notification_manager.py
+    Eg. python ironic_notification_manager.py -c ironic-notification-manager.conf
     '''
 
     # Source any specified config/ini file
@@ -171,26 +206,36 @@ def parse_args(args_str):
     args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
     defaults = {
-      'ironic_server_ip': '127.0.0.1',
-      'ironic_server_port': 6385,
-      'auth_server': '127.0.0.1',
-      'auth_port': 5000,
-      'auth_protocol': 'http',
-      'auth_version': 'v2.0'
+        'ironic_server_ip': '127.0.0.1',
+        'ironic_server_port': 6385,
+        'auth_server': '127.0.0.1',
+        'auth_port': 5000,
+        'auth_protocol': 'http',
+        'auth_version': 'v2.0',
+        'collectors'        : '127.0.0.1:8086',
+        'introspect_port'   : int(ServiceHttpPortMap[ModuleNames[Module.IRONIC_NOTIF_MANAGER]]),
+        'log_level'         : 'SYS_INFO',
+        'log_local'         : False,
+        'log_category'      : '',
+        'log_file'          : Sandesh._DEFAULT_LOG_FILE,
+        'use_syslog'        : False,
+        'syslog_facility'   : Sandesh._DEFAULT_SYSLOG_FACILITY
     }
     ksopts = {
       'admin_user': 'user1',
       'admin_password': 'password1',
       'admin_tenant_name': 'default-domain'
     }
+    defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
+    sandesh_opts = SandeshConfig.get_default_options()
 
-    saved_conf_file = args.conf_file
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
         config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
         if 'KEYSTONE' in config.sections():
             ksopts.update(dict(config.items("KEYSTONE")))
+        SandeshConfig.update_options(sandesh_opts, config)
 
     # Override with CLI options
     # Don't surpress add_help here so it will handle -h
@@ -203,10 +248,14 @@ def parse_args(args_str):
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     defaults.update(ksopts)
+    defaults.update(sandesh_opts)
     parser.set_defaults(**defaults)
 
     args = parser.parse_args(remaining_argv)
-    args.conf_file = saved_conf_file
+    if type(args.collectors) is str:
+        args.collectors = args.collectors.split()
+    if type(args.introspect_port) is str:
+        args.introspect_port = int(args.introspect_port)
     return args
 # end parse_args
 
@@ -215,19 +264,16 @@ def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
+    # Create Ironic Notification Daemon and sync with Ironic
     ironic_notification_manager = IronicNotificationManager(args=args)
-
-    ironic_notification_manager.sync_with_ironic(
-        args.auth_server, args.auth_port,
-        args.auth_protocol, args.auth_version, 
-        args.admin_user, args.admin_password, args.admin_tenant_name,
-        args.ironic_server_ip, args.ironic_server_port)
-
+    ironic_notification_manager.sandesh_init()
+    ironic_notification_manager.sync_with_ironic()
+    # Create RabbitMQ Message reader
+    # TODO: Enhance for Rabbit HA
     ironic_notification_manager._ironic_kombu_client =  IronicKombuClient(
         args.rabbit_server, args.rabbit_port,
         args.rabbit_user, args.rabbit_password,
         args.notification_level, ironic_notification_manager)
-
     ironic_notification_manager._ironic_kombu_client._start()
 
 # end main
