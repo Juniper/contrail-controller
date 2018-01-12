@@ -9,16 +9,23 @@ struct DriverInfo {
     1: string ipmi_address
     2: string ipmi_password
     3: string ipmi_username
-    4: string deploy_kernel
-    5: string deploy_ramdisk
+    4: u32 ipmi_terminal_port
+    5: string deploy_kernel
+    6: string deploy_ramdisk
 }
 
 struct InstanceInfo {
-    1: string configdrive
-    2: string image_checksum
-    3: string image_source
-    4: string image_type
-    5: string image_url
+    1: string root_gb
+    2: string display_name
+    3: string memory_mb
+    4: string vcpus
+    5: string local_gb
+    6: string nova_host_id
+    7: string configdrive
+    8: string image_checksum
+    9: string image_source
+    10: string image_type
+    11: string image_url
 }
 
 struct NodeProperties {
@@ -26,6 +33,7 @@ struct NodeProperties {
     2: u32 cpus
     3: u32 local_gb
     4: u64 memory_mb
+    5: string capabilities
 }
 
 struct IronicNode {
@@ -47,7 +55,9 @@ struct IronicNode {
 }
 
 struct IronicNodeList {
-    1: list<IronicNode> ironic_nodes
+    1: string name      (key="ObjectServerTable")
+    2: optional bool    deleted
+    3: list<IronicNode> ironic_nodes
 }
 
 uve sandesh IronicNodeListInfo{
