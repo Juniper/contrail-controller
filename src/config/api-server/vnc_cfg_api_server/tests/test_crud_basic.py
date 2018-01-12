@@ -43,6 +43,7 @@ from cfgm_common import vnc_cgitb
 from cfgm_common import db_json_exim
 from cfgm_common import SGID_MIN_ALLOC
 from cfgm_common import rest
+from netaddr import IPNetwork
 vnc_cgitb.enable(format='text')
 
 sys.path.append('../common/tests')
@@ -5192,6 +5193,93 @@ class TestPagination(test_case.ApiServerTestCase):
             FetchExpect(0, None)])
     # end test_anchored_by_parent_list_shared
 # end class TestPagination
+
+class TestSubCluster(test_case.ApiServerTestCase):
+    default_subcluster_count = 5
+
+    def _get_rt_inst_obj(self):
+        vnc_lib = self._vnc_lib
+
+        rt_inst_obj = vnc_lib.routing_instance_read(
+            fq_name=['default-domain', 'default-project',
+                     'ip-fabric', '__default__'])
+
+        return rt_inst_obj
+    # end _get_rt_inst_obj
+
+    def _get_ip(self, ip_w_pfx):
+        return str(IPNetwork(ip_w_pfx).ip)
+    # end _get_ip
+
+
+    def test_subcluster(self):
+        sub_cluster_obj = SubCluster(
+            'test-host',
+            sub_cluster_asn=64514)
+
+        self._vnc_lib.sub_cluster_create(sub_cluster_obj)
+        sub_cluster_obj = self._vnc_lib.sub_cluster_read(
+                fq_name=sub_cluster_obj.get_fq_name())
+        sub_cluster_obj.set_sub_cluster_asn(64515)
+        cant_modify = False
+        try:
+            self._vnc_lib.sub_cluster_update(sub_cluster_obj)
+        except Exception as e:
+            cant_modify = True
+        finally:
+            self.assertTrue(cant_modify,'subcluster asn is modified')
+
+        # Now that subcluster is created add a bgp router
+        # with different ASN
+        rt_inst_obj = self._get_rt_inst_obj()
+
+        address_families = ['route-target', 'inet-vpn', 'e-vpn', 'erm-vpn',
+                                'inet6-vpn']
+        bgp_addr_fams = AddressFamilies(address_families)
+        bgp_sess_attrs = [
+            BgpSessionAttributes(address_families=bgp_addr_fams)]
+        bgp_sessions = [BgpSession(attributes=bgp_sess_attrs)]
+        bgp_peering_attrs = BgpPeeringAttributes(session=bgp_sessions)
+        router_params = BgpRouterParams(router_type='external-control-node',
+            vendor='unknown', autonomous_system=64515,
+            identifier=self._get_ip('1.1.1.1'),
+            address=self._get_ip('1.1.1.1'),
+            port=179, address_families=bgp_addr_fams)
+
+        bgp_router_obj = BgpRouter('bgp-router', rt_inst_obj,
+                                   bgp_router_parameters=router_params)
+        bgp_router_obj.add_sub_cluster(sub_cluster_obj)
+        create_exception = False
+        try:
+            cur_id = self._vnc_lib.bgp_router_create(bgp_router_obj)
+        except Exception as e:
+            create_exception = True
+        finally:
+            self.assertTrue(cant_modify,'subcluster asn bgp asn should be same')
+
+        # Now create the bgp with the same asn
+
+        bgp_router_obj.bgp_router_parameters.autonomous_system = 64514
+        try:
+            cur_id = self._vnc_lib.bgp_router_create(bgp_router_obj)
+        except Exception as e:
+            create_exception = False
+        finally:
+            self.assertTrue(cant_modify,'subcluster asn bgp asn should be same')
+
+        # Now that bgp is created modify asn
+        bgp_router_obj = self._vnc_lib.bgp_router_read(id=cur_id)
+        bgp_router_obj.bgp_router_parameters.autonomous_system = 64515
+        modify_exception = False
+        try:
+            cur_id = self._vnc_lib.bpg_router_update(bgp_router_obj)
+        except Exception as e:
+            modify_exception = True
+        finally:
+            self.assertTrue(modify_exception,'subcluster asn bgp asn should be same')
+
+    #end test_subcluster
+#end class TestSubCluster
 
 if __name__ == '__main__':
     ch = logging.StreamHandler()
