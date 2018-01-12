@@ -40,6 +40,7 @@
 #include "oper/mpls.h"
 #include "oper/vm.h"
 #include "oper/vn.h"
+#include "oper/path_preference.h"
 #include "filter/acl.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
@@ -162,6 +163,18 @@ TEST_F(FabricVmiTest, basic_2) {
     EXPECT_TRUE(rt->GetActivePath()->peer() == agent->fabric_rt_export_peer());
     EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
                  TunnelType::NativeType()) != 0);
+
+    agent->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(ip, 32, vm_intf->id(),
+                           vm_intf->forwarding_vrf()->vrf_id(),
+                           vm_intf->vm_mac());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().preference() ==
+                PathPreference::HIGH);
+    rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt->GetActivePath()->path_preference().preference() ==
+                PathPreference::HIGH);
 
     DelLink("virtual-network", "vn1", "virtual-network",
             agent->fabric_vn_name().c_str());
