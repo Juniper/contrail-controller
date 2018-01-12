@@ -1373,6 +1373,7 @@ class VncApi(object):
     def set_auth_token(self, token):
         """Park user token for forwarding to API server for RBAC."""
         self._headers['X-AUTH-TOKEN'] = token
+        self._auth_token_input = True
     # end set_auth_token
 
     def set_user_roles(self, roles):
