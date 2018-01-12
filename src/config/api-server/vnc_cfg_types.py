@@ -2475,7 +2475,13 @@ class SecurityGroupServer(Resource, SecurityGroup):
                 path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
                 path = path_prefix + "/" + obj_type
                 quota_counter = cls.server.quota_counter
-                quota_counter[path] -= rule_count
+                if not quota_counter.get(path):
+                     # Init quota counter for security group rule in
+                     # case it has been created before 3.x
+                     QuotaHelper._zk_quota_counter_init(
+                          path_prefix, QuotaHelper.default_quota, proj_dict['uuid'],
+                          db_conn, quota_counter)
+               quota_counter[path] -= rule_count
                 def undo():
                     # Revert back quota count
                     quota_counter[path] += rule_count
