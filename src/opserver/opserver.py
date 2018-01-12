@@ -1939,11 +1939,9 @@ class OpServer(object):
                 ulist = self.redis_uve_list
             
             for redis_uve in ulist:
-                redish = redis.StrictRedis(
-                    db=1,
-                    host=redis_uve[0],
-                    port=redis_uve[1],
-                    password=self._args.redis_password)
+                redish = self._uve_server._get_redis_instance(
+                                                    ip=redis_uve[0],
+                                                    port=redis_uve[1])
                 try:
                     for key in redish.smembers("NGENERATORS"):
                         source = key.split(':')[0]
