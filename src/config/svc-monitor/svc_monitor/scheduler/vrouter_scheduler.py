@@ -94,7 +94,8 @@ class VRouterScheduler(object):
             except Exception as e:
                 self._logger.error(str(e))
                 continue
-
+        if count(az_vr_list) == 0 :
+            self._logger.error("No vrouters found in availability zone")
         return az_vr_list
 
     def query_uve(self, analytics, filter_string):
@@ -194,6 +195,8 @@ class VRouterScheduler(object):
                     vr_list.remove(vr.uuid)
                 except ValueError:
                     pass
+        if count(vr_list) == 0 :
+            self._logger.error("No vrouters are available for scheduling")
         return vr_list
 
 class RandomScheduler(VRouterScheduler):
