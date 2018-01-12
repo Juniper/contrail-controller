@@ -300,10 +300,12 @@ struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
 struct EvBgpNotification : sc::event<EvBgpNotification> {
     EvBgpNotification(BgpSession *session, const BgpProto::Notification *msg)
         : session(session), msg(msg) {
-        string peer_key =
-            session->peer() ? session->peer()->ToUVEKey() : session->ToString();
-        session->LogNotification(msg->error, msg->subcode, BGP_PEER_DIR_IN,
-                                 peer_key, *msg);
+        if (msg) {
+            string peer_key = session->peer() ? session->peer()->ToUVEKey() :
+                                                session->ToString();
+            session->LogNotification(msg->error, msg->subcode, BGP_PEER_DIR_IN,
+                                     peer_key, *msg);
+        }
     }
     static const char *Name() {
         return "EvBgpNotification";
@@ -994,6 +996,15 @@ struct OpenConfirm : sc::state<OpenConfirm, StateMachine> {
     // Go to Established.  The hold timer will be started in the constructor
     // for that state.
     sc::result react(const EvBgpKeepalive &event) {
+        // If GR timers started running just at the same time when the peer
+        // came back up, then gracefully close the session.
+        StateMachine *state_machine = &context<StateMachine>();
+        BgpPeer *peer = state_machine->peer();
+        if (peer->IsCloseInProgress()) {
+            return transit<Idle, StateMachine, EvBgpNotification>(
+                &StateMachine::OnIdle<EvBgpNotification, 0>,
+                EvBgpNotification(event.session, NULL));
+        }
         return transit<Established>();
     }
 };
