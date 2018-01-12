@@ -2553,6 +2553,21 @@ TEST_P(StateMachineOpenConfirmParamTest1, BgpKeepalive) {
     VerifyDirection(BgpSessionMock::PASSIVE);
 }
 
+// Old State: OpenConfirm (via passive session)
+// Event:     EvBgpKeepalive (passive) (Peer under graceful closure)
+// New State: Idle
+TEST_P(StateMachineOpenConfirmParamTest1, BgpKeepaliveWithGR) {
+    GetToState(StateMachine::ACTIVE);
+    EvTcpPassiveOpen();
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
+    VerifyState(StateMachine::OPENCONFIRM);
+    dynamic_cast<StateMachineTest *>(sm_)->SetCloseGraceful(true);
+    EvBgpKeepalive(session_mgr_->passive_session());
+    VerifyState(StateMachine::IDLE);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->active_session() == NULL);
+}
+
 INSTANTIATE_TEST_CASE_P(One, StateMachineOpenConfirmParamTest1,
     ::testing::Bool());
 

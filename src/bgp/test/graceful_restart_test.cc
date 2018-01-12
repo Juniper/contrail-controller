@@ -461,7 +461,7 @@ protected:
     string GetEnetPrefix(string inet_prefix) const;
     void ProcessFlippingPeers(int &total_routes, int remaining_instances,
         vector<GRTestParams> &n_flipping_peers);
-    void SetXmppGRHelperMode(string flag);
+    void SetGRHelperMode(string flag);
 
     std::vector<GRTestParams> n_flipped_agents_;
     std::vector<GRTestParams> n_flipped_peers_;
@@ -703,7 +703,7 @@ void GracefulRestartTest::VerifyRoutes(int count) {
     }
 }
 
-void GracefulRestartTest::SetXmppGRHelperMode(string flag) {
+void GracefulRestartTest::SetGRHelperMode(string flag) {
     ostringstream os;
     os << "<config><global-system-config><graceful-restart-parameters>";
     os << "<xmpp-helper-enable>" << flag << "</xmpp-helper-enable>";
@@ -1816,7 +1816,7 @@ void GracefulRestartTest::GracefulRestartTestRun () {
 
     // Disable XMPP GR Helper mode in configuration.
     if (disable_gr_config_in_between_) {
-        SetXmppGRHelperMode("false");
+        SetGRHelperMode("false");
         total_xmpp_routes = 0;
     }
 
