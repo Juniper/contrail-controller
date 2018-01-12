@@ -33,11 +33,18 @@ class UVEServer(object):
         self._api_port = api_port
         self._redis_password = redis_password
         if self._local_redis_uve:
-            self._redis = redis.StrictRedis(self._local_redis_uve[0],
-                                            self._local_redis_uve[1],
-                                            password=self._redis_password,
-                                            db=1)
+            self._redis = self._get_redis_instance(self._local_redis_uve[0],
+                                                   self._local_redis_uve[1])
     #end __init__
+
+    def _get_redis_instance(self, ip, port):
+        redish = self._redis_map.get((ip, port))
+        if not redish:
+            redish = redis.StrictRedis(db=1, host=ip, port=port,
+                                      password=self._redis_password)
+            self._redis_map[(ip, port)] = redish
+        return redish
+    # end _get_redis_instance
 
     def update_redis_uve_list(self, redis_uve_list):
         self._redis_uve_list = redis_uve_list
@@ -210,8 +217,9 @@ class UVEServer(object):
         uves = {}
         for redis_uve in self._redis_uve_list:
             gen_uves = {}
-            redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1], db=1)
+            redish = self._get_redis_instance(host=redis_uve[0],
+                                              port=redis_uve[1])
+
             for elems in redish.smembers("PART2KEY:" + str(part)): 
                 info = elems.split(":", 5)
                 gen = info[0] + ":" + info[1] + ":" + info[2] + ":" + info[3]
@@ -232,9 +240,8 @@ class UVEServer(object):
         state[key] = {}
         statdict = {}
         for redis_uve in self._redis_uve_list:
-            redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1],
-                                       password=self._redis_password, db=1)
+            redish = self._get_redis_instance(host=redis_uve[0],
+                                              port=redis_uve[1])
             try:
                 qmap = {}
                 ppe = redish.pipeline()
@@ -421,9 +428,8 @@ class UVEServer(object):
             for filt in kfilter:
                 patterns.add(self.get_uve_regex(filt))
         for redis_uve in self._redis_uve_list:
-            redish = redis.StrictRedis(host=redis_uve[0],
-                                       port=redis_uve[1],
-                                       password=self._redis_password, db=1)
+            redish = self._get_redis_instance(host=redis_uve[0],
+                                              port=redis_uve[1])
             try:
                 # For UVE queries, we wanna read both UVE and Alarm table
                 entries = redish.smembers('ALARM_TABLE:' + table)
