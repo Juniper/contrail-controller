@@ -25,52 +25,26 @@ import pprint
 
 from neutronclient.client import HTTPClient
 
-"""
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
     NodeTypeNames, INSTANCE_ID_DEFAULT
+from sandesh_common.vns.constants import *
 from pysandesh.connection_info import ConnectionState
 from pysandesh.gen_py.process_info.ttypes import ConnectionType as ConnType
 from pysandesh.gen_py.process_info.ttypes import ConnectionStatus
-from cfgm_common.exceptions import ResourceExhaustionError
-from cfgm_common.exceptions import NoIdError
-from cfgm_common.vnc_db import DBBase
 from vnc_api.vnc_api import VncApi
 from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
-from db import DBBaseDM, BgpRouterDM, PhysicalRouterDM, PhysicalInterfaceDM,\
-    ServiceInstanceDM, LogicalInterfaceDM, VirtualMachineInterfaceDM, \
-    VirtualNetworkDM, RoutingInstanceDM, GlobalSystemConfigDM, LogicalRouterDM, \
-    GlobalVRouterConfigDM, FloatingIpDM, InstanceIpDM, DMCassandraDB, PortTupleDM, \
-    ServiceEndpointDM, ServiceConnectionModuleDM, ServiceObjectDM, \
-    NetworkDeviceConfigDM, E2ServiceProviderDM, PeeringPolicyDM
-from dm_amqp import DMAmqpHandle
-from dm_utils import PushConfigState
-from device_conf import DeviceConf
-from cfgm_common.dependency_tracker import DependencyTracker
-from cfgm_common import vnc_cgitb
-from cfgm_common.utils import cgitb_hook
-from cfgm_common.vnc_logger import ConfigServiceLogger
-from logger import DeviceManagerLogger
 
-"""
-
-
-
-"""
-from contrail_sm_monitoring.monitoring.ttypes import *
-from pysandesh.sandesh_base import *
-from sandesh_common.vns.ttypes import Module, NodeType
-from sandesh_common.vns.constants import ModuleNames, NodeTypeNames, \
-    Module2NodeType, INSTANCE_ID_DEFAULT
-from sandesh_common.vns.constants import *
-"""
+from sandesh.ironic_notification_manager.ttypes import *
 
 from ironic_kombu import IronicKombuClient
+
+_DEF_INTROSPECT_PORT = 8110
+_DEF_SANDESH_LOG_LEVEL = 'SYS_INFO'
 
 class IronicNotificationManager(object):
 
@@ -107,7 +81,46 @@ class IronicNotificationManager(object):
         node_dict_list = resp_dict["nodes"]
         self.process_ironic_node_info(node_dict_list)
 
+
+    def sandesh_init(self):
+        # Inventory node module initialization part
+        try:
+            module = None
+            port = _DEF_INTROSPECT_PORT
+            module_list = None
+            analytics_ip_list = ['5.1.1.133']
+
+	    __import__('sandesh.ironic_notification_manager')
+	    module = Module.IRONIC_NOTIF_MANAGER
+
+	    module_name = ModuleNames[module]
+	    node_type = Module2NodeType[module]
+	    node_type_name = NodeTypeNames[node_type]
+	    instance_id = INSTANCE_ID_DEFAULT
+	    module_list = ['sandesh.ironic_notification_manager']
+	    sandesh_global.init_generator(
+	         module_name,
+	         socket.gethostname(),
+	         node_type_name,
+	         instance_id,
+	         analytics_ip_list,
+	         module_name,
+	         port,
+	         module_list)
+	    sandesh_global.set_logging_params(level=_DEF_SANDESH_LOG_LEVEL)
+
+	except ImportError as e:
+	    ironic_node_config_set = False
+	    raise e
+        except Exception as e:
+            raise e
+
     def process_ironic_node_info(self, node_dict_list):
+
+
+
+        ironic_node_list_sandesh = IronicNodeList()
+        ironic_nodes = []
 
         for node_dict in node_dict_list:
             IronicNodeDict = dict()
@@ -147,6 +160,20 @@ class IronicNotificationManager(object):
             InstanceInfoDict = IronicNodeDict.pop("instance_info",{}) 
             NodePropertiesDict = IronicNodeDict.pop("properties",{})
 
+            driver_info = DriverInfo()
+            for k in DriverInfoDict:
+                driver_info.k = DriverInfoDict[k]
+            instance_info = InstanceInfo()
+            for k in InstanceInfoDict:
+                instance_info.k = InstanceInfoDict[k]
+            node_properties = NodeProperties()
+            for k in NodePropertiesDict:
+                node_properties.k = NodePropertiesDict[k]
+            ironic_node_sandesh = IronicNode()
+            for k in IronicNodeDict:
+                ironic_node_sandesh.k = IronicNodeDict[k]
+            ironic_nodes.append(ironic_node_sandesh)
+
             pp = pprint.PrettyPrinter(indent=4)
             print "\nIronic Node Info:"
             pp.pprint(IronicNodeDict)
@@ -156,6 +183,10 @@ class IronicNotificationManager(object):
             pp.pprint(InstanceInfoDict)
             print "\nNode Properties Info:"
             pp.pprint(NodePropertiesDict)
+
+        ironic_node_list_sandesh.ironic_nodes = ironic_nodes
+        ironic_sandesh_object = IronicNodeListInfo(data=ironic_node_list_sandesh)
+        ironic_sandesh_object.send()
 
 def parse_args(args_str):
     '''
@@ -216,6 +247,8 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
     ironic_notification_manager = IronicNotificationManager(args=args)
+
+    ironic_notification_manager.sandesh_init()
 
     ironic_notification_manager.sync_with_ironic(
         args.auth_server, args.auth_port,

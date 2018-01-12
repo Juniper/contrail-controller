@@ -47,7 +47,8 @@ struct IronicNode {
 }
 
 struct IronicNodeList {
-    1: list<IronicNode> ironic_nodes
+    1: string name      (key="ObjectServerTable")
+    2: list<IronicNode> ironic_nodes
 }
 
 uve sandesh IronicNodeListInfo{
