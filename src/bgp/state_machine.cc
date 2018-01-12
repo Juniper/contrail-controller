@@ -994,6 +994,13 @@ struct OpenConfirm : sc::state<OpenConfirm, StateMachine> {
     // Go to Established.  The hold timer will be started in the constructor
     // for that state.
     sc::result react(const EvBgpKeepalive &event) {
+        // If GR timers started running just at the same time when the peer
+        // came back up, then gracefully close the session.
+        StateMachine *state_machine = &context<StateMachine>();
+        if (state_machine->IsPeerCloseInProgress()) {
+            return transit<Idle, StateMachine, EvBgpKeepalive>(
+                &StateMachine::OnIdle<EvBgpKeepalive, 0>, event);
+        }
         return transit<Established>();
     }
 };
@@ -1122,6 +1129,10 @@ void StateMachine::Initialize() {
     Enqueue(fsm::EvStart());
 }
 
+bool StateMachine::IsPeerCloseInProgress() const {
+    return peer_->IsCloseInProgress();
+}
+
 void StateMachine::Shutdown(int subcode) {
     if (peer_->IsDeleted()) {
         work_queue_.SetExitCallback(
@@ -1138,7 +1149,7 @@ void StateMachine::SetAdminState(bool down, int subcode) {
         reset_idle_hold_time();
         reset_last_info();
         peer_->reset_flap_count();
-        if (!peer_->IsCloseInProgress())
+        if (!IsPeerCloseInProgress())
             Enqueue(fsm::EvStart());
     }
 }

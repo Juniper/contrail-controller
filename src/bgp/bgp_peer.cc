@@ -1130,7 +1130,7 @@ bool BgpPeer::IsInGRTimerWaitState() const {
 }
 
 bool BgpPeer::IsCloseInProgress() const {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::StateMachine");
 
     // trigger is set only after defer_close is reset
     assert(!(defer_close_ && trigger_.IsSet()));
