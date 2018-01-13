@@ -1060,6 +1060,10 @@ void PathPreferenceModule::EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
         return;
     }
 
+    if (vrf == vm_intf->forwarding_vrf()) {
+        vrf = vm_intf->vrf();
+    }
+
     InetUnicastRouteEntry *rt = vrf->GetUcRoute(ip);
     EvpnRouteKey key(vm_intf->peer(), vrf->GetName(), mac, ip,
                      vm_intf->ethernet_tag());
@@ -1097,6 +1101,12 @@ void PathPreferenceModule::EnqueueTrafficSeen(IpAddress ip, uint32_t plen,
     event.mac_ = mac;
     event.vxlan_id_ = vm_intf->ethernet_tag();
     work_queue_.Enqueue(event);
+
+    if (vm_intf->forwarding_vrf() != vm_intf->vrf() &&
+        vm_intf->forwarding_vrf()->vrf_id() == vrf_index) {
+        event.vrf_index_ = vm_intf->vrf()->vrf_id();
+        work_queue_.Enqueue(event);
+    }
 }
 
 void PathPreferenceModule::VrfNotify(DBTablePartBase *partition,

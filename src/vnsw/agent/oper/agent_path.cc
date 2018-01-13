@@ -773,7 +773,8 @@ bool LocalVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     //2> static preference is set, meaning external entity
     //   would specify the preference of this path(ex LBaaS)
     //3> Change in priority when static preference is set
-    if (path->path_preference().ConfigChanged(path_preference_)) {
+    if (path->path_preference().ConfigChanged(path_preference_) ||
+        path->peer() == agent->fabric_rt_export_peer()) {
         path->set_path_preference(path_preference_);
         ret = true;
     }

@@ -439,6 +439,11 @@ bool ClonedLocalPath::AddChangePathExtended(Agent *agent, AgentPath *path,
         ret = true;
     }
 
+    if (path->path_preference() != local_path->path_preference()) {
+        path->set_path_preference(local_path->path_preference());
+        ret = true;
+    }
+
     NextHop *nh = const_cast<NextHop *>(local_path->ComputeNextHop(agent));
     if (path->ChangeNH(agent, nh) == true) {
         ret = true;
