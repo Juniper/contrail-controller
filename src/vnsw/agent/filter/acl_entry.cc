@@ -474,11 +474,15 @@ static bool SubnetMatch(const std::vector<AclAddressInfo> &list,
 bool AddressMatch::AddressGroupMatch(const IpAddress &data,
                                      const TagList &tag_list) const {
 
-    if (TagsMatch(tag_list)) {
+    if (tags_.size() && TagsMatch(tag_list)) {
         return true;
     }
 
     if (ip_list_.size() && SubnetMatch(ip_list_, data)) {
+        return true;
+    }
+
+    if (tags_.size() == 0 && ip_list_.size() == 0) {
         return true;
     }
 

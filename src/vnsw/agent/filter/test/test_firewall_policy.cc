@@ -623,6 +623,16 @@ TEST_F(FirewallPolicy, Test10) {
     packet1->dst_tags_.clear();
     EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
 
+    DelLink("address-group", "SrcAg", "tag", "label1");
+    DelLink("address-group", "DstAg", "tag", "label1");
+    client->WaitForIdle();
+
+    packet1->src_ip = Ip4Address::from_string("7.8.8.8");
+    packet1->dst_ip = Ip4Address::from_string("7.8.8.8");
+    packet1->src_tags_.clear();
+    packet1->dst_tags_.clear();
+    EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
+
     DelNode("firewall-policy", "app1");
     DelNode("firewall-rule", "rule1");
     DelNode("address-group", "SrcAg");
