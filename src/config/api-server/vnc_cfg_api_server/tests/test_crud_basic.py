@@ -776,6 +776,27 @@ class TestCrud(test_case.ApiServerTestCase):
                    vmi.del_virtual_machine_interface(vmi)
     # end test_allowed_address_pair_prefix_len
 
+    def test_bgpaas_ports_shrunk(self):
+        gsc_fixt = self.useFixture(GlobalSystemConfigTestFixtureGen(
+                                       self._vnc_lib))
+        gsc = gsc_fixt._obj
+        bgpaas_param = BGPaaServiceParametersType('2','500')
+        gsc.set_bgpaas_parameters(bgpaas_param)
+        self._vnc_lib.global_system_config_update(gsc)
+
+        gsc.set_bgpaas_parameters(BGPaaServiceParametersType('4','100'))
+        # port range should be allowed to shrunk
+        # as no bgpaas obj. is configured
+        self._vnc_lib.global_system_config_update(gsc)
+
+        bgpaas = BgpAsAService('bgpaas-%s' % self.id())
+        self._vnc_lib.bgp_as_a_service_create(bgpaas)
+        gsc.set_bgpaas_parameters(BGPaaServiceParametersType('10','50'))
+        # port range should not be allowed to shrunk
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.global_system_config_update(gsc)
+    # end test_bgpaas_ports_shrunk
+
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
