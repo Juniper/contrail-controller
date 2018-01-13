@@ -152,6 +152,9 @@ _ACTION_RESOURCES = [
      'method': 'POST', 'method_name': 'dump_cache'},
 ]
 
+_MANDATORY_PROPS = [
+    'loadbalancer_healthmonitor_properties',
+]
 
 def error_400(err):
     return err.body
@@ -342,6 +345,10 @@ class VncApiServer(object):
         return value
     # end _validate_simple_type
 
+    def _check_mandatory_props_list(self, prop_name):
+        return prop_name in _MANDATORY_PROPS
+    # end _check_mandatory_props_list
+
     def _validate_props_in_request(self, resource_class, obj_dict):
         for prop_name in resource_class.prop_fields:
             prop_field_types = resource_class.prop_field_types[prop_name]
@@ -354,6 +361,10 @@ class VncApiServer(object):
 
             prop_value = obj_dict.get(prop_name)
             if not prop_value:
+                if prop_field_types['required'] == 'required':
+                    if self._check_mandatory_props_list(prop_name):
+                        err_msg = '%s property is missing' %prop_name
+                        return False, err_msg
                 continue
 
             if is_simple:
