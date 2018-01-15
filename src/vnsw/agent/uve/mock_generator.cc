@@ -28,8 +28,6 @@ typedef std::map<SessionIpPortProtocol, SessionAggInfo> SessionAggMap;
 
 class MockGenerator {
 public:
-    const static int kNumFlowSamplesPerSec;
-    const static int kNumFlowSamplesInMessage;
     const static int kNumVRouterErrorMessagesPerSec;
     const static int kNumSessionSamplesPerSec;
     const static int kNumSessionSamplesInMessage;
@@ -41,9 +39,7 @@ public:
                   int num_vns, int vm_iterations,
                   std::vector<std::string> &collectors,
                   std::vector<uint32_t> &ip_vns,
-                  int ip_start_index, int num_flows_per_vm,
-                  int num_flow_samples_per_sec,
-                  int num_flow_samples_in_message,
+                  int ip_start_index,
                   int num_vrouter_error_messages_per_sec,
                   int num_sessions_per_vm,
                   int num_session_samples_per_sec,
@@ -62,11 +58,8 @@ public:
         collectors_(collectors),
         ip_vns_(ip_vns),
         ip_start_index_(ip_start_index),
-        num_flows_per_vm_(num_flows_per_vm),
         num_session_per_vm_(num_sessions_per_vm),
-        num_flow_samples_per_sec_(num_flow_samples_per_sec),
         num_session_samples_per_sec_(num_session_samples_per_sec),
-        num_flow_samples_in_message_(num_flow_samples_in_message),
         num_session_samples_in_message_(num_session_samples_in_message),
         num_vrouter_error_messages_per_sec_(num_vrouter_error_messages_per_sec),
         rgen_(std::time(0)),
@@ -79,13 +72,7 @@ public:
         Sandesh::InitGenerator(module_name_, hostname_,
             node_type_name_, instance_id_, evm_, http_server_port_,
             collectors_, NULL);
-        // Enqueue send flow task
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
-        if (num_flow_samples_per_sec_) {
-            SendFlowTask *ftask(new SendFlowTask(this,
-                scheduler->GetTaskId("mockgen::SendFlowTask"), -1));
-            scheduler->Enqueue(ftask);
-        }
         if (num_session_samples_per_sec_) {
             SendSessionTask *stask(new SendSessionTask(this,
                 scheduler->GetTaskId("mockgen::SendSessionTask"), -1));
@@ -154,114 +141,6 @@ private:
         MockGenerator *mgen_;
     };
 
-    class SendFlowTask : public Task {
-    public:
-        SendFlowTask(MockGenerator *mock_generator,
-            int task_id, int task_instance) :
-            Task(task_id, task_instance),
-            mgen_(mock_generator) {
-        }
-
-        bool Run() {
-            // Populate flows if not done
-            if (mgen_->flows_.empty()) {
-                int other_vn = mgen_->other_vn_;
-                for (int vn = mgen_->start_vn_; vn < mgen_->end_vn_; vn++) {
-                    for (int nvm = 0; nvm < mgen_->vm_iterations_; nvm++) {
-                        for (int nflow = 0; nflow < mgen_->num_flows_per_vm_;
-                             nflow++) {
-                            uint64_t init_packets(mgen_->dFlowPktsPerSec(
-                                mgen_->rgen_));
-                            uint64_t init_bytes(init_packets *
-                                mgen_->dBytesPerPacket(mgen_->rgen_));
-                            uint32_t sourceip(mgen_->ip_vns_[vn] +
-                                mgen_->ip_start_index_ + nvm);
-                            uint32_t destip(mgen_->ip_vns_[other_vn] +
-                                mgen_->ip_start_index_ + nvm);
-                            FlowLogData flow_data;
-                            boost::uuids::uuid flowuuid(mgen_->u_rgen_());
-                            flow_data.set_flowuuid(to_string(flowuuid));
-                            flow_data.set_direction_ing(mgen_->dDirection(
-                                mgen_->rgen_));
-                            std::string sourcevn(mgen_->kVnPrefix +
-                                integerToString(vn));
-                            flow_data.set_sourcevn(sourcevn);
-                            std::string destvn(mgen_->kVnPrefix +
-                                integerToString(other_vn));
-                            flow_data.set_destvn(destvn);
-                            flow_data.set_sourceip(Ip4Address(sourceip));
-                            flow_data.set_destip(Ip4Address(destip));
-                            flow_data.set_sport(mgen_->dPort(mgen_->rgen_));
-                            flow_data.set_dport(mgen_->dPort(mgen_->rgen_));
-                            flow_data.set_protocol(mgen_->kProtocols[
-                                mgen_->dProtocols(mgen_->rgen_)]);
-                            flow_data.set_setup_time(UTCTimestampUsec());
-                            flow_data.set_packets(init_packets);
-                            flow_data.set_bytes(init_bytes);
-                            flow_data.set_diff_packets(init_packets);
-                            flow_data.set_diff_bytes(init_bytes);
-                            mgen_->flows_.push_back(flow_data);
-                        }
-                    }
-                    other_vn = (other_vn + 1) % mgen_->num_vns_;
-                }
-            }
-            // Send the flows periodically
-            int lflow_cnt = 0;
-            int last_lflow_cnt = 0;
-            uint64_t diff_time = 0;
-            std::vector<FlowLogData>::iterator begin(mgen_->flows_.begin() +
-                mgen_->flow_counter_);
-            for (std::vector<FlowLogData>::iterator it = begin;
-                 it != mgen_->flows_.end(); ++it) {
-                bool sent_message(false);
-                uint64_t stime = UTCTimestampUsec();
-                FlowLogData &flow_data(*it);
-                uint64_t new_packets(mgen_->dFlowPktsPerSec(mgen_->rgen_));
-                uint64_t new_bytes(new_packets *
-                    mgen_->dBytesPerPacket(mgen_->rgen_));
-                uint64_t old_packets(flow_data.get_packets());
-                uint64_t old_bytes(flow_data.get_bytes());
-                flow_data.set_packets(old_packets + new_packets);
-                flow_data.set_bytes(old_bytes + new_bytes);
-                flow_data.set_diff_packets(new_packets);
-                flow_data.set_diff_bytes(new_bytes);
-                lflow_cnt++;
-                mgen_->flow_counter_++;
-                if (lflow_cnt % mgen_->num_flow_samples_in_message_ == 0) {
-                    FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
-                        std::vector<FlowLogData>(begin+last_lflow_cnt, it + 1));
-                    sent_message = true;
-                    last_lflow_cnt = lflow_cnt;
-                }
-                if (lflow_cnt == mgen_->num_flow_samples_per_sec_) {
-                    if (!sent_message) {
-                        FLOW_LOG_DATA_OBJECT_LOG("", SandeshLevel::SYS_NOTICE,
-                            std::vector<FlowLogData>(begin+last_lflow_cnt, it + 1));
-                    }
-                    diff_time += UTCTimestampUsec() - stime;
-                    usleep(1000000 - diff_time);
-                    return false;
-                }
-                diff_time += UTCTimestampUsec() - stime;
-                if (diff_time >= 1000000) {
-                    if (lflow_cnt < mgen_->num_flow_samples_per_sec_) {
-                        LOG(ERROR, "Sent: " << lflow_cnt << " in " <<
-                            diff_time/1000000 << " seconds, NOT sending at " <<
-                            mgen_->num_flow_samples_per_sec_ << " rate");
-                        return false;
-                    }
-                }
-            }
-            // Completed iteration, reset flow counter
-            mgen_->flow_counter_ = 0;
-            return false;
-        }
-        std::string Description() const { return "SendFlowTask"; }
-
-    private:
-        MockGenerator *mgen_;
-    };
 
     class SendSessionTask : public Task {
     public:
@@ -504,22 +383,16 @@ private:
     const std::vector<std::string> collectors_;
     const std::vector<uint32_t> ip_vns_;
     const int ip_start_index_;
-    const int num_flows_per_vm_;
     const int num_session_per_vm_;
-    const int num_flow_samples_per_sec_;
     const int num_session_samples_per_sec_;
-    const int num_flow_samples_in_message_;
     const int num_session_samples_in_message_;
     const int num_vrouter_error_messages_per_sec_;
-    std::vector<FlowLogData> flows_;
     std::vector<SessionEndpoint> sessions_;
-    static int flow_counter_;
     static int session_counter_;
     boost::random::mt19937 rgen_;
     boost::uuids::random_generator u_rgen_;
     EventManager *evm_;
 
-    friend class SendFlowTask;
     friend class SendMessageTask;
 };
 
@@ -562,10 +435,7 @@ const boost::random::uniform_int_distribution<>
 const boost::random::uniform_int_distribution<>
     MockGenerator::dLabels(0, MockGenerator::kLabels.size() - 1);
 
-int MockGenerator::flow_counter_(0);
 int MockGenerator::session_counter_(0);
-const int MockGenerator::kNumFlowSamplesPerSec(0);
-const int MockGenerator::kNumFlowSamplesInMessage(0);
 const int MockGenerator::kNumVRouterErrorMessagesPerSec(50);
 const int MockGenerator::kNumSessionSamplesPerSec(0);
 const int MockGenerator::kNumSessionSamplesInMessage(0);
@@ -584,8 +454,6 @@ int main(int argc, char *argv[]) {
          "Number of instances (virtual machines) per generator")
         ("num_networks", opt::value<int>()->default_value(100),
          "Number of virtual networks")
-        ("num_flows_per_instance", opt::value<int>()->default_value(10),
-         "Number of flows per instance")
         ("num_sessions_per_instance", opt::value<int>()->default_value(10),
          "Number of sessions per instance")
         ("start_ip_address",
@@ -597,12 +465,6 @@ int main(int argc, char *argv[]) {
          "Generator Id")
         ("num_generators", opt::value<int>()->default_value(1),
          "Number of generators")
-        ("num_flow_samples_per_second", opt::value<int>()->default_value(
-            MockGenerator::kNumFlowSamplesPerSec),
-         "Number of flow messages to send in one second")
-        ("num_flow_samples_in_message", opt::value<int>()->default_value(
-            MockGenerator::kNumFlowSamplesInMessage),
-         "Number of flow samples to send in one message")
         ("num_vrouter_errors_per_second", opt::value<int>()->default_value(
             MockGenerator::kNumVRouterErrorMessagesPerSec),
          "Number of VRouterErrror messages to send in one second")
@@ -717,14 +579,9 @@ int main(int argc, char *argv[]) {
     int start_ip_index(gen_id * num_instances / num_networks);
 
     EventManager evm;
-    int num_flows_per_instance(var_map["num_flows_per_instance"].as<int>());
     int num_sessions_per_instance(var_map["num_sessions_per_instance"].as<int>());
-    int num_flow_samples_per_sec(
-        var_map["num_flow_samples_per_second"].as<int>());
     int num_session_samples_per_sec(
         var_map["num_session_samples_per_second"].as<int>());
-    int num_flow_samples_in_message(
-        var_map["num_flow_samples_in_message"].as<int>());
     int num_session_samples_in_message(
         var_map["num_session_samples_in_message"].as<int>());
     int num_vrouter_error_messages_per_sec(
@@ -733,8 +590,7 @@ int main(int argc, char *argv[]) {
     MockGenerator mock_generator(hostname, moduleid, node_type_name,
         instance_id, http_server_port, start_vn, end_vn, other_vn,
         num_networks, instance_iterations, collectors, ip_vns, start_ip_index,
-        num_flows_per_instance, num_flow_samples_per_sec,
-        num_flow_samples_in_message, num_vrouter_error_messages_per_sec,
+        num_vrouter_error_messages_per_sec,
         num_sessions_per_instance, num_session_samples_per_sec, 
         num_session_samples_in_message, &evm);
     mock_generator.Run();
