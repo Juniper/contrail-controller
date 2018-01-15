@@ -1,12 +1,16 @@
 /*
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/eventfd.h>
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#include <sched.h>
+
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/eventfd.h>
+
 #include <algorithm>
 #include <vector>
 #include <set>
