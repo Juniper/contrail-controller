@@ -706,7 +706,7 @@ void KSyncSockTypeMap::SetOFlowStats(int idx, uint8_t pkts, uint16_t bytes) {
 
 vr_bridge_entry *KSyncSockTypeMap::BridgeMmapAlloc(int size) {
     bridge_table_ = (vr_bridge_entry *)malloc(size);
-    bzero(bridge_table_, size);
+    memset(bridge_table_, 0, size);
     return bridge_table_;
 }
 

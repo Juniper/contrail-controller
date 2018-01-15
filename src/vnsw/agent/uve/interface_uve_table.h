@@ -167,7 +167,7 @@ public:
     typedef boost::shared_ptr<UveSecurityPolicyStats> UveSecurityPolicyStatsPtr;
     struct PolicyCmp {
         bool operator() (const UveSecurityPolicyStatsPtr &lhs,
-                         const UveSecurityPolicyStatsPtr &rhs) {
+                         const UveSecurityPolicyStatsPtr &rhs) const {
             if (lhs->local_vn.compare(rhs->local_vn) != 0) {
                 return lhs->local_vn < rhs->local_vn;
             }

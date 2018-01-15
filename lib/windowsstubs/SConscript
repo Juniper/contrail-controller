@@ -8,16 +8,22 @@ env.Append(CPPPATH = '#build/include')
 env.VariantDir('#/' + Dir('.').path + '/src', vpath, duplicate=0)
 buildpath = Dir('.').abspath + '/src'
 
-files = Glob(buildpath + '/misc/*.cc') + [buildpath + '/sys/ioctl.cc',
-                                          buildpath + '/sys/time.cc',
-                                          buildpath + '/sys/eventfd.cc',
-                                          buildpath + '/sys/wait.cc',
-                                          buildpath + '/strings.cc',
-                                          buildpath + '/unistd.cc',
-                                          buildpath + '/endian.cc',
-                                          buildpath + '/posix_time.cc',
-                                          buildpath + '/posix_stdlib.cc',
-                                          buildpath + '/posix_string.cc',]
+files = Glob(buildpath + '/misc/*.cc') + [
+    buildpath + '/isc/hmacsha.cc',
+    buildpath + '/sys/eventfd.cc',
+    buildpath + '/sys/ioctl.cc',
+    buildpath + '/sys/resource.cc',
+    buildpath + '/sys/time.cc',
+    buildpath + '/sys/wait.cc',
+    buildpath + '/posix_fcntl.cc',
+    buildpath + '/posix_stdlib.cc',
+    buildpath + '/posix_string.cc',
+    buildpath + '/posix_time.cc',
+    buildpath + '/endian.cc',
+    buildpath + '/sched.cc',
+    buildpath + '/strings.cc',
+    buildpath + '/unistd.cc',
+]
 
 windowsstubs_lib = env.Library('windowsstubs', files)
 env.Requires(windowsstubs_lib, '#build/include/boost')
