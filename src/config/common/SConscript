@@ -90,7 +90,7 @@ env.Depends(process_info_pkg, pkg)
 rel_path = Dir('cfgm_common').path
 def BuildInfoAction(target, source, env):
     env.GenerateBuildInfoPyCode(path=rel_path)
-build_info_rules = [env.Command(target='buildinfo.py', source = None, action=BuildInfoAction)]
+build_info_rules = [env.Command(target='cfgm_common/buildinfo.py', source = None, action=BuildInfoAction)]
 
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
@@ -133,10 +133,12 @@ def GeneratePyTestSetup(env, targets, source):
 env.Append(BUILDERS = {'PythonTestSetup': GeneratePyTestSetup})
 test_sources += env.PythonTestSetup(source=pkg)
 
-test = env.Command('test.log', test_sources,
-                   cd_cmd + 'python setup.py test')
+if 'BUILD_ONLY' in env['ENV']: cmd = 'echo Skipping test run because BUILD_ONLY is set'
+else: cmd = cd_cmd + 'python setup.py test'
+test = env.Command('test.log', test_sources, cmd)
 
-#env.Alias('controller/src/config/common:test', test)
+env.Alias('test', test)         # XXX Is this needed?
+env.Alias('controller/src/config/common:test', test)
 
 if 'install' in BUILD_TARGETS:
     install_cmd = env.Command(None, 'setup.py',
