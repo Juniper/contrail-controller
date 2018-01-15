@@ -95,3 +95,7 @@ test = env.TestSuite('agent-test', pkt_test_suite)
 env.TestSuite('agent:pkt', pkt_test_suite)
 env.Alias('controller/src/vnsw/agent/pkt:test', test)
 Return('pkt_test_suite')
+
+# Local Variables:
+# mode: python
+# End:
