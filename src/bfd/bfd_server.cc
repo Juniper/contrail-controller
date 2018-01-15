@@ -234,8 +234,7 @@ ResultCode Server::SessionManager::RemoveSessionReference(
         const SessionKey &key) {
     Session *session = SessionByKey(key);
     if (session == NULL) {
-        LOG(DEBUG,
-            __PRETTY_FUNCTION__ << " No such session: " << key.to_string());
+        LOG(DEBUG, __FUNCTION__ << " No such session: " << key.to_string());
         return kResultCode_UnknownSession;
     }
 
@@ -280,7 +279,7 @@ Discriminator Server::SessionManager::GenerateUniqueDiscriminator() {
     class DiscriminatorGenerator {
      public:
         DiscriminatorGenerator() {
-            next_ = random()%0x1000000 + 1;
+            next_ = rand()%0x1000000 + 1;
         }
 
         Discriminator Next() {
