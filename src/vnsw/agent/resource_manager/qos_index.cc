@@ -21,7 +21,7 @@ QosIndexResourceKey::QosIndexResourceKey(ResourceManager *rm,
 
 void QosIndexResourceKey::Backup(ResourceData *data, uint16_t op){
     IndexResourceData *index_data = static_cast<IndexResourceData *>(data);
-    if (op == ResourceBackupReq::DELETE) {
+    if (op == ResourceBackupReq::DEL) {
         rm()->backup_mgr()->
            sandesh_maps().DeleteQosResourceEntry(index_data->index());
     } else {
