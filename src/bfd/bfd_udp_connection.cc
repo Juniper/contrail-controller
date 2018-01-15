@@ -91,7 +91,7 @@ void UDPConnectionManager::SendPacket(boost::asio::ip::address remoteHost,
                                       const ControlPacket *packet) {
     LOG(DEBUG, __func__);
     boost::asio::mutable_buffer send =
-        boost::asio::mutable_buffer(new u_int8_t[kMinimalPacketLength],
+        boost::asio::mutable_buffer(new uint8_t[kMinimalPacketLength],
                                     kMinimalPacketLength);
     int pktSize = EncodeControlPacket(packet,
                                       boost::asio::buffer_cast<uint8_t *>(send),

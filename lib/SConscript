@@ -18,6 +18,8 @@ if platform.system() == 'Windows':
         'thrift/windows',
         'rabbitmq-c',
         'SimpleAmqpClient',
+        'gunit',
+        'http_parser',
         'winsw',
     ]
 else:
