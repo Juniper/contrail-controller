@@ -169,7 +169,6 @@ class OpencontrailLoadbalancerDriver(
         if props is None:
             try:
                 self._api.service_instance_delete(id=si_refs)
-                ServiceInstanceSM.delete(si_refs)
             except RefsExistError as ex:
                 self._svc_manager.logger.error(str(ex))
             return
@@ -206,7 +205,6 @@ class OpencontrailLoadbalancerDriver(
                   'service-instance', si_id, None, 'DELETE')
         try:
             self._api.service_instance_delete(id=si_id)
-            ServiceInstanceSM.delete(si_id)
         except RefsExistError as ex:
             self._svc_manager.logger.error(str(ex))
         self.db.pool_remove(pool_id, ['service_instance'])
