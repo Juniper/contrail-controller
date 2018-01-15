@@ -41,7 +41,7 @@
 #include "sandesh_ksync.h"
 
 #ifdef _WIN32
-#include <windows_flow_ioctl.h>
+#include <windows_shmem_ioctl.h>
 #endif
 
 using namespace boost::asio::ip;
@@ -125,7 +125,7 @@ void KSyncMemory::Mmap(bool unlink_node) {
         assert(0);
     }
 
-    BOOL result = DeviceIoControl(hPipe, IOCTL_FLOW_GET_ADDRESS, NULL, 0, &pBuffer, sizeof(pBuffer), &bRetur, NULL);
+    BOOL result = DeviceIoControl(hPipe, IOCTL_SHMEM_GET_ADDRESS, NULL, 0, &pBuffer, sizeof(pBuffer), &bRetur, NULL);
     if (!result) {
         LOG(DEBUG, "Error - DeviceIoControl failed.");
         assert(0);

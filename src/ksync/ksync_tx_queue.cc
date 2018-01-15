@@ -1,16 +1,21 @@
 /*
  * Copyright (c) 2015 Juniper Networks, Inc. All rights reserved.
  */
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/eventfd.h>
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
+#include <sched.h>
+
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/eventfd.h>
+
 #include <algorithm>
 #include <vector>
 #include <set>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/thread.hpp>
 
 #include <tbb/atomic.h>
 #include <tbb/concurrent_queue.h>
@@ -25,7 +30,7 @@ static bool ksync_tx_queue_task_done_ = false;
 //    "last"  : Last CPU-ID
 //    "<num>" : Specifies CPU-ID to pin
 static void set_thread_affinity(std::string cpu_pin_policy) {
-    int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+    int num_cores = boost::thread::hardware_concurrency();
     char *p = NULL;
     int cpu_id = strtoul(cpu_pin_policy.c_str(), &p, 0);
     if (*p || cpu_pin_policy.empty()) {
