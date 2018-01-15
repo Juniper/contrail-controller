@@ -11,6 +11,7 @@
 #include "bfd/bfd_common.h"
 
 #include <boost/foreach.hpp>
+#include <boost/random/mersenne_twister.hpp>
 
 #include "base/logging.h"
 #include "io/event_manager.h"
@@ -234,8 +235,7 @@ ResultCode Server::SessionManager::RemoveSessionReference(
         const SessionKey &key) {
     Session *session = SessionByKey(key);
     if (session == NULL) {
-        LOG(DEBUG,
-            __PRETTY_FUNCTION__ << " No such session: " << key.to_string());
+        LOG(DEBUG, __FUNCTION__ << " No such session: " << key.to_string());
         return kResultCode_UnknownSession;
     }
 
@@ -280,7 +280,7 @@ Discriminator Server::SessionManager::GenerateUniqueDiscriminator() {
     class DiscriminatorGenerator {
      public:
         DiscriminatorGenerator() {
-            next_ = random()%0x1000000 + 1;
+            next_ = gen()%0x1000000 + 1;
         }
 
         Discriminator Next() {
@@ -289,6 +289,7 @@ Discriminator Server::SessionManager::GenerateUniqueDiscriminator() {
 
      private:
         tbb::atomic<Discriminator> next_;
+        boost::random::mt19937 gen;
     };
 
     static DiscriminatorGenerator generator;

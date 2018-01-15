@@ -100,7 +100,7 @@ elif sys.platform.startswith('linux'):
     platform_dependent = 'linux/pkt0_interface.cc'
 elif sys.platform.startswith('win'):
     env.Append(LIBS = ['version'])
-    platform_dependent = ['windows/pkt0_interface.cc', env.RES('windows/resource.rc')]
+    platform_dependent = 'windows/pkt0_interface.cc'
 
 
 contrail_vrouter_agent = env.Program(target = 'contrail-vrouter-agent',
