@@ -43,3 +43,7 @@ libservices = env.Library('pkt',
                  pkt_srcs)
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
+
+# Local Variables:
+# mode: python
+# End:
