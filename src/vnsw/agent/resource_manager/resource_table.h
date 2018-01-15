@@ -56,6 +56,7 @@ public:
     virtual const std::string ToString() {return "ResourceBackupEndKey";}
     virtual bool IsLess(const ResourceKey &rhs) const {
         assert(0);
+        return false;
     }
     virtual void Backup(ResourceData *data, uint16_t op) {
         assert(0);

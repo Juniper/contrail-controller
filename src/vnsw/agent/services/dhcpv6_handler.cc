@@ -595,7 +595,7 @@ uint16_t Dhcpv6Handler::FillDhcpv6Hdr() {
     return (DHCPV6_FIXED_LEN + opt_len);
 }
 
-void Dhcpv6Handler::IncrementByteInAddress(boost::array<uint8_t,16> &bytes, uint8_t index) {
+void Dhcpv6Handler::IncrementByteInAddress(Ip6Address::bytes_type &bytes, uint8_t index) {
     if (index > 15) {
         return;
     }
@@ -608,7 +608,7 @@ void Dhcpv6Handler::IncrementByteInAddress(boost::array<uint8_t,16> &bytes, uint
 }
 
 Ip6Address Dhcpv6Handler::GetNextV6Address(uint8_t addr[16]) {
-    boost::array<uint8_t,16> bytes;
+    Ip6Address::bytes_type bytes;
     for (int i = 0; i < 16; i++) {
         bytes[i] = addr[i];
     }

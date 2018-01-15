@@ -182,7 +182,7 @@ ResultCode Session::ProcessControlPacket(const ControlPacket *packet) {
 void Session::SendPacket(const ControlPacket *packet) {
     LOG(DEBUG, __func__ << " session:" << toString());
     boost::asio::mutable_buffer buffer =
-        boost::asio::mutable_buffer(new u_int8_t[kMinimalPacketLength],
+        boost::asio::mutable_buffer(new uint8_t[kMinimalPacketLength],
                                     kMinimalPacketLength);
     int pktSize = EncodeControlPacket(packet,
         boost::asio::buffer_cast<uint8_t *>(buffer), kMinimalPacketLength);
