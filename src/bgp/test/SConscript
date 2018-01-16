@@ -226,10 +226,6 @@ bgp_mvpn_integration_test = env.UnitTest('bgp_mvpn_integration_test',
                                ['bgp_mvpn_integration_test.cc'])
 env.Alias('src/bgp:bgp_mvpn_integration_test', bgp_mvpn_integration_test)
 
-bgp_mvpn_test = env.UnitTest('bgp_mvpn_test',
-                               ['bgp_mvpn_test.cc'])
-env.Alias('src/bgp:bgp_mvpn_test', bgp_mvpn_test)
-
 bgp_peer_close_gr_test = except_env.UnitTest('bgp_peer_close_gr_test',
                                           ['bgp_peer_close_gr_test.cc'])
 env.Alias('src/bgp:bgp_peer_close_gr_test', bgp_peer_close_gr_test)
@@ -412,6 +408,13 @@ for i in range(1, 8):
         ["graceful_restart_instance_config_test" + str(i) + ".cc"])
     graceful_restart_tests.append(gr_test)
     env.Alias("src/bgp:graceful_restart_instance_config_test" + str(i), gr_test)
+
+bgp_mvpn_tests = [ ]
+for i in range(1, 17):
+    bgp_mvpn_test = except_env.UnitTest("bgp_mvpn_test" + str(i),
+        ["bgp_mvpn_test" + str(i) + ".cc"])
+    bgp_mvpn_tests.append(bgp_mvpn_test)
+    env.Alias("src/bgp:bgp_mvpn_test" + str(i), bgp_mvpn_test)
 
 path_resolver_test = env.UnitTest('path_resolver_test',
                                   ['path_resolver_test.cc'])
@@ -633,7 +636,6 @@ test_suite = [
     bgp_msg_builder_test,
     bgp_multicast_test,
     bgp_mvpn_integration_test,
-    bgp_mvpn_test,
     bgp_peer_close_gr_test,
     bgp_peer_close_test,
     bgp_peer_test,
@@ -718,6 +720,9 @@ test_suite = [
 
 env.Alias('src/bgp:gracful_restart_test', graceful_restart_tests)
 test_suite += graceful_restart_tests
+
+env.Alias('src/bgp:bgp_mvpn_test', bgp_mvpn_tests)
+test_suite += bgp_mvpn_tests
 
 test = env.TestSuite('bgp-test', test_suite)
 
