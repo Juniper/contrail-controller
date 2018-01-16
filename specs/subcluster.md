@@ -47,7 +47,6 @@ list may be provided, which filters these objects based on subcluster object.
 
 In phase 1, 
 UI would implement new column against list of vrouters and bgp-routers
-UI must let ASN configurable even if the router type is control node.
 ## 3.5 Notification impact
 None
 
@@ -55,12 +54,6 @@ None
 ## New Schema
 ```
 +<xsd:element name="sub-cluster" type="ifmap:IdentityType"/>
-+<xsd:element name="global-system-config-sub-cluster"/>
-+<!--#IFMAP-SEMANTICS-IDL
-+     Link('global-system-config-sub-cluster',
-+             'global-system-config', 'sub-cluster', ['has'], 'optional', 'CRUD',
-+             'Subcluster for managing remote workloads') -->
-+
 +<xsd:element name="sub-cluster-asn" type="AutonomousSystemType"/>
 +<!--#IFMAP-SEMANTICS-IDL
 +     Property('sub-cluster-asn', 'sub-cluster' , 'required', 'CRUD',
@@ -117,6 +110,7 @@ parameter in their respective configuration files.
 
 As bgp peers are statically configured, we can verify this while
 processing configuration.
+Sub cluster control nodes are created as external-control-nodes
 
 # 5. Performance and scaling impact
 ## 5.1 API and control plane
@@ -162,8 +156,12 @@ None
 1) A subcluster control nodes never directly peer with another subcluster control
 nodes or primary control nodes.
 
-2) A subcluster control node has to be created and is referred is referred in 
-virtual-router and bgp-router objects.
+2) A subcluster control node has to be created and is referred in virtual-router
+ and bgp-router objects.
+
+3) A subcluster object and the control nodes under it should have the same ASN.
+
+4) ASN canot be modified in a subcluster object.
 
 # 12. References
 https://app.asana.com/0/335523438776724/428830908079139
