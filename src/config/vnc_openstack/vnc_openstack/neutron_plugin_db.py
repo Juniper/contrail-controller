@@ -1539,12 +1539,14 @@ class DBInterface(object):
             alloc_pools = None
 
         dhcp_option_list = None
+        dns_server_address = None
         if 'dns_nameservers' in subnet_q and subnet_q['dns_nameservers']:
             dhcp_options=[]
             dns_servers=" ".join(subnet_q['dns_nameservers'])
             if dns_servers:
                 dhcp_options.append(DhcpOptionType(dhcp_option_name='6',
                                                    dhcp_option_value=dns_servers))
+                dns_server_address = subnet_q['dns_nameservers'][0]
             if dhcp_options:
                 dhcp_option_list = DhcpOptionsListType(dhcp_options)
 
@@ -1568,7 +1570,7 @@ class DBInterface(object):
 
         subnet_vnc = IpamSubnetType(subnet=SubnetType(pfx, pfx_len),
                                     default_gateway=default_gw,
-                                    dns_server_address='0.0.0.0' if self._strict_compliance else None,
+                                    dns_server_address='0.0.0.0' if self._strict_compliance else dns_server_address,
                                     enable_dhcp=dhcp_config,
                                     dns_nameservers=None,
                                     allocation_pools=alloc_pools,
@@ -4309,10 +4311,8 @@ class DBInterface(object):
                 instance_id = vm_refs[0]['uuid']
             else:
                 instance_id = None
-        if port_obj.get_logical_interface_back_refs():
-            self._raise_contrail_exception(
-               'BadRequest', resource='port',
-               msg='port has logical interface attached')
+        for lri_back_ref in port_obj.get_logical_interface_back_refs() or []:
+            self._vnc_lib.logical_interface_delete(id=lri_back_ref['uuid'])
 
         if port_obj.get_logical_router_back_refs():
             self._raise_contrail_exception('L3PortInUse', port_id=port_id,
