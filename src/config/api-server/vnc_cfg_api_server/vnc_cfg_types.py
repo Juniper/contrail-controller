@@ -9,6 +9,7 @@ import copy
 from cfgm_common import jsonutils as json
 from cfgm_common import get_lr_internal_vn_name
 from cfgm_common import _obj_serializer_all
+from cfgm_common import svc_info
 
 import re
 import itertools
@@ -33,6 +34,7 @@ from pprint import pformat
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from sandesh_common.vns import constants
 
+SNAT_SERVICE_TEMPLATE_FQ_NAME = ['default-domain', 'netns-snat-template']
 
 def _parse_rt(rt):
     (prefix, asn, target) = rt.split(':')
@@ -947,7 +949,7 @@ class LogicalRouterServer(Resource, LogicalRouter):
 
         ok, project = db_conn.dbe_read('project', project_uuid)
         if not ok:
-            reutrn (ok, (400, 'Parent project for Logical Router not found'))
+            return (ok, (400, 'Parent project for Logical Router not found'))
         vxlan_routing = project.get('vxlan_routing', False)
 
         return (True, vxlan_routing)
@@ -966,6 +968,241 @@ class LogicalRouterServer(Resource, LogicalRouter):
                 obj_dict['virtual_network_refs'] != None):
                 return (False, (400, 'External Gateway not supported with VxLAN'))
         return (True, '')
+
+    @classmethod
+    def add_snat_instance(cls, db_conn, obj_dict):
+
+        try:
+            st_uuid = db_conn.fq_name_to_uuid(
+                'service_template',
+                SNAT_SERVICE_TEMPLATE_FQ_NAME)
+            ok, st_dict = db_conn.dbe_read('service_template', st_uuid)
+            if not ok:
+                raise cfgm_common.exceptions.NoIdError
+            st = ServiceTemplate(**st_dict)
+        except cfgm_common.exceptions.NoIdError:
+            st = cls._create_snat_template(db_conn)
+
+        if obj_dict.get('service_instance_refs'):
+            ok, si_dict = db_conn.dbe_read(
+                'service_instance',
+                obj_dict['service_instance_refs'][0]['uuid'])
+            if not ok:
+                return False, (400, 'Service instance not found')
+            si = ServiceInstance(**si_dict)
+            si_created = False
+        else:
+            si_name = 'snat_{}_{}'.format(obj_dict['uuid'], uuid.uuid4())
+            si = ServiceInstance(name=si_name)
+            si.fq_name = obj_dict['fq_name'][:-1] + [si_name]
+            si_created = True
+
+        si_properties = ServiceInstanceType(
+            scale_out=ServiceScaleOutType(
+                max_instances=2,
+                auto_scale=True),
+            auto_policy=False)
+
+        left_vn_fq_name = cls._get_or_create_snat_vn(db_conn, si)
+        left_if = ServiceInstanceInterfaceType(virtual_network=left_vn_fq_name)
+
+        ok, right_vn = db_conn.dbe_read(
+            'virtual_network', obj_dict['virtual_network_refs'][0]['uuid'])
+        if not ok:
+            return False, (400, 'Virtual network not found')
+        right_vn_fq_name = ':'.join(right_vn['fq_name'])
+        right_if = ServiceInstanceInterfaceType(
+            virtual_network=right_vn_fq_name)
+
+        si_properties.set_interface_list([right_if, left_if])
+        si_properties.set_ha_mode('active-standby')
+
+        si.set_service_instance_properties(si_properties)
+        si.set_service_template(st)
+
+        api_server = db_conn.get_api_server()
+        si_dict = si.serialize_to_json()
+        si_dict['service_instance_properties'] = \
+            si_dict['service_instance_properties'].exportDict()\
+            ['ServiceInstanceType']
+        if si_created:
+            api_server.internal_request_create('service-instance', si_dict)
+        else:
+            api_server.internal_request_update(
+                'service-instance', si.uuid, si_dict)
+
+        rt = cls._set_snat_route_table(db_conn, si, obj_dict)
+
+        obj_dict['route_table_refs'] = [{
+            'uuid': rt.uuid,
+            'to': rt.fq_name
+        }]
+        obj_dict['service_instance_refs'] = [{
+            'uuid': si.uuid,
+            'to': si.fq_name
+        }]
+
+        return True, ''
+
+    @staticmethod
+    def _create_snat_template(db_conn):
+        template = {
+            'fq_name': SNAT_SERVICE_TEMPLATE_FQ_NAME,
+            'parent_type': 'domain',
+            'service_template_properties': {
+                'service_type': 'source-nat',
+                'service_mode': 'in-network-nat',
+                'service_virtualization_type': 'network-namespace',
+                'ordered_interfaces': True,
+                'service_scaling': True,
+                'interface_type': [{
+                    'service_interface_type': 'right',
+                    'shared_ip': True,
+                    'static_route_enable': False
+                }, {
+                    'service_interface_type': 'left',
+                    'shared_ip': True,
+                    'static_route_enable': False
+                }]
+
+            }
+        }
+        api_server = db_conn.get_api_server()
+        api_server.internal_request_create('service-template', template)
+        return ServiceTemplate(**template)
+
+    @classmethod
+    def _get_or_create_snat_vn(cls, db_conn, si):
+        vn_name = '{}_{}'.format(svc_info.get_snat_left_vn_prefix(), si.name)
+        vn_fq_name = si.fq_name[:-1] + [vn_name]
+        try:
+            db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            vn = VirtualNetwork(
+                name=vn_name,
+                fq_name=vn_fq_name,
+                parent_type='project')
+            vn.set_id_perms(IdPermsType(enable=True, user_visible=False))
+
+            ipam_fq_name = si.fq_name[:-1] + ['default-network-ipam']
+            ipam = NetworkIpam(
+                parent_type='project',
+                fq_name=ipam_fq_name)
+            try:
+                ipam.uuid = db_conn.fq_name_to_uuid(
+                    'network_ipam', ipam_fq_name)
+            except cfgm_common.exceptions.NoIdError:
+                pass
+
+            cidr4 = svc_info.get_snat_left_subnet().split('/')
+            pfx4 = cidr4[0]
+            pfx_len4 = int(cidr4[1])
+            ipam_subnet4 = IpamSubnetType(subnet=SubnetType(pfx4, pfx_len4))
+
+            cidr6 = svc_info.get_left_vn_subnet6().split('/')
+            pfx6 = cidr6[0]
+            pfx_len6 = int(cidr6[1])
+            ipam_subnet6 = IpamSubnetType(subnet=SubnetType(pfx6, pfx_len6))
+
+            vn.add_network_ipam(ipam, VnSubnetsType([
+                ipam_subnet4,
+                ipam_subnet6]))
+
+            api_server = db_conn.get_api_server()
+            vn_dict = vn.serialize_to_json()
+            vn_dict['id_perms'] = \
+                vn_dict['id_perms'].exportDict()['IdPermsType']
+            vn_dict['network_ipam_refs'][0]['attr'] = \
+                vn_dict['network_ipam_refs'][0]['attr'].exportDict()\
+                ['VnSubnetsType']
+            api_server.internal_request_create(
+                'virtual-network', vn_dict)
+
+        return ':'.join(vn_fq_name)
+
+    @classmethod
+    def _delete_snat_vn(cls, db_conn, si_fq_name):
+        vn_name = '{}_{}'.format(
+            svc_info.get_snat_left_vn_prefix(),
+            si_fq_name[-1])
+        vn_fq_name = si_fq_name[:-1] + [vn_name]
+        try:
+            vn_uuid = db_conn.fq_name_to_uuid('virtual_network', vn_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            return
+        ok, vn_dict = db_conn.dbe_read('virtual_network', vn_uuid)
+        if not ok:
+            return
+
+        api_server = db_conn.get_api_server()
+
+        for vmi_ref in vn_dict['virtual_machine_interface_back_refs']:
+            api_server.internal_request_delete(
+                'virtual-machine-interface', vmi_ref['uuid'])
+        for iip_ref in vn_dict['instance_ip_back_refs']:
+            api_server.internal_request_delete(
+                'instance-ip', iip_ref['uuid'])
+
+        api_server.internal_request_delete('virtual_network', vn_uuid)
+
+    @classmethod
+    def _set_snat_route_table(cls, db_conn, si, lr_dict):
+        rt_name = 'rt_{}'.format(lr_dict['uuid'])
+        rt_fq_name = lr_dict['fq_name'][:-1] + [rt_name]
+        try:
+            rt = cls._get_route_table(db_conn, rt_fq_name)
+            rt_created = False
+        except cfgm_common.exceptions.NoIdError:
+            rt = RouteTable(name=rt_name)
+            rt.fq_name = rt_fq_name
+            rt_created = True
+
+        route = RouteType(
+            prefix="0.0.0.0/0",
+            next_hop=si.get_fq_name_str())
+        rt.set_routes(RouteTableType.factory([route]))
+
+        rt_dict = rt.serialize_to_json()
+        rt_dict['routes'] = rt_dict['routes'].exportDict()['RouteTableType']
+        api_server = db_conn.get_api_server()
+        if rt_created:
+            api_server.internal_request_create('route-table', rt_dict)
+        else:
+            api_server.internal_request_update('route-table', rt.uuid, rt_dict)
+
+        return rt
+
+    @classmethod
+    def _get_route_table(cls, db_conn, fq_name):
+        rt_uuid = db_conn.fq_name_to_uuid('route_table', fq_name)
+        ok, rt_dict = db_conn.dbe_read('route_table', rt_uuid)
+        if not ok:
+            raise cfgm_common.exceptions.NoIdError
+        return RouteTable(**rt_dict)
+
+    @classmethod
+    def delete_snat_instance(cls, db_conn, obj_dict):
+        si_ref = obj_dict['service_instance_refs'][0]
+
+        api_server = db_conn.get_api_server()
+        api_server.internal_request_ref_update(
+            'logical_router',
+            obj_dict['uuid'],
+            'DELETE',
+            'service_instance',
+            si_ref['uuid'])
+        if obj_dict.get('route_table_refs'):
+            api_server.internal_request_ref_update(
+                'logical_router',
+                obj_dict['uuid'],
+                'DELETE',
+                'route_table',
+                obj_dict['route_table_refs'][0]['uuid'])
+
+        cls._delete_snat_vn(db_conn, si_ref['to'])
+        api_server.internal_request_delete('service-instance', si_ref['uuid'])
+
+        return True, ''
 
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
@@ -989,8 +1226,15 @@ class LogicalRouterServer(Resource, LogicalRouter):
             return ok, result
 
         # Check if we can reference the BGP VPNs
-        return BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
+        ok, result = BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
             db_conn, obj_dict)
+        if not ok:
+            return ok, result
+
+        if obj_dict.get('virtual_network_refs'):
+            return cls.add_snat_instance(db_conn, obj_dict)
+
+        return True, ''
     # end pre_dbe_create
 
     @classmethod
@@ -1019,9 +1263,33 @@ class LogicalRouterServer(Resource, LogicalRouter):
             obj_fields=['bgpvpn_refs', 'virtual_machine_interface_refs'])
         if not ok:
             return ok, result
-        return BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
+
+        ok, result = BgpvpnServer.check_router_has_bgpvpn_assoc_via_network(
             db_conn, obj_dict, result)
+        if not ok:
+            return ok, result
+
+        if obj_dict.get('virtual_network_refs'):
+            ok, read_obj_dict = db_conn.dbe_read('logical_router', id)
+            read_obj_dict.update(obj_dict)
+            return cls.add_snat_instance(db_conn, read_obj_dict)
+
+        return True, ''
     # end pre_dbe_update
+
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
+            prop_collection_updates=None, ref_update=None):
+        ok, obj_dict = db_conn.dbe_read('logical_router', id)
+        if not ok:
+            return False, (400, 'Logical router not found')
+
+        if not obj_dict.get('virtual_network_refs') and \
+                obj_dict.get('service_instance_refs'):
+            return cls.delete_snat_instance(db_conn, obj_dict)
+
+        return True, ''
+    # end post_dbe_update
 
     @classmethod
     def get_parent_project(cls, obj_dict, db_conn):
@@ -1081,8 +1349,16 @@ class LogicalRouterServer(Resource, LogicalRouter):
             api_server = db_conn.get_api_server()
             api_server.internal_request_delete('virtual-network', vn_int_uuid)
 
-        return True,''
+        return True, ''
     # end pre_dbe_delete
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        if obj_dict.get('service_instance_refs'):
+            return cls.delete_snat_instance(db_conn, obj_dict)
+        return True, ''
+    # end post_dbe_delete
+
 # end class LogicalRouterServer
 
 class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
