@@ -38,10 +38,8 @@ class VncNamespace(VncCommon):
             cluster_ip_fabric_network_fq_name()
         self._ip_fabric_vn_obj = self._vnc_lib. \
             virtual_network_read(fq_name=ip_fabric_fq_name)
-        cluster_service_network_fq_name = vnc_kube_config. \
-            cluster_default_service_network_fq_name()
-        self._cluster_service_vn_obj = self._vnc_lib. \
-            virtual_network_read(fq_name=cluster_service_network_fq_name)
+        self._ip_fabric_policy = None
+        self._cluster_service_policy = None
 
     def _get_namespace(self, ns_name):
         """
@@ -184,12 +182,6 @@ class VncNamespace(VncCommon):
 
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn.fq_name)
-            # Delete/cleanup network policy allocated for this network.
-            network_policy_refs = vn_obj.get_network_policy_refs()
-            if network_policy_refs:
-                for network_policy_ref in network_policy_refs:
-                    self._vnc_lib. \
-                        network_policy_delete(id=network_policy_ref['uuid'])
             # Delete/cleanup ipams allocated for this network.
             ipam_refs = vn_obj.get_network_ipam_refs()
             if ipam_refs:
@@ -208,18 +200,16 @@ class VncNamespace(VncCommon):
         # Delete the network from cache.
         VirtualNetworkKM.delete(vn.uuid)
 
-    def _create_policy(self, policy_name, proj_obj, src_vn_obj, dst_vn_obj):
-        policy_exists = False
-        policy = NetworkPolicy(name=policy_name, parent_obj=proj_obj)
-        try:
-            policy_obj = self._vnc_lib.network_policy_read(
-                fq_name=policy.get_fq_name())
-            policy_exists = True
-        except NoIdError:
-            # policy does not exist. Create one.
-            policy_obj = policy
-        network_policy_entries = PolicyEntriesType(
-            [PolicyRuleType(
+    def _attach_policy(self, vn_obj, *policies):
+        for policy in policies or []:
+            vn_obj.add_network_policy(policy, \
+                VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
+        self._vnc_lib.virtual_network_update(vn_obj)
+        for policy in policies or []:
+            self._vnc_lib.ref_relax_for_delete(vn_obj.uuid, policy.uuid)
+
+    def _create_policy_entry(self, src_vn_obj, dst_vn_obj):
+        return PolicyRuleType(
                 direction = '<>',
                 action_list = ActionListType(simple_action='pass'),
                 protocol = 'any',
@@ -231,7 +221,21 @@ class VncNamespace(VncCommon):
                     AddressType(virtual_network = dst_vn_obj.get_fq_name_str())
                 ],
                 dst_ports = [PortType(-1, -1)])
-            ])
+
+    def _create_vn_vn_policy(self, policy_name, \
+            proj_obj, src_vn_obj, dst_vn_obj):
+        policy_exists = False
+        policy = NetworkPolicy(name=policy_name, parent_obj=proj_obj)
+        try:
+            policy_obj = self._vnc_lib.network_policy_read(
+                fq_name=policy.get_fq_name())
+            policy_exists = True
+        except NoIdError:
+            # policy does not exist. Create one.
+            policy_obj = policy
+        network_policy_entries = PolicyEntriesType()
+        policy_entry = self._create_policy_entry(src_vn_obj, dst_vn_obj)
+        network_policy_entries.add_policy_rule(policy_entry)
         policy_obj.set_network_policy_entries(network_policy_entries)
         if policy_exists:
             self._vnc_lib.network_policy_update(policy)
@@ -239,34 +243,42 @@ class VncNamespace(VncCommon):
             self._vnc_lib.network_policy_create(policy)
         return policy_obj
 
-    def _attach_policy(self, vn_obj, *policies):
-        for policy in policies or []:
-            vn_obj.add_network_policy(policy, \
-                VirtualNetworkPolicyType(sequence=SequenceType(0, 0)))
-        self._vnc_lib.virtual_network_update(vn_obj)
-        for policy in policies or []:
-            self._vnc_lib.ref_relax_for_delete(vn_obj.uuid, policy.uuid)
+    def _create_attach_policy(self, ns_name, proj_obj, \
+            ip_fabric_vn_obj, pod_vn_obj, service_vn_obj):
+        if not self._cluster_service_policy:
+            cluster_service_np_fq_name = \
+                vnc_kube_config.cluster_default_service_network_policy_fq_name()
+            try:
+                cluster_service_policy = self._vnc_lib. \
+                    network_policy_read(fq_name=cluster_service_np_fq_name)
+            except NoIdError:
+                return
+            self._cluster_service_policy = cluster_service_policy
+        if not self._ip_fabric_policy:
+            cluster_ip_fabric_np_fq_name = \
+                vnc_kube_config.cluster_ip_fabric_policy_fq_name()
+            try:
+                cluster_ip_fabric_policy = self._vnc_lib. \
+                    network_policy_read(fq_name=cluster_ip_fabric_np_fq_name)
+            except NoIdError:
+                return
+            self._ip_fabric_policy = cluster_ip_fabric_policy
+        policy_name = '%s-default' %ns_name
+        ns_default_policy = self._create_vn_vn_policy(policy_name, proj_obj, \
+            pod_vn_obj, service_vn_obj)
+        self._attach_policy(pod_vn_obj, ns_default_policy, \
+            self._ip_fabric_policy, self._cluster_service_policy)
+        self._attach_policy(service_vn_obj, ns_default_policy, \
+            self._ip_fabric_policy)
 
-    def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj, \
-            pod_vn_obj, service_vn_obj):
-        policy_name = '%s-%s-default' \
-            %(ip_fabric_vn_obj.name, pod_vn_obj.name)
-        ip_fabric_pod_policy = self._create_policy(policy_name, proj_obj, \
-            ip_fabric_vn_obj, pod_vn_obj)
-        policy_name = '%s-%s-default' \
-            %(ip_fabric_vn_obj.name, service_vn_obj.name)
-        ip_fabric_service_policy = self._create_policy(policy_name, proj_obj, \
-            ip_fabric_vn_obj, service_vn_obj)
-        policy_name = '%s-%s-default'\
-            %(service_vn_obj.name, pod_vn_obj.name)
-        service_pod_policy = self._create_policy(policy_name, proj_obj, \
-            service_vn_obj, pod_vn_obj)
-        self._attach_policy(ip_fabric_vn_obj, \
-            ip_fabric_pod_policy, ip_fabric_service_policy)
-        self._attach_policy(pod_vn_obj, \
-            ip_fabric_pod_policy, service_pod_policy)
-        self._attach_policy(service_vn_obj, \
-            ip_fabric_service_policy, service_pod_policy)
+    def _delete_policy(self, ns_name, proj_fq_name):
+        policy_name = '%s-default' %ns_name
+        policy_fq_name = proj_fq_name[:]
+        policy_fq_name.append(policy_name)
+        try:
+            self._vnc_lib.network_policy_delete(fq_name=policy_fq_name)
+        except NoIdError:
+            pass
 
     def _update_security_groups(self, ns_name, proj_obj, network_policy):
         def _get_rule(ingress, sg, prefix, ethertype):
@@ -405,9 +417,10 @@ class VncNamespace(VncCommon):
                     ns_name=name, vn_name=vn_name,
                     ipam_obj=ipam_obj,proj_obj=proj_obj)
             # Cache service network info in namespace entry.
-            self._set_namespace_service_virtual_network(name, service_vn.get_fq_name())
-            self._create_attach_policy(proj_obj, self._ip_fabric_vn_obj, \
-                    pod_vn, service_vn)
+            self._set_namespace_service_virtual_network(
+                    name, service_vn.get_fq_name())
+            self._create_attach_policy(name, proj_obj, \
+                    self._ip_fabric_vn_obj, pod_vn, service_vn)
 
         try:
             network_policy = self._get_network_policy_annotations(name)
@@ -446,6 +459,7 @@ class VncNamespace(VncCommon):
         try:
             # If the namespace is isolated, delete its virtual network.
             if self._is_namespace_isolated(name):
+                self._delete_policy(name, proj_fq_name)
                 vn_name = self._get_namespace_pod_vn_name(name)
                 self._delete_isolated_ns_virtual_network(
                     name, vn_name=vn_name, proj_fq_name=proj_fq_name)
