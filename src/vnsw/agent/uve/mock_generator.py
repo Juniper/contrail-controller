@@ -27,7 +27,6 @@ from sandesh.interface.ttypes import \
     UveVMInterfaceAgent, UveVMInterfaceAgentTrace, VmInterfaceStats
 from vrouter.ttypes import VrouterStatsAgent, VrouterStats
 from cpuinfo import CpuInfoData
-from sandesh.flow.ttypes import *
 
 class MockGenerator(object):
 
@@ -39,15 +38,12 @@ class MockGenerator(object):
     _OTHER_VN_PKTS_PER_SEC = 1000
     _UVE_MSG_INTVL_IN_SEC = 1
     _GEVENT_SPAWN_DELAY_IN_SEC = 10
-    _FLOW_GEVENT_SPAWN_DELAY_IN_SEC = 30
-    _FLOW_PKTS_PER_SEC = 100
     _VM_PKTS_PER_SEC = 100
 
     def __init__(self, hostname, module_name, node_type_name, instance_id,
                  start_vn, end_vn, other_vn, num_vns, num_vms,
                  num_interfaces_per_vm,
-                 collectors, ip_vns, ip_start_index,
-                 num_flows_per_network, num_flows_per_sec):
+                 collectors, ip_vns, ip_start_index):
         self._module_name = module_name
         self._hostname = hostname
         self._node_type_name = node_type_name
@@ -60,8 +56,6 @@ class MockGenerator(object):
         self._ip_start_index = ip_start_index
         self._num_vms = num_vms
         self._num_interfaces_per_vm = num_interfaces_per_vm
-        self._num_flows_per_network = num_flows_per_network
-        self._num_flows_per_sec = num_flows_per_sec
         self._sandesh_instance = Sandesh()
         if not isinstance(collectors, list):
             collectors = [collectors]
@@ -92,79 +86,8 @@ class MockGenerator(object):
         cpu_info_task = gevent.spawn_later(
             random.randint(0, self._GEVENT_SPAWN_DELAY_IN_SEC),
             self._send_cpu_info)
-        send_flow_task = gevent.spawn_later(
-            random.randint(5, self._FLOW_GEVENT_SPAWN_DELAY_IN_SEC),
-            self._send_flow_sandesh)
-        return [send_vn_uve_task, send_vm_uve_task, cpu_info_task, send_flow_task]
+        return [send_vn_uve_task, send_vm_uve_task, cpu_info_task]
     #end run_generator
-
-    # Total flows are equal to num_networks times num_flows_per_network
-    def _send_flow_sandesh(self):
-        flows = []
-        flow_cnt = 0
-        diff_time = 0
-        while True:
-            # Populate flows if not done
-            if len(flows) == 0:
-                other_vn = self._other_vn
-                for vn in range(self._start_vn, self._end_vn):
-                    for nflow in range(self._num_flows_per_network):
-                        init_packets = random.randint(1, \
-                            self._FLOW_PKTS_PER_SEC)
-                        init_bytes = init_packets * \
-                            random.randint(1, self._BYTES_PER_PACKET)
-                        sourceip = int(self._ip_vns[vn] + \
-                            self._ip_start_index + nflow)
-                        destip = int(self._ip_vns[other_vn] + \
-                            self._ip_start_index + nflow)
-                        flows.append(FlowLogData(
-                            flowuuid = str(uuid.uuid1()),
-                            direction_ing = random.randint(0, 1),
-                            sourcevn = self._VN_PREFIX + str(vn),
-                            destvn = self._VN_PREFIX + str(other_vn),
-                            sourceip = netaddr.IPAddress(sourceip),
-                            destip = netaddr.IPAddress(destip),
-                            sport = random.randint(0, 65535),
-                            dport = random.randint(0, 65535),
-                            protocol = random.choice([6, 17, 1]),
-                            setup_time = UTCTimestampUsec(),
-                            packets = init_packets,
-                            bytes = init_bytes,
-                            diff_packets = init_packets,
-                            diff_bytes = init_bytes))
-                    other_vn = (other_vn + 1) % self._num_vns
-                self._logger.info("Total flows: %d" % len(flows))
-            # Send the flows periodically
-            for flow_data in flows:
-                stime = time.time()
-                new_packets = random.randint(1, self._FLOW_PKTS_PER_SEC)
-                new_bytes = new_packets * \
-                    random.randint(1, self._BYTES_PER_PACKET)
-                flow_data.packets += new_packets
-                flow_data.bytes += new_bytes
-                flow_data.diff_packets = new_packets
-                flow_data.diff_bytes = new_bytes
-                flow_object = FlowLogDataObject(flowdata = [flow_data],
-                                  sandesh = self._sandesh_instance)
-                flow_object.send(sandesh = self._sandesh_instance)
-                flow_cnt += 1
-                diff_time += time.time() - stime
-                if diff_time >= 1.0:
-                    if flow_cnt < self._num_flows_per_sec:
-                        self._logger.error("Unable to send %d flows per second, "
-                              "only sent %d" % (self._num_flows_per_sec,
-                              flow_cnt))
-                    flow_cnt = 0
-                    gevent.sleep(0)
-                    diff_time = 0
-                else:
-                    if flow_cnt == self._num_flows_per_sec:
-                        self._logger.info("Sent %d flows in %f secs" %
-                              (flow_cnt, diff_time))
-                        flow_cnt = 0
-                        gevent.sleep(1.0 - diff_time)
-                        diff_time = 0
-    #end _send_flow_sandesh
 
     def _send_cpu_info(self):
         vrouter_cpu_info = CpuInfoData()
@@ -381,8 +304,6 @@ class MockGeneratorTest(object):
                                --num_instances_per_generator 10
                                --num_interfaces_per_instance 1
                                --num_networks 100
-                               --num_flows_per_network 10
-                               --num_flows_per_sec 1000
                                --start_ip_address 1.0.0.1
 
         '''
@@ -404,12 +325,6 @@ class MockGeneratorTest(object):
             default='127.0.0.1:8086',
             help="List of Collector IP addresses in ip:port format",
             nargs="+")
-        parser.add_argument("--num_flows_per_network", type=int,
-            default=10,
-            help="Number of flows per virtual network")
-        parser.add_argument("--num_flows_per_sec", type=int,
-            default=1000,
-            help="Number of flows per second")
         parser.add_argument("--start_ip_address",
             default="1.0.0.1",
             help="Start IP address to be used for instances")
@@ -458,8 +373,7 @@ class MockGeneratorTest(object):
             node_type_name, str(x), start_vns[x], end_vns[x], other_vns[x], \
             num_networks, num_instances, num_interfaces, \
             collectors[x % len(collectors)], ip_vns, \
-            start_ip_index[x], self._args.num_flows_per_network, \
-            self._args.num_flows_per_sec) for x in range(ngens)]
+            start_ip_index[x]) for x in range(ngens)]
         return True
     #end setup
 
