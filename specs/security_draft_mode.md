@@ -43,9 +43,9 @@ If security policies need to be modified, three cases can happen:
 
    In that case, Contrail clones concerned security resources, as a child of the
    scoped dedicated policy management resource and it marks the security
-   resource as *'to delete'*.
+   resource as *'pending delete'*.
 
-   All modifications on that *'to delete'* resource should be forbidden.
+   All modifications on that *'pending delete'* resource should be forbidden.
 
    Later, if the user decides to not remove the resource, the only way to do
    that is to revert all pending modifications.
@@ -104,7 +104,10 @@ different and unique UUID.
 
 The Contrail model will be modify accordingly:
 
-1. add `enable_security_policy_draft` in scope resources,
+1. Modifying `policy-management` owners from `config-root` to `config-root` or
+   `project`.
+
+2. add `enable_security_policy_draft` in scope resources,
 
    For the global scope, that properties will be added to the
    `global-system-config` resource and to the `project` resource for the
@@ -112,7 +115,7 @@ The Contrail model will be modify accordingly:
    not be enforce until an authorized person/team approve and commit it, if it's
    false, all modifications will be enforce directly.
 
-2. add `to_delete` flag to the five security resources,
+3. add `pending_delete` flag to the five security resources,
 
    That flag determines which security resources will be deleted on a commit and
    also permits to not authorize anymore modifications to a resource in pending
@@ -171,7 +174,8 @@ On the API server side, few tasks are added:
 
   * For added security resources, Contrail calls the
     `vnc_cfg_api_server.vnc_db.VncDbClient.dbe_create` method with all draft
-    resource version attributes but with the scope as owner<sup>[1](#footnote1)</sup>:
+    resource version attributes but with the scope as
+    owner<sup>[1](#footnote1)</sup>:
       * for the global scope, the owner is the global
         `default-policy-management` resource,
       * for the project scope, the owner is the project resource itself.
@@ -182,8 +186,8 @@ On the API server side, few tasks are added:
     resource version attributes on the original resource version.
 
   * For delete security resource, Contrail finds committed resources
-    corresponding to the draft resource with the flag `to_delete` and calls the
-    `vnc_cfg_api_server.vnc_db.VncDbClient.dbe_delete` on it.
+    corresponding to the draft resource with the flag `pending_delete` and
+    calls the `vnc_cfg_api_server.vnc_db.VncDbClient.dbe_delete` on it.
 
   Finally, when all modifications where applied on the committed resources and
   enforced on the data path, the scoped and dedicated policy management resource
@@ -248,5 +252,5 @@ N/A
 # 11. References
 
 <a name="footnote1">1</a>: Another best solution will be just update that
-new resource owner from the dedicated policy management to the scope but thweat
-need to validate there is no side effect to change owner.
+new resource owner from the dedicated policy management to the scope but that
+needs to validate there is no side effect to change owner.
