@@ -2885,6 +2885,30 @@ class VncApiServer(object):
                                                 obj_fields=['perms2'])
         obj_dict['perms2']['global_access'] = PERMS_RX
         self._db_conn.dbe_update(obj_type, obj_uuid, obj_dict)
+
+        # create default SNAT service template
+        template = {
+            'fq_name': ['default-domain', 'netns-snat-template'],
+            'parent_type': 'domain',
+            'service_template_properties': {
+                'service_type': 'source-nat',
+                'service_mode': 'in-network-nat',
+                'service_virtualization_type': 'network-namespace',
+                'ordered_interfaces': True,
+                'service_scaling': True,
+                'interface_type': [{
+                    'service_interface_type': 'right',
+                    'shared_ip': True,
+                    'static_route_enable': False
+                }, {
+                    'service_interface_type': 'left',
+                    'shared_ip': True,
+                    'static_route_enable': False
+                }]
+
+            }
+        }
+        self.create_singleton_entry(ServiceTemplate(**template))
     # end _db_init_entries
 
     # generate default rbac group rule
