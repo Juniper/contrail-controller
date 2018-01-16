@@ -976,7 +976,7 @@ class VncDbClient(object):
         if (IPAddress(iip_dict['instance_ip_address']) in
                 IPNetwork(cidr)):
             iip_dict['subnet_uuid'] = sn_uuid
-            self._object_db.object_update('instance-ip',
+            self._object_db.object_update('instance_ip',
                                           iip_dict['uuid'], iip_dict)
             return True
 
