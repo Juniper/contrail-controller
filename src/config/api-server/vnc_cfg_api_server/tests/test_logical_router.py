@@ -132,7 +132,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj1.set_virtual_machine_interface(port_obj1)
         ip_obj1.set_virtual_network(net_obj1)
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
- 
+
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj1)
         self._vnc_lib.logical_router_update(lr)
@@ -164,12 +164,12 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj2.set_virtual_machine_interface(port_obj2)
         ip_obj2.set_virtual_network(net_obj2)
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
- 
+
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj2)
         self._vnc_lib.logical_router_update(lr)
         logger.debug('Linked VMI object (VN2) and LR object')
-        
+
         # Verify logical-router dumps
         lr.dump()
 
@@ -205,7 +205,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=project.uuid)
         self._vnc_lib.domain_delete(id=domain.uuid)
     #end
-    
+
     def test_lr_v6_subnets(self):
         logger.debug('test logical router creation and interface-add of v6 subnets')
 
@@ -280,7 +280,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj1.set_virtual_machine_interface(port_obj1)
         ip_obj1.set_virtual_network(net_obj1)
         ip_id1 = self._vnc_lib.instance_ip_create(ip_obj1)
- 
+
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj1)
         lr_obj = self._vnc_lib.logical_router_read(id=lr_uuid)
@@ -313,7 +313,7 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         ip_obj2.set_virtual_machine_interface(port_obj2)
         ip_obj2.set_virtual_network(net_obj2)
         ip_id2 = self._vnc_lib.instance_ip_create(ip_obj2)
- 
+
         # Add Router Interface (test being subnet)
         lr.add_virtual_machine_interface(port_obj2)
         lr_obj = self._vnc_lib.logical_router_read(id=lr_uuid)
@@ -621,6 +621,113 @@ class TestLogicalRouter(test_case.ApiServerTestCase):
         else:
             logger.debug('PASS - VxLAN Routing update successful')
     #end test_vxlan_routing
+
+    def test_snat_service_create_update_delete(self):
+        domain = Domain('test-domain')
+        project = Project('test-project', domain)
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+
+        self._vnc_lib.domain_create(domain)
+        self._vnc_lib.project_create(project)
+        self._vnc_lib.network_ipam_create(ipam)
+        ipam = self._vnc_lib.network_ipam_read(fq_name=ipam.fq_name)
+
+        # Create VN1
+        ipam_subnet1_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24))
+        ipam_subnet1_v6 = IpamSubnetType(subnet=SubnetType('fd11::', 120))
+        vn1 = VirtualNetwork('test-vn-1', project)
+        vn1.add_network_ipam(ipam, VnSubnetsType(
+            [ipam_subnet1_v4, ipam_subnet1_v6]))
+        self._vnc_lib.virtual_network_create(vn1)
+        vn1 = self._vnc_lib.virtual_network_read(id=vn1.uuid)
+
+        # Create logical router attached to VN1
+        lr = LogicalRouter('test-router-{}'.format(uuid.uuid4()), project)
+        lr.add_virtual_network(vn1)
+        self._vnc_lib.logical_router_create(lr)
+
+        # Assert proper service instance and route table
+        si, rt = self._assert_snat_service_properly_created(lr, vn1)
+
+        # Detach logical router from VN1
+        lr.del_virtual_network(vn1)
+        self._vnc_lib.logical_router_update(lr)
+
+        # Assert service instance & route table deleted
+        lr = self._vnc_lib.logical_router_read(fq_name=lr.fq_name)
+        self.assertIsNone(lr.get_service_instance_refs())
+        self.assertIsNone(lr.get_route_table_refs())
+        self.assertRaises(
+            NoIdError,
+            self._vnc_lib.service_instance_read,
+            id=si.uuid)
+        self.assertRaises(
+            NoIdError,
+            self._vnc_lib.route_table_read,
+            id=rt.uuid)
+
+        # Create VN2
+        ipam_subnet2_v4 = IpamSubnetType(subnet=SubnetType('11.1.2.0', 24))
+        ipam_subnet2_v6 = IpamSubnetType(subnet=SubnetType('fd12::', 120))
+        vn2 = VirtualNetwork('test-vn-2', project)
+        vn2.add_network_ipam(ipam, VnSubnetsType(
+            [ipam_subnet2_v4, ipam_subnet2_v6]))
+        self._vnc_lib.virtual_network_create(vn2)
+        vn2 = self._vnc_lib.virtual_network_read(id=vn2.uuid)
+
+        # Attach logical router to VN2
+        lr.add_virtual_network(vn2)
+        self._vnc_lib.logical_router_update(lr)
+
+        # Assert proper service instance and route table
+        self._assert_snat_service_properly_created(lr, vn2)
+
+        # Switch back to VN1
+        lr.del_virtual_network(vn2)
+        lr.add_virtual_network(vn1)
+        self._vnc_lib.logical_router_update(lr)
+
+        # Assert proper service instance and route table
+        si, rt = self._assert_snat_service_properly_created(lr, vn1)
+
+        # Delete logical router
+        self._vnc_lib.logical_router_delete(id=lr.uuid)
+
+        # Assert service instance & route table deleted
+        self.assertRaises(
+            NoIdError,
+            self._vnc_lib.service_instance_read,
+            id=si.uuid)
+        self.assertRaises(
+            NoIdError,
+            self._vnc_lib.route_table_read,
+            id=rt.uuid)
+
+    def _assert_snat_service_properly_created(self, lr, vn):
+        # Assert logical router has refs to SI & RT
+        lr = self._vnc_lib.logical_router_read(fq_name=lr.fq_name)
+        self.assertEqual(len(lr.get_service_instance_refs() or ()), 1)
+        self.assertEqual(len(lr.get_route_table_refs() or ()), 1)
+
+        # Assert service instance created with proper VN
+        si = self._vnc_lib.service_instance_read(
+            id=lr.service_instance_refs[0]['uuid'])
+        interfaces = si.service_instance_properties.interface_list
+        self.assertEqual(len(interfaces), 2)
+        self.assertEqual(interfaces[0].virtual_network, ':'.join(vn.fq_name))
+
+        # Left VN should not be visible to user
+        self.assertRaises(
+            NoIdError,
+            self._vnc_lib.virtual_network_read,
+            fq_name_str=interfaces[1].virtual_network)
+
+        # Assert route table created with route to SI
+        rt = self._vnc_lib.route_table_read(id=lr.route_table_refs[0]['uuid'])
+        self.assertEqual(len(rt.get_routes().get_route()), 1)
+        self.assertEqual(rt.routes.route[0].next_hop, ':'.join(si.fq_name))
+
+        return si, rt
 
 #end class TestLogicalRouter
 
