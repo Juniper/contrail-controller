@@ -1285,9 +1285,6 @@ class LogicalRouterSM(DBBaseSM):
         del cls._dict[uuid]
     # end delete
 
-    def evaluate(self):
-        self._manager.snat_agent.update_snat_instance(self)
-
 # end LogicalRouterSM
 
 class PortTupleSM(DBBaseSM):
