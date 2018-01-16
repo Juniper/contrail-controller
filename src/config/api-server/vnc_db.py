@@ -920,7 +920,7 @@ class VncDbClient(object):
                     if (IPAddress(iip_dict['instance_ip_address']) in
                             IPNetwork(cidr)):
                         iip_dict['subnet_uuid'] = subnet['subnet_uuid']
-                        self._cassandra_db.object_update('instance-ip',
+                        self._cassandra_db.object_update('instance_ip',
                                                          iip_dict['uuid'],
                                                          iip_dict)
                         return
