@@ -800,9 +800,9 @@ class VncDbClient(object):
                     if (IPAddress(iip_dict['instance_ip_address']) in
                             IPNetwork(cidr)):
                         iip_dict['subnet_uuid'] = ipam_subnet['subnet_uuid']
-                        self._object_db.object_update('instance-ip',
-                                                          iip_dict['uuid'],
-                                                          iip_dict)
+                        self._object_db.object_update('instance_ip',
+                                                      iip_dict['uuid'],
+                                                      iip_dict)
                         return
 
     def _dbe_resync(self, obj_type, obj_uuids):
