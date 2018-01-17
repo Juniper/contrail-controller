@@ -208,6 +208,9 @@ public:
     void SetRouterTypeBGPaaS(bool bgpaas_client) {
         bgpaas_client_ = bgpaas_client;
     }
+    bool IsPeerCloseInProgress() const {
+        return gr_close_ ?: StateMachine::IsPeerCloseInProgress();
+    }
 
 private:
     static int hold_time_msecs_;
