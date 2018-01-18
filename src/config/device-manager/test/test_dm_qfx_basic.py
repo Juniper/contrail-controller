@@ -464,6 +464,29 @@ class TestQfxBasicDM(TestCommonDM):
     # end test_esi_config
 
     @retries(5, hook=retry_exc_handler)
+    def check_l2_evpn_vlan_config(self, vn_obj, vn_mode, intf_name, intf_unit):
+        vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1], vn_obj.virtual_network_network_id, vn_mode)
+        config = FakeDeviceConnect.get_xml_config()
+        vlans = config.get_vlans()
+        self.assertIsNotNone(vlans)
+        vlans = vlans.get_vlan() or []
+        vlan_name = vrf_name[1:]
+        interfaces = self.get_interfaces(config, intf_name)
+        if not interfaces:
+            raise Exception("Interface Config not generated(vlan-interface check) : " + intf_name)
+        if_config = interfaces[0]
+        for vlan in vlans:
+            if vlan.get_name() == vlan_name:
+                intf = vlan.get_interface()[0]
+                ifl_name = intf_name + "." + intf_unit
+                if intf.get_name() != ifl_name:
+                    raise Exception ("interface-vlan membership not set correctly: " + intf.get_name())
+                else:
+                    return
+        raise Exception ("vlan interface config is not correct")
+    #def check_l2_evpn_vlan_config
+
+    @retries(5, hook=retry_exc_handler)
     def check_l2_evpn_native_vlan_config(self, vn_obj, vn_mode, intf_name):
         vrf_name = DMUtils.make_vrf_name(vn_obj.fq_name[-1], vn_obj.virtual_network_network_id, vn_mode)
         config = FakeDeviceConnect.get_xml_config()
@@ -526,6 +549,43 @@ class TestQfxBasicDM(TestCommonDM):
         li1_id = self._vnc_lib.logical_interface_create(li1)
         self.check_l2_evpn_native_vlan_config(vn1_obj, 'l2', 'intf-native')
     # end test_native_vlan_config
+
+    def test_vlan_config(self):
+        self.product = 'qfx5110'
+        FakeNetconfManager.set_model(self.product)
+        bgp_router, pr = self.create_router('router' + self.id(), '1.1.1.1', product=self.product, role='leaf')
+        pr.set_physical_router_role("leaf")
+        self._vnc_lib.physical_router_update(pr)
+        pi = PhysicalInterface('intf-vlan', parent_obj = pr)
+        pi_id = self._vnc_lib.physical_interface_create(pi)
+
+        # associate li, vmi
+        vn1_name = 'vn-vlan-' + self.id() + "-" + self.product
+        vn1_obj = VirtualNetwork(vn1_name)
+        ipam_obj = NetworkIpam('ipam-vlan-' + self.id() + "-" + self.product)
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("192.168.7.0", 24))]))
+
+        vn1_obj_properties = VirtualNetworkType()
+        vn1_obj_properties.set_vxlan_network_identifier(2000)
+        vn1_obj_properties.set_forwarding_mode('l2_l3')
+        vn1_obj.set_virtual_network_properties(vn1_obj_properties)
+
+        vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
+        vn1_obj = self._vnc_lib.virtual_network_read(id=vn1_uuid)
+
+        fq_name = ['default-domain', 'default-project', 'vmi1-esi' + self.id()]
+        vmi1 = VirtualMachineInterface(fq_name=fq_name, parent_type = 'project')
+        vmi1.set_virtual_network(vn1_obj)
+        self._vnc_lib.virtual_machine_interface_create(vmi1)
+
+        li1 = LogicalInterface('intf-vlan.50', parent_obj = pi)
+        li1.logical_interface_vlan_tag = 100
+        li1.set_virtual_machine_interface(vmi1)
+        li1_id = self._vnc_lib.logical_interface_create(li1)
+        self.check_l2_evpn_vlan_config(vn1_obj, 'l2', 'intf-vlan', '50')
+    # end test_vlan_config
 
     @retries(5, hook=retry_exc_handler)
     def check_dm_state(self):
