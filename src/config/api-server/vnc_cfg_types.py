@@ -257,7 +257,7 @@ class Resource(ResourceDbMixin):
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     @classmethod
     def _check_valid_port_range(cls, port_start, port_end):
-        if port_start > port_end:
+        if int(port_start) > int(port_end):
             return (False, (400, 'Invalid Port range specified'))
         return True, ''
 
@@ -276,12 +276,21 @@ class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
                                           obj_dict.get('uuid'))
         if not ok:
             return (ok, global_sys_cfg)
+
         cur_bgpaas_ports = global_sys_cfg.get('bgpaas_parameters') or\
                             {'port_start': 50000, 'port_end': 50512}
-        if (bgpaas_ports['port_start'] > cur_bgpaas_ports['port_start'] or
-           bgpaas_ports['port_end'] < cur_bgpaas_ports['port_end']):
-            return (False, (400, 'BGP Port range cannot be shrunk'))
 
+        (ok, bgpaas_list, _) = db_conn.dbe_list('bgp_as_a_service', is_count=True)
+
+        if not ok:
+            return (ok, bgpaas_list)
+
+        if bgpaas_list:
+            if (int(bgpaas_ports['port_start']) >
+                    int(cur_bgpaas_ports['port_start']) or
+                int(bgpaas_ports['port_end']) <
+                    int(cur_bgpaas_ports['port_end'])):
+                return (False, (400, 'BGP Port range cannot be shrunk'))
         return (True, '')
     # end _check_bgpaas_ports
 
