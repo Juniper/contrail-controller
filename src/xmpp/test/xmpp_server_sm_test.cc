@@ -37,7 +37,7 @@ public:
     }
 
     bool IsPeerCloseGraceful() const {
-        return gr_close_ ?: XmppServer::IsPeerCloseGraceful();
+        return gr_close_ ? true : XmppServer::IsPeerCloseGraceful();
     }
     void SetCloseGraceful(bool gr_close) { gr_close_ = gr_close; }
 

@@ -1650,6 +1650,7 @@ bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,
                                 path_preference, TunnelType::MplsType(),
                                 nh_req, vm_ip.to_string());
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vrf_name, vm_ip, plen, data);
+    return true;
 }
 
 bool EcmpTunnelRouteAdd(const BgpPeer *peer, const string &vrf_name,

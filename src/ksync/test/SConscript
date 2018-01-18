@@ -31,6 +31,9 @@ if sys.platform != 'darwin':
         env.Append(LIBS=['rt'])
     env.Prepend(LIBS=['ksync', 'ksyncnl'])
 
+if sys.platform == 'win32':
+    env.Append(LIBS = ['advapi32', 'gdi32', 'user32'])
+
 libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
                     'base', 'base/test', 'boost_regex', 'route', 'schema',
                     'ifmap', 'net', 'net'])
