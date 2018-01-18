@@ -215,6 +215,7 @@ public:
         AceStatsSet ace_set_;
         TagList local_tagset_;
         SecurityPolicyStatsMap security_policy_stats_map_;
+        VMITags prev_tags_uve_;
         /* For exclusion between kTaskFlowStatsCollector and Agent::Uve
          * (1) port_bitmap_ and fip_tree_ are updated by kTaskFlowStatsCollector
          *     and read by Agent::Uve.
@@ -249,6 +250,8 @@ public:
                                                 const std::string &vn);
         bool FrameInterfaceMsg(const std::string &name,
                                UveVMInterfaceAgent *s_intf) const;
+        bool FrameTagsUveMsg(Agent *agent, const std::string &name,
+                             VMITags *uve);
         bool FrameInterfaceAceStatsMsg(const std::string &name,
                                        UveVMInterfaceAgent *s_intf);
         bool GetVmInterfaceGateway(const VmInterface *vm_intf,
@@ -269,7 +272,7 @@ public:
                                                UveSecurityPolicyStats *stats);
         void FillEndpointStats(Agent *agent, EndpointSecurityStats *obj);
         void BuildInterfaceUveInfo(InterfaceUveInfo *r) const;
-        void FillTagSetAndPolicyList(Agent *agent, UveVMInterfaceAgent *obj);
+        void FillTagSetAndPolicyList(UveVMInterfaceAgent *obj);
         void BuildSandeshUveTagList(const TagList &list,
                                     std::vector<SandeshUveTagInfo> *rts) const;
         void HandleTagListChange();
@@ -292,6 +295,7 @@ public:
     void Shutdown(void);
     virtual void DispatchInterfaceMsg(const UveVMInterfaceAgent &uve);
     virtual void DispatchInterfaceObjectLog(EndpointSecurityStats *obj);
+    void DispatchVMITagsMsg(const VMITags &uve) const;
     bool TimerExpiry();
     virtual void SendInterfaceAceStats(const string &name,
                                        UveInterfaceEntry *entry) {

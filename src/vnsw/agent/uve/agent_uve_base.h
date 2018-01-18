@@ -18,6 +18,11 @@ class VrouterStatsCollector;
 
 /* Structure used to build and carry tags of different types across APIs */
 struct UveTagData {
+    enum FillType {
+        STRING,
+        SET,
+        VECTOR
+    };
     std::string application;
     std::string tier;
     std::string site;
@@ -26,17 +31,26 @@ struct UveTagData {
      * module as it expects labels in semi-colon separated string */
     std::string labels;
     std::set<string> label_set;
+    std::vector<string> label_vector;
     /* Semi-colon separated list of custom-tags. This format is imposed by
      * analytics module as it expects custom-tags in semi-colon separated
      * string */
     std::string custom_tags;
     std::set<string> custom_tag_set;
-    bool use_set;
+    std::vector<string> custom_tag_vector;
+    FillType fill_type;
     void Reset() {
         application = tier = site = deployment = labels = custom_tags = "";
+        if (fill_type == SET) {
+            label_set.clear();
+            custom_tag_set.clear();
+        } else if (fill_type == VECTOR) {
+            label_vector.clear();
+            custom_tag_vector.clear();
+        }
     }
-    UveTagData() : use_set(false) { Reset(); }
-    UveTagData(bool fill_set) : use_set(fill_set) { Reset(); }
+    UveTagData() : fill_type(STRING) { Reset(); }
+    UveTagData(FillType type) : fill_type(type) { Reset(); }
 };
 
 //The class to drive UVE module initialization for agent.
