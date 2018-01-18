@@ -3809,11 +3809,16 @@ class SecurityGroupServer(Resource, SecurityGroup):
                 path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + proj_dict['uuid']
                 path = path_prefix + "/" + obj_type
                 quota_counter = cls.server.quota_counter
-                quota_counter[path] -= rule_count
-                def undo():
-                    # Revert back quota count
-                    quota_counter[path] += rule_count
-                get_context().push_undo(undo)
+                # If the SG has been created before R3, there is no
+                # path in ZK. It is created on next update and we
+                # can ignore it for now
+                if quota_counter.get(path):
+                    quota_counter[path] -= rule_count
+
+                    def undo():
+                        # Revert back quota count
+                        quota_counter[path] += rule_count
+                    get_context().push_undo(undo)
 
         return True, ""
     # end pre_dbe_delete
