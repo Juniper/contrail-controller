@@ -17,6 +17,9 @@ class DBBaseSM(DBBase):
         # Implement in the derived class
         pass
 
+    def get_fq_name(self):
+        return self.fq_name
+
 class LoadbalancerSM(DBBaseSM):
     _dict = {}
     obj_type = 'loadbalancer'
@@ -83,6 +86,7 @@ class LoadbalancerListenerSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.display_name = obj.get('display_name', None)
         self.parent_uuid = obj['parent_uuid']
         self.id_perms = obj.get('id_perms', None)
@@ -214,6 +218,7 @@ class LoadbalancerMemberSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.params = obj.get('loadbalancer_member_properties', None)
         self.loadbalancer_pool = self.get_parent_uuid(obj)
         self.id_perms = obj.get('id_perms', None)
@@ -253,6 +258,7 @@ class VirtualIpSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.params = obj.get('virtual_ip_properties', None)
         self.update_single_ref('virtual_machine_interface', obj)
         self.update_single_ref('loadbalancer_pool', obj)
@@ -292,6 +298,7 @@ class HealthMonitorSM(DBBaseSM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.params = obj.get('loadbalancer_healthmonitor_properties', None)
         self.update_multiple_refs('loadbalancer_pool', obj)
         self.id_perms = obj.get('id_perms', None)
@@ -839,6 +846,7 @@ class LogicalInterfaceSM(DBBaseSM):
 
         self.update_single_ref('virtual_machine_interface', obj)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.logical_interface_vlan_tag = obj.get(
             'logical_interface_vlan_tag', 0)
     # end update
@@ -1217,6 +1225,7 @@ class PortTupleSM(DBBaseSM):
         self.parent_uuid = self.get_parent_uuid(obj)
         self.update_multiple_refs('virtual_machine_interface', obj)
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         return obj
     # end update
 
@@ -1249,6 +1258,7 @@ class ServiceHealthCheckSM(DBBaseSM):
             obj = self.read_obj(self.uuid)
         self.parent_uuid = obj['parent_uuid']
         self.name = obj['fq_name'][-1]
+        self.fq_name = obj['fq_name']
         self.params = obj.get('service_health_check_properties', None)
         self.update_multiple_refs_with_attr('service_instance', obj)
     # end update

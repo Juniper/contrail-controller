@@ -56,7 +56,9 @@ class PortTupleAgent(Agent):
 
         if create_iip:
             iip_obj = InstanceIp(name=iip_name, instance_ip_family=iip_family)
-            vn_obj = self._vnc_lib.virtual_network_read(id=vmi.virtual_network)
+            vn_obj = VirtualNetworkSM.get(vmi.virtual_network)
+            if not vn_obj:
+                vn_obj = self._vnc_lib.virtual_network_read(id=vmi.virtual_network)
             iip_obj.add_virtual_network(vn_obj)
             iip_obj.set_service_instance_ip(True)
             iip_obj.set_instance_ip_secondary(True)
@@ -83,8 +85,22 @@ class PortTupleAgent(Agent):
             vmi.update()
 
     def _allocate_shared_iip(self, si, port, vmi):
-        self._allocate_iip_for_family('v4', si, port, vmi)
-        self._allocate_iip_for_family('v6', si, port, vmi)
+        ipv4_address = False
+        ipv6_address = False
+        if len(vmi.instance_ips) == 0:
+            ipv4_address = True
+            ipv6_address = True
+        else:
+            for iip_uuid in vmi.instance_ips or []:
+                iip = InstanceIpSM.get(iip_uuid)
+                if iip.family == 'v4':
+                    ipv4_address = True
+                if iip.family == 'v6':
+                    ipv6_address = True
+        if ipv4_address:
+            self._allocate_iip_for_family('v4', si, port, vmi)
+        if ipv6_address:
+            self._allocate_iip_for_family('v6', si, port, vmi)
 
     def _allocate_health_check_iip_for_family(self, si, health_id, iip_family, port, vmi):
         iip_name = si.uuid + '-' + port['type'] + '-' + \
