@@ -3013,6 +3013,18 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
             bgp_xmpp_channel = (*it).second;
             if (bgp_xmpp_channel->peer_deleted())
                 return;
+
+            // Gracefully close the channel if GR closure is in progress.
+            // This can happen if GR timers fire just after session comes
+            // back up.
+            if (bgp_xmpp_channel->close_manager()->IsCloseInProgress() &&
+                !bgp_xmpp_channel->close_manager()->IsInGRTimerWaitState()) {
+                BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
+                             SandeshLevel::SYS_INFO, BGP_LOG_FLAG_SYSLOG,
+                             BGP_PEER_DIR_IN,
+                             "Graceful Closure in progress - Closing channel");
+                channel->Close();
+            }
             channel->RegisterReceive(xmps::BGP,
                 boost::bind(&BgpXmppChannel::ReceiveUpdate, bgp_xmpp_channel,
                             _1));
