@@ -712,9 +712,7 @@ class MxConf(JuniperConf):
             return 0
         if is_delete:
             return self.send_conf(is_delete=True)
-        if not self.physical_router.bgp_router:
-            self._logger.info("bgp router not configured for pr: " + \
-                                                 self.physical_router.name)
+        if not self.ensure_bgp_config():
             return 0
         self.build_bgp_config()
         vn_dict = self.get_vn_li_map()
