@@ -2373,7 +2373,13 @@ class RoutingInstanceST(DBBaseST):
                 update = True
             else:
                 self.stale_route_targets.remove(rt)
-        for rt in rt_add_import or []:
+
+        rt_add_import = rt_add_import or set()
+        rt_add_export = rt_add_export or set()
+        rt_import_export = rt_add_import.intersection(rt_add_export)
+        rt_import = rt_add_import - rt_import_export
+        rt_export = rt_add_export - rt_import_export
+        for rt in rt_import:
             if rt not in self.stale_route_targets:
                 rtgt_obj = RouteTargetST.locate(rt).obj
                 inst_tgt_data = InstanceTargetType(import_export='import')
@@ -2381,10 +2387,18 @@ class RoutingInstanceST(DBBaseST):
                 update = True
             else:
                 self.stale_route_targets.remove(rt)
-        for rt in rt_add_export or []:
+        for rt in rt_export:
             if rt not in self.stale_route_targets:
                 rtgt_obj = RouteTargetST.locate(rt).obj
                 inst_tgt_data = InstanceTargetType(import_export='export')
+                self.obj.add_route_target(rtgt_obj, inst_tgt_data)
+                update = True
+            else:
+                self.stale_route_targets.remove(rt)
+        for rt in rt_import_export:
+            if rt not in self.stale_route_targets:
+                rtgt_obj = RouteTargetST.locate(rt).obj
+                inst_tgt_data = InstanceTargetType(import_export=None)
                 self.obj.add_route_target(rtgt_obj, inst_tgt_data)
                 update = True
             else:
