@@ -14,7 +14,8 @@ TEST_P(BgpMvpnTest, Type3_SPMSI_With_ErmVpnRoute_4) {
     // target. This route should go into red1 and green1 table.
     for (size_t i = 1; i <= instances_set_count_; i++)
         for (size_t j = 1; j <= groups_count_; j++)
-            AddMvpnRoute(master_, prefix3(i,j), getRouteTarget(i, "1"));
+            AddMvpnRoute(master_, prefix3(i, j), getRouteTarget(i, "1"), NULL,
+                         true);
 
     if (!preconfigure_pm_) {
         VerifyInitialState(false, groups_count_, 0, groups_count_,

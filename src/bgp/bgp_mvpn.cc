@@ -903,9 +903,15 @@ void MvpnManagerPartition::ProcessType5SourceActiveRoute(MvpnRoute *rt) {
         spmsi_rt->DeletePath(path);
     }
 
+    PmsiTunnelSpec pmsi_spec;
+    pmsi_spec.tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
+    BgpAttrDB *attr_db = table()->server()->attr_db();
+    BgpAttrPtr new_attrp = attr_db->ReplacePmsiTunnelAndLocate(
+        rt->BestPath()->GetAttr(), &pmsi_spec);
+
     // Insert new path and notify.
     BgpPath *new_path = new BgpPath(NULL, 0, BgpPath::Local,
-                                    rt->BestPath()->GetAttr(), 0, 0, 0);
+                                    new_attrp, 0, 0, 0);
     spmsi_rt->InsertPath(new_path);
     spmsi_rt->Notify();
     MVPN_RT_LOG(rt, "Processed MVPN Source Active route creation");
@@ -1073,6 +1079,15 @@ void MvpnManagerPartition::ProcessType3SPMSIRoute(MvpnRoute *spmsi_rt) {
         assert(mvpn_state->spmsi_routes_received().insert(spmsi_rt).second);
     } else {
         leaf_ad_route = mvpn_dbstate->route();
+    }
+
+    // If LeafInfoRequired bit is not set, no need to process further
+    if (!spmsi_rt->BestPath()->GetAttr()->pmsi_tunnel() ||
+        (!(spmsi_rt->BestPath()->GetAttr()->pmsi_tunnel()->tunnel_flags() &
+                PmsiTunnelSpec::LeafInfoRequired))) {
+            MVPN_RT_LOG(spmsi_rt, "No need to process Type 3 S-PMSI route as"
+                        " LeafInfoRequired bit is not set");
+            return;
     }
 
     ErmVpnRoute *global_rt = mvpn_state->global_ermvpn_tree_rt();
