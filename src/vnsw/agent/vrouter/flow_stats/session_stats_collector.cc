@@ -1578,7 +1578,7 @@ void SessionStatsCollector::FillSessionAggInfo
 
 void SessionStatsCollector::FillSessionTags(const TagList &list,
                                             SessionEndpoint *ep) const {
-    UveTagData tinfo(true);
+    UveTagData tinfo(UveTagData::SET);
     agent_uve_->BuildTagNamesFromList(list, &tinfo);
     ep->set_application(tinfo.application);
     ep->set_tier(tinfo.tier);
@@ -1594,7 +1594,7 @@ void SessionStatsCollector::FillSessionTags(const TagList &list,
 
 void SessionStatsCollector::FillSessionRemoteTags(const TagList &list,
                                                   SessionEndpoint *ep) const {
-    UveTagData tinfo(true);
+    UveTagData tinfo(UveTagData::SET);
     agent_uve_->BuildTagIdsFromList(list, &tinfo);
     ep->set_remote_application(tinfo.application);
     ep->set_remote_tier(tinfo.tier);

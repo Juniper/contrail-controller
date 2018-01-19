@@ -113,7 +113,7 @@ bool InterfaceUveStatsTable::FrameInterfaceStatsMsg(UveInterfaceEntry* entry,
                                                            s->flow_info,
                                                            flow_rate);
     /* Populate TagSet and policy-list in UVE */
-    entry->FillTagSetAndPolicyList(agent_, uve);
+    entry->FillTagSetAndPolicyList(uve);
     if (built) {
         flow_rate.set_active_flows(active_flows);
         uve->set_flow_rate(flow_rate);

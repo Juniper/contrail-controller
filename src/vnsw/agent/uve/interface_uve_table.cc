@@ -285,6 +285,65 @@ void InterfaceUveTable::SendInterfaceDeleteMsg(const string &config_name) {
     uve.set_name(config_name);
     uve.set_deleted(true);
     DispatchInterfaceMsg(uve);
+
+    VMITags tags_uve;
+    tags_uve.set_name(config_name);
+    tags_uve.set_deleted(true);
+    DispatchVMITagsMsg(tags_uve);
+}
+
+bool InterfaceUveTable::UveInterfaceEntry::FrameTagsUveMsg
+(Agent *agent, const string &name, VMITags *obj) {
+    bool changed = false;
+    AgentUveBase *uve = agent->uve();
+    obj->set_name(name);
+    TagList new_tag_list;
+    intf_->CopyTagIdList(&new_tag_list);
+    UveTagData tinfo(UveTagData::VECTOR);
+    uve->BuildTagNamesFromList(new_tag_list, &tinfo);
+    if ((!prev_tags_uve_.__isset.app) ||
+        (prev_tags_uve_.__isset.app && (prev_tags_uve_.get_app() !=
+                                        tinfo.application))) {
+        obj->set_app(tinfo.application);
+        prev_tags_uve_.set_app(tinfo.application);
+        changed = true;
+    }
+    if ((!prev_tags_uve_.__isset.tier) ||
+        (prev_tags_uve_.__isset.tier && (prev_tags_uve_.get_tier() !=
+                                         tinfo.tier))) {
+        obj->set_tier(tinfo.tier);
+        prev_tags_uve_.set_tier(tinfo.tier);
+        changed = true;
+    }
+    if ((!prev_tags_uve_.__isset.site) ||
+        (prev_tags_uve_.__isset.site && (prev_tags_uve_.get_site() !=
+                                         tinfo.site))) {
+        obj->set_site(tinfo.site);
+        prev_tags_uve_.set_site(tinfo.site);
+        changed = true;
+    }
+    if ((!prev_tags_uve_.__isset.deployment) ||
+        (prev_tags_uve_.__isset.deployment &&
+         (prev_tags_uve_.get_deployment() != tinfo.deployment))) {
+        obj->set_deployment(tinfo.deployment);
+        prev_tags_uve_.set_deployment(tinfo.deployment);
+        changed = true;
+    }
+    if ((!prev_tags_uve_.__isset.labels) ||
+        (prev_tags_uve_.__isset.labels && (prev_tags_uve_.get_labels() !=
+                                           tinfo.label_vector))) {
+        obj->set_labels(tinfo.label_vector);
+        prev_tags_uve_.set_labels(tinfo.label_vector);
+        changed = true;
+    }
+    if ((!prev_tags_uve_.__isset.custom_tags) ||
+        (prev_tags_uve_.__isset.custom_tags &&
+         (prev_tags_uve_.get_custom_tags() != tinfo.custom_tag_vector))) {
+        obj->set_custom_tags(tinfo.custom_tag_vector);
+        prev_tags_uve_.set_custom_tags(tinfo.custom_tag_vector);
+        changed = true;
+    }
+    return changed;
 }
 
 InterfaceUveTable::UveInterfaceEntryPtr
@@ -297,6 +356,10 @@ void InterfaceUveTable::DispatchInterfaceMsg(const UveVMInterfaceAgent &uve) {
     UveVMInterfaceAgentTrace::Send(uve);
 }
 
+void InterfaceUveTable::DispatchVMITagsMsg(const VMITags &uve) const {
+    UVEVMITags::Send(uve);
+}
+
 void InterfaceUveTable::DispatchInterfaceObjectLog(EndpointSecurityStats *obj) {
     ENDPOINT_SECURITY_STATS_SEND_SANDESH(obj);
 }
@@ -306,6 +369,10 @@ void InterfaceUveTable::SendInterfaceMsg(const string &name,
     UveVMInterfaceAgent uve;
     if (entry->FrameInterfaceMsg(name, &uve)) {
         DispatchInterfaceMsg(uve);
+    }
+    VMITags tags_uve;
+    if (entry->FrameTagsUveMsg(agent_, name, &tags_uve)) {
+        DispatchVMITagsMsg(tags_uve);
     }
 }
 
@@ -872,20 +939,9 @@ void InterfaceUveTable::UveInterfaceEntry::FillSecurityPolicyList
 }
 
 void InterfaceUveTable::UveInterfaceEntry::FillTagSetAndPolicyList
-    (Agent *agent, UveVMInterfaceAgent *obj) {
+    (UveVMInterfaceAgent *obj) {
 
-    AgentUveBase *uve = agent->uve();
     tbb::mutex::scoped_lock lock(mutex_);
-    TagList new_tag_list;
-    intf_->CopyTagIdList(&new_tag_list);
-    UveTagData tinfo;
-    uve->BuildTagNamesFromList(new_tag_list, &tinfo);
-    obj->set_app(tinfo.application);
-    obj->set_tier(tinfo.tier);
-    obj->set_site(tinfo.site);
-    obj->set_deployment(tinfo.deployment);
-    obj->set_labels(tinfo.labels);
-    obj->set_custom_tags(tinfo.custom_tags);
 
     vector<string> rule_list;
     SecurityPolicyStatsMap::const_iterator it =

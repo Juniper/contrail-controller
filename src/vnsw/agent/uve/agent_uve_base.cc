@@ -68,8 +68,11 @@ void AgentUveBase::BuildTagNamesFromList(const TagList &tl, UveTagData *info)
             info->deployment = table->TagName(*it);
             break;
         case TagTable::LABEL:
-            if (info->use_set) {
+            if (info->fill_type == UveTagData::SET) {
                 info->label_set.insert(table->TagName(*it));
+                break;
+            } else if (info->fill_type == UveTagData::VECTOR) {
+                info->label_vector.push_back(table->TagName(*it));
                 break;
             }
             if (!info->labels.empty()) {
@@ -78,8 +81,11 @@ void AgentUveBase::BuildTagNamesFromList(const TagList &tl, UveTagData *info)
             info->labels.append(table->TagName(*it));
             break;
         default:
-            if (info->use_set) {
+            if (info->fill_type == UveTagData::SET) {
                 info->custom_tag_set.insert(table->TagName(*it));
+                break;
+            } else if (info->fill_type == UveTagData::VECTOR) {
+                info->custom_tag_vector.push_back(table->TagName(*it));
                 break;
             }
             if (!info->custom_tags.empty()) {
@@ -121,8 +127,11 @@ void AgentUveBase::BuildTagIdsFromList(const TagList &tl, UveTagData *info)
             info->deployment = IntegerToHexString(*it);
             break;
         case TagTable::LABEL:
-            if (info->use_set) {
+            if (info->fill_type == UveTagData::SET) {
                 info->label_set.insert(IntegerToHexString(*it));
+                break;
+            } else if (info->fill_type == UveTagData::VECTOR) {
+                info->label_vector.push_back(IntegerToHexString(*it));
                 break;
             }
             if (!info->labels.empty()) {
@@ -131,8 +140,11 @@ void AgentUveBase::BuildTagIdsFromList(const TagList &tl, UveTagData *info)
             info->labels.append(IntegerToHexString(*it));
             break;
         default:
-            if (info->use_set) {
+            if (info->fill_type == UveTagData::SET) {
                 info->custom_tag_set.insert(IntegerToHexString(*it));
+                break;
+            } else if (info->fill_type == UveTagData::VECTOR) {
+                info->custom_tag_vector.push_back(IntegerToHexString(*it));
                 break;
             }
             if (!info->custom_tags.empty()) {

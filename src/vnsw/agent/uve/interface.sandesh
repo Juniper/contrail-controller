@@ -230,18 +230,6 @@ struct UveVMInterfaceAgent {
    39: optional u16 rx_vlan;
    /** Parent interface name */
    40: optional string parent_interface;
-   /** Name of Application */
-   44: optional string app;
-   /** Name of Tier */
-   45: optional string tier;
-   /** Name of site */
-   46: optional string site;
-   /** Name of deployment */
-   47: optional string deployment;
-   /** semi-colon separated list of labels */
-   51: string labels;
-   /** semi-colon separated list of custom_tags */
-   52: string custom_tags;
    /** Firewall policy rules along with its policy set name */
    48: optional list<string> policy_rules;
    /** Vhostuser mode */
@@ -337,4 +325,36 @@ objectlog sandesh EndpointSecurityStats {
     /** The key of this map is Security Policy name and rule-uuid */
     /** @display_name:Security Policy Endpoint Statistics*/
     2: map<string, EndpointStats> eps (tags=".__key")
+}
+
+/**
+ * Structure definition for holding virtual-machine-interface name and tags
+ */
+struct VMITags {
+    /** Name of Virtual Machine Interface */
+    1: string  name (key="ObjectVMITable")
+    /** Value 'true' indicates VMI is removed. Holds value of 'false' otherwise*/
+    2: optional bool deleted
+    /** Name of Application */
+    3: optional string app;
+    /** Name of Tier */
+    4: optional string tier;
+    /** Name of site */
+    5: optional string site;
+    /** Name of deployment */
+    6: optional string deployment;
+    /** semi-colon separated list of labels */
+    7: optional list<string> labels;
+    /** semi-colon separated list of custom_tags */
+    8: optional list<string> custom_tags;
+}
+
+/**
+ * @description: Uve for virtual-machine-interface tags
+ * @type: uve
+ * @object: virtual-machine-interface
+ */
+uve sandesh UVEVMITags {
+    /** Virtual Machine interface details */
+    1: VMITags data;
 }
