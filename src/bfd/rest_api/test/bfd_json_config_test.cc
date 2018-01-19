@@ -2,10 +2,12 @@
  * Copyright (c) 2014 CodiLime, Inc. All rights reserved.
  */
 
+#include "base/logging.h"
+#include "base/regex.h"
 #include "bfd/rest_api/bfd_json_config.h"
 
+typedef contrail::regex regex_t;
 #include <testing/gunit.h>
-#include <base/logging.h>
 
 using namespace BFD;
 
