@@ -4,16 +4,13 @@
 
 #include "bgp/bgp_show_handler.h"
 
-#include <boost/regex.hpp>
-
+#include "base/regex.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_server.h"
 #include "bgp/ermvpn/ermvpn_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using boost::regex;
-using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -51,7 +48,7 @@ bool BgpShowHandler<ShowMulticastManagerReq, ShowMulticastManagerReqIterate,
     uint32_t iter_limit = bsc->iter_limit() ? bsc->iter_limit() : kIterLimit;
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
 
-    regex search_expr(data->search_string);
+    Regex search_expr(data->search_string);
     RoutingInstanceMgr::const_name_iterator it =
         rim->name_clower_bound(data->next_entry);
     for (uint32_t iter_count = 0; it != rim->name_cend(); ++it, ++iter_count) {
@@ -60,7 +57,7 @@ bool BgpShowHandler<ShowMulticastManagerReq, ShowMulticastManagerReqIterate,
             rtinstance->GetTable(Address::ERMVPN));
         if (!table)
             continue;
-        if ((!regex_search(table->name(), search_expr)) &&
+        if ((!search_expr.regex_search(table->name())) &&
             (data->search_string != "deleted" || !table->IsDeleted())) {
             continue;
         }

@@ -6,7 +6,7 @@
 #define __XMPP_SESSION_H__
 
 #include <string>
-#include <boost/regex.hpp>
+#include "base/regex.h"
 #include "io/ssl_server.h"
 #include "io/ssl_session.h"
 
@@ -52,8 +52,8 @@ private:
     static const int kSessionKeepaliveProbes = 3; // # unack probe
     typedef std::deque<Buffer> BufferQueue;
 
-    boost::regex tag_to_pattern(const char *); 
-    int MatchRegex(const boost::regex &patt);
+    Regex tag_to_pattern(const char *);
+    int MatchRegex(const Regex &patt);
     bool Match(Buffer buffer, int *result, bool NewBuf);
     void SetBuf(const std::string &);
     void ReplaceBuf(const std::string &);
@@ -75,14 +75,14 @@ private:
     int tcp_user_timeout_;
     bool stream_open_matched_;
 
-    static const boost::regex patt_;
-    static const boost::regex stream_patt_;
-    static const boost::regex stream_res_end_;
-    static const boost::regex whitespace_;
-    static const boost::regex stream_features_patt_;
-    static const boost::regex starttls_patt_;
-    static const boost::regex proceed_patt_;
-    static const boost::regex end_patt_;
+    static const Regex patt_;
+    static const Regex stream_patt_;
+    static const Regex stream_res_end_;
+    static const Regex whitespace_;
+    static const Regex stream_features_patt_;
+    static const Regex starttls_patt_;
+    static const Regex proceed_patt_;
+    static const Regex end_patt_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppSession);
 };

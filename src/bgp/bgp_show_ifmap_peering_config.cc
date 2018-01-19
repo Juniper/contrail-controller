@@ -5,16 +5,14 @@
 #include "bgp/bgp_show_handler.h"
 
 #include <boost/foreach.hpp>
-#include <boost/regex.hpp>
 
+#include "base/regex.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "schema/bgp_schema_types.h"
 
-using boost::regex;
-using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -62,7 +60,7 @@ bool BgpShowHandler<ShowBgpPeeringConfigReq, ShowBgpPeeringConfigReqIterate,
     if (!bcm)
         return true;
 
-    regex search_expr(data->search_string);
+    Regex search_expr(data->search_string);
     BgpConfigManager::InstanceMapRange range =
         bcm->InstanceMapItems(data->next_entry);
     BgpConfigManager::InstanceMap::const_iterator it = range.first;
@@ -75,7 +73,7 @@ bool BgpShowHandler<ShowBgpPeeringConfigReq, ShowBgpPeeringConfigReqIterate,
         BOOST_FOREACH(BgpIfmapInstanceConfig::PeeringMap::value_type value,
             instance->peerings()) {
             const BgpIfmapPeeringConfig *peering = value.second;
-            if (!regex_search(peering->name(), search_expr))
+            if (!search_expr.regex_search(peering->name()))
                 continue;
             ShowBgpPeeringConfig sbpc;
             FillBgpPeeringConfigInfo(&sbpc, bsc, peering);

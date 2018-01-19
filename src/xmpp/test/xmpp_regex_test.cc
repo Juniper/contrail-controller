@@ -9,6 +9,7 @@
 #include "xmpp/xmpp_str.h"
 
 #include "base/logging.h"
+#include "base/regex.h"
 #include "base/util.h"
 #include "xmpp/xmpp_config.h"
 
@@ -22,8 +23,8 @@ public:
         : XmppSession(manager, sock), p1("<(iq|message)"), bufx_("") { }
     ~XmppRegexMock() { }
 
-    //boost::regex Regex() { return p1; }
-    void SetRegex(const char *ss) { p1 = ss; }
+    //Regex Regex() { return p1; }
+    void SetRegex(const char *ss) { p1 = Regex(ss); }
 
     void AppendString(const string &str) {
         bufx_ += str;
@@ -58,7 +59,7 @@ public:
     }
 
 private:
-    boost::regex p1;
+    Regex p1;
     string bufx_;
     string tag_;
 };

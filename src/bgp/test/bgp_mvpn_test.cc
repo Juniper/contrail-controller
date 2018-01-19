@@ -4,8 +4,8 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/format.hpp>
-#include <boost/regex.hpp>
 
+#include "base/regex.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "db/db_table_walker.h"
@@ -28,8 +28,6 @@
 using boost::format;
 using boost::assign::list_of;
 using boost::smatch;
-using boost::regex;
-using boost::regex_search;
 using boost::scoped_ptr;
 using boost::starts_with;
 using boost::system::error_code;
@@ -90,9 +88,9 @@ public:
 private:
 
     string GetRIIndex(const std::string &name) {
-        static regex pattern("(\\d+)$");
+        static Regex pattern("(\\d+)$");
         smatch match;
-        if (regex_search(name, match, pattern))
+        if (pattern.regex_search(name, match))
             return match[1];
         return "";
     }

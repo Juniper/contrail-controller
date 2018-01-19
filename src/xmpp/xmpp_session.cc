@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/regex.h"
 #include "xmpp/xmpp_session.h"
 
 #include "xmpp/xmpp_connection.h"
@@ -17,14 +18,14 @@ using namespace std;
 
 using boost::asio::mutable_buffer;
 
-const boost::regex XmppSession::patt_(rXMPP_MESSAGE);
-const boost::regex XmppSession::stream_patt_(rXMPP_STREAM_START);
-const boost::regex XmppSession::stream_res_end_(rXMPP_STREAM_END);
-const boost::regex XmppSession::whitespace_(sXMPP_WHITESPACE);
-const boost::regex XmppSession::stream_features_patt_(rXMPP_STREAM_FEATURES);
-const boost::regex XmppSession::starttls_patt_(rXMPP_STREAM_STARTTLS);
-const boost::regex XmppSession::proceed_patt_(rXMPP_STREAM_PROCEED);
-const boost::regex XmppSession::end_patt_(rXMPP_STREAM_STANZA_END);
+const Regex XmppSession::patt_(rXMPP_MESSAGE);
+const Regex XmppSession::stream_patt_(rXMPP_STREAM_START);
+const Regex XmppSession::stream_res_end_(rXMPP_STREAM_END);
+const Regex XmppSession::whitespace_(sXMPP_WHITESPACE);
+const Regex XmppSession::stream_features_patt_(rXMPP_STREAM_FEATURES);
+const Regex XmppSession::starttls_patt_(rXMPP_STREAM_STARTTLS);
+const Regex XmppSession::proceed_patt_(rXMPP_STREAM_PROCEED);
+const Regex XmppSession::end_patt_(rXMPP_STREAM_STANZA_END);
 
 XmppSession::XmppSession(XmppConnectionManager *manager, SslSocket *socket,
     bool async_ready)
@@ -124,12 +125,12 @@ boost::system::error_code XmppSession::EnableTcpKeepalive(int hold_time) {
                                       tcp_user_timeout_));
 }
 
-boost::regex XmppSession::tag_to_pattern(const char *tag) {
+Regex XmppSession::tag_to_pattern(const char *tag) {
     std::string token("</");
     token += ++tag;
     token += "[\\s\\t\\r\\n]*>";
 
-    boost::regex exp(token.c_str());
+    Regex exp(token.c_str());
     return exp;
 }
 
@@ -157,11 +158,11 @@ bool XmppSession::LeftOver() const {
 
 // Match a pattern in the buffer. Partially matched string is
 // kept in buf_ for use in conjucntion with next buffer read.
-int XmppSession::MatchRegex(const boost::regex &patt) {
+int XmppSession::MatchRegex(const Regex &patt) {
 
     std::string::const_iterator end = buf_.end();
 
-    if (regex_search(offset_, end, res_, patt, 
+    if (!patt.status() && boost::regex_search(offset_, end, res_, patt,
                      boost::match_default | boost::match_partial) == 0) {
         return -1;
     }
@@ -172,7 +173,7 @@ int XmppSession::MatchRegex(const boost::regex &patt) {
     } else {
         begin_tag_ = string(res_[0].first, res_[0].second);
         offset_ = res_[0].second;
-        return 0; 
+        return 0;
     }
 }
 
@@ -209,7 +210,7 @@ bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
 
         if (state == xmsm::ACTIVE || state == xmsm::IDLE) {
             m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
-        } else if (state == xmsm::CONNECT || state == xmsm::OPENSENT) { 
+        } else if (state == xmsm::CONNECT || state == xmsm::OPENSENT) {
             // Note, these are client only states
             if (!stream_open_matched_) {
                 m = MatchRegex(tag_known_ ? stream_res_end_:stream_patt_);
@@ -250,8 +251,8 @@ bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
         }
 
         if (m == 0) { // full match
-            *result = 0; 
-            tag_known_ ^= 1; 
+            *result = 0;
+            tag_known_ ^= 1;
             if (!tag_known_) {
                 // Found well formed xml
                 return false;
@@ -267,7 +268,7 @@ bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
 }
 
 // Read the socket stream and send messages to the connection object.
-// The buffer is copied to local string for regex match. 
+// The buffer is copied to local string for regex match.
 // TODO Code need to change st Match() is done on buffer itself.
 void XmppSession::OnRead(Buffer buffer) {
     if (this->Connection() == NULL || !connection_) {

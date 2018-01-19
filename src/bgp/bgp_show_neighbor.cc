@@ -4,16 +4,13 @@
 
 #include "bgp/bgp_show_handler.h"
 
-#include <boost/regex.hpp>
-
+#include "base/regex.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using boost::regex;
-using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -24,12 +21,12 @@ static bool FillBgpNeighborInfoList(const BgpSandeshContext *bsc,
     bool summary, uint32_t page_limit, uint32_t iter_limit,
     const string &start_neighbor, const string &search_string,
     vector<BgpNeighborResp> *show_list, string *next_instance) {
-    regex search_expr(search_string);
+    Regex search_expr(search_string);
 
     for (const BgpPeer *peer = bsc->bgp_server->FindNextPeer(); peer != NULL;
          peer = bsc->bgp_server->FindNextPeer(peer->peer_name())) {
-        if ((!regex_search(peer->peer_basename(), search_expr)) &&
-            (!regex_search(peer->peer_address_string(), search_expr)) &&
+        if ((!search_expr.regex_search(peer->peer_basename())) &&
+            (!search_expr.regex_search(peer->peer_address_string())) &&
             (search_string != "deleted" || !peer->IsDeleted())) {
             continue;
         }

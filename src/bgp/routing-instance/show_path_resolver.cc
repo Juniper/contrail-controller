@@ -4,16 +4,13 @@
 
 #include "bgp/bgp_show_handler.h"
 
-#include <boost/regex.hpp>
-
+#include "base/regex.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using boost::regex;
-using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -26,7 +23,7 @@ static bool FillPathResolverInfoList(const BgpSandeshContext *bsc,
     bool summary, uint32_t page_limit, uint32_t iter_limit,
     const string &start_instance, const string &search_string,
     vector<ShowPathResolver> *spr_list, string *next_instance) {
-    regex search_expr(search_string);
+    Regex search_expr(search_string);
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     RoutingInstanceMgr::const_name_iterator it1 =
         rim->name_clower_bound(start_instance);
@@ -37,7 +34,7 @@ static bool FillPathResolverInfoList(const BgpSandeshContext *bsc,
              rtinstance->GetTables().begin();
              it2 != rtinstance->GetTables().end(); ++it2, ++iter_count) {
             const BgpTable *table = it2->second;
-            if ((!regex_search(table->name(), search_expr)) &&
+            if ((!search_expr.regex_search(table->name())) &&
                 (search_string != "deleted" || !table->IsDeleted())) {
                 continue;
             }

@@ -6,12 +6,12 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
-#include <boost/regex.hpp>
 
 #include <limits>
 #include <sstream>
 #include <vector>
 
+#include "base/regex.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
@@ -67,8 +67,6 @@ using autogen::TunnelEncapsulationListType;
 using autogen::TagListType;
 
 using boost::assign::list_of;
-using boost::regex;
-using boost::regex_search;
 using boost::smatch;
 using boost::system::error_code;
 using pugi::xml_node;
@@ -420,7 +418,7 @@ bool BgpXmppChannel::SkipUpdateSend() {
     // Cache the result to avoid redundant regex evaluation
     if (!skip_update_send_cached_) {
         smatch matches;
-        skip_update_send_ = regex_search(ToString(), matches, regex(skip_env_));
+        skip_update_send_ = Regex(skip_env_).regex_search(ToString(), matches);
         skip_update_send_cached_ = true;
     }
     return skip_update_send_;

@@ -5,7 +5,7 @@
 #ifndef SRC_BGP_BGP_SHOW_ROUTE_H__
 #define SRC_BGP_BGP_SHOW_ROUTE_H__
 
-#include <boost/regex.hpp>
+#include "base/regex.h"
 #include "bgp/bgp_peer_types.h"
 #include "sandesh/request_pipeline.h"
 
@@ -66,7 +66,7 @@ public:
 private:
     const ShowRouteReq *req_;
     int inst_id_;
-    boost::regex prefix_expr_;
+    Regex prefix_expr_;
 };
 
 #endif  // SRC_BGP_BGP_SHOW_HANDLER_H__

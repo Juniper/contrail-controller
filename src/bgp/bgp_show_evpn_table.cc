@@ -4,16 +4,13 @@
 
 #include "bgp/bgp_show_handler.h"
 
-#include <boost/regex.hpp>
-
+#include "base/regex.h"
 #include "bgp/bgp_evpn.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/routing-instance/routing_instance.h"
 
-using boost::regex;
-using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -52,7 +49,7 @@ static bool FillEvpnTableInfoList(const BgpSandeshContext *bsc,
     bool summary, uint32_t page_limit, uint32_t iter_limit,
     const string &start_instance, const string &search_string,
     vector<ShowEvpnTable> *sevt_list, string *next_instance) {
-    regex search_expr(search_string);
+    Regex search_expr(search_string);
     RoutingInstanceMgr *rim = bsc->bgp_server->routing_instance_mgr();
     RoutingInstanceMgr::const_name_iterator it =
         rim->name_clower_bound(start_instance);
@@ -62,7 +59,7 @@ static bool FillEvpnTableInfoList(const BgpSandeshContext *bsc,
             static_cast<const EvpnTable *>(rtinstance->GetTable(Address::EVPN));
         if (!table)
             continue;
-        if ((!regex_search(table->name(), search_expr)) &&
+        if ((!search_expr.regex_search(table->name())) &&
             (search_string != "deleted" || !table->IsDeleted())) {
             continue;
         }

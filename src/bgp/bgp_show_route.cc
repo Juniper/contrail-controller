@@ -6,9 +6,9 @@
 #include "bgp/bgp_show_route.h"
 
 #include <boost/assign/list_of.hpp>
-#include <boost/regex.hpp>
 #include <sandesh/request_pipeline.h>
 
+#include "base/regex.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
@@ -16,8 +16,6 @@
 #include "bgp/routing-instance/routing_instance.h"
 
 using boost::assign::list_of;
-using boost::regex;
-using boost::regex_search;
 using std::auto_ptr;
 using std::string;
 using std::vector;
@@ -179,7 +177,7 @@ bool ShowRouteHandler::MatchPrefix(const string &expected_prefix,
     if (expected_prefix.empty())
         return true;
     if (!longer_match && !shorter_match)
-        return regex_search(route->ToString(), prefix_expr_);
+        return prefix_expr_.regex_search(route->ToString());
 
     // Do longer match.
     if (longer_match && route->IsMoreSpecific(expected_prefix))

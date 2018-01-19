@@ -17,8 +17,6 @@
 #include "bgp/bgp_path.h"
 #include "net/community_type.h"
 
-using boost::regex;
-using boost::regex_match;
 using std::includes;
 using std::map;
 using std::ostringstream;
@@ -48,7 +46,7 @@ MatchCommunity::MatchCommunity(const vector<string> &communities,
 
     // Build a vector of regexs corresponding to the regex strings.
     BOOST_FOREACH(string regex_str, regex_strings()) {
-        to_match_regexs_.push_back(regex(regex_str));
+        to_match_regexs_.push_back(Regex(regex_str));
     }
 }
 
@@ -76,11 +74,11 @@ bool MatchCommunity::MatchAll(const BgpAttr *attr) const {
 
     // Make sure that each regex in this MatchCommunity is matched by one
     // of the communities in the BgpAttr.
-    BOOST_FOREACH(const regex &match_expr, regexs()) {
+    BOOST_FOREACH(const Regex &match_expr, regexs()) {
         bool matched = false;
         BOOST_FOREACH(uint32_t community, comm->communities()) {
             string community_str = CommunityType::CommunityToString(community);
-            if (regex_match(community_str, match_expr)) {
+            if (match_expr.regex_match(community_str)) {
                 matched = true;
                 break;
             }
@@ -113,8 +111,8 @@ bool MatchCommunity::MatchAny(const BgpAttr *attr) const {
     // the community regexs.
     BOOST_FOREACH(uint32_t community, comm->communities()) {
         string community_str = CommunityType::CommunityToString(community);
-        BOOST_FOREACH(const regex &match_expr, regexs()) {
-            if (regex_match(community_str, match_expr))
+        BOOST_FOREACH(const Regex &match_expr, regexs()) {
+            if (match_expr.regex_match(community_str))
                 return true;
         }
     }

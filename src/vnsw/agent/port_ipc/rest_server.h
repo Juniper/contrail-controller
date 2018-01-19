@@ -5,7 +5,7 @@
 #ifndef _ROOT_REST_SERVER_H_
 #define _ROOT_REST_SERVER_H_
 
-#include <boost/regex.hpp>
+#include "base/regex.h"
 #include "http/http_request.h"
 #include "http/http_session.h"
 #include "http/client/http_client.h"
@@ -34,14 +34,14 @@ class RESTServer {
      public:
         typedef void (RESTServer::*HandlerFunc)(const struct RESTData&);
 
-        HandlerSpecifier(const boost::regex& request_regex,
+        HandlerSpecifier(const Regex& request_regex,
                          enum http_method method,
                          HandlerFunc handler_func)
             : request_regex(request_regex),
               method(method),
               handler_func(handler_func) {}
 
-        boost::regex request_regex;
+        Regex request_regex;
         enum http_method method;
         HandlerFunc handler_func;
     };

@@ -1239,6 +1239,31 @@ TEST_F(ShowRouteTest2, MatchingPrefix16) {
     }
 }
 
+// Limit routes by regex prefix.
+// Use invalid regex pattern.
+TEST_F(ShowRouteTest2, InvalidRegex) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *prefix_formats[] = {
+        "192.168.14",
+        "168.17",
+        "168.1[4-9", // Invalid due to missing ']'
+    };
+    BOOST_FOREACH(const char *prefix, prefix_formats) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+        show_req->set_prefix(prefix);
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
 // Start from middle of blue table and go through red table.
 TEST_F(ShowRouteTest2, StartPrefix1) {
     BgpSandeshContext sandesh_context;

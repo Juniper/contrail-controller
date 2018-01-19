@@ -4,14 +4,11 @@
 
 #include "bgp/bgp_show_handler.h"
 
-#include <boost/regex.hpp>
-
+#include "base/regex.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 
-using boost::regex;
-using boost::regex_search;
 using std::string;
 using std::vector;
 
@@ -38,13 +35,13 @@ static bool FillRtGroupInfoList(const BgpSandeshContext *bsc,
     if (match_peer && search_string.empty())
         return true;
 
-    regex search_expr(search_string);
+    Regex search_expr(search_string);
     const RTargetGroupMgr *rtgroup_mgr = bsc->bgp_server->rtarget_group_mgr();
     RTargetGroupMgr::const_iterator it = rtgroup_mgr->lower_bound(rtarget);
     for (uint32_t iter_count = 0; it != rtgroup_mgr->end();
          ++it, ++iter_count) {
         const RtGroup *rtgroup = it->second;
-        if (!match_peer && !regex_search(rtgroup->ToString(), search_expr))
+        if (!match_peer && !search_expr.regex_search(rtgroup->ToString()))
             continue;
         ShowRtGroupInfo srtg;
         if (match_peer) {
