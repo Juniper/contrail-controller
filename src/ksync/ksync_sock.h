@@ -28,6 +28,7 @@
 #define KSYNC_DEFAULT_Q_ID_SEQ    0x00000001
 #define KSYNC_ACK_WAIT_THRESHOLD  200
 #define KSYNC_SOCK_RECV_BUFF_SIZE (256 * 1024)
+#define KSYNC_BMC_ARR_SIZE        1024
 
 class KSyncEntry;
 class KSyncIoContext;
@@ -230,6 +231,8 @@ public:
     void AddReceiveBuffer(char *buff);
     char *GetReceiveBuffer();
     uint32_t work_queue_index() const { return work_queue_index_; }
+    void set_seqno(uint32_t seq) { seqno_ = seq; }
+    uint32_t seqno() { return seqno_; }
 private:
     friend class KSyncBulkSandeshContext;
     // List of IoContext to be processed in this context
@@ -253,6 +256,7 @@ private:
     uint32_t vr_response_count_;
     // Iterator to IoContext being processed
     IoContextList::iterator io_context_list_it_;
+    uint32_t seqno_;
 };
 
 class KSyncBulkSandeshContext : public AgentSandeshContext {
@@ -386,10 +390,14 @@ public:
     uint32_t WaitTreeSize() const;
     void SetSeqno(uint32_t seq);
     void SetMeasureQueueDelay(bool val);
+    void reset_use_wait_tree() { use_wait_tree_ = false; }
+    void set_process_data_inline() { process_data_inline_ = true; }
 protected:
     static void Init(bool use_work_queue, const std::string &cpu_pin_policy);
     static void SetSockTableEntry(KSyncSock *sock);
     bool ValidateAndEnqueue(char *data, KSyncBulkMsgContext *context);
+    KSyncBulkSandeshContext *GetBulkSandeshContext(uint32_t seqno);
+    void ProcessDataInline(char *data);
 
     tbb::mutex mutex_;
     nl_client *nl_client_;
@@ -413,6 +421,10 @@ protected:
     uint32_t bulk_buf_size_;
     // Current message count in bulk context
     uint32_t bulk_msg_count_;
+
+    uint32_t bmca_prod_;
+    uint32_t bmca_cons_;
+    KSyncBulkMsgContext *bulk_mctx_arr_[KSYNC_BMC_ARR_SIZE];
 
 private:
     friend class KSyncTxQueue;
@@ -449,6 +461,8 @@ private:
     // The IoContext WaitTree is not used when response is read-inline
     bool read_inline_;
     KSyncBulkMsgContext *bulk_msg_context_;
+    bool use_wait_tree_;
+    bool process_data_inline_;
     KSyncBulkSandeshContext ksync_bulk_sandesh_context_[kRxWorkQueueCount];
     KSyncBulkSandeshContext uve_bulk_sandesh_context_[kRxWorkQueueCount];
 
@@ -570,6 +584,7 @@ public:
     virtual std::size_t SendTo(KSyncBufferList *iovec, uint32_t seq_no);
     virtual void Receive(boost::asio::mutable_buffers_1);
     virtual TcpSession *AllocSession(Socket *socket);
+    virtual bool Run(void);
 
     bool ReceiveMsg(const u_int8_t *msg, size_t size);
     void OnSessionEvent(TcpSession *session, TcpSession::Event event);
@@ -585,6 +600,10 @@ private:
     EventManager *evm_;
     TcpSession *session_;
     boost::asio::ip::tcp::endpoint server_ep_;
+    boost::asio::ip::tcp::socket *tcp_socket_;
     bool connect_complete_;
+    char *rx_buff_;
+    char *rx_buff_rem_;
+    size_t remain_;
 };
 #endif // ctrlplane_ksync_sock_h

@@ -218,6 +218,7 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'ksyncnl',
     'kstate',
     'vrutil',
+    'tcmalloc',
 ])
 
 if sys.platform != 'win32':
