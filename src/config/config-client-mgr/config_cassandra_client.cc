@@ -11,7 +11,6 @@
 #include <boost/foreach.hpp>
 #include <boost/functional/hash.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
-#include <boost/regex.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <map>
 #include <set>
@@ -21,6 +20,7 @@
 
 #include "base/connection_info.h"
 #include "base/logging.h"
+#include "base/regex.h"
 #include "base/task.h"
 #include "base/task_annotations.h"
 #include "base/task_trigger.h"
@@ -33,8 +33,9 @@
 #include "config_client_show_types.h"
 #include "sandesh/common/vns_constants.h"
 
-using boost::regex;
-using boost::regex_search;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::auto_ptr;
 using std::multimap;
 using std::set;
