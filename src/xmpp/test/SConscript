@@ -23,16 +23,17 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
 libxmpptest = env.Library('xmpptest',
                          ['xmpp_sample_peer.cc'])
 
-env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh', 
+env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh',
                     'http', 'http_parser', 'curl', 'process_info',
                     'io', 'ssl', 'crypto', 'sandeshvns', 'control_node',
-                    'ifmapio', 'ifmap_vnc', 'bgp_schema', 'ifmap_server',
-                    'ifmap_common', 'peer_sandesh', 'cassandra_cql',
-                    'cassandra', 'gendb', 'SimpleAmqpClient', 'rabbitmq',
-                    'base', 'boost_regex', 'xmpptest', 'db', 'sandesh'])
+                    'bgp_schema', 'peer_sandesh', 'gendb', 'SimpleAmqpClient',
+                    'rabbitmq', 'base', 'boost_regex', 'xmpptest', 'db', 'sandesh'])
 
 if sys.platform == 'win32':
-    env.Append(LIBS = ['advapi32', 'gdi32'])
+    env.Append(LIBS = ['advapi32', 'gdi32', 'user32'])
+else:
+    env.Append(LIBS = ['ifmapio', 'ifmap_vnc', 'ifmap_server',
+                       'ifmap_common', 'cassandra_cql', 'cassandra'])
 
 if sys.platform not in ['win32', 'darwin']:
     env.Append(LIBS = ['rt'])
