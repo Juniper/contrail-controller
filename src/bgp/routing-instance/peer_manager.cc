@@ -4,8 +4,6 @@
 
 #include "bgp/routing-instance/peer_manager.h"
 
-#include <boost/regex.hpp>
-
 #include "base/task_annotations.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
@@ -17,8 +15,6 @@
 
 struct BgpSandeshContext;
 
-using boost::regex;
-using boost::regex_search;
 using std::make_pair;
 using std::string;
 using std::vector;
