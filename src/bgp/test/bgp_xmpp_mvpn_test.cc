@@ -99,7 +99,7 @@ protected:
     }
 
     void AddMvpnRoute(BgpTable *table, const string &prefix_str,
-                      const string &target) {
+                      const string &target, bool add_leaf_req = false) {
         MvpnPrefix prefix(MvpnPrefix::FromString(prefix_str));
         DBRequest add_req;
         add_req.key.reset(new MvpnTable::RequestKey(prefix, NULL));
@@ -109,6 +109,12 @@ protected:
         RouteTarget tgt = RouteTarget::FromString(target);
         commspec->communities.push_back(tgt.GetExtCommunityValue());
         attr_spec.push_back(commspec);
+
+	if (add_leaf_req) {
+            PmsiTunnelSpec *pmsi_spec(new PmsiTunnelSpec());
+            pmsi_spec->tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
+            attr_spec.push_back(pmsi_spec);
+	}
 
         BgpAttrPtr attr = bs_x_->attr_db()->Locate(attr_spec);
         STLDeleteValues(&attr_spec);
@@ -621,7 +627,7 @@ TEST_F(BgpXmppMvpnMultiAgentTest, ValidateShowMvpnProjectManagerDetail) {
     }
 
     string prefix = "3-10.1.1.1:65535,9.8.7.6,225.0.0.1,192.168.1.1";
-    AddMvpnRoute(master, prefix, "target:1:1");
+    AddMvpnRoute(master, prefix, "target:1:1", true);
 
     // Verify that all routes are added once.
     TASK_UTIL_EXPECT_EQ(sizeof(mroute_list)/sizeof(mroute_list[0]) + 3,

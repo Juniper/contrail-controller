@@ -369,7 +369,6 @@ public:
         return mvpn_project_managers_;
     }
     size_t GetMvpnProjectManagerCount(const std::string &network) const;
-    tbb::mutex &mvpn_mutex() { return mvpn_mutex_; }
 
 private:
     friend class BgpConfigTest;
@@ -420,7 +419,6 @@ private:
     typedef std::map<std::string, std::set<std::string> > VirtualNetworksMap;
     VirtualNetworksMap virtual_networks_;
 
-    mutable tbb::mutex mvpn_mutex_;
     MvpnProjectManagerNetworks mvpn_project_managers_;
 };
 

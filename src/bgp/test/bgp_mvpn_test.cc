@@ -464,7 +464,8 @@ protected:
     }
 
     void AddMvpnRoute(BgpTable *table, const string &prefix_str,
-                      const string &target, BgpAttrSourceRd *source_rd = NULL) {
+                      const string &target, BgpAttrSourceRd *source_rd = NULL,
+                      bool add_leaf_req = false) {
         for (size_t i = 0; i < paths_count_; i++) {
             MvpnPrefix prefix(MvpnPrefix::FromString(prefix_str));
             DBRequest add_req;
@@ -477,6 +478,12 @@ protected:
             attr_spec.push_back(commspec);
             if (source_rd)
                 attr_spec.push_back(source_rd);
+
+	    if (add_leaf_req) {
+                PmsiTunnelSpec *pmsi_spec(new PmsiTunnelSpec());
+                pmsi_spec->tunnel_flags = PmsiTunnelSpec::LeafInfoRequired;
+                attr_spec.push_back(pmsi_spec);
+	    }
 
             BgpAttrPtr attr = server_->attr_db()->Locate(attr_spec);
             if (source_rd)
@@ -633,7 +640,7 @@ protected:
         VerifyWithProjectManager(red1c, blue1c, green1c, masterc);
 
         // Delete and add ProjectManager a few times and verify.
-        for (int i = 0; i < 0; i++) {
+        for (int i = 0; i < 3; i++) {
             DeleteProjectManagerRoutingInstance();
             VerifyWithNoProjectManager(red1_nopm_c, blue1_nopm_c, green1_nopm_c,
                                        master_nopm_c);
