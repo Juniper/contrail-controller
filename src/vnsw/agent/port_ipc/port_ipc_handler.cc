@@ -75,6 +75,15 @@ static bool GetUuidMember(const contrail_rapidjson::Value &d, const char *member
     return true;
 }
 
+static void InterfaceResync(Agent *agent, const uuid &u, const string &name,
+                            bool link_status) {
+    InterfaceTable *table = agent->interface_table();
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, u, name));
+    req.data.reset(new VmInterfaceOsOperStateData(link_status));
+    table->Enqueue(&req);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // PortIpcHandler methods
 /////////////////////////////////////////////////////////////////////////////
@@ -403,8 +412,7 @@ bool PortIpcHandler::ValidateMac(const string &mac) const {
     return true;
 }
 
-bool PortIpcHandler::DeletePort(const string &json, const string &url,
-                                string &err_msg) {
+bool PortIpcHandler::DeletePort(const string &url, string &err_msg) {
     uuid vmi_uuid = StringToUuid(url);
     if (vmi_uuid != nil_uuid()) {
         DeleteVmiUuidEntry(vmi_uuid, err_msg);
@@ -431,6 +439,46 @@ void PortIpcHandler::DeleteVmiUuidEntry(const uuid &u, string &err_msg) {
             err_msg = "Error deleting file " + file;
         }
     }
+}
+
+bool PortIpcHandler::EnablePort(const string &url, string &err_msg) {
+    uuid u = StringToUuid(url);
+    if (u == nil_uuid()) {
+        err_msg = "Port Not found " + url;
+        return false;
+    }
+    PortSubscribeEntryPtr entry = port_subscribe_table_->GetVmi(u);
+    if (entry.get() == NULL) {
+        err_msg = "Port Not found " + url;
+        return false;
+    }
+    if (entry->type() != PortSubscribeEntry::REMOTE_PORT) {
+        err_msg = "Incorrect Port type for " + url;
+        return false;
+    }
+    InterfaceResync(agent_, u, entry->ifname(), true);
+    CONFIG_TRACE(DeletePortEnqueue, "Enable", url, entry->version());
+    return true;
+}
+
+bool PortIpcHandler::DisablePort(const string &url, string &err_msg) {
+    uuid u = StringToUuid(url);
+    if (u == nil_uuid()) {
+        err_msg = "Port Not found " + url;
+        return false;
+    }
+    PortSubscribeEntryPtr entry = port_subscribe_table_->GetVmi(u);
+    if (entry.get() == NULL) {
+        err_msg = "Port Not found " + url;
+        return false;
+    }
+    if (entry->type() != PortSubscribeEntry::REMOTE_PORT) {
+        err_msg = "Incorrect Port type for " + url;
+        return false;
+    }
+    InterfaceResync(agent_, u, entry->ifname(), false);
+    CONFIG_TRACE(DeletePortEnqueue, "Disable", url, entry->version());
+    return true;
 }
 
 bool PortIpcHandler::IsUUID(const string &uuid_str) const {

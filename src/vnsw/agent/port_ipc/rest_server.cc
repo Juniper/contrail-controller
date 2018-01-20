@@ -47,7 +47,7 @@ void RESTServer::VmPortDeleteHandler(const struct RESTData& data) {
     const std::string& port_id = (*data.match)[1];
     PortIpcHandler *pih = agent_->port_ipc_handler();
     if (pih) {
-        if (pih->DeletePort(data.request->Body(), port_id, error)) {
+        if (pih->DeletePort(port_id, error)) {
             REST::SendResponse(data.session, "{}");
         } else {
             REST::SendErrorResponse(data.session, "{" + error + "}");
@@ -160,6 +160,36 @@ void RESTServer::VmVnPortCfgGetHandler(const struct RESTData& data) {
     }
 }
 
+void RESTServer::VmPortEnableHandler(const struct RESTData& data) {
+    std::string error;
+    const std::string& port_id = (*data.match)[1];
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        if (pih->EnablePort(port_id, error)) {
+            REST::SendResponse(data.session, "{}");
+        } else {
+            REST::SendErrorResponse(data.session, "{" + error + "}");
+        }
+    } else {
+        REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
+void RESTServer::VmPortDisableHandler(const struct RESTData& data) {
+    std::string error;
+    const std::string& port_id = (*data.match)[1];
+    PortIpcHandler *pih = agent_->port_ipc_handler();
+    if (pih) {
+        if (pih->DisablePort(port_id, error)) {
+            REST::SendResponse(data.session, "{}");
+        } else {
+            REST::SendErrorResponse(data.session, "{" + error + "}");
+        }
+    } else {
+        REST::SendErrorResponse(data.session, "{ Operation Not Supported }");
+    }
+}
+
 const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
     boost::assign::list_of
     (HandlerSpecifier(
@@ -206,7 +236,17 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         boost::regex("/vm-cfg/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
                      "[0-9a-f]{12})"),
         HTTP_GET,
-        &RESTServer::VmVnPortCfgGetHandler));
+        &RESTServer::VmVnPortCfgGetHandler))
+    (HandlerSpecifier(
+        boost::regex("/enable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                     "[0-9a-f]{4}-[0-9a-f]{12})"),
+        HTTP_POST,
+        &RESTServer::VmPortEnableHandler))
+    (HandlerSpecifier(
+        boost::regex("/disable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                     "[0-9a-f]{4}-[0-9a-f]{12})"),
+        HTTP_POST,
+        &RESTServer::VmPortDisableHandler));
 
 RESTServer::RESTServer(Agent *agent)
     : agent_(agent), http_server_(new HttpServer(agent->event_manager())) {

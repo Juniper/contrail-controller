@@ -994,7 +994,9 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
     vmi->GetOsParams(table->agent());
     /* In DPDK mode (where we have interfaces of type TRANSPORT_PMD), oper_state
      * is updated based on Netlink notification received from vrouter */
-    if (vmi->transport_ == Interface::TRANSPORT_PMD) {
+    if ((vmi->transport_ == Interface::TRANSPORT_PMD) ||
+        (vmi->device_type() == VmInterface::VM_PHYSICAL_VLAN) ||
+        (vmi->device_type() == VmInterface::VM_PHYSICAL_MAC)) {
         if (vmi->os_oper_state_ != oper_state_) {
             vmi->os_oper_state_ = oper_state_;
             ret = true;
