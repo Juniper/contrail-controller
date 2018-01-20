@@ -44,13 +44,15 @@ class PortIpcHandler {
                               bool check_port, std::string &err_msg);
     bool AddPortFromJson(const string &json, bool check_port, string &err_msg,
                          bool write_file);
-    bool DeletePort(const string &json, const string &url, string &err_msg);
+    bool DeletePort(const string &url, string &err_msg);
     void DeleteVmiUuidEntry(const boost::uuids::uuid &u, std::string &err_str);
     bool GetPortInfo(const std::string &uuid_str, std::string &info) const;
     bool AddVgwFromJson(const std::string &json, std::string &err_msg) const;
     bool DelVgwFromJson(const std::string &json, std::string &err_msg) const;
     void MakeVmiUuidJson(const VmiSubscribeEntry *entry, string &info,
                          bool meta_info) const;
+    bool EnablePort(const string &url, string &err_msg);
+    bool DisablePort(const string &url, string &err_msg);
 
     // VM+Vn message handlers
     bool AddVmVnPort(const std::string &json, bool check_port,
