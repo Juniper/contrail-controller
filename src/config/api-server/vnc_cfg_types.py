@@ -707,7 +707,7 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             address_pairs = db_dict.get(
                             'virtual_machine_interface_allowed_address_pairs')
 
-        if not port_security and address_pairs is not None:
+        if not port_security and address_pairs:
             msg = "Allowed address pairs are not allowed when port "\
                   "security is disabled"
             return (False, (400, msg))
