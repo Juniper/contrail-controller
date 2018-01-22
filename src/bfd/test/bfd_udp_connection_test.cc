@@ -3,9 +3,12 @@
  */
 
 
+#include "base/regex.h"
 #include "bfd/bfd_server.h"
 #include "bfd/bfd_udp_connection.h"
 #include "bfd/bfd_control_packet.h"
+
+typedef contrail::regex regex_t;
 #include "bfd/test/bfd_test_utils.h"
 
 #include <boost/asio.hpp>

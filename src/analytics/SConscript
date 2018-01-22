@@ -23,6 +23,7 @@ python = 'python'+full_version[0]+'.'+full_version[1]
 AnalyticsEnv.Append(CPPPATH = ['/usr/include/'+ python,
                                '/usr/include/librdkafka',
                                AnalyticsEnv['TOP'] + '/tools/sandesh/library/common',
+                               AnalyticsEnv['TOP'] + '../../src/contrail-common/base',
                                AnalyticsEnv['TOP'] + '/io',
                                AnalyticsEnv['TOP'] + '/database',
                                AnalyticsEnv['TOP'] + '/database/cassandra/cql',

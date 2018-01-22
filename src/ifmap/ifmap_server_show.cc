@@ -6,7 +6,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
-#include <boost/regex.hpp>
+#include "base/regex.h"
 #include "base/logging.h"
 #include "db/db.h"
 #include "db/db_graph.h"
@@ -37,11 +37,13 @@
 
 #include <pugixml/pugixml.hpp>
 
-using boost::regex;
-using boost::regex_search;
 using namespace boost::assign;
 using namespace std;
 using namespace pugi;
+
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
 class IFMapNodeCopier {
 public:

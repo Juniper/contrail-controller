@@ -6,8 +6,8 @@
 
 #include "boost/uuid/uuid_io.hpp"
 #include "boost/algorithm/string.hpp"
-#include <boost/regex.hpp>
 #include <string>
+#include "base/regex.h"
 #include "base/util.h"
 #include "rapidjson/document.h"
 #include "analytics/viz_types.h"
@@ -16,6 +16,10 @@
 #include "utils.h"
 #include "stats_select.h"
 
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_replace;
+using contrail::regex_search;
 using std::string;
 using namespace boost::algorithm;
 
@@ -450,7 +454,7 @@ class SessionTableAttributeConverter : public boost::static_visitor<> {
             g_viz_constants.SESSION_TABLE)->second.columns[idx].index_type;
         if (index_type) {
             //boost::regex expr("^[\\d]+:");
-            std::string value(boost::regex_replace(tstring,
+            std::string value(regex_replace(tstring,
                 SessionTableAttributeConverter::t2_expr_, "",
                     boost::match_default | boost::format_all));
             se.value = value;
@@ -506,10 +510,10 @@ class SessionTableAttributeConverter : public boost::static_visitor<> {
 private:
     std::vector<StatsSelect::StatEntry> *attribs_;
     std::map<std::string, std::string> cass_column2column_name_map_;
-    static boost::regex t2_expr_;
+    static regex t2_expr_;
 };
 
-boost::regex SessionTableAttributeConverter::t2_expr_("^[\\d]+:");
+regex SessionTableAttributeConverter::t2_expr_("^[\\d]+:");
 
 void populate_attribs_from_json_member(
     const contrail_rapidjson::Value::ConstMemberIterator itr,

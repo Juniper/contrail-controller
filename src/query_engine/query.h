@@ -44,6 +44,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
+#include "base/regex.h"
 #include "base/util.h"
 #include "base/task.h"
 #include "net/address.h"
@@ -75,7 +76,6 @@
 #include "query_engine/qe_constants.h"
 #include "query_engine/qe_types.h"
 #include "rapidjson/document.h"
-#include <boost/regex.hpp>
 #include <boost/shared_ptr.hpp>
 
 extern std::map< std::string, int > trace_enable_map;
@@ -474,7 +474,7 @@ struct filter_match_t {
     std::string value;  // column value to compare with
     match_op op;        // matching op
     bool ignore_col_absence; // ignore (i.e. do not delete) if col is absent
-    boost::regex match_e;   // matching regex expression
+    contrail::regex match_e;   // matching regex expression
 
     filter_match_t():ignore_col_absence(false) {};
 };
