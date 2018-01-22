@@ -9,12 +9,16 @@
 #include "xmpp/xmpp_str.h"
 
 #include "base/logging.h"
+#include "base/regex.h"
 #include "base/util.h"
 #include "xmpp/xmpp_config.h"
 
 #include "testing/gunit.h"
 
 using namespace std;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
 class XmppRegexMock : public XmppSession {
 public:
@@ -22,8 +26,7 @@ public:
         : XmppSession(manager, sock), p1("<(iq|message)"), bufx_("") { }
     ~XmppRegexMock() { }
 
-    //boost::regex Regex() { return p1; }
-    void SetRegex(const char *ss) { p1 = ss; }
+    void SetRegex(const char *ss) { p1 = regex(ss); }
 
     void AppendString(const string &str) {
         bufx_ += str;
@@ -58,7 +61,7 @@ public:
     }
 
 private:
-    boost::regex p1;
+    regex p1;
     string bufx_;
     string tag_;
 };

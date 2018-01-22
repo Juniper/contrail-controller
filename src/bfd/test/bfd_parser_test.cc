@@ -4,8 +4,12 @@
 #include "bfd/bfd_control_packet.h"
 
 #include <boost/scoped_ptr.hpp>
+
+#include "base/logging.h"
+#include "base/regex.h"
+
+typedef contrail::regex regex_t;
 #include <testing/gunit.h>
-#include <base/logging.h>
 
 using namespace BFD;
 

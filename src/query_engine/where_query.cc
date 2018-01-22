@@ -12,13 +12,17 @@
 #include <boost/foreach.hpp>
 #include "query.h"
 #include "json_parse.h"
-#include <base/string_util.h>
-#include <database/gendb_constants.h>
-#include <database/gendb_if.h>
+#include "base/regex.h"
+#include "base/string_util.h"
+#include "database/gendb_constants.h"
+#include "database/gendb_if.h"
 #include "utils.h"
 #include "query.h"
 #include "stats_query.h"
 
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::string;
 
 static std::string ToString(const contrail_rapidjson::Value& value_value) {
@@ -915,7 +919,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int session_type,
                     }
                     filter.value = boost::get<std::string>(vr);
                     if (filter.op == REGEX_MATCH) {
-                        filter.match_e = boost::regex(filter.value);
+                        filter.match_e = regex(filter.value);
                     }
                     if (vr_match) {
                     }
