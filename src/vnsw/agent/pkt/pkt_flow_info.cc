@@ -1318,7 +1318,15 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         if (RouteToOutInfo(agent, out->rt_, pkt, this, in, out)) {
             if (out->intf_) {
                 out->vn_ = InterfaceToVn(out->intf_);
-                if (out->vrf_) {
+                //In case of alias IP destination VRF would
+                //be already while NHDecode or if its underlay
+                //to overlay transition then encap change takes
+                //care of it.
+                //In case of VM using ip-fabric for forwarding
+                //NH would be set with VRF as ip-fabric which
+                //would mean local IPV6 traffic would be forwarded
+                //in ip-fabric VRF which is not needed
+                if (out->vrf_ && alias_ip_flow == false) {
                     dest_vrf = out->vrf_->vrf_id();
                 }
             }

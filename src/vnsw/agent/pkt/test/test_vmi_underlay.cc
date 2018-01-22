@@ -220,7 +220,7 @@ TEST_F(FlowTest, OverlayIpToUnderlayIp) {
 
     EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
     EXPECT_FALSE(fe->IsShortFlow());
-    EXPECT_TRUE(fe->data().dest_vrf == 0);
+    EXPECT_TRUE(fe->data().dest_vrf == flow3->vrf()->vrf_id());
     EXPECT_TRUE(fe->reverse_flow_entry()->data().dest_vrf ==
                 flow3->vrf()->vrf_id());
 
