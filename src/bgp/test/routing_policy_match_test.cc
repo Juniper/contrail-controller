@@ -584,6 +584,21 @@ TEST_P(MatchCommunityParamTest, ToString3) {
 }
 
 //
+// Invalid Community regular expressions.
+//
+TEST_P(MatchCommunityParamTest, InvalidRegex) {
+    vector<string> communities = list_of("33:[.*")("53:.*]");
+    MatchCommunity match(communities, GetParam());
+    EXPECT_EQ(2, match.regex_strings().size());
+    EXPECT_EQ(2, match.regexs().size());
+    if (GetParam()) {
+        EXPECT_NE("community (all) [ 33:.*,53:.* ]", match.ToString());
+    } else {
+        EXPECT_NE("community (any) [ 33:.*,53:.* ]", match.ToString());
+    }
+}
+
+//
 // Fixed community values only.
 // One value is same and one is different.
 //

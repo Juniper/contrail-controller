@@ -6,8 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <boost/regex.hpp>
-
+#include "base/regex.h"
 #include "bgp/bgp_membership.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_internal_types.h"
@@ -16,8 +15,9 @@
 #include "bgp/bgp_xmpp_channel.h"
 #include "xmpp/xmpp_connection.h"
 
-using boost::regex;
-using boost::regex_search;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::string;
 using std::vector;
 

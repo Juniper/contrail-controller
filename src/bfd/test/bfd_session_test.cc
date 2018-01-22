@@ -2,13 +2,17 @@
  * Copyright (c) 2014 CodiLime, Inc. All rights reserved.
  */
 
+#include "base/regex.h"
+typedef contrail::regex regex_t;
+
+#include "base/test/task_test_util.h"
 #include "bfd/bfd_session.h"
 #include "bfd/test/bfd_test_utils.h"
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
+
 #include <testing/gunit.h>
-#include <base/test/task_test_util.h>
 
 using namespace BFD;
 

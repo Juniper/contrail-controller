@@ -19,6 +19,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
 
+#include "base/regex.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
@@ -63,6 +64,9 @@ using namespace boost::program_options;
 using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using namespace pugi;
 using namespace test;
 
@@ -942,17 +946,17 @@ protected:
         // Convert IPv4 Prefix to IPv6 for IPv6 tests
         if (family_ == Address::INET6) {
             std::ifstream input(filename.c_str());
-            boost::regex e1 ("(^.*?)(\\d+\\.\\d+\\.\\d+\\.\\d+)\\/(\\d+)(.*$)");
-            boost::regex e2 ("(^.*?)(\\d+\\.\\d+\\.\\d+\\.\\d+)(.*$)");
+            regex e1 ("(^.*?)(\\d+\\.\\d+\\.\\d+\\.\\d+)\\/(\\d+)(.*$)");
+            regex e2 ("(^.*?)(\\d+\\.\\d+\\.\\d+\\.\\d+)(.*$)");
             for (string line; getline(input, line);) {
                 boost::cmatch cm;
-                if (boost::regex_match(line.c_str(), cm, e1)) {
+                if (regex_match(line.c_str(), cm, e1)) {
                     const string prefix(cm[2].first, cm[2].second);
                     content += string(cm[1].first, cm[1].second) +
                         BuildPrefix(prefix, atoi(string(cm[3].first,
                                                     cm[3].second).c_str())) +
                         string(cm[4].first, cm[4].second);
-                } else if (boost::regex_match(line.c_str(), cm, e2)) {
+                } else if (regex_match(line.c_str(), cm, e2)) {
                     content += string(cm[1].first, cm[1].second) +
                         BuildHostAddress(string(cm[2].first, cm[2].second)) +
                         string(cm[3].first, cm[3].second);

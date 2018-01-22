@@ -4,11 +4,14 @@
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/optional.hpp>
-#include <testing/gunit.h>
 #include <base/logging.h>
 
 #include <bfd/bfd_state_machine.h>
+#include "base/regex.h"
+typedef contrail::regex regex_t;
+
 #include "bfd/test/bfd_test_utils.h"
+#include <testing/gunit.h>
 
 using namespace BFD;
 

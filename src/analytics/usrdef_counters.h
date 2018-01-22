@@ -4,18 +4,21 @@
 #ifndef __USER_DEFINED_COUNTER_H__
 #define __USER_DEFINED_COUNTER_H__
 
-
 #include <map>
 #include <tbb/atomic.h>
 #include <boost/shared_ptr.hpp>
-#include <boost/regex.hpp>
+#include "base/regex.h"
 #include "discovery/client/discovery_client.h"
 #include "http/client/vncapi.h"
 #include "parser_util.h"
 
-class Options;
-//class DiscoveryServiceClient;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
+class Options;
+
+class Options;
 
 class UserDefinedCounterData {
     public:
@@ -24,13 +27,13 @@ class UserDefinedCounterData {
             SetPattern(pat);
         }
         void SetPattern(std::string pat) {
-            regexp_ = boost::regex(pat);
+            regexp_ = contrail::regex(pat);
             regexp_str_ = pat;
         }
         bool operator==(const UserDefinedCounterData &rhs) {
             return rhs.IsMe(name_) &&  rhs.pattern() == regexp_str_;
         }
-        const boost::regex& regexp() const { return regexp_; }
+        const contrail::regex& regexp() const { return regexp_; }
         const std::string name() { return name_; }
         bool IsMe(std::string name) const { return name == name_; }
         void Update(Options *o, DiscoveryServiceClient *c);
@@ -41,7 +44,7 @@ class UserDefinedCounterData {
         bool                   refreshed_;
         std::string            name_;
         std::string            regexp_str_;
-        boost::regex           regexp_;
+        contrail::regex        regexp_;
 };
 
 typedef std::map<std::string, boost::shared_ptr<UserDefinedCounterData> > Cfg_t;
