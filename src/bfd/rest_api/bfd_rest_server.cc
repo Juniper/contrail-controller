@@ -7,7 +7,6 @@
 #include <vector>
 #include <string>
 
-#include <boost/regex.hpp>
 #include <boost/bind.hpp>
 #include <boost/random.hpp>
 #include <boost/assign.hpp>
@@ -16,11 +15,16 @@
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 
-#include "bfd/bfd_common.h"
 #include "base/logging.h"
+#include "base/regex.h"
+#include "bfd/bfd_common.h"
 #include "bfd/bfd_session.h"
 #include "bfd/rest_api/bfd_json_config.h"
 #include "bfd/rest_api/bfd_rest_common.h"
+
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
 namespace BFD {
 
@@ -64,31 +68,31 @@ void RESTServer::ClientMonitorHandler(const struct RESTData& data) {
 const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
     boost::assign::list_of
     (HandlerSpecifier(
-        boost::regex("/Session"),
+        regex("/Session"),
         HTTP_PUT,
         &RESTServer::SessionHandler))
     (HandlerSpecifier(
-        boost::regex("/Session/([[:digit:]]{1,9})"),
+        regex("/Session/([[:digit:]]{1,9})"),
         HTTP_DELETE,
         &RESTServer::ClientHandler))
     (HandlerSpecifier(
-        boost::regex("/Session/([[:digit:]]{1,9})/IpConnection"),
+        regex("/Session/([[:digit:]]{1,9})/IpConnection"),
         HTTP_PUT,
         &RESTServer::ClientIPConnectionHandler))
     (HandlerSpecifier(
-        boost::regex("/Session/([[:digit:]]{1,9})/IpConnection/"
-                     "([[:digit:]]{1,3}\\.[[:digit:]]{1,3}\\."
-                     "[[:digit:]]{1,3}\\.[[:digit:]]{1,3})"),
+        regex("/Session/([[:digit:]]{1,9})/IpConnection/"
+              "([[:digit:]]{1,3}\\.[[:digit:]]{1,3}\\."
+              "[[:digit:]]{1,3}\\.[[:digit:]]{1,3})"),
         HTTP_GET,
         &RESTServer::ClientIPAddressHandlerGet))
     (HandlerSpecifier(
-        boost::regex("/Session/([[:digit:]]{1,9})/IpConnection/"
-                     "([[:digit:]]{1,3}\\.[[:digit:]]{1,3}\\."
-                     "[[:digit:]]{1,3}\\.[[:digit:]]{1,3})"),
+        regex("/Session/([[:digit:]]{1,9})/IpConnection/"
+              "([[:digit:]]{1,3}\\.[[:digit:]]{1,3}\\."
+              "[[:digit:]]{1,3}\\.[[:digit:]]{1,3})"),
         HTTP_DELETE,
         &RESTServer::ClientIPAddressHandlerDelete))
     (HandlerSpecifier(
-        boost::regex("/Session/([[:digit:]]{1,9})/Monitor"),
+        regex("/Session/([[:digit:]]{1,9})/Monitor"),
         HTTP_GET,
         &RESTServer::ClientMonitorHandler));
 
@@ -258,7 +262,7 @@ void RESTServer::HandleRequest(HttpSession* session,
     std::string path = request->UrlPath();
     BOOST_FOREACH(const RESTServer::HandlerSpecifier& hs, RESTHandlers_) {
         boost::smatch match;
-        if (boost::regex_match(path, match, hs.request_regex) &&
+        if (regex_match(path, match, hs.request_regex) &&
             request->GetMethod() == hs.method) {
             struct RESTData data = {
                 &match,

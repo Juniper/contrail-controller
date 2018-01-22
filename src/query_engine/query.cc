@@ -17,7 +17,8 @@
 #include "analytics/vizd_table_desc.h"
 #include "stats_select.h"
 #include "stats_query.h"
-#include <base/connection_info.h>
+#include "base/regex.h"
+#include "base/connection_info.h"
 #include "utils.h"
 #include <database/cassandra/cql/cql_if.h>
 #include <boost/make_shared.hpp>
@@ -29,6 +30,9 @@ using std::string;
 using std::vector;
 using boost::assign::map_list_of;
 using boost::system::error_code;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using process::ConnectionState;
 using process::ConnectionType;
 using process::ConnectionStatus;
@@ -226,7 +230,7 @@ PostProcessingQuery::PostProcessingQuery(
                     if (filter.op == REGEX_MATCH)
                       {
                         // compile regex beforehand
-                        filter.match_e = boost::regex(filter.value);
+                        filter.match_e = regex(filter.value);
                       }
 
                     filter_and.push_back(filter);
@@ -280,7 +284,7 @@ PostProcessingQuery::PostProcessingQuery(
 
                         if (filter.op == REGEX_MATCH) {
                             // compile regex beforehand
-                            filter.match_e = boost::regex(filter.value);
+                            filter.match_e = regex(filter.value);
                         }
 
                         filter_and.push_back(filter);

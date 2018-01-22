@@ -6,16 +6,17 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
-#include <boost/regex.hpp>
 
+#include "base/regex.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_ifmap.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 
 using boost::assign::list_of;
-using boost::regex;
-using boost::regex_search;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::string;
 using std::vector;
 

@@ -15,14 +15,17 @@
 #include <boost/algorithm/string/case_conv.hpp>
 
 #include <iostream>
+#include "base/regex.h"
 #include "parser_util.h"
+
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
 namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 namespace phx = boost::phoenix;
 using namespace BOOST_SPIRIT_CLASSIC_NS;
-
-
 
 bool
 LineParser::GetAtrributes(const pugi::xml_node &node,
@@ -199,7 +202,7 @@ LineParser::GetXmlString(const pugi::xml_node node) {
 }
 
 unsigned int
-LineParser::SearchPattern(const boost::regex &exp, std::string text)
+LineParser::SearchPattern(const regex &exp, std::string text)
 {
     unsigned int cnt = 0;
 

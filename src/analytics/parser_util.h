@@ -6,7 +6,7 @@
 #include <string>
 #include <set>
 #include <map>
-#include <boost/regex.hpp>
+#include "base/regex.h"
 #include <pugixml/pugixml.hpp>
 
 class LineParser
@@ -20,10 +20,10 @@ public:
             bool check_attr=true);
     static std::string GetXmlString(const pugi::xml_node node);
     static std::string MakeSane(const std::string &text);
-    static unsigned int SearchPattern(const boost::regex &exp,
+    static unsigned int SearchPattern(const contrail::regex &exp,
             std::string text);
     static unsigned int SearchPattern(std::string exp, std::string text) {
-        return SearchPattern(boost::regex(exp, boost::regex::icase), text); }
+        return SearchPattern(contrail::regex(exp, boost::regex::icase), text); }
 private:
     template <typename Iterator>
     static bool ParseDoc(Iterator start, Iterator end,

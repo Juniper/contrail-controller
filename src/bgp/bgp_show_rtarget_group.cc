@@ -4,14 +4,14 @@
 
 #include "bgp/bgp_show_handler.h"
 
-#include <boost/regex.hpp>
-
+#include "base/regex.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 
-using boost::regex;
-using boost::regex_search;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::string;
 using std::vector;
 

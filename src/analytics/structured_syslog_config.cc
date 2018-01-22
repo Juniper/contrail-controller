@@ -5,14 +5,19 @@
 
 #include <sstream>
 #include <boost/make_shared.hpp>
-#include <boost/regex.hpp>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include "analytics_types.h"
 #include "structured_syslog_config.h"
 #include "http/client/vncapi.h"
 #include "options.h"
-#include <base/logging.h>
+#include "base/logging.h"
+#include "base/regex.h"
+
+using boost::regex_error;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
 StructuredSyslogConfig::StructuredSyslogConfig(boost::shared_ptr<ConfigDBConnection> cfgdb_connection)
           : cfgdb_connection_(cfgdb_connection) {
@@ -460,15 +465,15 @@ StructuredSyslogConfig::GetMessageConfig(const std::string &name) {
     Cmc_t::iterator end = message_configs_.end();
     Cmc_t::iterator match = end;
     while (cit != end) {
-        boost::regex pattern;
+        regex pattern;
         Cmc_t::iterator dit = cit++;
         boost::match_results<std::string::const_iterator> what;
         boost::match_flag_type flags = boost::match_default;
         std::string::const_iterator name_start = name.begin(), name_end = name.end();
         try {
-            pattern = boost::regex(dit->second->name());
+            pattern = regex(dit->second->name());
         }
-        catch (boost::regex_error& e) {
+        catch (regex_error &e) {
             LOG(DEBUG, "skipping invalid regex pattern: " << dit->second->name());
             continue;
         }
