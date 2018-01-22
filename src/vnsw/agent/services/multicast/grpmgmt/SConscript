@@ -3,25 +3,20 @@
 #
 
 # -*- mode: python; -*-
-# services directory
+# grpmgmt directory
 
 import sys
 if sys.platform == 'darwin':
     Return()
 
-Import('AgentEnv')
-env = AgentEnv.Clone()
+Import('GmpEnv')
+env = GmpEnv.Clone()
 
 except_env = env.Clone()
 cflags = except_env['CCFLAGS']
 if '-fno-exceptions' in cflags:
    cflags.remove('-fno-exceptions')
 except_env.Replace(CCFLAGS=cflags)
-
-env.Append(CPPPATH = '../common')
-env.Append(CPPPATH = '../gmp_map')
-env.Append(CPPPATH = '../agent_map')
-env.Append(CPPPATH = '../stubs/bitvector')
 
 libgrpmgmt = env.Library('grpmgmt',
                      [

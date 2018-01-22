@@ -263,8 +263,7 @@
  *
  * Thread Library:
  *
- *  The standard Juniper thread library (jnx/thread.h) is expected to be
- *  present.  This library is portable itself.
+ *  The library for doubly-linked-list data structure.
  *
  *
  * Memory management:

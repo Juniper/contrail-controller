@@ -6,8 +6,8 @@ IGMP (for v4) and MLD (for v6).
 
 It makes minimal assumptions about the environment in which it runs.
 It expects memory management, timers, patricia, and the
-doubly-linked-list data structure called "threads" as defined in
-jnx/thread.h.  It also requires bcopy(), bcmp(), and bzero(), but is
+doubly-linked-list data structure called "threads".
+It also requires bcopy(), bcmp(), and bzero(), but is
 otherwise (hopefully) devoid of unix-isms.  In particular, it does not
 do any I/O, it does not assume the existence of printf() or its ilk, etc.
 
@@ -111,8 +111,7 @@ Patricia library:
 
 Thread Library:
 
- The standard Juniper thread library (jnx/thread.h) is expected to be
- present.  This library is portable itself.
+ The library for doubly-linked-list data structure.
 
 
 Memory management:

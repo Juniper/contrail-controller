@@ -15,7 +15,6 @@
 #include "gmpp_private.h"
 #include "gmp_trace.h"
 #include "mld_proto.h"
-#include "jnx/getput.h"
 
 /*
  * Destination addresses
