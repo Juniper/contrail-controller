@@ -1,0 +1,27 @@
+#
+# Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# gmp_map directory
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+Import('GmpEnv')
+env = GmpEnv.Clone()
+
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+   cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS=cflags)
+
+libgmp_map = env.Library('gmp_map',
+                    [
+                    'gmp_proto.cc',
+                    'gmp_map.cc',
+                    'task_map.cc',
+                     ])
+

@@ -54,3 +54,11 @@ libservices = env.Library('agent_services',
                       ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
+
+subdirs = [
+    'multicast',
+    ]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv',
+                   duplicate=0)
