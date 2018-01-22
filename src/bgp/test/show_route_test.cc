@@ -5,6 +5,7 @@
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
 
+#include "base/regex.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_sandesh.h"
@@ -18,6 +19,9 @@
 using namespace boost::assign;
 using namespace boost::asio;
 using namespace std;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
 static const char config_template1[] = "\
 <config>\
@@ -1216,6 +1220,31 @@ TEST_F(ShowRouteTest2, MatchingPrefix16) {
         "192.168.14",
         "168.17",
         "168.1[4-9]",
+    };
+    BOOST_FOREACH(const char *prefix, prefix_formats) {
+        ShowRouteReq *show_req = new ShowRouteReq;
+        vector<int> result;
+        Sandesh::set_response_callback(
+            boost::bind(ValidateShowRouteSandeshResponse, _1, result, __LINE__));
+        show_req->set_prefix(prefix);
+        validate_done_ = false;
+        show_req->HandleRequest();
+        show_req->Release();
+        TASK_UTIL_EXPECT_EQ(true, validate_done_);
+    }
+}
+
+// Limit routes by regex prefix.
+// Use invalid regex pattern.
+TEST_F(ShowRouteTest2, Invalidregex) {
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+
+    const char *prefix_formats[] = {
+        "192.168.14",
+        "168.17",
+        "168.1[4-9", // Invalid due to missing ']'
     };
     BOOST_FOREACH(const char *prefix, prefix_formats) {
         ShowRouteReq *show_req = new ShowRouteReq;

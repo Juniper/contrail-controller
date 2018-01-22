@@ -3,12 +3,16 @@
  */
 
 #include <boost/assign/list_of.hpp>
+#include "base/regex.h"
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
 #include "query.h"
 
 using boost::assign::map_list_of;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
 // compare flow records based on UUID
 bool PostProcessingQuery::flow_record_comparator(
@@ -35,7 +39,7 @@ bool PostProcessingQuery::sort_field_comparator(
         QE_ASSERT(lhs_it != lhs.first.end());
         rhs_it = rhs.first.find((*sort_it).name);
         QE_ASSERT(rhs_it != rhs.first.end());
-        if ((*sort_it).type == std::string("int") || 
+        if ((*sort_it).type == std::string("int") ||
             (*sort_it).type == std::string("long") ||
             (*sort_it).type == std::string("ipv4")) {
             uint64_t lhs_val = 0, rhs_val = 0;
@@ -215,14 +219,14 @@ bool PostProcessingQuery::merge_processing(
         if (result_.get() == NULL) {
             size_t merged_result_size = merged_result->size();
             merged_result->reserve(merged_result_size + raw_result1->size());
-            copy(raw_result1->begin(), raw_result1->end(), 
+            copy(raw_result1->begin(), raw_result1->end(),
                  std::back_inserter(*merged_result));
-            if (merged_result_size) { 
+            if (merged_result_size) {
                 if (sorting_type == ASCENDING) {
-                    std::inplace_merge(merged_result->begin(), 
+                    std::inplace_merge(merged_result->begin(),
                         merged_result->begin() + merged_result_size,
                         merged_result->end(),
-                        boost::bind(&PostProcessingQuery::sort_field_comparator, 
+                        boost::bind(&PostProcessingQuery::sort_field_comparator,
                                     this, _1, _2));
                 } else {
                     std::inplace_merge(merged_result->rbegin(),
@@ -261,7 +265,7 @@ bool PostProcessingQuery::merge_processing(
         if (result_.get() == NULL)
         {
             merged_result->reserve(raw_result1->size());
-            copy(raw_result1->begin(), raw_result1->end(), 
+            copy(raw_result1->begin(), raw_result1->end(),
                 std::back_inserter(*merged_result));
         } else {
 
@@ -271,9 +275,9 @@ bool PostProcessingQuery::merge_processing(
             QE_TRACE(DEBUG, "Merging results from vectors of size:" <<
                     size1 << " and " << size2);
             merged_result->reserve(raw_result1->size() + raw_result2->size());
-            copy(raw_result1->begin(), raw_result1->end(), 
+            copy(raw_result1->begin(), raw_result1->end(),
                 std::back_inserter(*merged_result));
-            copy(raw_result2->begin(), raw_result2->end(), 
+            copy(raw_result2->begin(), raw_result2->end(),
                 std::back_inserter(*merged_result));
         }
         QE_TRACE(DEBUG, "Merge_Processing: Done adding inputs to output");
@@ -293,7 +297,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
 
     if (status_details != 0)
     {
-        QE_TRACE(DEBUG, 
+        QE_TRACE(DEBUG,
              "No need to process query, as there were errors previously");
         return false;
     }
@@ -382,7 +386,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                                   this, _1, _2));
         }
     }
-   
+
     if (limit) {
         QEOpServerProxy::BufferT *merged_result = &output;
         QE_TRACE(DEBUG, "Apply Limit [" << limit << "]");
@@ -399,7 +403,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
 query_status_t PostProcessingQuery::process_query() {
     if (status_details != 0)
     {
-        QE_TRACE(DEBUG, 
+        QE_TRACE(DEBUG,
              "No need to process query, as there were errors previously");
         return QUERY_FAILURE;
     }
@@ -426,7 +430,7 @@ query_status_t PostProcessingQuery::process_query() {
             }
             std::map<std::string, QEOpServerProxy::SubVal>& attrs = it->second.first;
             bool delete_row = true;
-            std::string unknown_attr; 
+            std::string unknown_attr;
             for (size_t j = 0; j < filter_list.size(); j++) {
                 std::vector<filter_match_t>& filter_and = filter_list[j];
                 bool and_check = true;
@@ -503,8 +507,8 @@ query_status_t PostProcessingQuery::process_query() {
                             }
                             break;
                         case REGEX_MATCH:
-                            if (!boost::regex_match(vstream.str(),
-                                                    filter_and[k].match_e)) {
+                            if (!regex_match(vstream.str(),
+                                             filter_and[k].match_e)) {
                                 and_check = false;
                             }
                             break;
@@ -527,7 +531,7 @@ query_status_t PostProcessingQuery::process_query() {
             if (delete_row) {
                 num_filtered++;
                 kt = it;
-            } 
+            }
         }
         if (kt!=mresult_->end()) {
             mresult_->erase(kt);
@@ -559,7 +563,7 @@ query_status_t PostProcessingQuery::process_query() {
                         if (!(filter_and[k].ignore_col_absence)) {
                             and_check = false;
                             break;
-                        } 
+                        }
                         continue;
                       }
 
@@ -581,7 +585,7 @@ query_status_t PostProcessingQuery::process_query() {
 
                         case LEQ:
                               {
-                                int filter_value = 
+                                int filter_value =
                                     atoi(filter_and[k].value.c_str());
                                 int column_value= atoi(iter->second.c_str());
                                 if (column_value > filter_value)
@@ -593,7 +597,7 @@ query_status_t PostProcessingQuery::process_query() {
 
                         case GEQ:
                               {
-                                int filter_value = 
+                                int filter_value =
                                     atoi(filter_and[k].value.c_str());
                                 int column_value= atoi(iter->second.c_str());
                                 if (column_value < filter_value)
@@ -605,8 +609,8 @@ query_status_t PostProcessingQuery::process_query() {
 
                         case REGEX_MATCH:
                               {
-                                if (!boost::regex_match(iter->second, 
-                                            filter_and[k].match_e))
+                                if (!regex_match(iter->second,
+                                                 filter_and[k].match_e))
                                   {
                                     and_check = false;
                                   }
@@ -639,21 +643,21 @@ query_status_t PostProcessingQuery::process_query() {
     // Check if the result has to be sorted
     if (sorted) {
         if (sorting_type == ASCENDING) {
-            std::sort(raw_result->begin(), raw_result->end(), 
-                      boost::bind(&PostProcessingQuery::sort_field_comparator, 
-                                  this, _1, _2)); 
+            std::sort(raw_result->begin(), raw_result->end(),
+                      boost::bind(&PostProcessingQuery::sort_field_comparator,
+                                  this, _1, _2));
         } else {
-            std::sort(raw_result->rbegin(), raw_result->rend(), 
+            std::sort(raw_result->rbegin(), raw_result->rend(),
                       boost::bind(&PostProcessingQuery::sort_field_comparator,
                                   this, _1, _2));
         }
     }
 
-    // If the flow series query is parallelized, we should apply the limit 
-    // only after the result from all the tasks are merged 
+    // If the flow series query is parallelized, we should apply the limit
+    // only after the result from all the tasks are merged
     // (@ final_merge_processing).
-    if ((mquery->table() != g_viz_constants.FLOW_SERIES_TABLE || 
-        (mquery->table() == g_viz_constants.FLOW_SERIES_TABLE && 
+    if ((mquery->table() != g_viz_constants.FLOW_SERIES_TABLE ||
+        (mquery->table() == g_viz_constants.FLOW_SERIES_TABLE &&
         !mquery->is_query_parallelized())) && limit) {
         QE_TRACE(DEBUG, "Apply Limit [" << limit << "]");
         if (raw_result->size() > (size_t)limit) {
@@ -670,11 +674,11 @@ query_status_t PostProcessingQuery::process_query() {
     {
         std::vector<QEOpServerProxy::ResultRowT>::iterator res_it;
         QE_TRACE(DEBUG, "== Post Processing Result ==");
-        for (res_it = raw_result->begin(); res_it != raw_result->end(); 
+        for (res_it = raw_result->begin(); res_it != raw_result->end();
              ++res_it) {
             std::vector<final_result_col> row_entry;
             std::map<std::string, std::string>::iterator map_it;
-            for (map_it = (*res_it).first.begin(); 
+            for (map_it = (*res_it).first.begin();
                  map_it != (*res_it).first.end(); ++map_it) {
                 final_result_col col;
                 col.set_col(map_it->first); col.set_value(map_it->second);
@@ -685,7 +689,7 @@ query_status_t PostProcessingQuery::process_query() {
         }
     }
 
-#if 0 
+#if 0
     //if ((limit) && (!sorted))
     for (int i = 0 ; i < 200000; i++)
     raw_result->push_back(map_list_of(

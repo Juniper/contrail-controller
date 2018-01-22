@@ -5,9 +5,9 @@
 #include "bgp/bgp_sandesh.h"
 
 #include <boost/assign/list_of.hpp>
-#include <boost/regex.hpp>
 #include <sandesh/request_pipeline.h>
 
+#include "base/regex.h"
 #include "bgp/bgp_peer_internal_types.h"
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_server.h"
@@ -15,8 +15,6 @@
 #include "bgp/routing-instance/routing_instance.h"
 
 using boost::assign::list_of;
-using boost::regex;
-using boost::regex_search;
 using std::auto_ptr;
 using std::string;
 using std::vector;
