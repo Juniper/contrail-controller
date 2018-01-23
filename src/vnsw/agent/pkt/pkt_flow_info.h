@@ -56,7 +56,7 @@ public:
         flow_entry(NULL),
         flood_unknown_unicast(false), bgp_router_service_flow(false),
         alias_ip_flow(false), ttl(0), underlay_flow(false),
-        src_policy_vrf(-1), dst_policy_vrf(-1) {
+        src_policy_vrf(-1), dst_policy_vrf(-1), overlay_route_not_found(false) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -213,6 +213,7 @@ public:
     uint32_t             dst_policy_vrf;
     const VnListType           *src_vn;
     const VnListType           *dst_vn;
+    bool                 overlay_route_not_found;
 };
 
 #endif // __agent_pkt_flow_info_h_
