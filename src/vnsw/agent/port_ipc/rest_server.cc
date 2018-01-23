@@ -243,13 +243,13 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
         HTTP_GET,
         &RESTServer::VmVnPortCfgGetHandler))
     (HandlerSpecifier(
-        boost::regex("/enable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{4}-[0-9a-f]{12})"),
+        regex("/enable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+              "[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_POST,
         &RESTServer::VmPortEnableHandler))
     (HandlerSpecifier(
-        boost::regex("/disable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{4}-[0-9a-f]{12})"),
+        regex("/disable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+              "[0-9a-f]{4}-[0-9a-f]{12})"),
         HTTP_POST,
         &RESTServer::VmPortDisableHandler));
 
