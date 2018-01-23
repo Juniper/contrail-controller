@@ -233,6 +233,30 @@ TEST_F(FlowTest, OverlayIpToUnderlayIp) {
 
 }
 
+TEST_F(FlowTest, UnderlaySubnetDiscard) {
+    //Make VN5 as underlay
+    AddLink("virtual-network", "vn5", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    TxIpPacket(flow0->id(), vm1_ip, remote_vm1_ip_subnet, 1);
+    client->WaitForIdle();
+
+    FlowEntry *fe = FlowGet(0, vm1_ip, remote_vm1_ip_subnet,
+                            IPPROTO_ICMP, 0, 0,
+                            flow0->flow_key_nh()->id());
+    EXPECT_TRUE(fe != NULL);
+
+    EXPECT_TRUE(fe->IsShortFlow());
+
+    DelLink("virtual-network", "vn5", "virtual-network",
+            client->agent()->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    EXPECT_FALSE(fe->is_flags_set(FlowEntry::FabricFlow));
+    EXPECT_FALSE(fe->IsShortFlow());
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
