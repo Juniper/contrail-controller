@@ -95,7 +95,7 @@ RoutingInstanceMgr::~RoutingInstanceMgr() {
 
 size_t RoutingInstanceMgr::GetMvpnProjectManagerCount(
             const string &network) const {
-    tbb::mutex::scoped_lock lock(mvpn_mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     MvpnProjectManagerNetworks::const_iterator iter =
         mvpn_project_managers_.find(network);
