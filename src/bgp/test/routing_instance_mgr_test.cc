@@ -9,7 +9,10 @@
 #include "bgp/test/bgp_server_test_util.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/control_node.h"
+#include "sandesh/sandesh_trace.h"
 
+#define    TEST_DORMANT_TRACE_BUFFER_SIZE        4
+#define    TEST_DORMANT_TRACE_BUFFER_THRESHOLD   2
 
 using namespace std;
 using namespace boost;
@@ -17,6 +20,18 @@ using namespace boost;
 class RoutingInstanceMgrTest : public ::testing::Test {
 protected:
     RoutingInstanceMgrTest() : server_(&evm_) {
+
+        buffer_capacity_str = getenv("ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE");
+        buffer_threshold_str = getenv("ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD");
+        size_t dormant_trace_buf_size = TEST_DORMANT_TRACE_BUFFER_SIZE;
+
+        char   value[100];
+        snprintf(value, sizeof(value), "%zu", dormant_trace_buf_size);
+        setenv("ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE", value, true);
+
+        size_t trace_buf_threshold = TEST_DORMANT_TRACE_BUFFER_THRESHOLD;
+        snprintf(value, sizeof(value), "%zu", trace_buf_threshold);
+        setenv("ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD", value, true);
         ri_mgr_ = server_.routing_instance_mgr();
     }
 
@@ -96,6 +111,33 @@ protected:
     string GetVirtualNetworkByVnIndex(int vn_index) {
         return ri_mgr_->GetVirtualNetworkByVnIndex(vn_index);
     }
+
+    int GetRoutingInstanceActiveTraceBufSize() {
+        return ri_mgr_->GetRoutingInstanceActiveTraceBufSize();
+    }
+
+    int GetRoutingInstanceDormantTraceBufSize() {
+        return ri_mgr_->GetRoutingInstanceDormantTraceBufSize();
+    }
+
+    bool HasRoutingInstanceActiveTraceBuf(const string &name) {
+        return ri_mgr_->HasRoutingInstanceActiveTraceBuf(name);
+    }
+    bool HasRoutingInstanceDormantTraceBuf(const string &name) {
+        return ri_mgr_->HasRoutingInstanceDormantTraceBuf(name);
+    }
+
+    SandeshTraceBufferPtr GetDormantTraceBuffer(const string &name) {
+        return ri_mgr_->GetDormantTraceBuffer(name);
+    }
+
+    SandeshTraceBufferPtr GetActiveTraceBuffer(const string &name) {
+        return ri_mgr_->GetActiveTraceBuffer(name);
+    }
+
+    char *buffer_capacity_str;
+    char *buffer_threshold_str;
+
 
     EventManager evm_;
     BgpServer server_;
@@ -457,6 +499,123 @@ TEST_F(RoutingInstanceMgrTest, VnIndexByExtCommunity05) {
     TASK_UTIL_EXPECT_EQ(0, GetVnIndexByExtCommunity(ext_community));
     TASK_UTIL_EXPECT_EQ(0, GetVnIndexByExtCommunity(ext_community_x));
     TASK_UTIL_EXPECT_EQ(0, GetVnIndexByExtCommunity(ext_community_y));
+}
+
+// Unit test for RoutingInstance Trace buffers
+//
+// Lookup based on the target should succeed.
+// Creation of RIs will trigger Tracebuffers being created in "Active Map" list
+// Deletion of RIs will move the Trace buffers from Active to "Dormant Map" list
+//
+TEST_F(RoutingInstanceMgrTest, RoutingInstanceTraceBuffer_Test) {
+    scoped_ptr<BgpInstanceConfigTest> ri1_cfg;
+    bool   set_log_disable = false;
+    SandeshTraceBufferPtr   trace_buf;
+    int    ActiveTraceBufCount, DormantTraceBufCount;
+
+    ri1_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#1"));
+    
+    scoped_ptr<BgpInstanceConfigTest> ri2_cfg;
+    ri2_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#2"));
+    scoped_ptr<BgpInstanceConfigTest> ri3_cfg;
+    ri3_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#3"));
+    scoped_ptr<BgpInstanceConfigTest> ri4_cfg;
+    ri4_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#4"));
+    scoped_ptr<BgpInstanceConfigTest> ri5_cfg;
+    ri5_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#5"));
+    scoped_ptr<BgpInstanceConfigTest> ri6_cfg;
+    ri6_cfg.reset(BgpTestUtil::CreateBgpInstanceConfig("TestRi#6"));
+
+    if (LoggingDisabled()) {
+        set_log_disable = true;
+        SetLoggingDisabled(false);
+    }
+
+    ActiveTraceBufCount = GetRoutingInstanceActiveTraceBufSize();
+    DormantTraceBufCount = GetRoutingInstanceDormantTraceBufSize();
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
+
+    CreateRoutingInstance(ri1_cfg.get());
+    CreateRoutingInstance(ri2_cfg.get());
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ((ActiveTraceBufCount + 2),
+                           GetRoutingInstanceActiveTraceBufSize());
+    TASK_UTIL_EXPECT_EQ(DormantTraceBufCount,
+                           GetRoutingInstanceDormantTraceBufSize());
+
+    trace_buf = GetActiveTraceBuffer("TestRi#1");
+    DeleteRoutingInstance(ri1_cfg.get());
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ((ActiveTraceBufCount + 1),
+                                 GetRoutingInstanceActiveTraceBufSize());
+    TASK_UTIL_EXPECT_EQ((DormantTraceBufCount + 1),
+                                 GetRoutingInstanceDormantTraceBufSize());
+    TASK_UTIL_EXPECT_EQ(trace_buf, GetDormantTraceBuffer("TestRi#1"));
+
+    DeleteRoutingInstance(ri2_cfg.get());
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ(ActiveTraceBufCount, GetRoutingInstanceActiveTraceBufSize());
+    TASK_UTIL_EXPECT_EQ((DormantTraceBufCount + 2),
+                               GetRoutingInstanceDormantTraceBufSize());
+    
+    CreateRoutingInstance(ri1_cfg.get());
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceActiveTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceActiveTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ((ActiveTraceBufCount + 1), 
+                              GetRoutingInstanceActiveTraceBufSize());
+    TASK_UTIL_EXPECT_EQ((DormantTraceBufCount + 1),
+                              GetRoutingInstanceDormantTraceBufSize());
+    TASK_UTIL_EXPECT_EQ(trace_buf, GetActiveTraceBuffer("TestRi#1"));
+    TASK_UTIL_EXPECT_NE(trace_buf, GetDormantTraceBuffer("TestRi#1"));
+
+    CreateRoutingInstance(ri2_cfg.get());
+    CreateRoutingInstance(ri3_cfg.get());
+    CreateRoutingInstance(ri4_cfg.get());
+    CreateRoutingInstance(ri5_cfg.get());
+    CreateRoutingInstance(ri6_cfg.get());
+    ActiveTraceBufCount = GetRoutingInstanceActiveTraceBufSize();
+    DormantTraceBufCount = GetRoutingInstanceDormantTraceBufSize();
+
+    
+    DeleteRoutingInstance(ri1_cfg.get());
+    DeleteRoutingInstance(ri2_cfg.get());
+    DeleteRoutingInstance(ri3_cfg.get());
+    TASK_UTIL_EXPECT_EQ((DormantTraceBufCount + 3),
+                              GetRoutingInstanceDormantTraceBufSize());
+    // reaching dormant max capacity
+    DeleteRoutingInstance(ri4_cfg.get());
+    DeleteRoutingInstance(ri5_cfg.get());
+    // checking with threshold
+    TASK_UTIL_EXPECT_EQ((DormantTraceBufCount + 3),
+                              GetRoutingInstanceDormantTraceBufSize());
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#1"));
+    TASK_UTIL_EXPECT_EQ(false, HasRoutingInstanceDormantTraceBuf("TestRi#2"));
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#3"));
+    TASK_UTIL_EXPECT_EQ(true, HasRoutingInstanceDormantTraceBuf("TestRi#4"));
+
+    if (set_log_disable == true) {
+        SetLoggingDisabled(true);
+    }
+
+    if (buffer_capacity_str) {
+        setenv("ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE", buffer_capacity_str, true);
+    }
+
+    if (buffer_threshold_str) {
+        setenv("ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD", buffer_threshold_str, true);
+    }
 }
 
 //
