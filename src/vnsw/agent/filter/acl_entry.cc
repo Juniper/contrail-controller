@@ -474,7 +474,7 @@ static bool SubnetMatch(const std::vector<AclAddressInfo> &list,
 bool AddressMatch::AddressGroupMatch(const IpAddress &data,
                                      const TagList &tag_list) const {
 
-    if (TagsMatch(tag_list)) {
+    if (tags_.size() && TagsMatch(tag_list)) {
         return true;
     }
 
