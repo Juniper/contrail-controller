@@ -61,6 +61,12 @@ class VncNamespace(VncCommon):
     def _get_namespace_service_vn_name(self, ns_name):
         return ns_name + "-service-network"
 
+    def _get_ip_fabric_forwarding(self, ns_name):
+        ns = self._get_namespace(ns_name)
+        if ns:
+            return ns.get_ip_fabric_forwarding()
+        return None
+
     def _is_namespace_isolated(self, ns_name):
         """
         Check if this namespace is configured as isolated.
@@ -147,6 +153,7 @@ class VncNamespace(VncCommon):
             vn_obj = self._vnc_lib.virtual_network_read(
                 fq_name=vn.get_fq_name())
             vn_uuid = vn_obj.uuid
+            vn = vn_obj
 
         # Instance-Ip for pods on this VN, should be allocated from
         # cluster pod ipam. Attach the cluster pod-ipam object
@@ -154,13 +161,22 @@ class VncNamespace(VncCommon):
         vn.add_network_ipam(ipam_obj, VnSubnetsType([]))
 
         # enable ip-fabric-forwarding
-        if self._args.ip_fabric_forwarding and provider:
-            vn.add_virtual_network(provider)
-        else:
-            vn_refs = vn.get_virtual_network_refs()
-            for vn_ref in vn_refs or []:
-                vn_ref_obj = self.vnc_lib.virtual_network_read(id=vn_ref['uuid'])
-                vn.del_virtual_network(vn_ref_obj)
+        if provider:
+            ip_fabric_forwarding = self._get_ip_fabric_forwarding(ns_name)
+            if ip_fabric_forwarding == True:
+                add_provider = True
+            elif ip_fabric_forwarding == False:
+                add_provider = False
+            else:
+                add_provider = self._args.ip_fabric_forwarding
+
+            if add_provider:
+                vn.add_virtual_network(provider)
+            else:
+                vn_refs = vn.get_virtual_network_refs()
+                for vn_ref in vn_refs or []:
+                    vn_ref_obj = self._vnc_lib.virtual_network_read(id=vn_ref['uuid'])
+                    vn.del_virtual_network(vn_ref_obj)
 
         # Update VN.
         self._vnc_lib.virtual_network_update(vn)

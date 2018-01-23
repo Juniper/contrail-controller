@@ -153,6 +153,7 @@ class NamespaceKM(KubeDBBase):
         self.annotated_vn_fq_name = None
         self.annotations = None
         self.np_annotations = None
+        self.ip_fabric_forwarding = None
 
         # Status.
         self.phase = None
@@ -200,6 +201,15 @@ class NamespaceKM(KubeDBBase):
             annotations['opencontrail.org/isolation'] == "true":
             # Namespace isolation is configured
             self.isolated = True
+        # Cache namespace ip_fabric_forwarding directive
+        if 'opencontrail.org/ip_fabric_forwarding' in annotations:
+            ann_val = annotations['opencontrail.org/ip_fabric_forwarding']
+            if ann_val == 'true':
+                self.ip_fabric_forwarding = True
+            elif ann_val == 'false':
+                self.ip_fabric_forwarding = False
+        else:
+            self.ip_fabric_forwarding = None
         # Cache k8s network-policy directive.
         if 'net.beta.kubernetes.io/network-policy' in annotations:
             self.np_annotations = json.loads(
@@ -212,6 +222,9 @@ class NamespaceKM(KubeDBBase):
 
     def is_isolated(self):
         return self.isolated
+
+    def get_ip_fabric_forwarding(self):
+        return self.ip_fabric_forwarding
 
     def get_network_policy_annotations(self):
         return self.np_annotations

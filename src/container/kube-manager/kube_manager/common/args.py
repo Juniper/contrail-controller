@@ -124,7 +124,7 @@ def parse_args(args_str=None):
         'cluster_network' : None,
         'cluster_pod_network' : None,
         'cluster_service_network' : None,
-        'ip_fabric_forwarding': 'True',
+        'ip_fabric_forwarding': False,
     }
 
     sandesh_opts = SandeshConfig.get_default_options()
