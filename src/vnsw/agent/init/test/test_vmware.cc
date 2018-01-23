@@ -101,6 +101,12 @@ TEST_F(VmwareTest, VmwarPhysicalPort_2) {
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::L2_RECEIVE);
 
+    rt = L2RouteGet(agent->fabric_vrf_name(), intf->mac());
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::L2_RECEIVE);
+
+    rt = L2RouteGet(agent->fabric_policy_vrf_name(), intf->mac());
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::L2_RECEIVE);
+
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
