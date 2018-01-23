@@ -1007,6 +1007,11 @@ void AclEntrySpec::BuildAddressInfo(const std::string &prefix, int plen,
 
 void AclEntrySpec::PopulateServiceType(const FirewallServiceType *fst) {
     ServicePort sp;
+    if (fst == NULL) {
+        service_group.push_back(sp);
+        return;
+    }
+
     if (fst->protocol.compare("any") == 0) {
         sp.protocol.min = 0x0;
         sp.protocol.max = 0xff;
@@ -1030,12 +1035,15 @@ void AclEntrySpec::PopulateServiceType(const FirewallServiceType *fst) {
 }
 
 bool AclEntrySpec::PopulateServiceGroup(const ServiceGroup *s_group) {
+    if (s_group->firewall_service_list().size() == 0) {
+        PopulateServiceType(NULL);
+    }
+
     std::vector<FirewallServiceType>::const_iterator it =
         s_group->firewall_service_list().begin();
     for (; it != s_group->firewall_service_list().end(); it++) {
         PopulateServiceType(&(*it));
     }
-
     return true;
 }
 
