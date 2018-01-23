@@ -1,0 +1,3 @@
+#
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
+# Place holder setup.py for fabric-ansible
