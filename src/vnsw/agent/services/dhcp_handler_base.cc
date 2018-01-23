@@ -656,6 +656,15 @@ uint16_t DhcpHandlerBase::AddDhcpOptions(
                 break;
         }
 
+        // store siaddr for tftp server name to apply it later
+        if (option == DHCP_OPTION_TFTP_SERVER_NAME) {
+            boost::system::error_code ec;
+            Ip4Address siaddr =
+            Ip4Address::from_string(options[i].dhcp_option_value, ec);
+            if (ec.value() == 0)
+                siaddr_tftp_ = htonl(siaddr.to_ulong());
+        }
+
         if (opt_len != old_opt_len)
             set_flag(option);
     }
