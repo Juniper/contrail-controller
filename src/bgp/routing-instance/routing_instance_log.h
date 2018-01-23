@@ -19,6 +19,8 @@
 // RoutingInstance trace macros. Optionally logs the server name as well for
 // easier debugging in multiple server unit tests.
 //
+#define ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_THRESHOLD_1K   1024
+#define ROUTING_INSTANCE_DORMANT_TRACE_BUFFER_SIZE_64K       (64*1024)
 
 #define RTINSTANCE_TRACE_BUF "RoutingInstanceTraceBuf"
 extern SandeshTraceBufferPtr RoutingInstanceTraceBuf;
