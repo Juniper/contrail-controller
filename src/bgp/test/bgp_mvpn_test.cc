@@ -4,8 +4,8 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/format.hpp>
-#include <boost/regex.hpp>
 
+#include "base/regex.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "db/db_table_walker.h"
@@ -28,11 +28,12 @@
 using boost::format;
 using boost::assign::list_of;
 using boost::smatch;
-using boost::regex;
-using boost::regex_search;
 using boost::scoped_ptr;
 using boost::starts_with;
 using boost::system::error_code;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::make_pair;
 using std::ostringstream;
 using std::string;

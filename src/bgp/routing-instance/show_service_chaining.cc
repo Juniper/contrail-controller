@@ -2,8 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/regex.hpp>
-
+#include "base/regex.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_show_handler.h"
@@ -13,8 +12,9 @@
 #include "bgp/routing-instance/service_chaining_types.h"
 #include "net/address_util.h"
 
-using boost::regex;
-using boost::regex_search;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::string;
 using std::vector;
 

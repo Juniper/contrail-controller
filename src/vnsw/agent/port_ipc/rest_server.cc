@@ -9,6 +9,7 @@
 #include <boost/assign.hpp>
 #include <boost/foreach.hpp>
 
+#include "base/regex.h"
 #include "http/http_server.h"
 #include "http/http_request.h"
 #include "http/http_session.h"
@@ -17,6 +18,10 @@
 #include "cmn/agent.h"
 #include "rest_server.h"
 #include "rest_common.h"
+
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 
 void RESTServer::VmPortPostHandler(const struct RESTData& data) {
     PortIpcHandler *pih = agent_->port_ipc_handler();
@@ -193,48 +198,48 @@ void RESTServer::VmPortDisableHandler(const struct RESTData& data) {
 const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
     boost::assign::list_of
     (HandlerSpecifier(
-        boost::regex("/port"),
+        regex("/port"),
         HTTP_POST,
         &RESTServer::VmPortPostHandler))
     (HandlerSpecifier(
-        boost::regex("/syncports"),
+        regex("/syncports"),
         HTTP_POST,
         &RESTServer::VmPortSyncHandler))
     (HandlerSpecifier(
-        boost::regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{12})"),
+        regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+              "[0-9a-f]{12})"),
         HTTP_DELETE,
         &RESTServer::VmPortDeleteHandler))
     (HandlerSpecifier(
-        boost::regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{12})"),
+        regex("/port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+              "[0-9a-f]{12})"),
         HTTP_GET,
         &RESTServer::VmPortGetHandler))
     (HandlerSpecifier(
-        boost::regex("/gateway"),
+        regex("/gateway"),
         HTTP_POST,
         &RESTServer::GatewayPostHandler))
     (HandlerSpecifier(
-        boost::regex("/gateway"),
+        regex("/gateway"),
         HTTP_DELETE,
         &RESTServer::GatewayDeleteHandler))
     (HandlerSpecifier(
-        boost::regex("/vm"),
+        regex("/vm"),
         HTTP_POST,
         &RESTServer::VmVnPortPostHandler))
     (HandlerSpecifier(
-        boost::regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{12})"),
+        regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+              "[0-9a-f]{12})"),
         HTTP_DELETE,
         &RESTServer::VmVnPortDeleteHandler))
     (HandlerSpecifier(
-        boost::regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{12})"),
+        regex("/vm/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+              "[0-9a-f]{12})"),
         HTTP_GET,
         &RESTServer::VmVnPortGetHandler))
     (HandlerSpecifier(
-        boost::regex("/vm-cfg/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
-                     "[0-9a-f]{12})"),
+        regex("/vm-cfg/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-"
+              "[0-9a-f]{12})"),
         HTTP_GET,
         &RESTServer::VmVnPortCfgGetHandler))
     (HandlerSpecifier(
@@ -263,7 +268,7 @@ void RESTServer::HandleRequest(HttpSession* session,
     std::string path = request->UrlPath();
     BOOST_FOREACH(const RESTServer::HandlerSpecifier& hs, RESTHandlers_) {
         boost::smatch match;
-        if (boost::regex_match(path, match, hs.request_regex) &&
+        if (regex_match(path, match, hs.request_regex) &&
             request->GetMethod() == hs.method) {
             struct RESTData data = {
                 &match,
