@@ -727,6 +727,63 @@ static bool BuildBridgeDomainVnTable(Agent *agent,
     return false;
 }
 
+static void UpdateVmiSiMode(Agent *agent, VmInterfaceConfigData *data,
+                            IFMapNode *node) {
+
+    ServiceInstance *entry = static_cast<ServiceInstance*>(node->GetObject());
+    assert(entry);
+
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (agent->config_manager()->SkipNode(adj_node)) {
+            continue;
+        }
+        if (adj_node->table() != agent->cfg()->cfg_service_template_table()) {
+            continue;
+        }
+        ServiceTemplate *entry =  static_cast<ServiceTemplate*>(adj_node->GetObject());
+        if (entry == NULL)
+            return;
+
+        ServiceTemplateType svc_template_props = entry->properties();
+        string service_mode = svc_template_props.service_mode;
+
+        if (service_mode == "in-network") {
+            data->service_mode_ = VmInterface::ROUTED_MODE;
+        } else if (service_mode == "transparent") {
+            data->service_mode_ = VmInterface::BRIDGE_MODE;
+        } else if (service_mode == "in-network-nat") {
+            data->service_mode_ = VmInterface::ROUTED_NAT_MODE;
+        } else {
+            data->service_mode_ = VmInterface::SERVICE_MODE_ERROR;
+        }
+    }
+}
+
+static void BuildVmiSiMode(Agent *agent, VmInterfaceConfigData *data,
+                            IFMapNode *node) {
+
+    PortTuple *entry = static_cast<PortTuple*>(node->GetObject());
+    assert(entry);
+
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    DBGraph *graph = table->GetGraph();
+
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (adj_node->table() != agent->cfg()->cfg_service_instance_table()) {
+            continue;
+        }
+        UpdateVmiSiMode(agent, data, adj_node);
+    }
+}
+
 static void BuildSiOtherVmi(Agent *agent, VmInterfaceConfigData *data,
                             IFMapNode *node, const string &s_intf_type) {
     PortTuple *entry = static_cast<PortTuple*>(node->GetObject());
@@ -1500,7 +1557,9 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
             if (!service_intf_type.empty()) {
                 BuildSiOtherVmi(agent_, data, adj_node, service_intf_type);
             }
+            BuildVmiSiMode(agent_, data, adj_node);
         }
+
     }
     if (parent_vmi_node) {
         IFMapAgentTable *vmi_table = static_cast<IFMapAgentTable *>
