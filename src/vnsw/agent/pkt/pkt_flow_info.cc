@@ -1090,7 +1090,7 @@ void PktFlowInfo::ChangeEncapToOverlay(const VmInterface *intf,
     }
 
     bool can_be_underlay_flow = false;
-    if (intf->vrf() && intf->vrf()->forwarding_vrf()) {
+    if (intf->vrf() && intf->vrf()->forwarding_vrf() != intf->vrf()) {
         can_be_underlay_flow = true;
     }
 
@@ -1102,7 +1102,8 @@ void PktFlowInfo::ChangeEncapToOverlay(const VmInterface *intf,
             dynamic_cast<const InterfaceNH *>(out->rt_->GetActiveNextHop());
         if (intf_nh) {
             const Interface *out_itf = intf_nh->GetInterface();
-            if (out_itf->vrf() && out_itf->vrf()->forwarding_vrf()) {
+            if (out_itf->vrf() &&
+                out_itf->vrf()->forwarding_vrf() != out_itf->vrf()) {
                 can_be_underlay_flow = true;
             }
         }
@@ -1118,9 +1119,11 @@ void PktFlowInfo::ChangeEncapToOverlay(const VmInterface *intf,
                                                      pkt->ip_daddr);
 
     if (src_rt == NULL || dst_rt == NULL) {
+        overlay_route_not_found = true;
         return;
     }
 
+    overlay_route_not_found = false;
     uint32_t src_tunnel_bmap = src_rt->GetActivePath()->tunnel_bmap();
     uint32_t dst_tunnel_bmap = dst_rt->GetActivePath()->tunnel_bmap();
 
@@ -1152,6 +1155,7 @@ void PktFlowInfo::ChangeFloatingIpEncap(const PktInfo *pkt,
          return;
      }
 
+     overlay_route_not_found = false;
      const InetUnicastRouteEntry *src =
          static_cast<const InetUnicastRouteEntry *>(in->rt_);
      const IpAddress src_ip = src->addr();
@@ -1711,6 +1715,13 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         flow_dest_vrf = out->rt_->vrf_id();
     } else {
         flow_source_vrf = flow_dest_vrf = in->vrf_->vrf_id();
+    }
+
+    if (overlay_route_not_found) {
+        LogError(pkt, this, "Flow : Overlay route not found");
+        short_flow = true;
+        short_flow_reason = FlowEntry::SHORT_NO_DST_ROUTE;
+        return false;
     }
 
     //If source is ECMP, establish a reverse flow pointing
