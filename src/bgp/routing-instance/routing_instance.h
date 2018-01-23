@@ -169,7 +169,7 @@ public:
     const RoutingPolicyAttachList &routing_policies() const {
         return routing_policies_;
     }
-    SandeshTraceBufferPtr trace_buffer() const { return trace_buffer_; }
+    SandeshTraceBufferPtr trace_buffer() const;
 
     void AddRoutingPolicy(RoutingPolicyPtr policy);
 
@@ -278,6 +278,8 @@ class RoutingInstanceMgr {
 public:
     typedef std::set<std::string> RoutingInstanceConfigList;
     typedef std::map<std::string, RoutingInstance *> RoutingInstanceList;
+    typedef std::map<std::string, SandeshTraceBufferPtr>
+                                     RoutingInstanceTraceBuffer;
     typedef RoutingInstanceList::iterator name_iterator;
     typedef RoutingInstanceList::const_iterator const_name_iterator;
     typedef RoutingInstanceList::iterator RoutingInstanceIterator;
@@ -339,6 +341,16 @@ public:
         const BgpInstanceConfig *config);
     virtual void DeleteRoutingInstance(const std::string &name);
     void DestroyRoutingInstance(RoutingInstance *rtinstance);
+
+    // Trace buffer related functions
+    SandeshTraceBufferPtr LocateTraceBuffer(const std::string &name);
+    void DisableTraceBuffer(const std::string &name);
+    bool HasRoutingInstanceActiveTraceBuf(const std::string &name) const;
+    bool HasRoutingInstanceDormantTraceBuf(const std::string &name) const;
+    SandeshTraceBufferPtr GetActiveTraceBuffer(const std::string &name) const;
+    SandeshTraceBufferPtr GetDormantTraceBuffer(const std::string &name) const;
+    int GetRoutingInstanceActiveTraceBufSize() const;
+    int GetRoutingInstanceDormantTraceBufSize() const;
 
     bool deleted();
     bool MayDelete() const;
@@ -406,6 +418,8 @@ private:
     boost::scoped_ptr<TaskTrigger> neighbor_config_trigger_;
     RoutingInstance *default_rtinstance_;
     RoutingInstanceList instances_;
+    RoutingInstanceTraceBuffer trace_buffer_active_;
+    RoutingInstanceTraceBuffer trace_buffer_dormant_;
     InstanceTargetMap target_map_;
     VnIndexMap vn_index_map_;
     uint32_t deleted_count_;
