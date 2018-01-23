@@ -686,6 +686,8 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     instances_.erase(loc);
     int index = rtinstance->index();
     delete rtinstance;
+    // disable the TraceBuf for the deleted RoutingInstance
+    DisableTraceBuffer(name);
     // index was allocated in Config Manager so needs to be freed
     if (index >= 0)
         server()->config_manager()->ResetRoutingInstanceIndexBit(index);
@@ -704,6 +706,119 @@ void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
         CreateRoutingInstance(config);
         return;
     }
+}
+
+SandeshTraceBufferPtr RoutingInstanceMgr::LocateTraceBuffer ( 
+        const std::string &name) {
+    SandeshTraceBufferPtr trace_buf;
+
+    trace_buf = GetActiveTraceBuffer(name);
+    if (trace_buf == NULL) {
+        trace_buf = GetTraceBuffer(name);
+    }
+
+    return trace_buf;
+}
+
+SandeshTraceBufferPtr RoutingInstanceMgr::GetTraceBuffer (
+        const std::string &name) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    SandeshTraceBufferPtr trace_buf;
+    RoutingInstanceTraceBuffer::iterator iter;
+    
+    iter = trace_buffer_active_.find(name);
+    if (iter != trace_buffer_active_.end()) {
+        return iter->second;
+    }
+    
+    iter = trace_buffer_dormant_.find(name);
+    if (iter != trace_buffer_dormant_.end()) {
+        // tracebuf was created for this RoutingInstance in its prior 
+        // incarnation
+        trace_buf = iter->second;
+        trace_buffer_dormant_.erase(iter);
+        // move the buff to Avtive RI's map
+        trace_buffer_active_.insert(make_pair(name, trace_buf));
+        return trace_buf;
+    }
+
+    // create new sandesh Buffer
+    trace_buf = SandeshTraceBufferCreate(
+                                  name + RTINSTANCE_TRACE_BUF, 1000);
+    trace_buffer_active_.insert(make_pair(name, trace_buf));
+    
+    return trace_buf;
+}
+
+void RoutingInstanceMgr::DisableTraceBuffer(const std::string &name) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
+    SandeshTraceBufferPtr trace_buf;
+    RoutingInstanceTraceBuffer::iterator iter;
+ 
+    iter = trace_buffer_active_.find(name);
+    if (iter != trace_buffer_active_.end()) {
+        trace_buf = iter->second;
+        trace_buffer_active_.erase(iter);
+        trace_buffer_dormant_.insert(make_pair(name, trace_buf));
+    }
+
+    return;
+}
+
+SandeshTraceBufferPtr 
+RoutingInstanceMgr::GetActiveTraceBuffer(const std::string &name) const{
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, false);
+    RoutingInstanceTraceBuffer::const_iterator iter = 
+                                         trace_buffer_active_.find(name);
+    SandeshTraceBufferPtr trace_buf;
+
+    assert(trace_buf == NULL);
+    if (iter != trace_buffer_active_.end()) {
+        trace_buf = iter->second;
+    }
+    return trace_buf;
+}
+
+SandeshTraceBufferPtr
+RoutingInstanceMgr::GetDormantTraceBuffer(const std::string &name) const {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, false);
+    RoutingInstanceTraceBuffer::const_iterator iter = 
+                                         trace_buffer_dormant_.find(name);
+ 
+    SandeshTraceBufferPtr trace_buf;
+
+    assert(trace_buf == NULL);
+    if (iter != trace_buffer_dormant_.end()) {
+        trace_buf = iter->second;
+    }
+    return trace_buf;
+}
+
+bool RoutingInstanceMgr::HasRoutingInstanceActiveTraceBuf(const std::string
+                                                          &name) const {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, false);
+    RoutingInstanceTraceBuffer::const_iterator iter = 
+                                          trace_buffer_active_.find(name);
+ 
+    return (iter != trace_buffer_active_.end());
+}
+
+bool RoutingInstanceMgr::HasRoutingInstanceDormantTraceBuf(const std::string 
+                                                     &name) const {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, false);
+    RoutingInstanceTraceBuffer::const_iterator iter = 
+                                          trace_buffer_dormant_.find(name);
+    return (iter != trace_buffer_dormant_.end());
+}
+
+int RoutingInstanceMgr::GetRoutingInstanceActiveTraceBufSize() const {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, false);
+    return trace_buffer_active_.size();
+}
+
+int RoutingInstanceMgr::GetRoutingInstanceDormantTraceBufSize() const {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, false);
+    return trace_buffer_dormant_.size();
 }
 
 void RoutingInstanceMgr::CreateRoutingInstanceNeighbors(
@@ -822,8 +937,6 @@ RoutingInstance::RoutingInstance(string name, BgpServer *server,
       virtual_network_allow_transit_(false),
       virtual_network_pbb_evpn_enable_(false),
       vxlan_id_(0),
-      trace_buffer_(SandeshTraceBufferCreate(name + RTINSTANCE_TRACE_BUF,
-                                             1000)),
       deleter_(new DeleteActor(server, this)),
       manager_delete_ref_(this, NULL),
       mvpn_project_manager_network_(BgpConfigManager::kFabricInstance) {
@@ -860,6 +973,10 @@ void RoutingInstance::ProcessRoutingPolicyConfig() {
                                                   policy->generation()));
         }
     }
+}
+
+SandeshTraceBufferPtr RoutingInstance::trace_buffer() const {
+    return mgr_->LocateTraceBuffer(name_);
 }
 
 //

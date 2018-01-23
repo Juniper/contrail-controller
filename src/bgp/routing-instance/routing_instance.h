@@ -12,6 +12,7 @@
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <tbb/mutex.h>
+#include <tbb/spin_rw_mutex.h>
 
 #include <list>
 #include <map>
@@ -169,7 +170,7 @@ public:
     const RoutingPolicyAttachList &routing_policies() const {
         return routing_policies_;
     }
-    SandeshTraceBufferPtr trace_buffer() const { return trace_buffer_; }
+    SandeshTraceBufferPtr trace_buffer() const;
 
     void AddRoutingPolicy(RoutingPolicyPtr policy);
 
@@ -278,6 +279,8 @@ class RoutingInstanceMgr {
 public:
     typedef std::set<std::string> RoutingInstanceConfigList;
     typedef std::map<std::string, RoutingInstance *> RoutingInstanceList;
+    typedef std::map<std::string, SandeshTraceBufferPtr>
+                                     RoutingInstanceTraceBuffer;
     typedef RoutingInstanceList::iterator name_iterator;
     typedef RoutingInstanceList::const_iterator const_name_iterator;
     typedef RoutingInstanceList::iterator RoutingInstanceIterator;
@@ -340,6 +343,17 @@ public:
     virtual void DeleteRoutingInstance(const std::string &name);
     void DestroyRoutingInstance(RoutingInstance *rtinstance);
 
+    // Trace buffer related functions
+    SandeshTraceBufferPtr LocateTraceBuffer(const std::string &name);
+    SandeshTraceBufferPtr GetTraceBuffer(const std::string &name);
+    void DisableTraceBuffer(const std::string &name);
+    bool HasRoutingInstanceActiveTraceBuf(const std::string &name) const;
+    bool HasRoutingInstanceDormantTraceBuf(const std::string &name) const;
+    SandeshTraceBufferPtr GetActiveTraceBuffer(const std::string &name) const;
+    SandeshTraceBufferPtr GetDormantTraceBuffer(const std::string &name) const;
+    int GetRoutingInstanceActiveTraceBufSize() const;
+    int GetRoutingInstanceDormantTraceBufSize() const;
+
     bool deleted();
     bool MayDelete() const;
     void ManagedDelete();
@@ -399,12 +413,15 @@ private:
 
     BgpServer *server_;
     mutable tbb::mutex mutex_;
+    mutable tbb::spin_rw_mutex rw_mutex_;
     std::vector<RoutingInstanceConfigList> instance_config_lists_;
     std::vector<TaskTrigger *> instance_config_triggers_;
     RoutingInstanceConfigList neighbor_config_list_;
     boost::scoped_ptr<TaskTrigger> neighbor_config_trigger_;
     RoutingInstance *default_rtinstance_;
     RoutingInstanceList instances_;
+    RoutingInstanceTraceBuffer trace_buffer_active_;
+    RoutingInstanceTraceBuffer trace_buffer_dormant_;
     InstanceTargetMap target_map_;
     VnIndexMap vn_index_map_;
     uint32_t deleted_count_;
