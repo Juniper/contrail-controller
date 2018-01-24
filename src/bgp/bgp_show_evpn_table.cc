@@ -37,6 +37,7 @@ static void FillEvpnTableInfo(ShowEvpnTable *sevt,
     sevt->set_mac_routes(table->mac_route_count());
     sevt->set_unique_mac_routes(table->unique_mac_route_count());
     sevt->set_im_routes(table->im_route_count());
+    sevt->set_ip_routes(table->ip_route_count());
 
     if (summary || table->IsVpnTable() || !table->GetEvpnManager())
         return;

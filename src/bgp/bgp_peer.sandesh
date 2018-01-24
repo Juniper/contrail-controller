@@ -567,6 +567,7 @@ struct ShowEvpnTable {
     2: u64 mac_routes;
     3: u64 unique_mac_routes;
     4: u64 im_routes;
+    10: u64 ip_routes;
     5: bool deleted;
     6: string deleted_at;
     7: optional list<string> regular_nves;

@@ -848,6 +848,8 @@ string EvpnPrefix::ToXmppIdString() const {
 }
 
 uint8_t EvpnPrefix::ip_address_length() const {
+    if (type_ == IpPrefixRoute)
+        return ip_prefixlen_;
     if (family_ == Address::INET)
         return 32;
     if (family_ == Address::INET6)
