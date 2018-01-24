@@ -64,30 +64,35 @@ class DMTestCase(test_common.TestCase):
         return rt_inst_obj
     # end _get_ip_fabric_ri_obj
 
-    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False):
-        bgp_router = BgpRouter(name, parent_obj=self._get_ip_fabric_ri_obj())
-        params = BgpRouterParams()
-        params.address = mgmt_ip
-        params.identifier = '1.1.1.1'
-        params.address_families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
+    def create_router(self, name, mgmt_ip, vendor='juniper', product='mx', ignore_pr=False, role=None, ignore_bgp=False):
+        bgp_router, pr = None, None
+        if not ignore_bgp:
+            bgp_router = BgpRouter(name, parent_obj=self._get_ip_fabric_ri_obj())
+            params = BgpRouterParams()
+            params.address = mgmt_ip
+            params.identifier = '1.1.1.1'
+            params.address_families = AddressFamilies(['route-target', 'inet-vpn', 'e-vpn',
                                              'inet6-vpn'])
-        params.autonomous_system = randint(0, 64512)
-        bgp_router.set_bgp_router_parameters(params)
-        self._vnc_lib.bgp_router_create(bgp_router)
+            params.autonomous_system = randint(0, 64512)
+            bgp_router.set_bgp_router_parameters(params)
+            self._vnc_lib.bgp_router_create(bgp_router)
 
-        if ignore_pr:
-            return bgp_router, None
-        pr = PhysicalRouter(name)
-        pr.physical_router_management_ip = mgmt_ip
-        pr.physical_router_vendor_name = vendor
-        pr.physical_router_product_name = product
-        pr.physical_router_vnc_managed = True
-        uc = UserCredentials('user', 'pw')
-        pr.set_physical_router_user_credentials(uc)
-        pr.set_bgp_router(bgp_router)
-        pr_id = self._vnc_lib.physical_router_create(pr)
+        if not ignore_pr:
+            pr = PhysicalRouter(name)
+            pr.physical_router_management_ip = mgmt_ip
+            pr.physical_router_vendor_name = vendor
+            pr.physical_router_product_name = product
+            pr.physical_router_vnc_managed = True
+            if role:
+                pr.physical_router_role = role
+            uc = UserCredentials('user', 'pw')
+            pr.set_physical_router_user_credentials(uc)
+            if not ignore_bgp:
+                pr.set_bgp_router(bgp_router)
+            self._vnc_lib.physical_router_create(pr)
 
         return bgp_router, pr
+    # end create_router
 
     def delete_routers(self, bgp_router=None, pr=None):
         if pr:
