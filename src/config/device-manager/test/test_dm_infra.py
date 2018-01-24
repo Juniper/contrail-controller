@@ -51,6 +51,30 @@ class TestInfraDM(TestCommonDM):
         self.delete_routers(bgp_router, pr)
         self.wait_for_routers_delete(bgp_router_fq, pr_fq)
 
+    # check for greenlets, bug: #1714004
+    def test_dm_greenlets(self):
+        bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1',
+                                    product=self.product)
+        self.check_if_xml_is_generated()
+        bgp_router_fq = bgp_router.get_fq_name()
+        pr_fq = pr.get_fq_name()
+        pr.del_bgp_router(bgp_router)
+        # delete bgp link, update and immediately delete PR
+        self._vnc_lib.physical_router_update(pr)
+        self._vnc_lib.physical_router_delete(fq_name=pr_fq)
+        # create again PR with same FQ/ip and link it with BGP
+        _, pr = self.create_router('router1' + self.id(), '1.1.1.1',
+                                   product=self.product, ignore_bgp=True)
+        pr.set_bgp_router(bgp_router)
+        gevent.sleep(5)
+        self._vnc_lib.physical_router_update(pr)
+
+        # netconf push should happen as expected
+        self.check_if_xml_is_generated()
+        self.delete_routers(bgp_router, pr)
+        self.wait_for_routers_delete(bgp_router_fq, pr_fq)
+    # end test_dm_greenlets
+
     # no crash if bgp router paramters are not configured
     def test_dm_no_bgp_params(self):
         bgp_router, pr = self.create_router('router1' + self.id(), '1.1.1.1',
