@@ -3545,10 +3545,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('job-template-job-type', 'job-template', 'optional', 'CRUD',
               'device job is the initial supported job type') -->
-<xsd:element name="job-template-job-runtime" type="JobRuntimeType"/>
-<!--#IFMAP-SEMANTICS-IDL
-     Property('job-template-job-runtime', 'job-template', 'required', 'CRUD',
-              'Ansible playbook is the initial supported job runtime. We could support other types of runtime in future') -->
 <xsd:element name="job-template-multi-device-job" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('job-template-multi-device-job', 'job-template', 'required', 'CRUD',
@@ -3616,24 +3612,24 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('fabric-credentials', 'fabric', 'optional', 'CRUD',
               'List of user credentials to manage the network devices in the fabric.') -->
 
-<xsd:element name="namespace" type="ifmap:IdentityType"/>
+<xsd:element name="fabric-namespace" type="ifmap:IdentityType"/>
 
-<xsd:element name="fabric-namespace"/>
+<xsd:element name="fabric-fabric-namespace"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Link('fabric-namespace', 'fabric', 'namespace', ['has'], 'optional', 'CRUD',
+     Link('fabric-namespace', 'fabric', 'fabric-namespace', ['has'], 'optional', 'CRUD',
              'list of fabric namespaces that define a set of resources that can be used to configure the network devices in the fabric.') -->
 
-<xsd:element name="namespace-type" type="NamespaceType"/>
+<xsd:element name="fabric-namespace-type" type="NamespaceType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('namespace-type', 'namespace', 'optional', 'CRUD',
+     Property('fabric-namespace-type', 'fabric-namespace', 'optional', 'CRUD',
               'Supported namespace types') -->
-<xsd:element name="namespace-value" type="NamespaceValue"/>
+<xsd:element name="fabric-namespace-value" type="NamespaceValue"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('namespace-value', 'namespace', 'optional', 'CRUD',
+     Property('fabric-namespace-value', 'fabric-namespace', 'optional', 'CRUD',
               'namespace value of type defined by the namespace-type.') -->
-<xsd:element name="namespace-labels" type="KeyValuePairs"/>
+<xsd:element name="fabric-namespace-labels" type="KeyValuePairs"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Property('namespace-labels', 'namespace', 'optional', 'CRUD',
+     Property('fabric-namespace-labels', 'fabric-namespace', 'optional', 'CRUD',
               'Each namespace can be tagged with one or more labels. Each label is a key-value pair similar to Kubernetes label (https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).') -->
 
 </xsd:schema>
