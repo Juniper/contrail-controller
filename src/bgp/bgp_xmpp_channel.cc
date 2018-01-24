@@ -6,12 +6,12 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/foreach.hpp>
-#include <boost/regex.hpp>
 
 #include <limits>
 #include <sstream>
 #include <vector>
 
+#include "base/regex.h"
 #include "base/task_annotations.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
@@ -66,10 +66,11 @@ using autogen::TunnelEncapsulationListType;
 using autogen::TagListType;
 
 using boost::assign::list_of;
-using boost::regex;
-using boost::regex_search;
 using boost::smatch;
 using boost::system::error_code;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using pugi::xml_node;
 using std::auto_ptr;
 using std::make_pair;

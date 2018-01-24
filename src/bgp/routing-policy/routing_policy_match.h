@@ -6,7 +6,6 @@
 #define SRC_BGP_ROUTING_POLICY_ROUTING_POLICY_MATCH_H_
 
 #include <stdint.h>
-#include <boost/regex.hpp>
 
 #include <set>
 #include <string>
@@ -14,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/regex.h"
 #include "bgp/bgp_config.h"
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet6/inet6_route.h"
@@ -49,7 +49,7 @@ class MatchCommunity: public RoutingPolicyMatch {
 public:
     typedef std::set<uint32_t> CommunityList;
     typedef std::vector<std::string> CommunityRegexStringList;
-    typedef std::vector<boost::regex> CommunityRegexList;
+    typedef std::vector<contrail::regex> CommunityRegexList;
 
     MatchCommunity(const std::vector<std::string> &communities, bool match_all);
     virtual ~MatchCommunity();

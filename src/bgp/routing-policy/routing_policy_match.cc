@@ -17,8 +17,9 @@
 #include "bgp/bgp_path.h"
 #include "net/community_type.h"
 
-using boost::regex;
-using boost::regex_match;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::includes;
 using std::map;
 using std::ostringstream;

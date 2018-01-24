@@ -6,9 +6,9 @@
 
 #include <boost/asio/io_service.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
 
 #include "base/logging.h"
+#include "base/regex.h"
 #include "base/task_annotations.h"
 #include "base/time_util.h"
 #include "config_amqp_client.h"
@@ -35,8 +35,9 @@
 
 #include "control-node/sandesh/control_node_types.h"
 
-using boost::regex;
-using boost::regex_search;
+using contrail::regex;
+using contrail::regex_match;
+using contrail::regex_search;
 using std::make_pair;
 
 class IFMapServer::IFMapStaleEntriesCleaner : public Task {
