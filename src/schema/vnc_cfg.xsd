@@ -2952,15 +2952,37 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'logical-router', 'route-table', ['ref'], 'optional', 'CRUD',
           'Reference to the route table attached to this logical router. By attaching route table, system will create static routes with the route target only of route targets linked to this logical router') -->
 
+<xsd:simpleType name="LogicalRouterVirtualNetworkEnumType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="ExternalGateway"
+            description='Virtual network is used as external gateway for this logical router. This link will cause a SNAT being spawned between all networks connected to logical router and external network.'/>
+        <xsd:enumeration value="Layer3VirtualNetwork"
+            description='Virtual-network is used for EVPN Layer3 packets routing. This network is used to route packets from all children EVPN Layer2 networks linked this logical-router'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="LogicalRouterVirtualNetworkType">
+    <xsd:element name="logical-router-virtual-network-type" type="LogicalRouterVirtualNetworkEnumType" required='optional' default='ExternalGateway'/>
+</xsd:complexType>
+
 <!--
     Link a virtual network used as the external gateway for source NAT support
-    (aka external gateway in OpenStack Neutron API).
+    (aka external gateway in OpenStack Neutron API) or as the L3VN for routing in evpn (aka evpn type-5 prefix based routing).
 -->
-<xsd:element name="logical-router-gateway"/>
+<xsd:element name="logical-router-virtual-network" type="LogicalRouterVirtualNetworkType"/>
 <!--#IFMAP-SEMANTICS-IDL
-     Link('logical-router-gateway',
+     Link('logical-router-virtual-network',
           'logical-router', 'virtual-network', ['ref'], 'optional', 'CRUD',
-          'Reference to virtual network used as external gateway for this logical network. This link will cause a SNAT being spawned between all networks connected to logical router and external network.') -->
+          'Reference to a virtual network. Please refer to link attribute for additional details') -->
+
+<!--
+    Link a logical router to a virtual network used for external connectivity.
+-->
+<xsd:element name="virtual-network-logical-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('virtual-network-logical-router',
+          'virtual-network', 'logical-router', ['ref'], 'optional', 'CRUD',
+          'Reference to a logical-router used for external connectivity') -->
 
 <xsd:element name="logical-router-service-instance"/>
 <!--#IFMAP-SEMANTICS-IDL
