@@ -5,6 +5,13 @@
     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
 
+<xsd:complexType name="SloRateType">
+    <xsd:all>
+        <xsd:element name="rate" type="xsd:integer" maxOccurs="1" default='100'
+         description='Rate at which sessions are logged'/>
+    </xsd:all>
+</xsd:complexType>
+
 <xsd:complexType name="SubnetListType">
     <xsd:all>
         <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded"/>
@@ -236,12 +243,12 @@
      Link('firewall-rule-virtual-network',
           'firewall-rule', 'virtual-network', ['ref'], 'optional', 'R',
           'Reference to virtual network attached to endpoints') -->
-<xsd:element name="firewall-policy-security-logging-object"/>
+<xsd:element name="firewall-policy-security-logging-object" type="SloRateType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('firewall-policy-security-logging-object',
           'firewall-policy', 'security-logging-object', ['ref'], 'optional', 'CRUD',
           'Reference to security-logging-object attached to this firewall-policy') -->
-<xsd:element name="firewall-rule-security-logging-object"/>
+<xsd:element name="firewall-rule-security-logging-object" type="SloRateType"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('firewall-rule-security-logging-object',
           'firewall-rule', 'security-logging-object', ['ref'], 'optional', 'CRUD',
