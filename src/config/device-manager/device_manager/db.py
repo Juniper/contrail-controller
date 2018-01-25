@@ -44,7 +44,7 @@ class BgpRouterDM(DBBaseDM):
         if obj is None:
             obj = self.read_obj(self.uuid)
         self.name = obj['fq_name'][-1]
-        self.params = obj['bgp_router_parameters']
+        self.params = obj.get('bgp_router_parameters') or {}
         if self.params is not None:
             if self.params.get('autonomous_system') is None:
                 self.params[
@@ -87,13 +87,13 @@ class BgpRouterDM(DBBaseDM):
         resp.response(req.context())
 
     def get_all_bgp_router_ips(self):
-        if self.params['address'] is not None:
+        if self.params.get('address'):
             bgp_router_ips = set([self.params['address']])
         else:
             bgp_router_ips = set()
         for peer_uuid in self.bgp_routers:
             peer = BgpRouterDM.get(peer_uuid)
-            if peer is None or peer.params['address'] is None:
+            if peer is None or not peer.params.get('address'):
                 continue
             bgp_router_ips.add(peer.params['address'])
         return bgp_router_ips
@@ -565,7 +565,7 @@ class PhysicalRouterDM(DBBaseDM):
         if bgp_router:
             for peer_uuid, attr in bgp_router.bgp_routers.items():
                 peer = BgpRouterDM.get(peer_uuid)
-                if peer is None:
+                if not peer or not peer.params or not peer.params.get('address'):
                     continue
                 local_as = bgp_router.params.get('local_autonomous_system') or \
                                bgp_router.params.get('autonomous_system')

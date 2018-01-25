@@ -723,7 +723,7 @@ class PhysicalRouterConfig(object):
     # end set_bgp_config
 
     def _get_bgp_config_xml(self, external=False):
-        if self.bgp_params is None:
+        if self.bgp_params is None or not self.bgp_params.get('address'):
             return None
         bgp_group = BgpGroup()
         if external:
@@ -796,6 +796,8 @@ class PhysicalRouterConfig(object):
     # end _get_neighbor_config_xml
 
     def set_as_config(self):
+        if not self.bgp_params.get("identifier"):
+            return
         if self.global_routing_options_config is None:
             self.global_routing_options_config = RoutingOptions()
         self.global_routing_options_config.set_route_distinguisher_id(self.bgp_params['identifier'])
