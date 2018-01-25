@@ -147,7 +147,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         vmi_name = self.id() + 'vmi1'
         vmi = VirtualMachineInterface(vmi_name, parent_type='project',
                         fq_name=['default-domain', 'default-project', vmi_name])
-        vmi.add_virtual_network(vn_private)
+        vmi.add_virtual_network(vn_private, ref_data=None)
         self._vnc_lib.virtual_machine_interface_create(vmi)
 
         #create public vn
@@ -167,7 +167,7 @@ class TestRouteTable(STTestCase, VerifyRouteTable):
         rtgt_list = RouteTargetList(route_target=['target:1:1'])
         lr.set_configured_route_target_list(rtgt_list)
         lr.add_virtual_machine_interface(vmi)
-        lr.add_virtual_network(vn_public)
+        lr.add_virtual_network(vn_public, ref_data=None)
         self._vnc_lib.logical_router_create(lr)
 
         @retries(5)
