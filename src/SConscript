@@ -21,7 +21,6 @@ subdirs = [
            'db',
            'dns',
            'database',
-           'http',
            'ifmap',
            'net',
            'route',
