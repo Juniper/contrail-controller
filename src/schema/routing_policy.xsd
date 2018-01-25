@@ -5,7 +5,7 @@
     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
     xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
 
-<xsd:element name='routing-policy' type='ifmap::IdentityType'/>
+<xsd:element name='routing-policy' type='ifmap:IdentityType'/>
 <xsd:element name='routing-policy-entries' type='PolicyStatementType'/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('routing-policy-entries', 'routing-policy') -->

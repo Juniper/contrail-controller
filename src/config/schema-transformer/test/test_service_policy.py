@@ -21,7 +21,7 @@ from vnc_api.vnc_api import (VirtualNetwork, SequenceType, VirtualNetworkType,
         VirtualMachineInterface, InterfaceMirrorType, MirrorActionType,
         ServiceChainInfo, RoutingPolicy, RoutingPolicyServiceInstanceType,
         RouteListType, RouteAggregate,RouteTargetList, ServiceInterfaceTag,
-        PolicyBasedForwardingRuleType)
+        PolicyBasedForwardingRuleType, RoutingPolicyType)
 
 from cfgm_common.exceptions import RefsExistError
 from test_case import STTestCase, retries
@@ -2137,4 +2137,34 @@ class TestServicePolicy(STTestCase, VerifyServicePolicy):
 
     #end test_service_policy_with_v4_v6_subnets
 
+    def test_routing_policy_primary_ri_ref_present(self):
+        # create  vn1
+        vn1_name = self.id() + 'vn1'
+        vn1_obj = self.create_virtual_network(vn1_name, ['10.0.0.0/24', '1000::/16'])
+
+        rp_name = self.id() + 'rp1'
+        rp = RoutingPolicy(rp_name)
+        self._vnc_lib.routing_policy_create(rp)
+        self.wait_to_get_object(config_db.RoutingPolicyST,
+                                rp.get_fq_name_str())
+
+        rp_attr = RoutingPolicyType(sequence='1.0')
+        vn1_obj.set_routing_policy(rp, rp_attr)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+
+        primary_ri = self._vnc_lib.routing_instance_read(
+                                           fq_name=self.get_ri_name(vn1_obj))
+        # check if routing_policy has a ref to primary_ri
+        self.assertEqual(primary_ri.get_routing_policy_back_refs()[0]['to'],
+                         rp.fq_name)
+
+        vn1_obj.del_routing_policy(rp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        primary_ri = self._vnc_lib.routing_instance_read(
+                                           fq_name=self.get_ri_name(vn1_obj))
+        # check if routing_policy doesn't has a ref to primary_ri
+        self.assertEqual(primary_ri.get_routing_policy_back_refs(), None)
+        self.delete_vn(fq_name=vn1_obj.get_fq_name())
+
+    # end test_routing_policy_primary_ri_ref_present
 # end class TestServicePolicy
