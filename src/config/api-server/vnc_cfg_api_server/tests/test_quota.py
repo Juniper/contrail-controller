@@ -19,6 +19,7 @@ vnc_cgitb.enable(format='text')
 sys.path.append('../common/tests')
 import test_utils
 import test_case
+import unittest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -157,6 +158,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         super(TestGlobalQuota, cls).tearDownClass(*args, **kwargs)
         QuotaHelper.default_quota = { 'defaults': -1 }
 
+    @unittest.skip("2018-01-24 tagged as flaky, so skipping")
     def test_security_group_rule_global_quota(self):
         logger.info("Test#1: Create a security group with one rule")
         sg_name = '%s-first-sg' % self.id()
