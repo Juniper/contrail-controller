@@ -43,18 +43,32 @@
              description='Match any workload'/>
 </xsd:complexType>
 
+<xsd:element name='enable-security-policy-draft' type='xsd:boolean' default='false'
+    description_1="When this knob is enabled for a policy scope, all "
+    description_2="modifications applied on scoped security resources will not "
+    description_3="be enforced until they are intentionally committed."/>
+
+<xsd:element name='pending-delete' type='xsd:boolean' default='false'
+    description_1="When this knob is enabled, the security resource was "
+    description_2="deleted, but will continue to be enforced until the policy "
+    description_3="change is committed."/>
+
 <xsd:element name="service-group" type="ifmap:IdentityType"/>
 <xsd:element name="service-group-firewall-service-list" type="FirewallServiceGroupType"/>
 <!--#IFMAP-SEMANTICS-IDL
      ListProperty('service-group-firewall-service-list', 'service-group', 'required', 'CRUD',
               'list of service objects (protocol, source port and destination port') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pending-delete', 'service-group', 'optional', 'CRUD') -->
 
-+<!-- Address group associated label to be derived from linked tag object -->
+<!-- Address group associated label to be derived from linked tag object -->
 <xsd:element name="address-group" type="ifmap:IdentityType"/>
 <xsd:element name="address-group-prefix"  type="SubnetListType" required='true'/>
 <!--#IFMAP-SEMANTICS-IDL
      ListProperty('address-group-prefix', 'address-group', 'optional', 'CRUD',
              description='List of IP prefix') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pending-delete', 'address-group', 'optional', 'CRUD') -->
 
 <xsd:element name="firewall-rule" type="ifmap:IdentityType"/>
 <xsd:element name="action-list" type="ActionListType"/>
@@ -104,6 +118,8 @@
      Link('firewall-rule-address-group',
           'firewall-rule', 'address-group', ['ref'], 'optional', 'R',
           'Reference to address group attached to endpoints') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pending-delete', 'firewall-rule', 'optional', 'CRUD',) -->
 
 <xsd:complexType name="FirewallSequence">
     <xsd:all>
@@ -117,6 +133,8 @@
      Link('firewall-policy-firewall-rule',
           'firewall-policy', 'firewall-rule', ['ref'], 'optional', 'CRUD',
           'Reference to firewall-rule attached to this firewall-policy') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pending-delete', 'firewall-policy', 'optional', 'CRUD',) -->
 
 <xsd:element name="application-policy-set" type="ifmap:IdentityType"/>
 <xsd:element name="application-policy-set-firewall-policy" type="FirewallSequence"/>
@@ -128,8 +146,24 @@
 <!--#IFMAP-SEMANTICS-IDL
      Property('all-applications', 'application-policy-set', 'optional', 'R',
               'If set, indicates application policy set to be applied to all application tags') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('pending-delete', 'application-policy-set', 'optional', 'CRUD',) -->
 
 <xsd:element name="policy-management" type="ifmap:IdentityType"/>
+<xsd:element name="config-root-policy-management"/>
+    <!--#IFMAP-SEMANTICS-IDL
+        Link('config-root-policy-management',
+             'config-root', 'policy-management', ['has'], 'optional', 'CRUD',
+             'Global level policy-management object re-grouping global '
+             'policy resources.') -->
+<xsd:element name="project-policy-management"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('project-policy-management',
+          'project', 'policy-management', ['has'], 'optional', 'CRUD',
+          'Project level policy-management object re-grouping project policy '
+          'resources') -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('enable-security-policy-draft', 'policy-management', 'optional', 'CRUD') -->
 <xsd:element name="policy-management-service-group"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('policy-management-service-group',
@@ -156,6 +190,8 @@
           'policy-management', 'application-policy-set', ['has'], 'optional', 'CRUD',
           'Application-policy object defining policies to apply for a given application tag') -->
 
+<!--#IFMAP-SEMANTICS-IDL
+     Property('enable-security-policy-draft', 'project', 'optional', 'CRUD') -->
 <xsd:element name="project-service-group"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('project-service-group',
@@ -186,7 +222,7 @@
      Link('project-default-application-policy-set',
           'project', 'application-policy-set', ['ref'], 'system-only', 'CRUD',
           'Reference to default application-policy-set is automatically '
-          'createdby system for default socped application policy sets. '
+          'created by system for default socped application policy sets. '
           'Needed by vrouter to identify default application-policy-set rules '
           'of a virtual machine interface') -->
 <xsd:element name="application-policy-set-global-vrouter-config"/>
