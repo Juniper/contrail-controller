@@ -80,7 +80,9 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
     # end test_configured_targets
 
     @retries(5)
-    def wait_for_route_target(self, ri_obj):
+    def wait_for_route_target(self, vn_obj):
+        ri_obj = self._vnc_lib.routing_instance_read(
+                vn_obj.get_routing_instances()[0]['to'])
         return self._vnc_lib.route_target_read(
                 ri_obj.get_route_target_refs()[0]['to'])
 
@@ -88,9 +90,7 @@ class TestRouteTarget(STTestCase, VerifyRouteTarget):
         # create  vn
         vn_name = 'vn_' + self.id()
         vn_obj = self.create_virtual_network(vn_name, '10.0.0.0/24')
-        ri_obj = self._vnc_lib.routing_instance_read(
-                vn_obj.get_routing_instances()[0]['to'])
-        rt_obj = self.wait_for_route_target(ri_obj)
+        rt_obj = self.wait_for_route_target(vn_obj)
         rt_id_str = "%(#)010d" % {
                 '#': int(rt_obj.get_fq_name_str().split(':')[-1])}
         db_checker = db_manage.DatabaseChecker(

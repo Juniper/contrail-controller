@@ -19,7 +19,6 @@ vnc_cgitb.enable(format='text')
 sys.path.append('../common/tests')
 import test_utils
 import test_case
-import unittest
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -158,7 +157,6 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         super(TestGlobalQuota, cls).tearDownClass(*args, **kwargs)
         QuotaHelper.default_quota = { 'defaults': -1 }
 
-    @unittest.skip("2018-01-24 tagged as flaky, so skipping")
     def test_security_group_rule_global_quota(self):
         logger.info("Test#1: Create a security group with one rule")
         sg_name = '%s-first-sg' % self.id()
@@ -179,16 +177,15 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         self.assertEqual(1,
                 len(sg_obj.get_security_group_entries().get_policy_rule()))
         quota_counters = self._server_info['api_server'].quota_counter
-        quota_counter_keys = quota_counters.keys()
         # make sure one counter is initialized
         proj_name = ["default-domain", "default-project"]
         proj_obj = self._vnc_lib.project_read(proj_name)
-        sgr_quota_counter = '%s%s/security_group_rule' % (
+        sgr_quota_counter_key = '%s%s/security_group_rule' % (
                 _DEFAULT_ZK_COUNTER_PATH_PREFIX, proj_obj.uuid)
         quota_counters = self._server_info['api_server'].quota_counter
         self.assertEqual(True, sgr_quota_counter in quota_counters.keys())
         # make sure sgr quota counter is incremented
-        sgr_quota_counter = quota_counters[quota_counter_keys[0]]
+        sgr_quota_counter = quota_counters[sgr_quota_counter_key]
         self.assertEqual(sgr_quota_counter.value, 1)
 
         logger.info("Test#2: Update sg with rules one less than quota limit.")
