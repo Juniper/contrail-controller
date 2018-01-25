@@ -1983,8 +1983,21 @@ class FirewallRuleServer(Resource, FirewallRule):
         return True, ''
 
     @classmethod
+    def _frs_fix_service(cls, service, service_group_refs):
+        if service and service_group_refs:
+            msg = ("Firewall Rule cannot have both defined 'service' property "
+                   "and Service Group reference(s)" )
+            return False, (400, msg)
+
+        if not service and not service_group_refs:
+            msg = ("Firewall Rule requires at least 'service' property or "
+                   "Service Group references(s)" )
+            return False, (400, msg)
+        return True, ''
+
+    @classmethod
     def _frs_fix_service_protocol(cls, obj_dict):
-        if 'service' in obj_dict and 'protocol' in obj_dict['service']:
+        if obj_dict.get('service') and obj_dict['service'].get('protocol'):
             protocol = obj_dict['service']['protocol']
             if protocol.isdigit():
                 protocol_id = int(protocol)
@@ -2113,6 +2126,11 @@ class FirewallRuleServer(Resource, FirewallRule):
         if not ok:
             return False, result
 
+        ok, result = cls._frs_fix_service(
+            obj_dict.get('service'), obj_dict.get('service_group_refs'))
+        if not ok:
+            return False, result
+
         obj_dict['tag_refs'] = []
         obj_dict['address_group_refs'] = []
 
@@ -2170,6 +2188,19 @@ class FirewallRuleServer(Resource, FirewallRule):
         ok, read_result = cls.dbe_read(db_conn, 'firewall_rule', id)
         if not ok:
             return ok, read_result
+        db_obj_dict = read_result
+
+        try:
+            service = obj_dict['service']
+        except KeyError:
+            service = db_obj_dict.get('service')
+        try:
+            service_group_refs = obj_dict['service_group_refs']
+        except KeyError:
+            service_group_refs = db_obj_dict.get('service_group_refs')
+        ok, result = cls._frs_fix_service(service, service_group_refs)
+        if not ok:
+            return False, result
 
         ok, msg = cls._frs_fix_service_protocol(obj_dict)
         if not ok:
@@ -2182,12 +2213,12 @@ class FirewallRuleServer(Resource, FirewallRule):
         if obj_dict.get('endpoint_1') or obj_dict.get('endpoint_2'):
             obj_dict['tag_refs'] = []
             obj_dict['address_group_refs'] = []
-            obj_dict['fq_name'] = read_result['fq_name']
+            obj_dict['fq_name'] = db_obj_dict['fq_name']
 
             for ep_name in ['endpoint_1', 'endpoint_2']:
                 ep = obj_dict.get(ep_name)
                 if ep is None:
-                    ep = read_result.get(ep_name)
+                    ep = db_obj_dict.get(ep_name)
                     if ep is None:
                         continue
                     obj_dict[ep_name] = ep

@@ -172,11 +172,16 @@ class TestFw(test_case.ApiServerTestCase):
         vn2_obj = VirtualNetwork('vn-%s-be' %(self.id()), parent_obj=pobj)
         self._vnc_lib.virtual_network_create(vn2_obj)
 
-        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
-                     action_list=ActionListType(simple_action='pass'),
-                     endpoint_1=FirewallRuleEndpointType(virtual_network=":".join(vn1_obj.get_fq_name())),
-                     endpoint_2=FirewallRuleEndpointType(virtual_network=":".join(vn2_obj.get_fq_name())),
-                     direction='<>')
+        rule_obj = FirewallRule(
+            name='rule-%s' % self.id(),
+            parent_obj=pobj,
+            action_list=ActionListType(simple_action='pass'),
+            endpoint_1=FirewallRuleEndpointType(
+                virtual_network=vn1_obj.get_fq_name_str()),
+            endpoint_2=FirewallRuleEndpointType(
+                virtual_network=vn2_obj.get_fq_name_str()),
+            direction='<>',
+        )
         rule_obj.set_service_group(sg_obj)
         self._vnc_lib.firewall_rule_create(rule_obj)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
@@ -194,12 +199,16 @@ class TestFw(test_case.ApiServerTestCase):
 
         # validate specified match-tag types
         match_tags = ['application', 'tier', 'site']
-        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
-                     action_list=ActionListType(simple_action='pass'),
-                     match_tags=FirewallRuleMatchTagsType(tag_list=match_tags),
-                     endpoint_1=FirewallRuleEndpointType(any=True),
-                     endpoint_2=FirewallRuleEndpointType(any=True),
-                     direction='<>')
+        rule_obj = FirewallRule(
+            name='rule-%s' % self.id(),
+            parent_obj=pobj,
+            action_list=ActionListType(simple_action='pass'),
+            match_tags=FirewallRuleMatchTagsType(tag_list=match_tags),
+            endpoint_1=FirewallRuleEndpointType(any=True),
+            endpoint_2=FirewallRuleEndpointType(any=True),
+            direction='<>',
+            service=FirewallServiceType(),
+        )
         self._vnc_lib.firewall_rule_create(rule_obj)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         received_set = set(rule.get_match_tag_types().get_tag_type())
@@ -209,11 +218,15 @@ class TestFw(test_case.ApiServerTestCase):
         self._vnc_lib.firewall_rule_delete(id=rule_obj.uuid)
 
         # validate default match-tags
-        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
-                     action_list=ActionListType(simple_action='pass'),
-                     endpoint_1=FirewallRuleEndpointType(any=True),
-                     endpoint_2=FirewallRuleEndpointType(any=True),
-                     direction='<>')
+        rule_obj = FirewallRule(
+            name='rule-%s' % self.id(),
+            parent_obj=pobj,
+            action_list=ActionListType(simple_action='pass'),
+            endpoint_1=FirewallRuleEndpointType(any=True),
+            endpoint_2=FirewallRuleEndpointType(any=True),
+            direction='<>',
+            service=FirewallServiceType(),
+        )
         self._vnc_lib.firewall_rule_create(rule_obj)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         received_set = set(rule.get_match_tag_types().get_tag_type())
@@ -223,12 +236,16 @@ class TestFw(test_case.ApiServerTestCase):
         self._vnc_lib.firewall_rule_delete(id=rule_obj.uuid)
 
         # validate override of default match-tags
-        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj,
-                     action_list=ActionListType(simple_action='pass'),
-                     match_tags=FirewallRuleMatchTagsType(tag_list=[]),
-                     endpoint_1=FirewallRuleEndpointType(any=True),
-                     endpoint_2=FirewallRuleEndpointType(any=True),
-                     direction='<>')
+        rule_obj = FirewallRule(
+            name='rule-%s' % self.id(),
+            parent_obj=pobj,
+            action_list=ActionListType(simple_action='pass'),
+            match_tags=FirewallRuleMatchTagsType(tag_list=[]),
+            endpoint_1=FirewallRuleEndpointType(any=True),
+            endpoint_2=FirewallRuleEndpointType(any=True),
+            direction='<>',
+            service=FirewallServiceType(),
+        )
         self._vnc_lib.firewall_rule_create(rule_obj)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
         received_set = set(rule.get_match_tag_types().get_tag_type())
@@ -266,6 +283,7 @@ class TestFw(test_case.ApiServerTestCase):
             endpoint_1=ep,
             endpoint_2=FirewallRuleEndpointType(any=True),
             direction='<>',
+            service=FirewallServiceType(),
         )
         with ExpectedException(BadRequest):
             self._vnc_lib.firewall_rule_create(fr)
@@ -274,7 +292,11 @@ class TestFw(test_case.ApiServerTestCase):
         pobj = Project('%s-project' %(self.id()))
         self._vnc_lib.project_create(pobj)
 
-        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj)
+        rule_obj = FirewallRule(
+            name='rule-%s' % self.id(),
+            parent_obj=pobj,
+            service=FirewallServiceType(),
+        )
         self._vnc_lib.firewall_rule_create(rule_obj)
         rule_obj = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
 
@@ -363,7 +385,11 @@ class TestFw(test_case.ApiServerTestCase):
         pobj = Project('%s-project' %(self.id()))
         self._vnc_lib.project_create(pobj)
 
-        rule_obj = FirewallRule(name='rule-%s' % self.id(), parent_obj=pobj)
+        rule_obj = FirewallRule(
+            name='rule-%s' % self.id(),
+            parent_obj=pobj,
+            service=FirewallServiceType(),
+        )
         self._vnc_lib.firewall_rule_create(rule_obj)
         rule_obj = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
 
@@ -477,13 +503,14 @@ class TestFw(test_case.ApiServerTestCase):
         vn2_obj = VirtualNetwork('vn-%s-be' %(self.id()), parent_obj=pobj)
         self._vnc_lib.virtual_network_create(vn2_obj)
 
+        rule.set_service(None)
         rule.set_service_group(sg_obj)
         rule.set_endpoint_2(FirewallRuleEndpointType(virtual_network=":".join(vn1_obj.get_fq_name())))
         self._vnc_lib.firewall_rule_update(rule)
         rule = self._vnc_lib.firewall_rule_read(id=rule_obj.uuid)
 
         self.assertEqual(set(rule.match_tags.tag_list), set(match_tags))
-        self.assertEqual(rule.get_service().get_protocol_id(), 6)
+        self.assertIsNone(rule.get_service())
 
         # validate rule->tag refs exists after update
         tag_refs = rule.get_tag_refs()
@@ -645,8 +672,11 @@ class TestFw(test_case.ApiServerTestCase):
         self._vnc_lib.project_create(project)
         pm = PolicyManagement('pm-%s' % self.id())
         self._vnc_lib.policy_management_create(pm)
-        scoped_fr = FirewallRule(name='scoped-fr-%s' % self.id(),
-                                 parent_obj=project)
+        scoped_fr = FirewallRule(
+            name='scoped-fr-%s' % self.id(),
+            parent_obj=project,
+            service=FirewallServiceType(),
+        )
         self._vnc_lib.firewall_rule_create(scoped_fr)
 
         global_fp = FirewallPolicy('global-fp-%s' % self.id(),
@@ -676,14 +706,20 @@ class TestFw(test_case.ApiServerTestCase):
         )
         getattr(self._vnc_lib, '%s_create' % r_class.object_type)(scoped_r)
 
-        global_fr = FirewallRule('global-firewall-rule-%s' % self.id(),
-                                 parent_obj=pm)
+        global_fr = FirewallRule(
+            'global-firewall-rule-%s' % self.id(),
+            parent_obj=pm,
+            service=FirewallServiceType(),
+        )
         getattr(global_fr, 'add_%s' % r_class.object_type)(scoped_r)
         with ExpectedException(BadRequest):
             self._vnc_lib.firewall_rule_create(global_fr)
 
-        global_fr = FirewallRule('global-firewall-rule-%s' % self.id(),
-                                 parent_obj=pm)
+        global_fr = FirewallRule(
+            'global-firewall-rule-%s' % self.id(),
+            parent_obj=pm,
+            service=FirewallServiceType(),
+        )
         self._vnc_lib.firewall_rule_create(global_fr)
         getattr(global_fr, 'add_%s' % r_class.object_type)(scoped_r)
         with ExpectedException(BadRequest):
@@ -709,7 +745,11 @@ class TestFw(test_case.ApiServerTestCase):
         self._vnc_lib.policy_management_create(pm)
         ag = AddressGroup('ag-%s' % self.id(), parent_obj=pm)
         self._vnc_lib.address_group_create(ag)
-        fr = FirewallRule('fr-%s' % self.id(), parent_obj=pm)
+        fr = FirewallRule(
+            'fr-%s' % self.id(),
+            parent_obj=pm,
+            service=FirewallServiceType(),
+        )
         # Re-create Address Group VNC API object without the UUID for the ref
         fr.add_address_group(
             AddressGroup(
@@ -718,6 +758,61 @@ class TestFw(test_case.ApiServerTestCase):
             ),
         )
         self._vnc_lib.firewall_rule_create(fr)
+
+    def test_create_firewall_rule_with_or_without_defined_services(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        fr = FirewallRule(name='fr-%s' % self.id(), parent_obj=project)
+        sg = ServiceGroup(
+            name='fr-%s' % self.id(),
+            service_group_firewall_service_list=FirewallServiceGroupType(
+                firewall_service=[FirewallServiceType()]),
+            parent_obj=project,
+        )
+        self._vnc_lib.service_group_create(sg)
+
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_rule_create(fr)
+
+        fr.add_service_group(sg)
+        fr.set_service(FirewallServiceType())
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_rule_create(fr)
+
+    def test_update_firewall_rule_with_or_without_defined_services(self):
+        project = Project('project-%s' % self.id())
+        self._vnc_lib.project_create(project)
+        fr1 = FirewallRule(name='fr1-%s' % self.id(), parent_obj=project)
+        fr1.set_service(FirewallServiceType())
+        fr1_id = self._vnc_lib.firewall_rule_create(fr1)
+        fr2 = FirewallRule(name='fr2-%s' % self.id(), parent_obj=project)
+        sg = ServiceGroup(
+            name='fr-%s' % self.id(),
+            service_group_firewall_service_list=FirewallServiceGroupType(
+                firewall_service=[FirewallServiceType()]),
+            parent_obj=project,
+        )
+        self._vnc_lib.service_group_create(sg)
+        fr2.add_service_group(sg)
+        fr2_id = self._vnc_lib.firewall_rule_create(fr2)
+
+        fr1.set_service(None)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_rule_update(fr1)
+
+        fr1 = self._vnc_lib.firewall_rule_read(id=fr1_id)
+        fr1.add_service_group(sg)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_rule_update(fr1)
+
+        fr2.del_service_group(sg)
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_rule_update(fr2)
+
+        fr2 = self._vnc_lib.firewall_rule_read(id=fr2_id)
+        fr2.set_service(FirewallServiceType())
+        with ExpectedException(BadRequest):
+            self._vnc_lib.firewall_rule_update(fr2)
 
 
 if __name__ == '__main__':
