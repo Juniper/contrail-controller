@@ -1,0 +1,81 @@
+//
+// job.sandesh
+//
+// UVE Job Execution
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Config state of the UVE on this app instance.
+//
+
+/**
+ * UVE that stores the device info from device discovery or device resync. 
+ */
+struct PRouterDicoveredInfo {
+    1: string                           name (key="ObjectPRouter");
+    2: optional string                  last_resync_time;
+    /* Installed software image version */
+    3: optional string                  os_version;
+    /* Device serial number */
+    4: optional string                  serial_num;
+    // Add additional items here as needed
+}
+
+/**
+ * UVE that tracks a job execution. This UVE is created when job is started and destroyed when job completes.
+ */
+struct JobExecution {
+    /* Unique id that identifies a job template */
+    1: string                           job_id (key="ObjectJobTemplate");
+    /* Unique id that identifies a job execution */
+    2: string                           execution_id (key="JobExecution");
+    /* Job start timestamp */
+    3: i64                              job_start_ts;
+    /* Percentage completion for this job execution */
+    4: i32                              percentage_completed;
+    // Add additional items here as needed
+}
+
+/**
+ * object log for the job execution
+ */
+struct JobLogEntry {
+    /* Unique id that identifies a job template */
+    1: string                           job_id (key="ObjectJobTemplate");
+    /* Unique id that identifies a job execution */
+    2: string                           execution_id (key="JobExecution");
+    /* Job log timestamp */
+    3: i64                              timestamp;
+    /* job message which should be meaningful to the end user */
+    4: string                           message;
+    /* job status: 0 (starting), 1 (in-progress), 2 (completed_with_success), 3 (completed_with_error), 4 (timeout) */
+    5: u16                              status (key="JobExecution");
+    /* job result that captures the output from the job execution. This is an optional field only in the last job log if
+       job is completed with success.
+       Key: job task name which could be the device id if this is multi-device job
+       Value: JSON text blob that conforms to the output schema defined in the job template. */
+    6: optional map<string, string>    result;
+    // Add additional items here as needed
+}
+
+uve sandesh UvePRouterDiscoveredInfo {
+    1: PRouterDicoveredInfo            data
+}
+
+uve sandesh UveJobExecution {
+    1: JobExecution              data;
+}
+
+/**
+ * @description: Configuration API audit log for objects
+ * @severity: INFO
+ * @cause: A configuration change request was handled
+ * @action: No action needed
+ */
+objectlog sandesh JobLog {
+    /** container for operation details */
+    1: JobLogEntry log_entry;
+}
+
