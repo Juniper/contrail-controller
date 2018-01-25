@@ -6,15 +6,18 @@
 VNC service management for kubernetes
 """
 
+from cStringIO import StringIO
 from vnc_api.vnc_api import *
 from config_db import *
 from loadbalancer import *
 from kube_manager.common.kube_config_db import NamespaceKM, ServiceKM
 from cfgm_common import importutils
+from cfgm_common.utils import cgitb_hook
 import link_local_manager as ll_mgr
 from vnc_kubernetes_config import VncKubernetesConfig as vnc_kube_config
 from vnc_common import VncCommon
 from kube_manager.common.utils import get_fip_pool_fq_name_from_dict_string
+from kube_manager.vnc.label_cache import XLabelCache
 
 class VncService(VncCommon):
 
@@ -25,11 +28,12 @@ class VncService(VncCommon):
         self._ingress_mgr = ingress_mgr
         self._vnc_lib = vnc_kube_config.vnc_lib()
         self._label_cache = vnc_kube_config.label_cache()
+        self._labels = XLabelCache(self._k8s_event_type)
+        self._labels.reset_resource()
         self._args = vnc_kube_config.args()
         self.logger = vnc_kube_config.logger()
         self._queue = vnc_kube_config.queue()
         self.kube = vnc_kube_config.kube()
-
         self._fip_pool_obj = None
 
         # Cache kubernetes API server params.
@@ -293,11 +297,15 @@ class VncService(VncCommon):
             try:
                 self._vnc_lib.floating_ip_create(fip_obj)
             except RefsExistError as e:
-                err_msg = cfgm_common.utils.detailed_traceback()
-                self.logger.error(err_msg)
+                string_buf = StringIO()
+                cgitb_hook(file=string_buf, format="text")
+                err_msg = string_buf.getvalue()
+                self.logger.error("%s" %(err_msg))
             except:
-                err_msg = cfgm_common.utils.detailed_traceback()
-                self.logger.error(err_msg)
+                string_buf = StringIO()
+                cgitb_hook(file=string_buf, format="text")
+                err_msg = string_buf.getvalue()
+                self.logger.error("%s" %(err_msg))
 
             fip = FloatingIpKM.locate(fip_obj.uuid)
             self.logger.notice("floating ip allocated : %s for Service (%s)" %
@@ -571,12 +579,18 @@ class VncService(VncCommon):
               service_namespace, service_name, service_id))
 
         if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
+            # Add a service label for this service.
+            labels = self._labels.get_service_label(service_name)
+            self._labels.process(service_id, labels)
+
             self.vnc_service_add(service_id, service_name,
                 service_namespace, service_ip, selectors, ports,
-                service_type, externalIps, loadBalancerIp)
+                    service_type, externalIps, loadBalancerIp)
         elif event['type'] == 'DELETED':
-            self.vnc_service_delete(service_id, service_name, service_namespace,
-                                    ports)
+            self.vnc_service_delete(service_id, service_name,
+                                    service_namespace, ports)
+            self._labels.process(service_id)
         else:
             self.logger.warning(
                 'Unknown event type: "{}" Ignoring'.format(event['type']))
+
