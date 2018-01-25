@@ -1606,6 +1606,79 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         self._vnc_lib.project_delete(id=project.uuid)
     #end
 
+    def test_dns_server_default_to_non_default(self):
+        # Create Project
+        project = Project('my-proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+        #Create subnet, default dns_server
+        ipam1_sn_v4 = IpamSubnetType(subnet=SubnetType('11.1.1.0', 24), addr_from_start=True)
+
+        ipam1 = NetworkIpam('user-defined-ipam', project, IpamType("dhcp"),
+                           ipam_subnet_method="user-defined-subnet")
+        self._vnc_lib.network_ipam_create(ipam1)
+
+        vn_subnets = VnSubnetsType([ipam1_sn_v4])
+        vn1 = VirtualNetwork('my-v4-v6-vn', project,
+                              virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'))
+        vn1.add_network_ipam(ipam1, vn_subnets)
+        self._vnc_lib.virtual_network_create(vn1)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn1.uuid)
+        # assign ip address to make sure that we have a proper address
+        # Create v4 Ip objects
+        ipv4_obj1 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj1.uuid = ipv4_obj1.name
+
+        # Create VM
+        vm_inst_obj1 = VirtualMachine(str(uuid.uuid4()))
+        vm_inst_obj1.uuid = vm_inst_obj1.name
+        self._vnc_lib.virtual_machine_create(vm_inst_obj1)
+
+        id_perms = IdPermsType(enable=True)
+        port_obj1 = VirtualMachineInterface(
+            str(uuid.uuid4()), vm_inst_obj1, id_perms=id_perms)
+        port_obj1.uuid = port_obj1.name
+        port_obj1.set_virtual_network(vn1)
+        ipv4_obj1.set_virtual_machine_interface(port_obj1)
+        ipv4_obj1.set_virtual_network(net_obj)
+
+        port_id1 = self._vnc_lib.virtual_machine_interface_create(port_obj1)
+        ipv4_obj1.set_instance_ip_address(None)
+
+        ipv4_id1 = self._vnc_lib.instance_ip_create(ipv4_obj1)
+        ipv4_obj1 = self._vnc_lib.instance_ip_read(id=ipv4_id1)
+        ipv4_addr1 = ipv4_obj1.get_instance_ip_address()
+
+        # Change dns_server_address and free .2 address
+        ipam1_sn_v4.set_dns_server_address('11.1.1.100')
+        vn1._pending_field_updates.add('network_ipam_refs')
+        self._vnc_lib.virtual_network_update(vn1)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn1.uuid)
+
+        # Create v4 Ip object for 2nd VM
+        ipv4_obj2 = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ipv4_obj2.uuid = ipv4_obj2.name
+        logger.debug('Created Instance IPv4 object 2 %s', ipv4_obj2.uuid)
+
+        # Create VM
+        ipv4_obj2.set_virtual_machine_interface(port_obj1)
+        ipv4_obj2.set_virtual_network(net_obj)
+        ipv4_obj1.set_instance_ip_address(None)
+
+        # allocate ip address, we should get .2 address
+        logger.debug('Allocating an IPV4 address for second VM')
+        ipv4_id2 = self._vnc_lib.instance_ip_create(ipv4_obj2)
+        ipv4_obj2 = self._vnc_lib.instance_ip_read(id=ipv4_id2)
+        ipv4_addr2 = ipv4_obj2.get_instance_ip_address()
+
+        self._vnc_lib.instance_ip_delete(id=ipv4_id1)
+        self._vnc_lib.instance_ip_delete(id=ipv4_id2)
+        self._vnc_lib.virtual_machine_interface_delete(id=port_obj1.uuid)
+        self._vnc_lib.virtual_machine_delete(id=vm_inst_obj1.uuid)
+        self._vnc_lib.virtual_network_delete(id=vn1.uuid)
+        self._vnc_lib.network_ipam_delete(id=ipam1.uuid)
+        self._vnc_lib.project_delete(id=project.uuid)
+    #end
+
     def test_ipv6_subnet_with_uppercase(self):
         # Create Project
         project = Project('my-proj-%s' %(self.id()), Domain())
