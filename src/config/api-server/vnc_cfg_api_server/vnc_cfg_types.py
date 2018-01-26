@@ -4497,7 +4497,7 @@ class ProjectServer(Resource, Project):
         # Delete the zookeeper counter nodes
         path = _DEFAULT_ZK_COUNTER_PATH_PREFIX + id
         if db_conn._zk_db.quota_counter_exists(path):
-            db_conn._zk_db._zk_client.delete_node(path, recursive=True)
+            db_conn._zk_db.delete_quota_counter(path, recursive=True)
         return True, ""
     # end post_dbe_delete
 
