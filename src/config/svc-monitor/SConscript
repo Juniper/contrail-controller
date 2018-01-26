@@ -76,29 +76,17 @@ sources += env.SandeshGenPy('snat_agent.sandesh',
                             'svc_monitor/sandesh/', False)
 
 cd_cmd = 'cd ' + Dir('.').path + ' && '
-sdist_gen = env.Command('dist', sources, cd_cmd + 'python setup.py sdist')
+sdist_gen = env.Command('dist/svc_monitor-0.1dev.tar.gz',
+                        sources,
+                        cd_cmd + 'python setup.py sdist')
 env.Alias('controller/src/config/svc_monitor:sdist', sdist_gen)
 
-test_sources = sources
-vnc_api_pkg = 'api-lib/dist/vnc_api-%s.tar.gz' % (open(File(
-    '#/controller/src/base/version.info').abspath, 'r').read(
-             ).strip('\n').strip('\t'))
 packages = [
-    '%s/%s' % (env['TOP'], vnc_api_pkg),
+    '%s/%s' % (env['TOP'], env.GetVncAPIPkg()),
     '%s/config/common/dist/cfgm_common-0.1dev.tar.gz' % env['TOP'],
     '%s/sandesh/common/dist/sandesh-common-0.1dev.tar.gz' % env['TOP'],
     '%s/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz' % env['TOP'],
 ]
-
-def BuildPyTestSetup(env, target, source):
-    file = open(target[0].abspath, 'w')
-    file.write("[easy_install]\nfind_links =")
-    for pkg in source:
-        dependency = env.File(pkg)
-        file.write(" %s" % os.path.dirname(dependency.abspath))
-    file.write("\n")
-    file.close()
-    return
 
 # Documentation
 doc_files = []
@@ -125,37 +113,11 @@ env.Alias('install', env.Install(env['INSTALL_CONF']+
 env.Alias('install', env.Install(
     env['INSTALL_MESSAGE_DOC'] + '/contrail-svc-monitor/', doc_files))
 
-buildspace_link = os.environ.get('CONTRAIL_REPO')
-if buildspace_link:
-    # in CI environment shebang limit exceeds for python
-    # in easy_install/pip, reach to it via symlink
-    top_path = buildspace_link + '/' + Dir('.').path
-    top_dir = Dir(top_path)
-else:
-    top_dir = Dir('.')
+test_target = env.SetupPyTestSuite(sdist_gen, '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz')
 
-# unit test
-cov_cmd = env.Command('coveragetest.log', sdist_gen,
-          'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests --coverage 2>&1 | tee coveragetest.log"')
-
-test_cmd = env.Command('test.log', sdist_gen,
-          'bash -c "set -o pipefail && cd ' + Dir(top_dir).path + ' && python setup.py run_tests 2>&1 | tee test.log"')
-
-test_depends = ['/config/common/dist/cfgm_common-0.1dev.tar.gz',
-                '/%s' % (vnc_api_pkg),
-                '/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz',
-                '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz',
-                '/config/api-server/dist/contrail-api-server-0.1dev.tar.gz',]
-env.Depends(test_cmd, [env['TOP']+x for x in test_depends])
-env.Depends(cov_cmd, [env['TOP']+x for x in test_depends])
-
-env.Alias('test', test_cmd)
-env.Alias('coverage', cov_cmd)
-
-env.Alias('controller/src/config/svc_monitor:test', test_cmd)
-env.Alias('controller/src/config/svc_monitor:coverage', cov_cmd)
-# This add'l alias is to allow retry of UT in CI
-env.Alias('controller/src/config/svc-monitor/svc_monitor:test', test_cmd)
+# These add'l aliases is to allow retry of UT in CI
+env.Alias('controller/src/config/svc-monitor/svc_monitor:test', test_target)
+env.Alias('controller/src/config/svc_monitor:test', test_target)
 
 # Local Variables:
 # mode: python
