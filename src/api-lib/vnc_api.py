@@ -34,7 +34,8 @@ from utils import (
 from exceptions import (
     ServiceUnavailableError, NoIdError, PermissionDenied, OverQuota,
     RefsExistError, TimeOutError, BadRequest, HttpError,
-    ResourceTypeUnknownError, RequestSizeError, AuthFailed)
+    ResourceTypeUnknownError, RequestSizeError, AuthFailed,
+    AmbiguousParentError)
 import ssl_adapter
 
 
@@ -490,6 +491,9 @@ class VncApi(object):
 
         obj_dict = json.loads(content)[res_type]
         obj.uuid = obj_dict['uuid']
+        obj.fq_name = obj_dict['fq_name']
+        if 'parent_type' in obj_dict:
+            obj.parent_type = obj_dict['parent_type']
         if 'parent_uuid' in obj_dict:
             obj.parent_uuid = obj_dict['parent_uuid']
 
@@ -631,12 +635,12 @@ class VncApi(object):
     def _objects_list(self, res_type, parent_id=None, parent_fq_name=None,
                       obj_uuids=None, back_ref_id=None, fields=None,
                       detail=False, count=False, filters=None, shared=False,
-                      fq_names=None):
+                      fq_names=None, parent_type=None):
         return self.resource_list(
             res_type, parent_id=parent_id, parent_fq_name=parent_fq_name,
             back_ref_id=back_ref_id, obj_uuids=obj_uuids, fields=fields,
             detail=detail, count=count, filters=filters, shared=shared,
-            fq_names=fq_names)
+            fq_names=fq_names, parent_type=parent_type)
     # end _objects_list
 
     @check_homepage
@@ -947,7 +951,7 @@ class VncApi(object):
                 retry_count -= 1
                 continue
 
-            if status == 200:
+            if status in [200, 202]:
                 return content
 
             # Exception Response, see if it can be resolved
@@ -1264,7 +1268,7 @@ class VncApi(object):
     def resource_list(self, obj_type, parent_id=None, parent_fq_name=None,
                       back_ref_id=None, obj_uuids=None, fields=None,
                       detail=False, count=False, filters=None, shared=False,
-                      token=None, fq_names=None):
+                      token=None, fq_names=None, parent_type=None):
         if obj_uuids == [] or back_ref_id == []:
             return []
         self._headers['X-USER-TOKEN'] = token
@@ -1281,6 +1285,13 @@ class VncApi(object):
         if parent_fq_name:
             parent_fq_name_str = ':'.join(parent_fq_name)
             query_params['parent_fq_name_str'] = parent_fq_name_str
+            if len(obj_class.parent_types) == 1:
+                query_params['parent_type'] = obj_class.parent_types[0]
+            elif parent_type:
+                query_params['parent_type'] = parent_type
+            else:
+                raise AmbiguousParentError(obj_class.resource_type,
+                                           obj_class.parent_types)
         elif parent_id:
             if isinstance(parent_id, list):
                 query_params['parent_id'] = ','.join(parent_id)
@@ -1463,7 +1474,7 @@ class VncApi(object):
         return rv
 
     def set_tags(self, obj, tags_dict):
-        """Associate or disassociate one or mutliple tags to a resource
+        """Associate or disassociate one or multiple tags to a resource
 
         Adds or remove tags to a resource and also permits to set/unset
         multiple values for tags which are authorized to be set multiple time
@@ -1524,4 +1535,38 @@ class VncApi(object):
             type: None,
         }
         return self.set_tags(obj, tags_dict)
+
+    def _security_policy_draft(self, action, scope):
+        """Commit or revert pending resources on a given scope
+
+        :param action: specify action to be done: commit or revert
+        :param scope: Scope that own the pending security resource (aka. Global
+            global policy management or project)
+        """
+        if action not in ['commit', 'revert']:
+            raise ValueError("Only 'commit' or 'revert' actions are supported")
+
+        url = self._action_uri['security-policy-draft']
+        data = {
+            'scope_uuid': scope.uuid,
+            'action': action,
+        }
+        content = self._request_server(OP_POST, url, json.dumps(data))
+        return json.loads(content)
+
+    def commit_security(self, scope):
+        """Commit pending resources on a given scope
+
+        :param scope: Scope that own the pending security resource to commit
+            (aka. Global global policy management or project)
+        """
+        self._security_policy_draft('commit', scope)
+
+    def revert_security(self, scope):
+        """Revert pending resources on a given scope
+
+        :param scope: Scope that own the pending security resource to revert
+            (aka. Global global policy management or project)
+        """
+        self._security_policy_draft('revert', scope)
 # end class VncApi

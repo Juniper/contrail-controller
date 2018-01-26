@@ -66,7 +66,7 @@
      ListProperty('service-group-firewall-service-list', 'service-group', 'required', 'CRUD',
               'list of service objects (protocol, source port and destination port') -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('pending-delete', 'service-group', 'optional', 'CRUD') -->
+     Property('pending-delete', 'service-group', 'optional', 'R') -->
 
 <!-- Address group associated label to be derived from linked tag object -->
 <xsd:element name="address-group" type="ifmap:IdentityType"/>
@@ -75,7 +75,7 @@
      ListProperty('address-group-prefix', 'address-group', 'optional', 'CRUD',
              description='List of IP prefix') -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('pending-delete', 'address-group', 'optional', 'CRUD') -->
+     Property('pending-delete', 'address-group', 'optional', 'R') -->
 
 <xsd:element name="firewall-rule" type="ifmap:IdentityType"/>
 <xsd:element name="action-list" type="ActionListType"/>
@@ -126,7 +126,7 @@
           'firewall-rule', 'address-group', ['ref'], 'optional', 'R',
           'Reference to address group attached to endpoints') -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('pending-delete', 'firewall-rule', 'optional', 'CRUD',) -->
+     Property('pending-delete', 'firewall-rule', 'optional', 'R',) -->
 
 <xsd:complexType name="FirewallSequence">
     <xsd:all>
@@ -141,7 +141,7 @@
           'firewall-policy', 'firewall-rule', ['ref'], 'optional', 'CRUD',
           'Reference to firewall-rule attached to this firewall-policy') -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('pending-delete', 'firewall-policy', 'optional', 'CRUD',) -->
+     Property('pending-delete', 'firewall-policy', 'optional', 'R',) -->
 
 <xsd:element name="application-policy-set" type="ifmap:IdentityType"/>
 <xsd:element name="application-policy-set-firewall-policy" type="FirewallSequence"/>
@@ -154,7 +154,7 @@
      Property('all-applications', 'application-policy-set', 'optional', 'R',
               'If set, indicates application policy set to be applied to all application tags') -->
 <!--#IFMAP-SEMANTICS-IDL
-     Property('pending-delete', 'application-policy-set', 'optional', 'CRUD',) -->
+     Property('pending-delete', 'application-policy-set', 'optional', 'R',) -->
 
 <xsd:element name="policy-management" type="ifmap:IdentityType"/>
 <xsd:element name="config-root-policy-management"/>
