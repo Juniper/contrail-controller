@@ -43,6 +43,69 @@ class TestQuota(test_case.ApiServerTestCase):
         logger.removeHandler(cls.console_handler)
         super(TestQuota, cls).tearDownClass(*args, **kwargs)
 
+    def test_update_quota_less_than_resources(self):
+        proj_name = 'admin' + self.id()
+        project = Project(proj_name)
+        self._vnc_lib.project_create(project)
+        # Creating 3 vmis should succeed
+        vn_name = "vn" + self.id()
+        vn = VirtualNetwork(vn_name, project)
+        self._vnc_lib.virtual_network_create(vn)
+        vmis = []
+        for i in range(1, self._port_quota + 1):
+            vmi = VirtualMachineInterface(str(uuid.uuid4()), project)
+            vmi.uuid = vmi.name
+            vmi.set_virtual_network(vn)
+            vmis.append(vmi)
+            self._vnc_lib.virtual_machine_interface_create(vmi)
+        # set quota of vmi
+        kwargs = {'virtual_machine_interface': 2}
+        quota = QuotaType(**kwargs)
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+        # make sure vmi quota counter is initialized
+        quota_counters = self._server_info['api_server'].quota_counter
+        quota_counter_key = '%s%s/virtual_machine_interface' % (
+                _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
+        self.assertTrue(quota_counter_key in quota_counters.keys())
+        vmi_quota_counter = quota_counters[quota_counter_key]
+        self.assertEqual(vmi_quota_counter.value, 3)
+        # Try deleting vmi, should not raise OverQuota(Test LP#1745665)
+        try:
+            self._vnc_lib.virtual_machine_interface_delete(id=vmis[0].uuid)
+        except OverQuota:
+            self.fail("OverQuota raised during resource delete")
+        # make sure vmi quota counter is set to 2 (created[3] - deleted[1])
+        self.assertEqual(vmi_quota_counter.value, 2)
+        # In multi api-server setups, the resource(vmi) quota counter
+        # may not be initialized in some of the api-servers, if
+        # it didn't serve any resource create or project create/update
+        # request, simulating this by clearing resource counter from
+        # the quota counter
+        del quota_counters[quota_counter_key]
+        # Try deleting vmi, should initialize the counter and decrement
+        self._vnc_lib.virtual_machine_interface_delete(id=vmis[1].uuid)
+        # Make sure quota counter is initialized in this api-server
+        quota_counters = self._server_info['api_server'].quota_counter
+        self.assertTrue(quota_counter_key in quota_counters.keys())
+        # make sure vmi quota counter is set to 1 (created[3] - deleted[2])
+        vmi_quota_counter = quota_counters[quota_counter_key]
+        self.assertEqual(vmi_quota_counter.value, 1)
+        # set quota of vmi to unlimited
+        kwargs = {'virtual_machine_interface': -1}
+        quota = QuotaType(**kwargs)
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+        # Make sure the zk node is deleted
+        db_conn = self._server_info['api_server']._db_conn
+        self.assertFalse(db_conn._zk_db.quota_counter_exists(quota_counter_key))
+        # Try deleting vmi, should initialize the counter and decrement
+        self._vnc_lib.virtual_machine_interface_delete(id=vmis[2].uuid)
+        # Make sure quota counter is destroyed
+        quota_counters = self._server_info['api_server'].quota_counter
+        self.assertTrue(quota_counter_key not in quota_counters.keys())
+    # test_update_quota_less_than_resources
+
     def test_create_vmi_with_quota_in_parallels(self, project=None):
         vn_name = 'test-net' + str(uuid.uuid4())
         if project is None:

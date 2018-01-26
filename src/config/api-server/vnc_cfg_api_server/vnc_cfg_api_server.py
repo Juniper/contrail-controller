@@ -464,7 +464,6 @@ class VncApiServer(object):
         (code, msg) = result
         if counter:
             counter = counter + value
-        #if self._db_engine == 'cassandra':
         get_context().invoke_undo(code, msg, self.config_log)
 
         failed_stage = get_context().get_state()
@@ -986,10 +985,29 @@ class VncApiServer(object):
                 return (ok, del_result)
 
             if proj_id:
+                (ok, proj_dict) = QuotaHelper.get_project_dict_for_quota(
+                                      proj_id, db_conn)
+                if not ok:
+                    return ok, proj_dict
+                quota_limit = QuotaHelper.get_quota_limit(proj_dict, obj_type)
                 path = self._path_prefix + proj_id + "/" + obj_type
-                if path in self.quota_counter:
-                    self.quota_counter[path] -= 1
-                    quota_counter.append(self.quota_counter[path])
+                if quota_limit > 0:
+                    if self.quota_counter.get(path):
+                        self.quota_counter[path] -= 1
+                    else:
+                        # quota counter obj not initialized
+                        # in this api-server, Init counter
+                        path_prefix = self._path_prefix + proj_id
+                        QuotaHelper._zk_quota_counter_init(
+                            path_prefix, {obj_type : quota_limit},
+                            proj_id, db_conn, self.quota_counter)
+                        if db_conn._zk_db.quota_counter_exists(path):
+                            self.quota_counter[path] -= 1
+                    quota_counter.append(self.quota_counter.get(path))
+                elif self.quota_counter.get(path):
+                    # quota limit is modified to unlimited
+                    # delete counter object
+                    del self.quota_counter[path]
 
             # type-specific hook
             get_context().set_state('POST_DBE_DELETE')
