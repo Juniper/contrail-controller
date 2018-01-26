@@ -91,7 +91,11 @@ class ResourceDbMixin(object):
         return True, quota_limit, proj_uuid
 
     @classmethod
-    def pre_dbe_alloc(cls, obj_type, obj_dict):
+    def pending_dbe_create(cls, obj_dict):
+        return True, ''
+
+    @classmethod
+    def pre_dbe_alloc(cls, obj_dict):
         return True, ''
 
     @classmethod
@@ -103,6 +107,10 @@ class ResourceDbMixin(object):
         return True, ''
 
     @classmethod
+    def pending_dbe_update(cls, obj_dict, delta_obj_dict={}):
+        return True, ''
+
+    @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn,
             prop_collection_updates=None, ref_update=None):
         return True, ''
@@ -110,6 +118,10 @@ class ResourceDbMixin(object):
     @classmethod
     def post_dbe_update(cls, id, fq_name, obj_dict, db_conn,
             prop_collection_updates=None, ref_update=None):
+        return True, ''
+
+    @classmethod
+    def pending_dbe_delete(cls, obj_dict):
         return True, ''
 
     @classmethod
@@ -181,24 +193,36 @@ class Resource(ResourceDbMixin):
     # end dbe_read
 
     @classmethod
-    def locate(cls, fq_name, **kwargs):
-        uuid = None
-        if kwargs.get('uuid') is None:
+    def locate(cls, fq_name=None, uuid=None, create_it=True, **kwargs):
+        if fq_name is not None and uuid is None:
             try:
                 uuid = cls.db_conn.fq_name_to_uuid(cls.object_type, fq_name)
-            except cfgm_common.exceptions.NoIdError:
-                pass
-        else:
-            uuid = kwargs['uuid']
+            except cfgm_common.exceptions.NoIdError as e:
+                if create_it:
+                    pass
+                else:
+                    return False, (404, str(e))
         if uuid:
-            ok, result = cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
-            if not ok and result[0] == 404:
-                pass
+            try:
+                ok, result = cls.db_conn.dbe_read(
+                    cls.object_type, uuid, obj_fields=kwargs.get('fields'))
+            except cfgm_common.exceptions.NoIdError as e:
+                if create_it:
+                    pass
+                else:
+                    return False, (404, str(e))
+            if not ok:
+                return False, result
             else:
                 return ok, result
 
+        # Does not exist, create it. Need at least an fq_name
+        if fq_name is None or fq_name == []:
+            msg = ("Cannot create %s without at least a FQ name" %
+                   cls.object_type.replace('_', ' ').title())
+            return False, (400, msg)
         parent_obj = None
-        if 'parent_type' in kwargs:
+        if kwargs.get('parent_type') is not None:
             parent_class = cls.server.get_resource_class(kwargs['parent_type'])
             parent_obj = parent_class(fq_name=fq_name[:-1])
             parent_obj.uuid = kwargs.get('parent_uuid')
@@ -206,6 +230,8 @@ class Resource(ResourceDbMixin):
         obj.fq_name = fq_name
         obj.uuid = kwargs.get('uuid')
         obj_dict = json.loads(json.dumps(obj, default=_obj_serializer_all))
+        for ref_name in cls.ref_fields & set(kwargs.keys()):
+            obj_dict[ref_name] = copy.deepcopy(kwargs[ref_name])
         try:
             cls.server.internal_request_create(cls.resource_type, obj_dict)
         except cfgm_common.exceptions.HttpError as e:
@@ -216,52 +242,263 @@ class Resource(ResourceDbMixin):
             return False, (404, str(e))
         return cls.db_conn.dbe_read(cls.object_type, obj_id=uuid)
 
+
+class SecurityResourceBase(Resource):
     @classmethod
     def check_associated_firewall_resource_in_same_scope(cls, id, fq_name,
-                                                         obj_dict,
-                                                         object_type):
-        ref_name = '%s_refs' % object_type
+                                                         obj_dict, ref_class):
+        # NOTE(ethuleau): this method is simply based on the fact global
+        # firewall resource (draft or not) have a FQ name length equal to two
+        # and scoped one (draft or not) have a FQ name longer than 2 to
+        # distinguish a scoped firewall resource to a global one. If that
+        # assumption disappear, all that method will need to be re-worked
+
+        ref_name = '%s_refs' % ref_class.object_type
         if ref_name not in obj_dict:
             return True, ''
 
-        if 'parent_type' not in obj_dict:
-            ok, result = cls.dbe_read(cls.db_conn, cls.object_type, id,
-                                      obj_fields=['parent_type'])
-            if not ok:
-                return ok, result
-            parent_type = result['parent_type']
-        else:
-            parent_type = obj_dict['parent_type']
+        scoped_resource = True
+        if len(fq_name) == 2:
+            scoped_resource = False
 
         # Scoped firewall resource can reference global or scoped resources
-        if parent_type == ProjectServer.resource_type:
+        if scoped_resource:
             return True, ''
 
-        for r_ref in obj_dict.get(ref_name, []):
-            if 'uuid' not in r_ref:
-                try:
-                    r_ref['uuid'] = cls.db_conn.fq_name_to_uuid(object_type,
-                                                                r_ref['to'])
-                except cfgm_common.exceptions.NoIdError as e:
-                    return False, (404, str(e))
-            ok, result = cls.dbe_read(cls.db_conn, object_type, r_ref['uuid'],
-                                      obj_fields=['parent_type'])
-            if not ok:
-                continue
-            r_parent_type = result['parent_type']
+        # In case of global firewall resource check if it reference global
+        # firewall resource only
+        for ref in obj_dict.get(ref_name, []):
+            ref_scoped_resource = True
+            if len(ref['to']) == 2:
+                ref_scoped_resource = False
             # Global firewall resource can reference global firewall resources
-            if r_parent_type != ProjectServer.resource_type:
+            if not ref_scoped_resource:
                 continue
             # Global firewall resource cannot reference scoped resources
-            msg = ("Global %s (%s, %s) cannot reference a scoped %s (%s, %s)" %
+            msg = ("Global %s %s (%s) cannot reference a scoped %s %s (%s)" %
                    (cls.object_type.replace('_', ' ').title(),
                     ':'.join(fq_name), id,
-                    object_type.replace('_', ' ').title(),
-                    ':'.join(r_ref['to']), r_ref['uuid']))
+                    ref_class.object_type.replace('_', ' ').title(),
+                    ':'.join(ref['to']), ref['uuid']))
             return False, (400, msg)
 
         return True, ''
-# end class Resource
+
+    @classmethod
+    def set_policy_management_for_security_draft(cls, scope, obj_dict,
+                                                 draft_mode_enabled=False):
+        if 'enable_security_policy_draft' not in obj_dict:
+            return True, ''
+
+        draft_mode_set = obj_dict.get('enable_security_policy_draft', False)
+        draft_pm_name = constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
+        if obj_dict['fq_name'][-1:] == draft_pm_name:
+            # This is the policy management dedicated for draft security
+            # resources, should already exist we can return it
+            return PolicyManagementServer.locate(obj_dict['fq_name'],
+                                                 create_it=False)
+        if scope == PolicyManagementServer.resource_type:
+            parent_type = None
+            parent_uuid = None
+            draft_pm_fq_name = [draft_pm_name]
+        else:
+            parent_type = scope
+            parent_uuid = obj_dict['uuid']
+            draft_pm_fq_name = obj_dict['fq_name'] + [draft_pm_name]
+
+        if not draft_mode_set and draft_mode_enabled:
+            try:
+                draft_pm_uuid = cls.db_conn.fq_name_to_uuid(
+                    PolicyManagementServer.object_type, draft_pm_fq_name)
+            except cfgm_common.exceptions.NoIdError:
+                return True, ''
+            try:
+                # If pending security modification, it fails to delete the
+                # draft PM
+                cls.server.internal_request_delete(
+                    PolicyManagementServer.resource_type, draft_pm_uuid)
+            except cfgm_common.exceptions.HttpError as e:
+                if e.status_code != 404:
+                    return False, (e.status_code, e.content)
+        elif draft_mode_set and not draft_mode_enabled:
+            attrs = {
+                'parent_type': parent_type,
+                'parent_uuid': parent_uuid,
+                'name': draft_pm_name,
+                'enable_security_policy_draft': True,
+            }
+            return PolicyManagementServer.locate(draft_pm_fq_name, **attrs)
+
+        return True, ''
+
+    @classmethod
+    def _get_dedicated_draft_policy_management(cls, obj_dict):
+        parent_type = obj_dict.get('parent_type')
+        if parent_type == PolicyManagementServer.resource_type:
+            parent_class = PolicyManagementServer
+            if (obj_dict.get('fq_name')[-2] ==
+                    constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
+                # Could be already the dedicated draft policy management, in
+                # that case it is updating an already pending resource. Return
+                # it directly
+                return parent_class.locate(
+                    fq_name=obj_dict.get('fq_name')[:-1],
+                    uuid=obj_dict.get('parent_uuid'),
+                    create_it=False,
+                )
+        elif parent_type == ProjectServer.resource_type:
+            parent_class = ProjectServer
+        else:
+            return True, ''
+
+        # check from parent if security draft mode is enabled
+        ok, result = parent_class.locate(
+            fq_name=obj_dict.get('fq_name')[:-1],
+            uuid=obj_dict.get('parent_uuid'),
+            create_it=False,
+            fields=['enable_security_policy_draft']
+        )
+        if not ok:
+            return False, result
+        parent_dict = result
+
+        # get scoped policy management dedicated to own pending security
+        # resource
+        return cls.set_policy_management_for_security_draft(
+            parent_type, parent_dict)
+
+    @classmethod
+    def pending_dbe_create(cls, obj_dict):
+        return cls._pending_update(obj_dict)
+
+    @classmethod
+    def pending_dbe_update(cls, obj_dict, delta_obj_dict={}):
+        return cls._pending_update(obj_dict, delta_obj_dict)
+
+    @classmethod
+    def pending_dbe_delete(cls, obj_dict):
+        return cls._pending_update(obj_dict, {'pending_delete': True})
+
+    @classmethod
+    def _pending_update(cls, obj_dict, delta_obj_dict={}):
+        if is_internal_request():
+            # Ignore all internal calls to not pending pending actions
+            return True, ''
+
+        delta_obj_dict.pop('uuid', None)
+
+        ok, result = cls._get_dedicated_draft_policy_management(obj_dict)
+        if not ok:
+            return False, result
+        # if nothing returned without error, that means security draft mode is
+        # NOT enabled
+        if result == '':
+            return True, ''
+        draft_pm = result
+
+        # if a commit or revert is on going in that scope, forbidden any
+        # security resource modification in that scope
+        scope_type = draft_pm.get('parent_type',
+                                  PolicyManagementServer.object_type)
+        scope_uuid = draft_pm.get('parent_uuid', 'unknown UUID')
+        scope_fq_name = draft_pm['fq_name'][:-1]
+        if not scope_fq_name:
+            scope_fq_name = [PolicyManagementServer().name]
+        scope_lock = cls.vnc_zk_client._zk_client.lock(
+            '%s/%s/%s' % (
+                cls.server.security_lock_prefix,
+                scope_type,
+                ':'.join(scope_fq_name),
+            ),
+        )
+        if not scope_lock.acquire(blocking=False):
+            contenders = scope_lock.contenders()
+            action_in_progress = '<unknown action>'
+            if len(contenders) > 0 and contenders[0]:
+                _, _, action_in_progress = contenders[0].partition(' ')
+            msg = ("Action '%s' on %s '%s' (%s) scope is under progress. "
+                "Cannot modify %s security resource." %
+                (action_in_progress, scope_type.replace('_', ' ').title(),
+                    ':'.join(scope_fq_name), scope_uuid,
+                    cls.object_type.replace('_', ' ').title()))
+            return False, (400, msg)
+        scope_lock.release()
+
+        # if the parent is already the draft policy management, it's updating
+        # the draft version of the resource. We can ignore it and let classic
+        # update code operated
+        if (obj_dict['fq_name'][-2] ==
+                constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT):
+            delta_obj_dict.pop('pending_delete', None)
+            if obj_dict.get('pending_delete', False) and delta_obj_dict:
+                # Cannot update a pending deleted resource
+                msg = ("%s %s is in pending delete, cannot be updated" %
+                       (cls.object_type.replace('_', ' ').title(),
+                        ':'.join(obj_dict['fq_name'])))
+                return False, (400, msg)
+            return True, ''
+
+        # Locate draft version of the resource
+        draft_fq_name = draft_pm['fq_name'] + obj_dict['fq_name'][-1:]
+        # Check if it's trying to create a resource already in pending create
+        if not delta_obj_dict:
+            try:
+                cls.db_conn.fq_name_to_uuid(cls.object_type, draft_fq_name)
+                msg = ("%s named %s was already created and it is pending to "
+                       "be committed or reverted. You cannot create it again" %
+                       (cls.object_type.replace('_', ' ').title(),
+                        ':'.join(obj_dict['fq_name'])))
+                return False, (400, msg)
+            except cfgm_common.exceptions.NoIdError as e:
+                pass
+        obj_dict['parent_type'] = PolicyManagementServer.resource_type
+        obj_dict['parent_uuid'] = draft_pm['uuid']
+        obj_dict.pop('fq_name', None)
+        obj_dict.pop('uuid', None)
+        if 'id_perms' in obj_dict:
+            obj_dict['id_perms'].pop('uuid', None)
+        ok, result = cls.locate(fq_name=draft_fq_name, **obj_dict)
+        if not ok:
+            return False, result
+        draft_obj_dict = result
+
+        if delta_obj_dict:
+            if draft_obj_dict.get('pending_delete', False):
+                delta_obj_dict.pop('pending_delete', None)
+                if delta_obj_dict:
+                    # Cannot update a pending deleted resource
+                    msg = ("%s %s is in pending delete, cannot be updated" %
+                        (cls.object_type.replace('_', ' ').title(),
+                            ':'.join(obj_dict['fq_name'])))
+                    return False, (400, msg)
+            else:
+                try:
+                    cls.server.internal_request_update(
+                        cls.resource_type,
+                        draft_obj_dict['uuid'],
+                        delta_obj_dict,
+                    )
+                except cfgm_common.exceptions.HttpError as e:
+                    return False, (e.status_code, e.content)
+
+        draft_obj_dict.update(delta_obj_dict)
+        return True, (202, draft_obj_dict)
+
+    @classmethod
+    def get_pending_resource(cls, obj_dict, fields=None):
+        ok, result = cls._get_dedicated_draft_policy_management(obj_dict)
+        if not ok:
+            return False, result
+        # if nothing returned without error, that means security draft mode is
+        # NOT enabled or this is an internal pending security resource update
+        if result == '':
+            return True, ''
+        draft_pm_dict = result
+        pending_fq_name = draft_pm_dict['fq_name'] + obj_dict['fq_name'][-1:]
+
+        # return pending resource if already exists
+        return cls.locate(pending_fq_name, create_it=False, fields=fields)
+
 
 class GlobalSystemConfigServer(Resource, GlobalSystemConfig):
     @classmethod
@@ -1806,8 +2043,8 @@ class BridgeDomainServer(Resource, BridgeDomain):
     # end pre_dbe_create
 # end class BridgeDomainServer
 
-class ServiceGroupServer(Resource, ServiceGroup):
 
+class ServiceGroupServer(SecurityResourceBase, ServiceGroup):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
 
@@ -1838,7 +2075,6 @@ class ServiceGroupServer(Resource, ServiceGroup):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         return cls.pre_dbe_create(None, obj_dict, db_conn)
-# end class ServiceGroupServer
 
 
 class TagTypeServer(Resource, TagType):
@@ -1893,35 +2129,21 @@ class TagTypeServer(Resource, TagType):
                                            notify=True)
 
     @classmethod
-    def get_all_tag_types(cls):
-        ok, result, _ = cls.db_conn.dbe_list(cls.object_type)
-        if not ok:
-            return False, (500, 'Error in dbe_list: %s' % pformat(result))
-        tag_types = result
-
-        return True, [tag_type['fq_name'][-1] for tag_type in tag_types]
-
-    @classmethod
     def get_tag_type_id(cls, type_str):
         if type_str in constants.TagTypeNameToId:
             return True, constants.TagTypeNameToId[type_str]
 
-        try:
-            uuid = db_conn.fq_name_to_uuid('tag_type', [type_str])
-        except cfgm_common.exceptions.NoIdError:
-            msg = "Tag Type '%s' cannot be found" % type_str
-            return False, (404, msg)
-        ok, result = db_conn.dbe_read(obj_type='tag_type', obj_id=uuid)
+        ok, result = cls.locate(fq_name=[type_str], create_it=False,
+                                fields=['tag_type_id'])
         if not ok:
             return False, result
-        tag_type = result
 
         return True, int(tag_type['tag_type_id'], 0)
 
 
 class TagServer(Resource, Tag):
     @classmethod
-    def pre_dbe_alloc(cls, obj_type, obj_dict):
+    def pre_dbe_alloc(cls, obj_dict):
         type_str = obj_dict.get('tag_type_name')
         value_str = obj_dict.get('tag_value')
 
@@ -2042,7 +2264,7 @@ class TagServer(Resource, Tag):
         )
 
 
-class FirewallRuleServer(Resource, FirewallRule):
+class FirewallRuleServer(SecurityResourceBase, FirewallRule):
 
     @classmethod
     def _check_endpoint(cls, ep):
@@ -2100,14 +2322,6 @@ class FirewallRuleServer(Resource, FirewallRule):
             obj_dict['match_tag_types'] = {'tag_type': []}
             for tag_type in obj_dict['match_tags'].get('tag_list', []):
                 tag_type = tag_type.lower()
-                ok, result = TagTypeServer.get_all_tag_types()
-                if not ok:
-                    return False, result
-                tag_type_names = result
-                if tag_type not in tag_type_names:
-                    return (False, (400, 'match-tags with invalid type : %s'
-                                         % tag_type))
-
                 if tag_type == 'label':
                     return (False, (400, 'labels not allowed as match-tags'))
 
@@ -2185,7 +2399,7 @@ class FirewallRuleServer(Resource, FirewallRule):
             obj_dict['uuid'],
             obj_dict['fq_name'],
             obj_dict,
-            AddressGroup.object_type,
+            AddressGroup,
         )
         if not ok:
             return False, result
@@ -2194,7 +2408,7 @@ class FirewallRuleServer(Resource, FirewallRule):
             obj_dict['uuid'],
             obj_dict['fq_name'],
             obj_dict,
-            ServiceGroupServer.object_type,
+            ServiceGroupServer,
         )
         if not ok:
             return False, result
@@ -2203,7 +2417,7 @@ class FirewallRuleServer(Resource, FirewallRule):
             obj_dict['uuid'],
             obj_dict['fq_name'],
             obj_dict,
-            VirtualNetworkServer.object_type,
+            VirtualNetworkServer,
         )
         if not ok:
             return False, result
@@ -2253,17 +2467,17 @@ class FirewallRuleServer(Resource, FirewallRule):
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            id, fq_name, obj_dict, AddressGroup.object_type)
+            id, fq_name, obj_dict, AddressGroup)
         if not ok:
             return False, result
 
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            id, fq_name, obj_dict, ServiceGroupServer.object_type)
+            id, fq_name, obj_dict, ServiceGroupServer)
         if not ok:
             return False, result
 
         ok, result = cls.check_associated_firewall_resource_in_same_scope(
-            id, fq_name, obj_dict, VirtualNetworkServer.object_type)
+            id, fq_name, obj_dict, VirtualNetworkServer)
         if not ok:
             return False, result
 
@@ -2315,27 +2529,26 @@ class FirewallRuleServer(Resource, FirewallRule):
                 if not ok:
                     return (False, result)
 
-        return True, ""
-# end class FirewallRuleServer
+        return True, ''
 
 
-class FirewallPolicyServer(Resource, FirewallPolicy):
+class FirewallPolicyServer(SecurityResourceBase, FirewallPolicy):
     @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         return cls.check_associated_firewall_resource_in_same_scope(
             obj_dict['uuid'],
             obj_dict['fq_name'],
             obj_dict,
-            FirewallRuleServer.object_type,
+            FirewallRuleServer,
         )
 
     @classmethod
     def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
         return cls.check_associated_firewall_resource_in_same_scope(
-            id, fq_name, obj_dict, FirewallRuleServer.object_type)
+            id, fq_name, obj_dict, FirewallRuleServer)
 
 
-class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
+class ApplicationPolicySetServer(SecurityResourceBase, ApplicationPolicySet):
     @staticmethod
     def _check_all_applications_flag(obj_dict):
         # all_applications flag is read-only for user
@@ -2354,7 +2567,7 @@ class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
             obj_dict['uuid'],
             obj_dict['fq_name'],
             obj_dict,
-            FirewallPolicyServer.object_type,
+            FirewallPolicyServer,
         )
 
     @classmethod
@@ -2364,7 +2577,7 @@ class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
             return False, result
 
         return cls.check_associated_firewall_resource_in_same_scope(
-            id, fq_name, obj_dict, FirewallPolicyServer.object_type)
+            id, fq_name, obj_dict, FirewallPolicyServer)
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
@@ -2379,7 +2592,6 @@ class ApplicationPolicySetServer(Resource, ApplicationPolicySet):
             return (False, (400, msg))
 
         return True, ''
-# end class ApplicationPolicySetServer
 
 
 class VirtualRouterServer(Resource, VirtualRouter):
@@ -4430,24 +4642,8 @@ class PhysicalInterfaceServer(Resource, PhysicalInterface):
 
 class ProjectServer(Resource, Project):
     @classmethod
-    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
-        if 'vxlan_routing' in obj_dict:
-            # VxLAN routing can be enabled or disabled
-            # only when the project does not have any
-            # Logical routers already attached.
-            ok, result = cls.dbe_read(db_conn, 'project', id)
-
-            if not ok:
-                return ok, result
-            if result.get('vxlan_routing') != obj_dict['vxlan_routing'] and\
-               'logical_routers' in result:
-                return (False, (400, 'VxLAN Routing update cannot be ' +
-                                'done when Logical Routers are configured'))
-        return True, ""
-
-    @classmethod
-    def ensure_default_application_policy_set(cls, project_uuid,
-                                              project_fq_name):
+    def _ensure_default_application_policy_set(cls, project_uuid,
+                                               project_fq_name):
         default_name = 'default-%s' % ApplicationPolicySetServer.resource_type
         attrs = {
             'parent_type': cls.object_type,
@@ -4472,41 +4668,115 @@ class ProjectServer(Resource, Project):
 
     @classmethod
     def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
-        return cls.ensure_default_application_policy_set(obj_dict['uuid'],
-                                                         obj_dict['fq_name'])
+        ok, result = cls._ensure_default_application_policy_set(
+            obj_dict['uuid'], obj_dict['fq_name'])
+        if not ok:
+            return False, result
+
+        SecurityResourceBase.server = cls.server
+        return SecurityResourceBase.set_policy_management_for_security_draft(
+            cls.resource_type, obj_dict)
 
     @classmethod
-    def pre_dbe_read(cls, id, fq_name, db_conn):
-        return cls.ensure_default_application_policy_set(id, fq_name)
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        if ('vxlan_routing' not in obj_dict and
+                'enable_security_policy_draft' not in obj_dict):
+            return True, ''
+
+        fields = ['vxlan_routing', 'logical_routers',
+                  'enable_security_policy_draft']
+        ok, result = cls.dbe_read(db_conn, cls.object_type, id,
+                                  obj_fields=fields)
+        if not ok:
+            return ok, result
+        db_obj_dict = result
+
+        if 'vxlan_routing' in obj_dict:
+            # VxLAN routing can be enabled or disabled
+            # only when the project does not have any
+            # Logical routers already attached.
+            if (db_obj_dict.get('vxlan_routing') != obj_dict['vxlan_routing']
+                    and 'logical_routers' in db_obj_dict):
+                return (False, (400, 'VxLAN Routing update cannot be ' +
+                                'done when Logical Routers are configured'))
+
+        if 'enable_security_policy_draft' in obj_dict:
+            obj_dict['fq_name'] = db_obj_dict['fq_name']
+            obj_dict['uuid'] = db_obj_dict['uuid']
+            SecurityResourceBase.server = cls.server
+            ok, result = SecurityResourceBase.set_policy_management_for_security_draft(
+                cls.resource_type,
+                obj_dict,
+                draft_mode_enabled=
+                    db_obj_dict.get('enable_security_policy_draft', False),
+            )
+            if not ok:
+                return False, result
+
+        return True, ""
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
+        draft_pm_uuid = None
+        draft_pm_name = constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
+        draft_pm_fq_name = obj_dict['fq_name'] + [draft_pm_name]
+        try:
+            draft_pm_uuid = db_conn.fq_name_to_uuid(
+                    PolicyManagementServer.object_type, draft_pm_fq_name)
+        except cfgm_common.exceptions.NoIdError:
+            pass
+        if draft_pm_uuid is not None:
+            try:
+                # If pending security modification, it fails to delete the draft
+                # PM
+                cls.server.internal_request_delete(
+                    PolicyManagementServer.resource_type, draft_pm_uuid)
+            except cfgm_common.exceptions.HttpError as e:
+                if e.status_code != 404:
+                    return False, (e.status_code, e.content)
+
+        default_aps_uuid = None
         defaut_aps_fq_name = obj_dict['fq_name'] +\
             ['default-%s' % ApplicationPolicySetServer.resource_type]
         try:
             default_aps_uuid = db_conn.fq_name_to_uuid(
                 ApplicationPolicySetServer.object_type, defaut_aps_fq_name)
         except cfgm_common.exceptions.NoIdError:
-            return True, ''
-        try:
-            cls.server.internal_request_ref_update(
-                cls.resource_type,
-                id,
-                'DELETE',
-                ApplicationPolicySetServer.resource_type,
-                default_aps_uuid,
-            )
-            cls.server.internal_request_delete(
-                ApplicationPolicySetServer.resource_type, default_aps_uuid)
-        except cfgm_common.exceptions.HttpError as e:
-            if e.status_code != 404:
-                return False, (e.status_code, e.content)
+            pass
+        if default_aps_uuid is not None:
+            try:
+                cls.server.internal_request_ref_update(
+                    cls.resource_type,
+                    id,
+                    'DELETE',
+                    ApplicationPolicySetServer.resource_type,
+                    default_aps_uuid,
+                )
+                cls.server.internal_request_delete(
+                    ApplicationPolicySetServer.resource_type, default_aps_uuid)
+            except cfgm_common.exceptions.HttpError as e:
+                if e.status_code != 404:
+                    return False, (e.status_code, e.content)
 
-        def undo():
-            return cls.ensure_default_application_policy_set(default_aps_uuid,
-                                                             fq_name)
-        get_context().push_undo(undo)
+            def undo():
+                return cls._ensure_default_application_policy_set(
+                    default_aps_uuid, fq_name)
+            get_context().push_undo(undo)
+
         return True, ''
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        # Delete the zookeeper counter nodes
+        path = _DEFAULT_ZK_COUNTER_PATH_PREFIX + id
+        if db_conn._zk_db.quota_counter_exists(path):
+            db_conn._zk_db.delete_quota_counter(path, recursive=True)
+        return True, ""
+    # end post_dbe_delete
+
+    @classmethod
+    def pre_dbe_read(cls, id, fq_name, db_conn):
+        return cls._ensure_default_application_policy_set(id, fq_name)
 
     @classmethod
     def dbe_update_notification(cls, obj_ids, extra_dict=None):
@@ -4532,16 +4802,6 @@ class ProjectServer(Resource, Project):
                 # free the counter from cache
                 del quota_counter[path]
     #end dbe_delete_notification
-
-    @classmethod
-    def post_dbe_delete(cls, id, obj_dict, db_conn):
-        # Delete the zookeeper counter nodes
-        path = _DEFAULT_ZK_COUNTER_PATH_PREFIX + id
-        if db_conn._zk_db.quota_counter_exists(path):
-            db_conn._zk_db.delete_quota_counter(path, recursive=True)
-        return True, ""
-    # end post_dbe_delete
-
 # end ProjectServer
 
 
@@ -5145,3 +5405,36 @@ class SubClusterServer(Resource, SubCluster):
         return True, ''
 # end class SubClusterServer
 
+
+class PolicyManagementServer(Resource, PolicyManagement):
+    @classmethod
+    def post_dbe_create(cls, tenant_name, obj_dict, db_conn):
+        SecurityResourceBase.server = cls.server
+        return SecurityResourceBase.set_policy_management_for_security_draft(
+            cls.resource_type, obj_dict)
+
+    @classmethod
+    def pre_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        if 'enable_security_policy_draft' not in obj_dict:
+            return True, ''
+
+        fields = ['enable_security_policy_draft']
+        ok, result = cls.dbe_read(db_conn, cls.object_type, id,
+                                  obj_fields=fields)
+        if not ok:
+            return ok, result
+        db_obj_dict = result
+
+        obj_dict['fq_name'] = db_obj_dict['fq_name']
+        obj_dict['uuid'] = db_obj_dict['uuid']
+        SecurityResourceBase.server = cls.server
+        return SecurityResourceBase.set_policy_management_for_security_draft(
+            cls.resource_type,
+            obj_dict,
+            draft_mode_enabled=
+                db_obj_dict.get('enable_security_policy_draft', False),
+        )
+
+
+class AddressGroupServer(SecurityResourceBase, AddressGroup):
+    pass
