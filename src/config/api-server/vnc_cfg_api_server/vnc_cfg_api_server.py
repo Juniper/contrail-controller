@@ -81,7 +81,8 @@ from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
     NodeTypeNames, INSTANCE_ID_DEFAULT, TagTypeNameToId,\
-    TAG_TYPE_NOT_UNIQUE_PER_OBJECT, TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP
+    TAG_TYPE_NOT_UNIQUE_PER_OBJECT, TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP,\
+    POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
 
 from provision_defaults import Provision
 from vnc_quota import *
@@ -515,9 +516,32 @@ class VncApiServer(object):
             result = 'Bad reference in create: ' + result
             raise cfgm_common.exceptions.HttpError(400, result)
 
+        # Can abort resource creation and retrun 202 status code
+        get_context().set_state('PENDING_DBE_CREATE')
+        ok, result = r_class.pending_dbe_create(obj_dict)
+        if not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+        if ok and isinstance(result, tuple) and result[0] == 202:
+            # Creation accepted but not applied, pending delete return 202 HTTP
+            # OK code to aware clients
+            pending_obj_dict = result[1]
+            bottle.response.status = 202
+            rsp_body = {}
+            rsp_body['fq_name'] = pending_obj_dict['fq_name']
+            rsp_body['uuid'] = pending_obj_dict['uuid']
+            rsp_body['name'] = pending_obj_dict['fq_name'][-1]
+            rsp_body['href'] = self.generate_url(resource_type,
+                                                 pending_obj_dict['uuid'])
+            rsp_body['parent_type'] = pending_obj_dict['parent_type']
+            rsp_body['parent_uuid'] = pending_obj_dict['parent_uuid']
+            rsp_body['parent_href'] = self.generate_url(
+                pending_obj_dict['parent_type'],pending_obj_dict['parent_uuid'])
+            return {resource_type: rsp_body}
+
         get_context().set_state('PRE_DBE_ALLOC')
         # type-specific hook
-        (ok, result) = r_class.pre_dbe_alloc(obj_type, obj_dict)
+        ok, result = r_class.pre_dbe_alloc(obj_dict)
         if not ok:
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
@@ -676,6 +700,7 @@ class VncApiServer(object):
         rsp_body['href'] = self.generate_url(resource_type, result)
         if parent_class:
             # non config-root child, send back parent uuid/href
+            rsp_body['parent_type'] = obj_dict['parent_type']
             rsp_body['parent_uuid'] = parent_uuid
             rsp_body['parent_href'] = self.generate_url(parent_res_type,
                                                         parent_uuid)
@@ -838,22 +863,35 @@ class VncApiServer(object):
                 raise cfgm_common.exceptions.HttpError(400,
                                     'owner in perms2 must be present')
 
+        fields = r_class.prop_fields | r_class.ref_fields
         try:
-            obj_fields = r_class.prop_fields | r_class.ref_fields
-            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, id, obj_fields)
-            if not read_ok:
-                bottle.abort(
-                    404, 'No %s object found for id %s' %(resource_type, id))
+            ok, result = self._db_conn.dbe_read(obj_type, id, fields)
         except NoIdError as e:
             raise cfgm_common.exceptions.HttpError(404, str(e))
+        if not ok:
+            self.config_object_error(id, None, obj_type, 'http_resource_update',
+                                     result[1])
+            raise cfgm_common.exceptions.HttpError(result[0], result[1])
+        db_obj_dict = result
 
-        if resource_type == 'project' and 'quota' in read_result:
-            old_quota_dict = read_result['quota']
+        # Look if the resource have a pending version, if yes use it as resource
+        # to update
+        if hasattr(r_class, 'get_pending_resource'):
+            ok, result = r_class.get_pending_resource(db_obj_dict, fields)
+            if ok and isinstance(result, dict):
+                db_obj_dict = result
+            if not ok and result[0] != 404:
+                self.config_object_error(
+                    id, None, obj_type, 'http_resource_update', result[1])
+                raise cfgm_common.exceptions.HttpError(result[0], result[1])
+
+        if resource_type == 'project' and 'quota' in db_obj_dict:
+            old_quota_dict = db_obj_dict['quota']
         else:
             old_quota_dict = None
 
         self._put_common(
-            'http_put', obj_type, id, read_result, req_obj_dict=obj_dict,
+            'http_put', obj_type, id, db_obj_dict, req_obj_dict=obj_dict,
             quota_dict=old_quota_dict)
 
         rsp_body = {}
@@ -919,6 +957,18 @@ class VncApiServer(object):
 
         fq_name = read_result['fq_name']
 
+        # Permit abort resource deletion and retrun 202 status code
+        get_context().set_state('PENDING_DBE_DELETE')
+        ok, result = r_class.pending_dbe_delete(read_result)
+        if not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+        if ok and isinstance(result, tuple) and result[0] == 202:
+            # Deletion accepted but not applied, pending delete
+            # return 202 HTTP OK code to aware clients
+            bottle.response.status = 202
+            return
+
         # fail if non-default children or non-derived backrefs exist
         for child_field in r_class.children_fields:
             child_type, is_derived = r_class.children_field_types[child_field]
@@ -929,7 +979,8 @@ class VncApiServer(object):
                 child_cls(parent_type=obj_type).get_type())
             exist_hrefs = []
             for child in read_result.get(child_field, []):
-                if child['to'][-1] == default_child_name:
+                if child['to'][-1] in [default_child_name,
+                        POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]:
                     continue
                 exist_hrefs.append(
                     self.generate_url(child_type, child['uuid']))
@@ -964,10 +1015,10 @@ class VncApiServer(object):
 
             proj_id = r_class.get_project_id_for_resource(read_result, db_conn)
 
-            (ok, del_result) = r_class.pre_dbe_delete(
-                    id, read_result, db_conn)
+            (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
             if not ok:
                 return (ok, del_result)
+
             # Delete default children first
             for child_field in r_class.children_fields:
                 child_type, is_derived = r_class.children_field_types[child_field]
@@ -2091,13 +2142,13 @@ class VncApiServer(object):
         except NoIdError:
             raise cfgm_common.exceptions.HttpError(
                 404, 'Object Not Found: ' + obj_uuid)
-        resource_class = self.get_resource_class(obj_type)
+        r_class = self.get_resource_class(obj_type)
 
         for req_param in request_params.get('updates') or []:
             obj_field = req_param.get('field')
-            if obj_field in resource_class.prop_list_fields:
+            if obj_field in r_class.prop_list_fields:
                 prop_coll_type = 'list'
-            elif obj_field in resource_class.prop_map_fields:
+            elif obj_field in r_class.prop_map_fields:
                 prop_coll_type = 'map'
             else:
                 err_msg = '%s neither "ListProperty" nor "MapProperty"' %(
@@ -2107,7 +2158,7 @@ class VncApiServer(object):
             req_oper = req_param.get('operation').lower()
             field_val = req_param.get('value')
             field_pos = str(req_param.get('position'))
-            prop_type = resource_class.prop_field_types[obj_field]['xsd_type']
+            prop_type = r_class.prop_field_types[obj_field]['xsd_type']
             prop_cls = cfgm_common.utils.str_to_class(prop_type, __name__)
             prop_val_type = prop_cls.attr_field_type_vals[prop_cls.attr_fields[0]]['attr_type']
             prop_val_cls = cfgm_common.utils.str_to_class(prop_val_type, __name__)
@@ -2146,25 +2197,36 @@ class VncApiServer(object):
                         req_oper, json.dumps(req_param))
                     raise cfgm_common.exceptions.HttpError(400, err_msg)
 
-        # Validations over. Invoke type specific hook and extension manager
+        # Get actual resource from DB
+        fields = r_class.prop_fields | r_class.ref_fields
         try:
-            obj_fields = resource_class.prop_fields | resource_class.ref_fields
-            (read_ok, read_result) = self._db_conn.dbe_read(obj_type, obj_uuid)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'Object Not Found: '+obj_uuid)
-        except Exception as e:
-            read_ok = False
-            read_result = cfgm_common.utils.detailed_traceback()
-
-        if not read_ok:
+            ok, result = self._db_conn.dbe_read(obj_type, obj_uuid,
+                                                obj_fields=fields)
+        except NoIdError as e:
+            raise cfgm_common.exceptions.HttpError(404, str(e))
+        except Exception:
+            ok = False
+            result = cfgm_common.utils.detailed_traceback()
+        if not ok:
             self.config_object_error(
-                obj_uuid, None, obj_type, 'prop_collection_update', read_result)
-            raise cfgm_common.exceptions.HttpError(500, read_result)
+                obj_uuid, None, obj_type, 'prop_collection_update', result[1])
+            raise cfgm_common.exceptions.HttpError(result[0], result[1])
+        db_obj_dict = result
 
-        self._put_common(
-            'prop-collection-update', obj_type, obj_uuid, read_result,
-             req_prop_coll_updates=request_params.get('updates'))
+        # Look if the resource have a pending version, if yes use it as resource
+        # to update
+        if hasattr(r_class, 'get_pending_resource'):
+            ok, result = r_class.get_pending_resource(db_obj_dict, fields)
+            if ok and isinstance(result, dict):
+                db_obj_dict = result
+            if not ok and result[0] != 404:
+                self.config_object_error(obj_uuid, None, obj_type,
+                                         'prop_collection_update', result[1])
+                raise cfgm_common.exceptions.HttpError(result[0], result[1])
+
+        self._put_common('prop-collection-update', obj_type, obj_uuid,
+                         db_obj_dict,
+                         req_prop_coll_updates=request_params.get('updates'))
     # end prop_collection_http_post
 
     def ref_update_http_post(self):
@@ -2206,37 +2268,42 @@ class VncApiServer(object):
                 raise cfgm_common.exceptions.HttpError(
                     404, 'Name ' + pformat(ref_fq_name) + ' not found')
 
-        # To verify existence of the reference being added
-        if operation == 'ADD':
+        elif operation == 'ADD':
+            # if UUID provided verify existence of the reference being added
             try:
-                (read_ok, read_result) = self._db_conn.dbe_read(
-                    ref_obj_type, ref_uuid, obj_fields=['fq_name'])
-            except NoIdError:
-                raise cfgm_common.exceptions.HttpError(
-                    404, 'Object Not Found: ' + ref_uuid)
-            except Exception as e:
-                read_ok = False
-                read_result = cfgm_common.utils.detailed_traceback()
+                ref_fq_name = self._db_conn.uuid_to_fq_name(ref_uuid)
+            except NoIdError as each:
+                raise cfgm_common.exceptions.HttpError(404, str(e))
 
         # To invoke type specific hook and extension manager
+        fields = res_class.prop_fields | res_class.ref_fields
         try:
-            obj_fields = res_class.prop_fields | res_class.ref_fields
-            (read_ok, read_result) = self._db_conn.dbe_read(
-                obj_type, obj_uuid, obj_fields)
-        except NoIdError:
-            raise cfgm_common.exceptions.HttpError(
-                404, 'Object Not Found: '+obj_uuid)
-        except Exception as e:
-            read_ok = False
-            read_result = cfgm_common.utils.detailed_traceback()
+            ok, result = self._db_conn.dbe_read(obj_type, obj_uuid, fields)
+        except NoIdError as e:
+            raise cfgm_common.exceptions.HttpError(404, str(e))
+        except Exception:
+            ok = False
+            result = cfgm_common.utils.detailed_traceback()
+        if not ok:
+            self.config_object_error(obj_uuid, None, obj_type, 'ref_update',
+                                     result[1])
+            raise cfgm_common.exceptions.HttpError(result[0], result[1])
+        db_obj_dict = result
 
-        if not read_ok:
-            self.config_object_error(obj_uuid, None, obj_type, 'ref_update', read_result)
-            raise cfgm_common.exceptions.HttpError(500, read_result)
+        # Look if the resource have a pending version, if yes use it as resource
+        # to update
+        if hasattr(res_class, 'get_pending_resource'):
+            ok, result = res_class.get_pending_resource(db_obj_dict, fields)
+            if ok and isinstance(result, dict):
+                db_obj_dict = result
+            if not ok and result[0] != 404:
+                self.config_object_error(
+                    obj_uuid, None, obj_type, 'ref_update', result[1])
+                raise cfgm_common.exceptions.HttpError(result[0], result[1])
 
         obj_dict = {'uuid': obj_uuid}
-        if ref_field in read_result:
-            obj_dict[ref_field] = copy.deepcopy(read_result[ref_field])
+        if ref_field in db_obj_dict:
+            obj_dict[ref_field] = copy.deepcopy(db_obj_dict[ref_field])
 
         if operation == 'ADD':
             if ref_obj_type+'_refs' not in obj_dict:
@@ -2256,9 +2323,8 @@ class VncApiServer(object):
 
         ref_args = {'ref_obj_type':ref_obj_type, 'ref_uuid': ref_uuid,
                     'operation': operation, 'data': {'attr': attr}}
-        self._put_common(
-            'ref-update', obj_type, obj_uuid, read_result,
-             req_obj_dict=obj_dict, ref_args=ref_args)
+        self._put_common('ref-update', obj_type, obj_uuid, db_obj_dict,
+                         req_obj_dict=obj_dict, ref_args=ref_args)
 
         return {'uuid': obj_uuid}
     # end ref_update_http_post
@@ -3417,6 +3483,18 @@ class VncApiServer(object):
         cleanup_on_failure = []
         if req_obj_dict is not None:
             req_obj_dict['uuid'] = obj_uuid
+
+        # Permit abort resource deletion and retrun 202 status code
+        get_context().set_state('PENDING_DBE_UPDATE')
+        ok, result = r_class.pending_dbe_update(db_obj_dict, req_obj_dict)
+        if not ok:
+            code, msg = result
+            raise cfgm_common.exceptions.HttpError(code, msg)
+        if ok and isinstance(result, tuple) and result[0] == 202:
+            # Modifications accepted but not applied, pending update
+            # returns 202 HTTP OK code to aware clients
+            bottle.response.status = 202
+            return True, ''
 
         def stateful_update():
             get_context().set_state('PRE_DBE_UPDATE')
