@@ -296,12 +296,12 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
                     'ether_type': 'IPv4'}
             new_sg_rule = self._security_group_rule_build(
                     rule, "default-domain:default-project:%s" % new_sg_name)
-            self._security_group_rule_append(new_sg_obj, sg_rule)
+            self._security_group_rule_append(new_sg_obj, new_sg_rule)
             self._vnc_lib.security_group_create(new_sg_obj)
         # make sure sgr quota counter is not incremented
         self.assertEqual(sgr_quota_counter.value, 5)
 
-        logger.info("Test#7: Remove the last rule from SG")
+        logger.info("Test#8: Remove the last rule from SG")
         # Read the latest sb obj
         sg_obj = self._vnc_lib.security_group_read(
                 ["default-domain", "default-project", sg_name])
@@ -315,7 +315,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is decremented
         self.assertEqual(sgr_quota_counter.value, 4)
 
-        logger.info("Test#8: Error during SG create with rule.")
+        logger.info("Test#9: Error during SG create with rule.")
         api_server = self._server_info['api_server']
         orig_dbe_create = api_server._db_conn.dbe_create
         try:
@@ -335,7 +335,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is unchanged
         self.assertEqual(sgr_quota_counter.value, 4)
 
-        logger.info("Test9: Create new SG with one rule.")
+        logger.info("Test10: Create new SG with one rule.")
         self._vnc_lib.security_group_create(new_sg_obj)
         # make sure expected number of rules are present
         new_sg_obj = self._vnc_lib.security_group_read(
@@ -345,7 +345,7 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
         # make sure sgr quota counter is incremented
         self.assertEqual(sgr_quota_counter.value, 5)
 
-        logger.info("Test#10: Error during SG delete with rule.")
+        logger.info("Test#11: Error during SG delete with rule.")
         api_server = self._server_info['api_server']
         orig_dbe_delete = api_server._db_conn.dbe_delete
         try:
@@ -366,4 +366,42 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
                 len(new_sg_obj.get_security_group_entries().get_policy_rule()))
         # make sure sgr quota counter is unchanged
         self.assertEqual(sgr_quota_counter.value, 5)
+
+        logger.info("Test#12: Update project quota for sgr (LP#1745101)")
+        # Update quota of sgr from 5->6
+        kwargs = {'security_group_rule': 6}
+        quota = QuotaType(**kwargs)
+        project = self._vnc_lib.project_read(["default-domain", "default-project"])
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+        # Simulate multiple api-server issue, where
+        # zk counter's max_count(6) is updated only in
+        # api-server which served the project update
+        # request and not in the other api-servers by
+        # resetting the max_coiunt to old limit (5)
+        sgr_quota_counter.max_count = 5
+        # Update SG with one more rule
+        rule['port_min'] = 60
+        rule['port_max'] = 60
+        sg_rule = self._security_group_rule_build(
+                rule, "default-domain:default-project:%s" % new_sg_name)
+        self._security_group_rule_append(new_sg_obj, sg_rule)
+        self._vnc_lib.security_group_update(new_sg_obj)
+        # make sure sgr quota counter is incremented
+        self.assertEqual(sgr_quota_counter.value, 6)
+        # make sure sgr quota counter's max_count is rest to
+        # new quota limit (6) in other api-server
+        self.assertEqual(sgr_quota_counter.max_count, 6)
+        # Try exceeding new quota limit
+        rule['port_min'] = 70
+        rule['port_max'] = 70
+        sg_rule = self._security_group_rule_build(
+                rule, "default-domain:default-project:%s" % new_sg_name)
+        self._security_group_rule_append(new_sg_obj, sg_rule)
+        with ExpectedException(OverQuota) as e:
+            self._vnc_lib.security_group_update(new_sg_obj)
+        # make sure sgr quota counter is unchanged
+        self.assertEqual(sgr_quota_counter.value, 6)
+
+
     #end TestGlobalQuota
