@@ -1126,6 +1126,7 @@ def Fake_uuid_to_time(time_uuid_in_db):
 class ZnodeStat(namedtuple('ZnodeStat', 'ctime')):
     pass
 
+
 def zk_scrub_path(path):
     # remove trailing slashes if not root
     if len(path) == 1:
@@ -1133,11 +1134,13 @@ def zk_scrub_path(path):
     return path.rstrip('/')
 # end zk_scrub_path
 
+
 class FakeKazooClient(object):
     _values = {}
 
     class Election(object):
         _locks = {}
+
         def __init__(self, path, identifier):
             self.path = zk_scrub_path(path)
             if self.path not in self._locks:
@@ -1146,9 +1149,39 @@ class FakeKazooClient(object):
         def run(self, cb, *args, **kwargs):
             self._locks[self.path].acquire()
             try:
-               cb(*args, **kwargs)
+                cb(*args, **kwargs)
             finally:
-               self._locks[self.path].release()
+                self._locks[self.path].release()
+
+    class Lock(object):
+        _locks = {}
+
+        def __init__(self, path, identifier):
+            self._path = zk_scrub_path(path)
+            if self._path not in self._locks:
+                self._locks[self._path] = (gevent.lock.Semaphore(), identifier)
+
+        def acquire(self, blocking=True, timeout=None):
+            lock, _ = self._locks[self._path]
+            return lock.acquire(blocking, timeout)
+
+        def release(self):
+            lock, _ = self._locks[self._path]
+            lock.release()
+
+        def contenders(self):
+            _, contender = self._locks[self._path]
+            return [contender]
+
+        def destroy(self):
+            self._locks.pop(self._path, None)
+
+        def __enter__(self):
+            self.acquire()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.release()
+            self.destroy()
 
     def __init__(self, *args, **kwargs):
         self.add_listener = stub
