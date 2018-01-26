@@ -7,11 +7,11 @@
 #include <boost/foreach.hpp>
 #include <fstream>
 #include <sstream>
-#include "config/config-client-mgr/config_amqp_client.h"
-#include "config/config-client-mgr/config_cass2json_adapter.h"
-#include "config/config-client-mgr/config_cassandra_client.h"
-#include "config/config-client-mgr/config_client_manager.h"
-#include "config/config-client-mgr/config_factory.h"
+#include "config-client-mgr/config_amqp_client.h"
+#include "config-client-mgr/config_cass2json_adapter.h"
+#include "config-client-mgr/config_cassandra_client.h"
+#include "config-client-mgr/config_client_manager.h"
+#include "config-client-mgr/config_factory.h"
 #include "ifmap/client/config_json_parser.h"
 
 class ConfigCassandraClientTest : public ConfigCassandraClient {

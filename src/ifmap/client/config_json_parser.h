@@ -9,7 +9,7 @@
 #include <map>
 #include <string>
 
-#include "config/config-client-mgr/config_json_parser_base.h"
+#include "config-client-mgr/config_json_parser_base.h"
 
 #include "base/queue_task.h"
 #include "ifmap/ifmap_table.h"
