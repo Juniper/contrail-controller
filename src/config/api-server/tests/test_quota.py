@@ -127,6 +127,50 @@ class TestQuota(test_case.ApiServerTestCase):
             # Expect MismatchError on asserEqual(result['exception'], 1)
             self.test_create_vmi_with_quota_in_parallels(project=project)
     # end test_update_quota_and_create_resource_negative
+
+    def test_update_quota_after_project_create(self):
+        proj_name = 'admin' + self.id()
+        project = Project(proj_name)
+        self._vnc_lib.project_create(project)
+        # make sure no counter is initialized after project ceate without quota
+        quota_counters = self._server_info['api_server'].quota_counter
+        quota_counter_keys = quota_counters.keys()
+        self.assertEqual(len(quota_counter_keys), 0)
+        # set quota of vmi
+        kwargs = {'virtual_machine_interface': 1}
+        quota = QuotaType(**kwargs)
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+        # make sure vmi quota counter is initialized
+        quota_counter_keys = quota_counters.keys()
+        vmi_quota_counter = quota_counters[quota_counter_keys[0]]
+        self.assertEqual(vmi_quota_counter.value, 0)
+        # Simulate multiple api-server case, where the
+        # self._server_info['api_server'].quota_counter will be
+        # updated with the vmi counter only in the api-server
+        # which served the project update,
+        #by removing the vmi quota counter
+        del quota_counters[quota_counter_keys[0]]
+        # Creating 1 vmis should succeed
+        vn_name = "vn" + self.id()
+        vn = VirtualNetwork(vn_name, project)
+        self._vnc_lib.virtual_network_create(vn)
+        vmi = VirtualMachineInterface(str(uuid.uuid4()), project)
+        vmi.uuid = vmi.name
+        vmi.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+        # make sure sgr quota counter is incremented
+        vmi_quota_counter = quota_counters[quota_counter_keys[0]]
+        self.assertEqual(vmi_quota_counter.value, 1)
+        # Create one more vmi to get OverQuota
+        vmi2 = VirtualMachineInterface(str(uuid.uuid4()), project)
+        vmi2.uuid = vmi2.name
+        vmi2.set_virtual_network(vn)
+        with ExpectedException(OverQuota) as e:
+            self._vnc_lib.virtual_machine_interface_create(vmi2)
+        # make sure sgr quota counter is not changed
+        self.assertEqual(vmi_quota_counter.value, 1)
+        # test_update_quota_after_project_create
 # class TestQuota
 
 
