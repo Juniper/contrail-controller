@@ -81,7 +81,8 @@ from cfgm_common import illegal_xml_chars_RE
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType,\
     NodeTypeNames, INSTANCE_ID_DEFAULT, TagTypeNameToId,\
-    TAG_TYPE_NOT_UNIQUE_PER_OBJECT, TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP
+    TAG_TYPE_NOT_UNIQUE_PER_OBJECT, TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP,\
+    POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
 
 from provision_defaults import Provision
 from vnc_quota import *
@@ -517,10 +518,26 @@ class VncApiServer(object):
 
         get_context().set_state('PRE_DBE_ALLOC')
         # type-specific hook
-        (ok, result) = r_class.pre_dbe_alloc(obj_type, obj_dict)
+        ok, result = r_class.pre_dbe_alloc(obj_dict)
         if not ok:
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
+        if ok and isinstance(result, tuple) and result[0] == 202:
+            # Creation accepted but not applied, pending delete return 202 HTTP
+            # OK code to aware clients
+            pending_obj_dict = result[1]
+            bottle.response.status = 202
+            rsp_body = {}
+            rsp_body['fq_name'] = pending_obj_dict['fq_name']
+            rsp_body['uuid'] = pending_obj_dict['uuid']
+            rsp_body['name'] = pending_obj_dict['fq_name'][-1]
+            rsp_body['href'] = self.generate_url(resource_type,
+                                                 pending_obj_dict['uuid'])
+            rsp_body['parent_type'] = pending_obj_dict['parent_type']
+            rsp_body['parent_uuid'] = pending_obj_dict['parent_uuid']
+            rsp_body['parent_href'] = self.generate_url(
+                pending_obj_dict['parent_type'],pending_obj_dict['parent_uuid'])
+            return {resource_type: rsp_body}
 
         # common handling for all resource create
         (ok, result) = self._post_common(obj_type, obj_dict)
@@ -676,6 +693,7 @@ class VncApiServer(object):
         rsp_body['href'] = self.generate_url(resource_type, result)
         if parent_class:
             # non config-root child, send back parent uuid/href
+            rsp_body['parent_type'] = obj_dict['parent_type']
             rsp_body['parent_uuid'] = parent_uuid
             rsp_body['parent_href'] = self.generate_url(parent_res_type,
                                                         parent_uuid)
@@ -929,7 +947,8 @@ class VncApiServer(object):
                 child_cls(parent_type=obj_type).get_type())
             exist_hrefs = []
             for child in read_result.get(child_field, []):
-                if child['to'][-1] == default_child_name:
+                if child['to'][-1] in [default_child_name,
+                        POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT]:
                     continue
                 exist_hrefs.append(
                     self.generate_url(child_type, child['uuid']))
@@ -964,10 +983,14 @@ class VncApiServer(object):
 
             proj_id = r_class.get_project_id_for_resource(read_result, db_conn)
 
-            (ok, del_result) = r_class.pre_dbe_delete(
-                    id, read_result, db_conn)
+            ok, result = r_class.pre_dbe_delete(id, read_result, db_conn)
             if not ok:
-                return (ok, del_result)
+                return False, result
+            if ok and isinstance(result, tuple) and result[0] == 202:
+                # Deletion accepted but not applied, pending delete
+                # return 202 HTTP OK code to aware clients
+                bottle.response.status = 202
+                return True, ''
             # Delete default children first
             for child_field in r_class.children_fields:
                 child_type, is_derived = r_class.children_field_types[child_field]
@@ -3426,6 +3449,11 @@ class VncApiServer(object):
                 prop_collection_updates=req_prop_coll_updates)
             if not ok:
                 return (ok, result)
+            if ok and isinstance(result, tuple) and result[0] == 202:
+                # Modifications accepted but not applied, pending update
+                # return 202 HTTP OK code to aware clients
+                bottle.response.status = 202
+                return True, ''
             attr_to_publish = None
             if isinstance(result, dict):
                 attr_to_publish = result
