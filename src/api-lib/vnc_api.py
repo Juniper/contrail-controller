@@ -490,6 +490,9 @@ class VncApi(object):
 
         obj_dict = json.loads(content)[res_type]
         obj.uuid = obj_dict['uuid']
+        obj.fq_name = obj_dict['fq_name']
+        if 'parent_type' in obj_dict:
+            obj.parent_type = obj_dict['parent_type']
         if 'parent_uuid' in obj_dict:
             obj.parent_uuid = obj_dict['parent_uuid']
 
@@ -530,8 +533,22 @@ class VncApi(object):
 
     @check_homepage
     def _object_read(self, res_type, fq_name=None, fq_name_str=None,
-                     id=None, ifmap_id=None, fields=None):
+                     id=None, ifmap_id=None, fields=None, draft=False):
         obj_cls = obj_type_to_vnc_class(res_type, __name__)
+
+        if draft:
+            if not (fq_name or fq_name_str):
+                return "To get draft version of resource FQ name is required"
+            id = None
+            if not fq_name and fq_name_str:
+                fq_name = fq_name_str.split(':')
+                fq_name_str = None
+            draft_pm_name = 'draft-policy-management'
+            if draft_pm_name not in fq_name:
+                if len(fq_name) == 2:
+                    fq_name = [draft_pm_name, fq_name[-1]]
+                else:
+                    fq_name.insert(-1, draft_pm_name)
 
         (args_ok, result) = self._read_args_to_id(
             res_type, fq_name, fq_name_str, id, ifmap_id)
@@ -947,7 +964,7 @@ class VncApi(object):
                 retry_count -= 1
                 continue
 
-            if status == 200:
+            if status in [200, 202]:
                 return content
 
             # Exception Response, see if it can be resolved
@@ -1463,7 +1480,7 @@ class VncApi(object):
         return rv
 
     def set_tags(self, obj, tags_dict):
-        """Associate or disassociate one or mutliple tags to a resource
+        """Associate or disassociate one or multiple tags to a resource
 
         Adds or remove tags to a resource and also permits to set/unset
         multiple values for tags which are authorized to be set multiple time
@@ -1524,4 +1541,38 @@ class VncApi(object):
             type: None,
         }
         return self.set_tags(obj, tags_dict)
+
+    def _security_policy_draft(self, action, scope):
+        """Commit or revert pending resources on a given scope
+
+        :param action: specify action to be done: commit or revert
+        :param scope: Scope that own the pending security resource (aka. Global
+            global policy management or project)
+        """
+        if action not in ['commit', 'revert']:
+            raise ValueError("Only 'commit' or 'revert' actions are supported")
+
+        url = self._action_uri['security-policy-draft']
+        data = {
+            'scope_uuid': scope.uuid,
+            'action': action,
+        }
+        content = self._request_server(OP_POST, url, json.dumps(data))
+        return json.loads(content)
+
+    def commit_security(self, scope):
+        """Commit pending resources on a given scope
+
+        :param scope: Scope that own the pending security resource to commit
+            (aka. Global global policy management or project)
+        """
+        self._security_policy_draft('commit', scope)
+
+    def revert_security(self, scope):
+        """Revert pending resources on a given scope
+
+        :param scope: Scope that own the pending security resource to revert
+            (aka. Global global policy management or project)
+        """
+        self._security_policy_draft('revert', scope)
 # end class VncApi

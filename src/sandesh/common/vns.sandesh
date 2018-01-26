@@ -563,7 +563,7 @@ const map<Category, string> CategoryNames = {
     Category.UDP                         : "UDP",
     Category.CONFIG_CLIENT               : "ConfigClientManager",
 }
-    
+
 const map<Module, list<Category>> ModuleCategoryMap = {
     Module.CONTROL_NODE       : [Category.DEFAULT,
                                  Category.XMPP,
@@ -713,4 +713,15 @@ const list<TagTypeEnum> DEFAULT_MATCH_TAG_TYPE = [
 
 const list<string> TAG_TYPE_AUTHORIZED_ON_ADDRESS_GROUP = [
     "label", //TagTypeIdToName[TagTypeEnum.LABEL],
+]
+
+// Security Draft constants
+const string POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT = "draft-policy-management"
+// Order here is important
+const list<string> SECURITY_OBJECT_TYPES = [
+    'application_policy_set',
+    'firewall_policy',
+    'firewall_rule',
+    'service_group',
+    'address_group',
 ]
