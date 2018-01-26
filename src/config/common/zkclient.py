@@ -341,11 +341,15 @@ class ZookeeperCounter(Counter):
 
     def _inner_change(self, value):
         data, version = self._value()
-        data = repr(data + value).encode('ascii')
-        if int(data) > self.max_count:
+        # Decrement counter only if data(current count) is non zero.
+        if data > 0 or value > 0:
+            data += value
+        # Dont raise OverQuota during delete
+        if (data > self.max_count and value > 0):
             raise OverQuota()
         try:
-            self.client.set(self.path, data, version=version)
+            self.client.set(
+                    self.path, repr(data).encode('ascii'), version=version)
         except kazoo.exceptions.BadVersionError:  # pragma: nocover
             raise ForceRetryError()
 # end class ZookeeperCounter
