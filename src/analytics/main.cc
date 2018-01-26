@@ -325,7 +325,7 @@ int main(int argc, char *argv[])
             protobuf_port,
             cassandra_ips,
             cassandra_ports,
-            string("127.0.0.1"),
+            options.redis_server(),
             options.redis_port(),
             options.redis_password(),
             kstr,
