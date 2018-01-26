@@ -4,7 +4,7 @@
 
 /** Definitions for showing ifmap-server state and stats **/
 
-include "config/config-client-mgr/config_client_show.sandesh"
+include "config-client-mgr/config_client_show.sandesh"
 
 /**
  * @description: get config client information

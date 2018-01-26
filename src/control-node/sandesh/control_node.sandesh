@@ -10,7 +10,7 @@
  */
 
 include "ifmap/ifmap_server_show.sandesh"
-include "config/config-client-mgr/config_client_show.sandesh"
+include "config-client-mgr/config_client_show.sandesh"
 
 struct BgpRouterState {
     1: string name (key="ObjectBgpRouter")

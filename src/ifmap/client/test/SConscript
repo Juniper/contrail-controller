@@ -10,7 +10,7 @@ env = BuildEnv.Clone()
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/database'])
 env.Append(CPPPATH = env['TOP'] + '/ifmap/client/test')
-env.Append(CPPPATH = env['TOP'] + '/config/config-client-mgr')
+env.Append(CPPPATH = env['TOP'] + '/config-client-mgr')
 
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/db')

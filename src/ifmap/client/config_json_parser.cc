@@ -8,7 +8,7 @@
 #include <sandesh/request_pipeline.h>
 #include <string>
 
-#include "config_client_manager.h"
+#include "config-client-mgr/config_client_manager.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_sandesh_context.h"
@@ -16,11 +16,11 @@
 #include "base/autogen_util.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
-#include "config_client_show_types.h"
-#include "config_client_log_types.h"
-#include "config_cass2json_adapter.h"
-#include "config_amqp_client.h"
-#include "config_db_client.h"
+#include "config-client-mgr/config_client_show_types.h"
+#include "config-client-mgr/config_client_log_types.h"
+#include "config-client-mgr/config_cass2json_adapter.h"
+#include "config-client-mgr/config_amqp_client.h"
+#include "config-client-mgr/config_db_client.h"
 
 using contrail_rapidjson::Value;
 using std::cout;
