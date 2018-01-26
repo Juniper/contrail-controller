@@ -517,7 +517,7 @@ class VncApiServer(object):
 
         get_context().set_state('PRE_DBE_ALLOC')
         # type-specific hook
-        (ok, result) = r_class.pre_dbe_alloc(obj_type, obj_dict)
+        (ok, result) = r_class.pre_dbe_alloc(obj_dict)
         if not ok:
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
@@ -676,6 +676,7 @@ class VncApiServer(object):
         rsp_body['href'] = self.generate_url(resource_type, result)
         if parent_class:
             # non config-root child, send back parent uuid/href
+            rsp_body['parent_type'] = obj_dict['parent_type']
             rsp_body['parent_uuid'] = parent_uuid
             rsp_body['parent_href'] = self.generate_url(parent_res_type,
                                                         parent_uuid)
@@ -3426,6 +3427,11 @@ class VncApiServer(object):
                 prop_collection_updates=req_prop_coll_updates)
             if not ok:
                 return (ok, result)
+            if ok and isintance(result, tuple) and result[0] == 202:
+                # Modifications accepted but not applied, pending update
+                # return 202 HTTP OK code to aware clients
+                bottle.response.status = 202
+                return
             attr_to_publish = None
             if isinstance(result, dict):
                 attr_to_publish = result

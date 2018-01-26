@@ -490,6 +490,9 @@ class VncApi(object):
 
         obj_dict = json.loads(content)[res_type]
         obj.uuid = obj_dict['uuid']
+        obj.fq_name = obj_dict['fq_name']
+        if 'parent_type' in obj_dict:
+            obj.parent_type = obj_dict['parent_type']
         if 'parent_uuid' in obj_dict:
             obj.parent_uuid = obj_dict['parent_uuid']
 
@@ -947,7 +950,7 @@ class VncApi(object):
                 retry_count -= 1
                 continue
 
-            if status == 200:
+            if status in [200, 202]:
                 return content
 
             # Exception Response, see if it can be resolved
