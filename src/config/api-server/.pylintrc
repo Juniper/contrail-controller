@@ -2,10 +2,11 @@
 [MASTER]
 # Add <file or directory> to the black list. It should be a base name, not a
 # path. You may set this option multiple times.
+#
 ignore=.git,tests
 
 [MESSAGES CONTROL]
-# This is a long list.  A number of these are important and
+# NOTE(gus): This is a long list.  A number of these are important and
 # should be re-enabled once the offending code is fixed (or marked
 # with a local disable)
 disable=
@@ -14,11 +15,9 @@ disable=
 # "I" Informational noise
  locally-disabled,
 # "E" Error for important programming issues (likely bugs)
- access-member-before-definition,
  no-member,
  no-method-argument,
  no-self-argument,
- not-an-iterable,
 # "W" Warnings for stylistic problems or minor programming issues
  abstract-method,
  arguments-differ,
@@ -31,45 +30,30 @@ disable=
  expression-not-assigned,
  fixme,
  global-statement,
- literal-comparison,
  no-init,
  non-parent-init-called,
  not-callable,
  protected-access,
  redefined-builtin,
  redefined-outer-name,
- signature-differs,
  star-args,
  super-init-not-called,
  super-on-old-class,
  unpacking-non-sequence,
  unused-argument,
- unused-import,
- unused-variable,
- useless-super-delegation,
 # "C" Coding convention violations
  bad-continuation,
- consider-iterating-dictionary,
- consider-using-enumerate,
  invalid-name,
- len-as-condition,
- misplaced-comparison-constant,
  missing-docstring,
- singleton-comparison,
  superfluous-parens,
- ungrouped-imports,
+ wrong-import-position,
  wrong-import-order,
 # "R" Refactor recommendations
  abstract-class-little-used,
  abstract-class-not-used,
- consider-merging-isinstance,
- consider-using-ternary,
  duplicate-code,
  interface-not-implemented,
- no-else-return,
  no-self-use,
- redefined-argument-from-local,
- simplifiable-if-statement,
  too-few-public-methods,
  too-many-ancestors,
  too-many-arguments,
@@ -77,7 +61,6 @@ disable=
  too-many-instance-attributes,
  too-many-lines,
  too-many-locals,
- too-many-nested-blocks,
  too-many-public-methods,
  too-many-return-statements,
  too-many-statements
@@ -90,7 +73,7 @@ variable-rgx=[a-z_][a-z0-9_]{0,30}$
 argument-rgx=[a-z_][a-z0-9_]{1,30}$
 
 # Method names should be at least 3 characters long
-# and be lowercased with underscores
+# and be lowecased with underscores
 method-rgx=([a-z_][a-z0-9_]{2,}|setUp|tearDown)$
 
 # Module names matching neutron-* are ok (files in bin/)
@@ -112,6 +95,7 @@ additional-builtins=_
 [CLASSES]
 # List of interface methods to ignore, separated by a comma.
 ignore-iface-methods=
+
 
 [IMPORTS]
 # Deprecated modules which should not be used, separated by a comma
