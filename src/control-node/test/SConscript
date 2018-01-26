@@ -11,7 +11,7 @@ env.Prepend(CPPPATH = [env['TOP'],
                        env['TOP'] + '/db',
                        env['TOP'] + '/io',
                        env['TOP'] + '/tools/sandesh/library/common',
-                       env['TOP'] + '/config/config-client-mgr'
+                       env['TOP'] + '/config-client-mgr'
                       ])
 
 libcontrol_test = env.Library('control_test',

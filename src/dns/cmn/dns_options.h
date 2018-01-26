@@ -3,7 +3,7 @@
  */
 
 #include <boost/program_options.hpp>
-#include "config/config-client-mgr/config_client_options.h"
+#include "config-client-mgr/config_client_options.h"
 #include "io/event_manager.h"
 #include "sandesh/sandesh.h"
 
