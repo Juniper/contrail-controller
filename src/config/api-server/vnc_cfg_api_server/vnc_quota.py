@@ -121,7 +121,7 @@ class QuotaHelper(object):
         for (obj_type, quota) in quota_dict.iteritems():
             path = path_prefix + "/" + obj_type
             if path in quota_counter:
-                if quota == -1 and db_conn._zk_db._zk_client.exists(path):
+                if quota == -1 and db_conn._zk_db.quota_counter_exists(path):
                     db_conn._zk_db._zk_client.delete_node(path)
                     del quota_counter[path]
                 else:
