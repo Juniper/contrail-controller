@@ -1683,7 +1683,19 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
           'virtual-network', 'access-control-list', ['has', 'derived'], 'system-only', 'CRUD',
           'Virtual network access control list are automatically derived from all the network policies attached to virtual network.') -->
 
+<xsd:simpleType name="ServerType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="virtual-server"/>
+        <xsd:enumeration value="baremetal-server"/>
+        <xsd:enumeration value="container"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:element name="virtual-machine" type="ifmap:IdentityType"/>
+<xsd:element name="server-type" type="ServerType" default='virtual-server'/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('server-type', 'virtual-machine', 'optional', 'CRUD',
+              'An enumeration value specifying the server type.') -->
 
 <xsd:element name="virtual-machine-interface-security-group"/>
 <!--#IFMAP-SEMANTICS-IDL
