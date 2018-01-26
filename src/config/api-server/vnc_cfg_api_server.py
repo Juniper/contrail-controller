@@ -581,10 +581,10 @@ class VncApiServer(object):
             if quota_limit >= 0:
                 path = self._path_prefix + proj_uuid + "/" + obj_type
                 if not self.quota_counter.get(path):
-                    # Init quota counter with defaults
+                    # Init quota counter
                     path_prefix = self._path_prefix + proj_uuid
                     QuotaHelper._zk_quota_counter_init(
-                               path_prefix, QuotaHelper.default_quota, proj_uuid,
+                            path_prefix, {obj_type: quota_limit}, proj_uuid,
                                self._db_conn, self.quota_counter)
                 (ok, result) = QuotaHelper.verify_quota_and_create_resource(
                                           db_conn, obj_dict, obj_type, obj_ids,

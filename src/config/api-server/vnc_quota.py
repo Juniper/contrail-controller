@@ -89,7 +89,7 @@ class QuotaHelper(object):
             sg_dict = result
             if sg_dict['id_perms'].get('user_visible', True) is not False:
                 sge = sg_dict.get('security_group_entries') or {}
-                quota_count = len(sge.get('policy_rule') or [])
+                quota_count += len(sge.get('policy_rule') or [])
 
         return True, quota_count
 
