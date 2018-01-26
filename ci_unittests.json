@@ -6,7 +6,6 @@
             "controller/src/database",
             "src/contrail-analytics/contrail-opserver",
             "src/contrail-analytics/contrail-query-engine",
-            "controller/src/query_engine",
             "controller/src/zookeeper"
         ],
         "scons_test_targets" : [
