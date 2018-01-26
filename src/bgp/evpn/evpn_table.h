@@ -56,6 +56,7 @@ public:
     uint64_t mac_route_count() const { return mac_route_count_; }
     uint64_t unique_mac_route_count() const { return unique_mac_route_count_; }
     uint64_t im_route_count() const { return im_route_count_; }
+    uint64_t ip_route_count() const { return ip_route_count_; }
 
 private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp,
@@ -64,6 +65,7 @@ private:
     mutable tbb::atomic<uint64_t> mac_route_count_;
     mutable tbb::atomic<uint64_t> unique_mac_route_count_;
     mutable tbb::atomic<uint64_t> im_route_count_;
+    mutable tbb::atomic<uint64_t> ip_route_count_;
 
     DISALLOW_COPY_AND_ASSIGN(EvpnTable);
 };

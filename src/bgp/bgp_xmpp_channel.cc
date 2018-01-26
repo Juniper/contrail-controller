@@ -1729,9 +1729,11 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
         return false;
     }
 
+    bool type2 = !mac_addr.IsZero();
     Ip4Prefix inet_prefix;
     Inet6Prefix inet6_prefix;
     IpAddress ip_addr;
+    int prefix_len = 0;
     if (!item.entry.nlri.address.empty()) {
         size_t pos = item.entry.nlri.address.find('/');
         if (pos == string::npos) {
@@ -1740,32 +1742,49 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
             return false;
         }
 
-        string plen_str = item.entry.nlri.address.substr(pos + 1);
-        if (plen_str == "32") {
+        bool ipv6 = item.entry.nlri.address.find(':') != string::npos;
+        if (!ipv6) {
             inet_prefix =
                 Ip4Prefix::FromString(item.entry.nlri.address, &error);
-            if (error || inet_prefix.prefixlen() != 32) {
+            if (error) {
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
+                    "Cannot parse inet prefix string " <<
+                        item.entry.nlri.address);
+                return false;
+            }
+
+            if (type2 && inet_prefix.prefixlen() != 32 &&
+                item.entry.nlri.address != "0.0.0.0/0") {
                 BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
                     BGP_LOG_FLAG_ALL,
                     "Bad inet address " << item.entry.nlri.address);
                 return false;
             }
+
             ip_addr = inet_prefix.ip4_addr();
-        } else if (plen_str == "128") {
+            prefix_len = inet_prefix.prefixlen();
+        } else {
             inet6_prefix =
                 Inet6Prefix::FromString(item.entry.nlri.address, &error);
-            if (error || inet6_prefix.prefixlen() != 128) {
+
+            if (error) {
+                BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
+                    BGP_LOG_FLAG_ALL,
+                    "Cannot parse inet6 prefix string " <<
+                        item.entry.nlri.address);
+                return false;
+            }
+
+            if (type2 && inet6_prefix.prefixlen() != 128 &&
+                item.entry.nlri.address != "::/0") {
                 BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name,
                     BGP_LOG_FLAG_ALL,
                     "Bad inet6 address " << item.entry.nlri.address);
                 return false;
             }
             ip_addr = inet6_prefix.ip6_addr();
-        } else if (item.entry.nlri.address != "0.0.0.0/0") {
-            BGP_LOG_PEER_INSTANCE_WARNING(Peer(), vrf_name, BGP_LOG_FLAG_ALL,
-                "Bad prefix length in address " <<
-                item.entry.nlri.address);
-            return false;
+            prefix_len = inet6_prefix.prefixlen();
         }
     }
 
@@ -1787,7 +1806,9 @@ bool BgpXmppChannel::ProcessEnetItem(string vrf_name,
     }
 
     uint32_t ethernet_tag = item.entry.nlri.ethernet_tag;
-    EvpnPrefix evpn_prefix(rd, ethernet_tag, mac_addr, ip_addr);
+    EvpnPrefix evpn_prefix = type2 ?
+        EvpnPrefix(rd, ethernet_tag, mac_addr, ip_addr) :
+        EvpnPrefix(rd, ethernet_tag, ip_addr, prefix_len);
 
     DBRequest req;
     ExtCommunitySpec ext;

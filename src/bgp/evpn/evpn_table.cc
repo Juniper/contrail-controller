@@ -40,6 +40,7 @@ EvpnTable::EvpnTable(DB *db, const string &name)
     mac_route_count_ = 0;
     unique_mac_route_count_ = 0;
     im_route_count_ = 0;
+    ip_route_count_ = 0;
 }
 
 auto_ptr<DBEntry> EvpnTable::AllocEntry(
@@ -87,6 +88,14 @@ void EvpnTable::AddRemoveCallback(const DBEntryBase *entry, bool add) const {
             im_route_count_++;
         } else {
             im_route_count_--;
+        }
+        break;
+
+    case EvpnPrefix::IpPrefixRoute:
+        if (add) {
+            ip_route_count_++;
+        } else {
+            ip_route_count_--;
         }
         break;
 
@@ -229,8 +238,10 @@ bool EvpnTable::Export(RibOut *ribout, Route *route,
     }
 
     const EvpnPrefix &evpn_prefix = evpn_route->GetPrefix();
-    if (evpn_prefix.type() != EvpnPrefix::MacAdvertisementRoute)
+    if (evpn_prefix.type() != EvpnPrefix::MacAdvertisementRoute &&
+            evpn_prefix.type() != EvpnPrefix::IpPrefixRoute) {
         return false;
+    }
 
     if (!evpn_prefix.mac_addr().IsBroadcast()) {
         UpdateInfo *uinfo = GetUpdateInfo(ribout, evpn_route, peerset);

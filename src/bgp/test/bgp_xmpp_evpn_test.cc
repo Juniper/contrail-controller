@@ -206,6 +206,7 @@ protected:
         const string &prefix) {
         TASK_UTIL_EXPECT_TRUE(CheckBgpRouteNoExists(bs, instance, prefix));
     }
+    void AgentRouteAdd(const string &enet_prefix, int count = 1);
 
     EventManager evm_;
     ServerThread thread_;
@@ -216,11 +217,7 @@ protected:
     boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_;
 };
 
-//
-// Single agent.
-// Add one route and verify the next hop and label.
-//
-TEST_F(BgpXmppEvpnTest1, 1AgentRouteAdd) {
+void BgpXmppEvpnTest1::AgentRouteAdd(const string &enet_prefix, int count) {
     Configure();
     task_util::WaitForIdle();
 
@@ -235,20 +232,22 @@ TEST_F(BgpXmppEvpnTest1, 1AgentRouteAdd) {
 
     // Add route from agent.
     stringstream eroute_a;
-    eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
+    eroute_a << enet_prefix;
     agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
     task_util::WaitForIdle();
 
     // Verify that route showed up on agent.
-    TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
-    const autogen::EnetItemType *rt =
-        agent_a_->EnetRouteLookup("blue", "aa:00:00:00:00:01,10.1.1.1/32");
-    TASK_UTIL_EXPECT_TRUE(rt != NULL);
-    int label = rt->entry.next_hops.next_hop[0].label;
-    string nh = rt->entry.next_hops.next_hop[0].address;
-    TASK_UTIL_EXPECT_NE(0xFFFFF, label);
-    TASK_UTIL_EXPECT_EQ("192.168.1.1", nh);
-    TASK_UTIL_EXPECT_EQ("blue", rt->entry.virtual_network);
+    TASK_UTIL_EXPECT_EQ(count, agent_a_->EnetRouteCount());
+    if (count) {
+        const autogen::EnetItemType *rt =
+            agent_a_->EnetRouteLookup("blue", enet_prefix);
+        TASK_UTIL_EXPECT_TRUE(rt != NULL);
+        int label = rt->entry.next_hops.next_hop[0].label;
+        string nh = rt->entry.next_hops.next_hop[0].address;
+        TASK_UTIL_EXPECT_NE(0xFFFFF, label);
+        TASK_UTIL_EXPECT_EQ("192.168.1.1", nh);
+        TASK_UTIL_EXPECT_EQ("blue", rt->entry.virtual_network);
+    }
 
     // Delete route.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
@@ -260,6 +259,78 @@ TEST_F(BgpXmppEvpnTest1, 1AgentRouteAdd) {
 
     // Close the sessions.
     agent_a_->SessionDown();
+}
+
+//
+// Single agent.
+// Add one type-5 route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentRouteAdd) {
+    AgentRouteAdd("aa:00:00:00:00:01,10.1.1.1/32");
+}
+
+//
+// Single agent.
+// Add one type-5 inet host route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentType5InetHostRouteAdd) {
+    AgentRouteAdd("00:00:00:00:00:00,10.1.1.1/32");
+}
+
+//
+// Single agent.
+// Add one type-5 inet prefix route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentType5InetPrefixAdd) {
+    AgentRouteAdd("00:00:00:00:00:00,10.1.1.0/24");
+}
+
+//
+// Single agent.
+// Add one inet default route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentType5InetDefaultRouteAdd) {
+    AgentRouteAdd("00:00:00:00:00:00,0.0.0.0/0");
+}
+
+//
+// Single agent.
+// Add one invalid inet route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentType5InetInvalidRouteAdd) {
+    AgentRouteAdd("00:00:00:00:00:00,10.1.1.1/323", 0);
+}
+
+//
+// Single agent.
+// Add one inet6 type-5 host route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentType5Inet6HostRouteAdd) {
+    AgentRouteAdd("00:00:00:00:00:00,dead::beef/128");
+}
+
+//
+// Single agent.
+// Add one inet6 type-5 prefix route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentType5Inet6PrefixRouteAdd) {
+    AgentRouteAdd("00:00:00:00:00:00,dead:beef::/64");
+}
+
+//
+// Single agent.
+// Add one inet6 type5 default route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentType5Inet6DefaultRouteAdd) {
+    AgentRouteAdd("00:00:00:00:00:00,::/0");
+}
+
+//
+// Single agent.
+// Add one invalid inet6 route and verify the next hop and label.
+//
+TEST_F(BgpXmppEvpnTest1, 1AgentType5Inet6InvalidRouteAdd) {
+    AgentRouteAdd("00:00:00:00:00:00,dead:beef::/648", 0);
 }
 
 //
@@ -1639,6 +1710,8 @@ protected:
         TASK_UTIL_EXPECT_TRUE(
             CheckRouteTagList(agent, network, prefix, tag_list));
     }
+    void BgpConnectLaterCommon(const string &enet_prefix_a,
+                               const string &enet_prefix_b);
 
 
     EventManager evm_;
@@ -3532,12 +3605,8 @@ static const char *config_template_23 = "\
 </config>\
 ";
 
-//
-// Routes from 2 agents are advertised to each other.
-// BGP session comes up after the the 2 agents have already advertised
-// routes to the 2 XMPP servers.
-//
-TEST_F(BgpXmppEvpnTest2, BgpConnectLater) {
+void BgpXmppEvpnTest2::BgpConnectLaterCommon(const string &enet_prefix_a,
+                                             const string &enet_prefix_b) {
     // Configure individual bgp-routers and routing instances but no session.
     Configure(bs_x_, config_template_22_x);
     Configure(bs_y_, config_template_22_y);
@@ -3560,15 +3629,11 @@ TEST_F(BgpXmppEvpnTest2, BgpConnectLater) {
     agent_b_->EnetSubscribe("blue", 1);
 
     // Add route from agent A.
-    stringstream eroute_a;
-    eroute_a << "aa:00:00:00:00:01,10.1.1.1/32";
-    agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.1.1");
+    agent_a_->AddEnetRoute("blue", enet_prefix_a, "192.168.1.1");
     task_util::WaitForIdle();
 
     // Add route from agent B.
-    stringstream eroute_b;
-    eroute_b << "bb:00:00:00:00:01,10.1.2.1/32";
-    agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+    agent_b_->AddEnetRoute("blue", enet_prefix_b, "192.168.1.2");
     task_util::WaitForIdle();
 
     // Verify that routes are reflected to individual agents.
@@ -3588,11 +3653,11 @@ TEST_F(BgpXmppEvpnTest2, BgpConnectLater) {
     TASK_UTIL_EXPECT_EQ(2, agent_b_->EnetRouteCount("blue"));
 
     // Delete route from agent A.
-    agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    agent_a_->DeleteEnetRoute("blue", enet_prefix_a);
     task_util::WaitForIdle();
 
     // Delete route from agent B.
-    agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    agent_b_->DeleteEnetRoute("blue", enet_prefix_b);
     task_util::WaitForIdle();
 
     // Verify that there are no routes on the agents.
@@ -3604,6 +3669,76 @@ TEST_F(BgpXmppEvpnTest2, BgpConnectLater) {
     // Close the sessions.
     agent_a_->SessionDown();
     agent_b_->SessionDown();
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+// BGP session comes up after the the 2 agents have already advertised
+// routes to the 2 XMPP servers.
+//
+TEST_F(BgpXmppEvpnTest2, BgpConnectLater) {
+    BgpConnectLaterCommon("aa:00:00:00:00:01,10.1.1.1/32",
+                          "bb:00:00:00:00:01,10.1.2.1/32");
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+// BGP session comes up after the the 2 agents have already advertised
+// routes to the 2 XMPP servers.
+//
+TEST_F(BgpXmppEvpnTest2, BgpConnectLaterType5InetHostRoute) {
+    BgpConnectLaterCommon("00:00:00:00:00:00,10.1.1.1/32",
+                          "00:00:00:00:00:00,10.1.2.1/32");
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+// BGP session comes up after the the 2 agents have already advertised
+// routes to the 2 XMPP servers.
+//
+TEST_F(BgpXmppEvpnTest2, BgpConnectLaterType5InetPrefixRoute) {
+    BgpConnectLaterCommon("00:00:00:00:00:00,10.1.1.0/28",
+                          "00:00:00:00:00:00,10.1.2.0/28");
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+// BGP session comes up after the the 2 agents have already advertised
+// routes to the 2 XMPP servers.
+//
+TEST_F(BgpXmppEvpnTest2, BgpConnectLaterType5InetDefaultRoute) {
+    BgpConnectLaterCommon("00:00:00:00:00:00,10.1.1.0/28",
+                          "00:00:00:00:00:00,0.0.0.0/0");
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+// BGP session comes up after the the 2 agents have already advertised
+// routes to the 2 XMPP servers.
+//
+TEST_F(BgpXmppEvpnTest2, BgpConnectLaterType5Inet6HostRoute) {
+    BgpConnectLaterCommon("00:00:00:00:00:00,dead::beef/128",
+                          "00:00:00:00:00:00,beef::dead/128");
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+// BGP session comes up after the the 2 agents have already advertised
+// routes to the 2 XMPP servers.
+//
+TEST_F(BgpXmppEvpnTest2, BgpConnectLaterType5Inet6HostPrefix) {
+    BgpConnectLaterCommon("00:00:00:00:00:00,deaf:beef::0/68",
+                          "00:00:00:00:00:00,beef:dead::0/48");
+}
+
+//
+// Routes from 2 agents are advertised to each other.
+// BGP session comes up after the the 2 agents have already advertised
+// routes to the 2 XMPP servers.
+//
+TEST_F(BgpXmppEvpnTest2, BgpConnectLaterType5Inet6DefaultRoute) {
+    BgpConnectLaterCommon("00:00:00:00:00:00,deaf:beef::0/68",
+                          "00:00:00:00:00:00,::/0");
 }
 
 //
