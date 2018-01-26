@@ -12,7 +12,7 @@
 #include "base/logging.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
-#include "config/config-client-mgr/config_client_options.h"
+#include "config-client-mgr/config_client_options.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
