@@ -20,21 +20,25 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-class TestFw(test_case.ApiServerTestCase):
+class TestFirewallBase(test_case.ApiServerTestCase):
     @classmethod
     def setUpClass(cls, *args, **kwargs):
         cls.console_handler = logging.StreamHandler()
         cls.console_handler.setLevel(logging.DEBUG)
         logger.addHandler(cls.console_handler)
-        super(TestFw, cls).setUpClass(*args, **kwargs)
-    # end setUpClass
+        super(TestFirewallBase, cls).setUpClass(*args, **kwargs)
 
     @classmethod
     def tearDownClass(cls, *args, **kwargs):
         logger.removeHandler(cls.console_handler)
-        super(TestFw, cls).tearDownClass(*args, **kwargs)
-    # end tearDownClass
+        super(TestFirewallBase, cls).tearDownClass(*args, **kwargs)
 
+    @property
+    def api(self):
+        return self._vnc_lib
+
+
+class TestFirewall(TestFirewallBase):
     def test_firewall_rule_using_ep_tag(self):
         pobj = Project('%s-project' %(self.id()))
         self._vnc_lib.project_create(pobj)
@@ -815,10 +819,311 @@ class TestFw(test_case.ApiServerTestCase):
             self._vnc_lib.firewall_rule_update(fr2)
 
 
-if __name__ == '__main__':
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-    logger.addHandler(ch)
+class TestFirewallDraftMode(TestFirewallBase):
+    SECURITY_SCOPES_RESOURCES = [
+        PolicyManagement,
+        Project,
+    ]
+    SECURITY_RESOURCES = [
+        ApplicationPolicySet,
+        FirewallPolicy,
+        FirewallRule,
+        ServiceGroup,
+        AddressGroup,
+    ]
 
-    # unittest.main(failfast=True)
-    unittest.main()
+    def test_create_project_with_security_policy_draft_enabled(self):
+        project = Project('project-%s' % self.id())
+        project.enable_security_policy_draft = True
+
+        self.api.project_create(project)
+        draft_pm_name = constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
+        draft_pm_fq_name = project.fq_name + [draft_pm_name]
+        try:
+            draft_pm = self.api.policy_management_read(draft_pm_fq_name)
+        except NoIdError:
+            self.fail("Project policy management %s dedicated to own pending "
+                      "security resources was not created" %
+                      ':'.join(draft_pm_fq_name))
+        self.assertEqual(draft_pm.parent_type, project.resource_type)
+        self.assertEqual(draft_pm.parent_uuid, project.uuid)
+
+    def test_update_project_with_security_policy_draft_enabled(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+
+        project.enable_security_policy_draft = True
+        self.api.project_update(project)
+        draft_pm_name = constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
+        draft_pm_fq_name = project.fq_name + [draft_pm_name]
+        try:
+            draft_pm = self.api.policy_management_read(draft_pm_fq_name)
+        except NoIdError:
+            self.fail("Project policy management %s dedicated to own pending "
+                      "security resources was not created" %
+                      ':'.join(draft_pm_fq_name))
+        self.assertEqual(draft_pm.parent_type, project.resource_type)
+        self.assertEqual(draft_pm.parent_uuid, project.uuid)
+
+        project.enable_security_policy_draft = False
+        self.api.project_update(project)
+        with ExpectedException(NoIdError):
+            self.api.policy_management_read(fq_name=draft_pm_fq_name)
+
+    def test_create_security_resources(self):
+        project = Project('project-%s' % self.id())
+        project.enable_security_policy_draft = True
+        self.api.project_create(project)
+
+        for r_class in self.SECURITY_RESOURCES:
+            resource = r_class(
+                name='%s-%s' % (r_class.resource_type, self.id()),
+                parent_obj=project,
+            )
+            fq_name = resource.fq_name
+            if r_class == FirewallRule:
+                resource.set_service(FirewallServiceType())
+            getattr(self.api, '%s_create' % r_class.object_type)(resource)
+            pending_fq_name = resource.fq_name
+
+            # No resource enforced
+            with ExpectedException(NoIdError):
+                resource = getattr(
+                    self.api, '%s_read' % resource.object_type)(fq_name)
+            # just a pending resource
+            try:
+                pending_resource = getattr(
+                    self.api, '%s_read' % resource.object_type)(pending_fq_name)
+            except NoIdError:
+                self.fail("Pending %s resource was not created" %
+                          pending_fq_name)
+            self.assertEqual(pending_resource.parent_type,
+                             PolicyManagement.resource_type)
+
+    def test_update_project_security_resources(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        resources = []
+        for r_class in self.SECURITY_RESOURCES:
+            resource = r_class(
+                name='%s-%s' % (r_class.resource_type, self.id()),
+                parent_obj=project,
+            )
+            if r_class == FirewallRule:
+                resource.set_service(FirewallServiceType())
+            getattr(self.api, '%s_create' % r_class.object_type)(resource)
+            resources.append(resource)
+            self.assertEqual(resource.parent_type, Project.resource_type)
+        project.enable_security_policy_draft = True
+        self.api.project_update(project)
+
+        for resource in resources:
+            old_resource_name = resource.name
+            new_resource_name = 'new-name-%s' % old_resource_name
+            resource.display_name = new_resource_name
+            getattr(self.api, '%s_update' % resource.object_type)(resource)
+
+            # Resource was not updated
+            resource = getattr(
+                self.api, '%s_read' % resource.object_type)(resource.fq_name)
+            self.assertEqual(resource.display_name, old_resource_name)
+
+            # Cloned pending resource was created with updated properties and
+            # owned by dedicated policy management
+            pending_fq_name = list(resource.fq_name)
+            pending_fq_name.insert(
+                -1, constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT)
+            pending_resource = getattr(
+                self.api, '%s_read' % resource.object_type)(pending_fq_name)
+            self.assertEqual(pending_resource.display_name, new_resource_name)
+            self.assertEqual(pending_resource.parent_type,
+                             PolicyManagement.resource_type)
+
+    def test_delete_project_security_resource_with_draft_mode_enabled(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        resources = []
+        for r_class in self.SECURITY_RESOURCES:
+            resource = r_class(
+                name='%s-%s' % (r_class.resource_type, self.id()),
+                parent_obj=project,
+            )
+            if r_class == FirewallRule:
+                resource.set_service(FirewallServiceType())
+            getattr(self.api, '%s_create' % r_class.object_type)(resource)
+            resources.append(resource)
+            self.assertEqual(resource.parent_type, Project.resource_type)
+        project.enable_security_policy_draft = True
+        self.api.project_update(project)
+
+        for resource in resources:
+            getattr(self.api, '%s_delete' % resource.object_type)(
+                id=resource.uuid)
+
+            # Resource was not deleted
+            try:
+                resource = getattr(self.api, '%s_read' % resource.object_type)(
+                    id=resource.uuid)
+            except NoIdError:
+                self.fail("%s was deleted while the draft mode is enable." %
+                          resource.object_type.replace('_', '').title())
+            self.assertFalse(resource.pending_delete)
+
+            # Cloned pending resource was created with pending delete set to
+            # true and owned by dedicated policy management
+            pending_fq_name = list(resource.fq_name)
+            pending_fq_name.insert(
+                -1, constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT)
+            pending_resource = getattr(
+                self.api, '%s_read' % resource.object_type)(pending_fq_name)
+            self.assertEqual(pending_resource.parent_type,
+                             PolicyManagement.resource_type)
+            self.assertTrue(pending_resource.pending_delete)
+
+    def test_create_security_resource_in_pending_create(self):
+        project = Project('project-%s' % self.id())
+        project.enable_security_policy_draft = True
+        self.api.project_create(project)
+        fp_name = 'fp-%s' % self.id()
+        fp1 = FirewallPolicy(fp_name, parent_obj=project)
+        self.api.firewall_policy_create(fp1)
+
+        fp2 = FirewallPolicy(fp_name, parent_obj=project)
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_create(fp2)
+
+    def test_delete_security_resource_in_pending_create(self):
+        project = Project('project-%s' % self.id())
+        project.enable_security_policy_draft = True
+        self.api.project_create(project)
+        fp = FirewallPolicy('fp-%s' % self.id(), parent_obj=project)
+        self.api.firewall_policy_create(fp)
+
+        self.api.firewall_policy_delete(id=fp.uuid)
+        with ExpectedException(NoIdError):
+            self.api.firewall_policy_read(id=fp.uuid)
+
+    def test_update_security_resource_in_pending_create(self):
+        project = Project('project-%s' % self.id())
+        project.enable_security_policy_draft = True
+        self.api.project_create(project)
+        pending_fp = FirewallPolicy('fr-%s' % self.id(), parent_obj=project)
+        self.api.firewall_policy_create(pending_fp)
+
+        new_fp_name = 'new-name-%s' % pending_fp.name
+        pending_fp.display_name = new_fp_name
+        self.api.firewall_policy_update(pending_fp)
+        pending_fp = self.api.firewall_policy_read(id=pending_fp.uuid)
+        self.assertEqual(pending_fp.display_name, new_fp_name)
+
+    def test_update_security_resource_in_pending_update(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        fp = FirewallPolicy('fr-%s' % self.id(), parent_obj=project)
+        self.api.firewall_policy_create(fp)
+        project.enable_security_policy_draft = True
+        self.api.project_update(project)
+
+        # First time firewall policy modified since draft mode enabled, resource
+        # cloned with properties updated
+        old_fp_name = fp.name
+        new_fp_name = 'new-name-%s' % old_fp_name
+        fp.display_name = new_fp_name
+        self.api.firewall_policy_update(fp)
+        fp = self.api.firewall_policy_read(id=fp.uuid)
+        self.assertEqual(fp.display_name, old_fp_name)
+        pending_fp_fq_name = list(fp.fq_name)
+        pending_fp_fq_name.insert(
+                -1, constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT)
+        pending_fp = self.api.firewall_policy_read(pending_fp_fq_name)
+        self.assertEqual(pending_fp.display_name, new_fp_name)
+
+        # Second time firewall policy modified since draft mode enabled,
+        # cloned resource is updated with new properties
+        new_fp_name = 'new-new-name-%s' % old_fp_name
+        fp.display_name = new_fp_name
+        self.api.firewall_policy_update(fp)
+        fp = self.api.firewall_policy_read(id=fp.uuid)
+        self.assertEqual(fp.display_name, old_fp_name)
+        # Same cloned resource used
+        pending_fp = self.api.firewall_policy_read(id=pending_fp.uuid)
+        self.assertEqual(pending_fp.display_name, new_fp_name)
+
+    def test_update_security_resource_in_pending_delete(self):
+        project = Project('project-%s' % self.id())
+        self.api.project_create(project)
+        fp = FirewallPolicy('fr-%s' % self.id(), parent_obj=project)
+        self.api.firewall_policy_create(fp)
+        project.enable_security_policy_draft = True
+        self.api.project_update(project)
+        self.api.firewall_policy_delete(id=fp.uuid)
+
+        fp.display_name = 'new-name-%s' % fp.name
+        with ExpectedException(BadRequest):
+            self.api.firewall_policy_update(fp)
+
+
+# NOTE(ethuleau): As testrepository groups tests by class name, separates tests
+# that use the same global policy management in different test classes
+class TestFirewallDraftModeGlobal1(TestFirewallBase):
+    def test_update_global_pm_with_security_policy_draft_enabled(self):
+        try:
+            global_pm = self.api.policy_management_read(
+                fq_name=['default-policy-management'])
+        except NoIdError:
+            self.fail("Global policy mangement not instantiated")
+
+        global_pm.enable_security_policy_draft = True
+        self.api.policy_management_update(global_pm)
+
+        draft_global_pm_fq_name = [
+            constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT
+        ]
+        try:
+            self.api.policy_management_read(fq_name=draft_global_pm_fq_name)
+        except NoIdError:
+            self.fail("Global policy management %s dedicated to own pending "
+                      "security resources was not created" %
+                      ':'.join(draft_global_pm_fq_name))
+
+
+        global_pm.enable_security_policy_draft = False
+        self.api.policy_management_update(global_pm)
+        with ExpectedException(NoIdError):
+            self.api.policy_management_read(fq_name=draft_global_pm_fq_name)
+
+
+class TestFirewallDraftModeGlobal2(TestFirewallBase):
+    def test_create_global_security_resource_with_draft_mode_enabled(self):
+        try:
+            global_pm = self.api.policy_management_read(
+                fq_name=['default-policy-management'])
+        except NoIdError:
+            self.fail("Global policy mangement not instantiated")
+        global_pm.enable_security_policy_draft = True
+        self.api.policy_management_update(global_pm)
+
+        for r_class in [ApplicationPolicySet, FirewallPolicy, FirewallRule,
+                        ServiceGroup, AddressGroup]:
+            resource = r_class(
+                name='%s-%s' % (r_class.resource_type, self.id()),
+                parent_obj=global_pm,
+            )
+            if r_class == FirewallRule:
+                resource.set_service(FirewallServiceType())
+            getattr(self.api, '%s_create' % r_class.object_type)(resource)
+            self.assertEqual(resource.parent_type,
+                             PolicyManagement.resource_type)
+            try:
+                draft_pm = self.api.policy_management_read(
+                    id=resource.parent_uuid)
+            except NoIdError:
+                self.fail("Global policy management %s dedicated to own "
+                          "pending security resources could not be read" %
+                          resource.parent_uuid)
+            self.assertNotIn('parent_type', draft_pm)
+            self.assertNotIn('parent_uuid', draft_pm)
+            self.assertEqual(
+                [constants.POLICY_MANAGEMENT_NAME_FOR_SECURITY_DRAFT],
+                draft_pm.fq_name,
+            )
