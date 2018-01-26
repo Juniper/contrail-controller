@@ -1150,6 +1150,41 @@ class FakeKazooClient(object):
             finally:
                self._locks[self.path].release()
 
+
+    class Lock(object):
+        _locks = {}
+        def __init__(self, path, identifier):
+            self._path = zk_scrub_path(path)
+            if self._path not in self._locks:
+                self._locks[self._path] = (gevent.lock.Semaphore(), identifier)
+
+        def acquire(self, blocking=True, timeout=None):
+            lock, _ = self._locks[self._path]
+            locked = lock.acquire(blocking, timeout)
+            if blocking and timeout and not locked:
+                raise kazoo.exceptions.LockTimeout()
+            return locked
+
+        def release(self):
+            lock, _ = self._locks[self._path]
+            lock.release()
+
+        def contenders(self):
+            _, contender = self._locks[self._path]
+            return [contender]
+
+        @property
+        def is_acquired(self):
+            return self._locks[self._path][0].locked()
+
+        def __enter__(self):
+            self.acquire()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            self.release()
+            self._locks.pop(self._path, None)
+
+
     def __init__(self, *args, **kwargs):
         self.add_listener = stub
         self.start = stub

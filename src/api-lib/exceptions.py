@@ -66,6 +66,17 @@ class ResourceTypeUnknownError(VncError):
     # end __str__
 # end class ResourceTypeUnknownError
 
+class AmbiguousParentError(VncError):
+    def __init__(self, _resource_type, ambiguous_types):
+        self._resource_type = _resource_type
+        self._ambiguous_types = ambiguous_types
+    # end __init__
+
+    def __str__(self):
+        return ("Resource '%s' can be own by different resource types: %s" %
+                (self._resource_type, self._ambiguous_types))
+    # end __str__
+# end class ResourceTypeUnknownError
 
 class PermissionDenied(VncError):
     pass
