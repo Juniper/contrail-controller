@@ -13,6 +13,7 @@ import logging
 import coverage
 import random
 import netaddr
+from mock import patch
 import tempfile
 
 import fixtures
@@ -2446,7 +2447,10 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
                 (self._api_server.get_resource_class('virtual-network'),
                  'post_dbe_create', stub)]):
             self._create_test_object()
-        with ExpectedException(RefsExistError) as e:
+        with ExpectedException(RefsExistError), \
+                patch('vnc_cfg_api_server.vnc_cfg_api_server'\
+                      '.VncApiServer.get_args') as get_args_patch:
+            get_args_patch.return_value.stale_lock_seconds = sys.maxsize
             self._create_test_object()
         gevent.sleep(float(self.STALE_LOCK_SECS))
 
@@ -2466,7 +2470,10 @@ class TestStaleLockRemoval(test_case.ApiServerTestCase):
         with test_common.flexmocks([
             (self._api_server._db_conn, 'dbe_release', stub)]):
             self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
-        with ExpectedException(RefsExistError) as e:
+        with ExpectedException(RefsExistError), \
+                patch('vnc_cfg_api_server.vnc_cfg_api_server'\
+                      '.VncApiServer.get_args') as get_args_patch:
+            get_args_patch.return_value.stale_lock_seconds = sys.maxsize
             self._create_test_object()
         gevent.sleep(float(self.STALE_LOCK_SECS))
 
@@ -4845,7 +4852,7 @@ class TestPagination(test_case.ApiServerTestCase):
             self.assertEqual(set([o.uuid for o in vmi_objs]) - set(all_vmi_ids),
                 set([]))
         # end verify_collection_walk
- 
+
         sorted_vmi_uuid = sorted([o.uuid for o in vmi_objs])
         FetchExpect = self.FetchExpect
         verify_collection_walk(fetch_expects=[

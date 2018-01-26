@@ -25,17 +25,22 @@ class ApiContext(object):
     states = {
         'INIT': 'Initializing',
 
+        'PENDING_DBE_CREATE': ('Before create action, just after sanity and '
+                               'perms checks'),
         'PRE_DBE_ALLOC': 'Before IDs allocation',
         'DBE_ALLOC': 'IDs allocation',
-
         'PRE_DBE_CREATE': 'Before DB Entry Creation',
         'DBE_CREATE': 'DB Entry Creation',
         'POST_DBE_CREATE': 'After DB Entry Creation',
 
+        'PENDING_DBE_UPDATE': ('Before update action, just after sanity and '
+                               'perms checks'),
         'PRE_DBE_UPDATE': 'Before DB Entry Update',
         'DBE_UPDATE': 'DB Entry Update',
         'POST_DBE_UPDATE': 'After DB Entry Update',
 
+        'PENDING_DBE_DELETE': ('Before delete action, just after sanity and '
+                               'perms checks'),
         'PRE_DBE_DELETE': 'Before DB Entry Delete',
         'DBE_DELETE': 'DB Entry Delete',
         'POST_DBE_DELETE': 'After DB Entry Delete',
