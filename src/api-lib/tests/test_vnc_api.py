@@ -7,6 +7,7 @@ from requests.exceptions import ConnectionError
 from testtools.matchers import Contains
 from testtools import ExpectedException
 
+from vnc_api.gen.vnc_api_client_gen import all_resource_type_tuples
 from vnc_api import vnc_api
 from vnc_api.utils import OP_GET
 
@@ -182,5 +183,14 @@ class TestVncApi(test_common.TestCase):
         # Expected to connect to one of the server
         vnclib._request_server(OP_GET, url='/')
     # end test_multiple_server_all_servers_down
+
+    def test_only_security_resources_have_read_draft_method(self):
+        api = vnc_api.VncApi()
+        for object_type, resource_type in all_resource_type_tuples:
+            method_name = '%s_read_draft' % object_type
+            if object_type in vnc_api.VncApi._SECURITY_OBJECT_TYPES:
+                self.assertTrue(hasattr(api, method_name))
+            else:
+                self.assertFalse(hasattr(api, method_name))
 
 # end class TestVncApi
