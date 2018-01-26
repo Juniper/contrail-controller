@@ -44,6 +44,7 @@ class QuotaHelper(object):
     def verify_quota(cls, obj_type, quota_limit, quota_counter, count=1):
         quota_count = quota_counter.value
         if (quota_count < quota_limit or count < 0):
+            quota_counter.max_count = quota_limit
             try:
                 quota_counter += count
             except cfgm_common.exceptions.OverQuota:
