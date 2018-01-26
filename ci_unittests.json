@@ -2,21 +2,13 @@
     "contrail-collector" : {
         "source_directories" : [
             "src/contrail-analytics/contrail-collector",
-            "controller/src/bfd",
-            "controller/src/database",
             "src/contrail-analytics/contrail-opserver",
-            "src/contrail-analytics/contrail-query-engine",
-            "controller/src/query_engine",
-            "controller/src/zookeeper"
+            "src/contrail-analytics/contrail-query-engine"
         ],
         "scons_test_targets" : [
             "src/contrail-analytics/contrail-collector:test",
             "src/contrail-analytics/contrail-opserver:test",
-            "controller/src/bfd:test",
-            "src/contrail-analytics/contrail-query-engine:test",
-            "controller/src/database/gendb:test",
-            "controller/src/database/cassandra/cql:test",
-            "controller/src/zookeeper:test"
+            "src/contrail-analytics/contrail-query-engine:test"
         ],
         "misc_test_targets" : [ ]
     },
@@ -39,19 +31,21 @@
     "contrail-control" : {
         "source_directories" : [
             "controller/src/bgp",
+            "controller/src/bfd",
             "controller/src/control-node",
             "controller/src/dns",
             "controller/src/ifmap",
             "controller/src/xmpp",
-            "controller/src/config/config-client-mgr"
+            "src/contrail-common/config-client-mgr"
         ],
         "scons_test_targets" : [
             "controller/src/bgp:test",
+            "controller/src/bfd:test",
             "controller/src/control-node:test",
             "controller/src/dns:test",
             "controller/src/ifmap:test",
             "controller/src/xmpp:test",
-            "controller/src/config/config-client-mgr:test"
+            "src/contrail-common/config-client-mgr:test"
         ],
         "misc_test_targets" : [ ],
         "environment" : [
@@ -136,9 +130,9 @@
             "src/contrail-common/io",
             "controller/src/db",
             "controller/src/discovery",
-            "controller/src/database",
-            "controller/src/zookeeper",
-            "controller/src/http",
+            "src/contrail-common/database",
+            "src/contrail-common/zookeeper",
+            "src/contrail-common/http",
             "controller/src/net",
             "controller/src/route",
             "controller/src/routing-policy",
@@ -153,9 +147,9 @@
             "src/contrail-common/base:test",
             "src/contrail-common/io:test",
             "controller/src/db:test",
-            "controller/src/database/gendb:test",
-            "controller/src/database/cassandra/cql:test",
-            "controller/src/zookeeper:test",
+            "src/contrail-common/database/gendb:test",
+            "src/contrail-common/database/cassandra/cql:test",
+            "src/contrail-common/zookeeper:test",
             "controller/src/net:test",
             "controller/src/schema:test",
             "sandesh:test"

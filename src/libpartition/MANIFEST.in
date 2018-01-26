@@ -1,2 +1,0 @@
-recursive-include sandesh *.html *.xml *.css
-recursive-include doc *
