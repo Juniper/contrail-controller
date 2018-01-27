@@ -506,6 +506,8 @@ void RoutingInstanceMgr::SetTableStatsUve(Address::Family family,
         break;
     case Address::NUM_FAMILIES:
         break;
+    default:
+        assert(false);
     }
 }
 
