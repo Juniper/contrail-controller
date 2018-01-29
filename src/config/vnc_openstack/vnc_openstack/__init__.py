@@ -349,22 +349,30 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         return [{'id': tenant.id} for tenant in self._ks.tenants.list()]
     # end _ksv2_projects_list
 
-    def _ksv2_project_get(self, id):
+    def _ksv2_project_get(self, id=None, name=None):
         # Note: under certain circumstances (if it has been initailized
         # before endpoints are populated in keystone) keystoneclient may
         # be valid to list projects, but not to read them. As it won't
         # be reset by resync_all_projects, it is reseted on error here.
-        try:
-            return {'name': self._ks.tenants.get(id).name}
-        except Exception as e:
-            if self._ks is not None:
-                self._ks = None
-                ConnectionState.update(conn_type=ConnType.OTHER,
-                    name='Keystone', status=ConnectionStatus.DOWN,
-                    message='Error: %s at UTC %s' %(e, datetime.utcnow()),
-                    server_addrs=[self._auth_url])
-            self._get_keystone_conn()
-            return {'name': self._ks.tenants.get(id).name}
+        if id:
+            try:
+                return {'name': self._ks.tenants.get(id).name, 'id':id}
+            except Exception as e:
+                if self._ks is not None:
+                    self._ks = None
+                    ConnectionState.update(conn_type=ConnType.OTHER,
+                        name='Keystone', status=ConnectionStatus.DOWN,
+                        message='Error: %s at UTC %s' %(e, datetime.utcnow()),
+                        server_addrs=[self._auth_url])
+                self._get_keystone_conn()
+                return {'name': self._ks.tenants.get(id).name, 'id':id}
+        else:
+            id = None
+            for tenant in self._ks.tenants.list():
+                if tenant.name == name:
+                    id = tenant.id
+                    break
+            return {'name':name, 'id':id}
     # end _ksv2_project_get
 
     def _ksv2_sync_project_to_vnc(self, id=None):
@@ -462,7 +470,9 @@ class OpenstackDriver(vnc_plugin_base.Resync):
         return [{'id': project.id} for project in self._ks.projects.list()]
     # end _ksv3_projects_list
 
-    def _ksv3_project_get(self, id=None):
+    def _ksv3_project_get(self, id=None, name=None):
+        if name and not id:
+            id = name
         try:
             project = self._ks.projects.get(id)
             return {'id': project.id, 'name': project.name, 'domain_id': project.domain_id}
@@ -908,6 +918,25 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
             # another api server has brought syncd it
             pass
     # end pre_domain_read
+    @wait_for_api_server_connection
+    def pre_project_read_fqname(self, fq_name):
+        if not self._keystone_sync_on_demand or fq_name == None:
+            # project added via poll
+            return
+        name = fq_name[-1]
+        id = self._openstack_drv._ks_project_get(id=None, name=name).get('id')
+        if id:
+            proj_obj = vnc_api.Project(name)
+            proj_obj.fq_name = list(fq_name)
+            proj_obj.display_name = name
+            proj_obj.uuid = str(uuid.UUID(id))
+            try:
+                self._vnc_lib.project_create(proj_obj)
+            except RefsExistError as e:
+                pass
+            self._openstack_drv._vnc_project_ids.add(id)
+        else:
+            raise Exception('project %s not presend in keystone' %(name))
 
     @wait_for_api_server_connection
     def pre_project_read(self, id):
