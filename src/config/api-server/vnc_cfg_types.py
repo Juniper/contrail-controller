@@ -2002,6 +2002,44 @@ class DomainServer(Resource, Domain):
         return (True, "")
     # end pre_dbe_create
 
+
+class ProjectServer(Resource, Project):
+
+    @classmethod
+    def dbe_update_notification(cls, obj_ids):
+        quota_counter = cls.server.quota_counter
+        db_conn = cls.server._db_conn
+        ok, proj_dict = QuotaHelper.get_project_dict_for_quota(obj_ids['uuid'], db_conn)
+        for obj_type, quota_limit in proj_dict['quota'].items():
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids['uuid']
+            path = path_prefix + "/" + obj_type
+            if (quota_counter.get(path) and quota_limit == -1):
+                # free the counter from cache for resources updated
+                # with unlimted quota
+                del quota_counter[path]
+    #end dbe_update_notification
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_ids, obj_dict):
+        quota_counter = cls.server.quota_counter
+        for obj_type in obj_dict['quota'].keys():
+            path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids['uuid']
+            path = path_prefix + "/" + obj_type
+            if quota_counter.get(path):
+                # free the counter from cache
+                del quota_counter[path]
+    #end dbe_delete_notification
+
+    @classmethod
+    def post_dbe_delete(cls, id, obj_dict, db_conn):
+        # Delete the zookeeper counter nodes
+        path = _DEFAULT_ZK_COUNTER_PATH_PREFIX + id
+        if db_conn._zk_db._zk_client.exists(path):
+            db_conn._zk_db._zk_client.delete_node(path, recursive=True)
+        return True, ""
+    # end post_dbe_delete
+
+
 class ServiceTemplateServer(Resource, ServiceTemplate):
     generate_default_instance = False
 
