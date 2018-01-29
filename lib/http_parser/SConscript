@@ -5,5 +5,5 @@ env = DefaultEnvironment()
 vpath = '#third_party/http-parser-2.1'
 lib = env.Library('http_parser', vpath + '/http_parser.c')
 
-env.Install('#/build/lib/', 'libhttp_parser.a')
-env.Install('#/build/include/http_parser', vpath + '/http_parser.h')
+env.Install('#build/lib/', env['LIBPREFIX'] + 'http_parser' + env['LIBSUFFIX'])
+env.Install('#build/include/http_parser', vpath + '/http_parser.h')

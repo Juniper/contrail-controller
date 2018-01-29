@@ -167,10 +167,9 @@ private:
 
 class MacLearningMgmtKeyCmp {
 public:
-     bool operator()(const MacLearningMgmtDBEntry *lhs,
-                     const MacLearningMgmtDBEntry *rhs) {
-         return lhs->IsLess(rhs);
-     }
+    bool operator()(const MacLearningMgmtDBEntry *lhs, const MacLearningMgmtDBEntry *rhs) const {
+        return lhs->IsLess(rhs);
+    }
 };
 
 class MacLearningMgmtDBTree {
