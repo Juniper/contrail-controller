@@ -820,6 +820,16 @@ void SessionStatsCollector::DeleteFlowToSessionMap(FlowEntry *fe) {
     }
 }
 
+int SessionStatsCollector::ComputeSloRate(int rate, SecurityLoggingObject *slo)
+    const {
+    /* If rate is not configured, it will have -1 as value
+     * -1 as value. In this case, pick the rate from SLO */
+    if (rate == -1) {
+        rate = slo->rate();
+    }
+    return rate;
+}
+
 void SessionStatsCollector::UpdateSloStateRules(SecurityLoggingObject *slo,
                                                 SessionSloState *state) {
     vector<autogen::SecurityLoggingObjectRuleEntryType>::const_iterator it;
@@ -829,17 +839,17 @@ void SessionStatsCollector::UpdateSloStateRules(SecurityLoggingObject *slo,
         it++;
     }
 
-    UuidList::const_iterator acl_it;
-    acl_it = slo->firewall_policy_list().begin();
+    SloRuleList::const_iterator acl_it = slo->firewall_policy_list().begin();
     while (acl_it != slo->firewall_policy_list().end()) {
-        AclKey key(*acl_it);
+        AclKey key(acl_it->uuid_);
         AclDBEntry *acl = static_cast<AclDBEntry *>(agent_uve_->agent()->
                         acl_table()->FindActiveEntry(&key));
         if (acl) {
             int index = 0;
+            int rate = ComputeSloRate(acl_it->rate_, slo);
             const AclEntry *ae = acl->GetAclEntryAtIndex(index);
             while (ae != NULL) {
-                state->UpdateSessionSloStateRuleEntry(ae->uuid(), slo->rate());
+                state->UpdateSessionSloStateRuleEntry(ae->uuid(), rate);
                 index++;
                 ae = acl->GetAclEntryAtIndex(index);
             }
@@ -847,18 +857,19 @@ void SessionStatsCollector::UpdateSloStateRules(SecurityLoggingObject *slo,
         acl_it++;
     }
 
-    UuidList::const_iterator fw_rule_it;
+    SloRuleList::const_iterator fw_rule_it;
     fw_rule_it = slo->firewall_rule_list().begin();
     while (fw_rule_it != slo->firewall_rule_list().end()) {
-        state->UpdateSessionSloStateRuleEntry(UuidToString(*fw_rule_it),
-                                           slo->rate());
+        const SloRuleInfo &item = *fw_rule_it;
+        int rate = ComputeSloRate(item.rate_, slo);
+        state->UpdateSessionSloStateRuleEntry(to_string(item.uuid_), rate);
         fw_rule_it++;
     }
 
 }
 
 void SessionStatsCollector::SloNotify(DBTablePartBase *partition,
-                                        DBEntryBase *e) {
+                                      DBEntryBase *e) {
     SecurityLoggingObject *slo = static_cast<SecurityLoggingObject *>(e);
     SessionSloState *state =
         static_cast<SessionSloState *>(slo->GetState(partition->parent(),
@@ -900,20 +911,20 @@ void SessionStatsCollector::AddSloRules(
     }
 }
 
-void SessionStatsCollector::AddSloFirewallPolicies(const UuidList &list, int rate,
-                                                   SecurityLoggingObject *slo,
-                                                   SessionSloRuleMap *slo_rule_map) {
-    UuidList::const_iterator acl_it;
-    acl_it = list.begin();
+void SessionStatsCollector::AddSloFirewallPolicies(SecurityLoggingObject *slo,
+                                                   SessionSloRuleMap *r_map) {
+    const SloRuleList &list = slo->firewall_policy_list();
+    SloRuleList::const_iterator acl_it = list.begin();
     while (acl_it != list.end()) {
-        AclKey key(*acl_it);
+        AclKey key(acl_it->uuid_);
         AclDBEntry *acl = static_cast<AclDBEntry *>(agent_uve_->agent()->
                         acl_table()->FindActiveEntry(&key));
         if (acl) {
             int index = 0;
             const AclEntry *ae = acl->GetAclEntryAtIndex(index);
+            int rate = ComputeSloRate(acl_it->rate_, slo);
             while (ae != NULL) {
-                AddSessionSloRuleEntry(ae->uuid(), rate, slo, slo_rule_map);
+                AddSessionSloRuleEntry(ae->uuid(), rate, slo, r_map);
                 index++;
                 ae = acl->GetAclEntryAtIndex(index);
             }
@@ -922,13 +933,13 @@ void SessionStatsCollector::AddSloFirewallPolicies(const UuidList &list, int rat
     }
 }
 
-void SessionStatsCollector::AddSloFirewallRules(const UuidList &list, int rate,
-                                                SecurityLoggingObject *slo,
-                                                SessionSloRuleMap *slo_rule_map) {
-    UuidList::const_iterator it;
-    it = list.begin();
+void SessionStatsCollector::AddSloFirewallRules(SecurityLoggingObject *slo,
+                                                SessionSloRuleMap *rule_map) {
+    const SloRuleList &list = slo->firewall_rule_list();
+    SloRuleList::const_iterator it = list.begin();
     while (it != list.end()) {
-        AddSessionSloRuleEntry(UuidToString(*it), rate, slo, slo_rule_map);
+        int rate = ComputeSloRate(it->rate_, slo);
+        AddSessionSloRuleEntry(to_string(it->uuid_), rate, slo, rule_map);
         it++;
     }
 }
@@ -936,10 +947,8 @@ void SessionStatsCollector::AddSloFirewallRules(const UuidList &list, int rate,
 void SessionStatsCollector::AddSloEntryRules(SecurityLoggingObject *slo,
                                              SessionSloRuleMap *slo_rule_map) {
     AddSloRules(slo->rules(), slo, slo_rule_map);
-    AddSloFirewallPolicies(slo->firewall_policy_list(), slo->rate(),
-                           slo, slo_rule_map);
-    AddSloFirewallRules(slo->firewall_rule_list(), slo->rate(),
-                        slo, slo_rule_map);
+    AddSloFirewallPolicies(slo, slo_rule_map);
+    AddSloFirewallRules(slo, slo_rule_map);
 }
 
 void SessionStatsCollector::AddSloEntry(const boost::uuids::uuid &uuid,
