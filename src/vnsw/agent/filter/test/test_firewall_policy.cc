@@ -344,6 +344,13 @@ TEST_F(FirewallPolicy, Test6) {
     packet1->dst_tags_ = BuildTagList(src, 3);
     EXPECT_TRUE(acl->PacketMatch(*packet1, m_acl, NULL));
 
+    protocol.clear();
+    port.clear();
+    //Clear service group
+    AddServiceGroup("sg1", 1, protocol, port);
+    client->WaitForIdle();
+    EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
+
     delete packet1;
     DelNode("service-group", "sg1");
     DelFirewallPolicyRuleLink("fpfr1", "app1", "rule1");
@@ -714,6 +721,15 @@ TEST_F(FirewallPolicy, Test11) {
     packet1->dst_tags_.clear();
     EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
 
+    DelLink("address-group", "SrcAg", "tag", "label1");
+    DelLink("address-group", "DstAg", "tag", "label1");
+    client->WaitForIdle();
+
+    //Address group is empty shouldnt match any traffic
+    packet1->src_tags_.push_back(100);
+    packet1->dst_tags_.push_back(100);
+    EXPECT_FALSE(acl->PacketMatch(*packet1, m_acl, NULL));
+
     DelNode("firewall-policy", "app1");
     DelNode("firewall-rule", "rule1");
     DelNode("address-group", "SrcAg");
@@ -727,6 +743,7 @@ TEST_F(FirewallPolicy, Test11) {
     delete packet1;
     client->WaitForIdle();
 }
+
 int main (int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);

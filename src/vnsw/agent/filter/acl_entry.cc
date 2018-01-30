@@ -482,10 +482,6 @@ bool AddressMatch::AddressGroupMatch(const IpAddress &data,
         return true;
     }
 
-    if (tags_.size() == 0 && ip_list_.size() == 0) {
-        return true;
-    }
-
     return false;
 }
 
