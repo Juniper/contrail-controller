@@ -984,6 +984,20 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "firewall-policy-firewall-rule", true,
                                "firewall-policy-firewall-rule",
                                "firewall-rule", true));
+    AddDependencyPath("firewall-policy",
+                      MakePath("firewall-policy-security-logging-object",
+                               "firewall-policy-security-logging-object", true,
+                               "firewall-policy-security-logging-object",
+                               "security-logging-object", false));
+    AddDependencyPath("firewall-policy",
+                      MakePath("firewall-policy-firewall-rule",
+                               "firewall-policy-firewall-rule", false,
+                               "firewall-policy-firewall-rule",
+                               "firewall-rule", false,
+                               "firewall-rule-security-logging-object",
+                               "firewall-rule-security-logging-object", true,
+                               "firewall-rule-security-logging-object",
+                               "security-logging-object", false));
 
     RegisterConfigHandler(this, "firewall-policy",
                           agent ? agent->acl_table() : NULL);
