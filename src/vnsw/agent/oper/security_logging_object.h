@@ -12,6 +12,20 @@
 class Agent;
 class DB;
 
+struct SloRuleInfo {
+    boost::uuids::uuid uuid_;
+    int rate_;
+    SloRuleInfo(const boost::uuids::uuid &u, int rate) : uuid_(u), rate_(rate) {
+    }
+    bool operator==(const SloRuleInfo &rhs) const {
+        if (uuid_ == rhs.uuid_) {
+            return rate_ == rhs.rate_;
+        }
+        return uuid_ == rhs.uuid_;
+    }
+};
+
+typedef std::vector<SloRuleInfo> SloRuleList;
 struct SecurityLoggingObjectKey : public AgentOperDBKey {
 public:
     SecurityLoggingObjectKey(const boost::uuids::uuid &uuid):
@@ -39,8 +53,8 @@ public:
     bool status_;
     int rate_;
     std::string name_;
-    UuidList firewall_policy_list_;
-    UuidList firewall_rule_list_;
+    SloRuleList firewall_policy_list_;
+    SloRuleList firewall_rule_list_;
 };
 
 class SecurityLoggingObject:
@@ -78,8 +92,8 @@ public:
     const std::string& name() const {
         return name_;
     }
-    UuidList& firewall_policy_list() { return firewall_policy_list_;}
-    UuidList& firewall_rule_list() { return firewall_rule_list_;}
+    SloRuleList& firewall_policy_list() { return firewall_policy_list_;}
+    SloRuleList& firewall_rule_list() { return firewall_rule_list_;}
 
 private:
     bool status_;
@@ -87,8 +101,8 @@ private:
     std::vector<autogen::SecurityLoggingObjectRuleEntryType> rules_;
     int rate_;
     std::string name_;
-    UuidList firewall_policy_list_;
-    UuidList firewall_rule_list_;
+    SloRuleList firewall_policy_list_;
+    SloRuleList firewall_rule_list_;
     DISALLOW_COPY_AND_ASSIGN(SecurityLoggingObject);
 };
 

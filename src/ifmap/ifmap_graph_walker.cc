@@ -446,14 +446,18 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
                                           ("policy-management-application-policy-set"))
         ("application-policy-set-firewall-policy",
                                    list_of("application-policy-set-firewall-policy"))
-        ("firewall-policy", list_of("firewall-policy-firewall-rule"))
-        ("firewall-policy-firewall-rule",
-                            list_of("firewall-policy-firewall-rule")
+        ("firewall-policy", list_of("firewall-policy-firewall-rule")
                                    ("firewall-policy-security-logging-object"))
+        ("firewall-policy-firewall-rule",
+                            list_of("firewall-policy-firewall-rule"))
+        ("firewall-policy-security-logging-object",
+                            list_of("firewall-policy-security-logging-object"))
         ("firewall-rule", list_of("firewall-rule-tag")
                                  ("firewall-rule-service-group")
                                  ("firewall-rule-address-group")
                                  ("firewall-rule-security-logging-object"))
+        ("firewall-rule-security-logging-object",
+                            list_of("firewall-rule-security-logging-object"))
         ("service-group", std::set<std::string>())
         ("address-group", list_of("address-group-tag"))
         ("project", list_of("project-tag"))
