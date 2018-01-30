@@ -27,6 +27,10 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), vrf_id_(vrf_id), 
     dip_(dip), dport_(dport) {
 }
+MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
+                                   const uint32_t mirror_index) :
+    KSyncNetlinkDBEntry(kInvalidIndex), mirror_index_(mirror_index) {
+}
 
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
                                    const MirrorEntry *mirror_entry) :
@@ -56,7 +60,7 @@ KSyncDBObject *MirrorKSyncEntry::GetObject() const {
 
 bool MirrorKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const MirrorKSyncEntry &entry = static_cast<const MirrorKSyncEntry &>(rhs);
-    return (analyzer_name_ < entry.analyzer_name_);
+    return (mirror_index_ < entry.mirror_index_);
 }
 
 std::string MirrorKSyncEntry::ToString() const {
@@ -70,10 +74,31 @@ std::string MirrorKSyncEntry::ToString() const {
     }
     return s.str();
 }
+void MirrorKSyncEntry::UpdateRestoreEntry(const MirrorEntry *mirror) {
+        vrf_id_ = mirror->vrf_id();
+        sip_ = *mirror->GetSip();
+        dip_ = *mirror->GetDip();
+        sport_ = mirror->GetSPort();
+        dport_ = mirror->GetDPort();
+        analyzer_name_ = mirror->GetAnalyzerName();
+        mirror_flag_ = mirror->GetMirrorFlag();
+        vni_ = mirror->GetVni();
+        nic_assisted_mirroring_ = mirror->nic_assisted_mirroring();
+        nic_assisted_mirroring_vlan_ = mirror->nic_assisted_mirroring_vlan();
+}
+
 
 bool MirrorKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const MirrorEntry *mirror = static_cast<MirrorEntry *>(e);
+
+    if (analyzer_name_.empty()) {
+        // this is the first request after ksync restore for this entry,
+        // so populate all fields from dbentry
+        UpdateRestoreEntry(mirror);
+        return true;
+    }
+
     // ignore nh refernce if it is nic assisted.
     // and return early.
     if (nic_assisted_mirroring_ != mirror->nic_assisted_mirroring()) {
@@ -117,6 +142,7 @@ bool MirrorKSyncEntry::Sync(DBEntry *e) {
         ret = true;
     }
 
+    // this should never be the case, should be removed???
     if (mirror_index_ != mirror->mirror_index()) {
         mirror_index_ = mirror->mirror_index();
         ret = true;
@@ -212,4 +238,76 @@ uint32_t MirrorKSyncObject::GetIdx(std::string analyzer_name) {
 void vr_mirror_req::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->MirrorMsgHandler(this);
+}
+
+KSyncEntry *MirrorKSyncObject::CreateStale(const KSyncEntry *key) {
+    return CreateStaleInternal(key);;
+}
+void MirrorKSyncEntry::StaleTimerExpired() {
+    Delete();
+    SetState(KSyncEntry::TEMP);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// ksync entry restore routines
+//////////////////////////////////////////////////////////////////////////////
+
+MirrorKSyncRestoreData::MirrorKSyncRestoreData(KSyncDBObject *obj,
+                                            KMirrorInfoPtr mirrorInfo):
+    KSyncRestoreData(obj), mirrorInfo_(mirrorInfo) {
+}
+MirrorKSyncRestoreData::~MirrorKSyncRestoreData() {
+}
+void MirrorKSyncObject::RestoreVrouterEntriesReq(void) {
+    InitStaleEntryCleanup(*(ksync()->agent()->event_manager())->io_service(),
+                            KSyncRestoreManager::StaleEntryCleanupTimer, 
+                            KSyncRestoreManager::StaleEntryYeildTimer,
+                            KSyncRestoreManager::StaleEntryDeletePerIteration);
+    KMirrorReq *req = new KMirrorReq();
+    req->set_mirror_id(-1);
+    Sandesh::set_response_callback(
+        boost::bind(&MirrorKSyncObject::ReadVrouterEntriesResp, this, _1));
+    req->HandleRequest();
+    req->Release();
+}
+void MirrorKSyncObject::ReadVrouterEntriesResp(Sandesh *sandesh) {
+    KMirrorResp *response = dynamic_cast<KMirrorResp *>(sandesh);
+    if (response != NULL) {
+        for(std::vector<KMirrorInfo>::const_iterator it
+                = response->get_mirror_list().begin();
+                it != response->get_mirror_list().end();it++) {
+            MirrorKSyncRestoreData::KMirrorInfoPtr 
+                                    mirrorInfo(new KMirrorInfo(*it));
+            KSyncRestoreData::Ptr restore_data(
+                        new MirrorKSyncRestoreData(this, mirrorInfo));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(restore_data);
+        }
+        //TODO: check errorresp
+        if (!response->get_more()) {
+            KSyncRestoreData::Ptr end_data(
+                    new KSyncRestoreEndData (this));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(end_data);
+        }
+    }
+
+
+}
+void MirrorKSyncObject::ProcessVrouterEntries(
+                        KSyncRestoreData::Ptr restore_data) {
+    if(dynamic_cast<KSyncRestoreEndData *>(restore_data.get())) {
+        ksync()->ksync_restore_manager()->UpdateKSyncRestoreStatus(
+                    KSyncRestoreManager::KSYNC_TYPE_MIRROR);
+        return;
+    }
+    MirrorKSyncRestoreData *dataPtr = 
+        dynamic_cast<MirrorKSyncRestoreData *>(restore_data.get());
+    MirrorKSyncEntry ksync_entry_key(this,
+                        dataPtr->GetMirrorEntry()->get_mirr_index());
+    MirrorKSyncEntry *ksync_entry_ptr =
+        static_cast<MirrorKSyncEntry *>(Find(&ksync_entry_key));
+    if (ksync_entry_ptr == NULL) {
+        ksync_entry_ptr = 
+        static_cast<MirrorKSyncEntry *>(CreateStale(&ksync_entry_key));
+    }
+    
 }

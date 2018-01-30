@@ -18,6 +18,7 @@
 #include <ksync/ksync_sock.h>
 #include <vrouter/ksync/ksync_agent_sandesh.h>
 #include <init/agent_param.h>
+#include <init/agent_init.h>
 #include "vrouter/ksync/agent_ksync_types.h"
 #include "vr_types.h"
 #include "base/logging.h"
@@ -184,7 +185,54 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
         ip_ = physical_intf->ip_addr().to_ulong();
     }
 }
+InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
+                                    const int32_t intf_id) :
+    KSyncNetlinkDBEntry(kInvalidIndex),
+    analyzer_name_(),
+    drop_new_flows_(false),
+    dhcp_enable_(true),
+    fd_(-1),
+    flow_key_nh_id_(0),
+    has_service_vlan_(false),
+    interface_id_(intf_id),
+    interface_name_(""),
+    ip_(0),
+    hc_active_(false),
+    ipv4_active_(false),
+    layer3_forwarding_(true),
+    ksync_obj_(obj),
+    l2_active_(false),                
+    metadata_l2_active_(false),
+    metadata_ip_active_(false),
+    bridging_(true),
+    proxy_arp_mode_(VmInterface::PROXY_ARP_NONE),
+    mac_(),
+    smac_(),
+    mirror_direction_(Interface::UNKNOWN),
+    os_index_(0), 
+    parent_(NULL),
+    policy_enabled_(false),
+    sub_type_(InetInterface::VHOST),
+    vmi_device_type_(VmInterface::DEVICE_TYPE_INVALID),
+    vmi_type_(VmInterface::VMI_TYPE_INVALID),
+    type_(Interface::INVALID),
+    rx_vlan_id_(VmInterface::kInvalidVlanId),
+    tx_vlan_id_(VmInterface::kInvalidVlanId),
+    vrf_id_(0),
+    multicast_vrf_id_(VrfEntry::kInvalidIndex),
+    persistent_(false),
+    subtype_(PhysicalInterface::INVALID),
+    xconnect_(NULL),
+    no_arp_(false),
+    encap_type_(PhysicalInterface::ETHERNET),
+    transport_(Interface::TRANSPORT_INVALID),
+    flood_unknown_unicast_(false), qos_config_(NULL),
+    learning_enabled_(false), isid_(VmInterface::kInvalidIsid),
+    pbb_cmac_vrf_(VrfEntry::kInvalidIndex), etree_leaf_(false),
+    pbb_interface_(false), vhostuser_mode_(VmInterface::vHostUserClient)
+     {
 
+}
 InterfaceKSyncEntry::~InterfaceKSyncEntry() {
 }
 
@@ -195,7 +243,7 @@ KSyncDBObject *InterfaceKSyncEntry::GetObject() const {
 bool InterfaceKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const InterfaceKSyncEntry &entry = static_cast
         <const InterfaceKSyncEntry &>(rhs);
-    return interface_name_ < entry.interface_name_;
+        return interface_id_ < entry.interface_id_;
 }
 
 std::string InterfaceKSyncEntry::ToString() const {
@@ -212,6 +260,7 @@ std::string InterfaceKSyncEntry::ToString() const {
 bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     Interface *intf = static_cast<Interface *>(e);
     bool ret = false;
+   
 
     if (hc_active_ != intf->is_hc_active()) {
         hc_active_ = intf->is_hc_active();
@@ -226,6 +275,12 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     if (l2_active_ != intf->l2_active()) {
         l2_active_ = intf->l2_active();
         ret = true;
+    }
+    if (type_ != intf->type()) {
+        type_ = intf->type();
+    }
+    if(interface_name_ != intf->name()) {
+        interface_name_ = intf->name();
     }
 
     if (os_index_ != intf->os_index()) {
@@ -567,7 +622,6 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
         os_guid_ = intf->os_guid();
         ret = true;
     }
-
     return ret;
 }
 
@@ -1228,3 +1282,78 @@ void KSyncItfReq::HandleRequest() const {
     sand->DoKsyncSandesh(sand);
 
 }
+KSyncEntry *InterfaceKSyncObject::CreateStale(const KSyncEntry *key) {
+    return CreateStaleInternal(key);;
+}
+void InterfaceKSyncEntry::StaleTimerExpired() {
+    Delete();
+    SetState(KSyncEntry::TEMP);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// ksync entry restore routines
+//////////////////////////////////////////////////////////////////////////////
+
+InterfaceKSyncRestoreData::InterfaceKSyncRestoreData(KSyncDBObject *obj,
+                                            KInterfaceInfoPtr intfInfo):
+    KSyncRestoreData(obj), intfInfo_(intfInfo) {
+}
+
+InterfaceKSyncRestoreData::~InterfaceKSyncRestoreData() {
+}
+void InterfaceKSyncObject::RestoreVrouterEntriesReq(void) {
+    InitStaleEntryCleanup(*(ksync()->agent()->event_manager())->io_service(),
+                            KSyncRestoreManager::StaleEntryCleanupTimer, 
+                            KSyncRestoreManager::StaleEntryYeildTimer,
+                            KSyncRestoreManager::StaleEntryDeletePerIteration);
+    KInterfaceReq *req = new KInterfaceReq();
+    req->set_if_id(-1);
+    Sandesh::set_response_callback(
+        boost::bind(&InterfaceKSyncObject::ReadVrouterEntriesResp, this, _1));
+    req->HandleRequest();
+    req->Release();
+}
+void InterfaceKSyncObject::ReadVrouterEntriesResp(Sandesh *sandesh) {
+    KInterfaceResp *response = dynamic_cast<KInterfaceResp *>(sandesh);
+    if (response != NULL) {
+        for(std::vector<KInterfaceInfo>::const_iterator it
+                = response->get_if_list().begin();
+                it != response->get_if_list().end();it++) {
+            InterfaceKSyncRestoreData::KInterfaceInfoPtr 
+                                    intfInfo(new KInterfaceInfo(*it));
+            KSyncRestoreData::Ptr restore_data(
+                        new InterfaceKSyncRestoreData(this, intfInfo));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(restore_data);
+        }
+        //TODO: check errorresp
+        if (!response->get_more()) {
+            KSyncRestoreData::Ptr end_data(
+                    new KSyncRestoreEndData (this));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(end_data);
+        }
+    }
+
+
+}
+void InterfaceKSyncObject::ProcessVrouterEntries(
+                        KSyncRestoreData::Ptr restore_data) {
+    if(dynamic_cast<KSyncRestoreEndData *>(restore_data.get())) {
+        ksync()->ksync_restore_manager()->UpdateKSyncRestoreStatus(
+                    KSyncRestoreManager::KSYNC_TYPE_INTERFACE);
+        return;
+    }
+    InterfaceKSyncRestoreData *dataPtr = 
+        dynamic_cast<InterfaceKSyncRestoreData *>(restore_data.get());
+    InterfaceKSyncEntry ksync_entry_key(this,
+                        dataPtr->GetIntfEntry()->get_idx());
+    if (dataPtr->GetIntfEntry()->get_type() == "VIRTUAL") {
+        InterfaceKSyncEntry *ksync_entry_ptr =
+            static_cast<InterfaceKSyncEntry *>(Find(&ksync_entry_key));
+        if (ksync_entry_ptr == NULL) {
+            ksync_entry_ptr = 
+            static_cast<InterfaceKSyncEntry *>(CreateStale(&ksync_entry_key));
+         }
+    }
+    
+}
+    

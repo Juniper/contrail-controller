@@ -27,6 +27,8 @@ public:
                         const QosConfigKSyncEntry *entry);
     QosConfigKSyncEntry(QosConfigKSyncObject *obj,
                         const AgentQosConfig *qc);
+    QosConfigKSyncEntry(QosConfigKSyncObject *obj,
+                        const uint32_t id);
     virtual ~QosConfigKSyncEntry();
 
     KSyncDBObject *GetObject() const;
@@ -40,6 +42,7 @@ public:
     boost::uuids::uuid uuid() const { return uuid_;}
     uint32_t id() const { return id_;}
     int MsgLen() { return kDefaultQosMsgSize; }
+    virtual void StaleTimerExpired();
 private:
     bool CopyQosMap(KSyncQosFcMap &ksync_map,
                     const AgentQosConfig::QosIdForwardingClassMap *map);
@@ -63,8 +66,24 @@ public:
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void RegisterDBClients();
+    virtual void RestoreVrouterEntriesReq(void);
+    virtual void ReadVrouterEntriesResp(Sandesh *sandesh);
+    virtual void ProcessVrouterEntries(KSyncRestoreData::Ptr restore_data);
+    virtual KSyncEntry *CreateStale(const KSyncEntry *key);
 private:
     KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(QosConfigKSyncObject);
+};
+// ksync restore 
+class QosConfigKSyncRestoreData  : public KSyncRestoreData {
+public:
+    typedef boost::shared_ptr<KQosConfig> KQosConfigPtr;
+    QosConfigKSyncRestoreData(KSyncDBObject *obj, 
+                                KQosConfigPtr qos_config_Info);
+    ~QosConfigKSyncRestoreData();
+    virtual const std::string ToString() { return "";}
+    KQosConfig *GetQosConfigEntry() { return qos_config_info_.get();}
+private:
+    KQosConfigPtr qos_config_info_;
 };
 #endif

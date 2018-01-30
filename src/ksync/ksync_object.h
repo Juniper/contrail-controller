@@ -116,7 +116,7 @@ public:
     // stale entry cleanup (timer).
     // Derived class can choose to create this entry to manage stale
     // states in Kernel
-    KSyncEntry *CreateStale(const KSyncEntry *key);
+    virtual KSyncEntry *CreateStale(const KSyncEntry *key);
     // Called on change to ksync_entry. Will resulting in sync of the entry
     void Change(KSyncEntry *entry);
     // Delete a KSyncEntry
@@ -151,6 +151,8 @@ protected:
     KSyncEntry *CreateImpl(const KSyncEntry *key);
     // Clear Stale Entry flag
     void ClearStale(KSyncEntry *entry);
+    //common routine for creating stale entry
+    KSyncEntry *CreateStaleInternal(const KSyncEntry *key);
     // Big lock on the tree
     // TODO: Make this more fine granular
     mutable tbb::recursive_mutex  lock_;
@@ -204,6 +206,17 @@ private:
     DISALLOW_COPY_AND_ASSIGN(KSyncObject);
 };
 
+class KSyncRestoreData {
+public:
+    typedef boost::shared_ptr<KSyncRestoreData> Ptr;
+    KSyncRestoreData(KSyncDBObject *ksync_object);
+    virtual ~KSyncRestoreData();
+    virtual const std::string ToString() = 0;
+    KSyncDBObject *KSyncObject() const { return ksync_object_;} 
+private:
+    KSyncDBObject *ksync_object_;
+};
+
 // Special KSyncObject for DB client
 class KSyncDBObject : public KSyncObject {
 public:
@@ -254,6 +267,9 @@ public:
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *entry) = 0;
     void set_test_id(DBTableBase::ListenerId id);
     DBTableBase::ListenerId id() const {return id_;}
+    virtual void RestoreVrouterEntriesReq(void) { return; }
+    virtual void ReadVrouterEntriesResp(Sandesh *sandesh) { return;}
+    virtual void ProcessVrouterEntries(KSyncRestoreData::Ptr restore_data) { return;}
 
 private:
     //Callback to do cleanup when DEL ACK is received.
