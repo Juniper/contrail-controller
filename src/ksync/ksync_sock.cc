@@ -55,29 +55,6 @@ const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] =
                                                     "Agent::Uve",
                                                     "Agent::KSync"
                                                 };
-
-static uint32_t IoVectorLength(KSyncBufferList *iovec) {
-    KSyncBufferList::iterator it = iovec->begin();
-    int offset = 0;
-    while (it != iovec->end()) {
-        offset +=  boost::asio::buffer_size(*it);
-        it++;
-    }
-    return offset;
-}
-
-// Copy data from io-vector to a buffer
-static uint32_t IoVectorToData(char *data, KSyncBufferList *iovec) {
-    KSyncBufferList::iterator it = iovec->begin();
-    int offset = 0;
-    while (it != iovec->end()) {
-        unsigned char *buf = boost::asio::buffer_cast<unsigned char *>(*it);
-        memcpy(data + offset, buf, boost::asio::buffer_size(*it));
-        offset +=  boost::asio::buffer_size(*it);
-        it++;
-    }
-    return offset;
-}
 /////////////////////////////////////////////////////////////////////////////
 // Netlink utilities
 /////////////////////////////////////////////////////////////////////////////
@@ -195,6 +172,7 @@ KSyncSock::KSyncSock() :
     max_bulk_msg_count_(kMaxBulkMsgCount), max_bulk_buf_size_(kMaxBulkMsgSize),
     bulk_seq_no_(kInvalidBulkSeqNo), bulk_buf_size_(0), bulk_msg_count_(0),
     rx_buff_(NULL), read_inline_(true), bulk_msg_context_(NULL),
+    use_wait_tree_(true), process_data_inline_(false),
     ksync_bulk_sandesh_context_(), uve_bulk_sandesh_context_(),
     tx_count_(0), ack_count_(0), err_count_(0) {
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -215,6 +193,9 @@ KSyncSock::KSyncSock() :
     rx_buff_ = NULL;
     seqno_ = 0;
     uve_seqno_ = 0;
+
+    memset(bulk_mctx_arr_, 0, sizeof(bulk_mctx_arr_));
+    bmca_prod_ = bmca_cons_ = 0;
 }
 
 KSyncSock::~KSyncSock() {
@@ -342,6 +323,15 @@ KSyncSock::KSyncReceiveQueue *KSyncSock::GetReceiveQueue(uint32_t seqno) {
     return GetReceiveQueue(type, instance);
 }
 
+KSyncBulkSandeshContext *KSyncSock::GetBulkSandeshContext(uint32_t seqno) {
+
+    uint32_t instance = (seqno >> 1) % kRxWorkQueueCount;
+    if (seqno & KSYNC_DEFAULT_Q_ID_SEQ)
+        return &ksync_bulk_sandesh_context_[instance];
+    else
+        return &uve_bulk_sandesh_context_[instance];
+}
+
 KSyncSock *KSyncSock::Get(DBTablePartBase *partition) {
     return sock_.get();
 }
@@ -461,9 +451,11 @@ void KSyncSock::SendAsync(KSyncEntry *entry, int msg_len, char *msg,
                           KSyncEntry::KSyncEvent event) {
     KSyncIoContext *ioc = new KSyncIoContext(this, entry, msg_len, msg, event);
     // Pre-allocate buffers to minimize processing in KSyncTxQueue context
-    if (entry->pre_alloc_rx_buffer()) {
+    if (read_inline_ && entry->pre_alloc_rx_buffer()) {
         ioc->rx_buffer1_ = new char [kBufLen];
         ioc->rx_buffer2_ = new char [kBufLen];
+    } else {
+        ioc->rx_buffer1_ = ioc->rx_buffer2_ = NULL;
     }
     send_queue_.Enqueue(ioc);
 }
@@ -486,13 +478,17 @@ void KSyncSock::OnEmptyQueue(bool done) {
         return;
 
     KSyncBulkMsgContext *bulk_message_context = NULL;
-    if (read_inline_ == false) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
-        assert(it != wait_tree_.end());
-        bulk_message_context = &it->second;
+    if (use_wait_tree_) {
+        if (read_inline_ == false) {
+            tbb::mutex::scoped_lock lock(mutex_);
+            WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
+            assert(it != wait_tree_.end());
+            bulk_message_context = &it->second;
+        } else {
+            bulk_message_context = bulk_msg_context_;
+        }
     } else {
-        bulk_message_context = bulk_msg_context_;
+        bulk_message_context = bulk_mctx_arr_[bmca_prod_];
     }
 
     SendBulkMessage(bulk_message_context, bulk_seq_no_);
@@ -507,6 +503,13 @@ int KSyncSock::SendBulkMessage(KSyncBulkMsgContext *bulk_message_context,
     tx_count_++;
 
     if (!read_inline_) {
+        if (!use_wait_tree_) {
+            bmca_prod_++;
+            if (bmca_prod_ >= KSYNC_BMC_ARR_SIZE) {
+                bmca_prod_ = 0;
+            }
+        }
+
         AsyncSendTo(&iovec, seqno,
                     boost::bind(&KSyncSock::WriteHandler, this,
                                 placeholders::error,
@@ -518,7 +521,11 @@ int KSyncSock::SendBulkMessage(KSyncBulkMsgContext *bulk_message_context,
             char *rxbuf = bulk_message_context->GetReceiveBuffer();
             Receive(boost::asio::buffer(rxbuf, kBufLen));
             more_data = IsMoreData(rxbuf);
-            ValidateAndEnqueue(rxbuf, bulk_message_context);
+            if (!process_data_inline_) {
+                ValidateAndEnqueue(rxbuf, bulk_message_context);
+            } else {
+                ProcessDataInline(rxbuf);
+            }
         } while(more_data);
     }
 
@@ -543,19 +550,36 @@ KSyncBulkMsgContext *KSyncSock::LocateBulkContext
         return bulk_msg_context_;
     }
 
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (bulk_seq_no_ == kInvalidBulkSeqNo) {
-        bulk_seq_no_ = seqno;
-        bulk_buf_size_ = 0;
-        bulk_msg_count_ = 0;
-        wait_tree_.insert(WaitTreePair(seqno,
+    if (use_wait_tree_) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        if (bulk_seq_no_ == kInvalidBulkSeqNo) {
+            bulk_seq_no_ = seqno;
+            bulk_buf_size_ = 0;
+            bulk_msg_count_ = 0;
+
+            wait_tree_.insert(WaitTreePair(seqno,
                                        KSyncBulkMsgContext(io_context_type,
                                                            work_queue_index)));
+        }
+
+        WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
+        assert(it != wait_tree_.end());
+        return &it->second;
+    } else {
+        if (bulk_seq_no_ == kInvalidBulkSeqNo) {
+            bulk_seq_no_ = seqno;
+            bulk_buf_size_ = 0;
+            bulk_msg_count_ = 0;
+
+            bulk_mctx_arr_[bmca_prod_] = new KSyncBulkMsgContext(io_context_type,
+                                                            work_queue_index);
+            bulk_mctx_arr_[bmca_prod_]->set_seqno(seqno);
+        }
+
+        return bulk_mctx_arr_[bmca_prod_];
     }
 
-    WaitTree::iterator it = wait_tree_.find(bulk_seq_no_);
-    assert(it != wait_tree_.end());
-    return &it->second;
+    return NULL;
 }
 
 // Try adding an io-context to bulk context. Returns
@@ -572,8 +596,10 @@ bool KSyncSock::TryAddToBulk(KSyncBulkMsgContext *bulk_message_context,
     if (bulk_message_context->io_context_type() != ioc->type())
         return false;
 
-    if (bulk_message_context->work_queue_index() != ioc->index())
-        return false;
+    if (use_wait_tree_) {
+        if (bulk_message_context->work_queue_index() != ioc->index())
+            return false;
+    }
 
     bulk_buf_size_ += ioc->GetMsgLen();
     bulk_msg_count_++;
@@ -859,6 +885,15 @@ void KSyncSockUdp::Receive(mutable_buffers_1 buf) {
 KSyncSockTcp::KSyncSockTcp(EventManager *evm,
     boost::asio::ip::address ip_address, int port) : TcpServer(evm), evm_(evm),
     session_(NULL), server_ep_(ip_address, port), connect_complete_(false) {
+
+    reset_use_wait_tree();
+    set_process_data_inline();
+    if (rx_buff_ == NULL) {
+        rx_buff_ = new char[kBufLen];
+    }
+    rx_buff_rem_ = new char[kBufLen];
+    remain_ = 0;
+
     session_ = CreateSession();
     Connect(session_, server_ep_);
 }
@@ -886,6 +921,14 @@ bool KSyncSockTcp::IsMoreData(char *data) {
 }
 
 size_t KSyncSockTcp::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
+    size_t len = 0, ret;
+    struct msghdr msg;
+    struct iovec iov[max_bulk_msg_count_*2];
+    int i, fd;
+
+    memset(&msg, 0, sizeof(msg));
+    msg.msg_iov = iov;
+
     ResetNetlink(nl_client_);
     int offset = nl_client_->cl_buf_offset;
     UpdateNetlink(nl_client_, bulk_buf_size_, seq_no);
@@ -893,14 +936,23 @@ size_t KSyncSockTcp::SendTo(KSyncBufferList *iovec, uint32_t seq_no) {
     KSyncBufferList::iterator it = iovec->begin();
     iovec->insert(it, buffer((char *)nl_client_->cl_buf, offset));
 
-    uint32_t alloc_len = IoVectorLength(iovec);
-    char* msg = new char[alloc_len];
+    int count = iovec->size();
+    for(i = 0; i < count; i++) {
+        mutable_buffers_1 buf = iovec->at(i);
+        size_t buf_size = boost::asio::buffer_size(buf);
+        void* cbuf = boost::asio::buffer_cast<void*>(buf);
+        len += buf_size;
+        iov[i].iov_base = cbuf;
+        iov[i].iov_len = buf_size;
+    }
 
-    uint32_t len = IoVectorToData(msg, iovec);
-
-    session_->Send((const uint8_t *)(msg), len, NULL);
-    delete[] msg;
-    return nl_client_->cl_buf_offset;
+    msg.msg_iovlen = i;
+    fd = tcp_socket_->native();
+    ret = sendmsg(fd, &msg, 0);
+    if (ret != len) {
+        LOG(ERROR, "sendmsg failure " << ret << "len " << len);
+    }
+    return len;
 }
 
 void KSyncSockTcp::AsyncSendTo(KSyncBufferList *iovec, uint32_t seq_no,
@@ -980,15 +1032,131 @@ void KSyncSockTcp::Receive(mutable_buffers_1 buf) {
     session_->socket()->non_blocking(blocking_socket, ec);
 }
 
+void KSyncSock::ProcessDataInline(char *data) {
+    KSyncBulkMsgContext *bulk_message_context = NULL;
+    KSyncBulkSandeshContext *bulk_sandesh_context;
+    uint32_t seqno = GetSeqno(data);
+
+    assert(!use_wait_tree_);
+    Validate(data);
+
+    bulk_sandesh_context = GetBulkSandeshContext(seqno);
+    bulk_message_context = bulk_mctx_arr_[bmca_cons_];
+    assert(bulk_message_context->seqno() == seqno);
+
+    bulk_sandesh_context->set_bulk_message_context(bulk_message_context);
+    BulkDecoder(data, bulk_sandesh_context);
+
+    // Remove the IoContext only on last netlink message
+    if (IsMoreData(data) == false) {
+        delete bulk_message_context;
+        bmca_cons_++;
+        if (bmca_cons_ >= KSYNC_BMC_ARR_SIZE) {
+            bmca_cons_ = 0;
+        }
+    }
+
+    return;
+}
+
 bool KSyncSockTcp::ReceiveMsg(const u_int8_t *msg, size_t size) {
-    char *rx_buff = new char[kBufLen];
-    memcpy(rx_buff, msg, size);
-    ValidateAndEnqueue(rx_buff, NULL);
+    AgentSandeshContext *ctxt = KSyncSock::GetAgentSandeshContext(0);
+    ctxt->SetErrno(0);
+    ProcessDataInline((char *) msg);
     return true;
 }
 
+bool KSyncSockTcp::Run() {
+    AgentSandeshContext *ctxt = KSyncSock::GetAgentSandeshContext(0);
+    int fd = tcp_socket_->native();
+
+    while (1) {
+        char *bufp = rx_buff_;
+        struct nlmsghdr *nlh = NULL;
+        struct nlmsghdr tnlh;
+        int offset = 0;
+        int bytes_transferred = 0;
+
+        bytes_transferred = recv(fd, rx_buff_, kBufLen, 0);
+        if (bytes_transferred <= 0) {
+             LOG(ERROR, "Connection to dpdk-vrouter lost.");
+             sleep(10);
+             exit(EXIT_FAILURE);
+        }
+
+        if (remain_ != 0) {
+            if (remain_ < sizeof(struct nlmsghdr)) {
+                memcpy((char *)&tnlh, rx_buff_rem_, remain_);
+                memcpy(((char *)&tnlh) + remain_, rx_buff_,
+                        (sizeof(struct nlmsghdr) - remain_));
+                nlh =  &tnlh;
+            } else {
+                nlh =  (struct nlmsghdr *)rx_buff_rem_;
+            }
+
+            if (remain_ > nlh->nlmsg_len)
+                assert(0);
+
+            memcpy(rx_buff_rem_+remain_, rx_buff_, nlh->nlmsg_len - remain_);
+            bufp += (nlh->nlmsg_len - remain_);
+            ctxt->SetErrno(0);
+            ProcessDataInline(rx_buff_rem_);
+            offset = nlh->nlmsg_len - remain_;
+        }
+
+        while (offset < bytes_transferred) {
+            if ((unsigned int)(bytes_transferred - offset) > (sizeof(struct nlmsghdr))) {
+                nlh =  (struct nlmsghdr *)(rx_buff_ + offset);
+                if ((unsigned int)(bytes_transferred - offset) > nlh->nlmsg_len) {
+                    ctxt->SetErrno(0);
+                    ProcessDataInline(rx_buff_ + offset);
+                    offset += nlh->nlmsg_len;
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        remain_ = bytes_transferred - offset;
+        if (remain_) {
+            memcpy(rx_buff_rem_, rx_buff_ + offset, bytes_transferred - offset);
+        }
+    }
+
+    return true;
+}
+
+class KSyncSockTcpReadTask : public Task {
+public:
+    KSyncSockTcpReadTask(TaskScheduler *scheduler, KSyncSockTcp *sock) :
+        Task(scheduler->GetTaskId("Ksync::KSyncSockTcpRead"), 0), sock_(sock) {
+    }
+    ~KSyncSockTcpReadTask() {
+    }
+
+    bool Run() {
+        sock_->Run();
+        return true;
+    }
+    std::string Description() const { return "KSyncSockTcpRead"; }
+private:
+    KSyncSockTcp *sock_;
+
+};
+
 void KSyncSockTcp::AsyncReadStart() {
-    session_->AsyncReadStart();
+    static int started = 0;
+    boost::system::error_code ec;
+
+    if (!started) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        KSyncSockTcpReadTask *task = new KSyncSockTcpReadTask(scheduler, this);
+        tcp_socket_->non_blocking(false, ec);
+        scheduler->Enqueue(task);
+        started = 1;
+    }
 }
 
 void KSyncSockTcp::OnSessionEvent(TcpSession *session,
@@ -1004,8 +1172,11 @@ void KSyncSockTcp::OnSessionEvent(TcpSession *session,
         exit(EXIT_FAILURE);
         break;
     case TcpSession::CONNECT_COMPLETE:
+        tcp_socket_ = session_->socket();
         connect_complete_ = true;
         session_->SetTcpNoDelay();
+        session_->SetTcpSendBufSize(max_bulk_buf_size_*16);
+        session_->SetTcpRecvBufSize(max_bulk_buf_size_*16);
     default:
         break;
     }
