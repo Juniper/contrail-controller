@@ -1188,10 +1188,8 @@ class VirtualNetworkST(DBBaseST):
                         sa, sp, da, dp, arule_proto, rule_uuid,
                         prule.action_list, prule.direction, service_ri)
                     result_acl_rule_list.append(acl)
-                    acl_direction_comp = self._manager._args.acl_direction_comp
                     if ((prule.direction == "<>") and
-                            (sa != da or sp != dp) and
-                            (not acl_direction_comp)):
+                            (sa != da or sp != dp)):
                         acl = self.add_acl_rule(
                             da, dp, sa, sp, arule_proto, rule_uuid,
                             prule.action_list, prule.direction, service_ri)
@@ -1208,11 +1206,7 @@ class VirtualNetworkST(DBBaseST):
         action_list = copy.deepcopy(action)
         action_list.set_assign_routing_instance(service_ri)
         match = MatchConditionType(proto, sa, sp, da, dp)
-        acl_direction_comp = self._manager._args.acl_direction_comp
-        if acl_direction_comp:
-            acl = AclRuleType(match, action_list, rule_uuid, direction)
-        else:
-            acl = AclRuleType(match, action_list, rule_uuid)
+        acl = AclRuleType(match, action_list, rule_uuid, direction)
         return acl
 
     def update_pnf_presence(self):
@@ -1343,10 +1337,8 @@ class VirtualNetworkST(DBBaseST):
 
                     acl_list.append(acl)
 
-                    acl_direction_comp = self._manager._args.acl_direction_comp
                     if ((rule.direction == "<>") and
-                            (src_address != dst_address) and
-                            (not acl_direction_comp)):
+                            (src_address != dst_address)):
                         acl = self.add_acl_rule(
                             src_address, PortType(), dst_address, PortType(),
                             "any", rule.get_rule_uuid(),
