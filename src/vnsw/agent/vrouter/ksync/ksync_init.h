@@ -18,6 +18,7 @@
 #include <vrouter/ksync/forwarding_class_ksync.h>
 #include <vrouter/ksync/qos_config_ksync.h>
 #include <vrouter/ksync/ksync_bridge_table.h>
+#include <vrouter/ksync/ksync_restore_manager.h>
 #include "vnswif_listener.h"
 
 class KSyncFlowMemory;
@@ -29,6 +30,7 @@ public:
     KSync(Agent *agent);
     virtual ~KSync();
 
+    virtual void LlgrInit(bool create_vhost);
     virtual void Init(bool create_vhost);
     virtual void InitDone();
     virtual void RegisterDBClients(DB *db);
@@ -82,6 +84,7 @@ public:
     KSyncBridgeMemory* ksync_bridge_memory() const {
         return ksync_bridge_memory_.get();
     }
+    void EnqueueRestore(KSyncRestoreManager::RestoreDataPtr data);
 protected:
     Agent *agent_;
     boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
@@ -101,10 +104,12 @@ protected:
     boost::scoped_ptr<BridgeRouteAuditKSyncObject>
         bridge_route_audit_ksync_obj_;
     boost::scoped_ptr<KSyncBridgeMemory> ksync_bridge_memory_;
+    boost::scoped_ptr<KSyncRestoreManager> ksync_restore_mgr_;
     virtual void InitFlowMem();
     void SetHugePages();
     void ResetVRouter(bool run_sync_mode);
     int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
+    void RestoreVrouter();
 private:
     void InitVrouterOps(vrouter_ops *v);
     void NetlinkInit();
