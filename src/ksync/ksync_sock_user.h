@@ -121,6 +121,10 @@ public:
     ksync_vrf_assign_tree vrf_assign_tree; 
     typedef std::map<int, vr_vrf_stats_req> ksync_map_vrf_stats;
     ksync_map_vrf_stats vrf_stats_map; 
+    typedef std::map<int, vr_fc_map_req> ksync_map_forwarding_class;
+    ksync_map_forwarding_class forwarding_class_map; 
+    typedef std::map<int, vr_qos_map_req> ksync_map_qos_config;
+    ksync_map_qos_config qos_map; 
     vr_drop_stats_req drop_stats;
     vrouter_ops ksync_vrouter_ops;
     typedef std::map<int, vr_vxlan_req> ksync_map_vxlan;
@@ -286,6 +290,21 @@ public:
     virtual Sandesh* Get(int idx);
 };
 
+class ForwardingClassDumpHandler : public MockDumpHandlerBase {
+public:
+    ForwardingClassDumpHandler() : MockDumpHandlerBase() {}
+    virtual Sandesh* GetFirst(Sandesh *);
+    virtual Sandesh* GetNext(Sandesh *);
+    virtual Sandesh* Get(int idx);
+};
+
+class QosConfigDumpHandler : public MockDumpHandlerBase {
+public:
+    QosConfigDumpHandler() : MockDumpHandlerBase() {}
+    virtual Sandesh* GetFirst(Sandesh *);
+    virtual Sandesh* GetNext(Sandesh *);
+    virtual Sandesh* Get(int idx);
+};
 class RouteDumpHandler : public MockDumpHandlerBase {
 public:
     RouteDumpHandler() : MockDumpHandlerBase() {}

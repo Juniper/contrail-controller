@@ -47,7 +47,6 @@ KSyncTest::~KSyncTest() {
 void KSyncTest::Init(bool create_vhost) {
     interface_ksync_obj_.get()->InitTest();
     ksync_flow_memory_.get()->InitTest();
-    NetlinkInitTest();
     ksync_bridge_memory_.get()->InitTest();
 }
 
@@ -55,6 +54,10 @@ void KSyncTest::Shutdown() {
     ksync_flow_memory_.get()->Shutdown();
     ksync_bridge_memory_.get()->Shutdown();
     NetlinkShutdownTest();
+}
+void KSyncTest::LlgrInit(bool create_vhost) {
+    NetlinkInitTest();
+    ksync_restore_mgr_.get()->Init();
 }
 
 void KSyncTest::RegisterDBClients(DB *db) {

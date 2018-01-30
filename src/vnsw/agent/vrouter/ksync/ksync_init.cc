@@ -66,7 +66,8 @@ KSync::KSync(Agent *agent)
       forwarding_class_ksync_obj_(new ForwardingClassKSyncObject(this)),
       qos_config_ksync_obj_(new QosConfigKSyncObject(this)),
       bridge_route_audit_ksync_obj_(new BridgeRouteAuditKSyncObject(this)),
-      ksync_bridge_memory_(new KSyncBridgeMemory(this, 1)) {
+      ksync_bridge_memory_(new KSyncBridgeMemory(this, 1)),
+      ksync_restore_mgr_(new KSyncRestoreManager(this)) {
       for (uint16_t i = 0; i < kHugePages; i++) {
           huge_fd_[i] = -1;
       }
@@ -99,14 +100,21 @@ void KSync::RegisterDBClients(DB *db) {
     agent_->set_router_id_configured(false);
 }
 
-void KSync::Init(bool create_vhost) {
+void KSync::LlgrInit(bool create_vhost) {
     NetlinkInit();
     SetHugePages();
     InitFlowMem();
-    ResetVRouter(true);
+    if (!agent_->params()->restart_backup_enable()) {
+        ResetVRouter(true);
+    }
     if (create_vhost) {
         CreateVhostIntf();
     }
+    ksync_restore_mgr_.get()->Init();
+}
+
+
+void KSync::Init(bool create_vhost) {
     interface_ksync_obj_.get()->Init();
     for (uint16_t i = 0; i < flow_table_ksync_obj_list_.size(); i++) {
         FlowTable *flow_table = agent_->pkt()->get_flow_proto()->GetTable(i);
@@ -457,6 +465,7 @@ void KSync::Shutdown() {
     qos_queue_ksync_obj_.reset(NULL);
     forwarding_class_ksync_obj_.reset(NULL);
     qos_config_ksync_obj_.reset(NULL);
+    ksync_restore_mgr_.reset(NULL);
     STLDeleteValues(&flow_table_ksync_obj_list_);
     KSyncSock::Shutdown();
     KSyncObjectManager::Shutdown();

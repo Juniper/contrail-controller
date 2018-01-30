@@ -24,12 +24,13 @@
 #include <filter/acl.h>
 #include <controller/controller_init.h>
 #include <resource_manager/resource_manager.h>
-
+#include <vrouter/ksync/ksync_init.h>
 #include "agent_init.h"
 
 AgentInit::AgentInit() :
     agent_(new Agent()), agent_param_(NULL), trigger_(),
-    enable_controller_(true) {
+    enable_controller_(true), isResourceManagerReady_(false),
+    isKSyncRestoreDone_(false) {
 }
 
 AgentInit::~AgentInit() {
@@ -141,13 +142,18 @@ bool AgentInit::InitBase() {
     InitLoggingBase();
     CreatePeersBase();
     CreateModulesBase();
-    CreateResourceManager();
+    LlgrInit();
     return true;
 }
 
-void AgentInit::SetResourceManagerReady() {
-    agent_->SetResourceManagerReady();
+void AgentInit::LlgrInit() {
     CreateDBTablesBase();
+    CreateResourceManager();
+    SetKSyncRestoreDone();
+}
+
+void AgentInit::LlgrReady() {
+    agent_->SetResourceManagerReady();
     RegisterDBClientsBase();
     InitModulesBase();
     InitCollectorBase();
@@ -155,11 +161,34 @@ void AgentInit::SetResourceManagerReady() {
     CreateNextHopsBase();
     CreateInterfacesBase();
     InitDoneBase();
-
     Init();
     agent_->set_init_done(true);
     ConnectToControllerBase();
 }
+
+bool  AgentInit::IsLlgrReady() {
+    if (isResourceManagerReady_ && isKSyncRestoreDone_) {
+        return true;
+    }
+    return false;
+}
+
+void AgentInit::SetResourceManagerReady() {
+    // TODO: race condition, acquire lock (or)
+    // add resourcerestore task to ksync exclude list?
+    isResourceManagerReady_ = true;
+    if (IsLlgrReady() == true) {
+        LlgrReady();
+    }
+}
+
+void AgentInit::SetKSyncRestoreDone() {
+    isKSyncRestoreDone_ = true;
+    if (IsLlgrReady() == true) {
+        LlgrReady();
+    }
+}
+
 
 void AgentInit::InitLoggingBase() {
     Sandesh::SetLoggingParams(agent_param_->log_local(),
@@ -240,11 +269,9 @@ void AgentInit::InitModulesBase() {
     if (cfg_.get()) {
         cfg_->Init();
     }
-
     if (oper_.get()) {
         oper_->Init();
     }
-
     InitModules();
 }
 

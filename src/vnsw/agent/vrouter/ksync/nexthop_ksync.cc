@@ -212,6 +212,18 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     }
 }
 
+NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, uint32_t nh_id) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj),
+    type_(NextHop::INVALID),
+    vrf_id_(0), interface_(NULL), valid_(0),
+    policy_(false), is_mcast_nh_(false), nh_(NULL),
+    vlan_tag_(VmInterface::kInvalidVlanId), is_bridge_(false),
+    tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh_id),
+    vxlan_nh_(false), flood_unknown_unicast_(false),
+    learning_enabled_(false), need_pbb_tunnel_(false),
+    etree_leaf_ (false), layer2_control_word_(false) {
+}
+
 NHKSyncEntry::~NHKSyncEntry() {
 }
 
@@ -222,169 +234,7 @@ KSyncDBObject *NHKSyncEntry::GetObject() const {
 bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const NHKSyncEntry &entry = static_cast<const NHKSyncEntry &>(rhs);
 
-    if (type_ != entry.type_) {
-        return type_ < entry.type_;
-    }
-
-    if (type_ == NextHop::DISCARD) {
-        return false;
-    }
-
-    if (type_ == NextHop::L2_RECEIVE) {
-        return false;
-    }
-
-    if (type_ == NextHop::ARP) {
-        //Policy is ignored for ARP NH
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-        return sip_ < entry.sip_;
-    }
-
-    if (policy_ != entry.policy_) {
-        return policy_ < entry.policy_;
-    }
-
-    if (type_ == NextHop::VRF) {
-        if ( vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-        return vxlan_nh_ < entry.vxlan_nh_;
-    }
-
-    if (type_ == NextHop::INTERFACE) {
-        if (is_mcast_nh_ != entry.is_mcast_nh_) {
-            return is_mcast_nh_ < entry.is_mcast_nh_;
-        }
-        if(is_bridge_ != entry.is_bridge_) {
-            return is_bridge_ < entry.is_bridge_;
-        }
-
-        if (dmac_ != entry.dmac_) {
-            return dmac_ < entry.dmac_;
-        }
-
-        return interface() < entry.interface();
-    }
-
-    if (type_ == NextHop::RECEIVE || type_ == NextHop::RESOLVE) {
-        return interface() < entry.interface();
-    }
-
-
-    if (type_ == NextHop::TUNNEL) {
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-
-        if (sip_ != entry.sip_) {
-            return sip_ < entry.sip_;
-        }
-
-        if (dip_ != entry.dip_) {
-            return dip_ < entry.dip_;
-        }
-
-        return tunnel_type_.IsLess(entry.tunnel_type_);
-    }
-
-    if (type_ == NextHop::MIRROR) {
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-
-        if (dip_ != entry.dip_) {
-            return dip_ < entry.dip_;
-        }
-
-        return dport_ < entry.dport_;
-    }
-
-    if (type_ == NextHop::PBB) {
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-
-        if (dmac_ != entry.dmac_) {
-            return dmac_ < entry.dmac_;
-        }
-
-        return isid_ < entry.isid_;
-    }
-
-    if (type_ == NextHop::COMPOSITE) {
-        if (comp_type_ != entry.comp_type_) {
-            return comp_type_ < entry.comp_type_;
-        }
-
-        if (vrf_id_ != entry.vrf_id_) {
-            return vrf_id_ < entry.vrf_id_;
-        }
-
-        ComponentNHKeyList::const_iterator it =
-            component_nh_key_list_.begin();
-        ComponentNHKeyList::const_iterator entry_it =
-            entry.component_nh_key_list_.begin();
-        for (;it != component_nh_key_list_.end() &&
-             entry_it != entry.component_nh_key_list_.end(); it++, entry_it++) {
-            if (*it == NULL &&
-                    *entry_it == NULL) {
-                continue;
-            }
-            //One of the component NH is NULL
-            if ((*it) == NULL ||
-                    (*entry_it) == NULL) {
-                return (*it) < (*entry_it);
-            }
-
-            //Check if the label is different
-            if ((*it)->label() !=
-                    (*entry_it)->label()) {
-                return (*it)->label() <
-                    (*entry_it)->label();
-            }
-
-            //Check if the nexthop key is different
-            //Ideally we could find the nexthop and compare pointer alone
-            //it wont work because this is called from Find context itself,
-            //and it would result in deadlock
-            //Hence compare nexthop key alone
-            const NextHopKey *left_nh = (*it)->nh_key();
-            const NextHopKey *right_nh = (*entry_it)->nh_key();
-
-            if (left_nh->IsEqual(*right_nh) == false) {
-                if (left_nh->GetType() != right_nh->GetType()) {
-                    return left_nh->GetType() < right_nh->GetType();
-                }
-                return left_nh->IsLess(*right_nh);
-            }
-
-        }
-
-        if (it == component_nh_key_list_.end() &&
-            entry_it == entry.component_nh_key_list_.end()) {
-            return false;
-        }
-
-        if (it == component_nh_key_list_.end()) {
-            return true;
-        }
-        return false;
-    }
-
-    if (type_ == NextHop::VLAN) {
-        if (interface() != entry.interface()) {
-            return interface() < entry.interface();
-
-        }
-
-        return vlan_tag_ < entry.vlan_tag_;
-    }
-
-    return false;
-
-    assert(0);
+    return (nh_id_ < entry.nh_id_);
 }
 
 std::string NHKSyncEntry::ToString() const {
@@ -471,10 +321,169 @@ std::string NHKSyncEntry::ToString() const {
     return s.str();
 }
 
+void NHKSyncEntry::UpdateRestoreEntry(const NextHop *nh) {
+    type_ = nh->GetType();
+    valid_ = nh->IsValid();
+    policy_ = nh->PolicyEnabled();
+    nh_ = nh;
+
+    switch (type_) {
+    case NextHop::ARP: {
+        const ArpNH *arp = static_cast<const ArpNH *>(nh);
+        vrf_id_ = arp->vrf_id();
+        sip_ = *(arp->GetIp());
+        break;
+    }
+
+    case NextHop::INTERFACE: {
+        InterfaceKSyncObject *interface_object =
+            ksync_obj_->ksync()->interface_ksync_obj();
+        const InterfaceNH *if_nh = static_cast<const InterfaceNH *>(nh);
+        InterfaceKSyncEntry if_ksync(interface_object, if_nh->GetInterface());
+        interface_ = interface_object->GetReference(&if_ksync);
+        assert(interface_);
+        is_mcast_nh_ = if_nh->is_multicastNH();
+        is_bridge_ = if_nh->IsBridge();
+        const VrfEntry * vrf = if_nh->GetVrf();
+        vrf_id_ = (vrf != NULL) ? vrf->vrf_id() : VrfEntry::kInvalidIndex;
+        dmac_ = if_nh->GetDMac();
+        // VmInterface can potentially have vlan-tags. Get tag in such case
+        if (if_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
+            vlan_tag_ = (static_cast<const VmInterface *>
+                         (if_nh->GetInterface()))->tx_vlan_id();
+        }
+        break;
+    }
+
+    case NextHop::VLAN: {
+        InterfaceKSyncObject *interface_object =
+            ksync_obj_->ksync()->interface_ksync_obj();
+        const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
+        InterfaceKSyncEntry if_ksync(interface_object, vlan_nh->GetInterface());
+        interface_ = interface_object->GetReference(&if_ksync);
+        assert(interface_);
+        vlan_tag_ = vlan_nh->GetVlanTag();
+        vrf_id_ = vlan_nh->GetVrf()->vrf_id();
+        break;
+    }
+
+    case NextHop::TUNNEL: {
+        const TunnelNH *tunnel = static_cast<const TunnelNH *>(nh);
+        vrf_id_ = tunnel->vrf_id();
+        sip_ = *(tunnel->GetSip());
+        dip_ = *(tunnel->GetDip());
+        tunnel_type_ = tunnel->GetTunnelType();
+        break;
+    }
+
+    case NextHop::DISCARD: {
+        break;
+    }
+
+    case NextHop::L2_RECEIVE: {
+        break;
+    }
+
+    case NextHop::RESOLVE: {
+        InterfaceKSyncObject *interface_object =
+            ksync_obj_->ksync()->interface_ksync_obj();
+        const ResolveNH *rsl_nh = static_cast<const ResolveNH *>(nh);
+        InterfaceKSyncEntry if_ksync(interface_object, rsl_nh->get_interface());
+        interface_ = interface_object->GetReference(&if_ksync);
+        vrf_id_ = rsl_nh->get_interface()->vrf_id();
+        if (rsl_nh->get_interface()->type() == Interface::VM_INTERFACE) {
+            const VmInterface *vm_intf =
+                static_cast<const VmInterface *>(rsl_nh->get_interface());
+            if (vm_intf->vrf()->forwarding_vrf()) {
+                vrf_id_ = vm_intf->vrf()->forwarding_vrf()->vrf_id();
+            }
+        }
+        break;
+    }
+
+    case NextHop::VRF: {
+        const VrfNH *vrf_nh = static_cast<const VrfNH *>(nh);
+        vrf_id_ = vrf_nh->GetVrf()->vrf_id();
+        vxlan_nh_ = vrf_nh->vxlan_nh();
+        break;
+    }
+
+    case NextHop::RECEIVE: {
+        InterfaceKSyncObject *interface_object =
+            ksync_obj_->ksync()->interface_ksync_obj();
+        const ReceiveNH *rcv_nh = static_cast<const ReceiveNH *>(nh);
+        InterfaceKSyncEntry if_ksync(interface_object, rcv_nh->GetInterface());
+        interface_ = interface_object->GetReference(&if_ksync);
+        vrf_id_ = rcv_nh->GetInterface()->vrf_id();
+        assert(interface_);
+        break;
+    }
+
+    case NextHop::MIRROR: {
+        const MirrorNH *mirror_nh = static_cast<const MirrorNH *>(nh);
+        vrf_id_ = mirror_nh->vrf_id();
+        sip_ = *(mirror_nh->GetSip());
+        sport_ = mirror_nh->GetSPort();
+        dip_ = *(mirror_nh->GetDip());
+        dport_ = mirror_nh->GetDPort();
+        break;
+    }
+
+    case NextHop::PBB: {
+        const PBBNH *pbb_nh = static_cast<const PBBNH *>(nh);
+        vrf_id_ = pbb_nh->vrf_id();
+        dmac_ = pbb_nh->dest_bmac();
+        isid_ = pbb_nh->isid();
+        break;
+    }
+
+    case NextHop::COMPOSITE: {
+        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+        component_nh_list_.clear();
+        vrf_id_ = comp_nh->vrf()->vrf_id();
+        comp_type_ = comp_nh->composite_nh_type();
+        ecmp_hash_fieds_ =
+            const_cast<CompositeNH *>(comp_nh)->CompEcmpHashFields().HashFieldsToUse();
+        component_nh_key_list_ = comp_nh->component_nh_key_list();
+        ComponentNHList::const_iterator component_nh_it =
+            comp_nh->begin();
+        while (component_nh_it != comp_nh->end()) {
+            const NextHop *component_nh = NULL;
+            uint32_t label = 0;
+            if (*component_nh_it) {
+                component_nh =  (*component_nh_it)->nh();
+                label = (*component_nh_it)->label();
+            }
+            KSyncEntry *ksync_nh = NULL;
+            if (component_nh != NULL) {
+                NHKSyncObject *nh_object =
+                    ksync_obj_->ksync()->nh_ksync_obj();
+                NHKSyncEntry nhksync(nh_object, component_nh);
+                ksync_nh = nh_object->GetReference(&nhksync);
+            }
+            KSyncComponentNH ksync_component_nh(label, ksync_nh);
+            component_nh_list_.push_back(ksync_component_nh);
+            component_nh_it++;
+        }
+        break;
+    }
+
+    default:
+        assert(0);
+        break;
+    }
+}
+
+
 bool NHKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const NextHop *nh = static_cast<NextHop *>(e);
-
+    // update restore entry with all fields , this happens for the first 
+    // notification comes from oper to ksync
+    if ( type_ == NextHop::INVALID) {
+        UpdateRestoreEntry(nh);
+        return true;
+    }
     if (valid_ != nh->IsValid()) {
         valid_ = nh->IsValid();
         ret = true;
@@ -1429,4 +1438,75 @@ void KSyncNhListReq::HandleRequest() const {
 
     sand->DoKsyncSandesh(sand);
 
+}
+
+KSyncEntry *NHKSyncObject::CreateStale(const KSyncEntry *key) {
+    return CreateStaleInternal(key);;
+}
+void NHKSyncEntry::StaleTimerExpired() {
+    Delete();
+    SetState(KSyncEntry::TEMP);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// ksync entry restore routines
+//////////////////////////////////////////////////////////////////////////////
+
+NHKSyncRestoreData::NHKSyncRestoreData(KSyncDBObject *obj,
+                                            KNHInfoPtr nhInfo):
+    KSyncRestoreData(obj), nhInfo_(nhInfo) {
+}
+NHKSyncRestoreData::~NHKSyncRestoreData() {
+}
+void NHKSyncObject::RestoreVrouterEntriesReq(void) {
+    InitStaleEntryCleanup(*(ksync()->agent()->event_manager())->io_service(),
+                            KSyncRestoreManager::StaleEntryCleanupTimer, 
+                            KSyncRestoreManager::StaleEntryYeildTimer,
+                            KSyncRestoreManager::StaleEntryDeletePerIteration);
+    KNHReq *req = new KNHReq();
+    req->set_nh_id(-1);
+    Sandesh::set_response_callback(
+        boost::bind(&NHKSyncObject::ReadVrouterEntriesResp, this, _1));
+    req->HandleRequest();
+    req->Release();
+}
+void NHKSyncObject::ReadVrouterEntriesResp(Sandesh *sandesh) {
+    KNHResp *response = dynamic_cast<KNHResp *>(sandesh);
+    if (response != NULL) {
+        for(std::vector<KNHInfo>::const_iterator it
+                = response->get_nh_list().begin();
+                it != response->get_nh_list().end();it++) {
+            NHKSyncRestoreData::KNHInfoPtr nhInfo(new KNHInfo(*it));
+            KSyncRestoreData::Ptr restore_data(
+                        new NHKSyncRestoreData(this, nhInfo));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(restore_data);
+        }
+        //TODO: check errorresp
+        if (!response->get_more()) {
+            KSyncRestoreData::Ptr end_data(
+                    new KSyncRestoreEndData (this));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(end_data);
+        }
+    }
+
+
+}
+void NHKSyncObject::ProcessVrouterEntries(
+                        KSyncRestoreData::Ptr restore_data) {
+    if(dynamic_cast<KSyncRestoreEndData *>(restore_data.get())) {
+        ksync()->ksync_restore_manager()->UpdateKSyncRestoreStatus(
+                    KSyncRestoreManager::KSYNC_TYPE_NEXTHOP);
+        return;
+    }
+    NHKSyncRestoreData *dataPtr = 
+        dynamic_cast<NHKSyncRestoreData *>(restore_data.get());
+    NHKSyncEntry ksync_entry_key(this,
+                        dataPtr->GetNHEntry()->get_id());
+    NHKSyncEntry *ksync_entry_ptr =
+        static_cast<NHKSyncEntry *>(Find(&ksync_entry_key));
+    if (ksync_entry_ptr == NULL) {
+        ksync_entry_ptr = 
+        static_cast<NHKSyncEntry *>(CreateStale(&ksync_entry_key));
+    }
+    
 }

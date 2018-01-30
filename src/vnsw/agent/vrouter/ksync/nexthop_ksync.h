@@ -27,6 +27,7 @@ public:
     NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry, 
                  uint32_t index);
     NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh);
+    NHKSyncEntry(NHKSyncObject *obj, uint32_t nh_id);
     virtual ~NHKSyncEntry();
 
     const NextHop *nh() { return nh_; }
@@ -54,6 +55,7 @@ public:
     }
     uint8_t SetEcmpFieldsToUse();
     bool KSyncEntrySandesh(Sandesh *resp);
+    virtual void StaleTimerExpired();
 private:
     void SetKSyncNhListSandeshData(KSyncNhListSandeshData *data) const;
     class KSyncComponentNH {
@@ -77,6 +79,7 @@ private:
     typedef std::vector<KSyncComponentNH> KSyncComponentNHList;
 
     int Encode(sandesh_op::type op, char *buf, int buf_len);
+    void UpdateRestoreEntry(const NextHop *nh); 
     NHKSyncObject *ksync_obj_;
     NextHop::Type type_;
     uint32_t vrf_id_;
@@ -126,9 +129,24 @@ public:
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void RegisterDBClients();
+    virtual void RestoreVrouterEntriesReq(void);
+    virtual void ReadVrouterEntriesResp(Sandesh *sandesh);
+    virtual void ProcessVrouterEntries(KSyncRestoreData::Ptr restore_data);
+    virtual KSyncEntry *CreateStale(const KSyncEntry *key);
 private:
     KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncObject);
 };
 
+// ksync restore 
+class NHKSyncRestoreData  : public KSyncRestoreData {
+public:
+    typedef boost::shared_ptr<KNHInfo> KNHInfoPtr;
+    NHKSyncRestoreData(KSyncDBObject *obj, KNHInfoPtr nhInfo);
+    ~NHKSyncRestoreData();
+    virtual const std::string ToString() { return "";}
+    KNHInfo *GetNHEntry() { return nhInfo_.get();}
+private:
+    KNHInfoPtr nhInfo_;
+};
 #endif // vnsw_agent_nh_ksync_h

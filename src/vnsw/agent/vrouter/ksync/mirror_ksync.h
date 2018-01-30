@@ -24,6 +24,7 @@ public:
     MirrorKSyncEntry(MirrorKSyncObject *obj, const uint32_t vrf_id, 
                      IpAddress dip, uint16_t dport);
     MirrorKSyncEntry(MirrorKSyncObject *obj, std::string &analyzer_name);
+    MirrorKSyncEntry(MirrorKSyncObject *obj, const uint32_t mirror_index);
     virtual ~MirrorKSyncEntry();
 
     NHKSyncEntry *nh() const {
@@ -38,6 +39,8 @@ public:
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
     uint32_t mirror_index() {return mirror_index_;}
+    virtual void StaleTimerExpired();
+    void UpdateRestoreEntry(const MirrorEntry *mirror);
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     MirrorKSyncObject *ksync_obj_;
@@ -68,9 +71,24 @@ public:
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     uint32_t GetIdx(std::string analyzer_name);
+    virtual void RestoreVrouterEntriesReq(void);
+    virtual void ReadVrouterEntriesResp(Sandesh *sandesh);
+    virtual void ProcessVrouterEntries(KSyncRestoreData::Ptr restore_data);
+    virtual KSyncEntry *CreateStale(const KSyncEntry *key);
 private:
     KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(MirrorKSyncObject);
 };
 
+// ksync restore 
+class MirrorKSyncRestoreData  : public KSyncRestoreData {
+public:
+    typedef boost::shared_ptr<KMirrorInfo> KMirrorInfoPtr;
+    MirrorKSyncRestoreData(KSyncDBObject *obj, KMirrorInfoPtr mirrorInfo);
+    ~MirrorKSyncRestoreData();
+    virtual const std::string ToString() { return "";}
+    KMirrorInfo *GetMirrorEntry() { return mirrorInfo_.get();}
+private:
+    KMirrorInfoPtr mirrorInfo_;
+};
 #endif // vnsw_agent_mirror_ksync_h
