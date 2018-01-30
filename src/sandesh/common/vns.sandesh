@@ -249,6 +249,7 @@ enum Module {
     MESOS_MANAGER,
     MAX_MODULE,
     IRONIC_NOTIF_MANAGER,
+    FABRIC_ANSIBLE,
 }
 
 enum VrouterAgentType {
