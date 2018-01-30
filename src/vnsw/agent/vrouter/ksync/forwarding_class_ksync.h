@@ -42,6 +42,7 @@ public:
     KSyncEntry* qos_queue_ksync() const {
         return qos_queue_ksync_.get();
     }
+    virtual void StaleTimerExpired();
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     KSyncDBObject *ksync_obj_;
@@ -64,8 +65,23 @@ public:
     void RegisterDBClients();
     virtual KSyncDBObject::DBFilterResp DBEntryFilter(const DBEntry *entry,
                                                       const KSyncDBEntry*ksync);
+    virtual void RestoreVrouterEntriesReq(void);
+    virtual void ReadVrouterEntriesResp(Sandesh *sandesh);
+    virtual void ProcessVrouterEntries(KSyncRestoreData::Ptr restore_data);
+    virtual KSyncEntry *CreateStale(const KSyncEntry *key);
 private:
     KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(ForwardingClassKSyncObject);
+};
+// ksync restore 
+class ForwardingClassKSyncRestoreData  : public KSyncRestoreData {
+public:
+    typedef boost::shared_ptr<KForwardingClass> KForwardingClassPtr;
+    ForwardingClassKSyncRestoreData(KSyncDBObject *obj, KForwardingClassPtr fwdclassInfo);
+    ~ForwardingClassKSyncRestoreData();
+    virtual const std::string ToString() { return "";}
+    KForwardingClass *GetForwardingClassEntry() { return fwdClassInfo_.get();}
+private:
+    KForwardingClassPtr fwdClassInfo_;
 };
 #endif

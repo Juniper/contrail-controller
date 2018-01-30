@@ -30,6 +30,7 @@ public:
     void CreateVrf();
     void CreateInterfaces();
     virtual void InitDone();
+    virtual void LlgrInit();
 
     // Shutdown virtual methods
     void IoShutdown();

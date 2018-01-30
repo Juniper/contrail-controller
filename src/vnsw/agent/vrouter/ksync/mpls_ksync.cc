@@ -23,6 +23,10 @@ MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsLabel *mpls) :
     label_(mpls->label()), nh_(NULL) {
 }
 
+MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, uint32_t mpls_label) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj),
+    label_(mpls_label), nh_(NULL) {
+}
 MplsKSyncEntry::~MplsKSyncEntry() {
 }
 
@@ -76,7 +80,9 @@ int MplsKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     encoder.set_mr_label(label_);
     encoder.set_mr_rid(0);
-    encoder.set_mr_nhid(next_hop->nh_id());
+    if (op != sandesh_op::DEL) {
+         encoder.set_mr_nhid(next_hop->nh_id());
+    }
     int error = 0;
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     assert(error == 0);
@@ -156,3 +162,76 @@ void vr_mpls_req::Process(SandeshContext *context) {
     ioc->MplsMsgHandler(this);
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// ksync entry restore routines
+//////////////////////////////////////////////////////////////////////////////
+
+KSyncEntry *MplsKSyncObject::CreateStale(const KSyncEntry *key) {
+    return CreateStaleInternal(key);;
+}
+void MplsKSyncEntry::StaleTimerExpired() {
+    Delete();
+    SetState(KSyncEntry::TEMP);
+}
+
+
+MplsKSyncRestoreData::MplsKSyncRestoreData(KSyncDBObject *obj,
+                                            KMplsInfoPtr mplsInfo):
+    KSyncRestoreData(obj), mplsInfo_(mplsInfo) {
+}
+
+MplsKSyncRestoreData::~MplsKSyncRestoreData() {
+}
+
+void MplsKSyncObject::RestoreVrouterEntriesReq(void) {
+    InitStaleEntryCleanup(*(ksync()->agent()->event_manager())->io_service(),
+                            KSyncRestoreManager::StaleEntryCleanupTimer, 
+                            KSyncRestoreManager::StaleEntryYeildTimer,
+                            KSyncRestoreManager::StaleEntryDeletePerIteration);
+    KMplsReq *req = new KMplsReq();
+    req->set_mpls_label(-1);
+    Sandesh::set_response_callback(
+        boost::bind(&MplsKSyncObject::ReadVrouterEntriesResp, this, _1));
+    req->HandleRequest();
+    req->Release();
+}
+void MplsKSyncObject::ReadVrouterEntriesResp(Sandesh *sandesh) {
+    KMplsResp *response = dynamic_cast<KMplsResp *>(sandesh);
+    if (response != NULL) {
+        for(std::vector<KMplsInfo>::const_iterator it
+                = response->get_mpls_list().begin();
+                it != response->get_mpls_list().end();it++) {
+            MplsKSyncRestoreData::KMplsInfoPtr mplsInfo(new KMplsInfo(*it));
+            KSyncRestoreData::Ptr restore_data(
+                        new MplsKSyncRestoreData(this, mplsInfo));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(restore_data);
+        }
+        //TODO: check errorresp
+        if (!response->get_more()) {
+            KSyncRestoreData::Ptr end_data(
+                    new KSyncRestoreEndData (this));
+            ksync()->ksync_restore_manager()->EnqueueRestoreData(end_data);
+        }
+    }
+
+
+}
+void MplsKSyncObject::ProcessVrouterEntries(
+                        KSyncRestoreData::Ptr restore_data) {
+    if(dynamic_cast<KSyncRestoreEndData *>(restore_data.get())) {
+        ksync()->ksync_restore_manager()->UpdateKSyncRestoreStatus(
+                    KSyncRestoreManager::KSYNC_TYPE_MPLS);
+        return;
+    }
+    MplsKSyncRestoreData *dataPtr = 
+        dynamic_cast<MplsKSyncRestoreData *>(restore_data.get());
+    MplsKSyncEntry ksync_entry_key(this,
+                        dataPtr->GetMplsEntry()->get_label());
+    MplsKSyncEntry *ksync_entry_ptr =
+        static_cast<MplsKSyncEntry *>(Find(&ksync_entry_key));
+    if (ksync_entry_ptr == NULL) {
+        ksync_entry_ptr = 
+        static_cast<MplsKSyncEntry *>(CreateStale(&ksync_entry_key));
+    }
+    
+}

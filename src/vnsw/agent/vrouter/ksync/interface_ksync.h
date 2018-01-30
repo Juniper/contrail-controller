@@ -18,6 +18,8 @@
 #include <ksync/ksync_netlink.h>
 #include "oper/interface_common.h"
 #include "vrouter/ksync/agent_ksync_types.h"
+#include <vrouter/ksync/ksync_restore_manager.h>
+#include <kstate/kstate_types.h>
 #include "vr_types.h"
 
 using namespace std;
@@ -31,6 +33,7 @@ void GetPhyMac(const char *ifname, char *mac);
 
 class Timer;
 class InterfaceKSyncObject;
+class KSyncRestoreData;
 
 class InterfaceKSyncEntry : public KSyncNetlinkDBEntry {
 public:
@@ -39,6 +42,7 @@ public:
     InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                         const InterfaceKSyncEntry *entry, uint32_t index);
     InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
+    InterfaceKSyncEntry(InterfaceKSyncObject *obj, const int32_t intf_id);
     virtual ~InterfaceKSyncEntry();
 
 	const MacAddress &mac() const {
@@ -54,6 +58,7 @@ public:
 
     uint32_t interface_id() const {return interface_id_;}
     const string &interface_name() const {return interface_name_;}
+    void set_interface_name(string intf_name)  {interface_name_ = intf_name;}
     bool has_service_vlan() const {return has_service_vlan_;}
     bool no_arp() const { return no_arp_; }
     PhysicalInterface::EncapType encap_type() const { return encap_type_; }
@@ -74,6 +79,7 @@ public:
 
     int MsgLen() { return kDefaultInterfaceMsgSize; }
     bool KSyncEntrySandesh(Sandesh *resp);
+    virtual void StaleTimerExpired();
 
 private:
     friend class InterfaceKSyncObject;
@@ -149,10 +155,26 @@ public:
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void RegisterDBClients();
     DBFilterResp DBEntryFilter(const DBEntry *e, const KSyncDBEntry *k);
+    virtual void RestoreVrouterEntriesReq(void);
+    virtual void ReadVrouterEntriesResp(Sandesh *sandesh);
+    virtual void ProcessVrouterEntries(KSyncRestoreData::Ptr restore_data);
+    virtual KSyncEntry *CreateStale(const KSyncEntry *key);
 
 private:
     KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncObject);
+};
+
+// ksync restore 
+class InterfaceKSyncRestoreData  : public KSyncRestoreData {
+public:
+    typedef boost::shared_ptr<KInterfaceInfo> KInterfaceInfoPtr;
+    InterfaceKSyncRestoreData(KSyncDBObject *obj, KInterfaceInfoPtr intfInfo);
+    ~InterfaceKSyncRestoreData();
+    virtual const std::string ToString() { return "";}
+    KInterfaceInfo *GetIntfEntry() { return intfInfo_.get();}
+private:
+    KInterfaceInfoPtr intfInfo_;
 };
 
 #endif // vnsw_agent_interface_ksync_h

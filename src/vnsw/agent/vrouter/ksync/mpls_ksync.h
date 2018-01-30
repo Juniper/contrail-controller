@@ -21,6 +21,7 @@ public:
     MplsKSyncEntry(MplsKSyncObject* obj, const MplsKSyncEntry *entry,
                    uint32_t index);
     MplsKSyncEntry(MplsKSyncObject* obj, const MplsLabel *label);
+    MplsKSyncEntry(MplsKSyncObject* obj, uint32_t mapls_label);
     virtual ~MplsKSyncEntry();
 
     NHKSyncEntry *nh() const {
@@ -36,6 +37,8 @@ public:
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
     void FillObjectLog(sandesh_op::type op, KSyncMplsInfo &info) const;
+    virtual void StaleTimerExpired();
+
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     MplsKSyncObject *ksync_obj_;
@@ -53,9 +56,24 @@ public:
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void RegisterDBClients();
+    virtual void RestoreVrouterEntriesReq(void);
+    virtual void ReadVrouterEntriesResp(Sandesh *sandesh);
+    virtual void ProcessVrouterEntries(KSyncRestoreData::Ptr restore_data);
+    virtual KSyncEntry *CreateStale(const KSyncEntry *key);
 private:
     KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(MplsKSyncObject);
 };
 
+// ksync restore 
+class MplsKSyncRestoreData  : public KSyncRestoreData {
+public:
+    typedef boost::shared_ptr<KMplsInfo> KMplsInfoPtr;
+    MplsKSyncRestoreData(KSyncDBObject *obj, KMplsInfoPtr mplsInfo);
+    ~MplsKSyncRestoreData();
+    virtual const std::string ToString() { return "";}
+    KMplsInfo *GetMplsEntry() { return mplsInfo_.get();}
+private:
+    KMplsInfoPtr mplsInfo_;
+};
 #endif // vnsw_agent_mpls_ksync_h

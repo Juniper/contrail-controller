@@ -47,7 +47,8 @@ libksync = env.Library('vnswksync',
                         'route_ksync.cc',
                         'sandesh_ksync.cc',
                         'vxlan_ksync.cc',
-                        'vrf_assign_ksync.cc'
+                        'vrf_assign_ksync.cc',
+                        'ksync_restore_manager.cc'
                        ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
