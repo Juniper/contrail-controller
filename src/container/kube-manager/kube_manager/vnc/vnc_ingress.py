@@ -620,6 +620,15 @@ class VncIngress(VncCommon):
 
     def _create_lb(self, uid, name, ns_name, event):
         annotations = event['object']['metadata'].get('annotations')
+        ingress_controller = 'opencontrail'
+        if annotations:
+            if 'kubernetes.io/ingress.class' in annotations:
+                ingress_controller = annotations['kubernetes.io/ingress.class']
+        if ingress_controller != 'opencontrail':
+            self._logger.warning("%s - ingress controller is not opencontrail for ingress %s"
+                %(self._name, name))
+            self._delete_ingress(uid)
+            return
         lb = LoadbalancerKM.get(uid)
         if not lb:
             lb_obj = self._vnc_create_lb(uid, name, ns_name, annotations)
