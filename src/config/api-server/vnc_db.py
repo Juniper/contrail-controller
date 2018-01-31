@@ -629,27 +629,44 @@ class VncZkClient(object):
         if type_id is not None and type_id < self._TAG_TYPE_MAX_ID:
             return self._tag_type_id_allocator.read(type_id)
 
-    def alloc_tag_value_id(self, type_str, value_str):
-        if value_str is not None:
-            return self._tag_value_id_allocator.setdefault(
-                type_str,
-                IndexAllocator(
-                    self._zk_client,
-                    self._tag_value_id_alloc_path % type_str,
-                    self._TAG_VALUE_MAX_ID,
-                ),
-            ).alloc(value_str)
+    def alloc_tag_value_id(self, type_str, fq_name_str, id=None):
+        tag_value_id_allocator = self._tag_value_id_allocator.setdefault(
+            type_str,
+            IndexAllocator(
+                self._zk_client,
+                self._tag_value_id_alloc_path % type_str,
+                self._TAG_VALUE_MAX_ID,
+            ),
+        )
+        # If ID provided, it's a notify allocation, just lock allocated ID in
+        # memory
+        if id is not None:
+            if tag_value_id_allocator.read(id) is not None:
+                tag_value_id_allocator.set_in_use(id)
+                return id
+        elif fq_name_str is not None:
+            return tag_value_id_allocator.alloc(fq_name_str)
 
-    def free_tag_value_id(self, type_str, value_id):
-        if value_id is not None and value_id < self._TAG_VALUE_MAX_ID:
-            self._tag_value_id_allocator.setdefault(
-                type_str,
-                IndexAllocator(
-                    self._zk_client,
-                    self._tag_value_id_alloc_path % type_str,
-                    self._TAG_VALUE_MAX_ID,
-                ),
-            ).delete(value_id)
+    def free_tag_value_id(self, type_str, id, fq_name_str, notify=False):
+        tag_value_id_allocator = self._tag_value_id_allocator.setdefault(
+            type_str,
+            IndexAllocator(
+                self._zk_client,
+                self._tag_value_id_alloc_path % type_str,
+                self._TAG_VALUE_MAX_ID,
+            ),
+        )
+        if id is not None and id < self._TAG_VALUE_MAX_ID:
+            # If tag value associated to the allocated ID does not correpond to
+            # freed tag value, keep zookeeper lock
+            if fq_name_str != tag_value_id_allocator.read(id):
+                return
+            if notify:
+                # If notify, the ZK allocation already removed, just remove
+                # lock in memory
+                tag_value_id_allocator.reset_in_use(id)
+            else:
+                tag_value_id_allocator.delete(id)
 
     def get_tag_value_from_id(self, type_str, value_id):
         if value_id is not None and value_id < self._TAG_VALUE_MAX_ID:
