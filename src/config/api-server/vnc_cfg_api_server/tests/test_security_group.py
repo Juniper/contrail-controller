@@ -11,7 +11,6 @@ from cfgm_common.exceptions import BadRequest
 from cfgm_common.exceptions import PermissionDenied
 from vnc_api.vnc_api import SecurityGroup
 
-import unittest
 import test_case
 
 
@@ -49,7 +48,6 @@ class TestSecurityGroup(TestSecurityGroupBase):
                          mock_zk.get_sg_from_id(sg_id))
         self.assertGreaterEqual(sg_id, SGID_MIN_ALLOC)
 
-    @unittest.skip("2018-01-24 tagged as flaky, so skipping")
     def test_deallocate_sg_id(self):
         mock_zk = self._api_server._db_conn._zk_db
         sg_obj = SecurityGroup('%s-sg' % self.id())
