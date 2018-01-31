@@ -3564,6 +3564,34 @@ class VncApiServer(object):
                 %(invalid_chars))
     # end _post_validate
 
+    def validate_parent_type(self, obj_type, obj_dict):
+        parent_type = obj_dict.get('parent_type')
+        r_class = self.get_resource_class(obj_type)
+        allowed_parent_types = r_class.parent_types
+        if parent_type:
+            if  parent_type not in allowed_parent_types:
+                raise cfgm_common.exceptions.HttpError(
+                    400, 'Invalid parent type: %s. Allowed types: %s' % (
+                        parent_type, allowed_parent_types))
+        elif (len(allowed_parent_types) > 1 and
+              'config-root' not in allowed_parent_types):
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Missing parent type: %s. Allowed types: %s' % (
+                    parent_type, allowed_parent_types))
+        elif len(allowed_parent_types) == 1:
+            parent_type = allowed_parent_types[0]
+        if parent_type in ('config-root', None):
+            if len(obj_dict['fq_name']) != 1:
+                raise cfgm_common.exceptions.HttpError(
+                    400, 'Invalid fq-name of an object with no parent: %s' % (
+                    obj_dict['fq_name']))
+        elif len(obj_dict['fq_name']) < 2:
+            raise cfgm_common.exceptions.HttpError(
+                400, 'Invalid fq-name for object with parent_type %s: %s' % (
+                parent_type, obj_dict['fq_name']))
+    # end validate_parent_type
+
+
     def _post_common(self, obj_type, obj_dict):
         self._ensure_services_conn(
             'http_post', obj_type, obj_fq_name=obj_dict.get('fq_name'))
@@ -3582,6 +3610,7 @@ class VncApiServer(object):
         except NoIdError:
             pass
 
+        self.validate_parent_type(obj_type, obj_dict)
         # Ensure object has at least default permissions set
         self._ensure_id_perms_present(None, obj_dict)
         self._ensure_perms2_present(obj_type, None, obj_dict,
