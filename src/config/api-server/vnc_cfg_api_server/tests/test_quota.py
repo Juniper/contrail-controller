@@ -30,6 +30,7 @@ class TestQuota(test_case.ApiServerTestCase):
         super(TestQuota, self).__init__(*args, **kwargs)
         self._port_quota = 3
         self._fip_quota = 3
+        self._fip_pool_quota = 3
 
     @classmethod
     def setUpClass(cls, *args, **kwargs):
@@ -110,6 +111,56 @@ class TestQuota(test_case.ApiServerTestCase):
         self.assertEqual(result['ok'], self._fip_quota)
         self.assertEqual(result['exception'], 1)
     # end test_create_fip_with_quota_in_parallels
+
+    def test_create_fip_pools_with_quota_in_parallels(self):
+        proj_name = 'admin' + self.id()
+        kwargs = {'quota':{'floating_ip_pool': self._fip_pool_quota}}
+        project = Project(proj_name, **kwargs)
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-ext-%s' %(self.id()), project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        fip_pool = []
+        for i in xrange(self._fip_pool_quota+1):
+            fip_pool.append(FloatingIpPool(str(uuid.uuid4()), parent_obj=vn))
+            fip_pool[i].uuid = fip_pool[i].name
+        result = {'ok': 0, 'exception': 0}
+        def create_fip_pool(fip_pool):
+            try:
+                self._vnc_lib.floating_ip_pool_create(fip_pool)
+            except OverQuota:
+                result['exception'] +=1
+                return
+            result['ok'] +=1
+        threads_fip_pool = [gevent.spawn(create_fip_pool, fip_pool[i])
+                                   for i in xrange(self._fip_pool_quota+1)]
+        gevent.joinall(threads_fip_pool)
+        self.assertEqual(result['ok'], self._fip_pool_quota)
+        self.assertEqual(result['exception'], 1)
+    # end test_create_fip_pool_with_quota_in_parallels
+
+    def test_create_fip_pools_update_quota_create_fip_pool_negative(self):
+        proj_name = 'admin' + self.id()
+        project = Project(proj_name)
+        self._vnc_lib.project_create(project)
+        vn = VirtualNetwork('vn-ext-%s' %(self.id()), project)
+        vn.set_router_external(True)
+        self._vnc_lib.virtual_network_create(vn)
+        for i in xrange(self._fip_pool_quota):
+            fip_pool_obj = FloatingIpPool(str(uuid.uuid4()), parent_obj=vn)
+            fip_pool_obj.uuid = fip_pool_obj.name
+            self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
+
+        # update project quota to resource count in db
+        quota = {'floating_ip_pool': self._fip_pool_quota}
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+
+        # create fip pool should fail with OverQuota error
+        fip_pool_obj_err = FloatingIpPool(str(uuid.uuid4()), parent_obj=vn)
+        with ExpectedException(OverQuota) as e:
+            self._vnc_lib.floating_ip_pool_create(fip_pool_obj_err)
+    # end test_create_fip_pools_update_quota_create_fip_pool_negative
 
     def test_update_quota_and_create_resource_negative(self):
         proj_name = 'admin' + self.id()

@@ -962,8 +962,8 @@ class VncApiServer(object):
         def stateful_delete():
             get_context().set_state('PRE_DBE_DELETE')
 
-            proj_id = r_class.get_project_id_for_resource(read_result, db_conn)
-
+            proj_id = r_class.get_project_id_for_resource(read_result, obj_type,
+                                                          db_conn)
             (ok, del_result) = r_class.pre_dbe_delete(
                     id, read_result, db_conn)
             if not ok:

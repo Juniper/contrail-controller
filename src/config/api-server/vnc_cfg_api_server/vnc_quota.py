@@ -88,6 +88,27 @@ class QuotaHelper(object):
         return True, quota_count
 
     @classmethod
+    def get_floating_ip_pool_count(cls, db_conn, proj_uuid):
+
+        (ok, vn_list, _) = db_conn.dbe_list(
+                'virtual_network', parent_uuids=[proj_uuid],
+                is_detail=False)
+        if not ok:
+            return (False, (500, 'Internal error : Failed to read '
+                            'virtual network resource list'))
+        quota_count = 0
+        for vn_dict in vn_list:
+            (ok, fip_pool_list, _) = db_conn.dbe_list(
+                    'floating_ip_pool', parent_uuids=[vn_dict.get('uuid')],
+                    is_count=True)
+            if not ok:
+                return (False, (500, 'Internal error : Failed to read '
+                                'floating ip pool resource list'))
+            quota_count += fip_pool_list
+
+        return True, quota_count
+
+    @classmethod
     def get_resource_count(cls, db_conn, obj_type, proj_uuid=None):
 
         if obj_type+'s' in Project.children_fields:
@@ -99,11 +120,17 @@ class QuotaHelper(object):
                 return (False, (500, 'Internal error : Failed to read current '
                                 'resource count'))
         elif obj_type == 'security_group_rule':
-                ok, result = cls.get_security_group_rule_count(
-                        db_conn, proj_uuid)
-                if not ok:
-                    return (ok, result)
-                quota_count = result
+            ok, result = cls.get_security_group_rule_count(
+                    db_conn, proj_uuid)
+            if not ok:
+                return (ok, result)
+            quota_count = result
+        elif obj_type == 'floating_ip_pool':
+            ok, result = cls.get_floating_ip_pool_count(
+                    db_conn, proj_uuid)
+            if not ok:
+                return (ok, result)
+            quota_count = result
         else:
             (ok, res_list, _) = db_conn.dbe_list(obj_type,
                                               back_ref_uuids=[proj_uuid])
