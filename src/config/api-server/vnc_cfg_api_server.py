@@ -583,9 +583,15 @@ class VncApiServer(object):
                 if not self.quota_counter.get(path):
                     # Init quota counter
                     path_prefix = self._path_prefix + proj_uuid
-                    QuotaHelper._zk_quota_counter_init(
-                            path_prefix, {obj_type: quota_limit}, proj_uuid,
-                               self._db_conn, self.quota_counter)
+                    try:
+                        QuotaHelper._zk_quota_counter_init(
+                                path_prefix, {obj_type: quota_limit}, proj_uuid,
+                                self._db_conn, self.quota_counter)
+                    except NoIdError:
+                        msg = "Error in initializing quota "\
+                              "Internal error : Failed to read resource count"
+                        return (False, (404, msg))
+
                 (ok, result) = QuotaHelper.verify_quota_and_create_resource(
                                           db_conn, obj_dict, obj_type, obj_ids,
                                           quota_limit, self.quota_counter[path])
@@ -634,8 +640,15 @@ class VncApiServer(object):
             proj_id = obj_dict['uuid']
             quota_dict = obj_dict.get('quota')
             path_prefix = self._path_prefix + proj_id
-            QuotaHelper._zk_quota_counter_init(path_prefix, quota_dict, proj_id,
-                                               db_conn, self.quota_counter)
+            if quota_dict:
+                try:
+                    QuotaHelper._zk_quota_counter_init(path_prefix, quota_dict,
+                                                       proj_id, db_conn,
+                                                       self.quota_counter)
+                except NoIdError:
+                    err_msg = "Error in initializing quota "\
+                              "Internal error : Failed to read resource count"
+                    self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
         rsp_body = {}
         rsp_body['name'] = name
@@ -902,9 +915,14 @@ class VncApiServer(object):
                 proj_id = obj_dict['uuid']
                 quota_dict = obj_dict['quota']
                 path_prefix = self._path_prefix + proj_id
-                QuotaHelper._zk_quota_counter_update(
-                           path_prefix, quota_dict, proj_id, self._db_conn,
-                           self.quota_counter)
+                try:
+                    QuotaHelper._zk_quota_counter_update(
+                               path_prefix, quota_dict, proj_id, self._db_conn,
+                               self.quota_counter)
+                except NoIdError:
+                        msg = "Error in initializing quota "\
+                              "Internal error : Failed to read resource count"
+                        self.config_log(msg, level=SandeshLevel.SYS_ERR)
             if not ok:
                 return (ok, result)
 
@@ -926,6 +944,19 @@ class VncApiServer(object):
             result = (500, err_msg)
         if not ok:
             undo_update(result)
+            # Revert changes made to quota counter by using DB quota dict
+            if resource_type == 'project' and 'quota' in req_obj_dict:
+                proj_id = read_result['uuid']
+                quota_dict = read_result.get('quota') or None
+                path_prefix = self._path_prefix + proj_id
+                try:
+                    QuotaHelper._zk_quota_counter_update(
+                               path_prefix, quota_dict, proj_id, self._db_conn,
+                               self.quota_counter)
+                except NoIdError:
+                    err_msg = "Error in rolling back quota count on undo "\
+                              "Internal error : Failed to read resource count"
+                    self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
             code, msg = result
             raise cfgm_common.exceptions.HttpError(code, msg)
 
@@ -1068,7 +1099,8 @@ class VncApiServer(object):
         def stateful_delete():
             get_context().set_state('PRE_DBE_DELETE')
 
-            proj_id = r_class.get_project_id_for_resource(read_result, db_conn)
+            proj_id = r_class.get_project_id_for_resource(read_result, db_conn,
+          						  db_conn)
 
             (ok, del_result) = r_class.pre_dbe_delete(id, read_result, db_conn)
             if not ok:
@@ -1105,9 +1137,14 @@ class VncApiServer(object):
                         # quota counter obj not initialized
                         # in this api-server, Init counter
                         path_prefix = self._path_prefix + proj_id
-                        QuotaHelper._zk_quota_counter_init(
-                            path_prefix, {obj_type : quota_limit},
-                            proj_id, db_conn, self.quota_counter)
+                        try:
+                            QuotaHelper._zk_quota_counter_init(
+                                path_prefix, {obj_type : quota_limit},
+                                proj_id, db_conn, self.quota_counter)
+                        except NoIdError:
+                            err_msg = "Error in initializing quota "\
+                                "Internal error : Failed to read resource count"
+                            self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
                         if db_conn._zk_db._zk_client.exists(path):
                             self.quota_counter[path] -= 1
                     quota_counter.append(self.quota_counter.get(path))
@@ -1636,9 +1673,14 @@ class VncApiServer(object):
                 raise cfgm_common.exceptions.HttpError(code, err_msg)
             if project.get('quota'):
                 path_prefix = self._path_prefix + project['uuid']
-                QuotaHelper._zk_quota_counter_init(
-                           path_prefix, project['quota'], project['uuid'],
-                           self._db_conn, self.quota_counter)
+                try:
+                    QuotaHelper._zk_quota_counter_init(
+                               path_prefix, project['quota'], project['uuid'],
+                               self._db_conn, self.quota_counter)
+                except NoIdError:
+                    err_msg = "Error in initializing quota "\
+                              "Internal error : Failed to read resource count"
+                    self.config_log(err_msg, level=SandeshLevel.SYS_ERR)
 
         # API/Permissions check
         # after db init (uses db_conn)
