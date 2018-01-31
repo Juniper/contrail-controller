@@ -156,6 +156,8 @@ class PhysicalRouterDM(DBBaseDM):
         if uuid not in cls._dict:
             return
         obj = cls._dict[uuid]
+        if obj.nc_handler_gl:
+            gevent.kill(obj.nc_handler_gl)
         if obj.is_vnc_managed() and obj.is_conf_sent():
             obj.config_manager.push_conf(is_delete=True)
             obj.config_manager.clear()
