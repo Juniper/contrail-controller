@@ -249,6 +249,8 @@ static bool NhDecode(const Agent *agent, const NextHop *nh, const PktInfo *pkt,
         if (out->intf_->type() == Interface::VM_INTERFACE) {
             //Local flow, pick destination interface
             //nexthop as reverse flow key
+            if (out->intf_->flow_key_nh() == NULL)
+                return false;
             out->nh_ = out->intf_->flow_key_nh()->id();
             out->vrf_ = static_cast<const InterfaceNH*>(nh)->GetVrf();
             const VmInterface *vm_port =
