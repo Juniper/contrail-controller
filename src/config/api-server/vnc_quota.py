@@ -76,20 +76,15 @@ class QuotaHelper(object):
     def get_security_group_rule_count(cls, db_conn, proj_uuid):
 
         (ok, res_list) = db_conn.dbe_list(
-                'security_group', [proj_uuid])
+                'security_group', parent_uuids=[proj_uuid], is_detail=True)
         if not ok:
             return (False, (500, 'Internal error : Failed to read '
                             'security_group resource list'))
         quota_count = 0
-        for res in res_list:
-            uuid = {'uuid' :res[1]}
-            ok, result = db_conn.dbe_read('security_group', uuid)
-            if not ok:
-                return ok, result
-            sg_dict = result
+        for sg_dict in res_list:
             if sg_dict['id_perms'].get('user_visible', True) is not False:
                 sge = sg_dict.get('security_group_entries') or {}
-                quota_count = len(sge.get('policy_rule') or [])
+                quota_count += len(sge.get('policy_rule') or [])
 
         return True, quota_count
 
