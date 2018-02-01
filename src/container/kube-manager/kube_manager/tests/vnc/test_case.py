@@ -368,4 +368,4 @@ class KMTestCase(test_common.TestCase):
 
     @staticmethod
     def cluster_name():
-        return "test-cluster"
+        return "cluster"

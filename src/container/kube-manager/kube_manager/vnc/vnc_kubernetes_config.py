@@ -162,7 +162,7 @@ class VncKubernetesConfig(object):
         vn_name = cls.get_configured_pod_network_name()
         if vn_name:
             return vn_name
-        return "cluster-pod-network"
+        return cls.cluster_name() + '-default-pod-network'
 
     @classmethod
     def cluster_default_pod_network_fq_name(cls):
@@ -182,7 +182,7 @@ class VncKubernetesConfig(object):
         vn_name = cls.get_configured_service_network_name()
         if vn_name:
             return vn_name
-        return "cluster-service-network"
+        return cls.cluster_name() + '-default-service-network'
 
     @classmethod
     def cluster_default_service_network_fq_name(cls):
@@ -193,7 +193,7 @@ class VncKubernetesConfig(object):
     @classmethod
     def cluster_default_service_network_policy_fq_name(cls):
         np_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
-                      'cluster-service-default']
+                      cls.cluster_name() + '-default-service-np']
         return np_fq_name
 
     @classmethod
@@ -204,7 +204,7 @@ class VncKubernetesConfig(object):
     @classmethod
     def cluster_ip_fabric_policy_fq_name(cls):
         np_fq_name = [cls.cluster_domain(), cls.cluster_default_project_name(),
-                      'ip-fabric-default']
+                      cls.cluster_name() + '-default-ip-fabric-np']
         return np_fq_name
 
     @classmethod

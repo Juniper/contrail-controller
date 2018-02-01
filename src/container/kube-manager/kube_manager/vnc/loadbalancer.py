@@ -72,12 +72,10 @@ class ServiceLbManager(VncCommon):
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine_interface_device_owner("K8S:LOADBALANCER")
         sg_name = "-".join([vnc_kube_config.cluster_name(),
-            service_ns, 'default'])
+            service_ns, 'default-sg'])
         sg_obj = SecurityGroup(sg_name, proj_obj)
         vmi_obj.add_security_group(sg_obj)
-        sg_name = "-".join([vnc_kube_config.cluster_name(), service_ns, "sg"])
-        sg_obj = SecurityGroup(sg_name, proj_obj)
-        vmi_obj.add_security_group(sg_obj)
+        vmi_obj.port_security_enabled = True
         try:
             self.logger.debug("Create LB Interface %s " % vmi_obj.get_fq_name())
             self._vnc_lib.virtual_machine_interface_create(vmi_obj)
