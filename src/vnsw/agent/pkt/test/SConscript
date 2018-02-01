@@ -87,6 +87,8 @@ test_xml_packet_ut = AgentEnv.MakeTestCmdSrc(env, 'test_xml_packet_ut',
                                                 ],
                                                 pkt_test_suite)
 
+test_port_allocator = AgentEnv.MakeTestCmd(env, 'test_port_allocator',
+                                           pkt_test_suite)
 flaky_test = env.TestSuite('agent-flaky-test', pkt_flaky_test_suite)
 env.TestSuite('agent:pkt-flaky-test', pkt_flaky_test_suite)
 env.Alias('controller/src/vnsw/agent/pkt:flaky_test', flaky_test)

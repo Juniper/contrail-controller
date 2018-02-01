@@ -110,7 +110,7 @@ static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
                                           fixed_ip_addr, dir,
                                           fip->port_mappings_enable(),
                                           src_port_map,
-                                          dst_port_map));
+                                          dst_port_map, false));
             if (addr.is_v4()) {
                 data->floating_ip_list_.v4_count_++;
             } else {
@@ -120,6 +120,21 @@ static bool BuildFloatingIpVnVrf(Agent *agent, VmInterfaceConfigData *data,
         return true;
     }
     return false;
+}
+
+static void AddFabricFloatingIp(Agent *agent, VmInterfaceConfigData *data) {
+    if (data->addr_ == Ip4Address(0)) {
+        return;
+    }
+
+    VmInterface::FloatingIp::PortMap src_port_map;
+    VmInterface::FloatingIp::PortMap dst_port_map;
+    data->floating_ip_list_.list_.insert
+        (VmInterface::FloatingIp(agent->router_id(), 
+                                 agent->fabric_policy_vrf_name(),
+                                 nil_uuid(), data->addr_,
+                                 VmInterface::FloatingIp::DIRECTION_BOTH,
+                                 false, src_port_map, dst_port_map, true));
 }
 
 // Build one Floating IP entry for a virtual-machine-interface
@@ -426,6 +441,11 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
         if (rule.vlan_tag == 0 && rule.protocol == "" &&
             rule.service_chain_address == "") {
             data->vrf_name_ = vrf_node->name();
+            const autogen::RoutingInstance *ri =
+                static_cast<autogen::RoutingInstance *>(vrf_node->GetObject());
+            if (ri->fabric_snat()) {
+                AddFabricFloatingIp(agent, data);
+            }
         } else {
             if (!rule.service_chain_address.size() &&
                 !rule.ipv6_service_chain_address.size()) {

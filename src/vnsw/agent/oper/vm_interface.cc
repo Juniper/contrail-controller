@@ -1488,7 +1488,7 @@ VmInterface::FloatingIp::FloatingIp() :
     ListEntry(), VmInterfaceState(), floating_ip_(), vn_(NULL),
     vrf_(NULL, this), vrf_name_(""), vn_uuid_(),
     fixed_ip_(), direction_(DIRECTION_BOTH), port_map_enabled_(false),
-    src_port_map_(), dst_port_map_(), ethernet_tag_(0) {
+    src_port_map_(), dst_port_map_(), ethernet_tag_(0), port_nat_(false) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
@@ -1498,7 +1498,7 @@ VmInterface::FloatingIp::FloatingIp(const FloatingIp &rhs) :
     vrf_name_(rhs.vrf_name_), vn_uuid_(rhs.vn_uuid_), fixed_ip_(rhs.fixed_ip_),
     direction_(rhs.direction_), port_map_enabled_(rhs.port_map_enabled_),
     src_port_map_(rhs.src_port_map_), dst_port_map_(rhs.dst_port_map_),
-    ethernet_tag_(rhs.ethernet_tag_) {
+    ethernet_tag_(rhs.ethernet_tag_), port_nat_(rhs.port_nat_) {
 }
 
 VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
@@ -1508,11 +1508,13 @@ VmInterface::FloatingIp::FloatingIp(const IpAddress &addr,
                                     Direction direction,
                                     bool port_map_enabled,
                                     const PortMap &src_port_map,
-                                    const PortMap &dst_port_map) :
+                                    const PortMap &dst_port_map,
+                                    bool port_nat) :
     ListEntry(), VmInterfaceState(),floating_ip_(addr), vn_(NULL),
     vrf_(NULL, this), vrf_name_(vrf), vn_uuid_(vn_uuid), fixed_ip_(fixed_ip),
     direction_(direction), port_map_enabled_(port_map_enabled),
-    src_port_map_(src_port_map), dst_port_map_(dst_port_map), ethernet_tag_(0) {
+    src_port_map_(src_port_map), dst_port_map_(dst_port_map), ethernet_tag_(0),
+    port_nat_(port_nat) {
 }
 
 VmInterface::FloatingIp::~FloatingIp() {
@@ -1550,6 +1552,10 @@ bool VmInterface::FloatingIp::port_map_enabled() const {
 
 uint32_t VmInterface::FloatingIp::PortMappingSize() const {
     return src_port_map_.size();
+}
+
+bool VmInterface::FloatingIp::port_nat() const {
+    return port_nat_;
 }
 
 int32_t VmInterface::FloatingIp::GetSrcPortMap(uint8_t protocol,
@@ -1602,7 +1608,7 @@ VmInterfaceState::Op VmInterface::FloatingIp::GetOpL3
 
 bool VmInterface::FloatingIp::AddL3(const Agent *agent,
                                     VmInterface *vmi) const {
-    if (vrf_.get() == NULL || vn_.get() == NULL)
+    if (vrf_.get() == NULL || vn_.get() == NULL || port_nat_)
         return false;
 
     fixed_ip_ = GetFixedIp(vmi);
@@ -1661,7 +1667,7 @@ VmInterfaceState::Op VmInterface::FloatingIp::GetOpL2
 
 bool VmInterface::FloatingIp::AddL2(const Agent *agent,
                                     VmInterface *vmi) const {
-    if (vrf_.get() == NULL || vn_.get() == NULL)
+    if (vrf_.get() == NULL || vn_.get() == NULL || port_nat_)
         return false;
 
     SecurityGroupList sg_id_list;

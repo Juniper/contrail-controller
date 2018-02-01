@@ -588,6 +588,8 @@ void AgentParam::ParseFlowArguments
                           "FLOWS.max_aggregates_per_session_endpoint");
     GetOptValue<uint16_t>(var_map, max_endpoints_per_session_msg_,
                           "FLOWS.max_endpoints_per_session_msg");
+    GetOptValue<uint16_t>(var_map, fabric_snat_hash_table_size_,
+                          "FLOWS.fabric_snat_hash_table_size");
 }
 
 void AgentParam::ParseDhcpRelayModeArguments
@@ -1170,6 +1172,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Maximum sessions            : " << max_sessions_per_aggregate_);
     LOG(DEBUG, "Maximum session aggregates  : " << max_aggregates_per_session_endpoint_);
     LOG(DEBUG, "Maximum session endpoints   : " << max_endpoints_per_session_msg_);
+    LOG(DEBUG, "Fabric SNAT hash table size : " << fabric_snat_hash_table_size_);
 
     if (agent_mode_ == VROUTER_AGENT)
         LOG(DEBUG, "Agent Mode                  : Vrouter");
@@ -1357,7 +1360,8 @@ AgentParam::AgentParam(bool enable_flow_options,
         mac_learning_update_tokens_(Agent::kMacLearningDefaultTokens),
         mac_learning_delete_tokens_(Agent::kMacLearningDefaultTokens),
         min_aap_prefix_len_(Agent::kMinAapPrefixLen),
-        vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval) {
+        vmi_vm_vn_uve_interval_(Agent::kDefaultVmiVmVnUveInterval),
+        fabric_snat_hash_table_size_(Agent::kFabricSnatTableSize) {
 
     uint32_t default_pkt0_tx_buffers = Agent::kPkt0TxBufferCount;
     uint32_t default_stale_interface_cleanup_timeout = Agent::kDefaultStaleInterfaceCleanupTimeout;
@@ -1371,6 +1375,7 @@ AgentParam::AgentParam(bool enable_flow_options,
     uint32_t default_mac_learning_add_tokens = Agent::kMacLearningDefaultTokens;
     uint32_t default_mac_learning_update_tokens = Agent::kMacLearningDefaultTokens;
     uint32_t default_mac_learning_delete_tokens = Agent::kMacLearningDefaultTokens;
+    uint16_t default_fabric_snat_table_size = Agent::kFabricSnatTableSize;
 
     // Set common command line arguments supported
     boost::program_options::options_description generic("Generic options");
@@ -1576,6 +1581,8 @@ AgentParam::AgentParam(bool enable_flow_options,
              "Maximum number of Session Aggregates per SessionEndpoint Entry")
             ("FLOWS.max_endpoints_per_session_msg", opt::value<uint16_t>()->default_value(Agent::kMaxSessionEndpoints),
              "Maximum number of SessionEnpoint entries per SessionEndpointObject")
+            ("FLOWS.fabric_snat_hash_table_size", opt::value<uint16_t>()->default_value(default_fabric_snat_table_size),
+             "Size of Port NAT hash table")
             ;
         options_.add(flow);
         config_file_options_.add(flow);

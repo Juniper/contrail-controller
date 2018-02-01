@@ -309,6 +309,8 @@ void FlowTable::DeleteInternal(FlowEntry *fe, uint64_t time,
     }
     fe->set_reverse_flow_entry(NULL);
 
+    ReleasePort(fe, true);
+
     DeleteFlowInfo(fe, params);
     DeleteKSync(fe);
 
@@ -505,6 +507,15 @@ void FlowTable::RecomputeFlow(FlowEntry *flow) {
 // must be deleted
 void FlowTable::DeleteMessage(FlowEntry *flow) {
     DeleteUnLocked(true, flow, flow->reverse_flow_entry());
+}
+
+void FlowTable::ReleasePort(FlowEntry *flow, bool evict) {
+    if (flow->allocated_port() == 0) {
+        return;
+    }
+
+    PortTableManager *pm = agent_->pkt()->get_flow_proto()->port_table_manager();
+    pm->Free(flow->key(), flow->allocated_port(), evict);
 }
 
 void FlowTable::EvictFlow(FlowEntry *flow, FlowEntry *reverse_flow,

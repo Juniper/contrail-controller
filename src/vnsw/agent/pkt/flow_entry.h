@@ -10,6 +10,7 @@
 #include <boost/intrusive/list.hpp>
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
+#include <tbb/recursive_mutex.h>
 #include <base/util.h>
 #include <net/address.h>
 #include <db/db_table_walker.h>
@@ -346,7 +347,7 @@ struct FlowData {
     std::string vm_cfg_name;
     uint32_t acl_assigned_vrf_index_;
     uint32_t qos_config_idx;
-
+    uint16_t allocated_port_;
     // IMPORTANT: Keep this structure assignable. Assignment operator is used in
     // FlowEntry::Copy() on this structure
 };
@@ -731,6 +732,9 @@ class FlowEntry {
     void FillUveVnAceInfo(FlowUveVnAcePolicyInfo *info) const;
     bool IsClientFlow();
     bool IsServerFlow();
+    uint16_t allocated_port() {
+        return data_.allocated_port_;
+    }
 private:
     friend class FlowTable;
     friend class FlowEntryFreeList;
@@ -824,4 +828,207 @@ private:
 void intrusive_ptr_add_ref(FlowEntry *fe);
 void intrusive_ptr_release(FlowEntry *fe);
 
+//A bound source port could be reused across different
+//destination IP address, Port class holds a list of
+//destination IP which have used this particular source
+//port
+class Port {
+public:
+    Port() :
+        port_(0) {}
+    Port(uint16_t port) : port_(port) {}
+    ~Port() {}
+
+    uint16_t port() const {
+        return port_;
+    }
+
+    virtual uint16_t Bind() = 0;
+protected:
+    uint16_t port_;
+};
+
+class TcpPort : public Port {
+public:
+    TcpPort(boost::asio::io_service &io, uint16_t port):
+        Port(port), socket_(io) {}
+    ~TcpPort();
+
+    virtual uint16_t Bind();
+private:
+    boost::asio::ip::tcp::socket socket_;
+};
+
+class UdpPort : public Port {
+public:
+    UdpPort(boost::asio::io_service &io, uint16_t port):
+        Port(port), socket_(io) {}
+    ~UdpPort();
+
+    virtual uint16_t Bind();
+private:
+    boost::asio::ip::udp::socket socket_;
+};
+
+//Given a flow key gives the port used
+//This would fail on first attempt or if the
+//flow has been idle for long time
+class PortCacheEntry {
+public:
+    PortCacheEntry(const FlowKey &key,
+                   const uint16_t port):
+        key_(key), port_(port), stale_(false) {}
+
+    const FlowKey& key() const {
+        return key_;
+    }
+
+    uint16_t port() const {
+        return port_;
+    }
+
+    void set_stale(bool stale) const {
+        stale_ = stale;
+    }
+
+    void MarkDelete() const;
+    bool operator<(const PortCacheEntry &rhs) const;
+    bool CanBeAged(uint64_t current_time, uint64_t timeout) const;
+private:
+    FlowKey  key_;
+    uint16_t port_;
+    mutable bool stale_;
+    mutable uint64_t delete_time_;
+};
+
+class PortTable;
+
+//Maintain a cache table which would be used to check
+//if a flow prexisted and reuse the port if yes
+class PortCacheTable {
+public:
+    static const uint64_t kCacheAging = 1000;
+    static const uint64_t kAgingTimeout = 1000 * 1000 * 600; //10 minutes
+
+    typedef std::set<PortCacheEntry> PortCacheEntryList;
+    typedef std::map<uint16_t , PortCacheEntryList> PortCacheTree;
+
+    PortCacheTable(PortTable *table);
+    ~PortCacheTable();
+
+    void Add(const PortCacheEntry &cache_entry);
+    void Delete(const PortCacheEntry &cache_entry);
+    const PortCacheEntry* Find(const FlowKey &key) const;
+    void MarkDelete(const PortCacheEntry &cache_entry);
+
+    void set_timeout(uint64_t timeout) {
+        timeout_ = timeout;
+    }
+
+private:
+    void StartTimer();
+    void StopTimer();
+    bool Age();
+
+    PortCacheTree tree_;
+    PortTable *port_table_;
+    Timer* timer_;
+    uint16_t hash_;
+    uint64_t timeout_;
+};
+
+//Per protocol table to manage port allocation
+class PortTable {
+public:
+    const static uint8_t kInvalidPort = 0;
+
+    typedef boost::shared_ptr<Port> PortPtr;
+    typedef IndexVector<PortPtr> PortList;
+
+    typedef std::map<uint16_t, uint16_t> PortToBitIndexMap;
+    typedef std::pair<uint16_t, uint16_t> PortToBitIndexPair;
+
+    typedef IndexVector<FlowKey> PortBitMap;
+    typedef boost::shared_ptr<PortBitMap> PortBitMapPtr;
+    typedef std::vector<PortBitMapPtr> PortHashTable;
+
+    PortTable(Agent *agent, uint32_t bucket_size, uint8_t protocol);
+
+    uint16_t Allocate(const FlowKey &key);
+    void Free(const FlowKey &key, uint16_t port, bool release);
+    uint16_t HashFlowKey(const FlowKey &key);
+
+    Agent *agent() {
+        return agent_;
+    }
+
+    uint16_t port_count() const {
+        return port_count_;
+    }
+
+    void set_timeout(uint64_t timeout) {
+        cache_.set_timeout(timeout);
+    }
+    
+    tbb::recursive_mutex& mutex() {
+        return mutex_;
+    }
+
+    void UpdatePortConfig(uint16_t port_count, uint16_t range_start,
+                          uint16_t range_end);
+private:
+    Agent *agent_;
+    PortPtr CreatePortEntry(uint16_t port_no);
+    //Create a port with given port_no
+    void AddPort(uint16_t port_no);
+    void DeletePort(uint16_t port_no);
+    bool IsValidPort(uint16_t port, uint16_t count);
+    void DeleteAllFlow(uint16_t port, uint16_t index);
+
+    uint8_t protocol_;
+    //Holds freed bit entry in table for while so that
+    //flow could be re-established after aging
+    PortCacheTable cache_;
+
+    //Max no of hash entries, higher the number
+    //lesser the chance of clash. Hash would be derived based on
+    //destination IP and port
+    uint16_t hash_table_size_;
+
+    //A Given a hash holds a list of used port numbers
+    //Free Bit index is to be used in Port tree to get actual port value
+    PortHashTable hash_table_;
+
+    //Mapping from bit vector offset to actual port number
+    PortList port_list_;
+
+    //Mapping from port to bit index for easier auditing on config
+    //change
+    PortToBitIndexMap port_to_bit_index_;
+
+    //Number of port that agent can bind on
+    uint16_t port_count_;
+    uint16_t range_start_;
+    uint16_t range_end_;
+    tbb::recursive_mutex mutex_;
+};
+
+class PortTableManager {
+public:
+    typedef boost::shared_ptr<PortTable> PortTablePtr;
+    PortTableManager(Agent *agent, uint16_t hash_table_size);
+    ~PortTableManager();
+
+    uint16_t Allocate(const FlowKey &key);
+    void Free(const FlowKey &key, uint16_t port, bool release);
+
+    void UpdatePortConfig(uint8_t protocol, uint16_t port_count,
+                          uint16_t range_start, uint16_t range_end);
+    static void PortConfigHandler(Agent *agent, uint8_t proto,
+                                  uint16_t port_count,
+                                  uint16_t range_start, uint16_t range_end);
+private:
+    Agent *agent_;
+    PortTablePtr port_table_list_[IPPROTO_MAX];
+};
 #endif //  __AGENT_PKT_FLOW_ENTRY_H__
