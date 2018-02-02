@@ -270,6 +270,7 @@ public:
     const std::string &log_category() const { return log_category_; }
     const std::string &log_property_file() const { return log_property_file_; }
     const bool use_syslog() const { return use_syslog_; }
+    const bool use_session_syslog() const { return use_session_syslog_; }
     const std::string syslog_facility() const { return syslog_facility_; }
     const std::vector<std::string> collector_server_list() const {
         return collector_server_list_;
@@ -678,6 +679,7 @@ private:
     std::string log_level_;
     std::string log_category_;
     bool use_syslog_;
+    bool use_session_syslog_;
     std::string syslog_facility_;
     std::vector<std::string> collector_server_list_;
     std::map<std::string, std::map<std::string, std::string> > derived_stats_map_;
