@@ -215,6 +215,9 @@ void ContrailInitCommon::CreateInterfaces() {
     l2_table->AddBridgeReceiveRoute(agent()->local_vm_peer(),
                                     agent()->fabric_vrf_name(), 0,
                                     vhost->xconnect()->mac(), "");
+    l2_table->AddBridgeReceiveRoute(agent()->local_vm_peer(),
+                                    agent()->fabric_policy_vrf_name(), 0,
+                                    vhost->xconnect()->mac(), "");
 
     agent()->InitXenLinkLocalIntf();
     if (agent_param()->isVmwareMode()) {
@@ -225,6 +228,16 @@ void ContrailInitCommon::CreateInterfaces() {
                                   PhysicalInterface::ETHERNET, false,
                                   nil_uuid(), Ip4Address(0),
                                   physical_transport);
+
+        PhysicalInterfaceKey vmware_pk(agent_param()->vmware_physical_port());
+        const Interface *vmware_intf =
+            static_cast<const Interface *>(table->FindActiveEntry(&vmware_pk));
+        l2_table->AddBridgeReceiveRoute(agent()->local_vm_peer(),
+                                        agent()->fabric_vrf_name(), 0,
+                                        vmware_intf->mac(), "");
+        l2_table->AddBridgeReceiveRoute(agent()->local_vm_peer(),
+                                        agent()->fabric_policy_vrf_name(), 0,
+                                        vmware_intf->mac(), "");
     }
 
     agent()->set_router_id(agent_param()->vhost_addr());
