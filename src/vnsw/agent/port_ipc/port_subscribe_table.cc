@@ -105,8 +105,13 @@ void VmiSubscribeEntry::OnAdd(Agent *agent, PortSubscribeTable *table) const {
     if (agent->params()->isVmwareMode()) {
         tx_vlan_id_p = tx_vlan_id_;
         rx_vlan_id_p = rx_vlan_id_;
-        port = agent->params()->vmware_physical_port();
-        transport = Interface::TRANSPORT_VIRTUAL;
+        if (tx_vlan_id_p != VmInterface::kInvalidVlanId ||
+            rx_vlan_id_p != VmInterface::kInvalidVlanId) {
+            // In case of netns instance transport mode and
+            // parent interface shouldnt be set
+            port = agent->params()->vmware_physical_port();
+            transport = Interface::TRANSPORT_VIRTUAL;
+        }
     }
 
     if ((agent->vrouter_on_nic_mode() == true ||
