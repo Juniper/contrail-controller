@@ -114,7 +114,9 @@ int AgentInit::Start() {
     }
     else {
         LoggingInit(agent_param_->log_file(), agent_param_->log_file_size(),
-                    agent_param_->log_files_count(), agent_param_->use_syslog(),
+                    agent_param_->log_files_count(),
+                    agent_param_->use_syslog() ||
+                    agent_param->use_session_syslog(),
                     agent_param_->syslog_facility(), module_name,
                     SandeshLevelTolog4Level(
                         Sandesh::StringToLevel(agent_param_->log_level())));
@@ -166,7 +168,8 @@ void AgentInit::InitLoggingBase() {
                               agent_param_->log_category(),
                               agent_param_->log_level(),
                               false,
-                              agent_param_->log_flow());
+                              agent_param_->log_flow(),
+                              agent_param_->use_session_syslog());
     InitLogging();
 }
 
