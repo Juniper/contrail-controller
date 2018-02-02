@@ -142,6 +142,7 @@ public:
     }
     void UpdateOperStateOfSubIntf(const InterfaceTable *table);
     boost::optional<IfGuid> os_guid() const { return os_guid_; }
+    bool NeedDefaultOsOperStateDisabled(Agent *agent) const;
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;

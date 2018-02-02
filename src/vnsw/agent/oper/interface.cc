@@ -491,7 +491,11 @@ void Interface::GetOsParams(Agent *agent) {
     }
 
     if (transport_ != TRANSPORT_ETHERNET) {
-        os_oper_state_ = true;
+        if (agent->isVmwareMode()) {
+            os_oper_state_ = false;
+        } else {
+            os_oper_state_ = true;
+        }
         return;
     }
 
@@ -1328,6 +1332,14 @@ void Interface::UpdateOperStateOfSubIntf(const InterfaceTable *table) {
         }
     }
 }
+
+bool Interface::NeedDefaultOsOperStateDisabled(Agent *agent) const {
+    if ((transport_ != TRANSPORT_ETHERNET)  && agent->isVmwareMode()) {
+        return true;
+    }
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Map of VMI-UUID to VmiType
 /////////////////////////////////////////////////////////////////////////////
