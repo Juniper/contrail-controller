@@ -159,6 +159,13 @@ void SessionEndpointObject::LogUnrolled(std::string category,
             for (sessions_iter = local_ep_iter->second.sessionMap.begin();
                  sessions_iter != local_ep_iter->second.sessionMap.end();
                  ++sessions_iter) {
+                // If the flows in session are not logged in either direction
+                // and syslog not enabled for non SLO sessions dont print it
+                if ((!sessions_iter->second.forward_flow_info.__isset.logged_bytes
+                     && !sessions_iter->second.reverse_flow_info.__isset.logged_bytes)
+                     && !LoggingUseSyslog()) {
+                    continue;
+                }
                 Xbuf.clear();
                 Xbuf.str(std::string());
                 Xbuf << category << " [" << LevelToString(level) << "]: SessionData: ";
