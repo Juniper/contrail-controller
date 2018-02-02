@@ -1,0 +1,19 @@
+<!--
+ Copyright (c) 2017 Juniper Networks, Inc. All rights reserved.
+     -->
+<xsd:schema
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+<xsd:element name="configurable-ttls" type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-ttl"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-ttl',
+          'global-system-config', 'configurable-ttls', ['has'], 'optional',
+          'CRUD', 'ttls in hours for different stats tables.' -->
+
+<xsd:element name="analytics-tables" type="KeyValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+    MapProperty('analytics-tables', 'configurable-ttls', 'table-name',
+           'optional', 'CRUD', 'Dictionary with table name as key and ttl
+           as value') -->
+
+</xsd:schema>
