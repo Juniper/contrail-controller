@@ -41,7 +41,8 @@ else:
         pass
     elif (distname == 'debian' or distname == 'raspbian') and LooseVersion(version) >= LooseVersion('8'):
         pass
-    elif distname == 'centos' and LooseVersion(version) >= LooseVersion('7.0'):
+    elif (distname == 'centos' or distname == 'redhat') and \
+          (LooseVersion(version) >= LooseVersion('7.0')):
         subdirs += [
             'gperftools',
             'log4cplus',
