@@ -593,9 +593,10 @@ class VncZkClient(object):
     def alloc_vn_id(self, fq_name_str, id=None):
         # If ID provided, it's a notify allocation, just lock allocated ID in
         # memory
-        if id is not None and self.get_vn_from_id(id) is not None:
-            self._vn_id_allocator.set_in_use(id - VNID_MIN_ALLOC)
-            return id
+        if id is not None:
+            if self.get_vn_from_id(id) is not None:
+                self._vn_id_allocator.set_in_use(id - VNID_MIN_ALLOC)
+                return id
         elif fq_name_str is not None:
             return self._vn_id_allocator.alloc(fq_name_str) + VNID_MIN_ALLOC
 
@@ -621,9 +622,10 @@ class VncZkClient(object):
     def alloc_sg_id(self, fq_name_str, id=None):
         # If ID provided, it's a notify allocation, just lock allocated ID in
         # memory
-        if id is not None and self.get_sg_from_id(id) is not None:
-            self._vn_id_allocator.set_in_use(id)
-            return id
+        if id is not None:
+            if self.get_sg_from_id(id) is not None:
+                self._vn_id_allocator.set_in_use(id)
+                return id
         elif fq_name_str is not None:
             return self._sg_id_allocator.alloc(fq_name_str) + SGID_MIN_ALLOC
 
@@ -649,9 +651,10 @@ class VncZkClient(object):
     def alloc_tag_type_id(self, type_str, id=None):
         # If ID provided, it's a notify allocation, just lock allocated ID in
         # memory
-        if id is not None and self.get_tag_type_from_id(id) is not None:
-            self._tag_type_id_allocator.set_in_use(id)
-            return id
+        if id is not None:
+            if self.get_tag_type_from_id(id) is not None:
+                self._tag_type_id_allocator.set_in_use(id)
+                return id
         elif type_str is not None:
             return self._tag_type_id_allocator.alloc(type_str)
 
@@ -688,10 +691,11 @@ class VncZkClient(object):
         )
         # If ID provided, it's a notify allocation, just lock allocated ID in
         # memory
-        if id is not None and tag_value_id_allocator.read(id) is not None:
-            tag_value_id_allocator.set_in_use(id)
-            return id
-        if fq_name_str is not None:
+        if id is not None:
+            if tag_value_id_allocator.read(id) is not None:
+                tag_value_id_allocator.set_in_use(id)
+                return id
+        elif fq_name_str is not None:
             return tag_value_id_allocator.alloc(fq_name_str)
 
     def free_tag_value_id(self, type_str, id, fq_name_str, notify=False):
