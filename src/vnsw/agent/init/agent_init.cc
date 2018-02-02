@@ -166,7 +166,8 @@ void AgentInit::InitLoggingBase() {
                               agent_param_->log_category(),
                               agent_param_->log_level(),
                               false,
-                              agent_param_->log_flow());
+                              agent_param_->log_flow(),
+                              agent_param_->use_session_syslog());
     InitLogging();
 }
 

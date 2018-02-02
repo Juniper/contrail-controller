@@ -1303,7 +1303,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         log_file_(), log_files_count_(kLogFilesCount),
         log_file_size_(kLogFileSize),
         log_local_(false), log_flow_(false), log_level_(),
-        log_category_(), use_syslog_(false),
+        log_category_(), use_syslog_(false), use_session_syslog_(false),
         http_server_port_(), host_name_(),
         agent_stats_interval_(kAgentStatsInterval),
         flow_stats_interval_(kFlowStatsInterval),
@@ -1535,6 +1535,8 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Enable local logging of sandesh messages")
         ("DEFAULT.use_syslog", opt::bool_switch(&use_syslog_),
          "Enable logging to syslog")
+        ("DEFAULT.use_session_syslog", opt::bool_switch(&use_session_syslog_),
+         "Enable logging SLO session to syslog")
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
          "Syslog facility to receive log lines")
         ("DEFAULT.log_flow", opt::bool_switch(&log_flow_),
