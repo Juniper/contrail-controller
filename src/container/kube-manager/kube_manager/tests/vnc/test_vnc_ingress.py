@@ -63,7 +63,6 @@ class VncIngressTest(KMTestCase):
             self._delete_security_group(g['uuid'])
         super(VncIngressTest, self).tearDown()
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_ingress_with_default_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
 
@@ -85,14 +84,13 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_ingress_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         self.create_project(cluster_project)
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         pod_network_uuid = self._create_virtual_network(cluster_project)
         service_network_uuid = self._create_virtual_network( \
-                cluster_project, 'cluster-service-network')
+                cluster_project, 'cluster-default-service-network')
 
         ports, srv_meta = self._enqueue_add_service(namespace_name)
 
@@ -115,7 +113,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_ingress_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
@@ -136,7 +133,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_ingress_with_isolated_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
@@ -156,7 +152,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_ingress_with_custom_isolated_namespace_with_no_cluster_defined(self):
         custom_network = 'custom-pod-network'
         project = 'default'
@@ -182,7 +177,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_ingress_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         custom_network = 'custom-pod-network'
@@ -190,7 +184,7 @@ class VncIngressTest(KMTestCase):
         pod_network_uuid = self._create_virtual_network(cluster_project,
                                                     network=custom_network)
         service_network_uuid = self._create_virtual_network( \
-                cluster_project, 'cluster-service-network')
+                cluster_project, 'cluster-default-service-network')
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(
                 cluster_project, custom_network)
@@ -214,13 +208,12 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_loadbalancer_with_default_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
         pod_network_uuid = self._create_virtual_network(cluster_project)
         service_network_uuid = self._create_virtual_network( \
-                cluster_project, 'cluster-service-network')
+                cluster_project, 'cluster-default-service-network')
 
         ports, srv_meta = self._enqueue_add_loadbalancer(namespace_name)
         ingress_meta, ingress_uuid = self._enqueue_add_ingress(namespace_name)
@@ -241,7 +234,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_loadbalancer_with_default_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace()
 
@@ -260,7 +252,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_loadbalancer_with_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
@@ -284,7 +275,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_loadbalancer_with_isolated_namespace_with_no_cluster_defined(self):
         namespace_name, namespace_uuid = self._enqueue_add_namespace(
             isolated=True)
@@ -304,7 +294,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids, skip_vn=True)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_no_cluster_defined(self):
         custom_network = 'custom-pod-network'
         project = 'default'
@@ -330,7 +319,6 @@ class VncIngressTest(KMTestCase):
 
         self._assert_all_is_down(uuids)
 
-    @unittest.skip("will be enabled after rework on ingress SG.")
     def test_add_delete_loadbalancer_with_custom_isolated_namespace_with_cluster_defined(self):
         cluster_project = self._set_cluster_project()
         custom_network = 'custom-pod-network'
@@ -338,7 +326,7 @@ class VncIngressTest(KMTestCase):
         pod_network_uuid = self._create_virtual_network(cluster_project,
                                                     network=custom_network)
         service_network_uuid = self._create_virtual_network( \
-                cluster_project, 'cluster-service-network')
+                cluster_project, 'cluster-default-service-network')
         namespace_name, namespace_uuid = \
             self._enqueue_add_custom_isolated_namespace(cluster_project,
                                                         custom_network)
@@ -691,7 +679,7 @@ class VncIngressTest(KMTestCase):
         self.wait_for_all_tasks_done()
 
     def _create_virtual_network(self, project,
-                                network='cluster-pod-network'):
+                                network='cluster-default-pod-network'):
         proj_fq_name = ['default-domain', project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj = VirtualNetwork(

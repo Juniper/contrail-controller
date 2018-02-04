@@ -73,7 +73,6 @@ class VncTags(object):
         tag_uuid = TagKM.get_fq_name_to_uuid(
             self._construct_tag_fq_name(type, value))
         try:
-            #import pdb;pdb.set_trace()
             self._vnc_lib.tag_delete(id=tag_uuid)
 
             TagKM.delete(tag_uuid)
