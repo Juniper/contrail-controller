@@ -2346,6 +2346,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('physical-router-product-name', 'physical-router', 'required', 'CRUD',
               'Model name of the physical router (e.g juniper). Used by the device manager to select driver.') -->
 
+<xsd:element name="physical-router-serial-number" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-serial-number', 'physical-router', 'optional', 'CRUD',
+              'Serial number for the physical device that is used by device manager to identify the device during device discovery.') -->
+
 <xsd:element name="physical-router-vnc-managed" type="xsd:boolean"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('physical-router-vnc-managed', 'physical-router', 'optional', 'CRUD',
@@ -3512,4 +3517,132 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Property('layer2-control-word', 'virtual-network', 'optional', 'CRUD',
               'Enable/Disable adding control word to the Layer 2 encapsulation') -->
+
+<xsd:complexType name="PlaybookInfoType">
+    <xsd:all>
+        <xsd:element name="playbook-uri" type='xsd:string' required="true"
+                     description="uri to the playbook location on the file server"/>
+        <xsd:element name="vendor" type="xsd:string" required="true"
+                     description="Vendor name"/>
+        <xsd:element name="device-family" type="xsd:string" required="true"
+                     description="Device family name"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PlaybookInfoListType">
+    <xsd:element name="playbook-info" type='PlaybookInfoType' maxOcurrs="unbounded"/>
+</xsd:complexType>
+
+<xsd:element name="job-template" type="ifmap:IdentityType"/>
+
+<xsd:element name="global-system-config-job-template"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-job-template',
+             'global-system-config', 'job-template', ['has'], 'optional', 'CRUD',
+             'List of job templates supported by the system.') -->
+
+<xsd:element name="job-template-multi-device-job" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('job-template-multi-device-job', 'job-template', 'required', 'CRUD',
+              'if set to true, the "/execute-job" action url allows device list as additional parameter to run the job template on multiple device in one job') -->
+<xsd:element name="job-template-playbooks" type="PlaybookInfoListType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('job-template-playbooks', 'job-template', 'required', 'CRUD',
+              'List of vendor specific playbooks that achieve the same functionality on each vendor device. All the vendor specific playbooks listed here share the same input/output schema defined in the job template') -->
+<xsd:element name="job-template-input-schema" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('job-template-input-schema', 'job-template', 'optional', 'CRUD',
+              'JSON schema of the job input parameters which will be used to validate the job input json or generate UI form for user to enter the job parameters. This property stores the JSON schema content as string. Here is an example fo the image upgrade job template input schema:
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "title": "Image upgrade input",
+    "type": "object",
+    "properties": {
+        "image_uuid": {
+            "type": "string"
+        }
+    },
+    "required": ["image_uuid"]
+}') -->
+<xsd:element name="job-template-output-schema" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('job-template-output-schema', 'job-template', 'optional', 'CRUD',
+              'JSON schema of the job output that describes the output from the job and could be used by UI to render the output automatically. This property stores the JSON schema content as string.') -->
+
+<xsd:complexType name="AutonomousSystemsType">
+    <xsd:all>
+        <xsd:element name="asn" type="AutonomousSystemType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:complexType name="DeviceCredential">
+    <xsd:all>
+        <xsd:element name="credential" type="UserCredentials" required="true"/>
+        <xsd:element name="vendor" type="xsd:string" required="optional"/>
+        <xsd:element name="device-family" type="xsd:string" required="optional"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:complexType name="DeviceCredentialList">
+    <xsd:all>
+        <xsd:element name="device-credential" type="DeviceCredential" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="NamespaceType">
+     <xsd:restriction base="xsd:string">
+         <xsd:enumeration value="IPV4-CIDR"/>
+         <xsd:enumeration value="ASN"/>
+         <xsd:enumeration value="MAC_ADDR"/>
+     </xsd:restriction>
+</xsd:simpleType>
+<xsd:complexType name="NamespaceValue">
+    <xsd:choice>
+        <xsd:element name="ipv4-cidr" type="SubnetListType" required="optional"
+             description="Namespace as IPV4 CIDR addresses"/>
+        <xsd:element name="asn" type="AutonomousSystemsType" required="optional"
+             description="Namespace as Autonomous System Numbers"/>
+        <xsd:element name="mac-addr" type="MacAddressesType" required="optional"
+             description="Namespace as MAC addresses"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:element name="fabric" type="ifmap:IdentityType"/>
+
+<xsd:element name="global-system-config-fabric"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-fabric',
+             'global-system-config', 'fabric', ['has'], 'optional', 'CRUD',
+             'List of fabrics in the system. Each fabric is an administrative domain for all the network devices in one or multiple CLOS.') -->
+
+<xsd:element name="supported-fabric-annotations" type="KeyValuePairs"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('supported-fabric-annotations', 'global-system-config', 'optional', 'CRUD',
+              'List of supported annotations that can be used to annotate a Contrail Fabric. These annoations are used as directives, or hints to assign resources defined in namespaces to the network devices. For example, `igp-protocol: ospf` attribute could be used by the underlay provisioning playbook to choose which IGP protocol to use for the IP fabric.') -->
+
+<xsd:element name="fabric-physical-router"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('fabric-physical-router',
+             'fabric', 'physical-router', ['ref'], 'optional', 'CRUD',
+             'List of physical-routers that belongs to a fabric.') -->
+
+<xsd:element name="fabric-credentials" type="DeviceCredentialList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     ListProperty('fabric-credentials', 'fabric', 'optional', 'CRUD',
+              'List of device credentials to manage the network devices in the fabric.') -->
+
+<xsd:element name="fabric-namespace" type="ifmap:IdentityType"/>
+
+<xsd:element name="fabric-fabric-namespace"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('fabric-fabric-namespace', 'fabric', 'fabric-namespace', ['has'], 'optional', 'CRUD',
+             'list of fabric namespaces that define a set of resources that can be used to configure the network devices in the fabric.') -->
+
+<xsd:element name="fabric-namespace-type" type="NamespaceType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('fabric-namespace-type', 'fabric-namespace', 'optional', 'CRUD',
+              'Supported namespace types') -->
+<xsd:element name="fabric-namespace-value" type="NamespaceValue"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('fabric-namespace-value', 'fabric-namespace', 'optional', 'CRUD',
+              'namespace value of type defined by the namespace-type.') -->
+
 </xsd:schema>
