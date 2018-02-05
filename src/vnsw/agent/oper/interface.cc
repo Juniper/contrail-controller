@@ -32,6 +32,7 @@
 #include <oper/qos_config.h>
 #include <oper/ifmap_dependency_manager.h>
 #include <oper/tag.h>
+#include <oper/config_manager.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -102,21 +103,50 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req,
     return false;
 }
 
+bool InterfaceTable::InterfaceCommonProcessConfig(IFMapNode *node,
+                                                  DBRequest &req,
+                                                  const boost::uuids::uuid &u) {
+    InterfaceData *data = static_cast<InterfaceData *>(req.data.get());
+    IFMapNode *adj_node = agent()->config_manager()->
+        FindAdjacentIFMapNode(node, "logical-router");
+    if (adj_node) {
+        autogen::LogicalRouter *lr =
+            static_cast<autogen::LogicalRouter *>(adj_node->GetObject());
+        autogen::IdPermsType id_perms = lr->id_perms();
+        CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                       data->logical_router_uuid_);
+    }
+
+    return true;
+}
+
 bool InterfaceTable::ProcessConfig(IFMapNode *node, DBRequest &req,
         const boost::uuids::uuid &u) {
+    bool config_processed = false;
     if (strcmp(node->table()->Typename(), "physical-interface") == 0) {
-        return PhysicalInterfaceProcessConfig(node, req, u);
+        if (PhysicalInterfaceProcessConfig(node, req, u)) {
+            config_processed = true;
+        }
     }
 
     if (strcmp(node->table()->Typename(), "logical-interface") == 0) {
-        return LogicalInterfaceProcessConfig(node, req, u);
+        if (LogicalInterfaceProcessConfig(node, req, u)) {
+            config_processed = true;
+        }
     }
 
     if (strcmp(node->table()->Typename(), "virtual-machine-interface") == 0) {
-        return VmiProcessConfig(node, req, u);
+        if (VmiProcessConfig(node, req, u)) {
+            config_processed = true;
+        }
     }
 
-    return false;
+    //Interface type was identified, if not no need to fill common interface
+    //data.
+    if (config_processed) {
+        InterfaceCommonProcessConfig(node, req, u);
+    }
+    return config_processed;
 }
 
 std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
@@ -395,7 +425,8 @@ void InterfaceTable::CreateVhostReq() {
 // Interface Base Entry routines
 /////////////////////////////////////////////////////////////////////////////
 Interface::Interface(Type type, const uuid &uuid, const string &name,
-                     VrfEntry *vrf, bool state) :
+                     VrfEntry *vrf, bool state,
+                     const boost::uuids::uuid &logical_router_uuid) :
     type_(type), uuid_(uuid), name_(name),
     vrf_(vrf, this), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true),
@@ -404,7 +435,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
     l2_active_(true), id_(kInvalidIndex), dhcp_enabled_(true),
     dns_enabled_(true), mac_(), os_index_(kInvalidIndex), os_oper_state_(state),
     admin_state_(true), test_oper_state_(true), transport_(TRANSPORT_INVALID),
-    os_guid_() {
+    logical_router_uuid_(logical_router_uuid), os_guid_() {
 }
 
 Interface::~Interface() {
@@ -529,7 +560,7 @@ const InterfaceTable::UpdateFloatingIpFn &InterfaceTable::update_floatingip_cb()
 // Pkt Interface routines
 /////////////////////////////////////////////////////////////////////////////
 PacketInterface::PacketInterface(const std::string &name) :
-    Interface(Interface::PACKET, nil_uuid(), name, NULL, true) {
+    Interface(Interface::PACKET, nil_uuid(), name, NULL, true, nil_uuid) {
 }
 
 PacketInterface::~PacketInterface() {
