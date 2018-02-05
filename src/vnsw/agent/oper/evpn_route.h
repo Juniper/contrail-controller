@@ -5,13 +5,15 @@
 #ifndef vnsw_evpn_route_hpp
 #define vnsw_evpn_route_hpp
 
+class EvpnRoutingData;
+
 //////////////////////////////////////////////////////////////////
 //  EVPN
 /////////////////////////////////////////////////////////////////
 class EvpnAgentRouteTable : public AgentRouteTable {
 public:
     EvpnAgentRouteTable(DB *db, const std::string &name) :
-        AgentRouteTable(db, name) {
+        AgentRouteTable(db, name), routing_vrf_() {
     }
     virtual ~EvpnAgentRouteTable() { }
 
@@ -105,6 +107,11 @@ public:
                                  const IpAddress &ip_addr,
                                  uint32_t ethernet_tag,
                                  AgentRouteData *data);
+    void AddType5Route(const Peer *peer,
+                       const std::string &vrf_name,
+                       const IpAddress &ip_addr,
+                       uint32_t ethernet_tag,
+                       EvpnRoutingData *data);
 
     //Delete routines
     void DeleteOvsPeerMulticastRouteReq(const Peer *peer,
@@ -132,8 +139,12 @@ public:
                                        const MacAddress &mac,
                                        const IpAddress &ip_addr,
                                        uint32_t ethernet_tag);
+    //Provide routing evpn vrf for l2 evpn vrf.
+    void set_routing_vrf(VrfEntryRef vrf);
+    VrfEntryRef routing_vrf();
 
 private:
+    VrfEntryRef routing_vrf_;
     DISALLOW_COPY_AND_ASSIGN(EvpnAgentRouteTable);
     void AddOvsPeerMulticastRouteInternal(const Peer* peer,
                                           uint32_t vxlan_id,
@@ -172,6 +183,7 @@ public:
     }
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual uint32_t GetActiveLabel() const;
+    virtual bool ReComputePathDeletion(AgentPath *path);
 
     const MacAddress &mac() const {return mac_;}
     const IpAddress &ip_addr() const {return ip_addr_;}

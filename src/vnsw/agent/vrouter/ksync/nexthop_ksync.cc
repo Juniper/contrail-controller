@@ -111,6 +111,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         sip_ = *(tunnel->GetSip());
         dip_ = *(tunnel->GetDip());
         tunnel_type_ = tunnel->GetTunnelType();
+        dmac_ = tunnel->rewrite_dmac();
         break;
     }
 
@@ -824,7 +825,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             } 
             break;
 
-        case NextHop::TUNNEL :
+        case NextHop::TUNNEL : {
             encoder.set_nhr_type(NH_TUNNEL);
             encoder.set_nhr_tun_sip(htonl(sip_.to_v4().to_ulong()));
             encoder.set_nhr_tun_dip(htonl(dip_.to_v4().to_ulong()));
@@ -844,8 +845,13 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             } else {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
             }
+            std::vector<int8_t> rewrite_dmac;
+            for (size_t i = 0 ; i < dmac_.size(); i++) {
+                rewrite_dmac.push_back(dmac_[i]);
+            }
+            encoder.set_nhr_pbb_mac(rewrite_dmac);
             break;
-
+        }
         case NextHop::MIRROR :
             encoder.set_nhr_type(NH_TUNNEL);
             if (sip_.is_v4() && dip_.is_v4()) {

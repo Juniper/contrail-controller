@@ -101,7 +101,8 @@ VnEntry::VnEntry(Agent *agent, uuid id) :
     vxlan_id_(0), vnid_(0), active_vxlan_id_(0), bridging_(true),
     layer3_forwarding_(true), admin_state_(true), table_label_(0),
     enable_rpf_(true), flood_unknown_unicast_(false),
-    forwarding_mode_(Agent::L2_L3), mirror_destination_(false) {
+    forwarding_mode_(Agent::L2_L3), mirror_destination_(false),
+    vxlan_routing_vn_(false) {
 }
 
 VnEntry::~VnEntry() {
@@ -276,6 +277,12 @@ bool VnEntry::ChangeHandler(Agent *agent, const DBRequest *req) {
     if (slo_list_ != data->slo_list_) {
         slo_list_ = data->slo_list_;
     }
+
+    if (vxlan_routing_vn_ != data->vxlan_routing_vn_) {
+        vxlan_routing_vn_ = data->vxlan_routing_vn_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -919,6 +926,7 @@ VnData *VnTable::BuildData(IFMapNode *node) {
     VnData::VnIpamDataMap vn_ipam_data;
     std::string ipam_name;
     UuidList slo_list;
+    bool vxlan_routing_vn = false;
 
     // Find link with ACL / VRF adjacency
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
@@ -997,6 +1005,21 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                 vn_ipam_data.insert(VnData::VnIpamDataPair(ipam_name, ipam_data));
             }
         }
+        if (strcmp(adj_node->table()->Typename(), "logical-router") == 0) {
+            autogen::LogicalRouterVirtualNetwork *lr_vn_node =
+                dynamic_cast<autogen::LogicalRouterVirtualNetwork *>
+                (agent()->config_manager()->FindAdjacentIFMapNode(adj_node,
+                                           "logical-router-virtual-network"));
+            if (!lr_vn_node) {
+                autogen::LogicalRouterVirtualNetworkType data =
+                    lr_vn_node->data();
+                if (data.logical_router_virtual_network_type ==
+                    "InternalVirtualNetwork")
+                {
+                    vxlan_routing_vn = true;
+                }
+            }
+        }
     }
 
     uuid mirror_acl_uuid = agent()->mirror_cfg_table()->GetMirrorUuid(node->name());
@@ -1019,7 +1042,8 @@ VnData *VnTable::BuildData(IFMapNode *node) {
                       GetCfgVnId(cfg), cfg->id_perms().enable, enable_rpf,
                       flood_unknown_unicast, forwarding_mode,
                       qos_config_uuid, mirror_destination, pbb_etree_enable,
-                      pbb_evpn_enable, layer2_control_word, slo_list);
+                      pbb_evpn_enable, layer2_control_word, slo_list,
+                      vxlan_routing_vn);
 }
 
 bool VnTable::IFNodeToUuid(IFMapNode *node, boost::uuids::uuid &u) {
@@ -1076,7 +1100,8 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                               vxlan_id, vn_id, admin_state, enable_rpf,
                               flood_unknown_unicast, Agent::NONE, nil_uuid(),
                               mirror_destination, pbb_etree_enable,
-                              pbb_evpn_enable, layer2_control_word, empty_list);
+                              pbb_evpn_enable, layer2_control_word, empty_list,
+                              false);
  
     req.data.reset(data);
     Enqueue(&req);

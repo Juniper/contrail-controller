@@ -2299,6 +2299,8 @@ struct NextHopObjectLogInfo {
     17: optional string tunnel_type;
     /** Index of next hop entry */
     18: i32 id;
+    /** Rewrite dmac for inner payload */
+    19: string rewrite_dmac;
 }
 
 /**

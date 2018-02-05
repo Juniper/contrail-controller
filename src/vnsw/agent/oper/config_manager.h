@@ -108,6 +108,7 @@ public:
     void AddHealthCheckServiceNode(IFMapNode *node);
     void AddBridgeDomainNode(IFMapNode *node);
     void AddPolicySetNode(IFMapNode *node);
+    void AddProjectNode(IFMapNode *node);
     uint32_t PhysicalDeviceVnCount() const;
     bool CanUseNode(IFMapNode *node);
     bool CanUseNode(IFMapNode *node, IFMapAgentTable *table);
@@ -151,6 +152,7 @@ private:
     std::auto_ptr<ConfigManagerNodeList> network_ipam_list_;
     std::auto_ptr<ConfigManagerNodeList> virtual_dns_list_;
     std::auto_ptr<ConfigManagerNodeList> global_system_config_list_;
+    std::auto_ptr<ConfigManagerNodeList> project_list_;
 
     uint64_t process_config_count_[kMaxTimeout + 1];
     boost::scoped_ptr<ConfigHelper> helper_;

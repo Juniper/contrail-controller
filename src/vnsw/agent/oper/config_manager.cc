@@ -34,6 +34,7 @@
 #include <oper/forwarding_class.h>
 #include<oper/qos_queue.h>
 #include <oper/bridge_domain.h>
+#include <oper/project_config.h>
 #include <oper/security_logging_object.h>
 #include <filter/policy_set.h>
 #include <vector>
@@ -302,6 +303,8 @@ void ConfigManager::Init() {
     network_ipam_list_.reset
         (new ConfigManagerNodeList(oper_db->network_ipam()));
     virtual_dns_list_.reset(new ConfigManagerNodeList(oper_db->virtual_dns()));
+    project_list_.reset
+        (new ConfigManagerNodeList(oper_db->project_config()));
 }
 
 uint32_t ConfigManager::Size() const {
@@ -325,6 +328,7 @@ uint32_t ConfigManager::Size() const {
         device_vn_list_->Size() +
         qos_config_list_->Size() +
         bridge_domain_list_->Size() +
+        project_list_->Size() +
         policy_set_list_->Size();
 }
 
@@ -348,6 +352,7 @@ uint32_t ConfigManager::ProcessCount() const {
         hc_list_->process_count() +
         device_vn_list_->process_count() +
         qos_config_list_->process_count() +
+        project_list_->process_count() +
         policy_set_list_->process_count();
 }
 
@@ -417,6 +422,7 @@ int ConfigManager::Run() {
     count += device_list_->Process(max_count - count);
     count += device_vn_list_->Process(max_count - count);
     count += slo_list_->Process(max_count - count);
+    count += project_list_->Process(max_count - count);
     return count;
 }
 
@@ -527,6 +533,10 @@ void ConfigManager::AddGlobalVrouterNode(IFMapNode *node) {
 
 void ConfigManager::AddVirtualRouterNode(IFMapNode *node) {
     virtual_router_list_->Add(agent_, this, node);
+}
+
+void ConfigManager::AddProjectNode(IFMapNode *node) {
+    project_list_->Add(agent_, this, node);
 }
 
 string ConfigManager::ProfileInfo() const {

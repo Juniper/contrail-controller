@@ -846,10 +846,14 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class TunnelNHKey : public NextHopKey {
 public:
-    TunnelNHKey(const string &vrf_name, const Ip4Address &sip,
-                const Ip4Address &dip, bool policy, TunnelType type) :
+    TunnelNHKey(const string &vrf_name,
+                const Ip4Address &sip,
+                const Ip4Address &dip,
+                bool policy,
+                TunnelType type,
+                const MacAddress &rewrite_dmac = MacAddress()) :
         NextHopKey(NextHop::TUNNEL, policy), vrf_key_(vrf_name), sip_(sip),
-        dip_(dip), tunnel_type_(type) { 
+        dip_(dip), tunnel_type_(type), rewrite_dmac_(rewrite_dmac) {
     };
     virtual ~TunnelNHKey() { };
 
@@ -873,6 +877,10 @@ public:
             return dip_ < key.dip_;
         }
 
+        if (rewrite_dmac_ != key.rewrite_dmac_) {
+            return rewrite_dmac_ < key.rewrite_dmac_;
+        }
+
         return tunnel_type_.IsLess(key.tunnel_type_);
     }
     void set_tunnel_type(TunnelType tunnel_type) {
@@ -887,6 +895,7 @@ private:
     Ip4Address sip_;
     Ip4Address dip_;
     TunnelType tunnel_type_;
+    MacAddress rewrite_dmac_;
     DISALLOW_COPY_AND_ASSIGN(TunnelNHKey);
 };
 
