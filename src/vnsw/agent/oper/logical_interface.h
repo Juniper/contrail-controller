@@ -23,7 +23,8 @@ class LogicalInterface : public Interface {
     };
 
     explicit LogicalInterface(const boost::uuids::uuid &uuid,
-                              const std::string &name);
+                              const std::string &name,
+                              const boost::uuids::uuid &logical_router_uuid);
     virtual ~LogicalInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const;
@@ -106,7 +107,8 @@ struct VlanLogicalInterfaceData : public LogicalInterfaceData {
 class VlanLogicalInterface : public LogicalInterface {
  public:
     explicit VlanLogicalInterface(const boost::uuids::uuid &uuid,
-                                  const std::string &name, uint16_t vlan);
+                                  const std::string &name, uint16_t vlan,
+                                  const boost::uuids::uuid &lr_uuid);
     virtual ~VlanLogicalInterface();
     virtual DBEntryBase::KeyPtr GetDBRequestKey() const;
 

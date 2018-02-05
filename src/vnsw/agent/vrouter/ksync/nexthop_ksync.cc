@@ -42,7 +42,9 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     defer_(entry->defer_), component_nh_list_(entry->component_nh_list_),
     nh_(entry->nh_), vlan_tag_(entry->vlan_tag_),
     is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
-    is_bridge_(entry->is_bridge_), comp_type_(entry->comp_type_),
+    is_bridge_(entry->is_bridge_),
+    is_vxlan_routing_(entry->is_vxlan_routing_),
+    comp_type_(entry->comp_type_),
     tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_),
     nh_id_(entry->nh_id()),
     component_nh_key_list_(entry->component_nh_key_list_),
@@ -60,6 +62,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     vrf_id_(0), interface_(NULL), valid_(nh->IsValid()),
     policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh),
     vlan_tag_(VmInterface::kInvalidVlanId), is_bridge_(false),
+    is_vxlan_routing_(false),
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
     vxlan_nh_(false), flood_unknown_unicast_(false),
     learning_enabled_(nh->learning_enabled()), need_pbb_tunnel_(false),
@@ -82,6 +85,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         assert(interface_);
         is_mcast_nh_ = if_nh->is_multicastNH();
         is_bridge_ = if_nh->IsBridge();
+        is_vxlan_routing_ = if_nh->IsVxlanRouting();
         const VrfEntry * vrf = if_nh->GetVrf();
         vrf_id_ = (vrf != NULL) ? vrf->vrf_id() : VrfEntry::kInvalidIndex;
         dmac_ = if_nh->GetDMac();
@@ -111,6 +115,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         sip_ = *(tunnel->GetSip());
         dip_ = *(tunnel->GetDip());
         tunnel_type_ = tunnel->GetTunnelType();
+        dmac_ = tunnel->rewrite_dmac();
         break;
     }
 
@@ -259,6 +264,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         }
         if(is_bridge_ != entry.is_bridge_) {
             return is_bridge_ < entry.is_bridge_;
+        }
+
+        if(is_vxlan_routing_ != entry.is_vxlan_routing_) {
+            return is_vxlan_routing_ < entry.is_vxlan_routing_;
         }
 
         if (dmac_ != entry.dmac_) {
@@ -814,6 +823,9 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap(encap);
             encoder.set_nhr_tun_sip(0);
             encoder.set_nhr_tun_dip(0);
+            if (is_vxlan_routing_) {
+                //Set vxlan routing flag
+            }
             if (is_bridge_) {
                 flags |= NH_FLAG_ENCAP_L2;
                 encoder.set_nhr_family(AF_BRIDGE);
@@ -824,7 +836,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             } 
             break;
 
-        case NextHop::TUNNEL :
+        case NextHop::TUNNEL : {
             encoder.set_nhr_type(NH_TUNNEL);
             encoder.set_nhr_tun_sip(htonl(sip_.to_v4().to_ulong()));
             encoder.set_nhr_tun_dip(htonl(dip_.to_v4().to_ulong()));
@@ -844,8 +856,13 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             } else {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
             }
+            std::vector<int8_t> rewrite_dmac;
+            for (size_t i = 0 ; i < dmac_.size(); i++) {
+                rewrite_dmac.push_back(dmac_[i]);
+            }
+            encoder.set_nhr_pbb_mac(rewrite_dmac);
             break;
-
+        }
         case NextHop::MIRROR :
             encoder.set_nhr_type(NH_TUNNEL);
             if (sip_.is_v4() && dip_.is_v4()) {

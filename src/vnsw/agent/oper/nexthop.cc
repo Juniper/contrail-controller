@@ -852,9 +852,10 @@ void VrfNH::SendObjectLog(const NextHopTable *table,
 // Tunnel NH routines
 /////////////////////////////////////////////////////////////////////////////
 TunnelNH::TunnelNH(VrfEntry *vrf, const Ip4Address &sip, const Ip4Address &dip,
-                   bool policy, TunnelType type) :
+                   bool policy, TunnelType type, const MacAddress &rewrite_dmac) :
     NextHop(NextHop::TUNNEL, false, policy), vrf_(vrf, this), sip_(sip),
-    dip_(dip), tunnel_type_(type), arp_rt_(this), interface_(NULL), dmac_() {
+    dip_(dip), tunnel_type_(type), arp_rt_(this), interface_(NULL), dmac_(),
+    rewrite_dmac_(rewrite_dmac) {
 }
 
 TunnelNH::~TunnelNH() {
@@ -876,7 +877,8 @@ bool TunnelNH::CanAdd() const {
 NextHop *TunnelNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
-    return new TunnelNH(vrf, sip_, dip_, policy_, tunnel_type_);
+    return new TunnelNH(vrf, sip_, dip_, policy_, tunnel_type_,
+                        rewrite_dmac_);
 }
 
 bool TunnelNH::NextHopIsLess(const DBEntry &rhs) const {
@@ -898,6 +900,9 @@ bool TunnelNH::NextHopIsLess(const DBEntry &rhs) const {
         return tunnel_type_.IsLess(a.tunnel_type_);
     }
 
+    if (rewrite_dmac_ != a.rewrite_dmac_) {
+        return rewrite_dmac_ < a.rewrite_dmac_;
+    }
     return false;
 }
 
@@ -909,6 +914,7 @@ void TunnelNH::SetKey(const DBRequestKey *k) {
     dip_ = key->dip_;
     tunnel_type_ = key->tunnel_type_;
     policy_ = key->policy_;
+    rewrite_dmac_ = key->rewrite_dmac_;
 }
 
 TunnelNH::KeyPtr TunnelNH::GetDBRequestKey() const {
@@ -1021,6 +1027,7 @@ void TunnelNH::SendObjectLog(const NextHopTable *table,
     const Ip4Address *dip = GetDip();
     info.set_dest_ip(dip->to_string());
     info.set_tunnel_type(tunnel_type_.ToString());
+    info.set_rewrite_dmac(rewrite_dmac_.ToString());
     OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
@@ -1850,7 +1857,8 @@ void CompositeNH::CreateComponentNH(Agent *agent,
                                                   *(tnh->GetSip()),
                                                   *(tnh->GetDip()),
                                                   tnh->PolicyEnabled(),
-                                                  type));
+                                                  type,
+                                                  tnh->rewrite_dmac()));
                 tnh_req.data.reset(new TunnelNHData());
                 agent->nexthop_table()->Process(tnh_req);
             }

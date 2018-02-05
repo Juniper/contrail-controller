@@ -397,6 +397,19 @@ void EvpnAgentRouteTable::AddRemoteVmRoute(const Peer *peer,
     EvpnTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
+void EvpnAgentRouteTable::AddType5Route(const Peer *peer,
+                                        const string &vrf_name,
+                                        const IpAddress &ip_addr,
+                                        uint32_t ethernet_tag,
+                                        EvpnRoutingData *data) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new EvpnRouteKey(peer, vrf_name, MacAddress(), ip_addr,
+                                   ethernet_tag));
+    req.data.reset(data);
+
+    EvpnTableEnqueue(agent(), &req);
+}
+
 void EvpnAgentRouteTable::DeleteReq(const Peer *peer, const string &vrf_name,
                                       const MacAddress &mac,
                                       const IpAddress &ip_addr,
@@ -612,4 +625,14 @@ bool EvpnRouteEntry::DBEntrySandesh(Sandesh *sresp, bool stale) const {
         const_cast<std::vector<RouteEvpnSandeshData>&>(resp->get_route_list());
     list.push_back(data);
     return true;
+}
+
+bool EvpnRouteEntry::ReComputePathDeletion(AgentPath *path) {
+    bool ret = false;
+    Agent *agent = static_cast<AgentDBTable *>(get_table())->agent();
+    EvpnRoutingPath *evpn_path = dynamic_cast<EvpnRoutingPath *>(path);
+    if (evpn_path) {
+        evpn_path->DeleteEvpnType5Route(agent, this);
+    }
+    return ret;
 }
