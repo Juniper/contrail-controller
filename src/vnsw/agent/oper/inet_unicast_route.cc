@@ -431,6 +431,8 @@ bool InetUnicastRouteEntry::ReComputePathAdd(AgentPath *path) {
     bool ret = false;
     InetUnicastAgentRouteTable *uc_rt_table =
         static_cast<InetUnicastAgentRouteTable *>(get_table());
+    if (path->peer() == uc_rt_table->agent()->evpn_routing_peer()) {
+    }
 
     if (IsHostRoute() == false)
         uc_rt_table->TraverseHostRoutesInSubnet(this,
@@ -1506,13 +1508,27 @@ void InetUnicastAgentRouteTable::DeleteEvpnRoute(const AgentRoute *rt) {
     const EvpnRouteEntry *evpn_route =
         static_cast<const EvpnRouteEntry *>(rt);
     const IpAddress &ip_addr = evpn_route->ip_addr();
-    if (ip_addr.is_unspecified())
-        return;
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new InetUnicastRouteKey(agent()->inet_evpn_peer(),
                                           evpn_route->vrf()->GetName(),
                                           ip_addr,
                                           GetHostPlen(ip_addr)));
     req.data.reset();
+    Process(req);
+}
+
+void InetUnicastAgentRouteTable::AddEvpnRoutingRoute(const IpAddress &ip_addr,
+                                                     uint8_t plen,
+                                                     const VrfEntry *vrf,
+                                                     const Peer *peer,
+                                                     DBRequest &nh_req) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    //Set key and data
+    req.key.reset(new InetUnicastRouteKey(peer,
+                                          vrf_entry()->GetName(),
+                                          ip_addr,
+                                          plen));
+    req.data.reset(new EvpnRoutingData(nh_req, vrf));
     Process(req);
 }

@@ -63,12 +63,13 @@ public:
                   const PathPreference &path_preference,
                   DBRequest &req, bool ecmp_suppressed,
                   const EcmpLoadBalance &ecmp_load_balance,
-                  bool etree_leaf):
+                  bool etree_leaf,
+                  const MacAddress &rewrite_dmac = MacAddress()) :
         ControllerPeerPath(peer), server_vrf_(vrf_name), tunnel_dest_(addr),
         tunnel_bmap_(bmap), label_(label), dest_vn_list_(dest_vn_list),
         sg_list_(sg_list),tag_list_(tag_list), path_preference_(path_preference),
         ecmp_suppressed_(ecmp_suppressed), ecmp_load_balance_(ecmp_load_balance),
-        etree_leaf_(etree_leaf)
+        etree_leaf_(etree_leaf), rewrite_dmac_(rewrite_dmac)
         {nh_req_.Swap(&req);}
     // Data passed in case of delete from BGP peer, to validate 
     // the request at time of processing.
@@ -88,6 +89,7 @@ public:
                                             const Ip4Address &tunnel_dest,
                                             TunnelType::TypeBmap bmap,
                                             uint32_t label,
+                                            MacAddress rewrite_dmac,
                                             const VnListType &dest_vn_list,
                                             const SecurityGroupList &sg_list,
                                             const TagList &tag_list,
@@ -109,6 +111,7 @@ private:
     bool ecmp_suppressed_;
     EcmpLoadBalance ecmp_load_balance_;
     bool etree_leaf_;
+    MacAddress rewrite_dmac_;
     DISALLOW_COPY_AND_ASSIGN(ControllerVmRoute);
 };
 
