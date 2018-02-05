@@ -104,12 +104,35 @@ void SegmentHealthCheckPkt::SendRequest() {
                            proto_, DEFAULT_IP_ID, DEFAULT_IP_TTL);
         len += sizeof(ether_header);
         InterfaceRef interface = service_->interface();
+
+        uint32_t service_mode = (static_cast<VmInterface *>(interface.get()))->service_mode();
+        bool l3_mode = false;
+        MacAddress    dest_mac;
+        if (service_mode == VmInterface::SERVICE_MODE_ERROR) {
+            return;
+        }
+
+        if (service_mode == VmInterface::ROUTED_MODE) {
+            l3_mode = true;
+            dest_mac = (static_cast<VmInterface *>(interface.get()))->vm_mac();
+        }
+
         if ((static_cast<VmInterface *>(interface.get()))->is_left_si()) {
-            pkt_handler->EthHdr(agent->left_si_mac(), agent->right_si_mac(),
-                                ETHERTYPE_IP);
+            if (l3_mode) {
+                pkt_handler->EthHdr(agent->left_si_mac(), dest_mac,
+                                    ETHERTYPE_IP);
+            } else {
+                pkt_handler->EthHdr(agent->left_si_mac(), agent->right_si_mac(),
+                                    ETHERTYPE_IP);
+            }
         } else {
-            pkt_handler->EthHdr(agent->right_si_mac(), agent->left_si_mac(),
-                                ETHERTYPE_IP);
+            if (l3_mode) {
+                pkt_handler->EthHdr(agent->right_si_mac(), dest_mac,
+                                    ETHERTYPE_IP);
+            } else {
+                pkt_handler->EthHdr(agent->right_si_mac(), agent->left_si_mac(),
+                                    ETHERTYPE_IP);
+            }
         }
     } else {
         //TODO: support for IPv6
