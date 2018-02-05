@@ -52,7 +52,7 @@ XmppConnection::XmppConnection(TcpServer *server,
       from_(config->FromAddr),
       to_(config->ToAddr),
       auth_enabled_(config->auth_enabled),
-      dscp_value_(config->dscp_value),
+      dscp_value_(config->dscp_value), xmlns_(config->xmlns),
       state_machine_(XmppObjectFactory::Create<XmppStateMachine>(
           this, config->ClientOnly(), config->auth_enabled)),
       mux_(XmppObjectFactory::Create<XmppChannelMux>(this)) {
@@ -259,13 +259,14 @@ bool XmppConnection::SendOpen(XmppSession *session) {
     XmppProto::XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER;
     uint8_t data[256];
-    int len = XmppProto::EncodeStream(openstream, to_, from_, data, 
+    int len = XmppProto::EncodeStream(openstream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
         inc_open_fail();
         return false;
     } else {
-        XMPP_UTDEBUG(XmppOpen, ToUVEKey(), XMPP_PEER_DIR_OUT, len, from_, to_);
+        XMPP_UTDEBUG(XmppOpen, ToUVEKey(), XMPP_PEER_DIR_OUT, len, from_, to_,
+                     xmlns_);
         session->Send(data, len, NULL);
         stats_[1].open++;
         return true;
@@ -278,7 +279,7 @@ bool XmppConnection::SendOpenConfirm(XmppSession *session) {
     XmppStanza::XmppStreamMessage openstream;
     openstream.strmtype = XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP;
     uint8_t data[256];
-    int len = XmppProto::EncodeStream(openstream, to_, from_, data, 
+    int len = XmppProto::EncodeStream(openstream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
         inc_open_fail();
@@ -299,7 +300,7 @@ bool XmppConnection::SendStreamFeatureRequest(XmppSession *session) {
     featurestream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
     featurestream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_FEATURE_REQUEST;
     uint8_t data[256];
-    int len = XmppProto::EncodeStream(featurestream, to_, from_, data,
+    int len = XmppProto::EncodeStream(featurestream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
         inc_stream_feature_fail();
@@ -320,7 +321,7 @@ bool XmppConnection::SendStartTls(XmppSession *session) {
     stream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
     stream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_START;
     uint8_t data[256];
-    int len = XmppProto::EncodeStream(stream, to_, from_, data,
+    int len = XmppProto::EncodeStream(stream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
         inc_stream_feature_fail();
@@ -341,7 +342,7 @@ bool XmppConnection::SendProceedTls(XmppSession *session) {
     stream.strmtype = XmppStanza::XmppStreamMessage::FEATURE_TLS;
     stream.strmtlstype = XmppStanza::XmppStreamMessage::TLS_PROCEED;
     uint8_t data[256];
-    int len = XmppProto::EncodeStream(stream, to_, from_, data,
+    int len = XmppProto::EncodeStream(stream, to_, from_, xmlns_, data,
                                       sizeof(data));
     if (len <= 0) {
         inc_stream_feature_fail();

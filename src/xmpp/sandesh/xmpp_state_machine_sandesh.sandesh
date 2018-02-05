@@ -113,6 +113,8 @@ systemlog sandesh XmppOpen {
     7: string from;
     8: " To: ";
     9: string to;
+   10: " Xmlns: ";
+   11: string xmlns;
 }
 
 trace sandesh XmppOpenTrace {
@@ -126,6 +128,8 @@ trace sandesh XmppOpenTrace {
     7: string from;
     8: " To: ";
     9: string to;
+   10: " Xmlns: ";
+   11: string xmlns;
 }
 
 /**
