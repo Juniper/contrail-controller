@@ -1381,16 +1381,16 @@ class VncRDBMSClient(object):
     # end object_delete
 
     def ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
-                   operation, id_perms=None):
+                   operation, id_perms=None, relax_ref_for_delete=False):
         self._ref_update(obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
-                         operation)
+                         operation, relax_ref_for_delete)
         if obj_type == ref_type:
             self._ref_update(ref_type, ref_uuid, obj_type, obj_uuid, ref_data,
-                             operation)
+                             operation, relax_ref_for_delete)
 
     @use_session
     def _ref_update(self, obj_type, obj_uuid, ref_type, ref_uuid, ref_data,
-                    operation):
+                    operation, relax_ref_for_delete=False):
         session = self.session_ctx
         sqa_class = self.sqa_classes[to_ref_type(obj_type, ref_type)]
 
@@ -1404,6 +1404,8 @@ class VncRDBMSClient(object):
             sqa_ref_obj = sqa_class(from_obj_uuid=obj_uuid,
                                     to_obj_uuid=ref_uuid,
                                     ref_value=json.dumps(ref_data))
+            if relax_ref_for_delete:
+                sqa_ref_obj.is_relaxed_ref = True
             session.add(sqa_ref_obj)
         elif operation == 'DELETE':
             sqa_ref_obj = session.query(sqa_class).filter_by(

@@ -1146,8 +1146,8 @@ class VncApiServer(object):
                 b_req.url, b_req.urlparts, b_req.environ, b_req.headers,
                 json_as_dict, None)
             set_context(context.ApiContext(internal_req=i_req))
-            self.http_resource_create(object_type)
-            return True, ""
+            resp = self.http_resource_create(object_type)
+            return True, resp
         finally:
             set_context(orig_context)
     # end internal_request_create
@@ -1195,14 +1195,16 @@ class VncApiServer(object):
 
     def internal_request_ref_update(self, res_type, obj_uuid, operation,
                                     ref_res_type, ref_uuid=None,
-                                    ref_fq_name=None, attr=None):
+                                    ref_fq_name=None, attr=None,
+                                    relax_ref_for_delete=False):
         req_dict = {'type': res_type,
                     'uuid': obj_uuid,
                     'operation': operation,
                     'ref-type': ref_res_type,
                     'ref-uuid': ref_uuid,
                     'ref-fq-name': ref_fq_name,
-                    'attr': attr}
+                    'attr': attr,
+                    'relax_ref_for_delete': relax_ref_for_delete}
         try:
             orig_context = get_context()
             orig_request = get_request()
@@ -2179,6 +2181,7 @@ class VncApiServer(object):
         ref_uuid = get_request().json.get('ref-uuid')
         ref_fq_name = get_request().json.get('ref-fq-name')
         attr = get_request().json.get('attr')
+        relax_ref_for_delete = get_request().json.get('relax_ref_for_delete', False)
 
         # validate fields
         if None in (res_type, obj_uuid, ref_res_type, operation):
@@ -2255,7 +2258,8 @@ class VncApiServer(object):
                     break
 
         ref_args = {'ref_obj_type':ref_obj_type, 'ref_uuid': ref_uuid,
-                    'operation': operation, 'data': {'attr': attr}}
+                    'operation': operation, 'data': {'attr': attr},
+                    'relax_ref_for_delete': relax_ref_for_delete}
         self._put_common(
             'ref-update', obj_type, obj_uuid, read_result,
              req_obj_dict=obj_dict, ref_args=ref_args)
@@ -3437,6 +3441,7 @@ class VncApiServer(object):
                 ref_uuid = ref_args.get('ref_uuid')
                 ref_data = ref_args.get('data')
                 operation = ref_args.get('operation')
+                relax_ref_for_delete = ref_args.get('relax_ref_for_delete', False)
 
                 (ok, result) = db_conn.ref_update(
                     obj_type,
@@ -3447,6 +3452,7 @@ class VncApiServer(object):
                     operation,
                     db_obj_dict['id_perms'],
                     attr_to_publish=attr_to_publish,
+                    relax_ref_for_delete=relax_ref_for_delete
                 )
             elif req_obj_dict:
                 (ok, result) = db_conn.dbe_update(

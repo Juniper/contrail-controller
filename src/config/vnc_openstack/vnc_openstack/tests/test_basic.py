@@ -303,7 +303,193 @@ class TestBasic(test_case.NeutronBackendTestCase):
         port_dict = json.loads(resp.text)
         self.assertTrue(isinstance(port_dict['binding:profile'], dict))
         self.assertTrue(isinstance(port_dict['binding:host_id'], basestring))
+
+        # Clean the resources
+        self.delete_resource('port', proj_uuid, port_dict['id'])
+        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
+        self._vnc_lib.virtual_router_delete(id=vr_obj)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
     # end test_port_bindings
+
+    def test_baremetal_port_bindings(self):
+        vn_obj = vnc_api.VirtualNetwork(self.id())
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(
+                         vnc_api.SubnetType('1.1.1.0', 24))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        vr_obj = vnc_api.VirtualRouter("myhost")
+        vr_obj = self._vnc_lib.virtual_router_create(vr_obj)
+
+        sg_obj = vnc_api.SecurityGroup('default')
+        try:
+            self._vnc_lib.security_group_create(sg_obj)
+        except vnc_api.RefsExistError:
+            pass
+
+        proj_uuid = self._vnc_lib.fq_name_to_id('project',
+            fq_name=['default-domain', 'default-project'])
+
+        context = {'operation': 'CREATE',
+                   'user_id': '',
+                   'is_admin': True,
+                   'roles': ''}
+        vnic_type = 'baremetal'
+        binding_profile = {'local_link_information': [
+            {'port_id': 'ge-0/0/1', 'switch_id': 'switch-id-1',
+             'switch_info': 'QFX-10000'}]}
+        data = {'resource':{'network_id': vn_obj.uuid,
+                            'tenant_id': proj_uuid,
+                            'binding:profile': binding_profile,
+                            'binding:vnic_type': vnic_type,
+                            'binding:host_id': 'myhost'}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict = json.loads(resp.text)
+        # Make sure that the binding profile for baremetal is set correctly
+        match = port_dict['binding:profile'] == binding_profile
+        self.assertTrue(match)
+
+        # clean this port before recreating the next one
+        self.delete_resource('port', proj_uuid, port_dict['id'])
+        # Now set the bindings to normal (i.e. non baremetal)
+        # In this case bindings should not match
+        vnic_type = 'normal'
+        data = {'resource':{'network_id': vn_obj.uuid,
+                            'tenant_id': proj_uuid,
+                            'binding:profile': {'foo': 'bar'},
+                            'binding:vnic_type': vnic_type,
+                            'binding:host_id': 'myhost'}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict = json.loads(resp.text)
+
+        # This time it should not match
+        match = port_dict['binding:profile'] == binding_profile
+        self.assertFalse(match)
+
+        # Clen up the resources
+        self.delete_resource('port', proj_uuid, port_dict['id'])
+        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
+        self._vnc_lib.virtual_router_delete(id=vr_obj)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+    # end test_baremetal_port_bindings
+
+    def test_baremetal_logical_interface_bindings(self):
+        """ This test tests the Logical to Physical interface binding.
+
+        A Physical interface is created to represent the actual
+        physical port on the QFX switch. A Baremetal Server
+        is launched on a virtual network. As a part of this operation,
+        a Logical interface is created and is matched with the physical
+        inteface specified by the binding profile in the port.
+        This test verifies the binidng takes place correctly.
+        """
+        vn_obj = vnc_api.VirtualNetwork(self.id())
+        vn_obj.add_network_ipam(vnc_api.NetworkIpam(),
+            vnc_api.VnSubnetsType(
+                [vnc_api.IpamSubnetType(
+                         vnc_api.SubnetType('1.1.1.0', 24))]))
+        self._vnc_lib.virtual_network_create(vn_obj)
+
+        vr_obj = vnc_api.VirtualRouter("myhost")
+        vr_obj = self._vnc_lib.virtual_router_create(vr_obj)
+
+        sg_obj = vnc_api.SecurityGroup('default')
+        try:
+            self._vnc_lib.security_group_create(sg_obj)
+        except vnc_api.RefsExistError:
+            pass
+
+        pr_name = self.id()  + '_physical_router'
+        pr = vnc_api.PhysicalRouter(pr_name)
+        pr_uuid = self._vnc_lib.physical_router_create(pr)
+        pr_obj = self._vnc_lib.physical_router_read(id=pr_uuid)
+
+        esi_id = '00:11:22:33:44:55:66:77:88:99'
+
+        pi_name = self.id() + '_physical_interface1'
+        pi = vnc_api.PhysicalInterface(name=pi_name,
+                               parent_obj=pr_obj,
+                               ethernet_segment_identifier=esi_id)
+        pi_uuid = self._vnc_lib.physical_interface_create(pi)
+        pi_obj = self._vnc_lib.physical_interface_read(id=pi_uuid)
+
+        proj_uuid = self._vnc_lib.fq_name_to_id('project',
+            fq_name=['default-domain', 'default-project'])
+
+        context = {'operation': 'CREATE',
+                   'user_id': '',
+                   'is_admin': True,
+                   'roles': ''}
+        vnic_type = 'baremetal'
+        binding_profile = {'local_link_information': [
+            {'port_id': 'ge-0/0/1', 'switch_id': 'switch-id-1',
+             'switch_info': pi_uuid}]}
+        data = {'resource':{'network_id': vn_obj.uuid,
+                            'tenant_id': proj_uuid,
+                            'binding:profile': binding_profile,
+                            'binding:vnic_type': vnic_type,
+                            'binding:host_id': 'myhost'}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict = json.loads(resp.text)
+        # Make sure that the binding profile for baremetal is set correctly
+        match = port_dict['binding:profile'] == binding_profile
+        self.assertTrue(match)
+
+        bound_logical_interface_found = False
+        li_dict = self._vnc_lib.logical_interfaces_list()
+        lis = li_dict['logical-interfaces']
+        for l in lis:
+            li_obj = self._vnc_lib.logical_interface_read(id=l['uuid'])
+            if li_obj.parent_uuid == pi_uuid:
+                bound_logical_interface_found = True
+                break
+
+        self.assertTrue(bound_logical_interface_found)
+
+        # Now test the negative test case. In this case provide
+        # bogus binding profile information and make sure no logocal
+        # interface is created and/or bound.
+
+        # Delete the previous logical interface and port
+        self._vnc_lib.logical_interface_delete(id=l['uuid'])
+        self.delete_resource('port', proj_uuid, port_dict['id'])
+        vnic_type = 'normal'
+        data = {'resource':{'network_id': vn_obj.uuid,
+                            'tenant_id': proj_uuid,
+                            'binding:profile': {'foo': 'bar'},
+                            'binding:vnic_type': vnic_type,
+                            'binding:host_id': 'myhost'}}
+        body = {'context': context, 'data': data}
+        resp = self._api_svr_app.post_json('/neutron/port', body)
+        port_dict = json.loads(resp.text)
+
+        # This time it should not match
+        match = port_dict['binding:profile'] == binding_profile
+        self.assertFalse(match)
+
+        bound_logical_interface_found = False
+        li_dict = self._vnc_lib.logical_interfaces_list()
+        lis = li_dict['logical-interfaces']
+        for l in lis:
+            li_obj = self._vnc_lib.logical_interface_read(id=l['uuid'])
+            if li_obj.parent_uuid == pi_uuid:
+                bound_logical_interface_found = True
+                break
+
+        self.assertFalse(bound_logical_interface_found)
+
+        # Clen up the resources
+        self._vnc_lib.physical_interface_delete(id=pi.uuid)
+        self._vnc_lib.physical_router_delete(id=pr.uuid)
+        self.delete_resource('port', proj_uuid, port_dict['id'])
+        self._vnc_lib.security_group_delete(id=sg_obj.uuid)
+        self._vnc_lib.virtual_router_delete(id=vr_obj)
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+    # end test_baremetal_logical_interface_bindings
 
     def test_sg_rules_delete_when_peer_group_deleted_on_read_sg(self):
         sg1_obj = vnc_api.SecurityGroup('sg1-%s' %(self.id()))
