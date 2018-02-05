@@ -2028,7 +2028,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Exclude('project-floating-ip-pool', ['backend']);
      Link('project-floating-ip-pool',
           'project', 'floating-ip-pool', ['ref'], 'optional', 'CRUD',
-          'Reference to floating ip pool in this project.') -->
+          'Deprecated as it is not needed. Will be removed in future.') -->
 <xsd:element name="virtual-network-fat-flow-protocols" type="FatFlowProtocols"/>
 <!--#IFMAP-SEMANTICS-IDL
      ListProperty('virtual-network-fat-flow-protocols',
