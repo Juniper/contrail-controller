@@ -265,6 +265,7 @@ private:
     std::string to_;
     bool auth_enabled_;
     uint8_t dscp_value_;
+    std::string xmlns_;
     mutable std::string uve_key_str_;
 
     boost::scoped_ptr<XmppStateMachine> state_machine_;

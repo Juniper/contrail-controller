@@ -31,6 +31,7 @@ public:
     int tcp_hold_time;
     bool gr_helper_disable;
     uint8_t dscp_value;
+    std::string xmlns;
 
     int CompareTo(const XmppChannelConfig &rhs) const;
     static int const default_client_port = 5269;
