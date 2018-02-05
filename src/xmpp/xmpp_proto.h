@@ -175,7 +175,8 @@ public:
     static XmppStanza::XmppMessage *Decode(const XmppConnection *connection,
                                            const std::string &ts);
     static int EncodeStream(const XmppStreamMessage &str, std::string &to, 
-                            std::string &from, uint8_t *data, size_t size);
+                            std::string &from, const std::string &xmlns,
+                            uint8_t *data, size_t size);
     static int EncodeStream(const XmppMessage &str, uint8_t *data, size_t size);
     static int EncodeMessage(const XmppChatMessage *, uint8_t *data, size_t size);
     static int EncodeMessage(XmlBase *, uint8_t *data, size_t size);
@@ -185,7 +186,7 @@ public:
 
 private:
     static int EncodeOpen(uint8_t *data, std::string &to, std::string &from,
-                          size_t size);
+                          const std::string &xmlns, size_t size);
     static int EncodeOpenResp(uint8_t *data, std::string &to, std::string &from,
                               size_t size);
     static int EncodeFeatureTlsRequest(uint8_t *data);
@@ -194,6 +195,7 @@ private:
     static int EncodeWhitespace(uint8_t *data);
     static int SetTo(std::string &to, XmlBase *doc);
     static int SetFrom(std::string &from, XmlBase *doc);
+    static int SetXmlns(const std::string &from, XmlBase *doc);
 
     static const char *GetId(XmlBase *doc);
     static const char *GetType(XmlBase *doc);

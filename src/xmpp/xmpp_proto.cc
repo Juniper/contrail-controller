@@ -33,12 +33,13 @@ XmppProto::~XmppProto() {
 }
 
 int XmppProto::EncodeStream(const XmppStreamMessage &str, string &to,
-                            string &from, uint8_t *buf, size_t size) {
+                            string &from, const string &xmlns, uint8_t *buf,
+                            size_t size) {
     int len = 0;
 
     switch (str.strmtype) {
         case (XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER):
-            len = EncodeOpen(buf, to, from, size);
+            len = EncodeOpen(buf, to, from, xmlns, size);
             break;
         case (XmppStanza::XmppStreamMessage::INIT_STREAM_HEADER_RESP):
             len = EncodeOpenResp(buf, to, from, size);
@@ -162,7 +163,7 @@ int XmppProto::EncodeOpenResp(uint8_t *buf, string &to, string &from,
 }
 
 int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from,
-                          size_t max_size) {
+                          const string &xmlns, size_t max_size) {
 
     if (open_doc_.get() ==  NULL) {
         return 0;
@@ -170,6 +171,7 @@ int XmppProto::EncodeOpen(uint8_t *buf, string &to, string &from,
 
     SetTo(to, open_doc_.get()); 
     SetFrom(from, open_doc_.get()); 
+    SetXmlns(xmlns, open_doc_.get());
 
     //Returns byte encoded in the doc
     std::stringstream ss;
@@ -412,6 +414,15 @@ int XmppProto::SetFrom(string &from, XmlBase *doc) {
     string ns(sXMPP_STREAM_O);
     doc->ReadNode(ns);
     doc->ModifyAttribute("from", from);
+    return 0;
+}
+
+int XmppProto::SetXmlns(const string &xmlns, XmlBase *doc) {
+    if (!doc) return -1;
+
+    string ns(sXMPP_STREAM_O);
+    doc->ReadNode(ns);
+    doc->ModifyAttribute("xmlns", xmlns);
     return 0;
 }
 
