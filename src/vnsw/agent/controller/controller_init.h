@@ -184,6 +184,9 @@ public:
         (const autogen::TunnelEncapsulationListType &encap);
     TunnelType::TypeBmap GetTypeBitmap
         (const autogen::McastTunnelEncapsulationListType &encap);
+    //Tunnel Mac helpers
+    MacAddress GetTunnelMac(const autogen::EnetNextHopType &nh);
+    MacAddress GetTunnelMac(const autogen::NextHopType &nh);
     //Unit test helpers
     bool IsWorkQueueEmpty() const;
     void EnableWorkQueue() { work_queue_.set_disable(false); }

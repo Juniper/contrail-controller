@@ -5,6 +5,8 @@
 #ifndef vnsw_evpn_route_hpp
 #define vnsw_evpn_route_hpp
 
+class EvpnRoutingData;
+
 //////////////////////////////////////////////////////////////////
 //  EVPN
 /////////////////////////////////////////////////////////////////
@@ -105,6 +107,11 @@ public:
                                  const IpAddress &ip_addr,
                                  uint32_t ethernet_tag,
                                  AgentRouteData *data);
+    void AddType5Route(const Peer *peer,
+                       const std::string &vrf_name,
+                       const IpAddress &ip_addr,
+                       uint32_t ethernet_tag,
+                       EvpnRoutingData *data);
 
     //Delete routines
     void DeleteOvsPeerMulticastRouteReq(const Peer *peer,
@@ -172,7 +179,14 @@ public:
     }
     virtual bool DBEntrySandesh(Sandesh *sresp, bool stale) const;
     virtual uint32_t GetActiveLabel() const;
+    virtual bool ReComputePathDeletion(AgentPath *path);
 
+    bool IsType5() const {
+        return mac_.IsZero();
+    }
+    bool IsType2() const {
+        return !IsType5();
+    }
     const MacAddress &mac() const {return mac_;}
     const IpAddress &ip_addr() const {return ip_addr_;}
     const uint32_t GetVmIpPlen() const;
