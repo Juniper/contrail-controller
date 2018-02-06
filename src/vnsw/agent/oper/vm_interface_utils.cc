@@ -118,6 +118,10 @@ bool VmInterface::NeedOsStateWithoutDevice() const {
     if (transport_ == TRANSPORT_PMD) {
         return true;
     }
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    if (table) {
+        return NeedDefaultOsOperStateDisabled(table->agent());
+    }
     return false;
 }
 
@@ -129,7 +133,12 @@ void VmInterface::GetOsParams(Agent *agent) {
 
     os_index_ = Interface::kInvalidIndex;
     mac_ = agent->vrrp_mac();
-    os_oper_state_ = true;
+    /* In VmWare mode, the default os_oper_state of VMI is false. It needs to be
+     * explicitly enabled via REST request to agent. This needs to be done
+     * only for interfaces which are not of transport_ TRANSPORT_ETHERNET */
+    if (!NeedDefaultOsOperStateDisabled(agent)) {
+        os_oper_state_ = true;
+    }
 }
 
 // A VM Interface is L3 active under following conditions,
