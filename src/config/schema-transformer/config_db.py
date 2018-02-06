@@ -3805,8 +3805,8 @@ class LogicalRouterST(DBBaseST):
         self.update_multiple_refs('route_table', {})
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
+        RouteTargetST.delete_vnc_object(self.route_target)
         self._cassandra.free_route_target_by_number(rtgt_num)
-        RouteTargetST.delete_vnc_obj(self.route_target)
     # end delete_obj
 
     def update_virtual_networks(self):
