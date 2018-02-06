@@ -2960,8 +2960,12 @@ class VncApiServer(object):
                     perms2['owner'] = 'cloud-admin'
             else:
                 parent_fq_name = obj_dict['fq_name'][:-1]
-                parent_uuid = self._db_conn.fq_name_to_uuid(parent_type,
+                try:
+                    parent_uuid = self._db_conn.fq_name_to_uuid(parent_type,
                                                             parent_fq_name)
+                except NoIdError:
+                    raise cfgm_common.exceptions.HttpError(
+                        404, 'Name' + pformat(parent_fq_name) + ' not found')
                 (ok, parent_obj_dict) = self._db_conn.dbe_read(parent_type,
                                                            {'uuid':parent_uuid},
                                                            obj_fields=['perms2'])
