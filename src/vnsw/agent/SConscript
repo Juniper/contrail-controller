@@ -218,11 +218,13 @@ AgentEnv.AppendUnique(CONTRAIL_LIBS = [
     'ksyncnl',
     'kstate',
     'vrutil',
-    'tcmalloc',
 ])
 
 if sys.platform != 'win32':
-    AgentEnv.AppendUnique(CONTRAIL_LIBS = 'isc')
+    AgentEnv.AppendUnique(CONTRAIL_LIBS = [
+        'tcmalloc',
+        'isc',
+    ])
 
 # Common libraries for agent test code
 AgentEnv.AppendUnique(TEST_CMN_LIBS_PRE = [
