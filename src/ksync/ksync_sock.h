@@ -16,12 +16,14 @@
 
 #include <tbb/atomic.h>
 #include <tbb/mutex.h>
+
 #include <base/queue_task.h>
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/common/vns_types.h>
 #include <io/tcp_session.h>
+#include <vr_types.h>
 #include <nl_util.h>
-#include "vr_types.h"
+#include "ksync_entry.h"
 #include "ksync_tx_queue.h"
 
 #define KSYNC_DEFAULT_MSG_SIZE    4096
@@ -37,6 +39,16 @@ struct nl_client;
 class KSyncBulkSandeshContext;
 
 typedef std::vector<boost::asio::mutable_buffers_1> KSyncBufferList;
+
+uint32_t GetNetlinkSeqno(char *data);
+bool NetlinkMsgDone(char *data);
+bool ValidateNetlink(char *data);
+void GetNetlinkPayload(char *data, char **buf, uint32_t *buf_len);
+void InitNetlink(nl_client *client);
+void ResetNetlink(nl_client *client);
+void UpdateNetlink(nl_client *client, uint32_t len, uint32_t seq_no);
+void DecodeSandeshMessages(char *buf, uint32_t buf_len, SandeshContext *sandesh_context,
+                           uint32_t alignment);
 
 /* Base class to hold sandesh context information which is passed to 
  * Sandesh decode
