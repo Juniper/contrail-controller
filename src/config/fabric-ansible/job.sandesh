@@ -14,6 +14,7 @@
  * UVE that stores the device info from device discovery or device resync. 
  */
 struct PRouterOnboardingLogEntry {
+    /* PRouter fq_name as string joined by ':', e.g. domain-1:project-1:mx240-1. */
     1: string                           name (key="ObjectPRouter");
     2: i64                              timestamp;
     /* Installed software image version */
@@ -33,8 +34,8 @@ struct PRouterOnboardingLogEntry {
  * object log for the job execution
  */
 struct JobLogEntry {
-    /* Unique id that identifies a job template */
-    1: string                           job_id (key="ObjectJobTemplate");
+    /* job template fq_name as string joined by ':', e.g. domain-1:project-1:job-template-1. */
+    1: string                           name (key="ObjectJobTemplate");
     /* Unique id that identifies a job execution */
     2: string                           execution_id (key="JobExecution");
     /* Job log timestamp */
@@ -55,8 +56,8 @@ struct JobLogEntry {
  * UVE that tracks a job execution. This UVE is created when job is started and destroyed when job completes.
  */
 struct JobExecution {
-    /* Unique id that identifies a job template */
-    1: string                           job_id (key="ObjectJobTemplate");
+    /* job template fq_name as string joined by ':', e.g. domain-1:project-1:job-template-1. */
+    1: string                           name (key="ObjectJobTemplate");
     /* Unique id that identifies a job execution */
     2: string                           execution_id (key="JobExecution");
     3: optional bool                    deleted
