@@ -29,7 +29,7 @@ using boost::uuids::uuid;
 /////////////////////////////////////////////////////////////////////////////
 LogicalInterface::LogicalInterface(const boost::uuids::uuid &uuid,
                                    const std::string &name) :
-    Interface(Interface::LOGICAL, uuid, name, NULL), display_name_(),
+    Interface(Interface::LOGICAL, uuid, name, NULL, true), display_name_(),
     physical_interface_(), vm_interface_(), physical_device_(NULL),
     phy_dev_display_name_(), phy_intf_display_name_(), vn_uuid_() {
 }

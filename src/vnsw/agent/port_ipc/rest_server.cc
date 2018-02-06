@@ -245,12 +245,12 @@ const std::vector<RESTServer::HandlerSpecifier> RESTServer::RESTHandlers_ =
     (HandlerSpecifier(
         regex("/enable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
               "[0-9a-f]{4}-[0-9a-f]{12})"),
-        HTTP_POST,
+        HTTP_PUT,
         &RESTServer::VmPortEnableHandler))
     (HandlerSpecifier(
         regex("/disable-port/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
               "[0-9a-f]{4}-[0-9a-f]{12})"),
-        HTTP_POST,
+        HTTP_PUT,
         &RESTServer::VmPortDisableHandler));
 
 RESTServer::RESTServer(Agent *agent)
