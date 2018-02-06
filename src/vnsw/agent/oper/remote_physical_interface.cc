@@ -25,7 +25,7 @@ using boost::uuids::uuid;
 // RemotePhysicalInterface routines
 /////////////////////////////////////////////////////////////////////////////
 RemotePhysicalInterface::RemotePhysicalInterface(const std::string &name) :
-    Interface(Interface::REMOTE_PHYSICAL, nil_uuid(), name, NULL),
+    Interface(Interface::REMOTE_PHYSICAL, nil_uuid(), name, NULL, true),
     display_name_(), physical_device_(NULL) {
 }
 
