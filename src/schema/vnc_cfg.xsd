@@ -2233,6 +2233,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 
 <xsd:element name="device-image" type="ifmap:IdentityType"/>
+
+<xsd:element name="global-system-config-device-image"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('global-system-config-device-image',
+             'global-system-config', 'device-image', ['has'], 'optional', 'CRUD',
+             'list of device image info for the images that get uploaded to the system.') -->
+
 <xsd:element name="device-image-vendor-name" type="xsd:string"/>
 <!--#IFMAP-SEMANTICS-IDL
      Property('device-image-vendor-name', 'device-image', 'required', 'CRUD',
