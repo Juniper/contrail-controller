@@ -72,7 +72,7 @@ public:
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
 
     Interface(Type type, const boost::uuids::uuid &uuid,
-              const std::string &name, VrfEntry *vrf);
+              const std::string &name, VrfEntry *vrf, bool os_oper_state);
     virtual ~Interface();
 
     // DBEntry virtual function. Must be implemented by derived interfaces
@@ -141,6 +141,7 @@ public:
         return qos_config_.get();
     }
     void UpdateOperStateOfSubIntf(const InterfaceTable *table);
+    bool NeedDefaultOsOperStateDisabled(Agent *agent) const;
     boost::optional<IfGuid> os_guid() const { return os_guid_; }
 
 protected:
