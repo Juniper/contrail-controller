@@ -45,7 +45,10 @@ VmInterfaceKey::VmInterfaceKey(AgentKey::DBSubOperation sub_op,
 }
 
 Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table) const {
-    return new VmInterface(uuid_, name_);
+    Agent *agent = table->agent();
+    /* OS oper state is disabled by default in Vmware mode */
+    bool os_oper_state = !agent->isVmwareMode();
+    return new VmInterface(uuid_, name_, os_oper_state);
 }
 
 Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table,
@@ -118,10 +121,14 @@ VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
         mac.Zero();
     }
 
+    Agent *agent = table->agent();
+    /* OS oper state is disabled by default in Vmware mode */
+    bool os_oper_state = !agent->isVmwareMode();
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, addr_, mac, vm_name_,
                         nil_uuid(), tx_vlan_id_, rx_vlan_id_, parent,
-                        ip6_addr_, device_type_, vmi_type_, vhostuser_mode_);
+                        ip6_addr_, device_type_, vmi_type_, vhostuser_mode_,
+                        os_oper_state);
     vmi->SetConfigurer(VmInterface::CONFIG);
     return vmi;
 }
@@ -827,11 +834,14 @@ VmInterface *VmInterfaceNovaData::OnAdd(const InterfaceTable *table,
         mac.Zero();
     }
 
+    Agent *agent = table->agent();
+    /* OS oper state is disabled by default in Vmware mode */
+    bool os_oper_state = !agent->isVmwareMode();
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, ipv4_addr_, mac, vm_name_,
                         vm_project_uuid_, tx_vlan_id_, rx_vlan_id_,
                         parent, ipv6_addr_, device_type_, vmi_type_,
-                        vhostuser_mode_);
+                        vhostuser_mode_, os_oper_state);
     vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
     vmi->nova_ip_addr_ = ipv4_addr_;
     vmi->nova_ip6_addr_ = ipv6_addr_;
@@ -996,7 +1006,7 @@ bool VmInterfaceOsOperStateData::OnResync(const InterfaceTable *table,
     /* In DPDK mode (where we have interfaces of type TRANSPORT_PMD), oper_state
      * is updated based on Netlink notification received from vrouter */
     if ((vmi->transport_ == Interface::TRANSPORT_PMD) ||
-        agent->isVmwareMode()) {
+        vmi->NeedDefaultOsOperStateDisabled(agent)) {
         if (vmi->os_oper_state_ != oper_state_) {
             vmi->os_oper_state_ = oper_state_;
             ret = true;
@@ -1125,12 +1135,15 @@ VmInterfaceIfNameData::~VmInterfaceIfNameData() {
 
 VmInterface *VmInterfaceIfNameData::OnAdd(const InterfaceTable *table,
                                           const VmInterfaceKey *key) const {
+    Agent *agent = table->agent();
+    /* OS oper state is disabled by default in Vmware mode */
+    bool os_oper_state = !agent->isVmwareMode();
     VmInterface *vmi =
         new VmInterface(key->uuid_, key->name_, Ip4Address(), MacAddress(), "",
                         nil_uuid(), VmInterface::kInvalidVlanId,
                         VmInterface::kInvalidVlanId, NULL, Ip6Address(),
                         VmInterface::VM_ON_TAP, VmInterface::INSTANCE,
-                        VmInterface::vHostUserClient);
+                        VmInterface::vHostUserClient, os_oper_state);
     vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
     return vmi;
 }
