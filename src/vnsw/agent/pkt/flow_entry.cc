@@ -3470,6 +3470,12 @@ PortTable::PortTable(Agent *agent, uint32_t hash_table_size, uint8_t protocol):
     }
 }
 
+PortTable::~PortTable() {
+    if (task_trigger_.get()) {
+        task_trigger_->Reset();
+    }
+}
+
 uint16_t PortTable::Allocate(const FlowKey &key) {
     if (key.protocol != IPPROTO_TCP && key.protocol != IPPROTO_UDP) {
         return key.src_port;
@@ -3545,10 +3551,23 @@ void PortTable::Free(const FlowKey &key, uint16_t port, bool release) {
     }
 }
 
+void PortTable::Relocate(uint16_t port_no) {
+    PortToBitIndexMap::iterator it = port_to_bit_index_.find(port_no);
+    assert(it != port_to_bit_index_.end());
+
+    PortPtr port_ptr = port_list_.At(it->second);
+    DeleteAllFlow(port_no, it->second);
+    port_list_.Remove(it->second);
+    it->second = port_list_.Insert(port_ptr);
+}
+
 void PortTable::AddPort(uint16_t port_no) {
+    PortToBitIndexMap::iterator it = port_to_bit_index_.find(port_no);
     //Port number already present
-    if (port_no != kInvalidPort &&
-        port_to_bit_index_.find(port_no) != port_to_bit_index_.end()) {
+    if (port_no != kInvalidPort && it != port_to_bit_index_.end()) {
+        if (it->second >= port_count_) {
+            Relocate(port_no);
+        }
         return;
     }
 
@@ -3564,7 +3583,7 @@ void PortTable::DeleteAllFlow(uint16_t port_no, uint16_t index) {
     for (uint16_t i = 0; i < hash_table_size_; i++) {
         FlowKey key = hash_table_[i]->At((size_t)index);
         if (key.family == Address::UNSPEC) {
-            return;
+            continue;
         }
         hash_table_[i]->Remove(index);
         Free(key, port_no, true);
@@ -3601,6 +3620,19 @@ bool PortTable::IsValidPort(uint16_t port, uint16_t count) {
 
 void PortTable::UpdatePortConfig(uint16_t port_count, uint16_t range_start,
                                  uint16_t range_end) {
+    if (task_trigger_.get()) {
+        task_trigger_->Reset();
+    }
+
+    int task_id = TaskScheduler::GetInstance()->GetTaskId(kTaskFlowEvent);
+    task_trigger_.reset
+        (new TaskTrigger(boost::bind(&PortTable::HandlePortConfig, this,
+                         port_count, range_start, range_end), task_id, 0));
+    task_trigger_->Set();
+}
+
+bool PortTable::HandlePortConfig(uint16_t port_count, uint16_t range_start,
+                                 uint16_t range_end) {
     uint16_t old_port_count = port_count_;
     tbb::recursive_mutex::scoped_lock lock(mutex_);
     if (range_start != PortTable::kInvalidPort &&
@@ -3623,12 +3655,16 @@ void PortTable::UpdatePortConfig(uint16_t port_count, uint16_t range_start,
             DeletePort(port->port());
         } else {
             count++;
+            //For relocating the port of index is higher than
+            //port count
+            AddPort(port->port());
         }
     }
 
     if (range_start) {
         //Handle range of port
-        for (uint16_t port = range_start_; range_end_ && port <= range_end_; port++) {
+        for (uint16_t port = range_start_; range_end_ && port <= range_end_;
+             port++) {
             AddPort(port);
         }
     } else {
@@ -3638,6 +3674,13 @@ void PortTable::UpdatePortConfig(uint16_t port_count, uint16_t range_start,
             AddPort(0);
         }
     }
+    return true;
+}
+
+uint16_t PortTable::GetPortIndex(uint16_t port) const {
+    PortToBitIndexMap::const_iterator it = port_to_bit_index_.find(port);
+    assert(it != port_to_bit_index_.end());
+    return it->second;
 }
 
 PortTableManager::PortTableManager(Agent *agent, uint16_t hash_table_size):
@@ -3678,7 +3721,8 @@ void PortTableManager::UpdatePortConfig(uint8_t protocol, uint16_t port_count,
         return;
     }
 
-    port_table_list_[protocol]->UpdatePortConfig(port_count, range_start, range_end);
+    port_table_list_[protocol]->UpdatePortConfig(port_count, range_start,
+                                                 range_end);
 }
 
 void PortTableManager::PortConfigHandler(Agent *agent, uint8_t protocol,

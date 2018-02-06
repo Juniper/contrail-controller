@@ -22,6 +22,7 @@ protected:
     virtual void SetUp() {
         port_table_ = new PortTable(agent_, 1000, IPPROTO_TCP);
         port_table_->UpdatePortConfig(10, 0, 0);
+        client->WaitForIdle();
 
         CreateVmportEnv(input, 1);
         client->WaitForIdle();
@@ -88,6 +89,7 @@ TEST_F(PortAllocationTest, Test3) {
 
 TEST_F(PortAllocationTest, Range) {
     port_table_->UpdatePortConfig(10, 50000, 50001);
+    client->WaitForIdle();
 
     FlowKey key1(10, sip1_, dip1_, IPPROTO_TCP, 10, 20);
 
@@ -101,6 +103,7 @@ TEST_F(PortAllocationTest, Range) {
 
 TEST_F(PortAllocationTest, PortExhaust) {
     port_table_->UpdatePortConfig(1, 50000, 50000);
+    client->WaitForIdle();
 
     FlowKey key1(10, sip1_, dip1_, IPPROTO_TCP, 10, 20);
 
@@ -217,6 +220,7 @@ TEST_F(PortAllocationTest, NonTcpUdpFlow) {
 
 TEST_F(PortAllocationTest, IpScale) {
     port_table_->UpdatePortConfig(1, 50000, 50000);
+    client->WaitForIdle();
 
     int success = 0;
     for (uint32_t i = 0; i < 100; i++) {
@@ -230,6 +234,7 @@ TEST_F(PortAllocationTest, IpScale) {
 
 TEST_F(PortAllocationTest, PortRangeAllocation) {
     port_table_->UpdatePortConfig(1, 50000, 50002);
+    client->WaitForIdle();
 
     FlowKey key1(10, Ip4Address(1), Ip4Address(2), IPPROTO_TCP, 10, 20);
     FlowKey key2(10, Ip4Address(1), Ip4Address(2), IPPROTO_TCP, 11, 20);
@@ -245,6 +250,7 @@ TEST_F(PortAllocationTest, PortRangeAllocation) {
 
 TEST_F(PortAllocationTest, PortScale) {
     port_table_->UpdatePortConfig(1, 50000, 50000);
+    client->WaitForIdle();
 
     int success = 0;
     for (uint32_t i = 0; i < 100; i++) {
@@ -254,6 +260,72 @@ TEST_F(PortAllocationTest, PortScale) {
         }
     }
     EXPECT_TRUE(success == 100);
+}
+
+TEST_F(PortAllocationTest, RangeUpdate) {
+    //TCP flow is short flow as no port config
+    PortTableManager *pm = agent_->pkt()->get_flow_proto()->port_table_manager();
+    pm->UpdatePortConfig(IPPROTO_TCP, 10, 50000, 50010);
+    client->WaitForIdle();
+
+    const PortTable *pt = pm->GetPortTable(IPPROTO_TCP);
+    client->WaitForIdle();
+
+    for (uint32_t i = 0; i < 10; i++) {
+        TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100 + i, 100, false, 100 + i);
+        client->WaitForIdle();
+    }
+
+    pm->UpdatePortConfig(IPPROTO_TCP, 10, 50005, 50010);
+    client->WaitForIdle();
+
+    //All ports get relocated hence all flow should be deleted
+    for (uint32_t i = 0; i < 10; i++) {
+        FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
+                6, 100 + i, 100, GetFlowKeyNH(1));
+        if (i == 5) {
+            //Port 50005 will hold on to its index
+            EXPECT_TRUE(flow->IsShortFlow() == false);
+        } else {
+            EXPECT_TRUE(flow == NULL);
+        }
+    }
+
+    EXPECT_TRUE(pt->GetPortIndex(50006) == 0);
+    EXPECT_TRUE(pt->GetPortIndex(50007) == 1);
+    EXPECT_TRUE(pt->GetPortIndex(50005) == 5);
+}
+
+TEST_F(PortAllocationTest, RangeUpdate1) {
+    //TCP flow is short flow as no port config
+    PortTableManager *pm = agent_->pkt()->get_flow_proto()->port_table_manager();
+    pm->UpdatePortConfig(IPPROTO_TCP, 0, 0, 0);
+    client->WaitForIdle();
+
+    pm->UpdatePortConfig(IPPROTO_TCP, 10, 50000, 50010);
+    const PortTable *pt = pm->GetPortTable(IPPROTO_TCP);
+    client->WaitForIdle();
+
+    for (uint32_t i = 0; i < 10; i++) {
+        TxTcpPacket(VmPortGetId(1), "1.1.1.10", "8.8.8.8", 100 + i, 100, false, 100 + i);
+        client->WaitForIdle();
+    }
+
+    //New ports gets added at end, hence no flow should be
+    //deleted
+    pm->UpdatePortConfig(IPPROTO_TCP, 10, 49980, 50010);
+    client->WaitForIdle();
+
+    for (uint32_t i = 0; i < 10; i++) {
+        FlowEntry *flow = FlowGet(GetVrfId("vrf1"), "1.1.1.10", "8.8.8.8",
+                6, 100 + i, 100, GetFlowKeyNH(1));
+        EXPECT_TRUE(flow != NULL);
+    }
+
+    //Verify port index doesnt change
+    for (uint16_t i = 0; i < 10; i++) {
+        EXPECT_TRUE(pt->GetPortIndex(50000 + i) == i);
+    }
 }
 
 int main(int argc, char *argv[]) {

@@ -565,8 +565,8 @@ void FlowProto::DeleteFlowRequest(FlowEntry *flow) {
 }
 
 void FlowProto::DeleteFlowRequest(const FlowKey &key) {
-    FlowTable *table = GetFlowTable(key, 0);
-    FlowEntry *flow = Find(key, table->table_index());
+    CHECK_CONCURRENCY(kTaskFlowEvent);
+    FlowEntry *flow = Find(key, 0);
     if (flow) {
         EnqueueFlowEvent(new FlowEvent(FlowEvent::DELETE_FLOW, flow));
     }
