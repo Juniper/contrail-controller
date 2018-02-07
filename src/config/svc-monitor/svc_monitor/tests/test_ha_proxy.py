@@ -39,15 +39,20 @@ class HAProxyTest(unittest.TestCase):
             obj.uuid = 'pool-si'
             self._store_si[obj.uuid] = obj
 
-
         def update_si_side_effect(obj):
             self._store_si[obj.uuid] = obj
+
+        def delete_si_side_effect(id):
+            del self._store_si[id]
 
         self.vnc_lib.service_instance_create = \
             mock.Mock(side_effect=store_si_create)
 
         self.vnc_lib.service_instance_update = \
             mock.Mock(side_effect=update_si_side_effect)
+
+        self.vnc_lib.service_instance_delete = \
+            mock.Mock(side_effect=delete_si_side_effect)
 
         self._db = {}
         def read_db(id, **kwargs):
@@ -312,6 +317,14 @@ OpencontrailLoadbalancerDriver")
     # end create_vip
 
     def test_add_delete_pool_with_members_vip(self):
+        def read_si_side_effect(id):
+            if id in self._store_si:
+                return self._store_si[id]
+            else:
+                raise NoIdError(id)
+        # Return the stored SI data
+        self.vnc_lib.service_instance_read = \
+            mock.Mock(side_effect=read_si_side_effect)
         project = self.create_project("fake-project", "project")
         vip = self.create_vip('vip', project, 'fake-vip-vn', 'vmi', '1.1.1.1')
         pool = self.create_pool("test-lb-pool",
@@ -345,7 +358,13 @@ OpencontrailLoadbalancerDriver")
         config_db.VirtualIpSM.delete('vip')
         config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         self.assertEqual(len(self._si_pool), 0)
-        self.assertEqual(len(config_db.ServiceInstanceSM._dict.keys()), 0)
+        si_id = 'pool-si'
+        try:
+            si_obj = self.vnc_lib.service_instance_read(id=si_id)
+            self.assertIsNone(si_obj, 'service-instance is not deleted')
+        except NoIdError:
+            pass
+        config_db.ServiceInstanceSM.delete(si_id)
     # end test_add_delete_pool_with_members_vip
     #
     # In this test, update the vip on the pool
@@ -389,7 +408,10 @@ OpencontrailLoadbalancerDriver")
         vip_new.loadbalancer_pool = pool.uuid
 
         def read_si_side_effect(id):
-            return self._store_si[id]
+            if id in self._store_si:
+                return self._store_si[id]
+            else:
+                raise NoIdError(id)
         # Return the stored SI data
         self.vnc_lib.service_instance_read = \
             mock.Mock(side_effect=read_si_side_effect)
@@ -420,6 +442,12 @@ OpencontrailLoadbalancerDriver")
         config_db.VirtualIpSM.delete('vip')
         config_db.LoadbalancerPoolSM.delete('test-lb-pool')
         self.assertEqual(len(self._si_pool), 0)
-        self.assertEqual(len(config_db.ServiceInstanceSM._dict.keys()), 0)
+        si_id = 'pool-si'
+        try:
+            si_obj = self.vnc_lib.service_instance_read(id=si_id)
+            self.assertIsNone(si_obj, 'service-instance is not deleted')
+        except NoIdError:
+            pass
+        config_db.ServiceInstanceSM.delete(si_id)
     # end test_update_vip
 #end HAProxyTest(unittest.TestCase):
