@@ -144,6 +144,8 @@ void Options::Initialize(EventManager &evm,
              "Configurable TCP hold time")
         ("DEFAULT.optimize_snat", opt::bool_switch(&optimize_snat_),
              "Enable control-node optimizations for SNAT (deprecated)")
+        ("DEFAULT.cluster_id", opt::value<string>()->default_value(""),
+             "Cluster ID")
         ("DEFAULT.xmpp_server_port",
              opt::value<uint16_t>()->default_value(default_xmpp_port),
              "XMPP listener port")
@@ -303,6 +305,7 @@ bool Options::Process(int argc, char *argv[],
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<string>(var_map, syslog_facility_, "DEFAULT.syslog_facility");
     GetOptValue<int>(var_map, tcp_hold_time_, "DEFAULT.tcp_hold_time");
+    GetOptValue<string>(var_map, cluster_id_, "DEFAULT.cluster_id");
     GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
     GetOptValue<string>(var_map, xmpp_server_cert_, "DEFAULT.xmpp_server_cert");
     GetOptValue<string>(var_map, xmpp_server_key_, "DEFAULT.xmpp_server_key");

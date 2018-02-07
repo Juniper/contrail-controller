@@ -58,6 +58,7 @@ public:
         XmppStanzaErrorType error;
         std::string from;
         std::string to;
+        std::string cluster_id;
         std::auto_ptr<XmlBase> dom;
 
         bool IsValidType(XmppMessageType type) const {
@@ -199,6 +200,7 @@ private:
     static const char *GetType(XmlBase *doc);
     static const char *GetTo(XmlBase *doc);
     static const char *GetFrom(XmlBase *doc);
+    static const char *GetXmlns(XmlBase *doc);
     static const char *GetAction(XmlBase *doc, const std::string &str);
     static const char *GetNode(XmlBase *doc, const std::string &str);
     static const char *GetAsNode(XmlBase *doc);

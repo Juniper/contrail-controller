@@ -329,6 +329,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(
         impl->ReadNode(ns);
         strm->to = XmppProto::GetTo(impl); 
         strm->from = XmppProto::GetFrom(impl); 
+        strm->cluster_id = XmppProto::GetXmlns(impl);
 
         ret = strm;
 
@@ -426,6 +427,13 @@ const char *XmppProto::GetFrom(XmlBase *doc) {
     if (!doc) return NULL;
 
     string tmp("from");
+    return doc->ReadAttrib(tmp);
+}
+
+const char *XmppProto::GetXmlns(XmlBase *doc) {
+    if (!doc) return NULL;
+
+    string tmp("xmlns");
     return doc->ReadAttrib(tmp);
 }
 

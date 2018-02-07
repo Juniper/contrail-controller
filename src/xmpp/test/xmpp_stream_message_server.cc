@@ -32,8 +32,8 @@ using namespace std;
 #define SUB_ADDR2 "agentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentvvagentagentagentagentagentagentagentagentagentagentagentagentvagentagentagentagent@vnsw.contrailsystems.com"
 #define XMPP_CONTROL_SERV   "bgp.contrail.com"
 
-#define sXMPP_STREAM_RESP_BAD     "<?xml version='1.0'?><extra/><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
-#define sXMPP_STREAM_RESP_GOOD    "<?xml version='1.0'?><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
+#define sXMPP_STREAM_RESP_BAD     "<?xml version='1.0'?><extra/><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns:stream='http://etherx.jabber.org/streams'/>"
+#define sXMPP_STREAM_RESP_GOOD    "<?xml version='1.0'?><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns:stream='http://etherx.jabber.org/streams'/>"
 
 class XmppMockServerConnection : public XmppServerConnection {
 public:

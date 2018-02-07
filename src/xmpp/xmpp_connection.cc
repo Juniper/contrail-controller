@@ -53,6 +53,7 @@ XmppConnection::XmppConnection(TcpServer *server,
       to_(config->ToAddr),
       auth_enabled_(config->auth_enabled),
       dscp_value_(config->dscp_value),
+      cluster_id_(config->cluster_id),
       state_machine_(XmppObjectFactory::Create<XmppStateMachine>(
           this, config->ClientOnly(), config->auth_enabled)),
       mux_(XmppObjectFactory::Create<XmppChannelMux>(this)) {

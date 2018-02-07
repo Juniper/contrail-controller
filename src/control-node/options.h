@@ -63,6 +63,7 @@ public:
     const ConfigClientOptions &configdb_options() const {
         return configdb_options_;
     }
+	std::string cluster_id() const { return cluster_id_; }
     uint16_t xmpp_port() const { return xmpp_port_; }
     bool xmpp_auth_enabled() const { return xmpp_auth_enable_; }
     std::string xmpp_server_cert() const { return xmpp_server_cert_; }
@@ -123,6 +124,7 @@ private:
     ConfigClientOptions configdb_options_;
     uint16_t xmpp_port_;
     bool xmpp_auth_enable_;
+    std::string cluster_id_;
     std::string xmpp_server_cert_;
     std::string xmpp_server_key_;
     std::string xmpp_ca_cert_;

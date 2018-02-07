@@ -214,6 +214,7 @@ public:
         state_machine_.swap(other->state_machine_);
     }
     uint8_t dscp_value() const { return dscp_value_; }
+    std::string cluster_id() const { return cluster_id_; }
     int SetDscpValue(uint8_t value);
 
     void inc_connect_error();
@@ -265,6 +266,7 @@ private:
     std::string to_;
     bool auth_enabled_;
     uint8_t dscp_value_;
+    std::string cluster_id_;
     mutable std::string uve_key_str_;
 
     boost::scoped_ptr<XmppStateMachine> state_machine_;
