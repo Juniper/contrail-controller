@@ -36,6 +36,8 @@ using namespace std;
 using namespace boost::uuids;
 using namespace autogen;
 
+//static const char *kDefaultInterfaceType = "interface";
+
 /////////////////////////////////////////////////////////////////////////////
 // VM-Interface entry routines
 /////////////////////////////////////////////////////////////////////////////
@@ -1400,10 +1402,17 @@ bool VmInterface::InstanceIp::AddL3(const Agent *agent,
     } else if (vmi->vmi_type() == VHOST) {
         vn_name  = agent->fabric_vn_name();
     }
+
+    std::string intf_route_type = "interface";
+    if (is_service_ip_) {
+        intf_route_type = "service-interface";
+    }
+         
     vmi->AddRoute(vmi->vrf()->GetName(), ip_, plen_, vn_name,
                   is_force_policy(), ecmp_,is_local_,
                   is_service_health_check_ip_, vmi->GetServiceIp(ip_),
-                  tracking_ip_, CommunityList(), vmi->label());
+                  tracking_ip_, CommunityList(), vmi->label(),
+                  intf_route_type);
     return true;
 }
 
@@ -1988,7 +1997,8 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
         }
         vmi->AddRoute(vrf_->GetName(), addr_, plen_, vn_name,
                       false, ecmp, false, false, vmi->GetServiceIp(addr_),
-                      dependent_ip, communities_, vmi->label());
+                      dependent_ip, communities_, vmi->label(), 
+                      "interface-static");
     }
     return true;
 }
