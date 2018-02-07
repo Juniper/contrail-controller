@@ -1689,7 +1689,8 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
                                        const PathPreference &path_preference,
                                        bool associate,
                                        Agent::RouteTableType type,
-                                       const EcmpLoadBalance &ecmp_load_balance) {
+                                       const EcmpLoadBalance &ecmp_load_balance,
+                                       const std::string &intf_route_type = "interface") {
 
     static int id = 0;
     ItemType item;
@@ -1746,6 +1747,7 @@ bool AgentXmppChannel::ControllerSendV4V6UnicastRouteCommon(AgentRoute *route,
         item.entry.community_tag_list.community_tag = *communities;
     }
 
+    item.entry.sub_protocol = intf_route_type;
     item.entry.version = 1; //TODO
     item.entry.med = 0;
 
@@ -2385,7 +2387,8 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
                                               const CommunityList *communities,
                                               Agent::RouteTableType type,
                                               const PathPreference &path_preference,
-                                              const EcmpLoadBalance &ecmp_load_balance)
+                                              const EcmpLoadBalance &ecmp_load_balance,
+                                              const std::string &intf_route_type)
 {
     if (!peer) return false;
 
@@ -2400,7 +2403,7 @@ bool AgentXmppChannel::ControllerSendRouteAdd(AgentXmppChannel *peer,
         ret = peer->ControllerSendV4V6UnicastRouteCommon(route, vn_list,
                                                    sg_list, tag_list, communities, label,
                                                    bmap, path_preference, true,
-                                                   type, ecmp_load_balance);
+                                                   type, ecmp_load_balance, intf_route_type);
     }
     if (type == Agent::EVPN) {
         std::string vn;
