@@ -614,6 +614,7 @@ bool InetInterfaceRoute::UpdateRoute(AgentRoute *rt) {
         (table->GetTableType() != Agent::INET6_UNICAST))
         return false;
 
+    rt->SetIntfRouteType(intf_route_type_);
     InetUnicastRouteEntry *uc_rt = static_cast<InetUnicastRouteEntry *>(rt);
 
     return uc_rt->UpdateRouteFlags(false, false, true);

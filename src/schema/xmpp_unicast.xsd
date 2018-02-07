@@ -81,6 +81,15 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
     <xsd:attribute name="seqno" type="xsd:integer"/>
 </xsd:complexType>
 
+<xsd:simpleType name="SubProtocolType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="interface"/>
+        <xsd:enumeration value="interface-static"/>
+        <xsd:enumeration value="service-interface"/>
+        <xsd:enumeration value="BGPaaS"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="EntryType">
     <xsd:all>
         <xsd:element name="nlri" type="IPAddressType"/>
@@ -95,6 +104,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
         <xsd:element name="local-preference" type="xsd:integer"/>
         <xsd:element name="med" type="xsd:integer"/>
         <xsd:element name="load-balance" type="LoadBalanceType"/>
+        <xsd:element name="sub-protocol" type="SubProtocolType" default="interface"/>
     </xsd:all>
 </xsd:complexType>
 
