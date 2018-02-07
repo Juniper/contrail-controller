@@ -10,6 +10,7 @@ import glob
 import platform
 import ConfigParser
 import socket
+import re
 import requests
 import warnings
 try:
@@ -366,8 +367,12 @@ def check_svc(svc, initd_svc=False, check_return_code=False,
 def get_http_server_port_from_cmdline_options(svc_name, debug):
     name, instance = svc_name, None
     name_instance = svc_name.rsplit(':', 1)
+    if len(name_instance) == 1:
+        # Try if it is systemd templated service
+        name_instance = svc_name.rsplit('@', 1)
     if len(name_instance) == 2:
         name, instance = name_instance
+
     cmd = 'ps -eaf | grep %s | grep http_server_port' % (name)
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
     cmdout = p.communicate()[0]
@@ -586,6 +591,30 @@ def check_supervisor_svc_status(service_name, debug, detail, timeout, keyfile,
         print
 # end check_supervisor_svc_status
 
+def get_systemd_templated_services(svc_name):
+    cmd = "systemctl list-units '{}@*.service'" \
+          " -al --plain --no-legend --no-pager".format(svc_name)
+    re_str = r'^(?P<worker_svc>{}@(?P<worker_id>\d+))\.service'.format(
+        re.escape(svc_name))
+    re_svc_worker = re.compile(re_str)
+
+    try:
+        with open(os.devnull, "w") as fnull:
+            cmdout = subprocess.check_output(cmd, shell=True, stderr=fnull)
+    except subprocess.CalledProcessError as e:
+        return svc_workers
+
+    svc_workers = []
+    for svc_line in cmdout.split():
+        match = re_svc_worker.match(svc_line)
+        if match:
+            groups = match.groupdict()
+            svc_worker = (int(groups['worker_id']), groups['worker_svc'],)
+            svc_workers.append(svc_worker)
+
+    return [worker[1] for worker in sorted(svc_workers)]
+# end get_systemd_templated_services
+
 def check_status(svc_name, options):
     do_check_svc = True
     # In ubuntu 14.04 docker, the docker entrypoint launches supervisor-X and
@@ -593,7 +622,12 @@ def check_status(svc_name, options):
     if init_sys_used in ['supervisor'] and svc_name.startswith('supervisor'):
         do_check_svc = False
     if do_check_svc:
-        check_svc(svc_name, options=options)
+        svc_workers = get_systemd_templated_services(svc_name)
+        if svc_workers:
+            for worker in svc_workers:
+                check_svc(worker, options=options)
+        else:
+            check_svc(svc_name, options=options)
     # Check supervisor-X status to get details about processes launched by
     # supervisor
     if svc_name.startswith('supervisor'):
@@ -810,4 +844,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
