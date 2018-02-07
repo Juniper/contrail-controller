@@ -63,6 +63,7 @@ XmppServer::XmppServer(EventManager *evm, const string &server_addr,
       tcp_hold_time_(config->tcp_hold_time),
       gr_helper_disable_(config->gr_helper_disable),
       dscp_value_(0),
+      xmlns_(config->xmlns),
       connection_queue_(TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
           0, boost::bind(&XmppServer::DequeueConnection, this, _1)) {
 
@@ -534,6 +535,7 @@ XmppServerConnection *XmppServer::CreateConnection(XmppSession *session) {
     cfg.logUVE = log_uve_;
     cfg.auth_enabled = auth_enabled_;
     cfg.dscp_value = dscp_value_;
+    cfg.xmlns = xmlns_;
 
     XMPP_DEBUG(XmppCreateConnection, session->ToUVEKey(), XMPP_PEER_DIR_OUT,
                session->ToString());

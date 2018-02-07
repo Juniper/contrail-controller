@@ -92,6 +92,7 @@ static XmppServer *CreateXmppServer(EventManager *evm, Options *options,
     xmpp_cfg->auth_enabled = options->xmpp_auth_enabled();
     xmpp_cfg->tcp_hold_time = options->tcp_hold_time();
     xmpp_cfg->gr_helper_disable = options->gr_helper_xmpp_disable();
+    xmpp_cfg->xmlns = options->cluster_id();
 
     if (xmpp_cfg->auth_enabled) {
         xmpp_cfg->path_to_server_cert = options->xmpp_server_cert();

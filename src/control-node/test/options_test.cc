@@ -78,6 +78,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
     EXPECT_EQ(options_.rabbitmq_password(), "guest");
     EXPECT_EQ(options_.rabbitmq_ssl_enabled(), false);
+    EXPECT_EQ(options_.cluster_id(), "");
     TASK_UTIL_EXPECT_VECTOR_EQ(default_rabbitmq_server_list_,
                      options_.rabbitmq_server_list());
     TASK_UTIL_EXPECT_VECTOR_EQ(default_configdb_server_list_,
@@ -118,6 +119,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
+    EXPECT_EQ(options_.cluster_id(), "");
     EXPECT_EQ(options_.xmpp_port(), default_xmpp_port);
     EXPECT_EQ(options_.test_mode(), false);
     EXPECT_EQ(options_.gr_helper_bgp_disable(), false);
@@ -156,6 +158,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
+    EXPECT_EQ(options_.cluster_id(), "");
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
@@ -206,6 +209,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), true);
+    EXPECT_EQ(options_.cluster_id(), "");
     EXPECT_EQ(options_.config_db_user(), "");
     EXPECT_EQ(options_.config_db_password(), "");
     EXPECT_EQ(options_.rabbitmq_user(), "guest");
@@ -241,6 +245,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "log_level=SYS_DEBUG\n"
         "log_local=false\n"
         "mvpn_ipv4_enable=false\n"
+        "cluster_id=10\n"
         "test_mode=0\n"
         "task_track_run_time=0\n"
         "optimize_snat=1\n"
@@ -300,6 +305,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), false);
+    EXPECT_EQ(options_.cluster_id(), "10");
     EXPECT_EQ(options_.xmpp_port(), 100);
     EXPECT_EQ(options_.task_track_run_time(), false);
     EXPECT_EQ(options_.test_mode(), false);
@@ -337,6 +343,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "log_level=SYS_DEBUG\n"
         "log_local=0\n"
         "mvpn_ipv4_enable=0\n"
+        "cluster_id=10\n"
         "test_mode=1\n"
         "xmpp_server_port=100\n"
         "sandesh_send_rate_limit=5\n"
@@ -356,7 +363,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     config_file << config;
     config_file.close();
 
-    int argc = 12;
+    int argc = 13;
     char *argv[argc];
     char argv_0[] = "options_test";
     char argv_1[] = "--conf_file=./options_test_config_file.conf";
@@ -370,6 +377,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     char argv_9[] = "--DEFAULT.gr_helper_xmpp_disable";
     char argv_10[] = "--SANDESH.disable_object_logs";
     char argv_11[] = "--DEFAULT.mvpn_ipv4_enable";
+    char argv_12[] = "--DEFAULT.cluster_id=20";
     argv[0] = argv_0;
     argv[1] = argv_1;
     argv[2] = argv_2;
@@ -382,6 +390,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     argv[9] = argv_9;
     argv[10] = argv_10;
     argv[11] = argv_11;
+    argv[12] = argv_12;
 
     options_.Parse(evm_, argc, argv);
 
@@ -408,6 +417,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.log_level(), "SYS_DEBUG");
     EXPECT_EQ(options_.log_local(), true);
     EXPECT_EQ(options_.mvpn_ipv4_enable(), true);
+    EXPECT_EQ(options_.cluster_id(), "20");
     EXPECT_EQ(options_.config_db_user(), "test-db-user");
     EXPECT_EQ(options_.config_db_password(), "test-db-password");
     EXPECT_EQ(options_.rabbitmq_user(), "test-user");

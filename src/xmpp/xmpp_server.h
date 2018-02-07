@@ -140,6 +140,7 @@ private:
     bool gr_helper_disable_;
     boost::scoped_ptr<XmppConfigUpdater> xmpp_config_updater_;
     uint8_t dscp_value_;
+    std::string xmlns_;
     WorkQueue<XmppServerConnection *> connection_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppServer);

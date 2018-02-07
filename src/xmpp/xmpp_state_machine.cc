@@ -1346,6 +1346,17 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
             xmpp_server->FindConnectionEndpoint(connection_->ToString());
     }
 
+    if (session->Connection()->xmlns() != msg->xmlns) {
+        XMPP_WARNING(XmppDeleteConnection, session->ToUVEKey(),
+            XMPP_PEER_DIR_IN,
+            "Drop new xmpp connection " + session->ToString() +
+            " as xmlns of msg " + msg->xmlns +
+            " is different from " + session->Connection()->xmlns());
+        ProcessEvent(xmsm::EvTcpClose(session));
+        delete msg;
+        return;
+    }
+
     // If there is no connection already associated with the end-point,
     // process the incoming open message and move forward with the session
     // establishment.
