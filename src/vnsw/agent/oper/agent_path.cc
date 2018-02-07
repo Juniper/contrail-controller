@@ -840,6 +840,17 @@ bool LocalVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
     return ret;
 }
 
+bool LocalVmRoute::UpdateRoute(AgentRoute *rt) {
+    AgentRouteTable *table = static_cast<AgentRouteTable *>(rt->get_table());
+    if ((table->GetTableType() != Agent::INET4_UNICAST) &&
+        (table->GetTableType() != Agent::INET6_UNICAST))
+        return false;
+
+    rt->SetIntfRouteType(intf_route_type());
+    return true;
+}
+
+
 bool PBBRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                      const AgentRoute *rt) {
     bool ret = false;
