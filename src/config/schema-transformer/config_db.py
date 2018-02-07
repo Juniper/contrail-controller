@@ -4140,8 +4140,8 @@ class LogicalRouterST(DBBaseST):
         self.update_multiple_refs('bgpvpn', {})
         self.update_virtual_networks()
         rtgt_num = int(self.route_target.split(':')[-1])
-        self._object_db.free_route_target_by_number(rtgt_num)
         self.delete_route_targets([self.route_target])
+        self._object_db.free_route_target_by_number(rtgt_num)
     # end delete_obj
 
     def update_virtual_networks(self):
