@@ -1400,10 +1400,14 @@ bool VmInterface::InstanceIp::AddL3(const Agent *agent,
     } else if (vmi->vmi_type() == VHOST) {
         vn_name  = agent->fabric_vn_name();
     }
+
+    std::string intf_type;
+    is_service_ip_ ? intf_type = "service-interface": intf_type = "interface";
     vmi->AddRoute(vmi->vrf()->GetName(), ip_, plen_, vn_name,
                   is_force_policy(), ecmp_,is_local_,
                   is_service_health_check_ip_, vmi->GetServiceIp(ip_),
-                  tracking_ip_, CommunityList(), vmi->label());
+                  tracking_ip_, CommunityList(), vmi->label(),
+                  intf_type);
     return true;
 }
 
