@@ -356,6 +356,11 @@ public:
     static const uint8_t vHostUserClient = 0;
     static const uint8_t vHostUserServer = 1;
 
+    // Interface route type
+    static const char *kInterface;
+    static const char *kServiceInterface;
+    static const char *kInterfaceStatic;
+
     enum Configurer {
         INSTANCE_MSG,
         CONFIG
@@ -1296,6 +1301,7 @@ public:
         return si_other_end_vmi_;
     }
     const std::string &service_intf_type() const { return service_intf_type_; }
+    const std::string &intf_route_type() const { return intf_route_type_; }
     VmInterface * PortTuplePairedInterface() const;
 
     // Static methods
@@ -1363,7 +1369,8 @@ private:
                   uint32_t plen, const std::string &vn_name, bool force_policy,
                   bool ecmp, bool is_local, bool proxy_arp,
                   const IpAddress &service_ip, const IpAddress &dependent_ip,
-                  const CommunityList &communties, uint32_t label);
+                  const CommunityList &communties, uint32_t label,
+                  const string &intf_route_type);
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
 
@@ -1508,6 +1515,7 @@ private:
     //In case Vhost interface, uuid_ is stored here
     boost::uuids::uuid vmi_cfg_uuid_;
     std::string service_intf_type_;
+    std::string intf_route_type_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
