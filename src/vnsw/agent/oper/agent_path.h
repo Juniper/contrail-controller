@@ -554,8 +554,10 @@ public:
                  const IpAddress &subnet_service_ip,
                  const EcmpLoadBalance &ecmp_load_balance, bool is_local,
                  bool is_health_check_service, uint64_t sequence_number,
-                 bool etree_leaf, bool native_encap) :
-        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number),
+                 bool etree_leaf, bool native_encap,
+                 const string intf_route_type = "interface") :
+        AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, sequence_number,
+                       intf_route_type),
         intf_(intf), mpls_label_(mpls_label),
         vxlan_id_(vxlan_id), force_policy_(force_policy),
         dest_vn_list_(vn_list), proxy_arp_(false), sync_route_(false),
@@ -566,7 +568,8 @@ public:
         subnet_service_ip_(subnet_service_ip),
         ecmp_load_balance_(ecmp_load_balance), is_local_(is_local),
         is_health_check_service_(is_health_check_service),
-        etree_leaf_(etree_leaf), native_encap_(native_encap) {
+        etree_leaf_(etree_leaf), native_encap_(native_encap),
+        intf_route_type_(intf_route_type) {
     }
     virtual ~LocalVmRoute() { }
     void DisableProxyArp() {proxy_arp_ = false;}
@@ -585,6 +588,7 @@ public:
     uint32_t tunnel_bmap() const {return tunnel_bmap_;}
     bool proxy_arp() const {return proxy_arp_;}
     bool etree_leaf() const { return etree_leaf_;}
+    const std::string intf_route_type() const {return intf_route_type_;}
 private:
     VmInterfaceKey intf_;
     uint32_t mpls_label_;
@@ -605,6 +609,7 @@ private:
     bool is_health_check_service_;
     bool etree_leaf_;
     bool native_encap_;
+    string intf_route_type_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 

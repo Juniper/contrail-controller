@@ -1363,7 +1363,8 @@ private:
                   uint32_t plen, const std::string &vn_name, bool force_policy,
                   bool ecmp, bool is_local, bool proxy_arp,
                   const IpAddress &service_ip, const IpAddress &dependent_ip,
-                  const CommunityList &communties, uint32_t label);
+                  const CommunityList &communties, uint32_t label,
+                  const string intf_route_type = "interface");
     void DeleteRoute(const std::string &vrf_name, const IpAddress &ip,
                      uint32_t plen);
 
