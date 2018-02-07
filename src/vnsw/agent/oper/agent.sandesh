@@ -723,6 +723,9 @@ struct RouteUcSandeshData {
     6: optional bool proxy_arp;
     /** Boolean value which indicates if it is multicast route */
     7: bool multicast;
+    /** string indicating route type, options are */
+    /** interface, service-interface, interaface-static type */
+    9: string intf_route_type;
 }
 
 /**
