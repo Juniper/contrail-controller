@@ -234,8 +234,10 @@ public:
     typedef DependencyList<AgentRoute, AgentRoute> RouteDependencyList;
     typedef DependencyList<NextHop, AgentRoute> TunnelNhDependencyList;
 
-    AgentRoute(VrfEntry *vrf, bool is_multicast) :
-        Route(), vrf_(vrf), is_multicast_(is_multicast) { }
+    AgentRoute(VrfEntry *vrf, bool is_multicast,
+               std::string &intf_route_type = "interface") :
+        Route(), vrf_(vrf), is_multicast_(is_multicast),
+        intf_route_type_(intf_route_type) { }
     virtual ~AgentRoute() { }
 
     // Virtual functions from base DBEntry
@@ -271,6 +273,10 @@ public:
     bool is_multicast() const {return is_multicast_;}
     VrfEntry *vrf() const {return vrf_;}
     uint32_t vrf_id() const;
+    const std::string &intf_route_type() const { return intf_route_type_; }
+    void SetIntfRouteType(const std::string &intf_route_type) {
+        intf_route_type_ = intf_route_type;
+    }
 
     AgentPath *FindLocalPath() const;
     AgentPath *FindLocalVmPortPath() const;
@@ -321,6 +327,7 @@ private:
     // Unicast table can contain routes for few multicast address 
     // (ex. subnet multicast). Flag to specify if this is multicast route
     bool is_multicast_;
+    std::string intf_route_type_;
     DEPENDENCY_LIST(AgentRoute, AgentRoute, dependant_routes_);
     DEPENDENCY_LIST(NextHop, AgentRoute, tunnel_nh_list_);
     DISALLOW_COPY_AND_ASSIGN(AgentRoute);
