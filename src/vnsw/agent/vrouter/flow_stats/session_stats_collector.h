@@ -202,6 +202,7 @@ public:
 protected:
     virtual void DispatchSessionMsg(const std::vector<SessionEndpoint> &lst);
 private:
+    int ComputeSloRate(int rate, SecurityLoggingObject *slo) const;
     bool FetchFlowStats(SessionFlowStatsInfo *info,
                         SessionFlowStatsParams *params) const;
     uint64_t threshold() const;
@@ -339,12 +340,10 @@ private:
                      SessionSloRuleMap *slo_rule_map);
     void AddSloEntryRules(SecurityLoggingObject *slo,
                           SessionSloRuleMap *slo_rule_map);
-    void AddSloFirewallPolicies(const UuidList &list, int rate,
-                                SecurityLoggingObject *slo,
-                                SessionSloRuleMap *slo_rule_map);
-    void AddSloFirewallRules(const UuidList &list, int rate,
-                             SecurityLoggingObject *slo,
-                             SessionSloRuleMap *slo_rule_map);
+    void AddSloFirewallPolicies(SecurityLoggingObject *slo,
+                                SessionSloRuleMap *r_map);
+    void AddSloFirewallRules(SecurityLoggingObject *slo,
+                             SessionSloRuleMap *rule_map);
     void AddSloRules(
         const std::vector<autogen::SecurityLoggingObjectRuleEntryType> &list,
         SecurityLoggingObject *slo,
