@@ -2595,6 +2595,7 @@ class OpServer(object):
         finally:
             self._logger.error('stopping everything')
             self.stop()
+            exit(2)
 
     def stop(self):
         self._sandesh._client._connection.set_admin_state(down=True)
