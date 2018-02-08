@@ -1,0 +1,12 @@
+lxml>=2.3.3
+gevent==1.1a2
+geventhttpclient==1.0a
+pycassa>=1.7.2
+netaddr>=0.7.5
+bitarray>=0.8.0
+psutil>=0.6.0
+netaddr>=0.7.5
+kombu
+netifaces
+bottle
+stevedore
