@@ -2685,6 +2685,102 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         msg = "Deleted allocated IP address with a wrong allocation ID"
         assert not mock_ip_free_req.called, msg
 
+    def verfiy_ip_delete_when_cassandra_down(
+            self, res_type, res_del_method, res_uuid, ipam):
+        api_server = self._server_info['api_server']
+        r_class = api_server.get_resource_class(res_type)
+        orig_post_dbe_delete = r_class.post_dbe_delete
+        orig_cassandra_db = api_server._db_conn._cassandra_db
+        @classmethod
+        def post_dbe_delete_with_no_cassandra_connection(cls, id, obj_dict, db_conn, **kwargs):
+            api_server._db_conn._cassandra_db = None
+            ok, result = orig_post_dbe_delete(id, obj_dict, db_conn, **kwargs)
+            api_server._db_conn._cassandra_db = orig_cassandra_db
+            return ok, result
+        try:
+            r_class.post_dbe_delete = post_dbe_delete_with_no_cassandra_connection
+            mock_zk = api_server._db_conn._zk_db
+            subnet_zk = None
+            for subnet_zk in mock_zk._subnet_allocators.keys():
+                if ipam.get_fq_name_str() in subnet_zk:
+                    break
+            self.assertIsNotNone(subnet_zk)
+            self.assertEqual(mock_zk.subnet_alloc_count(subnet_zk), 4)
+            res_del_method(id=res_uuid)
+            # make sure the zk alloc id is removed.
+            self.assertEqual(mock_zk.subnet_alloc_count(subnet_zk), 3)
+        finally:
+            # make sure the zk alloc id is removed.
+            #self.assertEqual(mock_zk.subnet_alloc_count(subnet_zk), 3)
+            r_class.post_dbe_delete = orig_post_dbe_delete
+            api_server._db_conn._cassandra_db = orig_cassandra_db
+
+    def test_ip_alloc_free_when_cassandra_down(self):
+        """
+        Test LP# 1749294
+        """
+        # Create Project
+        project = Project('proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+
+        # Create subnets
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('22.2.2.0', 24))
+
+        # Create VN
+        vn = VirtualNetwork('vn-%s' %(self.id()), project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
+        self._vnc_lib.virtual_network_create(vn)
+        logger.debug('Created Virtual Network object %s', vn.uuid)
+        vn_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # Create v4 Ip object
+        ip_obj = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ip_obj.uuid = ip_obj.name
+        ip_obj.set_virtual_network(vn_obj)
+        ip_id = self._vnc_lib.instance_ip_create(ip_obj)
+        logger.debug('Created Instance IP object %s', ip_id)
+        self.verfiy_ip_delete_when_cassandra_down(
+                "instance_ip",
+                self._vnc_lib.instance_ip_delete,
+                ip_id,
+                ipam)
+
+        # Create Floating IP Pool Object
+        fip_pool_obj = FloatingIpPool(
+            'fip-pool-%s' %(self.id()), parent_obj=vn_obj)
+        fip_pool_id = self._vnc_lib.floating_ip_pool_create(fip_pool_obj)
+        logger.debug('Created Floating IP Pool object %s', fip_pool_id)
+        # Create Floating IP Object
+        fip_obj = FloatingIp('fip-%s' %(self.id()), fip_pool_obj)
+        fip_obj.add_project(project)
+        fip_id = self._vnc_lib.floating_ip_create(fip_obj)
+        logger.debug('Created Floating IP object %s', fip_id)
+        self.verfiy_ip_delete_when_cassandra_down(
+                "floating_ip",
+                self._vnc_lib.floating_ip_delete,
+                fip_id,
+                ipam)
+
+        # Create Alias IP Pool Object
+        aip_pool_obj = AliasIpPool(
+            'aip-pool-%s' %(self.id()), parent_obj=vn_obj)
+        aip_pool_id = self._vnc_lib.alias_ip_pool_create(aip_pool_obj)
+        logger.debug('Created Alias IP Pool object %s', aip_pool_id)
+        # Create Alias IP Object
+        aip_obj = AliasIp('aip-%s' %(self.id()), aip_pool_obj)
+        aip_obj.add_project(project)
+        aip_id = self._vnc_lib.alias_ip_create(aip_obj)
+        logger.debug('Created Alias IP object %s', aip_id)
+        self.verfiy_ip_delete_when_cassandra_down(
+                "alias_ip",
+                self._vnc_lib.alias_ip_delete,
+                aip_id,
+                ipam)
+
 #end class TestIpAlloc
 
 if __name__ == '__main__':
