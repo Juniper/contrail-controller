@@ -167,15 +167,19 @@ class UVEServer(object):
     def _redis_inst_get(self, r_inst):
         r_ip = r_inst[0]
         r_port = r_inst[1]
-	if not self._redis_uve_map[r_inst]:
+	if r_inst in self._redis_uve_map and not self._redis_uve_map[r_inst]:
 	    return redis.StrictRedis(
 		    host=r_ip, port=r_port,
 		    password=self._redis_password, db=1, socket_timeout=30)
 	else:
-	    return self._redis_uve_map[r_inst]
+            if r_inst in self._redis_uve_map:
+	        return self._redis_uve_map[r_inst]
+            else:
+                self._logger.error("redis instance %s not in _redis_uve_map" % (str(r_inst)))
+                return None
 
     def _redis_inst_up(self, r_inst, redish):
-	if not self._redis_uve_map[r_inst]:
+	if r_inst in self._redis_uve_map and not self._redis_uve_map[r_inst]:
             r_ip = r_inst[0]
             r_port = r_inst[1]
 	    self._redis_uve_map[r_inst] = redish
