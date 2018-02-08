@@ -1296,6 +1296,15 @@ public:
     }
 
     bool is_left_si() const { return is_left_si_; }
+    enum ServiceMode{
+        BRIDGE_MODE,
+        ROUTED_MODE,
+        ROUTED_NAT_MODE,
+        SERVICE_MODE_ERROR,
+    };
+    uint32_t service_mode() {
+        return service_mode_;
+    }
     const boost::uuids::uuid &si_other_end_vmi() const {
         return si_other_end_vmi_;
     }
@@ -1503,6 +1512,7 @@ private:
     uint8_t vhostuser_mode_;
     // indicates if the VMI is the left interface of a service instance
     bool is_left_si_;
+    uint32_t service_mode_;
     /* If current interface is SI VMI, then the below field indicates the VMI
      * uuid of the other end of SI. If current VMI is left VMI of SI si1, then
      * below field indicates right VMI of SI si1 and vice versa. This will have
@@ -1689,6 +1699,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     UuidList slo_list_;
     uint8_t vhostuser_mode_;
     bool is_left_si_;
+    uint32_t service_mode_;
     boost::uuids::uuid si_other_end_vmi_;
     boost::uuids::uuid vmi_cfg_uuid_;
     std::string service_intf_type_;

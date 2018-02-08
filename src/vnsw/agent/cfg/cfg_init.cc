@@ -153,6 +153,11 @@ void AgentConfig::RegisterDBClients(DB *db) {
                                "service_instance")));
     assert(cfg_service_instance_table_);
 
+    cfg_service_template_table_ = (static_cast<IFMapAgentTable *>
+         (IFMapTable::FindTable(agent_->db(),
+                               "service-template")));
+    assert(cfg_service_template_table_);
+
     cfg_security_group_table_ = (static_cast<IFMapAgentTable *>
          (IFMapTable::FindTable(agent_->db(),
                                "security_group")));
