@@ -31,7 +31,7 @@ class VrouterInterface(AlarmBase):
 			operand2=Operand2(json_value="null")),
 		    json_operand1_value=json.dumps({})))
 
-		if ust["error_intf_list"] == []:
+		if ust["error_intf_list"] != []:
 		    and_list.append(AlarmElement(\
 			rule=AlarmTemplate(oper="!=",
 			    operand1=Operand1(keys=["VrouterAgent",
