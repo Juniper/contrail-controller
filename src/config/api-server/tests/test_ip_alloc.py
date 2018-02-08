@@ -2685,6 +2685,62 @@ class TestIpAlloc(test_case.ApiServerTestCase):
         msg = "Deleted allocated IP address with a wrong allocation ID"
         assert not mock_ip_free_req.called, msg
 
+    def test_ip_alloc_free_when_cassandra_down(self):
+        """
+        Test LP# 1749294
+        """
+        # Create Project
+        project = Project('proj-%s' %(self.id()), Domain())
+        self._vnc_lib.project_create(project)
+
+        # Create NetworkIpam
+        ipam = NetworkIpam('default-network-ipam', project, IpamType("dhcp"))
+        self._vnc_lib.network_ipam_create(ipam)
+
+        # Create subnets
+        ipam_sn_v4 = IpamSubnetType(subnet=SubnetType('22.2.2.0', 24))
+
+        # Create VN
+        vn = VirtualNetwork('vn-%s' %(self.id()), project)
+        vn.add_network_ipam(ipam, VnSubnetsType([ipam_sn_v4]))
+        self._vnc_lib.virtual_network_create(vn)
+        logger.debug('Created Virtual Network object %s', vn.uuid)
+        net_obj = self._vnc_lib.virtual_network_read(id = vn.uuid)
+
+        # Create v4 Ip object
+        ip_obj = InstanceIp(name=str(uuid.uuid4()), instance_ip_family='v4')
+        ip_obj.uuid = ip_obj.name
+        ip_obj.set_virtual_network(net_obj)
+        ip_id = self._vnc_lib.instance_ip_create(ip_obj)
+        logger.debug('Created Instance IP object %s', ip_id)
+
+        api_server = self._server_info['api_server']
+        r_class = api_server.get_resource_class("instance_ip")
+        orig_post_dbe_delete = r_class.post_dbe_delete
+        orig_cassandra_db = api_server._db_conn._cassandra_db
+        @classmethod
+        def post_dbe_delete_with_no_cassandra_connection(cls, id, obj_dict, db_conn, **kwargs):
+            api_server._db_conn._cassandra_db = None
+            ok, result = orig_post_dbe_delete(id, obj_dict, db_conn, **kwargs)
+            api_server._db_conn._cassandra_db = orig_cassandra_db
+            return ok, result
+        try:
+            r_class.post_dbe_delete = post_dbe_delete_with_no_cassandra_connection
+            mock_zk = api_server._db_conn._zk_db
+            subnet_zk = None
+            for subnet_zk in mock_zk._subnet_allocators.keys():
+                if ipam.get_fq_name_str() in subnet_zk:
+                    break
+            self.assertIsNotNone(subnet_zk)
+            self.assertEqual(mock_zk.subnet_alloc_count(subnet_zk), 4)
+            self._vnc_lib.instance_ip_delete(id=ip_id)
+            # make sure the zk alloc id is removed
+            self.assertEqual(mock_zk.subnet_alloc_count(subnet_zk), 3)
+        finally:
+            r_class.post_dbe_delete = orig_post_dbe_delete
+            api_server._db_conn._cassandra_db = orig_cassandra_db
+
+
 #end class TestIpAlloc
 
 if __name__ == '__main__':
