@@ -23,7 +23,7 @@ from pprint import *
 import json
 import pprint
 
-from neutronclient.client import HTTPClient
+from ironicclient import client as ironicclient
 
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_logger import *
@@ -40,7 +40,6 @@ from cfgm_common.uve.nodeinfo.ttypes import NodeStatusUVE, \
     NodeStatus
 
 from sandesh.ironic_notification_manager.ttypes import *
-
 from ironic_kombu import IronicKombuClient
 
 
@@ -49,42 +48,78 @@ class IronicNotificationManager(object):
     _ironic_notification_manager = None
     _ironic_kombu_client = None
 
+    IronicNodeDictKeyMap = {
+        'uuid': 'name',
+        'provision_state': 'provision_state',
+        'power_state': 'power_state',
+        'driver': 'driver',
+        'instance_uuid': 'instance_uuid',
+        'name': 'host_name',
+        'network_interface': 'network_interface',
+        'event_type': 'event_type',
+        'publisher_id': 'publisher_id',
+        'maintenance': 'maintenance',
+        'provision_updated_at': 'provision_update_timestamp',
+        'updated_at': 'update_timestamp',
+        'created_at': 'create_timestamp',
+        'driver_info': 'driver_info',
+        'instance_info': 'instance_info',
+        'properties': 'properties'}
+    sub_dict_list = ['driver_info', 'instance_info', 'properties']
+    SubDictKeyMap = {
+        'driver_info': ['ipmi_address', 'ipmi_password', 'ipmi_username',
+                        'ipmi_terminal_port', 'deploy_kernel', 'deploy_ramdisk'],
+        'instance_info': ['display_name', 'nova_host_id', 'configdrive',
+                          'root_gb', 'memory_mb', 'vcpus', 'local_gb',
+                          'image_checksum', 'image_source', 'image_type', 'image_url'],
+        'properties': ['cpu_arch', 'cpus', 'local_gb', 'memory_mb', 'capabilities']
+    }
+
     def __init__(self, inm_logger=None, args=None):
         self._args = args
 
         IronicNotificationManager._ironic_notification_manager = self
     # end __init__
 
+    def authenticate_with_ironicclient(self):
+        if self._args.auth_url:
+            auth_url = self._args.auth_url
+        else:
+            auth_url = '%s://%s:%s/%s' % (self._args.auth_protocol,
+                                          self._args.auth_host,
+                                          self._args.auth_port,
+                                          self._args.auth_version)
+        ironic_url = 'http://%s:%s/' % (self._args.ironic_server_ip,
+                                        self._args.ironic_server_port)
+        kwargs = {
+            'ironic_url': ironic_url,
+            'os_auth_url': auth_url,
+            'os_username': self._args.admin_user,
+            'os_password': self._args.admin_password,
+            'os_project_name': self._args.admin_tenant_name
+        }
+        if "v3" in str(auth_url):
+            kwargs['os_user_domain_name'] = self._args.user_domain_name
+            kwargs['os_project_domain_name'] = self._args.project_domain_name
+
+        #TODO: Implement Keystone SSL support
+
+        ironic_client_object = ironicclient.get_client(1, **kwargs)
+        return ironic_client_object
+
     def sync_with_ironic(self):
+        try:
+            auth_ironic_client = self.authenticate_with_ironicclient()
+        except Exception as e:
+            raise e
 
-        auth_url = '%s://%s:%s/%s' % (self._args.auth_protocol,
-                                      self._args.auth_server,
-                                      self._args.auth_port,
-                                      self._args.auth_version)
-        print auth_url
-
-        httpclient = HTTPClient(username=self._args.admin_user,
-                                project_name=self._args.admin_tenant_name,
-                                password=self._args.admin_password,
-                                auth_url=auth_url)
-
-        httpclient.authenticate()
-        ironic_url = 'http://%s:%s/v1/nodes/detail' % (self._args.ironic_server_ip,
-                                                       self._args.ironic_server_port)
-        auth_token = httpclient.auth_token
-        headers = {'X-Auth-Token': str(auth_token)}
-
-        resp = requests.get(ironic_url, headers=headers)
-
-        resp_dict = resp.json()
-        node_dict_list = resp_dict["nodes"]
+        node_dict_list = auth_ironic_client.node.list()
         self.process_ironic_node_info(node_dict_list)
-
 
     def sandesh_init(self):
         # Inventory node module initialization part
         try:
-            __import__('sandesh.ironic_notification_manager')
+            __import__('ironic_notification_manager.sandesh.ironic_notification_manager')
             module = Module.IRONIC_NOTIF_MANAGER
         except ImportError as e:
             raise e
@@ -94,7 +129,7 @@ class IronicNotificationManager(object):
             node_type = Module2NodeType[module]
             node_type_name = NodeTypeNames[node_type]
             instance_id = INSTANCE_ID_DEFAULT
-            sandesh_package_list = ['sandesh.ironic_notification_manager']
+            sandesh_package_list = ['ironic_notification_manager.sandesh.ironic_notification_manager']
 
             # In case of multiple collectors, use a randomly chosen one
             self.random_collectors = self._args.collectors
@@ -130,41 +165,15 @@ class IronicNotificationManager(object):
             InstanceInfoDict = dict()
             NodePropertiesDict = dict()
 
-            IronicNodeDictKeyMap = {
-                'uuid': 'name',
-                'provision_state': 'provision_state',
-                'power_state': 'power_state',
-                'driver': 'driver',
-                'instance_uuid': 'instance_uuid',
-                'name': 'host_name',
-                'network_interface': 'network_interface',
-                'event_type': 'event_type',
-                'publisher_id': 'publisher_id',
-                'maintenance': 'maintenance',
-                'provision_updated_at': 'provision_update_timestamp',
-                'updated_at': 'update_timestamp',
-                'created_at': 'create_timestamp',
-                'driver_info': 'driver_info',
-                'instance_info': 'instance_info',
-                'properties': 'properties'}
-            sub_dict_list = ['driver_info', 'instance_info', 'properties']
-            SubDictKeyMap = {
-                'driver_info': ['ipmi_address', 'ipmi_password', 'ipmi_username',
-                                'ipmi_terminal_port', 'deploy_kernel', 'deploy_ramdisk'],
-                'instance_info': ['display_name', 'nova_host_id', 'configdrive',
-                                  'root_gb', 'memory_mb', 'vcpus', 'local_gb',
-                                  'image_checksum', 'image_source', 'image_type', 'image_url'],
-                'properties': ['cpu_arch', 'cpus', 'local_gb', 'memory_mb', 'capabilities']
-            }
-            for key in IronicNodeDictKeyMap.keys():
-                if key in node_dict and key not in sub_dict_list:
-                    IronicNodeDict[IronicNodeDictKeyMap[key]] = node_dict[key]
+            for key in self.IronicNodeDictKeyMap.keys():
+                if key in node_dict and key not in self.sub_dict_list:
+                    IronicNodeDict[self.IronicNodeDictKeyMap[key]] = node_dict[key]
 
-            for sub_dict in sub_dict_list:
+            for sub_dict in self.sub_dict_list:
                 IronicNodeDict[sub_dict] = {}
                 if sub_dict in node_dict.keys():
                     for key in node_dict[sub_dict]:
-                        if key in SubDictKeyMap[sub_dict]:
+                        if key in self.SubDictKeyMap[sub_dict]:
                             IronicNodeDict[sub_dict][key] = node_dict[sub_dict][key]
 
             DriverInfoDict = IronicNodeDict.pop("driver_info",None)
@@ -219,10 +228,6 @@ def parse_args(args_str):
     defaults = {
         'ironic_server_ip': '127.0.0.1',
         'ironic_server_port': 6385,
-        'auth_server': '127.0.0.1',
-        'auth_port': 5000,
-        'auth_protocol': 'http',
-        'auth_version': 'v2.0',
         'collectors'        : '127.0.0.1:8086',
         'introspect_port'   : int(ServiceHttpPortMap[ModuleNames[Module.IRONIC_NOTIF_MANAGER]]),
         'log_level'         : 'SYS_INFO',
@@ -233,9 +238,23 @@ def parse_args(args_str):
         'syslog_facility'   : Sandesh._DEFAULT_SYSLOG_FACILITY
     }
     ksopts = {
-      'admin_user': 'user1',
-      'admin_password': 'password1',
-      'admin_tenant_name': 'default-domain'
+        'auth_host': '127.0.0.1',
+        'auth_port': '35357',
+        'auth_protocol': 'http',
+        'auth_version': 'v2.0',
+        'admin_user': '',
+        'admin_password': '',
+        'admin_tenant_name': '',
+        'user_domain_name': None,
+        'identity_uri': None,
+        'project_domain_name': None,
+        'insecure': True,
+        'cafile': '',
+        'certfile': '',
+        'keyfile': '',
+        'auth_type': 'password',
+        'auth_url': '',
+        'region_name': ''
     }
     defaults.update(SandeshConfig.get_default_options(['DEFAULTS']))
     sandesh_opts = SandeshConfig.get_default_options()
