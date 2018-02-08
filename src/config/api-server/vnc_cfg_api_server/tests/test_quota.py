@@ -129,6 +129,50 @@ class TestQuota(test_case.ApiServerTestCase):
             # Expect MismatchError on asserEqual(result['exception'], 1)
             self.test_create_vmi_with_quota_in_parallels(project=project)
     # end test_update_quota_and_create_resource_negative
+
+    def test_update_quota_after_project_create(self):
+        proj_name = 'admin' + self.id()
+        project = Project(proj_name)
+        self._vnc_lib.project_create(project)
+        # make sure no counter is initialized after project ceate without quota
+        quota_counters = self._server_info['api_server'].quota_counter
+        quota_counter_key = '%s%s/virtual_machine_interface' % (
+                _DEFAULT_ZK_COUNTER_PATH_PREFIX, project.uuid)
+        self.assertTrue(quota_counter_key not in quota_counters.keys())
+        # set quota of vmi
+        kwargs = {'virtual_machine_interface': 1}
+        quota = QuotaType(**kwargs)
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+        # make sure vmi quota counter is initialized
+        vmi_quota_counter = quota_counters[quota_counter_key]
+        self.assertEqual(vmi_quota_counter.value, 0)
+        # Simulate multiple api-server case, where the
+        # self._server_info['api_server'].quota_counter will be
+        # updated with the vmi counter only in the api-server
+        # which served the project update,
+        #by removing the vmi quota counter
+        del quota_counters[quota_counter_key]
+        # Creating 1 vmis should succeed
+        vn_name = "vn" + self.id()
+        vn = VirtualNetwork(vn_name, project)
+        self._vnc_lib.virtual_network_create(vn)
+        vmi = VirtualMachineInterface(str(uuid.uuid4()), project)
+        vmi.uuid = vmi.name
+        vmi.set_virtual_network(vn)
+        self._vnc_lib.virtual_machine_interface_create(vmi)
+        # make sure sgr quota counter is incremented
+        vmi_quota_counter = quota_counters[quota_counter_key]
+        self.assertEqual(vmi_quota_counter.value, 1)
+        # Create one more vmi to get OverQuota
+        vmi2 = VirtualMachineInterface(str(uuid.uuid4()), project)
+        vmi2.uuid = vmi2.name
+        vmi2.set_virtual_network(vn)
+        with ExpectedException(OverQuota) as e:
+            self._vnc_lib.virtual_machine_interface_create(vmi2)
+        # make sure sgr quota counter is not changed
+        self.assertEqual(vmi_quota_counter.value, 1)
+    # test_update_quota_after_project_create
 # class TestQuota
 
 
@@ -421,6 +465,41 @@ class TestGlobalQuota(test_case.ApiServerTestCase):
             self._vnc_lib.security_group_update(new_sg_obj)
         # make sure sgr quota counter is unchanged
         self.assertEqual(sgr_quota_counter.value, 6)
+        logger.info("Test#13: Test bug LP#1745511")
+        kwargs = {'security_group_rule': 7}
+        quota = QuotaType(**kwargs)
+        project.set_quota(quota)
+        self._vnc_lib.project_update(project)
+        # Simulate multiple api-server case, where the
+        # self._server_info['api_server'].quota_counter will be
+        # updated with the sgr counter only in the api-server
+        # which served the project update,
+        # by removing the sgr quota counter
+        del quota_counters[quota_counter_keys[0]]
+        # Update SG with one more rule
+        new_sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", new_sg_name])
+        rule['port_min'] = 80
+        rule['port_max'] = 80
+        sg_rule = self._security_group_rule_build(
+                rule, "default-domain:default-project:%s" % new_sg_name)
+        self._security_group_rule_append(new_sg_obj, sg_rule)
+        self._vnc_lib.security_group_update(new_sg_obj)
+        # make sure sgr quota counter is incremented
+        sgr_quota_counter = quota_counters[quota_counter_keys[0]]
+        self.assertEqual(sgr_quota_counter.value, 7)
+        # Try exceeding new quota limit
+        new_sg_obj = self._vnc_lib.security_group_read(
+                ["default-domain", "default-project", new_sg_name])
+        rule['port_min'] = 90
+        rule['port_max'] = 90
+        sg_rule = self._security_group_rule_build(
+                rule, "default-domain:default-project:%s" % new_sg_name)
+        self._security_group_rule_append(new_sg_obj, sg_rule)
+        with ExpectedException(OverQuota) as e:
+            self._vnc_lib.security_group_update(new_sg_obj)
+        # make sure sgr quota counter is unchanged
+        self.assertEqual(sgr_quota_counter.value, 7)
 
     def get_subnet_count(self, vn_obj):
         ipam_refs = vn_obj.get_network_ipam_refs()
