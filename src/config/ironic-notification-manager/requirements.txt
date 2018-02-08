@@ -1,0 +1,7 @@
+sandesh
+sandesh-common
+gevent
+geventhttpclient
+python-keystoneclient
+python-ironicclient
+netaddr
