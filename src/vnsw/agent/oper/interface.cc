@@ -395,15 +395,16 @@ void InterfaceTable::CreateVhostReq() {
 // Interface Base Entry routines
 /////////////////////////////////////////////////////////////////////////////
 Interface::Interface(Type type, const uuid &uuid, const string &name,
-                     VrfEntry *vrf) :
+                     VrfEntry *vrf, bool state) :
     type_(type), uuid_(uuid), name_(name),
     vrf_(vrf, this), label_(MplsTable::kInvalidLabel),
     l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true),
     ipv6_active_(false), is_hc_active_(true),
     metadata_ip_active_(true), metadata_l2_active_(true),
     l2_active_(true), id_(kInvalidIndex), dhcp_enabled_(true),
-    dns_enabled_(true), mac_(), os_index_(kInvalidIndex), os_oper_state_(true),
-    admin_state_(true), test_oper_state_(true), transport_(TRANSPORT_INVALID), os_guid_() {
+    dns_enabled_(true), mac_(), os_index_(kInvalidIndex), os_oper_state_(state),
+    admin_state_(true), test_oper_state_(true), transport_(TRANSPORT_INVALID),
+    os_guid_() {
 }
 
 Interface::~Interface() {
@@ -491,7 +492,9 @@ void Interface::GetOsParams(Agent *agent) {
     }
 
     if (transport_ != TRANSPORT_ETHERNET) {
-        os_oper_state_ = true;
+        if (!agent->isVmwareMode()) {
+            os_oper_state_ = true;
+        }
         return;
     }
 
@@ -526,7 +529,7 @@ const InterfaceTable::UpdateFloatingIpFn &InterfaceTable::update_floatingip_cb()
 // Pkt Interface routines
 /////////////////////////////////////////////////////////////////////////////
 PacketInterface::PacketInterface(const std::string &name) :
-    Interface(Interface::PACKET, nil_uuid(), name, NULL) {
+    Interface(Interface::PACKET, nil_uuid(), name, NULL, true) {
 }
 
 PacketInterface::~PacketInterface() {
@@ -1328,6 +1331,14 @@ void Interface::UpdateOperStateOfSubIntf(const InterfaceTable *table) {
         }
     }
 }
+
+bool Interface::NeedDefaultOsOperStateDisabled(Agent *agent) const {
+    if ((transport_ != TRANSPORT_ETHERNET)  && agent->isVmwareMode()) {
+        return true;
+    }
+    return false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Map of VMI-UUID to VmiType
 /////////////////////////////////////////////////////////////////////////////

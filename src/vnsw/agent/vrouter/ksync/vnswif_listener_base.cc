@@ -199,6 +199,12 @@ static void InterfaceResync(Agent *agent, uint32_t id, bool active,
         return;
     }
 
+    /* In VmWare mode no need to notifiy on activate/deactivate. This is handled
+     * via rest requrests enable-port/disable-port
+     */
+    if (intrface->NeedDefaultOsOperStateDisabled(agent)) {
+        return;
+    }
     if (agent->test_mode())
         intrface->set_test_oper_state(active);
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);

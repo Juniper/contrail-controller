@@ -26,8 +26,8 @@ using std::string;
 // PhysicalInterface routines
 /////////////////////////////////////////////////////////////////////////////
 PhysicalInterface::PhysicalInterface(const std::string &name) :
-    Interface(Interface::PHYSICAL, nil_uuid(), name, NULL), persistent_(false),
-    subtype_(INVALID), physical_device_(NULL) {
+    Interface(Interface::PHYSICAL, nil_uuid(), name, NULL, true),
+    persistent_(false), subtype_(INVALID), physical_device_(NULL) {
 }
 
 PhysicalInterface::~PhysicalInterface() {
