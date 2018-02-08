@@ -3279,8 +3279,20 @@ response sandesh ApplicationPolicySetResp {
     1: list<ApplicationPolicySetSandeshData> application_policy_set_list;
 }
 
+
 /**
- * Structure definition for security-logging-object in oper db
+ * Structure definition for Firewall policy associated with
+ * security-logging-object and its corresponding SLO rate in oper db
+ */
+struct SLOFwPolicyEntry {
+    /** Uuid of Firewall-policy */
+    1: PolicyLinkData uuid;
+    /** Rate of security-logging-object Rule */
+    2: i32 rate;
+}
+
+/**
+ * Structure definition for security-logging-object Rule in oper db
  */
 struct SLOSandeshRule {
     /** Uuid of security-logging-object Rule */
@@ -3302,9 +3314,9 @@ struct SLOSandeshData {
     /** List of security-logging-object rules */
     4: list<SLOSandeshRule> rules;
     /** List of firewall-policy objects */
-    5: list<PolicyLinkData> firewall_policy_list;
+    5: list<SLOFwPolicyEntry> firewall_policy_list;
     /** List of firewall-rule uuids*/
-    6: list<string> firewall_rule_list;
+    6: list<SLOSandeshRule> firewall_rule_list;
     /**SLO object status */
     7: bool status;
 }
