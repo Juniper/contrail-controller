@@ -332,7 +332,7 @@ const string MODULE_TOR_AGENT_NAME = "contrail-tor-agent"
 const string MODULE_CONTRAIL_BROADVIEW_NAME = "contrail-broadview"
 const string MODULE_KUBE_MANAGER_NAME = SERVICE_KUBE_MANAGER
 const string MODULE_MESOS_MANAGER_NAME = SERVICE_MESOS_MANAGER
-const string MODULE_IRONIC_NOTIF_MANAGER_NAME = "IronicNotifManager"
+const string MODULE_IRONIC_NOTIF_MANAGER_NAME = SERVICE_IRONIC_NOTIF_MANAGER
 
 
 const map<Module, string> ModuleNames = {
