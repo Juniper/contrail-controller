@@ -2887,6 +2887,19 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
     # end _check_ipam_network_subnets
 
     @classmethod
+    def _get_fabric_snat(cls, uuid, obj_dict, db_conn):
+        ok, result = cls.dbe_read(db_conn, 'virtual_network',
+                         uuid,
+                         obj_fields=['fabric_snat'])
+        if not ok:
+            return False
+
+        if 'fabric_snat' in result:
+            return result['fabric_snat']
+
+        return False
+
+    @classmethod
     def pre_dbe_create(cls, tenant_name, obj_dict, db_conn):
         (ok, response) = cls._is_multi_policy_service_chain_supported(obj_dict)
         if not ok:
@@ -2993,6 +3006,8 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         ri_obj = RoutingInstance(
             parent_type='virtual-network', fq_name=ri_fq_name,
             routing_instance_is_default=True)
+        fabric_snat = cls._get_fabric_snat(obj_dict['uuid'], obj_dict, db_conn)
+        ri_obj.set_routing_instance_fabric_snat(fabric_snat)
         api_server.internal_request_create(
             'routing-instance',
             ri_obj.serialize_to_json())
@@ -3127,6 +3142,26 @@ class VirtualNetworkServer(Resource, VirtualNetwork):
         return True, ""
     # end pre_dbe_update
 
+    @classmethod
+    def post_dbe_update(cls, id, fq_name, obj_dict, db_conn, **kwargs):
+        api_server = db_conn.get_api_server()
+
+        # Create native/vn-default routing instance
+        ri_fq_name = fq_name[:]
+        ri_fq_name.append(fq_name[-1])
+        ri_uuid = db_conn.fq_name_to_uuid('routing_instance', ri_fq_name)
+        ri_obj = RoutingInstance(
+            parent_type='virtual-network', fq_name=ri_fq_name,
+            routing_instance_is_default=True)
+        fabric_snat = cls._get_fabric_snat(id, obj_dict, db_conn)
+        ri_obj.set_routing_instance_fabric_snat(fabric_snat)
+        api_server.internal_request_update(
+            'routing-instance',
+            ri_uuid,
+            ri_obj.serialize_to_json())
+
+        return True, ''
+    # end post_dbe_create
 
     @classmethod
     def pre_dbe_delete(cls, id, obj_dict, db_conn):
