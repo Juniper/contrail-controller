@@ -19,14 +19,6 @@ def _convert_to_process_state(state):
     return state_mapping.get(state, 'PROCESS_STATE_UNKNOWN')
 
 
-def _get_nodemgr_name(container):
-    labels = container.get('Labels')
-    name = labels.get('net.juniper.nodemgr.filter.name') if labels is not None else None
-    if name is None:
-        name = container['Names'][0] if len(container['Names']) != 0 else container['Command']
-    return name
-
-
 def _dummy_process_info(name):
     info = dict()
     info['name'] = name
@@ -53,6 +45,33 @@ class DockerProcessInfoManager(object):
         self.__cached_process_infos = {}
         self.__client = docker.from_env()
 
+    def __get_full_info(self, cid):
+        try:
+            return self.__client.inspect_container(cid)
+        except docker.errors.APIError:
+            return None
+
+    def __get_nodemgr_name(self, container):
+        labels = container.get('Labels')
+        name = labels.get('net.juniper.nodemgr.filter.name') if labels is not None else None
+        if name is None:
+            name = container['Names'][0] if len(container['Names']) != 0 else container['Command']
+            name = name.lstrip('/')
+        if name == 'nodemgr':
+            # 'nodemgr' is a special image that must be parameterized at start with NODE_TYPE env variable
+            if 'Env' not in container:
+                # list_containers does not return 'Env' information
+                info = self.__get_full_info(container['Id'])
+                if info:
+                    container = info['Config']
+            if 'Env' in container:
+                env = container.get('Env', list())
+                node_type = next(iter([i for i in env if i.startswith('NODE_TYPE=')]), None)
+                if node_type:
+                    node_type = node_type.split('=')[1]
+                    name = 'contrail-' + node_type + '-nodemgr'
+        return name
+
     def __list_containers(self, names=None):
         client = self.__client
         containers = []
@@ -61,7 +80,7 @@ class DockerProcessInfoManager(object):
             containers = all_containers
         else:
             for container in all_containers:
-                name = _get_nodemgr_name(container)
+                name = self.__get_nodemgr_name(container)
                 if name is not None and name in names:
                     containers.append(container)
         return containers
@@ -84,11 +103,7 @@ class DockerProcessInfoManager(object):
             return True
         return False
 
-    def __get_start_time(self, cid):
-        try:
-            info = self.__client.inspect_container(cid)
-        except docker.errors.APIError:
-            return None
+    def __get_start_time(self, info):
         state = info.get('State')
         start_time = state.get('StartedAt') if state else None
         if start_time is None:
@@ -99,12 +114,13 @@ class DockerProcessInfoManager(object):
 
     def __container_to_process_info(self, container):
         info = {}
-        name = _get_nodemgr_name(container)
+        cid = container['Id']
+        full_info = self.__get_full_info(cid)
+        name = self.__get_nodemgr_name(full_info['Config'] if full_info else container)
         info['name'] = name
         info['group'] = name
-        cid = container['Id']
         info['pid'] = int(cid, 16)
-        start_time = self.__get_start_time(cid)
+        start_time = self.__get_start_time(full_info) if full_info else None
         info['start'] = str(int(start_time * 1000000)) if start_time else None
         info['statename'] = _convert_to_process_state(container['State'])
         if info['statename'] == 'PROCESS_STATE_EXITED':
