@@ -1086,6 +1086,10 @@ class VncApiServer(object):
                 cleanup_on_failure.append((callable, [id, read_result, db_conn]))
 
             get_context().set_state('DBE_DELETE')
+            ok, zk_del_kwargs = r_class.get_post_dbe_delete_args(
+                    id, read_result, db_conn)
+            if not ok:
+                return (ok, zk_del_kwargs)
             (ok, del_result) = db_conn.dbe_delete(
                 obj_type, obj_ids, read_result)
             if not ok:
@@ -1119,7 +1123,8 @@ class VncApiServer(object):
             # type-specific hook
             get_context().set_state('POST_DBE_DELETE')
             try:
-                ok, err_msg = r_class.post_dbe_delete(id, read_result, db_conn)
+                ok, err_msg = r_class.post_dbe_delete(
+                        id, read_result, db_conn, **zk_del_kwargs)
             except Exception as e:
                 ok = False
                 err_msg = '%s:%s post_dbe_delete had an exception: ' \
