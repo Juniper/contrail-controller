@@ -174,7 +174,7 @@ void KSyncMemory::InitMem() {
     assert(nl_connect(cl, 0, 0) == 0);
 #endif
 
-    assert(vrouter_get_family_id(cl) > 0);
+    assert(vrouter_obtain_family_id(cl) > 0);
 
     assert(nl_build_nlh(cl, cl->cl_genl_family_id, NLM_F_REQUEST) == 0);
     assert(nl_build_genlh(cl, SANDESH_REQUEST, 0) == 0);

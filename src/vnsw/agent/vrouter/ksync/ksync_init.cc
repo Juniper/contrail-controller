@@ -473,7 +473,7 @@ void GenericNetlinkInit() {
     assert(nl_socket(cl, AF_NETLINK, SOCK_DGRAM, NETLINK_GENERIC) >= 0);
     assert(nl_connect(cl, 0, 0) == 0);
 
-    family = vrouter_get_family_id(cl);
+    family = vrouter_obtain_family_id(cl);
     LOG(DEBUG, "Vrouter family is " << family);
     KSyncSock::SetNetlinkFamilyId(family);
     nl_free_client(cl);
