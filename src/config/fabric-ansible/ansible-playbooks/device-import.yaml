@@ -1,0 +1,14 @@
+---
+- name: Get the Device Information by reading the Prouter object
+
+  hosts: localhost
+  roles:
+    - Juniper.junos
+    - device-import-role
+    - device-facts-uve
+
+  tasks:
+    - set_fact:
+        result_dict: {"results": "{{results}}"}
+    - set_fact:
+        output: "{{output | combine(result_dict)}}"

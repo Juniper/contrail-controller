@@ -1,0 +1,5 @@
+# Sample hosts file if always running playbook on localhost
+# This file can be in /etc/ansible/hosts or you can point to it by adding this line in ansible.cfg:
+# inventory = <path/to/inventory/file>
+# Note that specifying "host: localhost" in your playbook with no "hosts" file also works
+localhost ansible_connection=local ansible_python_interpreter="/usr/bin/env python"

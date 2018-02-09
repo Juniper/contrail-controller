@@ -1,0 +1,15 @@
+
+- name: Execute a basic Junos software upgrade.
+  juniper_junos_software:
+   provider:
+     host: "{{pr_host}}"
+     user: "{{pr_user}}"
+     passwd: "{{pr_password}}"
+     port: 22
+   remote_package: "{{enc_tempurl}}"
+  register: junos_response
+  ignore_errors: True
+
+- name: Print the complete response.
+  debug:
+   var: junos_response

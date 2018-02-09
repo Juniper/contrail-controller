@@ -1,0 +1,6 @@
+---
+
+    - name: Generate NTP config
+      template:
+        src: juniper.underlay.bgp.j2
+        dest: "{{ conf_dir }}/build_config/underlay_config.cfg"

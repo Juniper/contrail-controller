@@ -1,0 +1,28 @@
+protocols {
+    bgp {
+        multihop;
+        group __contrail__underlay__ {
+            type external;
+            multihop;
+            accept-remote-nexthop;
+            advertise-peer-as;
+            family inet {
+                unicast {
+                    loops 5;
+                }
+            }
+            local-as {{ input.bgp.local_as }};
+            bfd-liveness-detection {
+                minimum-interval 1000;
+                multiplier 3;
+                session-mode automatic;
+            }
+            multipath;
+            {% for neighbor in input.bgp.neighbors %}
+                neighbor {{ neighbor.ip_address }} {
+                  peer-as {{ neighbor.peer_as }};
+                }
+            {% endfor %}
+        }
+    }
+}
