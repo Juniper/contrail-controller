@@ -1,5 +1,5 @@
 lxml>=2.3.3
-testrepository
+#testrepository # need newer version because the python module name is not the same as the package name (installed by tox from git)
 flexmock
 coverage
 webtest
