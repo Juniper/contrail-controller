@@ -3912,8 +3912,8 @@ class SecurityGroupServer(Resource, SecurityGroup):
             if not quota_counter.get(path):
                 # Init quota counter for security group rule
                 QuotaHelper._zk_quota_counter_init(
-                           path_prefix, QuotaHelper.default_quota, proj_dict['uuid'],
-                           db_conn, quota_counter)
+                        path_prefix, {obj_type : quota_limit},
+                        proj_dict['uuid'], db_conn, quota_counter)
             ok, result = QuotaHelper.verify_quota(
                 obj_type, quota_limit, quota_counter[path],
                 count=rule_count)
