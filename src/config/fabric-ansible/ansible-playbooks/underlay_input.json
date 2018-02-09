@@ -1,0 +1,26 @@
+{
+    "junos_password": "Embe1mpls",
+    "device_family": "juniper_mx",
+    "enable_lldp": "true",
+    "ntp":{
+      "boot_servers": [],
+      "servers": ["8.8.8.8"],
+      "time_zone": "America/Los_Angeles"
+    },
+    "routing_options": {
+      "router_id": "10.10.10.10",
+      "as_number": "65001"
+    },
+    "snmp": {
+      "location": "A.6.221",
+      "contact": "aakashr",
+      "polling": [
+        {
+          "community": "public"
+        }
+      ]
+    },
+    "bgp": {
+      "local_as": "65011"
+    }
+}

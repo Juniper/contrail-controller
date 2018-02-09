@@ -1,0 +1,11 @@
+---
+# vars file for image_upgrade_role
+image_uuid: 941dccad-b9ef-4c01-b246-d7f45e8092db
+prouter_uuid: 57556ef1-650e-45cc-8d3a-264c5bcd6cc0
+contrail_ip: 10.155.75.1
+pr_password: Embe1mpls
+container_name: mycontainer
+#filename: jinstall-14.2R8.4-domestic-signed.tgz
+
+#image_uuid: f03189e4-3775-45c0-b3f8-61eb12182a1c
+#filename: jinstall-14.2R7.5-domestic-signed.tgz

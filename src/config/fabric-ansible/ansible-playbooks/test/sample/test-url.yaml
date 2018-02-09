@@ -1,0 +1,59 @@
+---
+- hosts: localhost
+#  strategy: debug
+  connection: local
+
+  vars:
+#    csp_ip: 10.102.86.54
+    csp_ip: 10.102.93.202
+
+  tasks:
+    - name: keystone token
+      uri:
+        url: http://{{csp_ip}}:5000/v3/auth/tokens
+        method: POST
+        status_code: 201
+        headers:
+          Content-Type: "application/json"
+        body: |
+          {
+            "auth": {
+              "identity": {
+                "methods": ["password"],
+                "password": {
+                  "user": {
+                    "name": "admin",
+                    "domain": { "id": "default" },
+                    "password": "passw0rd"
+                  }
+                }
+              },
+              "scope": {
+                "project": {
+                  "name": "admin",
+                  "domain": { "id": "default" }
+                }
+              }
+            }
+          }
+      register: keystone
+
+    - debug: var=keystone
+
+    - name: Retrieve nsd packages
+      uri:
+        url: https://{{csp_ip}}:83/restconf/data/design-tools:network-function
+        method: GET
+        validate_certs: no
+        return_content: yes
+        headers:
+          Content-Type: "application/json"
+          X-Auth-Token: "{{keystone.x_subject_token}}"
+      register: resp
+
+    - set_fact: 
+        fn_list: "{{resp.content|from_json|json_query('\"network-function\"[*].name')}}"
+        
+    - debug: 
+        var: fn_list
+

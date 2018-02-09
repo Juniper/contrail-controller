@@ -1,0 +1,25 @@
+
+- name: call vnc to read physical-router info
+  vnc_db_mod:
+    object_type: "physical_router"
+    object_op: "read"
+    object_dict: |
+      {
+        "uuid": "{{prouter_uuid}}"
+      }
+    auth_token: "{{auth_token}}"
+
+  register: prouter_details
+
+- name: Read PR object dict response
+  debug:
+    var: prouter_details
+
+- set_fact:
+    prouter_info: "{{prouter_details.obj}}"
+
+- set_fact:
+    pr_user: "{{prouter_info.physical_router_user_credentials.username}}"
+    pr_host: "{{prouter_info.physical_router_management_ip}}"
+    pr_name: "{{prouter_info.fq_name[-1]}}"
+    pr_family: "{{prouter_info.physical_router_device_family}}"

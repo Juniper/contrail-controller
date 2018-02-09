@@ -1,0 +1,5 @@
+---
+# vars file for device-import-role
+prouter_uuid: bb7f73ff-7c7d-4333-bd79-4c5f2cf6006f
+contrail_ip: 10.155.75.1
+junos_password: **********

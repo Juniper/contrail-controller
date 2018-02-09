@@ -1,0 +1,81 @@
+---
+
+    - name: get Keystone Token
+      uri:
+        url: http://{{contrail_ip}}:5000/v3/auth/tokens
+        method: POST
+        status_code: 201
+        headers:
+          Content-Type: "application/json"
+        body: |
+          {
+            "auth": {
+              "identity": {
+                "methods": ["password"],
+                "password": {
+                  "user": {
+                    "name": "admin",
+                    "domain": { "id": "default" },
+                    "password": "contrail123"
+                  }
+                }
+              },
+              "scope": {
+                "project": {
+                  "name": "admin",
+                  "domain": { "id": "default" }
+                }
+              }
+            }
+          }
+      register: keystone
+
+    - name: call vnc to create physical-router
+      vnc_db_mod:
+        object_type: "bgp_router"
+        object_op: "create"
+        object_dict: |
+          {
+            "parent_type": "routing-instance",
+            "display_name": "{{prouter_info.fq_name[1]}}-bgp",
+            "name": "{{prouter_info.fq_name[1]}}-bgp",
+            "fq_name": [
+               "default-domain",
+               "default-project",
+               "ip-fabric",
+               "__default__",
+               "{{prouter_info.fq_name[1]}}-bgp"
+            ],
+            "bgp_router_parameters":
+            {
+              "vendor": "{{ item.physical_router_vendor_name | default('Juniper')}}",
+              "router_type": "router",
+              "address": "{{ item.physical_router_management_ip }}"
+              "identifier": "{{ item.physical_router_management_ip }}",
+              "address_families": {
+                "family": ["inet-vpn", "inet6-vpn", "route-target", "e-vpn", "inet"]
+              },
+              "autonomous_system": 65412
+            }
+          }
+        auth_token: "{{keystone.x_subject_token}}"
+      with_items: "{{ prouter_info }}"
+      register: bgp_info
+
+    - name: call vnc to update physical-router
+      vnc_db_mod:
+        object_type: "physical_router"
+        object_op: "ref_update"
+        object_dict: |
+          {
+              "obj_uuid": "{{ prouter_info.uuid }}",
+              "ref_type": "bgp-router",
+              "ref_fqname": [
+                "default-domain",
+                "default-project",
+                "ip-fabric",
+                "__default__",
+                "{{prouter_info.fq_name[1]}}-bgp"
+              ]
+          }
+        auth_token: "{{keystone.x_subject_token}}"

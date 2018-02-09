@@ -87,8 +87,8 @@ class JobHandler(object):
         except Exception as e:
             msg = "Error while getting the playbook information from the job template %s : %s" % \
                   (self._job_template.get_uuid(), repr(e))
-            self._logger(msg)
-            self._logger(traceback.print_stack())
+            self._logger.error(msg)
+            self._logger.error("%s" % traceback.print_stack())
             raise JobException(msg)
 
     def run_playbook(self, playbook_info):
@@ -139,8 +139,8 @@ class JobHandler(object):
             return output
         except Exception as e:
             msg = "Error while executing the playbook %s : %s" % (playbook_info['uri'], repr(e))
-            self._logger(msg)
-            self._logger(traceback.print_stack())
+            self._logger.error(msg)
+            self._logger.error("%s" % traceback.print_stack())
             raise JobException(msg)
 
     def get_plugin_output(self, pbex):

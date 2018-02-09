@@ -1,0 +1,78 @@
+---
+# tasks file for check_credentials
+     - name: check credentials
+       ssh_connection:
+          hosts: "{{ pingable_hosts }}"
+          credentials: "{{ credentials }}"
+       register: successful_connections
+
+     #- debug:
+     #     msg: "{{ item.hostname }}  {{ item.username }} {{ item.password }}"
+     #  with_items: "{{ successful_connections.ssh_success }}"
+
+     - name: get token
+       uri:
+          url: http://fab-server01.englab.juniper.net:5000/v3/auth/tokens
+          method: POST
+          status_code: 201
+          headers:
+            Content-Type: "application/json"
+          body: |
+            {
+              "auth": {
+                "identity": {
+                  "methods": ["password"],
+                  "password": {
+                    "user": {
+                      "name": "admin",
+                      "domain": { "id": "default" },
+                      "password": "contrail123"
+                    }
+                  }
+                },
+                "scope": {
+                  "project": {
+                    "name": "admin",
+                    "domain": { "id": "default" }
+                  }
+                }
+              }
+            }
+       register: token
+
+     - name: list
+       vnc_db_mod:
+         object_type: "physical_router"
+         object_op: "list"
+         object_dict: |
+           {
+              "filters": {"physical_router_management_ip":"{{ item.hostname }}"}
+           }
+         auth_token: "{{token.x_subject_token}}"
+       with_items: "{{ successful_connections.ssh_success }}"
+       register: PR_url
+
+     # - debug: 
+     #      msg: "{{ item[0].obj['physical-routers'][0].uuid }} {{ item.1.hostname }}  {{ item.1.username }} {{ item.1.password }}"
+     #   with_together:
+     #       - "{{ PR_url.results }}"
+     #       - "{{ successful_connections.ssh_success }}"
+
+
+     - name: call vnc to update physical-router
+       vnc_db_mod:
+         object_type: "physical_router"
+         object_op: "create"
+         object_dict: |
+          {
+              "uuid": "{{ item[0].obj['physical-routers'][0].uuid }}",
+              "physical_router_user_credentials": {
+                  "username": "{{ item.1.username }}",
+                  "password": "{{ item.1.password }}"
+                  }
+          }
+         auth_token: "{{token.x_subject_token}}"
+       with_together:
+           - "{{ PR_url.results }}"
+           - "{{ successful_connections.ssh_success }}"
+
