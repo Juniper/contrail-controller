@@ -169,11 +169,8 @@ TEST_F(MvpnTableTest, AddDeleteSingleRoute) {
     TASK_UTIL_EXPECT_EQ(1, blue_->Size());
     TASK_UTIL_EXPECT_EQ(1, master_->Size());
 
-    MvpnRoute *rt = FindRoute(blue_, repr.str());
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(rt->get_table())->family();
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
-    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
@@ -293,10 +290,8 @@ TEST_F(MvpnTableTest, CreateType4LeafADRoutePrefix) {
     TASK_UTIL_EXPECT_EQ(1, master_->Size());
 
     MvpnRoute *rt = FindRoute(blue_, repr.str());
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(rt->get_table())->family();
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
-    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
 
     MvpnPrefix type4_prefix = blue_->CreateType4LeafADRoutePrefix(rt);
     const Ip4Address ip(Ip4Address::from_string("20.1.1.1"));
@@ -308,10 +303,8 @@ TEST_F(MvpnTableTest, CreateType4LeafADRoutePrefix) {
     TASK_UTIL_EXPECT_EQ(2, master_->Size());
 
     MvpnRoute *type4_rt = FindRoute(blue_, prefix_str);
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(type4_rt->get_table())->family();
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
-    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(4, type4_rt->GetPrefix().type());
     TASK_UTIL_EXPECT_EQ(rt->GetPrefix().source(),
 	    type4_rt->GetPrefix().source());
@@ -343,10 +336,8 @@ TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
     TASK_UTIL_EXPECT_EQ(1, master_->Size());
 
     MvpnRoute *rt = FindRoute(blue_, repr.str());
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(rt->get_table())->family();
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
-    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
 
     MvpnPrefix type3_prefix = blue_->CreateType3SPMSIRoutePrefix(rt);
     string prefix_str = type3_prefix.ToString();
@@ -356,10 +347,8 @@ TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
     TASK_UTIL_EXPECT_EQ(2, master_->Size());
 
     MvpnRoute *type3_rt = FindRoute(blue_, prefix_str);
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(type3_rt->get_table())->family();
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
-    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(3, type3_rt->GetPrefix().type());
     TASK_UTIL_EXPECT_EQ(rt->GetPrefix().source(),
 	    type3_rt->GetPrefix().source());
@@ -391,10 +380,8 @@ TEST_F(MvpnTableTest, CreateType2RoutePrefix) {
     TASK_UTIL_EXPECT_EQ(1, master_->Size());
 
     MvpnRoute *rt = FindRoute(blue_, prefix_str);
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(rt->get_table())->family();
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
-    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(2, rt->GetPrefix().type());
     TASK_UTIL_EXPECT_EQ(blue_->server()->autonomous_system(),
 	    rt->GetPrefix().asn());
@@ -415,10 +402,8 @@ TEST_F(MvpnTableTest, CreateType1RoutePrefix) {
     TASK_UTIL_EXPECT_EQ(1, master_->Size());
 
     MvpnRoute *rt = FindRoute(blue_, prefix_str);
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(rt->get_table())->family();
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
-    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(blue_->family()));
     TASK_UTIL_EXPECT_EQ(1, rt->GetPrefix().type());
     TASK_UTIL_EXPECT_EQ(blue_->server()->bgp_identifier(),
 	    rt->GetPrefix().originator().to_ulong());

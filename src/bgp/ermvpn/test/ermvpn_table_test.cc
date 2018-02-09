@@ -191,10 +191,9 @@ TEST_F(ErmVpnTableNativeTest, AddDeleteSingleRoute) {
     TASK_UTIL_EXPECT_EQ(1, blue_->Size());
     TASK_UTIL_EXPECT_EQ(0, master_->Size());
 
-    ErmVpnRoute *rt = FindRoute(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, rt->Afi());
-    TASK_UTIL_EXPECT_EQ(BgpAf::ErmVpn, rt->Safi());
-    TASK_UTIL_EXPECT_EQ(BgpAf::Mcast, rt->XmppSafi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::ErmVpn, BgpAf::FamilyToSafi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::Mcast, BgpAf::FamilyToXmppSafi(blue_->family()));
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
@@ -344,9 +343,8 @@ TEST_F(ErmVpnTableLocalTest, AddDeleteSingleRoute) {
     TASK_UTIL_EXPECT_EQ(1, blue_->Size());
     TASK_UTIL_EXPECT_EQ(1, master_->Size());
 
-    ErmVpnRoute *rt = FindRoute(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, rt->Afi());
-    TASK_UTIL_EXPECT_EQ(BgpAf::ErmVpn, rt->Safi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::ErmVpn, BgpAf::FamilyToSafi(blue_->family()));
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
@@ -648,9 +646,8 @@ TEST_F(ErmVpnTableGlobalTest, AddDeleteSingleRoute) {
     VerifyRouteExists(blue_, repr.str());
     TASK_UTIL_EXPECT_EQ(adc_notification_, 1);
 
-    ErmVpnRoute *rt = FindRoute(blue_, repr.str());
-    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, rt->Afi());
-    TASK_UTIL_EXPECT_EQ(BgpAf::ErmVpn, rt->Safi());
+    TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(blue_->family()));
+    TASK_UTIL_EXPECT_EQ(BgpAf::ErmVpn, BgpAf::FamilyToSafi(blue_->family()));
 
     DelRoute(blue_, repr.str());
     task_util::WaitForIdle();
