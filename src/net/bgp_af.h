@@ -38,7 +38,7 @@ public:
     static std::pair<uint16_t, uint8_t> FamilyToAfiSafi(Address::Family family);
     static Afi FamilyToAfi(Address::Family family);
     static Safi FamilyToSafi(Address::Family family);
-    static u_int8_t FamilyToXmppSafi(Address::Family family);
+    static uint8_t FamilyToXmppSafi(Address::Family family);
 
 };
 

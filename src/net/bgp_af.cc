@@ -160,14 +160,14 @@ BgpAf::Safi BgpAf::FamilyToSafi(Address::Family family) {
     }
 }
 
-u_int8_t BgpAf::FamilyToXmppSafi(Address::Family family) {
+uint8_t BgpAf::FamilyToXmppSafi(Address::Family family) {
     switch (family) {
     case Address::ERMVPN:
         return BgpAf::Mcast;
     case Address::EVPN:
         return BgpAf::Enet;
     default:
-        return static_cast<u_int8_t>(BgpAf::FamilyToSafi(family));
+        return static_cast<uint8_t>(BgpAf::FamilyToSafi(family));
     }
 }
 
