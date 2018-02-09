@@ -1,0 +1,38 @@
+---
+
+- name: Push Junos Config and Read Back Facts
+  vars:
+    #junos_host: 10.155.67.6
+    #junos_username: root
+    #junos_password: Embe1mpls
+    host_key_checking: False
+  hosts: localhost
+  roles:
+    - Juniper.junos
+  tasks:
+    - name: Check NETCONF connectivity
+      wait_for: host="{{junos_host}}" port=830 timeout=30
+
+    - name: Push Junos Config
+      junos_config:
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
+          port: 22
+        confirm_commit: yes
+        src: mx.cfg
+        comment: update config
+
+    - name: Read Junos Facts
+      juniper_junos_facts:
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
+          port: 22
+        config_format: text
+      register: mx_info
+
+    - name: PRINT MX INFORMATION
+      debug: msg="{{mx_info}}"

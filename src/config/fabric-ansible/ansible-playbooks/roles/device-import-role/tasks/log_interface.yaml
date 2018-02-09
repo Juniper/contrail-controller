@@ -1,0 +1,26 @@
+- name: call vnc to create the logical-interface
+  vnc_db_mod:
+    object_type: "logical_interface"
+    object_op: "create"
+    object_dict: "{{payload}}"
+    auth_token: "{{keystone.x_subject_token}}"
+  register: post_resp_log
+
+- set_fact:
+    output: {
+              "status": "Failure",
+              "message": "{{post_resp_log.msg}}",
+              "results": "{{results}}"
+            }
+  when: "post_resp_log.failed == true"
+
+- meta: end_play
+  when: "post_resp_log.failed == true"
+
+- set_fact:
+    log_uuid_list: "{{log_uuid_list}}+['{{post_resp_log.obj | from_json | json_query('\"logical-interface\".uuid')}}']"
+  when: "'obj' in post_resp_log"
+
+- set_fact:
+    log_uuid_list: "{{log_uuid_list}}+['{{post_resp_log.uuid}}']"
+  when: "'uuid' in post_resp_log"

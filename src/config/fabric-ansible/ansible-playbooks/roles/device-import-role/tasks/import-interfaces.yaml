@@ -1,0 +1,38 @@
+- name: Execute commands on a Juniper Device
+  junos_command:
+    commands: show configuration
+    display: xml
+    provider:
+      host: "{{junos_host}}"
+      username: "{{junos_username}}"
+      password: "{{junos_password}}"
+      port: 22
+  register: interface_info
+
+- name: settings facts
+  set_fact:
+    interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"[*]')}}"
+
+- name: Execute commands on a Juniper Device
+  junos_command:
+    commands: show interfaces
+    display: xml
+    provider:
+      host: "{{junos_host}}"
+      username: "{{junos_username}}"
+      password: "{{junos_password}}"
+      port: 22
+  register: interface_info
+
+- set_fact:
+    interface_list_new: "{{interface_info|json_query('output[0].\"rpc-reply\".\"interface-information\".\"physical-interface\"[*]')}}"
+
+- name: Create configured interfaces first
+  include_tasks: import_configured_interfaces.yaml
+  with_items: "{{interface_list}}"
+
+- name: Test POST REST Call for runtime phy and log interfaces
+  include_tasks: phy_interface.yaml
+  when: "item.name not in configured_phy_interface_names and item['oper-status'] == 'up'"
+  with_items: "{{interface_list_new}}"
+

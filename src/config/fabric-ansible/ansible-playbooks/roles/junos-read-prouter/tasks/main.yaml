@@ -1,0 +1,60 @@
+---
+
+    - name: get Keystone Token
+      uri:
+        url: http://{{contrail_ip}}:5000/v3/auth/tokens
+        method: POST
+        status_code: 201
+        headers:
+          Content-Type: "application/json"
+        body: |
+          {
+            "auth": {
+              "identity": {
+                "methods": ["password"],
+                "password": {
+                  "user": {
+                    "name": "admin",
+                    "domain": { "id": "default" },
+                    "password": "contrail123"
+                  }
+                }
+              },
+              "scope": {
+                "project": {
+                  "name": "admin",
+                  "domain": { "id": "default" }
+                }
+              }
+            }
+          }
+      register: keystone
+
+    - name: call vnc to read the physical-router
+      vnc_db_mod:
+        object_type: "physical_router"
+        object_op: "read"
+        object_dict: {"uuid": "{{prouter_uuid}}" }
+        auth_token: "{{keystone.x_subject_token}}"
+      register: prouter_details
+
+    - set_fact:
+        output: {
+                  "status": "Failure",
+                  "message": "{{prouter_details.msg}}"
+                }
+      when: "'obj' not in prouter_details or prouter_details.failed == 'true'"
+
+    - meta: end_play
+      when: "'obj' not in prouter_details or prouter_details.failed == 'true'"
+
+    - set_fact:
+        prouter_info: "{{prouter_details.obj}}"
+
+    - set_fact:
+        junos_username: "{{prouter_info.physical_router_user_credentials.username}}"
+        junos_host: "{{prouter_info.physical_router_management_ip}}"
+        prouter_name: "{{prouter_info.fq_name[1]}}"
+
+    - name: create subfolders
+      include_tasks: create_subfolders.yaml

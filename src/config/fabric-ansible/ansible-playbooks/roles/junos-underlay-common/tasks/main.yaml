@@ -1,0 +1,5 @@
+---
+    - name: Generate BGP config
+      template:
+        src: junos.common.conf.j2
+        dest: "{{ conf_dir }}/build_config/common_config.cfg"

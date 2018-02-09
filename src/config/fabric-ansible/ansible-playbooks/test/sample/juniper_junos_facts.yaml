@@ -1,0 +1,20 @@
+- name: demo junos
+  hosts: localhost
+  roles:
+  - Juniper.junos
+  gather_facts: no
+  connection: local
+
+  tasks:
+    - name: Check NETCONF connectivity
+      wait_for: host=10.155.67.6 port=830 timeout=30
+    - name: READ JUNOS CONFIG
+      juniper_junos_facts:
+        provider:
+          host: 10.155.67.6
+          username: root
+          password: Embe1mpls
+          port: 22
+      register: mx_info
+#    - name: PRINT MX INFORMATION
+#      debug: msg="{{mx_info}}"

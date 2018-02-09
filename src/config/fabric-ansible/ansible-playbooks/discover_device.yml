@@ -1,0 +1,13 @@
+- name: discover_device
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  pre_tasks:
+    - set_fact:
+        ipaddress: ['1.1.1.1', '10.155.72.2', '10.155.67.5', '10.155.67.7', '2.2.2.2']
+        credentials:  [ { "username": "root", "password": "Embe1mpls" }, { "username": "regress", "password": "MaRtInI" }, { "username": "root", "password": "passw0rd" }]
+
+  roles:
+   - probe_device
+   - check_credentials
