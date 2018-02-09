@@ -94,6 +94,7 @@ env.Prepend(LIBS = [
                     'ifmapio',
                     'cassandra_cql',
                     'SimpleAmqpClient',
+                    'boost_chrono',
                     'rabbitmq',
                     'cassandra',
                     'gendb',

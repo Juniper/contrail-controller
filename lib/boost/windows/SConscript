@@ -31,13 +31,13 @@ buildlibdir = Dir('#build/lib').abspath + '/'
 
 libpath = Dir(vpath).abspath
 if not os.path.exists(libpath):
-    print '%s not present' % libpath
+    print('%s not present' % libpath)
     sys.exit(1)
 
 def copyboostlib(tofile, fromfile=None):
     if not os.path.exists(tofile):
         fromfile = Dir(vpath).abspath + '/bin.v2/libs/' + fromfile + boostlibdirprefix + 'libboost_' + fromfile + '-vc140-mt' + lib_file_flag + '-1_62.lib'
-        print 'copying ' + fromfile + ' to ' + tofile
+        print('copying ' + fromfile + ' to ' + tofile)
         shutil.copyfile(fromfile, tofile)
 
 
@@ -65,7 +65,7 @@ srcdir = Dir(vpath +'/boost').abspath
 destdir = Dir('#/build/include/boost').abspath
 
 if not os.path.exists(destdir):
-  print 'copying files to' + destdir
+  print('copying files to' + destdir)
   shutil.copytree(srcdir, destdir)
 
 products = [File('#build/lib/boost_filesystem.lib'), Dir('#build/include/boost')]

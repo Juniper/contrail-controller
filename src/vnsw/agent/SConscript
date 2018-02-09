@@ -432,17 +432,17 @@ def valgrind_run(target, source, env):
         logfile = open(cmd + '.log', 'w')
         valgrindfile = '--log-file=' + cmd + '.valgrind'
         supp_file = '--suppressions=' + 'src/vnsw/agent/test/valgrind.supp'
-        print cmd + ' logfile=' + cmd + '.log' + ' valgrind_file=' + cmd + '.valgrind '
+        print(cmd + ' logfile=' + cmd + '.log' + ' valgrind_file=' + cmd + '.valgrind ')
         code = subprocess.call(['valgrind', '-v', '--track-origins=yes',
                                 '--leak-check=full', '--error-exitcode=1',
                                 '--show-reachable=yes', supp_file, valgrindfile,
                                 cmd], stdout=logfile, stderr=logfile, env=ShEnv)
         if code == 0:
-            print cmd + '\033[94m' + " PASS" + '\033[0m'
+            print(cmd + '\033[94m' + " PASS" + '\033[0m')
         else:
             if code < 0:
                 logfile.write('Terminated by signal: ' + str(-code) + '\n')
-            print cmd + '\033[91m' + " FAIL" + '\033[0m'
+            print(cmd + '\033[91m' + " FAIL" + '\033[0m')
 
 #test_valgrind = env.Command(Dir('test_valgrind'), '', valgrind_run)
 #env.Alias('agent:test_valgrind', test_valgrind)
@@ -465,7 +465,7 @@ def code_coverage(target, source, env):
     # Get test alias from agent-test test suite 
     for test in env.ans['agent-test'].sources:
         cmd = test.sources[0].path
-        print cmd
+        print(cmd)
         logfile = open(cmd + '.log', 'w')
         subprocess.call([cmd], stdout=logfile, stderr=logfile, env=ShEnv)
 
@@ -508,18 +508,18 @@ def run_ut(target, source, env):
         if code is None:
             proc.kill()
             logfile.write('[  TIMEOUT  ] ')
-            print cmd + '\033[91m' + " TIMEOUT" + '\033[0m'
+            print(cmd + '\033[91m' + " TIMEOUT" + '\033[0m')
             return
 
         if code == 0:
-            print cmd + '\033[94m' + " PASS" + '\033[0m'
+            print(cmd + '\033[94m' + " PASS" + '\033[0m')
         else:
             logfile.write('[  FAILED  ] ')
             if code < 0:
                 logfile.write('Terminated by signal: ' + str(-code) + '\n')
             else:
                 logfile.write('Program returned ' + str(code) + '\n')
-            print cmd + '\033[91m' + " FAIL" + '\033[0m'
+            print(cmd + '\033[91m' + " FAIL" + '\033[0m')
 
 
 

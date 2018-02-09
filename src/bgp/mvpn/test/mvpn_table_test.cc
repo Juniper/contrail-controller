@@ -308,8 +308,7 @@ TEST_F(MvpnTableTest, CreateType4LeafADRoutePrefix) {
     TASK_UTIL_EXPECT_EQ(2, master_->Size());
 
     MvpnRoute *type4_rt = FindRoute(blue_, prefix_str);
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(type4_rt->get_table())->family();
+    family = reinterpret_cast<BgpTable *>(type4_rt->get_table())->family();
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
     TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
     TASK_UTIL_EXPECT_EQ(4, type4_rt->GetPrefix().type());
@@ -356,8 +355,7 @@ TEST_F(MvpnTableTest, CreateType3SPMSIRoutePrefix) {
     TASK_UTIL_EXPECT_EQ(2, master_->Size());
 
     MvpnRoute *type3_rt = FindRoute(blue_, prefix_str);
-    Address::Family family =
-        reinterpret_cast<BgpTable *>(type3_rt->get_table())->family();
+    family = reinterpret_cast<BgpTable *>(type3_rt->get_table())->family();
     TASK_UTIL_EXPECT_EQ(BgpAf::IPv4, BgpAf::FamilyToAfi(family));
     TASK_UTIL_EXPECT_EQ(BgpAf::MVpn, BgpAf::FamilyToSafi(family));
     TASK_UTIL_EXPECT_EQ(3, type3_rt->GetPrefix().type());

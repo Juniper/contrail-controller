@@ -36,7 +36,7 @@ def BuildPyTestSetup(env, target, source):
     file.write("[easy_install]\nfind_links =")
     for pkg in source:
         dependency = env.File(pkg)
-        print dependency
+        print(dependency)
         file.write(" %s" % os.path.dirname(dependency.abspath))
     file.write("\n")
     file.close()
