@@ -43,9 +43,6 @@ public:
         return (cmp < 0);
     }
 
-    virtual u_int16_t Afi() const { return BgpAf::IPv4; }
-    virtual u_int8_t Safi() const { return BgpAf::RTarget; }
-
 private:
     RTargetPrefix prefix_;
     DISALLOW_COPY_AND_ASSIGN(RTargetRoute);
