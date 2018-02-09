@@ -70,6 +70,7 @@ REACTION_MAP = {
     },
     "virtual_network": {
         'self': [],
+        'network_ipam': [],
     },
     "virtual_machine": {
         'self': ['virtual_machine_interface'],
