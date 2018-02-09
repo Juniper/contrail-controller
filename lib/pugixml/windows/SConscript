@@ -1,5 +1,5 @@
 # -*- mode: python; -*-
-print 'install pugixml'
+print('install pugixml')
 env = DefaultEnvironment().Clone()
 env.Append(CCFLAGS = '-fPIC')
 
@@ -12,4 +12,4 @@ lib = env.Library('pugixml', pugixml_buildpath + '/pugixml.cpp')
 env.Install('#/build/lib/', 'pugixml.lib')
 env.Install('#/build/include/pugixml', vpath + '/pugixml.hpp')
 env.Install('#/build/include/pugixml', vpath + '/pugiconfig.hpp')
-print 'done installing pugixml'
+print('done installing pugixml')
