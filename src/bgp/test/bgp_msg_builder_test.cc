@@ -7,11 +7,12 @@
 
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_message_builder.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_ribout.h"
 #include "bgp/bgp_server.h"
 #include "bgp/l3vpn/inetvpn_route.h"
-#include "bgp/bgp_message_builder.h"
+#include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
@@ -109,7 +110,9 @@ TEST_F(BgpMsgBuilderTest, Build) {
         new BgpPath(peer_, BgpPath::BGP_XMPP, rib_out_attr.attr(), 0, 0);
     route.InsertPath(path);
     BgpMessage message;
-    RibOut ribout(NULL, NULL, RibExportPolicy());
+    DB db;
+    InetVpnTable table(&db, "bgp.l3vpn.0");
+    RibOut ribout(static_cast<BgpTable *>(&table), NULL, RibExportPolicy());
     message.Start(&ribout, false, &rib_out_attr, &route);
 
     size_t length;
