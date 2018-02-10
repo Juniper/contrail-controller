@@ -225,7 +225,7 @@ def main(args_str=' '.join(sys.argv[1:])):
                       ]
         prog = DatabaseEventManager(_args, rule_file, unit_names)
     else:
-        sys.stderr.write("Node type" + str(node_type) + "is incorrect" + "\n")
+        sys.stderr.write("Node type " + str(node_type) + " is incorrect" + "\n")
         return
 
     prog.process()
