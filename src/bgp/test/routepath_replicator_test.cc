@@ -373,7 +373,7 @@ protected:
     const BgpRoute *GetVPNSecondary(const RtReplicated *rts) {
         BOOST_FOREACH(const RtReplicated::SecondaryRouteInfo rinfo,
                       rts->GetList()) {
-            if (rinfo.rt_->Safi() == BgpAf::Vpn) {
+            if (BgpAf::FamilyToSafi(rinfo.table_->family()) == BgpAf::Vpn) {
                 return rinfo.rt_;
             }
         }
