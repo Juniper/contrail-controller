@@ -141,6 +141,10 @@ public:
 
     static bool ParseDiscoveryServerConfig(std::string discovery_server,
                 uint16_t port, boost::asio::ip::tcp::endpoint *);
+    void ParseDiscoveryServerSslConfig(
+                std::string discovery_server_cert,
+                std::string discovery_server_key,
+                std::string discovery_server_cacert, SslConfig *);
 
     /* Publish api's */
     typedef boost::function<bool(std::string&)> ReEvalPublishCbHandler;

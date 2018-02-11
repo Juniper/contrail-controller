@@ -340,6 +340,22 @@ void AgentParam::ParseDns() {
 void AgentParam::ParseDiscovery() {
     GetValueFromTree<string>(dss_server_, "DISCOVERY.server");
     GetValueFromTree<uint32_t>(dss_port_, "DISCOVERY.port");
+    if (!GetValueFromTree<bool>(dss_ssl_, "DISCOVERY.ssl")) {
+        // set defaults
+        dss_ssl_ = false;
+    }
+    if(!GetValueFromTree<string>(dss_cert_, "DISCOVERY.cert")) {
+        // set default
+       dss_cert_ = "/etc/contrail/discovery/ssl/discovery.pem";
+    }
+    if (!GetValueFromTree<string>(dss_key_, "DISCOVERY.key")) {
+        // set default
+        dss_key_ = "/etc/contrail/discovery/ssl/private/discovery.key";
+    }
+    if (!GetValueFromTree<string>(dss_cacert_, "DISCOVERY.cacert")) {
+        // set default
+       dss_cacert_ = "/etc/contrail/discovery/ssl/discovery_ca.pem";
+    }
     if (!GetValueFromTree<uint16_t>(xmpp_instance_count_,
                                     "DISCOVERY.max_control_nodes")) {
         xmpp_instance_count_ = MAX_XMPP_SERVERS;
@@ -1543,6 +1559,20 @@ AgentParam::AgentParam(bool enable_flow_options,
          "Listen port of discovery server")
         ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
          "IP address of discovery server")
+        ("DISCOVERY.ssl", opt::bool_switch(&dss_ssl_),
+             "ssl enabled for discovery")
+        ("DISCOVERY.cert",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/certs/discovery.pem"),
+             "discovery Server ssl certificate")
+        ("DISCOVERY.key",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/private/discovery.key"),
+             "discovery Server ssl private key")
+        ("DISCOVERY.cacert",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/certs/discovery_ca.pem"),
+             "discovery CA ssl certificate")
         ("DISCOVERY.max_control_nodes", 
          opt::value<uint16_t>()->default_value(MAX_XMPP_SERVERS),
          "Maximum number of control node info to be provided by discovery "
