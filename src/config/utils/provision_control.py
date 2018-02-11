@@ -61,7 +61,9 @@ class ControlProvisioner(object):
         if self._args.oper == 'add':
             bp_obj.add_bgp_router('control-node', self._args.host_name,
                                   self._args.host_ip, self._args.router_asn,
-                                  self._args.address_families, self._args.md5, self._args.local_autonomous_system)
+                                  self._args.address_families, self._args.md5,
+                                  self._args.local_autonomous_system,
+                                  self._args.bgp_server_port)
         elif self._args.oper == 'del':
             bp_obj.del_bgp_router(self._args.host_name)
         else:
@@ -93,6 +95,7 @@ class ControlProvisioner(object):
                                         --api_server_use_ssl False
                                         --oper <add | del>
                                         --md5 <key value>|None(optional)
+                                        --bgp_server_port <port>|None(optional)
                                         --local_autonomous_system <ASN value>|None(optional)
                                         --graceful_restart_time 300
                                         --long_lived_graceful_restart_time 300
@@ -114,6 +117,7 @@ class ControlProvisioner(object):
 
         defaults = {
             'router_asn': '64512',
+            'bgp_server_port': 179,
             'local_autonomous_system': None,
             'ibgp_auto_mesh': None,
             'api_server_ip': '127.0.0.1',
@@ -155,6 +159,8 @@ class ControlProvisioner(object):
         parser.add_argument("--host_ip", help="IP address of control-node")
         parser.add_argument(
             "--router_asn", help="AS Number the control-node is in", required=True)
+        parser.add_argument(
+            "--bgp_server_port", help="BGP server port number (Default: 179)")
         parser.add_argument(
             "--local_autonomous_system", help="Local autonomous-system number used to peer contrail-control bgp speakers across different geographic locations")
         parser.add_argument(

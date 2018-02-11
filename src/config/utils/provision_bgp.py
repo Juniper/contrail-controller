@@ -47,7 +47,8 @@ class BgpProvisioner(object):
     # end _get_rt_inst_obj
 
     def add_bgp_router(self, router_type, router_name, router_ip,
-                       router_asn, address_families=[], md5=None, local_asn=None):
+                       router_asn, address_families=[], md5=None,
+                       local_asn=None, port=179):
         if not address_families:
             address_families = ['route-target', 'inet-vpn', 'e-vpn', 'erm-vpn',
                                 'inet6-vpn']
@@ -81,7 +82,7 @@ class BgpProvisioner(object):
             vendor=vendor, autonomous_system=int(router_asn),
             identifier=get_ip(router_ip),
             address=get_ip(router_ip),
-            port=179, address_families=bgp_addr_fams)
+            port=port, address_families=bgp_addr_fams)
 
         bgp_router_obj = BgpRouter(router_name, rt_inst_obj,
                                    bgp_router_parameters=router_params)
