@@ -839,6 +839,10 @@ def parse_args(args_str):
     defaults = {
         'disc_server_ip': '127.0.0.1',
         'disc_server_port': 5998,
+        'disc_server_ssl'   : False,
+        'disc_server_cert'   : '/etc/contrail/ssl/server.pem,',
+        'disc_server_key'   : '/etc/contrail/ssl/private/server-privkey.pem',
+        'disc_server_cacert'   : '/etc/contrail/ssl/ca-cert.pem,'
         'node_type': 'storage-compute',
         'log_local': True,
         'log_level': 'SYS_NOTICE',
@@ -869,6 +873,14 @@ def parse_args(args_str):
                         help="IP address of the discovery server")
     parser.add_argument("--disc_server_port",
                         help="Port of the discovery server")
+    parser.add_argument("--disc_server_cert",
+        help="Discovery Server ssl certificate")
+    parser.add_argument("--disc_server_key",
+        help="Discovery Server ssl key")
+    parser.add_argument("--disc_server_cacert",
+        help="Discovery Server ssl CA certificate")
+    parser.add_argument("--disc_server_ssl", action="store_true",
+        help="Discovery service is configured with ssl")
     parser.add_argument("--log_local", action="store_true",
                         help="Enable local logging of sandesh messages")
     parser.add_argument("--node_type",
@@ -907,9 +919,18 @@ def main(args_str=None):
         node_type = Module2NodeType[module]
         node_type_name = NodeTypeNames[node_type]
         instance_id = INSTANCE_ID_DEFAULT
+        dss_kwargs = {}
+        if self._args.disc_server_ssl:
+            if self._args.disc_server_cert:
+                dss_kwargs.update({'cert' : self._args.disc_server_cert})
+            if self._args.disc_server_key:
+                dss_kwargs.update({'key' : self._args.disc_server_key})
+            if self._args.disc_server_cacert:
+                dss_kwargs.update({'cacert' : self._args.disc_server_cacert})
         _disc = client.DiscoveryClient(args.disc_server_ip,
                                        args.disc_server_port,
-                                       module_name)
+                                       module_name,
+                                       **dss_kwargs)
         #if args.sandesh_send_rate_limit is not None:
         #    SandeshSystem.set_sandesh_send_rate_limit( \
         #        args.sandesh_send_rate_limit)
