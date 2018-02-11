@@ -132,6 +132,7 @@ public:
     static const char *kDefaultClientIpAdress;
 
     DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint,
+                           SslConfig ssl_cfg,
                            std::string client_name,
                            std::string reeval_publish_taskname="bgp::Config");
     virtual ~DiscoveryServiceClient();
@@ -141,6 +142,10 @@ public:
 
     static bool ParseDiscoveryServerConfig(std::string discovery_server,
                 uint16_t port, boost::asio::ip::tcp::endpoint *);
+    static void ParseDiscoveryServerSslConfig(
+                std::string discovery_server_cert,
+                std::string discovery_server_key,
+                std::string discovery_server_cacert, SslConfig *);
 
     /* Publish api's */
     typedef boost::function<bool(std::string&)> ReEvalPublishCbHandler;
@@ -224,6 +229,7 @@ private:
     HttpClient *http_client_;
     EventManager *evm_;
     boost::asio::ip::tcp::endpoint ds_endpoint_;
+    SslConfig ssl_config_;
 
     void Publish(std::string serviceName);
     void ReEvaluatePublish(std::string serviceName, ReEvalPublishCbHandler);
