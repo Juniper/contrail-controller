@@ -13,6 +13,7 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/bind.hpp>
 #include <boost/functional/hash.hpp>
+#include <boost/program_options.hpp>
 #include <discovery/client/discovery_client_types.h>
 #include <discovery/client/discovery_client_stats_types.h>
 
@@ -198,10 +199,11 @@ static void WaitForIdle() {
 /******************* DiscoveryServiceClient ************************************/
 DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
                                                boost::asio::ip::tcp::endpoint ep,
+                                               SslConfig ssl_cfg;
                                                std::string client_name,
                                                std::string reeval_publish_taskname)
     : http_client_(new HttpClient(evm)),
-      evm_(evm), ds_endpoint_(ep),
+      evm_(evm), ds_endpoint_(ep), ssl_config_(ssl_cfg),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
                   boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)),
       reevaluate_publish_cb_queue_(
@@ -241,9 +243,12 @@ void DiscoveryServiceClient::Shutdown() {
 }
 
 bool DiscoveryServiceClient::ParseDiscoveryServerConfig(
-                      std::string discovery_server, uint16_t port,
-                      ip::tcp::endpoint *dss_ep) {
+                      Options *options,
+                      ip::tcp::endpoint *dss_ep,
+                      SslConfig *ssl_cfg) {
     bool valid = false;
+    std::string discovery_server = options->discovery_server();
+    std::string discovery_port = options->discovery_port();
     if (!discovery_server.empty()) {
         boost::system::error_code error;
         dss_ep->port(port);
@@ -267,6 +272,12 @@ bool DiscoveryServiceClient::ParseDiscoveryServerConfig(
             }
         } else {
             valid = true;
+            if (options->discovery_ssl_enabled()) {
+                ssl_cfg->enabled = options->discovery_ssl_enabled();
+                ssl_cfg->cert options->discovery_server_cert();
+                ssl_cfg->key = options->discovery_server_key();
+                ssl_cfg->cacert = options->discovery_server_cacert();
+            }
         }
     }
     return (valid);
@@ -1200,7 +1211,7 @@ void DiscoveryServiceClient::SendHttpPostMessage(std::string msg_type,
                                                  std::string serviceName,
                                                  std::string msg) {
 
-    HttpConnection *conn = http_client_->CreateConnection(ds_endpoint_);
+    HttpConnection *conn = http_client_->CreateConnection(ds_endpoint_, ssl_config_);
     if (msg_type.compare("subscribe") == 0) {
         conn->HttpPost(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::SubscribeResponseHandler,
