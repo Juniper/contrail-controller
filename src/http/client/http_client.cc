@@ -61,9 +61,9 @@ void HttpClientSession::RegisterEventCb(SessionEventCb cb) {
     event_cb_ = cb;
 }
 
-HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, size_t id, 
+HttpConnection::HttpConnection(boost::asio::ip::tcp::endpoint ep, SslConfig ssl_cfg, size_t id, 
                                HttpClient *client) :
-    endpoint_(ep), id_(id), cb_(NULL), offset_(0), curl_handle_(NULL),
+    endpoint_(ep), ssl_config_(ssl_cfg), id_(id), cb_(NULL), offset_(0), curl_handle_(NULL),
     session_(NULL), client_(client), state_(STATUS) {
 }
 
@@ -74,7 +74,12 @@ HttpConnection::~HttpConnection() {
 std::string HttpConnection::make_url(std::string &path) {
     std::ostringstream ret;
 
-    ret << "http://" << endpoint_.address().to_string();
+    if (ssl_config_.isEnabled()) {
+        ret << "https";
+    } else {
+        ret << "http";
+    }
+    ret << "://" << endpoint_.address().to_string();
     if (endpoint_.port() != 0) {
         ret << ":" << endpoint_.port();
     }
@@ -226,6 +231,10 @@ void HttpConnection::HttpProcessInternal(const std::string body,
 
     std::string url = make_url(path);
     set_url(curl_handle_, url.c_str());
+
+    if (ssl_config_.isEnabled()) {
+        set_ssl_opts(curl_handle_, &ssl_config_);
+    }
 
     // Add header options to the get request
     for (uint32_t i = 0; i < hdr_options.size(); ++i)
@@ -416,7 +425,15 @@ TcpSession *HttpClient::CreateSession() {
 }
 
 HttpConnection *HttpClient::CreateConnection(boost::asio::ip::tcp::endpoint ep) {
-    HttpConnection *conn = new HttpConnection(ep, ++id_, this);
+    // intialize ssl config with, enabled false
+    SslConfig ssl_cfg(false);
+    HttpConnection *conn = new HttpConnection(ep, ssl_cfg, ++id_, this);
+    return conn;
+}
+
+HttpConnection *HttpClient::CreateConnection(boost::asio::ip::tcp::endpoint ep,
+                                             SslConfig ssl_cfg) {
+    HttpConnection *conn = new HttpConnection(ep, ssl_cfg, ++id_, this);
     return conn;
 }
 
