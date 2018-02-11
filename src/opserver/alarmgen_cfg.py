@@ -79,6 +79,10 @@ class CfgParser(object):
         disc_opts = {
             'disc_server_ip'     : None,
             'disc_server_port'   : 5998,
+            'disc_server_ssl'   : False,
+            'disc_server_cert'   : '/etc/contrail/discovery/ssl/discovery.pem,',
+            'disc_server_key'   : '/etc/contrail/discovery/ssl/private/discovery.key',
+            'disc_server_cacert'   : '/etc/contrail/discovery/ssl/discovery_ca.pem,'
         }
 
         keystone_opts = {
@@ -150,6 +154,14 @@ class CfgParser(object):
         parser.add_argument("--disc_server_port",
             type=int,
             help="Discovery Server port")
+        parser.add_argument("--disc_server_cert",
+            help="Discovery Server ssl certificate")
+        parser.add_argument("--disc_server_key",
+            help="Discovery Server ssl key")
+        parser.add_argument("--disc_server_cacert",
+            help="Discovery Server ssl CA certificate")
+        parser.add_argument("--disc_server_ssl", action="store_true",
+            help="Discovery service is configured with ssl")
         parser.add_argument("--redis_server_port",
             type=int,
             help="Redis server port")
