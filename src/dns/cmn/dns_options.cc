@@ -143,6 +143,20 @@ void Options::Initialize(EventManager &evm,
              "Port of Discovery Server")
         ("DISCOVERY.server", opt::value<string>(),
              "IP address of Discovery Server")
+        ("DISCOVERY.ssl", opt::bool_switch(&discovery_ssl_),
+             "Enable ssl for discovery")
+        ("DISCOVERY.cert",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/certs/server.pem"),
+             "discovery Server ssl certificate")
+        ("DISCOVERY.key",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/private/server-privkey.pem"),
+             "discovery Server ssl private key")
+        ("DISCOVERY.cacert",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/certs/ca-cert.pem"),
+             "discovery CA ssl certificate")
 
         ("IFMAP.certs_store",  opt::value<string>(),
              "Certificates store to use for communication with IFMAP server")
@@ -295,6 +309,9 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
+    GetOptValue<string>(var_map, discovery_server_cert_, "DISCOVERY.cert");
+    GetOptValue<string>(var_map, discovery_server_key_, "DISCOVERY.key");
+    GetOptValue<string>(var_map, discovery_server_cacert_, "DISCOVERY.cacert");
 
     GetOptValue<string>(var_map, ifmap_config_options_.password,
                         "IFMAP.password");
