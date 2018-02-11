@@ -100,6 +100,10 @@ def main(args_str=' '.join(sys.argv[1:])):
         disc_options.update(dict(config.items('DISCOVERY')))
     disc_options['discovery_server'] = disc_options.pop('server')
     disc_options['discovery_port'] = disc_options.pop('port')
+    disc_options['discovery_ssl'] = disc_options.pop('ssl')
+    disc_options['discovery_cert'] = disc_options.pop('cert')
+    disc_options['discovery_key'] = disc_options.pop('key')
+    disc_options['discovery_cacert'] = disc_options.pop('cacert')
     if 'COLLECTOR' in config.sections():
         try:
             collector = config.get('COLLECTOR', 'server_list')
@@ -117,6 +121,14 @@ def main(args_str=' '.join(sys.argv[1:])):
     parser.add_argument("--discovery_port",
                         type=int,
                         help='Port of Discovery Server')
+    parser.add_argument("--discovery_cert",
+        help="Discovery Server ssl certificate")
+    parser.add_argument("--discovery_key",
+        help="Discovery Server ssl key")
+    parser.add_argument("--discovery_cacert",
+        help="Discovery Server ssl CA certificate")
+    parser.add_argument("--discovery_ssl", action="store_true",
+        help="Discovery service is configured with ssl")
     parser.add_argument("--collectors",
                         nargs='+',
                         help='Collector addresses in format' +

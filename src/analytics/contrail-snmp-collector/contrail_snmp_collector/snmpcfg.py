@@ -35,6 +35,10 @@ contrail-snmp-scanner --log_level SYS_DEBUG
                       --syslog_facility LOG_USER
                       --disc_server_ip 127.0.0.1
                       --disc_server_port 5998
+                      --disc_server_ssl
+                      --disc_server_cert /etc/contrail/discovery/ssl/cert.pem
+                      --disc_server_key /etc/contrail/discovery/ssl/private/key.pem
+                      --disc_server_cacert /etc/contrail/discovery/ssl/cacert.pem
                       --conf_file /etc/contrail/contrail-snmp-scanner.conf
 
             conf file example:
@@ -104,6 +108,10 @@ Mibs = LldpTable, ArpTable
         disc_opts = {
             'disc_server_ip'     : '127.0.0.1',
             'disc_server_port'   : 5998,
+            'disc_server_ssl'   : False,
+            'disc_server_cert'   : '/etc/contrail/discovery/ssl/discovery.pem,',
+            'disc_server_key'   : '/etc/contrail/discovery/ssl/private/discovery.key',
+            'disc_server_cacert'   : '/etc/contrail/discovery/ssl/discovery_ca.pem,'
         }
 
         config = None
@@ -175,6 +183,14 @@ Mibs = LldpTable, ArpTable
             help="Discovery Server IP address")
         parser.add_argument("--disc_server_port", type=int,
             help="Discovery Server port")
+        parser.add_argument("--disc_server_cert",
+            help="Discovery Server ssl certificate")
+        parser.add_argument("--disc_server_key",
+            help="Discovery Server ssl key")
+        parser.add_argument("--disc_server_cacert",
+            help="Discovery Server ssl CA certificate")
+        parser.add_argument("--disc_server_ssl", action="store_true",
+            help="Discovery service is configured with ssl")
         group = parser.add_mutually_exclusive_group(required=False)
         group.add_argument("--device-config-file",
             help="where to look for snmp credentials")
@@ -186,7 +202,8 @@ Mibs = LldpTable, ArpTable
         if type(self._args.collectors) is str:
             self._args.collectors = self._args.collectors.split()
         self._args.config_sections = config
-        self._disc = client.DiscoveryClient(*self.discovery_params())
+        args, kwargs = self.discovery_params()
+        self._disc = client.DiscoveryClient(*args, **kwargs)
 
     def devices(self):
         if self._args.device_config_file:
@@ -213,9 +230,9 @@ Mibs = LldpTable, ArpTable
 
     def get_api_svrs(self):
         if self._disc is None:
-            p = self.discovery_params()
+            args, kwargs = self.discovery_params()
             try:
-              self._disc = client.DiscoveryClient(*p)
+              self._disc = client.DiscoveryClient(*args, **kwargs)
             except Exception as e:
               import traceback; traceback.print_exc()
               return []
@@ -229,7 +246,16 @@ Mibs = LldpTable, ArpTable
                        self._args.disc_server_port
         else:
             ip, port = '127.0.0.1', self._args.disc_server_port
-        return ip, port, self._name
+        dss_kwargs = {}
+        if self._args.disc_server_ssl:
+            if self._args.disc_server_cert:
+                dss_kwargs.update({'cert' : self._args.disc_server_cert})
+            if self._args.disc_server_key:
+                dss_kwargs.update({'key' : self._args.disc_server_key})
+            if self._args.disc_server_cacert:
+                dss_kwargs.update({'cacert' : self._args.disc_server_cacert})
+
+        return ((ip, port, self._name), dss_kwargs)
 
     def collectors(self):
         return self._args.collectors
