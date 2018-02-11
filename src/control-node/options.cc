@@ -154,6 +154,20 @@ void Options::Initialize(EventManager &evm,
                                                        default_discovery_port),
              "Port of Discovery Server")
         ("DISCOVERY.server", opt::value<string>()->default_value("127.0.0.1"),
+        ("DISCOVERY.disc_auth_enable", opt::bool_switch(&disc_auth_enable_),
+             "Enable ssl for discovery")
+        ("DISCOVERY.disc_server_cert",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/certs/server.pem"),
+             "discovery Server ssl certificate")
+        ("DISCOVERY.disc_server_key",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/private/server-privkey.pem"),
+             "discovery Server ssl private key")
+        ("DISCOVERY.disc_ca_cert",
+             opt::value<string>()->default_value(
+             "/etc/contrail/ssl/certs/ca-cert.pem"),
+             "discovery CA ssl certificate")
              "IP address of Discovery Server")
 
         ("IFMAP.certs_store",  opt::value<string>(),
@@ -290,6 +304,9 @@ bool Options::Process(int argc, char *argv[],
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
+    GetOptValue<string>(var_map, discovery_server_cert_, "DISCOVERY.disc_server_cert");
+    GetOptValue<string>(var_map, discovery_server_key_, "DISCOVERY.disc_server_key");
+    GetOptValue<string>(var_map, discovery_server_cacert_, "DISCOVERY.disc_ca_cert");
 
 
     GetOptValue<string>(var_map, ifmap_config_options_.password,
