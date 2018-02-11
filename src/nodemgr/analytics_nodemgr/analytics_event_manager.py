@@ -32,10 +32,12 @@ from pysandesh.connection_info import ConnectionState
 
 class AnalyticsEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr):
+                 discovery_port, collector_addr,
+                 **dss_kwargs):
         EventManager.__init__(
             self, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global)
+            discovery_port, collector_addr, sandesh_global,
+            **dss_kwargs)
         self.node_type = 'contrail-analytics'
         self.uve_node_type = UVENodeTypeNames[NodeType.ANALYTICS]
         self.table = "ObjectCollectorInfo"

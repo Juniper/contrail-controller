@@ -64,6 +64,10 @@ def parse_args(args_str):
         'aaa_mode': None,
         'disc_server_ip': None,
         'disc_server_port': '5998',
+        'disc_server_ssl'   : False,
+        'disc_server_cert'   : '/etc/contrail/ssl/server.pem,',
+        'disc_server_key'   : '/etc/contrail/ssl/private/server-privkey.pem',
+        'disc_server_cacert'   : '/etc/contrail/ssl/ca-cert.pem,',
         'zk_server_ip': '127.0.0.1:2181',
         'worker_id': '0',
         'rabbit_server': 'localhost',
@@ -147,6 +151,9 @@ def parse_args(args_str):
             if 'multi_tenancy' in config.options('DEFAULTS'):
                 defaults['multi_tenancy'] = config.getboolean(
                     'DEFAULTS', 'multi_tenancy')
+            if 'disc_server_ssl' in config.options('DEFAULTS'):
+                defaults['disc_server_ssl'] = config.getboolean(
+                    'DEFAULTS', 'disc_server_ssl')
             if 'default_encoding' in config.options('DEFAULTS'):
                 default_encoding = config.get('DEFAULTS', 'default_encoding')
                 gen.resource_xsd.ExternalEncoding = default_encoding
@@ -199,6 +206,14 @@ def parse_args(args_str):
     parser.add_argument(
         "--disc_server_port",
         help="Port of discovery server")
+    parser.add_argument("--disc_server_cert",
+        help="Discovery Server ssl certificate")
+    parser.add_argument("--disc_server_key",
+        help="Discovery Server ssl key")
+    parser.add_argument("--disc_server_cacert",
+        help="Discovery Server ssl CA certificate")
+    parser.add_argument("--disc_server_ssl", action="store_true",
+        help="Discovery service is configured with ssl")
     parser.add_argument(
         "--redis_server_ip",
         help="IP address of redis server")
