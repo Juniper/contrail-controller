@@ -22,6 +22,7 @@ class HttpClient;
 class HttpConnection;
 struct _ConnInfo;
 struct _GlobalInfo;
+class SslConfig;
 
 enum Event {
     EVENT_NONE,
@@ -56,6 +57,28 @@ private:
     SessionEventCb event_cb_;
 
     DISALLOW_COPY_AND_ASSIGN(HttpClientSession);
+};
+
+// ssl config representation
+class SslConfig {
+ public:
+     explicit SslConfig(bool isEnabled = false) { is_enabled_ = isEnabled; }
+
+     void setCert(std::string cert) { cert_ = cert; }
+     void setKey(std::string key) { key_ = key; }
+     void setCacert(std::string cacert) { cacert_ = cacert; }
+
+     bool isEnabled() { return is_enabled_; }
+     std::string getCert() { return cert_; }
+     std::string getKey() { return key_; }
+     std::string getCacert() { return cacert_; }
+
+ private:
+     bool is_enabled_;
+     std::string cert_;
+     std::string key_;
+     std::string cacert_;
+
 };
 
 class HttpConnection {
@@ -131,6 +154,7 @@ private:
 
     // key = endpoint_ + id_ 
     boost::asio::ip::tcp::endpoint endpoint_;
+    SslConfig ssl_config_;
     size_t id_; 
     HttpCb cb_;
     size_t offset_;
@@ -204,5 +228,4 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(HttpClient);
 };
-
 #endif
