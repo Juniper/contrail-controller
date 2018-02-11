@@ -649,9 +649,12 @@ class VncRDBMSClient(object):
             return False
 
     @use_session
-    def delete_quota_counter(self, path):
+    def delete_quota_counter(self, path, recursive=False):
         session = self.session_ctx
-        session.query(QuotaCount).filter(QuotaCount.path == path).delete()
+        if recursive:
+            session.query(QuotaCount).filter(QuotaCount.path.like('%s%' % path)).delete()
+        else:
+            session.query(QuotaCount).filter(QuotaCount.path == path).delete()
         session.commit()
 
     def _get_resource_class(self, obj_type):
