@@ -192,7 +192,7 @@ public:
     const std::vector<std::string> controller_server_list() const {
         return controller_server_list_;
     }
-    const std::string &cluster_id() const { return cluster_id_; }
+    const std::string &sub_cluster_id() const { return sub_cluster_id_; }
     const std::vector<std::string> dns_server_list() const {
         return dns_server_list_;
     }
@@ -642,7 +642,7 @@ private:
     bool eth_port_no_arp_;
     std::string eth_port_encap_type_;
     std::vector<std::string> controller_server_list_;
-    std::string cluster_id_;
+    std::string sub_cluster_id_;
     std::vector<std::string> dns_server_list_;
     std::vector<std::string> tsn_server_list_;
     uint16_t dns_client_port_;

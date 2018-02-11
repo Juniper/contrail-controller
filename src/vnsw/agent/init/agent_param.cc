@@ -365,7 +365,7 @@ void AgentParam::ParseControllerServersArguments
         boost::split(controller_server_list_, controller_server_list_[0],
                      boost::is_any_of(" "));
     }
-    GetOptValue<string>(var_map, cluster_id_, "CONTROL-NODE.cluster_id");
+    GetOptValue<string>(var_map, sub_cluster_id_, "CONTROL-NODE.sub_cluster_id");
 }
 
 void AgentParam::ParseDnsServersArguments
@@ -1109,7 +1109,7 @@ void AgentParam::LogConfig() const {
         LOG(DEBUG, "Xmpp Server Key         : " << xmpp_server_key_);
         LOG(DEBUG, "Xmpp CA Certificate     : " << xmpp_ca_cert_);
     }
-    LOG(DEBUG, "Cluster-id : " << cluster_id_);
+    LOG(DEBUG, "Cluster-id : " << sub_cluster_id_);
 
     concat_servers.clear();
     list = dns_server_list();
@@ -1287,7 +1287,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         pkt0_tx_buffer_count_(Agent::kPkt0TxBufferCount),
         measure_queue_delay_(false),
         agent_name_(), eth_port_(),
-        eth_port_no_arp_(false), eth_port_encap_type_(), cluster_id_(),
+        eth_port_no_arp_(false), eth_port_encap_type_(), sub_cluster_id_(),
         dns_client_port_(0), dns_timeout_(3000),
         dns_max_retries_(2), mirror_client_port_(0),
         mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
@@ -1394,7 +1394,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         ("CONTROL-NODE.servers",
          opt::value<std::vector<std::string> >()->multitoken(),
          "List of IPAddress:Port of Control node Servers")
-        ("CONTROL-NODE.cluster_id", opt::value<string>(), "Cluster identifier")
+        ("CONTROL-NODE.sub_cluster_id", opt::value<string>(), "Cluster identifier")
         ("DEFAULT.collectors",
          opt::value<std::vector<std::string> >()->multitoken(),
          "Collector server list")
