@@ -64,7 +64,7 @@ def main(args_str=' '.join(sys.argv[1:])):
         args, remaining_argv = node_parser.parse_known_args(args_str.split())
     except:
         usage()
-    disc_options = {'server': socket.gethostname(), 'port': 5998}
+    disc_options = {'server': socket.gethostname(), 'port': 5998, 'ssl': False}
     default = {'rules': '',
                'collectors': [],
                'hostip': '127.0.0.1',
@@ -98,8 +98,15 @@ def main(args_str=' '.join(sys.argv[1:])):
         default.update(dict(config.items('DEFAULT')))
     if 'DISCOVERY' in config.sections():
         disc_options.update(dict(config.items('DISCOVERY')))
+        if 'ssl' in config.options('DISCOVERY'):
+            disc_options['ssl'] = config.getboolean(
+                'DISCOVERY', 'ssl')
     disc_options['discovery_server'] = disc_options.pop('server')
     disc_options['discovery_port'] = disc_options.pop('port')
+    disc_options['discovery_ssl'] = disc_options.get('ssl')
+    disc_options['discovery_cert'] = disc_options.get('cert')
+    disc_options['discovery_key'] = disc_options.get('key')
+    disc_options['discovery_cacert'] = disc_options.get('cacert')
     if 'COLLECTOR' in config.sections():
         try:
             collector = config.get('COLLECTOR', 'server_list')
@@ -117,6 +124,14 @@ def main(args_str=' '.join(sys.argv[1:])):
     parser.add_argument("--discovery_port",
                         type=int,
                         help='Port of Discovery Server')
+    parser.add_argument("--discovery_cert",
+        help="Discovery Server ssl certificate")
+    parser.add_argument("--discovery_key",
+        help="Discovery Server ssl key")
+    parser.add_argument("--discovery_cacert",
+        help="Discovery Server ssl CA certificate")
+    parser.add_argument("--discovery_ssl", action="store_true",
+        help="Discovery service is configured with ssl")
     parser.add_argument("--collectors",
                         nargs='+',
                         help='Collector addresses in format' +

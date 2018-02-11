@@ -9,6 +9,7 @@
 #include<string>
 #include "sandesh/sandesh_trace.h"
 #include "discovery/client/discovery_client.h"
+#include "http/client/http_client.h"
 
 class ControlNode {
 public:
