@@ -871,13 +871,23 @@ class Controller(object):
         self._libpart_name = self._conf.host_ip() + ":" + self._instance_id
         self._libpart = None
         self._partset = set()
-        if self._conf.discovery()['server']:
+        dss = self._conf.discovery()
+        if dss['server']:
             self._max_out_rows = 20
+            dss_kwargs = {}
+            if dss.get('disc_server_ssl'):
+                if dss['disc_server_cert']:
+                    dss_kwargs.update({'cert' : dss['disc_server_cert']})
+                if dss['disc_server_key']:
+                    dss_kwargs.update({'key' : dss['disc_server_key']})
+                if dss['disc_server_cacert']:
+                    dss_kwargs.update({'cacert' : dss['disc_server_cacert']})
             self.disc = client.DiscoveryClient(
-                self._conf.discovery()['server'],
-                self._conf.discovery()['port'],
+                dss['server'],
+                dss['port'],
                 ModuleNames[Module.ALARM_GENERATOR],
-                '%s-%s' % (self._hostname, self._instance_id))
+                '%s-%s' % (self._hostname, self._instance_id),
+                **dss_kwargs)
 
         is_collector = True
         if test_logger is not None:

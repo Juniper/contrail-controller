@@ -432,6 +432,15 @@ void set_url(ConnInfo *conn, const char *url) {
   curl_easy_setopt(conn->easy, CURLOPT_URL, conn->url);
 }
 
+void set_ssl_opts(ConnInfo *conn, SslConfig *ssl) {
+  // set the cert for client authentication
+  curl_easy_setopt(conn->easy, CURLOPT_SSLCERT, ssl->getCert().c_str());
+  // set the private key
+  curl_easy_setopt(conn->easy, CURLOPT_SSLKEY, ssl->getKey().c_str());
+  // set the file with the certs vaildating the server
+  curl_easy_setopt(conn->easy, CURLOPT_CAINFO, ssl->getCacert().c_str());
+}
+
 void set_header_options(ConnInfo *conn, const char *options) { 
     conn->headers = curl_slist_append(conn->headers, options);
     curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
