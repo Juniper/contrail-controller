@@ -22,6 +22,7 @@ class HttpClient;
 class HttpConnection;
 struct _ConnInfo;
 struct _GlobalInfo;
+class SslConfig;
 
 enum Event {
     EVENT_NONE,
@@ -131,6 +132,7 @@ private:
 
     // key = endpoint_ + id_ 
     boost::asio::ip::tcp::endpoint endpoint_;
+    SslConfig ssl_config_;
     size_t id_; 
     HttpCb cb_;
     size_t offset_;
@@ -205,4 +207,12 @@ private:
     DISALLOW_COPY_AND_ASSIGN(HttpClient);
 };
 
+// ssl config representation
+class SslConfig {
+ public:
+     bool enabled;
+     std::string cert;
+     std::string key;
+     std::string cacert;
+};
 #endif

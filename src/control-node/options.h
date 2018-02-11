@@ -20,6 +20,10 @@ public:
     std::string config_file() const { return config_file_; };
     std::string discovery_server() const { return discovery_server_; }
     uint16_t discovery_port() const { return discovery_port_; }
+    std::string discovery_server_cert() const { return discovery_server_cert_; }
+    std::string discovery_server_key() const { return discovery_server_key_; }
+    std::string discovery_server_cacert() const { return discovery_server_cacert_; }
+    bool discovery_ssl_enabled() const { return discovery_ssl_enable_; }
     std::string hostname() const { return hostname_; }
     std::string host_ip() const { return host_ip_; }
     uint16_t http_server_port() const { return http_server_port_; }
@@ -93,6 +97,10 @@ private:
     std::string config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
+    bool discovery_ssl_enable_;
+    std::string discovery_server_cert_;
+    std::string discovery_server_key_;
+    std::string discovery_server_cacert_;
     std::string hostname_;
     std::string host_ip_;
     uint16_t http_server_port_;
