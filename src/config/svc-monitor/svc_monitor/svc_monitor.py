@@ -69,10 +69,19 @@ class SvcMonitor(object):
         # initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
+            dss_kwargs = {}
+            if self._args.disc_server_ssl:
+                if self._args.disc_server_cert:
+                    dss_kwargs.update({'cert' : self._args.disc_server_cert})
+                if self._args.disc_server_key:
+                    dss_kwargs.update({'key' : self._args.disc_server_key})
+                if self._args.disc_server_cacert:
+                    dss_kwargs.update({'cacert' : self._args.disc_server_cacert})
             self._disc = client.DiscoveryClient(
                 self._args.disc_server_ip,
                 self._args.disc_server_port,
-                ModuleNames[Module.SVC_MONITOR])
+                ModuleNames[Module.SVC_MONITOR],
+                **dss_kwargs)
         # initialize logger
         if sm_logger is not None:
             self.logger = sm_logger
@@ -678,6 +687,10 @@ def parse_args(args_str):
         'collectors': None,
         'disc_server_ip': None,
         'disc_server_port': None,
+        'disc_server_ssl'   : False,
+        'disc_server_cert'   : '/etc/contrail/ssl/server.pem,',
+        'disc_server_key'   : '/etc/contrail/ssl/private/server-privkey.pem',
+        'disc_server_cacert'   : '/etc/contrail/ssl/ca-cert.pem,',
         'http_server_port': '8088',
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
@@ -787,6 +800,14 @@ def parse_args(args_str):
                         help="Port of the discovery server")
     parser.add_argument("--http_server_port",
                         help="Port of local HTTP server")
+    parser.add_argument("--disc_server_cert",
+        help="Discovery Server ssl certificate")
+    parser.add_argument("--disc_server_key",
+        help="Discovery Server ssl key")
+    parser.add_argument("--disc_server_cacert",
+        help="Discovery Server ssl CA certificate")
+    parser.add_argument("--disc_server_ssl", action="store_true",
+        help="Discovery service is configured with ssl")
     parser.add_argument(
         "--log_local", action="store_true",
         help="Enable local logging of sandesh messages")
@@ -898,10 +919,19 @@ def main(args_str=None):
     # initialize discovery client
     discovery_client = None
     if args.disc_server_ip and args.disc_server_port:
+        dss_kwargs = {}
+        if self._args.disc_server_ssl:
+            if self._args.disc_server_cert:
+                dss_kwargs.update({'cert' : self._args.disc_server_cert})
+            if self._args.disc_server_key:
+                dss_kwargs.update({'key' : self._args.disc_server_key})
+            if self._args.disc_server_cacert:
+                dss_kwargs.update({'cacert' : self._args.disc_server_cacert})
         discovery_client = client.DiscoveryClient(
             args.disc_server_ip,
             args.disc_server_port,
-            ModuleNames[Module.SVC_MONITOR])
+            ModuleNames[Module.SVC_MONITOR],
+            **dss_kwargs)
     # Initialize logger
     sm_logger = ServiceMonitorLogger(
             discovery_client, args, http_server_port=-1)
