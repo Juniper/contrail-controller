@@ -651,8 +651,8 @@ public:
         return xs_ca_cert_;
     }
 
-    const std::string &cluster_id() const {
-        return cluster_id_;
+    const std::string &sub_cluster_id() const {
+        return sub_cluster_id_;
     }
 
     const uint32_t controller_ifmap_xmpp_port(uint8_t idx) const {
@@ -1325,7 +1325,7 @@ private:
     std::string xs_server_cert_;
     std::string xs_server_key_;
     std::string xs_ca_cert_;
-    std::string cluster_id_;
+    std::string sub_cluster_id_;
     int8_t xs_dns_idx_;
     std::string dns_addr_[MAX_XMPP_SERVERS];
     uint32_t dns_port_[MAX_XMPP_SERVERS];
