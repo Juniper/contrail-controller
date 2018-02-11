@@ -56,7 +56,9 @@ class EventManager(object):
     FAIL_STATUS_DISK_SPACE_NA = 0x10
 
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr, sandesh_global):
+                 discovery_port, collector_addr, sandesh_global,
+                 discovery_ssl=False, discovery_cert=None,
+                 discovery_key=None, discovery_cacert=None):
         self.stdin = sys.stdin
         self.stdout = sys.stdout
         self.stderr = sys.stderr
@@ -146,8 +148,17 @@ class EventManager(object):
     # end add_process_handler
 
     def get_discovery_client(self):
+        dss_kwargs = {}
+        if self._args.discovery_ssl:
+            if self.discovery_cert:
+                dss_kwargs.update({'cert' : self.discovery_cert})
+            if self.discovery_key:
+                dss_kwargs.update({'key' : self.discovery_key})
+            if self.discovery_cacert:
+                dss_kwargs.update({'cacert' : self.discovery_cacert})
         _disc = client.DiscoveryClient(
-            self.discovery_server, self.discovery_port, self.module_id)
+            self.discovery_server, self.discovery_port, self.module_id,
+            **dss_kwargs)
         return _disc
 
     def check_ntp_status(self):
