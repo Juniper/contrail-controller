@@ -45,7 +45,7 @@ from loadbalancer_stats import LoadbalancerStatsUVE
 
 class VrouterEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr):
+                 discovery_port, collector_addr, **dss_kwargs):
         self.module = Module.COMPUTE_NODE_MGR
         self.module_id = ModuleNames[self.module]
 
@@ -53,7 +53,8 @@ class VrouterEventManager(EventManager):
         node_type_name = NodeTypeNames[node_type]
         self.sandesh_global = sandesh_global
         EventManager.__init__(self, rule_file, discovery_server,
-                              discovery_port, collector_addr, sandesh_global)
+                              discovery_port, collector_addr, sandesh_global,
+                              **dss_kwargs)
         self.node_type = "contrail-vrouter"
         self.uve_node_type = UVENodeTypeNames[NodeType.COMPUTE]
         self.table = "ObjectVRouter"

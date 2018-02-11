@@ -50,7 +50,7 @@ class DatabaseEventManager(EventManager):
                  discovery_port, collector_addr,
                  hostip, minimum_diskgb, contrail_databases,
                  cassandra_repair_interval,
-                 cassandra_repair_logdir):
+                 cassandra_repair_logdir, **dss_kwargs):
         self.node_type = "contrail-database"
         self.uve_node_type = UVENodeTypeNames[NodeType.DATABASE]
         self.table = "ObjectDatabaseInfo"
@@ -72,7 +72,7 @@ class DatabaseEventManager(EventManager):
         self.sandesh_global = sandesh_global
         EventManager.__init__(
             self, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global)
+            discovery_port, collector_addr, sandesh_global, **dss_kwargs)
         self.sandesh_global = sandesh_global
         if self.rule_file is '':
             self.rule_file = "/etc/contrail/" + \

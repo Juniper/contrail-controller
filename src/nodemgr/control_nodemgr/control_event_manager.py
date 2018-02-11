@@ -39,7 +39,8 @@ from nodemgr.common.sandesh.nodeinfo.process_info.constants import *
 
 class ControlEventManager(EventManager):
     def __init__(self, rule_file, discovery_server,
-                 discovery_port, collector_addr):
+                 discovery_port, collector_addr,
+                 **dss_kwargs):
         self.node_type = "contrail-control"
         self.uve_node_type = UVENodeTypeNames[NodeType.CONTROL]
         self.table = "ObjectBgpRouter"
@@ -55,7 +56,8 @@ class ControlEventManager(EventManager):
         self.sandesh_global = sandesh_global;
         EventManager.__init__(
             self, rule_file, discovery_server,
-            discovery_port, collector_addr, sandesh_global)
+            discovery_port, collector_addr, sandesh_global,
+            **dss_kwargs)
         _disc = self.get_discovery_client()
         sandesh_global.init_generator(
             self.module_id, socket.gethostname(),

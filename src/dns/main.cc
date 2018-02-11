@@ -229,9 +229,15 @@ int main(int argc, char *argv[]) {
     tcp::endpoint dss_ep;
     if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
         options.discovery_server(), options.discovery_port(), &dss_ep)) {
+        //Parse discovery server ssl config
+        SslConfig ssl_cfg(options.discovery_ssl());
+        DiscoveryServiceClient::ParseDiscoveryServerSslConfig(
+                options.discovery_server_cert(),
+                options.discovery_server_key(),
+                options.discovery_server_cacert(), &ssl_cfg);
 
         ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep,
-            g_vns_constants.ModuleNames.find(Module::DNS)->second);
+            ssl_cfg, g_vns_constants.ModuleNames.find(Module::DNS)->second);
         ds_client->Init();
 
         // Publish DNServer Service

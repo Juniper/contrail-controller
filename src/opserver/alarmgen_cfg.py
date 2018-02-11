@@ -79,6 +79,10 @@ class CfgParser(object):
         disc_opts = {
             'disc_server_ip'     : None,
             'disc_server_port'   : 5998,
+            'disc_server_ssl'   : False,
+            'disc_server_cert'   : None,
+            'disc_server_key'   : None,
+            'disc_server_cacert'   : None
         }
 
         keystone_opts = {
@@ -101,6 +105,9 @@ class CfgParser(object):
                 redis_opts.update(dict(config.items('REDIS')))
             if 'DISCOVERY' in config.sections():
                 disc_opts.update(dict(config.items('DISCOVERY')))
+                if 'disc_server_ssl' in config.options('DISCOVERY'):
+                    disc_opts['disc_server_ssl'] = config.getboolean(
+                        'DISCOVERY', 'disc_server_ssl')
             if 'KEYSTONE' in config.sections():
                 keystone_opts.update(dict(config.items('KEYSTONE')))
         # Override with CLI options
@@ -150,6 +157,14 @@ class CfgParser(object):
         parser.add_argument("--disc_server_port",
             type=int,
             help="Discovery Server port")
+        parser.add_argument("--disc_server_cert",
+            help="Discovery Server ssl certificate")
+        parser.add_argument("--disc_server_key",
+            help="Discovery Server ssl key")
+        parser.add_argument("--disc_server_cacert",
+            help="Discovery Server ssl CA certificate")
+        parser.add_argument("--disc_server_ssl", action="store_true",
+            help="Discovery service is configured with ssl")
         parser.add_argument("--redis_server_port",
             type=int,
             help="Redis server port")
@@ -223,8 +238,15 @@ class CfgParser(object):
         return self._args.alarmgen_list
 
     def discovery(self):
-        return {'server':self._args.disc_server_ip,
+        disc_opts = {'server':self._args.disc_server_ip,
             'port':self._args.disc_server_port }
+        if self._args.disc_server_ssl:
+            disc_opts.update({
+                'ssl': self._args.disc_server_ssl,
+                'cert': self._args.disc_server_cert,
+                'key': self._args.disc_server_key,
+                'cacert': self._args.disc_server_cacert})
+        return disc_opts
 
     def collectors(self):
         return self._args.collectors
