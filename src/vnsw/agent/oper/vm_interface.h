@@ -410,6 +410,13 @@ public:
         PROXY_ARP_INVALID
     };
 
+    enum FatFlowIgnoreAddressType {
+        IGNORE_NONE,
+        IGNORE_REMOTE,
+        IGNORE_SOURCE,
+        IGNORE_DESTINATION
+    };
+
     typedef std::map<Ip4Address, MetaDataIp*> MetaDataIpMap;
     typedef std::set<HealthCheckInstanceBase *> HealthCheckInstanceSet;
 
@@ -897,17 +904,23 @@ public:
         InstanceIpSet list_;
     };
 
+    typedef std::map<std::string, FatFlowIgnoreAddressType> IgnoreAddressMap;
+
     struct FatFlowEntry : ListEntry {
-        FatFlowEntry(): protocol(0), port(0), ignore_remote_address(false) {}
+        FatFlowEntry(): protocol(0), port(0),
+        ignore_address(IGNORE_NONE) {}
         FatFlowEntry(const FatFlowEntry &rhs):
             protocol(rhs.protocol), port(rhs.port),
-            ignore_remote_address(rhs.ignore_remote_address) {}
-        FatFlowEntry(const uint8_t proto, const uint16_t p, bool ignore_addr):
-            protocol(proto), port(p), ignore_remote_address(ignore_addr) {}
+            ignore_address(rhs.ignore_address) {}
+        FatFlowEntry(const uint8_t proto, const uint16_t p) :
+            protocol(proto), port(p),
+            ignore_address(IGNORE_NONE) {}
+        FatFlowEntry(const uint8_t proto, const uint16_t p,
+                     std::string ignore_addr);
         virtual ~FatFlowEntry(){}
         bool operator == (const FatFlowEntry &rhs) const {
             return (rhs.protocol == protocol && rhs.port == port &&
-                    rhs.ignore_remote_address == ignore_remote_address);
+                    rhs.ignore_address == ignore_address);
         }
 
         bool operator() (const FatFlowEntry  &lhs,
@@ -923,7 +936,7 @@ public:
         }
         uint8_t protocol;
         uint16_t port;
-        mutable bool ignore_remote_address;
+        mutable FatFlowIgnoreAddressType ignore_address;
     };
     typedef std::set<FatFlowEntry, FatFlowEntry> FatFlowEntrySet;
 
@@ -1407,8 +1420,17 @@ private:
                      VmInterfaceState::Op l2_force_op,
                      VmInterfaceState::Op l3_force_op);
     bool DeleteState(VmInterfaceState *attr);
+    static IgnoreAddressMap InitIgnoreAddressMap() {
+        IgnoreAddressMap value;
+        value["none"] = IGNORE_NONE;
+        value["remote"] = IGNORE_REMOTE;
+        value["source"] = IGNORE_SOURCE;
+        value["destination"] = IGNORE_DESTINATION;
+        return value;
+    }
 
 private:
+    static IgnoreAddressMap fatflow_ignore_addr_map_;
     VmEntryBackRef vm_;
     VnEntryRef vn_;
     Ip4Address primary_ip_addr_;

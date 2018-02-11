@@ -1842,13 +1842,22 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
                  'virtual-machine-interface', 'key', 'optional', 'CRUD',
                  'Dictionary of arbitrary (key, value) for this interface. Neutron port bindings use this.') -->
 
+<xsd:simpleType name="FatFlowIgnoreAddressType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="none"/>
+        <xsd:enumeration value="remote"/>
+        <xsd:enumeration value="source"/>
+        <xsd:enumeration value="destination"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name="ProtocolType">
     <xsd:all>
         <xsd:element name="protocol" type="xsd:string"/>
         <xsd:element name="port" type="xsd:integer"/>
-        <xsd:element name='ignore-remote-address' type="xsd:boolean"
-             required='optional' default='false'
-             description='Remote address is ignored while creating flows'/>
+        <xsd:element name="ignore-address" type="FatFlowIgnoreAddressType"/>
+             required='optional'
+             description='Address ignored while creating flows'/>
     </xsd:all>
 </xsd:complexType>
 

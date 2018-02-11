@@ -538,7 +538,7 @@ static void BuildFatFlowTable(Agent *agent, VmInterfaceConfigData *data,
             it != cfg->fat_flow_protocols().end(); it++) {
         uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
         VmInterface::FatFlowEntry entry(protocol, it->port,
-                                        it->ignore_remote_address);
+                                        it->ignore_address);
         data->fat_flow_list_.Insert(&entry);
     }
 }
@@ -925,7 +925,7 @@ static void BuildVn(VmInterfaceConfigData *data,
             it != vn->fat_flow_protocols().end(); it++) {
         uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
         VmInterface::FatFlowEntry fentry(protocol, it->port,
-                                         it->ignore_remote_address);
+                                         it->ignore_address);
         data->fat_flow_list_.Insert(&fentry);
     }
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());

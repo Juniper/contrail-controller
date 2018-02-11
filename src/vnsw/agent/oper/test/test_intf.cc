@@ -81,8 +81,11 @@ bool GetNhPolicy(const string &vrf, Ip4Address addr, int plen) {
 struct TestFatFlowEntry {
     std::string protocol;
     uint16_t port;
-    bool ignore_remote_address;
-    TestFatFlowEntry(string proto, uint16_t num, bool ignore_addr) :
+    std::string ignore_remote_address;
+    TestFatFlowEntry(string proto, uint16_t num) :
+        protocol(proto), port(num), ignore_remote_address("none") {
+    }
+    TestFatFlowEntry(string proto, uint16_t num, std::string ignore_addr) :
         protocol(proto), port(num), ignore_remote_address(ignore_addr) {
     }
 };
@@ -214,7 +217,7 @@ public:
             str << "<fat-flow-protocol>"
                    "<protocol>" << it->protocol << "</protocol>"
                    "<port>" << it->port << "</port>"
-                   "<ignore-remote-address>" << it->ignore_remote_address << "</ignore-remote-address>"
+                   "<ignore-address>" << it->ignore_remote_address << "</ignore-address>"
                    "</fat-flow-protocol>";
             ++it;
         }
@@ -4439,8 +4442,8 @@ TEST_F(IntfTest, VnFatFlow) {
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
 
-    TestFatFlowEntry e1("udp", 55, false);
-    TestFatFlowEntry e2("tcp", 1234, false);
+    TestFatFlowEntry e1("udp", 55);
+    TestFatFlowEntry e2("tcp", 1234);
     vector<TestFatFlowEntry> list;
     list.push_back(e1);
     list.push_back(e2);
@@ -4479,8 +4482,8 @@ TEST_F(IntfTest, VnVmiFatFlow1) {
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
 
-    TestFatFlowEntry e1("udp", 55, false);
-    TestFatFlowEntry e2("tcp", 1234, false);
+    TestFatFlowEntry e1("udp", 55);
+    TestFatFlowEntry e2("tcp", 1234);
     vector<TestFatFlowEntry> list;
     list.push_back(e1);
     list.push_back(e2);
@@ -4529,8 +4532,8 @@ TEST_F(IntfTest, VnVmiFatFlow2) {
     const VmInterface *intf = static_cast<const VmInterface *>(VmPortGet(1));
     EXPECT_TRUE(intf->fat_flow_list().list_.size() == 0);
 
-    TestFatFlowEntry e1("udp", 55, false);
-    TestFatFlowEntry e2("tcp", 1234, false);
+    TestFatFlowEntry e1("udp", 55);
+    TestFatFlowEntry e2("tcp", 1234);
     vector<TestFatFlowEntry> list;
     list.push_back(e1);
     list.push_back(e2);

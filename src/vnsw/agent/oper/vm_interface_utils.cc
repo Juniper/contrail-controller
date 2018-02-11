@@ -836,7 +836,7 @@ const Peer *VmInterface::peer() const {
 }
 
 bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port) const {
-    if (fat_flow_list_.list_.find(FatFlowEntry(protocol, port, false)) !=
+    if (fat_flow_list_.list_.find(FatFlowEntry(protocol, port)) !=
                 fat_flow_list_.list_.end()) {
         return true;
     }
