@@ -46,6 +46,7 @@ extern const CurlErrorCategory curl_error_category;
 
 int http_get(ConnInfo *conn, GlobalInfo *g); 
 void set_url(ConnInfo *conn, const char *url); 
+void set_ssl_opts(ConnInfo *conn, SslConfig *ssl);
 int curl_init(HttpClient *);
 ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
                    bool header, bool short_timeout, bool reuse);
