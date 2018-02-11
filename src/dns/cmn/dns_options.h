@@ -19,6 +19,10 @@ public:
     std::string config_file() const { return config_file_; };
     std::string discovery_server() const { return discovery_server_; }
     uint16_t discovery_port() const { return discovery_port_; }
+    std::string discovery_server_cert() const { return discovery_server_cert_; }
+    std::string discovery_server_key() const { return discovery_server_key_; }
+    std::string discovery_server_cacert() const { return discovery_server_cacert_; }
+    bool discovery_ssl_enabled() const { return discovery_ssl_enable_; }
     const std::string & named_config_file() const { return named_config_file_; }
     const std::string & named_config_dir() const { return named_config_dir_; }
     const std::string & named_log_file() const { return named_log_file_; }
@@ -98,6 +102,10 @@ private:
     std::string config_file_;
     std::string discovery_server_;
     uint16_t discovery_port_;
+    bool discovery_ssl_enable_;
+    std::string discovery_server_cert_;
+    std::string discovery_server_key_;
+    std::string discovery_server_cacert_;
 
     std::string named_config_file_;
     std::string named_config_dir_;

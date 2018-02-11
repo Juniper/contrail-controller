@@ -393,10 +393,17 @@ int main(int argc, char *argv[])
     tcp::endpoint dss_ep;
     if (DiscoveryServiceClient::ParseDiscoveryServerConfig(
         options.discovery_server(), options.discovery_port(), &dss_ep)) {
+        // Parse discovery server ssl config
+        SslConfig ssl_cfg;
+        DiscoveryServiceClient::ParseDiscoveryServerSslConfig(
+                options.discovery_server_cert(),
+                options.discovery_server_key(),
+                options.discovery_server_cacert(), &ssl_cfg)
 
         string client_name =
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
-        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, client_name);
+        ds_client = new DiscoveryServiceClient(a_evm, dss_ep, ssl_cfg,
+                                               client_name);
         ds_client->Init();
         analytics.UpdateUdc(&options, ds_client);
     } else {
