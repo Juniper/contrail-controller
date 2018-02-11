@@ -150,10 +150,19 @@ class SchemaTransformer(object):
             # Initialize discovery client
             discovery_client = None
             if self._args.disc_server_ip and self._args.disc_server_port:
+                dss_kwargs = {}
+                if self._args.disc_server_ssl:
+                    if self._args.disc_server_cert:
+                        dss_kwargs.update({'cert' : self._args.disc_server_cert})
+                    if self._args.disc_server_key:
+                        dss_kwargs.update({'key' : self._args.disc_server_key})
+                    if self._args.disc_server_cacert:
+                        dss_kwargs.update({'cacert' : self._args.disc_server_cacert})
                 discovery_client = client.DiscoveryClient(
                     self._args.disc_server_ip,
                     self._args.disc_server_port,
-                    ModuleNames[Module.SCHEMA_TRANSFORMER])
+                    ModuleNames[Module.SCHEMA_TRANSFORMER],
+                    **dss_kwargs)
             # Initialize logger
             self.logger = SchemaTransformerLogger(discovery_client, args)
 
@@ -401,6 +410,10 @@ def parse_args(args_str):
         'disc_server_ip': None,
         'disc_server_port': None,
         'http_server_port': '8087',
+        'disc_server_ssl'   : False,
+        'disc_server_cert'   : '/etc/contrail/discovery/ssl/discovery.pem,',
+        'disc_server_key'   : '/etc/contrail/discovery/ssl/private/discovery.key',
+        'disc_server_cacert'   : '/etc/contrail/discovery/ssl/discovery_ca.pem,'
         'log_local': False,
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
@@ -495,6 +508,14 @@ def parse_args(args_str):
                         help="IP address of the discovery server")
     parser.add_argument("--disc_server_port",
                         help="Port of the discovery server")
+    parser.add_argument("--disc_server_cert",
+        help="Discovery Server ssl certificate")
+    parser.add_argument("--disc_server_key",
+        help="Discovery Server ssl key")
+    parser.add_argument("--disc_server_cacert",
+        help="Discovery Server ssl CA certificate")
+    parser.add_argument("--disc_server_ssl", action="store_true",
+        help="Discovery service is configured with ssl")
     parser.add_argument("--http_server_port",
                         help="Port of local HTTP server")
     parser.add_argument("--log_local", action="store_true",
@@ -626,10 +647,19 @@ def main(args_str=None):
     # Initialize discovery client
     discovery_client = None
     if args.disc_server_ip and args.disc_server_port:
+        dss_kwargs = {}
+        if self._args.disc_server_ssl:
+            if self._args.disc_server_cert:
+                dss_kwargs.update({'cert' : self._args.disc_server_cert})
+            if self._args.disc_server_key:
+                dss_kwargs.update({'key' : self._args.disc_server_key})
+            if self._args.disc_server_cacert:
+                dss_kwargs.update({'cacert' : self._args.disc_server_cacert})
         discovery_client = client.DiscoveryClient(
             args.disc_server_ip,
             args.disc_server_port,
-            ModuleNames[Module.SCHEMA_TRANSFORMER])
+            ModuleNames[Module.SCHEMA_TRANSFORMER],
+            **dss_kwargs)
     # Initialize logger
     st_logger = SchemaTransformerLogger(
             discovery_client, args, http_server_port=-1)
