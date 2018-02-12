@@ -1,0 +1,30 @@
+---
+    - name: create subfolders
+      include_tasks: create_subfolders.yaml
+
+    - name: Pushing config ... please wait
+      junos_config:
+        src: "{{ conf_dir }}/final_config/combined_config.cfg"
+        comment: "Applied by Ansible"
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{input.junos_password}}"
+          port: 22
+        confirm_commit: yes
+      ignore_errors: yes
+      register: result
+
+    - name: handle error case to extract message from device
+      include_tasks: handle_error_junos.yaml
+      when: "result.failed == true"
+
+    - name: delete all generated configs
+      file:
+        state: absent
+        path: "{{ conf_dir }}"
+
+    - meta: end_play
+      hen: "result.failed == true"
+
+    - debug: var=output

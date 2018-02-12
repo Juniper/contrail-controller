@@ -1,0 +1,44 @@
+    - name: create error folder
+      file:
+        path: "{{ conf_dir }}/error_handler"
+        state: directory
+
+    #Remove white space from variable
+    - set_fact: myvar="{{ result.msg | replace('\n', '') | replace('\', '') }}"
+
+    # create a file if it doesn't exist
+    - name: ensure file exists
+      copy:
+        content: "{{ myvar }}"
+        dest: "{{ conf_dir }}/error_handler/commit_error.xml"
+        force: no
+        mode: 0555
+
+    - name: extract error message
+      xml:
+        namespaces:
+          ns: urn:ietf:params:xml:ns:netconf:base:1.0
+        path: "{{ conf_dir }}/error_handler/commit_error.xml"
+        xpath: /ns:rpc-reply/ns:commit-results/ns:rpc-error[*]/ns:error-message
+        content: 'text'
+      ignore_errors: yes
+      register: err_msg
+
+    #- debug: var=myvar
+    #- debug: var=err_msg
+
+    - set_fact:
+          parsed_res: "Reason"
+
+    - set_fact:
+          parsed_res: "{{ parsed_res }}; {{ item['{urn:ietf:params:xml:ns:netconf:base:1.0}error-message'] }}"
+      with_items: "{{ err_msg.matches }}"
+
+    #- debug: var=example_res
+
+    - set_fact:
+        output: {
+          "status": "Failure",
+              "message": parsed_res
+          }
+      when: "result.failed == true"

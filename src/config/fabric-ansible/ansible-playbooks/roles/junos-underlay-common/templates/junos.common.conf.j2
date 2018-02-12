@@ -1,0 +1,65 @@
+system {
+    time-zone {{ input.ntp.time_zone }};
+    services {
+        netconf {
+            ssh;
+        }
+        ssh;
+    }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any notice;
+            authorization info;
+        }
+    }
+    ntp { # NTP servers #
+        {% if input.ntp.servers %}
+        {%- for server in input.ntp.servers %}
+        server {{ server }};
+        {% endfor -%}
+        {% endif %}
+        # Boot Servers #
+        {% if input.ntp.boot_servers %}
+        {%- for boot_server in input.ntp.boot_servers %}
+        boot-server {{ boot_server }};
+        {% endfor -%}
+        {% endif %}
+    }
+}
+snmp {
+    location "{{ input.snmp.location }}";
+    contact "{{ input.snmp.contact }}";
+{% for snmp in input.snmp.polling %}
+    community {{ snmp.community }} {
+        authorization read-only;
+    }
+{% endfor %}
+}
+
+routing-options {
+{% if input.routing_options.routes.static is defined %}
+  static {
+    rib-group tftp-group;
+  }
+  rib-groups  {
+    tftp-group {
+        import-rib inet.0;
+    }
+  }
+  {% if input.routing_options is defined %}
+  router-id {{ input.routing_options.router_id }};
+  autonomous-system {{ input.routing_options.as_number }};
+  {% endif %}
+{% endif %}
+}
+
+{% if input.enable_lldp == 'true' %}
+protocols {
+    lldp {
+        interface all;
+    }
+}
+{% endif %}
