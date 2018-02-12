@@ -1,0 +1,5 @@
+- set_fact:
+    configured_phy_interface_names: "{{configured_phy_interface_names}}+['{{item.name}}']"
+
+- name: Test POST REST Call for configured phy and log interfaces
+  include_tasks: phy_interface.yaml

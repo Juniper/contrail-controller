@@ -1,0 +1,17 @@
+- set_fact:
+    address_family: []
+
+- set_fact:
+    address_family: "{{address_family}}+['{{item['address-family-name']}}']"
+  with_items:
+    - "{{logical_unit['address-family']}}"
+
+- set_fact:
+    family_type: {"logical_interface_type": "l3"}
+
+- set_fact:
+    family_type: {"logical_interface_type": "l2"}
+  when: "'eth-switch' in address_family"
+
+- set_fact:
+    payload: "{{ payload | combine(family_type) }}"
