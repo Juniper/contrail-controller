@@ -1,0 +1,7 @@
+---
+# defaults file for commit-config-role
+
+output: {
+              "status": "Success",
+              "results": "Underlay config successful for: {{junos_host}} successful"
+        }

@@ -1,0 +1,5 @@
+---
+# tasks file for device-import-role
+
+- name: Get the interfaces information from the device
+  include_tasks: import-interfaces.yml

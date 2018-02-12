@@ -1,0 +1,10 @@
+python-subunit
+testrepository
+flexmock
+coverage
+pyaml
+cfgm_common
+vnc_api
+sandesh
+sandesh_common
+junitxml
