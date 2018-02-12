@@ -1,0 +1,10 @@
+system {
+
+routing-options {
+  static {
+    {% for vrouter in vrouters_list %}
+    route 0.0.0.0/0 next-hop {{ vrouter.virtual_router_ip_address }};
+    {% endfor %}
+  }
+}
+}

@@ -1,0 +1,34 @@
+---
+    - name: get virtual routers list
+      vnc_db_mod:
+        object_type: "virtual_router"
+        object_op: "list"
+        object_dict: |
+          {
+             "filters": {"virtual_router_type":"tor-service-node"},
+             "fields": ["virtual_router_ip_address", "virtual_router_type"]
+          }
+        auth_token: "{{keystone.x_subject_token}}"
+      register: vrouters_details
+
+    - debug: msg={{ vrouters_details }}
+
+    - set_fact:
+        vrouters_list: "{{vrouters_details.obj}}"
+
+    - meta: end_play
+      when: "'obj' not in vrouters_details or vrouters_details.failed == 'true'"
+
+    - name: Generate TSN config
+      block:
+        - template:
+            src: junos_tsn_conf.j2
+            dest: "{{ conf_dir }}/build_config/tsn_config.cfg"
+          register: cmd_res
+      rescue:
+        - set_fact:
+            output: {
+              "status": "Failed to Generate config",
+              "message": "{{cmd_res.msg}}"
+            }
+        - meta: end_play
