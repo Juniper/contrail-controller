@@ -32,18 +32,12 @@ class RunTestsCommand(Command):
                 os._exit(1)
 
 setup(
-    name='job_manager',
+    name='fabric_ansible_playbooks',
     version='0.1dev',
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
-    package_data={'': ['*.html', '*.css', '*.xml']},
+    package_data={'': ['*.html', '*.css', '*.xml', '*.*']},
     zip_safe=False,
-    long_description="Job Manager",
-    entry_points = {
-         # Please update sandesh/common/vns.sandesh on process name change
-         'console_scripts' : [
-             'contrail-fabric-ansible = job_manager.job_manager:main',
-         ],
-    },
+    long_description="Fabric Ansible Playbooks",
     cmdclass={
        'run_tests': RunTestsCommand,
     },

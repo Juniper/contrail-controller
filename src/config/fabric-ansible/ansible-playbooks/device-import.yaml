@@ -1,0 +1,18 @@
+---
+- name: Get the Device Information by reading the Prouter object
+
+  hosts: localhost
+  roles:
+    - Juniper.junos
+    - device-facts-uve
+    - device-import-role
+
+  tasks:
+    - set_fact:
+        result_dict: {"results": "{{results}}"}
+    - set_fact:
+        output: "{{output | combine(result_dict)}}"
+    
+    - name: Update Job log with job completed status
+      job_objectlog:
+        message: "Import Device: {{prouter_name}} succeeded importing {{phy_int_count}} PhysicalInterfaces and {{log_int_count}} Logical Interfaces"
