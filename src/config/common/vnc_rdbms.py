@@ -20,7 +20,8 @@ from vnc_api.gen import vnc_api_client_gen
 import cfgm_common.utils
 from cfgm_common.exceptions import NoIdError, DatabaseUnavailableError, \
                                    NoUserAgentKey
-from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+from cfgm_common.exceptions import (ResourceExhaustionError,
+        ResourceExistsError, OverQuota)
 from cfgm_common import SGID_MIN_ALLOC
 from sandesh_common.vns import constants
 
@@ -173,6 +174,7 @@ class RDBMSQuotaCounter(object):
             quota_count = QuotaCount(path=self.path, value=self.default, created=True)
             session.add(quota_count)
             session.commit()
+
     @use_session
     def __add__(self, value):
         session = self.session_ctx
@@ -180,12 +182,15 @@ class RDBMSQuotaCounter(object):
             and_(
                 QuotaCount.path == self.path,
                 QuotaCount.created == True,
-                QuotaCount.value + value < self.max_count
         )).first()
         if query:
-            query.value = query.value + value
+            query_value = int(query.value)
+            if (query_value + value > self.max_count):
+                raise OverQuota()
+            query.value = query_value + value
             session.add(query)
             session.commit()
+        return self
 
     @use_session
     def __sub__(self, value):
@@ -196,9 +201,25 @@ class RDBMSQuotaCounter(object):
                 QuotaCount.created == True
         )).first()
         if query:
-            query.value = query.value - value
+            query.value = int(query.value) - value
             session.add(query)
             session.commit()
+        return self
+
+    @property
+    @use_session
+    def value(self):
+        session = self.session_ctx
+        query = session.query(QuotaCount).filter(
+            and_(
+                QuotaCount.path == self.path,
+                QuotaCount.created == True
+        )).first()
+        if query:
+            return int(query.value)
+        else:
+            return self.default
+
 
 class RDBMSIndexAllocator(object):
     def __init__(self, db, path, size=0, start_idx=0,
@@ -627,9 +648,12 @@ class VncRDBMSClient(object):
             return False
 
     @use_session
-    def delete_quota_counter(self, path):
+    def delete_quota_counter(self, path, recursive=False):
         session = self.session_ctx
-        session.query(QuotaCount).filter(QuotaCount.path == path).delete()
+        if recursive:
+            session.query(QuotaCount).filter(QuotaCount.path.like('%s%' % path)).delete()
+        else:
+            session.query(QuotaCount).filter(QuotaCount.path == path).delete()
         session.commit()
 
     def _get_resource_class(self, obj_type):
@@ -1007,6 +1031,24 @@ class VncRDBMSClient(object):
 
         return (True, objs_dict.values())
     # end object_read
+
+    @use_session
+    def object_count_children(self, res_type, obj_uuid, child_type):
+        if child_type is None:
+            return (False, '')
+        obj_type = to_obj_type(res_type)
+        obj_class = self._get_resource_class(obj_type)
+        if child_type not in obj_class.children_fields:
+            return (False,
+                    '%s is not a child type of %s' % (child_type, obj_type))
+
+        session = self.session_ctx
+        sqa_child_class = self.sqa_classes[child_type[:-1]]  # strip plural
+        num_children = session.query(sqa_child_class).filter_by(
+                obj_parent_uuid=obj_uuid).count()
+
+        return (True, num_children)
+    # end object_count_children
 
     @use_session
     def object_update(self, res_type, obj_uuid, new_obj_dict):
