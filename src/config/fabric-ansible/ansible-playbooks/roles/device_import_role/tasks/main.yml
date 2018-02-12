@@ -1,0 +1,9 @@
+---
+# tasks file for device-import-role
+
+- name: Starting Interface Import, Update job log
+  job_objectlog:
+    message: "Starting Interfaces Import on {{prouter_name}}"
+
+- name: Get the interfaces information from the device
+  include_tasks: import_interfaces.yml

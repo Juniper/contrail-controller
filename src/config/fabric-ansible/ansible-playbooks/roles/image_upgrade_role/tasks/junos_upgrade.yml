@@ -1,0 +1,52 @@
+- name: JOB LOGS
+  job_objectlog:
+    message: "Executing junos upgrade on device"
+    status: "in-progress"
+
+- name: Execute a basic Junos software upgrade.
+  block:
+    - juniper_junos_software:
+        provider:
+          host: "{{pr_host}}"
+          user: "{{pr_user}}"
+          passwd: "{{pr_password}}"
+          port: 22
+        remote_package: "{{enc_tempurl}}"
+      register: junos_response
+    #  ignore_errors: True
+  rescue:
+    - include_tasks: error_handler.yml
+      vars:
+        op_err_message: "Unable to upgrade image on the device. Junos upgrade task failed with exception. {{junos_response.msg}}"
+        results: |
+          {
+            "prouter_uuid": "{{prouter_uuid}}",
+            "image_uuid": "{{image_uuid}}",
+            "msg": "Image upgrade task failed"
+          }
+        jl_err_message: "Unable to upgrade image on the device. Junos upgrade task failed with exception. {{junos_response.msg}}"
+
+
+
+- name: Print the complete response.
+  debug:
+    var: junos_response
+
+- name: JOB LOGS
+  job_objectlog:
+    message: "Junos upgrade response: {{junos_response}}"
+    status: "in-progress"
+
+- name: Fail if Junos upgrade response failed
+  include_tasks: error_handler.yml
+  when: "junos_response.failed == true"
+  vars:
+    op_err_message: "Unable to upgrade image on the device. Junos upgrade task failed."
+    results: |
+      {
+        "prouter_uuid": "{{prouter_uuid}}",
+        "image_uuid": "{{image_uuid}}",
+        "msg": "Image upgrade task failed"
+      }
+    jl_err_message: "Unable to upgrade image on the device. Junos upgrade task failed."
+

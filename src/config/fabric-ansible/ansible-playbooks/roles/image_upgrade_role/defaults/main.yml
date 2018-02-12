@@ -1,0 +1,7 @@
+---
+# defaults file for image_upgrade_role
+
+output: {
+              "status": "Success",
+              "results": "Image upgrade for device: {{prouter_uuid}} successful"
+        }
