@@ -1,0 +1,18 @@
+
+- name:  Get system info
+  juniper_junos_rpc:
+    host="{{pr_host}}"
+    user="{{pr_user}}"
+    passwd="{{pr_password}}"
+    port=22
+    rpc=get-system-information
+  register: sys_info
+
+- name: Print sys info
+  debug: msg="{{sys_info}}"
+
+- set_fact:
+    device_version: "{{sys_info.parsed_output['system-information']['os-version']}}"
+
+- name: Print device OS version
+  debug: msg="{{device_version}}"

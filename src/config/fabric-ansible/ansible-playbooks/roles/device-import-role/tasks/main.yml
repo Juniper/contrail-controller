@@ -1,0 +1,64 @@
+---
+# tasks file for device-import-role
+- name: get Keystone Token
+  uri:
+    url: http://{{contrail_ip}}:5000/v3/auth/tokens
+    method: POST
+    status_code: 201
+    headers:
+      Content-Type: "application/json"
+    body: |
+      {
+        "auth": {
+          "identity": {
+            "methods": ["password"],
+            "password": {
+              "user": {
+                "name": "**********",
+                "domain": { "id": "default" },
+                "password": "*******"
+              }
+            }
+          },
+          "scope": {
+            "project": {
+              "name": "admin",
+              "domain": { "id": "default" }
+            }
+          }
+        }
+      }
+  register: keystone
+
+- name: call vnc to read the physical-router
+  vnc_db_mod:
+    object_type: "physical_router"
+    object_op: "read"
+    object_dict: {"uuid": "{{prouter_uuid}}" }
+    auth_token: "{{keystone.x_subject_token}}"
+  register: prouter_details
+
+- name: Perform the necessary error handling
+  include_tasks: error_handler.yaml
+  when: "'obj' not in prouter_details or prouter_details.failed == true"
+  vars:
+    err_hndlr_info:
+      err_messages:
+        op_err_message: "{{prouter_details.msg}}"
+        jl_err_message: Failed to read the physical_router object, the object may not exist; see result for more details
+  with_dict: "{{err_hndlr_info}}"
+ 
+- set_fact:
+    prouter_info: "{{prouter_details.obj}}"
+
+- set_fact:
+    junos_username: "{{prouter_info.physical_router_user_credentials.username}}"
+    junos_host: "{{prouter_info.physical_router_management_ip}}"
+    prouter_name: "{{prouter_info.fq_name[1]}}"
+
+#- name: Update Job log with read status
+#  job_objectlog:
+#    message: "Physical Router: {{prouter_name}} read successfully"
+
+- name: Get the interfaces information from the device
+  include_tasks: import-interfaces.yaml

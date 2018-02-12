@@ -1,0 +1,28 @@
+- name: call vnc to create the logical-interface
+  vnc_db_mod:
+    object_type: "logical_interface"
+    object_op: "create"
+    object_dict: "{{payload}}"
+    auth_token: "{{keystone.x_subject_token}}"
+  register: post_resp_log
+
+- name: Perform the necessary error handling
+  include_tasks: error_handler.yaml
+  when: "post_resp_log.failed == true"
+  vars:
+    err_hndlr_info:
+      err_messages:
+        op_err_message: "{{post_resp_log.msg}}"
+        jl_err_message: "Creating Logical Interface Failed on {{prouter_name}}, Imported so far: PhyInterfaces: {{phy_int_count}}, LogInterfaces: {{log_int_count}}; see result for more details"
+  with_dict: "{{err_hndlr_info}}"
+
+- set_fact:
+    log_int_count: "{{log_int_count | int + 1}}"
+    
+- set_fact:
+    log_uuid_list: "{{log_uuid_list}}+['{{post_resp_log.obj | from_json | json_query('\"logical-interface\".uuid')}}']"
+  when: "'obj' in post_resp_log"
+
+- set_fact:
+    log_uuid_list: "{{log_uuid_list}}+['{{post_resp_log.uuid}}']"
+  when: "'uuid' in post_resp_log"

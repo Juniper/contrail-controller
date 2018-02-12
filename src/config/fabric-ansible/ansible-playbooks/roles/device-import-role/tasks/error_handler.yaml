@@ -1,0 +1,12 @@
+- set_fact:
+    output: {
+              "status": "Failure",
+              "message": "{{item.value.op_err_message}}",
+              "results": "{{results}}"
+            }
+
+#- name: call job object log to log the partially completed details
+#  job_objectlog:
+#    message: "{{item.value.jl_err_message}}"
+
+- meta: end_play

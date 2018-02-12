@@ -1,0 +1,198 @@
+---
+# tasks file for image_upgrade_role
+
+- name: get Keystone Token for contrail server
+  uri:
+    url: http://{{contrail_ip}}:5000/v3/auth/tokens
+    method: POST
+    status_code: 201
+    headers:
+      Content-Type: "application/json"
+    body: |
+      {
+        "auth": {
+          "identity": {
+            "methods": ["password"],
+            "password": {
+              "user": {
+                "name": "admin",
+                "domain": { "id": "default" },
+                "password": "contrail123"
+              }
+            }
+          },
+          "scope": {
+            "project": {
+              "name": "admin",
+              "domain": { "id": "default" }
+            }
+          }
+        }
+      }
+  register: contr_keystone
+
+- set_fact:
+    auth_token: "{{contr_keystone.x_subject_token}}"
+
+- name: Read Image info
+  include_tasks: read_image_info.yaml
+
+# handle exceptions and set output
+- name: Fail if image object not found
+  set_fact:
+    output: {
+              "status": "Failure",
+              "message": "{{image_details.msg}}"
+            }
+  when: "'obj' not in image_details or image_details.failed == true"
+
+- meta: end_play
+  when: "'obj' not in image_details or image_details.failed == true"
+
+- name: parse image uri to get container name
+  set_fact:
+    container_name: "{{image_uri.split('/')[-2]}}"
+
+- name: Read PR device info
+  include_tasks: read_pr_info.yaml
+
+# handle exceptions and set output
+- name: Fail if PR object not found
+  set_fact:
+    output: {
+              "status": "Failure",
+              "message": "{{prouter_details.msg}}"
+            }
+  when: "'obj' not in prouter_details or prouter_details.failed == true"
+
+- meta: end_play
+  when: "'obj' not in prouter_details or prouter_details.failed == true"
+
+# compatibilty check using device family
+- name: Compatibily check using device family
+  set_fact:
+    output: {
+              "status": "Failure",
+              "message": "Device family not compatibile with Image device family"
+            }
+  when: "pr_family != image_family"
+
+- meta: end_play
+  when: "pr_family != image_family"
+
+
+- name: Read swift config from conf file or etcd
+  set_fact:
+    keystoneip: "{{ lookup('ini', 'keystoneip section=DEFAULT file=conf/swift_conf.ini') }}"
+    user: "{{ lookup('ini', 'user section=DEFAULT file=conf/swift_conf.ini') }}"
+    key: "{{ lookup('ini', 'key section=DEFAULT file=conf/swift_conf.ini') }}"
+    tenant_name: "{{ lookup('ini', 'tenant_name section=DEFAULT file=conf/swift_conf.ini default=admin') }}"
+    auth_version: "{{ lookup('ini', 'auth_version section=DEFAULT file=conf/swift_conf.ini default=2.0') }}"
+    temp_url_key: "{{ lookup('ini', 'temp_url_key section=DEFAULT file=conf/swift_conf.ini default=mykey') }}"
+    temp_url_key_2: "{{ lookup('ini', 'temp_url_key_2 section=DEFAULT file=conf/swift_conf.ini default=mykey2') }}"
+    chosen_temp_url_key: "{{ lookup('ini', 'chosen_temp_url_key section=DEFAULT file=conf/swift_conf.ini default=temp_url_key') }}"
+    expirytime: 216000
+
+- name: get Keystone Token for cso server
+  uri:
+    url: http://{{keystoneip}}:5000/v3/auth/tokens
+    method: POST
+    status_code: 201
+    headers:
+      Content-Type: "application/json"
+    body: |
+      {
+        "auth": {
+          "identity": {
+            "methods": ["password"],
+            "password": {
+              "user": {
+                "name": "admin",
+                "domain": { "id": "default" },
+                "password": "passw0rd"
+              }
+            }
+          },
+          "scope": {
+            "project": {
+              "name": "admin",
+              "domain": { "id": "default" }
+            }
+          }
+        }
+      }
+  register: cso_keystone
+
+- set_fact:
+    authtoken: "{{cso_keystone.x_subject_token}}"
+
+- name: Get swift temp url
+  include_tasks: get_swiftfile_url.yaml
+  vars:
+    authurl: "http://{{keystoneip}}:35357/v2.0/"
+
+# handle exception and set output
+- name: Fail if swift module returned error
+  set_fact:
+    output: {
+              "status": "Failure",
+              "message": "{{swift_results.error_msg}}"
+            }
+  when: "swift_results.error_msg != None and swift_results.error_msg != ''"
+
+- meta: end_play
+  when: "swift_results.url=='' and swift_results.error_msg != None and swift_results.error_msg != ''"
+
+- name: encode temp url
+  set_fact:
+    enc_tempurl: "{{tempurl.split('?')[0]+'?'+tempurl.split('?')[-1]|urlencode()}}"
+
+- name: Debug encode temp url
+  debug:
+    var: enc_tempurl
+
+- name: Do junos upgrade
+  include_tasks: junos_upgrade.yaml
+
+- name: Fail if Junos upgrade response failed
+  set_fact:
+    output: {
+              "status": "Failure",
+              "message": "{{junos_response.msg}}"
+            }
+  when: "junos_response.failed == true and 'Reboot' not in junos_response.msg"
+
+- meta: end_play
+  when: "junos_response.failed == true and 'Reboot' not in junos_response.msg"
+
+
+# Delay for 60 sec and then keep checking netconf connectivity for every 60 sec(sleep). Total timeout 1200 sec
+- name: Check NETCONF connectivity after reboot
+  wait_for:
+    host: "{{pr_host}}"
+    port: 830
+    timeout: 1200
+    delay: 60
+    connect_timeout: 10
+    sleep: 60
+  when: "'Reboot' in junos_response.msg"
+
+- name: check device OS version
+  include_tasks: check_version_rpc.yaml
+
+# check if image os version is same as device os version
+- name: Validate version in device to see if it does not matches image version
+  set_fact:
+    output: {
+              "status": "Failure",
+              "message": "Device version check failed. Image version is different than the version found on device"
+            }
+  when: "image_info.device_image_os_version != device_version"
+
+
+# update device uve
+
+
+
+
+
