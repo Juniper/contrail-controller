@@ -1,0 +1,83 @@
+---
+
+- name: Reading Device Information in various ways
+  vars:
+    junos_host: 10.155.67.6
+    junos_username: root
+    junos_password: Embe1mpls
+    host_key_checking: False
+  hosts: localhost
+  roles:
+    - Juniper.junos
+  tasks:
+    - name: Check NETCONF connectivity
+      wait_for: host="{{junos_host}}" port=830 timeout=30
+
+    - name: Get SNMP facts
+      snmp_facts:
+        host: "{{junos_host}}"
+        version: v2c
+        community: public
+      register: snmp_info
+      delegate_to: localhost
+
+    - name: Print SNMP Facts
+      #debug: msg="{{snmp_info.ansible_facts.ansible_interfaces}}"
+      debug: msg="{{snmp_info.ansible_facts}}"
+
+    - name: SNMP Device Version
+      snmp_device_version: 
+        host: "{{junos_host}}"
+        version: 2c
+        community: public
+      register: snmp_version
+
+    - name: Print SNMP device version
+      debug: msg="{{snmp_version}}"
+
+    - name: SNMP general query
+      snmp_query: 
+        host: "{{junos_host}}"
+        version: 2c
+        community: public
+        query_type: get
+        oid: 
+          - 1.3.6.1.2.1.1.1.0
+          - 1.3.6.1.2.1.1.2.0
+          - 1.3.6.1.2.1.1.4.0
+          - 1.3.6.1.2.1.1.5.0
+          - 1.3.6.1.2.1.1.6.0
+          - 1.3.6.1.4.1.2636.3.1.1.0
+      register: snmp_query_results
+
+    - name: Print SNMP query results
+      debug: msg="{{snmp_query_results}}"
+
+    - name: Read JUNOS Facts
+      junos_facts:
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
+          port: 22
+        #gather_subset: config
+        config_format: text
+      register: mx_info
+
+    - name: PRINT MX INFORMATION
+      debug: msg="{{mx_info}}"
+
+    - name: Read JUNOS RPC
+      junos_rpc:
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
+          port: 22
+          rpc: get—system-information
+      register: mx_rpc
+
+    - name: PRINT MX RPC INFORMATION
+      debug: msg="{{mx_rpc}}"
+
+

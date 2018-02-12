@@ -1,0 +1,20 @@
+- name: demo junos
+  hosts: Juniper
+  roles:
+  - Juniper.junos
+  gather_facts: no
+  connection: local
+  tasks:
+    - name: Check NETCONF connectivity
+      wait_for: host="{{ssh_host}}" port="{{netconf_port}}" timeout=30
+    - name: READ JUNOS CONFIG
+      junos_facts:
+        provider:
+          host: "{{ssh_host}}"
+          username: "{{ssh_user}}"
+          password: "{{ssh_password}}"
+          port: "{{ssh_port}}"
+      register: mx_info
+    - name: PRINT MX INFORMATION
+      debug: msg="{{mx_info}}"
+
