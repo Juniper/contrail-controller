@@ -483,7 +483,7 @@ void Agent::CopyConfig(AgentParam *params) {
     xs_server_cert_ = params_->xmpp_server_cert();
     xs_server_key_ = params_->xmpp_server_key();
     xs_ca_cert_ = params_->xmpp_ca_cert();
-    cluster_id_ = params_->cluster_id();
+    sub_cluster_id_ = params_->sub_cluster_id();
 
     CopyFilteredParams();
     InitializeFilteredParams();
