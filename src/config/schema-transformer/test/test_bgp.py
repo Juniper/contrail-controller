@@ -14,7 +14,7 @@ except ImportError:
     from schema_transformer import to_bgp
 from vnc_api.vnc_api import (BgpRouterParams, VirtualMachineInterface,
         BgpRouter, LogicalRouter, RouteTargetList, InstanceIp, BgpAsAService,
-        NoIdError)
+        VirtualNetwork, NoIdError)
 
 from test_case import STTestCase, retries
 from test_route_target import VerifyRouteTarget
@@ -591,3 +591,27 @@ class TestBgp(STTestCase, VerifyBgp):
         self.check_ri_is_deleted(vn1_obj.fq_name+[vn1_obj.name])
         self._vnc_lib.bgp_router_delete(id=mx_bgp_router.uuid)
     # end test_bgpaas
+
+    def test_fabric_snat(self):
+        proj_obj = self._vnc_lib.project_read(
+                fq_name=['default-domain', 'default-project'])
+        # create  vn1
+        vn1_name = self.id() + '_vn1'
+        vn1_obj = VirtualNetwork(name=vn1_name)
+        vn1_obj.set_fabric_snat(True)
+        vn1_id = self._vnc_lib.virtual_network_create(vn1_obj)
+        vn1_obj = self._vnc_lib.virtual_network_read(id = vn1_id)
+
+        ri_name = self.get_ri_name(vn1_obj)
+        ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
+        self.assertTrue(ri_obj.get_routing_instance_fabric_snat() == True,
+                        msg='Incorrect SNAT flag on routing instance')
+
+        vn1_obj.set_fabric_snat(True);
+        self._vnc_lib.virtual_network_update(vn1_obj)
+
+        ri_obj = self._vnc_lib.routing_instance_read(fq_name=ri_name)
+        self.assertTrue(ri_obj.get_routing_instance_fabric_snat() == True,
+                        msg='Incorrect SNAT flag on routing instance')
+        self._vnc_lib.virtual_network_delete(id=vn1_id)
+    #end test_fabric_snat

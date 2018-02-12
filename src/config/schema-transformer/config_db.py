@@ -321,7 +321,8 @@ class VirtualNetworkST(DBBaseST):
     ref_fields = ['network_policy', 'virtual_machine_interface', 'route_table',
                   'bgpvpn', 'network_ipam', 'virtual_network', 'routing_policy']
     prop_fields = ['virtual_network_properties', 'route_target_list',
-                   'multi_policy_service_chains_enabled', 'is_provider_network']
+                   'multi_policy_service_chains_enabled', 'is_provider_network',
+                   'fabric-snat']
 
     def me(self, name):
         return name in (self.name, 'any')
@@ -2052,6 +2053,7 @@ class RoutingInstanceST(DBBaseST):
         self.routing_policys = {}
         self.route_aggregates = set()
         self.service_chain_info = self.obj.get_service_chain_information()
+        self.fabric_snat = False
         self.v6_service_chain_info = self.obj.get_ipv6_service_chain_information()
         if self.obj.get_fq_name() in (common.IP_FABRIC_RI_FQ_NAME,
                                       common.LINK_LOCAL_RI_FQ_NAME):
@@ -2093,10 +2095,11 @@ class RoutingInstanceST(DBBaseST):
             self.routing_policys[rp_name] = ref['attr']['sequence']
         if self.is_default:
             self.update_static_routes()
+            self.update_fabric_snat()
     # end __init__
 
     def update(self, obj=None):
-        # Nothing to do
+        self.update_fabric_snat()
         return False
 
     @classmethod
@@ -2485,6 +2488,22 @@ class RoutingInstanceST(DBBaseST):
             except NoIdError:
                 pass
     # end update_static_routes
+
+
+    def update_fabric_snat(self):
+        if self.is_default == False:
+            return
+
+        vn = VirtualNetworkST.get(self.virtual_network)
+        if vn and self.fabric_snat != vn.obj.get_fabric_snat():
+            self.fabric_snat = vn.obj.get_fabric_snat()
+            self.obj.set_routing_instance_fabric_snat(self.fabric_snat)
+            try:
+                self._vnc_lib.routing_instance_update(self.obj)
+            except Exception as e:
+            # error due to inconsistency in db
+                self._logger.error(
+                    "Error while updating routing instance: " + str(e))
 
     def delete_obj(self):
         for ri2_name in self.connections:
