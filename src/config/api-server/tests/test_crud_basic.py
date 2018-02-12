@@ -774,6 +774,17 @@ class TestCrud(test_case.ApiServerTestCase):
                    vmi.del_virtual_machine_interface(vmi)
     # end test_allowed_address_pair_prefix_len
 
+    def test_invalid_parent_type(self):
+        vn = VirtualNetwork(self.id())
+        vn.fq_name = [vn.name]
+        with ExpectedException(BadRequest):
+            self._vnc_lib.virtual_network_create(vn)
+        vn = VirtualNetwork(self.id())
+        vn.parent_type='network_policy'
+        with ExpectedException(BadRequest):
+            self._vnc_lib.virtual_network_create(vn)
+    # end test_invalid_parent_type
+
 # end class TestCrud
 
 class TestVncCfgApiServer(test_case.ApiServerTestCase):
