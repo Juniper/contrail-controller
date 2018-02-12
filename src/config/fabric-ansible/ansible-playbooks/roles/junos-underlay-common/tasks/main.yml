@@ -1,0 +1,17 @@
+---
+
+    - name: Generate Base common config
+      block:
+        - template:
+            src: junos_common_conf.j2
+            dest: "{{ conf_dir }}/build_config/common_config.cfg"
+          register: cmd_res
+        - debug: msg={{cmd_res}}
+      rescue:
+        - set_fact:
+            output: {
+              "status": "Failed to Generate config",
+              "message": "{{cmd_res.msg}}"
+            }
+        - debug: msg={{output}}
+        - meta: end_play
