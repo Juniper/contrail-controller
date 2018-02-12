@@ -1,0 +1,18 @@
+---
+# tasks file for device-facts-uve
+- name: READ JUNOS FACTS
+  junos_facts:
+    provider:
+      host: "{{junos_host}}"
+      username: "{{junos_username}}"
+      password: "{{junos_password}}"
+      port: 22
+  register: dev_info
+
+- set_fact:
+    device_info: "{{dev_info.ansible_facts}}" 
+- set_fact:
+    hardware_model: "{{device_info.ansible_net_model}}"
+    serial_number: "{{device_info.ansible_net_serialnum}}"
+    os_version: "{{device_info.ansible_net_version}}"
+    hostname: "{{device_info.ansible_net_hostname}}"

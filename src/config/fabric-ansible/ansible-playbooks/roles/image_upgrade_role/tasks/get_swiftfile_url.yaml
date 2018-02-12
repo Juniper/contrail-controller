@@ -1,0 +1,23 @@
+
+- name: Get swift tempurl for the image
+  swift_fileutil:
+    authtoken: "{{authtoken}}"
+    authurl: "{{authurl}}"
+    user: "{{user}}"
+    key: "{{key}}"
+    tenant_name: "{{tenant_name}}"
+    auth_version: "{{auth_version}}"
+    temp_url_key: "{{temp_url_key}}"
+    temp_url_key_2: "{{temp_url_key_2}}"
+    chosen_temp_url_key: "{{chosen_temp_url_key}}"
+    container_name: "{{container_name}}"
+    filename: "{{filename}}"
+    expirytime: "{{expirytime}}"
+  register: swift_results
+
+- name: Print the complete response.
+  debug:
+    var: swift_results
+
+- set_fact:
+    tempurl: "{{swift_results.url}}"
