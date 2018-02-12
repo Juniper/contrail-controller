@@ -1,0 +1,15 @@
+---
+
+- name: Push Junos Config and Read Back Facts
+  hosts: localhost
+  vars:
+    input: "{{ lookup('file', 'underlay_input.json') | from_json }}"
+
+  roles:
+    - Juniper.junos
+    - junos-read-prouter
+    - junos-underlay-common
+    - junos-underlay-bgp
+    - junos_tsn_config
+    - commit-config
+    - contrail-create-bgp-router

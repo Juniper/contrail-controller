@@ -1,0 +1,38 @@
+- set_fact:
+    logical_unit: "{{item}}"
+
+- set_fact:
+    log_interface_name: "{{phy_interface_name}}.{{logical_unit.name}}"
+    log_interface_display_name: "{{phy_interface.name}}.{{logical_unit.name}}"
+
+- set_fact:
+    payload: {"parent_type": "physical-interface",
+              "fq_name": ["default-global-system-config", "{{prouter_name}}", "{{phy_interface_name}}", "{{log_interface_name}}"],
+              "display_name": "{{log_interface_display_name}}"
+             }
+- set_fact:
+    family_type: {"logical_interface_type": "l3"}
+    family: "{{logical_unit.family}}"
+
+- set_fact:
+    family_type: {"logical_interface_type": "l2"}
+  when: "'ethernet-switching' in family"
+
+- set_fact:
+    payload: "{{ payload | combine(family_type) }}"
+
+- set_fact:
+    payload_optional: {}
+
+- set_fact:
+    payload_optional: {"logical_interface_vlan_tag": "{{logical_unit['vlan-id']}}"}
+  when: "'vlan-id' in logical_unit"
+
+- name: combine_payloads
+  set_fact:
+    payload: "{{ payload | combine(payload_optional) }}"
+  when: "'logical_interface_vlan_tag' in payload_optional"
+
+
+- name: create the log interface
+  include_tasks: log_interface.yml

@@ -1,0 +1,16 @@
+python-subunit
+testrepository
+flexmock
+coverage
+pyaml
+python-keystoneclient
+webtest
+ncclient
+cfgm_common
+vnc_api
+sandesh
+sandesh_common
+contrail-api-server
+junitxml
+pyOpenSSL
+ansible

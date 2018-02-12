@@ -1,0 +1,114 @@
+---
+# tasks file for probe_device
+    - name: ping check
+      ping_sweep:
+        subnets: "{{ host_prefix }}"
+      register: hosts
+
+    - debug: var=hosts
+
+    - name: get snmp info
+      snmp_facts:
+        host: '{{ item }}'
+        version: v2c
+        community: public
+      with_items: "{{ hosts.reachable_hosts }}"
+      register: snmp_output
+      #no_log: True
+      ignore_errors: yes
+
+    - name: pingable host list
+      set_fact:
+          pingable_hosts: "{{ hosts.reachable_hosts }}"
+
+
+    - name: identify vendor and device family from OID
+      oid_to_vendor_family:
+        oid:  "{{ item.ansible_facts.ansible_sysobjectid }}"
+        host: "{{ item.item }}"
+        hostname: "{{ item.ansible_facts.ansible_sysname }}"
+      when: item.ansible_facts is defined
+      with_items: "{{ snmp_output.results }}"
+      register: vendor_family
+      no_log: True
+
+
+    - name: assign vendor family mapping
+      set_fact:
+          host_vendor_mapping: "{{ host_vendor_mapping|default([]) + [ item.oid_mapping ] }}"
+      with_items: "{{ vendor_family.results }}"
+      no_log: True
+
+
+    - debug: var=host_vendor_mapping
+
+    - name: call vnc to create physical-router
+      vnc_db_mod:
+        object_type: "physical_router"
+        object_op: "create"
+        object_dict: |
+          {
+              "parent_type": "global-system-config",
+              "fq_name": ["default-global-system-config", "{{ item.hostname }}"],
+              "physical_router_management_ip": "{{ item.host }}",
+              "physical_router_vendor_name": "{{ item.vendor }}",
+              "physical_router_product_name": "{{ item.product }}",
+              "physical_router_device_family": "{{ item.family }}"
+           }
+        auth_token: "{{ auth_token }}"
+      register: physical_router_uuids
+      when: physical_router_uuids.failure == false
+      with_items: "{{ host_vendor_mapping }}"
+      no_log: True
+
+    - name: if vnc failed end play
+      include_tasks: error_handler.yml
+      when: "physical_router_uuids.failure == true"
+      vars:
+        op_err_message: "{{ physical_router_uuids.msg }}"
+        results: ""
+        jl_err_message: "VNC error while creating PR Router " + "{{ physical_router_uuids.msg }}"
+
+
+    - name: PR objectlog update
+      prouter_objectlog:
+        name: ["default-global-system-config", "{{ item.hostname }}"]
+        onboarding_state: "DISCOVERED"
+      with_items: "{{ host_vendor_mapping }}"
+      no_log: True
+
+
+    - name: call vnc to update fabric
+      vnc_db_mod:
+        object_type: "fabric"
+        object_op: "ref_update"
+        object_dict: |
+          {
+              "obj_uuid": "{{ fabric_uuid }}",
+              "ref_type": "physical_router",
+              "ref_uuid": "{{ item.uuid }}"
+          }
+        auth_token: "{{ auth_token }}"
+      register: fabric_ref_update
+      when: fabric_ref_update.failure == false
+      with_items: "{{ physical_router_uuids.results }}"
+      no_log: True
+
+    - name: if vnc failed end play
+      include_tasks: error_handler.yml
+      when: "fabric_ref_update.failure == true"
+      vars:
+        op_err_message: "{{ fabric_ref_update.msg }}"
+        results: ""
+        jl_err_message: "VNC error while updating fabric object with PR details " + "{{ fabric_ref_update.msg }}"
+
+
+    - name: collating list of PR uuids
+      set_fact:
+         list_uuid: "{{ list_uuid|default([]) + [ item.uuid ] }}"
+      with_items: "{{ physical_router_uuids.results }}"
+      no_log: True
+
+    - name: set to device_uuid
+      set_fact:
+          results: "{{ results|default({}) | combine({'device_uuid': '{{ list_uuid }}' })}}"
