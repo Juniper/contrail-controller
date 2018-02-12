@@ -1,0 +1,6 @@
+include *.yml *.yaml *.cfg *.ini *.md
+graft conf
+graft roles
+graft schema
+graft library
+graft module_utils

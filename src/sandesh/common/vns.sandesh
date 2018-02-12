@@ -37,6 +37,7 @@ const string SERVICE_MESOS_MANAGER = "contrail-mesos-manager"
 const string SERVICE_IFMAP_SERVER = "ifmap"
 const string SERVICE_KAFKA = "kafka"
 const string SERVICE_IRONIC_NOTIF_MANAGER = "ironic-notification-manager"
+const string SERVICE_FABRIC_ANSIBLE = "contrail-fabric-ansible"
 
 // NodeMgr names
 const string SERVICE_COMPUTE_NODE_MGR = "contrail-vrouter-nodemgr"
@@ -66,6 +67,7 @@ const u16 HttpPortInventorymgr = 8107
 const u16 HttpPortKubeManager = 8108
 const u16 HttpPortMesosManager = 8109
 const u16 HttpPortIronicNotifManager = 8110
+const u16 HttpPortFabricAnsible = 8111
 
 const u16 HttpPortControl = 8083
 const u16 HttpPortApiServer = 8084
@@ -146,6 +148,7 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_KUBE_MANAGER: HttpPortKubeManager,
     SERVICE_MESOS_MANAGER: HttpPortMesosManager,
     SERVICE_IRONIC_NOTIF_MANAGER: HttpPortIronicNotifManager,
+    SERVICE_FABRIC_ANSIBLE: HttpPortFabricAnsible,
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -249,6 +252,7 @@ enum Module {
     MESOS_MANAGER,
     MAX_MODULE,
     IRONIC_NOTIF_MANAGER,
+    FABRIC_ANSIBLE,
 }
 
 enum VrouterAgentType {
@@ -333,7 +337,7 @@ const string MODULE_CONTRAIL_BROADVIEW_NAME = "contrail-broadview"
 const string MODULE_KUBE_MANAGER_NAME = SERVICE_KUBE_MANAGER
 const string MODULE_MESOS_MANAGER_NAME = SERVICE_MESOS_MANAGER
 const string MODULE_IRONIC_NOTIF_MANAGER_NAME = SERVICE_IRONIC_NOTIF_MANAGER
-
+const string MODULE_FABRIC_ANSIBLE_NAME = "FabricAnsible"
 
 const map<Module, string> ModuleNames = {
     Module.CONTROL_NODE       : MODULE_CONTROL_NODE_NAME,
@@ -366,6 +370,7 @@ const map<Module, string> ModuleNames = {
     Module.KUBE_MANAGER       : MODULE_KUBE_MANAGER_NAME,
     Module.MESOS_MANAGER      : MODULE_MESOS_MANAGER_NAME,
     Module.IRONIC_NOTIF_MANAGER    : MODULE_IRONIC_NOTIF_MANAGER_NAME,
+    Module.FABRIC_ANSIBLE    : MODULE_FABRIC_ANSIBLE_NAME,
 }
 
 const map<string, Module> ModuleIds = {
@@ -399,7 +404,9 @@ const map<string, Module> ModuleIds = {
     MODULE_KUBE_MANAGER_NAME           : Module.KUBE_MANAGER,
     MODULE_MESOS_MANAGER_NAME          : Module.MESOS_MANAGER,
     MODULE_IRONIC_NOTIF_MANAGER_NAME   : Module.IRONIC_NOTIF_MANAGER,
+    MODULE_FABRIC_ANSIBLE_NAME         : Module.FABRIC_ANSIBLE,
 }
+
 
 // Supervisor names
 enum NodeType {
@@ -509,6 +516,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.CONTRAIL_BROADVIEW : NodeType.ANALYTICS,
     Module.KUBE_MANAGER       : NodeType.KUBERNETESMGR,
     Module.MESOS_MANAGER      : NodeType.CONFIG,
+    Module.FABRIC_ANSIBLE    : NodeType.CONFIG,
     Module.IRONIC_NOTIF_MANAGER    : NodeType.CONFIG,
 }
 
