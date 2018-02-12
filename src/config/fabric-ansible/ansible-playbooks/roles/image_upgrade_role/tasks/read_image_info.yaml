@@ -1,0 +1,25 @@
+
+- name: call vnc to read image info
+  vnc_db_mod:
+    object_type: "device_image"
+    object_op: "read"
+    object_dict: |
+      {
+        "uuid": "{{image_uuid}}"
+      }
+    auth_token: "{{auth_token}}"
+
+  register: image_details
+
+- name: Read PR object dict response
+  debug:
+    var: image_details
+
+- set_fact:
+    image_info: "{{image_details.obj}}"
+
+- set_fact:
+    image_uri: "{{image_info.device_image_file_uri}}"
+    filename: "{{image_info.fq_name[-1]}}"
+    image_os_version: "{{image_info.device_image_os_version}}"
+    image_family: "{{image_info.device_image_device_family}}"

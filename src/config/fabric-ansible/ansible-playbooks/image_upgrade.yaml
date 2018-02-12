@@ -1,0 +1,19 @@
+- name: Image Upgrade
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  roles:
+    - Juniper.junos
+    - image_upgrade_role
+
+  tasks:
+    - set_fact:
+        output: {
+              "status": "Success",
+              "results": "Image upgrade for device: {{pr_name}} {{prouter_uuid}} successful"
+          }
+
+    - name: Print the output.
+      debug:
+        var: output

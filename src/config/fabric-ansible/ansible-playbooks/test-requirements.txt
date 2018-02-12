@@ -1,0 +1,16 @@
+python-subunit
+testrepository
+flexmock
+coverage
+pyaml
+python-keystoneclient
+webtest
+ncclient
+jsonpickle
+cfgm_common
+vnc_api
+sandesh
+sandesh_common
+junitxml
+xmltodict
+pyOpenSSL

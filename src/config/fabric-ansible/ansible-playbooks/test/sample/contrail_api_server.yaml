@@ -1,0 +1,70 @@
+- name: Test Contrail API Server
+  hosts: all
+  gather_facts: no
+  vars:
+    contrail_ip: 10.155.75.7
+
+  tasks:
+    - name: keystone token
+      uri:
+        url: http://{{contrail_ip}}:5000/v3/auth/tokens
+        method: POST
+        status_code: 201
+        headers:
+          Content-Type: "application/json"
+        body: |
+          {
+            "auth": {
+              "identity": {
+                "methods": ["password"],
+                "password": {
+                  "user": {
+                    "name": "admin",
+                    "domain": { "id": "default" },
+                    "password": "contrail123"
+                  }
+                }
+              },
+              "scope": {
+                "project": {
+                  "name": "admin",
+                  "domain": { "id": "default" }
+                }
+              }
+            }
+          }
+      register: keystone
+
+    - name: Test GET REST Call
+      uri:
+        url: http://{{contrail_ip}}:8082/physical-routers
+        method: GET
+        validate_certs: no
+        return_content: yes
+        headers:
+          Content-Type: "application/json"
+          X-Auth-Token: "{{keystone.x_subject_token}}"
+      register: get_resp
+
+    - debug: var=get_resp.json
+
+    - name: Test POST REST Call
+      uri:
+        url: http://{{contrail_ip}}:8082/physical-routers
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          X-Auth-Token: "{{keystone.x_subject_token}}"
+        body: |
+          {
+            "physical-router": {
+              "parent_type": "global-system-config",
+              "fq_name": ["default-global-system-config", "PR1"],
+              "management_ip": "1.1.1.1",
+              "vendor_name": "Juniper",
+              "product_name": "mx240"
+            }
+          }
+      register: post_resp
+
+    - debug: var=post_resp.json

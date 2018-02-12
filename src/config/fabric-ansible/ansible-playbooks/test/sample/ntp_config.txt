@@ -1,0 +1,2 @@
+set groups global system ntp server 8.8.8.8
+set groups global system ntp time-zone America/Los_Angeles
