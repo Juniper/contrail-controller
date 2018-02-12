@@ -1,0 +1,47 @@
+
+- name: JOB LOGS
+  job_objectlog:
+    message: "Read Image object from vnc"
+    status: "in-progress"
+
+- name: call vnc to read image info
+  vnc_db_mod:
+    object_type: "device_image"
+    object_op: "read"
+    object_dict: |
+      {
+        "uuid": "{{image_uuid}}"
+      }
+    auth_token: "{{auth_token}}"
+
+  register: image_details
+
+- name: Read Image object dict response
+  debug:
+    var: image_details
+
+# handle errors/exceptions and set output
+- name: Fail if image object not found
+  include_tasks: error_handler.yaml
+  when: "'obj' not in image_details or image_details.failure == true"
+  vars:
+    op_err_message: "Image object not found. {{image_details.msg}}"
+    results: |
+          {
+            "prouter_uuid": "{{prouter_uuid}}",
+            "image_uuid": "{{image_uuid}}",
+            "msg": "Image object not found."
+          }
+    jl_err_message: "Image object not found. {{image_details.msg}}"
+
+
+- set_fact:
+    image_info: "{{image_details.obj}}"
+
+- set_fact:
+    image_uri: "{{image_info.device_image_file_uri}}"
+    filename: "{{image_info.fq_name[-1]}}"
+    image_os_version: "{{image_info.device_image_os_version}}"
+    image_family: "{{image_info.device_image_device_family}}"
+
+

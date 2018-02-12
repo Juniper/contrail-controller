@@ -1,0 +1,6 @@
+---
+# vars file for device-import-role
+#prouter_uuid: 760bc0dd-6c79-43d5-9a78-655fbab0703d
+results: []
+phy_int_count: 0
+log_int_count: 0

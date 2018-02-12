@@ -1,0 +1,64 @@
+- name: JOB LOGS
+  job_objectlog:
+    message: "Read swift config info"
+    status: "in-progress"
+
+- name: Read swift config from conf file or etcd
+  block:
+    - set_fact:
+        keystoneip: "{{ lookup('ini', 'keystoneip section=DEFAULT file=conf/swift_conf.ini') }}"
+        user: "{{ lookup('ini', 'user section=DEFAULT file=conf/swift_conf.ini') }}"
+        key: "{{ lookup('ini', 'key section=DEFAULT file=conf/swift_conf.ini') }}"
+        tenant_name: "{{ lookup('ini', 'tenant_name section=DEFAULT file=conf/swift_conf.ini default=admin') }}"
+        auth_version: "{{ lookup('ini', 'auth_version section=DEFAULT file=conf/swift_conf.ini default=2.0') }}"
+        temp_url_key: "{{ lookup('ini', 'temp_url_key section=DEFAULT file=conf/swift_conf.ini default=mykey') }}"
+        temp_url_key_2: "{{ lookup('ini', 'temp_url_key_2 section=DEFAULT file=conf/swift_conf.ini default=mykey2') }}"
+        chosen_temp_url_key: "{{ lookup('ini', 'chosen_temp_url_key section=DEFAULT file=conf/swift_conf.ini default=temp_url_key') }}"
+        expirytime: 216000
+      register: swift_info
+  rescue:
+    - include_tasks: error_handler.yaml
+      vars:
+        op_err_message: "Error reading swift conf file: {{swift_info.msg}}"
+        results: |
+          {
+            "prouter_uuid": "{{prouter_uuid}}",
+            "image_uuid": "{{image_uuid}}",
+            "msg": "Error reading swift conf file."
+          }
+        jl_err_message: "Error reading swift conf file: {{swift_info.msg}}"
+
+
+- name: get Keystone Token for cso server
+  uri:
+    url: http://{{keystoneip}}:5000/v3/auth/tokens
+    method: POST
+    status_code: 201
+    headers:
+      Content-Type: "application/json"
+    body: |
+      {
+        "auth": {
+          "identity": {
+            "methods": ["password"],
+            "password": {
+              "user": {
+                "name": "admin",
+                "domain": { "id": "default" },
+                "password": "passw0rd"
+              }
+            }
+          },
+          "scope": {
+            "project": {
+              "name": "admin",
+              "domain": { "id": "default" }
+            }
+          }
+        }
+      }
+  register: cso_keystone
+
+- set_fact:
+    authtoken: "{{cso_keystone.x_subject_token}}"
+    authurl: "http://{{keystoneip}}:35357/v2.0/"

@@ -1,0 +1,51 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2018 Juniper Networks, Inc. All rights reserved.
+#
+# Placeholder for fabric-ansible Sconscript
+
+import os
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+setup_sources = [
+           'setup.py',
+           'MANIFEST.in',
+           'run_tests.sh',
+           'requirements.txt',
+           'test-requirements.txt',
+           'test',
+           'conf',
+           'library',
+           'roles',
+           'schema',
+          ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        env.Install(Dir('.'), "#controller/src/config/fabric-ansible/ansible-playbooks/" + file))
+
+local_sources = [
+    'device_import.yaml',
+    'discover_device.yml',
+    'generate_underlay_config.yaml',
+    'image_upgrade.yaml',
+]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(
+        env.Install(".",
+                    "#controller/src/config/fabric-ansible/ansible-playbooks/" + file))
+
+cd_cmd = 'cd ' + Dir('.').path + ' && '
+sdist_depends = []
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+sdist_gen = env.Command('dist/job_manager-0.1dev.tar.gz', 'setup.py', cd_cmd + 'python setup.py sdist')
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)
