@@ -6,6 +6,7 @@
 # src directory
 
 import sys
+import subprocess
 import platform
 Import('contrail_common_base_doc_files')
 Import('contrail_common_io_doc_files')
@@ -57,7 +58,11 @@ common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
 
 if not sys.platform.startswith('win'):
-    common.Append(CCFLAGS = '-Wall -Werror -Wsign-compare')
+    common.Append(CXXFLAGS = '-Wall -Werror -Wsign-compare')
+
+if subprocess.check_output("g++ --version | grep g++ | awk '{print $3}'",
+                           shell=True).rstrip() == "4.8.5":
+    common.Append(CCFLAGS = '-Wno-narrowing -Wno-conversion-null')
 
 if not sys.platform.startswith('darwin'):
     if platform.system().startswith('Linux'):
