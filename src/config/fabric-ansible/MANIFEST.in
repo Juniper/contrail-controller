@@ -1,0 +1,2 @@
+recursive-include job_manager/uve *.html *.xml *.css
+recursive-include job_manager/sandesh *.html *.xml *.css

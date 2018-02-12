@@ -1,0 +1,12 @@
+---
+# vars file for image_upgrade_role
+pr_user: "{{playbook_input.device_username}}"
+pr_host: "{{playbook_input.device_management_ip}}"
+pr_fqname: "{{playbook_input.device_fqname}}"
+pr_name: "{{playbook_input.device_fqname[-1]}}"
+pr_family: "{{playbook_input.device_family}}"
+pr_password: "{{playbook_input.device_password}}"
+
+auth_token: "{{playbook_input.auth_token}}"
+image_uuid: "{{playbook_input.input.data.image_uuid}}"
+prouter_uuid: "{{playbook_input.device_id}}"
