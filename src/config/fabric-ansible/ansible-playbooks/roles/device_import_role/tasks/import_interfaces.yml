@@ -1,0 +1,67 @@
+- name: Execute commands on a Juniper Device
+  block:
+    - junos_command:
+        commands: show configuration
+        display: xml
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
+          port: 22
+      register: interface_info
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "interface_info.failed == true"
+      vars:
+        op_err_message: "{{interface_info.msg}}"
+        jl_err_message: "Execute 'show configuration' command on Juniper Device: {{prouter_name}} failed; see result for more details"
+
+- name: Update Job log with execute command status
+  job_objectlog:
+    message: "Execute 'show configuration' command on Juniper Device {{prouter_name}} succeeded"
+
+- name: settings facts
+  set_fact:
+    interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"[*]')}}"
+
+- name: settings facts
+  set_fact:
+    interface_list: "{{interface_info|json_query('output[0].\"rpc-reply\".\"configuration\".\"interfaces\".\"interface\"[*]')}}"
+
+- name: Execute commands on a Juniper Device
+  block:
+    - junos_command:
+        commands: show interfaces
+        display: xml
+        provider:
+          host: "{{junos_host}}"
+          username: "{{junos_username}}"
+          password: "{{junos_password}}"
+          port: 22
+      register: interface_info
+  rescue:
+    - name: Perform the necessary error handling
+      include_tasks: error_handler.yml
+      when: "interface_info.failed == true"
+      vars:
+        op_err_message: "{{interface_info.msg}}"
+        jl_err_message: "Execute 'show interfaces' command on Juniper Device: {{prouter_name}} failed; see result for more details"
+
+
+- name: Update Job log with execute command status
+  job_objectlog:
+    message: "Execute 'show interfaces' command on Juniper Device {{prouter_name}} succeeded"
+
+- set_fact:
+    interface_list_new: "{{interface_info|json_query('output[0].\"rpc-reply\".\"interface-information\".\"physical-interface\"[*]')}}"
+
+- name: Create configured interfaces first
+  include_tasks: import_configured_interfaces.yml
+  with_items: "{{interface_list}}"
+
+- name: Test POST REST Call for runtime phy and log interfaces
+  include_tasks: phy_interface.yml
+  when: "item.name not in configured_phy_interface_names and item['oper-status'] == 'up'"
+  with_items: "{{interface_list_new}}"
+
