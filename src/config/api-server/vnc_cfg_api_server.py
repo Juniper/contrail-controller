@@ -459,8 +459,7 @@ class VncApiServer(object):
         (code, msg) = result
         if counter:
             counter = counter + value
-        if self._db_engine == 'cassandra':
-            get_context().invoke_undo(code, msg, self.config_log)
+        get_context().invoke_undo(code, msg, self.config_log)
 
         failed_stage = get_context().get_state()
         self.config_object_error(
@@ -991,7 +990,7 @@ class VncApiServer(object):
                         QuotaHelper._zk_quota_counter_init(
                             path_prefix, {obj_type : quota_limit},
                             proj_id, db_conn, self.quota_counter)
-                        if db_conn._zk_db._zk_client.exists(path):
+                        if db_conn._zk_db.quota_counter_exists(path):
                             self.quota_counter[path] -= 1
                     quota_counter.append(self.quota_counter.get(path))
                 elif self.quota_counter.get(path):
