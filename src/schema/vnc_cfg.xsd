@@ -3546,7 +3546,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:complexType>
 
 <xsd:complexType name="PlaybookInfoListType">
-    <xsd:element name="playbook-info" type='PlaybookInfoType' maxOcurrs="unbounded"/>
+    <xsd:all>
+        <xsd:element name="playbook-info" type='PlaybookInfoType' maxOcurrs="unbounded"/>
+    </xsd:all>
 </xsd:complexType>
 
 <xsd:element name="job-template" type="ifmap:IdentityType"/>
