@@ -10,7 +10,6 @@ from provision_bgp import BgpProvisioner
 from vnc_api.vnc_api import *
 from vnc_admin_api import VncApiAdmin
 
-
 class ControlProvisioner(object):
 
     def __init__(self, args_str=None):
@@ -57,9 +56,18 @@ class ControlProvisioner(object):
             self._args.admin_tenant_name,
             self._args.api_server_ip, self._args.api_server_port,
             api_server_use_ssl=self._args.api_server_use_ssl,
-            use_admin_api=self._args.use_admin_api)
+            use_admin_api=self._args.use_admin_api,
+            sub_cluster_name=self._args.sub_cluster_name)
         if self._args.oper == 'add':
-            bp_obj.add_bgp_router('control-node', self._args.host_name,
+            if self._args.sub_cluster_name:
+                bp_obj.add_bgp_router('external-control-node',
+                                  self._args.host_name,
+                                  self._args.host_ip, self._args.router_asn,
+                                  self._args.address_families, self._args.md5,
+                                  self._args.local_autonomous_system,
+                                  self._args.bgp_server_port)
+            else:
+                bp_obj.add_bgp_router('control-node', self._args.host_name,
                                   self._args.host_ip, self._args.router_asn,
                                   self._args.address_families, self._args.md5,
                                   self._args.local_autonomous_system,
@@ -135,6 +143,7 @@ class ControlProvisioner(object):
             'graceful_restart_xmpp_helper_enable': False,
             'graceful_restart_enable': False,
             'set_graceful_restart_parameters': False,
+            'sub_cluster_name': None,
         }
 
         if args.conf_file:
@@ -212,6 +221,9 @@ class ControlProvisioner(object):
         parser.add_argument("--set_graceful_restart_parameters",
                             action='store_true',
                             help="Set Graceful Restart Parameters")
+        parser.add_argument(
+            "--sub_cluster_name", help="sub cluster to associate to",
+            required=False)
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
             "--api_server_ip", help="IP address of api server",

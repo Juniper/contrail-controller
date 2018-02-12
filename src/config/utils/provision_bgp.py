@@ -20,13 +20,15 @@ def get_ip(ip_w_pfx):
 class BgpProvisioner(object):
 
     def __init__(self, user, password, tenant, api_server_ip, api_server_port,
-                 api_server_use_ssl=False, use_admin_api=False):
+                 api_server_use_ssl=False, use_admin_api=False,
+                 sub_cluster_name=None):
         self._admin_user = user
         self._admin_password = password
         self._admin_tenant_name = tenant
         self._api_server_ip = api_server_ip
         self._api_server_port = api_server_port
         self._api_server_use_ssl = api_server_use_ssl
+        self._sub_cluster_name = sub_cluster_name
         self._vnc_lib = VncApiAdmin(
             use_admin_api, self._admin_user, self._admin_password,
             self._admin_tenant_name,
@@ -99,22 +101,41 @@ class BgpProvisioner(object):
             print ("BGP Router " + pformat(bgp_router_fq_name) +
                    " already exists " + str(e))
 
+        cur_obj = vnc_lib.bgp_router_read(fq_name=bgp_router_fq_name)
+        changed = False
         if md5:
-            cur_obj = vnc_lib.bgp_router_read(fq_name=bgp_router_fq_name)
+            changed = True
             md5 = {'key_items': [ { 'key': md5 ,"key_id":0 } ], "key_type":"md5"}
             rparams = cur_obj.bgp_router_parameters
             rparams.set_auth_data(md5)
             cur_obj.set_bgp_router_parameters(rparams)
-            vnc_lib.bgp_router_update(cur_obj)
 
         if local_asn:
-            cur_obj = vnc_lib.bgp_router_read(fq_name=bgp_router_fq_name)
+            changed = True
             local_asn = int(local_asn)
             if local_asn <= 0 or local_asn > 65535:
                 raise argparse.ArgumentTypeError("local_asn %s must be in range (1..65535)" % local_asn)
             rparams = cur_obj.bgp_router_parameters
             rparams.set_local_autonomous_system(local_asn)
             cur_obj.set_bgp_router_parameters(rparams)
+
+        if self._sub_cluster_name:
+            changed = True
+            sub_cluster_obj = SubCluster(self._sub_cluster_name)
+            cur_obj = vnc_lib.bgp_router_read(fq_name=bgp_router_fq_name)
+            try:
+                sub_cluster_obj = self._vnc_lib.sub_cluster_read(
+                    fq_name=sub_cluster_obj.get_fq_name())
+            except NoIdError:
+                raise RuntimeError("Sub cluster has to be provisioned first")
+            cur_obj.add_sub_cluster(sub_cluster_obj)
+            refs = sub_cluster_obj.get_bgp_router_back_refs()
+            if refs:
+                bgp_router_objs = ([vnc_lib.bgp_router_read(id=ref['uuid'])
+                               for ref in refs if ref['uuid'] != cur_obj.uuid])
+                for other_obj in bgp_router_objs:
+                    cur_obj.add_bgp_router(other_obj, bgp_peering_attrs)
+        if changed:
             vnc_lib.bgp_router_update(cur_obj)
 
     # end add_bgp_router
