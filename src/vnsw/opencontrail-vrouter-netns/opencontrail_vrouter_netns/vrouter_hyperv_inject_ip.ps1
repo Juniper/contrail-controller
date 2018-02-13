@@ -16,13 +16,13 @@ $Vm = Get-WmiObject -Namespace 'root\virtualization\v2' -Class Msvm_ComputerSyst
 
 $VmSettingData = ($Vm.GetRelated( `
     "Msvm_VirtualSystemSettingData", "Msvm_SettingsDefineState", $null, $null, `
-    "SettingData", "ManagedElement", $false, $null) | % {$_})
+    "SettingData", "ManagedElement", $false, $null) | ForEach-Object {$_})
 
 $VmEthernetPortSettingData = $VmSettingData.GetRelated('Msvm_SyntheticEthernetPortSettingData') `
     | Where-Object { $_.ElementName -eq $vmNetworkAdapter.Name }
 $GuestNetworkAdapterConfiguration = ($VmEthernetPortSettingData.GetRelated( `
     "Msvm_GuestNetworkAdapterConfiguration", "Msvm_SettingDataComponent", $null, $null, `
-    "PartComponent", "GroupComponent", $false, $null) | % {$_})
+    "PartComponent", "GroupComponent", $false, $null) | ForEach-Object {$_})
 
 $GuestNetworkAdapterConfiguration.IPAddresses = @($IPAddress)
 $GuestNetworkAdapterConfiguration.DHCPEnabled = $false
