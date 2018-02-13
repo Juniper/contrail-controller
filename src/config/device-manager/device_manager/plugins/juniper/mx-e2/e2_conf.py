@@ -972,8 +972,8 @@ class MxE2Conf(JuniperConf):
         if self.e2_vrs_provider_ri_config is not None:
             config_list.append(self.e2_vrs_provider_ri_config)
 
-        #no element exists, so delete e2 config.
-        if len(config_list) == 0:
+        # Delete if needed
+        if operation == "delete":
            return self.device_send([], default_operation="none",
                                        operation="delete")
         return self.device_send(config_list)
@@ -988,6 +988,7 @@ class MxE2Conf(JuniperConf):
             with manager.connect(host=self.management_ip, port=22,
                                  username=self.user_creds['username'],
                                  password=self.user_creds['password'],
+                                 timeout=self.timeout,
                                  unknown_host_cb=lambda x, y: True) as m:
                 add_config = etree.Element(
                     "config",
@@ -1030,6 +1031,12 @@ class MxE2Conf(JuniperConf):
                 self.commit_stats['last_commit_duration'] = str(
                     end_time - start_time)
                 self.push_config_state = PushConfigState.PUSH_STATE_SUCCESS
+                self.timeout = 120
+        except TimeoutExpiredError as e:
+            self._logger.error("Could not commit(timeout error): "
+                          "(%s, %ss)" % (self.management_ip, self.timeout))
+            self.timeout += 120
+            self.push_config_state = PushConfigState.PUSH_STATE_RETRY
         except Exception as e:
             if self._logger:
                 self._logger.error("Router %s: %s" % (self.management_ip,
