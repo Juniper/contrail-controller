@@ -134,28 +134,26 @@ class VncNetworkPolicyTest(KMTestCase):
 
         egress_spec_list = spec.get("egress", [])
 
-        if not egress_spec_list:
-            # default egress deny all.
-            num_rules += 1
-
         for egress_spec in egress_spec_list:
             num_to_rules = 0
             to_rules = egress_spec.get('to', [])
-            for to_rule in to_rules:
-                if 'ipBlock' in to_rule:
-                    if 'except' in to_rule['ipBlock']:
-                        num_to_rules += len(from_rule['ipBlock']['except'])
-                    if 'cidr' in to_rule['ipBlock']:
-                        num_to_rules += 1
-                else:
-                    # Implicity allow to any.
-                    num_to_rules = 1
+            if to_rules:
+                for to_rule in to_rules:
+                    if 'ipBlock' in to_rule:
+                        if 'except' in to_rule['ipBlock']:
+                            num_to_rules += len(from_rule['ipBlock']['except'])
+                        if 'cidr' in to_rule['ipBlock']:
+                            num_to_rules += 1
+            else:
+                # Allow to any.
+                num_to_rules += 1
 
             ports = egress_spec.get('ports',[])
             if ports:
                 num_to_rules = len(ports) * num_to_rules
 
             num_rules += num_to_rules
+
 
         return num_rules
 
@@ -178,12 +176,14 @@ class VncNetworkPolicyTest(KMTestCase):
         if validate_delete:
             self.assertIsNone(np_event_obj)
         elif not spec:
-            fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_rule_uuid(name, ns_name)
+            fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_uuid(name,
+                                                                       ns_name)
             fw_policy = FirewallPolicyKM.locate(fw_policy_uuid)
             self.assertIsNotNone(np_event_obj)
             self.assertIsNone(fw_policy)
         else:
-            fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_rule_uuid(name, ns_name)
+            fw_policy_uuid = VncSecurityPolicy.get_firewall_policy_uuid(name,
+                                                                       ns_name)
             fw_policy = FirewallPolicyKM.locate(fw_policy_uuid)
             self.assertIsNotNone(np_event_obj)
             self.assertIsNotNone(fw_policy)
@@ -298,7 +298,7 @@ class VncNetworkPolicyTest(KMTestCase):
                   'ports': [
                       {
                           'port': 5978,
-                          'protocol': 'tcp'
+                          'protocol': 'TCP'
                       }
                   ]
                 }
@@ -308,7 +308,7 @@ class VncNetworkPolicyTest(KMTestCase):
                     'ports': [
                         {
                             'port': 5978,
-                            'protocol': 'tcp'
+                            'protocol': 'TCP'
                         }
                     ],
                     'to': [
@@ -353,7 +353,7 @@ class VncNetworkPolicyTest(KMTestCase):
                   'ports': [
                       {
                           'port': "5978",
-                          'protocol': 'tcp'
+                          'protocol': 'TCP'
                       }
                   ]
                 }
@@ -363,7 +363,7 @@ class VncNetworkPolicyTest(KMTestCase):
                     'ports': [
                         {
                             'port': '0',
-                            'protocol': 'tcp'
+                            'protocol': 'TCP'
                         }
                     ],
                     'to': [
@@ -411,11 +411,11 @@ class VncNetworkPolicyTest(KMTestCase):
                   'ports': [
                       {
                           'port': '3978',
-                          'protocol': 'tcp'
+                          'protocol': 'TCP'
                       },
                       {
                           'port': '4978',
-                          'protocol': 'tcp'
+                          'protocol': 'TCP'
                       }
                   ]
                 }
@@ -425,11 +425,11 @@ class VncNetworkPolicyTest(KMTestCase):
                     'ports': [
                         {
                             'port': '5978',
-                            'protocol': 'tcp'
+                            'protocol': 'TCP'
                         },
                         {
                             'port': '6978',
-                            'protocol': 'tcp'
+                            'protocol': 'TCP'
                         }
                     ],
                     'to': [
@@ -515,7 +515,7 @@ class VncNetworkPolicyTest(KMTestCase):
         np_name = unittest.TestCase.id(self)
         np_spec = {'egress': [{}],
                    'podSelector': {},
-                   'policyTypes': ['Ingress', 'Egress']
+                   'policyTypes': ['Egress']
                    }
 
         np_uuid = self._add_update_network_policy(np_name, np_spec)

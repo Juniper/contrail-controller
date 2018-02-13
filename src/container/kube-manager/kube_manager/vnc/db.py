@@ -15,8 +15,7 @@ class KubeNetworkManagerDB(VncObjectDBClient):
         self._db_logger = logger
 
         cred = None
-        if (args.cassandra_user is not None and
-            args.cassandra_password is not None):
+        if args.cassandra_user and args.cassandra_password:
             cred={'username':args.cassandra_user,
                   'password':args.cassandra_password}
 
