@@ -302,8 +302,9 @@ class DBInterface(object):
         return None
     #end _get_plugin_property
 
-    def _ensure_instance_exists(self, instance_id, tenant_id):
+    def _ensure_instance_exists(self, instance_id, tenant_id, baremetal=False):
         instance_name = instance_id
+
         instance_obj = VirtualMachine(instance_name)
         try:
             try:
@@ -317,9 +318,20 @@ class DBInterface(object):
             perms2 = PermType2()
             perms2.owner = tenant_id
             instance_obj.set_perms2(perms2)
+
+            # Specify the Server(VM) type
+            if baremetal:
+                instance_obj.set_server_type('baremetal-server')
+            else:
+                instance_obj.set_server_type('virtual-server')
+
             # create object
             self._vnc_lib.virtual_machine_create(instance_obj)
         except RefsExistError as e:
+            # In case of baremetal, multiple ports will exist on BMS.
+            # so, the object may already exisit. In this case just update it
+            if baremetal and instance_obj.get_server_type() != "baremetal-server":
+                self._vnc_lib.virtual_machine_update(instance_obj)
             instance_obj = self._vnc_lib.virtual_machine_read(id=instance_obj.uuid)
         except AuthFailed as e:
             self._raise_contrail_exception('NotAuthorized', msg=str(e))
@@ -2096,7 +2108,8 @@ class DBInterface(object):
         return fip_q_dict
     #end _floatingip_vnc_to_neutron
 
-    def _port_set_vm_instance(self, port_obj, instance_name, tenant_id):
+    def _port_set_vm_instance(self, port_obj, instance_name, tenant_id,
+                              baremetal=False):
         """ This function also deletes the old virtual_machine object
         associated with the port (if any) after the new virtual_machine
         object is associated with it.
@@ -2109,7 +2122,9 @@ class DBInterface(object):
 
         if instance_name:
             try:
-                instance_obj = self._ensure_instance_exists(instance_name, tenant_id)
+                instance_obj = self._ensure_instance_exists(instance_name,
+                                                            tenant_id,
+                                                            baremetal)
                 port_obj.set_virtual_machine(instance_obj)
             except RefsExistError as e:
                 self._raise_contrail_exception('BadRequest',
@@ -2178,7 +2193,12 @@ class DBInterface(object):
             and port_q.get('device_owner') != constants.DEVICE_OWNER_ROUTER_GW
             and 'device_id' in port_q):
             # IRONIC: verify port associated to baremetal 'VM'
-            self._port_set_vm_instance(port_obj, port_q.get('device_id'), project_id)
+            if port_q.get('binding:vnic_type') == 'baremetal':
+                self._port_set_vm_instance(port_obj, port_q.get('device_id'),
+                                           project_id, baremetal=True)
+            else:
+                self._port_set_vm_instance(port_obj, port_q.get('device_id'),
+                                           project_id)
 
         if 'device_owner' in port_q:
             port_obj.set_virtual_machine_interface_device_owner(port_q.get('device_owner'))
