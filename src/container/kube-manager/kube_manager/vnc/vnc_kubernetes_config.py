@@ -65,7 +65,12 @@ class VncKubernetesConfig(object):
 
     @classmethod
     def application_policy_set_name(cls):
-        return cls.args().aps_name
+        if cls.args().aps_name:
+            return cls.args().aps_name
+        elif cls.cluster_name():
+            return cls.cluster_name()
+        else:
+            return 'default-application-policy-set'
 
     @classmethod
     def is_cluster_project_configured(cls):

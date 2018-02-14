@@ -1834,7 +1834,6 @@ class PolicyManagementKM(DBBaseKM):
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
-        obj = cls._dict[uuid]
         super(PolicyManagementKM, cls).delete(uuid)
         del cls._dict[uuid]
 # end class PolicyManagementKM
@@ -1863,7 +1862,6 @@ class ApplicationPolicySetKM(DBBaseKM):
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
-        obj = cls._dict[uuid]
         super(ApplicationPolicySetKM, cls).delete(uuid)
         del cls._dict[uuid]
 
@@ -1880,6 +1878,7 @@ class FirewallRuleKM(DBBaseKM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         super(FirewallRuleKM, self).__init__(uuid, obj_dict)
+        self.address_groups = set()
         obj_dict = self.update(obj_dict)
 
     def update(self, obj=None):
@@ -1892,6 +1891,7 @@ class FirewallRuleKM(DBBaseKM):
         self.endpoint_2 = obj['endpoint_2']
         self.match_tag_types = obj['match_tag_types']
         self.service = obj.get('service', None)
+        self.update_multiple_refs('address_group', obj)
         self.build_fq_name_to_uuid(self.uuid, obj)
         return obj
 
@@ -1899,6 +1899,8 @@ class FirewallRuleKM(DBBaseKM):
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
+        obj = cls._dict[uuid]
+        obj.update_multiple_refs('address_group', {})
         super(FirewallRuleKM, cls).delete(uuid)
         del cls._dict[uuid]
 
@@ -1986,7 +1988,6 @@ class AddressGroupKM(DBBaseKM):
     def delete(cls, uuid):
         if uuid not in cls._dict:
             return
-        obj = cls._dict[uuid]
         super(AddressGroupKM, cls).delete(uuid)
         del cls._dict[uuid]
 # end class AddressGroupKM

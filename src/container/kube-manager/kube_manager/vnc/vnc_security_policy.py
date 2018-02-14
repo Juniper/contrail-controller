@@ -103,6 +103,17 @@ class FWRule(object):
         return addr_grp_obj
 
     @classmethod
+    def delete_address_group(cls, uuid):
+        try:
+            # Delete the address group.
+            cls.vnc_lib.address_group_delete(id=uuid)
+        except RefsExistError:
+           # It is possible that this address group is shared across
+           # multiple firwall rules or even by user rules.
+           # So if ref exists, we are fine with it.
+            pass
+
+    @classmethod
     def _get_np_pod_selector(cls, spec, namespace):
         labels = {}
         pod_selector = spec.get('podSelector')
@@ -968,7 +979,9 @@ class VncSecurityPolicy(VncCommon):
         try:
             fw_rule_obj = cls.vnc_lib.firewall_rule_read(id=fw_rule_uuid)
         except NoIdError:
-            raise
+            return
+
+        addr_grp_refs = fw_rule_obj.get_address_group_refs()
 
         fw_policy_obj.del_firewall_rule(fw_rule_obj)
 
@@ -977,6 +990,10 @@ class VncSecurityPolicy(VncCommon):
 
         # Delete the rule.
         cls.vnc_lib.firewall_rule_delete(id=fw_rule_uuid)
+
+        # Try to delete address groups allocated for this FW rule.
+        for addr_grp in addr_grp_refs if addr_grp_refs else []:
+            FWRule.delete_address_group(addr_grp['uuid'])
 
     @classmethod
     def create_allow_all_security_policy(cls):
