@@ -19,7 +19,7 @@ autogen_infra_sources = [
                 ]
 
 autogen_sources = [
-                 '#controller/src/schema/device_schema/juniper/juniper_common.xsd',
+                 '#src/contrail-api-client/schema/device_schema/juniper/juniper_common.xsd',
                 ]
 
 autogen_script = File('#tools/generateds/generateDS.py').path
@@ -30,7 +30,7 @@ generated_files = [
                   'device_api/juniper_common_xsd.py'
                 ]
 generated_rule = env.Command(generated_files,
-                             '#/controller/src/schema/device_schema/juniper/juniper_common.xsd',
+                             '#/src/contrail-api-client/schema/device_schema/juniper/juniper_common.xsd',
                              autogen_cmd + ' $SOURCE')
 
 setup_sources = [
