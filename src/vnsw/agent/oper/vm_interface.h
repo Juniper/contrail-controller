@@ -895,16 +895,14 @@ public:
     };
 
     struct FatFlowEntry : ListEntry {
-        FatFlowEntry(): protocol(0), port(0), ignore_remote_address(false) {}
+        FatFlowEntry(): protocol(0), port(0) {}
         FatFlowEntry(const FatFlowEntry &rhs):
-            protocol(rhs.protocol), port(rhs.port),
-            ignore_remote_address(rhs.ignore_remote_address) {}
-        FatFlowEntry(const uint8_t proto, const uint16_t p, bool ignore_addr):
-            protocol(proto), port(p), ignore_remote_address(ignore_addr) {}
+            protocol(rhs.protocol), port(rhs.port) {}
+        FatFlowEntry(const uint8_t proto, const uint16_t p):
+            protocol(proto), port(p) {}
         virtual ~FatFlowEntry(){}
         bool operator == (const FatFlowEntry &rhs) const {
-            return (rhs.protocol == protocol && rhs.port == port &&
-                    rhs.ignore_remote_address == ignore_remote_address);
+            return (rhs.protocol == protocol && rhs.port == port);
         }
 
         bool operator() (const FatFlowEntry  &lhs,
@@ -920,7 +918,6 @@ public:
         }
         uint8_t protocol;
         uint16_t port;
-        mutable bool ignore_remote_address;
     };
     typedef std::set<FatFlowEntry, FatFlowEntry> FatFlowEntrySet;
 

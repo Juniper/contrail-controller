@@ -1109,13 +1109,8 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         VmInterface::FatFlowEntrySet::iterator fat_flow_it =
             vintf->fat_flow_list().list_.begin();
         while (fat_flow_it != vintf->fat_flow_list().list_.end()) {
-            string ignore_remote = "";
-            if (fat_flow_it->ignore_remote_address) {
-                ignore_remote = ":ignore-remote-address";
-            }
             ostringstream str;
-            str << (int)fat_flow_it->protocol << ":" << (int)fat_flow_it->port
-                << ignore_remote;
+            str << (int)fat_flow_it->protocol << ":" << (int)fat_flow_it->port<<"";
             fat_flow_list.push_back(str.str());
             fat_flow_it++;
         }
