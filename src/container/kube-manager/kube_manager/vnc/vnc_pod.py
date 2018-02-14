@@ -489,12 +489,16 @@ class VncPod(VncCommon):
         deleted_pod_set = vm_uuid_set - pod_uuid_set
         for pod_uuid in deleted_pod_set:
             vm = VirtualMachineKM.get(pod_uuid)
-            if not vm or vm.owner != 'k8s':
+            if not vm or\
+               vm.owner != 'k8s' or\
+               vm.cluster != vnc_kube_config.cluster_name():
                 continue
             self._create_pod_event('delete', pod_uuid, vm)
         for uuid in pod_uuid_set:
             vm = VirtualMachineKM.get(uuid)
-            if not vm or vm.owner != 'k8s':
+            if not vm or\
+               vm.owner != 'k8s' or\
+               vm.cluster != vnc_kube_config.cluster_name():
                 continue
             if not vm.virtual_router and vm.pod_node and vm.node_ip:
                 self._link_vm_to_node(vm, vm.pod_node, vm.node_ip)

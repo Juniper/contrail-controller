@@ -600,7 +600,7 @@ class VncNetworkPolicy(VncCommon):
         return
 
     def network_policy_timer(self):
-        self._sync_np_sg()
+        #self._sync_np_sg()
         return
 
     def process(self, event):
@@ -617,12 +617,9 @@ class VncNetworkPolicy(VncCommon):
               %(self._name, event_type, kind, namespace, name, uid))
 
         if event['object'].get('kind') == 'NetworkPolicy':
-            if event['type'] == 'ADDED':
+            if event['type'] == 'ADDED' or event['type'] == 'MODIFIED':
                 self._add_labels(event, namespace, uid)
                 self.vnc_network_policy_add(event, namespace, name, uid)
-            elif event['type'] == 'MODIFIED':
-                # spec modification is restricted in k8s
-                pass
             elif event['type'] == 'DELETED':
                 self.vnc_network_policy_delete(namespace, name, uid)
                 self._labels.process(uid)

@@ -799,12 +799,18 @@ class VncIngress(VncCommon):
                 continue
             owner = None
             kind = None
+            cluster = None
             for kvp in lb.annotations['key_value_pair'] or []:
-                if kvp['key'] == 'owner':
+                if kvp['key'] == 'cluster':
+                    cluster = kvp['value']
+                elif kvp['key'] == 'owner':
                     owner = kvp['value']
                 elif kvp['key'] == 'kind':
                     kind = kvp['value']
-                if owner == 'k8s' and kind == self._k8s_event_type:
+
+                if cluster == vnc_kube_config.cluster_name() and \
+                   owner == 'k8s' and \
+                   kind == self._k8s_event_type:
                     self._create_ingress_event('delete', uuid, lb)
                     break
         return
