@@ -4468,7 +4468,7 @@ class ProjectServer(Resource, Project):
         return True, ''
 
     @classmethod
-    def dbe_update_notification(cls, obj_ids):
+    def dbe_update_notification(cls, obj_ids, extra_dict=None):
         quota_counter = cls.server.quota_counter
         db_conn = cls.server._db_conn
         ok, proj_dict = QuotaHelper.get_project_dict_for_quota(obj_ids['uuid'], db_conn)
