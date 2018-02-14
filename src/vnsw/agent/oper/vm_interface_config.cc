@@ -517,9 +517,8 @@ static void BuildFatFlowTable(Agent *agent, VmInterfaceConfigData *data,
     for (FatFlowProtocols::const_iterator it = cfg->fat_flow_protocols().begin();
             it != cfg->fat_flow_protocols().end(); it++) {
         uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
-        VmInterface::FatFlowEntry entry(protocol, it->port,
-                                        it->ignore_remote_address);
-        data->fat_flow_list_.Insert(&entry);
+        data->fat_flow_list_.list_.insert(VmInterface::FatFlowEntry(protocol,
+                                          it->port));
     }
 }
 
@@ -779,14 +778,6 @@ static void BuildVn(VmInterfaceConfigData *data, IFMapNode *node,
     autogen::IdPermsType id_perms = vn->id_perms();
     CfgUuidSet(id_perms.uuid.uuid_mslong,
                id_perms.uuid.uuid_lslong, data->vn_uuid_);
-    /* Copy fat-flow configured at VN level */
-    for (FatFlowProtocols::const_iterator it = vn->fat_flow_protocols().begin();
-            it != vn->fat_flow_protocols().end(); it++) {
-        uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
-        VmInterface::FatFlowEntry fentry(protocol, it->port,
-                                         it->ignore_remote_address);
-        data->fat_flow_list_.Insert(&fentry);
-    }
 }
 
 static void BuildQosConfig(VmInterfaceConfigData *data, IFMapNode *node) {
