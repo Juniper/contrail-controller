@@ -441,6 +441,7 @@ class VirtualMachineKM(DBBaseKM):
     def __init__(self, uuid, obj_dict=None):
         self.uuid = uuid
         self.owner = None
+        self.cluster = None
         self.virtual_router = None
         self.virtual_machine_interfaces = set()
         self.pod_labels = None
@@ -463,6 +464,8 @@ class VirtualMachineKM(DBBaseKM):
             for kvp in self.annotations['key_value_pair'] or []:
                 if kvp['key'] == 'owner':
                     self.owner = kvp['value']
+                elif kvp['key'] == 'cluster':
+                    self.cluster = kvp['value']
                 elif kvp['key'] == 'namespace':
                     self.pod_namespace = kvp['value']
                 elif kvp['key'] == 'labels':
@@ -895,6 +898,7 @@ class SecurityGroupKM(DBBaseKM):
         self.annotations = None
         self.namespace = None
         self.owner = None
+        self.cluster = None
         self.np_spec = {}
         self.np_pod_selector = {}
         self.ingress_pod_selector = {}
@@ -917,6 +921,8 @@ class SecurityGroupKM(DBBaseKM):
                 self.namespace = kvp.get('value')
             if kvp.get('key') == 'owner':
                 self.owner = kvp.get('value')
+            elif kvp['key'] == 'cluster':
+                self.cluster = kvp['value']
             elif kvp.get('key') == 'np_spec':
                 self.np_spec = json.loads(kvp.get('value'))
             elif kvp.get('key') == 'np_pod_selector':
