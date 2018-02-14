@@ -3610,6 +3610,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
          <xsd:enumeration value="IPV4-CIDR"/>
          <xsd:enumeration value="ASN"/>
          <xsd:enumeration value="MAC_ADDR"/>
+         <xsd:enumeration value="IPV4_ADDR"/>
+         <xsd:enumeration value="STR"/>
      </xsd:restriction>
 </xsd:simpleType>
 <xsd:complexType name="NamespaceValue">
@@ -3620,6 +3622,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
              description="Namespace as Autonomous System Numbers"/>
         <xsd:element name="mac-addr" type="MacAddressesType" required="optional"
              description="Namespace as MAC addresses"/>
+        <xsd:element name="ipv4-addr" type="IpAddressesType" required="optional"
+             description="Namespace as IP addresses"/>
+        <xsd:element name="str-val" type="xsd:string" required="optional"
+             description="Namespace as string Value"/>
     </xsd:choice>
 </xsd:complexType>
 
