@@ -953,6 +953,7 @@ public:
     typedef std::vector<PortBitMapPtr> PortHashTable;
 
     PortTable(Agent *agent, uint32_t bucket_size, uint8_t protocol);
+    ~PortTable();
 
     uint16_t Allocate(const FlowKey &key);
     void Free(const FlowKey &key, uint16_t port, bool release);
@@ -976,14 +977,19 @@ public:
 
     void UpdatePortConfig(uint16_t port_count, uint16_t range_start,
                           uint16_t range_end);
+
+    uint16_t GetPortIndex(uint16_t port) const;
 private:
     Agent *agent_;
     PortPtr CreatePortEntry(uint16_t port_no);
     //Create a port with given port_no
     void AddPort(uint16_t port_no);
     void DeletePort(uint16_t port_no);
+    void Relocate(uint16_t port_no);
     bool IsValidPort(uint16_t port, uint16_t count);
     void DeleteAllFlow(uint16_t port, uint16_t index);
+    bool HandlePortConfig(uint16_t port_count, uint16_t range_start,
+                          uint16_t range_end);
 
     uint8_t protocol_;
     //Holds freed bit entry in table for while so that
@@ -1011,6 +1017,7 @@ private:
     uint16_t range_start_;
     uint16_t range_end_;
     tbb::recursive_mutex mutex_;
+    std::auto_ptr<TaskTrigger> task_trigger_;
 };
 
 class PortTableManager {
@@ -1027,6 +1034,9 @@ public:
     static void PortConfigHandler(Agent *agent, uint8_t proto,
                                   uint16_t port_count,
                                   uint16_t range_start, uint16_t range_end);
+    const PortTable* GetPortTable(uint8_t proto) {
+        return port_table_list_[proto].get();
+    }
 private:
     Agent *agent_;
     PortTablePtr port_table_list_[IPPROTO_MAX];
