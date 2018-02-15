@@ -33,7 +33,7 @@ from cfgm_common import svc_info
 from cfgm_common import vnc_cgitb
 from cfgm_common.utils import cgitb_hook
 from cfgm_common.vnc_amqp import VncAmqpHandle
-
+from vnc_api.utils import AAA_MODE_VALID_VALUES
 from config_db import *
 
 from pysandesh.sandesh_base import Sandesh, SandeshSystem, SandeshConfig
@@ -798,7 +798,7 @@ def parse_args(args_str):
     parser.add_argument("--syslog_facility",
                         help="Syslog facility to receive log lines")
     parser.add_argument("--aaa_mode",
-                        choices=cfgm_common.AAA_MODE_VALID_VALUES,
+                        choices=AAA_MODE_VALID_VALUES,
                         help="AAA mode")
     parser.add_argument("--admin_user",
                         help="Name of keystone admin user")
