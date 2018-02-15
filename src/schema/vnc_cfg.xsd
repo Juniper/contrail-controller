@@ -3536,18 +3536,17 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="PlaybookInfoType">
     <xsd:all>
-        <xsd:element name="playbook-uri" type='xsd:string' required="true"
+        <xsd:element name="playbook-uri" type="xsd:string" required="true"
                      description="uri to the playbook location on the file server"/>
-        <xsd:element name="vendor" type="xsd:string" required="true"
+        <xsd:element name="vendor" type="xsd:string" required="optional"
                      description="Vendor name"/>
-        <xsd:element name="device-family" type="xsd:string" required="true"
+        <xsd:element name="device-family" type="xsd:string" required="optional"
                      description="Device family name"/>
     </xsd:all>
 </xsd:complexType>
-
 <xsd:complexType name="PlaybookInfoListType">
     <xsd:all>
-        <xsd:element name="playbook-info" type='PlaybookInfoType' maxOcurrs="unbounded"/>
+        <xsd:element name="playbook-info" type="PlaybookInfoType" maxOccurs="unbounded"/>
     </xsd:all>
 </xsd:complexType>
 
