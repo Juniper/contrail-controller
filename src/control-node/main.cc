@@ -302,12 +302,8 @@ int main(int argc, char *argv[]) {
     }
 
     bgp_server->rtarget_group_mgr()->Initialize();
-    LOG(DEBUG, "Starting Bgp Server at " <<
-                options.host_ip() << ":" << options.bgp_port());
-    if (!bgp_server->session_manager()->Initialize(options.bgp_port(),
-                                                   bgp_ip_address)) {
-        exit(1);
-    }
+    bgp_server->session_manager()->Initialize(options.bgp_port(),
+                                              bgp_ip_address);
 
     // Create Xmpp Server.
     XmppChannelConfig xmpp_cfg(false);
