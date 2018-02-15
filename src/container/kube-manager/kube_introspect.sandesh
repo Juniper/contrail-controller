@@ -74,12 +74,23 @@ struct NetworkPolicyLabels {
     1: map<string, string> labels;
 }
 
-struct NetworkPolicyPodSelectors {
+struct NetworkPolicyLabelSelectors {
     1: map<string, string> matchLabels;
 }
 
+struct NetworkPolicyIpBlock {
+    1: string cidr;
+    2: list<string> except_cidr;
+}
+
 struct NetworkPolicyFromRules {
-    1: NetworkPolicyPodSelectors podSelector;
+    1: NetworkPolicyLabelSelectors podSelector;
+    2: NetworkPolicyLabelSelectors namespaceSelector;
+    3: NetworkPolicyIpBlock ipBlock;
+}
+
+struct NetworkPolicyToRules {
+    1: NetworkPolicyIpBlock ipBlock;
 }
 
 struct NetworkPolicyPort {
@@ -92,9 +103,15 @@ struct NetworkPolicyIngressPolicy {
     2: list<NetworkPolicyPort> ports;
 }
 
+struct NetworkPolicyEgressPolicy {
+    1: list<NetworkPolicyToRules> toPolicy;
+    2: list<NetworkPolicyPort> ports;
+}
+
 struct NetworkPolicySpec {
     1: list<NetworkPolicyIngressPolicy> ingress;
-    2: NetworkPolicyPodSelectors podSelector;
+    2: list<NetworkPolicyEgressPolicy> egress;
+    3: NetworkPolicyLabelSelectors podSelector;
 }
 
 struct NetworkPolicyInstance {
@@ -102,7 +119,8 @@ struct NetworkPolicyInstance {
     2: string name;
     3: string name_space;
     4: NetworkPolicySpec spec;
-    5: string spec_string;
+    5: string vnc_firewall_policy_fqname;
+    6: string spec_string;
 }
 
 request sandesh NetworkPolicyDatabaseList {
