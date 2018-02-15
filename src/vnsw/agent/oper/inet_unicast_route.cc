@@ -1067,7 +1067,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             bool is_local,
                                             bool is_health_check_service,
                                             const std::string &intf_name,
-                                            bool native_encap)
+                                            bool native_encap,
+                                            const std::string &intf_route_type)
 {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new InetUnicastRouteKey(peer, vm_vrf, addr, plen));
@@ -1080,7 +1081,8 @@ InetUnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                     subnet_service_ip,
                                     ecmp_load_balance, is_local,
                                     is_health_check_service,
-                                    peer->sequence_number(), false, native_encap));
+                                    peer->sequence_number(), false, native_encap,
+                                    intf_route_type));
     InetUnicastTableProcess(Agent::GetInstance(), vm_vrf, req);
 }
 
