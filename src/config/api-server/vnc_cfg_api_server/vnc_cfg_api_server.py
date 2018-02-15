@@ -35,6 +35,7 @@ import uuid
 import copy
 from pprint import pformat
 from cStringIO import StringIO
+from vnc_api.utils import AAA_MODE_VALID_VALUES
 # import GreenletProfiler
 
 from cfgm_common import vnc_cgitb
@@ -1379,8 +1380,8 @@ class VncApiServer(object):
 
         # multi_tenancy is ignored if aaa_mode is configured by user
         if self._args.aaa_mode is not None:
-            if self.aaa_mode not in cfgm_common.AAA_MODE_VALID_VALUES:
-                self.aaa_mode = cfgm_common.AAA_MODE_DEFAULT_VALUE
+            if self.aaa_mode not in AAA_MODE_VALID_VALUES:
+                self.aaa_mode = AAA_MODE_DEFAULT_VALUE
         elif self._args.multi_tenancy is not None:
             # MT configured by user - determine from aaa-mode
             self.aaa_mode = "cloud-admin" if self._args.multi_tenancy else "no-auth"
@@ -3802,7 +3803,7 @@ class VncApiServer(object):
 
     def aaa_mode_http_put(self):
         aaa_mode = get_request().json['aaa-mode']
-        if aaa_mode not in cfgm_common.AAA_MODE_VALID_VALUES:
+        if aaa_mode not in AAA_MODE_VALID_VALUES:
             raise ValueError('Invalid aaa-mode %s' % aaa_mode)
 
         ok, result = self._auth_svc.validate_user_token()
