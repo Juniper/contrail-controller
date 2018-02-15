@@ -32,8 +32,8 @@ using namespace std;
 #define SUB_ADDR2 "agentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentagentvvagentagentagentagentagentagentagentagentagentagentagentagentvagentagentagentagent@vnsw.contrailsystems.com"
 #define XMPP_CONTROL_SERV   "bgp.contrail.com"
 
-#define sXMPP_STREAM_RESP_BAD     "<?xml version='1.0'?><extra/><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
-#define sXMPP_STREAM_RESP_GOOD    "<?xml version='1.0'?><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'/>"
+#define sXMPP_STREAM_RESP_BAD     "<?xml version='1.0'?><extra/><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns:stream='http://etherx.jabber.org/streams'/>"
+#define sXMPP_STREAM_RESP_GOOD    "<?xml version='1.0'?><stream:stream from='dummyserver' to='dummycl' id='++123' version='1.0' xml:lang='en' xmlns:stream='http://etherx.jabber.org/streams'/>"
 
 class XmppMockServerConnection : public XmppServerConnection {
 public:
@@ -115,6 +115,7 @@ public:
         XmppChannelConfig cfg(false);
         cfg.endpoint = remote_endpoint;
         cfg.FromAddr = this->ServerAddr();
+        cfg.xmlns = XmppServer::subcluster_name();
 
         XmppServerConnection *sconnection;
         sconnection =
@@ -166,20 +167,22 @@ protected:
     }
 
     void CreateXmppChannelCfg(XmppChannelConfig *cfg, const char *address,
-             int port, const string &from, const string &to, bool isClient) {
+             int port, const string &from, const string &to, bool isClient,
+             const string &xmlns="") {
         cfg->endpoint.address(ip::address::from_string(address));
         cfg->endpoint.port(port);
         cfg->ToAddr = to;
         cfg->FromAddr = from;
+        cfg->xmlns = xmlns;
         if (!isClient) cfg->NodeAddr = PUBSUB_NODE_ADDR;
         return;
     }
 
-    void SetupConnection() {
+    void SetupConnection(const string &xmlns="") {
         LOG(DEBUG, "Create client");
         client_cfg = new XmppChannelConfig(true);
         CreateXmppChannelCfg(client_cfg, "127.0.0.1", a_->GetPort(), SUB_ADDR,
-                             XMPP_CONTROL_SERV, true);
+                             XMPP_CONTROL_SERV, true, xmlns);
         init_->AddXmppChannelConfig(client_cfg);
         init_->InitClient(b_);
 
@@ -235,6 +238,28 @@ TEST_F(XmppSessionTest, Connection) {
         sconnection_good->GetStateMcState() == xmsm::ESTABLISHED);
 
     TASK_UTIL_EXPECT_TRUE(
+        cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
+
+    TearDownConnection();
+}
+
+TEST_F(XmppSessionTest, BadSubCluster) {
+    a_->set_subcluster_name("TEST_SUBCLUSTER1");
+    SetupConnection("TEST_SUBCLUSTER2");
+
+    XmppConnection *connection;
+    TASK_UTIL_EXPECT_TRUE(
+        (connection = b_->FindConnection(XMPP_CONTROL_SERV)) != NULL);
+    cconnection_ = connection;
+
+    // server connection
+    XmppConnection *sconnection;
+    TASK_UTIL_EXPECT_TRUE((sconnection = a_->FindConnection(SUB_ADDR)) == NULL);
+
+    // Check for server, client connection is not established,
+    // session_error would be set in client
+    TASK_UTIL_EXPECT_TRUE(cconnection_->get_session_close() >= 1);
+    TASK_UTIL_EXPECT_FALSE(
         cconnection_->GetStateMcState() == xmsm::ESTABLISHED);
 
     TearDownConnection();

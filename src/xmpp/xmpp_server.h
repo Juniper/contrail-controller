@@ -97,6 +97,12 @@ public:
     }
     void SetDscpValue(uint8_t value);
     uint8_t dscp_value() const { return dscp_value_; }
+    const std::string subcluster_name() const {
+        return subcluster_name_;
+    }
+    void set_subcluster_name(const std::string& subcluster_name) {
+        subcluster_name_ = subcluster_name;
+    }
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);
@@ -140,6 +146,7 @@ private:
     bool gr_helper_disable_;
     boost::scoped_ptr<XmppConfigUpdater> xmpp_config_updater_;
     uint8_t dscp_value_;
+    std::string subcluster_name_;
     WorkQueue<XmppServerConnection *> connection_queue_;
 
     DISALLOW_COPY_AND_ASSIGN(XmppServer);
