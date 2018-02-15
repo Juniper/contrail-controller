@@ -647,6 +647,7 @@ void BgpIfmapProtocolConfig::Update(BgpIfmapConfigManager *manager,
     data_.set_admin_down(params.admin_down);
     data_.set_autonomous_system(params.autonomous_system);
     data_.set_local_autonomous_system(params.local_autonomous_system);
+    data_.set_port(params.port ? params.port : BgpConfigManager::kDefaultPort);
     boost::system::error_code err;
     IpAddress identifier = IpAddress::from_string(params.identifier, err);
     if (err == 0) {

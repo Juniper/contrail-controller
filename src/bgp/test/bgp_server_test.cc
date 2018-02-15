@@ -2494,7 +2494,6 @@ TEST_P(BgpServerUnitTest, MissingPeerConfig) {
         string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
         BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                              uuid);
-        TASK_UTIL_EXPECT_TRUE(peer_a->get_rx_notification() >= 3);
         TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
     }
 }
