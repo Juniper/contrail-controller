@@ -38,6 +38,10 @@ using namespace autogen;
 VmInterface::IgnoreAddressMap VmInterface::fatflow_ignore_addr_map_ =
     InitIgnoreAddressMap();
 
+const char *VmInterface::kInterface = "interface";
+const char *VmInterface::kServiceInterface = "service-interface";
+const char *VmInterface::kInterfaceStatic = "interface-static";
+
 /////////////////////////////////////////////////////////////////////////////
 // VM-Interface entry routines
 /////////////////////////////////////////////////////////////////////////////
@@ -80,6 +84,7 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
     ipv4_active_ = false;
     ipv6_active_ = false;
     l2_active_ = false;
+    intf_route_type_ = kInterface;
 }
 
 VmInterface::VmInterface(const boost::uuids::uuid &uuid,
@@ -1189,7 +1194,8 @@ bool VmiRouteState::AddL3(const Agent *agent, VmInterface *vmi) const {
 
     vmi->AddRoute(vrf_->GetName(), ip_, 32, vmi->vn()->GetName(), false,
                   vmi->ecmp(), false, false, vmi->vm_ip_service_addr(),
-                  Ip4Address(0), CommunityList(), vmi->label());
+                  Ip4Address(0), CommunityList(), vmi->label(),
+                  vmi->intf_route_type());
     return true;
 }
 
@@ -1412,10 +1418,16 @@ bool VmInterface::InstanceIp::AddL3(const Agent *agent,
     } else if (vmi->vmi_type() == VHOST) {
         vn_name  = agent->fabric_vn_name();
     }
+
+    if (is_service_ip_) {
+        vmi->intf_route_type_ = kServiceInterface;
+    }
+
     vmi->AddRoute(vmi->vrf()->GetName(), ip_, plen_, vn_name,
                   is_force_policy(), ecmp_,is_local_,
                   is_service_health_check_ip_, vmi->GetServiceIp(ip_),
-                  tracking_ip_, CommunityList(), vmi->label());
+                  tracking_ip_, CommunityList(), vmi->label(),
+                  vmi->intf_route_type());
     return true;
 }
 
@@ -1633,7 +1645,7 @@ bool VmInterface::FloatingIp::AddL3(const Agent *agent,
     bool ecmp = floating_ip_.is_v4() ? vmi->ecmp() : vmi->ecmp6();
     vmi->AddRoute(vrf_.get()->GetName(), floating_ip_, plen, vn_->GetName(),
                   false, ecmp, false, false, service_ip, fixed_ip_,
-                  CommunityList(), vmi->label());
+                  CommunityList(), vmi->label(), vmi->intf_route_type());
 
     InterfaceTable *table = static_cast<InterfaceTable *>(vmi->get_table());
     if (floating_ip_.is_v4() && table->update_floatingip_cb().empty()==false) {
@@ -1854,7 +1866,7 @@ bool VmInterface::AliasIp::AddL3(const Agent *agent, VmInterface *vmi) const {
         service_ip = Ip6Address();
     vmi->AddRoute(vrf_->GetName(), alias_ip_, plen, vn_->GetName(), false,
                   vmi->ecmp(), false, false, service_ip, service_ip,
-                  CommunityList(), vmi->label());
+                  CommunityList(), vmi->label(), vmi->intf_route_type());
     return true;
 }
 
@@ -2004,9 +2016,11 @@ bool VmInterface::StaticRoute::AddL3(const Agent *agent,
             dependent_ip = vmi->primary_ip6_addr();
             ecmp = vmi->ecmp6();
         }
+        vmi->intf_route_type_ = kInterfaceStatic;
         vmi->AddRoute(vrf_->GetName(), addr_, plen_, vn_name,
                       false, ecmp, false, false, vmi->GetServiceIp(addr_),
-                      dependent_ip, communities_, vmi->label());
+                      dependent_ip, communities_, vmi->label(),
+                      vmi->intf_route_type());
     }
     return true;
 }
@@ -2204,7 +2218,7 @@ bool VmInterface::AllowedAddressPair::AddL3(const Agent *agent,
     if (mac_ == MacAddress::kZeroMac || mac_ == vmi->vm_mac_) {
         vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
                       false, ecmp_, false, false, service_ip_, Ip4Address(0),
-                      CommunityList(), vmi->label());
+                      CommunityList(), vmi->label(), vmi->intf_route_type());
         return true;
     }
 
@@ -2240,7 +2254,7 @@ bool VmInterface::AllowedAddressPair::AddL3(const Agent *agent,
 
     vmi->AddRoute(vrf_->GetName(), addr_, plen_, vmi->vn_->GetName(),
                   false, ecmp_, false, false, service_ip_, Ip6Address(),
-                  CommunityList(), label_);
+                  CommunityList(), label_, vmi->intf_route_type());
     return true;
 }
 

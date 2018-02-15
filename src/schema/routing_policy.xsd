@@ -67,6 +67,10 @@
         <xsd:enumeration value="static"/>
         <xsd:enumeration value="service-chain"/>
         <xsd:enumeration value="aggregate"/>
+        <xsd:enumeration value="interface"/>
+        <xsd:enumeration value="interface-static"/>
+        <xsd:enumeration value="service-interface"/>
+        <xsd:enumeration value="BGPaaS"/>
     </xsd:restriction>
 </xsd:simpleType>
 
