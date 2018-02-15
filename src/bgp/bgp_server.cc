@@ -4,6 +4,8 @@
 
 #include "bgp/bgp_server.h"
 
+#include <sys/resource.h>
+
 #include <boost/foreach.hpp>
 #include <boost/tuple/tuple.hpp>
 
@@ -181,7 +183,6 @@ public:
             config_hold_time = config->hold_time();
         }
 
-        // TODO: we should quit if subcluster is being changed
         if (server_->admin_down_ != config_admin_down) {
             if (server_->admin_down_) {
                 BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
@@ -199,6 +200,21 @@ public:
             server_->admin_down_ = config_admin_down;
             if (server_->admin_down_)
                 server_->NotifyAdminDown();
+        }
+
+        // We currently do not support bind failures or changes to listen port
+        // in production mode.
+        if (config && !server_->session_manager()->Initialize(config->port()) &&
+                !bgp_log_test::unit_test()) {
+            // Disable core file generation and exit.
+            rlimit new_core_limit;
+            new_core_limit.rlim_cur = 0;
+            new_core_limit.rlim_max = 0;
+            setrlimit(RLIMIT_CORE, &new_core_limit);
+            BGP_LOG_WARNING_STR(BgpConfig, BGP_LOG_FLAG_SYSLOG,
+                "Process exit! due to tcp server port " << config->port() <<
+                " bind failure");
+            kill(getpid(), SIGTERM);
         }
 
         Ip4Address identifier(ntohl(config_identifier));
