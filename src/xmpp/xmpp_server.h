@@ -97,6 +97,7 @@ public:
     }
     void SetDscpValue(uint8_t value);
     uint8_t dscp_value() const { return dscp_value_; }
+	std::string GetSubclusterId() const;
 
 protected:
     virtual SslSession *AllocSession(SslSocket *socket);

@@ -132,10 +132,21 @@ public:
         BgpConfigManager::Observers obs;
         obs.system= boost::bind(&XmppConfigUpdater::ProcessGlobalSystemConfig,
             this, _1, _2);
+        obs.protocol = boost::bind(&XmppConfigUpdater::ProcessProtocolConfig,
+            this, _1, _2);
         config_manager->RegisterObservers(obs);
     }
 
     const BgpGlobalSystemConfig &config() const { return config_; }
+
+    void ProcessProtocolConfig(const BgpProtocolConfig *protocol_config,
+                               BgpConfigManager::EventType event) {
+
+		if (config_.subcluster_name() != protocol_config->subcluster_name()) {
+			config_.set_subcluster_name(protocol_config->subcluster_name());
+            server_->ClearAllConnections();
+		}
+    }
 
     void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
             BgpConfigManager::EventType event) {
@@ -157,6 +168,8 @@ public:
             return;
         server_->ClearAllConnections();
     }
+
+	string subcluster_name() { return config_.subcluster_name(); }
 
 private:
     XmppServer *server_;
@@ -197,6 +210,13 @@ XmppServer::XmppServer(EventManager *evm)
 
 void XmppServer::CreateConfigUpdater(BgpConfigManager *config_manager) {
     xmpp_config_updater_.reset(new XmppConfigUpdater(this, config_manager));
+}
+
+string XmppServer::GetSubclusterId() const {
+	string subcluster_name;
+	if (xmpp_config_updater_)
+		subcluster_name = xmpp_config_updater_->subcluster_name();
+	return subcluster_name;
 }
 
 uint16_t XmppServer::GetGracefulRestartTime() const {

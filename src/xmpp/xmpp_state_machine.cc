@@ -1344,6 +1344,17 @@ void XmppStateMachine::ProcessStreamHeaderMessage(XmppSession *session,
     if (xmpp_server) {
         endpoint =
             xmpp_server->FindConnectionEndpoint(connection_->ToString());
+
+	    if (xmpp_server->GetSubclusterId() != msg->xmlns) {
+            XMPP_WARNING(XmppDeleteConnection, session->ToUVEKey(),
+                XMPP_PEER_DIR_IN,
+                "Drop new xmpp connection " + session->ToString() +
+                " as subcluster of msg " + msg->xmlns +
+                " is different from " + xmpp_server->GetSubclusterId());
+            ProcessEvent(xmsm::EvTcpClose(session));
+            delete msg;
+            return;
+        }
     }
 
     // If there is no connection already associated with the end-point,
