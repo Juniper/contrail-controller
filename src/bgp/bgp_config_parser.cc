@@ -407,16 +407,31 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
         *nodename = fqname;
     }
 
+    string subcluster_name;
+    if (node.child("sub-cluster")) {
+        xml_attribute sc = node.child("sub-cluster").attribute("to");
+        subcluster_name = sc.value();
+        assert(!subcluster_name.empty());
+    }
+
     if (add_change) {
         MapObjectLink("routing-instance", instance,
             "bgp-router", fqname, "instance-bgp-router", requests);
         MapObjectSetProperty("bgp-router", fqname,
             "bgp-router-parameters", property.release(), requests);
+        if (!subcluster_name.empty()) {
+            MapObjectLink("bgp-router", fqname, "sub-cluster", subcluster_name,
+                          "bgp-router-sub-cluster", requests);
+        }
     } else {
         MapObjectClearProperty("bgp-router", fqname,
             "bgp-router-parameters", requests);
         MapObjectUnlink("routing-instance", instance,
             "bgp-router", fqname, "instance-bgp-router", requests);
+        if (!subcluster_name.empty()) {
+            MapObjectUnlink("bgp-router", fqname, "sub-cluster",
+                    subcluster_name, "bgp-router-sub-cluster", requests);
+        }
     }
 
     return true;
@@ -493,6 +508,20 @@ static bool ParseInstanceVirtualNetwork(const string &instance,
     return true;
 }
 
+static bool ParseInstanceSubCluster(const string &instance,
+    const xml_node &node, bool add_change,
+    BgpConfigParser::RequestList *requests) {
+    string subcluster_name = node.child_value();
+    if (add_change) {
+        MapObjectLink("routing-instance", instance, "sub-cluster",
+                      subcluster_name, "bgp-router-sub-cluster", requests);
+    } else {
+        MapObjectUnlink("routing-instance", instance, "sub-cluster",
+                        subcluster_name, "bgp-router-sub-cluster", requests);
+    }
+    return true;
+}
+
 }  // namespace
 
 BgpConfigParser::BgpConfigParser(DB *db)
@@ -521,6 +550,8 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
             ParseInstanceTarget(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "virtual-network") == 0) {
             ParseInstanceVirtualNetwork(instance, node, add_change, requests);
+        } else if (strcmp(node.name(), "sub-cluster") == 0) {
+            ParseInstanceSubCluster(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "service-chain-info") == 0) {
             ParseServiceChain(instance, node, add_change, Address::INET,
                               requests);
@@ -582,6 +613,28 @@ bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
             "pbb-evpn-enable", requests);
     }
 
+    return true;
+}
+
+bool BgpConfigParser::ParseSubCluster(const xml_node &node,
+                                      bool add_change,
+                                      RequestList *requests) const {
+    string subcluster_name(node.attribute("name").value());
+    assert(!subcluster_name.empty());
+
+    auto_ptr<autogen::SubCluster::StringProperty> subcluster_property(
+        new autogen::SubCluster::StringProperty);
+
+    if (node.child("sub-cluster-asn"))
+        subcluster_property->data = string(node.child_value("sub-cluster-asn"));
+
+    if (add_change) {
+        MapObjectSetProperty("sub-cluster", subcluster_name,
+            "sub-cluster-asn", subcluster_property.release(), requests);
+    } else {
+        MapObjectClearProperty("sub-cluster", subcluster_name,
+                               "sub-cluster-asn", requests);
+    }
     return true;
 }
 
@@ -750,6 +803,9 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         if (strcmp(node.name(), "virtual-network") == 0) {
             ParseVirtualNetwork(node, add_change, requests);
+        }
+        if (strcmp(node.name(), "sub-cluster") == 0) {
+            ParseSubCluster(node, add_change, requests);
         }
         if (strcmp(node.name(), "route-aggregate") == 0) {
             ParseRouteAggregate(node, add_change, requests);

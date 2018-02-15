@@ -132,10 +132,21 @@ public:
         BgpConfigManager::Observers obs;
         obs.system= boost::bind(&XmppConfigUpdater::ProcessGlobalSystemConfig,
             this, _1, _2);
+        obs.protocol = boost::bind(&XmppConfigUpdater::ProcessProtocolConfig,
+            this, _1, _2);
         config_manager->RegisterObservers(obs);
     }
 
     const BgpGlobalSystemConfig &config() const { return config_; }
+
+    void ProcessProtocolConfig(const BgpProtocolConfig *protocol_config,
+                               BgpConfigManager::EventType event) {
+
+        if (server_->subcluster_name() != protocol_config->subcluster_name()) {
+            server_->set_subcluster_name(protocol_config->subcluster_name());
+            server_->ClearAllConnections();
+        }
+    }
 
     void ProcessGlobalSystemConfig(const BgpGlobalSystemConfig *system,
             BgpConfigManager::EventType event) {
@@ -156,6 +167,11 @@ public:
         if (!clear_peers)
             return;
         server_->ClearAllConnections();
+    }
+
+    const string subcluster_name() const { return server_->subcluster_name(); }
+    void set_subcluster_name(const string& name) {
+        server_->set_subcluster_name(name);
     }
 
 private:

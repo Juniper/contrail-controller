@@ -331,6 +331,7 @@ XmppStanza::XmppMessage *XmppProto::DecodeInternal(
         impl->ReadNode(ns);
         strm->to = XmppProto::GetTo(impl); 
         strm->from = XmppProto::GetFrom(impl); 
+        strm->xmlns = XmppProto::GetXmlns(impl);
 
         ret = strm;
 
@@ -413,17 +414,16 @@ int XmppProto::SetFrom(string &from, XmlBase *doc) {
 
     string ns(sXMPP_STREAM_O);
     doc->ReadNode(ns);
-    doc->ModifyAttribute("from", from);
-    return 0;
+    return doc->ModifyAttribute("from", from);
 }
 
 int XmppProto::SetXmlns(const string &xmlns, XmlBase *doc) {
-    if (!doc) return -1;
+    if (!doc)
+        return -1;
 
     string ns(sXMPP_STREAM_O);
     doc->ReadNode(ns);
-    doc->ModifyAttribute("xmlns", xmlns);
-    return 0;
+    return doc->ModifyAttribute("xmlns", xmlns);
 }
 
 const char *XmppProto::GetTo(XmlBase *doc) {
@@ -437,6 +437,14 @@ const char *XmppProto::GetFrom(XmlBase *doc) {
     if (!doc) return NULL;
 
     string tmp("from");
+    return doc->ReadAttrib(tmp);
+}
+
+const char *XmppProto::GetXmlns(XmlBase *doc) {
+    if (!doc)
+        return NULL;
+
+    string tmp("xmlns");
     return doc->ReadAttrib(tmp);
 }
 

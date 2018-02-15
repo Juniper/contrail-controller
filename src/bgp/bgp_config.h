@@ -536,6 +536,12 @@ public:
     uint32_t identifier() const { return identifier_; }
     void set_identifier(uint32_t identifier) { identifier_ = identifier; }
 
+    const std::string& subcluster_name() const { return subcluster_name_; }
+    void set_subcluster_name(const std::string& name) {
+        subcluster_name_ = name;
+    }
+    void reset_subcluster_name() { subcluster_name_ = ""; }
+
     uint32_t autonomous_system() const { return autonomous_system_; }
     void set_autonomous_system(uint32_t autonomous_system) {
         autonomous_system_ = autonomous_system;
@@ -563,6 +569,7 @@ private:
     uint32_t autonomous_system_;
     uint32_t local_autonomous_system_;
     uint32_t identifier_;
+    std::string subcluster_name_;
     int port_;
     uint32_t hold_time_;
     mutable uint64_t last_change_at_;
