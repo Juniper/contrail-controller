@@ -883,14 +883,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
             cls._kvps_update(kvps, vif_type)
             cls._kvps_update(kvps, vif_details)
         else:
+            vif_type_prop = {'field': 'virtual_machine_interface_bindings',
+                             'operation': 'set', 'value': vif_type, 'position': 'vif_type'}
             if prop_set:
-                vif_type_prop = {'field': 'virtual_machine_interface_bindings',
-                                 'operation': 'set', 'value': vif_type, 'position': 'vif_type'}
                 vif_details_prop = {'field': 'virtual_machine_interface_bindings',
                                     'operation': 'set', 'value': vif_details, 'position': 'vif_details'}
             else:
-                vif_type_prop = {'field': 'virtual_machine_interface_bindings',
-                                 'operation': 'delete', 'value': vif_type, 'position': 'vif_type'}
                 vif_details_prop = {'field': 'virtual_machine_interface_bindings',
                                     'operation': 'delete', 'value': vif_details, 'position': 'vif_details'}
             prop_collection_updates.append(vif_details_prop)
@@ -994,7 +992,8 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     cls._kvps_update(kvps, vif_type)
                     cls._kvps_update(kvps, vif_details)
                 else:
-                    vif_type = {'key': 'vif_type', 'value': None}
+                    vif_type = {'key': 'vif_type',
+                                'value': cls.portbindings['VIF_TYPE_VROUTER']}
                     cls._kvps_update(kvps, vif_type)
 
         (ok, result) = cls._check_port_security_and_address_pairs(obj_dict)
@@ -1124,12 +1123,12 @@ class VirtualMachineInterfaceServer(Resource, VirtualMachineInterface):
                     vif_details = {'key': 'vif_details', 'value': json.dumps(vif_params)}
                     cls._kvps_prop_update(obj_dict, kvps, prop_collection_updates, vif_type, vif_details, True)
                 else:
-                    vif_type = {'key': 'vif_type', 'value': None}
+                    vif_type = {'key': 'vif_type', 'value': cls.portbindings['VIF_TYPE_VROUTER']}
                     vif_details = {'key': 'vif_details', 'value': None}
                     cls._kvps_prop_update(obj_dict, kvps, prop_collection_updates, vif_type, vif_details, False)
             else:
                 vif_type = {'key': 'vif_type',
-                            'value': None}
+                            'value': cls.portbindings['VIF_TYPE_VROUTER']}
                 vif_details = {'key': 'vif_details', 'value': None}
                 if kvp_dict_port.get('vnic_type') != cls.portbindings['VNIC_TYPE_DIRECT']:
                     if obj_dict and 'vif_details' in kvp_dict_port:
