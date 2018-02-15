@@ -51,7 +51,7 @@ class TestOpenContrailClient(unittest.TestCase):
 
     def test_analytics_request_with_data(self):
         self.client.request('fake/path/', 'fake_uuid',
-                            {'key1': 'value1',
+                            data={'key1': 'value1',
                              'key2': 'value2'})
 
         call_args = self.get.call_args_list[0][0]
@@ -68,7 +68,7 @@ class TestOpenContrailClient(unittest.TestCase):
         self.assertEqual(expected_data, data)
 
         self.client.request('fake/path/', 'fake_uuid',
-                            {'key3': 'value3',
+                            data={'key3': 'value3',
                              'key4': 'value4'})
 
         call_args = self.get.call_args_list[1][0]
