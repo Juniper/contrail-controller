@@ -179,6 +179,12 @@ public:
             config_autonomous_system = config->autonomous_system();
             config_local_autonomous_system = config->local_autonomous_system();
             config_hold_time = config->hold_time();
+            // TODO: we should quit if subcluster is being changed
+            if (server_->global_config()->subcluster_name() !=
+                    config->subcluster_name()) {
+                server_->global_config()->set_subcluster_name(
+                        config->subcluster_name());
+            }
         }
 
         if (server_->admin_down_ != config_admin_down) {

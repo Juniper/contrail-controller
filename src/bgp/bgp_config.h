@@ -536,6 +536,10 @@ public:
     uint32_t identifier() const { return identifier_; }
     void set_identifier(uint32_t identifier) { identifier_ = identifier; }
 
+    std::string subcluster_name() const { return subcluster_name_; }
+    void set_subcluster_name(std::string name) { subcluster_name_ = name; }
+    void reset_subcluster_name() { subcluster_name_ = ""; }
+
     uint32_t autonomous_system() const { return autonomous_system_; }
     void set_autonomous_system(uint32_t autonomous_system) {
         autonomous_system_ = autonomous_system;
@@ -563,6 +567,7 @@ private:
     uint32_t autonomous_system_;
     uint32_t local_autonomous_system_;
     uint32_t identifier_;
+    std::string subcluster_name_;
     int port_;
     uint32_t hold_time_;
     mutable uint64_t last_change_at_;
@@ -609,6 +614,12 @@ public:
     void set_rd_cluster_seed(uint16_t seed) {
         rd_cluster_seed_ = seed;
     }
+    std::string subcluster_name() const {
+        return subcluster_name_;
+    }
+    void set_subcluster_name(std::string subcluster_name) {
+        subcluster_name_ = subcluster_name;
+    }
     uint16_t bgpaas_port_start() const { return bgpaas_port_start_; }
     void set_bgpaas_port_start(uint16_t bgpaas_port_start) {
         bgpaas_port_start_ = bgpaas_port_start;
@@ -630,6 +641,7 @@ private:
     uint16_t bgpaas_port_end_;
     bool always_compare_med_;
     uint16_t rd_cluster_seed_;
+    std::string subcluster_name_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpGlobalSystemConfig);
 };

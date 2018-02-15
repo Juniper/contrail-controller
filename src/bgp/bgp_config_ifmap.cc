@@ -653,6 +653,22 @@ void BgpIfmapProtocolConfig::Update(BgpIfmapConfigManager *manager,
         data_.set_identifier(IpAddressToBgpIdentifier(identifier));
     }
     data_.set_hold_time(params.hold_time);
+
+    // reset subcluster name, will be set again if mapping is found in schema
+    data_.reset_subcluster_name();
+    // get subcluster name this router is associated with
+    IFMapNode *node = node_proxy_.node();
+    if (!node)
+        return;
+    DBGraph *graph = manager->graph();
+    for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
+         iter != node->end(graph); ++iter) {
+        IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
+        if (strcmp(adj->table()->Typename(), "sub-cluster") == 0) {
+            data_.set_subcluster_name(adj->name());
+            break;
+        }
+    }
 }
 
 //
