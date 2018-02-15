@@ -201,6 +201,10 @@ public:
                 server_->NotifyAdminDown();
         }
 
+        // We currently do not support bind failures or changes to listen port.
+        if (config)
+            server_->session_manager()->Initialize(config->port());
+
         Ip4Address identifier(ntohl(config_identifier));
         if (server_->bgp_identifier_ != identifier) {
             if (!server_->bgp_identifier_.is_unspecified()) {
