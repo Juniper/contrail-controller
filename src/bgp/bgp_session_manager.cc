@@ -38,16 +38,26 @@ BgpSessionManager::~BgpSessionManager() {
 // Start listening at the given port.
 //
 bool BgpSessionManager::Initialize(unsigned short port) {
-    return TcpServer::Initialize(port);
-}
+    // Changes to already bound bgp listen port number is not supported.
+    if (acceptor())
+        return true;
 
+    LOG(DEBUG, "Starting Bgp Server at " << session_ip_ << ":" << port);
+    bool r = TcpServer::Initialize(port, session_ip_);
+    if (!r) {
+        BGP_LOG_WARNING_STR(BgpSocket, BGP_LOG_FLAG_ALL,
+                            "Cannot bind to bgp/tcp server ip:port " <<
+                            session_ip_ << ":" << port);
+    }
+    return r;
+}
 
 //
 // Start listening at the given ip:port.
 //
 bool BgpSessionManager::Initialize(unsigned short port, const IpAddress& ip) {
     session_ip_ = ip;
-    return TcpServer::Initialize(port, ip);
+    return true;
 }
 
 //
