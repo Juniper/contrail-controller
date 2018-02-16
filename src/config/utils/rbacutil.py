@@ -13,6 +13,7 @@ from vnc_api.gen.resource_xsd import *
 from cfgm_common.exceptions import *
 from cfgm_common.rbaclib import *
 import cfgm_common
+from vnc_api.utils import AAA_MODE_VALID_VALUES
 
 example_usage = \
 """
@@ -101,7 +102,7 @@ class VncRbac():
         parser.add_argument('--role',  help="Role Name")
         parser.add_argument('--rule',  help="Rule to add or delete")
         parser.add_argument(
-            '--aaa_mode', choices = cfgm_common.AAA_MODE_VALID_VALUES, help="AAA mode")
+            '--aaa_mode', choices = AAA_MODE_VALID_VALUES, help="AAA mode")
         parser.add_argument(
             '--os-username',  help="Keystone User Name", default=None)
         parser.add_argument(

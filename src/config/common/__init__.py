@@ -5,7 +5,6 @@
 import re
 import sys
 import uuid
-from vnc_api import utils as vncutils
 
 IP_FABRIC_VN_FQ_NAME = ['default-domain', 'default-project', 'ip-fabric']
 IP_FABRIC_RI_FQ_NAME = IP_FABRIC_VN_FQ_NAME + ['__default__']
@@ -28,7 +27,6 @@ PERMS_RW = 6
 PERMS_RWX = 7
 
 AAA_MODE_DEFAULT_VALUE = 'cloud-admin'
-AAA_MODE_VALID_VALUES = vncutils.AAA_MODE_VALID_VALUES
 CLOUD_ADMIN_ROLE = 'admin'
 GLOBAL_READ_ONLY_ROLE = None
 PERMS2_VALID_SHARE_TYPES = ['tenant', 'domain']
