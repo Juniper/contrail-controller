@@ -21,6 +21,7 @@
 #include <oper/interface.h>
 #include <oper/route_common.h>
 #include <oper/agent_profile.h>
+#include <oper/crypt_tunnel.h>
 #include <filter/acl.h>
 #include <controller/controller_init.h>
 #include <resource_manager/resource_manager.h>
