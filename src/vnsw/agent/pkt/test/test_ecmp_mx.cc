@@ -496,6 +496,83 @@ TEST_F(EcmpTest, TEST_1) {
 }
 #endif
 
+//In case of ECMP in fabric mode egress packet comes without any
+//label in that case ecmp index has to be set such that only
+//local nexthops are chosen. Verify that happens
+TEST_F(EcmpTest, FabricVmi) {
+    struct PortInfo input1[] = {
+        {"intf2", 2, "1.1.1.10", "00:00:00:01:01:01", 1, 2},
+        {"intf3", 3, "1.1.1.10", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportWithEcmp(input1, 2);
+    client->WaitForIdle();
+
+    AddVn(agent_->fabric_vn_name().c_str(), 100);
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.10");
+        InetUnicastRouteEntry *rt =
+        static_cast<InetUnicastRouteEntry*>(RouteGet(agent_->fabric_vrf_name(),
+                    ip, 32));
+
+    Ip4Address remote_address = Ip4Address::from_string("10.10.10.100");
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent_->fabric_vrf_name(),
+                agent_->router_id(), remote_address, false, TunnelType::NativeType()));
+    ComponentNHKeyList comp_nh_list;
+    //Insert new NH first and then existing route NH
+    comp_nh_list.push_back(nh_data1);
+
+    SecurityGroupList sg_list;
+    EcmpTunnelRouteAdd(bgp_peer, agent_->fabric_vrf_name(), ip, 32,
+                       comp_nh_list, -1, "vn1",
+                       sg_list, TagList(), PathPreference(), true);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh =
+        dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
+
+	//Create PHYSICAL interface to receive GRE packets on it.
+	PhysicalInterfaceKey key(agent_->fabric_interface_name());
+	Interface *intf = static_cast<Interface *>
+		(agent_->interface_table()->FindActiveEntry(&key));
+	EXPECT_TRUE(intf != NULL);
+
+    for (uint32_t i = 0; i < 100; i++) {
+        TxTcpPacket(0, "2.1.1.1", "1.1.1.10", i, i, false, i, 0);
+        client->WaitForIdle();
+
+        FlowEntry *entry = FlowGet(VrfGet("vrf1")->vrf_id(),
+                "2.1.1.1", "1.1.1.10", 6, i, i, intf->flow_key_nh()->id());
+        EXPECT_TRUE(entry != NULL);
+        EXPECT_TRUE(entry->IsShortFlow() == false);
+        EXPECT_TRUE(entry->data().component_nh_idx != 2);
+    }
+
+
+    DeleteVmportEnv(input1, 2, true);
+    client->WaitForIdle();
+    agent_->fabric_inet4_unicast_table()->DeleteReq(bgp_peer,
+            agent_->fabric_vrf_name().c_str(), ip, 32,
+            new ControllerVmRoute(bgp_peer));
+    client->WaitForIdle();
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    DelNode("virtual-network", agent_->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteGet(agent_->fabric_vrf_name(), ip, 32) == NULL);
+
+    DeleteVmportEnv(input1, 2, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, true, true, 100*1000);

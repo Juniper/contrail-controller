@@ -71,6 +71,7 @@ public:
         peer_ = CreateBgpPeer(Ip4Address(1), "BGP Peer 1");
         client->WaitForIdle();
         AddIPAM("vn1", ipam_info, 2);
+        AddIPAM("vn2", ipam_info, 2);
         client->WaitForIdle();
         AddVn(agent->fabric_vn_name().c_str(), 100);
         AddVrf(agent->fabric_policy_vrf_name().c_str(), 100);
@@ -84,6 +85,7 @@ public:
     virtual void TearDown() {
         DelIPAM("vn1");
         DelIPAM(agent->fabric_vn_name().c_str());
+        DelIPAM("vn2");
         DelNode("virtual-network", agent->fabric_vn_name().c_str());
         DelLink("virtual-network", agent->fabric_vn_name().c_str(),
                 "routing-instance", agent->fabric_policy_vrf_name().c_str());
@@ -171,7 +173,7 @@ TEST_F(FabricVmiTest, basic_2) {
     //Verify that nexthop is ARP nexthop fpr server_ip
     InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
-    EXPECT_TRUE(rt->GetActivePath()->peer() == agent->fabric_rt_export_peer());
+    EXPECT_TRUE(rt->GetActivePath()->peer() == vm_intf->peer());
     EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
                  TunnelType::NativeType()) != 0);
 
@@ -239,7 +241,7 @@ TEST_F(FabricVmiTest, basic_3) {
             Ip4Address(0), EcmpLoadBalance(), false, false, true);
     client->WaitForIdle();
 
-    EXPECT_TRUE(rt->GetActivePath()->peer() == agent->fabric_rt_export_peer());
+    EXPECT_TRUE(rt->GetActivePath()->peer() == vm_intf->peer());
 
     //Delete local peer path route should we with local Peer now
     agent->fabric_inet4_unicast_table()->DeleteReq(vm_intf->peer(),
@@ -359,6 +361,7 @@ TEST_F(FabricVmiTest, FabricAndLocalPeerRoute) {
     };
     CreateVmportEnv(input1, 1);
     client->WaitForIdle();
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(VmPortGet(2));
 
     AddLink("virtual-network", "vn1", "virtual-network",
             agent->fabric_vn_name().c_str());
@@ -376,13 +379,13 @@ TEST_F(FabricVmiTest, FabricAndLocalPeerRoute) {
     //Verify that nexthop is ARP nexthop fpr server_ip
     InetUnicastRouteEntry *rt = RouteGet(agent->fabric_vrf_name(), ip, 32);
     EXPECT_TRUE(rt->FindPath(agent->local_peer()) != NULL);
-    EXPECT_TRUE(rt->FindPath(agent->fabric_rt_export_peer()) != NULL);
+    EXPECT_TRUE(rt->FindPath(vm_intf->peer()) != NULL);
 
     DeleteRoute(agent->fabric_policy_vrf_name().c_str(), "1.1.1.1", 32,
                 peer_);
     client->WaitForIdle();
     EXPECT_TRUE(rt->FindPath(agent->local_peer()) == NULL);
-    EXPECT_TRUE(rt->FindPath(agent->fabric_rt_export_peer()) != NULL);
+    EXPECT_TRUE(rt->FindPath(vm_intf->peer()) != NULL);
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -630,6 +633,7 @@ TEST_F(FabricVmiTest, VmWithVhostIp) {
     client->WaitForIdle();
 }
 
+<<<<<<< HEAD
 TEST_F(FabricVmiTest, default_route) {
     Ip4Address ip(0);
     EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 0));
@@ -641,6 +645,252 @@ TEST_F(FabricVmiTest, default_route) {
 
     EXPECT_TRUE(RouteFind(agent->fabric_policy_vrf_name(), ip, 0));
     EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() & TunnelType::NativeType());
+=======
+//Add 2 VMI with same IP address verify ECMP peer
+//creates a path with both nexthop
+TEST_F(FabricVmiTest, Ecmp1) {
+    struct PortInfo input1[] = {
+        {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+        {"intf3", 3, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportWithEcmp(input1, 2);
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf()->GetName() ==
+                agent->fabric_vrf_name().c_str());
+    const VmInterface *vm_intf1 = static_cast<const VmInterface *>(VmPortGet(2));
+    const VmInterface *vm_intf2 = static_cast<const VmInterface *>(VmPortGet(3));
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    InetUnicastRouteEntry *rt =
+        static_cast<InetUnicastRouteEntry*>(RouteGet(agent->fabric_vrf_name(),
+                                                     ip, 32));
+    EXPECT_TRUE(rt->FindPath(vm_intf1->peer()) != NULL);
+    EXPECT_TRUE(rt->FindPath(vm_intf2->peer()) != NULL);
+    EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
+                 TunnelType::NativeType()) != 0);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf() == NULL);
+    EXPECT_TRUE(RouteGet(agent->fabric_vrf_name(), ip, 32) == NULL);
+
+    DeleteVmportEnv(input1, 2, true);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    client->WaitForIdle();
+}
+
+//Add same IP address in 2 different virtual network
+//Verify ECMP path gets created for the same
+TEST_F(FabricVmiTest, Ecmp2) {
+    struct PortInfo input1[] = {
+        {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+        {"intf3", 3, "1.1.1.1", "00:00:00:01:01:01", 2, 2},
+    };
+    CreateVmportWithEcmp(input1, 2);
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf()->GetName() ==
+                agent->fabric_vrf_name().c_str());
+    const VmInterface *vm_intf1 = static_cast<const VmInterface *>(VmPortGet(2));
+    const VmInterface *vm_intf2 = static_cast<const VmInterface *>(VmPortGet(3));
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    InetUnicastRouteEntry *rt =
+        static_cast<InetUnicastRouteEntry*>(RouteGet(agent->fabric_vrf_name(),
+                                                     ip, 32));
+    EXPECT_TRUE(rt->FindPath(vm_intf1->peer()) != NULL);
+    EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
+                 TunnelType::NativeType()) != 0);
+
+    AddLink("virtual-network", "vn2", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    EXPECT_TRUE(rt->FindPath(vm_intf1->peer()) != NULL);
+    EXPECT_TRUE(rt->FindPath(vm_intf2->peer()) != NULL);
+    EXPECT_TRUE((rt->GetActivePath()->tunnel_bmap() &
+                 TunnelType::NativeType()) != 0);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->FindPath(vm_intf1->peer()) == NULL);
+    EXPECT_TRUE(rt->FindPath(vm_intf2->peer()) != NULL);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+
+    DelLink("virtual-network", "vn2", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(RouteGet(agent->fabric_vrf_name(), ip, 32) == NULL);
+
+    DeleteVmportEnv(input1, 2, true);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    client->WaitForIdle();
+}
+
+//Add a ECMP path
+//Add a BGP path
+//Verify that BGP path added has local ECMP path also
+TEST_F(FabricVmiTest, Ecmp3) {
+    struct PortInfo input1[] = {
+        {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+        {"intf3", 3, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportWithEcmp(input1, 2);
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+        InetUnicastRouteEntry *rt =
+        static_cast<InetUnicastRouteEntry*>(RouteGet(agent->fabric_vrf_name(),
+                    ip, 32));
+
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf()->GetName() ==
+                agent->fabric_vrf_name().c_str());
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    Ip4Address remote_address = Ip4Address::from_string("10.10.10.100");
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent->fabric_vrf_name(),
+                agent->router_id(), remote_address, false, TunnelType::NativeType()));
+    ComponentNHKeyList comp_nh_list;
+    //Insert new NH first and then existing route NH
+    comp_nh_list.push_back(nh_data1);
+
+    SecurityGroupList sg_list;
+    EcmpTunnelRouteAdd(peer_, agent->fabric_vrf_name(), ip, 32,
+                       comp_nh_list, -1, "vn1",
+                       sg_list, TagList(), PathPreference(), true);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh =
+        dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
+
+    agent->fabric_inet4_unicast_table()->DeleteReq(peer_,
+           agent->fabric_vrf_name().c_str(), ip, 32,
+           new ControllerVmRoute(peer_));
+    client->WaitForIdle();
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf() == NULL);
+    EXPECT_TRUE(RouteGet(agent->fabric_vrf_name(), ip, 32) == NULL);
+
+    DeleteVmportEnv(input1, 2, true);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    client->WaitForIdle();
+}
+
+//Add one local VM path
+//Add a BGP path verify BGP path is ECMP with right no. of nexthop
+//Add one more local path, verify BGP path now has 3 path
+//Delete one local VM path and verify same gets reflected in
+//BGP path also
+TEST_F(FabricVmiTest, Ecmp4) {
+    struct PortInfo input1[] = {
+        {"intf2", 2, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+        {"intf3", 3, "1.1.1.1", "00:00:00:01:01:01", 1, 2},
+    };
+    CreateVmportWithEcmp(input1, 1);
+    client->WaitForIdle();
+
+    AddLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+        InetUnicastRouteEntry *rt =
+        static_cast<InetUnicastRouteEntry*>(RouteGet(agent->fabric_vrf_name(),
+                    ip, 32));
+
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf()->GetName() ==
+                agent->fabric_vrf_name().c_str());
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() != NextHop::COMPOSITE);
+
+    Ip4Address remote_address = Ip4Address::from_string("10.10.10.100");
+    ComponentNHKeyPtr nh_data1(new ComponentNHKey(30, agent->fabric_vrf_name(),
+                agent->router_id(), remote_address, false, TunnelType::NativeType()));
+    ComponentNHKeyList comp_nh_list;
+    //Insert new NH first and then existing route NH
+    comp_nh_list.push_back(nh_data1);
+
+    SecurityGroupList sg_list;
+    EcmpTunnelRouteAdd(peer_, agent->fabric_vrf_name(), ip, 32,
+                       comp_nh_list, -1, "vn1",
+                       sg_list, TagList(), PathPreference(), true);
+    client->WaitForIdle();
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh =
+        dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
+
+    CreateVmportWithEcmp(input1, 2);
+    client->WaitForIdle();
+
+    comp_nh =
+        dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
+
+    DeleteVmportEnv(input1, 1, false);
+    client->WaitForIdle();
+
+    comp_nh =
+        dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->ActiveComponentNHCount() == 2);
+    EXPECT_TRUE(comp_nh->GetNH(0) == NULL);
+    EXPECT_TRUE(comp_nh->PolicyEnabled() == true);
+
+
+    Ip4Address aap_ip = Ip4Address::from_string("10.10.10.10");
+    MacAddress mac("0a:0b:0c:0d:0e:0f");
+    AddAapWithMacAndDisablePolicy("intf3", 3, aap_ip, mac.ToString(), true);
+    client->WaitForIdle();
+
+    comp_nh =
+        dynamic_cast<const CompositeNH *>(rt->GetActiveNextHop());
+    EXPECT_TRUE(comp_nh->ActiveComponentNHCount() == 2);
+    EXPECT_TRUE(comp_nh->GetNH(0) == NULL);
+    EXPECT_TRUE(comp_nh->PolicyEnabled() == false);
+
+
+    agent->fabric_inet4_unicast_table()->DeleteReq(peer_,
+            agent->fabric_vrf_name().c_str(), ip, 32,
+            new ControllerVmRoute(peer_));
+    client->WaitForIdle();
+
+    DelLink("virtual-network", "vn1", "virtual-network",
+            agent->fabric_vn_name().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfGet("vrf1")->forwarding_vrf() == NULL);
+    EXPECT_TRUE(RouteGet(agent->fabric_vrf_name(), ip, 32) == NULL);
+
+    DeleteVmportEnv(input1, 2, true);
+    client->WaitForIdle();
+
+    EXPECT_FALSE(RouteFind(agent->fabric_vrf_name(), ip, 32));
+    client->WaitForIdle();
+>>>>>>> * Initial changes to support ECMP in fabric VRF
 }
 
 int main(int argc, char **argv) {

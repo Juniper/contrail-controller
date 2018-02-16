@@ -348,7 +348,8 @@ bool RouteKSyncEntry::BuildArpFlags(const DBEntry *e, const AgentPath *path,
 
     // VRouter does not honour flood/proxy_arp flags for fabric-vrf
     if (rt->vrf()->GetName() == agent->fabric_vrf_name()) {
-        if (mac != MacAddress() || nh->GetType() == NextHop::INTERFACE) {
+        if (mac != MacAddress() || nh->GetType() == NextHop::INTERFACE ||
+            nh->GetType() == NextHop::COMPOSITE) {
             proxy_arp = true;
         } else {
             proxy_arp = false;

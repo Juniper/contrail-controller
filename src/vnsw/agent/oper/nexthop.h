@@ -1523,6 +1523,8 @@ public:
     void CreateTunnelNHReq(Agent *agent);
     void ChangeTunnelType(TunnelType::Type tunnel_type);
     COMPOSITETYPE composite_nh_type() const {return composite_nh_type_;}
+
+    void ReplaceLocalNexthop(const ComponentNHKeyList &new_comp_nh);
 private:
     friend class CompositeNH;
     bool ExpandLocalCompositeNH(Agent *agent);
@@ -1606,7 +1608,8 @@ public:
         return active_count;
     }
 
-    uint32_t PickMember(uint32_t seed, uint32_t affinity_index) const;
+    uint32_t PickMember(uint32_t seed, uint32_t affinity_index,
+                        bool ingress) const;
     const NextHop* GetNH(uint32_t idx) const {
         if (idx >= component_nh_list_.size()) {
             return NULL;
@@ -1646,7 +1649,7 @@ public:
     const VrfEntry* vrf() const {
         return vrf_.get();
     }
-   uint32_t hash(uint32_t seed) const {
+   uint32_t hash(uint32_t seed, bool ingress) const {
        size_t size = component_nh_list_.size();
        if (size == 0) {
            return kInvalidComponentNHIdx;
@@ -1654,7 +1657,9 @@ public:
        uint32_t idx = seed % size;
        while (component_nh_list_[idx].get() == NULL ||
               component_nh_list_[idx]->nh() == NULL ||
-              component_nh_list_[idx]->nh()->IsActive() == false) {
+              component_nh_list_[idx]->nh()->IsActive() == false ||
+              (ingress == false &&
+               component_nh_list_[idx]->nh()->GetType() == NextHop::TUNNEL)) {
            idx = (idx + 1) % size;
            if (idx == seed % size) {
                idx = kInvalidComponentNHIdx;

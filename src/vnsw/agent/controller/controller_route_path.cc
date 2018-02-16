@@ -54,13 +54,17 @@ bool ControllerEcmpRoute::CopyToPath(AgentPath *path) {
 
 bool ControllerEcmpRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
                                                 const AgentRoute *rt) {
+    path->set_copy_local_path(copy_local_path_);
+
     CompositeNHKey *comp_key = static_cast<CompositeNHKey *>(nh_req_.key.get());
     bool ret = false;
+
     //Reorder the component NH list, and add a reference to local composite mpls
     //label if any
     bool comp_nh_policy = comp_key->GetPolicy();
     bool new_comp_nh_policy = false;
-    if (path->ReorderCompositeNH(agent, comp_key, new_comp_nh_policy) == false)
+    if (path->ReorderCompositeNH(agent, comp_key, new_comp_nh_policy,
+                                 rt->FindLocalVmPortPath()) == false)
         return false;
     if (!comp_nh_policy) {
         comp_key->SetPolicy(new_comp_nh_policy);
@@ -87,7 +91,8 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
                         const std::string &prefix_str) :
     ControllerPeerPath(peer), vn_list_(vn_list), sg_list_(sg_list),
     ecmp_load_balance_(ecmp_load_balance), tag_list_(tag_list),
-    path_preference_(path_pref), tunnel_bmap_(tunnel_bmap) {
+    path_preference_(path_pref), tunnel_bmap_(tunnel_bmap),
+    copy_local_path_(false) {
         nh_req_.Swap(&nh_req);
     agent_ = peer->agent();
 }
@@ -101,7 +106,8 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
                                          const AgentRouteTable *rt_table,
                                          const std::string &prefix_str) :
         ControllerPeerPath(peer), vn_list_(vn_list),
-        ecmp_load_balance_(ecmp_load_balance), tag_list_(tag_list) {
+        ecmp_load_balance_(ecmp_load_balance), tag_list_(tag_list),
+        copy_local_path_(false) {
     const AgentXmppChannel *channel = peer->GetAgentXmppChannel();
     std::string bgp_peer_name = channel->GetBgpPeerName();
     std::string vrf_name = rt_table->vrf_name();
@@ -113,6 +119,13 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
     if (item->entry.local_preference != 0) {
         preference = item->entry.local_preference;
     }
+
+    //Override encap type for fabric VRF routes
+    //only type supported is underlay
+    if (vrf_name == agent_->fabric_vrf_name()) {
+        encap = TunnelType::NativeType();
+    }
+
     PathPreference rp(item->entry.sequence_number, preference, false, false);
     path_preference_ = rp;
 
@@ -177,6 +190,8 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
                 if (!comp_nh_policy) {
                     comp_nh_policy = mpls_nh->NexthopToInterfacePolicy();
                 }
+            } else if (label == 0) {
+                copy_local_path_ = true;
             }
         } else {
             encap = agent_->controller()->GetTypeBitmap
