@@ -84,7 +84,8 @@ public:
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
 
     Interface(Type type, const boost::uuids::uuid &uuid,
-              const std::string &name, VrfEntry *vrf, bool os_oper_state);
+              const std::string &name, VrfEntry *vrf, bool os_oper_state,
+              const boost::uuids::uuid &logical_router_uuid);
     virtual ~Interface();
 
     // DBEntry virtual function. Must be implemented by derived interfaces
@@ -155,6 +156,12 @@ public:
     void UpdateOperStateOfSubIntf(const InterfaceTable *table);
     bool NeedDefaultOsOperStateDisabled(Agent *agent) const;
     boost::optional<InterfaceOsParams::IfGuid> os_guid() const { return os_params_.os_guid_; }
+    const boost::uuids::uuid &logical_router_uuid() const {
+        return logical_router_uuid_;
+    }
+    void set_logical_router_uuid(const boost::uuids::uuid &logical_router_uuid) {
+        logical_router_uuid_ = logical_router_uuid;
+    }
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -187,6 +194,8 @@ protected:
     Transport transport_;
     AgentQosConfigConstRef qos_config_;
     struct InterfaceOsParams os_params_;
+    boost::uuids::uuid logical_router_uuid_;
+
 private:
     friend class InterfaceTable;
     InterfaceTable *table_;
@@ -249,7 +258,8 @@ struct InterfaceKey : public AgentOperDBKey {
 struct InterfaceData : public AgentOperDBData {
     InterfaceData(Agent *agent, IFMapNode *node,
                   Interface::Transport transport) :
-        AgentOperDBData(agent, node), transport_(transport) { }
+        AgentOperDBData(agent, node), transport_(transport),
+        logical_router_uuid_() { }
 
     void VmPortInit() { vrf_name_ = ""; }
     void EthInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
@@ -262,6 +272,7 @@ struct InterfaceData : public AgentOperDBData {
     // This is constant-data. Set only during create and not modified later
     std::string vrf_name_;
     Interface::Transport transport_;
+    boost::uuids::uuid logical_router_uuid_;
 };
 
 struct InterfaceQosConfigData : public AgentOperDBData {
@@ -342,6 +353,8 @@ public:
 
     // Config handlers
     bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool InterfaceCommonProcessConfig(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
     bool LogicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);

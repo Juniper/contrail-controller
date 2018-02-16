@@ -124,7 +124,7 @@ void NexthopIndexResourceKey::BackupVrfResource(ResourceData *data,
     } else {
         VrfMplsResource backup_data;
         backup_data.set_name(vrfnh_key->GetVrfName());
-        backup_data.set_vxlan_nh(vrfnh_key->GetVxlanNh());
+        backup_data.set_bridge_nh(vrfnh_key->GetBridgeNh());
         backup_data.set_time_stamp(UTCTimestampUsec());
         rm()->backup_mgr()->sandesh_maps().AddVrfMplsResourceEntry(
                 index_data->index(), backup_data);
@@ -133,7 +133,7 @@ void NexthopIndexResourceKey::BackupVrfResource(ResourceData *data,
     //TODO may be API to insert in map can be added and that will incr sequence
     //number internally.
     VRF_MPLS_DATA_TRACE(VrfMplsDataTraceBuf, vrfnh_key->GetVrfName(),
-                        vrfnh_key->GetVxlanNh(), index_data->index(), operation);
+                        vrfnh_key->GetBridgeNh(), index_data->index(), operation);
     rm()->backup_mgr()->sandesh_maps().vrf_mpls_index_table().
         TriggerBackup();
 }

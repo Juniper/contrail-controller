@@ -445,6 +445,27 @@ void MulticastHandler::NotifyPhysicalDevice(DBTablePartBase *partition,
     }
 }
 
+bool MulticastHandler::FilterVmi(const VmInterface *vm_itf) {
+    if (vm_itf->device_type() == VmInterface::TOR) {
+        //Ignore TOR VMI, they are not active VMI.
+        return true;
+    }
+
+    if (vm_itf->vmi_type() == VmInterface::VHOST) {
+        return true;
+    }
+
+    if (vm_itf->device_type() == VmInterface::VMI_ON_LR) {
+        return true;
+    }
+
+    if (vm_itf->device_type() == VmInterface::VM_SRIOV) {
+        return true;
+    }
+
+    return false;
+}
+
 /* Registered call for VM */
 void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition, 
                                          DBEntryBase *e)
@@ -457,12 +478,7 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
     }
 
     vm_itf = static_cast<VmInterface *>(intf);
-    if (vm_itf->device_type() == VmInterface::TOR) {
-        //Ignore TOR VMI, they are not active VMI.
-        return;
-    }
-
-    if (vm_itf->vmi_type() == VmInterface::VHOST) {
+    if (FilterVmi(vm_itf)) {
         return;
     }
 

@@ -930,6 +930,14 @@ bool VNController::IsWorkQueueEmpty() const {
     return (work_queue_.IsQueueEmpty() == 0);
 }
 
+MacAddress VNController::GetTunnelMac(const autogen::EnetNextHopType &nh) {
+    return MacAddress(nh.mac);
+}
+
+MacAddress VNController::GetTunnelMac(const autogen::NextHopType &nh) {
+    return MacAddress();
+}
+
 TunnelType::TypeBmap VNController::GetTypeBitmap
 (const autogen::EnetTunnelEncapsulationListType &encap) {
     TunnelType::TypeBmap bmap = 0;

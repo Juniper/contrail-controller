@@ -379,6 +379,7 @@ public:
     void DeleteVmInterfaceFromSourceGroup(const std::string &mvpn_vrf_name,
                                     const std::string &vm_vrf_name,
                                     const VmInterface *vm_itf);
+    bool FilterVmi(const VmInterface *vmi);
 
 private:
     //operations on list of all objectas per group/source/vrf

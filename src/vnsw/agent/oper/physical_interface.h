@@ -28,7 +28,8 @@ public:
         RAW_IP          // No L2 header. Packets sent as raw-ip
     };
 
-    PhysicalInterface(const std::string &name);
+    PhysicalInterface(const std::string &name,
+                      const uuid &logical_router_uuid);
     virtual ~PhysicalInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const;
