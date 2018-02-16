@@ -785,7 +785,7 @@ bool VrfNH::CanAdd() const {
 NextHop *VrfNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
-    return new VrfNH(vrf, policy_, vxlan_nh_);
+    return new VrfNH(vrf, policy_, bridge_nh_);
 }
 
 bool VrfNH::NextHopIsLess(const DBEntry &rhs) const {
@@ -795,18 +795,18 @@ bool VrfNH::NextHopIsLess(const DBEntry &rhs) const {
         return (vrf_.get() < a.vrf_.get());
     }
 
-    return vxlan_nh_ < a.vxlan_nh_;
+    return bridge_nh_ < a.bridge_nh_;
 }
 
 void VrfNH::SetKey(const DBRequestKey *k) {
     const VrfNHKey *key = static_cast<const VrfNHKey *>(k);
     NextHop::SetKey(k);
     vrf_ = NextHopTable::GetInstance()->FindVrfEntry(key->vrf_key_);
-    vxlan_nh_ = key->vxlan_nh_;
+    bridge_nh_ = key->bridge_nh_;
 }
 
 VrfNH::KeyPtr VrfNH::GetDBRequestKey() const {
-    NextHopKey *key = new VrfNHKey(vrf_->GetName(), policy_, vxlan_nh_);
+    NextHopKey *key = new VrfNHKey(vrf_->GetName(), policy_, bridge_nh_);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -848,10 +848,11 @@ void VrfNH::SendObjectLog(const NextHopTable *table,
 // Tunnel NH routines
 /////////////////////////////////////////////////////////////////////////////
 TunnelNH::TunnelNH(VrfEntry *vrf, const Ip4Address &sip, const Ip4Address &dip,
-                   bool policy, TunnelType type) :
+                   bool policy, TunnelType type, const MacAddress &rewrite_dmac) :
     NextHop(NextHop::TUNNEL, false, policy), vrf_(vrf, this), sip_(sip),
     dip_(dip), tunnel_type_(type), arp_rt_(this), interface_(NULL), dmac_(),
-    crypt_(false), crypt_tunnel_available_(false), crypt_interface_(NULL) {
+    crypt_(false), crypt_tunnel_available_(false), crypt_interface_(NULL),
+    rewrite_dmac_(rewrite_dmac) {
 }
 
 TunnelNH::~TunnelNH() {
@@ -873,7 +874,8 @@ bool TunnelNH::CanAdd() const {
 NextHop *TunnelNHKey::AllocEntry() const {
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->vrf_table()->Find(&vrf_key_, true));
-    return new TunnelNH(vrf, sip_, dip_, policy_, tunnel_type_);
+    return new TunnelNH(vrf, sip_, dip_, policy_, tunnel_type_,
+                        rewrite_dmac_);
 }
 
 bool TunnelNH::NextHopIsLess(const DBEntry &rhs) const {
@@ -895,6 +897,9 @@ bool TunnelNH::NextHopIsLess(const DBEntry &rhs) const {
         return tunnel_type_.IsLess(a.tunnel_type_);
     }
 
+    if (rewrite_dmac_ != a.rewrite_dmac_) {
+        return rewrite_dmac_ < a.rewrite_dmac_;
+    }
     return false;
 }
 
@@ -906,11 +911,12 @@ void TunnelNH::SetKey(const DBRequestKey *k) {
     dip_ = key->dip_;
     tunnel_type_ = key->tunnel_type_;
     policy_ = key->policy_;
+    rewrite_dmac_ = key->rewrite_dmac_;
 }
 
 TunnelNH::KeyPtr TunnelNH::GetDBRequestKey() const {
     NextHopKey *key = new TunnelNHKey(vrf_->GetName(), sip_, dip_, policy_,
-                                      tunnel_type_);
+                                      tunnel_type_, rewrite_dmac_);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -1041,6 +1047,7 @@ void TunnelNH::SendObjectLog(const NextHopTable *table,
         info.set_crypt_tunnel_available("Yes");
     if (crypt_interface_)
         info.set_crypt_interface(GetCryptInterface()->name());
+    info.set_rewrite_dmac(rewrite_dmac_.ToString());
     OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
@@ -1895,7 +1902,8 @@ void CompositeNH::CreateComponentNH(Agent *agent,
                                                   *(tnh->GetSip()),
                                                   *(tnh->GetDip()),
                                                   tnh->PolicyEnabled(),
-                                                  type));
+                                                  type,
+                                                  tnh->rewrite_dmac()));
                 tnh_req.data.reset(new TunnelNHData());
                 agent->nexthop_table()->Process(tnh_req);
             }
@@ -2883,7 +2891,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_type("vrf");
             const VrfNH *vrf = static_cast<const VrfNH *>(this);
             data.set_vrf(vrf->GetVrf()->GetName());
-            data.set_vxlan_flag(vrf->vxlan_nh());
+            data.set_vxlan_flag(vrf->bridge_nh());
             data.set_flood_unknown_unicast(vrf->flood_unknown_unicast());
             data.set_layer2_control_word(vrf->layer2_control_word());
             break;

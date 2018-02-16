@@ -50,6 +50,7 @@ public:
     uint32_t nh_id() const { return nh_id_;}
     void SetEncap(InterfaceKSyncEntry *if_ksync, std::vector<int8_t> &encap);
     bool is_bridge() const { return is_bridge_; }
+    bool is_vxlan_routing() const { return is_vxlan_routing_; }
 
     int MsgLen() {
         // for larger component NH lists, increase message length
@@ -100,12 +101,13 @@ private:
     uint16_t vlan_tag_;
     bool is_local_ecmp_nh_;
     bool is_bridge_;
+    bool is_vxlan_routing_;
     COMPOSITETYPE comp_type_;
     TunnelType tunnel_type_;
     uint8_t prefix_len_;
     uint32_t nh_id_;
     ComponentNHKeyList component_nh_key_list_;
-    bool vxlan_nh_;
+    bool bridge_nh_;
     bool flood_unknown_unicast_;
     EcmpHashFields ecmp_hash_fieds_;
     KSyncEntryPtr pbb_child_nh_;

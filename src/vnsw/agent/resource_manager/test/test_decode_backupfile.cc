@@ -57,7 +57,7 @@ TEST_F(SandeshDecodeBackupFileTest, DecodeBackupFile) {
                 cout << "index = " << it->first << endl;
                 VrfMplsResource sandesh_key = it->second;
                 cout << "\tvrf_name: " << sandesh_key.get_name()
-                     << "\tvxlan_flag: " << sandesh_key.get_vxlan_nh() << endl;
+                     << "\tvxlan_flag: " << sandesh_key.get_bridge_nh() << endl;
             }
         } else if (backup_file.find("route") != std::string::npos) {
             RouteMplsResourceMapSandesh sandesh_data;
