@@ -1507,7 +1507,8 @@ bool AgentUtXmlL2Route::Run() {
                                                      agent->fabric_vrf_name(),
                                                      agent->router_id(), vrf_,
                                                      Ip4Address::from_string(tunnel_dest_),
-                                                     bmap, label_, vn_list, sg_list, tag_list,
+                                                     bmap, label_, MacAddress(),
+                                                     vn_list, sg_list, tag_list,
                                                      PathPreference(), false,
                                                      EcmpLoadBalance(), false);
         rt_table->AddRemoteVmRouteReq(bgp_peer_, vrf_,
@@ -1665,7 +1666,8 @@ bool AgentUtXmlL3Route::Run() {
                                                      agent->fabric_vrf_name(),
                                                      agent->router_id(), vrf_,
                                                      Ip4Address::from_string(tunnel_dest_),
-                                                     bmap, label_, vn_list, sg_list, tag_list,
+                                                     bmap, label_, MacAddress(),
+                                                     vn_list, sg_list, tag_list,
                                                      PathPreference(), false,
                                                      EcmpLoadBalance(),
                                                      false);

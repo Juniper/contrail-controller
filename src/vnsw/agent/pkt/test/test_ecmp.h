@@ -226,7 +226,7 @@ public:
         vn_list.insert(vn);
         ControllerVmRoute *data = ControllerVmRoute::MakeControllerVmRoute
             (bgp_peer_, agent_->fabric_vrf_name(), agent_->router_id(),
-             vrf_name, addr, TunnelType::GREType(), 16, vn_list,
+             vrf_name, addr, TunnelType::GREType(), 16, MacAddress(), vn_list,
              SecurityGroupList(), TagList(), PathPreference(),
              false, EcmpLoadBalance(), false);
         InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vrf_name,

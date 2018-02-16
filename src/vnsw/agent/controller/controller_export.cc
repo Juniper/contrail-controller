@@ -186,7 +186,14 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     State *state = static_cast<State *>(route->GetState(partition->parent(),
                                                         id_));
     AgentPath *path = NULL;
-    path = route->FindLocalVmPortPath();
+    //Evpn Routing peer is not exported and exported route before addition of
+    //this path has to be withdrawn.
+    //TODO Avoiding export of route is handled via inactive flag in path,
+    //however it does not withdraw exported route. Merge these logic.
+    if (route->GetActivePath() &&
+        (route->GetActivePath()->peer()->GetType() != Peer::EVPN_ROUTING_PEER)) {
+        path = route->FindLocalVmPortPath();
+    }
 
     std::stringstream path_str;
     if (path && path->peer())

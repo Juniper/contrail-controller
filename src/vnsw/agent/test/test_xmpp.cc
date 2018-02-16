@@ -736,7 +736,7 @@ TEST_F(AgentXmppUnitTest, resync_db_req_by_deleted_peer_non_hv) {
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(), "vrf10",
                               addr, TunnelType::ComputeType(TunnelType::MplsType()),
-                              100, vn_list, SecurityGroupList(),
+                              100, MacAddress(), vn_list, SecurityGroupList(),
                               PathPreference(), false, EcmpLoadBalance(),
                               false);
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);

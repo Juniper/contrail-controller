@@ -29,6 +29,7 @@
 #include "filter/policy_set.h"
 #include "cfg/cfg_init.h"
 #include "oper/security_logging_object.h"
+#include "oper/project_config.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
@@ -100,6 +101,7 @@ void IFMapDependencyManager::Initialize(Agent *agent) {
         "global-system-config",
         "instance-ip",
         "logical-interface",
+        "logical-router",
         "network-ipam",
         "physical-interface",
         "physical-router",
@@ -619,6 +621,11 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
     AddDependencyPath("virtual-network",
                       MakePath("virtual-network-security-logging-object",
                                "security-logging-object", true));
+    AddDependencyPath("virtual-network",
+                      MakePath("logical-router-virtual-network",
+                               "logical-router-virtual-network", true,
+                               "logical-router-virtual-network",
+                               "logical-router", true));
     RegisterConfigHandler(this, "virtual-network",
                           agent ? agent->vn_table() : NULL);
 
@@ -825,6 +832,9 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                                "port-tuple", true,
                                "port-tuple-interface",
                                "virtual-machine-interface", true));
+    AddDependencyPath("virtual-machine-interface",
+                      MakePath("logical-router-interface",
+                               "logical-router", true));
 
     RegisterConfigHandler(this, "virtual-machine-interface",
                           agent ? agent->interface_table() : NULL);
@@ -939,6 +949,8 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                           agent->oper_db()->virtual_dns());
     RegisterConfigHandler(this, "global-vrouter-config",
                           agent->oper_db()->global_vrouter());
+    RegisterConfigHandler(this, "project",
+                          agent->oper_db()->project_config());
     AddDependencyPath("bridge-domain",
                       MakePath("virtual-network-bridge-domain",
                                "virtual-network", true,

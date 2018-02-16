@@ -632,7 +632,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     VrfNH *vrf_nh = static_cast<VrfNH*>
         (agent_->nexthop_table()->FindActiveEntry(vrf_nh_key));
     vrf_nh->SetKey(vrf_nh_key);
-    EXPECT_TRUE(vrf_nh->vxlan_nh() == true);
+    EXPECT_TRUE(vrf_nh->bridge_nh() == true);
     DoNextHopSandesh();
 
     VmInterfaceKey vhost_intf_key(AgentKey::ADD_DEL_CHANGE, nil_uuid(),
@@ -660,7 +660,8 @@ TEST_F(CfgTest, Nexthop_keys) {
     TunnelNHKey *tnh_key = static_cast<TunnelNHKey *>(tnh_key_base.get());
     TunnelNH *tnh = static_cast<TunnelNH*>(agent_->nexthop_table()->
                                         FindActiveEntry(tnh_key));
-    EXPECT_TRUE(tnh->ToString() == "Tunnel to 10.1.1.100");
+    EXPECT_TRUE(tnh->ToString() ==
+                "Tunnel to 10.1.1.100 rewrite mac 00:00:00:00:00:00");
     tnh->SetKey(tnh->GetDBRequestKey().get());
     DoNextHopSandesh();
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),

@@ -99,6 +99,7 @@ void AddLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2, const char *mdata = NULL);
 void DelLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2, const char* mdata = NULL);
+void AddLinkNode(const char *node_name, const char *name, const char *attr);
 void AddNode(const char *node_name, const char *name, int id);
 void AddNode(const char *node_name, const char *name, int id, const char *attr,
              bool admin_state = true);

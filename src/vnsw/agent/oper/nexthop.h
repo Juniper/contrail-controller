@@ -846,10 +846,14 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class TunnelNHKey : public NextHopKey {
 public:
-    TunnelNHKey(const string &vrf_name, const Ip4Address &sip,
-                const Ip4Address &dip, bool policy, TunnelType type) :
+    TunnelNHKey(const string &vrf_name,
+                const Ip4Address &sip,
+                const Ip4Address &dip,
+                bool policy,
+                TunnelType type,
+                const MacAddress &rewrite_dmac = MacAddress()) :
         NextHopKey(NextHop::TUNNEL, policy), vrf_key_(vrf_name), sip_(sip),
-        dip_(dip), tunnel_type_(type) { 
+        dip_(dip), tunnel_type_(type), rewrite_dmac_(rewrite_dmac) {
     };
     virtual ~TunnelNHKey() { };
 
@@ -873,6 +877,10 @@ public:
             return dip_ < key.dip_;
         }
 
+        if (rewrite_dmac_ != key.rewrite_dmac_) {
+            return rewrite_dmac_ < key.rewrite_dmac_;
+        }
+
         return tunnel_type_.IsLess(key.tunnel_type_);
     }
     void set_tunnel_type(TunnelType tunnel_type) {
@@ -887,6 +895,7 @@ private:
     Ip4Address sip_;
     Ip4Address dip_;
     TunnelType tunnel_type_;
+    MacAddress rewrite_dmac_;
     DISALLOW_COPY_AND_ASSIGN(TunnelNHKey);
 };
 
@@ -1007,7 +1016,8 @@ struct InterfaceNHFlags {
         INET4 = 1,
         BRIDGE = 2,
         MULTICAST = 4,
-        INET6 = 8
+        INET6 = 8,
+        VXLAN_ROUTING = 16
     };
 };
 
@@ -1021,6 +1031,7 @@ public:
             assert((flags != (InterfaceNHFlags::INVALID)) ||
                     (flags == (InterfaceNHFlags::INET4)) ||
                     (flags_ == (InterfaceNHFlags::INET6)) ||
+                    (flags_ == (InterfaceNHFlags::VXLAN_ROUTING)) ||
                     (flags ==
                      (InterfaceNHFlags::INET4|InterfaceNHFlags::MULTICAST)));
     }
@@ -1030,6 +1041,7 @@ public:
     const std::string& name() const { return intf_key_->name_;};
     const Interface::Type &intf_type() const {return intf_key_->type_;}
     const InterfaceKey *intf_key() const { return intf_key_.get(); }
+    void set_flags(uint8_t flags) {flags_ = flags;}
     const uint8_t &flags() const { return flags_; }
     const MacAddress &dmac() const { return dmac_; }
 
@@ -1039,6 +1051,7 @@ public:
         assert((flags_ != (InterfaceNHFlags::INVALID)) ||
                 (flags_ == (InterfaceNHFlags::INET4)) ||
                 (flags_ == (InterfaceNHFlags::INET6)) ||
+                (flags_ == (InterfaceNHFlags::VXLAN_ROUTING)) ||
                 (flags_ ==
                  (InterfaceNHFlags::INET4|InterfaceNHFlags::MULTICAST)));
         return new InterfaceNHKey(intf_key_->Clone(), policy_, flags_, dmac_);
@@ -1112,6 +1125,9 @@ public:
 
     const Interface *GetInterface() const {return interface_.get();};
     const MacAddress &GetDMac() const {return dmac_;};
+    bool IsVxlanRouting() const {
+        return flags_ & InterfaceNHFlags::VXLAN_ROUTING; 
+    }
     bool is_multicastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
     bool IsBridge() const { return flags_ & InterfaceNHFlags::BRIDGE; };
     uint8_t GetFlags() const {return flags_;};
@@ -1194,9 +1210,9 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 class VrfNHKey : public NextHopKey {
 public:
-    VrfNHKey(const string &vrf_name, bool policy, bool vxlan_nh) :
+    VrfNHKey(const string &vrf_name, bool policy, bool bridge_nh) :
         NextHopKey(NextHop::VRF, policy), vrf_key_(vrf_name), policy_(policy),
-        vxlan_nh_(vxlan_nh) {
+        bridge_nh_(bridge_nh) {
     }
     virtual ~VrfNHKey() { }
 
@@ -1207,15 +1223,15 @@ public:
 
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
-        return new VrfNHKey(vrf_key_.name_, policy_, vxlan_nh_);
+        return new VrfNHKey(vrf_key_.name_, policy_, bridge_nh_);
     }
     const std::string &GetVrfName() const { return vrf_key_.name_; }
-    const bool &GetVxlanNh() const { return vxlan_nh_; }
+    const bool &GetBridgeNh() const { return bridge_nh_; }
 private:
     friend class VrfNH;
     VrfKey vrf_key_;
     bool policy_;
-    bool vxlan_nh_;
+    bool bridge_nh_;
     DISALLOW_COPY_AND_ASSIGN(VrfNHKey);
 };
 
@@ -1236,8 +1252,8 @@ private:
 
 class VrfNH : public NextHop {
 public:
-    VrfNH(VrfEntry *vrf, bool policy, bool vxlan_nh_):
-        NextHop(VRF, true, policy), vrf_(vrf, this), vxlan_nh_(vxlan_nh_),
+    VrfNH(VrfEntry *vrf, bool policy, bool bridge_nh_):
+        NextHop(VRF, true, policy), vrf_(vrf, this), bridge_nh_(bridge_nh_),
         flood_unknown_unicast_(false) {}
     virtual ~VrfNH() { };
 
@@ -1256,7 +1272,7 @@ public:
     virtual bool DeleteOnZeroRefCount() const {
         return true;
     }
-    bool vxlan_nh() const { return vxlan_nh_; }
+    bool bridge_nh() const { return bridge_nh_; }
     bool flood_unknown_unicast() const {
         return flood_unknown_unicast_;
     }
@@ -1277,7 +1293,7 @@ public:
 private:
     VrfEntryRef vrf_;
     // NH created by VXLAN
-    bool vxlan_nh_;
+    bool bridge_nh_;
     bool flood_unknown_unicast_;
     bool layer2_control_word_;
     DISALLOW_COPY_AND_ASSIGN(VrfNH);
