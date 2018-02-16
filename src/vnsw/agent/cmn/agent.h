@@ -120,6 +120,12 @@ typedef boost::intrusive_ptr<const NextHop> NextHopConstRef;
 void intrusive_ptr_release(const NextHop* p);
 void intrusive_ptr_add_ref(const NextHop* p);
 
+class CryptTunnelEntry;
+typedef boost::intrusive_ptr<CryptTunnelEntry> CryptTunnelEntryRef;
+typedef boost::intrusive_ptr<const CryptTunnelEntry> CryptTunnelEntryConstRef;
+void intrusive_ptr_release(const CryptTunnelEntry* p);
+void intrusive_ptr_add_ref(const CryptTunnelEntry* p);
+
 class AddrBase;
 typedef boost::intrusive_ptr<AddrBase> AddrRef;
 void intrusive_ptr_release(const AddrBase* p);
@@ -196,6 +202,7 @@ class AgentDBTable;
 class InterfaceTable;
 class HealthCheckTable;
 class NextHopTable;
+class CryptTunnelTable;
 class VmTable;
 class VnTable;
 class SgTable;
@@ -301,6 +308,7 @@ extern void RouterIdDepInit(Agent *agent);
 #define kTaskFlowStatsUpdate "Agent::FlowStatsUpdate"
 
 #define kTaskHealthCheck "Agent::HealthCheck"
+#define kTaskCryptTunnel "Agent::CryptTunnel"
 
 #define kTaskDBExclude "Agent::DBExcludeTask"
 #define kTaskConfigManager "Agent::ConfigManager"
@@ -428,6 +436,11 @@ public:
     NextHopTable *nexthop_table() const {return nh_table_;}
     void set_nexthop_table(NextHopTable *table) {
         nh_table_ = table;
+    }
+
+    CryptTunnelTable *crypt_tunnel_table() const {return crypt_tunnel_table_;}
+    void set_crypt_tunnel_table(CryptTunnelTable *table) {
+        crypt_tunnel_table_ = table;
     }
 
     VrfTable *vrf_table() const { return vrf_table_;}
@@ -1007,6 +1020,17 @@ public:
         return ip_fabric_intf_name_;
     }
 
+    const std::string &crypt_interface_name() const {
+        return crypt_intf_name_;
+    }
+
+    const Interface *crypt_interface() const {
+        return crypt_interface_;
+    }
+    void set_crypt_interface(const Interface *interface) {
+        crypt_interface_ = interface;
+    }
+
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
@@ -1308,6 +1332,7 @@ private:
     QosQueueTable *qos_queue_table_;
     AgentQosConfigTable *qos_config_table_;
     PolicySetTable *policy_set_table_;
+    CryptTunnelTable *crypt_tunnel_table_;
     std::auto_ptr<ConfigManager> config_manager_;
  
     // Mirror config table
@@ -1346,6 +1371,7 @@ private:
     std::vector<std::string>collector_list_;
     uint32_t collector_chksum_;
     std::string ip_fabric_intf_name_;
+    std::string crypt_intf_name_;
     std::string vhost_interface_name_;
     std::string pkt_interface_name_;
 
@@ -1387,6 +1413,7 @@ private:
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
     const Interface *vhost_interface_;
+    const Interface *crypt_interface_;
     process::ConnectionState* connection_state_;
     bool test_mode_;
     bool xmpp_dns_test_mode_;
