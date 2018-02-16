@@ -181,10 +181,14 @@ ControllerEcmpRoute::ControllerEcmpRoute(const BgpPeer *peer,
         } else {
             encap = agent_->controller()->GetTypeBitmap
                 (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
+            MacAddress mac = agent_->controller()->GetTunnelMac
+                (item->entry.next_hops.next_hop[i]);
             TunnelNHKey *nh_key = new TunnelNHKey(agent_->fabric_vrf_name(),
                                                   agent_->router_id(),
-                                                  addr.to_v4(), false,
-                                                  TunnelType::ComputeType(encap));
+                                                  addr.to_v4(),
+                                                  false,
+                                                  TunnelType::ComputeType(encap),
+                                                  mac);
             std::auto_ptr<const NextHopKey> nh_key_ptr(nh_key);
             ComponentNHKeyPtr component_nh_key(new ComponentNHKey(label,
                                                                   nh_key_ptr));
@@ -213,6 +217,7 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
                                          const Ip4Address &tunnel_dest,
                                          TunnelType::TypeBmap bmap,
                                          uint32_t label,
+                                         const MacAddress rewrite_dmac,
                                          const VnListType &dest_vn_list,
                                          const SecurityGroupList &sg_list,
                                          const TagList &tag_list,
@@ -223,7 +228,8 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
     // Make Tunnel-NH request
     DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
     nh_req.key.reset(new TunnelNHKey(default_vrf, router_id, tunnel_dest, false,
-                                     TunnelType::ComputeType(bmap)));
+                                     TunnelType::ComputeType(bmap),
+                                     rewrite_dmac));
     nh_req.data.reset(new TunnelNHData());
 
     // Make route request pointing to Tunnel-NH created above
@@ -231,7 +237,7 @@ ControllerVmRoute *ControllerVmRoute::MakeControllerVmRoute(
         new ControllerVmRoute(bgp_peer, default_vrf, tunnel_dest, label,
                               dest_vn_list, bmap, sg_list, tag_list, path_preference,
                               nh_req, ecmp_suppressed,
-                              ecmp_load_balance, etree_leaf);
+                              ecmp_load_balance, etree_leaf, rewrite_dmac);
     return data;
 }
 
@@ -274,11 +280,12 @@ bool ControllerVmRoute::AddChangePathExtended(Agent *agent, AgentPath *path,
         new_tunnel_type = TunnelType::INVALID;
         nh_req_.key.reset(new TunnelNHKey(agent->fabric_vrf_name(),
                                           agent->router_id(), tunnel_dest_,
-                                          false, new_tunnel_type));
+                                          false, new_tunnel_type,
+                                          rewrite_dmac_));
     }
     agent->nexthop_table()->Process(nh_req_);
     TunnelNHKey key(agent->fabric_vrf_name(), agent->router_id(), tunnel_dest_,
-                    false, new_tunnel_type);
+                    false, new_tunnel_type, rewrite_dmac_);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
     path->set_tunnel_dest(tunnel_dest_);
 
