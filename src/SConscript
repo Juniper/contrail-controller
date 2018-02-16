@@ -60,9 +60,9 @@ common.Prepend(LIBS = libs)
 if not sys.platform.startswith('win'):
     common.Append(CXXFLAGS = '-Wall -Werror -Wsign-compare')
 
-if subprocess.check_output("g++ --version | grep g++ | awk '{print $3}'",
-                           shell=True).rstrip() == "4.8.5":
-    common.Append(CCFLAGS = '-Wno-narrowing -Wno-conversion-null')
+    if subprocess.check_output("g++ --version | grep g++ | awk '{print $3}'",
+                               shell=True).rstrip() == "4.8.5":
+        common.Append(CCFLAGS = '-Wno-narrowing -Wno-conversion-null')
 
 if not sys.platform.startswith('darwin'):
     if platform.system().startswith('Linux'):
