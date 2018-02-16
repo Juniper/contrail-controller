@@ -17,6 +17,10 @@ using namespace std;
 class VmiSubscribeEntry;
 static const int kProjectUuid = 101;
 
+struct EncryptTunnelEndpoint {
+    std::string ip;
+};
+
 struct TestLinkLocalService {
     std::string linklocal_name;
     std::string linklocal_ip;
@@ -344,6 +348,8 @@ void AddIPAM(const char *name, IpamInfo *ipam, int size, const char *ipam_attr =
 void DelIPAM(const char *name, const char *vdns_name = NULL);
 void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
+void AddEncryptRemoteTunnelConfig(const EncryptTunnelEndpoint *endpoints, int count,
+  	                          std::string encrypt_mode);
 void AddLinkLocalConfig(const TestLinkLocalService *services, int count);
 void DelLinkLocalConfig();
 void DeleteGlobalVrouterConfig();
