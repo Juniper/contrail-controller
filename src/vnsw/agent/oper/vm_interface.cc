@@ -46,8 +46,11 @@ const char *VmInterface::kInterfaceStatic = "interface-static";
 // VM-Interface entry routines
 /////////////////////////////////////////////////////////////////////////////
 VmInterface::VmInterface(const boost::uuids::uuid &uuid, 
-                         const std::string &name, bool os_oper_state) :
-    Interface(Interface::VM_INTERFACE, uuid, name, NULL, os_oper_state),
+                         const std::string &name,
+                         bool os_oper_state,
+                         const boost::uuids::uuid &logical_router_uuid) :
+    Interface(Interface::VM_INTERFACE, uuid, name, NULL, os_oper_state,
+              logical_router_uuid),
     vm_(NULL, this), vn_(NULL), primary_ip_addr_(0), subnet_bcast_addr_(0),
     primary_ip6_addr_(), vm_mac_(MacAddress::kZeroMac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
@@ -95,8 +98,10 @@ VmInterface::VmInterface(const boost::uuids::uuid &uuid,
                          uint16_t tx_vlan_id, uint16_t rx_vlan_id,
                          Interface *parent, const Ip6Address &a6,
                          DeviceType device_type, VmiType vmi_type,
-                         uint8_t vhostuser_mode, bool os_oper_state) :
-    Interface(Interface::VM_INTERFACE, uuid, name, NULL, os_oper_state),
+                         uint8_t vhostuser_mode, bool os_oper_state,
+                         const boost::uuids::uuid &logical_router_uuid) :
+    Interface(Interface::VM_INTERFACE, uuid, name, NULL, os_oper_state,
+              logical_router_uuid),
     vm_(NULL, this), vn_(NULL), primary_ip_addr_(addr), subnet_bcast_addr_(0),
     primary_ip6_addr_(a6), vm_mac_(mac), policy_enabled_(false),
     mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX), cfg_name_(""),
