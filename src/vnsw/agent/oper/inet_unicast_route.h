@@ -338,6 +338,11 @@ public:
     IpAddress GetSubnetAddress(const IpAddress &addr,
                                uint16_t plen) const;
     InetUnicastRouteEntry *GetSuperNetRoute(const IpAddress &addr);
+    void AddEvpnRoutingRoute(const IpAddress &ip_addr,
+                             uint8_t plen,
+                             const VrfEntry *vrf,
+                             const Peer *peer,
+                             DBRequest &nh_req);
 
 private:
     Agent::RouteTableType type_;

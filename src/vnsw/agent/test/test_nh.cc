@@ -660,7 +660,8 @@ TEST_F(CfgTest, Nexthop_keys) {
     TunnelNHKey *tnh_key = static_cast<TunnelNHKey *>(tnh_key_base.get());
     TunnelNH *tnh = static_cast<TunnelNH*>(agent_->nexthop_table()->
                                         FindActiveEntry(tnh_key));
-    EXPECT_TRUE(tnh->ToString() == "Tunnel to 10.1.1.100");
+    EXPECT_TRUE(tnh->ToString() ==
+                "Tunnel to 10.1.1.100 rewrite mac 00:00:00:00:00:00");
     tnh->SetKey(tnh->GetDBRequestKey().get());
     DoNextHopSandesh();
     EvpnAgentRouteTable::DeleteReq(agent_->local_peer(),

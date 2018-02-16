@@ -72,7 +72,8 @@ public:
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
 
     Interface(Type type, const boost::uuids::uuid &uuid,
-              const std::string &name, VrfEntry *vrf, bool os_oper_state);
+              const std::string &name, VrfEntry *vrf, bool os_oper_state,
+              const boost::uuids::uuid &logical_router_uuid);
     virtual ~Interface();
 
     // DBEntry virtual function. Must be implemented by derived interfaces
@@ -143,6 +144,12 @@ public:
     void UpdateOperStateOfSubIntf(const InterfaceTable *table);
     bool NeedDefaultOsOperStateDisabled(Agent *agent) const;
     boost::optional<IfGuid> os_guid() const { return os_guid_; }
+    const boost::uuids::uuid &logical_router_uuid() const {
+        return logical_router_uuid_;
+    }
+    void set_logical_router_uuid(const boost::uuids::uuid &logical_router_uuid) {
+        logical_router_uuid_ = logical_router_uuid;
+    }
 
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
@@ -177,6 +184,7 @@ protected:
     NextHopConstRef flow_key_nh_;
     Transport transport_;
     AgentQosConfigConstRef qos_config_;
+    boost::uuids::uuid logical_router_uuid_;
 
     // Used on Windows as network interface's identifier
     boost::optional<IfGuid> os_guid_;
@@ -258,6 +266,7 @@ struct InterfaceData : public AgentOperDBData {
     // This is constant-data. Set only during create and not modified later
     std::string vrf_name_;
     Interface::Transport transport_;
+    boost::uuids::uuid logical_router_uuid_;
 };
 
 struct InterfaceQosConfigData : public AgentOperDBData {
@@ -338,6 +347,8 @@ public:
 
     // Config handlers
     bool ProcessConfig(IFMapNode *node, DBRequest &req,
+            const boost::uuids::uuid &u);
+    bool InterfaceCommonProcessConfig(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);
     bool LogicalInterfaceProcessConfig(IFMapNode *node, DBRequest &req,
             const boost::uuids::uuid &u);

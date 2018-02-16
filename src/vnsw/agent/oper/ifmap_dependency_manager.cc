@@ -29,6 +29,7 @@
 #include "filter/policy_set.h"
 #include "cfg/cfg_init.h"
 #include "oper/security_logging_object.h"
+#include "oper/project_config.h"
 
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
@@ -939,6 +940,8 @@ void IFMapDependencyManager::InitializeDependencyRules(Agent *agent) {
                           agent->oper_db()->virtual_dns());
     RegisterConfigHandler(this, "global-vrouter-config",
                           agent->oper_db()->global_vrouter());
+    RegisterConfigHandler(this, "project",
+                          agent->oper_db()->project_config());
     AddDependencyPath("bridge-domain",
                       MakePath("virtual-network-bridge-domain",
                                "virtual-network", true,

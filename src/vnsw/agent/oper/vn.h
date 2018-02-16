@@ -95,7 +95,8 @@ struct VnData : public AgentOperDBData {
            bool flood_unknown_unicast, Agent::ForwardingMode forwarding_mode,
            const boost::uuids::uuid &qos_config_uuid, bool mirror_destination,
            bool pbb_etree_enable, bool pbb_evpn_enable,
-           bool layer2_control_word, UuidList slo_list) :
+           bool layer2_control_word, UuidList slo_list,
+           bool vxlan_routing_vn, const boost::uuids::uuid &logical_router_uuid) :
         AgentOperDBData(agent, node), name_(name), vrf_name_(vrf_name),
         acl_id_(acl_id), mirror_acl_id_(mirror_acl_id),
         mirror_cfg_acl_id_(mc_acl_id), ipam_(ipam), vn_ipam_data_(vn_ipam_data),
@@ -104,7 +105,9 @@ struct VnData : public AgentOperDBData {
         forwarding_mode_(forwarding_mode), qos_config_uuid_(qos_config_uuid),
         mirror_destination_(mirror_destination),
         pbb_etree_enable_(pbb_etree_enable), pbb_evpn_enable_(pbb_evpn_enable),
-        layer2_control_word_(layer2_control_word), slo_list_(slo_list) {
+        layer2_control_word_(layer2_control_word), slo_list_(slo_list),
+        vxlan_routing_vn_(vxlan_routing_vn),
+        logical_router_uuid_(logical_router_uuid) {
     };
     virtual ~VnData() { }
 
@@ -127,6 +130,8 @@ struct VnData : public AgentOperDBData {
     bool pbb_evpn_enable_;
     bool layer2_control_word_;
     UuidList slo_list_;
+    bool vxlan_routing_vn_;
+    boost::uuids::uuid logical_router_uuid_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentOperDBEntry {
@@ -213,6 +218,11 @@ public:
                                      bool *is_gateway) const;
     void AllocWalker();
     void ReleaseWalker();
+    bool vxlan_routing_vn() const {return vxlan_routing_vn_;}
+    const boost::uuids::uuid &logical_router_uuid() const {
+        return logical_router_uuid_;
+    }
+
 private:
     friend class VnTable;
     bool Resync(Agent *agent);
@@ -263,6 +273,8 @@ private:
     bool pbb_evpn_enable_;
     bool layer2_control_word_;
     UuidList slo_list_;
+    bool vxlan_routing_vn_;
+    boost::uuids::uuid logical_router_uuid_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 

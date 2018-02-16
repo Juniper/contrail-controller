@@ -1692,3 +1692,75 @@ bool AgentPath::ResyncControlWord(const AgentRoute *rt) {
 
     return false;
 }
+
+EvpnRoutingPath::EvpnRoutingPath(const Peer *peer,
+                                 AgentRoute *rt,
+                                 VrfEntryConstRef routing_vrf) :
+    AgentPath(peer, rt), routing_vrf_(routing_vrf) {
+}
+
+const VrfEntry *EvpnRoutingPath::routing_vrf() const {
+    return routing_vrf_.get();
+}
+
+void EvpnRoutingPath::set_routing_vrf(const VrfEntry *vrf) {
+    routing_vrf_.reset(vrf);
+}
+
+void EvpnRoutingPath::DeleteEvpnType5Route(Agent *agent,
+                                           const AgentRoute *rt) const {
+    const VrfEntry *l3_vrf = routing_vrf_.get();
+    if (!l3_vrf)
+        return;
+
+    const InetUnicastRouteEntry *inet_rt =
+        static_cast<const InetUnicastRouteEntry *>(rt);
+    const EvpnAgentRouteTable *evpn_table =
+        static_cast<EvpnAgentRouteTable *>(l3_vrf->GetEvpnRouteTable());
+    evpn_table->Delete(agent->local_vm_peer(), l3_vrf->GetName(),
+                       MacAddress(), inet_rt->addr(),
+                       routing_vrf_.get()->vxlan_id());
+}
+
+EvpnRoutingData::EvpnRoutingData(DBRequest &nh_req,
+                                 VrfEntryConstRef vrf_entry) :
+    AgentRouteData(AgentRouteData::ADD_DEL_CHANGE, false, 0),
+    routing_vrf_(vrf_entry) {
+        nh_req_.Swap(&nh_req);
+}
+
+AgentPath *EvpnRoutingData::CreateAgentPath(const Peer *peer,
+                                            AgentRoute *rt) const {
+    return (new EvpnRoutingPath(peer, rt, routing_vrf_));
+}
+
+bool EvpnRoutingData::AddChangePathExtended(Agent *agent,
+                                            AgentPath *path,
+                                            const AgentRoute *rt) {
+    bool ret = false;
+    EvpnRoutingPath *evpn_path = static_cast<EvpnRoutingPath *>(path);
+
+    agent->nexthop_table()->Process(nh_req_);
+    NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
+                                         FindActiveEntry(nh_req_.key.get()));
+
+    InterfaceNH *intf_nh = dynamic_cast<InterfaceNH *>(nh);
+    if (intf_nh) {
+        intf_nh->set_delete_on_zero_refcount(true);
+    }
+    if (routing_vrf_.get() != evpn_path->routing_vrf()) {
+        //Remove from old vrf
+        evpn_path->DeleteEvpnType5Route(agent, rt);
+        evpn_path->set_routing_vrf(routing_vrf_.get());
+        ret = true;
+    }
+
+    if (path->ChangeNH(agent, nh) == true) {
+        ret = true;
+    }
+
+    path->set_tunnel_type(TunnelType::VXLAN);
+    path->set_tunnel_bmap(TunnelType::VxlanType());
+
+    return ret;
+}
