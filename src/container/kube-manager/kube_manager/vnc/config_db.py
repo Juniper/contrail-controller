@@ -1392,13 +1392,6 @@ class SecurityGroupKM(DBBaseKM):
         self.annotations = None
         self.namespace = None
         self.owner = None
-        self.np_spec = {}
-        self.np_pod_selector = {}
-        self.ingress_pod_selector = {}
-        self.ingress_pod_sgs = set()
-        self.ingress_ns_sgs = set()
-        self.np_sgs = set()
-        self.rule_entries = None
         obj_dict = self.update(obj_dict)
 
     def update(self, obj=None):
@@ -1408,24 +1401,6 @@ class SecurityGroupKM(DBBaseKM):
         self.fq_name = obj['fq_name']
         self.build_fq_name_to_uuid(self.uuid, obj)
         self.annotations = obj.get('annotations', {})
-        for kvp in self.annotations.get('key_value_pair', []):
-            if kvp.get('key') == 'namespace':
-                self.namespace = kvp.get('value')
-            if kvp.get('key') == 'owner':
-                self.owner = kvp.get('value')
-            elif kvp.get('key') == 'np_spec':
-                self.np_spec = json.loads(kvp.get('value'))
-            elif kvp.get('key') == 'np_pod_selector':
-                self.np_pod_selector = json.loads(kvp.get('value'))
-            elif kvp.get('key') == 'ingress_pod_selector':
-                self.ingress_pod_selector = json.loads(kvp.get('value'))
-            elif kvp.get('key') == 'ingress_pod_sgs':
-                self.ingress_pod_sgs = set(json.loads(kvp.get('value')))
-            elif kvp.get('key') == 'ingress_ns_sgs':
-                self.ingress_ns_sgs = set(json.loads(kvp.get('value')))
-            elif kvp.get('key') == 'np_sgs':
-                self.np_sgs = set(json.loads(kvp.get('value')))
-
         # Register this SG uuid with its project.
         #
         # This information is used during k8s namespace deletion to cross
@@ -1469,11 +1444,6 @@ class SecurityGroupKM(DBBaseKM):
                 continue
 
             sg_annotations = cls._build_annotation_dict(sg.annotations)
-            ingress_pod_selector = cls._build_string_dict(
-                sg.ingress_pod_selector)
-            np_pod_selector = cls._build_string_dict(sg.np_pod_selector)
-            np_spec = cls._build_string_dict(sg.np_spec)
-
             rule_entries = []
             sg_rule_entries = sg.rule_entries['policy_rule'] if sg.rule_entries\
                 else []
@@ -1532,13 +1502,7 @@ class SecurityGroupKM(DBBaseKM):
                 name=sg.fq_name[-1],
                 fq_name=sg.fq_name,
                 annotations=sg_annotations,
-                ingress_ns_sgs=list(sg.ingress_ns_sgs),
-                ingress_pod_selector=ingress_pod_selector,
-                ingress_pod_sgs=list(sg.ingress_pod_sgs),
                 namespace_name=sg.namespace,
-                np_pod_selector=np_pod_selector,
-                np_sgs=list(sg.np_sgs),
-                np_spec=np_spec,
                 owner=sg.owner,
                 project_uuid=str(sg.project_uuid),
                 rule_entries=rule_entries,

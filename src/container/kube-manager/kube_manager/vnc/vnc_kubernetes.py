@@ -255,13 +255,16 @@ class VncKubernetes(VncCommon):
 
     def _create_attach_policy(self, proj_obj, ip_fabric_vn_obj, \
             pod_vn_obj, service_vn_obj):
-        policy_name = 'ip-fabric-default'
+        policy_name = vnc_kube_config.cluster_name() + \
+            '-default-ip-fabric-np'
         ip_fabric_policy = \
             self._create_np_vn_policy(policy_name, proj_obj, ip_fabric_vn_obj)
-        policy_name = 'cluster-service-default'
+        policy_name = vnc_kube_config.cluster_name() + \
+            '-default-service-np'
         cluster_service_network_policy = \
             self._create_np_vn_policy(policy_name, proj_obj, service_vn_obj)
-        policy_name = 'cluster-default'
+        policy_name = vnc_kube_config.cluster_name() + \
+            '-default-pod-service-np'
         cluster_default_policy = self._create_vn_vn_policy(policy_name, \
             proj_obj, pod_vn_obj, service_vn_obj)
         self._attach_policy(ip_fabric_vn_obj, ip_fabric_policy)
@@ -345,8 +348,9 @@ class VncKubernetes(VncCommon):
             virtual_network_read(fq_name=ip_fabric_fq_name)
         self._create_project('kube-system')
         # Create Pod IPAM.
+        ipam_name = vnc_kube_config.cluster_name() + '-pod-ipam'
         pod_ipam_update, pod_ipam_obj, pod_ipam_subnets = \
-            self._create_ipam('pod-ipam', self.args.pod_subnets, proj_obj)
+            self._create_ipam(ipam_name, self.args.pod_subnets, proj_obj)
         # Cache cluster pod ipam name.
         # This will be referenced by ALL pods that are spawned in the cluster.
         self._cluster_pod_ipam_fq_name = pod_ipam_obj.get_fq_name()
@@ -355,8 +359,9 @@ class VncKubernetes(VncCommon):
             vnc_kube_config.cluster_default_pod_network_name(), proj_obj, \
             pod_ipam_obj, pod_ipam_update, ip_fabric_vn_obj)
         # Create Service IPAM.
+        ipam_name = vnc_kube_config.cluster_name() + '-service-ipam'
         service_ipam_update, service_ipam_obj, service_ipam_subnets = \
-            self._create_ipam('service-ipam', self.args.service_subnets, proj_obj)
+            self._create_ipam(ipam_name, self.args.service_subnets, proj_obj)
         self._cluster_service_ipam_fq_name = service_ipam_obj.get_fq_name()
         # Create a cluster-service-network
         cluster_service_vn_obj = self._create_network(

@@ -32,7 +32,6 @@ class VncNamespace(VncCommon):
         self._name = type(self).__name__
         self._network_policy_mgr = network_policy_mgr
         self._vnc_lib = vnc_kube_config.vnc_lib()
-        self._ns_sg = {}
         self._label_cache = vnc_kube_config.label_cache()
         self._args = vnc_kube_config.args()
         self._logger = vnc_kube_config.logger()
@@ -60,10 +59,12 @@ class VncNamespace(VncCommon):
             NamespaceKM.delete(ns.uuid)
 
     def _get_namespace_pod_vn_name(self, ns_name):
-        return ns_name + "-pod-network"
+        return vnc_kube_config.cluster_name() + \
+                '-' +  ns_name + "-pod-network"
 
     def _get_namespace_service_vn_name(self, ns_name):
-        return ns_name + "-service-network"
+        return vnc_kube_config.cluster_name() + \
+                '-' +  ns_name + "-service-network"
 
     def _get_ip_fabric_forwarding(self, ns_name):
         ns = self._get_namespace(ns_name)
@@ -202,28 +203,6 @@ class VncNamespace(VncCommon):
 
         try:
             vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn.fq_name)
-
-            # Delete/cleanup network policy allocated for this network.
-            network_policy_refs = vn_obj.get_network_policy_refs()
-            if network_policy_refs:
-                for network_policy_ref in network_policy_refs:
-
-                    if network_policy_ref['uuid'] ==\
-                        self._cluster_service_policy.uuid:
-                        continue
-
-                    if network_policy_ref['uuid'] ==\
-                        self._ip_fabric_policy.uuid:
-                        continue
-
-                    try:
-                        self._vnc_lib. \
-                            network_policy_delete(id=network_policy_ref['uuid'])
-                    except NoIdError:
-                        # It is possible NP got cleaned up as part of one other
-                        # virtual network.
-                        pass
-
             # Delete/cleanup ipams allocated for this network.
             ipam_refs = vn_obj.get_network_ipam_refs()
             if ipam_refs:
@@ -305,7 +284,8 @@ class VncNamespace(VncCommon):
             except NoIdError:
                 return
             self._ip_fabric_policy = cluster_ip_fabric_policy
-        policy_name = '%s-default' %ns_name
+        policy_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'pod-service-np'])
+        #policy_name = '%s-default' %ns_name
         ns_default_policy = self._create_vn_vn_policy(policy_name, proj_obj, \
             pod_vn_obj, service_vn_obj)
         self._attach_policy(pod_vn_obj, ns_default_policy, \
@@ -314,7 +294,7 @@ class VncNamespace(VncCommon):
             self._ip_fabric_policy)
 
     def _delete_policy(self, ns_name, proj_fq_name):
-        policy_name = '%s-default' %ns_name
+        policy_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'pod-service-np'])
         policy_fq_name = proj_fq_name[:]
         policy_fq_name.append(policy_name)
         try:
@@ -322,7 +302,7 @@ class VncNamespace(VncCommon):
         except NoIdError:
             pass
 
-    def _update_security_groups(self, ns_name, proj_obj, network_policy):
+    def _update_security_groups(self, ns_name, proj_obj):
         def _get_rule(ingress, sg, prefix, ethertype):
             sgr_uuid = str(uuid.uuid4())
             if sg:
@@ -349,9 +329,8 @@ class VncNamespace(VncCommon):
                                   ethertype=ethertype)
             return rule
 
-        sg_dict = {}
         # create default security group
-        sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'default'])
+        sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'default-sg'])
         DEFAULT_SECGROUP_DESCRIPTION = "Default security group"
         id_perms = IdPermsType(enable=True,
                                description=DEFAULT_SECGROUP_DESCRIPTION)
@@ -359,12 +338,6 @@ class VncNamespace(VncCommon):
         rules = []
         ingress = True
         egress = True
-        if network_policy and 'ingress' in network_policy:
-            ingress_policy = network_policy['ingress']
-            if ingress_policy and 'isolation' in ingress_policy:
-                isolation = ingress_policy['isolation']
-                if isolation == 'DefaultDeny':
-                    ingress = False
         if ingress:
             rules.append(_get_rule(True, None, '0.0.0.0', 'IPv4'))
             rules.append(_get_rule(True, None, '::', 'IPv6'))
@@ -385,34 +358,8 @@ class VncNamespace(VncCommon):
             self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
         except RefsExistError:
             self._vnc_lib.security_group_update(sg_obj)
-        sg_obj = self._vnc_lib.security_group_read(sg_obj.fq_name)
-        sg_uuid = sg_obj.get_uuid()
-        SecurityGroupKM.locate(sg_uuid)
-        sg_dict[sg_name] = sg_uuid
-
-        # create namespace security group
-        ns_sg_name = "-".join([vnc_kube_config.cluster_name(), ns_name, 'sg'])
-        NAMESPACE_SECGROUP_DESCRIPTION = "Namespace security group"
-        id_perms = IdPermsType(enable=True,
-                               description=NAMESPACE_SECGROUP_DESCRIPTION)
-        sg_obj = SecurityGroup(name=ns_sg_name, parent_obj=proj_obj,
-                               id_perms=id_perms,
-                               security_group_entries=None)
-
-        SecurityGroupKM.add_annotations(self, sg_obj, namespace=ns_name,
-                                        name=sg_obj.name,
-                                        k8s_type=self._k8s_event_type)
-        try:
-            self._vnc_lib.security_group_create(sg_obj)
-            self._vnc_lib.chown(sg_obj.get_uuid(), proj_obj.get_uuid())
-        except RefsExistError:
-            pass
-        sg_obj = self._vnc_lib.security_group_read(sg_obj.fq_name)
-        sg_uuid = sg_obj.get_uuid()
-        SecurityGroupKM.locate(sg_uuid)
-        sg_dict[ns_sg_name] = sg_uuid
-
-        return sg_dict
+        sg = SecurityGroupKM.locate(sg_obj.get_uuid())
+        return sg
 
     def vnc_namespace_add(self, namespace_id, name, labels):
         isolated_ns_ann = 'True' if self._is_namespace_isolated(name) \
@@ -466,10 +413,7 @@ class VncNamespace(VncCommon):
                     self._ip_fabric_vn_obj, pod_vn, service_vn)
 
         try:
-            network_policy = self._get_network_policy_annotations(name)
-            sg_dict = self._update_security_groups(name, proj_obj,
-                                                   network_policy)
-            self._ns_sg[name] = sg_dict
+            self._update_security_groups(name, proj_obj)
         except RefsExistError:
             pass
 
@@ -496,14 +440,6 @@ class VncNamespace(VncCommon):
                                "[%s]" % (name))
             return
 
-        default_sg_fq_name = proj_fq_name[:]
-        sg = "-".join([vnc_kube_config.cluster_name(), name, 'default'])
-        default_sg_fq_name.append(sg)
-        ns_sg_fq_name = proj_fq_name[:]
-        ns_sg = "-".join([vnc_kube_config.cluster_name(), name, 'sg'])
-        ns_sg_fq_name.append(ns_sg)
-        sg_list = [default_sg_fq_name, ns_sg_fq_name]
-
         try:
             # If the namespace is isolated, delete its virtual network.
             if self._is_namespace_isolated(name):
@@ -519,15 +455,19 @@ class VncNamespace(VncCommon):
                 # Clear service network info from namespace entry.
                 self._set_namespace_service_virtual_network(name, None)
 
-            # delete default-sg and ns-sg security groups
+            # delete security groups
             security_groups = project.get_security_groups()
             for sg_uuid in security_groups:
                 sg = SecurityGroupKM.get(sg_uuid)
-                if sg and sg.fq_name in sg_list[:]:
-                    self._vnc_lib.security_group_delete(id=sg_uuid)
-                    sg_list.remove(sg.fq_name)
-                    if not len(sg_list):
-                        break
+                if not sg:
+                    continue
+                for vmi_id in list(sg.virtual_machine_interfaces):
+                    try:
+                        self._vnc_lib.ref_update('virtual-machine-interface', vmi_id,
+                            'security-group', sg.uuid, None, 'DELETE')
+                    except NoIdError:
+                        pass
+                self._vnc_lib.security_group_delete(id=sg_uuid)
 
             # delete the label cache
             if project:

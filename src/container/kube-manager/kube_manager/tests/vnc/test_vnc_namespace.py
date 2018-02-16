@@ -104,8 +104,8 @@ class VncNamespaceTestClusterProjectDefined(VncNamespaceTest):
         self.assertIsNotNone(proj)
         self.assertEquals(self.cluster_project, proj.name)
 
-        fqname = ['default-domain', \
-            self.cluster_project, self.ns_name+'-pod-network']
+        fqname = ['default-domain', self.cluster_project, \
+            self.cluster_name() + '-' + self.ns_name + '-pod-network']
         vn = self._vnc_lib.virtual_network_read(fq_name=fqname)
         self.assertIsNotNone(vn)
 

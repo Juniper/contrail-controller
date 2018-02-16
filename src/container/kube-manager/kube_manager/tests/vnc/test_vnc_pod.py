@@ -36,8 +36,8 @@ class VncPodTest(KMTestCase):
         DBBaseKM.set_nested(False)
         cls.domain = 'default-domain'
         cls.cluster_project = 'test-project'
-        cls.vn_name = 'test-pod-network'
-        cls.service_vn_name = 'test-service-network'
+        cls.vn_name = cls.cluster_name() + '-test-pod-network'
+        cls.service_vn_name = cls.cluster_name() + '-test-service-network'
         cls.ns_name = 'test-namespace'
 
         cls.pod_name = 'test-pod'
@@ -346,7 +346,7 @@ class VncPodTestNamespaceIsolation(VncPodTest):
             extra_config_knobs=extra_config_knobs)
         cls.ns_name = 'test-namespace-isolated'
         cls.cluster_project = cls.ns_name
-        cls.vn_name = cls.ns_name + '-pod-network'
+        cls.vn_name = cls.cluster_name() + '-' + cls.ns_name + '-pod-network'
         args = {}
         args['domain'] = 'default-domain'
         args['project'] = cls.cluster_project

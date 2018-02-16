@@ -86,8 +86,8 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         # wait till isolated service-network get deleted
-        vn_fq_name = ['default-domain', \
-            cluster_project, namespace_name + '-service-network']
+        vn_fq_name = ['default-domain', cluster_project, \
+            self.cluster_name() + '-' + namespace_name + '-service-network']
         self.wait_isolated_service_vn_get_deleted(vn_fq_name)
         self._delete_project(cluster_project)
 
@@ -193,8 +193,8 @@ class VncServiceTest(KMTestCase):
         self._enqueue_delete_service(ports, srv_meta)
         self._enqueue_delete_namespace(namespace_name, namespace_uuid)
         # wait till isolated service-network get deleted
-        vn_fq_name = ['default-domain', \
-            cluster_project, namespace_name + '-service-network']
+        vn_fq_name = ['default-domain', cluster_project, \
+            self.cluster_name() + '-' + namespace_name + '-service-network']
         self.wait_isolated_service_vn_get_deleted(vn_fq_name)
         self._delete_project(cluster_project)
 
@@ -585,7 +585,7 @@ class VncServiceTest(KMTestCase):
             self.wait_for_all_tasks_done()
 
     def _create_virtual_network(self, project='default',
-                                network='cluster-service-network'):
+                                network='cluster-default-service-network'):
         proj_fq_name = ['default-domain', project]
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
         vn_obj = VirtualNetwork(

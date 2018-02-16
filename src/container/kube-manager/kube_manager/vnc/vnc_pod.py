@@ -199,11 +199,8 @@ class VncPod(VncCommon):
 
     @staticmethod
     def _associate_security_groups(vmi_obj, proj_obj, ns):
-        sg_name = "-".join([vnc_kube_config.cluster_name(), ns, 'default'])
+        sg_name = "-".join([vnc_kube_config.cluster_name(), ns, 'default-sg'])
         sg_obj = SecurityGroup(sg_name, proj_obj)
-        vmi_obj.add_security_group(sg_obj)
-        ns_sg_name = "-".join([vnc_kube_config.cluster_name(), ns, 'sg'])
-        sg_obj = SecurityGroup(ns_sg_name, proj_obj)
         vmi_obj.add_security_group(sg_obj)
         return
 
@@ -233,8 +230,8 @@ class VncPod(VncCommon):
         vmi_obj.uuid = obj_uuid
         vmi_obj.set_virtual_network(vn_obj)
         vmi_obj.set_virtual_machine(vm_obj)
-        #TBD: Cleanup after migration to Contrail Security Policy.
-        #self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
+        self._associate_security_groups(vmi_obj, proj_obj, pod_namespace)
+        vmi_obj.port_security_enabled = True
         VirtualMachineInterfaceKM.add_annotations(self, vmi_obj, pod_namespace,
                                                   pod_name)
 
