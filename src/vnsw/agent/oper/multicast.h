@@ -261,7 +261,9 @@ public:
     typedef std::vector<std::string> ManagedPhysicalDevicesList;
 
     MulticastHandler(Agent *agent);
-    virtual ~MulticastHandler() { }
+    virtual ~MulticastHandler() {
+        assert(multicast_obj_list_.size() == 0);
+    }
 
     MulticastGroupObject *CreateMulticastGroupObject(const string &vrf_name,
                                             const string &vn_name,
@@ -379,6 +381,7 @@ public:
     void DeleteVmInterfaceFromSourceGroup(const std::string &mvpn_vrf_name,
                                     const std::string &vm_vrf_name,
                                     const VmInterface *vm_itf);
+    bool FilterVmi(const VmInterface *vmi);
 
 private:
     //operations on list of all objectas per group/source/vrf

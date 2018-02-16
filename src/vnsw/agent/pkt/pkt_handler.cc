@@ -645,7 +645,7 @@ int PktHandler::ParseMplsHdr(PktInfo *pkt_info, uint8_t *pkt) {
     }
 
     const VrfNH *vrf_nh = dynamic_cast<const VrfNH *>(mpls->nexthop());
-    if (vrf_nh && vrf_nh->vxlan_nh() == true) {
+    if (vrf_nh && vrf_nh->bridge_nh() == true) {
         pkt_info->l3_label = false;
     }
 

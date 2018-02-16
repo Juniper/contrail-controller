@@ -110,6 +110,9 @@ void FlowMgmtDbClient::InterfaceNotify(DBTablePartBase *part, DBEntryBase *e) {
     }
 
     VmInterface *vm_port = static_cast<VmInterface *>(intf);
+    if (vm_port->device_type() == VmInterface::VMI_ON_LR)
+        return;
+
     const VnEntry *new_vn = vm_port->vn();
 
     VmIntfFlowHandlerState *state = static_cast<VmIntfFlowHandlerState *>
