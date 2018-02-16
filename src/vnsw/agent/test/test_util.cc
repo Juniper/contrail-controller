@@ -216,6 +216,10 @@ static void BuildLinkToMetadata() {
     AddLinkToMetadata("policy-management", "application-policy-set");
     AddLinkToMetadata("virtual-network", "virtual-network",
                       "virtual-network-provider-network");
+    AddLinkToMetadata("logical-router", "virtual-machine-interface",
+                      "logical-router-interface");
+    AddLinkToMetadata("logical-router", "virtual-network",
+                      "logical-router-virtual-network");
 }
 
 string GetMetadata(const char *node1, const char *node2,
@@ -1627,6 +1631,28 @@ bool VlanNhFind(int id, uint16_t tag) {
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
+                          const IpAddress &vm_addr, uint8_t plen,
+                          const std::string &rewrite_dmac,
+                          uint32_t tag, bool leaf) {
+    VnListType vn_list;
+    ControllerVmRoute *data =
+        ControllerVmRoute::MakeControllerVmRoute(peer,
+                              Agent::GetInstance()->fabric_vrf_name(),
+                              Agent::GetInstance()->router_id(),
+                              vm_vrf, server_ip,
+                              bmap, label, MacAddress(rewrite_dmac),
+                              vn_list, SecurityGroupList(),
+                              TagList(),
+                              PathPreference(), false, EcmpLoadBalance(),
+                              leaf);
+    EvpnAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf, remote_vm_mac,
+                                        vm_addr, tag, data);
+    return true;
+}
+
+bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
+                          TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
+                          uint32_t label, MacAddress &remote_vm_mac,
                           const IpAddress &vm_addr, uint8_t plen, uint32_t tag,
                           bool leaf) {
     VnListType vn_list;
@@ -1635,7 +1661,8 @@ bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, vn_list, SecurityGroupList(),
+                              bmap, label, MacAddress(),
+                              vn_list, SecurityGroupList(),
                               TagList(),
                               PathPreference(), false, EcmpLoadBalance(),
                               leaf);
@@ -1721,7 +1748,7 @@ bool Inet6TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip6Add
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, vn_list, sg, tag,
+                              bmap, label, MacAddress(), vn_list, sg, tag,
                               path_preference, false, EcmpLoadBalance(),
                               false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
@@ -1774,7 +1801,7 @@ bool Inet4TunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf, const Ip4Add
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, server_ip,
-                              bmap, label, vn_list, sg, tag,
+                              bmap, label, MacAddress(), vn_list, sg, tag,
                               path_preference, false, EcmpLoadBalance(),
                               false);
     InetUnicastAgentRouteTable::AddRemoteVmRouteReq(peer, vm_vrf,
@@ -1804,7 +1831,7 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                               Agent::GetInstance()->fabric_vrf_name(),
                               Agent::GetInstance()->router_id(),
                               vm_vrf, Ip4Address::from_string(server, ec),
-                              TunnelType::AllType(), label, vn_list,
+                              TunnelType::AllType(), label, MacAddress(), vn_list,
                               SecurityGroupList(), TagList(),
                               PathPreference(), false,
                               EcmpLoadBalance(), false);
@@ -2041,6 +2068,22 @@ void AddPort(const char *name, int id, const char *attr) {
         << endl;
     str << "</virtual-machine-interface-mac-addresses>" << endl;
     str << "<display-name> " << name << "</display-name>" << endl;
+
+    char buff[4096];
+    strcpy(buff, str.str().c_str());
+    AddNode("virtual-machine-interface", name, id, buff);
+}
+
+void AddLrPort(const char *name, int id) {
+    std::stringstream str;
+    str << "<virtual-machine-interface-mac-addresses>" << endl;
+    str << "    <mac-address>00:00:00:00:00:" << id << "</mac-address>"
+        << endl;
+    str << "</virtual-machine-interface-mac-addresses>" << endl;
+    str << "<display-name> " << name << "</display-name>" << endl;
+    str << "<virtual-machine-interface-device-owner>"
+        "network:router_interface</virtual-machine-interface-device-owner>" <<
+        endl;
 
     char buff[4096];
     strcpy(buff, str.str().c_str());
@@ -2980,6 +3023,38 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     }
 
     return false;
+}
+
+void AddLrVmiPort(const char *vmi, int intf_id, const char *ip,
+               const char *vrf, const char *vn,
+               const char *instance_ip, int instance_uuid) {
+    AddLrPort(vmi, intf_id);
+    AddVmPortVrf(vmi, "", 0);
+    AddInstanceIp(instance_ip, instance_uuid, ip);
+    AddLink("virtual-machine-interface", vmi, "virtual-network", vn);
+    AddLink("virtual-network", vn, "routing-instance", vrf);
+    AddLink("virtual-machine-interface-routing-instance", vmi,
+            "routing-instance", vrf);
+    AddLink("virtual-machine-interface-routing-instance", vmi,
+            "virtual-machine-interface", vmi);
+    AddLink("virtual-machine-interface", vmi, "instance-ip", instance_ip);
+    client->WaitForIdle();
+}
+
+void DelLrVmiPort(const char *vmi, int intf_id, const char *ip,
+               const char *vrf, const char *vn,
+               const char *instance_ip, int instance_uuid) {
+    DelLink("virtual-machine-interface", vmi, "virtual-network", vn);
+    DelLink("virtual-network", vn, "routing-instance", vrf);
+    DelLink("virtual-machine-interface-routing-instance", vmi,
+            "routing-instance", vrf);
+    DelLink("virtual-machine-interface-routing-instance", vmi,
+            "virtual-machine-interface", vmi);
+    DelLink("virtual-machine-interface", vmi, "instance-ip", instance_ip);
+    DelNode("virtual-machine-interface", vmi);
+    DelVmPortVrf(vmi);
+    DelInstanceIp(instance_ip);
+    client->WaitForIdle();
 }
 
 void AddVmPort(const char *vmi, int intf_id, const char *ip, const char *mac,

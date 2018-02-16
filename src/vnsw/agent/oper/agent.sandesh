@@ -2173,6 +2173,8 @@ struct RouteInfo {
     9: optional string mac;
    /** Boolean value if route path is ecmp */
    10: bool ecmp;
+   /** VRF nh name */
+   11: optional string vrf_nh_name;
 }
 
 /**
@@ -2312,6 +2314,8 @@ struct NextHopObjectLogInfo {
     19: optional string crypt_traffic;
     20: optional string crypt_tunnel_available;
     21: optional string crypt_interface;
+    /** Rewrite dmac for inner payload */
+    22: string rewrite_dmac;
 }
 
 /**
@@ -3458,4 +3462,36 @@ response sandesh CryptTunnelResp {
 
 request sandesh CryptTunnelReq {
     1: string remote;
+}
+
+struct VxlanRoutingBridgeVrf {
+    /** bridge vrf */
+    1: string bridge_vrf (link="VrfListReq");
+    /** bridge vn */
+    2: string bridge_vn (link="VnListReq");
+}
+
+struct VxlanRoutingMap {
+    /** Routing vrf */
+    1: string routing_vrf (link="VrfListReq");
+    /** logical router uuid */
+    2: string logical_router_uuid;
+    /** Routing VN */
+    3: string parent_routing_vn (link="VnListReq");
+    /** list of bridge vrf */
+    4: list<VxlanRoutingBridgeVrf> bridge_vrfs;
+}
+
+response sandesh VxlanRoutingResp {
+    /** Vxlan enabled */
+    1: bool enable;
+    /** VRF mapping from routing to bridge vrfs */
+    2: list<VxlanRoutingMap> vr_map;
+}
+
+/**
+ * @description: Request message for Vxlan routing
+ * @cli_name: read vxlan-routing
+ */
+request sandesh VxlanRoutingReq {
 }

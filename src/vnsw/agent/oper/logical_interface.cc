@@ -28,10 +28,16 @@ using boost::uuids::uuid;
 // LogicalInterface routines
 /////////////////////////////////////////////////////////////////////////////
 LogicalInterface::LogicalInterface(const boost::uuids::uuid &uuid,
-                                   const std::string &name) :
-    Interface(Interface::LOGICAL, uuid, name, NULL, true), display_name_(),
-    physical_interface_(), vm_interface_(), physical_device_(NULL),
-    phy_dev_display_name_(), phy_intf_display_name_(), vn_uuid_() {
+                                   const std::string &name,
+                                   const boost::uuids::uuid &logical_router_uuid) :
+    Interface(Interface::LOGICAL, uuid, name, NULL, true, logical_router_uuid),
+    display_name_(),
+    physical_interface_(),
+    vm_interface_(),
+    physical_device_(NULL),
+    phy_dev_display_name_(),
+    phy_intf_display_name_(),
+    vn_uuid_() {
 }
 
 LogicalInterface::~LogicalInterface() {
@@ -177,8 +183,9 @@ LogicalInterfaceData::~LogicalInterfaceData() {
 //////////////////////////////////////////////////////////////////////////////
 VlanLogicalInterface::VlanLogicalInterface(const boost::uuids::uuid &uuid,
                                            const std::string &name,
-                                           uint16_t vlan) :
-    LogicalInterface(uuid, name), vlan_(vlan) {
+                                           uint16_t vlan,
+                                           const boost::uuids::uuid &logical_router_uuid) :
+    LogicalInterface(uuid, name, logical_router_uuid), vlan_(vlan) {
 }
 
 VlanLogicalInterface::~VlanLogicalInterface() {
@@ -203,7 +210,7 @@ VlanLogicalInterfaceKey::~VlanLogicalInterfaceKey() {
 LogicalInterface *
 VlanLogicalInterfaceKey::AllocEntry(const InterfaceTable *table)
     const {
-    return new VlanLogicalInterface(uuid_, name_, 0);
+    return new VlanLogicalInterface(uuid_, name_, 0, nil_uuid());
 }
 
 LogicalInterface *
@@ -212,7 +219,8 @@ VlanLogicalInterfaceKey::AllocEntry(const InterfaceTable *table,
     const VlanLogicalInterfaceData *data =
         static_cast<const VlanLogicalInterfaceData *>(d);
     VlanLogicalInterface *intf = new VlanLogicalInterface(uuid_, name_,
-                                                          data->vlan_);
+                                                data->vlan_,
+                                                data->logical_router_uuid_);
 
     intf->OnChange(table, data);
     return intf;

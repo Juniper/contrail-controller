@@ -105,6 +105,7 @@ void AddLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2, const char *mdata = NULL);
 void DelLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2, const char* mdata = NULL);
+void AddLinkNode(const char *node_name, const char *name, const char *attr);
 void AddNode(const char *node_name, const char *name, int id);
 void AddNode(const char *node_name, const char *name, int id, const char *attr,
              bool admin_state = true);
@@ -274,6 +275,12 @@ bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,
                           const IpAddress &vm_addr, uint8_t plen,
+                          const std::string &rewrite_dmac,
+                          uint32_t tag = 0, bool leaf = false);
+bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
+                          TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
+                          uint32_t label, MacAddress &remote_vm_mac,
+                          const IpAddress &vm_addr, uint8_t plen,
                           uint32_t tag = 0, bool leaf = false);
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const char *server_ip,
@@ -361,6 +368,12 @@ void DelLinkLocalConfig();
 void DeleteGlobalVrouterConfig();
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
+void AddLrPort(const char *vmi, int intf_id, const char *ip, const char *mac,
+               const char *vrf, const char *vn, int vn_uuid, const char *vm,
+               int vm_uuid, const char *instance_ip, int instance_uuid);
+void DelLrPort(const char *vmi, int intf_id, const char *ip, const char *mac,
+               const char *vrf, const char *vn, int vn_uuid, const char *vm,
+               int vm_uuid, const char *instance_ip, int instance_uuid);
 void AddVmPort(const char *vmi, int intf_id, const char *ip, const char *mac,
                const char *vrf, const char *vn, int vn_uuid, const char *vm,
                int vm_uuid, const char *instance_ip, int instance_uuid);
@@ -730,4 +743,10 @@ void AddLocalVmRoute(Agent *agent, const std::string &vrf_name,
                      const std::string &vn, uint32_t intf_uuid,
                      const Peer *peer);
 void AddVlan(std::string intf_name, int intf_id, uint32_t vlan);
+void AddLrVmiPort(const char *vmi, int intf_id, const char *ip,
+               const char *vrf, const char *vn,
+               const char *instance_ip, int instance_uuid);
+void DelLrVmiPort(const char *vmi, int intf_id, const char *ip,
+               const char *vrf, const char *vn,
+               const char *instance_ip, int instance_uuid);
 #endif // vnsw_agent_test_cmn_util_h
