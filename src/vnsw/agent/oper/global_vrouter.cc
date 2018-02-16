@@ -26,6 +26,7 @@
 #include <oper/route_common.h>
 #include <oper/ecmp_load_balance.h>
 #include <oper/config_manager.h>
+#include <oper/crypt_tunnel.h>
 
 #include <oper/agent_route_walker.h>
 #include <oper/agent_route_resync.h>
@@ -525,6 +526,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
 
 GlobalVrouter::GlobalVrouter(Agent *agent) :
     OperIFMapTable(agent), linklocal_services_map_(),
+    crypt_tunnels_map_(), crypt_mode_(CRYPT_NONE),
     linklocal_route_mgr_(new LinkLocalRouteManager(this)),
     fabric_dns_resolver_(new FabricDnsResolver
                          (this, *(agent->event_manager()->io_service()))),
@@ -612,6 +614,8 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
             cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
         }
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
+        UpdateCryptTunnelEndpointConfig(cfg->encryption_tunnel_endpoints(), 
+                                        cfg->encryption_mode());
 
         //Take the forwarding mode if its set, else fallback to l2_l3.
         Agent::ForwardingMode new_forwarding_mode =
@@ -966,4 +970,90 @@ void LinkLocalServiceInfo::HandleRequest() const {
     resp->set_service_list(linklocal_list);
     resp->set_context(context());
     resp->Response();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// Handle changes for cryptunnels
+void GlobalVrouter::UpdateCryptTunnelEndpointConfig(
+    const EncryptionTunnelEndpointList &endpoint_list, const std::string encrypt_mode_str) {
+    CryptMode mode = GlobalVrouter::CRYPT_NONE;
+    CryptTunnelsMap crypt_tunnels_map;
+    if (!agent()->crypt_interface())
+        return;
+    if (boost::iequals(encrypt_mode_str, "all"))
+        mode = GlobalVrouter::CRYPT_ALL_TRAFFIC;
+    for (EncryptionTunnelEndpointList::const_iterator it = endpoint_list.begin();
+         it != endpoint_list.end(); it++) {
+        if (it->tunnel_remote_ip_address.compare(agent()->router_id().to_string()) == 0) {
+            continue;
+        }
+        crypt_tunnels_map.insert(CryptTunnelsPair(CryptTunnelKey(it->tunnel_remote_ip_address), 
+                                                  CryptTunnel(mode)));
+    }
+    crypt_tunnels_map_.swap(crypt_tunnels_map);
+    ChangeNotifyCryptTunnels(&crypt_tunnels_map, &crypt_tunnels_map_);
+}
+
+void GlobalVrouter::DeleteCryptTunnelEndpointConfig() {
+}
+
+bool GlobalVrouter::ChangeNotifyCryptTunnels(CryptTunnelsMap *old_value,
+                                             CryptTunnelsMap *new_value) {
+    bool change = false;
+    CryptTunnelsMap::iterator it_old = old_value->begin();
+    CryptTunnelsMap::iterator it_new = new_value->begin();
+    while (it_old != old_value->end() && it_new != new_value->end()) {
+        if (it_old->first < it_new->first) {
+            // old entry is deleted
+            DeleteCryptTunnelEndpoint(it_old);
+            change = true;
+            it_old++;
+        } else if (it_new->first < it_old->first) {
+            // new entry
+            AddCryptTunnelEndpoint(it_new);
+            change = true;
+            it_new++;
+        } else if (it_new->second == it_old->second) {
+            // no change in entry
+            it_old++;
+            it_new++;
+        } else {
+            // change in entry
+            ChangeCryptTunnelEndpoint(it_old, it_new);
+            change = true;
+            it_old++;
+            it_new++;
+        }
+    }
+
+    // delete remaining old entries
+    for (; it_old != old_value->end(); ++it_old) {
+        DeleteCryptTunnelEndpoint(it_old);
+        change = true;
+    }
+
+    // add remaining new entries
+    for (; it_new != new_value->end(); ++it_new) {
+        AddCryptTunnelEndpoint(it_new);
+        change = true;
+    }
+
+    return change;
+}
+
+void GlobalVrouter::AddCryptTunnelEndpoint(const CryptTunnelsMap::iterator &it) {
+    bool crypt_traffic = false;
+    if (it->second.mode == GlobalVrouter::CRYPT_ALL_TRAFFIC)
+        crypt_traffic = true;
+    agent()->crypt_tunnel_table()->Create(it->first, crypt_traffic);
+}
+
+void GlobalVrouter::DeleteCryptTunnelEndpoint(const CryptTunnelsMap::iterator &it) {
+    agent()->crypt_tunnel_table()->Delete(it->first);
+}
+
+void GlobalVrouter::ChangeCryptTunnelEndpoint(const CryptTunnelsMap::iterator &old_it,
+                                              const CryptTunnelsMap::iterator &new_it) {
+    AddCryptTunnelEndpoint(new_it);
 }
