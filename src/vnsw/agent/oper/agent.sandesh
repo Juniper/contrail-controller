@@ -610,6 +610,9 @@ struct NhSandeshData {
    29: bool layer2_control_word;
    /** PBB B-MAC for PBB NH */
    30: optional string pbb_bmac;
+   31: bool crypt_all_traffic;
+   32: bool crypt_path_available;
+   33: string crypt_interface;
 }
 
 /**
@@ -2299,6 +2302,9 @@ struct NextHopObjectLogInfo {
     17: optional string tunnel_type;
     /** Index of next hop entry */
     18: i32 id;
+    19: optional string crypt_traffic;
+    20: optional string crypt_tunnel_available;
+    21: optional string crypt_interface;
 }
 
 /**
@@ -3392,4 +3398,39 @@ response sandesh GlobalSystemConfigResp {
  * @cli_name: read global system config
  */
 request sandesh GlobalSystemConfigReq {
+}
+
+struct CryptTunnelObjectLogInfo {
+    1: string event;
+    2: string source;
+    3: string remote;
+    4: bool available;
+    5: bool crypt;
+}
+
+objectlog sandesh CryptTunnelObjectLog {
+    1: CryptTunnelObjectLogInfo tunnel;
+}
+
+traceobject sandesh CryptTunnelTaskTrace {
+    1: string log;
+}
+
+traceobject sandesh CryptTunnelTrace {
+    1: CryptTunnelObjectLogInfo tunnel;
+}
+
+struct CryptTunnelSandeshData {
+    1: string source;
+    2: string remote;
+    3: bool available;
+    4: bool crypt;
+}
+
+response sandesh CryptTunnelResp {
+    1: list<CryptTunnelSandeshData> crypt_tunnel_list;
+}
+
+request sandesh CryptTunnelReq {
+    1: string remote;
 }

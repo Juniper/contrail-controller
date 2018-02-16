@@ -188,6 +188,9 @@ public:
     const bool &eth_port_no_arp() const { return eth_port_no_arp_; }
     const std::string &eth_port_encap_type() const { return eth_port_encap_type_; }
 
+    const std::string &crypt_port() const { return crypt_port_; }
+    const bool &crypt_port_no_arp() const { return crypt_port_no_arp_; }
+    const std::string &crypt_port_encap_type() const { return crypt_port_encap_type_; }
 
     const std::vector<std::string> controller_server_list() const {
         return controller_server_list_;
@@ -620,6 +623,8 @@ private:
         (const boost::program_options::variables_map &v);
     void ParseMacLearning
         (const boost::program_options::variables_map &v);
+    void ParseCryptArguments
+        (const boost::program_options::variables_map &v);
 
     boost::program_options::variables_map var_map_;
     boost::program_options::options_description options_;
@@ -641,6 +646,9 @@ private:
     std::string eth_port_;
     bool eth_port_no_arp_;
     std::string eth_port_encap_type_;
+    std::string crypt_port_;
+    bool crypt_port_no_arp_;
+    std::string crypt_port_encap_type_;
     std::vector<std::string> controller_server_list_;
     std::string sub_cluster_id_;
     std::vector<std::string> dns_server_list_;
