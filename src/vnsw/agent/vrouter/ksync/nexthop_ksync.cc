@@ -42,11 +42,13 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     defer_(entry->defer_), component_nh_list_(entry->component_nh_list_),
     nh_(entry->nh_), vlan_tag_(entry->vlan_tag_),
     is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
-    is_bridge_(entry->is_bridge_), comp_type_(entry->comp_type_),
+    is_bridge_(entry->is_bridge_),
+    is_vxlan_routing_(entry->is_vxlan_routing_),
+    comp_type_(entry->comp_type_),
     tunnel_type_(entry->tunnel_type_), prefix_len_(entry->prefix_len_),
     nh_id_(entry->nh_id()),
     component_nh_key_list_(entry->component_nh_key_list_),
-    vxlan_nh_(entry->vxlan_nh_),
+    bridge_nh_(entry->bridge_nh_),
     flood_unknown_unicast_(entry->flood_unknown_unicast_),
     ecmp_hash_fieds_(entry->ecmp_hash_fieds_.HashFieldsToUse()),
     pbb_child_nh_(entry->pbb_child_nh_), isid_(entry->isid_),
@@ -62,8 +64,9 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     vrf_id_(0), interface_(NULL), valid_(nh->IsValid()),
     policy_(nh->PolicyEnabled()), is_mcast_nh_(false), nh_(nh),
     vlan_tag_(VmInterface::kInvalidVlanId), is_bridge_(false),
+    is_vxlan_routing_(false),
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
-    vxlan_nh_(false), flood_unknown_unicast_(false),
+    bridge_nh_(false), flood_unknown_unicast_(false),
     learning_enabled_(nh->learning_enabled()), need_pbb_tunnel_(false),
     etree_leaf_ (false), layer2_control_word_(false),
     crypt_(false), crypt_path_available_(false), crypt_interface_(NULL) {
@@ -85,6 +88,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         assert(interface_);
         is_mcast_nh_ = if_nh->is_multicastNH();
         is_bridge_ = if_nh->IsBridge();
+        is_vxlan_routing_ = if_nh->IsVxlanRouting();
         const VrfEntry * vrf = if_nh->GetVrf();
         vrf_id_ = (vrf != NULL) ? vrf->vrf_id() : VrfEntry::kInvalidIndex;
         dmac_ = if_nh->GetDMac();
@@ -123,6 +127,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
             InterfaceKSyncEntry if_ksync(crypt_interface_object, tunnel->GetCryptInterface());
             crypt_interface_ = crypt_interface_object->GetReference(&if_ksync);
         }
+        dmac_ = tunnel->rewrite_dmac();
         break;
     }
 
@@ -154,7 +159,7 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     case NextHop::VRF: {
         const VrfNH *vrf_nh = static_cast<const VrfNH *>(nh);
         vrf_id_ = vrf_nh->GetVrf()->vrf_id();
-        vxlan_nh_ = vrf_nh->vxlan_nh();
+        bridge_nh_ = vrf_nh->bridge_nh();
         break;
     }
 
@@ -262,7 +267,7 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         if ( vrf_id_ != entry.vrf_id_) {
             return vrf_id_ < entry.vrf_id_;
         }
-        return vxlan_nh_ < entry.vxlan_nh_;
+        return bridge_nh_ < entry.bridge_nh_;
     }
 
     if (type_ == NextHop::INTERFACE) {
@@ -271,6 +276,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         }
         if(is_bridge_ != entry.is_bridge_) {
             return is_bridge_ < entry.is_bridge_;
+        }
+
+        if(is_vxlan_routing_ != entry.is_vxlan_routing_) {
+            return is_vxlan_routing_ < entry.is_vxlan_routing_;
         }
 
         if (dmac_ != entry.dmac_) {
@@ -777,8 +786,8 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         VrfNH *vrf_nh = static_cast<VrfNH *>(e);
         vrf_id_ = vrf_nh->GetVrf()->vrf_id();
         ret = false;
-        if (vxlan_nh_ != vrf_nh->vxlan_nh()) {
-            vxlan_nh_ = vrf_nh->vxlan_nh();
+        if (bridge_nh_ != vrf_nh->bridge_nh()) {
+            bridge_nh_ = vrf_nh->bridge_nh();
             ret = true;
         }
 
@@ -872,6 +881,11 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap(encap);
             encoder.set_nhr_tun_sip(0);
             encoder.set_nhr_tun_dip(0);
+            if (is_vxlan_routing_) {
+                //Set vxlan routing flag
+                //TODO enable it once vrouter changes are in
+                //flags |= NH_FLAG_L3_VXLAN;
+            }
             if (is_bridge_) {
                 encoder.set_nhr_family(AF_BRIDGE);
             }
@@ -881,7 +895,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_flags(flags);
             break;
 
-        case NextHop::TUNNEL :
+        case NextHop::TUNNEL : {
             encoder.set_nhr_type(NH_TUNNEL);
             encoder.set_nhr_tun_sip(htonl(sip_.to_v4().to_ulong()));
             encoder.set_nhr_tun_dip(htonl(dip_.to_v4().to_ulong()));
@@ -916,8 +930,17 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             } else {
                 flags |= NH_FLAG_TUNNEL_VXLAN;
             }
+            std::vector<int8_t> rewrite_dmac;
+            for (size_t i = 0 ; i < dmac_.size(); i++) {
+                rewrite_dmac.push_back(dmac_[i]);
+            }
+            encoder.set_nhr_pbb_mac(rewrite_dmac);
+            if (dmac_.IsZero() == false) {
+                //TODO enable it once vrouter changes are in
+                //flags |= NH_FLAG_L3_VXLAN;
+            }
             break;
-
+        }
         case NextHop::MIRROR :
             encoder.set_nhr_type(NH_TUNNEL);
             if (sip_.is_v4() && dip_.is_v4()) {
@@ -982,7 +1005,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
         case NextHop::VRF:
             encoder.set_nhr_type(NH_VXLAN_VRF);
-            if (vxlan_nh_ == true) {
+            if (bridge_nh_ == true) {
                 encoder.set_nhr_family(AF_BRIDGE);
             }
             if (flood_unknown_unicast_) {
@@ -1491,10 +1514,10 @@ void NHKSyncEntry::SetKSyncNhListSandeshData(KSyncNhListSandeshData *data) const
         data->set_is_bridge("False");
     }
 
-    if (vxlan_nh_) {
-        data->set_vxlan_nh("Enable");
+    if (bridge_nh_) {
+        data->set_bridge_nh("Enable");
     } else {
-        data->set_vxlan_nh("Disable");
+        data->set_bridge_nh("Disable");
     }
 
     if (flood_unknown_unicast_) {

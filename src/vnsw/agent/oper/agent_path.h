@@ -1038,4 +1038,45 @@ public:
 private:
     DISALLOW_COPY_AND_ASSIGN(InetEvpnRouteData);
 };
+
+// EvpnRoutingData
+// Used to do vxlan routing, will be used for following-
+// 1) Adding inet route to L2 VRF inet table.
+// 2) Adding evpn route(type 5) in routing vrf
+// 3) Adding inet route to routing vrf inet table.
+class EvpnRoutingData : public AgentRouteData {
+public:
+    EvpnRoutingData(DBRequest &nh_req,
+                    VrfEntryConstRef vrf_entry);
+    virtual ~EvpnRoutingData() { }
+    virtual AgentPath *CreateAgentPath(const Peer *peer, AgentRoute *rt) const;
+    virtual bool AddChangePathExtended(Agent *agent, AgentPath *path,
+                                       const AgentRoute *rt);
+    virtual std::string ToString() const {return "Evpn routing data";}
+    //Checks if path is evpnrouting path and deletes leak route before path gets
+    //destroyed.
+    virtual bool CanDeletePath(Agent *agent, AgentPath *path,
+                               const AgentRoute *rt) const;
+    virtual bool UpdateRoute(AgentRoute *rt);
+
+private:
+    DBRequest nh_req_;
+    VrfEntryConstRef routing_vrf_;
+    DISALLOW_COPY_AND_ASSIGN(EvpnRoutingData);
+};
+
+class EvpnRoutingPath : public AgentPath {
+public:
+    EvpnRoutingPath(const Peer *peer, AgentRoute *rt,
+                    VrfEntryConstRef routing_vrf);
+    virtual ~EvpnRoutingPath() { }
+
+    const VrfEntry *routing_vrf() const;
+    void set_routing_vrf(const VrfEntry *vrf);
+    void DeleteEvpnType5Route(Agent *agent, const AgentRoute *rt) const;
+
+private:
+    VrfEntryConstRef routing_vrf_;
+    DISALLOW_COPY_AND_ASSIGN(EvpnRoutingPath);
+};
 #endif // vnsw_agent_path_hpp

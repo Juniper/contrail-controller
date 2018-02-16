@@ -105,6 +105,7 @@ void AddLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2, const char *mdata = NULL);
 void DelLink(const char *node_name1, const char *name1, const char *node_name2,
              const char *name2, const char* mdata = NULL);
+void AddLinkNode(const char *node_name, const char *name, const char *attr);
 void AddNode(const char *node_name, const char *name, int id);
 void AddNode(const char *node_name, const char *name, int id, const char *attr,
              bool admin_state = true);
@@ -270,6 +271,12 @@ bool EcmpTunnelRouteAdd(Agent *agent, const BgpPeer *peer, const string &vrf_nam
                         const string &remote_server_1, uint32_t label1,
                         const string &remote_server_2, uint32_t label2,
                         const string &vn);
+bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
+                          TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
+                          uint32_t label, MacAddress &remote_vm_mac,
+                          const IpAddress &vm_addr, uint8_t plen,
+                          const std::string &rewrite_dmac,
+                          uint32_t tag = 0, bool leaf = false);
 bool BridgeTunnelRouteAdd(const BgpPeer *peer, const string &vm_vrf,
                           TunnelType::TypeBmap bmap, const Ip4Address &server_ip,
                           uint32_t label, MacAddress &remote_vm_mac,

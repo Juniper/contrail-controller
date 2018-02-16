@@ -20,6 +20,7 @@
 #define LINKLOCAL_PEER_NAME "LinkLocal"
 #define ECMP_PEER_NAME "Ecmp"
 #define VGW_PEER_NAME "Vgw"
+#define EVPN_ROUTING_PEER_NAME "EVPN Router"
 #define EVPN_PEER_NAME "EVPN"
 #define MULTICAST_PEER_NAME "Multicast"
 #define MULTICAST_TOR_PEER_NAME "Multicast TOR"
@@ -27,6 +28,7 @@
 #define MAC_VM_BINDING_PEER_NAME "MacVmBindingPeer"
 #define MAC_LEARNING_PEER_NAME "DynamicMacLearningPeer"
 #define FABRIC_RT_EXPORT "FabricRouteExport"
+#define LOCAL_VM_EXPORT_PEER "LocalVmExportPeer"
 
 class AgentXmppChannel;
 class ControllerRouteWalker;
@@ -45,6 +47,7 @@ public:
     typedef std::pair<std::string, Peer *> PeerPair;
     enum Type {
         MULTICAST_PEER,
+        EVPN_ROUTING_PEER,
         EVPN_PEER,
         BGP_PEER,
         LINKLOCAL_PEER,
@@ -238,7 +241,6 @@ public:
     virtual ~EcmpPeer() { }
 
     bool Compare(const Peer *rhs) const { return false; }
-    bool ExportToController() const {return true;}
 private:
     DISALLOW_COPY_AND_ASSIGN(EcmpPeer);
 };
@@ -252,7 +254,6 @@ public:
     virtual ~EvpnPeer() { }
 
     bool Compare(const Peer *rhs) const { return false; }
-    bool ExportToController() const {return false;}
 private:
     DISALLOW_COPY_AND_ASSIGN(EvpnPeer);
 };
@@ -266,8 +267,21 @@ public:
     virtual ~InetEvpnPeer() { }
 
     bool Compare(const Peer *rhs) const { return false; }
-    bool ExportToController() const {return false;}
 private:
     DISALLOW_COPY_AND_ASSIGN(InetEvpnPeer);
 };
+
+// EVPN routing peer
+class EvpnRoutingPeer : public Peer {
+public:
+    typedef boost::shared_ptr<EvpnPeer> EvpnRoutingPeerRef;
+
+    EvpnRoutingPeer() : Peer(Peer::EVPN_ROUTING_PEER, "EVPN-ROUTING", false) { }
+    virtual ~EvpnRoutingPeer() { }
+
+    bool Compare(const Peer *rhs) const { return false; }
+private:
+    DISALLOW_COPY_AND_ASSIGN(EvpnRoutingPeer);
+};
+
 #endif // vnsw_agent_peer_h_

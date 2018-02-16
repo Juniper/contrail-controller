@@ -288,16 +288,11 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
             return;
         }
 
-        if (item->entry.nlri.mac != "") {
-            if (IsEcmp(item->entry.next_hops.next_hop)) {
-                AddEvpnEcmpRoute(vrf_name, MacAddress(item->entry.nlri.mac),
-                                 ip_addr, item, VnListType());
-            } else {
-                AddEvpnRoute(vrf_name, item->entry.nlri.mac, ip_addr, item);
-            }
+        if (IsEcmp(item->entry.next_hops.next_hop)) {
+            AddEvpnEcmpRoute(vrf_name, MacAddress(item->entry.nlri.mac),
+                             ip_addr, item, VnListType());
         } else {
-            CONTROLLER_TRACE(Trace, GetBgpPeerName(), vrf_name,
-                        "NLRI missing mac address for evpn, failed parsing");
+            AddEvpnRoute(vrf_name, item->entry.nlri.mac, ip_addr, item);
         }
     }
 }
@@ -831,17 +826,18 @@ void AgentXmppChannel::AddEvpnRoute(const std::string &vrf_name,
         // to indicate the same to all modules, till we handle L2 ecmp
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
-                                                     agent_->fabric_vrf_name(),
-                                                     agent_->router_id(),
-                                                     vrf_name, nh_ip.to_v4(),
-                                                     encap, label,
-                                                     vn_list,
-                                                     item->entry.security_group_list.security_group,
-                                                     tag_list,
-                                                     path_preference,
-                                                     (item->entry.next_hops.next_hop.size() > 1),
-                                                     EcmpLoadBalance(),
-                                                     item->entry.etree_leaf);
+                              agent_->fabric_vrf_name(),
+                              agent_->router_id(),
+                              vrf_name, nh_ip.to_v4(),
+                              encap, label,
+                              MacAddress(item->entry.next_hops.next_hop[0].mac),
+                              vn_list,
+                              item->entry.security_group_list.security_group,
+                              tag_list,
+                              path_preference,
+                              (item->entry.next_hops.next_hop.size() > 1),
+                              EcmpLoadBalance(),
+                              item->entry.etree_leaf);
         rt_table->AddRemoteVmRouteReq(bgp_peer_id(), vrf_name, mac, ip_addr,
                                       item->entry.nlri.ethernet_tag, data);
         return;
@@ -991,7 +987,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
         ControllerVmRoute *data =
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer_id(),
                                agent_->fabric_vrf_name(), agent_->router_id(),
-                               vrf_name, addr.to_v4(), encap, label, vn_list,
+                               vrf_name, addr.to_v4(), encap, label,
+                               MacAddress(), vn_list,
                                item->entry.security_group_list.security_group,
                                tag_list,
                                path_preference, false, ecmp_load_balance,
@@ -2058,6 +2055,11 @@ bool AgentXmppChannel::BuildEvpnUnicastMessage(EnetItemType &item,
     nh.af = Address::INET;
     nh.address = nh_ip->to_string();
     nh.label = label;
+    if (evpn_route->mac().IsZero()) {
+        nh.mac = agent_->vhost_interface()->mac().ToString();
+    } else {
+        nh.mac = evpn_route->mac().ToString();
+    }
     TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
     if (active_path) {
         tunnel_type = active_path->tunnel_type();
