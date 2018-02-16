@@ -6,11 +6,11 @@
 
 struct RouteLeakState :  public DBState {
     RouteLeakState(Agent *agent, VrfEntry *vrf):
-        agent_(agent), dest_vrf_(vrf), local_peer_(false),
-        installed_(false) {}
+        agent_(agent), dest_vrf_(vrf) {}
 
     void AddRoute(const AgentRoute *route);
-    void DeleteRoute(const AgentRoute *route);
+    void DeleteRoute(const AgentRoute *route,
+                     const std::set<const Peer *> &peer_list);
 
     void set_dest_vrf(VrfEntry *vrf) {
         dest_vrf_ = vrf;
@@ -20,15 +20,19 @@ struct RouteLeakState :  public DBState {
         return dest_vrf_.get();
     }
 
+    std::set<const Peer *>& peer_list() {
+        return peer_list_;
+    }
+
 private:
     void AddIndirectRoute(const AgentRoute *route);
-    void AddInterfaceRoute(const AgentRoute *route);
+    void AddInterfaceRoute(const AgentRoute *route, const AgentPath *path);
     void AddReceiveRoute(const AgentRoute *route);
+    void AddCompositeRoute(const AgentRoute *route);
     bool CanAdd(const InetUnicastRouteEntry *route);
     Agent *agent_;
     VrfEntryRef dest_vrf_;
-    bool local_peer_;
-    bool installed_;
+    std::set<const Peer *> peer_list_;
 };
 
 class RouteLeakVrfState : public DBState {

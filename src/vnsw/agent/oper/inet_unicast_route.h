@@ -216,6 +216,8 @@ public:
                                 bool is_local, bool is_health_check_service,
                                 const std::string &intf_name,
                                 bool native_encap);
+    void ResyncRoute(const Peer *peer, const string &vrf,
+                     const IpAddress &addr, uint8_t plen);
     static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
                                     const IpAddress &vm_addr,uint8_t plen,
                                     AgentRouteData *data);
