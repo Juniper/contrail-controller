@@ -196,6 +196,20 @@ void ContrailInitCommon::CreateInterfaces() {
     PhysicalInterfaceKey physical_key(agent()->fabric_interface_name());
     assert(table->FindActiveEntry(&physical_key));
 
+    if (agent_param()->crypt_port() != "") {
+        type = ComputeEncapType(agent_param()->crypt_port_encap_type());
+        PhysicalInterface::Create(table, agent_param()->crypt_port(),
+                                  agent()->fabric_vrf_name(),
+                                  PhysicalInterface::FABRIC, type,
+                                  agent_param()->crypt_port_no_arp(), nil_uuid(),
+                                  agent_param()->vhost_addr(),
+                                  physical_transport);
+        PhysicalInterfaceKey physical_key(agent()->crypt_interface_name());
+        agent()->set_crypt_interface
+                (static_cast<Interface *>(table->FindActiveEntry(&physical_key)));
+        assert(agent()->crypt_interface());
+    }
+
     //Add the interface
     table->CreateVhost();
     //Trigger explicit change to sync the configuration
