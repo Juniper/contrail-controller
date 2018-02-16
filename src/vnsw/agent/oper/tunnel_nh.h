@@ -14,11 +14,12 @@
 class TunnelNH : public NextHop {
 public:
     TunnelNH(VrfEntry *vrf, const Ip4Address &sip, const Ip4Address &dip,
-             bool policy, TunnelType type);
+             bool policy, TunnelType type, const MacAddress &rewrite_dmac);
     virtual ~TunnelNH();
 
     virtual std::string ToString() const { 
-        return "Tunnel to " + dip_.to_string();
+        return "Tunnel to " + dip_.to_string() +
+            " rewrite mac " + rewrite_dmac_.ToString();
     }
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
@@ -33,6 +34,7 @@ public:
     const Ip4Address *GetDip() const {return &dip_;};
     const AgentRoute *GetRt() const {return arp_rt_.get();};
     const MacAddress *GetDmac() const {return &dmac_;}
+    const MacAddress &rewrite_dmac() const {return rewrite_dmac_;}
     const TunnelType &GetTunnelType() const {return tunnel_type_;};
     const Interface *GetCryptInterface() const {return crypt_interface_.get();};
     bool GetCrypt() const {return crypt_;}; 
@@ -62,6 +64,7 @@ private:
     bool crypt_;
     bool crypt_tunnel_available_;
     InterfaceConstRef crypt_interface_;
+    MacAddress rewrite_dmac_;
     DISALLOW_COPY_AND_ASSIGN(TunnelNH);
 };
 

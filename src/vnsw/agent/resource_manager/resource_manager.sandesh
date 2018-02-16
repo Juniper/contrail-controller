@@ -21,7 +21,7 @@ struct  InterfaceIndexResource {
 
 struct  VrfMplsResource {
     1: string name;
-    2: bool vxlan_nh;
+    2: bool bridge_nh;
     3: u64 time_stamp;
 }
 
@@ -181,7 +181,7 @@ traceobject sandesh  InterfaceMplsData {
 
 traceobject sandesh  VrfMplsData {
     1: string name;
-    2: bool vxlan_nh;
+    2: bool bridge_nh;
     3: u32 label;
     4: string operation;
 }

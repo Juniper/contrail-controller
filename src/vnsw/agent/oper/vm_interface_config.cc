@@ -19,6 +19,8 @@
 #include <port_ipc/port_ipc_handler.h>
 #include <port_ipc/port_subscribe_table.h>
 
+#define LOGICAL_ROUTER_NAME "logical-router"
+#define VMI_NETWORK_ROUTER_INTERFACE "network:router_interface"
 using namespace std;
 using namespace boost::uuids;
 using namespace autogen;
@@ -789,6 +791,21 @@ static void BuildVmiSiMode(Agent *agent, VmInterfaceConfigData *data,
     }
 }
 
+static bool BuildLogicalRouterData(Agent *agent,
+                                   VmInterfaceConfigData *data,
+                                   IFMapNode *node) {
+    VirtualMachineInterface *vmi =
+        static_cast<autogen::VirtualMachineInterface *>
+        (node->GetObject());
+    if (!vmi->IsPropertySet(VirtualMachineInterface::DEVICE_OWNER)) {
+        return false;
+    }
+    if (vmi->device_owner() != VMI_NETWORK_ROUTER_INTERFACE) {
+        return false;
+    }
+    return true;
+}
+
 static void BuildSiOtherVmi(Agent *agent, VmInterfaceConfigData *data,
                             IFMapNode *node, const string &s_intf_type) {
     PortTuple *entry = static_cast<PortTuple*>(node->GetObject());
@@ -1301,7 +1318,8 @@ static void UpdateAttributes(Agent *agent, VmInterfaceConfigData *data) {
 static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
                             const PortSubscribeEntry *entry,
                             PhysicalRouter *prouter,
-                            IFMapNode *node, IFMapNode *logical_node) {
+                            IFMapNode *node, IFMapNode *logical_node,
+                            IFMapNode *logical_router) {
     if (entry != NULL) {
         // Have got InstancePortAdd message. Treat it as VM_ON_TAP by default
         // TODO: Need to identify more cases here
@@ -1373,6 +1391,13 @@ static void ComputeTypeInfo(Agent *agent, VmInterfaceConfigData *data,
         return;
     }
 
+    // Logical Router attached node
+    if (logical_router) {
+        data->device_type_ = VmInterface::VMI_ON_LR;
+        data->vmi_type_ = VmInterface::ROUTER;
+        return;
+    }
+
     return;
 }
 
@@ -1435,6 +1460,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     IFMapNode *vn_node = NULL;
     IFMapNode *li_node = NULL;
+    IFMapNode *lr_node = NULL;
     IFMapNode *phy_interface = NULL;
     IFMapNode *phy_device = NULL;
     IFMapNode *parent_vmi_node = NULL;
@@ -1565,6 +1591,11 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
             BuildVmiSiMode(agent_, data, adj_node);
         }
 
+        if (strcmp(adj_node->table()->Typename(), LOGICAL_ROUTER_NAME) == 0) {
+            if (BuildLogicalRouterData(agent_, data, node)) {
+                lr_node = adj_node;
+            }
+        }
     }
     if (parent_vmi_node && data->vm_uuid_ == nil_uuid()) {
         IFMapAgentTable *vmi_table = static_cast<IFMapAgentTable *>
@@ -1612,7 +1643,7 @@ bool InterfaceTable::VmiProcessConfig(IFMapNode *node, DBRequest &req,
 
     // Compute device-type and vmi-type for the interface
     ComputeTypeInfo(agent_, data, subscribe_entry.get(), prouter, node,
-                    li_node);
+                    li_node, lr_node);
 
     if (cfg->display_name() == agent_->vhost_interface_name()) {
         data->CopyVhostData(agent());
