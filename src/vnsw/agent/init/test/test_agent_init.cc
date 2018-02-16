@@ -551,6 +551,13 @@ TEST_F(AgentParamTest, Agent_Mac_Learning_Option_1) {
     EXPECT_EQ(param.mac_learning_update_tokens(), 510);
     EXPECT_EQ(param.mac_learning_delete_tokens(), 520);
 }
+
+TEST_F(AgentParamTest, Agent_Crypt_Config) {
+    AgentParam param;
+    param.Init("controller/src/vnsw/agent/init/test/cfg.ini", "test-param");
+    EXPECT_STREQ(param.crypt_port().c_str(), "ipsec0");
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int ret = RUN_ALL_TESTS();

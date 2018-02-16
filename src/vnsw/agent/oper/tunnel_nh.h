@@ -34,6 +34,9 @@ public:
     const AgentRoute *GetRt() const {return arp_rt_.get();};
     const MacAddress *GetDmac() const {return &dmac_;}
     const TunnelType &GetTunnelType() const {return tunnel_type_;};
+    const Interface *GetCryptInterface() const {return crypt_interface_.get();};
+    bool GetCrypt() const {return crypt_;}; 
+    bool GetCryptTunnelAvailable() const {return crypt_tunnel_available_;};
     virtual void SendObjectLog(const NextHopTable *table,
                                AgentLogEvent::type event) const;
     virtual bool DeleteOnZeroRefCount() const {
@@ -56,6 +59,9 @@ private:
     DependencyRef<NextHop, AgentRoute> arp_rt_;
     InterfaceConstRef interface_;
     MacAddress dmac_;
+    bool crypt_;
+    bool crypt_tunnel_available_;
+    InterfaceConstRef crypt_interface_;
     DISALLOW_COPY_AND_ASSIGN(TunnelNH);
 };
 
