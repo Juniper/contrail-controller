@@ -1051,15 +1051,18 @@ public:
         SERVICE_CHANGE,
     };
 
-    VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
-                bool os_oper_state);
+    VmInterface(const boost::uuids::uuid &uuid,
+                const std::string &name,
+                bool os_oper_state,
+                const boost::uuids::uuid &logical_router_uuid);
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
                 const Ip4Address &addr, const MacAddress &mac,
                 const std::string &vm_name,
                 const boost::uuids::uuid &vm_project_uuid, uint16_t tx_vlan_id,
                 uint16_t rx_vlan_id, Interface *parent,
                 const Ip6Address &addr6, DeviceType dev_type, VmiType vmi_type,
-                uint8_t vhostuser_mode, bool os_oper_state);
+                uint8_t vhostuser_mode, bool os_oper_state,
+                const boost::uuids::uuid &logical_router_uuid);
     virtual ~VmInterface();
 
     virtual bool CmpInterface(const DBEntry &rhs) const;
@@ -1078,6 +1081,7 @@ public:
     // get/set accessor functions
     const VmEntry *vm() const { return vm_.get(); }
     const VnEntry *vn() const { return vn_.get(); }
+    VnEntry *GetNonConstVn() const { return vn_.get(); }
     const Ip4Address &primary_ip_addr() const { return primary_ip_addr_; }
     void set_primary_ip_addr(const Ip4Address &addr) { primary_ip_addr_ = addr; }
 

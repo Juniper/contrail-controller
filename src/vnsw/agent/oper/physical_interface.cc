@@ -25,8 +25,10 @@ using std::string;
 /////////////////////////////////////////////////////////////////////////////
 // PhysicalInterface routines
 /////////////////////////////////////////////////////////////////////////////
-PhysicalInterface::PhysicalInterface(const std::string &name) :
-    Interface(Interface::PHYSICAL, nil_uuid(), name, NULL, true),
+PhysicalInterface::PhysicalInterface(const std::string &name,
+                           const boost::uuids::uuid &logical_router_uuid) :
+    Interface(Interface::PHYSICAL, nil_uuid(), name, NULL, true,
+              logical_router_uuid),
     persistent_(false), subtype_(INVALID), physical_device_(NULL) {
 }
 
@@ -160,12 +162,13 @@ PhysicalInterfaceKey::~PhysicalInterfaceKey() {
 }
 
 Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table) const {
-    return new PhysicalInterface(name_);
+    return new PhysicalInterface(name_, nil_uuid());
 }
 
 Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
                                             const InterfaceData *data) const {
-    PhysicalInterface *intf = new PhysicalInterface(name_);
+    PhysicalInterface *intf = new PhysicalInterface(name_,
+                                                    data->logical_router_uuid_);
     const PhysicalInterfaceData *phy_data =
         static_cast<const PhysicalInterfaceData *>(data);
     intf->encap_type_ = phy_data->encap_type_;

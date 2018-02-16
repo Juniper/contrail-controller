@@ -130,6 +130,8 @@ public:
     void SetRefState() const;
     void ClearRefState() const;
     bool IsActive() const;
+    DBState *GetAgentDBEntryState(int listener_id);
+    const DBState *GetAgentDBEntryState(int listener_id) const;
 
     virtual void AllocateResources(ResourceManager *resource_manager);
     virtual void FreeResources(ResourceManager *resource_manager);

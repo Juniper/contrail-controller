@@ -929,6 +929,7 @@ public:
     const Peer *link_local_peer() const {return linklocal_peer_.get();}
     const Peer *ecmp_peer() const {return ecmp_peer_.get();}
     const Peer *vgw_peer() const {return vgw_peer_.get();}
+    const Peer *evpn_routing_peer() const {return evpn_routing_peer_.get();}
     const Peer *evpn_peer() const {return evpn_peer_.get();}
     const Peer *multicast_peer() const {return multicast_peer_.get();}
     const Peer *multicast_tor_peer() const {return multicast_tor_peer_.get();}
@@ -939,6 +940,9 @@ public:
     const Peer *mac_learning_peer() const {return mac_learning_peer_.get();}
     const Peer *fabric_rt_export_peer() const {
         return fabric_rt_export_peer_.get();
+    }
+    const Peer *local_vm_export_peer() const {
+        return local_vm_export_peer_.get();
     }
 
     // Agent Modules
@@ -1399,6 +1403,7 @@ private:
     std::auto_ptr<Peer> linklocal_peer_;
     std::auto_ptr<Peer> ecmp_peer_;
     std::auto_ptr<Peer> vgw_peer_;
+    std::auto_ptr<Peer> evpn_routing_peer_;
     std::auto_ptr<Peer> evpn_peer_;
     std::auto_ptr<Peer> multicast_peer_;
     std::auto_ptr<Peer> multicast_tor_peer_;
@@ -1407,6 +1412,7 @@ private:
     std::auto_ptr<Peer> inet_evpn_peer_;
     std::auto_ptr<Peer> mac_learning_peer_;
     std::auto_ptr<Peer> fabric_rt_export_peer_;
+    std::auto_ptr<Peer> local_vm_export_peer_;
 
     std::auto_ptr<AgentSignal> agent_signal_;
 
