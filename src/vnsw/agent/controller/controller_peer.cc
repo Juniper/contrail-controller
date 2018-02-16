@@ -973,7 +973,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, IpAddress prefix_addr,
 
     if (item->entry.next_hops.next_hop[0].label ==
             MplsTable::kInvalidExportLabel &&
-        vrf_name == agent_->fabric_vrf_name()) {
+        vrf_name == agent_->fabric_vrf_name() && prefix_addr.is_v4()) {
         AddFabricVrfRoute(prefix_addr.to_v4(), prefix_len, addr.to_v4(),
                           vn_list,
                           item->entry.security_group_list.security_group,
@@ -1112,10 +1112,6 @@ template <typename TYPE>
 bool AgentXmppChannel::IsEcmp(const TYPE &nexthops) {
     if (nexthops.size() == 0)
         return false;
-
-    if (nexthops[0].label == MplsTable::kInvalidExportLabel) {
-        return false;
-    }
 
     std::string address = nexthops[0].address;
     for (uint32_t index = 1; index < nexthops.size(); index++) {

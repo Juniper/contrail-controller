@@ -60,7 +60,7 @@ AgentPath::AgentPath(const Peer *peer, AgentRoute *rt):
     arp_mac_(), arp_interface_(NULL), arp_valid_(false),
     ecmp_suppressed_(false), is_local_(false), is_health_check_service_(false),
     peer_sequence_number_(0), etree_leaf_(false), layer2_control_word_(false),
-    inactive_(false) {
+    inactive_(false), copy_local_path_(false) {
 }
 
 AgentPath::~AgentPath() {
@@ -273,11 +273,12 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
 
     //Check if there was a change in local ecmp composite nexthop
     if (nh_ && nh_->GetType() == NextHop::COMPOSITE &&
-        composite_nh_key_.get() != NULL &&
-        local_ecmp_mpls_label_.get() != NULL) {
+        composite_nh_key_.get() != NULL && (copy_local_path_ ||
+        local_ecmp_mpls_label_.get() != NULL)) {
         boost::scoped_ptr<CompositeNHKey> composite_nh_key(composite_nh_key_->Clone());
         bool comp_nh_policy = false;
-        if (ReorderCompositeNH(agent, composite_nh_key.get(), comp_nh_policy)) {
+        if (ReorderCompositeNH(agent, composite_nh_key.get(), comp_nh_policy,
+                               sync_route->FindLocalVmPortPath())) {
             composite_nh_key->SetPolicy(comp_nh_policy);
             if (ChangeCompositeNH(agent, composite_nh_key.get())) {
                 ret = true;
@@ -1527,9 +1528,46 @@ const MplsLabel* AgentPath::local_ecmp_mpls_label() const {
     return local_ecmp_mpls_label_.get();
 }
 
+//In case of composite NH in fabric VRF, if BGP path has router
+//id of compute node then copy the ECMP peer or local VM peer path
+//to composite NH.
+//In case of overlay mode MPLS label was used to frame local nexthop
+//list which is not feasible in this fabric VRF
+void AgentPath::CopyLocalPath(CompositeNHKey *composite_nh_key,
+                              const AgentPath *local_path) {
+
+    if (local_path == NULL) {
+        return;
+    }
+
+    DBEntryBase::KeyPtr key_nh = local_path->nexthop()->GetDBRequestKey();
+    NextHopKey *nh_key = static_cast<NextHopKey *>(key_nh.get());
+    nh_key->SetPolicy(false);
+    std::auto_ptr<const NextHopKey> nh_key_p(nh_key->Clone());
+
+    ComponentNHKeyList comp_nh_list;
+    if (nh_key_p->GetType() == NextHop::COMPOSITE) {
+        //Append the list of component NH list from local ecmp peer
+        const CompositeNHKey *comp_nh_key =
+            static_cast<const CompositeNHKey *>(nh_key);
+        comp_nh_list = comp_nh_key->component_nh_key_list();
+    } else {
+        //Append the interface NH to composite NH list
+        ComponentNHKeyPtr new_comp_nh(new ComponentNHKey(0, nh_key_p));
+        comp_nh_list.push_back(new_comp_nh);
+    }
+
+    composite_nh_key->ReplaceLocalNexthop(comp_nh_list);
+}
+
 bool AgentPath::ReorderCompositeNH(Agent *agent,
                                    CompositeNHKey *composite_nh_key,
-                                   bool &comp_nh_policy) {
+                                   bool &comp_nh_policy,
+                                   const AgentPath *path) {
+    if (copy_local_path_) {
+        CopyLocalPath(composite_nh_key, path);
+    }
+
     //Find local composite mpls label, if present
     //This has to be done, before expanding component NH
     BOOST_FOREACH(ComponentNHKeyPtr component_nh_key,
