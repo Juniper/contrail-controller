@@ -232,6 +232,8 @@ struct VrouterAgent {
    54: optional bool bgpaas_enabled;
    /** shows whether currently port mirror is enabled or not*/
    55: optional bool port_mirror_enabled;
+   /** Sub cluster identifier for vrouter */
+   56: optional string sub_cluster_id;
 }
 
 /**
