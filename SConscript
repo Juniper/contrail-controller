@@ -13,7 +13,6 @@ env.Alias('controller/test', [
     'controller/src/control-node:test',
     'controller/src/db:test',
     'controller/src/dns:test',
-    'controller/src/database/gendb:test',
     'controller/src/ifmap:test',
     'controller/src/net:test',
     'controller/src/schema:test',
@@ -22,6 +21,7 @@ env.Alias('controller/test', [
     'controller/src/config/api-server:test',
     'controller/src/config/schema-transformer:test',
     'controller/src/ksync:test',
+    'src/contrail-common/database/gendb:test',
     'src/contrail-analytics/contrail-collector:test',
     'src/contrail-analytics/contrail-opserver:test',
     'src/contrail-analytics/contrail-query-engine:test',
@@ -34,11 +34,10 @@ env.Alias('controller/flaky-test', [
     #'controller/src/config:test',
     'controller/src/db:flaky-test',
     'controller/src/dns:flaky-test',
-    'controller/src/database/gendb:flaky-test',
-    'controller/src/database/cassandra/thrift:flaky-test',
     'controller/src/ifmap:flaky-test',
     'controller/src/xmpp:flaky-test',
     'controller/src/config/device-manager:flaky-test',
+    'src/contrail-common/database/gendb:flaky-test',
     'src/contrail-analytics/contrail-collector:flaky-test',
 ])
 
