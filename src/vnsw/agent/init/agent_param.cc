@@ -734,6 +734,12 @@ void AgentParam::ParseMacLearning
                           "MAC-LEARNING.update_tokens");
 }
 
+void AgentParam::ParseCryptArguments
+    (const boost::program_options::variables_map &var_map) {
+    GetOptValue<string>(var_map, crypt_port_,
+                        "CRYPT.crypt_interface");
+}
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -798,6 +804,7 @@ void AgentParam::ProcessArguments() {
     ParseRestartArguments(var_map_);
     ParseMacLearning(var_map_);
     ParseTsnServersArguments(var_map_);
+    ParseCryptArguments(var_map_);
     return;
 }
 
@@ -1002,6 +1009,14 @@ int AgentParam::Validate() {
     if (ValidateInterface(test_mode_, eth_port_, &eth_port_no_arp_,
                           &eth_port_encap_type_) == false) {
         return (ENODEV);
+    }
+
+    if (crypt_port_ != "") {
+       // Check if interface is already present
+       if (ValidateInterface(test_mode_, crypt_port_, &crypt_port_no_arp_,
+                             &crypt_port_encap_type_) == false) {
+           return (ENODEV);
+       }
     }
 
     // Validate physical port used in vmware
@@ -1288,6 +1303,7 @@ AgentParam::AgentParam(bool enable_flow_options,
         measure_queue_delay_(false),
         agent_name_(), eth_port_(),
         eth_port_no_arp_(false), eth_port_encap_type_(), subcluster_name_(),
+        crypt_port_(), crypt_port_no_arp_(true), crypt_port_encap_type_(),
         dns_client_port_(0), dns_timeout_(3000),
         dns_max_retries_(2), mirror_client_port_(0),
         mgmt_ip_(), hypervisor_mode_(MODE_KVM), 
@@ -1734,6 +1750,15 @@ AgentParam::AgentParam(bool enable_flow_options,
         ;
     options_.add(qos);
     config_file_options_.add(qos);
+
+    opt::options_description crypt("CRYPT");
+    crypt.add_options()
+        ("CRYPT.crypt_interface", opt::value<string>(),
+          "Interface name to send data for encrypt")
+        ;
+    options_.add(crypt);
+    config_file_options_.add(crypt);
+
 }
 
 AgentParam::~AgentParam() {
