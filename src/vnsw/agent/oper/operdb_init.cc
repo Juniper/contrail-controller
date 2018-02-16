@@ -54,6 +54,7 @@
 #include <oper/agent_route_walker.h>
 #include <oper/security_logging_object.h>
 #include <oper/route_leak.h>
+#include <oper/crypt_tunnel.h>
 
 using boost::assign::map_list_of;
 using boost::assign::list_of;
@@ -74,6 +75,9 @@ T *DBTableCreate(DB *db, Agent *agent, OperDB *oper,
 void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.interface.0", &InterfaceTable::CreateTable);
     DB::RegisterFactory("db.nexthop.0", &NextHopTable::CreateTable);
+    DB::RegisterFactory("db.crypttunnel.0", 
+                        boost::bind(&CryptTunnelTable::CreateTable,
+                                    agent_, _1, _2));
     DB::RegisterFactory("uc.route.0",
                         &InetUnicastAgentRouteTable::CreateTable);
     DB::RegisterFactory("mc.route.0",
@@ -132,6 +136,11 @@ void OperDB::CreateDBTables(DB *db) {
         static_cast<HealthCheckTable *>(db->CreateTable("db.healthcheck.0"));
     assert(hc_table);
     agent_->set_health_check_table(hc_table);
+
+    CryptTunnelTable *crypt_tunnel_table;
+    crypt_tunnel_table = static_cast<CryptTunnelTable *>(db->CreateTable("db.crypttunnel.0"));
+    assert(crypt_tunnel_table);
+    agent_->set_crypt_tunnel_table(crypt_tunnel_table);
 
     NextHopTable *nh_table;
     nh_table = static_cast<NextHopTable *>(db->CreateTable("db.nexthop.0"));

@@ -36,6 +36,8 @@
 #define VRF_LL "vrf-ll"
 #define VRF_GW "vrf-gw"
 
+#define VNSW_CRYPT_CONFIG_FILE "controller/src/vnsw/agent/test/vnswa_crypt_cfg.ini"
+
 void RouterIdDepInit(Agent *agent) {
 }
 
@@ -471,10 +473,30 @@ TEST_F(InetInterfaceTest, physical_eth_no_arp_1) {
     client->WaitForIdle();
 }
 
+TEST_F(InetInterfaceTest, physical_ipsec0_no_arp) {
+    DelInetConfig(agent_);
+    PhysicalInterface::CreateReq(interface_table_, "ipsec0",
+                                 agent_->fabric_vrf_name(),
+                                 PhysicalInterface::FABRIC,
+                                 PhysicalInterface::ETHERNET, true, nil_uuid(),
+                                 Ip4Address(0),
+                                 Interface::TRANSPORT_ETHERNET);
+    client->WaitForIdle();
+    PhysicalInterfaceKey physical_key("ipsec0");
+    assert(interface_table_->FindActiveEntry(&physical_key));
+    //PhysicalInterface::DeleteReq(interface_table_, "ipsec0");
+    client->WaitForIdle();
+
+    // Restore  configuration
+    RestoreInetConfig(agent_);
+    client->WaitForIdle();
+}
+
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
-    client = TestInit(init_file, ksync_init, false, false, false);
+    client = TestInit(VNSW_CRYPT_CONFIG_FILE, ksync_init, false, false, false);
 
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
