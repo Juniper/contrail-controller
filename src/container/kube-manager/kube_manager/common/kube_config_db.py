@@ -398,6 +398,7 @@ class NetworkPolicyKM(KubeDBBase):
         # Metadata.
         self.name = None
         self.namespace = None
+        self.vnc_fq_name = None
 
         # Spec.
         self.spec = {}
@@ -426,7 +427,18 @@ class NetworkPolicyKM(KubeDBBase):
     def get_pod_selector(self, pod_selector):
         labels = pod_selector.get('matchLabels') \
             if pod_selector.get('matchLabels') else {}
-        return introspect.NetworkPolicyPodSelectors(matchLabels=labels)
+        return introspect.NetworkPolicyLabelSelectors(matchLabels=labels)
+
+    def get_namespace_selector(self, ns_selector):
+        labels = ns_selector.get('matchLabels') \
+            if ns_selector.get('matchLabels') else {}
+        return introspect.NetworkPolicyLabelSelectors(matchLabels=labels)
+
+    def set_vnc_fq_name(self, fqname):
+        self.vnc_fq_name = fqname
+
+    def get_vnc_fq_name(self):
+        return self.vnc_fq_name
 
     @staticmethod
     def sandesh_handle_db_list_request(cls, req):
@@ -439,25 +451,39 @@ class NetworkPolicyKM(KubeDBBase):
             # If the request is for a specific entry, then locate the entry.
             if req.network_policy_uuid and req.network_policy_uuid != np.uuid:
                 continue
-
             # Parse "ingress" attribute.
             np_ingress_list = []
             if np.spec.get('ingress'):
                 for ingress in np.spec.get('ingress'):
-
                     # Parse "from" attribute.
                     from_list = []
                     if ingress.get('from'):
                         for each_from in ingress.get('from'):
 
+                            np_ns_selector = None
+                            if each_from.get('namespaceSelector'):
+                                np_ns_selector = np.get_namespace_selector(
+                                    each_from.get('namespaceSelector'))
+
                             np_pod_selector = None
                             if each_from.get('podSelector'):
-
                                 np_pod_selector = np.get_pod_selector(
                                     each_from.get('podSelector'))
 
+                            np_ip_block = None
+                            if each_from.get('ipBlock'):
+                                ipblock = each_from.get('ipBlock')
+                                cidr = ipblock.get('cidr', None)
+                                except_cidr_list = []
+                                for except_cidr in ipblock.get('except', []):
+                                   except_cidr_list.append(except_cidr)
+                                np_ip_block = introspect.NetworkPolicyIpBlock(
+                                    cidr=cidr, except_cidr = except_cidr_list)
+
                             from_list.append(introspect.NetworkPolicyFromRules(
-                                podSelector=np_pod_selector))
+                                podSelector=np_pod_selector,
+                                namespaceSelector=np_ns_selector,
+                                ipBlock=np_ip_block))
 
                     # Parse "ports" attribute.
                     np_port_list = []
@@ -474,18 +500,54 @@ class NetworkPolicyKM(KubeDBBase):
                         introspect.NetworkPolicyIngressPolicy(\
                             fromPolicy=from_list, ports=np_port_list))
 
+            # Parse "egress" attribute.
+            np_egress_list = []
+            if np.spec.get('egress'):
+                for egress in np.spec.get('egress'):
+                    # Parse "to" attribute.
+                    to_list = []
+                    if egress.get('to'):
+                        for each_to in egress.get('to'):
+                            np_ip_block = None
+                            if each_to.get('ipBlock'):
+                                ipblock = each_to.get('ipBlock')
+                                cidr = ipblock.get('cidr', None)
+                                except_cidr_list = []
+                                for except_cidr in ipblock.get('except', []):
+                                   except_cidr_list.append(except_cidr)
+                                np_ip_block = introspect.NetworkPolicyIpBlock(
+                                    cidr=cidr, except_cidr = except_cidr_list)
+
+                            to_list.append(introspect.NetworkPolicyToRules(
+                                ipBlock=np_ip_block))
+
+                    # Parse "ports" attribute.
+                    np_port_list = []
+                    if egress.get('ports'):
+                        for port in egress.get('ports'):
+                           np_port = introspect.NetworkPolicyPort(
+                               port=port.get('port').__str__(),
+                                   protocol=port.get('protocol'))
+                           np_port_list.append(np_port)
+
+                    np_egress_list.append(\
+                        introspect.NetworkPolicyEgressPolicy(\
+                            toPolicy=to_list, ports=np_port_list))
+
             # Parse "pod selector" attribute.
             np_pod_selector = None
             if np.spec.get('podSelector'):
                 pod_selector = np.spec.get('podSelector')
-                np_pod_selector = introspect.NetworkPolicyPodSelectors(
+                np_pod_selector = introspect.NetworkPolicyLabelSelectors(
                     matchLabels=pod_selector.get('matchLabels'))
 
             np_spec = introspect.NetworkPolicySpec(ingress=np_ingress_list,
+                egress = np_egress_list,
                 podSelector=np_pod_selector)
 
             np_instance = introspect.NetworkPolicyInstance(uuid=np.uuid,
                 name=np.name, name_space=np.namespace,
+                vnc_firewall_policy_fqname=np.get_vnc_fq_name().__str__(),
                     spec_string=np.spec.__str__(), spec=np_spec)
 
             # Append the constructed element info to the response.
