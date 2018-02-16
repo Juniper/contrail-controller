@@ -613,6 +613,7 @@ void Agent::InitPeers() {
                                    false));
     ecmp_peer_.reset(new Peer(Peer::ECMP_PEER, ECMP_PEER_NAME, true));
     vgw_peer_.reset(new Peer(Peer::VGW_PEER, VGW_PEER_NAME, true));
+    evpn_routing_peer_.reset(new EvpnRoutingPeer());
     evpn_peer_.reset(new EvpnPeer());
     inet_evpn_peer_.reset(new InetEvpnPeer());
     multicast_peer_.reset(new Peer(Peer::MULTICAST_PEER, MULTICAST_PEER_NAME,
@@ -681,7 +682,8 @@ Agent::Agent() :
     dhcpv6_proto_(NULL), icmpv6_proto_(NULL), flow_proto_(NULL),
     mac_learning_proto_(NULL), mac_learning_module_(NULL),
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
-    ecmp_peer_(NULL), vgw_peer_(NULL), evpn_peer_(NULL), multicast_peer_(NULL),
+    ecmp_peer_(NULL), vgw_peer_(NULL), evpn_routing_peer_(NULL),
+    evpn_peer_(NULL), multicast_peer_(NULL),
     multicast_tor_peer_(NULL), multicast_tree_builder_peer_(NULL),
     mac_vm_binding_peer_(NULL), ifmap_parser_(NULL),
     router_id_configured_(false), mirror_src_udp_port_(0),

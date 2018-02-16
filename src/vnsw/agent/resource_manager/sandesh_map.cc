@@ -298,7 +298,7 @@ void VrfMplsBackUpResourceTable::RestoreResource() {
         uint32_t index = it->first;
         VrfMplsResource sandesh_key = it->second;
         VrfNHKey *vrf_nh_key = new VrfNHKey(sandesh_key.get_name(), false,
-                                            sandesh_key.get_vxlan_nh());
+                                            sandesh_key.get_bridge_nh());
         ResourceManager::KeyPtr key(new NexthopIndexResourceKey(
                                     backup_manager()->resource_manager(),
                                     vrf_nh_key));

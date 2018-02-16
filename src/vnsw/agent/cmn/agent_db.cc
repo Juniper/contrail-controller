@@ -28,6 +28,18 @@ bool AgentDBEntry::IsActive() const {
     return !IsDeleted();
 }
 
+DBState *AgentDBEntry::GetAgentDBEntryState(int listener_id) {
+    DBState *state = dynamic_cast<DBState *>
+        (GetState(get_table(), listener_id));
+    return state;
+}
+
+const DBState *AgentDBEntry::GetAgentDBEntryState(int listener_id) const {
+    const DBState *state = dynamic_cast<const DBState *>
+        (GetState(get_table(), listener_id));
+    return state;
+}
+
 void AgentDBEntry::AllocateResources(ResourceManager *resource_manager) {
 }
 

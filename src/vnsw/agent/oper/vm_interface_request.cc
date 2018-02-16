@@ -48,7 +48,7 @@ Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table) const {
     Agent *agent = table->agent();
     /* OS oper state is disabled by default in Vmware mode */
     bool os_oper_state = !agent->isVmwareMode();
-    return new VmInterface(uuid_, name_, os_oper_state);
+    return new VmInterface(uuid_, name_, os_oper_state, nil_uuid());
 }
 
 Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table,
@@ -128,7 +128,7 @@ VmInterface *VmInterfaceConfigData::OnAdd(const InterfaceTable *table,
         new VmInterface(key->uuid_, key->name_, addr_, mac, vm_name_,
                         nil_uuid(), tx_vlan_id_, rx_vlan_id_, parent,
                         ip6_addr_, device_type_, vmi_type_, vhostuser_mode_,
-                        os_oper_state);
+                        os_oper_state, logical_router_uuid_);
     vmi->SetConfigurer(VmInterface::CONFIG);
     return vmi;
 }
@@ -770,6 +770,11 @@ bool VmInterface::CopyConfig(const InterfaceTable *table,
     if (slo_list_ != data->slo_list_) {
         slo_list_ = data->slo_list_;
     }
+
+    if (logical_router_uuid() != data->logical_router_uuid_) {
+        set_logical_router_uuid(data->logical_router_uuid_);
+        ret = true;
+    }
     return ret;
 }
 
@@ -846,7 +851,7 @@ VmInterface *VmInterfaceNovaData::OnAdd(const InterfaceTable *table,
         new VmInterface(key->uuid_, key->name_, ipv4_addr_, mac, vm_name_,
                         vm_project_uuid_, tx_vlan_id_, rx_vlan_id_,
                         parent, ipv6_addr_, device_type_, vmi_type_,
-                        vhostuser_mode_, os_oper_state);
+                        vhostuser_mode_, os_oper_state, logical_router_uuid_);
     vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
     vmi->nova_ip_addr_ = ipv4_addr_;
     vmi->nova_ip6_addr_ = ipv6_addr_;
@@ -1148,7 +1153,8 @@ VmInterface *VmInterfaceIfNameData::OnAdd(const InterfaceTable *table,
                         nil_uuid(), VmInterface::kInvalidVlanId,
                         VmInterface::kInvalidVlanId, NULL, Ip6Address(),
                         VmInterface::VM_ON_TAP, VmInterface::INSTANCE,
-                        VmInterface::vHostUserClient, os_oper_state);
+                        VmInterface::vHostUserClient, os_oper_state,
+                        logical_router_uuid_);
     vmi->SetConfigurer(VmInterface::INSTANCE_MSG);
     return vmi;
 }
