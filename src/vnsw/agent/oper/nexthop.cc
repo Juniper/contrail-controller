@@ -17,6 +17,7 @@
 #include <oper/tunnel_nh.h>
 #include <oper/vrf.h>
 #include <oper/agent_sandesh.h>
+#include <oper/crypt_tunnel.h>
 
 using namespace std;
 
@@ -854,7 +855,8 @@ void VrfNH::SendObjectLog(const NextHopTable *table,
 TunnelNH::TunnelNH(VrfEntry *vrf, const Ip4Address &sip, const Ip4Address &dip,
                    bool policy, TunnelType type) :
     NextHop(NextHop::TUNNEL, false, policy), vrf_(vrf, this), sip_(sip),
-    dip_(dip), tunnel_type_(type), arp_rt_(this), interface_(NULL), dmac_() {
+    dip_(dip), tunnel_type_(type), arp_rt_(this), interface_(NULL), dmac_(),
+    crypt_(false), crypt_tunnel_available_(false), crypt_interface_(NULL) {
 }
 
 TunnelNH::~TunnelNH() {
@@ -965,6 +967,23 @@ bool TunnelNH::ChangeEntry(const DBRequest *req) {
         arp_rt_.reset(rt);
         ret = true;
     }
+    
+    Agent *agent = Agent::GetInstance();
+    if (agent->crypt_interface() != crypt_interface_) {
+        crypt_interface_ = agent->crypt_interface();
+        ret = true;
+    }
+    bool crypt, crypt_tunnel_available;
+    agent->crypt_tunnel_table()->CryptAvailability(dip_.to_string(), 
+                                                   crypt, crypt_tunnel_available);
+    if (crypt_tunnel_available != crypt_tunnel_available_) {
+        crypt_tunnel_available_ = crypt_tunnel_available;
+        ret = true;        
+    }
+    if (crypt != crypt_) {
+        crypt_ = crypt;
+        ret = true;
+    }
 
     //If route is present, check if the interface or mac
     //address changed for the dependent route
@@ -1021,6 +1040,12 @@ void TunnelNH::SendObjectLog(const NextHopTable *table,
     const Ip4Address *dip = GetDip();
     info.set_dest_ip(dip->to_string());
     info.set_tunnel_type(tunnel_type_.ToString());
+    if (crypt_)
+        info.set_crypt_traffic("All");
+    if (crypt_tunnel_available_)
+        info.set_crypt_tunnel_available("Yes");
+    if (crypt_interface_)
+        info.set_crypt_interface(GetCryptInterface()->name());
     OPER_TRACE_ENTRY(NextHop, table, info);
 }
 
@@ -2847,6 +2872,11 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                     std::string mac(mstr);
                     data.set_mac(mac);
                 }
+            }
+            data.set_crypt_all_traffic(tun->CryptEnabled());
+            if (tun->CryptTunnelAvailable()) {
+                data.set_crypt_path_available(tun->CryptTunnelAvailable());
+                data.set_crypt_interface(tun->GetCryptInterface()->name());
             }
             break;
         }

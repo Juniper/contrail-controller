@@ -24,6 +24,7 @@
 #include <filter/acl.h>
 #include <controller/controller_init.h>
 #include <resource_manager/resource_manager.h>
+#include <oper/crypt_tunnel.h>
 
 #include "agent_init.h"
 

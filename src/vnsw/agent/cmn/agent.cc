@@ -155,6 +155,7 @@ void Agent::SetAgentTaskPolicy() {
         "Agent::Diag",
         "http::RequestHandlerTask",
         kTaskHealthCheck,
+        kTaskCryptTunnel,
         kTaskDBExclude,
         AGENT_SHUTDOWN_TASKNAME,
         AGENT_INIT_TASKNAME,
@@ -363,6 +364,14 @@ void Agent::SetAgentTaskPolicy() {
     SetTaskPolicyOne(kTaskHealthCheck, health_check_exclude_list,
                      sizeof(health_check_exclude_list) / sizeof(char *));
 
+    // Crypt tunnel task
+    const char *crypt_tunnel_exclude_list[] = {
+        kTaskFlowMgmt,
+        //"Agent::KSync"
+    };
+    SetTaskPolicyOne(kTaskCryptTunnel, crypt_tunnel_exclude_list,
+                     sizeof(crypt_tunnel_exclude_list) / sizeof(char *));
+
 }
 
 void Agent::CreateLifetimeManager() {
@@ -490,6 +499,7 @@ void Agent::CopyConfig(AgentParam *params) {
 
     vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();
+    crypt_intf_name_ = params_->crypt_port();
     host_name_ = params_->host_name();
     agent_name_ = params_->host_name();
     prog_name_ = params_->program_name();
@@ -705,7 +715,8 @@ Agent::Agent() :
     xs_stime_(), xs_auth_enable_(false), xs_dns_idx_(0), dns_addr_(),
     dns_port_(), dns_auth_enable_(false), 
     controller_chksum_(0), dns_chksum_(0), collector_chksum_(0),
-    ip_fabric_intf_name_(""), vhost_interface_name_(""),
+    ip_fabric_intf_name_(""), crypt_intf_name_(""), 
+    vhost_interface_name_(""),
     pkt_interface_name_("pkt0"), arp_proto_(NULL),
     dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL),
     dhcpv6_proto_(NULL), icmpv6_proto_(NULL), flow_proto_(NULL),
@@ -717,7 +728,7 @@ Agent::Agent() :
     router_id_configured_(false), mirror_src_udp_port_(0),
     lifetime_manager_(NULL), ksync_sync_mode_(false), mgmt_ip_(""),
     vxlan_network_identifier_mode_(AUTOMATIC), vhost_interface_(NULL),
-    connection_state_(NULL), test_mode_(false),
+    crypt_interface_(NULL), connection_state_(NULL), test_mode_(false),
     xmpp_dns_test_mode_(false),
     init_done_(false), resource_manager_ready_(false),
     simulate_evpn_tor_(false), tsn_no_forwarding_enabled_(false),
@@ -952,7 +963,7 @@ void Agent::ConcurrencyCheck() {
        CHECK_CONCURRENCY("db::DBTable", "Agent::KSync", AGENT_INIT_TASKNAME,
                          kTaskFlowMgmt, kTaskFlowUpdate,
                          kTaskFlowEvent, kTaskFlowDelete, kTaskFlowKSync,
-                         kTaskHealthCheck, kAgentResourceRestoreTask);
+                         kTaskHealthCheck, kTaskCryptTunnel, kAgentResourceRestoreTask);
     }
 }
 
