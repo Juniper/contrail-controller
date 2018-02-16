@@ -595,9 +595,8 @@ static void BuildFatFlowTable(Agent *agent, VmInterfaceConfigData *data,
     for (FatFlowProtocols::const_iterator it = cfg->fat_flow_protocols().begin();
             it != cfg->fat_flow_protocols().end(); it++) {
         uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
-        VmInterface::FatFlowEntry entry(protocol, it->port,
-                                        it->ignore_remote_address);
-        data->fat_flow_list_.Insert(&entry);
+        data->fat_flow_list_.list_.insert(VmInterface::FatFlowEntry(protocol,
+                                          it->port));
     }
 }
 
@@ -736,14 +735,6 @@ static void BuildVn(VmInterfaceConfigData *data, IFMapNode *node,
                     UuidToString(data->vn_uuid_),
                     "compute VN uuid",
                     UuidToString(cfg_entry->GetVnUuid()));
-    }
-    /* Copy fat-flow configured at VN level */
-    for (FatFlowProtocols::const_iterator it = vn->fat_flow_protocols().begin();
-            it != vn->fat_flow_protocols().end(); it++) {
-        uint16_t protocol = Agent::ProtocolStringToInt(it->protocol);
-        VmInterface::FatFlowEntry fentry(protocol, it->port,
-                                         it->ignore_remote_address);
-        data->fat_flow_list_.Insert(&fentry);
     }
 }
 
@@ -1130,7 +1121,7 @@ bool VmInterface::IsConfigurerSet(VmInterface::Configurer type) {
 }
 
 bool VmInterface::IsFatFlow(uint8_t protocol, uint16_t port) const {
-    if (fat_flow_list_.list_.find(FatFlowEntry(protocol, port, false)) !=
+    if (fat_flow_list_.list_.find(FatFlowEntry(protocol, port)) !=
                 fat_flow_list_.list_.end()) {
         return true;
     }
@@ -4233,18 +4224,11 @@ void VmInterface::InstanceIpList::Remove(InstanceIpSet::iterator &it) {
 }
 
 void VmInterface::FatFlowList::Insert(const FatFlowEntry *rhs) {
-    std::pair<FatFlowEntrySet::iterator, bool> ret = list_.insert(*rhs);
-    /* Insertion fails when the entry already exists. In this case update
-     * non-key fields
-     */
-    if (ret.second == false) {
-        ret.first->ignore_remote_address = rhs->ignore_remote_address;
-    }
+    list_.insert(*rhs);
 }
 
 void VmInterface::FatFlowList::Update(const FatFlowEntry *lhs,
                                       const FatFlowEntry *rhs) {
-    lhs->ignore_remote_address = rhs->ignore_remote_address;
 }
 
 void VmInterface::FatFlowList::Remove(FatFlowEntrySet::iterator &it) {
