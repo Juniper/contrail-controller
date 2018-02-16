@@ -34,6 +34,9 @@ public:
     InterfaceKSyncEntry *interface() const { 
         return static_cast<InterfaceKSyncEntry *>(interface_.get());
     }
+    InterfaceKSyncEntry *crypt_interface() const {
+        return static_cast<InterfaceKSyncEntry *>(crypt_interface_.get());
+    }
     KSyncDBObject *GetObject() const;
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
@@ -112,6 +115,9 @@ private:
     bool need_pbb_tunnel_;
     bool etree_leaf_;
     bool layer2_control_word_;
+    bool crypt_;
+    bool crypt_path_available_;
+    KSyncEntryPtr crypt_interface_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 

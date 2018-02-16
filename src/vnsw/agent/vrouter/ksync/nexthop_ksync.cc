@@ -52,7 +52,9 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry,
     pbb_child_nh_(entry->pbb_child_nh_), isid_(entry->isid_),
     pbb_label_(entry->pbb_label_), learning_enabled_(entry->learning_enabled_),
     need_pbb_tunnel_(entry->need_pbb_tunnel_), etree_leaf_(entry->etree_leaf_),
-    layer2_control_word_(entry->layer2_control_word_) {
+    layer2_control_word_(entry->layer2_control_word_),
+    crypt_(entry->crypt_), crypt_path_available_(entry->crypt_path_available_),
+    crypt_interface_(entry->crypt_interface_) {
     }
 
 NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
@@ -63,7 +65,8 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
     tunnel_type_(TunnelType::INVALID), prefix_len_(32), nh_id_(nh->id()),
     vxlan_nh_(false), flood_unknown_unicast_(false),
     learning_enabled_(nh->learning_enabled()), need_pbb_tunnel_(false),
-    etree_leaf_ (false), layer2_control_word_(false) {
+    etree_leaf_ (false), layer2_control_word_(false),
+    crypt_(false), crypt_path_available_(false), crypt_interface_(NULL) {
 
     switch (type_) {
     case NextHop::ARP: {
@@ -111,6 +114,15 @@ NHKSyncEntry::NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh) :
         sip_ = *(tunnel->GetSip());
         dip_ = *(tunnel->GetDip());
         tunnel_type_ = tunnel->GetTunnelType();
+        crypt_ = tunnel->CryptEnabled();
+        crypt_path_available_ = tunnel->CryptTunnelAvailable();
+
+        if (tunnel->GetCryptInterface()) {
+            InterfaceKSyncObject *crypt_interface_object =
+                    ksync_obj_->ksync()->interface_ksync_obj();
+            InterfaceKSyncEntry if_ksync(crypt_interface_object, tunnel->GetCryptInterface());
+            crypt_interface_ = crypt_interface_object->GetReference(&if_ksync);
+        }
         break;
     }
 
@@ -284,6 +296,18 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
         if (dip_ != entry.dip_) {
             return dip_ < entry.dip_;
+        }
+
+        if (crypt_ != entry.crypt_) {
+            return crypt_ < entry.crypt_;
+        }
+
+        if (crypt_path_available_ != entry.crypt_path_available_) {
+            return crypt_path_available_ < entry.crypt_path_available_;
+        }
+
+        if (crypt_interface() != entry.crypt_interface()) {
+            return crypt_interface() < entry.crypt_interface();
         }
 
         return tunnel_type_.IsLess(entry.tunnel_type_);
@@ -587,6 +611,33 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             interface = interface_object->GetReference(&if_ksync);
             dmac = oper_intf->mac();
         }
+
+        bool crypt = tun_nh->CryptEnabled();
+        if (crypt != crypt_) {
+            crypt_ = crypt;
+            ret = true;
+        }
+
+        bool crypt_path_available = tun_nh->CryptTunnelAvailable();
+        if (crypt_path_available != crypt_path_available_) {
+            crypt_path_available_ = crypt_path_available;
+            ret = true;
+        }
+
+        const Interface *oper_crypt_intf = tun_nh->GetCryptInterface();
+
+        if (tun_nh->GetCryptInterface()) {
+            InterfaceKSyncObject *crypt_interface_object =
+                    ksync_obj_->ksync()->interface_ksync_obj();
+            InterfaceKSyncEntry if_ksync(crypt_interface_object, oper_crypt_intf);
+            KSyncEntryPtr crypt_interface = crypt_interface_object->GetReference(&if_ksync);
+
+            if (crypt_interface != crypt_interface_) {
+                crypt_interface_ = crypt_interface;
+                ret = true;
+            }
+        }
+
         if (dmac != dmac_) {
             dmac_ = dmac;
             ret = true;
@@ -758,9 +809,11 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
 int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_nexthop_req encoder;
     int encode_len;
+    uint32_t crypt_intf_id = kInvalidIndex;
     uint32_t intf_id = kInvalidIndex;
     std::vector<int8_t> encap;
     InterfaceKSyncEntry *if_ksync = NULL;
+    InterfaceKSyncEntry *crypt_if_ksync = NULL;
     Agent *agent = ksync_obj_->ksync()->agent();
 
     encoder.set_h_op(op);
@@ -797,7 +850,12 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         flags |= NH_FLAG_L2_CONTROL_DATA;
     }
 
+    if (crypt_) {
+        flags |= NH_FLAG_CRYPT_TRAFFIC;
+    }
+
     if_ksync = interface();
+    crypt_if_ksync = crypt_interface();
 
     switch (type_) {
         case NextHop::VLAN:
@@ -834,7 +892,12 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 intf_id = if_ksync->interface_id();
             }
             encoder.set_nhr_encap_oif_id(intf_id);
-
+            encoder.set_nhr_crypt_traffic(crypt_);
+            encoder.set_nhr_crypt_path_available(crypt_path_available_);
+            if (crypt_if_ksync && crypt_path_available_) {
+                crypt_intf_id = crypt_if_ksync->interface_id();
+            }
+            encoder.set_nhr_encap_crypt_oif_id(crypt_intf_id);
             SetEncap(if_ksync,encap);
             encoder.set_nhr_encap(encap);
             if (tunnel_type_.GetType() == TunnelType::MPLS_UDP) {
@@ -1077,6 +1140,15 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
         info.set_type("TUNNEL");
         info.set_sip(sip_.to_string());
         info.set_dip(dip_.to_string());
+        info.set_crypt_path_available(crypt_);
+
+        if (crypt_interface()) {
+            info.set_crypt_intf_name(crypt_interface()->interface_name());
+            info.set_crypt_out_if_index(crypt_interface()->interface_id());
+        } else {
+            info.set_crypt_intf_name("NULL");
+            info.set_crypt_out_if_index(kInvalidIndex);
+        }
         break;
     }
 
@@ -1193,6 +1265,13 @@ KSyncEntry *NHKSyncEntry::UnresolvedReference() {
     }
 
     case NextHop::TUNNEL: {
+        if (crypt_path_available_) {
+            InterfaceKSyncEntry *crypt_if_ksync = crypt_interface();
+            assert(crypt_if_ksync);
+            if (!crypt_if_ksync->IsResolved()) {
+                entry = crypt_if_ksync;
+            }
+        }
         break;
     }
 
