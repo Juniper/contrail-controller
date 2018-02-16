@@ -31,6 +31,8 @@
 #include <oper/global_vrouter.h>
 #include <oper/path_preference.h>
 #include <oper/tsn_elector.h>
+#include <oper/project_config.h>
+#include <oper/vxlan_routing_manager.h>
 #include <filter/acl.h>
 #include <filter/policy_set.h>
 #include <oper/ifmap_dependency_manager.h>
@@ -276,6 +278,9 @@ void OperDB::CreateDBTables(DB *db) {
     virtual_dns_ = std::auto_ptr<OperVirtualDns>
         (new OperVirtualDns(agent_, domain_config_.get()));
     tsn_elector_ = std::auto_ptr<TsnElector>(new TsnElector(agent_));
+    project_config_ = std::auto_ptr<ProjectConfig>(new ProjectConfig(agent_));
+    vxlan_routing_manager_= std::auto_ptr<VxlanRoutingManager>
+        (new VxlanRoutingManager(agent_));
 }
 
 void OperDB::Init() {
@@ -319,6 +324,7 @@ void OperDB::RegisterDBClients() {
     global_vrouter_.get()->CreateDBClients();
     route_leak_manager_.reset(new RouteLeakManager(agent_));
     tsn_elector_.get()->Register();
+    vxlan_routing_manager_.get()->Register();
 }
 
 OperDB::OperDB(Agent *agent)
@@ -357,6 +363,7 @@ void OperDB::Shutdown() {
     multicast_->Terminate();
     route_walk_manager_->Shutdown();
     tsn_elector_->Shutdown();
+    vxlan_routing_manager_->Shutdown();
 
     if (agent_sandesh_manager_.get()) {
         agent_sandesh_manager_->Shutdown();
@@ -393,6 +400,7 @@ void OperDB::Shutdown() {
     //route_walk_manager_.reset();
     profile_.reset();
     route_leak_manager_.reset();
+    vxlan_routing_manager_.reset();
 }
 
 void OperDB::DeleteRoutes() {

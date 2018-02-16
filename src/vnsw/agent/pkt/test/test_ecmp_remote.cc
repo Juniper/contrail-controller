@@ -254,7 +254,7 @@ public:
             ControllerVmRoute::MakeControllerVmRoute(bgp_peer,
                                agent_->fabric_vrf_name(), agent_->router_id(),
                                vrf_name, addr, TunnelType::GREType(), 16,
-                               vn_list, SecurityGroupList(), TagList(),
+                               MacAddress(), vn_list, SecurityGroupList(), TagList(),
                                PathPreference(), false, EcmpLoadBalance(),
                                false);
         InetUnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer,
