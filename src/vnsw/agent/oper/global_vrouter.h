@@ -17,6 +17,7 @@ class AgentRouteResync;
 class AgentRouteEncap;
 class AgentUtXmlFlowThreshold;
 class EcmpLoadBalance;
+class CryptTunnelTable;
 
 namespace autogen {
     struct LinklocalServiceEntryType;
@@ -37,6 +38,11 @@ struct LinkLocalDBState : DBState {
 // Handle Global Vrouter configuration
 class GlobalVrouter : public OperIFMapTable {
 public:
+    enum CryptMode {
+        CRYPT_ALL_TRAFFIC,
+        CRYPT_FLOW,
+        CRYPT_NONE
+    };
     static const std::string kMetadataService;
     static const Ip4Address kLoopBackIp;
     static const int32_t kDefaultFlowExportRate = 0;
@@ -84,9 +90,24 @@ public:
         }
     };
 
+    typedef std::string CryptTunnelKey;    
+    struct CryptTunnel {
+        CryptMode mode;
+        CryptTunnel(CryptMode cmode): mode(cmode) {};
+        bool operator==(const CryptTunnel &rhs) const {
+            return (mode == rhs.mode);
+        }
+        bool operator<(const CryptTunnel &rhs) const {
+            return (mode < rhs.mode);
+        }
+    };
+
     // map of linklocal service data, with (ip, port) as key
     typedef std::map<LinkLocalServiceKey, LinkLocalService> LinkLocalServicesMap;
     typedef std::pair<LinkLocalServiceKey, LinkLocalService> LinkLocalServicesPair;
+
+    typedef std::map<CryptTunnelKey, CryptTunnel> CryptTunnelsMap;
+    typedef std::pair<CryptTunnelKey, CryptTunnel> CryptTunnelsPair;
 
     typedef std::map<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutMap;
     typedef std::pair<FlowAgingTimeoutKey, uint32_t> FlowAgingTimeoutPair;
@@ -135,6 +156,7 @@ private:
     class FabricDnsResolver;
     class LinkLocalRouteManager;
     typedef std::vector<autogen::LinklocalServiceEntryType> LinkLocalServiceList;
+    typedef std::vector<autogen::EncryptionTunnelEndpoint> EncryptionTunnelEndpointList;
     typedef std::vector<autogen::FlowAgingTimeout> FlowAgingTimeoutList;
 
     void UpdateLinkLocalServiceConfig(const LinkLocalServiceList &linklocal_list);
@@ -145,6 +167,17 @@ private:
     void DeleteLinkLocalService(const LinkLocalServicesMap::iterator &it);
     void ChangeLinkLocalService(const LinkLocalServicesMap::iterator &old_it,
                                 const LinkLocalServicesMap::iterator &new_it);
+
+    void UpdateCryptTunnelEndpointConfig(const EncryptionTunnelEndpointList &endpoint_list, 
+                                         const std::string encrypt_mode_str);
+    void DeleteCryptTunnelEndpointConfig();
+    bool ChangeNotifyCryptTunnels(CryptTunnelsMap *old_value,
+                                  CryptTunnelsMap *new_value);
+    void AddCryptTunnelEndpoint(const CryptTunnelsMap::iterator &it);
+    void DeleteCryptTunnelEndpoint(const CryptTunnelsMap::iterator &it);
+    void ChangeCryptTunnelEndpoint(const CryptTunnelsMap::iterator &old_it,
+                                   const CryptTunnelsMap::iterator &new_it);
+
     void UpdateFlowAging(autogen::GlobalVrouterConfig *cfg);
     void DeleteFlowAging();
 
@@ -152,6 +185,8 @@ private:
     void DeletePortConfig();
 
     LinkLocalServicesMap linklocal_services_map_;
+    CryptTunnelsMap crypt_tunnels_map_;
+    CryptMode crypt_mode_;
     boost::scoped_ptr<LinkLocalRouteManager> linklocal_route_mgr_;
     boost::scoped_ptr<FabricDnsResolver> fabric_dns_resolver_;
     AgentRouteWalkerPtr agent_route_resync_walker_;

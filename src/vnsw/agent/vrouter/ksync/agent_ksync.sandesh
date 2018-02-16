@@ -120,6 +120,10 @@ struct KSyncNhInfo {
    14: optional list<KSyncComponentNHLog> sub_nh_list;
    15: optional u32 sub_type;
    16: optional u32 out_if_index;
+   17: optional bool crypt_path_available;
+   18: optional string crypt_intf_name;
+   19: optional u32 crypt_out_if_index;
+   20: optional bool crypt_traffic;
 }
 
 /**
