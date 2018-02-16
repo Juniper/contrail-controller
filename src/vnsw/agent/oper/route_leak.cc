@@ -28,7 +28,7 @@ void RouteLeakState::AddIndirectRoute(const AgentRoute *route) {
     }
 
     const Peer *peer = agent_->local_peer();
-    local_peer_ = true;
+    peer_list_.insert(peer);
 
     if (gw_ip == uc_rt->addr().to_v4()) {
         gw_ip = agent_->vhost_default_gateway();
@@ -45,10 +45,15 @@ void RouteLeakState::AddIndirectRoute(const AgentRoute *route) {
                            active_path->communities(), true);
 }
 
-void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
+void RouteLeakState::AddInterfaceRoute(const AgentRoute *route,
+                                       const AgentPath *path) {
     const InetUnicastRouteEntry *uc_rt = 
         static_cast<const InetUnicastRouteEntry *>(route);
-    const AgentPath *active_path = uc_rt->GetActivePath();
+    const AgentPath *active_path = path;
+
+    if (active_path == NULL) {
+        active_path = uc_rt->GetActivePath();
+    }
 
     InterfaceNH *intf_nh = dynamic_cast<InterfaceNH *>(active_path->nexthop());
     if (intf_nh == NULL) {
@@ -59,18 +64,17 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
         uc_rt->addr() == agent_->router_id()) {
         //Dont overwrite vhost IP in default VRF
         if (intf_nh->GetInterface() != agent_->vhost_interface()) {
-            local_peer_ = true;
             return;
         }
     }
 
     if (intf_nh->GetInterface()->type() == Interface::PACKET) {
-        local_peer_ = true;
-        InetUnicastAgentRouteTable *table = 
+        peer_list_.insert(agent_->local_peer());
+        InetUnicastAgentRouteTable *table =
             static_cast<InetUnicastAgentRouteTable *>
             (dest_vrf_->GetInet4UnicastRouteTable());
 
-        table->AddHostRoute(dest_vrf_->GetName(), uc_rt->addr(), uc_rt->plen(), 
+        table->AddHostRoute(dest_vrf_->GetName(), uc_rt->addr(), uc_rt->plen(),
                             "", true);
         return;
     }
@@ -81,7 +85,9 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
         if (vm_intf->vmi_type() == VmInterface::VHOST) {
             if (uc_rt->addr() == agent_->router_id()) {
                 if (uc_rt->FindLocalVmPortPath() == NULL) {
-                    local_peer_ = true;
+                    peer_list_.insert(agent_->local_peer());
+                } else {
+                    peer_list_.insert(agent_->fabric_rt_export_peer());
                 }
                 AddReceiveRoute(route);
                 return;
@@ -89,11 +95,9 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
         }
     }
 
-    const Peer *peer = agent_->fabric_rt_export_peer();
-    bool local_peer = false;
+    const Peer *peer = active_path->peer();
     if (uc_rt->FindLocalVmPortPath() == NULL) {
         peer = agent_->local_peer();
-        local_peer = true;
     }
 
     /* Don't export /32 routes on fabric-vrf, if they are part of vrouter's
@@ -102,15 +106,10 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
         dest_vrf_->GetName() == agent_->fabric_vrf_name()) {
         if (agent_->oper_db()->vrouter()->IsSubnetMember(uc_rt->addr())) {
             peer = agent_->local_peer();
-            local_peer = true;
         }
     }
 
-    if (installed_ && local_peer_ != local_peer) {
-        DeleteRoute(route);
-    }
-
-    local_peer_ = local_peer;
+    peer_list_.insert(peer);
     SecurityGroupList sg_list;
     InetUnicastAgentRouteTable::AddLocalVmRoute(peer,
                                                 dest_vrf_->GetName(),
@@ -128,6 +127,16 @@ void RouteLeakState::AddInterfaceRoute(const AgentRoute *route) {
                                                 EcmpLoadBalance(), false, false,
                                                 intf_nh->GetInterface()->name(),
                                                 true);
+}
+
+void RouteLeakState::AddCompositeRoute(const AgentRoute *route) {
+    for(Route::PathList::const_iterator it = route->GetPathList().begin();
+        it != route->GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            AddInterfaceRoute(route, path);
+        }
+    }
 }
 
 void RouteLeakState::AddReceiveRoute(const AgentRoute *route) {
@@ -194,34 +203,60 @@ void RouteLeakState::AddRoute(const AgentRoute *route) {
         static_cast<const InetUnicastRouteEntry *>(route);
 
     if (CanAdd(uc_rt) == false) {
-        DeleteRoute(route);
+        DeleteRoute(route, peer_list_);
         return;
     }
+
+    std::set<const Peer *> old_peer_list = peer_list_;
+    peer_list_.clear();
 
     if (uc_rt->GetActiveNextHop()->GetType() == NextHop::TUNNEL) {
         AddIndirectRoute(route);
     } else if (uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE) {
-        AddInterfaceRoute(route);
+        AddInterfaceRoute(route, route->FindLocalVmPortPath());
+    } else if (uc_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE) {
+        AddCompositeRoute(route);
     }
-    installed_ = true;
+
+    bool sync = false;
+    if (old_peer_list != peer_list_) {
+        sync = true;
+    }
+
+    std::set<const Peer *>::iterator it = old_peer_list.begin();
+    while(it != old_peer_list.end()) {
+        std::set<const Peer *>::iterator prev_it = it;
+        it++;
+        if (peer_list_.find(*prev_it) != peer_list_.end()) {
+            old_peer_list.erase(prev_it);
+        }
+    }
+
+    DeleteRoute(route, old_peer_list);
+
+    if (sync) {
+        InetUnicastAgentRouteTable *table =
+            dest_vrf_->GetInet4UnicastRouteTable();
+        table->ResyncRoute(agent_->fabric_rt_export_peer(),
+                           dest_vrf_->GetName(), uc_rt->addr(), uc_rt->plen());
+    }
 }
 
-void RouteLeakState::DeleteRoute(const AgentRoute *route) {
-    if (dest_vrf_ == NULL || installed_ == false) {
+void RouteLeakState::DeleteRoute(const AgentRoute *route,
+                                 const std::set<const Peer *> &peer_list) {
+    if (dest_vrf_ == NULL) {
         return;
     }
 
-    const Peer *peer = agent_->fabric_rt_export_peer();
-    if (local_peer_) {
-        peer = agent_->local_peer();
+    std::set<const Peer *>::const_iterator it = peer_list.begin();
+    for(; it != peer_list.end(); it++) {
+        const InetUnicastRouteEntry *uc_rt =
+            static_cast<const InetUnicastRouteEntry *>(route);
+        dest_vrf_->GetInet4UnicastRouteTable()->Delete(*it,
+                                                       dest_vrf_->GetName(),
+                                                       uc_rt->addr(),
+                                                       uc_rt->plen());
     }
-    const InetUnicastRouteEntry *uc_rt =
-        static_cast<const InetUnicastRouteEntry *>(route);
-    dest_vrf_->GetInet4UnicastRouteTable()->Delete(peer,
-                                                   dest_vrf_->GetName(),
-                                                   uc_rt->addr(),
-                                                   uc_rt->plen());
-    installed_ = false;
 }
 
 RouteLeakVrfState::RouteLeakVrfState(VrfEntry *source_vrf, 
@@ -293,7 +328,7 @@ bool RouteLeakVrfState::Notify(DBTablePartBase *partition, DBEntryBase *entry) {
         if (state) {
             //Delete the route
             entry->ClearState(partition->parent(), route_listener_id_);
-            state->DeleteRoute(route);
+            state->DeleteRoute(route, state->peer_list());
             delete state;
         }
         return true;
@@ -310,7 +345,7 @@ bool RouteLeakVrfState::Notify(DBTablePartBase *partition, DBEntryBase *entry) {
     }
 
     if (state->dest_vrf() != dest_vrf_) {
-        state->DeleteRoute(route);
+        state->DeleteRoute(route, state->peer_list());
     }
 
     if (state->dest_vrf() != dest_vrf_) {
