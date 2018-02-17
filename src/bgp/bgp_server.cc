@@ -181,6 +181,7 @@ public:
             config_hold_time = config->hold_time();
         }
 
+        // TODO: we should quit if subcluster is being changed
         if (server_->admin_down_ != config_admin_down) {
             if (server_->admin_down_) {
                 BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
