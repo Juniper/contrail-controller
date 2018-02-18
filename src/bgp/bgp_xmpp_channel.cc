@@ -378,6 +378,14 @@ public:
     virtual int GetPrimaryPathCount() const {
          return primary_path_count_;
     }
+    virtual void ProcessPathTunnelEncapsulation(const BgpPath *path,
+        BgpAttr *attr, ExtCommunityDB *extcomm_db, const BgpTable *table)
+        const {
+    }
+    virtual const std::vector<std::string> GetDefaultTunnelEncap(
+        Address::Family family) const {
+        return std::vector<std::string>();
+    }
     virtual bool IsInGRTimerWaitState() const {
         return parent_->close_manager_->IsInGRTimerWaitState();
     }
