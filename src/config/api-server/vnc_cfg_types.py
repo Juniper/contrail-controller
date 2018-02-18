@@ -2034,7 +2034,7 @@ class ProjectServer(Resource, Project):
         quota_counter = cls.server.quota_counter
         db_conn = cls.server._db_conn
         ok, proj_dict = QuotaHelper.get_project_dict_for_quota(obj_ids['uuid'], db_conn)
-        for obj_type, quota_limit in proj_dict['quota'].items():
+        for obj_type, quota_limit in proj_dict.get('quota', {}).items():
             path_prefix = _DEFAULT_ZK_COUNTER_PATH_PREFIX + obj_ids['uuid']
             path = path_prefix + "/" + obj_type
             if (quota_counter.get(path) and quota_limit == -1):
