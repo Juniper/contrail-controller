@@ -1654,6 +1654,14 @@ bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
                 // Clear the reject flag is marked before
                 path->ResetPolicyReject();
             }
+            IPeer *peer = path->GetPeer();
+            // Process default tunnel encapsulation that may be configured per
+            // address family on the peer. 'peer' is not expected to be NULL
+            // except in unit tests.
+            if (peer) {
+                peer->ProcessPathTunnelEncapsulation(path, out_attr,
+                    server_->extcomm_db(), route->table());
+            }
             BgpAttrPtr modified_attr = server_->attr_db()->Locate(out_attr);
             // Update the path with new set of attributes
             path->SetAttr(modified_attr, path->GetOriginalAttr());
@@ -1662,6 +1670,11 @@ bool RoutingInstance::ProcessRoutingPolicy(const BgpRoute *route,
     }
     // After processing all the routing policy,,
     // We are here means, all the routing policies have accepted the route
+    IPeer *peer = path->GetPeer();
+    if (peer) {
+        peer->ProcessPathTunnelEncapsulation(path, out_attr,
+            server_->extcomm_db(), route->table());
+    }
     BgpAttrPtr modified_attr = server_->attr_db()->Locate(out_attr);
     path->SetAttr(modified_attr, path->GetOriginalAttr());
     // Clear the reject if marked so in past
