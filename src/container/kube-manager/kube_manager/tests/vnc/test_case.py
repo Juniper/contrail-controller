@@ -75,6 +75,7 @@ class KMTestCase(test_common.TestCase):
             ('VNC', 'cassandra_server_list', "0.0.0.0:9160"),
             ('VNC', 'cluster_id', cls._cluster_id),
             ('KUBERNETES', 'service_subnets', "10.96.0.0/12"),
+            ('KUBERNETES', 'ip_fabric_subnets', "10.64.0.0/12"),
             ('KUBERNETES', 'pod_subnets', "10.32.0.0/12"),
             ('KUBERNETES', 'cluster_name', cls.cluster_name()),
         ]

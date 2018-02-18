@@ -54,6 +54,7 @@ class VncKubernetes(VncCommon):
         self.kube = kube
         self._cluster_pod_ipam_fq_name = None
         self._cluster_service_ipam_fq_name = None
+        self._cluster_ip_fabric_ipam_fq_name = None
 
         # init vnc connection
         self.vnc_lib = self._vnc_connect()
@@ -110,7 +111,8 @@ class VncKubernetes(VncCommon):
             # Update common config.
             self.vnc_kube_config.update(
                 cluster_pod_ipam_fq_name=self._get_cluster_pod_ipam_fq_name(),
-                cluster_service_ipam_fq_name=self._get_cluster_service_ipam_fq_name())
+                cluster_service_ipam_fq_name=self._get_cluster_service_ipam_fq_name(),
+                cluster_ip_fabric_ipam_fq_name=self._get_cluster_ip_fabric_ipam_fq_name())
 
         # handle events
         self.label_cache = label_cache.LabelCache()
@@ -335,6 +337,24 @@ class VncKubernetes(VncCommon):
                        return True
         return False
 
+    def _allocate_fabric_snat_port_translation_pools(self):
+        global_vrouter_fq_name = \
+            ['default-global-system-config', 'default-global-vrouter-config']
+        global_vrouter_obj = \
+            self.vnc_lib.global_vrouter_config_read(
+                fq_name=global_vrouter_fq_name)
+        snat_port_range = PortType(start_port = 0, end_port = 0)
+        port_pool_tcp = PortTranslationPool(
+            protocol="tcp", port_count='1024', port_range=snat_port_range)
+        port_pool_udp = PortTranslationPool(
+            protocol="udp", port_count='1024', port_range=snat_port_range)
+        port_pools = PortTranslationPools([port_pool_tcp, port_pool_udp])
+        global_vrouter_obj.set_port_translation_pools(port_pools)
+        try:
+            self.vnc_lib.global_vrouter_config_update(global_vrouter_obj)
+        except NoIdError:
+            pass
+
     def _provision_cluster(self):
         proj_obj = self._create_project(\
             vnc_kube_config.cluster_default_project_name())
@@ -343,10 +363,18 @@ class VncKubernetes(VncCommon):
         VncSecurityPolicy.create_application_policy_set(
             vnc_kube_config.application_policy_set_name())
 
+        # Allocate fabric snat port translation pools
+        self._allocate_fabric_snat_port_translation_pools()
+
         ip_fabric_fq_name = vnc_kube_config.cluster_ip_fabric_network_fq_name()
         ip_fabric_vn_obj = self.vnc_lib. \
             virtual_network_read(fq_name=ip_fabric_fq_name)
         self._create_project('kube-system')
+        # Create ip-fabric IPAM.
+        ipam_name = vnc_kube_config.cluster_name() + '-ip-fabric-ipam'
+        ip_fabric_ipam_update, ip_fabric_ipam_obj, ip_fabric_ipam_subnets = \
+            self._create_ipam(ipam_name, self.args.ip_fabric_subnets, proj_obj)
+        self._cluster_ip_fabric_ipam_fq_name = ip_fabric_ipam_obj.get_fq_name()
         # Create Pod IPAM.
         ipam_name = vnc_kube_config.cluster_name() + '-pod-ipam'
         pod_ipam_update, pod_ipam_obj, pod_ipam_subnets = \
@@ -355,9 +383,14 @@ class VncKubernetes(VncCommon):
         # This will be referenced by ALL pods that are spawned in the cluster.
         self._cluster_pod_ipam_fq_name = pod_ipam_obj.get_fq_name()
         # Create a cluster-pod-network
-        cluster_pod_vn_obj = self._create_network(
-            vnc_kube_config.cluster_default_pod_network_name(), proj_obj, \
-            pod_ipam_obj, pod_ipam_update, ip_fabric_vn_obj)
+        if self.args.ip_fabric_forwarding:
+            cluster_pod_vn_obj = self._create_network(
+                vnc_kube_config.cluster_default_pod_network_name(), proj_obj, \
+                ip_fabric_ipam_obj, ip_fabric_ipam_update, ip_fabric_vn_obj)
+        else:
+            cluster_pod_vn_obj = self._create_network(
+                vnc_kube_config.cluster_default_pod_network_name(), proj_obj, \
+                pod_ipam_obj, pod_ipam_update, ip_fabric_vn_obj)
         # Create Service IPAM.
         ipam_name = vnc_kube_config.cluster_name() + '-service-ipam'
         service_ipam_update, service_ipam_obj, service_ipam_subnets = \
@@ -397,13 +430,11 @@ class VncKubernetes(VncCommon):
         vn_obj.set_virtual_network_properties(
              VirtualNetworkType(forwarding_mode='l3'))
 
-        if self.args.ip_fabric_forwarding and provider:
-            vn_obj.add_virtual_network(provider)
+        if self.args.ip_fabric_forwarding:
+            if provider:
+                vn_obj.add_virtual_network(provider)
         else:
-            vn_refs = vn_obj.get_virtual_network_refs()
-            for vn_ref in vn_refs or []:
-                vn_ref_obj = self.vnc_lib.virtual_network_read(id=vn_ref['uuid'])
-                vn_obj.del_virtual_network(vn_ref_obj)
+            vn_obj.set_fabric_snat(True)
 
         if vn_exists:
             # Update VN.
@@ -428,6 +459,9 @@ class VncKubernetes(VncCommon):
 
     def _get_cluster_service_ipam_fq_name(self):
         return self._cluster_service_ipam_fq_name
+
+    def _get_cluster_ip_fabric_ipam_fq_name(self):
+        return self._cluster_ip_fabric_ipam_fq_name
 
     def vnc_timer(self):
         try:
