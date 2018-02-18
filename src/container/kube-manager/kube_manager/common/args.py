@@ -46,14 +46,19 @@ class MandatoryArgs(Enum):
 
     """
     POD_SUBNET = {
-                     "arg_str": "pod_subnets",
-                     "validatefn": lambda x: x
-                 }
+        "arg_str": "pod_subnets",
+        "validatefn": lambda x: x
+    }
 
     SERVICE_SUBNET = {
-                         "arg_str": "service_subnets",
-                         "validatefn": lambda x: x
-                      }
+        "arg_str": "service_subnets",
+        "validatefn": lambda x: x
+    }
+
+    IP_FABRIC_SUBNET = {
+        "arg_str": "ip_fabric_subnets",
+        "validatefn": lambda x: x
+    }
 
 def parse_args(args_str=None):
     if not args_str:
@@ -120,6 +125,7 @@ def parse_args(args_str=None):
         'kubernetes_service_name': 'kubernetes',
         MandatoryArgs.SERVICE_SUBNET.value['arg_str']: None,
         MandatoryArgs.POD_SUBNET.value['arg_str']: None,
+        MandatoryArgs.IP_FABRIC_SUBNET.value['arg_str']: None,
         'kubernetes_cluster_owner': 'k8s',
         'kubernetes_cluster_domain' : 'default-domain',
         'cluster_name': None,
@@ -166,12 +172,19 @@ def parse_args(args_str=None):
 
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
+    if type(args.collectors) is str:
+        args.collectors = args.collectors.split()
     if type(args.pod_subnets) is str:
         args.pod_subnets = args.pod_subnets.split()
     if type(args.service_subnets) is str:
         args.service_subnets = args.service_subnets.split()
-    if type(args.collectors) is str:
-        args.collectors = args.collectors.split()
+    if type(args.ip_fabric_subnets) is str:
+        args.ip_fabric_subnets = args.ip_fabric_subnets.split()
+    if type(args.ip_fabric_forwarding) is str:
+        if args.ip_fabric_forwarding.upper() == 'TRUE':
+            args.ip_fabric_forwarding = True
+        else:
+            args.ip_fabric_forwarding = False
     args.sandesh_config = SandeshConfig.from_parser_arguments(args)
 
     # Validate input argumnents.
