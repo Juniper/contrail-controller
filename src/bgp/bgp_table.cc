@@ -20,6 +20,7 @@
 #include "bgp/routing-instance/path_resolver.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "net/community_type.h"
 
 using std::map;
@@ -368,6 +369,17 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
         }
 
         assert(clone);
+
+        // Update with the Default tunnel Encapsulation List if configured on
+        // the peer. NULL check for the peer is added for unit tests. Note
+        // that all peers with the same list share the same Ribout, this is
+        // ensured by making the Default Encapsulation List part of the Rib
+        // Export policy.
+        if (peer && !peer->GetDefaultTunnelEncap(family()).empty()) {
+            peer->UpdateBgpAttrWithTunnelEncapsulation(clone,
+                server()->extcomm_db(), this);
+        }
+
         ProcessLlgrState(ribout, path, clone, llgr_stale_comm);
 
         // Locate the new BgpAttrPtr.

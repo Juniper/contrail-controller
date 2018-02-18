@@ -58,8 +58,14 @@ void BgpRoute::InsertPath(BgpPath *path) {
     const Path *prev_front = front();
 
     BgpTable *table = static_cast<BgpTable *>(get_table());
+    // 'table' is not expected to be null, suspect it is checked here because of
+    // unit tests.
     if (table && table->IsRoutingPolicySupported()) {
         RoutingInstance *rtinstance = table->routing_instance();
+        // Default tunnel encapsulation processing is done in
+        // ProcessRoutingPolicy if configured for the address family on the
+        // peer, routing policy support is expected to be supported for
+        // it to be applied.
         rtinstance->ProcessRoutingPolicy(this, path);
     }
     insert(path);
