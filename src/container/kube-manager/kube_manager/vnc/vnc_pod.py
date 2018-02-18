@@ -149,6 +149,19 @@ class VncPod(VncCommon):
             return pod.get_host_ip()
         return None
 
+    def _get_ip_fabric_forwarding(self, ns_name):
+        ns = self._get_namespace(ns_name)
+        if ns:
+            return ns.get_ip_fabric_forwarding()
+        return None
+
+    def _is_ip_fabric_forwarding_enabled(self, ns_name):
+        ip_fabric_forwarding = self._get_ip_fabric_forwarding(ns_name)
+        if ip_fabric_forwarding:
+            return ip_fabric_forwarding
+        else:
+            return self._args.ip_fabric_forwarding
+
     def _create_iip(self, pod_name, pod_namespace, vn_obj, vmi):
         # Instance-ip for pods are ALWAYS allocated from pod ipam on this
         # VN. Get the subnet uuid of the pod ipam on this VN, so we can request
@@ -158,8 +171,11 @@ class VncPod(VncCommon):
             # It is possible our cache may not have the VN yet. Locate it.
             vn = VirtualNetworkKM.locate(vn_obj.get_uuid())
 
-        pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(
-            vnc_kube_config.pod_ipam_fq_name())
+        if self._is_ip_fabric_forwarding_enabled(pod_namespace):
+            ipam_fq_name = vnc_kube_config.ip_fabric_ipam_fq_name()
+        else:
+            ipam_fq_name = vnc_kube_config.pod_ipam_fq_name()
+        pod_ipam_subnet_uuid = vn.get_ipam_subnet_uuid(ipam_fq_name)
 
         # Create instance-ip.
         display_name = VncCommon.make_display_name(pod_namespace, pod_name)

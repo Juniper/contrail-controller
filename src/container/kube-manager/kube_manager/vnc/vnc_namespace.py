@@ -72,6 +72,13 @@ class VncNamespace(VncCommon):
             return ns.get_ip_fabric_forwarding()
         return None
 
+    def _is_ip_fabric_forwarding_enabled(self, ns_name):
+        ip_fabric_forwarding = self._get_ip_fabric_forwarding(ns_name)
+        if ip_fabric_forwarding:
+            return ip_fabric_forwarding
+        else:
+            return self._args.ip_fabric_forwarding
+
     def _is_namespace_isolated(self, ns_name):
         """
         Check if this namespace is configured as isolated.
@@ -139,7 +146,7 @@ class VncNamespace(VncCommon):
             project.ns_labels[ns_uuid] = labels
 
     def _create_isolated_ns_virtual_network(self, ns_name, vn_name,
-                    proj_obj, ipam_obj=None, provider=None):
+            proj_obj, ipam_obj=None, provider=None, fabric_snat=False):
         """
         Create a virtual network for this namespace.
         """
@@ -147,47 +154,28 @@ class VncNamespace(VncCommon):
             name=vn_name, parent_obj=proj_obj,
             virtual_network_properties=VirtualNetworkType(forwarding_mode='l3'),
             address_allocation_mode='flat-subnet-only')
-
         # Add annotatins on this isolated virtual-network.
         VirtualNetworkKM.add_annotations(self, vn, namespace=ns_name,
                                          name=ns_name, isolated='True')
-
+        # Instance-Ip for pods on this VN, should be allocated from
+        # cluster pod ipam. Attach the cluster pod-ipam object
+        # to this virtual network.
+        vn.add_network_ipam(ipam_obj, VnSubnetsType([]))
+        # enable ip-fabric-forwarding
+        if provider:
+            vn.add_virtual_network(provider)
+        # enable fabric-snat
+        if fabric_snat:
+            vn.set_fabric_snat(True)
         try:
             vn_uuid = self._vnc_lib.virtual_network_create(vn)
+            # Cache the virtual network.
+            VirtualNetworkKM.locate(vn_uuid)
         except RefsExistError:
             vn_obj = self._vnc_lib.virtual_network_read(
                 fq_name=vn.get_fq_name())
             vn_uuid = vn_obj.uuid
             vn = vn_obj
-
-        # Instance-Ip for pods on this VN, should be allocated from
-        # cluster pod ipam. Attach the cluster pod-ipam object
-        # to this virtual network.
-        vn.add_network_ipam(ipam_obj, VnSubnetsType([]))
-
-        # enable ip-fabric-forwarding
-        if provider:
-            ip_fabric_forwarding = self._get_ip_fabric_forwarding(ns_name)
-            if ip_fabric_forwarding == True:
-                add_provider = True
-            elif ip_fabric_forwarding == False:
-                add_provider = False
-            else:
-                add_provider = self._args.ip_fabric_forwarding
-
-            if add_provider:
-                vn.add_virtual_network(provider)
-            else:
-                vn_refs = vn.get_virtual_network_refs()
-                for vn_ref in vn_refs or []:
-                    vn_ref_obj = self._vnc_lib.virtual_network_read(id=vn_ref['uuid'])
-                    vn.del_virtual_network(vn_ref_obj)
-
-        # Update VN.
-        self._vnc_lib.virtual_network_update(vn)
-
-        # Cache the virtual network.
-        VirtualNetworkKM.locate(vn_uuid)
 
         return vn
 
@@ -393,17 +381,25 @@ class VncNamespace(VncCommon):
         # If this namespace is isolated, create it own network.
         if self._is_namespace_isolated(name) == True:
             vn_name = self._get_namespace_pod_vn_name(name)
-            ipam_fq_name = vnc_kube_config.pod_ipam_fq_name()
-            ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-            pod_vn = self._create_isolated_ns_virtual_network( \
+            if self._is_ip_fabric_forwarding_enabled(name):
+                ipam_fq_name = vnc_kube_config.ip_fabric_ipam_fq_name()
+                ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+                provider = self._ip_fabric_vn_obj
+                fabric_snat = False
+            else:
+                ipam_fq_name = vnc_kube_config.pod_ipam_fq_name()
+                ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
+                provider = None
+                fabric_snat = True
+            pod_vn = self._create_isolated_ns_virtual_network(
                     ns_name=name, vn_name=vn_name, proj_obj=proj_obj,
-                    ipam_obj=ipam_obj, provider=self._ip_fabric_vn_obj)
+                    ipam_obj=ipam_obj, provider=provider, fabric_snat=fabric_snat)
             # Cache pod network info in namespace entry.
             self._set_namespace_pod_virtual_network(name, pod_vn.get_fq_name())
             vn_name = self._get_namespace_service_vn_name(name)
             ipam_fq_name = vnc_kube_config.service_ipam_fq_name()
             ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
-            service_vn = self._create_isolated_ns_virtual_network( \
+            service_vn = self._create_isolated_ns_virtual_network(
                     ns_name=name, vn_name=vn_name,
                     ipam_obj=ipam_obj,proj_obj=proj_obj)
             # Cache service network info in namespace entry.
@@ -583,9 +579,9 @@ class VncNamespace(VncCommon):
 
         elif event['type'] == 'DELETED':
             self.delete_namespace_security_policy(name)
-            self.vnc_namespace_delete(ns_id, name)
             # Delete label deletes for this namespace.
             self._labels.process(ns_id)
+            self.vnc_namespace_delete(ns_id, name)
 
         else:
             self._logger.warning(
